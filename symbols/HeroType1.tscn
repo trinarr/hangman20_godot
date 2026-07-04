@@ -1,0 +1,357 @@
+[gd_scene load_steps=11 format=3 uid="uid://397978295"]
+
+[ext_resource type="PackedScene" path="res://symbols/_______192.tscn" id="inst_744548783"]
+[ext_resource type="PackedScene" path="res://symbols/_______193.tscn" id="inst_528789540"]
+[ext_resource type="PackedScene" path="res://symbols/_______90.tscn" id="inst_211506133"]
+[ext_resource type="PackedScene" path="res://symbols/_______91.tscn" id="inst_281695814"]
+[ext_resource type="PackedScene" path="res://symbols/_______92.tscn" id="inst_383496528"]
+[ext_resource type="PackedScene" path="res://symbols/_______93.tscn" id="inst_67828886"]
+[ext_resource type="PackedScene" path="res://symbols/_______89.tscn" id="inst_266767260"]
+
+[sub_resource type="Animation" id="anim_934965446"]
+step = 0.0417
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("_____1/Mov_0/instance________192:visible")
+tracks/0/interp = 0
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("_____1/Mov_0:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(266.6667, -645.8334)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("_____1/Mov_0:rotation")
+tracks/2/interp = 3
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("_____1/Mov_0:scale")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("_____1/Mov_0:skew")
+tracks/4/interp = 3
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("_____1/Mov_0:modulate")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("_____1/Mov_0/instance________193:visible")
+tracks/6/interp = 0
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("_____1/Mov_0/instance________90:visible")
+tracks/7/interp = 0
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("_____1/Mov_0/instance________91:visible")
+tracks/8/interp = 0
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("_____1/Mov_0/instance________92:visible")
+tracks/9/interp = 0
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("_____1/Mov_0/instance________93:visible")
+tracks/10/interp = 0
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("_____1/Mov_0/instance________89:visible")
+tracks/11/interp = 0
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+[sub_resource type="Animation" id="anim_400238013"]
+step = 0.0417
+length = 0.2917
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("_____1/Mov_0/instance________192:visible")
+tracks/0/interp = 0
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.0000, 0.0420),
+"transitions": PackedFloat32Array(0.0000, 0.0000),
+"update": 1,
+"values": [true, false]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("_____1/Mov_0:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.0000, 0.0410, 0.0420, 0.0820, 0.0830, 0.1240, 0.1250, 0.1660, 0.1670, 0.2070, 0.2080, 0.2490, 0.2500, 0.2910),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(266.6667, -645.8334), Vector2(266.6667, -645.8334), Vector2(154.1667, -750.0001), Vector2(154.1667, -750.0001), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667), Vector2(37.5000, -829.1667)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("_____1/Mov_0:rotation")
+tracks/2/interp = 3
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.0000, 0.0410, 0.0420, 0.0820, 0.0830, 0.1240, 0.1250, 0.1660, 0.1670, 0.2070, 0.2080, 0.2490, 0.2500, 0.2910),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("_____1/Mov_0:scale")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.0000, 0.0410, 0.0420, 0.0820, 0.0830, 0.1240, 0.1250, 0.1660, 0.1670, 0.2070, 0.2080, 0.2490, 0.2500, 0.2910),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("_____1/Mov_0:skew")
+tracks/4/interp = 3
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0.0000, 0.0410, 0.0420, 0.0820, 0.0830, 0.1240, 0.1250, 0.1660, 0.1670, 0.2070, 0.2080, 0.2490, 0.2500, 0.2910),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("_____1/Mov_0:modulate")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("_____1/Mov_0/instance________193:visible")
+tracks/6/interp = 0
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0.0000, 0.0420, 0.0830),
+"transitions": PackedFloat32Array(0.0000, 0.0000, 0.0000),
+"update": 1,
+"values": [false, true, false]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("_____1/Mov_0/instance________90:visible")
+tracks/7/interp = 0
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0.0000, 0.0830, 0.1250),
+"transitions": PackedFloat32Array(0.0000, 0.0000, 0.0000),
+"update": 1,
+"values": [false, true, false]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("_____1/Mov_0/instance________91:visible")
+tracks/8/interp = 0
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0.0000, 0.1250, 0.1670),
+"transitions": PackedFloat32Array(0.0000, 0.0000, 0.0000),
+"update": 1,
+"values": [false, true, false]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("_____1/Mov_0/instance________92:visible")
+tracks/9/interp = 0
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0.0000, 0.1670, 0.2080),
+"transitions": PackedFloat32Array(0.0000, 0.0000, 0.0000),
+"update": 1,
+"values": [false, true, false]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("_____1/Mov_0/instance________93:visible")
+tracks/10/interp = 0
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0.0000, 0.2080, 0.2500),
+"transitions": PackedFloat32Array(0.0000, 0.0000, 0.0000),
+"update": 1,
+"values": [false, true, false]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("_____1/Mov_0/instance________89:visible")
+tracks/11/interp = 0
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0.0000, 0.2500),
+"transitions": PackedFloat32Array(0.0000, 0.0000),
+"update": 1,
+"values": [false, true]
+}
+[sub_resource type="AnimationLibrary" id="lib_785615731"]
+_data = {
+"RESET": SubResource("anim_934965446"),
+"default": SubResource("anim_400238013")
+}
+
+[node name="HeroType1" type="Node2D"]
+use_parent_material = false
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("lib_785615731")
+}
+autoplay = "default"
+
+[node name="_____1" type="Node2D" parent="."]
+use_parent_material = true
+
+[node name="Mov_0" type="Node2D" parent="_____1"]
+position = Vector2(266.6667, -645.8334)
+rotation = 0.0000
+scale = Vector2(1.0000, 1.0000)
+modulate = Color(1.0000, 1.0000, 1.0000, 1.0000)
+skew = 0.0000
+use_parent_material = true
+
+[node name="instance________192" parent="_____1/Mov_0" instance=ExtResource("inst_744548783")]
+visible = true
+use_parent_material = true
+
+[node name="instance________193" parent="_____1/Mov_0" instance=ExtResource("inst_528789540")]
+visible = false
+use_parent_material = true
+
+[node name="instance________90" parent="_____1/Mov_0" instance=ExtResource("inst_211506133")]
+visible = false
+use_parent_material = true
+
+[node name="instance________91" parent="_____1/Mov_0" instance=ExtResource("inst_281695814")]
+visible = false
+use_parent_material = true
+
+[node name="instance________92" parent="_____1/Mov_0" instance=ExtResource("inst_383496528")]
+visible = false
+use_parent_material = true
+
+[node name="instance________93" parent="_____1/Mov_0" instance=ExtResource("inst_67828886")]
+visible = false
+use_parent_material = true
+
+[node name="instance________89" parent="_____1/Mov_0" instance=ExtResource("inst_266767260")]
+visible = false
+use_parent_material = true

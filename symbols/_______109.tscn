@@ -1,0 +1,3790 @@
+[gd_scene load_steps=79 format=3 uid="uid://686577821"]
+
+[ext_resource type="Texture2D" path="res://img/_______109______1_2_SHAPE_0_BOUNDS_24.84_-24.46_SIZE_548_971.png" id="tex_193482391"]
+[ext_resource type="PackedScene" path="res://symbols/_______282.tscn" id="inst_446878894"]
+[ext_resource type="PackedScene" path="res://symbols/_______120.tscn" id="inst_491260013"]
+
+[sub_resource type="Gradient" id="Gradient_373561999"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_151089654"]
+gradient = SubResource("Gradient_373561999")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_792732862"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.6980, 0.7333, 0.8941, 1.0000, 0.6980, 0.7333, 0.8941, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_460100953"]
+gradient = SubResource("Gradient_792732862")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_350771045"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_775539218"]
+gradient = SubResource("Gradient_350771045")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_239653953"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_854711730"]
+gradient = SubResource("Gradient_239653953")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_133048077"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_467751304"]
+gradient = SubResource("Gradient_133048077")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_769247198"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_191449328"]
+gradient = SubResource("Gradient_769247198")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_201762482"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_214646340"]
+gradient = SubResource("Gradient_201762482")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_319809539"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_637081051"]
+gradient = SubResource("Gradient_319809539")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_403400784"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_710535463"]
+gradient = SubResource("Gradient_403400784")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_367572126"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_841678972"]
+gradient = SubResource("Gradient_367572126")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_902019197"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1.0000, 0.9961, 1.0000, 1.0000, 1.0000, 0.9961, 1.0000, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_580084593"]
+gradient = SubResource("Gradient_902019197")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_563786349"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_710479332"]
+gradient = SubResource("Gradient_563786349")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_622461337"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.0549, 0.2118, 0.7922, 1.0000, 0.0549, 0.2118, 0.7922, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_491527082"]
+gradient = SubResource("Gradient_622461337")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_883525841"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_898586368"]
+gradient = SubResource("Gradient_883525841")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_73166329"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_877318026"]
+gradient = SubResource("Gradient_73166329")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_607157627"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.0549, 0.2118, 0.7922, 1.0000, 0.0549, 0.2118, 0.7922, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_369248790"]
+gradient = SubResource("Gradient_607157627")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_590711371"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_578057010"]
+gradient = SubResource("Gradient_590711371")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_811881310"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_283195834"]
+gradient = SubResource("Gradient_811881310")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_857804542"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_230388329"]
+gradient = SubResource("Gradient_857804542")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_563430165"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_819527124"]
+gradient = SubResource("Gradient_563430165")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_12262669"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_630720899"]
+gradient = SubResource("Gradient_12262669")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_666973470"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_267908557"]
+gradient = SubResource("Gradient_666973470")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_786580255"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_623992541"]
+gradient = SubResource("Gradient_786580255")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_661454600"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_877334216"]
+gradient = SubResource("Gradient_661454600")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_896015568"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_290336298"]
+gradient = SubResource("Gradient_896015568")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_723045134"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_498472294"]
+gradient = SubResource("Gradient_723045134")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_327689899"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_332389524"]
+gradient = SubResource("Gradient_327689899")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_281089785"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_14620306"]
+gradient = SubResource("Gradient_281089785")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_274017010"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_602118706"]
+gradient = SubResource("Gradient_274017010")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_443863050"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_920553387"]
+gradient = SubResource("Gradient_443863050")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_200849524"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_648416270"]
+gradient = SubResource("Gradient_200849524")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_781653207"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_179056815"]
+gradient = SubResource("Gradient_781653207")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_944049517"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_15358409"]
+gradient = SubResource("Gradient_944049517")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_621135093"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_661691750"]
+gradient = SubResource("Gradient_621135093")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_787761048"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_775895340"]
+gradient = SubResource("Gradient_787761048")
+width = 1
+
+[sub_resource type="Gradient" id="Gradient_767687904"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.9647, 0.8745, 0.7490, 1.0000, 0.9647, 0.8745, 0.7490, 1.0000)
+
+[sub_resource type="GradientTexture1D" id="Texture_63351154"]
+gradient = SubResource("Gradient_767687904")
+width = 1
+
+[sub_resource type="Animation" id="anim_221106229"]
+step = 0.0417
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("_____1/shape_0/shape:visible")
+tracks/0/interp = 0
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [false]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("_____3/ClickHere_0/text:visible")
+tracks/1/interp = 0
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("_____3/ClickHere_0:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(377.5000, 1102.7084)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("_____3/ClickHere_0:rotation")
+tracks/3/interp = 3
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [-0.6193]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("_____3/ClickHere_0:scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("_____3/ClickHere_0:skew")
+tracks/5/interp = 3
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("_____3/ClickHere_0:modulate")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("_____3/instance_0/instance________282:visible")
+tracks/7/interp = 0
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("_____3/instance_0:position")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(323.5417, 809.5834)]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("_____3/instance_0:rotation")
+tracks/9/interp = 3
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("_____3/instance_0:scale")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000)]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("_____3/instance_0:skew")
+tracks/11/interp = 3
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/12/type = "value"
+tracks/12/imported = false
+tracks/12/enabled = true
+tracks/12/path = NodePath("_____3/instance_0:modulate")
+tracks/12/interp = 1
+tracks/12/loop_wrap = true
+tracks/12/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/13/type = "value"
+tracks/13/imported = false
+tracks/13/enabled = true
+tracks/13/path = NodePath("_____2/instance_0/instance________120:visible")
+tracks/13/interp = 0
+tracks/13/loop_wrap = true
+tracks/13/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/14/type = "value"
+tracks/14/imported = false
+tracks/14/enabled = true
+tracks/14/path = NodePath("_____2/instance_0:position")
+tracks/14/interp = 1
+tracks/14/loop_wrap = true
+tracks/14/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(-116.6667, -148.7500)]
+}
+tracks/15/type = "value"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath("_____2/instance_0:rotation")
+tracks/15/interp = 3
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/16/type = "value"
+tracks/16/imported = false
+tracks/16/enabled = true
+tracks/16/path = NodePath("_____2/instance_0:scale")
+tracks/16/interp = 1
+tracks/16/loop_wrap = true
+tracks/16/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000)]
+}
+tracks/17/type = "value"
+tracks/17/imported = false
+tracks/17/enabled = true
+tracks/17/path = NodePath("_____2/instance_0:skew")
+tracks/17/interp = 3
+tracks/17/loop_wrap = true
+tracks/17/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [0.0000]
+}
+tracks/18/type = "value"
+tracks/18/imported = false
+tracks/18/enabled = true
+tracks/18/path = NodePath("_____2/instance_0:modulate")
+tracks/18/interp = 1
+tracks/18/loop_wrap = true
+tracks/18/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 0.0000)]
+}
+[sub_resource type="Animation" id="anim_998714557"]
+step = 0.0417
+length = 0.1250
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("_____1/shape_0/shape/Poly_0:polygon")
+tracks/0/interp = 0
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(465.4928, 192.6153, 469.0305, 225.0288, 466.9021, 256.4857, 459.1089, 286.9663, 453.0814, 301.8605, 443.1334, 320.8913, 421.6027, 349.9381, 409.0665, 362.3174, 380.5648, 382.6757, 364.5400, 390.6979, 329.0691, 402.3649, 294.8340, 406.7373, 277.3980, 406.5642, 259.7630, 404.8174, 223.9269, 396.6118, 187.2945, 382.1231, 144.0833, 360.2029, 144.0833, 87.3788, 179.3046, 56.2457, 217.3391, 38.0644, 250.6258, 31.1667, 267.9620, 31.1667, 285.7212, 33.4666, 312.6763, 40.5711, 367.8390, 67.8330, 390.8098, 82.7544, 410.6969, 98.5316, 427.5062, 115.1713, 441.2354, 132.6747, 451.8806, 151.0417, 459.4338, 170.2594)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("_____1/shape_0/shape/Poly_0:texture")
+tracks/1/interp = 0
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_151089654")]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("_____1/shape_0/shape/Poly_0:uv")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.1117, 0.0462, 0.1126, 0.0540, 0.1121, 0.0616, 0.1102, 0.0689, 0.1087, 0.0724, 0.1064, 0.0770, 0.1012, 0.0840, 0.0982, 0.0870, 0.0913, 0.0918, 0.0875, 0.0938, 0.0790, 0.0966, 0.0708, 0.0976, 0.0666, 0.0976, 0.0623, 0.0972, 0.0537, 0.0952, 0.0450, 0.0917, 0.0346, 0.0864, 0.0346, 0.0210, 0.0430, 0.0135, 0.0522, 0.0091, 0.0602, 0.0075, 0.0643, 0.0075, 0.0686, 0.0080, 0.0750, 0.0097, 0.0883, 0.0163, 0.0938, 0.0199, 0.0986, 0.0236, 0.1026, 0.0276, 0.1059, 0.0318, 0.1085, 0.0363, 0.1103, 0.0409)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("_____1/shape_0/shape/Poly_0:color")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("_____1/shape_0/shape/Poly_1:polygon")
+tracks/4/interp = 0
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(267.0235, 455.5496, 257.1431, 452.1634, 248.7659, 455.5152, 244.7856, 459.5979, 233.3864, 482.0544, 224.5337, 515.3540, 224.2573, 526.9423, 226.6957, 535.1610, 236.2302, 545.3282, 250.0787, 549.5561, 246.1160, 565.5142, 236.0677, 632.6441, 233.6260, 688.6342, 236.7774, 723.4041, 217.2247, 734.2666, 208.9506, 710.7170, 187.8804, 693.7782, 178.8638, 690.7044, 157.0650, 689.6572, 144.7123, 693.2703, 143.4578, 484.5012, 154.5026, 452.4089, 155.6553, 415.2071, 172.9770, 406.5463, 183.5561, 421.8448, 191.8021, 427.0283, 202.1979, 430.7599, 227.5005, 433.6679, 260.2434, 430.8221, 264.4416, 443.2014)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("_____1/shape_0/shape/Poly_1:texture")
+tracks/5/interp = 0
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_460100953")]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("_____1/shape_0/shape/Poly_1:uv")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0641, 0.1093, 0.0617, 0.1085, 0.0597, 0.1093, 0.0587, 0.1103, 0.0560, 0.1157, 0.0539, 0.1237, 0.0538, 0.1265, 0.0544, 0.1284, 0.0567, 0.1309, 0.0600, 0.1319, 0.0591, 0.1357, 0.0567, 0.1518, 0.0561, 0.1653, 0.0568, 0.1736, 0.0521, 0.1762, 0.0501, 0.1706, 0.0451, 0.1665, 0.0429, 0.1658, 0.0377, 0.1655, 0.0347, 0.1664, 0.0344, 0.1163, 0.0371, 0.1086, 0.0374, 0.0996, 0.0415, 0.0976, 0.0441, 0.1012, 0.0460, 0.1025, 0.0485, 0.1034, 0.0546, 0.1041, 0.0625, 0.1034, 0.0635, 0.1064)]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("_____1/shape_0/shape/Poly_1:color")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("_____1/shape_0/shape/Poly_2:polygon")
+tracks/8/interp = 0
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(145.2083, 692.6042, 164.0625, 688.4896, 178.9583, 690.2084, 188.1250, 693.3334, 209.3750, 710.4167, 217.5000, 733.5417, 216.2500, 743.5417, 205.7292, 758.8542, 187.7083, 770.8334, 205.7292, 758.8542, 239.0625, 753.7501, 239.3750, 767.7084, 233.2813, 840.0522, 230.0488, 852.8158, 221.5332, 871.9564, 216.2500, 878.3334, 171.4583, 911.6667, 144.5833, 918.9584)]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("_____1/shape_0/shape/Poly_2:texture")
+tracks/9/interp = 0
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_775539218")]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("_____1/shape_0/shape/Poly_2:uv")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0348, 0.1662, 0.0394, 0.1652, 0.0430, 0.1657, 0.0451, 0.1664, 0.0503, 0.1705, 0.0522, 0.1761, 0.0519, 0.1784, 0.0494, 0.1821, 0.0450, 0.1850, 0.0494, 0.1821, 0.0574, 0.1809, 0.0575, 0.1842, 0.0560, 0.2016, 0.0552, 0.2047, 0.0532, 0.2093, 0.0519, 0.2108, 0.0411, 0.2188, 0.0347, 0.2206)]
+}
+tracks/11/type = "value"
+tracks/11/imported = false
+tracks/11/enabled = true
+tracks/11/path = NodePath("_____1/shape_0/shape/Poly_2:color")
+tracks/11/interp = 1
+tracks/11/loop_wrap = true
+tracks/11/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/12/type = "value"
+tracks/12/imported = false
+tracks/12/enabled = true
+tracks/12/path = NodePath("_____1/shape_0/shape/Poly_3:polygon")
+tracks/12/interp = 0
+tracks/12/loop_wrap = true
+tracks/12/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(266.5960, 1232.0028, 280.2473, 1231.3728, 295.4932, 1234.4745, 309.2850, 1242.5285, 319.4421, 1254.5802, 322.5238, 1261.9472, 324.2657, 1270.2311, 320.3625, 1283.0637, 313.9236, 1286.1674, 304.8104, 1286.9587, 234.8914, 1286.1238, 225.8527, 1282.1187, 224.9218, 1276.4778, 226.3946, 1268.8089, 233.2195, 1253.2692, 243.6372, 1241.4835, 255.2285, 1234.7395)]
+}
+tracks/13/type = "value"
+tracks/13/imported = false
+tracks/13/enabled = true
+tracks/13/path = NodePath("_____1/shape_0/shape/Poly_3:texture")
+tracks/13/interp = 0
+tracks/13/loop_wrap = true
+tracks/13/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_854711730")]
+}
+tracks/14/type = "value"
+tracks/14/imported = false
+tracks/14/enabled = true
+tracks/14/path = NodePath("_____1/shape_0/shape/Poly_3:uv")
+tracks/14/interp = 1
+tracks/14/loop_wrap = true
+tracks/14/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0640, 0.2957, 0.0673, 0.2955, 0.0709, 0.2963, 0.0742, 0.2982, 0.0767, 0.3011, 0.0774, 0.3029, 0.0778, 0.3049, 0.0769, 0.3079, 0.0753, 0.3087, 0.0732, 0.3089, 0.0564, 0.3087, 0.0542, 0.3077, 0.0540, 0.3064, 0.0543, 0.3045, 0.0560, 0.3008, 0.0585, 0.2980, 0.0613, 0.2963)]
+}
+tracks/15/type = "value"
+tracks/15/imported = false
+tracks/15/enabled = true
+tracks/15/path = NodePath("_____1/shape_0/shape/Poly_3:color")
+tracks/15/interp = 1
+tracks/15/loop_wrap = true
+tracks/15/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/16/type = "value"
+tracks/16/imported = false
+tracks/16/enabled = true
+tracks/16/path = NodePath("_____1/shape_0/shape/Poly_4:polygon")
+tracks/16/interp = 0
+tracks/16/loop_wrap = true
+tracks/16/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(267.5847, 500.7078, 249.7895, 550.5134, 235.6831, 546.2067, 225.7712, 535.6371, 223.5280, 515.2447, 232.4470, 481.6957, 243.9630, 459.0091, 248.1978, 454.6655, 257.1162, 451.0971, 266.8485, 454.4326)]
+}
+tracks/17/type = "value"
+tracks/17/imported = false
+tracks/17/enabled = true
+tracks/17/path = NodePath("_____1/shape_0/shape/Poly_4:texture")
+tracks/17/interp = 0
+tracks/17/loop_wrap = true
+tracks/17/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_467751304")]
+}
+tracks/18/type = "value"
+tracks/18/imported = false
+tracks/18/enabled = true
+tracks/18/path = NodePath("_____1/shape_0/shape/Poly_4:uv")
+tracks/18/interp = 1
+tracks/18/loop_wrap = true
+tracks/18/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0642, 0.1202, 0.0599, 0.1321, 0.0566, 0.1311, 0.0542, 0.1286, 0.0536, 0.1237, 0.0558, 0.1156, 0.0586, 0.1102, 0.0596, 0.1091, 0.0617, 0.1083, 0.0640, 0.1091)]
+}
+tracks/19/type = "value"
+tracks/19/imported = false
+tracks/19/enabled = true
+tracks/19/path = NodePath("_____1/shape_0/shape/Poly_4:color")
+tracks/19/interp = 1
+tracks/19/loop_wrap = true
+tracks/19/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/20/type = "value"
+tracks/20/imported = false
+tracks/20/enabled = true
+tracks/20/path = NodePath("_____1/shape_0/shape/Poly_5:polygon")
+tracks/20/interp = 0
+tracks/20/loop_wrap = true
+tracks/20/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(232.9626, 130.7737, 239.7779, 129.2829, 256.6586, 132.0260, 266.2976, 139.1758, 269.7833, 144.0053, 272.3592, 149.6482, 274.1517, 161.6688, 273.2205, 167.5752, 271.0607, 173.3881, 263.2401, 182.1131, 250.8652, 185.2998, 229.3900, 182.5627, 219.4147, 175.1344, 215.1584, 168.1115, 212.5646, 157.7892, 213.3008, 152.2876, 215.3889, 146.6352, 222.5073, 136.9859, 227.3338, 133.4358)]
+}
+tracks/21/type = "value"
+tracks/21/imported = false
+tracks/21/enabled = true
+tracks/21/path = NodePath("_____1/shape_0/shape/Poly_5:texture")
+tracks/21/interp = 0
+tracks/21/loop_wrap = true
+tracks/21/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_191449328")]
+}
+tracks/22/type = "value"
+tracks/22/imported = false
+tracks/22/enabled = true
+tracks/22/path = NodePath("_____1/shape_0/shape/Poly_5:uv")
+tracks/22/interp = 1
+tracks/22/loop_wrap = true
+tracks/22/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0559, 0.0314, 0.0575, 0.0310, 0.0616, 0.0317, 0.0639, 0.0334, 0.0647, 0.0346, 0.0654, 0.0359, 0.0658, 0.0388, 0.0656, 0.0402, 0.0651, 0.0416, 0.0632, 0.0437, 0.0602, 0.0445, 0.0551, 0.0438, 0.0527, 0.0420, 0.0516, 0.0403, 0.0510, 0.0379, 0.0512, 0.0365, 0.0517, 0.0352, 0.0534, 0.0329, 0.0546, 0.0320)]
+}
+tracks/23/type = "value"
+tracks/23/imported = false
+tracks/23/enabled = true
+tracks/23/path = NodePath("_____1/shape_0/shape/Poly_5:color")
+tracks/23/interp = 1
+tracks/23/loop_wrap = true
+tracks/23/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/24/type = "value"
+tracks/24/imported = false
+tracks/24/enabled = true
+tracks/24/path = NodePath("_____1/shape_0/shape/Poly_6:polygon")
+tracks/24/interp = 0
+tracks/24/loop_wrap = true
+tracks/24/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(215.3667, 146.6810, 212.5572, 157.7599, 215.1584, 168.1115, 219.4147, 175.1344, 229.3900, 182.5627, 250.8652, 185.2998, 263.2401, 182.1131, 271.0778, 173.3690, 274.1490, 161.7195, 273.8564, 155.7083, 272.3433, 149.6026, 266.3316, 139.2139, 261.9408, 135.2090, 256.6334, 132.0219, 239.7779, 129.2829, 232.9392, 130.7788, 222.5443, 136.9524, 218.5416, 141.3808)]
+}
+tracks/25/type = "value"
+tracks/25/imported = false
+tracks/25/enabled = true
+tracks/25/path = NodePath("_____1/shape_0/shape/Poly_6:texture")
+tracks/25/interp = 0
+tracks/25/loop_wrap = true
+tracks/25/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_214646340")]
+}
+tracks/26/type = "value"
+tracks/26/imported = false
+tracks/26/enabled = true
+tracks/26/path = NodePath("_____1/shape_0/shape/Poly_6:uv")
+tracks/26/interp = 1
+tracks/26/loop_wrap = true
+tracks/26/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0517, 0.0352, 0.0510, 0.0379, 0.0516, 0.0403, 0.0527, 0.0420, 0.0551, 0.0438, 0.0602, 0.0445, 0.0632, 0.0437, 0.0651, 0.0416, 0.0658, 0.0388, 0.0657, 0.0374, 0.0654, 0.0359, 0.0639, 0.0334, 0.0629, 0.0325, 0.0616, 0.0317, 0.0575, 0.0310, 0.0559, 0.0314, 0.0534, 0.0329, 0.0524, 0.0339)]
+}
+tracks/27/type = "value"
+tracks/27/imported = false
+tracks/27/enabled = true
+tracks/27/path = NodePath("_____1/shape_0/shape/Poly_6:color")
+tracks/27/interp = 1
+tracks/27/loop_wrap = true
+tracks/27/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/28/type = "value"
+tracks/28/imported = false
+tracks/28/enabled = true
+tracks/28/path = NodePath("_____1/shape_0/shape/Poly_7:polygon")
+tracks/28/interp = 0
+tracks/28/loop_wrap = true
+tracks/28/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(375.4957, 194.2548, 376.3403, 215.5818, 370.4218, 223.0607, 360.0965, 227.7975, 336.2706, 226.5324, 318.9421, 212.5851, 315.7851, 202.3113, 318.2856, 191.2450, 325.4929, 181.5470, 336.0804, 175.3533, 347.9707, 173.5566, 353.8387, 174.4880, 359.6136, 176.6387, 369.2636, 183.6520, 372.8153, 188.5073)]
+}
+tracks/29/type = "value"
+tracks/29/imported = false
+tracks/29/enabled = true
+tracks/29/path = NodePath("_____1/shape_0/shape/Poly_7:texture")
+tracks/29/interp = 0
+tracks/29/loop_wrap = true
+tracks/29/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_637081051")]
+}
+tracks/30/type = "value"
+tracks/30/imported = false
+tracks/30/enabled = true
+tracks/30/path = NodePath("_____1/shape_0/shape/Poly_7:uv")
+tracks/30/interp = 1
+tracks/30/loop_wrap = true
+tracks/30/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0901, 0.0466, 0.0903, 0.0517, 0.0889, 0.0535, 0.0864, 0.0547, 0.0807, 0.0544, 0.0765, 0.0510, 0.0758, 0.0486, 0.0764, 0.0459, 0.0781, 0.0436, 0.0807, 0.0421, 0.0835, 0.0417, 0.0849, 0.0419, 0.0863, 0.0424, 0.0886, 0.0441, 0.0895, 0.0452)]
+}
+tracks/31/type = "value"
+tracks/31/imported = false
+tracks/31/enabled = true
+tracks/31/path = NodePath("_____1/shape_0/shape/Poly_7:color")
+tracks/31/interp = 1
+tracks/31/loop_wrap = true
+tracks/31/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/32/type = "value"
+tracks/32/imported = false
+tracks/32/enabled = true
+tracks/32/path = NodePath("_____1/shape_0/shape/Poly_8:polygon")
+tracks/32/interp = 0
+tracks/32/loop_wrap = true
+tracks/32/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(359.5686, 176.6174, 347.9966, 173.5526, 336.0804, 175.3533, 325.4929, 181.5470, 318.2856, 191.2450, 315.7851, 202.3113, 318.9421, 212.5851, 336.2706, 226.5324, 360.0965, 227.7975, 370.3902, 223.0752, 373.9121, 219.6742, 376.3388, 215.5435, 375.4947, 194.2298, 369.2980, 183.6902, 364.8665, 179.7111)]
+}
+tracks/33/type = "value"
+tracks/33/imported = false
+tracks/33/enabled = true
+tracks/33/path = NodePath("_____1/shape_0/shape/Poly_8:texture")
+tracks/33/interp = 0
+tracks/33/loop_wrap = true
+tracks/33/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_710535463")]
+}
+tracks/34/type = "value"
+tracks/34/imported = false
+tracks/34/enabled = true
+tracks/34/path = NodePath("_____1/shape_0/shape/Poly_8:uv")
+tracks/34/interp = 1
+tracks/34/loop_wrap = true
+tracks/34/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0863, 0.0424, 0.0835, 0.0417, 0.0807, 0.0421, 0.0781, 0.0436, 0.0764, 0.0459, 0.0758, 0.0486, 0.0765, 0.0510, 0.0807, 0.0544, 0.0864, 0.0547, 0.0889, 0.0535, 0.0897, 0.0527, 0.0903, 0.0517, 0.0901, 0.0466, 0.0886, 0.0441, 0.0876, 0.0431)]
+}
+tracks/35/type = "value"
+tracks/35/imported = false
+tracks/35/enabled = true
+tracks/35/path = NodePath("_____1/shape_0/shape/Poly_8:color")
+tracks/35/interp = 1
+tracks/35/loop_wrap = true
+tracks/35/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/36/type = "value"
+tracks/36/imported = false
+tracks/36/enabled = true
+tracks/36/path = NodePath("_____1/shape_0/shape/Poly_9:polygon")
+tracks/36/interp = 0
+tracks/36/loop_wrap = true
+tracks/36/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(237.0788, 400.9866, 249.4102, 410.1822, 260.6859, 431.7874, 227.4865, 434.6729, 201.9430, 431.7372, 182.9010, 422.6233, 176.5313, 415.7366, 172.1044, 406.8898, 189.8927, 401.1760, 213.7858, 398.3005, 225.4870, 398.9425)]
+}
+tracks/37/type = "value"
+tracks/37/imported = false
+tracks/37/enabled = true
+tracks/37/path = NodePath("_____1/shape_0/shape/Poly_9:texture")
+tracks/37/interp = 0
+tracks/37/loop_wrap = true
+tracks/37/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_841678972")]
+}
+tracks/38/type = "value"
+tracks/38/imported = false
+tracks/38/enabled = true
+tracks/38/path = NodePath("_____1/shape_0/shape/Poly_9:uv")
+tracks/38/interp = 1
+tracks/38/loop_wrap = true
+tracks/38/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0569, 0.0962, 0.0599, 0.0984, 0.0626, 0.1036, 0.0546, 0.1043, 0.0485, 0.1036, 0.0439, 0.1014, 0.0424, 0.0998, 0.0413, 0.0977, 0.0456, 0.0963, 0.0513, 0.0956, 0.0541, 0.0957)]
+}
+tracks/39/type = "value"
+tracks/39/imported = false
+tracks/39/enabled = true
+tracks/39/path = NodePath("_____1/shape_0/shape/Poly_9:color")
+tracks/39/interp = 1
+tracks/39/loop_wrap = true
+tracks/39/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/40/type = "value"
+tracks/40/imported = false
+tracks/40/enabled = true
+tracks/40/path = NodePath("_____1/shape_0/shape/Poly_10:polygon")
+tracks/40/interp = 0
+tracks/40/loop_wrap = true
+tracks/40/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(204.6628, 759.5233, 215.7690, 743.3589, 217.0354, 733.2279, 236.6778, 722.3154, 239.6035, 754.1731)]
+}
+tracks/41/type = "value"
+tracks/41/imported = false
+tracks/41/enabled = true
+tracks/41/path = NodePath("_____1/shape_0/shape/Poly_10:texture")
+tracks/41/interp = 0
+tracks/41/loop_wrap = true
+tracks/41/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_580084593")]
+}
+tracks/42/type = "value"
+tracks/42/imported = false
+tracks/42/enabled = true
+tracks/42/path = NodePath("_____1/shape_0/shape/Poly_10:uv")
+tracks/42/interp = 1
+tracks/42/loop_wrap = true
+tracks/42/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0491, 0.1823, 0.0518, 0.1784, 0.0521, 0.1760, 0.0568, 0.1734, 0.0575, 0.1810)]
+}
+tracks/43/type = "value"
+tracks/43/imported = false
+tracks/43/enabled = true
+tracks/43/path = NodePath("_____1/shape_0/shape/Poly_10:color")
+tracks/43/interp = 1
+tracks/43/loop_wrap = true
+tracks/43/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/44/type = "value"
+tracks/44/imported = false
+tracks/44/enabled = true
+tracks/44/path = NodePath("_____1/shape_0/shape/Poly_11:polygon")
+tracks/44/interp = 0
+tracks/44/loop_wrap = true
+tracks/44/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(156.6747, 414.5983, 155.4974, 452.5912, 143.4783, 487.5147, 143.0398, 423.1623)]
+}
+tracks/45/type = "value"
+tracks/45/imported = false
+tracks/45/enabled = true
+tracks/45/path = NodePath("_____1/shape_0/shape/Poly_11:texture")
+tracks/45/interp = 0
+tracks/45/loop_wrap = true
+tracks/45/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_710479332")]
+}
+tracks/46/type = "value"
+tracks/46/imported = false
+tracks/46/enabled = true
+tracks/46/path = NodePath("_____1/shape_0/shape/Poly_11:uv")
+tracks/46/interp = 1
+tracks/46/loop_wrap = true
+tracks/46/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0376, 0.0995, 0.0373, 0.1086, 0.0344, 0.1170, 0.0343, 0.1016)]
+}
+tracks/47/type = "value"
+tracks/47/imported = false
+tracks/47/enabled = true
+tracks/47/path = NodePath("_____1/shape_0/shape/Poly_11:color")
+tracks/47/interp = 1
+tracks/47/loop_wrap = true
+tracks/47/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/48/type = "value"
+tracks/48/imported = false
+tracks/48/enabled = true
+tracks/48/path = NodePath("_____1/shape_0/shape/Poly_12:polygon")
+tracks/48/interp = 0
+tracks/48/loop_wrap = true
+tracks/48/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(359.2696, 196.2078, 365.4029, 200.3697, 366.4986, 207.3821, 362.7667, 213.5289, 355.0829, 214.6266, 349.6057, 210.2449, 348.0732, 203.2389, 352.2491, 197.3048)]
+}
+tracks/49/type = "value"
+tracks/49/imported = false
+tracks/49/enabled = true
+tracks/49/path = NodePath("_____1/shape_0/shape/Poly_12:texture")
+tracks/49/interp = 0
+tracks/49/loop_wrap = true
+tracks/49/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_491527082")]
+}
+tracks/50/type = "value"
+tracks/50/imported = false
+tracks/50/enabled = true
+tracks/50/path = NodePath("_____1/shape_0/shape/Poly_12:uv")
+tracks/50/interp = 1
+tracks/50/loop_wrap = true
+tracks/50/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0862, 0.0471, 0.0877, 0.0481, 0.0880, 0.0498, 0.0871, 0.0512, 0.0852, 0.0515, 0.0839, 0.0505, 0.0835, 0.0488, 0.0845, 0.0474)]
+}
+tracks/51/type = "value"
+tracks/51/imported = false
+tracks/51/enabled = true
+tracks/51/path = NodePath("_____1/shape_0/shape/Poly_12:color")
+tracks/51/interp = 1
+tracks/51/loop_wrap = true
+tracks/51/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/52/type = "value"
+tracks/52/imported = false
+tracks/52/enabled = true
+tracks/52/path = NodePath("_____1/shape_0/shape/Poly_13:polygon")
+tracks/52/interp = 0
+tracks/52/loop_wrap = true
+tracks/52/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(352.2491, 197.3048, 348.0732, 203.2389, 349.6057, 210.2449, 355.0829, 214.6266, 362.7667, 213.5289, 366.4986, 207.3821, 365.4029, 200.3697, 359.2696, 196.2078)]
+}
+tracks/53/type = "value"
+tracks/53/imported = false
+tracks/53/enabled = true
+tracks/53/path = NodePath("_____1/shape_0/shape/Poly_13:texture")
+tracks/53/interp = 0
+tracks/53/loop_wrap = true
+tracks/53/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_898586368")]
+}
+tracks/54/type = "value"
+tracks/54/imported = false
+tracks/54/enabled = true
+tracks/54/path = NodePath("_____1/shape_0/shape/Poly_13:uv")
+tracks/54/interp = 1
+tracks/54/loop_wrap = true
+tracks/54/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0845, 0.0474, 0.0835, 0.0488, 0.0839, 0.0505, 0.0852, 0.0515, 0.0871, 0.0512, 0.0880, 0.0498, 0.0877, 0.0481, 0.0862, 0.0471)]
+}
+tracks/55/type = "value"
+tracks/55/imported = false
+tracks/55/enabled = true
+tracks/55/path = NodePath("_____1/shape_0/shape/Poly_13:color")
+tracks/55/interp = 1
+tracks/55/loop_wrap = true
+tracks/55/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/56/type = "value"
+tracks/56/imported = false
+tracks/56/enabled = true
+tracks/56/path = NodePath("_____1/shape_0/shape/Poly_14:polygon")
+tracks/56/interp = 0
+tracks/56/loop_wrap = true
+tracks/56/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(246.4065, 163.4472, 247.9404, 170.4592, 253.4225, 174.6256, 261.0912, 173.5301, 264.8326, 167.8080, 263.7373, 160.5787, 257.6029, 156.4161, 250.5824, 157.5131)]
+}
+tracks/57/type = "value"
+tracks/57/imported = false
+tracks/57/enabled = true
+tracks/57/path = NodePath("_____1/shape_0/shape/Poly_14:texture")
+tracks/57/interp = 0
+tracks/57/loop_wrap = true
+tracks/57/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_877318026")]
+}
+tracks/58/type = "value"
+tracks/58/imported = false
+tracks/58/enabled = true
+tracks/58/path = NodePath("_____1/shape_0/shape/Poly_14:uv")
+tracks/58/interp = 1
+tracks/58/loop_wrap = true
+tracks/58/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0591, 0.0392, 0.0595, 0.0409, 0.0608, 0.0419, 0.0627, 0.0416, 0.0636, 0.0403, 0.0633, 0.0385, 0.0618, 0.0375, 0.0601, 0.0378)]
+}
+tracks/59/type = "value"
+tracks/59/imported = false
+tracks/59/enabled = true
+tracks/59/path = NodePath("_____1/shape_0/shape/Poly_14:color")
+tracks/59/interp = 1
+tracks/59/loop_wrap = true
+tracks/59/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/60/type = "value"
+tracks/60/imported = false
+tracks/60/enabled = true
+tracks/60/path = NodePath("_____1/shape_0/shape/Poly_15:polygon")
+tracks/60/interp = 0
+tracks/60/loop_wrap = true
+tracks/60/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(250.5824, 157.5131, 257.6029, 156.4161, 263.7373, 160.5787, 264.8326, 167.8080, 261.0912, 173.5301, 253.4225, 174.6256, 247.9404, 170.4592, 246.4065, 163.4472)]
+}
+tracks/61/type = "value"
+tracks/61/imported = false
+tracks/61/enabled = true
+tracks/61/path = NodePath("_____1/shape_0/shape/Poly_15:texture")
+tracks/61/interp = 0
+tracks/61/loop_wrap = true
+tracks/61/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_369248790")]
+}
+tracks/62/type = "value"
+tracks/62/imported = false
+tracks/62/enabled = true
+tracks/62/path = NodePath("_____1/shape_0/shape/Poly_15:uv")
+tracks/62/interp = 1
+tracks/62/loop_wrap = true
+tracks/62/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0601, 0.0378, 0.0618, 0.0375, 0.0633, 0.0385, 0.0636, 0.0403, 0.0627, 0.0416, 0.0608, 0.0419, 0.0595, 0.0409, 0.0591, 0.0392)]
+}
+tracks/63/type = "value"
+tracks/63/imported = false
+tracks/63/enabled = true
+tracks/63/path = NodePath("_____1/shape_0/shape/Poly_15:color")
+tracks/63/interp = 1
+tracks/63/loop_wrap = true
+tracks/63/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/64/type = "value"
+tracks/64/imported = false
+tracks/64/enabled = true
+tracks/64/path = NodePath("_____1/shape_0/shape/Poly_16:polygon")
+tracks/64/interp = 0
+tracks/64/loop_wrap = true
+tracks/64/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(409.2228, 198.4438, 420.0547, 156.6226, 417.1789, 175.0821)]
+}
+tracks/65/type = "value"
+tracks/65/imported = false
+tracks/65/enabled = true
+tracks/65/path = NodePath("_____1/shape_0/shape/Poly_16:texture")
+tracks/65/interp = 0
+tracks/65/loop_wrap = true
+tracks/65/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_578057010")]
+}
+tracks/66/type = "value"
+tracks/66/imported = false
+tracks/66/enabled = true
+tracks/66/path = NodePath("_____1/shape_0/shape/Poly_16:uv")
+tracks/66/interp = 1
+tracks/66/loop_wrap = true
+tracks/66/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0982, 0.0476, 0.1008, 0.0376, 0.1001, 0.0420)]
+}
+tracks/67/type = "value"
+tracks/67/imported = false
+tracks/67/enabled = true
+tracks/67/path = NodePath("_____1/shape_0/shape/Poly_16:color")
+tracks/67/interp = 1
+tracks/67/loop_wrap = true
+tracks/67/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/68/type = "value"
+tracks/68/imported = false
+tracks/68/enabled = true
+tracks/68/path = NodePath("_____1/shape_0/shape/Poly_17:polygon")
+tracks/68/interp = 0
+tracks/68/loop_wrap = true
+tracks/68/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(225.5789, 79.8380, 237.1078, 85.8763, 248.6275, 96.6111)]
+}
+tracks/69/type = "value"
+tracks/69/imported = false
+tracks/69/enabled = true
+tracks/69/path = NodePath("_____1/shape_0/shape/Poly_17:texture")
+tracks/69/interp = 0
+tracks/69/loop_wrap = true
+tracks/69/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_283195834")]
+}
+tracks/70/type = "value"
+tracks/70/imported = false
+tracks/70/enabled = true
+tracks/70/path = NodePath("_____1/shape_0/shape/Poly_17:uv")
+tracks/70/interp = 1
+tracks/70/loop_wrap = true
+tracks/70/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0541, 0.0192, 0.0569, 0.0206, 0.0597, 0.0232)]
+}
+tracks/71/type = "value"
+tracks/71/imported = false
+tracks/71/enabled = true
+tracks/71/path = NodePath("_____1/shape_0/shape/Poly_17:color")
+tracks/71/interp = 1
+tracks/71/loop_wrap = true
+tracks/71/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/72/type = "value"
+tracks/72/imported = false
+tracks/72/enabled = true
+tracks/72/path = NodePath("_____1/shape_0/shape/Poly_18:polygon")
+tracks/72/interp = 0
+tracks/72/loop_wrap = true
+tracks/72/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(181.9020, 128.4598, 193.8838, 95.7434, 186.9720, 110.0169)]
+}
+tracks/73/type = "value"
+tracks/73/imported = false
+tracks/73/enabled = true
+tracks/73/path = NodePath("_____1/shape_0/shape/Poly_18:texture")
+tracks/73/interp = 0
+tracks/73/loop_wrap = true
+tracks/73/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_230388329")]
+}
+tracks/74/type = "value"
+tracks/74/imported = false
+tracks/74/enabled = true
+tracks/74/path = NodePath("_____1/shape_0/shape/Poly_18:uv")
+tracks/74/interp = 1
+tracks/74/loop_wrap = true
+tracks/74/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0437, 0.0308, 0.0465, 0.0230, 0.0449, 0.0264)]
+}
+tracks/75/type = "value"
+tracks/75/imported = false
+tracks/75/enabled = true
+tracks/75/path = NodePath("_____1/shape_0/shape/Poly_18:color")
+tracks/75/interp = 1
+tracks/75/loop_wrap = true
+tracks/75/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/76/type = "value"
+tracks/76/imported = false
+tracks/76/enabled = true
+tracks/76/path = NodePath("_____1/shape_0/shape/Poly_19:polygon")
+tracks/76/interp = 0
+tracks/76/loop_wrap = true
+tracks/76/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(337.6105, 314.8274, 300.6866, 311.2891, 318.9993, 311.9402)]
+}
+tracks/77/type = "value"
+tracks/77/imported = false
+tracks/77/enabled = true
+tracks/77/path = NodePath("_____1/shape_0/shape/Poly_19:texture")
+tracks/77/interp = 0
+tracks/77/loop_wrap = true
+tracks/77/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_819527124")]
+}
+tracks/78/type = "value"
+tracks/78/imported = false
+tracks/78/enabled = true
+tracks/78/path = NodePath("_____1/shape_0/shape/Poly_19:uv")
+tracks/78/interp = 1
+tracks/78/loop_wrap = true
+tracks/78/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0810, 0.0756, 0.0722, 0.0747, 0.0766, 0.0749)]
+}
+tracks/79/type = "value"
+tracks/79/imported = false
+tracks/79/enabled = true
+tracks/79/path = NodePath("_____1/shape_0/shape/Poly_19:color")
+tracks/79/interp = 1
+tracks/79/loop_wrap = true
+tracks/79/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/80/type = "value"
+tracks/80/imported = false
+tracks/80/enabled = true
+tracks/80/path = NodePath("_____1/shape_0/shape/Poly_20:polygon")
+tracks/80/interp = 0
+tracks/80/loop_wrap = true
+tracks/80/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(266.7283, 312.6957, 232.9323, 319.2074, 249.5342, 314.8375)]
+}
+tracks/81/type = "value"
+tracks/81/imported = false
+tracks/81/enabled = true
+tracks/81/path = NodePath("_____1/shape_0/shape/Poly_20:texture")
+tracks/81/interp = 0
+tracks/81/loop_wrap = true
+tracks/81/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_630720899")]
+}
+tracks/82/type = "value"
+tracks/82/imported = false
+tracks/82/enabled = true
+tracks/82/path = NodePath("_____1/shape_0/shape/Poly_20:uv")
+tracks/82/interp = 1
+tracks/82/loop_wrap = true
+tracks/82/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0640, 0.0750, 0.0559, 0.0766, 0.0599, 0.0756)]
+}
+tracks/83/type = "value"
+tracks/83/imported = false
+tracks/83/enabled = true
+tracks/83/path = NodePath("_____1/shape_0/shape/Poly_20:color")
+tracks/83/interp = 1
+tracks/83/loop_wrap = true
+tracks/83/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/84/type = "value"
+tracks/84/imported = false
+tracks/84/enabled = true
+tracks/84/path = NodePath("_____1/shape_0/shape/Poly_21:polygon")
+tracks/84/interp = 0
+tracks/84/loop_wrap = true
+tracks/84/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(233.6747, 319.0037, 217.2202, 323.6860, 201.5134, 330.5545)]
+}
+tracks/85/type = "value"
+tracks/85/imported = false
+tracks/85/enabled = true
+tracks/85/path = NodePath("_____1/shape_0/shape/Poly_21:texture")
+tracks/85/interp = 0
+tracks/85/loop_wrap = true
+tracks/85/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_267908557")]
+}
+tracks/86/type = "value"
+tracks/86/imported = false
+tracks/86/enabled = true
+tracks/86/path = NodePath("_____1/shape_0/shape/Poly_21:uv")
+tracks/86/interp = 1
+tracks/86/loop_wrap = true
+tracks/86/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0561, 0.0766, 0.0521, 0.0777, 0.0484, 0.0793)]
+}
+tracks/87/type = "value"
+tracks/87/imported = false
+tracks/87/enabled = true
+tracks/87/path = NodePath("_____1/shape_0/shape/Poly_21:color")
+tracks/87/interp = 1
+tracks/87/loop_wrap = true
+tracks/87/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/88/type = "value"
+tracks/88/imported = false
+tracks/88/enabled = true
+tracks/88/path = NodePath("_____1/shape_0/shape/Poly_22:polygon")
+tracks/88/interp = 0
+tracks/88/loop_wrap = true
+tracks/88/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(301.3710, 311.3066, 265.9921, 312.7821, 283.4621, 310.9227)]
+}
+tracks/89/type = "value"
+tracks/89/imported = false
+tracks/89/enabled = true
+tracks/89/path = NodePath("_____1/shape_0/shape/Poly_22:texture")
+tracks/89/interp = 0
+tracks/89/loop_wrap = true
+tracks/89/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_623992541")]
+}
+tracks/90/type = "value"
+tracks/90/imported = false
+tracks/90/enabled = true
+tracks/90/path = NodePath("_____1/shape_0/shape/Poly_22:uv")
+tracks/90/interp = 1
+tracks/90/loop_wrap = true
+tracks/90/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0723, 0.0747, 0.0638, 0.0751, 0.0680, 0.0746)]
+}
+tracks/91/type = "value"
+tracks/91/imported = false
+tracks/91/enabled = true
+tracks/91/path = NodePath("_____1/shape_0/shape/Poly_22:color")
+tracks/91/interp = 1
+tracks/91/loop_wrap = true
+tracks/91/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/92/type = "value"
+tracks/92/imported = false
+tracks/92/enabled = true
+tracks/92/path = NodePath("_____1/shape_0/shape/Poly_23:polygon")
+tracks/92/interp = 0
+tracks/92/loop_wrap = true
+tracks/92/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(290.3721, 237.1800, 290.7002, 251.3042, 293.6072, 266.3158)]
+}
+tracks/93/type = "value"
+tracks/93/imported = false
+tracks/93/enabled = true
+tracks/93/path = NodePath("_____1/shape_0/shape/Poly_23:texture")
+tracks/93/interp = 0
+tracks/93/loop_wrap = true
+tracks/93/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_877334216")]
+}
+tracks/94/type = "value"
+tracks/94/imported = false
+tracks/94/enabled = true
+tracks/94/path = NodePath("_____1/shape_0/shape/Poly_23:uv")
+tracks/94/interp = 1
+tracks/94/loop_wrap = true
+tracks/94/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0697, 0.0569, 0.0698, 0.0603, 0.0705, 0.0639)]
+}
+tracks/95/type = "value"
+tracks/95/imported = false
+tracks/95/enabled = true
+tracks/95/path = NodePath("_____1/shape_0/shape/Poly_23:color")
+tracks/95/interp = 1
+tracks/95/loop_wrap = true
+tracks/95/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/96/type = "value"
+tracks/96/imported = false
+tracks/96/enabled = true
+tracks/96/path = NodePath("_____1/shape_0/shape/Poly_24:polygon")
+tracks/96/interp = 0
+tracks/96/loop_wrap = true
+tracks/96/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(293.6605, 213.0394, 290.3522, 238.3780, 290.7011, 225.1423)]
+}
+tracks/97/type = "value"
+tracks/97/imported = false
+tracks/97/enabled = true
+tracks/97/path = NodePath("_____1/shape_0/shape/Poly_24:texture")
+tracks/97/interp = 0
+tracks/97/loop_wrap = true
+tracks/97/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_290336298")]
+}
+tracks/98/type = "value"
+tracks/98/imported = false
+tracks/98/enabled = true
+tracks/98/path = NodePath("_____1/shape_0/shape/Poly_24:uv")
+tracks/98/interp = 1
+tracks/98/loop_wrap = true
+tracks/98/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0705, 0.0511, 0.0697, 0.0572, 0.0698, 0.0540)]
+}
+tracks/99/type = "value"
+tracks/99/imported = false
+tracks/99/enabled = true
+tracks/99/path = NodePath("_____1/shape_0/shape/Poly_24:color")
+tracks/99/interp = 1
+tracks/99/loop_wrap = true
+tracks/99/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/100/type = "value"
+tracks/100/imported = false
+tracks/100/enabled = true
+tracks/100/path = NodePath("_____1/shape_0/shape/Poly_25:polygon")
+tracks/100/interp = 0
+tracks/100/loop_wrap = true
+tracks/100/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(397.3957, 133.0720, 385.6652, 132.9388, 372.6614, 135.7203)]
+}
+tracks/101/type = "value"
+tracks/101/imported = false
+tracks/101/enabled = true
+tracks/101/path = NodePath("_____1/shape_0/shape/Poly_25:texture")
+tracks/101/interp = 0
+tracks/101/loop_wrap = true
+tracks/101/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_498472294")]
+}
+tracks/102/type = "value"
+tracks/102/imported = false
+tracks/102/enabled = true
+tracks/102/path = NodePath("_____1/shape_0/shape/Poly_25:uv")
+tracks/102/interp = 1
+tracks/102/loop_wrap = true
+tracks/102/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0954, 0.0319, 0.0926, 0.0319, 0.0894, 0.0326)]
+}
+tracks/103/type = "value"
+tracks/103/imported = false
+tracks/103/enabled = true
+tracks/103/path = NodePath("_____1/shape_0/shape/Poly_25:color")
+tracks/103/interp = 1
+tracks/103/loop_wrap = true
+tracks/103/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/104/type = "value"
+tracks/104/imported = false
+tracks/104/enabled = true
+tracks/104/path = NodePath("_____1/shape_0/shape/Poly_26:polygon")
+tracks/104/interp = 0
+tracks/104/loop_wrap = true
+tracks/104/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(415.0053, 138.5011, 395.6323, 132.9027, 406.1522, 134.2685)]
+}
+tracks/105/type = "value"
+tracks/105/imported = false
+tracks/105/enabled = true
+tracks/105/path = NodePath("_____1/shape_0/shape/Poly_26:texture")
+tracks/105/interp = 0
+tracks/105/loop_wrap = true
+tracks/105/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_332389524")]
+}
+tracks/106/type = "value"
+tracks/106/imported = false
+tracks/106/enabled = true
+tracks/106/path = NodePath("_____1/shape_0/shape/Poly_26:uv")
+tracks/106/interp = 1
+tracks/106/loop_wrap = true
+tracks/106/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0996, 0.0332, 0.0950, 0.0319, 0.0975, 0.0322)]
+}
+tracks/107/type = "value"
+tracks/107/imported = false
+tracks/107/enabled = true
+tracks/107/path = NodePath("_____1/shape_0/shape/Poly_26:color")
+tracks/107/interp = 1
+tracks/107/loop_wrap = true
+tracks/107/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/108/type = "value"
+tracks/108/imported = false
+tracks/108/enabled = true
+tracks/108/path = NodePath("_____1/shape_0/shape/Poly_27:polygon")
+tracks/108/interp = 0
+tracks/108/loop_wrap = true
+tracks/108/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(419.9125, 157.8511, 418.9070, 144.4480, 420.2617, 150.5114)]
+}
+tracks/109/type = "value"
+tracks/109/imported = false
+tracks/109/enabled = true
+tracks/109/path = NodePath("_____1/shape_0/shape/Poly_27:texture")
+tracks/109/interp = 0
+tracks/109/loop_wrap = true
+tracks/109/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_14620306")]
+}
+tracks/110/type = "value"
+tracks/110/imported = false
+tracks/110/enabled = true
+tracks/110/path = NodePath("_____1/shape_0/shape/Poly_27:uv")
+tracks/110/interp = 1
+tracks/110/loop_wrap = true
+tracks/110/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.1008, 0.0379, 0.1005, 0.0347, 0.1009, 0.0361)]
+}
+tracks/111/type = "value"
+tracks/111/imported = false
+tracks/111/enabled = true
+tracks/111/path = NodePath("_____1/shape_0/shape/Poly_27:color")
+tracks/111/interp = 1
+tracks/111/loop_wrap = true
+tracks/111/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/112/type = "value"
+tracks/112/imported = false
+tracks/112/enabled = true
+tracks/112/path = NodePath("_____1/shape_0/shape/Poly_28:polygon")
+tracks/112/interp = 0
+tracks/112/loop_wrap = true
+tracks/112/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(419.2985, 145.5910, 417.1277, 140.8227, 413.5053, 137.6140)]
+}
+tracks/113/type = "value"
+tracks/113/imported = false
+tracks/113/enabled = true
+tracks/113/path = NodePath("_____1/shape_0/shape/Poly_28:texture")
+tracks/113/interp = 0
+tracks/113/loop_wrap = true
+tracks/113/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_602118706")]
+}
+tracks/114/type = "value"
+tracks/114/imported = false
+tracks/114/enabled = true
+tracks/114/path = NodePath("_____1/shape_0/shape/Poly_28:uv")
+tracks/114/interp = 1
+tracks/114/loop_wrap = true
+tracks/114/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.1006, 0.0349, 0.1001, 0.0338, 0.0992, 0.0330)]
+}
+tracks/115/type = "value"
+tracks/115/imported = false
+tracks/115/enabled = true
+tracks/115/path = NodePath("_____1/shape_0/shape/Poly_28:color")
+tracks/115/interp = 1
+tracks/115/loop_wrap = true
+tracks/115/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/116/type = "value"
+tracks/116/imported = false
+tracks/116/enabled = true
+tracks/116/path = NodePath("_____1/shape_0/shape/Poly_29:polygon")
+tracks/116/interp = 0
+tracks/116/loop_wrap = true
+tracks/116/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(158.8943, 773.2472, 145.2007, 768.0509, 151.1333, 771.1352)]
+}
+tracks/117/type = "value"
+tracks/117/imported = false
+tracks/117/enabled = true
+tracks/117/path = NodePath("_____1/shape_0/shape/Poly_29:texture")
+tracks/117/interp = 0
+tracks/117/loop_wrap = true
+tracks/117/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_920553387")]
+}
+tracks/118/type = "value"
+tracks/118/imported = false
+tracks/118/enabled = true
+tracks/118/path = NodePath("_____1/shape_0/shape/Poly_29:uv")
+tracks/118/interp = 1
+tracks/118/loop_wrap = true
+tracks/118/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0381, 0.1856, 0.0348, 0.1843, 0.0363, 0.1851)]
+}
+tracks/119/type = "value"
+tracks/119/imported = false
+tracks/119/enabled = true
+tracks/119/path = NodePath("_____1/shape_0/shape/Poly_29:color")
+tracks/119/interp = 1
+tracks/119/loop_wrap = true
+tracks/119/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/120/type = "value"
+tracks/120/imported = false
+tracks/120/enabled = true
+tracks/120/path = NodePath("_____1/shape_0/shape/Poly_30:polygon")
+tracks/120/interp = 0
+tracks/120/loop_wrap = true
+tracks/120/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(145.2684, 692.5540, 144.5547, 693.8624, 144.5547, 692.7919)]
+}
+tracks/121/type = "value"
+tracks/121/imported = false
+tracks/121/enabled = true
+tracks/121/path = NodePath("_____1/shape_0/shape/Poly_30:texture")
+tracks/121/interp = 0
+tracks/121/loop_wrap = true
+tracks/121/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_648416270")]
+}
+tracks/122/type = "value"
+tracks/122/imported = false
+tracks/122/enabled = true
+tracks/122/path = NodePath("_____1/shape_0/shape/Poly_30:uv")
+tracks/122/interp = 1
+tracks/122/loop_wrap = true
+tracks/122/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0349, 0.1662, 0.0347, 0.1665, 0.0347, 0.1663)]
+}
+tracks/123/type = "value"
+tracks/123/imported = false
+tracks/123/enabled = true
+tracks/123/path = NodePath("_____1/shape_0/shape/Poly_30:color")
+tracks/123/interp = 1
+tracks/123/loop_wrap = true
+tracks/123/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/124/type = "value"
+tracks/124/imported = false
+tracks/124/enabled = true
+tracks/124/path = NodePath("_____1/shape_0/shape/Poly_31:polygon")
+tracks/124/interp = 0
+tracks/124/loop_wrap = true
+tracks/124/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(187.7083, 770.8334, 164.9908, 774.8825, 158.5417, 773.1251, 165.0093, 773.8676)]
+}
+tracks/125/type = "value"
+tracks/125/imported = false
+tracks/125/enabled = true
+tracks/125/path = NodePath("_____1/shape_0/shape/Poly_31:texture")
+tracks/125/interp = 0
+tracks/125/loop_wrap = true
+tracks/125/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_179056815")]
+}
+tracks/126/type = "value"
+tracks/126/imported = false
+tracks/126/enabled = true
+tracks/126/path = NodePath("_____1/shape_0/shape/Poly_31:uv")
+tracks/126/interp = 1
+tracks/126/loop_wrap = true
+tracks/126/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0450, 0.1850, 0.0396, 0.1860, 0.0381, 0.1856, 0.0396, 0.1857)]
+}
+tracks/127/type = "value"
+tracks/127/imported = false
+tracks/127/enabled = true
+tracks/127/path = NodePath("_____1/shape_0/shape/Poly_31:color")
+tracks/127/interp = 1
+tracks/127/loop_wrap = true
+tracks/127/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/128/type = "value"
+tracks/128/imported = false
+tracks/128/enabled = true
+tracks/128/path = NodePath("_____1/shape_0/shape/Poly_32:polygon")
+tracks/128/interp = 0
+tracks/128/loop_wrap = true
+tracks/128/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(208.4375, 80.5729, 217.0841, 79.0144, 226.5365, 80.4557, 217.0696, 78.0884)]
+}
+tracks/129/type = "value"
+tracks/129/imported = false
+tracks/129/enabled = true
+tracks/129/path = NodePath("_____1/shape_0/shape/Poly_32:texture")
+tracks/129/interp = 0
+tracks/129/loop_wrap = true
+tracks/129/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_15358409")]
+}
+tracks/130/type = "value"
+tracks/130/imported = false
+tracks/130/enabled = true
+tracks/130/path = NodePath("_____1/shape_0/shape/Poly_32:uv")
+tracks/130/interp = 1
+tracks/130/loop_wrap = true
+tracks/130/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0500, 0.0193, 0.0521, 0.0190, 0.0544, 0.0193, 0.0521, 0.0187)]
+}
+tracks/131/type = "value"
+tracks/131/imported = false
+tracks/131/enabled = true
+tracks/131/path = NodePath("_____1/shape_0/shape/Poly_32:color")
+tracks/131/interp = 1
+tracks/131/loop_wrap = true
+tracks/131/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/132/type = "value"
+tracks/132/imported = false
+tracks/132/enabled = true
+tracks/132/path = NodePath("_____1/shape_0/shape/Poly_33:polygon")
+tracks/132/interp = 0
+tracks/132/loop_wrap = true
+tracks/132/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(145.6250, 803.0209, 163.1250, 800.2084, 145.6250, 803.0209)]
+}
+tracks/133/type = "value"
+tracks/133/imported = false
+tracks/133/enabled = true
+tracks/133/path = NodePath("_____1/shape_0/shape/Poly_33:texture")
+tracks/133/interp = 0
+tracks/133/loop_wrap = true
+tracks/133/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_661691750")]
+}
+tracks/134/type = "value"
+tracks/134/imported = false
+tracks/134/enabled = true
+tracks/134/path = NodePath("_____1/shape_0/shape/Poly_33:uv")
+tracks/134/interp = 1
+tracks/134/loop_wrap = true
+tracks/134/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0350, 0.1927, 0.0391, 0.1920, 0.0350, 0.1927)]
+}
+tracks/135/type = "value"
+tracks/135/imported = false
+tracks/135/enabled = true
+tracks/135/path = NodePath("_____1/shape_0/shape/Poly_33:color")
+tracks/135/interp = 1
+tracks/135/loop_wrap = true
+tracks/135/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/136/type = "value"
+tracks/136/imported = false
+tracks/136/enabled = true
+tracks/136/path = NodePath("_____1/shape_0/shape/Poly_34:polygon")
+tracks/136/interp = 0
+tracks/136/loop_wrap = true
+tracks/136/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(193.6198, 96.3932, 200.9061, 86.7983, 208.4375, 80.5729, 200.3309, 86.2421)]
+}
+tracks/137/type = "value"
+tracks/137/imported = false
+tracks/137/enabled = true
+tracks/137/path = NodePath("_____1/shape_0/shape/Poly_34:texture")
+tracks/137/interp = 0
+tracks/137/loop_wrap = true
+tracks/137/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_775895340")]
+}
+tracks/138/type = "value"
+tracks/138/imported = false
+tracks/138/enabled = true
+tracks/138/path = NodePath("_____1/shape_0/shape/Poly_34:uv")
+tracks/138/interp = 1
+tracks/138/loop_wrap = true
+tracks/138/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0465, 0.0231, 0.0482, 0.0208, 0.0500, 0.0193, 0.0481, 0.0207)]
+}
+tracks/139/type = "value"
+tracks/139/imported = false
+tracks/139/enabled = true
+tracks/139/path = NodePath("_____1/shape_0/shape/Poly_34:color")
+tracks/139/interp = 1
+tracks/139/loop_wrap = true
+tracks/139/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/140/type = "value"
+tracks/140/imported = false
+tracks/140/enabled = true
+tracks/140/path = NodePath("_____1/shape_0/shape/Poly_35:polygon")
+tracks/140/interp = 0
+tracks/140/loop_wrap = true
+tracks/140/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [PackedVector2Array(293.5417, 267.9167, 267.5000, 259.5834, 293.5417, 267.9167)]
+}
+tracks/141/type = "value"
+tracks/141/imported = false
+tracks/141/enabled = true
+tracks/141/path = NodePath("_____1/shape_0/shape/Poly_35:texture")
+tracks/141/interp = 0
+tracks/141/loop_wrap = true
+tracks/141/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [SubResource("Texture_63351154")]
+}
+tracks/142/type = "value"
+tracks/142/imported = false
+tracks/142/enabled = true
+tracks/142/path = NodePath("_____1/shape_0/shape/Poly_35:uv")
+tracks/142/interp = 1
+tracks/142/loop_wrap = true
+tracks/142/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(0.0704, 0.0643, 0.0642, 0.0623, 0.0704, 0.0643)]
+}
+tracks/143/type = "value"
+tracks/143/imported = false
+tracks/143/enabled = true
+tracks/143/path = NodePath("_____1/shape_0/shape/Poly_35:color")
+tracks/143/interp = 1
+tracks/143/loop_wrap = true
+tracks/143/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(1, 1, 1, 1)]
+}
+tracks/144/type = "value"
+tracks/144/imported = false
+tracks/144/enabled = true
+tracks/144/path = NodePath("_____1/shape_0/shape/Line_0:points")
+tracks/144/interp = 1
+tracks/144/loop_wrap = true
+tracks/144/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(144.5833, 359.8959, 187.5000, 381.6667, 224.0755, 396.1328, 242.0606, 401.0124, 259.8438, 404.3229, 277.4252, 406.0645, 294.8047, 406.2370, 311.9824, 404.8405, 328.9584, 401.8750, 364.3490, 390.2344, 380.3060, 382.2461, 395.1042, 372.8125, 408.7435, 361.9336, 421.2240, 349.6094, 432.5456, 335.8399, 442.7084, 320.6250, 445.2084, 316.2500, 458.6328, 286.8099, 463.2259, 271.7285, 466.4063, 256.4063, 468.1739, 240.8431, 468.5287, 225.0391, 467.4707, 208.9942, 465.0000, 192.7083, 458.9584, 170.4167, 440.8203, 132.9557, 427.1322, 115.5046, 410.3646, 98.9063, 390.5176, 83.1608, 367.5912, 68.2682, 341.5853, 54.2285, 312.5000, 41.0417, 312.0834, 41.0417, 285.6250, 33.9583, 250.6771, 31.6667, 233.8672, 33.9583, 217.5000, 38.5417, 179.5833, 56.6667, 144.5833, 87.6042)]
+}
+tracks/145/type = "value"
+tracks/145/imported = false
+tracks/145/enabled = true
+tracks/145/path = NodePath("_____1/shape_0/shape/Line_0:width")
+tracks/145/interp = 1
+tracks/145/loop_wrap = true
+tracks/145/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [12.5000]
+}
+tracks/146/type = "value"
+tracks/146/imported = false
+tracks/146/enabled = true
+tracks/146/path = NodePath("_____1/shape_0/shape/Line_0:default_color")
+tracks/146/interp = 1
+tracks/146/loop_wrap = true
+tracks/146/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/147/type = "value"
+tracks/147/imported = false
+tracks/147/enabled = true
+tracks/147/path = NodePath("_____1/shape_0/shape/Line_1:points")
+tracks/147/interp = 1
+tracks/147/loop_wrap = true
+tracks/147/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(312.5000, 40.4167, 312.0834, 41.0417, 312.7084, 40.6250, 312.5000, 41.0417, 319.7917, 41.4583)]
+}
+tracks/148/type = "value"
+tracks/148/imported = false
+tracks/148/enabled = true
+tracks/148/path = NodePath("_____1/shape_0/shape/Line_1:width")
+tracks/148/interp = 1
+tracks/148/loop_wrap = true
+tracks/148/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [12.5000]
+}
+tracks/149/type = "value"
+tracks/149/imported = false
+tracks/149/enabled = true
+tracks/149/path = NodePath("_____1/shape_0/shape/Line_1:default_color")
+tracks/149/interp = 1
+tracks/149/loop_wrap = true
+tracks/149/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/150/type = "value"
+tracks/150/imported = false
+tracks/150/enabled = true
+tracks/150/path = NodePath("_____1/shape_0/shape/Line_2:points")
+tracks/150/interp = 1
+tracks/150/loop_wrap = true
+tracks/150/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(267.2917, 498.9584, 266.3542, 454.7917, 263.9584, 443.3334, 259.8959, 431.3542, 249.0198, 410.5148, 243.1060, 404.5137, 236.8750, 401.4584, 213.8021, 398.8021, 201.9922, 399.5443, 190.0000, 401.6667, 172.8125, 407.1875, 156.1458, 415.5209, 143.5417, 423.4375)]
+}
+tracks/151/type = "value"
+tracks/151/imported = false
+tracks/151/enabled = true
+tracks/151/path = NodePath("_____1/shape_0/shape/Line_2:width")
+tracks/151/interp = 1
+tracks/151/loop_wrap = true
+tracks/151/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [12.5000]
+}
+tracks/152/type = "value"
+tracks/152/imported = false
+tracks/152/enabled = true
+tracks/152/path = NodePath("_____1/shape_0/shape/Line_2:default_color")
+tracks/152/interp = 1
+tracks/152/loop_wrap = true
+tracks/152/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/153/type = "value"
+tracks/153/imported = false
+tracks/153/enabled = true
+tracks/153/path = NodePath("_____1/shape_0/shape/Line_3:points")
+tracks/153/interp = 1
+tracks/153/loop_wrap = true
+tracks/153/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(144.5833, 918.9584, 171.4583, 911.6667, 216.2500, 878.3334, 226.1328, 863.4506, 230.0488, 852.8158, 233.2813, 840.0522, 237.6953, 808.1381, 239.3750, 767.7084, 239.0625, 753.7501, 236.2500, 723.1251, 233.1250, 688.6459, 235.5693, 632.5961, 239.6457, 600.3976, 245.6250, 565.4167, 249.4792, 549.8959, 259.7917, 520.6250, 267.0834, 500.6250)]
+}
+tracks/154/type = "value"
+tracks/154/imported = false
+tracks/154/enabled = true
+tracks/154/path = NodePath("_____1/shape_0/shape/Line_3:width")
+tracks/154/interp = 1
+tracks/154/loop_wrap = true
+tracks/154/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [12.5000]
+}
+tracks/155/type = "value"
+tracks/155/imported = false
+tracks/155/enabled = true
+tracks/155/path = NodePath("_____1/shape_0/shape/Line_3:default_color")
+tracks/155/interp = 1
+tracks/155/loop_wrap = true
+tracks/155/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/156/type = "value"
+tracks/156/imported = false
+tracks/156/enabled = true
+tracks/156/path = NodePath("_____1/shape_0/shape/Line_4:points")
+tracks/156/interp = 1
+tracks/156/loop_wrap = true
+tracks/156/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(145.2083, 692.6042, 150.2083, 690.8334, 164.0625, 688.4896, 178.9583, 690.2084, 188.1250, 693.3334, 209.3750, 710.4167, 217.5000, 733.5417, 216.2500, 743.5417, 205.7292, 758.8542, 187.7083, 770.8334, 165.0000, 774.3751, 158.5417, 773.1251, 151.2500, 770.8334, 145.6250, 768.2292)]
+}
+tracks/157/type = "value"
+tracks/157/imported = false
+tracks/157/enabled = true
+tracks/157/path = NodePath("_____1/shape_0/shape/Line_4:width")
+tracks/157/interp = 1
+tracks/157/loop_wrap = true
+tracks/157/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [12.5000]
+}
+tracks/158/type = "value"
+tracks/158/imported = false
+tracks/158/enabled = true
+tracks/158/path = NodePath("_____1/shape_0/shape/Line_4:default_color")
+tracks/158/interp = 1
+tracks/158/loop_wrap = true
+tracks/158/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/159/type = "value"
+tracks/159/imported = false
+tracks/159/enabled = true
+tracks/159/path = NodePath("_____1/shape_0/shape/Line_5:points")
+tracks/159/interp = 1
+tracks/159/loop_wrap = true
+tracks/159/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(280.2084, 1231.8751, 295.3125, 1234.9480, 302.3177, 1238.3204, 308.9584, 1242.9168, 319.0104, 1254.8439, 322.0443, 1262.0965, 323.7500, 1270.2084, 319.9479, 1282.7084, 313.7891, 1285.6772, 304.7917, 1286.4584, 266.0417, 1285.4168, 235.0000, 1285.6251, 226.3021, 1281.7709, 225.4297, 1276.4845, 226.8750, 1268.9584, 233.6459, 1253.5418, 238.3594, 1247.2397, 243.9584, 1241.8751, 255.4167, 1235.2084, 266.6667, 1232.5001, 273.3334, 1231.8751, 280.2084, 1231.8751)]
+}
+tracks/160/type = "value"
+tracks/160/imported = false
+tracks/160/enabled = true
+tracks/160/path = NodePath("_____1/shape_0/shape/Line_5:width")
+tracks/160/interp = 1
+tracks/160/loop_wrap = true
+tracks/160/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [12.5000]
+}
+tracks/161/type = "value"
+tracks/161/imported = false
+tracks/161/enabled = true
+tracks/161/path = NodePath("_____1/shape_0/shape/Line_5:default_color")
+tracks/161/interp = 1
+tracks/161/loop_wrap = true
+tracks/161/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/162/type = "value"
+tracks/162/imported = false
+tracks/162/enabled = true
+tracks/162/path = NodePath("_____1/shape_0/shape/Line_6:points")
+tracks/162/interp = 1
+tracks/162/loop_wrap = true
+tracks/162/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(372.0834, 48.7500, 352.2396, 50.8854, 337.5912, 47.6172, 319.7917, 41.4583, 346.7709, 40.5208, 359.8698, 38.0990, 372.7084, 34.3750, 392.7084, 24.7917)]
+}
+tracks/163/type = "value"
+tracks/163/imported = false
+tracks/163/enabled = true
+tracks/163/path = NodePath("_____1/shape_0/shape/Line_6:width")
+tracks/163/interp = 1
+tracks/163/loop_wrap = true
+tracks/163/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/164/type = "value"
+tracks/164/imported = false
+tracks/164/enabled = true
+tracks/164/path = NodePath("_____1/shape_0/shape/Line_6:default_color")
+tracks/164/interp = 1
+tracks/164/loop_wrap = true
+tracks/164/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/165/type = "value"
+tracks/165/imported = false
+tracks/165/enabled = true
+tracks/165/path = NodePath("_____1/shape_0/shape/Line_7:points")
+tracks/165/interp = 1
+tracks/165/loop_wrap = true
+tracks/165/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(375.0000, 194.3750, 375.8334, 215.4167, 370.1042, 222.6563, 365.5990, 225.2995, 360.0000, 227.2917, 336.4584, 226.0417, 319.3750, 212.2917, 316.3021, 202.2917, 316.8360, 196.9792, 318.7500, 191.4583, 325.8334, 181.9271, 330.6250, 178.4505, 336.2500, 175.8333, 347.9688, 174.0625, 353.7110, 174.9740, 359.3750, 177.0833, 368.9063, 184.0104, 372.3828, 188.7630, 375.0000, 194.3750)]
+}
+tracks/166/type = "value"
+tracks/166/imported = false
+tracks/166/enabled = true
+tracks/166/path = NodePath("_____1/shape_0/shape/Line_7:width")
+tracks/166/interp = 1
+tracks/166/loop_wrap = true
+tracks/166/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/167/type = "value"
+tracks/167/imported = false
+tracks/167/enabled = true
+tracks/167/path = NodePath("_____1/shape_0/shape/Line_7:default_color")
+tracks/167/interp = 1
+tracks/167/loop_wrap = true
+tracks/167/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/168/type = "value"
+tracks/168/imported = false
+tracks/168/enabled = true
+tracks/168/path = NodePath("_____1/shape_0/shape/Line_8:points")
+tracks/168/interp = 1
+tracks/168/loop_wrap = true
+tracks/168/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(409.3750, 197.9167, 419.8959, 157.3438, 419.9545, 150.5371, 418.9844, 145.0651, 416.9857, 140.9277, 413.9584, 138.1250, 396.6146, 133.1250, 385.7162, 133.4375, 373.3334, 135.6250)]
+}
+tracks/169/type = "value"
+tracks/169/imported = false
+tracks/169/enabled = true
+tracks/169/path = NodePath("_____1/shape_0/shape/Line_8:width")
+tracks/169/interp = 1
+tracks/169/loop_wrap = true
+tracks/169/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/170/type = "value"
+tracks/170/imported = false
+tracks/170/enabled = true
+tracks/170/path = NodePath("_____1/shape_0/shape/Line_8:default_color")
+tracks/170/interp = 1
+tracks/170/loop_wrap = true
+tracks/170/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/171/type = "value"
+tracks/171/imported = false
+tracks/171/enabled = true
+tracks/171/path = NodePath("_____1/shape_0/shape/Line_9:points")
+tracks/171/interp = 1
+tracks/171/loop_wrap = true
+tracks/171/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(332.5000, 13.7500, 331.4584, 24.3750, 324.6875, 33.6458, 319.3490, 37.4219, 312.7084, 40.6250, 315.2084, 20.4167, 313.8802, 14.7656, 303.9584, 0.0000)]
+}
+tracks/172/type = "value"
+tracks/172/imported = false
+tracks/172/enabled = true
+tracks/172/path = NodePath("_____1/shape_0/shape/Line_9:width")
+tracks/172/interp = 1
+tracks/172/loop_wrap = true
+tracks/172/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/173/type = "value"
+tracks/173/imported = false
+tracks/173/enabled = true
+tracks/173/path = NodePath("_____1/shape_0/shape/Line_9:default_color")
+tracks/173/interp = 1
+tracks/173/loop_wrap = true
+tracks/173/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/174/type = "value"
+tracks/174/imported = false
+tracks/174/enabled = true
+tracks/174/path = NodePath("_____1/shape_0/shape/Line_10:points")
+tracks/174/interp = 1
+tracks/174/loop_wrap = true
+tracks/174/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(312.5000, 40.4167, 295.8334, 15.8333, 294.7917, 14.5833, 285.1042, 4.8958, 282.5261, 5.4427, 281.4584, 9.5833)]
+}
+tracks/175/type = "value"
+tracks/175/imported = false
+tracks/175/enabled = true
+tracks/175/path = NodePath("_____1/shape_0/shape/Line_10:width")
+tracks/175/interp = 1
+tracks/175/loop_wrap = true
+tracks/175/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/176/type = "value"
+tracks/176/imported = false
+tracks/176/enabled = true
+tracks/176/path = NodePath("_____1/shape_0/shape/Line_10:default_color")
+tracks/176/interp = 1
+tracks/176/loop_wrap = true
+tracks/176/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/177/type = "value"
+tracks/177/imported = false
+tracks/177/enabled = true
+tracks/177/path = NodePath("_____1/shape_0/shape/Line_11:points")
+tracks/177/interp = 1
+tracks/177/loop_wrap = true
+tracks/177/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(215.8334, 146.8750, 222.8646, 137.3438, 227.5912, 133.8672, 233.1250, 131.2500, 239.7917, 129.7917, 256.4584, 132.5000, 265.9375, 139.5313, 269.3490, 144.2578, 271.8750, 149.7917, 273.6459, 161.6667, 272.7344, 167.4479, 270.6250, 173.1250, 262.9688, 181.6667, 257.4610, 183.9063, 250.8334, 184.7917, 229.5834, 182.0833, 219.7917, 174.7917, 215.6250, 167.9167, 213.0729, 157.7604, 213.7891, 152.4089, 215.8334, 146.8750)]
+}
+tracks/178/type = "value"
+tracks/178/imported = false
+tracks/178/enabled = true
+tracks/178/path = NodePath("_____1/shape_0/shape/Line_11:width")
+tracks/178/interp = 1
+tracks/178/loop_wrap = true
+tracks/178/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/179/type = "value"
+tracks/179/imported = false
+tracks/179/enabled = true
+tracks/179/path = NodePath("_____1/shape_0/shape/Line_11:default_color")
+tracks/179/interp = 1
+tracks/179/loop_wrap = true
+tracks/179/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/180/type = "value"
+tracks/180/imported = false
+tracks/180/enabled = true
+tracks/180/path = NodePath("_____1/shape_0/shape/Line_12:points")
+tracks/180/interp = 1
+tracks/180/loop_wrap = true
+tracks/180/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(182.0833, 127.9167, 193.6198, 96.3932, 200.6185, 86.5202, 208.4375, 80.5729, 217.0768, 78.5514, 226.5365, 80.4557, 236.8164, 86.2858, 247.9167, 96.0417)]
+}
+tracks/181/type = "value"
+tracks/181/imported = false
+tracks/181/enabled = true
+tracks/181/path = NodePath("_____1/shape_0/shape/Line_12:width")
+tracks/181/interp = 1
+tracks/181/loop_wrap = true
+tracks/181/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/182/type = "value"
+tracks/182/imported = false
+tracks/182/enabled = true
+tracks/182/path = NodePath("_____1/shape_0/shape/Line_12:default_color")
+tracks/182/interp = 1
+tracks/182/loop_wrap = true
+tracks/182/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/183/type = "value"
+tracks/183/imported = false
+tracks/183/enabled = true
+tracks/183/path = NodePath("_____1/shape_0/shape/Line_13:points")
+tracks/183/interp = 1
+tracks/183/loop_wrap = true
+tracks/183/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(172.8125, 407.1875, 183.2031, 422.2136, 191.5820, 427.4805, 202.0833, 431.2500, 227.4935, 434.1704, 242.8207, 433.4793, 259.8959, 431.3542)]
+}
+tracks/184/type = "value"
+tracks/184/imported = false
+tracks/184/enabled = true
+tracks/184/path = NodePath("_____1/shape_0/shape/Line_13:width")
+tracks/184/interp = 1
+tracks/184/loop_wrap = true
+tracks/184/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/185/type = "value"
+tracks/185/imported = false
+tracks/185/enabled = true
+tracks/185/path = NodePath("_____1/shape_0/shape/Line_13:default_color")
+tracks/185/interp = 1
+tracks/185/loop_wrap = true
+tracks/185/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/186/type = "value"
+tracks/186/imported = false
+tracks/186/enabled = true
+tracks/186/path = NodePath("_____1/shape_0/shape/Line_14:points")
+tracks/186/interp = 1
+tracks/186/loop_wrap = true
+tracks/186/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(254.3750, 486.0417, 267.0834, 500.6250, 267.7084, 500.8334, 286.4706, 557.2079, 290.1953, 574.4922, 292.6555, 591.0230, 293.8509, 606.8002, 293.7818, 621.8238, 292.4479, 636.0938, 289.8495, 649.6102, 285.9864, 662.3731, 280.8586, 674.3824, 274.4662, 685.6381, 266.8091, 696.1402, 257.8874, 705.8887, 247.7010, 714.8837, 236.2500, 723.1251, 217.5000, 733.5417)]
+}
+tracks/187/type = "value"
+tracks/187/imported = false
+tracks/187/enabled = true
+tracks/187/path = NodePath("_____1/shape_0/shape/Line_14:width")
+tracks/187/interp = 1
+tracks/187/loop_wrap = true
+tracks/187/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/188/type = "value"
+tracks/188/imported = false
+tracks/188/enabled = true
+tracks/188/path = NodePath("_____1/shape_0/shape/Line_14:default_color")
+tracks/188/interp = 1
+tracks/188/loop_wrap = true
+tracks/188/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/189/type = "value"
+tracks/189/imported = false
+tracks/189/enabled = true
+tracks/189/path = NodePath("_____1/shape_0/shape/Line_15:points")
+tracks/189/interp = 1
+tracks/189/loop_wrap = true
+tracks/189/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(293.5417, 267.9167, 267.5000, 259.5834)]
+}
+tracks/190/type = "value"
+tracks/190/imported = false
+tracks/190/enabled = true
+tracks/190/path = NodePath("_____1/shape_0/shape/Line_15:width")
+tracks/190/interp = 1
+tracks/190/loop_wrap = true
+tracks/190/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/191/type = "value"
+tracks/191/imported = false
+tracks/191/enabled = true
+tracks/191/path = NodePath("_____1/shape_0/shape/Line_15:default_color")
+tracks/191/interp = 1
+tracks/191/loop_wrap = true
+tracks/191/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/192/type = "value"
+tracks/192/imported = false
+tracks/192/enabled = true
+tracks/192/path = NodePath("_____1/shape_0/shape/Line_16:points")
+tracks/192/interp = 1
+tracks/192/loop_wrap = true
+tracks/192/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(293.5417, 213.7500, 290.4167, 237.7084, 291.1979, 251.2500, 293.5417, 265.8334)]
+}
+tracks/193/type = "value"
+tracks/193/imported = false
+tracks/193/enabled = true
+tracks/193/path = NodePath("_____1/shape_0/shape/Line_16:width")
+tracks/193/interp = 1
+tracks/193/loop_wrap = true
+tracks/193/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/194/type = "value"
+tracks/194/imported = false
+tracks/194/enabled = true
+tracks/194/path = NodePath("_____1/shape_0/shape/Line_16:default_color")
+tracks/194/interp = 1
+tracks/194/loop_wrap = true
+tracks/194/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/195/type = "value"
+tracks/195/imported = false
+tracks/195/enabled = true
+tracks/195/path = NodePath("_____1/shape_0/shape/Line_17:points")
+tracks/195/interp = 1
+tracks/195/loop_wrap = true
+tracks/195/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(337.2917, 314.7917, 301.0156, 311.3151, 283.4831, 311.4226, 266.3542, 312.7604, 249.6289, 315.3288, 233.3073, 319.1276, 217.3893, 324.1569, 201.8750, 330.4167)]
+}
+tracks/196/type = "value"
+tracks/196/imported = false
+tracks/196/enabled = true
+tracks/196/path = NodePath("_____1/shape_0/shape/Line_17:width")
+tracks/196/interp = 1
+tracks/196/loop_wrap = true
+tracks/196/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/197/type = "value"
+tracks/197/imported = false
+tracks/197/enabled = true
+tracks/197/path = NodePath("_____1/shape_0/shape/Line_17:default_color")
+tracks/197/interp = 1
+tracks/197/loop_wrap = true
+tracks/197/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/198/type = "value"
+tracks/198/imported = false
+tracks/198/enabled = true
+tracks/198/path = NodePath("_____1/shape_0/shape/Line_18:points")
+tracks/198/interp = 1
+tracks/198/loop_wrap = true
+tracks/198/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(171.4583, 911.6667, 213.5417, 983.4246, 230.1302, 1021.1687, 243.7500, 1060.1563, 254.4011, 1100.3875, 262.0834, 1141.8621, 266.7969, 1184.5802, 268.5417, 1228.5418)]
+}
+tracks/199/type = "value"
+tracks/199/imported = false
+tracks/199/enabled = true
+tracks/199/path = NodePath("_____1/shape_0/shape/Line_18:width")
+tracks/199/interp = 1
+tracks/199/loop_wrap = true
+tracks/199/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/200/type = "value"
+tracks/200/imported = false
+tracks/200/enabled = true
+tracks/200/path = NodePath("_____1/shape_0/shape/Line_18:default_color")
+tracks/200/interp = 1
+tracks/200/loop_wrap = true
+tracks/200/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/201/type = "value"
+tracks/201/imported = false
+tracks/201/enabled = true
+tracks/201/path = NodePath("_____1/shape_0/shape/Line_19:points")
+tracks/201/interp = 1
+tracks/201/loop_wrap = true
+tracks/201/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(266.3542, 454.7917, 257.1296, 451.6303, 252.7337, 452.5326, 248.4819, 455.0904, 244.3743, 459.3035, 240.4109, 465.1720, 232.9167, 481.8750, 224.0353, 515.2828, 223.7556, 527.0090, 226.2500, 535.4167, 235.9566, 545.7675, 242.2409, 548.6095, 249.4792, 549.8959, 251.0417, 550.0000)]
+}
+tracks/202/type = "value"
+tracks/202/imported = false
+tracks/202/enabled = true
+tracks/202/path = NodePath("_____1/shape_0/shape/Line_19:width")
+tracks/202/interp = 1
+tracks/202/loop_wrap = true
+tracks/202/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/203/type = "value"
+tracks/203/imported = false
+tracks/203/enabled = true
+tracks/203/path = NodePath("_____1/shape_0/shape/Line_19:default_color")
+tracks/203/interp = 1
+tracks/203/loop_wrap = true
+tracks/203/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/204/type = "value"
+tracks/204/imported = false
+tracks/204/enabled = true
+tracks/204/path = NodePath("_____1/shape_0/shape/Line_20:points")
+tracks/204/interp = 1
+tracks/204/loop_wrap = true
+tracks/204/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(156.1458, 415.5209, 155.0000, 452.5000, 143.9583, 484.5834)]
+}
+tracks/205/type = "value"
+tracks/205/imported = false
+tracks/205/enabled = true
+tracks/205/path = NodePath("_____1/shape_0/shape/Line_20:width")
+tracks/205/interp = 1
+tracks/205/loop_wrap = true
+tracks/205/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/206/type = "value"
+tracks/206/imported = false
+tracks/206/enabled = true
+tracks/206/path = NodePath("_____1/shape_0/shape/Line_20:default_color")
+tracks/206/interp = 1
+tracks/206/loop_wrap = true
+tracks/206/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/207/type = "value"
+tracks/207/imported = false
+tracks/207/enabled = true
+tracks/207/path = NodePath("_____1/shape_0/shape/Line_21:points")
+tracks/207/interp = 1
+tracks/207/loop_wrap = true
+tracks/207/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(145.2083, 692.6042, 144.5833, 693.7501)]
+}
+tracks/208/type = "value"
+tracks/208/imported = false
+tracks/208/enabled = true
+tracks/208/path = NodePath("_____1/shape_0/shape/Line_21:width")
+tracks/208/interp = 1
+tracks/208/loop_wrap = true
+tracks/208/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/209/type = "value"
+tracks/209/imported = false
+tracks/209/enabled = true
+tracks/209/path = NodePath("_____1/shape_0/shape/Line_21:default_color")
+tracks/209/interp = 1
+tracks/209/loop_wrap = true
+tracks/209/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/210/type = "value"
+tracks/210/imported = false
+tracks/210/enabled = true
+tracks/210/path = NodePath("_____1/shape_0/shape/Line_22:points")
+tracks/210/interp = 1
+tracks/210/loop_wrap = true
+tracks/210/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(145.6250, 803.0209, 163.1250, 800.2084)]
+}
+tracks/211/type = "value"
+tracks/211/imported = false
+tracks/211/enabled = true
+tracks/211/path = NodePath("_____1/shape_0/shape/Line_22:width")
+tracks/211/interp = 1
+tracks/211/loop_wrap = true
+tracks/211/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/212/type = "value"
+tracks/212/imported = false
+tracks/212/enabled = true
+tracks/212/path = NodePath("_____1/shape_0/shape/Line_22:default_color")
+tracks/212/interp = 1
+tracks/212/loop_wrap = true
+tracks/212/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/213/type = "value"
+tracks/213/imported = false
+tracks/213/enabled = true
+tracks/213/path = NodePath("_____1/shape_0/shape/Line_23:points")
+tracks/213/interp = 1
+tracks/213/loop_wrap = true
+tracks/213/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [PackedVector2Array(205.7292, 758.8542, 239.0625, 753.7501)]
+}
+tracks/214/type = "value"
+tracks/214/imported = false
+tracks/214/enabled = true
+tracks/214/path = NodePath("_____1/shape_0/shape/Line_23:width")
+tracks/214/interp = 1
+tracks/214/loop_wrap = true
+tracks/214/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [8.3333]
+}
+tracks/215/type = "value"
+tracks/215/imported = false
+tracks/215/enabled = true
+tracks/215/path = NodePath("_____1/shape_0/shape/Line_23:default_color")
+tracks/215/interp = 1
+tracks/215/loop_wrap = true
+tracks/215/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(0.0000),
+"update": 0,
+"values": [Color(0.0549, 0.2118, 0.7922, 1)]
+}
+tracks/216/type = "value"
+tracks/216/imported = false
+tracks/216/enabled = true
+tracks/216/path = NodePath("_____1/shape_0/shape:visible")
+tracks/216/interp = 0
+tracks/216/loop_wrap = true
+tracks/216/keys = {
+"times": PackedFloat32Array(0.0000, 0.0420),
+"transitions": PackedFloat32Array(0.0000, 0.0000),
+"update": 1,
+"values": [false, true]
+}
+tracks/217/type = "value"
+tracks/217/imported = false
+tracks/217/enabled = true
+tracks/217/path = NodePath("_____1/shape_0:position")
+tracks/217/interp = 1
+tracks/217/loop_wrap = true
+tracks/217/keys = {
+"times": PackedFloat32Array(0.0420, 0.0820, 0.0830, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(0.0000, 0.0000), Vector2(0.0000, 0.0000), Vector2(103.5000, -101.9167), Vector2(103.5000, -101.9167)]
+}
+tracks/218/type = "value"
+tracks/218/imported = false
+tracks/218/enabled = true
+tracks/218/path = NodePath("_____1/shape_0:rotation")
+tracks/218/interp = 3
+tracks/218/loop_wrap = true
+tracks/218/keys = {
+"times": PackedFloat32Array(0.0420, 0.0820, 0.0830, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000, 0.0000, 0.0000]
+}
+tracks/219/type = "value"
+tracks/219/imported = false
+tracks/219/enabled = true
+tracks/219/path = NodePath("_____1/shape_0:scale")
+tracks/219/interp = 1
+tracks/219/loop_wrap = true
+tracks/219/keys = {
+"times": PackedFloat32Array(0.0420, 0.0820, 0.0830, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000, 0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000)]
+}
+tracks/220/type = "value"
+tracks/220/imported = false
+tracks/220/enabled = true
+tracks/220/path = NodePath("_____1/shape_0:skew")
+tracks/220/interp = 3
+tracks/220/loop_wrap = true
+tracks/220/keys = {
+"times": PackedFloat32Array(0.0420, 0.0820),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000]
+}
+tracks/221/type = "value"
+tracks/221/imported = false
+tracks/221/enabled = true
+tracks/221/path = NodePath("_____1/shape_0:modulate")
+tracks/221/interp = 1
+tracks/221/loop_wrap = true
+tracks/221/keys = {
+"times": PackedFloat32Array(0.0420),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/222/type = "value"
+tracks/222/imported = false
+tracks/222/enabled = true
+tracks/222/path = NodePath("_____1/shape_0/shape:texture")
+tracks/222/interp = 0
+tracks/222/loop_wrap = true
+tracks/222/keys = {
+"times": PackedFloat32Array(0.0830),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [ExtResource("tex_193482391")]
+}
+tracks/223/type = "value"
+tracks/223/imported = false
+tracks/223/enabled = true
+tracks/223/path = NodePath("_____1/shape_0/shape:position")
+tracks/223/interp = 0
+tracks/223/loop_wrap = true
+tracks/223/keys = {
+"times": PackedFloat32Array(0.0830),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [Vector2(274.0000, 485.5000)]
+}
+tracks/224/type = "value"
+tracks/224/imported = false
+tracks/224/enabled = true
+tracks/224/path = NodePath("_____3/ClickHere_0/text:visible")
+tracks/224/interp = 0
+tracks/224/loop_wrap = true
+tracks/224/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/225/type = "value"
+tracks/225/imported = false
+tracks/225/enabled = true
+tracks/225/path = NodePath("_____3/ClickHere_0:position")
+tracks/225/interp = 1
+tracks/225/loop_wrap = true
+tracks/225/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(377.5000, 1102.7084), Vector2(377.5000, 1102.7084)]
+}
+tracks/226/type = "value"
+tracks/226/imported = false
+tracks/226/enabled = true
+tracks/226/path = NodePath("_____3/ClickHere_0:rotation")
+tracks/226/interp = 3
+tracks/226/loop_wrap = true
+tracks/226/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [-0.6193, -0.6193]
+}
+tracks/227/type = "value"
+tracks/227/imported = false
+tracks/227/enabled = true
+tracks/227/path = NodePath("_____3/ClickHere_0:scale")
+tracks/227/interp = 1
+tracks/227/loop_wrap = true
+tracks/227/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000)]
+}
+tracks/228/type = "value"
+tracks/228/imported = false
+tracks/228/enabled = true
+tracks/228/path = NodePath("_____3/ClickHere_0:skew")
+tracks/228/interp = 3
+tracks/228/loop_wrap = true
+tracks/228/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000]
+}
+tracks/229/type = "value"
+tracks/229/imported = false
+tracks/229/enabled = true
+tracks/229/path = NodePath("_____3/ClickHere_0:modulate")
+tracks/229/interp = 1
+tracks/229/loop_wrap = true
+tracks/229/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/230/type = "value"
+tracks/230/imported = false
+tracks/230/enabled = true
+tracks/230/path = NodePath("_____3/instance_0/instance________282:visible")
+tracks/230/interp = 0
+tracks/230/loop_wrap = true
+tracks/230/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/231/type = "value"
+tracks/231/imported = false
+tracks/231/enabled = true
+tracks/231/path = NodePath("_____3/instance_0:position")
+tracks/231/interp = 1
+tracks/231/loop_wrap = true
+tracks/231/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(323.5417, 809.5834), Vector2(323.5417, 809.5834)]
+}
+tracks/232/type = "value"
+tracks/232/imported = false
+tracks/232/enabled = true
+tracks/232/path = NodePath("_____3/instance_0:rotation")
+tracks/232/interp = 3
+tracks/232/loop_wrap = true
+tracks/232/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000]
+}
+tracks/233/type = "value"
+tracks/233/imported = false
+tracks/233/enabled = true
+tracks/233/path = NodePath("_____3/instance_0:scale")
+tracks/233/interp = 1
+tracks/233/loop_wrap = true
+tracks/233/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000)]
+}
+tracks/234/type = "value"
+tracks/234/imported = false
+tracks/234/enabled = true
+tracks/234/path = NodePath("_____3/instance_0:skew")
+tracks/234/interp = 3
+tracks/234/loop_wrap = true
+tracks/234/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000]
+}
+tracks/235/type = "value"
+tracks/235/imported = false
+tracks/235/enabled = true
+tracks/235/path = NodePath("_____3/instance_0:modulate")
+tracks/235/interp = 1
+tracks/235/loop_wrap = true
+tracks/235/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 1.0000)]
+}
+tracks/236/type = "value"
+tracks/236/imported = false
+tracks/236/enabled = true
+tracks/236/path = NodePath("_____2/instance_0/instance________120:visible")
+tracks/236/interp = 0
+tracks/236/loop_wrap = true
+tracks/236/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(0.0000),
+"update": 1,
+"values": [true]
+}
+tracks/237/type = "value"
+tracks/237/imported = false
+tracks/237/enabled = true
+tracks/237/path = NodePath("_____2/instance_0:position")
+tracks/237/interp = 1
+tracks/237/loop_wrap = true
+tracks/237/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(-116.6667, -148.7500), Vector2(-116.6667, -148.7500)]
+}
+tracks/238/type = "value"
+tracks/238/imported = false
+tracks/238/enabled = true
+tracks/238/path = NodePath("_____2/instance_0:rotation")
+tracks/238/interp = 3
+tracks/238/loop_wrap = true
+tracks/238/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000]
+}
+tracks/239/type = "value"
+tracks/239/imported = false
+tracks/239/enabled = true
+tracks/239/path = NodePath("_____2/instance_0:scale")
+tracks/239/interp = 1
+tracks/239/loop_wrap = true
+tracks/239/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [Vector2(1.0000, 1.0000), Vector2(1.0000, 1.0000)]
+}
+tracks/240/type = "value"
+tracks/240/imported = false
+tracks/240/enabled = true
+tracks/240/path = NodePath("_____2/instance_0:skew")
+tracks/240/interp = 3
+tracks/240/loop_wrap = true
+tracks/240/keys = {
+"times": PackedFloat32Array(0.0000, 0.1240),
+"transitions": PackedFloat32Array(0.0000, 1.0000),
+"update": 0,
+"values": [0.0000, 0.0000]
+}
+tracks/241/type = "value"
+tracks/241/imported = false
+tracks/241/enabled = true
+tracks/241/path = NodePath("_____2/instance_0:modulate")
+tracks/241/interp = 1
+tracks/241/loop_wrap = true
+tracks/241/keys = {
+"times": PackedFloat32Array(0.0000),
+"transitions": PackedFloat32Array(1.0000),
+"update": 0,
+"values": [Color(1.0000, 1.0000, 1.0000, 0.0000)]
+}
+[sub_resource type="AnimationLibrary" id="lib_169420632"]
+_data = {
+"RESET": SubResource("anim_221106229"),
+"default": SubResource("anim_998714557")
+}
+
+[node name="_______109" type="Node2D"]
+use_parent_material = false
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("lib_169420632")
+}
+autoplay = "default"
+
+[node name="_____1" type="Node2D" parent="."]
+use_parent_material = true
+
+[node name="shape_0" type="Node2D" parent="_____1"]
+position = Vector2(0.0000, 0.0000)
+rotation = 0.0000
+scale = Vector2(1.0000, 1.0000)
+modulate = Color(1.0000, 1.0000, 1.0000, 1.0000)
+use_parent_material = true
+
+[node name="shape" type="Node2D" parent="_____1/shape_0"]
+visible = false
+use_parent_material = true
+
+[node name="Poly_0" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_1" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_2" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_3" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_4" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_5" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_6" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_7" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_8" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_9" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_10" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_11" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_12" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_13" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_14" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_15" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_16" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_17" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_18" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_19" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_20" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_21" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_22" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_23" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_24" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_25" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_26" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_27" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_28" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_29" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_30" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_31" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_32" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_33" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_34" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Poly_35" type="Polygon2D" parent="_____1/shape_0/shape"]
+color = Color(1, 1, 1, 1)
+use_parent_material = true
+
+[node name="Line_0" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_1" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_2" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_3" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_4" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_5" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_6" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_7" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_8" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_9" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_10" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_11" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_12" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_13" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_14" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_15" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_16" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_17" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_18" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_19" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_20" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_21" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_22" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="Line_23" type="Line2D" parent="_____1/shape_0/shape"]
+joint_mode = 2
+begin_cap_mode = 2
+end_cap_mode = 2
+use_parent_material = true
+
+[node name="_____3" type="Node2D" parent="."]
+use_parent_material = true
+
+[node name="ClickHere_0" type="Node2D" parent="_____3"]
+position = Vector2(377.5000, 1102.7084)
+rotation = -0.6193
+scale = Vector2(1.0000, 1.0000)
+skew = 0.0000
+modulate = Color(1.0000, 1.0000, 1.0000, 1.0000)
+use_parent_material = false
+
+[node name="text" type="Node2D" parent="_____3/ClickHere_0"]
+visible = true
+use_parent_material = false
+
+[node name="instance_0" type="Node2D" parent="_____3"]
+position = Vector2(323.5417, 809.5834)
+rotation = 0.0000
+scale = Vector2(1.0000, 1.0000)
+modulate = Color(1.0000, 1.0000, 1.0000, 1.0000)
+skew = 0.0000
+use_parent_material = true
+
+[node name="instance________282" parent="_____3/instance_0" instance=ExtResource("inst_446878894")]
+visible = true
+use_parent_material = true
+
+[node name="_____2" type="Node2D" parent="."]
+use_parent_material = true
+
+[node name="instance_0" type="Node2D" parent="_____2"]
+position = Vector2(-116.6667, -148.7500)
+rotation = 0.0000
+scale = Vector2(1.0000, 1.0000)
+modulate = Color(1.0000, 1.0000, 1.0000, 0.0000)
+skew = 0.0000
+use_parent_material = true
+
+[node name="instance________120" parent="_____2/instance_0" instance=ExtResource("inst_491260013")]
+visible = true
+use_parent_material = true
