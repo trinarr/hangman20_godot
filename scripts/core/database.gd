@@ -182,12 +182,12 @@ func get_hint(theme_index: int, word_index: int) -> String:
 
 func get_number_of_all_words(theme_index: int = -1, difficulty_is_enabled: bool = false) -> int:
 	var count := 0
-	var filter := GameState.settings[2] if difficulty_is_enabled and has_node("/root/GameState") else 0
+	var difficulty_filter: int = int(GameState.settings[2]) if difficulty_is_enabled and has_node("/root/GameState") else 0
 	if theme_index < 0:
 		for i in range(get_theme_count()):
-			count += get_words_by_index(i, filter).size()
+			count += get_words_by_index(i, difficulty_filter).size()
 	else:
-		count = get_words_by_index(theme_index, filter).size()
+		count = get_words_by_index(theme_index, difficulty_filter).size()
 	return count
 
 func get_number_of_guessed_words(theme_index: int = -1, difficulty_is_enabled: bool = false) -> int:
@@ -198,7 +198,8 @@ func get_number_of_guessed_words(theme_index: int = -1, difficulty_is_enabled: b
 		return count
 	var total := get_words_by_index(theme_index, 0).size()
 	var progress := GameState.ensure_theme_progress(current_language, theme_index, total)
-	for item in get_words_by_index(theme_index, GameState.settings[2] if difficulty_is_enabled else 0):
+	var difficulty_filter: int = int(GameState.settings[2]) if difficulty_is_enabled else 0
+	for item in get_words_by_index(theme_index, difficulty_filter):
 		var index := int(item["index"])
 		if index >= 0 and index < progress["guessed"].size() and bool(progress["guessed"][index]):
 			count += 1
