@@ -8,6 +8,7 @@ var last_result_is_win: bool = false
 var last_result_data: Dictionary = {}
 var custom_word_edit: LineEdit
 var custom_comment_edit: TextEdit
+var word_info_visible: bool = false
 
 func _ready() -> void:
 	randomize()
@@ -104,7 +105,7 @@ func show_menu() -> void:
 	game_timer.stop()
 	_clear()
 	_title(Database.tr_text(0, "HANGMAN"), 42)
-	_label(content, "Godot-перенос AS3: меню, темы, раунд, подсказки, результаты и сохранение", 15)
+	_label(content, "Godot-перенос AS3: меню, темы, раунд, подсказки, результаты, таймер и сохранение", 15)
 	_spacer(content, 10)
 
 	var buttons := VBoxContainer.new()
@@ -131,10 +132,10 @@ func show_settings() -> void:
 
 	var lang_text := "Русский" if GameState.language == "ru" else "English"
 	_button(box, "Language: " + lang_text, Callable(self, "_toggle_language"))
-	_button(box, Database.tr_text(62, "Choose the difficulty level:") + " " + _difficulty_name(), Callable(self, "_cycle_difficulty"))
+	_button(box, Database.tr_text(63, "Choose the difficulty level:") + " " + _difficulty_name(), Callable(self, "_cycle_difficulty"))
 	_button(box, Database.tr_text(27, "First and last letter") + ": " + _on_off(GameState.settings[0]), Callable(self, "_toggle_setting").bind(0))
 	_button(box, Database.tr_text(28, "Hints") + ": " + _on_off(GameState.settings[1]), Callable(self, "_toggle_setting").bind(1))
-	_button(box, Database.tr_text(72, "Sounds and music") + ": " + _on_off(GameState.settings[3]), Callable(self, "_toggle_setting").bind(3))
+	_button(box, Database.tr_text(73, "Sounds and music") + ": " + _on_off(GameState.settings[3]), Callable(self, "_toggle_setting").bind(3))
 	_button(box, Database.tr_text(69, "Vibration") + ": " + _on_off(GameState.settings[4]), Callable(self, "_toggle_setting").bind(4))
 	_button(box, Database.tr_text(9, "Choose the hero:") + " " + _hero_name(), Callable(self, "_toggle_hero"))
 	_spacer(box, 8)
@@ -173,12 +174,12 @@ func _difficulty_name() -> String:
 			return Database.tr_text(60, "GENERAL")
 
 func _hero_name() -> String:
-	return Database.tr_text(76, "LUCKY") if int(GameState.settings[5]) == 1 else Database.tr_text(77, "EL TIGRE")
+	return Database.tr_text(75, "LUCKY") if int(GameState.settings[5]) == 1 else Database.tr_text(76, "EL TIGRE")
 
 func show_theme_select() -> void:
 	_clear()
 	_title(Database.tr_text(32, "Choose the category:"), 32)
-	_label(content, Database.tr_text(62, "Choose the difficulty level:") + " " + _difficulty_name(), 15)
+	_label(content, Database.tr_text(63, "Choose the difficulty level:") + " " + _difficulty_name(), 15)
 
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(620, 260)
@@ -193,7 +194,8 @@ func show_theme_select() -> void:
 		var guessed := GameState.count_guessed(Database.current_language, i, all_count)
 		var row := _row(list)
 		var title := "%s — %s %d %s %d" % [Database.get_theme_name(i), Database.tr_text(34, "Guessed"), guessed, Database.tr_text(35, "of"), words_count]
-		_button(row, title, Callable(self, "start_classic_game").bind(i), 470)
+		var theme_button := _button(row, title, Callable(self, "start_classic_game").bind(i), 470)
+		theme_button.disabled = words_count == 0
 		_button(row, "↺", Callable(self, "clear_theme_progress").bind(i), 54)
 
 	_spacer(content, 8)
@@ -204,6 +206,7 @@ func clear_theme_progress(theme_index: int) -> void:
 	show_theme_select()
 
 func start_classic_game(theme_index: int) -> void:
+	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 0
@@ -214,6 +217,7 @@ func start_classic_game(theme_index: int) -> void:
 	show_game_screen()
 
 func start_time_attack() -> void:
+	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 1
@@ -227,11 +231,11 @@ func start_time_attack() -> void:
 func show_custom_word() -> void:
 	game_timer.stop()
 	_clear()
-	_title(Database.tr_text(40, "Input the word"), 32)
+	_title(Database.tr_text(41, "Input the word"), 32)
 	_label(content, "Введите слово для второго игрока. Разрешены буквы, пробел и дефис.", 15)
 
 	custom_word_edit = LineEdit.new()
-	custom_word_edit.placeholder_text = Database.tr_text(40, "Input the word")
+	custom_word_edit.placeholder_text = Database.tr_text(41, "Input the word")
 	custom_word_edit.custom_minimum_size = Vector2(460, 42)
 	custom_word_edit.max_length = 35
 	content.add_child(custom_word_edit)
@@ -251,6 +255,7 @@ func start_custom_game() -> void:
 		custom_word_edit.text = ""
 		custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
 		return
+	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 2
@@ -263,13 +268,15 @@ func start_custom_game() -> void:
 func _is_valid_custom_word(word: String) -> bool:
 	if word.length() == 0:
 		return false
+	var has_letter := false
 	for i in range(word.length()):
 		var ch := word.substr(i, 1)
 		if ch == " " or ch == "—" or ch == "-":
 			continue
 		if ch.to_upper() == ch.to_lower():
 			return false
-	return true
+		has_letter = true
+	return has_letter
 
 func show_game_screen() -> void:
 	_clear()
@@ -298,12 +305,24 @@ func _refresh_game_screen() -> void:
 	_label(content, Database.tr_text(58, "Tries left:") + " " + str(GameSession.tries_left()), 22)
 
 	var hint_row := _row(content)
-	var hints_enabled := int(GameState.settings[1]) == 2 or GameSession.theme_id >= 0
-	var open_hint := _button(hint_row, Database.tr_text(28, "Hints") + ": +1", Callable(self, "_use_open_hint"), 160)
-	open_hint.disabled = !hints_enabled or !GameSession.is_active
-	var remove_hint := _button(hint_row, "- wrong", Callable(self, "_use_remove_hint"), 160)
-	remove_hint.disabled = !hints_enabled or !GameSession.is_active
+	var open_hint := _button(hint_row, Database.tr_text(36, "Hints:") + " +1", Callable(self, "_use_open_hint"), 160)
+	open_hint.disabled = !GameSession.can_use_open_letter_hint()
+	var remove_hint := _button(hint_row, Database.tr_text(36, "Hints:") + " -", Callable(self, "_use_remove_hint"), 160)
+	remove_hint.disabled = !GameSession.can_use_remove_wrong_hint()
+	var info_label := Database.tr_text(26, "About the word") if GameSession.theme_id >= 0 else Database.tr_text(47, "Comment")
+	var info_button := _button(hint_row, info_label, Callable(self, "_toggle_word_info"), 180)
+	info_button.disabled = GameSession.get_word_hint() == ""
 	_button(hint_row, Database.tr_text(16, "Give up"), Callable(self, "_give_up"), 160)
+
+	if word_info_visible and GameSession.get_word_hint() != "":
+		var hint_panel := _panel(content)
+		var hint_box := MarginContainer.new()
+		hint_box.add_theme_constant_override("margin_left", 12)
+		hint_box.add_theme_constant_override("margin_top", 8)
+		hint_box.add_theme_constant_override("margin_right", 12)
+		hint_box.add_theme_constant_override("margin_bottom", 8)
+		hint_panel.add_child(hint_box)
+		_label(hint_box, GameSession.get_word_hint(), 17)
 
 	var keyboard := GridContainer.new()
 	keyboard.columns = 8
@@ -335,6 +354,10 @@ func _use_open_hint() -> void:
 func _use_remove_hint() -> void:
 	GameSession.use_remove_wrong_hint()
 
+func _toggle_word_info() -> void:
+	word_info_visible = !word_info_visible
+	_refresh_game_screen()
+
 func _give_up() -> void:
 	GameSession.give_up()
 
@@ -360,8 +383,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	var title := str(data.get("title", Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT")))
 	_title(title, 40)
 	_label(content, GameSession.get_full_word(), 36)
-	if GameSession.word_data != null and GameSession.word_data.custom_comment != "":
-		_label(content, Database.tr_text(47, "Comment") + ": " + GameSession.word_data.custom_comment, 16)
+	if GameSession.get_word_hint() != "":
+		_label(content, Database.tr_text(47, "Comment") + ": " + GameSession.get_word_hint(), 16)
 
 	for line in Array(data.get("lines", [])):
 		_label(content, str(line), 18)
@@ -370,13 +393,15 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 
 	var row := _row(content)
 	if GameState.current_mode == 1 and GameState.current_time_left > 0:
-		_button(row, Database.tr_text(65, "PLAY"), Callable(self, "_continue_time_attack"), 210)
+		_button(row, Database.tr_text(66, "PLAY"), Callable(self, "_continue_time_attack"), 190)
 	else:
-		_button(row, Database.tr_text(10, "Restart"), Callable(self, "_restart_last_mode"), 210)
-	_button(row, Database.tr_text(52, "Change category"), Callable(self, "show_theme_select"), 210)
+		_button(row, Database.tr_text(10, "Restart"), Callable(self, "_restart_last_mode"), 190)
+	_button(row, Database.tr_text(52, "Change category"), Callable(self, "show_theme_select"), 190)
+	_button(row, Database.tr_text(26, "About the word"), Callable(self, "_open_word_search"), 190)
 	_button(content, "← " + Database.tr_text(6, "Exit"), Callable(self, "show_menu"), 260)
 
 func _continue_time_attack() -> void:
+	word_info_visible = false
 	game_finished = false
 	GameSession.start_new_round(-1, 1)
 	GameState.save_game()
@@ -398,12 +423,12 @@ func show_records() -> void:
 	box.add_theme_constant_override("separation", 6)
 	content.add_child(box)
 	_label(box, Database.tr_text(1, "Classic"), 22)
-	_label(box, Database.tr_text(20, "Hard words in a row") + ": " + str(GameState.records[0][3]), 18)
-	_label(box, Database.tr_text(21, "Easy words in a row") + ": " + str(GameState.records[0][2]), 18)
+	_label(box, _hard_record_label() + ": " + str(GameState.records[0][3]), 18)
+	_label(box, _easy_record_label() + ": " + str(GameState.records[0][2]), 18)
 	_spacer(box, 8)
 	_label(box, Database.tr_text(2, "Time Attack"), 22)
 	_label(box, Database.tr_text(45, "Victories per game") + ": " + str(GameState.records[2][1]), 18)
-	_label(box, Database.tr_text(44, "Score") + ": " + str(GameState.records[2][2]), 18)
+	_label(box, Database.tr_text(18, "RECORD:") + " " + Database.tr_text(44, "Score") + ": " + str(GameState.records[2][2]), 18)
 	_spacer(box, 8)
 	_label(box, Database.tr_text(3, "Two Player"), 22)
 	_label(box, Database.tr_text(42, "Victories") + ": " + str(GameState.records[1][0]), 18)
@@ -411,17 +436,22 @@ func show_records() -> void:
 	_spacer(content, 10)
 	_button(content, "← " + Database.tr_text(6, "Exit"), Callable(self, "show_menu"), 260)
 
+func _easy_record_label() -> String:
+	return "Легких слов подряд" if Database.current_language == "ru" else "Easy words in a row"
+
+func _hard_record_label() -> String:
+	return "Сложных слов подряд" if Database.current_language == "ru" else "Hard words in a row"
+
 func _on_timer_tick() -> void:
 	if GameState.current_mode != 1 or game_finished:
 		return
 	GameState.current_time_left = max(0, GameState.current_time_left - 1)
 	if GameState.current_time_left <= 0:
-		if int(GameState.current_score) > int(GameState.records[2][2]):
-			GameState.records[2][2] = GameState.current_score
-		GameState.records[2][0] = 0
-		GameState.save_game()
+		game_finished = true
+		last_result_is_win = false
+		last_result_data = GameSession.finish_time_attack_timeout()
 		game_timer.stop()
-		_finish_round(false)
+		show_result_screen(false, last_result_data)
 	else:
 		GameState.save_game()
 		_refresh_game_screen()
@@ -430,3 +460,21 @@ func _format_time(seconds: int) -> String:
 	var minutes := int(seconds / 60)
 	var sec := int(seconds % 60)
 	return "%02d:%02d" % [minutes, sec]
+
+func _open_word_search() -> void:
+	var word := GameSession.get_full_word().strip_edges()
+	if word == "":
+		return
+	OS.shell_open("https://yandex.ru/search/?text=" + word.to_lower().uri_encode())
+
+func _unhandled_input(event: InputEvent) -> void:
+	if game_finished or !GameSession.is_active:
+		return
+	if event is InputEventKey and event.pressed and !event.echo:
+		if event.keycode == KEY_ESCAPE:
+			show_menu()
+			return
+		var letter := OS.get_keycode_string(event.keycode).to_upper()
+		letter = WordManager.normalize_word(letter)
+		if letter.length() == 1 and Database.get_alphabet().has(letter):
+			_press_letter(letter)

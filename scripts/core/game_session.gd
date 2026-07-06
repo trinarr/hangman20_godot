@@ -16,6 +16,9 @@ var mistakes: int = 0
 var max_mistakes: int = 7
 var is_active: bool = false
 var mode: int = 0 # 0 classic, 1 time attack, 2 two-player
+var open_hint_used: bool = false
+var remove_wrong_hint_used: bool = false
+var word_hint_text: String = ""
 
 func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: int = 0) -> void:
 	word_data = word
@@ -28,6 +31,9 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	wrong_letters.clear()
 	removed_wrong_letters.clear()
 	mistakes = 0
+	open_hint_used = false
+	remove_wrong_hint_used = false
+	word_hint_text = _resolve_word_hint()
 	is_active = word.text.length() > 0
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
@@ -42,6 +48,15 @@ func start_new_round(theme_index: int, game_mode: int = 0) -> void:
 func start_custom_round(text: String, comment: String = "") -> void:
 	var word := WordManager.set_custom_word(text, comment)
 	start_round(word, -1, -1, 2)
+
+func _resolve_word_hint() -> String:
+	if word_data == null:
+		return ""
+	if word_data.custom_comment.strip_edges() != "":
+		return word_data.custom_comment.strip_edges()
+	if theme_id >= 0 and word_index >= 0:
+		return Database.get_hint(theme_id, word_index)
+	return ""
 
 func _split_letters(text: String) -> PackedStringArray:
 	var result := PackedStringArray()
@@ -115,8 +130,35 @@ func _reveal_letter(letter: String) -> bool:
 		correct_letters.append(letter)
 	return found
 
+func can_use_open_letter_hint() -> bool:
+	if theme_id >= 0 and int(GameState.settings[2]) == 1:
+		return false
+	return is_active and !open_hint_used and _has_hidden_letter() and _hints_allowed()
+
+func can_use_remove_wrong_hint() -> bool:
+	return is_active and !remove_wrong_hint_used and _has_removable_wrong_letter() and _hints_allowed()
+
+func _hints_allowed() -> bool:
+	# Category words always had the hint buttons, except the open-letter hint is disabled in hard mode.
+	if theme_id >= 0:
+		return true
+	return int(GameState.settings[1]) == 2
+
+func _has_hidden_letter() -> bool:
+	for i in range(letters.size()):
+		if !bool(revealed[i]) and !_is_separator(letters[i]):
+			return true
+	return false
+
+func _has_removable_wrong_letter() -> bool:
+	var alphabet := Database.get_alphabet()
+	for letter in alphabet:
+		if !letters.has(letter) and !wrong_letters.has(letter) and !removed_wrong_letters.has(letter):
+			return true
+	return false
+
 func use_open_letter_hint() -> bool:
-	if !is_active:
+	if !can_use_open_letter_hint():
 		return false
 	var candidates: Array = []
 	for i in range(letters.size()):
@@ -124,6 +166,7 @@ func use_open_letter_hint() -> bool:
 			candidates.append(i)
 	if candidates.is_empty():
 		return false
+	open_hint_used = true
 	var index: int = candidates[randi() % candidates.size()]
 	_reveal_letter(letters[index])
 	if mode == 1:
@@ -137,7 +180,7 @@ func use_open_letter_hint() -> bool:
 	return true
 
 func use_remove_wrong_hint() -> bool:
-	if !is_active:
+	if !can_use_remove_wrong_hint():
 		return false
 	var alphabet := Database.get_alphabet()
 	var candidates: Array = []
@@ -146,6 +189,7 @@ func use_remove_wrong_hint() -> bool:
 			candidates.append(letter)
 	if candidates.is_empty():
 		return false
+	remove_wrong_hint_used = true
 	var removed: String = candidates[randi() % candidates.size()]
 	removed_wrong_letters.append(removed)
 	if mode == 1:
@@ -170,6 +214,9 @@ func get_masked_word() -> String:
 
 func get_full_word() -> String:
 	return "" if word_data == null else word_data.text
+
+func get_word_hint() -> String:
+	return word_hint_text
 
 func is_word_completed() -> bool:
 	for i in range(letters.size()):
@@ -200,9 +247,11 @@ func finish_result(is_win: bool) -> Dictionary:
 			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
 			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
 				GameState.records[0][2 + diff] = int(GameState.records[0][diff])
-				result["lines"].append(Database.tr_text(63, "New record!"))
+				result["lines"].append(Database.tr_text(64, "New record!"))
 			if theme_id >= 0:
 				GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
+				if _is_theme_completed(theme_id):
+					result["lines"].append(Database.tr_text(65, "Category is completed!"))
 		else:
 			GameState.records[0][diff] = 0
 	elif mode == 1:
@@ -211,6 +260,7 @@ func finish_result(is_win: bool) -> Dictionary:
 			GameState.current_score += max(0, 105 - 15 * mistakes)
 			if int(GameState.records[2][0]) > int(GameState.records[2][1]):
 				GameState.records[2][1] = int(GameState.records[2][0])
+				result["lines"].append(Database.tr_text(45, "Victories per game") + ": " + str(GameState.records[2][1]))
 		else:
 			GameState.current_score = max(0, GameState.current_score - 15)
 		if theme_id >= 0 and is_win:
@@ -223,3 +273,18 @@ func finish_result(is_win: bool) -> Dictionary:
 
 	GameState.save_game()
 	return result
+
+func finish_time_attack_timeout() -> Dictionary:
+	var result := {
+		"title": Database.tr_text(39, "THE END"),
+		"lines": [Database.tr_text(51, "Time's up!")]
+	}
+	if int(GameState.current_score) > int(GameState.records[2][2]):
+		GameState.records[2][2] = int(GameState.current_score)
+		result["lines"].append(Database.tr_text(64, "New record!"))
+	GameState.records[2][0] = 0
+	GameState.save_game()
+	return result
+
+func _is_theme_completed(theme_index: int) -> bool:
+	return Database.get_number_of_all_words(theme_index, true) - Database.get_number_of_guessed_words(theme_index, true) == 0

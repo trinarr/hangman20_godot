@@ -2,6 +2,7 @@ extends Node
 
 var data: Dictionary = {}
 var translations: Array = []
+var hints: Array = []
 var current_language: String = "ru"
 
 const WORD_FILES := {
@@ -14,6 +15,11 @@ const CONFIG_FILES := {
 	"en": "res://data/config_en.json"
 }
 
+const HINT_FILES := {
+	"ru": "res://data/hints_ru.json",
+	"en": "res://data/hints_en.json"
+}
+
 func _ready() -> void:
 	load_language(current_language)
 
@@ -21,6 +27,7 @@ func load_language(lang: String) -> void:
 	current_language = _normalize_language(lang)
 	_load_words()
 	_load_translations()
+	_load_hints()
 
 func _normalize_language(lang: String) -> String:
 	var normalized := lang.to_lower()
@@ -62,6 +69,12 @@ func _load_translations() -> void:
 	var result = _load_json(CONFIG_FILES[current_language])
 	if result is Dictionary and result.has("words") and result["words"] is Array:
 		translations = result["words"]
+
+func _load_hints() -> void:
+	hints.clear()
+	var result = _load_json(HINT_FILES[current_language])
+	if result is Dictionary and result.has("themes") and result["themes"] is Array:
+		hints = result["themes"]
 
 func tr_text(index: int, fallback: String = "") -> String:
 	if index >= 0 and index < translations.size():
@@ -124,18 +137,25 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 
 	var filtered: Array = []
 	for i in range(words.size()):
-		var word := str(words[i]).strip_edges().to_upper()
+		var word := normalize_loaded_word(str(words[i]))
 		if word == "" or word == "_":
 			continue
 		if difficulty_filter != 0:
 			var diff := get_word_difficulty(theme_index, i)
-			# AS3 Settings[2]: 0 = all, 1 = hard only, 2 = easy only.
+			# AS3 Settings[2]: 0 = all/general, 1 = hard only, 2 = easy only.
+			# Difficulty XML uses 0 = easy/simple, 1 = hard.
 			if difficulty_filter == 1 and diff != 1:
 				continue
 			if difficulty_filter == 2 and diff != 0:
 				continue
 		filtered.append({"text": word, "index": i, "difficulty": get_word_difficulty(theme_index, i)})
 	return filtered
+
+func normalize_loaded_word(word: String) -> String:
+	var result := word.strip_edges().to_upper()
+	result = result.replace("-", "—")
+	result = result.replace("Ё", "Е")
+	return result
 
 func get_word_difficulty(theme_index: int, word_index: int) -> int:
 	var theme_name := get_theme_name(theme_index)
@@ -150,6 +170,16 @@ func get_word_difficulty(theme_index: int, word_index: int) -> int:
 			return int(diff_text.substr(word_index, 1))
 	return 0
 
+func get_hint(theme_index: int, word_index: int) -> String:
+	if theme_index < 0 or word_index < 0:
+		return ""
+	if theme_index >= hints.size() or !(hints[theme_index] is Array):
+		return ""
+	var theme_hints: Array = hints[theme_index]
+	if word_index >= 0 and word_index < theme_hints.size():
+		return str(theme_hints[word_index]).strip_edges()
+	return ""
+
 func get_number_of_all_words(theme_index: int = -1, difficulty_is_enabled: bool = false) -> int:
 	var count := 0
 	var filter := GameState.settings[2] if difficulty_is_enabled and has_node("/root/GameState") else 0
@@ -158,6 +188,20 @@ func get_number_of_all_words(theme_index: int = -1, difficulty_is_enabled: bool 
 			count += get_words_by_index(i, filter).size()
 	else:
 		count = get_words_by_index(theme_index, filter).size()
+	return count
+
+func get_number_of_guessed_words(theme_index: int = -1, difficulty_is_enabled: bool = false) -> int:
+	var count := 0
+	if theme_index < 0:
+		for i in range(get_theme_count()):
+			count += get_number_of_guessed_words(i, difficulty_is_enabled)
+		return count
+	var total := get_words_by_index(theme_index, 0).size()
+	var progress := GameState.ensure_theme_progress(current_language, theme_index, total)
+	for item in get_words_by_index(theme_index, GameState.settings[2] if difficulty_is_enabled else 0):
+		var index := int(item["index"])
+		if index >= 0 and index < progress["guessed"].size() and bool(progress["guessed"][index]):
+			count += 1
 	return count
 
 # Compatibility helpers for the first partial Godot conversion.

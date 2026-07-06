@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://cm1r4aaiw6eh5"]
+
+
+
+[node name="main" type="Node2D"]
+use_parent_material = false
+
+[node name="Background" type="ColorRect" parent="."]
+offset_right = 800.0000
+offset_bottom = 480.0000
+color = Color(0.2000, 0.2000, 0.2000, 1.0)
+mouse_filter = 2
+use_parent_material = false
