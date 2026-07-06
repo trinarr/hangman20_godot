@@ -1,88 +1,225 @@
 extends Node
 
-# -----------------------------
-# CURRENT WORD STATE
-# -----------------------------
+signal changed
+signal round_won
+signal round_lost
 
 var word_index: int = -1
 var theme_id: int = -1
-
-var letters: PackedStringArray = []   # аналог ErrArr[0]
-var opened_letters: PackedStringArray = []
-
-# -----------------------------
-# GAME STATE
-# -----------------------------
-
+var word_data: WordData = null
+var letters: PackedStringArray = []
+var revealed: Array = []
+var correct_letters: PackedStringArray = []
+var wrong_letters: PackedStringArray = []
+var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
-var max_mistakes: int = 6
-
+var max_mistakes: int = 7
 var is_active: bool = false
+var mode: int = 0 # 0 classic, 1 time attack, 2 two-player
 
-
-# -----------------------------
-# START ROUND
-# -----------------------------
-
-func start_round(word: WordData, index: int, theme: int) -> void:
-	word_index = index
-	theme_id = theme
-
-	letters = word.text.split("")
-	opened_letters.clear()
-
+func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: int = 0) -> void:
+	word_data = word
+	word_index = index if index >= 0 else word.index
+	theme_id = theme if theme >= -1 else word.theme_index
+	mode = game_mode
+	letters = _split_letters(word.text)
+	revealed.clear()
+	correct_letters.clear()
+	wrong_letters.clear()
+	removed_wrong_letters.clear()
 	mistakes = 0
-	is_active = true
+	is_active = word.text.length() > 0
+	for i in range(letters.size()):
+		revealed.append(_is_separator(letters[i]))
+	_open_initial_letters()
+	emit_signal("changed")
 
+func start_new_round(theme_index: int, game_mode: int = 0) -> void:
+	var mode_string := "TA" if game_mode == 1 else "CL"
+	var word := WordManager.select_new_word(theme_index, mode_string)
+	start_round(word, word.index, word.theme_index, game_mode)
 
-# -----------------------------
-# INPUT HANDLING
-# -----------------------------
+func start_custom_round(text: String, comment: String = "") -> void:
+	var word := WordManager.set_custom_word(text, comment)
+	start_round(word, -1, -1, 2)
+
+func _split_letters(text: String) -> PackedStringArray:
+	var result := PackedStringArray()
+	for i in range(text.length()):
+		result.append(text.substr(i, 1))
+	return result
+
+func _is_separator(letter: String) -> bool:
+	return letter == " " or letter == "-" or letter == "—"
+
+func _open_initial_letters() -> void:
+	if letters.is_empty():
+		return
+	var should_open := false
+	if theme_id < 0:
+		should_open = int(GameState.settings[0]) == 2
+	else:
+		# In the AS3 logic category words open first/last letters only in easy mode.
+		should_open = int(GameState.settings[2]) == 2
+	if !should_open:
+		return
+	var first := ""
+	var last := ""
+	for letter in letters:
+		if !_is_separator(letter):
+			first = letter
+			break
+	for i in range(letters.size() - 1, -1, -1):
+		if !_is_separator(letters[i]):
+			last = letters[i]
+			break
+	if first != "":
+		_reveal_letter(first)
+	if last != "" and last != first:
+		_reveal_letter(last)
 
 func guess(letter: String) -> bool:
-
-	letter = letter.to_upper()
-
-	if opened_letters.has(letter):
+	if !is_active:
 		return false
-
-	opened_letters.append(letter)
-
-	if letters.has(letter):
-
+	letter = WordManager.normalize_word(letter)
+	if letter.length() != 1:
+		return false
+	if correct_letters.has(letter) or wrong_letters.has(letter) or removed_wrong_letters.has(letter):
+		return false
+	var correct := _reveal_letter(letter)
+	if correct:
 		if is_word_completed():
 			is_active = false
-
+			emit_signal("changed")
+			emit_signal("round_won")
+		else:
+			emit_signal("changed")
 		return true
-
+	wrong_letters.append(letter)
 	mistakes += 1
-
 	if mistakes >= max_mistakes:
 		is_active = false
-
+		emit_signal("changed")
+		emit_signal("round_lost")
+	else:
+		emit_signal("changed")
 	return false
 
+func _reveal_letter(letter: String) -> bool:
+	var found := false
+	for i in range(letters.size()):
+		if letters[i] == letter:
+			revealed[i] = true
+			found = true
+	if found and !correct_letters.has(letter):
+		correct_letters.append(letter)
+	return found
 
-# -----------------------------
-# STATE CHECKS
-# -----------------------------
-
-func is_word_completed() -> bool:
-
-	for c in letters:
-
-		if c == " " or c == "-":
-			continue
-
-		if !opened_letters.has(c):
-			return false
-
+func use_open_letter_hint() -> bool:
+	if !is_active:
+		return false
+	var candidates: Array = []
+	for i in range(letters.size()):
+		if !bool(revealed[i]) and !_is_separator(letters[i]):
+			candidates.append(i)
+	if candidates.is_empty():
+		return false
+	var index: int = candidates[randi() % candidates.size()]
+	_reveal_letter(letters[index])
+	if mode == 1:
+		GameState.current_score = max(0, GameState.current_score - 7)
+	if is_word_completed():
+		is_active = false
+		emit_signal("changed")
+		emit_signal("round_won")
+	else:
+		emit_signal("changed")
 	return true
 
+func use_remove_wrong_hint() -> bool:
+	if !is_active:
+		return false
+	var alphabet := Database.get_alphabet()
+	var candidates: Array = []
+	for letter in alphabet:
+		if !letters.has(letter) and !wrong_letters.has(letter) and !removed_wrong_letters.has(letter):
+			candidates.append(letter)
+	if candidates.is_empty():
+		return false
+	var removed: String = candidates[randi() % candidates.size()]
+	removed_wrong_letters.append(removed)
+	if mode == 1:
+		GameState.current_score = max(0, GameState.current_score - 3)
+	emit_signal("changed")
+	return true
+
+func give_up() -> void:
+	if !is_active:
+		return
+	is_active = false
+	emit_signal("changed")
+	emit_signal("round_lost")
+
+func get_masked_word() -> String:
+	if letters.is_empty():
+		return ""
+	var output := PackedStringArray()
+	for i in range(letters.size()):
+		output.append(letters[i] if bool(revealed[i]) else "_")
+	return " ".join(output)
+
+func get_full_word() -> String:
+	return "" if word_data == null else word_data.text
+
+func is_word_completed() -> bool:
+	for i in range(letters.size()):
+		if !_is_separator(letters[i]) and !bool(revealed[i]):
+			return false
+	return letters.size() > 0
 
 func is_lost() -> bool:
 	return mistakes >= max_mistakes
 
-
 func is_won() -> bool:
 	return is_word_completed()
+
+func tries_left() -> int:
+	return max(0, max_mistakes - mistakes)
+
+func finish_result(is_win: bool) -> Dictionary:
+	var result := {
+		"title": Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT"),
+		"lines": []
+	}
+	if word_data == null:
+		return result
+
+	if mode == 0:
+		var diff := int(word_data.difficulty)
+		if is_win:
+			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
+			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
+				GameState.records[0][2 + diff] = int(GameState.records[0][diff])
+				result["lines"].append(Database.tr_text(63, "New record!"))
+			if theme_id >= 0:
+				GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
+		else:
+			GameState.records[0][diff] = 0
+	elif mode == 1:
+		if is_win:
+			GameState.records[2][0] = int(GameState.records[2][0]) + 1
+			GameState.current_score += max(0, 105 - 15 * mistakes)
+			if int(GameState.records[2][0]) > int(GameState.records[2][1]):
+				GameState.records[2][1] = int(GameState.records[2][0])
+		else:
+			GameState.current_score = max(0, GameState.current_score - 15)
+		if theme_id >= 0 and is_win:
+			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
+	elif mode == 2:
+		if is_win:
+			GameState.records[1][0] = int(GameState.records[1][0]) + 1
+		else:
+			GameState.records[1][1] = int(GameState.records[1][1]) + 1
+
+	GameState.save_game()
+	return result

@@ -15,7 +15,7 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="WordLabel" type="Control" parent="UI" unique_id=282969882]
+[node name="WordLabel" type="Label" parent="UI" unique_id=282969882]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
@@ -27,13 +27,13 @@ anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="NumbTries" type="Control" parent="UI" unique_id=717119810]
+[node name="NumbTries" type="Label" parent="UI" unique_id=717119810]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="ThemeLabel" type="Control" parent="UI" unique_id=1410478524]
+[node name="ThemeLabel" type="Label" parent="UI" unique_id=1410478524]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
