@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://flash_assets/LastChanceEn_2_png.png" id="1_texture"]
+
+[node name="LastChanceEn_2_png" type="Node2D"]
+use_parent_material = true
+
+[node name="bitmap" type="Sprite2D" parent="."]
+centered = false
+scale = Vector2(4.1667, 4.1667)
+texture = ExtResource("1_texture")
+use_parent_material = true

@@ -24,6 +24,8 @@ GameSession="*uid://dct6g2n5b3fkn"
 
 [display]
 
+window/size/viewport_width=800
+window/size/viewport_height=480
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

@@ -369,7 +369,7 @@ use_parent_material = false
 libraries = {
 "": SubResource("lib_316982441")
 }
-autoplay = "default"
+autoplay = ""
 
 [node name="_____2" type="Node2D" parent="."]
 use_parent_material = true
