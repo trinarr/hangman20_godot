@@ -5,6 +5,9 @@ const ROUND_BUTTON_SIZE: Vector2 = Vector2(62.0, 62.0)
 const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
 const THEME_BUTTON_SIZE: Vector2 = Vector2(241.0, 91.0)
 const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
+const HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE: float = 0.65
+const HERO_MOV_START_FRAME_TIME: float = 0.0
+const HERO_MOV_IDLE_FRAME_TIME: float = 4.0 / 24.0
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_button.gd")
@@ -16,6 +19,10 @@ const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_butt
 const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
 const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_round_button_38.png")
+const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
+const ROUND_BUTTON_ACHIEVEMENTS_ICON: Texture2D = preload("res://flash_assets/_____________png.png")
+const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
+const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/NewForThemes_png.png")
 const HINT_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/ButForPdsk_png.png")
 const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_open_18.png")
@@ -29,6 +36,8 @@ const LETTER_CORRECT_TEXTURE: Texture2D = preload("res://img/_______435______2_0
 const LETTER_WRONG_TEXTURE: Texture2D = preload("res://img/_______430______1_0_SHAPE_0_BOUNDS_3.99_8.74_SIZE_186_177.png")
 const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
 const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
+const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
+const HERO_AVATAR_TIGRE_TEXTURE: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 
 var art_root: FlashBackdrop
 var ui: Control
@@ -40,6 +49,8 @@ var last_result_data: Dictionary = {}
 var custom_word_edit: LineEdit
 var custom_comment_edit: TextEdit
 var word_info_visible: bool = false
+var hero_animation_overlay: FlashStageSymbol = null
+var hero_static_symbol: FlashStageSymbol = null
 
 func _ready() -> void:
 	randomize()
@@ -71,6 +82,8 @@ func _build_root() -> void:
 	add_child(game_timer)
 
 func _clear(symbol_path: String = "") -> void:
+	_clear_hero_animation_overlay()
+	_remove_character_select_popup()
 	if art_root != null:
 		art_root.show_screen(symbol_path)
 	for child: Node in ui.get_children():
@@ -257,7 +270,93 @@ func show_menu() -> void:
 	# Head is shifted by x = -50 in MainMenu.xml, so Head.But1/But2
 	# are at 542/619 inside Head but 492/569 on the stage.
 	_stage_texture_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_texture(Rect2(515.0, 46.0, 17.0, 18.0), ROUND_BUTTON_RECORDS_ICON)
 	_stage_texture_button(Rect2(569.0, 24.0, 62.0, 62.0), Callable(self, "show_settings"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_texture(Rect2(589.0, 43.0, 29.0, 24.0), ROUND_BUTTON_ACHIEVEMENTS_ICON)
+	_stage_main_menu_character_button()
+
+
+func _stage_main_menu_character_button() -> void:
+	# Exact MainMenu.xml placement from the original FLA:
+	# HeroMov is at (716, 23) inside Head, and Head is shifted by x = -50.
+	# The separate blue tail bitmap is at (714, 112), also inside Head.
+	# Draw both original assets instead of synthesizing a rounded rectangle or
+	# masking the bottom with a solid block.
+	_stage_texture(Rect2(664.0, 112.0, 115.0, 33.0), HERO_BADGE_TAIL_TEXTURE)
+	_stage_texture(Rect2(666.0, 23.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
+	if _selected_character_id() == 2:
+		_stage_texture(Rect2(684.0, 53.0, 76.0, 67.0), HERO_AVATAR_TIGRE_TEXTURE)
+	else:
+		_stage_texture(Rect2(695.0, 50.0, 54.0, 58.0), HERO_AVATAR_LAKI_TEXTURE)
+	_stage_button(Rect2(654.0, 11.0, 135.0, 145.0), Callable(self, "_show_character_select_popup"), "")
+
+func _selected_character_id() -> int:
+	if GameState.settings.size() > 5:
+		return int(GameState.settings[5])
+	return 1
+
+func _show_character_select_popup() -> void:
+	_remove_character_select_popup()
+
+	var previous_content: Control = content
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "CharacterSelectPopupCanvas"
+	popup_layer.layer = 100
+	popup_layer.add_to_group("character_select_popup")
+	add_child(popup_layer)
+
+	var popup_root: Control = Control.new()
+	popup_root.name = "CharacterSelectPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
+	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_character_select_popup"), "")
+
+	var popup_x: float = 56.0
+	var popup_width: float = 648.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), "Выберите персонажа:", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_character_select_popup"), "×")
+
+	_stage_character_option(1, Rect2(190.0, 150.0, 130.0, 130.0), "ЛЯКИ", HERO_AVATAR_LAKI_TEXTURE, Rect2(224.0, 180.0, 64.0, 69.0))
+	_stage_character_option(2, Rect2(480.0, 150.0, 130.0, 130.0), "ЭЛЬ ТИГРЕ", HERO_AVATAR_TIGRE_TEXTURE, Rect2(498.0, 188.0, 94.0, 82.0))
+
+	content = previous_content
+
+func _stage_character_option(character_id: int, circle_rect: Rect2, label_text: String, avatar_texture: Texture2D, avatar_rect: Rect2) -> void:
+	var selected := _selected_character_id() == character_id
+	var halo_color := Color(0.336, 0.388, 0.717, 0.86) if selected else Color(0.336, 0.388, 0.717, 0.42)
+	_stage_panel(Rect2(circle_rect.position - Vector2(14.0, 14.0), circle_rect.size + Vector2(28.0, 28.0)), halo_color, (circle_rect.size.x + 28.0) * 0.5)
+	_stage_panel(circle_rect, Color.WHITE, circle_rect.size.x * 0.5, Color(0.82, 0.56, 0.34, 1.0), 3.0)
+	_stage_texture(avatar_rect, avatar_texture)
+	_stage_label(Rect2(circle_rect.position.x - 55.0, circle_rect.position.y + 155.0, circle_rect.size.x + 110.0, 42.0), label_text, 27, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	_stage_button(Rect2(circle_rect.position - Vector2(20.0, 20.0), circle_rect.size + Vector2(40.0, 88.0)), Callable(self, "_select_character").bind(character_id), "")
+
+func _select_character(character_id: int) -> void:
+	while GameState.settings.size() <= 5:
+		GameState.settings.append(1)
+	GameState.settings[5] = character_id
+	GameState.save_game()
+	_remove_character_select_popup()
+	show_menu()
+
+func _remove_character_select_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("character_select_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func _continue_saved_game() -> void:
 	if GameSession.is_active or GameSession.word_data != null:
@@ -477,7 +576,7 @@ func _refresh_game_screen() -> void:
 	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
 
-	_stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), 4.0 / 24.0)
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
 
 	var alphabet := Database.get_alphabet()
 	var keyboard_start_x: float = 258.0
@@ -553,6 +652,40 @@ func _game_header_action() -> void:
 	else:
 		show_theme_select()
 
+
+func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
+	_clear_hero_animation_overlay()
+	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
+		hero_static_symbol.visible = false
+	var overlay := FlashStageSymbol.new()
+	overlay.name = "HeroAnimationOverlay"
+	overlay.z_index = 150
+	overlay.symbol_path = _hero_symbol_path()
+	overlay.stage_position = Vector2(26.0, 324.0)
+	# In the original AS3 HeroTries.Adder(0) does HeroMov.nextFrame().
+	# The visible animation is not the one-frame jump on HeroType1/2 itself;
+	# it is the nested HeroMov.Mov timeline of the newly selected frame.
+	overlay.animation_time = _hero_animation_time_for_mistakes(current_mistakes)
+	overlay.nested_animation_time = HERO_MOV_START_FRAME_TIME
+	overlay.playback_finished.connect(_on_hero_wrong_guess_animation_finished)
+	add_child(overlay)
+	hero_animation_overlay = overlay
+	overlay.call_deferred("play_nested_range", _hero_animation_time_for_mistakes(current_mistakes), HERO_MOV_START_FRAME_TIME, HERO_MOV_IDLE_FRAME_TIME, HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE)
+
+func _clear_hero_animation_overlay() -> void:
+	if hero_animation_overlay != null and is_instance_valid(hero_animation_overlay):
+		hero_animation_overlay.queue_free()
+	hero_animation_overlay = null
+	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
+		hero_static_symbol.visible = true
+
+func _on_hero_wrong_guess_animation_finished() -> void:
+	_clear_hero_animation_overlay()
+
+func _hero_animation_time_for_mistakes(mistake_count: int) -> float:
+	var frame_index: int = clampi(mistake_count + 1, 1, 6)
+	return float(frame_index) / 24.0
+
 func _hero_symbol_path() -> String:
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
 		return HERO_TYPE_2_SYMBOL
@@ -561,11 +694,13 @@ func _hero_symbol_path() -> String:
 func _hero_animation_time() -> float:
 	# HeroTries.Adder(0) calls nextFrame() immediately, so the first visible
 	# gameplay pose is one Flash frame after the default frame.
-	var frame_index: int = clampi(GameSession.mistakes + 1, 1, 6)
-	return float(frame_index) / 24.0
+	return _hero_animation_time_for_mistakes(GameSession.mistakes)
 
 func _press_letter(letter: String) -> void:
+	var previous_mistakes: int = GameSession.mistakes
 	GameSession.guess(letter)
+	if GameSession.mistakes > previous_mistakes:
+		_play_hero_wrong_guess_animation(previous_mistakes, GameSession.mistakes)
 
 func _use_open_hint() -> void:
 	GameSession.use_open_letter_hint()
@@ -683,41 +818,51 @@ func _show_word_comment_popup() -> void:
 
 	_remove_word_comment_popup()
 
-	# PoiasnOk.as adds the comment dialog to Main at depth 2, above the game
-	# screen, and puts TemnMov under it to darken and block the whole stage.
-	# Keep the popup in a separate top z-index layer so gameplay controls and
-	# header buttons can not draw over it or receive clicks through it.
+	# PoiasnOk.as adds the comment dialog above the whole game screen together
+	# with a dark blocker (TemnMov). Use a dedicated CanvasLayer so the popup
+	# always sits above the character art and every other runtime control.
 	var previous_content: Control = content
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "WordCommentPopupCanvas"
+	popup_layer.layer = 100
+	popup_layer.add_to_group("word_comment_popup")
+	add_child(popup_layer)
+
 	var popup_root: Control = Control.new()
 	popup_root.name = "WordCommentPopupLayer"
 	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_root.z_index = 10000
-	popup_root.add_to_group("word_comment_popup")
-	ui.add_child(popup_root)
+	popup_layer.add_child(popup_root)
 	content = popup_root
 
-	# TemnMov: dim stage behind the modal.  A transparent full-stage button above
-	# the dimmer reproduces PoiasnOk.ExtMouseClick(): click outside the blue
-	# dialog closes it, while the dialog panels themselves stop mouse input.
+	# TemnMov: dim stage behind the modal. A full-screen invisible button above
+	# the dimmer reproduces PoiasnOk.ExtMouseClick() and closes the dialog when
+	# the user clicks outside the blue popup window.
 	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
 	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_word_comment_popup"), "")
 
-	var header := _stage_panel(Rect2(70.0, 0.0, 660.0, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var popup_x: float = 56.0
+	var popup_width: float = 648.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(70.0, 87.0, 660.0, 253.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 278.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(70.0, 87.0, 660.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bottom_separator := _stage_panel(Rect2(popup_x + 33.0, 295.0, popup_width - 66.0, 2.0), Color(0.4509, 0.4862, 0.7607, 0.75))
+	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var title_label := _stage_label(Rect2(91.0, 23.0, 473.0, 40.0), Database.tr_text(47, "Comment"), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 360.0, 50.0), Database.tr_text(47, "Comment"), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var hint_label := _stage_label(Rect2(107.0, 114.0, 583.0, 139.0), hint, 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.clip_text = false
+	var hint_label := _stage_label(Rect2(popup_x + 37.0, 114.0, popup_width - 74.0, 115.0), hint, 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	var theme_label := _stage_label(Rect2(234.0, 288.0, 410.0, 34.0), _current_word_source_label(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	hint_label.clip_text = false
+	var theme_label := _stage_label(Rect2(popup_x + 330.0, 314.0, 265.0, 34.0), _current_word_source_label(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	theme_label.clip_text = false
 
-	_stage_round_button(Rect2(645.0, 11.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_word_comment_popup"), "×")
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_word_comment_popup"), "×")
 
 	content = previous_content
 

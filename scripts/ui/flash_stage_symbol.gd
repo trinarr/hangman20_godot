@@ -1,6 +1,8 @@
 class_name FlashStageSymbol
 extends Node2D
 
+signal playback_finished
+
 const STAGE_SIZE: Vector2 = Vector2(800.0, 480.0)
 const FLASH_TO_GODOT_SCALE: float = 0.24
 
@@ -25,10 +27,15 @@ var nested_animation_time: float = -1.0:
 		_apply_animation_time()
 
 var _symbol_instance: Node = null
+var _playback_player: AnimationPlayer = null
+var _playback_end_time: float = -1.0
+var _playback_nested_time: float = -1.0
+var _playback_speed_scale: float = 1.0
 
 func _ready() -> void:
 	if !get_viewport().size_changed.is_connected(_sync_to_stage):
 		get_viewport().size_changed.connect(_sync_to_stage)
+	set_process(false)
 	_reload_symbol()
 	_sync_to_stage()
 
@@ -37,6 +44,7 @@ func _exit_tree() -> void:
 		get_viewport().size_changed.disconnect(_sync_to_stage)
 
 func _reload_symbol() -> void:
+	_stop_playback_state()
 	if _symbol_instance != null:
 		remove_child(_symbol_instance)
 		_symbol_instance.queue_free()
@@ -86,3 +94,116 @@ func _sync_to_stage() -> void:
 	var stage_offset: Vector2 = (viewport_size - STAGE_SIZE * fit_scale) * 0.5
 	position = stage_offset + stage_position * fit_scale
 	scale = Vector2.ONE * FLASH_TO_GODOT_SCALE * fit_scale
+
+func play_range(start_time: float, end_time: float, nested_time: float = -1.0, playback_speed_scale: float = 1.0) -> void:
+	if _symbol_instance == null:
+		return
+	var player := _find_first_animation_player(_symbol_instance)
+	if player == null or !player.has_animation("default"):
+		animation_time = end_time
+		nested_animation_time = nested_time
+		_apply_animation_time()
+		emit_signal("playback_finished")
+		return
+	_stop_playback_state()
+	_playback_player = player
+	_playback_end_time = maxf(end_time, 0.0)
+	_playback_nested_time = nested_time
+	_playback_speed_scale = maxf(playback_speed_scale, 0.01)
+	if nested_time >= 0.0:
+		_apply_nested_animation_time(_symbol_instance, nested_time, _playback_player)
+	_playback_player.speed_scale = _playback_speed_scale
+	_playback_player.play("default")
+	_playback_player.seek(maxf(start_time, 0.0), true)
+	set_process(true)
+
+func play_nested_range(root_time: float, nested_start_time: float, nested_end_time: float, playback_speed_scale: float = 1.0) -> void:
+	if _symbol_instance == null:
+		return
+	var root_player := _find_first_animation_player(_symbol_instance)
+	animation_time = root_time
+	nested_animation_time = nested_start_time
+	_apply_animation_time()
+
+	var nested_player := _find_first_visible_nested_animation_player(_symbol_instance, root_player)
+	if nested_player == null or !nested_player.has_animation("default"):
+		nested_animation_time = nested_end_time
+		_apply_animation_time()
+		emit_signal("playback_finished")
+		return
+
+	_stop_playback_state()
+	_playback_player = nested_player
+	_playback_end_time = maxf(nested_end_time, 0.0)
+	_playback_nested_time = maxf(nested_end_time, 0.0)
+	_playback_speed_scale = maxf(playback_speed_scale, 0.01)
+	_playback_player.speed_scale = _playback_speed_scale
+	_playback_player.play("default")
+	_playback_player.seek(maxf(nested_start_time, 0.0), true)
+	set_process(true)
+
+func _process(_delta: float) -> void:
+	if _playback_player == null:
+		set_process(false)
+		return
+	if _playback_player.current_animation != "default":
+		_stop_playback_state()
+		emit_signal("playback_finished")
+		return
+	if _playback_player.current_animation_position + 0.0005 >= _playback_end_time:
+		_playback_player.seek(_playback_end_time, true)
+		_playback_player.stop(true)
+		if _playback_nested_time >= 0.0:
+			nested_animation_time = _playback_nested_time
+		else:
+			animation_time = _playback_end_time
+		_apply_animation_time()
+		_stop_playback_state()
+		emit_signal("playback_finished")
+
+func _stop_playback_state() -> void:
+	set_process(false)
+	if _playback_player != null:
+		_playback_player.speed_scale = 1.0
+	_playback_player = null
+	_playback_end_time = -1.0
+	_playback_nested_time = -1.0
+	_playback_speed_scale = 1.0
+
+func _find_first_animation_player(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child: Node in node.get_children():
+		var found := _find_first_animation_player(child)
+		if found != null:
+			return found
+	return null
+
+func _find_first_visible_nested_animation_player(node: Node, skip_player: AnimationPlayer = null) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		var player: AnimationPlayer = node as AnimationPlayer
+		if player != skip_player and player.has_animation("default") and _is_node_visible_through_parents(player):
+			return player
+	for child: Node in node.get_children():
+		var found := _find_first_visible_nested_animation_player(child, skip_player)
+		if found != null:
+			return found
+	return null
+
+func _is_node_visible_through_parents(node: Node) -> bool:
+	var current: Node = node
+	while current != null and current != self:
+		if current is CanvasItem and !(current as CanvasItem).visible:
+			return false
+		current = current.get_parent()
+	return true
+
+func _apply_nested_animation_time(node: Node, target_time: float, skip_player: AnimationPlayer = null) -> void:
+	if node is AnimationPlayer:
+		var player: AnimationPlayer = node as AnimationPlayer
+		if player != skip_player and player.has_animation("default"):
+			player.play("default")
+			player.seek(maxf(target_time, 0.0), true)
+			player.stop(true)
+	for child: Node in node.get_children():
+		_apply_nested_animation_time(child, target_time, skip_player)
