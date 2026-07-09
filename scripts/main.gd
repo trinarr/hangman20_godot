@@ -1,19 +1,35 @@
 extends Node2D
 
-const MENU_BUTTON_SIZE: Vector2 = Vector2(211.0, 60.0)
-const ROUND_BUTTON_SIZE: Vector2 = Vector2(68.0, 68.0)
+const MENU_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
+const ROUND_BUTTON_SIZE: Vector2 = Vector2(62.0, 62.0)
+const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
 const THEME_BUTTON_SIZE: Vector2 = Vector2(241.0, 91.0)
 const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_button.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
+const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
+const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 
-const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/____________________png.png")
-const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/____________________2_png.png")
-const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/____________1_png.png")
-const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/____________2_png.png")
+const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
+const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
+const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_round_button_36.png")
+const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/NewForThemes_png.png")
+const HINT_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/ButForPdsk_png.png")
+const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_open_18.png")
+const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_remove_15.png")
+const HINT_ICON_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
+const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_45.png")
+const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_43.png")
+const COMMENT_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
+const COMMENT_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
+const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
+const LETTER_CORRECT_TEXTURE: Texture2D = preload("res://img/_______435______2_0_SHAPE_0_BOUNDS_-1.96_-1.96_SIZE_211_211.png")
+const LETTER_WRONG_TEXTURE: Texture2D = preload("res://img/_______430______1_0_SHAPE_0_BOUNDS_3.99_8.74_SIZE_186_177.png")
+const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
+const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 
 var art_root: FlashBackdrop
 var ui: Control
@@ -128,6 +144,17 @@ func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Text
 	return button
 
 
+
+func _stage_symbol(symbol_path: String, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> Node2D:
+	var symbol: Node2D = FLASH_STAGE_SYMBOL_SCRIPT.new() as Node2D
+	symbol.z_index = 5
+	content.add_child(symbol)
+	symbol.set("symbol_path", symbol_path)
+	symbol.set("stage_position", stage_position)
+	symbol.set("animation_time", animation_time)
+	symbol.set("nested_animation_time", nested_animation_time)
+	return symbol
+
 func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, border_color: Color = Color(0.0, 0.0, 0.0, 0.0), border_width: float = 0.0) -> Control:
 	var panel: Control = FLASH_STAGE_PANEL_SCRIPT.new() as Control
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -138,6 +165,14 @@ func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, bo
 	content.add_child(panel)
 	panel.set("stage_rect", rect)
 	return panel
+
+func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
+	var node: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.set("texture", texture)
+	content.add_child(node)
+	node.set("stage_rect", rect)
+	return node
 
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false) -> Control:
 	return _stage_texture_button(rect, callable, MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, text, font_size, disabled)
@@ -200,19 +235,21 @@ func _button_text_color() -> Color:
 func show_menu() -> void:
 	game_timer.stop()
 	_clear("res://symbols/MainMenu.tscn")
+	_stage_texture(Rect2(0.0, 118.0, 800.0, 362.0), MENU_PAPER_COVER)
 
 	# MainMenu.as wires clicks directly to Flash button symbols.  Native Godot
 	# hitboxes must therefore sit exactly over those symbols, not over labels
 	# or the character image.  The button artwork is also drawn here so Godot
 	# can show the Flash up/down states instead of leaving symbols static.
 	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(284.0, 112.0, 300.0, 48.0), Database.tr_text(77, "Welcome back!"), 28, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 
 	_stage_texture_button(Rect2(161.0, 188.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(1, "Classic"), 20)
 	_stage_texture_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_time_attack"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(2, "Time Attack"), 20)
 	_stage_texture_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(3, "Two Player"), 20)
 
 	var has_saved_game: bool = bool(GameSession.is_active) or GameSession.word_data != null
-	_stage_label(Rect2(470.0, 183.0, 245.0, 48.0), Database.tr_text(4, "Continue") if has_saved_game else "Незавершенных игр\nне найдено", 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
+	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), Database.tr_text(78, "Continue in\nTime Attack mode") if has_saved_game else "Незавершенных игр\nне найдено", 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 	_stage_texture_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(4, "Continue"), 20, !has_saved_game)
 	_stage_texture_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(5, "Settings"), 20)
 
@@ -406,7 +443,12 @@ func _is_valid_custom_word(word: String) -> bool:
 	return has_letter
 
 func show_game_screen() -> void:
-	_clear("res://symbols/GameMov.tscn")
+	# The converted GameMov scene contains button frame debris and large nested
+	# helper symbols that the original AS3 created/controlled at runtime.  Drawing
+	# it as a static backdrop caused the white dead spots and wrong orange button
+	# ghosts on the gameplay screen.  Rebuild this screen from MainFon + runtime
+	# Flash-stage controls instead.
+	_clear("")
 	_refresh_game_screen()
 
 func _refresh_game_screen() -> void:
@@ -419,45 +461,110 @@ func _refresh_game_screen() -> void:
 		content.remove_child(child)
 		child.queue_free()
 
-	_stage_label(Rect2(27.0, 23.0, 625.0, 58.0), GameSession.get_masked_word(), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var theme_text := Database.tr_text(46, "No category") if GameSession.theme_id < 0 else Database.tr_text(48, "Category:") + " " + Database.get_theme_name(GameSession.theme_id)
-	_stage_label(Rect2(26.0, 100.0, 610.0, 28.0), theme_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	# GameMov.as creates the header at y=0 and the original AIR runtime moves
+	# the hint/comment controls to the bottom safe area.  These elements are not
+	# present as static FLA instances, so the Godot layer must rebuild them in
+	# stage coordinates instead of using generic text buttons.
+	_stage_panel(Rect2(-50.0, 0.0, 900.0, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_panel(Rect2(-50.0, 387.0, 900.0, 93.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+
+	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	if GameState.current_mode == 1:
 		_stage_label(Rect2(49.0, 0.0, 180.0, 60.0), _format_time(GameState.current_time_left), 24, Color.WHITE)
 		_stage_label(Rect2(70.0, 112.0, 180.0, 32.0), Database.tr_text(44, "Score") + ": " + str(GameState.current_score), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_toggle_word_info"), "?")
+	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
-	_stage_label(Rect2(22.0, 382.0, 220.0, 34.0), Database.tr_text(58, "Tries left:") + " " + str(GameSession.tries_left()), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	if word_info_visible:
-		var open_hint := _stage_button(Rect2(324.0, 126.0, 95.0, 51.0), Callable(self, "_use_open_hint"), "+1", 18)
-		open_hint.disabled = !GameSession.can_use_open_letter_hint()
-		var remove_hint := _stage_button(Rect2(437.0, 126.0, 95.0, 51.0), Callable(self, "_use_remove_hint"), "−", 18)
-		remove_hint.disabled = !GameSession.can_use_remove_wrong_hint()
-		var info_label := Database.tr_text(26, "About the word") if GameSession.theme_id >= 0 else Database.tr_text(47, "Comment")
-		var info_button := _stage_button(Rect2(601.0, 126.0, 170.0, 51.0), Callable(self, "_open_word_search"), info_label, 14)
-		info_button.disabled = GameSession.get_word_hint() == ""
-		if GameSession.get_word_hint() != "":
-			_stage_label(Rect2(324.0, 181.0, 420.0, 70.0), GameSession.get_word_hint(), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), 4.0 / 24.0)
 
 	var alphabet := Database.get_alphabet()
+	var keyboard_start_x: float = 258.0
+	var keyboard_start_y: float = 138.0
+	var keyboard_step_x: float = 65.0
+	var keyboard_step_y: float = 58.0
+	var marker_size: Vector2 = Vector2(56.0, 56.0)
 	for i in range(alphabet.size()):
-		var letter := alphabet[i]
-		var row := int(i / 8)
-		var col := i % 8
-		var x := 258.0 + float(col) * 65.0
-		var y := 215.0 + float(row) * 61.0
-		var button := _stage_button(Rect2(x, y, KEY_BUTTON_SIZE.x, KEY_BUTTON_SIZE.y), Callable(self, "_press_letter").bind(letter), letter, 22)
-		button.disabled = !GameSession.is_active or GameSession.correct_letters.has(letter) or GameSession.wrong_letters.has(letter) or GameSession.removed_wrong_letters.has(letter)
-		if GameSession.correct_letters.has(letter):
-			button.text = "✓"
-		elif GameSession.wrong_letters.has(letter):
-			button.text = "✕"
-		elif GameSession.removed_wrong_letters.has(letter):
-			button.text = "–"
-	_stage_button(Rect2(22.0, 425.0, 170.0, 42.0), Callable(self, "_give_up"), Database.tr_text(16, "Give up"), 16)
-	_stage_button(Rect2(198.0, 425.0, 170.0, 42.0), Callable(self, "show_theme_select"), Database.tr_text(52, "Change category"), 14)
+		var letter: String = alphabet[i]
+		var row: int = int(i / 8)
+		var col: int = i % 8
+		var x: float = keyboard_start_x + float(col) * keyboard_step_x
+		var y: float = keyboard_start_y + float(row) * keyboard_step_y
+		var was_correct: bool = GameSession.correct_letters.has(letter)
+		var was_wrong: bool = GameSession.wrong_letters.has(letter)
+		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
+		var letter_color: Color = Color(0.2706, 0.3098, 0.6078, 1.0)
+		if was_correct:
+			letter_color = Color(0.42, 0.69, 0.58, 1.0)
+		elif was_wrong or was_removed:
+			letter_color = Color(0.84, 0.59, 0.64, 1.0)
+
+		var key_rect := Rect2(x, y, KEY_BUTTON_SIZE.x, KEY_BUTTON_SIZE.y)
+		var marker_rect := Rect2(
+			key_rect.position + (key_rect.size - marker_size) * 0.5 + Vector2(0.0, -1.0),
+			marker_size
+		)
+		var label_rect := Rect2(
+			key_rect.position + Vector2(-6.0, -7.0),
+			Vector2(KEY_BUTTON_SIZE.x + 12.0, KEY_BUTTON_SIZE.y + 12.0)
+		)
+		if was_correct:
+			# Keep the original circle art, but center it around the live key rect
+			# instead of using fixed offsets that drift away from the glyph.
+			_stage_texture(marker_rect, LETTER_CORRECT_TEXTURE)
+		elif was_wrong or was_removed:
+			# Same for the wrong-letter slash marker.
+			_stage_texture(marker_rect, LETTER_WRONG_TEXTURE)
+		_stage_label(label_rect, letter, 32, letter_color)
+		var button := _stage_button(key_rect, Callable(self, "_press_letter").bind(letter), "", 22)
+		button.disabled = !GameSession.is_active or was_correct or was_wrong or was_removed
+
+	var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
+	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
+	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
+
+	# Match the original Flash hint controls: first hint is blue with a check,
+	# second hint is orange with a cross. The icons are drawn as separate
+	# stage-space textures so the button bitmap itself is not distorted.
+	_stage_texture_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), HINT_OPEN_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled)
+	_stage_texture(Rect2(196.0, 413.0, 28.0, 28.0), HINT_ICON_RING_TEXTURE)
+	_stage_texture(Rect2(198.0, 420.0, 22.0, 14.0), HINT_ICON_CHECK_TEXTURE)
+
+	_stage_texture_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_REMOVE_BUTTON_TEXTURE, "", 26, remove_hint_disabled)
+	_stage_texture(Rect2(309.0, 413.0, 28.0, 28.0), HINT_ICON_RING_TEXTURE)
+	_stage_texture(Rect2(314.0, 418.0, 18.0, 18.0), HINT_ICON_CROSS_TEXTURE)
+
+	_stage_texture_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), COMMENT_BUTTON_NORMAL, COMMENT_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 18, comment_disabled)
+
+func _game_header_icon() -> String:
+	if GameState.current_mode == 1:
+		return "■"
+	if GameState.current_mode == 2:
+		return "↻"
+	return "☰"
+
+func _game_header_action() -> void:
+	if GameState.current_mode == 1:
+		game_finished = true
+		last_result_is_win = false
+		last_result_data = GameSession.finish_time_attack_timeout()
+		game_timer.stop()
+		show_result_screen(false, last_result_data)
+	elif GameState.current_mode == 2:
+		show_custom_word()
+	else:
+		show_theme_select()
+
+func _hero_symbol_path() -> String:
+	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
+		return HERO_TYPE_2_SYMBOL
+	return HERO_TYPE_1_SYMBOL
+
+func _hero_animation_time() -> float:
+	# HeroTries.Adder(0) calls nextFrame() immediately, so the first visible
+	# gameplay pose is one Flash frame after the default frame.
+	var frame_index: int = clampi(GameSession.mistakes + 1, 1, 6)
+	return float(frame_index) / 24.0
 
 func _press_letter(letter: String) -> void:
 	GameSession.guess(letter)
@@ -570,6 +677,63 @@ func _format_time(seconds: int) -> String:
 	var minutes := int(seconds / 60)
 	var sec := int(seconds % 60)
 	return "%02d:%02d" % [minutes, sec]
+
+func _show_word_comment_popup() -> void:
+	var hint: String = GameSession.get_word_hint().strip_edges()
+	if hint == "":
+		return
+
+	_remove_word_comment_popup()
+
+	# PoiasnOk.as adds the comment dialog to Main at depth 2, above the game
+	# screen, and puts TemnMov under it to darken and block the whole stage.
+	# Keep the popup in a separate top z-index layer so gameplay controls and
+	# header buttons can not draw over it or receive clicks through it.
+	var previous_content: Control = content
+	var popup_root: Control = Control.new()
+	popup_root.name = "WordCommentPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_root.z_index = 10000
+	popup_root.add_to_group("word_comment_popup")
+	ui.add_child(popup_root)
+	content = popup_root
+
+	# TemnMov: dim stage behind the modal.  A transparent full-stage button above
+	# the dimmer reproduces PoiasnOk.ExtMouseClick(): click outside the blue
+	# dialog closes it, while the dialog panels themselves stop mouse input.
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
+	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_word_comment_popup"), "")
+
+	var header := _stage_panel(Rect2(70.0, 0.0, 660.0, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(70.0, 87.0, 660.0, 253.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var separator := _stage_panel(Rect2(70.0, 87.0, 660.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(91.0, 23.0, 473.0, 40.0), Database.tr_text(47, "Comment"), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var hint_label := _stage_label(Rect2(107.0, 114.0, 583.0, 139.0), hint, 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	var theme_label := _stage_label(Rect2(234.0, 288.0, 410.0, 34.0), _current_word_source_label(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+
+	_stage_round_button(Rect2(645.0, 11.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_word_comment_popup"), "×")
+
+	content = previous_content
+
+func _current_word_source_label() -> String:
+	if GameState.current_mode == 2 or GameSession.theme_id < 0:
+		return Database.tr_text(46, "Word from player")
+	return Database.tr_text(48, "Category") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
+
+func _remove_word_comment_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("word_comment_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func _open_word_search() -> void:
 	var word := GameSession.get_full_word().strip_edges()
