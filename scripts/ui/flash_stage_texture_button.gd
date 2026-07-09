@@ -25,6 +25,11 @@ var texture_disabled: Texture2D:
 		texture_disabled = value
 		queue_redraw()
 
+var disabled_overlay_alpha: float = 0.32:
+	set(value):
+		disabled_overlay_alpha = value
+		queue_redraw()
+
 var disabled: bool = false:
 	set(value):
 		disabled = value
@@ -57,8 +62,8 @@ func _draw() -> void:
 		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false)
 	if _is_down and texture_pressed == texture_normal:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.14), true)
-	if disabled:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 1.0, 1.0, 0.32), true)
+	if disabled and disabled_overlay_alpha > 0.0:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 1.0, 1.0, disabled_overlay_alpha), true)
 
 func _gui_input(event: InputEvent) -> void:
 	if disabled:

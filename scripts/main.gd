@@ -20,9 +20,8 @@ const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/NewForThemes_p
 const HINT_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/ButForPdsk_png.png")
 const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_open_18.png")
 const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_remove_15.png")
-const HINT_ICON_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
-const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_45.png")
-const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_43.png")
+const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
+const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const COMMENT_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
 const COMMENT_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
@@ -117,12 +116,14 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.set("stage_rect", rect)
 	return button
 
-func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Texture2D, pressed_texture: Texture2D, text: String = "", font_size: int = 20, disabled: bool = false) -> Control:
+func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Texture2D, pressed_texture: Texture2D, text: String = "", font_size: int = 20, disabled: bool = false, disabled_texture: Texture2D = null, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: Control = FLASH_STAGE_TEXTURE_BUTTON_SCRIPT.new() as Control
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.set("texture_normal", normal_texture)
 	button.set("texture_pressed", pressed_texture)
 	button.set("disabled", disabled)
+	button.set("texture_disabled", disabled_texture)
+	button.set("disabled_overlay_alpha", disabled_overlay_alpha)
 	button.connect("pressed", callable)
 	content.add_child(button)
 	button.set("stage_rect", rect)
@@ -523,16 +524,13 @@ func _refresh_game_screen() -> void:
 	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
 
-	# Match the original Flash hint controls: first hint is blue with a check,
-	# second hint is orange with a cross. The icons are drawn as separate
-	# stage-space textures so the button bitmap itself is not distorted.
-	_stage_texture_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), HINT_OPEN_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled)
-	_stage_texture(Rect2(196.0, 413.0, 28.0, 28.0), HINT_ICON_RING_TEXTURE)
-	_stage_texture(Rect2(198.0, 420.0, 22.0, 14.0), HINT_ICON_CHECK_TEXTURE)
+	# Hint buttons match the original Flash behavior and visuals.
+	# Orange is the available state. Blue is only the pressed/already-used state.
+	_stage_texture_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+	_stage_texture(Rect2(199.0, 416.0, 25.0, 25.0), HINT_ICON_CHECK_TEXTURE)
 
-	_stage_texture_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_REMOVE_BUTTON_TEXTURE, "", 26, remove_hint_disabled)
-	_stage_texture(Rect2(309.0, 413.0, 28.0, 28.0), HINT_ICON_RING_TEXTURE)
-	_stage_texture(Rect2(314.0, 418.0, 18.0, 18.0), HINT_ICON_CROSS_TEXTURE)
+	_stage_texture_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+	_stage_texture(Rect2(311.0, 416.0, 25.0, 25.0), HINT_ICON_CROSS_TEXTURE)
 
 	_stage_texture_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), COMMENT_BUTTON_NORMAL, COMMENT_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 18, comment_disabled)
 
