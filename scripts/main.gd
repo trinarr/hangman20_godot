@@ -21,6 +21,9 @@ const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_round_bu
 const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
 const ROUND_BUTTON_ACHIEVEMENTS_ICON: Texture2D = preload("res://flash_assets/_____________png.png")
+const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
+const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
+const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
 const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/NewForThemes_png.png")
@@ -48,6 +51,8 @@ var last_result_is_win: bool = false
 var last_result_data: Dictionary = {}
 var custom_word_edit: LineEdit
 var custom_comment_edit: TextEdit
+var custom_word_text: String = ""
+var custom_comment_text: String = ""
 var word_info_visible: bool = false
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
@@ -83,7 +88,9 @@ func _build_root() -> void:
 
 func _clear(symbol_path: String = "") -> void:
 	_clear_hero_animation_overlay()
+	hero_static_symbol = null
 	_remove_character_select_popup()
+	_remove_custom_comment_popup()
 	if art_root != null:
 		art_root.show_screen(symbol_path)
 	for child: Node in ui.get_children():
@@ -188,8 +195,8 @@ func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
 	node.set("stage_rect", rect)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false) -> Control:
-	return _stage_texture_button(rect, callable, MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, text, font_size, disabled)
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
+	return _stage_texture_button(rect, callable, MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, text, font_size, disabled, null, disabled_overlay_alpha)
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false) -> Control:
 	var button: Control = _stage_texture_button(rect, callable, ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED, icon_text, 28, disabled)
@@ -407,30 +414,27 @@ func _on_off(value: Variant) -> String:
 
 func _difficulty_name() -> String:
 	match int(GameState.settings[2]):
-		1:
-			return Database.tr_text(61, "HARD")
 		2:
 			return Database.tr_text(62, "EASY")
+		1:
+			return Database.tr_text(61, "HARD")
 		_:
 			return Database.tr_text(60, "GENERAL")
 
-func _difficulty_icon_text() -> String:
+func _difficulty_star_text() -> String:
 	match int(GameState.settings[2]):
-		1:
-			return "★★"
 		2:
 			return "★"
+		1:
+			return "★★★"
 		_:
 			return "★★"
 
 func show_theme_select() -> void:
+	_remove_difficulty_popup()
 	_clear("res://symbols/GameTemi.tscn")
-	_stage_label(Rect2(64.0, 20.0, 430.0, 48.0), Database.tr_text(32, "Choose the category:"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-
-	# GameTemi.xml places Head at x = -50.  The header buttons below are
-	# Head.Mov1.Diff and Head.Mov1.Exit, so their stage-space hitboxes must be
-	# shifted left by 50 px exactly like the original Flash runtime.
-	_stage_round_button(Rect2(639.0, 12.0, 68.0, 68.0), Callable(self, "_cycle_difficulty_and_return_theme"), _difficulty_icon_text())
+	_stage_label(Rect2(60.0, 19.0, 430.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_round_button(Rect2(639.0, 12.0, 68.0, 68.0), Callable(self, "_show_difficulty_popup"), _difficulty_star_text())
 	_stage_round_button(Rect2(716.0, 12.0, 68.0, 68.0), Callable(self, "show_menu"), "×")
 
 	for i in range(Database.get_theme_count()):
@@ -438,25 +442,124 @@ func show_theme_select() -> void:
 			break
 		var col: int = i % 3
 		var row: int = int(i / 3)
-		var x: float = 25.0 + float(col) * 262.0
+		var x: float = 26.0 + float(col) * 262.0
 		var y: float = 125.0 + float(row) * 113.0
 		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
 		var all_count: int = Database.get_words_by_index(i, 0).size()
-		var guessed: int = GameState.count_guessed(Database.current_language, i, all_count)
+		var guessed_total: int = GameState.count_guessed(Database.current_language, i, all_count)
+		var guessed: int = min(guessed_total, max(words_count, 0))
 		var disabled: bool = words_count == 0
-		_stage_texture_button(Rect2(x, y, THEME_BUTTON_SIZE.x, THEME_BUTTON_SIZE.y), Callable(self, "start_classic_game").bind(i), THEME_CARD_TEXTURE, THEME_CARD_TEXTURE, "", 20, disabled)
-		# OneButtForThemes creates this white rounded progress plate from the
-		# original NewThemesWh bitmap.  The bitmap blob is not recoverable from the
-		# converted Godot scene, so the runtime draws the same stage-space plate.
-		_stage_panel(Rect2(x + 8.0, y + 9.0, 223.0, 34.0), Color(1.0, 1.0, 1.0, 0.94), 10.0)
-		var progress_text: String = Database.tr_text(34, "Guessed") + ":  " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(max(words_count, all_count))
-		_stage_label(Rect2(x + 8.0, y + 9.0, 223.0, 34.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
-		_stage_label(Rect2(x + 6.0, y + 48.0, 229.0, 34.0), Database.get_theme_name(i), 24, Color.WHITE)
+		_stage_panel(Rect2(x, y, THEME_BUTTON_SIZE.x, THEME_BUTTON_SIZE.y), Color(0.49, 0.58, 0.93, 1.0), 14.0, Color(0.38, 0.47, 0.84, 1.0), 3.0)
+		_stage_panel(Rect2(x + 8.0, y + 8.0, 223.0, 33.0), Color(0.98, 0.99, 1.0, 1.0), 11.0)
+		var progress_text: String = Database.tr_text(34, "Guessed") + ":  " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
+		_stage_label(Rect2(x + 8.0, y + 8.0, 223.0, 33.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
+		var title_label := _stage_label(Rect2(x + 10.0, y + 46.0, 221.0, 35.0), Database.get_theme_name(i), 25, Color.WHITE)
+		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
+		title_label.add_theme_constant_override("outline_size", 2)
+		var theme_button := _stage_button(Rect2(x, y, THEME_BUTTON_SIZE.x, THEME_BUTTON_SIZE.y), Callable(self, "start_classic_game").bind(i), "")
+		theme_button.disabled = disabled
+		if disabled:
+			theme_button.modulate = Color(1.0, 1.0, 1.0, 0.45)
+
+func _show_difficulty_popup() -> void:
+	_remove_difficulty_popup()
+	var previous_content: Control = content
+	var popup_root := Control.new()
+	popup_root.name = "ThemeDifficultyPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_root.z_index = 10000
+	popup_root.add_to_group("difficulty_popup")
+	ui.add_child(popup_root)
+	content = popup_root
+
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
+	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_difficulty_popup"), "")
+
+	var header := _stage_panel(Rect2(0.0, 0.0, 800.0, 76.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(0.0, 76.0, 800.0, 174.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var separator := _stage_panel(Rect2(0.0, 76.0, 800.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stage_label(Rect2(34.0, 18.0, 620.0, 42.0), "Выберите уровень сложности:", 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_round_button(Rect2(716.0, 10.0, 68.0, 68.0), Callable(self, "_remove_difficulty_popup"), "×")
+
+	var column_separators := [284.0, 542.0]
+	for sep_x in column_separators:
+		var divider := _stage_panel(Rect2(sep_x, 94.0, 2.0, 126.0), Color(0.32, 0.39, 0.69, 0.95))
+		divider.mouse_filter = Control.MOUSE_FILTER_STOP
+	var top_rule := _stage_panel(Rect2(34.0, 131.0, 734.0, 2.0), Color(0.32, 0.39, 0.69, 0.95))
+	top_rule.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var options := [
+		{
+			"value": 2,
+			"stars": "★",
+			"title": "ПРОСТОЙ",
+			"desc": ["Подсказки: 2", "Крайние буквы", "Простые слова"],
+			"x": 24.0
+		},
+		{
+			"value": 1,
+			"stars": "★★★",
+			"title": "СЛОЖНЫЙ",
+			"desc": ["Подсказки: 1", "Сложные слова"],
+			"x": 292.0
+		},
+		{
+			"value": 0,
+			"stars": "★★",
+			"title": "ОБЩИЙ",
+			"desc": ["Подсказки: 2", "Все слова"],
+			"x": 550.0
+		},
+	]
+
+	for option in options:
+		var base_x: float = float(option["x"])
+		var value: int = int(option["value"])
+		var selected: bool = value == int(GameState.settings[2])
+		var title_label := _stage_label(Rect2(base_x, 96.0, 210.0, 26.0), String(option["title"]), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		title_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
+		title_label.add_theme_constant_override("outline_size", 0)
+
+		var tex_normal: Texture2D = ROUND_BUTTON_PRESSED if selected else ROUND_BUTTON_NORMAL
+		var tex_pressed: Texture2D = ROUND_BUTTON_PRESSED
+		var hit_area := _stage_button(Rect2(base_x - 10.0, 136.0, 236.0, 88.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
+		hit_area.mouse_filter = Control.MOUSE_FILTER_STOP
+		var option_button := _stage_texture_button(Rect2(base_x, 148.0, 68.0, 68.0), Callable(self, "_set_difficulty_from_popup").bind(value), tex_normal, tex_pressed, String(option["stars"]), 22, false)
+		var option_label := option_button.get_node_or_null("Text") as Label
+		if option_label != null:
+			option_label.add_theme_color_override("font_color", Color.WHITE)
+			option_label.add_theme_color_override("font_outline_color", Color(0.27, 0.31, 0.61, 1.0))
+			option_label.add_theme_constant_override("outline_size", 3)
+
+		var desc: Array = option["desc"] as Array
+		var text_y: float = 154.0
+		for line in desc:
+			var line_label := _stage_label(Rect2(base_x + 88.0, text_y, 140.0, 24.0), String(line), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+			line_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
+			line_label.add_theme_constant_override("outline_size", 0)
+			text_y += 24.0
+
+	content = previous_content
+
+func _set_difficulty_from_popup(value: int) -> void:
+	GameState.settings[2] = value
+	GameState.save_game()
+	_remove_difficulty_popup()
+	show_theme_select()
+
+func _remove_difficulty_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("difficulty_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func _cycle_difficulty_and_return_theme() -> void:
-	GameState.settings[2] = (int(GameState.settings[2]) + 1) % 3
-	GameState.save_game()
-	show_theme_select()
+	_show_difficulty_popup()
 
 func clear_theme_progress(theme_index: int) -> void:
 	WordManager.clear_the_theme(theme_index)
@@ -487,45 +590,179 @@ func start_time_attack() -> void:
 
 func show_custom_word() -> void:
 	game_timer.stop()
-	_clear("res://symbols/SlovMov.tscn")
-	_stage_label(Rect2(55.0, 16.0, 570.0, 42.0), Database.tr_text(41, "Input the word"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
-	custom_word_edit = _stage_line_edit(Rect2(55.0, 27.0, 567.0, 54.0), Database.tr_text(41, "Input the word"))
-	_stage_label(Rect2(66.0, 151.0, 260.0, 46.0), Database.tr_text(27, "First and last letter"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_button(Rect2(347.0, 151.0, 68.0, 36.0), Callable(self, "_toggle_custom_setting").bind(0), _on_off(GameState.settings[0]), 16)
-	_stage_label(Rect2(66.0, 213.0, 260.0, 46.0), Database.tr_text(28, "Hints"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_button(Rect2(347.0, 213.0, 68.0, 36.0), Callable(self, "_toggle_custom_setting").bind(1), _on_off(GameState.settings[1]), 16)
-	_stage_main_button(Rect2(511.0, 151.0, 211.0, 60.0), Callable(self, "_check_custom_word_now"), "")
-	_stage_label(Rect2(474.0, 160.0, 285.0, 42.0), Database.tr_text(68, "Check the word"), 18, _button_text_color())
-	_stage_main_button(Rect2(511.0, 315.0, 211.0, 60.0), Callable(self, "start_custom_game"), "")
-	_stage_label(Rect2(474.0, 324.0, 285.0, 42.0), Database.tr_text(17, "Start"), 18, _button_text_color())
-	custom_comment_edit = _stage_text_edit(Rect2(72.0, 334.0, 620.0, 74.0), Database.tr_text(47, "Comment"))
+	_clear("")
+
+	# SlovMov.as draws the screen from three simple areas: a 114 px blue header,
+	# the graph-paper settings area, and a blue footer beginning at y = 300.
+	# Rebuild those areas directly instead of displaying the converted SlovMov
+	# scene, which contains duplicate text fields and broken bitmap fragments.
+	_stage_texture(Rect2(0.0, 0.0, 800.0, 480.0), MENU_PAPER_COVER)
+	_stage_panel(Rect2(-50.0, 0.0, 900.0, 114.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_panel(Rect2(-50.0, 300.0, 900.0, 180.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+
+	# Original input field: Head is shifted by -50 and InputTxt is created at
+	# x = 105, y = 27 with width 567, producing this stage-space white capsule.
+	_stage_panel(Rect2(55.0, 27.0, 567.0, 54.0), Color.WHITE, 27.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
+	custom_word_edit = _stage_line_edit(Rect2(76.0, 31.0, 525.0, 46.0), Database.tr_text(41, "Input the word"))
+	custom_word_edit.max_length = 35
+	custom_word_edit.text = custom_word_text
+	custom_word_edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	custom_word_edit.add_theme_font_size_override("font_size", 26)
+	custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
+	custom_word_edit.add_theme_color_override("font_placeholder_color", Color(0.40, 0.43, 0.63, 0.70))
+	custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
+
+	_stage_label(Rect2(49.0, 78.0, 245.0, 28.0), _custom_word_max_length_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(428.0, 78.0, 194.0, 28.0), _custom_word_random_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	_stage_texture_button(Rect2(638.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_set_random_custom_word"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_texture(Rect2(656.0, 30.0, 27.0, 27.0), CUSTOM_WORD_REFRESH_ICON)
+	_stage_texture_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_texture(Rect2(737.0, 32.0, 21.0, 21.0), RESULT_CLOSE_ICON)
+
+	_stage_label(Rect2(66.0, 151.0, 260.0, 49.0), Database.tr_text(27, "First and last letter"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_custom_switch(Rect2(347.0, 151.0, 102.0, 49.0), 0)
+	_stage_label(Rect2(66.0, 213.0, 260.0, 49.0), Database.tr_text(28, "Hints"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_custom_switch(Rect2(347.0, 213.0, 102.0, 49.0), 1)
+
+	_stage_texture_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(68, "Check the word"), 20)
+	_stage_texture_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 20)
+	_stage_texture_button(Rect2(511.0, 315.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _custom_word_start_label(), 20)
+
+func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
+	var enabled: bool = int(GameState.settings[setting_index]) == 2
+	var normal_texture: Texture2D = HINT_OPEN_BUTTON_TEXTURE if enabled else HINT_REMOVE_BUTTON_TEXTURE
+	_stage_texture_button(rect, Callable(self, "_toggle_custom_setting").bind(setting_index), normal_texture, HINT_OPEN_BUTTON_TEXTURE, _custom_switch_label(enabled), 20)
+
+func _custom_switch_label(enabled: bool) -> String:
+	if GameState.language == "ru":
+		return "Вкл." if enabled else "Выкл."
+	return "On" if enabled else "Off"
+
+func _custom_word_max_length_label() -> String:
+	return "Макс. 35 символов" if GameState.language == "ru" else "Max. 35 characters"
+
+func _custom_word_random_label() -> String:
+	return "Случайное слово" if GameState.language == "ru" else "Random word"
+
+func _custom_word_start_label() -> String:
+	return "Начать игру" if GameState.language == "ru" else "Start game"
+
+func _on_custom_word_text_changed(value: String) -> void:
+	custom_word_text = _normalize_custom_word_input(value)
+	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
+		var caret_column: int = custom_word_edit.caret_column
+		custom_word_edit.text = custom_word_text
+		custom_word_edit.caret_column = mini(caret_column, custom_word_edit.text.length())
+	if custom_word_edit != null:
+		custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
+
+func _normalize_custom_word_input(value: String) -> String:
+	var normalized: String = value.to_upper().replace("-", "—").replace("Ё", "Е")
+	var filtered: String = ""
+	for i: int in range(normalized.length()):
+		var character: String = normalized.substr(i, 1)
+		if character == " " or character == "—" or character.to_upper() != character.to_lower():
+			filtered += character
+	return filtered.substr(0, 35)
 
 func _toggle_custom_setting(index: int) -> void:
-	_toggle_setting(index)
+	if custom_word_edit != null:
+		custom_word_text = custom_word_edit.text
+	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
+	GameState.save_game()
 	show_custom_word()
+
+func _set_random_custom_word() -> void:
+	var theme_count: int = Database.get_theme_count()
+	if theme_count <= 0:
+		return
+	for _attempt in range(theme_count * 2):
+		var theme_index: int = randi() % theme_count
+		var words: Array = Database.get_words_by_index(theme_index, 0)
+		if words.is_empty():
+			continue
+		var picked: Dictionary = words[randi() % words.size()]
+		custom_word_text = WordManager.normalize_word(str(picked.get("text", "")))
+		if custom_word_edit != null:
+			custom_word_edit.text = custom_word_text
+			custom_word_edit.caret_column = custom_word_edit.text.length()
+		return
 
 func _check_custom_word_now() -> void:
 	if custom_word_edit == null:
 		return
-	var word := WordManager.normalize_word(custom_word_edit.text)
-	if !_is_valid_custom_word(word):
-		custom_word_edit.text = ""
+	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
+	var valid: bool = _is_valid_custom_word(custom_word_text) and custom_word_text.find(" ") == -1
+	custom_word_edit.add_theme_color_override("font_color", Color(0.22, 0.55, 0.41, 1.0) if valid else Color(0.62, 0.25, 0.42, 1.0))
+	if !valid:
 		custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
 
+func _show_custom_comment_popup() -> void:
+	_remove_custom_comment_popup()
+	if custom_word_edit != null:
+		custom_word_text = custom_word_edit.text
+
+	var previous_content: Control = content
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "CustomCommentPopupCanvas"
+	popup_layer.layer = 100
+	popup_layer.add_to_group("custom_comment_popup")
+	add_child(popup_layer)
+
+	var popup_root: Control = Control.new()
+	popup_root.name = "CustomCommentPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
+	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_save_and_close_custom_comment_popup"), "")
+	var header := _stage_panel(Rect2(70.0, 40.0, 660.0, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stage_panel(Rect2(70.0, 120.0, 660.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	_stage_label(Rect2(94.0, 55.0, 420.0, 50.0), Database.tr_text(47, "Comment"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_panel(Rect2(104.0, 151.0, 592.0, 112.0), Color.WHITE, 18.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
+	custom_comment_edit = _stage_text_edit(Rect2(122.0, 165.0, 556.0, 84.0), Database.tr_text(47, "Comment"))
+	custom_comment_edit.text = custom_comment_text
+	custom_comment_edit.add_theme_font_size_override("font_size", 21)
+	custom_comment_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
+	_stage_texture_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, "OK", 20)
+	_stage_texture_button(Rect2(646.0, 50.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_texture(Rect2(667.0, 70.0, 21.0, 21.0), RESULT_CLOSE_ICON)
+	content = previous_content
+
+func _save_and_close_custom_comment_popup() -> void:
+	if custom_comment_edit != null:
+		custom_comment_text = custom_comment_edit.text.strip_edges()
+	_remove_custom_comment_popup()
+
+func _remove_custom_comment_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("custom_comment_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	custom_comment_edit = null
+
 func start_custom_game() -> void:
-	var word := WordManager.normalize_word(custom_word_edit.text)
+	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text
+	var word := WordManager.normalize_word(source_text)
 	if !_is_valid_custom_word(word):
-		custom_word_edit.text = ""
-		custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
+		if custom_word_edit != null:
+			custom_word_edit.add_theme_color_override("font_color", Color(0.62, 0.25, 0.42, 1.0))
+			custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
 		return
+	custom_word_text = word
 	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 2
 	GameState.current_score = 0
 	GameState.current_time_left = 180
-	GameSession.start_custom_round(word, custom_comment_edit.text.strip_edges())
+	GameSession.start_custom_round(word, custom_comment_text)
 	GameState.save_game()
 	show_game_screen()
 
@@ -631,7 +868,12 @@ func _refresh_game_screen() -> void:
 	_stage_texture_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
 	_stage_texture(Rect2(311.0, 416.0, 25.0, 25.0), HINT_ICON_CROSS_TEXTURE)
 
-	_stage_texture_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), COMMENT_BUTTON_NORMAL, COMMENT_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 18, comment_disabled)
+	var comment_button := _stage_texture_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), COMMENT_BUTTON_NORMAL, COMMENT_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 18, comment_disabled, null, 0.0)
+	if comment_disabled:
+		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+		var comment_label := comment_button.get_node_or_null("Text") as Label
+		if comment_label != null:
+			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
 
 func _game_header_icon() -> String:
 	if GameState.current_mode == 1:
@@ -733,28 +975,105 @@ func _finish_round(is_win: bool) -> void:
 
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	game_timer.stop()
-	_clear("res://symbols/ReztMovBlock.tscn")
-	var title := str(data.get("title", Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT")))
-	_stage_label(Rect2(255.0, 72.0, 420.0, 58.0), title, 36, Color.WHITE)
-	_stage_label(Rect2(230.0, 128.0, 470.0, 52.0), GameSession.get_full_word(), 30, Color.WHITE)
+	# The original result screen is not a centered modal. ReztMovBlock keeps the
+	# game stage visible, replaces the header word with the full answer, shows
+	# the hero's current pose on the left and slides only the bottom action bar in.
+	_clear("")
+
+	_stage_panel(Rect2(-50.0, 0.0, 900.0, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_panel(Rect2(-50.0, 387.0, 900.0, 93.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+
+	var full_word: String = _spaced_result_word(GameSession.get_full_word())
+	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+
+	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_open_word_search"), "")
+	_stage_texture(Rect2(661.0, 31.0, 18.0, 23.0), RESULT_SEARCH_ICON)
+	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "")
+	_stage_texture(Rect2(738.0, 34.0, 18.0, 18.0), RESULT_CLOSE_ICON)
+
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+
+	# The result title must never depend on an optional/empty value in `data`.
+	# Draw it in its own high z-index holder and disable clipping so the large
+	# Cyrillic glyphs are always visible, exactly like the original Flash text.
+	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+	if title == "":
+		title = "VICTORY" if is_win else "DEFEAT"
+	var title_label := _stage_label(Rect2(365.0, 128.0, 365.0, 72.0), title, 42, Color(0.8157, 0.5647, 0.3412), HORIZONTAL_ALIGNMENT_CENTER)
+	title_label.clip_text = false
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.z_index = 31
+	var title_holder := title_label.get_parent() as Control
+	if title_holder != null:
+		title_holder.z_index = 30
+	_apply_result_text_glow(title_label, Color.WHITE, 3)
+
+	var result_message: String = _result_message(is_win, data)
+	var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+	message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_apply_result_text_glow(message_label, Color.WHITE, 2)
+
+	var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+	_apply_result_text_glow(theme_label, Color.WHITE, 2)
+
+	var left_disabled: bool = GameSession.theme_id < 0 or GameState.current_mode == 2
+	var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
+	if left_disabled:
+		left_button.modulate = Color(1.0, 1.0, 1.0, 0.58)
+		var left_label := left_button.get_node_or_null("Text") as Label
+		if left_label != null:
+			left_label.add_theme_color_override("font_color", Color.WHITE)
+	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18)
+
+func _spaced_result_word(word: String) -> String:
+	var characters := PackedStringArray()
+	for i in range(word.length()):
+		characters.append(word.substr(i, 1))
+	return " ".join(characters)
+
+func _result_message(is_win: bool, data: Dictionary) -> String:
 	var lines := PackedStringArray()
 	for line in Array(data.get("lines", [])):
-		lines.append(str(line))
-	if GameSession.get_word_hint() != "":
-		lines.append(Database.tr_text(47, "Comment") + ": " + GameSession.get_word_hint())
-	if GameState.current_mode == 1:
-		lines.append(Database.tr_text(44, "Score") + ": " + str(GameState.current_score))
-	_stage_label(Rect2(235.0, 185.0, 460.0, 92.0), "\n".join(lines), 17, Color.WHITE)
+		var value: String = str(line).strip_edges()
+		if value != "":
+			lines.append(value)
+	if !lines.is_empty():
+		return "\n".join(lines)
+	return Database.tr_text(49 if is_win else 50, "Keep going!" if is_win else "You can do better!")
 
-	_stage_main_button(Rect2(454.0, 306.0, 211.0, 60.0), Callable(self, "_restart_last_mode"), "")
-	_stage_label(Rect2(417.0, 315.0, 285.0, 42.0), Database.tr_text(10, "Restart"), 18, _button_text_color())
-	_stage_main_button(Rect2(454.0, 370.0, 211.0, 60.0), Callable(self, "show_theme_select"), "")
-	_stage_label(Rect2(417.0, 379.0, 285.0, 42.0), Database.tr_text(52, "Change category"), 17, _button_text_color())
-	_stage_main_button(Rect2(225.0, 370.0, 211.0, 60.0), Callable(self, "show_menu"), "")
-	_stage_label(Rect2(188.0, 379.0, 285.0, 42.0), "← " + Database.tr_text(6, "Exit"), 17, _button_text_color())
-	if GameSession.get_full_word().strip_edges() != "":
-		_stage_main_button(Rect2(225.0, 306.0, 211.0, 60.0), Callable(self, "_open_word_search"), "")
-		_stage_label(Rect2(188.0, 315.0, 285.0, 42.0), Database.tr_text(26, "About the word"), 17, _button_text_color())
+func _result_theme_label() -> String:
+	if GameSession.theme_id < 0:
+		return Database.tr_text(46, "No category")
+	return Database.tr_text(48, "Category:") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
+
+func _result_left_button_text() -> String:
+	if GameState.current_mode == 1:
+		return Database.tr_text(53, "Finish game")
+	return Database.tr_text(52, "Change category")
+
+func _result_right_button_text() -> String:
+	if GameState.current_mode == 1 or GameSession.theme_id < 0:
+		return Database.tr_text(10, "Restart")
+	return Database.tr_text(4, "Continue")
+
+func _result_left_action() -> void:
+	if GameState.current_mode == 1:
+		show_menu()
+	else:
+		show_theme_select()
+
+func _result_right_action() -> void:
+	if GameState.current_mode == 1:
+		if GameState.current_time_left <= 0:
+			start_time_attack()
+		else:
+			_continue_time_attack()
+	else:
+		_restart_last_mode()
+
+func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int) -> void:
+	label.add_theme_color_override("font_outline_color", glow_color)
+	label.add_theme_constant_override("outline_size", outline_size)
 
 func _continue_time_attack() -> void:
 	word_info_visible = false
