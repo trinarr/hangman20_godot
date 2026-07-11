@@ -29,6 +29,10 @@ window/size/viewport_height=480
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://localization/translations.ru.translation", "res://localization/translations.en.translation")
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
@@ -38,7 +42,3 @@ window/stretch/aspect="expand"
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-
-[internationalization]
-
-locale/translations=PackedStringArray("res://localization/translations.ru.translation", "res://localization/translations.en.translation")

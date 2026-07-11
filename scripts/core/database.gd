@@ -9,7 +9,7 @@ const WORD_FILES := {
 	"en": "res://data/words_en.json"
 }
 
-const TRANSLATION_KEYS := PackedStringArray([
+const TRANSLATION_KEYS := [
 	"GAME_TITLE",
 	"MENU_CLASSIC",
 	"MENU_TIME_ATTACK",
@@ -98,7 +98,7 @@ const TRANSLATION_KEYS := PackedStringArray([
 	"RANDOM_WORD",
 	"START_GAME",
 	"OK",
-])
+]
 
 const HINT_FILES := {
 	"ru": "res://data/hints_ru.json",
