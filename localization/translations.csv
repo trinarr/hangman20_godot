@@ -1,0 +1,93 @@
+keys,ru,en
+GAME_TITLE,ВИСЕЛИЦА,HANGMAN
+MENU_CLASSIC,Классика,Classic
+MENU_TIME_ATTACK,На Время,Time Attack
+MENU_TWO_PLAYER,Два Игрока,Two Player
+COMMON_CONTINUE,Продолжить,Continue
+SETTINGS_TITLE,Настройки,Settings
+COMMON_EXIT,Выход,Exit
+NEW_GAME,Новая игра,New game
+TIME_ATTACK_MODE,Игра на время,Time Attack mode
+CHARACTER_SELECT_TITLE,Выберите персонажа:,Choose the hero:
+RESTART,Начать заново,Restart
+MUSIC_LABEL,Музыка:,Music:
+UNUSED_12,,
+ABOUT_TITLE,Об игре,About
+TIME_ATTACK_DESCRIPTION,"Игроку даются 3 минуты на отгадывание слов. Победы прибавляют количество очков, подсказки и поражения — отнимают",You have 3 minutes to guess as many words as you can. Defeats and using hints reduce your score
+WORD_DATABASE_LABEL,База слов:,Database:
+GIVE_UP,Сдаться,Give up
+START,Начать,Start
+RECORD_LABEL,РЕКОРД:,RECORD:
+RECORDS_TITLE,Рекорды и статистика,Records and statistics
+RECORD_EASY_STREAK,Легких слов подряд,Easy words in a row
+RECORD_HARD_STREAK,Сложных слов подряд,Hard words in a row
+AUTHOR_NIKITA,Никита Луканин,Nikita Lukanin
+VERSION_LABEL,Версия:,Version:
+AUTHOR_LABEL,Автор:,Creator:
+CONTACTS_LABEL,Контакты:,Contacts:
+ABOUT_WORD,Узнать о слове,About the word
+SHOW_EDGE_LETTERS,Показывать крайние буквы,First and last letter
+SHOW_HINTS,Показывать подсказки,Hints
+CLEAR_THEME_CONFIRM,Очистить тему?,Clear the category?
+YES,Да,Yes
+NO,Нет,No
+THEME_SELECT_TITLE,Выберите тему:,Choose the category:
+ALL_WORDS_GUESSED,Все слова отгаданы,All words are guessed
+GUESSED,Отгадано,Guessed
+OF,из,of
+HINTS_LABEL,Подсказки:,Hints:
+RESULT_VICTORY,ПОБЕДА,VICTORY
+RESULT_DEFEAT,ПОРАЖЕНИЕ,DEFEAT
+RESULT_END,КОНЕЦ,THE END
+UNAVAILABLE,НЕДОСТУПНО,UNAVAILABLE
+INPUT_WORD,Введите слово,Input the word
+VICTORIES,Побед,Victories
+DEFEATS,Поражений,Defeats
+SCORE,Счет,Score
+VICTORIES_PER_GAME,Побед за игру,Victories per game
+NO_CATEGORY,Без темы,No category
+COMMENT,Комментарий,Comment
+CATEGORY_LABEL,Тема:,Category:
+WIN_MESSAGE,Не останавливайтесь!,Don't stop!
+LOSE_MESSAGE,Вы можете лучше!,Try harder!
+TIME_UP,Ваше время истекло!,Time's up!
+CHANGE_CATEGORY,Сменить тему,Change category
+FINISH_GAME,Завершить игру,Finish the game
+EDGE_LETTERS,Крайние буквы,First and last letter
+EASY_WORDS,Простые слова,Easy words
+HARD_WORDS,Сложные слова,Hard words
+ALL_WORDS,Все слова,All words
+TRIES_LEFT,Попытки:,Tries left:
+WORDS_TOTAL,Всего слов,Words
+DIFFICULTY_GENERAL,ОБЩИЙ,GENERAL
+DIFFICULTY_HARD,СЛОЖНЫЙ,HARD
+DIFFICULTY_EASY,ПРОСТОЙ,EASY
+DIFFICULTY_SELECT_TITLE,Выберите уровень сложности:,Choose the difficulty level:
+NEW_RECORD,Новый рекорд!,New record!
+CATEGORY_COMPLETED,Тема завершена!,Category is completed!
+PLAY,ИГРАТЬ,PLAY
+SPACE,ПРОБЕЛ,SPACE
+CHECK_WORD,Проверить слово,Check the word
+VIBRATION,Вибрация,Vibration
+REMOVE_ADS,Убрать рекламу,Remove ads
+AUTHOR_BRUNO,Bruno Philippsen,Bruno Philippsen
+ERROR_GENERIC,Ошибка! Что-то пошло не так.,Error! Something goes wrong.
+SOUND_MUSIC,Звуки и музыка,Sounds and music
+NO_COMMENT,Комментария нет,No comment
+CHARACTER_LUCKY,ЛАКИ,LUCKY
+CHARACTER_EL_TIGRE,ЭЛЬ ТИГРЕ,EL TIGRE
+WELCOME_BACK,С возвращением!,Welcome back!
+CONTINUE_TIME_ATTACK,"Доиграть в режиме
+«На время»","Continue in
+Time Attack mode"
+NO_UNFINISHED_GAMES,"Незавершенных игр
+не найдено","No unfinished games
+found"
+LANGUAGE_RU_SHORT,Рус,Rus
+LANGUAGE_EN_SHORT,Eng,Eng
+ON,Вкл.,On
+OFF,Выкл.,Off
+MAX_35_CHARACTERS,Макс. 35 символов,Max. 35 characters
+RANDOM_WORD,Случайное слово,Random word
+START_GAME,Начать игру,Start game
+OK,OK,OK

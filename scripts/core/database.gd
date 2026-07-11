@@ -1,7 +1,6 @@
 extends Node
 
 var data: Dictionary = {}
-var translations: Array = []
 var hints: Array = []
 var current_language: String = "ru"
 
@@ -10,10 +9,96 @@ const WORD_FILES := {
 	"en": "res://data/words_en.json"
 }
 
-const CONFIG_FILES := {
-	"ru": "res://data/config_ru.json",
-	"en": "res://data/config_en.json"
-}
+const TRANSLATION_KEYS := PackedStringArray([
+	"GAME_TITLE",
+	"MENU_CLASSIC",
+	"MENU_TIME_ATTACK",
+	"MENU_TWO_PLAYER",
+	"COMMON_CONTINUE",
+	"SETTINGS_TITLE",
+	"COMMON_EXIT",
+	"NEW_GAME",
+	"TIME_ATTACK_MODE",
+	"CHARACTER_SELECT_TITLE",
+	"RESTART",
+	"MUSIC_LABEL",
+	"UNUSED_12",
+	"ABOUT_TITLE",
+	"TIME_ATTACK_DESCRIPTION",
+	"WORD_DATABASE_LABEL",
+	"GIVE_UP",
+	"START",
+	"RECORD_LABEL",
+	"RECORDS_TITLE",
+	"RECORD_EASY_STREAK",
+	"RECORD_HARD_STREAK",
+	"AUTHOR_NIKITA",
+	"VERSION_LABEL",
+	"AUTHOR_LABEL",
+	"CONTACTS_LABEL",
+	"ABOUT_WORD",
+	"SHOW_EDGE_LETTERS",
+	"SHOW_HINTS",
+	"CLEAR_THEME_CONFIRM",
+	"YES",
+	"NO",
+	"THEME_SELECT_TITLE",
+	"ALL_WORDS_GUESSED",
+	"GUESSED",
+	"OF",
+	"HINTS_LABEL",
+	"RESULT_VICTORY",
+	"RESULT_DEFEAT",
+	"RESULT_END",
+	"UNAVAILABLE",
+	"INPUT_WORD",
+	"VICTORIES",
+	"DEFEATS",
+	"SCORE",
+	"VICTORIES_PER_GAME",
+	"NO_CATEGORY",
+	"COMMENT",
+	"CATEGORY_LABEL",
+	"WIN_MESSAGE",
+	"LOSE_MESSAGE",
+	"TIME_UP",
+	"CHANGE_CATEGORY",
+	"FINISH_GAME",
+	"EDGE_LETTERS",
+	"EASY_WORDS",
+	"HARD_WORDS",
+	"ALL_WORDS",
+	"TRIES_LEFT",
+	"WORDS_TOTAL",
+	"DIFFICULTY_GENERAL",
+	"DIFFICULTY_HARD",
+	"DIFFICULTY_EASY",
+	"DIFFICULTY_SELECT_TITLE",
+	"NEW_RECORD",
+	"CATEGORY_COMPLETED",
+	"PLAY",
+	"SPACE",
+	"CHECK_WORD",
+	"VIBRATION",
+	"REMOVE_ADS",
+	"AUTHOR_BRUNO",
+	"ERROR_GENERIC",
+	"SOUND_MUSIC",
+	"NO_COMMENT",
+	"CHARACTER_LUCKY",
+	"CHARACTER_EL_TIGRE",
+	"WELCOME_BACK",
+	"CONTINUE_TIME_ATTACK",
+	"NO_UNFINISHED_GAMES",
+	"LANGUAGE_RU_SHORT",
+	"LANGUAGE_EN_SHORT",
+	"ON",
+	"OFF",
+	"MAX_35_CHARACTERS",
+	"RANDOM_WORD",
+	"START_GAME",
+	"OK",
+])
 
 const HINT_FILES := {
 	"ru": "res://data/hints_ru.json",
@@ -25,8 +110,8 @@ func _ready() -> void:
 
 func load_language(lang: String) -> void:
 	current_language = _normalize_language(lang)
+	TranslationServer.set_locale(current_language)
 	_load_words()
-	_load_translations()
 	_load_hints()
 
 func _normalize_language(lang: String) -> String:
@@ -64,12 +149,6 @@ func _load_words() -> void:
 	else:
 		data = {}
 
-func _load_translations() -> void:
-	translations.clear()
-	var result = _load_json(CONFIG_FILES[current_language])
-	if result is Dictionary and result.has("words") and result["words"] is Array:
-		translations = result["words"]
-
 func _load_hints() -> void:
 	hints.clear()
 	var result = _load_json(HINT_FILES[current_language])
@@ -77,9 +156,19 @@ func _load_hints() -> void:
 		hints = result["themes"]
 
 func tr_text(index: int, fallback: String = "") -> String:
-	if index >= 0 and index < translations.size():
-		return str(translations[index])
-	return fallback
+	if index < 0 or index >= TRANSLATION_KEYS.size():
+		return fallback
+	var key := StringName(TRANSLATION_KEYS[index])
+	var translated: String = str(TranslationServer.translate(key))
+	if translated == "" or translated == str(key):
+		return fallback
+	return translated
+
+func tr_key(key: StringName, fallback: String = "") -> String:
+	var translated: String = str(TranslationServer.translate(key))
+	if translated == "" or translated == str(key):
+		return fallback
+	return translated
 
 func get_alphabet() -> PackedStringArray:
 	var result := PackedStringArray()
