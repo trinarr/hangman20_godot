@@ -60,8 +60,9 @@ func _draw() -> void:
 		texture = texture_pressed
 	if texture != null:
 		draw_texture_rect(texture, Rect2(Vector2.ZERO, size), false)
-	if _is_down and texture_pressed == texture_normal:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.0, 0.0, 0.0, 0.14), true)
+	# Do not add a rectangular fallback overlay when a selected-state button
+	# deliberately uses the same bitmap for normal and pressed states. The
+	# bitmap itself already represents the blue selected state.
 	if disabled and disabled_overlay_alpha > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(1.0, 1.0, 1.0, disabled_overlay_alpha), true)
 

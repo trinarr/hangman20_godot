@@ -57,6 +57,7 @@ var custom_comment_text: String = ""
 var word_info_visible: bool = false
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
+var settings_popup_return_content: Control = null
 
 func _ready() -> void:
 	randomize()
@@ -91,6 +92,8 @@ func _clear(symbol_path: String = "") -> void:
 	_clear_hero_animation_overlay()
 	hero_static_symbol = null
 	_remove_character_select_popup()
+	_remove_settings_popup()
+	settings_popup_return_content = null
 	_remove_custom_comment_popup()
 	if art_root != null:
 		art_root.show_screen(symbol_path)
@@ -373,27 +376,189 @@ func _continue_saved_game() -> void:
 		show_theme_select()
 
 func show_settings() -> void:
-	_clear("res://symbols/PoiasnOk.tscn")
-	_stage_label(Rect2(80.0, 16.0, 480.0, 46.0), Database.tr_text(5, "Settings"), 30, Color.WHITE)
-	_stage_round_button(Rect2(645.0, 11.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
+	var previous_content: Control = content
+	if settings_popup_return_content != null and is_instance_valid(settings_popup_return_content):
+		previous_content = settings_popup_return_content
+	_remove_settings_popup()
+	settings_popup_return_content = previous_content
 
-	var lang_text := "Русский" if GameState.language == "ru" else "English"
-	_stage_label(Rect2(120.0, 100.0, 220.0, 38.0), "Language", 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_button(Rect2(328.0, 119.0, 68.0, 36.0), Callable(self, "_toggle_language"), lang_text, 16)
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "SettingsPopupCanvas"
+	popup_layer.layer = 100
+	popup_layer.add_to_group("settings_popup")
+	add_child(popup_layer)
 
-	_stage_label(Rect2(120.0, 154.0, 220.0, 38.0), Database.tr_text(27, "First and last letter"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_button(Rect2(328.0, 179.0, 68.0, 36.0), Callable(self, "_toggle_setting").bind(0), _on_off(GameState.settings[0]), 16)
+	var popup_root: Control = Control.new()
+	popup_root.name = "SettingsPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
 
-	_stage_label(Rect2(120.0, 208.0, 220.0, 38.0), Database.tr_text(28, "Hints"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_button(Rect2(467.0, 178.0, 68.0, 36.0), Callable(self, "_toggle_setting").bind(1), _on_off(GameState.settings[1]), 16)
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
+	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_settings_popup"), "")
 
-	_stage_label(Rect2(120.0, 262.0, 220.0, 38.0), Database.tr_text(63, "Choose the difficulty level:"), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_button(Rect2(400.0, 259.0, 280.0, 60.0), Callable(self, "_cycle_difficulty"), _difficulty_name(), 18)
+	var popup_x: float = 56.0
+	var popup_width: float = 648.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var middle_separator := _stage_panel(Rect2(popup_x + 372.0, 126.0, 2.0, 132.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	middle_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bottom_separator := _stage_panel(Rect2(popup_x + 24.0, 263.0, popup_width - 48.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	_stage_main_button(Rect2(225.0, 360.0, 211.0, 60.0), Callable(self, "show_records"), "")
-	_stage_label(Rect2(188.0, 369.0, 285.0, 42.0), Database.tr_text(19, "Records and statistics"), 18, _button_text_color())
-	_stage_main_button(Rect2(466.0, 360.0, 211.0, 60.0), Callable(self, "show_menu"), "")
-	_stage_label(Rect2(429.0, 369.0, 285.0, 42.0), "← " + Database.tr_text(6, "Exit"), 18, _button_text_color())
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), Database.tr_text(5, "Settings"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_settings_popup"), "×")
+
+	_stage_label(Rect2(popup_x + 44.0, 125.0, 220.0, 36.0), _settings_sound_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(popup_x + 44.0, 187.0, 220.0, 36.0), _settings_vibration_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 123.0, 102.0, 49.0), 3)
+	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 185.0, 102.0, 49.0), 4)
+
+	_stage_label(Rect2(popup_x + 444.0, 125.0, 160.0, 36.0), _settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", "Рус")
+	_stage_settings_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", "Eng")
+
+	_stage_texture_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _settings_about_label(), 18)
+	var remove_ads_button := _stage_texture_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _settings_remove_ads_label(), 18, true, MAIN_BUTTON_NORMAL, 0.0)
+	remove_ads_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+	var remove_ads_label := remove_ads_button.get_node_or_null("Text") as Label
+	if remove_ads_label != null:
+		remove_ads_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
+
+	content = previous_content
+
+func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
+	var enabled: bool = int(GameState.settings[setting_index]) == 2
+	var texture: Texture2D = HINT_OPEN_BUTTON_TEXTURE if enabled else HINT_REMOVE_BUTTON_TEXTURE
+	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
+	_stage_texture_button(rect, Callable(self, "_toggle_setting").bind(setting_index), texture, HINT_OPEN_BUTTON_TEXTURE, label_text, 18)
+
+func _stage_settings_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
+	var selected: bool = GameState.language == language_code
+	var texture: Texture2D = HINT_OPEN_BUTTON_TEXTURE if selected else HINT_REMOVE_BUTTON_TEXTURE
+	_stage_texture_button(rect, Callable(self, "_set_settings_language").bind(language_code), texture, HINT_OPEN_BUTTON_TEXTURE, label_text, 18)
+
+func _set_settings_language(language_code: String) -> void:
+	GameState.set_language(language_code)
+	Database.load_language(GameState.language)
+	show_settings()
+
+func _remove_settings_popup() -> void:
+	_remove_about_popup()
+	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+
+func _settings_sound_label() -> String:
+	return "Звуки и музыка" if Database.current_language == "ru" else "Sounds and music"
+
+func _settings_vibration_label() -> String:
+	return "Вибрация" if Database.current_language == "ru" else "Vibration"
+
+func _settings_word_base_label() -> String:
+	return "База слов:" if Database.current_language == "ru" else "Word base:"
+
+func _settings_on_label() -> String:
+	return "Вкл." if Database.current_language == "ru" else "On"
+
+func _settings_off_label() -> String:
+	return "Выкл." if Database.current_language == "ru" else "Off"
+
+func _settings_about_label() -> String:
+	return "Об игре" if Database.current_language == "ru" else "About"
+
+func _settings_remove_ads_label() -> String:
+	return "Убрать рекламу" if Database.current_language == "ru" else "Remove ads"
+
+func _settings_about_action() -> void:
+	_show_about_popup()
+
+func _show_about_popup() -> void:
+	_remove_about_popup()
+	var previous_content: Control = content
+
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "AboutPopupCanvas"
+	popup_layer.layer = 110
+	popup_layer.add_to_group("about_popup")
+	add_child(popup_layer)
+
+	var popup_root := Control.new()
+	popup_root.name = "AboutPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.38))
+	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_about_popup"), "")
+
+	var popup_x: float = 56.0
+	var popup_width: float = 648.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var middle_separator := _stage_panel(Rect2(popup_x + 408.0, 160.0, 2.0, 128.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	middle_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 430.0, 50.0), _about_title_label(), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+	_stage_round_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_about_popup"), "←")
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_close_about_and_settings"), "×")
+
+	var author_label := _stage_label(Rect2(popup_x + 78.0, 160.0, 300.0, 78.0), _about_author_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	author_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	author_label.clip_text = false
+	var version_label := _stage_label(Rect2(popup_x + 78.0, 255.0, 260.0, 38.0), _about_version_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	version_label.clip_text = false
+
+	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_round_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), "vk")
+	_stage_round_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), "@")
+
+	content = previous_content
+
+func _remove_about_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("about_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+
+func _close_about_and_settings() -> void:
+	_remove_about_popup()
+	_remove_settings_popup()
+
+func _about_title_label() -> String:
+	return "Об игре" if Database.current_language == "ru" else "About"
+
+func _about_author_text() -> String:
+	return "Автор: Никита Луканин\nBruno Philippsen" if Database.current_language == "ru" else "Author: Nikita Lukanin\nBruno Philippsen"
+
+func _about_version_text() -> String:
+	return "Версия: 3.0.0" if Database.current_language == "ru" else "Version: 3.0.0"
+
+func _about_contacts_label() -> String:
+	return "Контакты:" if Database.current_language == "ru" else "Contacts:"
+
+func _about_contact_action(_contact_type: String) -> void:
+	pass
+
+func _settings_remove_ads_action() -> void:
+	pass
 
 func _toggle_language() -> void:
 	GameState.set_language("en" if GameState.language == "ru" else "ru")
