@@ -290,13 +290,14 @@ func _button_text_color() -> Color:
 
 func show_menu() -> void:
 	game_timer.stop()
-	_clear("res://symbols/MainMenu.tscn")
+	_clear("")
+	# The main menu is rebuilt completely with native runtime controls. Keep only
+	# the original paper texture and the exact Flash header colour; loading the
+	# converted MainMenu scene would reintroduce hidden duplicate buttons and all
+	# of their obsolete bitmap dependencies.
+	_stage_panel(Rect2(0.0, 0.0, 800.0, 118.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	_stage_texture(Rect2(0.0, 118.0, 800.0, 362.0), MENU_PAPER_COVER)
 
-	# MainMenu.as wires clicks directly to Flash button symbols.  Native Godot
-	# hitboxes must therefore sit exactly over those symbols, not over labels
-	# or the character image.  The button artwork is also drawn here so Godot
-	# can show the Flash up/down states instead of leaving symbols static.
 	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(284.0, 112.0, 300.0, 48.0), Database.tr_text(77, "Welcome back!"), 28, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 
@@ -308,10 +309,6 @@ func show_menu() -> void:
 	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), Database.tr_text(78, "Continue in\nTime Attack mode") if has_saved_game else Database.tr_text(79, "No unfinished games\nfound"), 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 	_stage_texture_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(4, "Continue"), 20, !has_saved_game)
 	_stage_texture_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(5, "Settings"), 20)
-
-	# Hide the original Flash button instances before drawing the Godot controls;
-	# otherwise their edges peek out from underneath the new round buttons.
-	_stage_panel(Rect2(476.0, 0.0, 178.0, 112.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 
 	_stage_texture_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
 	_stage_texture(Rect2(515.0, 46.0, 17.0, 18.0), ROUND_BUTTON_RECORDS_ICON)
