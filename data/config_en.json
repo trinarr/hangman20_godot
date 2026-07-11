@@ -20,8 +20,8 @@
     "Start",
     "RECORD:",
     "Records and statistics",
-    "Hard words in a row",
     "Easy words in a row",
+    "Hard words in a row",
     "Nikita Lukanin",
     "Version:",
     "Creator:",
@@ -76,6 +76,17 @@
     "Sounds and music",
     "No comment",
     "LUCKY",
-    "EL TIGRE"
+    "EL TIGRE",
+    "Welcome back!",
+    "Continue in\nTime Attack mode",
+    "No unfinished games\nfound",
+    "Rus",
+    "Eng",
+    "On",
+    "Off",
+    "Max. 35 characters",
+    "Random word",
+    "Start game",
+    "OK"
   ]
 }

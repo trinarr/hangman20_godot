@@ -24,6 +24,8 @@ const ROUND_BUTTON_ACHIEVEMENTS_ICON: Texture2D = preload("res://flash_assets/__
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
+const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
+const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
 const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
@@ -274,7 +276,7 @@ func show_menu() -> void:
 	_stage_texture_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(3, "Two Player"), 20)
 
 	var has_saved_game: bool = bool(GameSession.is_active) or GameSession.word_data != null
-	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), Database.tr_text(78, "Continue in\nTime Attack mode") if has_saved_game else "Незавершенных игр\nне найдено", 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
+	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), Database.tr_text(78, "Continue in\nTime Attack mode") if has_saved_game else Database.tr_text(79, "No unfinished games\nfound"), 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 	_stage_texture_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(4, "Continue"), 20, !has_saved_game)
 	_stage_texture_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(5, "Settings"), 20)
 
@@ -335,13 +337,13 @@ func _show_character_select_popup() -> void:
 	var separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), "Выберите персонажа:", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), Database.tr_text(9, "Choose the hero:"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
 	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_character_select_popup"), "×")
 
-	_stage_character_option(1, Rect2(190.0, 150.0, 130.0, 130.0), "ЛЯКИ", HERO_AVATAR_LAKI_TEXTURE, Rect2(224.0, 180.0, 64.0, 69.0))
-	_stage_character_option(2, Rect2(480.0, 150.0, 130.0, 130.0), "ЭЛЬ ТИГРЕ", HERO_AVATAR_TIGRE_TEXTURE, Rect2(498.0, 188.0, 94.0, 82.0))
+	_stage_character_option(1, Rect2(190.0, 150.0, 130.0, 130.0), Database.tr_text(75, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(224.0, 180.0, 64.0, 69.0))
+	_stage_character_option(2, Rect2(480.0, 150.0, 130.0, 130.0), Database.tr_text(76, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(498.0, 188.0, 94.0, 82.0))
 
 	content = previous_content
 
@@ -422,8 +424,8 @@ func show_settings() -> void:
 	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 185.0, 102.0, 49.0), 4)
 
 	_stage_label(Rect2(popup_x + 444.0, 125.0, 160.0, 36.0), _settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", "Рус")
-	_stage_settings_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", "Eng")
+	_stage_settings_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
+	_stage_settings_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
 
 	_stage_texture_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _settings_about_label(), 18)
 	var remove_ads_button := _stage_texture_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _settings_remove_ads_label(), 18, true, MAIN_BUTTON_NORMAL, 0.0)
@@ -459,25 +461,25 @@ func _remove_settings_popup() -> void:
 			node.queue_free()
 
 func _settings_sound_label() -> String:
-	return "Звуки и музыка" if Database.current_language == "ru" else "Sounds and music"
+	return Database.tr_text(73, "Sounds and music")
 
 func _settings_vibration_label() -> String:
-	return "Вибрация" if Database.current_language == "ru" else "Vibration"
+	return Database.tr_text(69, "Vibration")
 
 func _settings_word_base_label() -> String:
-	return "База слов:" if Database.current_language == "ru" else "Word base:"
+	return Database.tr_text(15, "Database:")
 
 func _settings_on_label() -> String:
-	return "Вкл." if Database.current_language == "ru" else "On"
+	return Database.tr_text(82, "On")
 
 func _settings_off_label() -> String:
-	return "Выкл." if Database.current_language == "ru" else "Off"
+	return Database.tr_text(83, "Off")
 
 func _settings_about_label() -> String:
-	return "Об игре" if Database.current_language == "ru" else "About"
+	return Database.tr_text(13, "About")
 
 func _settings_remove_ads_label() -> String:
-	return "Убрать рекламу" if Database.current_language == "ru" else "Remove ads"
+	return Database.tr_text(70, "Remove ads")
 
 func _settings_about_action() -> void:
 	_show_about_popup()
@@ -526,8 +528,10 @@ func _show_about_popup() -> void:
 	version_label.clip_text = false
 
 	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), "vk")
-	_stage_round_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), "@")
+	_stage_round_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), "")
+	_stage_texture(Rect2(popup_x + 455.0, 232.0, 24.0, 14.0), ABOUT_VK_ICON)
+	_stage_round_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), "")
+	_stage_texture(Rect2(popup_x + 536.0, 230.0, 22.0, 18.0), ABOUT_MAIL_ICON)
 
 	content = previous_content
 
@@ -543,16 +547,16 @@ func _close_about_and_settings() -> void:
 	_remove_settings_popup()
 
 func _about_title_label() -> String:
-	return "Об игре" if Database.current_language == "ru" else "About"
+	return Database.tr_text(13, "About")
 
 func _about_author_text() -> String:
-	return "Автор: Никита Луканин\nBruno Philippsen" if Database.current_language == "ru" else "Author: Nikita Lukanin\nBruno Philippsen"
+	return Database.tr_text(24, "Author:") + " " + Database.tr_text(22, "Nikita Lukanin") + "\n" + Database.tr_text(71, "Bruno Philippsen")
 
 func _about_version_text() -> String:
-	return "Версия: 3.0.0" if Database.current_language == "ru" else "Version: 3.0.0"
+	return Database.tr_text(23, "Version:") + " 3.0.0"
 
 func _about_contacts_label() -> String:
-	return "Контакты:" if Database.current_language == "ru" else "Contacts:"
+	return Database.tr_text(25, "Contacts:")
 
 func _about_contact_action(_contact_type: String) -> void:
 	pass
@@ -576,7 +580,7 @@ func _toggle_setting(index: int) -> void:
 	show_settings()
 
 func _on_off(value: Variant) -> String:
-	return "ON" if int(value) == 2 else "OFF"
+	return Database.tr_text(82, "On") if int(value) == 2 else Database.tr_text(83, "Off")
 
 func _difficulty_name() -> String:
 	match int(GameState.settings[2]):
@@ -668,7 +672,7 @@ func _show_difficulty_popup() -> void:
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var separator := _stage_panel(Rect2(0.0, 76.0, 800.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_label(Rect2(34.0, 18.0, 620.0, 42.0), "Выберите уровень сложности:", 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(34.0, 18.0, 620.0, 42.0), Database.tr_text(63, "Choose the difficulty level:"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_round_button(Rect2(716.0, 10.0, 68.0, 68.0), Callable(self, "_remove_difficulty_popup"), "×")
 
 	var column_separators := [284.0, 542.0]
@@ -682,22 +686,22 @@ func _show_difficulty_popup() -> void:
 		{
 			"value": 2,
 			"stars": "★",
-			"title": "ПРОСТОЙ",
-			"desc": ["Подсказки: 2", "Крайние буквы", "Простые слова"],
+			"title": Database.tr_text(62, "EASY"),
+			"desc": [Database.tr_text(36, "Hints:") + " 2", Database.tr_text(54, "First and last letter"), Database.tr_text(55, "Easy words")],
 			"x": 24.0
 		},
 		{
 			"value": 1,
 			"stars": "★★★",
-			"title": "СЛОЖНЫЙ",
-			"desc": ["Подсказки: 1", "Сложные слова"],
+			"title": Database.tr_text(61, "HARD"),
+			"desc": [Database.tr_text(36, "Hints:") + " 1", Database.tr_text(56, "Hard words")],
 			"x": 292.0
 		},
 		{
 			"value": 0,
 			"stars": "★★",
-			"title": "ОБЩИЙ",
-			"desc": ["Подсказки: 2", "Все слова"],
+			"title": Database.tr_text(60, "GENERAL"),
+			"desc": [Database.tr_text(36, "Hints:") + " 2", Database.tr_text(57, "All words")],
 			"x": 550.0
 		},
 	]
@@ -820,18 +824,16 @@ func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
 	_stage_texture_button(rect, Callable(self, "_toggle_custom_setting").bind(setting_index), normal_texture, HINT_OPEN_BUTTON_TEXTURE, _custom_switch_label(enabled), 20)
 
 func _custom_switch_label(enabled: bool) -> String:
-	if GameState.language == "ru":
-		return "Вкл." if enabled else "Выкл."
-	return "On" if enabled else "Off"
+	return Database.tr_text(82, "On") if enabled else Database.tr_text(83, "Off")
 
 func _custom_word_max_length_label() -> String:
-	return "Макс. 35 символов" if GameState.language == "ru" else "Max. 35 characters"
+	return Database.tr_text(84, "Max. 35 characters")
 
 func _custom_word_random_label() -> String:
-	return "Случайное слово" if GameState.language == "ru" else "Random word"
+	return Database.tr_text(85, "Random word")
 
 func _custom_word_start_label() -> String:
-	return "Начать игру" if GameState.language == "ru" else "Start game"
+	return Database.tr_text(86, "Start game")
 
 func _on_custom_word_text_changed(value: String) -> void:
 	custom_word_text = _normalize_custom_word_input(value)
@@ -915,7 +917,7 @@ func _show_custom_comment_popup() -> void:
 	custom_comment_edit.text = custom_comment_text
 	custom_comment_edit.add_theme_font_size_override("font_size", 21)
 	custom_comment_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
-	_stage_texture_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, "OK", 20)
+	_stage_texture_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(87, "OK"), 20)
 	_stage_texture_button(Rect2(646.0, 50.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
 	_stage_texture(Rect2(667.0, 70.0, 21.0, 21.0), RESULT_CLOSE_ICON)
 	content = previous_content
@@ -1292,10 +1294,10 @@ func show_records() -> void:
 	_stage_label(Rect2(130.0, 395.0, 540.0, 30.0), Database.tr_text(43, "Defeats") + ": " + str(GameState.records[1][1]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
 func _easy_record_label() -> String:
-	return "Легких слов подряд" if Database.current_language == "ru" else "Easy words in a row"
+	return Database.tr_text(20, "Easy words in a row")
 
 func _hard_record_label() -> String:
-	return "Сложных слов подряд" if Database.current_language == "ru" else "Hard words in a row"
+	return Database.tr_text(21, "Hard words in a row")
 
 func _on_timer_tick() -> void:
 	if GameState.current_mode != 1 or game_finished:
