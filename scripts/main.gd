@@ -21,6 +21,12 @@ const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_round_bu
 const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
 const ROUND_BUTTON_ACHIEVEMENTS_ICON: Texture2D = preload("res://flash_assets/_____________png.png")
+const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_1.png")
+const DIFFICULTY_STARS_2_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_2.png")
+const DIFFICULTY_STARS_3_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_3.png")
+const TIME_ATTACK_BADGE_OUTER_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_badge_outer_133x133.png")
+const TIME_ATTACK_BADGE_INNER_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_badge_inner_111x111.png")
+const TIME_ATTACK_HOURGLASS_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_hourglass_38x46.png")
 const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
 const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
@@ -98,6 +104,7 @@ func _clear(symbol_path: String = "") -> void:
 	_remove_character_select_popup()
 	_remove_settings_popup()
 	_remove_records_popup()
+	_remove_time_attack_popup()
 	settings_popup_return_content = null
 	_remove_custom_comment_popup()
 	if art_root != null:
@@ -296,7 +303,7 @@ func show_menu() -> void:
 	_stage_label(Rect2(284.0, 112.0, 300.0, 48.0), Database.tr_text(77, "Welcome back!"), 28, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 
 	_stage_texture_button(Rect2(161.0, 188.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(1, "Classic"), 20)
-	_stage_texture_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_time_attack"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(2, "Time Attack"), 20)
+	_stage_texture_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(2, "Time Attack"), 20)
 	_stage_texture_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(3, "Two Player"), 20)
 
 	var has_saved_game: bool = bool(GameSession.is_active) or GameSession.word_data != null
@@ -362,7 +369,7 @@ func _show_character_select_popup() -> void:
 	var popup_width: float = 648.0
 	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -433,7 +440,7 @@ func show_settings() -> void:
 	var popup_width: float = 648.0
 	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -536,7 +543,7 @@ func _show_about_popup() -> void:
 	var popup_width: float = 648.0
 	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -619,20 +626,36 @@ func _difficulty_name() -> String:
 		_:
 			return Database.tr_text(60, "GENERAL")
 
-func _difficulty_star_text() -> String:
-	match int(GameState.settings[2]):
+func _difficulty_star_texture(value: int = -1) -> Texture2D:
+	var difficulty: int = int(GameState.settings[2]) if value < 0 else value
+	match difficulty:
 		2:
-			return "★"
+			return DIFFICULTY_STARS_1_TEXTURE
 		1:
-			return "★★★"
+			return DIFFICULTY_STARS_3_TEXTURE
 		_:
-			return "★★"
+			return DIFFICULTY_STARS_2_TEXTURE
+
+func _stage_difficulty_star_icon(button_rect: Rect2, value: int = -1) -> void:
+	var texture: Texture2D = _difficulty_star_texture(value)
+	var icon_size: Vector2 = texture.get_size()
+	var icon_position: Vector2 = button_rect.position + (button_rect.size - icon_size) * 0.5
+	_stage_texture(Rect2(icon_position, icon_size), texture)
 
 func show_theme_select() -> void:
 	_remove_difficulty_popup()
-	_clear("res://symbols/GameTemi.tscn")
-	_stage_label(Rect2(60.0, 19.0, 430.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(639.0, 12.0, 68.0, 68.0), Callable(self, "_show_difficulty_popup"), _difficulty_star_text())
+	# Build the category screen without the converted GameTemi symbol. That
+	# symbol already contains legacy Flash buttons, which were visible below the
+	# runtime round buttons and caused the doubled-button artefact.
+	_clear("")
+	_stage_texture(Rect2(0.0, 0.0, 800.0, 480.0), MENU_PAPER_COVER)
+	# Extend the header beyond the virtual 800 px stage so it still reaches both
+	# viewport edges on wider aspect ratios.
+	_stage_panel(Rect2(-1000.0, 0.0, 2800.0, 86.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var difficulty_button_rect := Rect2(639.0, 12.0, 68.0, 68.0)
+	_stage_texture_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_difficulty_star_icon(difficulty_button_rect)
 	_stage_round_button(Rect2(716.0, 12.0, 68.0, 68.0), Callable(self, "show_menu"), "×")
 
 	for i in range(Database.get_theme_count()):
@@ -649,9 +672,6 @@ func show_theme_select() -> void:
 		var disabled: bool = words_count == 0
 
 		var card := _stage_texture(Rect2(x, y, 239.0, 90.0), THEME_CARD_TEXTURE)
-		# Keep the supplied progress art at its native 239x65 size.  The lower
-		# part of this PNG is transparent; shrinking it vertically deforms the
-		# white rounded plate and makes the border look too thin.
 		var progress_back := _stage_texture(Rect2(x, y, 239.0, 65.0), THEME_CARD_PROGRESS_TEXTURE)
 		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
 		var progress_label := _stage_label(Rect2(x + 11.0, y + 7.0, 217.0, 30.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
@@ -682,54 +702,61 @@ func show_theme_select() -> void:
 func _show_difficulty_popup() -> void:
 	_remove_difficulty_popup()
 	var previous_content: Control = content
+
+	# A dedicated CanvasLayer keeps every popup element above the category
+	# cards. Adding the popup root to RuntimeUI allowed stage controls with their
+	# own z-index to bleed through the dark body on some layouts.
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "ThemeDifficultyPopupCanvas"
+	popup_layer.layer = 120
+	popup_layer.add_to_group("difficulty_popup")
+	add_child(popup_layer)
+
 	var popup_root := Control.new()
 	popup_root.name = "ThemeDifficultyPopupLayer"
 	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_root.z_index = 10000
-	popup_root.add_to_group("difficulty_popup")
-	ui.add_child(popup_root)
+	popup_layer.add_child(popup_root)
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_difficulty_popup"))
 
-	var header := _stage_panel(Rect2(0.0, 0.0, 800.0, 76.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var popup_x: float = 40.0
+	var popup_width: float = 720.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 76.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(0.0, 76.0, 800.0, 174.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 76.0, popup_width, 174.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(0.0, 76.0, 800.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	var separator := _stage_panel(Rect2(popup_x, 76.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_label(Rect2(34.0, 18.0, 620.0, 42.0), Database.tr_text(63, "Choose the difficulty level:"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(716.0, 10.0, 68.0, 68.0), Callable(self, "_remove_difficulty_popup"), "×")
+	_stage_label(Rect2(popup_x + 34.0, 18.0, 520.0, 42.0), Database.tr_text(63, "Choose the difficulty level:"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 10.0, 68.0, 68.0), Callable(self, "_remove_difficulty_popup"), "×")
 
-	var column_separators := [284.0, 542.0]
+	var column_separators := [popup_x + 240.0, popup_x + 480.0]
 	for sep_x in column_separators:
 		var divider := _stage_panel(Rect2(sep_x, 94.0, 2.0, 126.0), Color(0.32, 0.39, 0.69, 0.95))
 		divider.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_rule := _stage_panel(Rect2(34.0, 131.0, 734.0, 2.0), Color(0.32, 0.39, 0.69, 0.95))
+	var top_rule := _stage_panel(Rect2(popup_x + 34.0, 131.0, popup_width - 68.0, 2.0), Color(0.32, 0.39, 0.69, 0.95))
 	top_rule.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var options := [
 		{
 			"value": 2,
-			"stars": "★",
-			"title": Database.tr_text(62, "EASY"),
+			"title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"),
 			"desc": [Database.tr_text(36, "Hints:") + " 2", Database.tr_text(54, "First and last letter"), Database.tr_text(55, "Easy words")],
-			"x": 24.0
+			"x": popup_x + 24.0
 		},
 		{
 			"value": 1,
-			"stars": "★★★",
-			"title": Database.tr_text(61, "HARD"),
+			"title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"),
 			"desc": [Database.tr_text(36, "Hints:") + " 1", Database.tr_text(56, "Hard words")],
-			"x": 292.0
+			"x": popup_x + 264.0
 		},
 		{
 			"value": 0,
-			"stars": "★★",
-			"title": Database.tr_text(60, "GENERAL"),
+			"title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"),
 			"desc": [Database.tr_text(36, "Hints:") + " 2", Database.tr_text(57, "All words")],
-			"x": 550.0
+			"x": popup_x + 504.0
 		},
 	]
 
@@ -737,25 +764,26 @@ func _show_difficulty_popup() -> void:
 		var base_x: float = float(option["x"])
 		var value: int = int(option["value"])
 		var selected: bool = value == int(GameState.settings[2])
-		var title_label := _stage_label(Rect2(base_x, 96.0, 210.0, 26.0), String(option["title"]), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		var title_label := _stage_label(Rect2(base_x, 96.0, 190.0, 30.0), String(option["title"]), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		title_label.clip_text = false
 		title_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
 		title_label.add_theme_constant_override("outline_size", 0)
+		var title_holder := title_label.get_parent() as Control
+		if title_holder != null:
+			title_holder.z_index = 20
 
 		var tex_normal: Texture2D = ROUND_BUTTON_PRESSED if selected else ROUND_BUTTON_NORMAL
 		var tex_pressed: Texture2D = ROUND_BUTTON_PRESSED
-		var hit_area := _stage_button(Rect2(base_x - 10.0, 136.0, 236.0, 88.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
+		var hit_area := _stage_button(Rect2(base_x - 8.0, 138.0, 210.0, 88.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
 		hit_area.mouse_filter = Control.MOUSE_FILTER_STOP
-		var option_button := _stage_texture_button(Rect2(base_x, 148.0, 68.0, 68.0), Callable(self, "_set_difficulty_from_popup").bind(value), tex_normal, tex_pressed, String(option["stars"]), 22, false)
-		var option_label := option_button.get_node_or_null("Text") as Label
-		if option_label != null:
-			option_label.add_theme_color_override("font_color", Color.WHITE)
-			option_label.add_theme_color_override("font_outline_color", Color(0.27, 0.31, 0.61, 1.0))
-			option_label.add_theme_constant_override("outline_size", 3)
+		var option_button_rect := Rect2(base_x, 148.0, 68.0, 68.0)
+		_stage_texture_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), tex_normal, tex_pressed)
+		_stage_difficulty_star_icon(option_button_rect, value)
 
 		var desc: Array = option["desc"] as Array
 		var text_y: float = 154.0
 		for line in desc:
-			var line_label := _stage_label(Rect2(base_x + 88.0, text_y, 140.0, 24.0), String(line), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+			var line_label := _stage_label(Rect2(base_x + 88.0, text_y, 130.0, 24.0), String(line), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 			line_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
 			line_label.add_theme_constant_override("outline_size", 0)
 			text_y += 24.0
@@ -792,6 +820,77 @@ func start_classic_game(theme_index: int) -> void:
 	GameSession.start_new_round(theme_index, 0)
 	GameState.save_game()
 	show_game_screen()
+
+func _show_time_attack_popup() -> void:
+	_remove_time_attack_popup()
+	var previous_content: Control = content
+
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "TimeAttackPopupCanvas"
+	popup_layer.layer = 115
+	popup_layer.add_to_group("time_attack_popup")
+	add_child(popup_layer)
+
+	var popup_root := Control.new()
+	popup_root.name = "TimeAttackPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_time_attack_popup"))
+
+	var popup_x: float = 70.0
+	var popup_width: float = 660.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 87.0, popup_width, 253.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var top_separator := _stage_panel(Rect2(popup_x, 87.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var bottom_separator := _stage_panel(Rect2(popup_x + 35.0, 259.0, popup_width - 70.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 420.0, 50.0), tr("TIME_ATTACK_MODE"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.clip_text = false
+
+	var difficulty_button_rect := Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y)
+	_stage_texture_button(difficulty_button_rect, Callable(self, "_cycle_time_attack_difficulty"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+	_stage_difficulty_star_icon(difficulty_button_rect)
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_time_attack_popup"), "×")
+
+	# Original Flash badge assembled from its separate bitmap layers.
+	# Draw in source order: blue outer backing, white inner badge, hourglass.
+	_stage_texture(Rect2(popup_x + 118.0, 112.0, 133.0, 133.0), TIME_ATTACK_BADGE_OUTER_TEXTURE)
+	_stage_texture(Rect2(popup_x + 129.0, 123.0, 111.0, 111.0), TIME_ATTACK_BADGE_INNER_TEXTURE)
+	_stage_texture(Rect2(popup_x + 165.5, 155.5, 38.0, 46.0), TIME_ATTACK_HOURGLASS_TEXTURE)
+
+	var description_label := _stage_label(Rect2(popup_x + 315.0, 116.0, 285.0, 128.0), tr("TIME_ATTACK_DESCRIPTION"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	description_label.clip_text = true
+
+	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][1]))
+	var record_label := _stage_label(Rect2(popup_x + 54.0, 275.0, 240.0, 38.0), record_text, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	record_label.clip_text = false
+	_stage_main_button(Rect2(popup_x + 333.0, 276.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 20)
+
+	content = previous_content
+
+func _cycle_time_attack_difficulty() -> void:
+	GameState.settings[2] = (int(GameState.settings[2]) + 1) % 3
+	GameState.save_game()
+	_show_time_attack_popup()
+
+func _start_time_attack_from_popup() -> void:
+	_remove_time_attack_popup()
+	start_time_attack()
+
+func _remove_time_attack_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("time_attack_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func start_time_attack() -> void:
 	word_info_visible = false
@@ -934,7 +1033,7 @@ func _show_custom_comment_popup() -> void:
 	_add_fullscreen_modal_backdrop(Callable(self, "_save_and_close_custom_comment_popup"))
 	var header := _stage_panel(Rect2(70.0, 40.0, 660.0, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	_stage_panel(Rect2(70.0, 120.0, 660.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	_stage_label(Rect2(94.0, 55.0, 420.0, 50.0), Database.tr_text(47, "Comment"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -1328,7 +1427,7 @@ func show_records() -> void:
 	var popup_width: float = 648.0
 	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1430,7 +1529,7 @@ func _show_word_comment_popup() -> void:
 	var popup_width: float = 648.0
 	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 278.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 278.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
