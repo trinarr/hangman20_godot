@@ -21,6 +21,8 @@ const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_round_bu
 const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
 const ROUND_BUTTON_ACHIEVEMENTS_ICON: Texture2D = preload("res://flash_assets/_____________png.png")
+const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
+const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
@@ -95,6 +97,7 @@ func _clear(symbol_path: String = "") -> void:
 	hero_static_symbol = null
 	_remove_character_select_popup()
 	_remove_settings_popup()
+	_remove_records_popup()
 	settings_popup_return_content = null
 	_remove_custom_comment_popup()
 	if art_root != null:
@@ -141,6 +144,27 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	content.add_child(button)
 	button.set("stage_rect", rect)
 	return button
+
+func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.58) -> void:
+	# Popup art is positioned in the original 800x480 Flash stage, but the dimmer
+	# must cover the real viewport, including letterbox/pillarbox space on other
+	# aspect ratios. Native full-rect Controls avoid clipping to stage bounds.
+	var dimmer := ColorRect.new()
+	dimmer.name = "ModalDimmer"
+	dimmer.color = Color(0.0, 0.0, 0.0, alpha)
+	dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(dimmer)
+	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var blocker := Button.new()
+	blocker.name = "ModalBackdropButton"
+	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	blocker.focus_mode = Control.FOCUS_NONE
+	blocker.flat = true
+	_apply_transparent_button_style(blocker, false)
+	blocker.pressed.connect(close_callable)
+	content.add_child(blocker)
+	blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Texture2D, pressed_texture: Texture2D, text: String = "", font_size: int = 20, disabled: bool = false, disabled_texture: Texture2D = null, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: Control = FLASH_STAGE_TEXTURE_BUTTON_SCRIPT.new() as Control
@@ -280,12 +304,19 @@ func show_menu() -> void:
 	_stage_texture_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(4, "Continue"), 20, !has_saved_game)
 	_stage_texture_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(5, "Settings"), 20)
 
-	# Head is shifted by x = -50 in MainMenu.xml, so Head.But1/But2
-	# are at 542/619 inside Head but 492/569 on the stage.
+	# Hide the original Flash button instances before drawing the Godot controls;
+	# otherwise their edges peek out from underneath the new round buttons.
+	_stage_panel(Rect2(476.0, 0.0, 178.0, 112.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+
 	_stage_texture_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
 	_stage_texture(Rect2(515.0, 46.0, 17.0, 18.0), ROUND_BUTTON_RECORDS_ICON)
-	_stage_texture_button(Rect2(569.0, 24.0, 62.0, 62.0), Callable(self, "show_settings"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_texture(Rect2(589.0, 43.0, 29.0, 24.0), ROUND_BUTTON_ACHIEVEMENTS_ICON)
+
+	# Achievements are not implemented yet: draw a non-interactive,
+	# semi-transparent button with the original hollow-star icon.
+	var achievements_button := _stage_texture(Rect2(569.0, 24.0, 62.0, 62.0), ROUND_BUTTON_NORMAL)
+	achievements_button.modulate = Color(1.0, 1.0, 1.0, 0.55)
+	var achievements_icon := _stage_texture(Rect2(589.0, 44.0, 22.0, 21.0), MAIN_MENU_HOLLOW_STAR_ICON)
+	achievements_icon.modulate = Color(1.0, 1.0, 1.0, 0.72)
 	_stage_main_menu_character_button()
 
 
@@ -325,8 +356,7 @@ func _show_character_select_popup() -> void:
 	popup_layer.add_child(popup_root)
 	content = popup_root
 
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
-	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_character_select_popup"), "")
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_character_select_popup"))
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -397,8 +427,7 @@ func show_settings() -> void:
 	popup_layer.add_child(popup_root)
 	content = popup_root
 
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
-	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_settings_popup"), "")
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_settings_popup"))
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -501,8 +530,7 @@ func _show_about_popup() -> void:
 	popup_layer.add_child(popup_root)
 	content = popup_root
 
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.38))
-	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_about_popup"), "")
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_about_popup"), 0.38)
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -663,8 +691,7 @@ func _show_difficulty_popup() -> void:
 	ui.add_child(popup_root)
 	content = popup_root
 
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
-	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_difficulty_popup"), "")
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_difficulty_popup"))
 
 	var header := _stage_panel(Rect2(0.0, 0.0, 800.0, 76.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -904,8 +931,7 @@ func _show_custom_comment_popup() -> void:
 	popup_layer.add_child(popup_root)
 	content = popup_root
 
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
-	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_save_and_close_custom_comment_popup"), "")
+	_add_fullscreen_modal_backdrop(Callable(self, "_save_and_close_custom_comment_popup"))
 	var header := _stage_panel(Rect2(70.0, 40.0, 660.0, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
 	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2706, 0.3098, 0.6078, 1.0))
@@ -1280,24 +1306,77 @@ func _restart_last_mode() -> void:
 		start_classic_game(max(0, GameSession.theme_id))
 
 func show_records() -> void:
-	_clear("res://symbols/PoiasnOk.tscn")
-	_stage_label(Rect2(80.0, 16.0, 520.0, 48.0), Database.tr_text(19, "Records and statistics"), 28, Color.WHITE)
-	_stage_round_button(Rect2(645.0, 11.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
-	_stage_label(Rect2(130.0, 100.0, 540.0, 32.0), Database.tr_text(1, "Classic"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 135.0, 540.0, 30.0), _hard_record_label() + ": " + str(GameState.records[0][3]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 165.0, 540.0, 30.0), _easy_record_label() + ": " + str(GameState.records[0][2]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 215.0, 540.0, 32.0), Database.tr_text(2, "Time Attack"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 250.0, 540.0, 30.0), Database.tr_text(45, "Victories per game") + ": " + str(GameState.records[2][1]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 280.0, 540.0, 30.0), Database.tr_text(18, "RECORD:") + " " + Database.tr_text(44, "Score") + ": " + str(GameState.records[2][2]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 330.0, 540.0, 32.0), Database.tr_text(3, "Two Player"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 365.0, 540.0, 30.0), Database.tr_text(42, "Victories") + ": " + str(GameState.records[1][0]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(130.0, 395.0, 540.0, 30.0), Database.tr_text(43, "Defeats") + ": " + str(GameState.records[1][1]), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_remove_records_popup()
 
-func _easy_record_label() -> String:
-	return Database.tr_text(20, "Easy words in a row")
+	var previous_content: Control = content
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "RecordsPopupCanvas"
+	popup_layer.layer = 100
+	popup_layer.add_to_group("records_popup")
+	add_child(popup_layer)
 
-func _hard_record_label() -> String:
-	return Database.tr_text(21, "Hard words in a row")
+	var popup_root := Control.new()
+	popup_root.name = "RecordsPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_records_popup"))
+
+	var popup_x: float = 56.0
+	var popup_width: float = 648.0
+	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var left_separator := _stage_panel(Rect2(popup_x + 174.0, 126.0, 2.0, 220.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	left_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var right_separator := _stage_panel(Rect2(popup_x + 392.0, 126.0, 2.0, 220.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	right_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var first_row_separator := _stage_panel(Rect2(popup_x + 28.0, 216.0, popup_width - 56.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	first_row_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	var second_row_separator := _stage_panel(Rect2(popup_x + 28.0, 300.0, popup_width - 56.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
+	second_row_separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 430.0, 50.0), tr("RECORDS_TITLE"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+
+	var crown_button := _stage_texture(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), ROUND_BUTTON_NORMAL)
+	crown_button.modulate = Color(1.0, 1.0, 1.0, 0.55)
+	_stage_texture(Rect2(popup_x + popup_width - 127.0, 33.0, 24.0, 20.0), ROUND_BUTTON_CROWN_ICON)
+	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_records_popup"), "×")
+
+	_stage_record_row(132.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), GameState.records[0][2], tr("RECORD_HARD_STREAK"), GameState.records[0][3], popup_x)
+	_stage_record_row(218.0, tr("MENU_TIME_ATTACK"), tr("SCORE"), GameState.records[2][2], tr("VICTORIES_PER_GAME"), GameState.records[2][1], popup_x)
+	_stage_record_row(302.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), GameState.records[1][0], tr("DEFEATS"), GameState.records[1][1], popup_x)
+
+	content = previous_content
+
+func _stage_record_row(row_y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int, popup_x: float) -> void:
+	var mode_label := _stage_label(Rect2(popup_x + 28.0, row_y + 13.0, 132.0, 36.0), mode_text.to_upper(), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	mode_label.clip_text = false
+
+	var left_label := _stage_label(Rect2(popup_x + 188.0, row_y + 2.0, 194.0, 28.0), left_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	left_label.clip_text = false
+	var left_value_label := _stage_label(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	left_value_label.clip_text = false
+
+	var right_label := _stage_label(Rect2(popup_x + 406.0, row_y + 2.0, 210.0, 28.0), right_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	right_label.clip_text = false
+	var right_value_label := _stage_label(Rect2(popup_x + 406.0, row_y + 31.0, 210.0, 28.0), str(right_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	right_value_label.clip_text = false
+
+func _remove_records_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("records_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func _on_timer_tick() -> void:
 	if GameState.current_mode != 1 or game_finished:
@@ -1345,8 +1424,7 @@ func _show_word_comment_popup() -> void:
 	# TemnMov: dim stage behind the modal. A full-screen invisible button above
 	# the dimmer reproduces PoiasnOk.ExtMouseClick() and closes the dialog when
 	# the user clicks outside the blue popup window.
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 480.0), Color(0.0, 0.0, 0.0, 0.58))
-	_stage_button(Rect2(0.0, 0.0, 800.0, 480.0), Callable(self, "_remove_word_comment_popup"), "")
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_word_comment_popup"))
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
