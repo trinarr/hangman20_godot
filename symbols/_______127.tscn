@@ -8,7 +8,7 @@
 [ext_resource type="Texture2D" path="res://img/_______127______1_4_SHAPE_0_BOUNDS_-0.96_21.04_SIZE_607_434.png" id="tex_968565804"]
 [ext_resource type="Texture2D" path="res://img/_______127______1_7_SHAPE_0_BOUNDS_1.39_21.04_SIZE_588_434.png" id="tex_56334773"]
 [ext_resource type="Texture2D" path="res://img/_______127______1_8_SHAPE_0_BOUNDS_4.14_21.04_SIZE_569_434.png" id="tex_126441993"]
-[ext_resource type="Texture2D" path="res://img/_______127______1_9_SHAPE_0_BOUNDS_1.39_21.04_SIZE_588_434.png" id="tex_568424177"]
+[ext_resource type="Texture2D" path="res://img/_______127______1_7_SHAPE_0_BOUNDS_1.39_21.04_SIZE_588_434.png" id="tex_568424177"]
 
 [sub_resource type="Animation" id="anim_25378090"]
 step = 0.0417

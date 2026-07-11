@@ -25,7 +25,6 @@ const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/diffic
 const DIFFICULTY_STARS_2_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_2.png")
 const DIFFICULTY_STARS_3_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_3.png")
 const TIME_ATTACK_BADGE_OUTER_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_badge_outer_133x133.png")
-const TIME_ATTACK_BADGE_INNER_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_badge_inner_111x111.png")
 const TIME_ATTACK_HOURGLASS_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_hourglass_38x46.png")
 const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
 const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
@@ -38,7 +37,6 @@ const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint
 const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
-const HINT_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/ButForPdsk_png.png")
 const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_open_18.png")
 const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_remove_15.png")
 const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
@@ -862,7 +860,7 @@ func _show_time_attack_popup() -> void:
 	# Original Flash badge assembled from its separate bitmap layers.
 	# Draw in source order: blue outer backing, white inner badge, hourglass.
 	_stage_texture(Rect2(popup_x + 118.0, 112.0, 133.0, 133.0), TIME_ATTACK_BADGE_OUTER_TEXTURE)
-	_stage_texture(Rect2(popup_x + 129.0, 123.0, 111.0, 111.0), TIME_ATTACK_BADGE_INNER_TEXTURE)
+	_stage_texture(Rect2(popup_x + 129.0, 123.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
 	_stage_texture(Rect2(popup_x + 165.5, 155.5, 38.0, 46.0), TIME_ATTACK_HOURGLASS_TEXTURE)
 
 	var description_label := _stage_label(Rect2(popup_x + 315.0, 116.0, 285.0, 128.0), tr("TIME_ATTACK_DESCRIPTION"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
