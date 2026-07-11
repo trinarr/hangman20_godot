@@ -26,7 +26,8 @@ const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_ic
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
 const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
-const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/NewForThemes_png.png")
+const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
+const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
 const HINT_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/ButForPdsk_png.png")
 const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_open_18.png")
 const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_remove_15.png")
@@ -449,17 +450,37 @@ func show_theme_select() -> void:
 		var guessed_total: int = GameState.count_guessed(Database.current_language, i, all_count)
 		var guessed: int = min(guessed_total, max(words_count, 0))
 		var disabled: bool = words_count == 0
-		_stage_panel(Rect2(x, y, THEME_BUTTON_SIZE.x, THEME_BUTTON_SIZE.y), Color(0.49, 0.58, 0.93, 1.0), 14.0, Color(0.38, 0.47, 0.84, 1.0), 3.0)
-		_stage_panel(Rect2(x + 8.0, y + 8.0, 223.0, 33.0), Color(0.98, 0.99, 1.0, 1.0), 11.0)
-		var progress_text: String = Database.tr_text(34, "Guessed") + ":  " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
-		_stage_label(Rect2(x + 8.0, y + 8.0, 223.0, 33.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
-		var title_label := _stage_label(Rect2(x + 10.0, y + 46.0, 221.0, 35.0), Database.get_theme_name(i), 25, Color.WHITE)
+
+		var card := _stage_texture(Rect2(x, y, 239.0, 90.0), THEME_CARD_TEXTURE)
+		# Keep the supplied progress art at its native 239x65 size.  The lower
+		# part of this PNG is transparent; shrinking it vertically deforms the
+		# white rounded plate and makes the border look too thin.
+		var progress_back := _stage_texture(Rect2(x, y, 239.0, 65.0), THEME_CARD_PROGRESS_TEXTURE)
+		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
+		var progress_label := _stage_label(Rect2(x + 11.0, y + 7.0, 217.0, 30.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
+		progress_label.clip_text = false
+		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+		progress_label.add_theme_constant_override("outline_size", 0)
+		var progress_holder := progress_label.get_parent() as Control
+		if progress_holder != null:
+			progress_holder.z_index = 10
+
+		var title_label := _stage_label(Rect2(x + 8.0, y + 45.0, 223.0, 37.0), Database.get_theme_name(i).to_upper(), 21, Color.WHITE)
+		title_label.clip_text = false
 		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
 		title_label.add_theme_constant_override("outline_size", 2)
-		var theme_button := _stage_button(Rect2(x, y, THEME_BUTTON_SIZE.x, THEME_BUTTON_SIZE.y), Callable(self, "start_classic_game").bind(i), "")
-		theme_button.disabled = disabled
+		var title_holder := title_label.get_parent() as Control
+		if title_holder != null:
+			title_holder.z_index = 11
+
 		if disabled:
-			theme_button.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+
+		var theme_button := _stage_button(Rect2(x, y, 239.0, 90.0), Callable(self, "start_classic_game").bind(i), "")
+		theme_button.disabled = disabled
 
 func _show_difficulty_popup() -> void:
 	_remove_difficulty_popup()
