@@ -14,6 +14,8 @@ const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/fl
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
+const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
+const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 
 const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
 const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
@@ -230,6 +232,24 @@ func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
 	node.set("stage_rect", rect)
 	return node
 
+func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -> Control:
+	var node: Control = FLASH_STAGE_HORIZONTAL_FILL_SCRIPT.new() as Control
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.set("fill_color", color)
+	content.add_child(node)
+	node.set("stage_y", stage_y)
+	node.set("stage_height", stage_height)
+	return node
+
+func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D) -> Control:
+	var node: Control = FLASH_STAGE_TEXTURE_FILL_SCRIPT.new() as Control
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.set("texture", texture)
+	content.add_child(node)
+	node.set("stage_y", stage_y)
+	node.set("stage_height", stage_height)
+	return node
+
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
 	return _stage_texture_button(rect, callable, MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, text, font_size, disabled, null, disabled_overlay_alpha)
 
@@ -295,8 +315,10 @@ func show_menu() -> void:
 	# the original paper texture and the exact Flash header colour; loading the
 	# converted MainMenu scene would reintroduce hidden duplicate buttons and all
 	# of their obsolete bitmap dependencies.
-	_stage_panel(Rect2(0.0, 0.0, 800.0, 118.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_texture(Rect2(0.0, 118.0, 800.0, 362.0), MENU_PAPER_COVER)
+	# Keep the header height in Flash stage coordinates while filling the real
+	# viewport width. Menu controls remain positioned in the original stage.
+	_stage_horizontal_fill(0.0, 118.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_texture_fill(118.0, 362.0, MENU_PAPER_COVER)
 
 	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(284.0, 112.0, 300.0, 48.0), Database.tr_text(77, "Welcome back!"), 28, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
@@ -643,10 +665,9 @@ func show_theme_select() -> void:
 	# symbol already contains legacy Flash buttons, which were visible below the
 	# runtime round buttons and caused the doubled-button artefact.
 	_clear("")
-	_stage_texture(Rect2(0.0, 0.0, 800.0, 480.0), MENU_PAPER_COVER)
-	# Extend the header beyond the virtual 800 px stage so it still reaches both
-	# viewport edges on wider aspect ratios.
-	_stage_panel(Rect2(-1000.0, 0.0, 2800.0, 86.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
+	# Keep the header height in stage coordinates while filling the real viewport.
+	_stage_horizontal_fill(0.0, 86.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	var difficulty_button_rect := Rect2(639.0, 12.0, 68.0, 68.0)
 	_stage_texture_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
@@ -907,9 +928,9 @@ func show_custom_word() -> void:
 	# the graph-paper settings area, and a blue footer beginning at y = 300.
 	# Rebuild those areas directly instead of displaying the converted SlovMov
 	# scene, which contains duplicate text fields and broken bitmap fragments.
-	_stage_texture(Rect2(0.0, 0.0, 800.0, 480.0), MENU_PAPER_COVER)
-	_stage_panel(Rect2(-50.0, 0.0, 900.0, 114.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_panel(Rect2(-50.0, 300.0, 900.0, 180.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
+	_stage_horizontal_fill(0.0, 114.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_horizontal_fill(300.0, 180.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 
 	# Original input field: Head is shifted by -50 and InputTxt is created at
 	# x = 105, y = 27 with width 567, producing this stage-space white capsule.
@@ -1110,8 +1131,9 @@ func _refresh_game_screen() -> void:
 	# the hint/comment controls to the bottom safe area.  These elements are not
 	# present as static FLA instances, so the Godot layer must rebuild them in
 	# stage coordinates instead of using generic text buttons.
-	_stage_panel(Rect2(-50.0, 0.0, 900.0, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_panel(Rect2(-50.0, 387.0, 900.0, 93.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
+	_stage_horizontal_fill(0.0, 87.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 
 	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	if GameState.current_mode == 1:
@@ -1288,8 +1310,9 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	# the hero's current pose on the left and slides only the bottom action bar in.
 	_clear("")
 
-	_stage_panel(Rect2(-50.0, 0.0, 900.0, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_panel(Rect2(-50.0, 387.0, 900.0, 93.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
+	_stage_horizontal_fill(0.0, 87.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
 	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
