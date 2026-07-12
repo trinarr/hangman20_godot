@@ -28,6 +28,7 @@ const DIFFICULTY_STARS_2_TEXTURE: Texture2D = preload("res://flash_assets/diffic
 const DIFFICULTY_STARS_3_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_3.png")
 const TIME_ATTACK_BADGE_OUTER_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_badge_outer_133x133.png")
 const TIME_ATTACK_HOURGLASS_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_hourglass_38x46.png")
+const TIME_ATTACK_TIMER_ICON_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_timer_icon.png")
 const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
 const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
@@ -64,6 +65,11 @@ var custom_word_edit: LineEdit
 var custom_comment_edit: TextEdit
 var custom_word_text: String = ""
 var custom_comment_text: String = ""
+var custom_word_check_request: HTTPRequest = null
+var custom_word_check_urls: Array[String] = []
+var custom_word_check_text: String = ""
+var custom_word_check_state: int = 0 # 0 neutral, 1 checking, 2 found, 3 not found/error
+var custom_word_check_label: Label = null
 var word_info_visible: bool = false
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
@@ -100,11 +106,14 @@ func _build_root() -> void:
 
 func _clear(symbol_path: String = "") -> void:
 	_clear_hero_animation_overlay()
+	_cancel_custom_word_check()
+	custom_word_check_label = null
 	hero_static_symbol = null
 	_remove_character_select_popup()
 	_remove_settings_popup()
 	_remove_records_popup()
 	_remove_time_attack_popup()
+	_remove_clear_theme_popup()
 	settings_popup_return_content = null
 	_remove_custom_comment_popup()
 	if art_root != null:
@@ -327,8 +336,9 @@ func show_menu() -> void:
 	_stage_texture_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(2, "Time Attack"), 20)
 	_stage_texture_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(3, "Two Player"), 20)
 
-	var has_saved_game: bool = bool(GameSession.is_active) or GameSession.word_data != null
-	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), Database.tr_text(78, "Continue in\nTime Attack mode") if has_saved_game else Database.tr_text(79, "No unfinished games\nfound"), 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
+	var has_saved_game: bool = bool(GameSession.is_active)
+	var continue_text: String = _saved_game_description() if has_saved_game else Database.tr_text(79, "No unfinished games\nfound")
+	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), continue_text, 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 	_stage_texture_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(4, "Continue"), 20, !has_saved_game)
 	_stage_texture_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(5, "Settings"), 20)
 
@@ -426,10 +436,21 @@ func _remove_character_select_popup() -> void:
 			node.queue_free()
 
 func _continue_saved_game() -> void:
-	if GameSession.is_active or GameSession.word_data != null:
+	if GameSession.is_active:
 		show_game_screen()
+		if GameState.current_mode == 1 and GameState.current_time_left > 0:
+			game_timer.start()
 	else:
 		show_theme_select()
+
+func _saved_game_description() -> String:
+	match GameSession.mode:
+		0:
+			return Database.tr_key(&"CONTINUE_CLASSIC", "Continue in\nClassic mode")
+		2:
+			return Database.tr_key(&"CONTINUE_TWO_PLAYER", "Continue in\nTwo Player mode")
+		_:
+			return Database.tr_text(78, "Continue in\nTime Attack mode")
 
 func show_settings() -> void:
 	var previous_content: Control = content
@@ -628,6 +649,8 @@ func _cycle_difficulty() -> void:
 
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
+	if index == 4 and int(GameState.settings[index]) == 2:
+		Input.vibrate_handheld(400)
 	GameState.save_game()
 	show_settings()
 
@@ -682,14 +705,17 @@ func show_theme_select() -> void:
 		var x: float = 26.0 + float(col) * 262.0
 		var y: float = 125.0 + float(row) * 113.0
 		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
-		var all_count: int = Database.get_words_by_index(i, 0).size()
-		var guessed_total: int = GameState.count_guessed(Database.current_language, i, all_count)
-		var guessed: int = min(guessed_total, max(words_count, 0))
+		var guessed: int = Database.get_number_of_guessed_words(i, true)
 		var disabled: bool = words_count == 0
+		var completed: bool = words_count > 0 and guessed >= words_count
 
 		var card := _stage_texture(Rect2(x, y, 239.0, 90.0), THEME_CARD_TEXTURE)
 		var progress_back := _stage_texture(Rect2(x, y, 239.0, 65.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
+		var progress_text: String = (
+			Database.tr_text(33, "All words are guessed")
+			if completed
+			else Database.tr_text(34, "Guessed") + ": " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
+		)
 		var progress_label := _stage_label(Rect2(x + 11.0, y + 7.0, 217.0, 30.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
@@ -712,8 +738,52 @@ func show_theme_select() -> void:
 			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
 
-		var theme_button := _stage_button(Rect2(x, y, 239.0, 90.0), Callable(self, "start_classic_game").bind(i), "")
+		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
+		var theme_button := _stage_button(Rect2(x, y, 239.0, 90.0), action, "")
 		theme_button.disabled = disabled
+
+func _show_clear_theme_popup(theme_index: int) -> void:
+	_remove_clear_theme_popup()
+	var previous_content: Control = content
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "ClearThemePopupCanvas"
+	popup_layer.layer = 125
+	popup_layer.add_to_group("clear_theme_popup")
+	add_child(popup_layer)
+
+	var popup_root := Control.new()
+	popup_root.name = "ClearThemePopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_clear_theme_popup"))
+	var popup_x: float = 160.0
+	var popup_width: float = 480.0
+	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 174.0, popup_width, 162.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stage_panel(Rect2(popup_x, 172.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	var question := Database.tr_text(29, "Clear the category?") + "\n" + Database.get_theme_name(theme_index).to_upper()
+	var question_label := _stage_label(Rect2(popup_x + 32.0, 101.0, popup_width - 64.0, 62.0), question, 25, Color.WHITE)
+	question_label.clip_text = false
+	_stage_main_button(Rect2(popup_x + 28.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(30, "Yes"), 20)
+	_stage_main_button(Rect2(popup_x + popup_width - 240.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(31, "No"), 20)
+	content = previous_content
+
+func _confirm_clear_theme(theme_index: int) -> void:
+	WordManager.clear_the_theme(theme_index)
+	_remove_clear_theme_popup()
+	show_theme_select()
+
+func _remove_clear_theme_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("clear_theme_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func _show_difficulty_popup() -> void:
 	_remove_difficulty_popup()
@@ -833,6 +903,8 @@ func start_classic_game(theme_index: int) -> void:
 	GameState.current_mode = 0
 	GameState.current_score = 0
 	GameState.current_time_left = 180
+	GameState.time_attack_round = 1
+	GameState.correct_guess_streak = 0
 	GameSession.start_new_round(theme_index, 0)
 	GameState.save_game()
 	show_game_screen()
@@ -915,6 +987,9 @@ func start_time_attack() -> void:
 	GameState.current_mode = 1
 	GameState.current_score = 0
 	GameState.current_time_left = 180
+	GameState.time_attack_round = 1
+	GameState.correct_guess_streak = 0
+	GameState.records[2][0] = 0
 	GameSession.start_new_round(-1, 1)
 	GameState.save_game()
 	show_game_screen()
@@ -958,6 +1033,12 @@ func show_custom_word() -> void:
 
 	_stage_texture_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(68, "Check the word"), 20)
 	_stage_texture_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 20)
+	var check_color := Color.WHITE
+	if custom_word_check_state == 2:
+		check_color = Color(0.58, 0.88, 0.72)
+	elif custom_word_check_state == 3:
+		check_color = Color(0.96, 0.67, 0.77)
+	custom_word_check_label = _stage_label(Rect2(497.0, 267.0, 240.0, 34.0), custom_word_check_text, 16, check_color)
 	_stage_texture_button(Rect2(511.0, 315.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _custom_word_start_label(), 20)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
@@ -978,6 +1059,11 @@ func _custom_word_start_label() -> String:
 	return Database.tr_text(86, "Start game")
 
 func _on_custom_word_text_changed(value: String) -> void:
+	_cancel_custom_word_check()
+	custom_word_check_state = 0
+	custom_word_check_text = ""
+	if custom_word_check_label != null:
+		custom_word_check_label.text = ""
 	custom_word_text = _normalize_custom_word_input(value)
 	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
 		var caret_column: int = custom_word_edit.caret_column
@@ -991,8 +1077,15 @@ func _normalize_custom_word_input(value: String) -> String:
 	var filtered: String = ""
 	for i: int in range(normalized.length()):
 		var character: String = normalized.substr(i, 1)
-		if character == " " or character == "—" or character.to_upper() != character.to_lower():
+		var code: int = character.unicode_at(0)
+		var is_supported_letter: bool = (code >= 0x41 and code <= 0x5A) or (code >= 0x410 and code <= 0x42F)
+		if is_supported_letter:
 			filtered += character
+		elif character == " " or character == "—":
+			# TextBlock.CheckLast() in the FLA prevents leading and consecutive
+			# separators while the word is being typed.
+			if filtered != "" and filtered.right(1) != " " and filtered.right(1) != "—":
+				filtered += character
 	return filtered.substr(0, 35)
 
 func _toggle_custom_setting(index: int) -> void:
@@ -1022,10 +1115,81 @@ func _check_custom_word_now() -> void:
 	if custom_word_edit == null:
 		return
 	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
-	var valid: bool = _is_valid_custom_word(custom_word_text) and custom_word_text.find(" ") == -1
-	custom_word_edit.add_theme_color_override("font_color", Color(0.22, 0.55, 0.41, 1.0) if valid else Color(0.62, 0.25, 0.42, 1.0))
-	if !valid:
+	var language_code: String = _custom_word_language(custom_word_text)
+	if !_is_valid_custom_word(custom_word_text) or language_code == "":
+		custom_word_check_state = 3
+		custom_word_check_text = Database.tr_key(&"WORD_NOT_FOUND", "Word is invalid")
+		custom_word_edit.add_theme_color_override("font_color", Color(0.62, 0.25, 0.42, 1.0))
 		custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
+		_update_custom_word_check_label()
+		return
+
+	_cancel_custom_word_check()
+	custom_word_check_state = 1
+	custom_word_check_text = Database.tr_key(&"WORD_CHECKING", "Checking...")
+	custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
+	var encoded_lower: String = custom_word_text.to_lower().uri_encode()
+	var title_case: String = custom_word_text.substr(0, 1) + custom_word_text.substr(1).to_lower()
+	custom_word_check_urls = [
+		"https://" + language_code + ".wiktionary.org/wiki/" + encoded_lower,
+		"https://" + language_code + ".wiktionary.org/wiki/" + title_case.uri_encode(),
+	]
+	custom_word_check_request = HTTPRequest.new()
+	custom_word_check_request.name = "CustomWordWiktionaryCheck"
+	custom_word_check_request.timeout = 10.0
+	custom_word_check_request.request_completed.connect(_on_custom_word_check_completed)
+	add_child(custom_word_check_request)
+	_request_next_custom_word_url()
+	_update_custom_word_check_label()
+
+func _request_next_custom_word_url() -> void:
+	if custom_word_check_request == null or custom_word_check_urls.is_empty():
+		_set_custom_word_check_result(false, false)
+		return
+	var url: String = custom_word_check_urls.pop_front()
+	var error: Error = custom_word_check_request.request(url)
+	if error != OK:
+		_set_custom_word_check_result(false, true)
+
+func _on_custom_word_check_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	if result == HTTPRequest.RESULT_SUCCESS and response_code == 200:
+		_set_custom_word_check_result(true, false)
+		return
+	if result == HTTPRequest.RESULT_SUCCESS and response_code == 404 and !custom_word_check_urls.is_empty():
+		_request_next_custom_word_url()
+		return
+	_set_custom_word_check_result(false, response_code != 404)
+
+func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
+	custom_word_check_state = 2 if found else 3
+	if found:
+		custom_word_check_text = Database.tr_key(&"WORD_FOUND", "Word found")
+	elif network_error:
+		custom_word_check_text = Database.tr_key(&"WORD_CHECK_FAILED", "Check failed")
+	else:
+		custom_word_check_text = Database.tr_key(&"WORD_NOT_FOUND", "Word not found")
+	_cancel_custom_word_check()
+	if custom_word_edit != null:
+		custom_word_edit.add_theme_color_override("font_color", Color(0.22, 0.55, 0.41, 1.0) if found else Color(0.62, 0.25, 0.42, 1.0))
+	_update_custom_word_check_label()
+
+func _update_custom_word_check_label() -> void:
+	if custom_word_check_label == null or !is_instance_valid(custom_word_check_label):
+		return
+	custom_word_check_label.text = custom_word_check_text
+	var check_color := Color.WHITE
+	if custom_word_check_state == 2:
+		check_color = Color(0.58, 0.88, 0.72)
+	elif custom_word_check_state == 3:
+		check_color = Color(0.96, 0.67, 0.77)
+	custom_word_check_label.add_theme_color_override("font_color", check_color)
+
+func _cancel_custom_word_check() -> void:
+	custom_word_check_urls.clear()
+	if custom_word_check_request != null and is_instance_valid(custom_word_check_request):
+		custom_word_check_request.cancel_request()
+		custom_word_check_request.queue_free()
+	custom_word_check_request = null
 
 func _show_custom_comment_popup() -> void:
 	_remove_custom_comment_popup()
@@ -1091,6 +1255,8 @@ func start_custom_game() -> void:
 	GameState.current_mode = 2
 	GameState.current_score = 0
 	GameState.current_time_left = 180
+	GameState.time_attack_round = 1
+	GameState.correct_guess_streak = 0
 	GameSession.start_custom_round(word, custom_comment_text)
 	GameState.save_game()
 	show_game_screen()
@@ -1098,15 +1264,38 @@ func start_custom_game() -> void:
 func _is_valid_custom_word(word: String) -> bool:
 	if word.length() == 0:
 		return false
+	if word.begins_with(" ") or word.begins_with("—") or word.ends_with(" ") or word.ends_with("—"):
+		return false
+	if _custom_word_language(word) == "":
+		return false
 	var has_letter := false
+	var previous_separator := false
 	for i in range(word.length()):
 		var ch := word.substr(i, 1)
 		if ch == " " or ch == "—" or ch == "-":
+			if previous_separator:
+				return false
+			previous_separator = true
 			continue
-		if ch.to_upper() == ch.to_lower():
+		previous_separator = false
+		var code: int = ch.unicode_at(0)
+		if !((code >= 0x41 and code <= 0x5A) or (code >= 0x410 and code <= 0x42F)):
 			return false
 		has_letter = true
 	return has_letter
+
+func _custom_word_language(word: String) -> String:
+	var has_latin := false
+	var has_cyrillic := false
+	for i in range(word.length()):
+		var code: int = word.substr(i, 1).unicode_at(0)
+		if code >= 0x41 and code <= 0x5A:
+			has_latin = true
+		elif code >= 0x410 and code <= 0x42F:
+			has_cyrillic = true
+	if has_latin == has_cyrillic:
+		return ""
+	return "en" if has_latin else "ru"
 
 func show_game_screen() -> void:
 	# The converted GameMov scene contains button frame debris and large nested
@@ -1136,9 +1325,6 @@ func _refresh_game_screen() -> void:
 	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 
 	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	if GameState.current_mode == 1:
-		_stage_label(Rect2(49.0, 0.0, 180.0, 60.0), _format_time(GameState.current_time_left), 24, Color.WHITE)
-		_stage_label(Rect2(70.0, 112.0, 180.0, 32.0), Database.tr_text(44, "Score") + ": " + str(GameState.current_score), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
 	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
@@ -1205,6 +1391,10 @@ func _refresh_game_screen() -> void:
 		if comment_label != null:
 			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
 
+	_stage_hero_attempts_counter()
+	if GameState.current_mode == 1:
+		_stage_time_attack_hud()
+
 func _game_header_icon() -> String:
 	if GameState.current_mode == 1:
 		return "■"
@@ -1223,6 +1413,80 @@ func _game_header_action() -> void:
 		show_custom_word()
 	else:
 		show_theme_select()
+
+
+func _stage_time_attack_hud() -> void:
+	var icon_size: Vector2 = Vector2(22.0, 22.0)
+	_stage_texture(Rect2(26.0, 405.0, icon_size.x, icon_size.y), MAIN_MENU_HOLLOW_STAR_ICON)
+	_stage_texture(Rect2(23.0, 433.0, 26.0, 26.0), TIME_ATTACK_TIMER_ICON_TEXTURE)
+
+	var score_label := _stage_label(Rect2(58.0, 399.0, 150.0, 28.0), str(GameState.current_score), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_apply_result_text_glow(score_label, Color(0.2314, 0.2627, 0.5176, 1.0), 2)
+
+	var time_label := _stage_label(Rect2(58.0, 429.0, 150.0, 28.0), _format_time(GameState.current_time_left), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_apply_result_text_glow(time_label, Color(0.2314, 0.2627, 0.5176, 1.0), 2)
+
+func _stage_hero_attempts_counter() -> void:
+	var visible_attempts: int = _hero_attempts_display_value()
+	if visible_attempts < 0:
+		return
+
+	var counter_rect: Rect2 = _hero_attempts_counter_rect()
+	var holder: Control = _stage_holder(counter_rect, Control.MOUSE_FILTER_IGNORE)
+	holder.z_index = 170
+	holder.pivot_offset = counter_rect.size * 0.5
+	holder.rotation = deg_to_rad(_hero_attempts_counter_rotation())
+
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.text = str(visible_attempts)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 24 if _selected_character_id() == 2 else 26)
+	label.add_theme_color_override("font_color", Color(0.2706, 0.3098, 0.6078, 1.0))
+	label.add_theme_color_override("font_outline_color", Color(0.93, 0.91, 0.82, 0.18))
+	label.add_theme_constant_override("outline_size", 1)
+	holder.add_child(label)
+
+func _hero_attempts_display_value() -> int:
+	if GameSession.max_mistakes <= 1:
+		return -1
+	var display_value: int = GameSession.max_mistakes - GameSession.mistakes - 1
+	if display_value <= 0:
+		return -1 if !GameSession.is_active else 1
+	return display_value
+
+func _hero_attempts_counter_rect() -> Rect2:
+	var index: int = clampi(GameSession.mistakes, 0, 6)
+	if _selected_character_id() == 2:
+		var cat_positions := [
+			Rect2(78.0, 236.0, 52.0, 34.0),
+			Rect2(82.0, 239.0, 52.0, 34.0),
+			Rect2(86.0, 243.0, 52.0, 34.0),
+			Rect2(90.0, 247.0, 52.0, 34.0),
+			Rect2(94.0, 250.0, 52.0, 34.0),
+			Rect2(98.0, 254.0, 52.0, 34.0),
+			Rect2(101.0, 257.0, 52.0, 34.0)
+		]
+		return cat_positions[index]
+	var human_positions := [
+		Rect2(84.0, 206.0, 52.0, 36.0),
+		Rect2(86.0, 214.0, 52.0, 36.0),
+		Rect2(89.0, 223.0, 52.0, 36.0),
+		Rect2(92.0, 229.0, 52.0, 36.0),
+		Rect2(95.0, 236.0, 52.0, 36.0),
+		Rect2(96.0, 241.0, 52.0, 36.0),
+		Rect2(98.0, 245.0, 52.0, 36.0)
+	]
+	return human_positions[index]
+
+func _hero_attempts_counter_rotation() -> float:
+	if _selected_character_id() == 2:
+		return -5.0
+	return -8.0
 
 
 func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
@@ -1323,6 +1587,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_stage_texture(Rect2(738.0, 34.0, 18.0, 18.0), RESULT_CLOSE_ICON)
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	_stage_hero_attempts_counter()
 
 	# The result title must never depend on an optional/empty value in `data`.
 	# Draw it in its own high z-index holder and disable clipping so the large
@@ -1383,7 +1648,9 @@ func _result_left_button_text() -> String:
 	return Database.tr_text(52, "Change category")
 
 func _result_right_button_text() -> String:
-	if GameState.current_mode == 1 or GameSession.theme_id < 0:
+	if GameState.current_mode == 1:
+		return Database.tr_text(4, "Continue")
+	if GameSession.theme_id < 0:
 		return Database.tr_text(10, "Restart")
 	return Database.tr_text(4, "Continue")
 

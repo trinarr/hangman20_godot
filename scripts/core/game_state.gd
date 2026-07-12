@@ -25,12 +25,19 @@ var current_theme: int = -1
 var current_word_index: int = -1
 var current_score: int = 0
 var current_time_left: int = 180
+# Hangman 3.2.3 keeps two additional values in ErrArr[1]:
+# - the current word number in Time Attack (starts at 1);
+# - the uninterrupted correct-letter streak used by the score multiplier.
+var time_attack_round: int = 1
+var correct_guess_streak: int = 0
+var session_state: Dictionary = {}
 
 func _ready() -> void:
 	load_game()
 
 func load_game() -> void:
 	if !FileAccess.file_exists(SAVE_PATH):
+		_set_default_language_from_locale()
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if file == null:
@@ -56,8 +63,19 @@ func load_game() -> void:
 	current_word_index = int(parsed.get("current_word_index", current_word_index))
 	current_score = int(parsed.get("current_score", current_score))
 	current_time_left = int(parsed.get("current_time_left", current_time_left))
+	time_attack_round = int(parsed.get("time_attack_round", time_attack_round))
+	correct_guess_streak = int(parsed.get("correct_guess_streak", correct_guess_streak))
+	var loaded_session_state = parsed.get("session_state", session_state)
+	if loaded_session_state is Dictionary:
+		session_state = loaded_session_state
 
 	_normalize_arrays()
+
+func _set_default_language_from_locale() -> void:
+	# MainTimeline.as uses Russian for Russian and Ukrainian system locales and
+	# English for every other locale on the first launch.
+	var locale: String = OS.get_locale().to_lower()
+	language = "ru" if locale.begins_with("ru") or locale.begins_with("uk") else "en"
 
 func save_game() -> void:
 	_normalize_arrays()
@@ -74,7 +92,10 @@ func save_game() -> void:
 		"current_theme": current_theme,
 		"current_word_index": current_word_index,
 		"current_score": current_score,
-		"current_time_left": current_time_left
+		"current_time_left": current_time_left,
+		"time_attack_round": time_attack_round,
+		"correct_guess_streak": correct_guess_streak,
+		"session_state": session_state
 	}, "\t"))
 	file.close()
 
@@ -89,18 +110,24 @@ func _normalize_arrays() -> void:
 		records[1].append(0)
 	while Array(records[2]).size() < 3:
 		records[2].append(0)
+	time_attack_round = maxi(1, time_attack_round)
+	correct_guess_streak = maxi(0, correct_guess_streak)
 
 func reset_current_game(keep_time_mode: bool = false) -> void:
 	if !keep_time_mode:
 		current_mode = 0
 		current_score = 0
 		current_time_left = 180
+		time_attack_round = 1
+		correct_guess_streak = 0
 	current_theme = -1
 	current_word_index = -1
+	session_state.clear()
 	save_game()
 
 func set_language(lang: String) -> void:
-	language = "ru" if lang.to_lower().begins_with("ru") else "en"
+	var normalized: String = lang.to_lower()
+	language = "ru" if normalized.begins_with("ru") or normalized.begins_with("uk") else "en"
 	save_game()
 
 func ensure_theme_progress(lang: String, theme_index: int, word_count: int) -> Dictionary:

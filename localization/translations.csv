@@ -91,3 +91,15 @@ MAX_35_CHARACTERS,Макс. 35 символов,Max. 35 characters
 RANDOM_WORD,Случайное слово,Random word
 START_GAME,Начать игру,Start game
 OK,OK,OK
+POINTS_GAINED,Очков:,Points:
+PENALTY,Штраф:,Penalty:
+WORD_CHECKING,Проверка...,Checking...
+WORD_FOUND,Слово найдено,Word found
+WORD_NOT_FOUND,Слово не найдено,Word not found
+WORD_CHECK_FAILED,Не удалось проверить,Check failed
+CONTINUE_CLASSIC,"Доиграть в режиме
+«Классика»","Continue in
+Classic mode"
+CONTINUE_TWO_PLAYER,"Доиграть в режиме
+«Два игрока»","Continue in
+Two Player mode"

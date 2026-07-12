@@ -20,6 +20,9 @@ var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var word_hint_text: String = ""
 
+func _ready() -> void:
+	_restore_session_state()
+
 func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: int = 0) -> void:
 	word_data = word
 	word_index = index if index >= 0 else word.index
@@ -38,6 +41,7 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
 	_open_initial_letters()
+	_save_session_state()
 	emit_signal("changed")
 
 func start_new_round(theme_index: int, game_mode: int = 0) -> void:
@@ -103,20 +107,31 @@ func guess(letter: String) -> bool:
 		return false
 	var correct := _reveal_letter(letter)
 	if correct:
+		if mode == 1:
+			GameState.correct_guess_streak += 1
+			_add_time_attack_points(GameState.correct_guess_streak * 2 * _time_attack_difficulty_factor())
 		if is_word_completed():
 			is_active = false
+			_save_session_state()
 			emit_signal("changed")
 			emit_signal("round_won")
 		else:
+			_save_session_state()
 			emit_signal("changed")
 		return true
 	wrong_letters.append(letter)
 	mistakes += 1
+	if mode == 1:
+		GameState.correct_guess_streak = 0
+	if int(GameState.settings[4]) == 2:
+		Input.vibrate_handheld(150)
 	if mistakes >= max_mistakes:
 		is_active = false
+		_save_session_state()
 		emit_signal("changed")
 		emit_signal("round_lost")
 	else:
+		_save_session_state()
 		emit_signal("changed")
 	return false
 
@@ -170,12 +185,14 @@ func use_open_letter_hint() -> bool:
 	var index: int = candidates[randi() % candidates.size()]
 	_reveal_letter(letters[index])
 	if mode == 1:
-		GameState.current_score = max(0, GameState.current_score - 7)
+		_add_time_attack_points(-25)
 	if is_word_completed():
 		is_active = false
+		_save_session_state()
 		emit_signal("changed")
 		emit_signal("round_won")
 	else:
+		_save_session_state()
 		emit_signal("changed")
 	return true
 
@@ -190,10 +207,16 @@ func use_remove_wrong_hint() -> bool:
 	if candidates.is_empty():
 		return false
 	remove_wrong_hint_used = true
-	var removed: String = candidates[randi() % candidates.size()]
-	removed_wrong_letters.append(removed)
+	# The newer FLA removes three Russian or two English keyboard letters.
+	# They are selected without replacement and never count as mistakes.
+	var remove_count: int = 2 if Database.get_alphabet().size() == 26 else 3
+	for _index in range(mini(remove_count, candidates.size())):
+		var candidate_index: int = randi() % candidates.size()
+		removed_wrong_letters.append(str(candidates[candidate_index]))
+		candidates.remove_at(candidate_index)
 	if mode == 1:
-		GameState.current_score = max(0, GameState.current_score - 3)
+		_add_time_attack_points(-20)
+	_save_session_state()
 	emit_signal("changed")
 	return true
 
@@ -201,6 +224,7 @@ func give_up() -> void:
 	if !is_active:
 		return
 	is_active = false
+	_save_session_state()
 	emit_signal("changed")
 	emit_signal("round_lost")
 
@@ -241,30 +265,46 @@ func finish_result(is_win: bool) -> Dictionary:
 	if word_data == null:
 		return result
 
-	if mode == 0:
-		var diff := int(word_data.difficulty)
+	var diff := clampi(int(word_data.difficulty), 0, 1)
+
+	# ReztMovBlock.as updates the classic difficulty streak for every category
+	# word, including words played during Time Attack. Only two-player words have
+	# no category and therefore use their own win/loss counters.
+	if theme_id >= 0:
 		if is_win:
 			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
 			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
 				GameState.records[0][2 + diff] = int(GameState.records[0][diff])
-				result["lines"].append(Database.tr_text(64, "New record!"))
-			if theme_id >= 0:
-				GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
-				if _is_theme_completed(theme_id):
-					result["lines"].append(Database.tr_text(65, "Category is completed!"))
+				result["lines"].append(Database.tr_text(20 + diff, "Words in a row") + ": " + str(GameState.records[0][diff]))
 		else:
 			GameState.records[0][diff] = 0
+
+	if mode == 0:
+		if is_win and theme_id >= 0:
+			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
+			if _is_theme_completed(theme_id):
+				result["lines"].append(Database.tr_text(65, "Category is completed!"))
 	elif mode == 1:
 		if is_win:
+			# New FLA formula:
+			# round * 3 * difficulty_factor + 105 - 15 * HeroMov.currentFrame.
+			# HeroMov starts on frame 1, so currentFrame == mistakes + 1.
+			var bonus: int = (
+				GameState.time_attack_round * 3 * _time_attack_difficulty_factor()
+				+ 105
+				- 15 * (mistakes + 1)
+			)
+			_add_time_attack_points(bonus)
+			result["lines"].append(Database.tr_key(&"POINTS_GAINED", "Points:") + " " + str(bonus))
+			GameState.time_attack_round += 1
 			GameState.records[2][0] = int(GameState.records[2][0]) + 1
-			GameState.current_score += max(0, 105 - 15 * mistakes)
 			if int(GameState.records[2][0]) > int(GameState.records[2][1]):
 				GameState.records[2][1] = int(GameState.records[2][0])
-				result["lines"].append(Database.tr_text(45, "Victories per game") + ": " + str(GameState.records[2][1]))
+				result["lines"].append(Database.tr_text(45, "Victories per game") + ": " + str(GameState.records[2][0]))
 		else:
-			GameState.current_score = max(0, GameState.current_score - 15)
-		if theme_id >= 0 and is_win:
-			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
+			GameState.time_attack_round = 1
+			_add_time_attack_points(-20)
+			result["lines"].append(Database.tr_key(&"PENALTY", "Penalty:") + " 20")
 	elif mode == 2:
 		if is_win:
 			GameState.records[1][0] = int(GameState.records[1][0]) + 1
@@ -283,8 +323,87 @@ func finish_time_attack_timeout() -> Dictionary:
 		GameState.records[2][2] = int(GameState.current_score)
 		result["lines"].append(Database.tr_text(64, "New record!"))
 	GameState.records[2][0] = 0
+	GameState.time_attack_round = 1
+	GameState.correct_guess_streak = 0
+	is_active = false
+	GameState.session_state.clear()
 	GameState.save_game()
 	return result
+
+func _save_session_state() -> void:
+	if !is_active or word_data == null:
+		GameState.session_state.clear()
+		GameState.save_game()
+		return
+	GameState.session_state = {
+		"word": word_data.text,
+		"difficulty": word_data.difficulty,
+		"theme_index": theme_id,
+		"word_index": word_index,
+		"custom_comment": word_data.custom_comment,
+		"revealed": revealed.duplicate(),
+		"correct_letters": Array(correct_letters),
+		"wrong_letters": Array(wrong_letters),
+		"removed_wrong_letters": Array(removed_wrong_letters),
+		"mistakes": mistakes,
+		"max_mistakes": max_mistakes,
+		"mode": mode,
+		"open_hint_used": open_hint_used,
+		"remove_wrong_hint_used": remove_wrong_hint_used,
+		"word_hint_text": word_hint_text,
+	}
+	GameState.save_game()
+
+func _restore_session_state() -> void:
+	var saved: Dictionary = GameState.session_state
+	var saved_word: String = str(saved.get("word", "")).strip_edges()
+	if saved_word == "":
+		return
+	word_index = int(saved.get("word_index", -1))
+	theme_id = int(saved.get("theme_index", -1))
+	mode = int(saved.get("mode", GameState.current_mode))
+	word_data = WordData.new(
+		saved_word,
+		int(saved.get("difficulty", 0)),
+		theme_id,
+		word_index,
+		str(saved.get("custom_comment", ""))
+	)
+	letters = _split_letters(word_data.text)
+	revealed = Array(saved.get("revealed", []))
+	while revealed.size() < letters.size():
+		revealed.append(false)
+	if revealed.size() > letters.size():
+		revealed.resize(letters.size())
+	correct_letters = PackedStringArray(saved.get("correct_letters", []))
+	wrong_letters = PackedStringArray(saved.get("wrong_letters", []))
+	removed_wrong_letters = PackedStringArray(saved.get("removed_wrong_letters", []))
+	mistakes = int(saved.get("mistakes", 0))
+	max_mistakes = int(saved.get("max_mistakes", 7))
+	open_hint_used = bool(saved.get("open_hint_used", false))
+	remove_wrong_hint_used = bool(saved.get("remove_wrong_hint_used", false))
+	word_hint_text = str(saved.get("word_hint_text", ""))
+	is_active = true
+	GameState.current_mode = mode
+	GameState.current_theme = theme_id
+	GameState.current_word_index = word_index
+
+func _time_attack_difficulty_factor() -> int:
+	# Exact AS3 expression:
+	# floor(((Settings[2] + 1) % 3) * 1.5) + 1
+	match int(GameState.settings[2]):
+		1:
+			return 4 # hard
+		2:
+			return 1 # easy
+		_:
+			return 2 # general
+
+func _add_time_attack_points(delta: int) -> void:
+	if mode != 1:
+		return
+	const AS3_INT_MAX: int = 2147483647
+	GameState.current_score = clampi(GameState.current_score + delta, 0, AS3_INT_MAX)
 
 func _is_theme_completed(theme_index: int) -> bool:
 	return Database.get_number_of_all_words(theme_index, true) - Database.get_number_of_guessed_words(theme_index, true) == 0

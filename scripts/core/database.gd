@@ -116,7 +116,7 @@ func load_language(lang: String) -> void:
 
 func _normalize_language(lang: String) -> String:
 	var normalized := lang.to_lower()
-	if normalized.begins_with("ru"):
+	if normalized.begins_with("ru") or normalized.begins_with("uk"):
 		return "ru"
 	return "en"
 
