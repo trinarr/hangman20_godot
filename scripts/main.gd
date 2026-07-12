@@ -1391,7 +1391,6 @@ func _refresh_game_screen() -> void:
 		if comment_label != null:
 			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
 
-	_stage_hero_attempts_counter()
 	if GameState.current_mode == 1:
 		_stage_time_attack_hud()
 
@@ -1427,67 +1426,6 @@ func _stage_time_attack_hud() -> void:
 	var time_label := _stage_label(Rect2(58.0, 429.0, 150.0, 28.0), _format_time(GameState.current_time_left), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_apply_result_text_glow(time_label, Color(0.2314, 0.2627, 0.5176, 1.0), 2)
-
-func _stage_hero_attempts_counter() -> void:
-	var visible_attempts: int = _hero_attempts_display_value()
-	if visible_attempts < 0:
-		return
-
-	var counter_rect: Rect2 = _hero_attempts_counter_rect()
-	var holder: Control = _stage_holder(counter_rect, Control.MOUSE_FILTER_IGNORE)
-	holder.z_index = 170
-	holder.pivot_offset = counter_rect.size * 0.5
-	holder.rotation = deg_to_rad(_hero_attempts_counter_rotation())
-
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.text = str(visible_attempts)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 24 if _selected_character_id() == 2 else 26)
-	label.add_theme_color_override("font_color", Color(0.2706, 0.3098, 0.6078, 1.0))
-	label.add_theme_color_override("font_outline_color", Color(0.93, 0.91, 0.82, 0.18))
-	label.add_theme_constant_override("outline_size", 1)
-	holder.add_child(label)
-
-func _hero_attempts_display_value() -> int:
-	if GameSession.max_mistakes <= 1:
-		return -1
-	var display_value: int = GameSession.max_mistakes - GameSession.mistakes - 1
-	if display_value <= 0:
-		return -1 if !GameSession.is_active else 1
-	return display_value
-
-func _hero_attempts_counter_rect() -> Rect2:
-	var index: int = clampi(GameSession.mistakes, 0, 6)
-	if _selected_character_id() == 2:
-		var cat_positions := [
-			Rect2(78.0, 236.0, 52.0, 34.0),
-			Rect2(82.0, 239.0, 52.0, 34.0),
-			Rect2(86.0, 243.0, 52.0, 34.0),
-			Rect2(90.0, 247.0, 52.0, 34.0),
-			Rect2(94.0, 250.0, 52.0, 34.0),
-			Rect2(98.0, 254.0, 52.0, 34.0),
-			Rect2(101.0, 257.0, 52.0, 34.0)
-		]
-		return cat_positions[index]
-	var human_positions := [
-		Rect2(84.0, 206.0, 52.0, 36.0),
-		Rect2(86.0, 214.0, 52.0, 36.0),
-		Rect2(89.0, 223.0, 52.0, 36.0),
-		Rect2(92.0, 229.0, 52.0, 36.0),
-		Rect2(95.0, 236.0, 52.0, 36.0),
-		Rect2(96.0, 241.0, 52.0, 36.0),
-		Rect2(98.0, 245.0, 52.0, 36.0)
-	]
-	return human_positions[index]
-
-func _hero_attempts_counter_rotation() -> float:
-	if _selected_character_id() == 2:
-		return -5.0
-	return -8.0
-
 
 func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
 	_clear_hero_animation_overlay()
@@ -1587,7 +1525,6 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_stage_texture(Rect2(738.0, 34.0, 18.0, 18.0), RESULT_CLOSE_ICON)
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
-	_stage_hero_attempts_counter()
 
 	# The result title must never depend on an optional/empty value in `data`.
 	# Draw it in its own high z-index holder and disable clipping so the large
