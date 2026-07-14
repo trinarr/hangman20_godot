@@ -38,7 +38,7 @@ OF,из,of
 HINTS_LABEL,Подсказки:,Hints:
 RESULT_VICTORY,ПОБЕДА,VICTORY
 RESULT_DEFEAT,ПОРАЖЕНИЕ,DEFEAT
-RESULT_END,КОНЕЦ,THE END
+RESULT_END,КОНЕЦ ИГРЫ,GAME OVER
 UNAVAILABLE,НЕДОСТУПНО,UNAVAILABLE
 INPUT_WORD,Введите слово,Input the word
 VICTORIES,Побед,Victories
@@ -103,3 +103,4 @@ Classic mode"
 CONTINUE_TWO_PLAYER,"Доиграть в режиме
 «Два игрока»","Continue in
 Two Player mode"
+FINAL_SCORE,Итоговые очки:,Final score:

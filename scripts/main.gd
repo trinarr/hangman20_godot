@@ -16,6 +16,7 @@ const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
+const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 
 const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
 const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
@@ -181,6 +182,15 @@ func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.5
 	blocker.pressed.connect(close_callable)
 	content.add_child(blocker)
 	blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: float) -> Control:
+	var centered_content: Control = POPUP_STAGE_CENTER_SCRIPT.new() as Control
+	centered_content.name = "CenteredPopupStage"
+	centered_content.mouse_filter = Control.MOUSE_FILTER_PASS
+	centered_content.set("popup_top", popup_top)
+	centered_content.set("popup_bottom", popup_bottom)
+	popup_root.add_child(centered_content)
+	return centered_content
 
 func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Texture2D, pressed_texture: Texture2D, text: String = "", font_size: int = 20, disabled: bool = false, disabled_texture: Texture2D = null, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: Control = FLASH_STAGE_TEXTURE_BUTTON_SCRIPT.new() as Control
@@ -391,6 +401,7 @@ func _show_character_select_popup() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_character_select_popup"))
+	content = _center_popup_content(popup_root, 0.0, 370.0)
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -473,6 +484,7 @@ func show_settings() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_settings_popup"))
+	content = _center_popup_content(popup_root, 0.0, 370.0)
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -576,6 +588,7 @@ func _show_about_popup() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_about_popup"), 0.38)
+	content = _center_popup_content(popup_root, 0.0, 370.0)
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -759,6 +772,7 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_clear_theme_popup"))
+	content = _center_popup_content(popup_root, 92.0, 336.0)
 	var popup_x: float = 160.0
 	var popup_width: float = 480.0
 	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
@@ -806,6 +820,7 @@ func _show_difficulty_popup() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_difficulty_popup"))
+	content = _center_popup_content(popup_root, 0.0, 250.0)
 
 	var popup_x: float = 40.0
 	var popup_width: float = 720.0
@@ -927,6 +942,7 @@ func _show_time_attack_popup() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_time_attack_popup"))
+	content = _center_popup_content(popup_root, 0.0, 340.0)
 
 	var popup_x: float = 70.0
 	var popup_width: float = 660.0
@@ -957,7 +973,7 @@ func _show_time_attack_popup() -> void:
 	description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	description_label.clip_text = true
 
-	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][1]))
+	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
 	var record_label := _stage_label(Rect2(popup_x + 54.0, 275.0, 240.0, 38.0), record_text, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	record_label.clip_text = false
 	_stage_main_button(Rect2(popup_x + 333.0, 276.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 20)
@@ -1211,6 +1227,7 @@ func _show_custom_comment_popup() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_save_and_close_custom_comment_popup"))
+	content = _center_popup_content(popup_root, 40.0, 358.0)
 	var header := _stage_panel(Rect2(70.0, 40.0, 660.0, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
 	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2314, 0.2627, 0.5176, 1.0))
@@ -1403,9 +1420,12 @@ func _game_header_icon() -> String:
 
 func _game_header_action() -> void:
 	if GameState.current_mode == 1:
+		# The square button ends the whole Time Attack session immediately.
+		# This is different from losing a single word: the final result screen
+		# cannot be continued and shows the session's final score.
 		game_finished = true
 		last_result_is_win = false
-		last_result_data = GameSession.finish_time_attack_timeout()
+		last_result_data = GameSession.finish_time_attack_timeout(false)
 		game_timer.stop()
 		show_result_screen(false, last_result_data)
 	elif GameState.current_mode == 2:
@@ -1526,12 +1546,21 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
 
-	# The result title must never depend on an optional/empty value in `data`.
-	# Draw it in its own high z-index holder and disable clipping so the large
-	# Cyrillic glyphs are always visible, exactly like the original Flash text.
-	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
-	if title == "":
-		title = "VICTORY" if is_win else "DEFEAT"
+	# A completed Time Attack session has its own final result state. It is not
+	# a normal defeat and therefore uses "Game over" instead of "Defeat".
+	var time_attack_finished: bool = (
+		GameState.current_mode == 1
+		and bool(data.get("time_attack_finished", false))
+	)
+	var title: String
+	if time_attack_finished:
+		title = str(data.get("title", Database.tr_text(39, "GAME OVER"))).strip_edges()
+		if title == "":
+			title = Database.tr_text(39, "GAME OVER")
+	else:
+		title = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+		if title == "":
+			title = "VICTORY" if is_win else "DEFEAT"
 	var title_label := _stage_label(Rect2(365.0, 128.0, 365.0, 72.0), title, 42, Color(0.8157, 0.5647, 0.3412), HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.clip_text = false
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1541,10 +1570,23 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 		title_holder.z_index = 30
 	_apply_result_text_glow(title_label, Color.WHITE, 3)
 
-	var result_message: String = _result_message(is_win, data)
-	var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-	message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_apply_result_text_glow(message_label, Color.WHITE, 2)
+	if time_attack_finished:
+		var final_score: int = int(data.get("final_score", GameState.current_score))
+		var final_score_text: String = Database.tr_key(&"FINAL_SCORE", "Final score:") + " " + str(final_score)
+		var final_score_label := _stage_label(Rect2(395.0, 198.0, 307.0, 38.0), final_score_text, 24, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+		final_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_apply_result_text_glow(final_score_label, Color.WHITE, 2)
+
+		var final_details: String = _result_data_lines(data)
+		if final_details != "":
+			var details_label := _stage_label(Rect2(395.0, 241.0, 307.0, 54.0), final_details, 19, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+			details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+			_apply_result_text_glow(details_label, Color.WHITE, 2)
+	else:
+		var result_message: String = _result_message(is_win, data)
+		var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+		message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		_apply_result_text_glow(message_label, Color.WHITE, 2)
 
 	var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
 	_apply_result_text_glow(theme_label, Color.WHITE, 2)
@@ -1558,20 +1600,29 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			left_label.add_theme_color_override("font_color", Color.WHITE)
 	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18)
 
+	# Keep the HUD between ordinary Time Attack rounds, but remove it after the
+	# entire session has been ended manually or by the timer reaching zero.
+	if GameState.current_mode == 1 and !time_attack_finished:
+		_stage_time_attack_hud()
+
 func _spaced_result_word(word: String) -> String:
 	var characters := PackedStringArray()
 	for i in range(word.length()):
 		characters.append(word.substr(i, 1))
 	return " ".join(characters)
 
-func _result_message(is_win: bool, data: Dictionary) -> String:
+func _result_data_lines(data: Dictionary) -> String:
 	var lines := PackedStringArray()
 	for line in Array(data.get("lines", [])):
 		var value: String = str(line).strip_edges()
 		if value != "":
 			lines.append(value)
-	if !lines.is_empty():
-		return "\n".join(lines)
+	return "\n".join(lines)
+
+func _result_message(is_win: bool, data: Dictionary) -> String:
+	var data_lines: String = _result_data_lines(data)
+	if data_lines != "":
+		return data_lines
 	return Database.tr_text(49 if is_win else 50, "Keep going!" if is_win else "You can do better!")
 
 func _result_theme_label() -> String:
@@ -1586,10 +1637,18 @@ func _result_left_button_text() -> String:
 
 func _result_right_button_text() -> String:
 	if GameState.current_mode == 1:
+		if _is_time_attack_finished_result():
+			return Database.tr_text(10, "Restart")
 		return Database.tr_text(4, "Continue")
 	if GameSession.theme_id < 0:
 		return Database.tr_text(10, "Restart")
 	return Database.tr_text(4, "Continue")
+
+func _is_time_attack_finished_result() -> bool:
+	return (
+		GameState.current_mode == 1
+		and bool(last_result_data.get("time_attack_finished", false))
+	)
 
 func _result_left_action() -> void:
 	if GameState.current_mode == 1:
@@ -1599,7 +1658,7 @@ func _result_left_action() -> void:
 
 func _result_right_action() -> void:
 	if GameState.current_mode == 1:
-		if GameState.current_time_left <= 0:
+		if _is_time_attack_finished_result() or GameState.current_time_left <= 0:
 			start_time_attack()
 		else:
 			_continue_time_attack()
@@ -1644,6 +1703,7 @@ func show_records() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_records_popup"))
+	content = _center_popup_content(popup_root, 0.0, 370.0)
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0
@@ -1746,6 +1806,7 @@ func _show_word_comment_popup() -> void:
 	# the dimmer reproduces PoiasnOk.ExtMouseClick() and closes the dialog when
 	# the user clicks outside the blue popup window.
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_word_comment_popup"))
+	content = _center_popup_content(popup_root, 0.0, 366.0)
 
 	var popup_x: float = 56.0
 	var popup_width: float = 648.0

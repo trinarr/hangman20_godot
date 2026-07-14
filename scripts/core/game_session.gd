@@ -314,13 +314,18 @@ func finish_result(is_win: bool) -> Dictionary:
 	GameState.save_game()
 	return result
 
-func finish_time_attack_timeout() -> Dictionary:
+func finish_time_attack_timeout(timed_out: bool = true) -> Dictionary:
+	var final_score: int = int(GameState.current_score)
 	var result := {
-		"title": Database.tr_text(39, "THE END"),
-		"lines": [Database.tr_text(51, "Time's up!")]
+		"title": Database.tr_text(39, "GAME OVER"),
+		"lines": [],
+		"time_attack_finished": true,
+		"final_score": final_score
 	}
-	if int(GameState.current_score) > int(GameState.records[2][2]):
-		GameState.records[2][2] = int(GameState.current_score)
+	if timed_out:
+		result["lines"].append(Database.tr_text(51, "Time's up!"))
+	if final_score > int(GameState.records[2][2]):
+		GameState.records[2][2] = final_score
 		result["lines"].append(Database.tr_text(64, "New record!"))
 	GameState.records[2][0] = 0
 	GameState.time_attack_round = 1
