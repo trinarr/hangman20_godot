@@ -12,6 +12,8 @@ const LETTER_MARKER_REVEAL_DURATION: float = 0.2
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_button.gd")
+const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
+const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
@@ -20,12 +22,7 @@ const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flas
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 const LETTER_MARKER_REVEAL_SHADER: Shader = preload("res://shaders/letter_marker_reveal.gdshader")
 
-const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
-const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
-const ROUND_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_round_button_36.png")
-const ROUND_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
-const ROUND_BUTTON_ACHIEVEMENTS_ICON: Texture2D = preload("res://flash_assets/_____________png.png")
 const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_1.png")
 const DIFFICULTY_STARS_2_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_2.png")
 const DIFFICULTY_STARS_3_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_3.png")
@@ -48,8 +45,6 @@ const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hin
 const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_remove_15.png")
 const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
 const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
-const COMMENT_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
-const COMMENT_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const LETTER_CORRECT_TEXTURE: Texture2D = preload("res://img/_______435______2_0_SHAPE_0_BOUNDS_-1.96_-1.96_SIZE_211_211.png")
 const LETTER_WRONG_TEXTURE: Texture2D = preload("res://img/_______430______1_0_SHAPE_0_BOUNDS_3.99_8.74_SIZE_186_177.png")
@@ -168,36 +163,46 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
 	_apply_transparent_button_style(button, text != "", font_size)
-	button.pressed.connect(callable)
+	if callable.is_valid():
+		button.pressed.connect(callable)
 	content.add_child(button)
 	button.set("stage_rect", rect)
 	return button
 
 func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.58) -> void:
+	# The fullscreen popup root must not swallow clicks before they reach the
+	# backdrop. Interactive controls inside the popup keep their own STOP filters.
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 	# Popup art is positioned in the original 800x480 Flash stage, but the dimmer
 	# must cover the real viewport, including letterbox/pillarbox space on other
 	# aspect ratios. Native full-rect Controls avoid clipping to stage bounds.
 	var dimmer := ColorRect.new()
 	dimmer.name = "ModalDimmer"
 	dimmer.color = Color(0.0, 0.0, 0.0, alpha)
-	dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	dimmer.gui_input.connect(_on_modal_dimmer_input.bind(close_callable))
 	content.add_child(dimmer)
 	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	var blocker := Button.new()
-	blocker.name = "ModalBackdropButton"
-	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
-	blocker.focus_mode = Control.FOCUS_NONE
-	blocker.flat = true
-	_apply_transparent_button_style(blocker, false)
-	blocker.pressed.connect(close_callable)
-	content.add_child(blocker)
-	blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+func _on_modal_dimmer_input(event: InputEvent, close_callable: Callable) -> void:
+	var should_close: bool = false
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		should_close = mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed
+	elif event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		should_close = touch_event.pressed
+
+	if should_close:
+		get_viewport().set_input_as_handled()
+		if close_callable.is_valid():
+			close_callable.call()
 
 func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: float) -> Control:
 	var centered_content: Control = POPUP_STAGE_CENTER_SCRIPT.new() as Control
 	centered_content.name = "CenteredPopupStage"
-	centered_content.mouse_filter = Control.MOUSE_FILTER_PASS
+	centered_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	centered_content.set("popup_top", popup_top)
 	centered_content.set("popup_bottom", popup_bottom)
 	popup_root.add_child(centered_content)
@@ -307,16 +312,31 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 	node.set("stage_height", stage_height)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
-	return _stage_texture_button(rect, callable, MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, text, font_size, disabled, null, disabled_overlay_alpha)
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false) -> Control:
+	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled)
+	if callable.is_valid():
+		button.pressed.connect(callable)
+	content.add_child(button)
+	button.stage_rect = rect
+	return button
 
-func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false) -> Control:
-	var button: Control = _stage_texture_button(rect, callable, ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED, icon_text, 28, disabled)
-	var label: Label = button.get_node_or_null("Text") as Label
-	if label != null:
-		label.add_theme_color_override("font_color", Color.WHITE)
-		label.add_theme_color_override("font_outline_color", Color(0.27, 0.31, 0.61, 1.0))
-		label.add_theme_constant_override("outline_size", 3)
+func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
+	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
+	if callable.is_valid():
+		button.pressed.connect(callable)
+	content.add_child(button)
+	button.stage_rect = rect
+	return button
+
+func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32) -> Control:
+	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
+	if callable.is_valid():
+		button.pressed.connect(callable)
+	content.add_child(button)
+	button.stage_rect = rect
 	return button
 
 func _stage_line_edit(rect: Rect2, placeholder: String = "") -> LineEdit:
@@ -380,25 +400,23 @@ func show_menu() -> void:
 	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(284.0, 112.0, 300.0, 48.0), Database.tr_text(77, "Welcome back!"), 28, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 
-	_stage_texture_button(Rect2(161.0, 188.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(1, "Classic"), 20)
-	_stage_texture_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(2, "Time Attack"), 20)
-	_stage_texture_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(3, "Two Player"), 20)
+	_stage_main_button(Rect2(161.0, 188.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 20)
+	_stage_main_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), Database.tr_text(2, "Time Attack"), 20)
+	_stage_main_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(3, "Two Player"), 20)
 
 	var has_saved_game: bool = bool(GameSession.is_active)
 	var continue_text: String = _saved_game_description() if has_saved_game else Database.tr_text(79, "No unfinished games\nfound")
 	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), continue_text, 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
-	_stage_texture_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(4, "Continue"), 20, !has_saved_game)
-	_stage_texture_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(5, "Settings"), 20)
+	_stage_main_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), Database.tr_text(4, "Continue"), 20, !has_saved_game)
+	_stage_main_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(5, "Settings"), 20)
 
-	_stage_texture_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_texture(Rect2(515.0, 46.0, 17.0, 18.0), ROUND_BUTTON_RECORDS_ICON)
+	_stage_round_icon_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_RECORDS_ICON, Vector2(17.0, 18.0))
 
-	# Achievements are not implemented yet: draw a non-interactive,
-	# semi-transparent button with the original hollow-star icon.
-	var achievements_button := _stage_texture(Rect2(569.0, 24.0, 62.0, 62.0), ROUND_BUTTON_NORMAL)
-	achievements_button.modulate = Color(1.0, 1.0, 1.0, 0.55)
-	var achievements_icon := _stage_texture(Rect2(589.0, 44.0, 22.0, 21.0), MAIN_MENU_HOLLOW_STAR_ICON)
-	achievements_icon.modulate = Color(1.0, 1.0, 1.0, 0.72)
+	# Achievements are not implemented yet: keep the same round-button component
+	# in a disabled, semi-transparent state instead of drawing separate layers.
+	var achievements_button := _stage_round_icon_button(Rect2(569.0, 24.0, 62.0, 62.0), Callable(), MAIN_MENU_HOLLOW_STAR_ICON, Vector2(22.0, 21.0), true, false, Vector2.ZERO, 0.0)
+	achievements_button.self_modulate = Color(1.0, 1.0, 1.0, 0.55)
+	achievements_button.set("icon_modulate", Color(1.0, 1.0, 1.0, 0.72))
 	_stage_main_menu_character_button()
 
 
@@ -551,8 +569,8 @@ func show_settings() -> void:
 	_stage_settings_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
 	_stage_settings_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
 
-	_stage_texture_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _settings_about_label(), 18)
-	var remove_ads_button := _stage_texture_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _settings_remove_ads_label(), 18, true, MAIN_BUTTON_NORMAL, 0.0)
+	_stage_main_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
+	var remove_ads_button := _stage_main_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
 	remove_ads_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
 	var remove_ads_label := remove_ads_button.get_node_or_null("Text") as Label
 	if remove_ads_label != null:
@@ -652,10 +670,8 @@ func _show_about_popup() -> void:
 	version_label.clip_text = false
 
 	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), "")
-	_stage_texture(Rect2(popup_x + 455.0, 232.0, 24.0, 14.0), ABOUT_VK_ICON)
-	_stage_round_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), "")
-	_stage_texture(Rect2(popup_x + 536.0, 230.0, 22.0, 18.0), ABOUT_MAIL_ICON)
+	_stage_round_icon_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, Vector2(24.0, 14.0))
+	_stage_round_icon_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, Vector2(22.0, 18.0))
 
 	content = previous_content
 
@@ -727,12 +743,6 @@ func _difficulty_star_texture(value: int = -1) -> Texture2D:
 		_:
 			return DIFFICULTY_STARS_2_TEXTURE
 
-func _stage_difficulty_star_icon(button_rect: Rect2, value: int = -1) -> void:
-	var texture: Texture2D = _difficulty_star_texture(value)
-	var icon_size: Vector2 = texture.get_size()
-	var icon_position: Vector2 = button_rect.position + (button_rect.size - icon_size) * 0.5
-	_stage_texture(Rect2(icon_position, icon_size), texture)
-
 func show_theme_select() -> void:
 	_remove_difficulty_popup()
 	# Build the category screen without the converted GameTemi symbol. That
@@ -744,8 +754,8 @@ func show_theme_select() -> void:
 	_stage_horizontal_fill(0.0, 86.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	var difficulty_button_rect := Rect2(639.0, 12.0, 68.0, 68.0)
-	_stage_texture_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_difficulty_star_icon(difficulty_button_rect)
+	var difficulty_texture: Texture2D = _difficulty_star_texture()
+	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, difficulty_texture.get_size())
 	_stage_round_button(Rect2(716.0, 12.0, 68.0, 68.0), Callable(self, "show_menu"), "×")
 
 	for i in range(Database.get_theme_count()):
@@ -911,13 +921,11 @@ func _show_difficulty_popup() -> void:
 		if title_holder != null:
 			title_holder.z_index = 20
 
-		var tex_normal: Texture2D = ROUND_BUTTON_PRESSED if selected else ROUND_BUTTON_NORMAL
-		var tex_pressed: Texture2D = ROUND_BUTTON_PRESSED
 		var hit_area := _stage_button(Rect2(base_x - 8.0, 138.0, 210.0, 88.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
 		hit_area.mouse_filter = Control.MOUSE_FILTER_STOP
 		var option_button_rect := Rect2(base_x, 148.0, 68.0, 68.0)
-		_stage_texture_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), tex_normal, tex_pressed)
-		_stage_difficulty_star_icon(option_button_rect, value)
+		var option_texture: Texture2D = _difficulty_star_texture(value)
+		_stage_round_icon_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, option_texture.get_size(), false, selected)
 
 		var desc: Array = option["desc"] as Array
 		var text_y: float = 154.0
@@ -997,8 +1005,8 @@ func _show_time_attack_popup() -> void:
 	title_label.clip_text = false
 
 	var difficulty_button_rect := Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y)
-	_stage_texture_button(difficulty_button_rect, Callable(self, "_cycle_time_attack_difficulty"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_difficulty_star_icon(difficulty_button_rect)
+	var difficulty_texture: Texture2D = _difficulty_star_texture()
+	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, difficulty_texture.get_size())
 	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_time_attack_popup"), "×")
 
 	# Original Flash badge assembled from its separate bitmap layers.
@@ -1075,10 +1083,7 @@ func show_custom_word() -> void:
 
 	_stage_label(Rect2(49.0, 78.0, 245.0, 28.0), _custom_word_max_length_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(428.0, 78.0, 194.0, 28.0), _custom_word_random_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_stage_texture_button(Rect2(638.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_set_random_custom_word"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	# Match the gameplay-screen round button styling: preserve the icon aspect
-	# ratio and center it inside the same round button instead of stretching it.
-	_stage_texture(Rect2(653.0, 29.0, 32.0, 27.0), CUSTOM_WORD_RANDOM_ICON)
+	_stage_round_icon_button(Rect2(638.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
 	# Use the same round close button treatment as on the guessing screen so the
 	# close icon has the same look and no deformation.
 	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
@@ -1088,15 +1093,15 @@ func show_custom_word() -> void:
 	_stage_label(Rect2(66.0, 213.0, 260.0, 49.0), Database.tr_text(28, "Hints"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_custom_switch(Rect2(347.0, 213.0, 102.0, 49.0), 1)
 
-	_stage_texture_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(68, "Check the word"), 20)
-	_stage_texture_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 20)
+	_stage_main_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 20)
+	_stage_main_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), Database.tr_text(47, "Comment"), 20)
 	var check_color := Color.WHITE
 	if custom_word_check_state == 2:
 		check_color = Color(0.58, 0.88, 0.72)
 	elif custom_word_check_state == 3:
 		check_color = Color(0.96, 0.67, 0.77)
 	custom_word_check_label = _stage_label(Rect2(497.0, 267.0, 240.0, 34.0), custom_word_check_text, 16, check_color)
-	_stage_texture_button(Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _custom_word_start_label(), 20)
+	_stage_main_button(Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), _custom_word_start_label(), 20)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
@@ -1280,9 +1285,8 @@ func _show_custom_comment_popup() -> void:
 	custom_comment_edit.text = custom_comment_text
 	custom_comment_edit.add_theme_font_size_override("font_size", 21)
 	custom_comment_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
-	_stage_texture_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, Database.tr_text(87, "OK"), 20)
-	_stage_texture_button(Rect2(646.0, 50.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_texture(Rect2(667.0, 70.0, 21.0, 21.0), RESULT_CLOSE_ICON)
+	_stage_main_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), Database.tr_text(87, "OK"), 20)
+	_stage_round_icon_button(Rect2(646.0, 50.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), RESULT_CLOSE_ICON, Vector2(21.0, 21.0))
 	content = previous_content
 
 func _save_and_close_custom_comment_popup() -> void:
@@ -1385,8 +1389,7 @@ func _refresh_game_screen() -> void:
 	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
 	if GameState.current_mode == 2:
-		_stage_texture_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-		_stage_texture(Rect2(656.0, 30.0, 27.0, 27.0), CUSTOM_WORD_REFRESH_ICON)
+		_stage_round_icon_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
 	else:
 		_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
@@ -1452,7 +1455,7 @@ func _refresh_game_screen() -> void:
 	_stage_texture_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
 	_stage_texture(Rect2(311.0, 416.0, 25.0, 25.0), HINT_ICON_CROSS_TEXTURE)
 
-	var comment_button := _stage_texture_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), COMMENT_BUTTON_NORMAL, COMMENT_BUTTON_PRESSED, Database.tr_text(47, "Comment"), 18, comment_disabled, null, 0.0)
+	var comment_button := _stage_main_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 18, comment_disabled, 0.0)
 	if comment_disabled:
 		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
 		var comment_label := comment_button.get_node_or_null("Text") as Label
@@ -1635,10 +1638,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
 	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_open_word_search"), "")
-	_stage_texture(Rect2(661.0, 31.0, 18.0, 23.0), RESULT_SEARCH_ICON)
-	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "")
-	_stage_texture(Rect2(738.0, 34.0, 18.0, 18.0), RESULT_CLOSE_ICON)
+	_stage_round_icon_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(18.0, 23.0))
+	_stage_round_icon_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
 
@@ -1693,10 +1694,12 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 			_apply_result_text_glow(message_label, Color.WHITE, 2)
 
-	var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-	_apply_result_text_glow(theme_label, Color.WHITE, 2)
+	var show_theme_label: bool = GameState.current_mode != 2
+	if show_theme_label:
+		var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+		_apply_result_text_glow(theme_label, Color.WHITE, 2)
 
-	var show_left_button: bool = GameState.current_mode != 1
+	var show_left_button: bool = GameState.current_mode != 1 and GameState.current_mode != 2
 	if show_left_button:
 		var left_disabled: bool = GameSession.theme_id < 0 or GameState.current_mode == 2
 		var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
@@ -1853,9 +1856,8 @@ func show_records() -> void:
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
 
-	var crown_button := _stage_texture(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), ROUND_BUTTON_NORMAL)
-	crown_button.modulate = Color(1.0, 1.0, 1.0, 0.55)
-	_stage_texture(Rect2(popup_x + popup_width - 127.0, 33.0, 24.0, 20.0), ROUND_BUTTON_CROWN_ICON)
+	var crown_button := _stage_round_icon_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(), ROUND_BUTTON_CROWN_ICON, Vector2(24.0, 20.0), true, false, Vector2.ZERO, 0.0)
+	crown_button.self_modulate = Color(1.0, 1.0, 1.0, 0.55)
 	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_records_popup"), "×")
 
 	_stage_record_row(132.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), GameState.records[0][2], tr("RECORD_HARD_STREAK"), GameState.records[0][3], popup_x)

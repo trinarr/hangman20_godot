@@ -26,8 +26,8 @@ VERSION_LABEL,Версия:,Version:
 AUTHOR_LABEL,Автор:,Creator:
 CONTACTS_LABEL,Контакты:,Contacts:
 ABOUT_WORD,Узнать о слове,About the word
-SHOW_EDGE_LETTERS,Показывать крайние буквы,First and last letter
-SHOW_HINTS,Показывать подсказки,Hints
+SHOW_EDGE_LETTERS,Крайние буквы,First and last letter
+SHOW_HINTS,Подсказки,Hints
 CLEAR_THEME_CONFIRM,Очистить тему?,Clear the category?
 YES,Да,Yes
 NO,Нет,No
