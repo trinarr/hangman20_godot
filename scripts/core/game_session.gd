@@ -4,6 +4,8 @@ signal changed
 signal round_won
 signal round_lost
 
+const WRONG_LETTER_VIBRATION_MS: int = 35
+
 var word_index: int = -1
 var theme_id: int = -1
 var word_data: WordData = null
@@ -124,7 +126,8 @@ func guess(letter: String) -> bool:
 	if mode == 1:
 		GameState.correct_guess_streak = 0
 	if int(GameState.settings[4]) == 2:
-		Input.vibrate_handheld(150)
+		# A short pulse gives subtle feedback without interrupting gameplay.
+		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
 	if mistakes >= max_mistakes:
 		is_active = false
 		_save_session_state()
