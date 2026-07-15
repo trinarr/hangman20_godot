@@ -35,6 +35,7 @@ const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_m
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
+const CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
@@ -974,7 +975,7 @@ func _show_time_attack_popup() -> void:
 	description_label.clip_text = true
 
 	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
-	var record_label := _stage_label(Rect2(popup_x + 54.0, 275.0, 240.0, 38.0), record_text, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var record_label := _stage_score_with_star(Rect2(popup_x + 54.0, 275.0, 240.0, 38.0), record_text, 21, Color.WHITE)
 	record_label.clip_text = false
 	_stage_main_button(Rect2(popup_x + 333.0, 276.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 20)
 
@@ -1016,12 +1017,12 @@ func show_custom_word() -> void:
 	_clear("")
 
 	# SlovMov.as draws the screen from three simple areas: a 114 px blue header,
-	# the graph-paper settings area, and a blue footer beginning at y = 300.
+	# the graph-paper settings area, and a blue footer matching the gameplay screen.
 	# Rebuild those areas directly instead of displaying the converted SlovMov
 	# scene, which contains duplicate text fields and broken bitmap fragments.
 	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
 	_stage_horizontal_fill(0.0, 114.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(300.0, 180.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 
 	# Original input field: Head is shifted by -50 and InputTxt is created at
 	# x = 105, y = 27 with width 567, producing this stage-space white capsule.
@@ -1038,9 +1039,12 @@ func show_custom_word() -> void:
 	_stage_label(Rect2(49.0, 78.0, 245.0, 28.0), _custom_word_max_length_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(428.0, 78.0, 194.0, 28.0), _custom_word_random_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 	_stage_texture_button(Rect2(638.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_set_random_custom_word"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_texture(Rect2(656.0, 30.0, 27.0, 27.0), CUSTOM_WORD_REFRESH_ICON)
-	_stage_texture_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
-	_stage_texture(Rect2(737.0, 32.0, 21.0, 21.0), RESULT_CLOSE_ICON)
+	# Match the gameplay-screen round button styling: preserve the icon aspect
+	# ratio and center it inside the same round button instead of stretching it.
+	_stage_texture(Rect2(653.0, 29.0, 32.0, 27.0), CUSTOM_WORD_RANDOM_ICON)
+	# Use the same round close button treatment as on the guessing screen so the
+	# close icon has the same look and no deformation.
+	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
 
 	_stage_label(Rect2(66.0, 151.0, 260.0, 49.0), Database.tr_text(27, "First and last letter"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_custom_switch(Rect2(347.0, 151.0, 102.0, 49.0), 0)
@@ -1055,7 +1059,7 @@ func show_custom_word() -> void:
 	elif custom_word_check_state == 3:
 		check_color = Color(0.96, 0.67, 0.77)
 	custom_word_check_label = _stage_label(Rect2(497.0, 267.0, 240.0, 34.0), custom_word_check_text, 16, check_color)
-	_stage_texture_button(Rect2(511.0, 315.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _custom_word_start_label(), 20)
+	_stage_texture_button(Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), MAIN_BUTTON_NORMAL, MAIN_BUTTON_PRESSED, _custom_word_start_label(), 20)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
@@ -1343,7 +1347,11 @@ func _refresh_game_screen() -> void:
 
 	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
+	if GameState.current_mode == 2:
+		_stage_texture_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), ROUND_BUTTON_NORMAL, ROUND_BUTTON_PRESSED)
+		_stage_texture(Rect2(656.0, 30.0, 27.0, 27.0), CUSTOM_WORD_REFRESH_ICON)
+	else:
+		_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
@@ -1435,17 +1443,49 @@ func _game_header_action() -> void:
 
 
 func _stage_time_attack_hud() -> void:
-	var icon_size: Vector2 = Vector2(22.0, 22.0)
-	_stage_texture(Rect2(26.0, 405.0, icon_size.x, icon_size.y), MAIN_MENU_HOLLOW_STAR_ICON)
+	_stage_score_with_star(Rect2(58.0, 399.0, 150.0, 28.0), str(GameState.current_score), 19, Color.WHITE)
 	_stage_texture(Rect2(23.0, 433.0, 26.0, 26.0), TIME_ATTACK_TIMER_ICON_TEXTURE)
-
-	var score_label := _stage_label(Rect2(58.0, 399.0, 150.0, 28.0), str(GameState.current_score), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_apply_result_text_glow(score_label, Color(0.2314, 0.2627, 0.5176, 1.0), 2)
 
 	var time_label := _stage_label(Rect2(58.0, 429.0, 150.0, 28.0), _format_time(GameState.current_time_left), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_apply_result_text_glow(time_label, Color(0.2314, 0.2627, 0.5176, 1.0), 2)
+
+func _stage_score_with_star(rect: Rect2, text: String, font_size: int, font_color: Color, text_align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT, glow_color: Color = Color(0.2314, 0.2627, 0.5176, 1.0), glow_size: int = 2) -> Label:
+	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
+	holder.z_index = 25
+
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.add_theme_constant_override("separation", 5)
+	match text_align:
+		HORIZONTAL_ALIGNMENT_CENTER:
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+		HORIZONTAL_ALIGNMENT_RIGHT:
+			row.alignment = BoxContainer.ALIGNMENT_END
+		_:
+			row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	holder.add_child(row)
+
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.text = text
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", font_color)
+	_apply_result_text_glow(label, glow_color, glow_size)
+	row.add_child(label)
+
+	var star := TextureRect.new()
+	star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	star.texture = MAIN_MENU_HOLLOW_STAR_ICON
+	star.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	star.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	star.custom_minimum_size = Vector2(float(font_size), float(font_size))
+	star.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(star)
+	return label
 
 func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
 	_clear_hero_animation_overlay()
@@ -1573,9 +1613,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	if time_attack_finished:
 		var final_score: int = int(data.get("final_score", GameState.current_score))
 		var final_score_text: String = Database.tr_key(&"FINAL_SCORE", "Final score:") + " " + str(final_score)
-		var final_score_label := _stage_label(Rect2(395.0, 198.0, 307.0, 38.0), final_score_text, 24, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-		final_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		_apply_result_text_glow(final_score_label, Color.WHITE, 2)
+		var final_score_label := _stage_score_with_star(Rect2(395.0, 198.0, 307.0, 38.0), final_score_text, 24, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 2)
+		final_score_label.clip_text = false
 
 		var final_details: String = _result_data_lines(data)
 		if final_details != "":
@@ -1583,21 +1622,34 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 			_apply_result_text_glow(details_label, Color.WHITE, 2)
 	else:
-		var result_message: String = _result_message(is_win, data)
-		var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-		message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		_apply_result_text_glow(message_label, Color.WHITE, 2)
+		var result_score_line: String = _result_score_line(data)
+		if result_score_line != "":
+			var score_line_label := _stage_score_with_star(Rect2(395.0, 193.0, 307.0, 34.0), result_score_line, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 2)
+			score_line_label.clip_text = false
+			var remaining_message: String = _result_non_score_lines(data)
+			if remaining_message != "":
+				var remaining_label := _stage_label(Rect2(395.0, 229.0, 307.0, 42.0), remaining_message, 19, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+				remaining_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+				_apply_result_text_glow(remaining_label, Color.WHITE, 2)
+		else:
+			var result_message: String = _result_message(is_win, data)
+			var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
+			message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+			_apply_result_text_glow(message_label, Color.WHITE, 2)
 
 	var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
 	_apply_result_text_glow(theme_label, Color.WHITE, 2)
 
-	var left_disabled: bool = GameSession.theme_id < 0 or GameState.current_mode == 2
-	var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
-	if left_disabled:
-		left_button.modulate = Color(1.0, 1.0, 1.0, 0.58)
-		var left_label := left_button.get_node_or_null("Text") as Label
-		if left_label != null:
-			left_label.add_theme_color_override("font_color", Color.WHITE)
+	var show_left_button: bool = GameState.current_mode != 1
+	if show_left_button:
+		var left_disabled: bool = GameSession.theme_id < 0 or GameState.current_mode == 2
+		var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
+		if left_disabled:
+			left_button.modulate = Color(1.0, 1.0, 1.0, 0.58)
+			var left_label := left_button.get_node_or_null("Text") as Label
+			if left_label != null:
+				left_label.add_theme_color_override("font_color", Color.WHITE)
+
 	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18)
 
 	# Keep the HUD between ordinary Time Attack rounds, but remove it after the
@@ -1617,6 +1669,24 @@ func _result_data_lines(data: Dictionary) -> String:
 		var value: String = str(line).strip_edges()
 		if value != "":
 			lines.append(value)
+	return "\n".join(lines)
+
+func _result_score_line(data: Dictionary) -> String:
+	var bonus_prefix: String = Database.tr_key(&"POINTS_GAINED", "Bonus:").strip_edges()
+	var penalty_prefix: String = Database.tr_key(&"PENALTY", "Penalty:").strip_edges()
+	for raw_line in Array(data.get("lines", [])):
+		var line: String = str(raw_line).strip_edges()
+		if line.begins_with(bonus_prefix) or line.begins_with(penalty_prefix):
+			return line
+	return ""
+
+func _result_non_score_lines(data: Dictionary) -> String:
+	var score_line: String = _result_score_line(data)
+	var lines := PackedStringArray()
+	for raw_line in Array(data.get("lines", [])):
+		var line: String = str(raw_line).strip_edges()
+		if line != "" and line != score_line:
+			lines.append(line)
 	return "\n".join(lines)
 
 func _result_message(is_win: bool, data: Dictionary) -> String:
@@ -1733,18 +1803,22 @@ func show_records() -> void:
 	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_records_popup"), "×")
 
 	_stage_record_row(132.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), GameState.records[0][2], tr("RECORD_HARD_STREAK"), GameState.records[0][3], popup_x)
-	_stage_record_row(218.0, tr("MENU_TIME_ATTACK"), tr("SCORE"), GameState.records[2][2], tr("VICTORIES_PER_GAME"), GameState.records[2][1], popup_x)
+	_stage_record_row(218.0, tr("MENU_TIME_ATTACK"), tr("SCORE"), GameState.records[2][2], tr("VICTORIES_PER_GAME"), GameState.records[2][1], popup_x, true)
 	_stage_record_row(302.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), GameState.records[1][0], tr("DEFEATS"), GameState.records[1][1], popup_x)
 
 	content = previous_content
 
-func _stage_record_row(row_y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int, popup_x: float) -> void:
+func _stage_record_row(row_y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int, popup_x: float, left_value_has_star: bool = false) -> void:
 	var mode_label := _stage_label(Rect2(popup_x + 28.0, row_y + 13.0, 132.0, 36.0), mode_text.to_upper(), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	mode_label.clip_text = false
 
 	var left_label := _stage_label(Rect2(popup_x + 188.0, row_y + 2.0, 194.0, 28.0), left_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	left_label.clip_text = false
-	var left_value_label := _stage_label(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	var left_value_label: Label
+	if left_value_has_star:
+		left_value_label = _stage_score_with_star(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT, Color.TRANSPARENT, 0)
+	else:
+		left_value_label = _stage_label(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	left_value_label.clip_text = false
 
 	var right_label := _stage_label(Rect2(popup_x + 406.0, row_y + 2.0, 210.0, 28.0), right_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
