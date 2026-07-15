@@ -8,6 +8,7 @@ const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
 const HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE: float = 0.65
 const HERO_MOV_START_FRAME_TIME: float = 0.0
 const HERO_MOV_IDLE_FRAME_TIME: float = 4.0 / 24.0
+const LETTER_MARKER_REVEAL_DURATION: float = 0.2
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_button.gd")
@@ -17,6 +18,7 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
+const LETTER_MARKER_REVEAL_SHADER: Shader = preload("res://shaders/letter_marker_reveal.gdshader")
 
 const MAIN_BUTTON_NORMAL: Texture2D = preload("res://flash_assets/user_main_button_21.png")
 const MAIN_BUTTON_PRESSED: Texture2D = preload("res://flash_assets/user_main_button_23.png")
@@ -76,6 +78,10 @@ var word_info_visible: bool = false
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
 var settings_popup_return_content: Control = null
+var pending_letter_marker: String = ""
+var pending_letter_marker_is_correct: bool = false
+var round_result_delay_requested: bool = false
+var result_transition_generation: int = 0
 
 func _ready() -> void:
 	randomize()
@@ -107,6 +113,10 @@ func _build_root() -> void:
 	add_child(game_timer)
 
 func _clear(symbol_path: String = "") -> void:
+	result_transition_generation += 1
+	pending_letter_marker = ""
+	pending_letter_marker_is_correct = false
+	round_result_delay_requested = false
 	_clear_hero_animation_overlay()
 	_cancel_custom_word_check()
 	custom_word_check_label = null
@@ -251,6 +261,33 @@ func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
 	content.add_child(node)
 	node.set("stage_rect", rect)
 	return node
+
+func _stage_animated_letter_marker(rect: Rect2, texture: Texture2D, is_correct: bool) -> Control:
+	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
+	holder.z_index = 20
+
+	var marker := TextureRect.new()
+	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	marker.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	marker.stretch_mode = TextureRect.STRETCH_SCALE
+	marker.texture = texture
+
+	var reveal_material := ShaderMaterial.new()
+	reveal_material.shader = LETTER_MARKER_REVEAL_SHADER
+	reveal_material.set_shader_parameter("progress", 0.0)
+	reveal_material.set_shader_parameter("reveal_mode", 0 if is_correct else 1)
+	marker.material = reveal_material
+	holder.add_child(marker)
+
+	var tween: Tween = holder.create_tween()
+	tween.set_trans(Tween.TRANS_LINEAR)
+	tween.set_ease(Tween.EASE_IN_OUT)
+	tween.tween_method(_set_letter_marker_reveal_progress.bind(reveal_material), 0.0, 1.0, LETTER_MARKER_REVEAL_DURATION)
+	return holder
+
+func _set_letter_marker_reveal_progress(value: float, reveal_material: ShaderMaterial) -> void:
+	reveal_material.set_shader_parameter("progress", value)
 
 func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -> Control:
 	var node: Control = FLASH_STAGE_HORIZONTAL_FILL_SCRIPT.new() as Control
@@ -1387,12 +1424,18 @@ func _refresh_game_screen() -> void:
 			Vector2(KEY_BUTTON_SIZE.x + 12.0, KEY_BUTTON_SIZE.y + 12.0)
 		)
 		if was_correct:
-			# Keep the original circle art, but center it around the live key rect
-			# instead of using fixed offsets that drift away from the glyph.
-			_stage_texture(marker_rect, LETTER_CORRECT_TEXTURE)
+			# Keep the original circle art, but reveal a newly guessed letter with
+			# a clockwise mask animation instead of displaying it instantly.
+			if letter == pending_letter_marker and pending_letter_marker_is_correct:
+				_stage_animated_letter_marker(marker_rect, LETTER_CORRECT_TEXTURE, true)
+			else:
+				_stage_texture(marker_rect, LETTER_CORRECT_TEXTURE)
 		elif was_wrong or was_removed:
-			# Same for the wrong-letter slash marker.
-			_stage_texture(marker_rect, LETTER_WRONG_TEXTURE)
+			# Reveal a newly guessed wrong-letter slash along its own diagonal.
+			if letter == pending_letter_marker and !pending_letter_marker_is_correct:
+				_stage_animated_letter_marker(marker_rect, LETTER_WRONG_TEXTURE, false)
+			else:
+				_stage_texture(marker_rect, LETTER_WRONG_TEXTURE)
 		_stage_label(label_rect, letter, 32, letter_color)
 		var button := _stage_button(key_rect, Callable(self, "_press_letter").bind(letter), "", 22)
 		button.disabled = !GameSession.is_active or was_correct or was_wrong or was_removed
@@ -1418,6 +1461,9 @@ func _refresh_game_screen() -> void:
 
 	if GameState.current_mode == 1:
 		_stage_time_attack_hud()
+
+	pending_letter_marker = ""
+	pending_letter_marker_is_correct = false
 
 func _game_header_icon() -> String:
 	if GameState.current_mode == 1:
@@ -1532,7 +1578,11 @@ func _hero_animation_time() -> float:
 
 func _press_letter(letter: String) -> void:
 	var previous_mistakes: int = GameSession.mistakes
+	pending_letter_marker = letter
+	pending_letter_marker_is_correct = GameSession.letters.has(letter)
+	round_result_delay_requested = true
 	GameSession.guess(letter)
+	round_result_delay_requested = false
 	if GameSession.mistakes > previous_mistakes:
 		_play_hero_wrong_guess_animation(previous_mistakes, GameSession.mistakes)
 
@@ -1563,6 +1613,12 @@ func _finish_round(is_win: bool) -> void:
 	last_result_data = GameSession.finish_result(is_win)
 	if GameState.current_mode != 1:
 		game_timer.stop()
+
+	var transition_generation: int = result_transition_generation
+	if round_result_delay_requested:
+		await get_tree().create_timer(LETTER_MARKER_REVEAL_DURATION).timeout
+		if transition_generation != result_transition_generation:
+			return
 	show_result_screen(is_win, last_result_data)
 
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
