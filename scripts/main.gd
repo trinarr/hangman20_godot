@@ -2,6 +2,8 @@ extends Node2D
 
 const MENU_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
 const ROUND_BUTTON_SIZE: Vector2 = Vector2(62.0, 62.0)
+const HEADER_ACTION_BUTTON_RECT: Rect2 = Rect2(639.0, 12.0, 62.0, 62.0)
+const HEADER_CLOSE_BUTTON_RECT: Rect2 = Rect2(716.0, 12.0, 62.0, 62.0)
 const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
 const THEME_BUTTON_SIZE: Vector2 = Vector2(241.0, 91.0)
 const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
@@ -753,10 +755,10 @@ func show_theme_select() -> void:
 	# Keep the header height in stage coordinates while filling the real viewport.
 	_stage_horizontal_fill(0.0, 86.0, Color(0.2706, 0.3098, 0.6078, 1.0))
 	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var difficulty_button_rect := Rect2(639.0, 12.0, 68.0, 68.0)
+	var difficulty_button_rect: Rect2 = HEADER_ACTION_BUTTON_RECT
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
 	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, difficulty_texture.get_size())
-	_stage_round_button(Rect2(716.0, 12.0, 68.0, 68.0), Callable(self, "show_menu"), "×")
+	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	for i in range(Database.get_theme_count()):
 		if i >= 9:
@@ -1083,10 +1085,10 @@ func show_custom_word() -> void:
 
 	_stage_label(Rect2(49.0, 78.0, 245.0, 28.0), _custom_word_max_length_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(428.0, 78.0, 194.0, 28.0), _custom_word_random_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_stage_round_icon_button(Rect2(638.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
+	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
 	# Use the same round close button treatment as on the guessing screen so the
 	# close icon has the same look and no deformation.
-	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
+	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	_stage_label(Rect2(66.0, 151.0, 260.0, 49.0), Database.tr_text(27, "First and last letter"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_custom_switch(Rect2(347.0, 151.0, 102.0, 49.0), 0)
@@ -1389,10 +1391,10 @@ func _refresh_game_screen() -> void:
 	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
 	if GameState.current_mode == 2:
-		_stage_round_icon_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
+		_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
 	else:
-		_stage_round_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_game_header_action"), _game_header_icon())
-	_stage_round_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), "×")
+		_stage_round_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
+	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
 
@@ -1611,11 +1613,26 @@ func _on_round_lost() -> void:
 func _finish_round(is_win: bool) -> void:
 	if game_finished:
 		return
+
+	if GameState.current_mode == 1:
+		# Time Attack is one continuous session. Apply the completed word's
+		# bonus/penalty, then immediately replace it with a fresh round without
+		# stopping the timer or opening the intermediate result screen.
+		GameSession.finish_result(is_win)
+		word_info_visible = false
+		pending_letter_marker = ""
+		pending_letter_marker_is_correct = false
+		round_result_delay_requested = false
+		_clear_hero_animation_overlay()
+		last_result_data = {}
+		GameSession.start_new_round(-1, 1)
+		GameState.save_game()
+		return
+
 	game_finished = true
 	last_result_is_win = is_win
 	last_result_data = GameSession.finish_result(is_win)
-	if GameState.current_mode != 1:
-		game_timer.stop()
+	game_timer.stop()
 
 	var transition_generation: int = result_transition_generation
 	if round_result_delay_requested:
@@ -1638,8 +1655,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
 	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	_stage_round_icon_button(Rect2(639.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(18.0, 23.0))
-	_stage_round_icon_button(Rect2(716.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
+	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(18.0, 23.0))
+	_stage_round_icon_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
 
@@ -1694,7 +1711,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 			_apply_result_text_glow(message_label, Color.WHITE, 2)
 
-	var show_theme_label: bool = GameState.current_mode != 2
+	var show_theme_label: bool = GameState.current_mode == 0
 	if show_theme_label:
 		var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
 		_apply_result_text_glow(theme_label, Color.WHITE, 2)
