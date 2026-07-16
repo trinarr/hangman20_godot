@@ -16,13 +16,13 @@ const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
+const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
-const LETTER_MARKER_REVEAL_SHADER: Shader = preload("res://shaders/letter_marker_reveal.gdshader")
 
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
 const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_1.png")
@@ -48,8 +48,6 @@ const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_h
 const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
 const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
-const LETTER_CORRECT_TEXTURE: Texture2D = preload("res://img/_______435______2_0_SHAPE_0_BOUNDS_-1.96_-1.96_SIZE_211_211.png")
-const LETTER_WRONG_TEXTURE: Texture2D = preload("res://img/_______430______1_0_SHAPE_0_BOUNDS_3.99_8.74_SIZE_186_177.png")
 const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
 const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
@@ -269,33 +267,6 @@ func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
 	node.set("stage_rect", rect)
 	return node
 
-func _stage_animated_letter_marker(rect: Rect2, texture: Texture2D, is_correct: bool) -> Control:
-	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
-	holder.z_index = 20
-
-	var marker := TextureRect.new()
-	marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	marker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	marker.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	marker.stretch_mode = TextureRect.STRETCH_SCALE
-	marker.texture = texture
-
-	var reveal_material := ShaderMaterial.new()
-	reveal_material.shader = LETTER_MARKER_REVEAL_SHADER
-	reveal_material.set_shader_parameter("progress", 0.0)
-	reveal_material.set_shader_parameter("reveal_mode", 0 if is_correct else 1)
-	marker.material = reveal_material
-	holder.add_child(marker)
-
-	var tween: Tween = holder.create_tween()
-	tween.set_trans(Tween.TRANS_LINEAR)
-	tween.set_ease(Tween.EASE_IN_OUT)
-	tween.tween_method(_set_letter_marker_reveal_progress.bind(reveal_material), 0.0, 1.0, LETTER_MARKER_REVEAL_DURATION)
-	return holder
-
-func _set_letter_marker_reveal_progress(value: float, reveal_material: ShaderMaterial) -> void:
-	reveal_material.set_shader_parameter("progress", value)
-
 func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -> Control:
 	var node: Control = FLASH_STAGE_HORIZONTAL_FILL_SCRIPT.new() as Control
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -335,6 +306,15 @@ func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = ""
 func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
+	if callable.is_valid():
+		button.pressed.connect(callable)
+	content.add_child(button)
+	button.stage_rect = rect
+	return button
+
+func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
+	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
 	if callable.is_valid():
 		button.pressed.connect(callable)
 	content.add_child(button)
@@ -1383,7 +1363,7 @@ func _refresh_game_screen() -> void:
 	var keyboard_start_y: float = 138.0
 	var keyboard_step_x: float = 65.0
 	var keyboard_step_y: float = 58.0
-	var marker_size: Vector2 = Vector2(56.0, 56.0)
+	var marker_size: Vector2 = Vector2(46.0, 46.0)
 	for i in range(alphabet.size()):
 		var letter: String = alphabet[i]
 		var row: int = int(i / 8)
@@ -1393,37 +1373,27 @@ func _refresh_game_screen() -> void:
 		var was_correct: bool = GameSession.correct_letters.has(letter)
 		var was_wrong: bool = GameSession.wrong_letters.has(letter)
 		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
-		var letter_color: Color = Color(0.2706, 0.3098, 0.6078, 1.0)
+		var state: int = StageLetterButton.LetterState.NORMAL
 		if was_correct:
-			letter_color = Color(0.42, 0.69, 0.58, 1.0)
+			state = StageLetterButton.LetterState.CIRCLED
 		elif was_wrong or was_removed:
-			letter_color = Color(0.84, 0.59, 0.64, 1.0)
+			state = StageLetterButton.LetterState.CROSSED
 
 		var key_rect := Rect2(x, y, KEY_BUTTON_SIZE.x, KEY_BUTTON_SIZE.y)
-		var marker_rect := Rect2(
-			key_rect.position + (key_rect.size - marker_size) * 0.5 + Vector2(0.0, -1.0),
-			marker_size
+		var animate_state: bool = letter == pending_letter_marker and (
+			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
+			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
 		)
-		var label_rect := Rect2(
-			key_rect.position + Vector2(-6.0, -7.0),
-			Vector2(KEY_BUTTON_SIZE.x + 12.0, KEY_BUTTON_SIZE.y + 12.0)
+		_stage_letter_button(
+			key_rect,
+			Callable(self, "_press_letter").bind(letter),
+			letter,
+			state,
+			!GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
+			32,
+			marker_size,
+			animate_state
 		)
-		if was_correct:
-			# Keep the original circle art, but reveal a newly guessed letter with
-			# a clockwise mask animation instead of displaying it instantly.
-			if letter == pending_letter_marker and pending_letter_marker_is_correct:
-				_stage_animated_letter_marker(marker_rect, LETTER_CORRECT_TEXTURE, true)
-			else:
-				_stage_texture(marker_rect, LETTER_CORRECT_TEXTURE)
-		elif was_wrong or was_removed:
-			# Reveal a newly guessed wrong-letter slash along its own diagonal.
-			if letter == pending_letter_marker and !pending_letter_marker_is_correct:
-				_stage_animated_letter_marker(marker_rect, LETTER_WRONG_TEXTURE, false)
-			else:
-				_stage_texture(marker_rect, LETTER_WRONG_TEXTURE)
-		_stage_label(label_rect, letter, 32, letter_color)
-		var button := _stage_button(key_rect, Callable(self, "_press_letter").bind(letter), "", 22)
-		button.disabled = !GameSession.is_active or was_correct or was_wrong or was_removed
 
 	var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
 	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()

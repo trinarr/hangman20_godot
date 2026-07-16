@@ -8,7 +8,9 @@ const PORTRAIT_ACTION_BUTTON_RECT := Rect2(338.0, 17.0, 62.0, 62.0)
 const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(406.0, 17.0, 62.0, 62.0)
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(270.0, 58.0)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(190.0, 52.0)
-const PORTRAIT_HERO_POSITION := Vector2(138.0, 282.0)
+const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
+const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 300.0)
+const PORTRAIT_HERO_SCALE_MULTIPLIER: float = 0.86
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -303,8 +305,7 @@ func _stage_custom_word_keyboard() -> void:
 		var x: float = keyboard_start_x + float(col) * keyboard_step_x
 		var y: float = keyboard_start_y + float(row) * keyboard_step_y
 		var key_rect := Rect2(x, y, key_size.x, key_size.y)
-		_stage_label(Rect2(x - 5.0, y - 7.0, key_size.x + 10.0, key_size.y + 12.0), letter, 29, PORTRAIT_BLUE)
-		_stage_button(key_rect, Callable(self, "_append_custom_word_character").bind(letter), "")
+		_stage_letter_button(key_rect, Callable(self, "_append_custom_word_character").bind(letter), letter)
 
 	_stage_main_button(Rect2(28.0, 476.0, 170.0, 48.0), Callable(self, "_append_custom_word_character").bind(" "), _custom_word_space_label(), 17)
 	_stage_main_button(Rect2(205.0, 476.0, 78.0, 48.0), Callable(self, "_append_custom_word_character").bind("—"), "—", 20)
@@ -373,6 +374,8 @@ func _refresh_game_screen() -> void:
 	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_POSITION, _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
+	if hero_static_symbol != null:
+		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	if GameState.current_mode == 1:
 		_stage_time_attack_hud()
 
@@ -383,7 +386,7 @@ func _refresh_game_screen() -> void:
 	var keyboard_step_x: float = 69.0
 	var keyboard_step_y: float = 54.0
 	var key_size := Vector2(50.0, 46.0)
-	var marker_size := Vector2(54.0, 54.0)
+	var marker_size := Vector2(44.0, 44.0)
 	for i in range(alphabet.size()):
 		var letter: String = alphabet[i]
 		var row: int = int(i / columns)
@@ -393,27 +396,26 @@ func _refresh_game_screen() -> void:
 		var was_correct: bool = GameSession.correct_letters.has(letter)
 		var was_wrong: bool = GameSession.wrong_letters.has(letter)
 		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
-		var letter_color: Color = PORTRAIT_BLUE
+		var state: int = StageLetterButton.LetterState.NORMAL
 		if was_correct:
-			letter_color = Color(0.42, 0.69, 0.58, 1.0)
+			state = StageLetterButton.LetterState.CIRCLED
 		elif was_wrong or was_removed:
-			letter_color = Color(0.84, 0.59, 0.64, 1.0)
+			state = StageLetterButton.LetterState.CROSSED
 		var key_rect := Rect2(x, y, key_size.x, key_size.y)
-		var marker_rect := Rect2(key_rect.position + (key_rect.size - marker_size) * 0.5 + Vector2(0.0, -1.0), marker_size)
-		var label_rect := Rect2(key_rect.position + Vector2(-5.0, -7.0), key_rect.size + Vector2(10.0, 12.0))
-		if was_correct:
-			if letter == pending_letter_marker and pending_letter_marker_is_correct:
-				_stage_animated_letter_marker(marker_rect, LETTER_CORRECT_TEXTURE, true)
-			else:
-				_stage_texture(marker_rect, LETTER_CORRECT_TEXTURE)
-		elif was_wrong or was_removed:
-			if letter == pending_letter_marker and !pending_letter_marker_is_correct:
-				_stage_animated_letter_marker(marker_rect, LETTER_WRONG_TEXTURE, false)
-			else:
-				_stage_texture(marker_rect, LETTER_WRONG_TEXTURE)
-		_stage_label(label_rect, letter, 29, letter_color)
-		var button := _stage_button(key_rect, Callable(self, "_press_letter").bind(letter), "", 20)
-		button.disabled = !GameSession.is_active or was_correct or was_wrong or was_removed
+		var animate_state: bool = letter == pending_letter_marker and (
+			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
+			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
+		)
+		_stage_letter_button(
+			key_rect,
+			Callable(self, "_press_letter").bind(letter),
+			letter,
+			state,
+			!GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
+			29,
+			marker_size,
+			animate_state
+		)
 
 	if GameState.current_mode != 2:
 		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
@@ -444,6 +446,7 @@ func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: 
 	overlay.z_index = 150
 	overlay.symbol_path = _hero_symbol_path()
 	overlay.stage_position = PORTRAIT_HERO_POSITION
+	overlay.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	overlay.animation_time = _hero_animation_time_for_mistakes(current_mistakes)
 	overlay.nested_animation_time = HERO_MOV_START_FRAME_TIME
 	overlay.playback_finished.connect(_on_hero_wrong_guess_animation_finished)
@@ -459,7 +462,9 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_stage_label(Rect2(20.0, 20.0, 300.0, 62.0), full_word, 29, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(18.0, 23.0))
 	_stage_round_icon_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(138.0, 300.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	if hero_static_symbol != null:
+		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	var time_attack_finished: bool = GameState.current_mode == 1 and bool(data.get("time_attack_finished", false))
 	var title: String
 	if time_attack_finished:

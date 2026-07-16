@@ -27,6 +27,11 @@ var nested_animation_time: float = -1.0:
 		nested_animation_time = value
 		_apply_animation_time()
 
+var stage_scale_multiplier: float = 1.0:
+	set(value):
+		stage_scale_multiplier = value
+		_sync_to_stage()
+
 var _symbol_instance: Node = null
 var _playback_player: AnimationPlayer = null
 var _playback_end_time: float = -1.0
@@ -94,7 +99,7 @@ func _sync_to_stage() -> void:
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	var mapped_position := Vector2(stage_position.x, PORTRAIT_LAYOUT.map_y(stage_position.y, viewport_size, self))
 	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * fit_scale
-	scale = Vector2.ONE * FLASH_TO_GODOT_SCALE * fit_scale
+	scale = Vector2.ONE * FLASH_TO_GODOT_SCALE * fit_scale * stage_scale_multiplier
 
 func play_range(start_time: float, end_time: float, nested_time: float = -1.0, playback_speed_scale: float = 1.0) -> void:
 	if _symbol_instance == null:
