@@ -389,6 +389,7 @@ func _button_text_color() -> Color:
 
 func show_menu() -> void:
 	game_timer.stop()
+	GameSession.discard_current_round()
 	_clear("")
 	# The main menu is rebuilt completely with native runtime controls. Keep only
 	# the original paper texture and the exact Flash header colour; loading the
@@ -406,11 +407,7 @@ func show_menu() -> void:
 	_stage_main_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), Database.tr_text(2, "Time Attack"), 20)
 	_stage_main_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(3, "Two Player"), 20)
 
-	var has_saved_game: bool = bool(GameSession.is_active)
-	var continue_text: String = _saved_game_description() if has_saved_game else Database.tr_text(79, "No unfinished games\nfound")
-	_stage_label(Rect2(468.0, 170.0, 248.0, 64.0), continue_text, 18, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
-	_stage_main_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), Database.tr_text(4, "Continue"), 20, !has_saved_game)
-	_stage_main_button(Rect2(437.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(5, "Settings"), 20)
+	_stage_main_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(5, "Settings"), 20)
 
 	_stage_round_icon_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_RECORDS_ICON, Vector2(17.0, 18.0))
 
@@ -503,23 +500,6 @@ func _remove_character_select_popup() -> void:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
-
-func _continue_saved_game() -> void:
-	if GameSession.is_active:
-		show_game_screen()
-		if GameState.current_mode == 1 and GameState.current_time_left > 0:
-			game_timer.start()
-	else:
-		show_theme_select()
-
-func _saved_game_description() -> String:
-	match GameSession.mode:
-		0:
-			return Database.tr_key(&"CONTINUE_CLASSIC", "Continue in\nClassic mode")
-		2:
-			return Database.tr_key(&"CONTINUE_TWO_PLAYER", "Continue in\nTwo Player mode")
-		_:
-			return Database.tr_text(78, "Continue in\nTime Attack mode")
 
 func show_settings() -> void:
 	var previous_content: Control = content

@@ -16,6 +16,7 @@ const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
 
 var _portrait_time_attack_difficulty_button: Control = null
+var _portrait_custom_word_label: Label = null
 
 func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: float = -1.0) -> void:
 	_stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
@@ -56,6 +57,7 @@ func _portrait_popup_shell(rect: Rect2, title: String, close_callable: Callable,
 
 func show_menu() -> void:
 	game_timer.stop()
+	GameSession.discard_current_round()
 	_clear("")
 	_portrait_screen(112.0)
 
@@ -73,11 +75,7 @@ func show_menu() -> void:
 	_stage_main_button(Rect2(button_x, 384.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), Database.tr_text(2, "Time Attack"), 20)
 	_stage_main_button(Rect2(button_x, 454.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(3, "Two Player"), 20)
 
-	var has_saved_game: bool = bool(GameSession.is_active)
-	var continue_text: String = _saved_game_description() if has_saved_game else Database.tr_text(79, "No unfinished games\nfound")
-	_stage_label(Rect2(78.0, 526.0, 324.0, 58.0), continue_text, 17, PORTRAIT_BLUE)
-	_stage_main_button(Rect2(button_x, 588.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_continue_saved_game"), Database.tr_text(4, "Continue"), 20, !has_saved_game)
-	_stage_main_button(Rect2(button_x, 658.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(5, "Settings"), 20)
+	_stage_main_button(Rect2(button_x, 544.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(5, "Settings"), 20)
 
 func _stage_main_menu_character_button() -> void:
 	_stage_texture(Rect2(182.0, 204.0, 115.0, 33.0), HERO_BADGE_TAIL_TEXTURE)
@@ -246,49 +244,116 @@ func _cycle_time_attack_difficulty() -> void:
 func show_custom_word() -> void:
 	game_timer.stop()
 	_clear("")
+	# Two-player words no longer support comments, gameplay hints, or automatic
+	# opening of the first and last letters.
+	var settings_changed: bool = false
+	if int(GameState.settings[0]) != 1:
+		GameState.settings[0] = 1
+		settings_changed = true
+	if int(GameState.settings[1]) != 1:
+		GameState.settings[1] = 1
+		settings_changed = true
+	if settings_changed:
+		GameState.save_game()
+	custom_comment_text = ""
+
 	_portrait_screen(124.0, PORTRAIT_FOOTER_Y)
-	_stage_panel(Rect2(20.0, 18.0, 304.0, 54.0), Color.WHITE, 27.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
-	custom_word_edit = _stage_line_edit(Rect2(38.0, 22.0, 268.0, 46.0), Database.tr_text(41, "Input the word"))
+	# Reuse the same word display as the guessing screen: plain white text on the
+	# blue header, without a separate white input capsule.
+	_portrait_custom_word_label = _stage_label(Rect2(20.0, 20.0, 300.0, 62.0), _custom_word_display_text(), 29, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_portrait_custom_word_label.clip_text = true
+
+	# Keep an invisible LineEdit only as the existing validation/checking state
+	# holder. All visible input is performed through the on-screen letter keys.
+	custom_word_edit = LineEdit.new()
+	custom_word_edit.visible = false
 	custom_word_edit.max_length = 35
 	custom_word_edit.text = custom_word_text
-	custom_word_edit.add_theme_font_size_override("font_size", 23)
-	custom_word_edit.add_theme_color_override("font_color", PORTRAIT_DARK_BLUE)
-	custom_word_edit.add_theme_color_override("font_placeholder_color", Color(0.40, 0.43, 0.63, 0.70))
 	custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-	_stage_label(Rect2(20.0, 75.0, 205.0, 30.0), _custom_word_max_length_label(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(205.0, 75.0, 119.0, 30.0), _custom_word_random_label(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	content.add_child(custom_word_edit)
+
+	_stage_label(Rect2(20.0, 78.0, 205.0, 30.0), _custom_word_max_length_label(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(205.0, 78.0, 119.0, 30.0), _custom_word_random_label(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
 	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
-	_stage_label(Rect2(28.0, 176.0, 275.0, 48.0), Database.tr_text(27, "First and last letter"), 21, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_custom_switch(Rect2(330.0, 176.0, 102.0, 49.0), 0)
-	_stage_label(Rect2(28.0, 246.0, 275.0, 48.0), Database.tr_text(28, "Hints"), 21, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_custom_switch(Rect2(330.0, 246.0, 102.0, 49.0), 1)
-	_stage_panel(Rect2(28.0, 326.0, 404.0, 2.0), Color(0.63, 0.68, 0.90, 0.75))
-	_stage_main_button(Rect2(134.0, 358.0, 212.0, 49.0), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 19)
-	_stage_main_button(Rect2(134.0, 428.0, 212.0, 49.0), Callable(self, "_show_custom_comment_popup"), Database.tr_text(47, "Comment"), 19)
+	_stage_custom_word_keyboard()
+
+	_stage_main_button(Rect2(134.0, 570.0, 212.0, 49.0), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 19)
 	var check_color := Color.WHITE
 	if custom_word_check_state == 2:
 		check_color = Color(0.58, 0.88, 0.72)
 	elif custom_word_check_state == 3:
 		check_color = Color(0.96, 0.67, 0.77)
-	custom_word_check_label = _stage_label(Rect2(70.0, 500.0, 340.0, 40.0), custom_word_check_text, 16, check_color)
+	custom_word_check_label = _stage_label(Rect2(70.0, 622.0, 340.0, 24.0), custom_word_check_text, 15, check_color)
 	_stage_main_button(Rect2(250.0, 715.0, 212.0, 49.0), Callable(self, "start_custom_game"), _custom_word_start_label(), 20)
 
-func _show_custom_comment_popup() -> void:
-	_remove_custom_comment_popup()
+func _stage_custom_word_keyboard() -> void:
+	var alphabet: PackedStringArray = Database.get_alphabet()
+	var columns: int = 6
+	var keyboard_start_x: float = 34.0
+	var keyboard_start_y: float = 142.0
+	var keyboard_step_x: float = 69.0
+	var keyboard_step_y: float = 54.0
+	var key_size := Vector2(50.0, 46.0)
+	for i in range(alphabet.size()):
+		var letter: String = alphabet[i]
+		var row: int = int(i / columns)
+		var col: int = i % columns
+		var x: float = keyboard_start_x + float(col) * keyboard_step_x
+		var y: float = keyboard_start_y + float(row) * keyboard_step_y
+		var key_rect := Rect2(x, y, key_size.x, key_size.y)
+		_stage_label(Rect2(x - 5.0, y - 7.0, key_size.x + 10.0, key_size.y + 12.0), letter, 29, PORTRAIT_BLUE)
+		_stage_button(key_rect, Callable(self, "_append_custom_word_character").bind(letter), "")
+
+	_stage_main_button(Rect2(28.0, 476.0, 170.0, 48.0), Callable(self, "_append_custom_word_character").bind(" "), _custom_word_space_label(), 17)
+	_stage_main_button(Rect2(205.0, 476.0, 78.0, 48.0), Callable(self, "_append_custom_word_character").bind("—"), "—", 20)
+	_stage_main_button(Rect2(290.0, 476.0, 162.0, 48.0), Callable(self, "_remove_custom_word_character"), "⌫", 22)
+
+func _custom_word_space_label() -> String:
+	return "Пробел" if Database.current_language == "ru" else "Space"
+
+func _append_custom_word_character(character: String) -> void:
+	if custom_word_edit == null or custom_word_text.length() >= 35:
+		return
+	var updated: String = _normalize_custom_word_input(custom_word_text + character)
+	_set_custom_word_from_keyboard(updated)
+
+func _remove_custom_word_character() -> void:
+	if custom_word_edit == null or custom_word_text.is_empty():
+		return
+	_set_custom_word_from_keyboard(custom_word_text.substr(0, custom_word_text.length() - 1))
+
+func _custom_word_display_text() -> String:
+	if custom_word_text.is_empty():
+		return Database.tr_text(41, "Input the word")
+	return custom_word_text
+
+func _sync_custom_word_display() -> void:
+	if _portrait_custom_word_label != null and is_instance_valid(_portrait_custom_word_label):
+		_portrait_custom_word_label.text = _custom_word_display_text()
+
+func _set_custom_word_from_keyboard(value: String) -> void:
+	custom_word_text = value
 	if custom_word_edit != null:
-		custom_word_text = custom_word_edit.text
-	var previous_content := _portrait_popup_begin("CustomCommentPopup", "custom_comment_popup", 100, Callable(self, "_save_and_close_custom_comment_popup"), 170.0, 630.0)
-	var rect := Rect2(28.0, 170.0, 424.0, 460.0)
-	_portrait_popup_shell(rect, Database.tr_text(47, "Comment"), Callable(self, "_save_and_close_custom_comment_popup"), 30)
-	_stage_panel(Rect2(54.0, 290.0, 372.0, 160.0), Color.WHITE, 18.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
-	custom_comment_edit = _stage_text_edit(Rect2(70.0, 306.0, 340.0, 128.0), Database.tr_text(47, "Comment"))
-	custom_comment_edit.text = custom_comment_text
-	custom_comment_edit.add_theme_font_size_override("font_size", 20)
-	custom_comment_edit.add_theme_color_override("font_color", PORTRAIT_DARK_BLUE)
-	_stage_main_button(Rect2(250.0, 520.0, 180.0, 52.0), Callable(self, "_save_and_close_custom_comment_popup"), Database.tr_text(87, "OK"), 20)
-	content = previous_content
+		custom_word_edit.text = custom_word_text
+		custom_word_edit.caret_column = custom_word_edit.text.length()
+	_sync_custom_word_display()
+
+func _on_custom_word_text_changed(value: String) -> void:
+	super._on_custom_word_text_changed(value)
+	_sync_custom_word_display()
+
+func _set_random_custom_word() -> void:
+	super._set_random_custom_word()
+	_sync_custom_word_display()
+
+func start_custom_game() -> void:
+	# Two-player rounds always start without comments, hints, or edge letters.
+	GameState.settings[0] = 1
+	GameState.settings[1] = 1
+	custom_comment_text = ""
+	super.start_custom_game()
 
 func _refresh_game_screen() -> void:
 	if content == null:
@@ -350,16 +415,17 @@ func _refresh_game_screen() -> void:
 		var button := _stage_button(key_rect, Callable(self, "_press_letter").bind(letter), "", 20)
 		button.disabled = !GameSession.is_active or was_correct or was_wrong or was_removed
 
-	var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-	_stage_texture_button(Rect2(18.0, 716.0, 102.0, 49.0), Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-	_stage_texture(Rect2(57.0, 728.0, 25.0, 25.0), HINT_ICON_CHECK_TEXTURE)
-	_stage_texture_button(Rect2(126.0, 716.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-	_stage_texture(Rect2(165.0, 728.0, 25.0, 25.0), HINT_ICON_CROSS_TEXTURE)
-	var comment_button := _stage_main_button(Rect2(250.0, 716.0, 212.0, 49.0), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 18, comment_disabled, 0.0)
-	if comment_disabled:
-		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+	if GameState.current_mode != 2:
+		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
+		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
+		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
+		_stage_texture_button(Rect2(18.0, 716.0, 102.0, 49.0), Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+		_stage_texture(Rect2(57.0, 728.0, 25.0, 25.0), HINT_ICON_CHECK_TEXTURE)
+		_stage_texture_button(Rect2(126.0, 716.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+		_stage_texture(Rect2(165.0, 728.0, 25.0, 25.0), HINT_ICON_CROSS_TEXTURE)
+		var comment_button := _stage_main_button(Rect2(250.0, 716.0, 212.0, 49.0), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 18, comment_disabled, 0.0)
+		if comment_disabled:
+			comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
 	pending_letter_marker = ""
 	pending_letter_marker_is_correct = false
 

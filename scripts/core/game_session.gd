@@ -22,9 +22,6 @@ var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var word_hint_text: String = ""
 
-func _ready() -> void:
-	_restore_session_state()
-
 func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: int = 0) -> void:
 	word_data = word
 	word_index = index if index >= 0 else word.index
@@ -43,7 +40,7 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
 	_open_initial_letters()
-	_save_session_state()
+	GameState.save_game()
 	emit_signal("changed")
 
 func start_new_round(theme_index: int, game_mode: int = 0) -> void:
@@ -74,14 +71,11 @@ func _is_separator(letter: String) -> bool:
 	return letter == " " or letter == "-" or letter == "—"
 
 func _open_initial_letters() -> void:
-	if letters.is_empty():
+	if letters.is_empty() or mode == 2:
 		return
-	var should_open := false
-	if theme_id < 0:
-		should_open = int(GameState.settings[0]) == 2
-	else:
-		# In the AS3 logic category words open first/last letters only in easy mode.
-		should_open = int(GameState.settings[2]) == 2
+	# Category words open first/last letters only in easy mode. Two-player words
+	# never reveal edge letters automatically.
+	var should_open: bool = int(GameState.settings[2]) == 2
 	if !should_open:
 		return
 	var first := ""
@@ -114,11 +108,11 @@ func guess(letter: String) -> bool:
 			_add_time_attack_points(GameState.correct_guess_streak * 2 * _time_attack_difficulty_factor())
 		if is_word_completed():
 			is_active = false
-			_save_session_state()
+			GameState.save_game()
 			emit_signal("changed")
 			emit_signal("round_won")
 		else:
-			_save_session_state()
+			GameState.save_game()
 			emit_signal("changed")
 		return true
 	wrong_letters.append(letter)
@@ -130,11 +124,11 @@ func guess(letter: String) -> bool:
 		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
 	if mistakes >= max_mistakes:
 		is_active = false
-		_save_session_state()
+		GameState.save_game()
 		emit_signal("changed")
 		emit_signal("round_lost")
 	else:
-		_save_session_state()
+		GameState.save_game()
 		emit_signal("changed")
 	return false
 
@@ -191,11 +185,11 @@ func use_open_letter_hint() -> bool:
 		_add_time_attack_points(-25)
 	if is_word_completed():
 		is_active = false
-		_save_session_state()
+		GameState.save_game()
 		emit_signal("changed")
 		emit_signal("round_won")
 	else:
-		_save_session_state()
+		GameState.save_game()
 		emit_signal("changed")
 	return true
 
@@ -219,7 +213,7 @@ func use_remove_wrong_hint() -> bool:
 		candidates.remove_at(candidate_index)
 	if mode == 1:
 		_add_time_attack_points(-20)
-	_save_session_state()
+	GameState.save_game()
 	emit_signal("changed")
 	return true
 
@@ -227,7 +221,7 @@ func give_up() -> void:
 	if !is_active:
 		return
 	is_active = false
-	_save_session_state()
+	GameState.save_game()
 	emit_signal("changed")
 	emit_signal("round_lost")
 
@@ -259,6 +253,24 @@ func is_won() -> bool:
 
 func tries_left() -> int:
 	return max(0, max_mistakes - mistakes)
+
+func discard_current_round() -> void:
+	word_index = -1
+	theme_id = -1
+	word_data = null
+	letters.clear()
+	revealed.clear()
+	correct_letters.clear()
+	wrong_letters.clear()
+	removed_wrong_letters.clear()
+	mistakes = 0
+	max_mistakes = 7
+	is_active = false
+	mode = 0
+	open_hint_used = false
+	remove_wrong_hint_used = false
+	word_hint_text = ""
+	GameState.reset_current_game()
 
 func finish_result(is_win: bool) -> Dictionary:
 	var result := {
@@ -334,67 +346,8 @@ func finish_time_attack_timeout(timed_out: bool = true) -> Dictionary:
 	GameState.time_attack_round = 1
 	GameState.correct_guess_streak = 0
 	is_active = false
-	GameState.session_state.clear()
 	GameState.save_game()
 	return result
-
-func _save_session_state() -> void:
-	if !is_active or word_data == null:
-		GameState.session_state.clear()
-		GameState.save_game()
-		return
-	GameState.session_state = {
-		"word": word_data.text,
-		"difficulty": word_data.difficulty,
-		"theme_index": theme_id,
-		"word_index": word_index,
-		"custom_comment": word_data.custom_comment,
-		"revealed": revealed.duplicate(),
-		"correct_letters": Array(correct_letters),
-		"wrong_letters": Array(wrong_letters),
-		"removed_wrong_letters": Array(removed_wrong_letters),
-		"mistakes": mistakes,
-		"max_mistakes": max_mistakes,
-		"mode": mode,
-		"open_hint_used": open_hint_used,
-		"remove_wrong_hint_used": remove_wrong_hint_used,
-		"word_hint_text": word_hint_text,
-	}
-	GameState.save_game()
-
-func _restore_session_state() -> void:
-	var saved: Dictionary = GameState.session_state
-	var saved_word: String = str(saved.get("word", "")).strip_edges()
-	if saved_word == "":
-		return
-	word_index = int(saved.get("word_index", -1))
-	theme_id = int(saved.get("theme_index", -1))
-	mode = int(saved.get("mode", GameState.current_mode))
-	word_data = WordData.new(
-		saved_word,
-		int(saved.get("difficulty", 0)),
-		theme_id,
-		word_index,
-		str(saved.get("custom_comment", ""))
-	)
-	letters = _split_letters(word_data.text)
-	revealed = Array(saved.get("revealed", []))
-	while revealed.size() < letters.size():
-		revealed.append(false)
-	if revealed.size() > letters.size():
-		revealed.resize(letters.size())
-	correct_letters = PackedStringArray(saved.get("correct_letters", []))
-	wrong_letters = PackedStringArray(saved.get("wrong_letters", []))
-	removed_wrong_letters = PackedStringArray(saved.get("removed_wrong_letters", []))
-	mistakes = int(saved.get("mistakes", 0))
-	max_mistakes = int(saved.get("max_mistakes", 7))
-	open_hint_used = bool(saved.get("open_hint_used", false))
-	remove_wrong_hint_used = bool(saved.get("remove_wrong_hint_used", false))
-	word_hint_text = str(saved.get("word_hint_text", ""))
-	is_active = true
-	GameState.current_mode = mode
-	GameState.current_theme = theme_id
-	GameState.current_word_index = word_index
 
 func _time_attack_difficulty_factor() -> int:
 	# Exact AS3 expression:
