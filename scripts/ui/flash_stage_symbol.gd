@@ -3,7 +3,8 @@ extends Node2D
 
 signal playback_finished
 
-const STAGE_SIZE: Vector2 = Vector2(800.0, 480.0)
+const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
+const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FLASH_TO_GODOT_SCALE: float = 0.24
 
 var stage_position: Vector2 = Vector2.ZERO:
@@ -90,9 +91,9 @@ func _sync_to_stage() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
-	var fit_scale: float = min(viewport_size.x / STAGE_SIZE.x, viewport_size.y / STAGE_SIZE.y)
-	var stage_offset: Vector2 = (viewport_size - STAGE_SIZE * fit_scale) * 0.5
-	position = stage_offset + stage_position * fit_scale
+	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
+	var mapped_position := Vector2(stage_position.x, PORTRAIT_LAYOUT.map_y(stage_position.y, viewport_size, self))
+	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * fit_scale
 	scale = Vector2.ONE * FLASH_TO_GODOT_SCALE * fit_scale
 
 func play_range(start_time: float, end_time: float, nested_time: float = -1.0, playback_speed_scale: float = 1.0) -> void:

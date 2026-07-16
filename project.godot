@@ -24,10 +24,11 @@ GameSession="*uid://dct6g2n5b3fkn"
 
 [display]
 
-window/size/viewport_width=800
-window/size/viewport_height=480
+window/size/viewport_width=480
+window/size/viewport_height=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [internationalization]
 

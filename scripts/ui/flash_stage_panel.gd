@@ -1,7 +1,8 @@
 class_name FlashStagePanel
 extends Control
 
-const STAGE_SIZE: Vector2 = Vector2(800.0, 480.0)
+const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
+const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 
 var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):
 	set(value):
@@ -64,9 +65,9 @@ func _sync_to_stage() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
-	_fit_scale = min(viewport_size.x / STAGE_SIZE.x, viewport_size.y / STAGE_SIZE.y)
-	var stage_offset: Vector2 = (viewport_size - STAGE_SIZE * _fit_scale) * 0.5
-	position = stage_offset + stage_rect.position * _fit_scale
+	_fit_scale = PORTRAIT_LAYOUT.fit_scale(viewport_size)
+	var mapped_position: Vector2 = PORTRAIT_LAYOUT.map_rect_position(stage_rect, viewport_size, self)
+	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * _fit_scale
 	size = stage_rect.size * _fit_scale
 	custom_minimum_size = size
 	queue_redraw()

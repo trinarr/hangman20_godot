@@ -2,7 +2,8 @@ class_name FlashBackdrop
 extends Node2D
 
 const FLASH_TO_GODOT_SCALE: float = 0.24
-const STAGE_SIZE: Vector2 = Vector2(800.0, 480.0)
+const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
+const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const MAIN_BACKGROUND: String = "res://symbols/MainFon.tscn"
 
 var _holder: Node2D
@@ -38,9 +39,9 @@ func _fit_to_viewport() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
-	var fit_scale: float = min(viewport_size.x / STAGE_SIZE.x, viewport_size.y / STAGE_SIZE.y)
+	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	_holder.scale = Vector2.ONE * FLASH_TO_GODOT_SCALE * fit_scale
-	_holder.position = (viewport_size - STAGE_SIZE * fit_scale) * 0.5
+	_holder.position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0)
 
 func _add_symbol(path: String) -> void:
 	if !ResourceLoader.exists(path):

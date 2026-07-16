@@ -1,7 +1,8 @@
 class_name PopupStageCenter
 extends Control
 
-const STAGE_SIZE: Vector2 = Vector2(800.0, 480.0)
+const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
+const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const OPEN_START_SCALE: Vector2 = Vector2(0.965, 0.965)
 const OPEN_PEAK_SCALE: Vector2 = Vector2(1.025, 1.025)
 const OPEN_GROW_DURATION: float = 0.15
@@ -56,9 +57,9 @@ func _sync_to_viewport() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
-	var fit_scale: float = min(viewport_size.x / STAGE_SIZE.x, viewport_size.y / STAGE_SIZE.y)
-	var stage_offset: Vector2 = (viewport_size - STAGE_SIZE * fit_scale) * 0.5
-	var centered_stage_shift: float = (STAGE_SIZE.y - popup_top - popup_bottom) * 0.5
+	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
+	var stage_height: float = PORTRAIT_LAYOUT.expanded_stage_height(viewport_size)
+	var centered_stage_shift: float = (stage_height - popup_top - popup_bottom) * 0.5
 	position = Vector2(0.0, centered_stage_shift * fit_scale)
 	size = viewport_size
 	custom_minimum_size = viewport_size
@@ -66,4 +67,4 @@ func _sync_to_viewport() -> void:
 	# Scale around the visual center of the popup itself, not the top-left of the
 	# viewport. This keeps the bounce centered on every aspect ratio.
 	var popup_center_stage := Vector2(STAGE_SIZE.x * 0.5, (popup_top + popup_bottom) * 0.5)
-	pivot_offset = stage_offset + popup_center_stage * fit_scale
+	pivot_offset = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + popup_center_stage * fit_scale
