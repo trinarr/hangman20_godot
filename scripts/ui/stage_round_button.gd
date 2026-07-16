@@ -64,6 +64,7 @@ var _icon_rect: TextureRect = null
 var _icon_label: Label = null
 
 func _ready() -> void:
+	press_scale_enabled = true
 	_ensure_visual_nodes()
 	if !resized.is_connected(_sync_icon_layout):
 		resized.connect(_sync_icon_layout)
@@ -141,3 +142,4 @@ func _sync_icon_layout() -> void:
 	var actual_offset: Vector2 = icon_stage_offset * scale_to_view
 	_icon_rect.position = size * 0.5 + actual_offset - actual_size * 0.5
 	_icon_rect.size = actual_size
+	_sync_visual_child_scales()

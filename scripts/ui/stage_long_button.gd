@@ -43,6 +43,7 @@ var outline_size: int = 3:
 var _label: Label = null
 
 func _ready() -> void:
+	press_scale_enabled = true
 	texture_normal = NORMAL_TEXTURE
 	texture_pressed = PRESSED_TEXTURE
 	_ensure_label()
