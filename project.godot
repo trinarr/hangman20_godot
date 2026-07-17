@@ -13,7 +13,7 @@ config_version=5
 config/name="Hangman 2.0"
 run/main_scene="uid://778614541"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
 
 [autoload]
 

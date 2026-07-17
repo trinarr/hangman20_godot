@@ -11,7 +11,14 @@ const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(398.0, 13.0, 70.0, 70.0)
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
-const PORTRAIT_DENSE_MAX_SCALE: float = 1.25
+# Dense screens may grow moderately on tall phones, but gameplay is split into
+# independent upper and lower groups so the keyboard can stay width-safe while
+# moving toward the thumb zone.
+const PORTRAIT_DENSE_MAX_SCALE: float = 1.15
+const PORTRAIT_GAME_HERO_MAX_SCALE: float = 1.15
+const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
+const PORTRAIT_GAME_HERO_EXTRA_SHIFT: float = 0.08
+const PORTRAIT_GAME_KEYBOARD_EXTRA_SHIFT: float = 0.65
 const PORTRAIT_RESULT_MAX_SCALE: float = 1.24
 const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
@@ -28,8 +35,8 @@ const PORTRAIT_POPUP_CLOSE_SIZE: float = 70.0
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_GAME_BACK_BUTTON_RECT := Rect2(14.0, 709.0, 70.0, 70.0)
 const PORTRAIT_GAME_COMMENT_BUTTON_RECT := Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(124.0, 612.0, 112.0, 57.0)
-const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(244.0, 612.0, 112.0, 57.0)
+const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(124.0, 598.0, 112.0, 57.0)
+const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(244.0, 598.0, 112.0, 57.0)
 
 var _portrait_time_attack_difficulty_button: Control = null
 var _portrait_custom_word_label: Label = null
@@ -432,18 +439,31 @@ func _refresh_game_screen() -> void:
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
 	_stage_label(Rect2(20.0, 18.0, 440.0, 68.0), GameSession.get_masked_word(), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 
-	var gameplay_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 416.0), PORTRAIT_DENSE_MAX_SCALE, 0.10)
+	# Keep the upper character area and the lower keyboard area independent.
+	# On tall phones the character grows slightly in place, while the keyboard
+	# grows only to a width-safe 115% and moves down toward the footer.
+	var hero_root_content: Control = _portrait_begin_adaptive_group(
+		Vector2(240.0, 250.0),
+		PORTRAIT_GAME_HERO_MAX_SCALE,
+		PORTRAIT_GAME_HERO_EXTRA_SHIFT
+	)
 	_portrait_game_adaptive_group = content
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_POSITION, _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	if GameState.current_mode == 1:
 		_stage_time_attack_hud()
+	_portrait_end_adaptive_group(hero_root_content)
 
+	var keyboard_root_content: Control = _portrait_begin_adaptive_group(
+		Vector2(240.0, 340.0),
+		PORTRAIT_GAME_KEYBOARD_MAX_SCALE,
+		PORTRAIT_GAME_KEYBOARD_EXTRA_SHIFT
+	)
 	var alphabet := Database.get_alphabet()
 	var columns: int = 6
 	var keyboard_start_x: float = 35.0
-	var keyboard_start_y: float = 338.0
+	var keyboard_start_y: float = 312.0
 	var keyboard_step_x: float = 72.0
 	var keyboard_step_y: float = 44.0
 	var key_size := Vector2(50.0, 46.0)
@@ -478,7 +498,14 @@ func _refresh_game_screen() -> void:
 			animate_state
 		)
 
-	_portrait_end_adaptive_group(gameplay_root_content)
+	if GameState.current_mode != 2:
+		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
+		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
+		_stage_texture_button(PORTRAIT_GAME_HINT_OPEN_RECT, Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+		_stage_texture(Rect2(PORTRAIT_GAME_HINT_OPEN_RECT.position.x + 42.0, PORTRAIT_GAME_HINT_OPEN_RECT.position.y + 14.0, 28.0, 28.0), HINT_ICON_CHECK_TEXTURE)
+		_stage_texture_button(PORTRAIT_GAME_HINT_REMOVE_RECT, Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+		_stage_texture(Rect2(PORTRAIT_GAME_HINT_REMOVE_RECT.position.x + 42.0, PORTRAIT_GAME_HINT_REMOVE_RECT.position.y + 14.0, 28.0, 28.0), HINT_ICON_CROSS_TEXTURE)
+	_portrait_end_adaptive_group(keyboard_root_content)
 
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
 	_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
@@ -488,14 +515,6 @@ func _refresh_game_screen() -> void:
 		var comment_label := comment_button.get_node_or_null("Text") as Label
 		if comment_label != null:
 			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
-
-	if GameState.current_mode != 2:
-		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
-		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-		_stage_texture_button(PORTRAIT_GAME_HINT_OPEN_RECT, Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-		_stage_texture(Rect2(PORTRAIT_GAME_HINT_OPEN_RECT.position.x + 42.0, PORTRAIT_GAME_HINT_OPEN_RECT.position.y + 14.0, 28.0, 28.0), HINT_ICON_CHECK_TEXTURE)
-		_stage_texture_button(PORTRAIT_GAME_HINT_REMOVE_RECT, Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-		_stage_texture(Rect2(PORTRAIT_GAME_HINT_REMOVE_RECT.position.x + 42.0, PORTRAIT_GAME_HINT_REMOVE_RECT.position.y + 14.0, 28.0, 28.0), HINT_ICON_CROSS_TEXTURE)
 	pending_letter_marker = ""
 	pending_letter_marker_is_correct = false
 
