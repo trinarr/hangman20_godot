@@ -3,10 +3,11 @@ extends Control
 
 const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
-const OPEN_START_SCALE: Vector2 = Vector2(0.965, 0.965)
-const OPEN_PEAK_SCALE: Vector2 = Vector2(1.025, 1.025)
+const OPEN_START_FACTOR: float = 0.965
+const OPEN_PEAK_FACTOR: float = 1.025
 const OPEN_GROW_DURATION: float = 0.15
 const OPEN_SETTLE_DURATION: float = 0.11
+const MAX_ADAPTIVE_POPUP_SCALE: float = 1.08
 
 var popup_top: float = 0.0:
 	set(value):
@@ -19,6 +20,7 @@ var popup_bottom: float = 0.0:
 		_sync_to_viewport()
 
 var _open_tween: Tween = null
+var _rest_scale: float = 1.0
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -26,7 +28,7 @@ func _ready() -> void:
 	if !get_viewport().size_changed.is_connected(_sync_to_viewport):
 		get_viewport().size_changed.connect(_sync_to_viewport)
 	_sync_to_viewport()
-	scale = OPEN_START_SCALE
+	scale = Vector2.ONE * _rest_scale * OPEN_START_FACTOR
 	call_deferred("_play_open_bounce")
 
 func _exit_tree() -> void:
@@ -41,13 +43,13 @@ func _play_open_bounce() -> void:
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
 
-	scale = OPEN_START_SCALE
+	scale = Vector2.ONE * _rest_scale * OPEN_START_FACTOR
 	_open_tween = create_tween()
 	_open_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", OPEN_PEAK_SCALE, OPEN_GROW_DURATION)
+	var grow_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE * _rest_scale * OPEN_PEAK_FACTOR, OPEN_GROW_DURATION)
 	grow_tweener.set_trans(Tween.TRANS_CUBIC)
 	grow_tweener.set_ease(Tween.EASE_OUT)
-	var settle_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE, OPEN_SETTLE_DURATION)
+	var settle_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE * _rest_scale, OPEN_SETTLE_DURATION)
 	settle_tweener.set_trans(Tween.TRANS_QUAD)
 	settle_tweener.set_ease(Tween.EASE_IN_OUT)
 
@@ -63,8 +65,11 @@ func _sync_to_viewport() -> void:
 	position = Vector2(0.0, centered_stage_shift * fit_scale)
 	size = viewport_size
 	custom_minimum_size = viewport_size
+	_rest_scale = PORTRAIT_LAYOUT.adaptive_ui_scale(viewport_size, MAX_ADAPTIVE_POPUP_SCALE)
 
 	# Scale around the visual center of the popup itself, not the top-left of the
-	# viewport. This keeps the bounce centered on every aspect ratio.
+	# viewport. This keeps both the adaptive size and bounce centered.
 	var popup_center_stage := Vector2(STAGE_SIZE.x * 0.5, (popup_top + popup_bottom) * 0.5)
 	pivot_offset = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + popup_center_stage * fit_scale
+	if _open_tween == null or !_open_tween.is_valid():
+		scale = Vector2.ONE * _rest_scale

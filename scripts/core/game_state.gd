@@ -3,6 +3,7 @@ extends Node
 const SAVE_PATH := "user://save_hangman.json"
 
 var language: String = "ru"
+var player_name: String = ""
 
 # AS3 Settings:
 # 0 - show first/last letters in two-player mode: 1 off, 2 on
@@ -48,6 +49,7 @@ func load_game() -> void:
 		return
 
 	language = str(parsed.get("language", language))
+	player_name = str(parsed.get("player_name", player_name)).strip_edges()
 	var loaded_settings = parsed.get("settings", settings)
 	if loaded_settings is Array:
 		settings = loaded_settings
@@ -73,6 +75,7 @@ func save_game() -> void:
 		return
 	file.store_string(JSON.stringify({
 		"language": language,
+		"player_name": player_name,
 		"settings": settings,
 		"records": records,
 		"progress": progress
