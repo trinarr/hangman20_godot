@@ -305,7 +305,7 @@ func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
+	button.call("configure_text", icon_text, disabled, selected, 32, disabled_overlay_alpha)
 	if callable.is_valid():
 		button.pressed.connect(callable)
 	content.add_child(button)

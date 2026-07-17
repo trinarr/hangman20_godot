@@ -7,7 +7,7 @@ const OPEN_START_FACTOR: float = 0.965
 const OPEN_PEAK_FACTOR: float = 1.025
 const OPEN_GROW_DURATION: float = 0.15
 const OPEN_SETTLE_DURATION: float = 0.11
-const MAX_ADAPTIVE_POPUP_SCALE: float = 1.08
+const MAX_ADAPTIVE_POPUP_SCALE: float = 1.10
 
 var popup_top: float = 0.0:
 	set(value):
