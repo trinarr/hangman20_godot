@@ -13,6 +13,7 @@ const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(190.0, 52.0)
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 300.0)
 const PORTRAIT_HERO_SCALE_MULTIPLIER: float = 0.86
+const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -173,11 +174,13 @@ func _show_about_popup() -> void:
 func show_theme_select() -> void:
 	_remove_difficulty_popup()
 	_clear("")
-	_portrait_screen(96.0)
-	_stage_label(Rect2(20.0, 18.0, 300.0, 58.0), Database.tr_text(32, "Choose the category:"), 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_show_difficulty_popup"), difficulty_texture, difficulty_texture.get_size())
-	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
+	# Keep the category cards on the graph-paper background and move all screen
+	# navigation into a rigid footer block that follows the physical bottom edge.
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	var theme_title: String = Database.tr_text(32, "Choose the category:").strip_edges()
+	if theme_title.ends_with(":"):
+		theme_title = theme_title.substr(0, theme_title.length() - 1)
+	_stage_label(Rect2(32.0, 18.0, 416.0, 62.0), theme_title, 32, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 
 	for i in range(Database.get_theme_count()):
 		if i >= 9:
@@ -207,6 +210,15 @@ func show_theme_select() -> void:
 		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
 		var theme_button := _stage_button(Rect2(x, y, 214.0, 88.0), action, "")
 		theme_button.disabled = disabled
+
+	# Footer controls are intentionally authored at y >= PORTRAIT_FOOTER_Y so
+	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
+	_stage_round_icon_button(Rect2(18.0, 713.0, 62.0, 62.0), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(24.5, 30.0))
+	var difficulty_texture: Texture2D = _difficulty_star_texture()
+	_stage_main_icon_button(Rect2(105.0, 715.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, difficulty_texture.get_size(), 20)
+
+func _portrait_difficulty_button_label() -> String:
+	return "Сложность:" if Database.current_language == "ru" else "Difficulty:"
 
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
@@ -306,7 +318,6 @@ func show_custom_word() -> void:
 	_stage_label(Rect2(20.0, 78.0, 205.0, 30.0), _custom_word_max_length_label(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(205.0, 78.0, 119.0, 30.0), _custom_word_random_label(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
-	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	var custom_word_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 350.0), 1.08, 0.12)
 	_stage_custom_word_keyboard()
@@ -319,7 +330,11 @@ func show_custom_word() -> void:
 		check_color = Color(0.96, 0.67, 0.77)
 	custom_word_check_label = _stage_label(Rect2(70.0, 622.0, 340.0, 24.0), custom_word_check_text, 15, check_color)
 	_portrait_end_adaptive_group(custom_word_root_content)
-	_stage_main_button(Rect2(250.0, 715.0, 212.0, 49.0), Callable(self, "start_custom_game"), _custom_word_start_label(), 20)
+
+	# Match the category screen footer: navigation on the left and the primary
+	# action centered inside the rigid bottom blue block.
+	_stage_round_icon_button(Rect2(18.0, 713.0, 62.0, 62.0), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(24.5, 30.0))
+	_stage_main_button(Rect2(105.0, 715.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "start_custom_game"), _custom_word_start_label(), 20)
 
 func _stage_custom_word_keyboard() -> void:
 	var alphabet: PackedStringArray = Database.get_alphabet()

@@ -294,6 +294,15 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	button.stage_rect = rect
 	return button
 
+func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false) -> Control:
+	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled)
+	if callable.is_valid():
+		button.pressed.connect(callable)
+	content.add_child(button)
+	button.stage_rect = rect
+	return button
+
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)

@@ -62,7 +62,17 @@ func _sync_to_viewport() -> void:
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	var stage_height: float = PORTRAIT_LAYOUT.expanded_stage_height(viewport_size)
 	var centered_stage_shift: float = (stage_height - popup_top - popup_bottom) * 0.5
-	position = Vector2(0.0, centered_stage_shift * fit_scale)
+	var safe_top_pixels: float = PORTRAIT_LAYOUT.safe_top_inset_pixels(viewport_size)
+	var safe_margin_pixels: float = PORTRAIT_LAYOUT.SAFE_TOP_EXTRA_MARGIN * fit_scale if safe_top_pixels > 0.0 else 0.0
+	# Center inside the unobscured portion of the screen, then clamp the popup so
+	# its top edge never enters the camera/notch safe area.
+	var desired_shift_pixels: float = centered_stage_shift * fit_scale + safe_top_pixels * 0.5
+	var minimum_shift_pixels: float = safe_top_pixels + safe_margin_pixels - popup_top * fit_scale
+	var maximum_shift_pixels: float = viewport_size.y - safe_margin_pixels - popup_bottom * fit_scale
+	var resolved_shift_pixels: float = maxf(desired_shift_pixels, minimum_shift_pixels)
+	if maximum_shift_pixels >= minimum_shift_pixels:
+		resolved_shift_pixels = minf(resolved_shift_pixels, maximum_shift_pixels)
+	position = Vector2(0.0, resolved_shift_pixels)
 	size = viewport_size
 	custom_minimum_size = viewport_size
 	_rest_scale = PORTRAIT_LAYOUT.adaptive_ui_scale(viewport_size, MAX_ADAPTIVE_POPUP_SCALE)

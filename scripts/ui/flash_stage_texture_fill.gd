@@ -53,7 +53,7 @@ func _sync_to_stage() -> void:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 	_fit_scale = PORTRAIT_LAYOUT.fit_scale(viewport_size)
-	var mapped_y: float = PORTRAIT_LAYOUT.map_y(stage_y, viewport_size, self)
+	var mapped_y: float = PORTRAIT_LAYOUT.map_fill_y(stage_y, viewport_size)
 	position = Vector2(0.0, mapped_y * _fit_scale)
 	var fill_height: float = stage_height * _fit_scale
 	if stage_y <= 0.0 and stage_height >= STAGE_SIZE.y:

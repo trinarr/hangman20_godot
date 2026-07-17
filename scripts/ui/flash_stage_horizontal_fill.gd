@@ -40,11 +40,15 @@ func _sync_to_stage() -> void:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
-	var mapped_y: float = PORTRAIT_LAYOUT.map_y(stage_y, viewport_size, self)
+	var mapped_y: float = PORTRAIT_LAYOUT.map_fill_y(stage_y, viewport_size)
 	position = Vector2(0.0, mapped_y * fit_scale)
 	var fill_height: float = stage_height * fit_scale
 	if stage_y <= 0.0 and stage_height >= STAGE_SIZE.y:
 		fill_height = viewport_size.y
+	elif stage_y <= 0.0 and stage_height > 0.0:
+		# Extend the blue header behind the camera/notch area while its controls
+		# are translated below the safe top inset.
+		fill_height = (stage_height + PORTRAIT_LAYOUT.safe_top_stage(viewport_size)) * fit_scale
 	elif stage_y + stage_height >= STAGE_SIZE.y:
 		fill_height = maxf(0.0, viewport_size.y - position.y)
 	size = Vector2(viewport_size.x, fill_height)
