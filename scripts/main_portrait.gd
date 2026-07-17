@@ -23,6 +23,13 @@ const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
+const PORTRAIT_POPUP_DIM_ALPHA: float = 0.76
+const PORTRAIT_POPUP_CLOSE_SIZE: float = 70.0
+const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
+const PORTRAIT_GAME_BACK_BUTTON_RECT := Rect2(14.0, 709.0, 70.0, 70.0)
+const PORTRAIT_GAME_COMMENT_BUTTON_RECT := Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(124.0, 612.0, 112.0, 57.0)
+const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(244.0, 612.0, 112.0, 57.0)
 
 var _portrait_time_attack_difficulty_button: Control = null
 var _portrait_custom_word_label: Label = null
@@ -56,7 +63,7 @@ func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: f
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
-func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = 0.58) -> Control:
+func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = PORTRAIT_POPUP_DIM_ALPHA) -> Control:
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = name + "Canvas"
@@ -75,6 +82,9 @@ func _portrait_popup_begin(name: String, group_name: String, layer_index: int, c
 	return previous_content
 
 func _portrait_popup_shell(rect: Rect2, title: String, close_callable: Callable, title_font_size: int = 28) -> void:
+	# Portrait popups are bottom-anchored by PopupStageCenter. Their authored
+	# height is content-specific, so the top edge moves while the bottom edge and
+	# thumb-reachable close button stay at a stable screen position.
 	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 80.0))
 	var body_rect := Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, rect.size.y - 80.0))
 	var header := _stage_panel(header_rect, PORTRAIT_BLUE)
@@ -83,9 +93,12 @@ func _portrait_popup_shell(rect: Rect2, title: String, close_callable: Callable,
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var title_label := _stage_label(Rect2(rect.position.x + 20.0, rect.position.y + 10.0, rect.size.x - 100.0, 56.0), title, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var title_label := _stage_label(Rect2(rect.position.x + 20.0, rect.position.y + 10.0, rect.size.x - 40.0, 56.0), title, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.clip_text = false
-	_stage_round_button(Rect2(rect.position.x + rect.size.x - 68.0, rect.position.y + 9.0, 62.0, 62.0), close_callable, "×")
+
+	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
+	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
+	_stage_round_button(Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE), close_callable, "×")
 
 func show_menu() -> void:
 	game_timer.stop()
@@ -126,8 +139,8 @@ func _stage_main_menu_character_button() -> void:
 
 func _show_character_select_popup() -> void:
 	_remove_character_select_popup()
-	var previous_content := _portrait_popup_begin("CharacterSelectPopup", "character_select_popup", 100, Callable(self, "_remove_character_select_popup"), 170.0, 630.0)
-	var rect := Rect2(28.0, 170.0, 424.0, 460.0)
+	var previous_content := _portrait_popup_begin("CharacterSelectPopup", "character_select_popup", 100, Callable(self, "_remove_character_select_popup"), 170.0, 540.0)
+	var rect := Rect2(28.0, 170.0, 424.0, 370.0)
 	_portrait_popup_shell(rect, Database.tr_text(9, "Choose the hero:"), Callable(self, "_remove_character_select_popup"), 27)
 	_stage_character_option(1, Rect2(62.0, 310.0, 120.0, 120.0), Database.tr_text(75, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(91.0, 338.0, 62.0, 66.0))
 	_stage_character_option(2, Rect2(298.0, 310.0, 120.0, 120.0), Database.tr_text(76, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(313.0, 344.0, 90.0, 79.0))
@@ -139,8 +152,8 @@ func show_settings() -> void:
 		previous_content = settings_popup_return_content
 	_remove_settings_popup()
 	settings_popup_return_content = previous_content
-	var stored_previous := _portrait_popup_begin("SettingsPopup", "settings_popup", 100, Callable(self, "_remove_settings_popup"), 90.0, 710.0)
-	var rect := Rect2(28.0, 90.0, 424.0, 620.0)
+	var stored_previous := _portrait_popup_begin("SettingsPopup", "settings_popup", 100, Callable(self, "_remove_settings_popup"), 90.0, 580.0)
+	var rect := Rect2(28.0, 90.0, 424.0, 490.0)
 	_portrait_popup_shell(rect, Database.tr_text(5, "Settings"), Callable(self, "_remove_settings_popup"), 30)
 
 	_stage_label(Rect2(56.0, 192.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -162,10 +175,9 @@ func show_settings() -> void:
 
 func _show_about_popup() -> void:
 	_remove_about_popup()
-	var previous_content := _portrait_popup_begin("AboutPopup", "about_popup", 110, Callable(self, "_remove_about_popup"), 130.0, 670.0, 0.38)
-	var rect := Rect2(28.0, 130.0, 424.0, 540.0)
-	_portrait_popup_shell(rect, _about_title_label(), Callable(self, "_close_about_and_settings"), 30)
-	_stage_round_button(Rect2(316.0, 139.0, 62.0, 62.0), Callable(self, "_remove_about_popup"), "←")
+	var previous_content := _portrait_popup_begin("AboutPopup", "about_popup", 110, Callable(self, "_remove_about_popup"), 130.0, 520.0, PORTRAIT_POPUP_DIM_ALPHA)
+	var rect := Rect2(28.0, 130.0, 424.0, 390.0)
+	_portrait_popup_shell(rect, _about_title_label(), Callable(self, "_remove_about_popup"), 30)
 	var author_label := _stage_label(Rect2(56.0, 240.0, 368.0, 96.0), _about_author_text(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	author_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	author_label.clip_text = false
@@ -228,8 +240,8 @@ func _portrait_difficulty_button_label() -> String:
 
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
-	var previous_content := _portrait_popup_begin("ClearThemePopup", "clear_theme_popup", 125, Callable(self, "_remove_clear_theme_popup"), 250.0, 550.0)
-	var rect := Rect2(35.0, 250.0, 410.0, 300.0)
+	var previous_content := _portrait_popup_begin("ClearThemePopup", "clear_theme_popup", 125, Callable(self, "_remove_clear_theme_popup"), 250.0, 540.0)
+	var rect := Rect2(35.0, 250.0, 410.0, 290.0)
 	_portrait_popup_shell(rect, Database.tr_text(29, "Clear the category?"), Callable(self, "_remove_clear_theme_popup"), 25)
 	var theme_name := Database.get_theme_name(theme_index).to_upper()
 	var question_label := _stage_label(Rect2(65.0, 350.0, 350.0, 58.0), theme_name, 24, Color.WHITE)
@@ -240,8 +252,8 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 
 func _show_difficulty_popup() -> void:
 	_remove_difficulty_popup()
-	var previous_content := _portrait_popup_begin("ThemeDifficultyPopup", "difficulty_popup", 120, Callable(self, "_remove_difficulty_popup"), 100.0, 700.0)
-	var rect := Rect2(28.0, 100.0, 424.0, 600.0)
+	var previous_content := _portrait_popup_begin("ThemeDifficultyPopup", "difficulty_popup", 120, Callable(self, "_remove_difficulty_popup"), 100.0, 620.0)
+	var rect := Rect2(28.0, 100.0, 424.0, 520.0)
 	_portrait_popup_shell(rect, Database.tr_text(63, "Choose the difficulty level:"), Callable(self, "_remove_difficulty_popup"), 24)
 	var options := [
 		{"value": 2, "title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"), "desc": Database.tr_text(36, "Hints:") + " 2 · " + Database.tr_text(55, "Easy words")},
@@ -266,8 +278,8 @@ func _show_difficulty_popup() -> void:
 
 func _show_time_attack_popup() -> void:
 	_remove_time_attack_popup()
-	var previous_content := _portrait_popup_begin("TimeAttackPopup", "time_attack_popup", 115, Callable(self, "_remove_time_attack_popup"), 120.0, 680.0)
-	var rect := Rect2(28.0, 120.0, 424.0, 560.0)
+	var previous_content := _portrait_popup_begin("TimeAttackPopup", "time_attack_popup", 115, Callable(self, "_remove_time_attack_popup"), 120.0, 674.0)
+	var rect := Rect2(28.0, 120.0, 424.0, 554.0)
 	_portrait_popup_shell(rect, tr("TIME_ATTACK_MODE"), Callable(self, "_remove_time_attack_popup"), 29)
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
 	_portrait_time_attack_difficulty_button = _stage_round_icon_button(Rect2(316.0, 129.0, 62.0, 62.0), Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, difficulty_texture.get_size())
@@ -418,14 +430,9 @@ func _refresh_game_screen() -> void:
 		content.remove_child(child)
 		child.queue_free()
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
-	_stage_label(Rect2(20.0, 18.0, 290.0, 68.0), GameSession.get_masked_word(), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	if GameState.current_mode == 2:
-		_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(33.0, 33.0))
-	else:
-		_stage_round_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
-	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
+	_stage_label(Rect2(20.0, 18.0, 440.0, 68.0), GameSession.get_masked_word(), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 
-	var gameplay_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_DENSE_MAX_SCALE, 0.10)
+	var gameplay_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 416.0), PORTRAIT_DENSE_MAX_SCALE, 0.10)
 	_portrait_game_adaptive_group = content
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_POSITION, _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
 	if hero_static_symbol != null:
@@ -435,10 +442,10 @@ func _refresh_game_screen() -> void:
 
 	var alphabet := Database.get_alphabet()
 	var columns: int = 6
-	var keyboard_start_x: float = 48.0
-	var keyboard_start_y: float = 326.0
-	var keyboard_step_x: float = 64.0
-	var keyboard_step_y: float = 48.0
+	var keyboard_start_x: float = 35.0
+	var keyboard_start_y: float = 338.0
+	var keyboard_step_x: float = 72.0
+	var keyboard_step_y: float = 44.0
 	var key_size := Vector2(50.0, 46.0)
 	var marker_size := Vector2(44.0, 44.0)
 	for i in range(alphabet.size()):
@@ -472,19 +479,28 @@ func _refresh_game_screen() -> void:
 		)
 
 	_portrait_end_adaptive_group(gameplay_root_content)
+
+	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
+	_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
+	var comment_button := _stage_main_button(PORTRAIT_GAME_COMMENT_BUTTON_RECT, Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 22, comment_disabled, 0.0)
+	if comment_disabled:
+		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+		var comment_label := comment_button.get_node_or_null("Text") as Label
+		if comment_label != null:
+			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
+
 	if GameState.current_mode != 2:
 		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
 		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-		_stage_texture_button(Rect2(12.0, 708.0, 112.0, 57.0), Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-		_stage_texture(Rect2(54.0, 722.0, 28.0, 28.0), HINT_ICON_CHECK_TEXTURE)
-		_stage_texture_button(Rect2(130.0, 708.0, 112.0, 57.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-		_stage_texture(Rect2(172.0, 722.0, 28.0, 28.0), HINT_ICON_CROSS_TEXTURE)
-		var comment_button := _stage_main_button(Rect2(248.0, 708.0, 220.0, 57.0), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 20, comment_disabled, 0.0)
-		if comment_disabled:
-			comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+		_stage_texture_button(PORTRAIT_GAME_HINT_OPEN_RECT, Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+		_stage_texture(Rect2(PORTRAIT_GAME_HINT_OPEN_RECT.position.x + 42.0, PORTRAIT_GAME_HINT_OPEN_RECT.position.y + 14.0, 28.0, 28.0), HINT_ICON_CHECK_TEXTURE)
+		_stage_texture_button(PORTRAIT_GAME_HINT_REMOVE_RECT, Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+		_stage_texture(Rect2(PORTRAIT_GAME_HINT_REMOVE_RECT.position.x + 42.0, PORTRAIT_GAME_HINT_REMOVE_RECT.position.y + 14.0, 28.0, 28.0), HINT_ICON_CROSS_TEXTURE)
 	pending_letter_marker = ""
 	pending_letter_marker_is_correct = false
+
+func _game_footer_back_action() -> void:
+	_game_header_action()
 
 func _stage_time_attack_hud() -> void:
 	_stage_score_with_star(Rect2(20.0, 282.0, 190.0, 38.0), str(GameState.current_score), 22, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT, Color.WHITE, 1)
@@ -691,8 +707,8 @@ func _show_word_comment_popup() -> void:
 	if hint == "":
 		return
 	_remove_word_comment_popup()
-	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 640.0)
-	var rect := Rect2(28.0, 160.0, 424.0, 480.0)
+	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 612.0)
+	var rect := Rect2(28.0, 160.0, 424.0, 452.0)
 	_portrait_popup_shell(rect, Database.tr_text(47, "Comment"), Callable(self, "_remove_word_comment_popup"), 30)
 	var hint_label := _stage_label(Rect2(56.0, 282.0, 368.0, 190.0), hint, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP

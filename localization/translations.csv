@@ -62,7 +62,7 @@ WORDS_TOTAL,Всего слов,Words
 DIFFICULTY_GENERAL,ОБЩИЙ,GENERAL
 DIFFICULTY_HARD,СЛОЖНЫЙ,HARD
 DIFFICULTY_EASY,ПРОСТОЙ,EASY
-DIFFICULTY_SELECT_TITLE,Выберите уровень сложности:,Choose the difficulty level:
+DIFFICULTY_SELECT_TITLE,Уровень сложности,Difficulty level
 NEW_RECORD,Новый рекорд!,New record!
 CATEGORY_COMPLETED,Тема завершена!,Category is completed!
 PLAY,ИГРАТЬ,PLAY

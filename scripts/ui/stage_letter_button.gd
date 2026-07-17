@@ -14,8 +14,8 @@ const MARKER_REVEAL_DURATION: float = 0.2
 const LETTER_PRESSED_SCALE := Vector2(0.8, 0.8)
 
 const NORMAL_COLOR := Color(0.2706, 0.3098, 0.6078, 1.0)
-const CROSSED_COLOR := Color(0.84, 0.59, 0.64, 1.0)
-const CIRCLED_COLOR := Color(0.42, 0.69, 0.58, 1.0)
+const CROSSED_COLOR := Color(0.98, 0.20, 0.22, 1.0)
+const CIRCLED_COLOR := Color(0.13, 0.83, 0.29, 1.0)
 
 var letter_text: String = ""
 var letter_state: int = LetterState.NORMAL
