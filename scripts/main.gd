@@ -305,7 +305,7 @@ func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_text", icon_text, disabled, selected, 32, disabled_overlay_alpha)
+	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
 	if callable.is_valid():
 		button.pressed.connect(callable)
 	content.add_child(button)
@@ -1633,7 +1633,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 		title = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
 		if title == "":
 			title = "VICTORY" if is_win else "DEFEAT"
-	var title_label := _stage_label(Rect2(365.0, 128.0, 365.0, 72.0), title, 42, Color(0.8157, 0.5647, 0.3412), HORIZONTAL_ALIGNMENT_CENTER)
+	var title_label := _stage_label(Rect2(365.0, 128.0, 365.0, 72.0), title, 42, _result_title_color(is_win, time_attack_finished), HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.clip_text = false
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.z_index = 31
@@ -1722,6 +1722,11 @@ func _result_non_score_lines(data: Dictionary) -> String:
 		if line != "" and line != score_line:
 			lines.append(line)
 	return "\n".join(lines)
+
+func _result_title_color(is_win: bool, time_attack_finished: bool = false) -> Color:
+	if time_attack_finished:
+		return Color(0.8157, 0.5647, 0.3412, 1.0)
+	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
 
 func _result_message(is_win: bool, data: Dictionary) -> String:
 	var data_lines: String = _result_data_lines(data)

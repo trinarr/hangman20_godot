@@ -3,6 +3,7 @@ extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
+const ICON_VISUAL_SCALE: float = 0.82
 
 var icon_text: String = "":
 	set(value):
@@ -14,12 +15,12 @@ var icon_texture: Texture2D = null:
 		icon_texture = value
 		_sync_visuals()
 
-var icon_font_size: int = 28:
+var icon_font_size: int = 26:
 	set(value):
 		icon_font_size = value
 		_sync_visuals()
 
-var icon_stage_size: Vector2 = Vector2(27.0, 27.0):
+var icon_stage_size: Vector2 = Vector2(24.0, 24.0):
 	set(value):
 		icon_stage_size = value
 		_sync_icon_layout()
@@ -73,7 +74,7 @@ func _ready() -> void:
 	_sync_visuals()
 	_sync_icon_layout()
 
-func configure_text(text_value: String, disabled_value: bool = false, selected_value: bool = false, font_size_value: int = 28, disabled_overlay_alpha_value: float = 0.32) -> void:
+func configure_text(text_value: String, disabled_value: bool = false, selected_value: bool = false, font_size_value: int = 26, disabled_overlay_alpha_value: float = 0.32) -> void:
 	icon_texture = null
 	icon_text = text_value
 	icon_font_size = font_size_value
@@ -138,7 +139,7 @@ func _sync_icon_layout() -> void:
 	if stage_rect.size.x <= 0.0 or stage_rect.size.y <= 0.0:
 		return
 	var scale_to_view: Vector2 = Vector2(size.x / stage_rect.size.x, size.y / stage_rect.size.y)
-	var actual_size: Vector2 = icon_stage_size * scale_to_view
+	var actual_size: Vector2 = icon_stage_size * scale_to_view * ICON_VISUAL_SCALE
 	var actual_offset: Vector2 = icon_stage_offset * scale_to_view
 	_icon_rect.position = size * 0.5 + actual_offset - actual_size * 0.5
 	_icon_rect.size = actual_size
