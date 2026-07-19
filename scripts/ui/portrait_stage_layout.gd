@@ -63,12 +63,22 @@ static func is_inside_centered_popup(node: Node) -> bool:
 		current = current.get_parent()
 	return false
 
+static func is_inside_bottom_attached_group(node: Node) -> bool:
+	var current: Node = node.get_parent()
+	while current != null:
+		if current.name == &"PortraitBottomAttached":
+			return true
+		current = current.get_parent()
+	return false
+
 static func map_y(stage_y: float, viewport_size: Vector2, node: Node = null) -> float:
 	# Keep authored sizes intact. Regular screen content is translated below the
 	# camera/notch safe area, while the footer remains pinned to the physical
 	# bottom. Centered popups perform their own safe-area centering.
 	if node != null and is_inside_centered_popup(node):
 		return stage_y
+	if node != null and is_inside_bottom_attached_group(node):
+		return stage_y + extra_stage_height(viewport_size)
 	if stage_y < FIXED_BOTTOM_START:
 		return stage_y + safe_top_stage(viewport_size)
 	return stage_y + extra_stage_height(viewport_size)
@@ -83,6 +93,8 @@ static func map_fill_y(stage_y: float, viewport_size: Vector2) -> float:
 static func map_rect_position(stage_rect: Rect2, viewport_size: Vector2, node: Node = null) -> Vector2:
 	if node != null and is_inside_centered_popup(node):
 		return stage_rect.position
+	if node != null and is_inside_bottom_attached_group(node):
+		return Vector2(stage_rect.position.x, stage_rect.position.y + extra_stage_height(viewport_size))
 	var mapped_y: float = stage_rect.position.y
 	if stage_rect.position.y >= FIXED_BOTTOM_START:
 		mapped_y += extra_stage_height(viewport_size)

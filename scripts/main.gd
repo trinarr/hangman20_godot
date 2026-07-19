@@ -390,7 +390,6 @@ func show_menu() -> void:
 	_stage_texture_fill(118.0, 362.0, MENU_PAPER_COVER)
 
 	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(284.0, 112.0, 300.0, 48.0), Database.tr_text(77, "Welcome back!"), 28, Color(0.27, 0.31, 0.61), HORIZONTAL_ALIGNMENT_CENTER)
 
 	_stage_main_button(Rect2(161.0, 188.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 20)
 	_stage_main_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), Database.tr_text(2, "Time Attack"), 20)

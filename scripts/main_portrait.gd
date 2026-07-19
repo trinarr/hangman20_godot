@@ -23,8 +23,15 @@ const PORTRAIT_RESULT_MAX_SCALE: float = 1.24
 const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 300.0)
+const PORTRAIT_HERO_CLASSIC_RESULT_POSITION := Vector2(138.0, 500.0)
+const PORTRAIT_HERO_TIME_RESULT_POSITION := Vector2(138.0, 500.0)
+const PORTRAIT_RESULT_CLOSE_BUTTON_RECT := Rect2(14.0, 709.0, 70.0, 70.0)
+const PORTRAIT_RESULT_THEME_BUTTON_RECT := Rect2(396.0, 709.0, 70.0, 70.0)
+const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT := Rect2(419.0, 25.0, 49.0, 49.0)
 const PORTRAIT_HERO_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
+const PORTRAIT_RESULT_THEME_MENU_ICON: Texture2D = preload("res://flash_assets/result_theme_menu_icon.png")
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -63,6 +70,16 @@ func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: fl
 
 func _portrait_end_adaptive_group(previous_content: Control) -> void:
 	content = previous_content
+
+func _portrait_begin_bottom_attached_group() -> Control:
+	var previous_content: Control = content
+	var bottom_group := Control.new()
+	bottom_group.name = "PortraitBottomAttached"
+	bottom_group.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bottom_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	previous_content.add_child(bottom_group)
+	content = bottom_group
+	return previous_content
 
 func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: float = -1.0) -> void:
 	_stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
@@ -125,7 +142,6 @@ func show_menu() -> void:
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 260.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
 	var title_label := _stage_label(Rect2(40.0, 188.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_stage_label(Rect2(70.0, 294.0, 340.0, 46.0), Database.tr_text(77, "Welcome back!"), 29, PORTRAIT_BLUE)
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var menu_buttons_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 570.0), 1.0, 0.22)
@@ -463,7 +479,9 @@ func _refresh_game_screen() -> void:
 	var alphabet := Database.get_alphabet()
 	var columns: int = 6
 	var keyboard_start_x: float = 35.0
-	var keyboard_start_y: float = 312.0
+	# Two-player mode has no hint controls, so use that freed space and keep
+	# the letter grid at the same distance from the footer that the hint block uses in the other modes.
+	var keyboard_start_y: float = 389.0 if GameState.current_mode == 2 else 312.0
 	var keyboard_step_x: float = 72.0
 	var keyboard_step_y: float = 44.0
 	var key_size := Vector2(50.0, 46.0)
@@ -553,44 +571,40 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_clear("")
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
-	_stage_label(Rect2(20.0, 20.0, 300.0, 62.0), full_word, 29, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var result_word_label := _stage_label(Rect2(20.0, 18.0, 440.0, 68.0), full_word, 29, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	result_word_label.clip_text = true
+	if GameState.current_mode == 0:
+		_show_classic_result_content(is_win, data)
+		return
+	if GameState.current_mode == 2:
+		_show_two_player_result_content(is_win, data)
+		return
+	var time_attack_finished: bool = GameState.current_mode == 1 and bool(data.get("time_attack_finished", false))
+	if time_attack_finished:
+		_show_time_attack_finished_result_content(data)
+		return
 	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(23.0, 29.0))
 	_stage_round_icon_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 410.0), PORTRAIT_RESULT_MAX_SCALE, 0.12)
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
-	var time_attack_finished: bool = GameState.current_mode == 1 and bool(data.get("time_attack_finished", false))
-	var title: String
-	if time_attack_finished:
-		title = str(data.get("title", Database.tr_text(39, "GAME OVER"))).strip_edges()
-		if title == "":
-			title = Database.tr_text(39, "GAME OVER")
-	else:
-		title = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
 	var title_label := _stage_label(Rect2(48.0, 330.0, 384.0, 70.0), title, 38, PORTRAIT_ORANGE)
 	title_label.clip_text = false
 	_apply_result_text_glow(title_label, Color.WHITE, 2)
-	if time_attack_finished:
-		var final_score: int = int(data.get("final_score", GameState.current_score))
-		var final_score_text: String = Database.tr_key(&"FINAL_SCORE", "Final score:") + " " + str(final_score)
-		_stage_score_with_star(Rect2(64.0, 410.0, 352.0, 40.0), final_score_text, 23, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
-		var final_details: String = _result_data_lines(data)
-		if final_details != "":
-			var details_label := _stage_label(Rect2(64.0, 458.0, 352.0, 72.0), final_details, 19, PORTRAIT_BLUE)
-			details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	var result_score_line: String = _result_score_line(data)
+	if result_score_line != "":
+		_stage_score_with_star(Rect2(64.0, 410.0, 352.0, 38.0), result_score_line, 21, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
+		var remaining_message: String = _result_non_score_lines(data)
+		if remaining_message != "":
+			var remaining_label := _stage_label(Rect2(64.0, 456.0, 352.0, 58.0), remaining_message, 19, PORTRAIT_BLUE)
+			remaining_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	else:
-		var result_score_line: String = _result_score_line(data)
-		if result_score_line != "":
-			_stage_score_with_star(Rect2(64.0, 410.0, 352.0, 38.0), result_score_line, 21, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
-			var remaining_message: String = _result_non_score_lines(data)
-			if remaining_message != "":
-				var remaining_label := _stage_label(Rect2(64.0, 456.0, 352.0, 58.0), remaining_message, 19, PORTRAIT_BLUE)
-				remaining_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		else:
-			var result_message: String = _result_message(is_win, data)
-			var message_label := _stage_label(Rect2(64.0, 410.0, 352.0, 82.0), result_message, 20, PORTRAIT_BLUE)
-			message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		var result_message: String = _result_message(is_win, data)
+		var message_label := _stage_label(Rect2(64.0, 410.0, 352.0, 82.0), result_message, 20, PORTRAIT_BLUE)
+		message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	if GameState.current_mode == 0:
 		_stage_label(Rect2(64.0, 540.0, 352.0, 42.0), _result_theme_label(), 20, PORTRAIT_BLUE)
 	_portrait_end_adaptive_group(result_root_content)
@@ -598,6 +612,99 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	if show_left_button:
 		_stage_main_button(Rect2(14.0, 708.0, 220.0, 57.0), Callable(self, "_result_left_action"), _result_left_button_text(), 20)
 	_stage_main_button(Rect2(248.0, 708.0, 220.0, 57.0), Callable(self, "_result_right_action"), _result_right_button_text(), 20)
+
+func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
+	# The two-player result uses the same thumb-friendly composition as the final
+	# Time Attack screen: compact search in the header, centered result copy and
+	# hero, plus close/restart controls in the rigid footer.
+	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(16.0, 20.0))
+
+	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
+	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+	if title == "":
+		title = "VICTORY" if is_win else "DEFEAT"
+	var title_label := _stage_label(Rect2(40.0, 150.0, 400.0, 66.0), title, 38, PORTRAIT_ORANGE)
+	title_label.clip_text = false
+	_apply_result_text_glow(title_label, Color.WHITE, 2)
+
+	var subtitle: String = _result_message(is_win, data)
+	var subtitle_label := _stage_label(Rect2(52.0, 216.0, 376.0, 72.0), subtitle, 21, PORTRAIT_BLUE)
+	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	subtitle_label.clip_text = false
+
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	if hero_static_symbol != null:
+		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_portrait_end_adaptive_group(result_root_content)
+
+	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
+	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+
+func _show_time_attack_finished_result_content(data: Dictionary) -> void:
+	# Match the classic result layout: compact search in the header, result copy
+	# above a centered hero, and thumb-reachable controls in the rigid footer.
+	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(16.0, 20.0))
+
+	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
+	var title: String = str(data.get("title", Database.tr_text(39, "GAME OVER"))).strip_edges()
+	if title == "":
+		title = Database.tr_text(39, "GAME OVER")
+	var title_label := _stage_label(Rect2(40.0, 150.0, 400.0, 66.0), title, 38, PORTRAIT_ORANGE)
+	title_label.clip_text = false
+	_apply_result_text_glow(title_label, Color.WHITE, 2)
+
+	var final_score: int = int(data.get("final_score", GameState.current_score))
+	var final_score_text: String = Database.tr_key(&"FINAL_SCORE", "Final score:") + " " + str(final_score)
+	_stage_score_with_star(Rect2(52.0, 216.0, 376.0, 42.0), final_score_text, 22, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
+
+	var final_details: String = _result_data_lines(data)
+	if final_details != "":
+		var details_label := _stage_label(Rect2(52.0, 260.0, 376.0, 58.0), final_details, 19, PORTRAIT_BLUE)
+		details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		details_label.clip_text = false
+
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	if hero_static_symbol != null:
+		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_portrait_end_adaptive_group(result_root_content)
+
+	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
+	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+
+func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
+	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
+	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+	var title_label := _stage_label(Rect2(40.0, 150.0, 400.0, 66.0), title, 38, PORTRAIT_ORANGE)
+	title_label.clip_text = false
+	_apply_result_text_glow(title_label, Color.WHITE, 2)
+
+	var subtitle: String = _result_non_score_lines(data)
+	if subtitle == "":
+		subtitle = Database.tr_text(49 if is_win else 50, "Keep going!" if is_win else "You can do better!")
+	var subtitle_label := _stage_label(Rect2(52.0, 216.0, 376.0, 58.0), subtitle, 21, PORTRAIT_BLUE)
+	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	subtitle_label.clip_text = false
+
+	var result_score_line: String = _result_score_line(data)
+	if result_score_line != "":
+		_stage_score_with_star(Rect2(64.0, 274.0, 352.0, 38.0), result_score_line, 20, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
+
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CLASSIC_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	if hero_static_symbol != null:
+		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_portrait_end_adaptive_group(result_root_content)
+
+	var bottom_info_content: Control = _portrait_begin_bottom_attached_group()
+	var theme_label := _stage_label(Rect2(40.0, 616.0, 400.0, 50.0), _result_theme_label(), 20, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	theme_label.clip_text = false
+	_portrait_end_adaptive_group(bottom_info_content)
+
+	# Word search remains in the header, but uses a compact 70% round button.
+	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(16.0, 20.0))
+	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
+	_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
+	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
 
 func show_records() -> void:
 	show_profile()
