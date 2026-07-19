@@ -715,7 +715,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_clear("")
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
-	var result_word_label := _stage_label(Rect2(20.0, 18.0, 440.0, 68.0), full_word, 29, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var result_word_label := _stage_label(Rect2(20.0, 18.0, 440.0, 68.0), full_word, 29, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result_word_label.clip_text = true
 	if GameState.current_mode == 0:
