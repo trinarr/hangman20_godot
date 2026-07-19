@@ -737,16 +737,13 @@ func show_theme_select() -> void:
 		var y: float = 125.0 + float(row) * 113.0
 		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
 		var guessed: int = Database.get_number_of_guessed_words(i, true)
+		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
 		var disabled: bool = words_count == 0
 		var completed: bool = words_count > 0 and guessed >= words_count
 
 		var card := _stage_texture(Rect2(x, y, 239.0, 90.0), THEME_CARD_TEXTURE)
 		var progress_back := _stage_texture(Rect2(x, y, 239.0, 65.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = (
-			Database.tr_text(33, "All words are guessed")
-			if completed
-			else Database.tr_text(34, "Guessed") + ": " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
-		)
+		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
 		var progress_label := _stage_label(Rect2(x + 11.0, y + 7.0, 217.0, 30.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))

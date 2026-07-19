@@ -235,11 +235,12 @@ func show_theme_select() -> void:
 		var y: float = 118.0 + float(row) * 104.0
 		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
 		var guessed: int = Database.get_number_of_guessed_words(i, true)
+		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
 		var disabled: bool = words_count == 0
 		var completed: bool = words_count > 0 and guessed >= words_count
 		var card := _stage_texture(Rect2(x, y, 214.0, 88.0), THEME_CARD_TEXTURE)
 		var progress_back := _stage_texture(Rect2(x, y, 214.0, 63.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = Database.tr_text(33, "All words are guessed") if completed else Database.tr_text(34, "Guessed") + ": " + str(guessed) + " " + Database.tr_text(35, "of") + " " + str(words_count)
+		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
 		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0, 198.0, 28.0), progress_text, 16, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		var title_label := _stage_label(Rect2(x + 6.0, y + 44.0, 202.0, 36.0), Database.get_theme_name(i).to_upper(), 23, Color.WHITE)
@@ -461,10 +462,16 @@ func _refresh_game_screen() -> void:
 	var upper_block_shift: float = extra_stage_height * 0.5
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
 
-	# All gameplay modes now share one portrait composition: hero on the left,
-	# hints on the right when available, word and keyboard attached to the footer.
+	# All gameplay modes share one portrait composition: the hero stays on the
+	# left beside hints, but is centered when Two Player has no hint controls.
+	# The word and keyboard remain attached to the footer in every mode.
 	var hero_pivot := Vector2(138.0, 206.0 + upper_block_shift)
 	var hero_stage_position := Vector2(76.0, 222.0 + upper_block_shift)
+	if GameState.current_mode == 2:
+		# Two-player rounds have no hint controls, so use their free column and
+		# center the hero (the symbol pivot is 62 px to the right of its origin).
+		hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5
+		hero_stage_position.x = hero_pivot.x - 62.0
 	var hero_root_content: Control = _portrait_begin_adaptive_group(
 		hero_pivot,
 		1.0,
@@ -626,7 +633,7 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 		var is_space: bool = bool(item["is_space"])
 		var is_dash: bool = bool(item["is_dash"])
 		var revealed: bool = bool(item["revealed"])
-		if !is_space and !is_dash:
+		if !revealed and !is_space and !is_dash:
 			_stage_panel(Rect2(
 				x + (item_width - underline_width) * 0.5,
 				baseline_y,
