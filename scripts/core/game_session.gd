@@ -5,6 +5,7 @@ signal round_won
 signal round_lost
 
 const WRONG_LETTER_VIBRATION_MS: int = 35
+const MAX_MISTAKES: int = 7
 
 var word_index: int = -1
 var theme_id: int = -1
@@ -15,7 +16,6 @@ var correct_letters: PackedStringArray = []
 var wrong_letters: PackedStringArray = []
 var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
-var max_mistakes: int = 7
 var is_active: bool = false
 var mode: int = 0 # 0 classic, 1 time attack, 2 two-player
 var open_hint_used: bool = false
@@ -122,7 +122,7 @@ func guess(letter: String) -> bool:
 	if int(GameState.settings[4]) == 2:
 		# A short pulse gives subtle feedback without interrupting gameplay.
 		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
-	if mistakes >= max_mistakes:
+	if mistakes >= MAX_MISTAKES:
 		is_active = false
 		GameState.save_game()
 		emit_signal("changed")
@@ -217,14 +217,6 @@ func use_remove_wrong_hint() -> bool:
 	emit_signal("changed")
 	return true
 
-func give_up() -> void:
-	if !is_active:
-		return
-	is_active = false
-	GameState.save_game()
-	emit_signal("changed")
-	emit_signal("round_lost")
-
 func get_masked_word() -> String:
 	if letters.is_empty():
 		return ""
@@ -245,15 +237,6 @@ func is_word_completed() -> bool:
 			return false
 	return letters.size() > 0
 
-func is_lost() -> bool:
-	return mistakes >= max_mistakes
-
-func is_won() -> bool:
-	return is_word_completed()
-
-func tries_left() -> int:
-	return max(0, max_mistakes - mistakes)
-
 func discard_current_round() -> void:
 	word_index = -1
 	theme_id = -1
@@ -264,7 +247,6 @@ func discard_current_round() -> void:
 	wrong_letters.clear()
 	removed_wrong_letters.clear()
 	mistakes = 0
-	max_mistakes = 7
 	is_active = false
 	mode = 0
 	open_hint_used = false

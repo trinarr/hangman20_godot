@@ -5,7 +5,6 @@ const ROUND_BUTTON_SIZE: Vector2 = Vector2(62.0, 62.0)
 const HEADER_ACTION_BUTTON_RECT: Rect2 = Rect2(639.0, 12.0, 62.0, 62.0)
 const HEADER_CLOSE_BUTTON_RECT: Rect2 = Rect2(716.0, 12.0, 62.0, 62.0)
 const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
-const THEME_BUTTON_SIZE: Vector2 = Vector2(241.0, 91.0)
 const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
 const HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE: float = 0.65
 const HERO_MOV_START_FRAME_TIME: float = 0.0
@@ -69,7 +68,6 @@ var custom_word_check_urls: Array[String] = []
 var custom_word_check_text: String = ""
 var custom_word_check_state: int = 0 # 0 neutral, 1 checking, 2 found, 3 not found/error
 var custom_word_check_label: Label = null
-var word_info_visible: bool = false
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
 var settings_popup_return_content: Control = null
@@ -373,9 +371,6 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
 	button.add_theme_font_size_override("font_size", font_size)
 
-func _button_text_color() -> Color:
-	return Color(0.08, 0.11, 0.35)
-
 func show_menu() -> void:
 	game_timer.stop()
 	GameSession.discard_current_round()
@@ -674,34 +669,12 @@ func _about_contact_action(_contact_type: String) -> void:
 func _settings_remove_ads_action() -> void:
 	pass
 
-func _toggle_language() -> void:
-	GameState.set_language("en" if GameState.language == "ru" else "ru")
-	Database.load_language(GameState.language)
-	show_settings()
-
-func _cycle_difficulty() -> void:
-	GameState.settings[2] = (int(GameState.settings[2]) + 1) % 3
-	GameState.save_game()
-	show_settings()
-
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
 	if index == 4 and int(GameState.settings[index]) == 2:
 		Input.vibrate_handheld(400)
 	GameState.save_game()
 	show_settings()
-
-func _on_off(value: Variant) -> String:
-	return Database.tr_text(82, "On") if int(value) == 2 else Database.tr_text(83, "Off")
-
-func _difficulty_name() -> String:
-	match int(GameState.settings[2]):
-		2:
-			return Database.tr_text(62, "EASY")
-		1:
-			return Database.tr_text(61, "HARD")
-		_:
-			return Database.tr_text(60, "GENERAL")
 
 func _difficulty_star_texture(value: int = -1) -> Texture2D:
 	var difficulty: int = int(GameState.settings[2]) if value < 0 else value
@@ -917,15 +890,7 @@ func _remove_difficulty_popup() -> void:
 			node.get_parent().remove_child(node)
 			node.queue_free()
 
-func _cycle_difficulty_and_return_theme() -> void:
-	_show_difficulty_popup()
-
-func clear_theme_progress(theme_index: int) -> void:
-	WordManager.clear_the_theme(theme_index)
-	show_theme_select()
-
 func start_classic_game(theme_index: int) -> void:
-	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 0
@@ -1010,7 +975,6 @@ func _remove_time_attack_popup() -> void:
 			node.queue_free()
 
 func start_time_attack() -> void:
-	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 1
@@ -1278,7 +1242,6 @@ func start_custom_game() -> void:
 			custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
 		return
 	custom_word_text = word
-	word_info_visible = false
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = 2
@@ -1493,7 +1456,7 @@ func _stage_score_with_star(rect: Rect2, text: String, font_size: int, font_colo
 	row.add_child(star)
 	return label
 
-func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
+func _play_hero_wrong_guess_animation(current_mistakes: int) -> void:
 	_clear_hero_animation_overlay()
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
 		hero_static_symbol.visible = false
@@ -1544,20 +1507,13 @@ func _press_letter(letter: String) -> void:
 	GameSession.guess(letter)
 	round_result_delay_requested = false
 	if GameSession.mistakes > previous_mistakes:
-		_play_hero_wrong_guess_animation(previous_mistakes, GameSession.mistakes)
+		_play_hero_wrong_guess_animation(GameSession.mistakes)
 
 func _use_open_hint() -> void:
 	GameSession.use_open_letter_hint()
 
 func _use_remove_hint() -> void:
 	GameSession.use_remove_wrong_hint()
-
-func _toggle_word_info() -> void:
-	word_info_visible = !word_info_visible
-	_refresh_game_screen()
-
-func _give_up() -> void:
-	GameSession.give_up()
 
 func _on_round_won() -> void:
 	_finish_round(true)
@@ -1574,7 +1530,6 @@ func _finish_round(is_win: bool) -> void:
 		# bonus/penalty, then immediately replace it with a fresh round without
 		# stopping the timer or opening the intermediate result screen.
 		GameSession.finish_result(is_win)
-		word_info_visible = false
 		pending_letter_marker = ""
 		pending_letter_marker_is_correct = false
 		round_result_delay_requested = false
@@ -1776,7 +1731,6 @@ func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int)
 	label.add_theme_constant_override("outline_size", outline_size)
 
 func _continue_time_attack() -> void:
-	word_info_visible = false
 	game_finished = false
 	GameSession.start_new_round(-1, 1)
 	GameState.save_game()

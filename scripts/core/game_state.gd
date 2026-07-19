@@ -22,8 +22,6 @@ var records: Array = [[0, 0, 0, 0], [0, 0], [0, 0, 0]]
 
 var progress: Dictionary = {}
 var current_mode: int = 0 # 0 classic, 1 time attack, 2 two-player
-var current_theme: int = -1
-var current_word_index: int = -1
 var current_score: int = 0
 var current_time_left: int = 180
 # Hangman 3.2.3 keeps two additional values in ErrArr[1]:
@@ -96,15 +94,12 @@ func _normalize_arrays() -> void:
 	time_attack_round = maxi(1, time_attack_round)
 	correct_guess_streak = maxi(0, correct_guess_streak)
 
-func reset_current_game(keep_time_mode: bool = false) -> void:
-	if !keep_time_mode:
-		current_mode = 0
-		current_score = 0
-		current_time_left = 180
-		time_attack_round = 1
-		correct_guess_streak = 0
-	current_theme = -1
-	current_word_index = -1
+func reset_current_game() -> void:
+	current_mode = 0
+	current_score = 0
+	current_time_left = 180
+	time_attack_round = 1
+	correct_guess_streak = 0
 	save_game()
 
 func set_language(lang: String) -> void:
@@ -155,19 +150,3 @@ func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
 		item["played"][i] = false
 		item["guessed"][i] = false
 	save_game()
-
-func count_guessed(lang: String, theme_index: int, word_count: int) -> int:
-	var item := ensure_theme_progress(lang, theme_index, word_count)
-	var total := 0
-	for value in item["guessed"]:
-		if bool(value):
-			total += 1
-	return total
-
-func count_played(lang: String, theme_index: int, word_count: int) -> int:
-	var item := ensure_theme_progress(lang, theme_index, word_count)
-	var total := 0
-	for value in item["played"]:
-		if bool(value):
-			total += 1
-	return total

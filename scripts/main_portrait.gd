@@ -6,7 +6,6 @@ const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 const PORTRAIT_HEADER_HEIGHT: float = 102.0
 const PORTRAIT_FOOTER_Y: float = 688.0
-const PORTRAIT_FOOTER_HEIGHT: float = 112.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
 const PORTRAIT_ACTION_BUTTON_RECT := Rect2(324.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
@@ -17,10 +16,7 @@ const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # independent upper and lower groups so the keyboard can stay width-safe while
 # moving toward the thumb zone.
 const PORTRAIT_DENSE_MAX_SCALE: float = 1.15
-const PORTRAIT_GAME_HERO_MAX_SCALE: float = 1.15
 const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
-const PORTRAIT_GAME_HERO_EXTRA_SHIFT: float = 0.08
-const PORTRAIT_GAME_KEYBOARD_EXTRA_SHIFT: float = 0.65
 const PORTRAIT_RESULT_MAX_SCALE: float = 1.24
 const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
@@ -688,7 +684,7 @@ func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> vo
 		1
 	)
 
-func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
+func _play_hero_wrong_guess_animation(current_mistakes: int) -> void:
 	_clear_hero_animation_overlay()
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
 		hero_static_symbol.visible = false

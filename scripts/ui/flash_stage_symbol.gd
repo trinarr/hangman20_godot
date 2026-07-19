@@ -101,28 +101,6 @@ func _sync_to_stage() -> void:
 	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * fit_scale
 	scale = Vector2.ONE * FLASH_TO_GODOT_SCALE * fit_scale * stage_scale_multiplier
 
-func play_range(start_time: float, end_time: float, nested_time: float = -1.0, playback_speed_scale: float = 1.0) -> void:
-	if _symbol_instance == null:
-		return
-	var player := _find_first_animation_player(_symbol_instance)
-	if player == null or !player.has_animation("default"):
-		animation_time = end_time
-		nested_animation_time = nested_time
-		_apply_animation_time()
-		emit_signal("playback_finished")
-		return
-	_stop_playback_state()
-	_playback_player = player
-	_playback_end_time = maxf(end_time, 0.0)
-	_playback_nested_time = nested_time
-	_playback_speed_scale = maxf(playback_speed_scale, 0.01)
-	if nested_time >= 0.0:
-		_apply_nested_animation_time(_symbol_instance, nested_time, _playback_player)
-	_playback_player.speed_scale = _playback_speed_scale
-	_playback_player.play("default")
-	_playback_player.seek(maxf(start_time, 0.0), true)
-	set_process(true)
-
 func play_nested_range(root_time: float, nested_start_time: float, nested_end_time: float, playback_speed_scale: float = 1.0) -> void:
 	if _symbol_instance == null:
 		return
@@ -203,13 +181,3 @@ func _is_node_visible_through_parents(node: Node) -> bool:
 			return false
 		current = current.get_parent()
 	return true
-
-func _apply_nested_animation_time(node: Node, target_time: float, skip_player: AnimationPlayer = null) -> void:
-	if node is AnimationPlayer:
-		var player: AnimationPlayer = node as AnimationPlayer
-		if player != skip_player and player.has_animation("default"):
-			player.play("default")
-			player.seek(maxf(target_time, 0.0), true)
-			player.stop(true)
-	for child: Node in node.get_children():
-		_apply_nested_animation_time(child, target_time, skip_player)

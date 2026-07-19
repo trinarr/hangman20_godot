@@ -293,25 +293,3 @@ func get_number_of_guessed_words(theme_index: int = -1, difficulty_is_enabled: b
 		if index >= 0 and index < progress["guessed"].size() and bool(progress["guessed"][index]):
 			count += 1
 	return count
-
-# Compatibility helpers for the first partial Godot conversion.
-func get_words(theme: String) -> Array:
-	var themes := get_themes()
-	var idx := themes.find(theme)
-	if idx == -1 and theme.is_valid_int():
-		idx = int(theme)
-	var result: Array = []
-	for item in get_words_by_index(idx, 0):
-		result.append(item["text"])
-	return result
-
-func get_difficulty(theme: String) -> String:
-	var themes := get_themes()
-	var idx := themes.find(theme)
-	if idx == -1 and theme.is_valid_int():
-		idx = int(theme)
-	var name := get_theme_name(idx)
-	var diff = data.get("difficulty", {})
-	if diff is Dictionary:
-		return str(diff.get(name, ""))
-	return ""
