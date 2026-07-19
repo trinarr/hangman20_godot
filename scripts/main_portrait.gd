@@ -456,106 +456,88 @@ func _refresh_game_screen() -> void:
 		content.remove_child(child)
 		child.queue_free()
 
-	var use_classic_portrait_layout: bool = GameState.current_mode != 1
-	var use_classic_guess_layout: bool = GameState.current_mode == 0
 	var viewport_size: Vector2 = get_viewport_rect().size
-	var classic_guess_extra_stage_height: float = PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size) if use_classic_guess_layout else 0.0
-	var classic_guess_top_shift: float = classic_guess_extra_stage_height * 0.5
-	var classic_guess_bottom_shift: float = classic_guess_extra_stage_height
-	_portrait_screen(0.0 if use_classic_portrait_layout else PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
+	var extra_stage_height: float = PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size)
+	var upper_block_shift: float = extra_stage_height * 0.5
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
 
-	# In Classic and Two Player, the upper blue header is removed entirely.
-	# In Classic, move the hero to the left and place both hints vertically
-	# to the right of it, freeing the lower area for the keyboard.
-	# On taller screens, keep the keyboard pinned to the bottom area while
-	# distributing the extra height between the word row and the hero/hint block.
-	var hero_pivot := Vector2(240.0, 250.0)
-	var hero_stage_position := PORTRAIT_HERO_POSITION
-	var hero_group_max_scale: float = PORTRAIT_GAME_HERO_MAX_SCALE
-	var hero_group_extra_shift: float = PORTRAIT_GAME_HERO_EXTRA_SHIFT if !use_classic_portrait_layout else 0.05
-	if use_classic_portrait_layout:
-		hero_pivot = Vector2(240.0, 165.0)
-		hero_stage_position = Vector2(138.0, 178.0)
-		if use_classic_guess_layout:
-			hero_pivot = Vector2(138.0, 206.0 + classic_guess_top_shift)
-			hero_stage_position = Vector2(76.0, 222.0 + classic_guess_top_shift)
-			hero_group_max_scale = 1.0
-			hero_group_extra_shift = 0.0
-
+	# All gameplay modes now share one portrait composition: hero on the left,
+	# hints on the right when available, word and keyboard attached to the footer.
+	var hero_pivot := Vector2(138.0, 206.0 + upper_block_shift)
+	var hero_stage_position := Vector2(76.0, 222.0 + upper_block_shift)
 	var hero_root_content: Control = _portrait_begin_adaptive_group(
 		hero_pivot,
-		hero_group_max_scale,
-		hero_group_extra_shift
+		1.0,
+		0.0
 	)
 	_portrait_game_adaptive_group = content
 	_portrait_game_hero_stage_position = hero_stage_position
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), hero_stage_position, _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+
+	var stage_upper_hints: bool = GameState.current_mode != 2
+	var open_hint_rect := Rect2(
+		340.0,
+		124.0 + upper_block_shift,
+		PORTRAIT_GAME_HINT_OPEN_RECT.size.x,
+		PORTRAIT_GAME_HINT_OPEN_RECT.size.y
+	)
+	var remove_hint_rect := Rect2(
+		340.0,
+		186.0 + upper_block_shift,
+		PORTRAIT_GAME_HINT_REMOVE_RECT.size.x,
+		PORTRAIT_GAME_HINT_REMOVE_RECT.size.y
+	)
+
 	if GameState.current_mode == 1:
-		_stage_time_attack_hud()
-	var stage_classic_hints_with_hero: bool = GameState.current_mode == 0
-	if stage_classic_hints_with_hero:
+		var hud_y: float = 2.0 + upper_block_shift
+		_stage_portrait_time_attack_hud(
+			Rect2(46.0, hud_y, 190.0, 40.0),
+			Rect2(310.0, hud_y, 140.0, 40.0)
+		)
+
+	if stage_upper_hints:
 		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
 		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
 		_stage_portrait_hint_buttons(
-			Rect2(340.0, 124.0 + classic_guess_top_shift, PORTRAIT_GAME_HINT_OPEN_RECT.size.x, PORTRAIT_GAME_HINT_OPEN_RECT.size.y),
-			Rect2(340.0, 186.0 + classic_guess_top_shift, PORTRAIT_GAME_HINT_REMOVE_RECT.size.x, PORTRAIT_GAME_HINT_REMOVE_RECT.size.y),
+			open_hint_rect,
+			remove_hint_rect,
 			open_hint_disabled,
 			remove_hint_disabled
 		)
 	_portrait_end_adaptive_group(hero_root_content)
 
-	var keyboard_pivot := Vector2(240.0, 340.0)
-	var keyboard_shift: float = PORTRAIT_GAME_KEYBOARD_EXTRA_SHIFT
-	var keyboard_group_max_scale: float = PORTRAIT_GAME_KEYBOARD_MAX_SCALE
 	var alphabet := Database.get_alphabet()
 	var columns: int = 6
-	var keyboard_start_x: float = 50.0
-	var keyboard_start_y: float = 389.0 if GameState.current_mode == 2 else 312.0
-	if use_classic_portrait_layout:
-		keyboard_start_y = 374.0 if GameState.current_mode == 2 else 332.0
-	if use_classic_guess_layout:
-		keyboard_start_y = 384.0
-	var keyboard_root_content: Control
-	if use_classic_guess_layout:
-		keyboard_root_content = _portrait_begin_bottom_attached_group()
-	else:
-		keyboard_root_content = _portrait_begin_adaptive_group(
-			keyboard_pivot,
-			keyboard_group_max_scale,
-			keyboard_shift
-		)
 	var keyboard_step_x: float = 66.0
 	var keyboard_step_y: float = 48.0
 	var key_size := Vector2(50.0, 46.0)
 	var marker_size := Vector2(44.0, 44.0)
 	var keyboard_font_size: int = 29
-	if use_classic_guess_layout:
-		# Match the current Two Player keyboard exactly on every screen size.
-		# That mode grows through PortraitAdaptiveGroup, so reproduce the same
-		# adaptive scale here while keeping the Classic keyboard bottom-attached.
-		var two_player_keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
-			viewport_size,
-			PORTRAIT_GAME_KEYBOARD_MAX_SCALE
-		)
-		keyboard_step_x *= two_player_keyboard_scale
-		keyboard_step_y *= two_player_keyboard_scale
-		key_size *= two_player_keyboard_scale
-		marker_size *= two_player_keyboard_scale
-		keyboard_font_size = int(round(29.0 * two_player_keyboard_scale))
-		var keyboard_total_width: float = key_size.x + float(columns - 1) * keyboard_step_x
-		keyboard_start_x = (PORTRAIT_STAGE_SIZE.x - keyboard_total_width) * 0.5
-		var keyboard_rows: int = int(ceil(float(alphabet.size()) / float(columns)))
-		var keyboard_height: float = key_size.y + float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
-		var keyboard_footer_gap: float = 24.0
-		keyboard_start_y = PORTRAIT_FOOTER_Y - keyboard_footer_gap - keyboard_height
 
-	if use_classic_portrait_layout:
-		var word_offset: float = 120.0 if use_classic_guess_layout else 78.0
-		_stage_portrait_game_word_display(Rect2(22.0, keyboard_start_y - word_offset, 436.0, 64.0), 34)
-	else:
-		_stage_label(Rect2(20.0, 18.0, 440.0, 68.0), GameSession.get_masked_word(), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	# Match the successful Classic keyboard in every mode. The bottom attached
+	# group keeps the footer gap stable, while the same adaptive scale preserves
+	# the larger Two Player letter size and spacing on tall screens.
+	var keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
+		viewport_size,
+		PORTRAIT_GAME_KEYBOARD_MAX_SCALE
+	)
+	keyboard_step_x *= keyboard_scale
+	keyboard_step_y *= keyboard_scale
+	key_size *= keyboard_scale
+	marker_size *= keyboard_scale
+	keyboard_font_size = int(round(29.0 * keyboard_scale))
+
+	var keyboard_total_width: float = key_size.x + float(columns - 1) * keyboard_step_x
+	var keyboard_start_x: float = (PORTRAIT_STAGE_SIZE.x - keyboard_total_width) * 0.5
+	var keyboard_rows: int = int(ceil(float(alphabet.size()) / float(columns)))
+	var keyboard_height: float = key_size.y + float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
+	var keyboard_footer_gap: float = 24.0
+	var keyboard_start_y: float = PORTRAIT_FOOTER_Y - keyboard_footer_gap - keyboard_height
+
+	var keyboard_root_content: Control = _portrait_begin_bottom_attached_group()
+	_stage_portrait_game_word_display(Rect2(22.0, keyboard_start_y - 120.0, 436.0, 64.0), 34)
 
 	for i in range(alphabet.size()):
 		var letter: String = alphabet[i]
@@ -586,16 +568,6 @@ func _refresh_game_screen() -> void:
 			marker_size,
 			animate_state
 		)
-
-	if GameState.current_mode != 2 and !stage_classic_hints_with_hero:
-		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
-		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-		var open_hint_rect := PORTRAIT_GAME_HINT_OPEN_RECT
-		var remove_hint_rect := PORTRAIT_GAME_HINT_REMOVE_RECT
-		if use_classic_portrait_layout:
-			open_hint_rect.position.y += 24.0
-			remove_hint_rect.position.y += 24.0
-		_stage_portrait_hint_buttons(open_hint_rect, remove_hint_rect, open_hint_disabled, remove_hint_disabled)
 	_portrait_end_adaptive_group(keyboard_root_content)
 
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
@@ -687,11 +659,27 @@ func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2
 		28.0
 	), HINT_ICON_CROSS_TEXTURE)
 
-func _stage_time_attack_hud() -> void:
-	_stage_score_with_star(Rect2(20.0, 282.0, 190.0, 38.0), str(GameState.current_score), 22, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT, Color.WHITE, 1)
-	_stage_texture(Rect2(340.0, 284.0, 31.0, 31.0), TIME_ATTACK_TIMER_ICON_TEXTURE)
-	var time_label := _stage_label(Rect2(376.0, 280.0, 88.0, 40.0), _format_time(GameState.current_time_left), 22, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
+func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> void:
+	var timer_icon_size := Vector2(31.0, 31.0)
+	var timer_icon_y: float = timer_rect.position.y + (timer_rect.size.y - timer_icon_size.y) * 0.5
+	_stage_texture(Rect2(timer_rect.position.x, timer_icon_y, timer_icon_size.x, timer_icon_size.y), TIME_ATTACK_TIMER_ICON_TEXTURE)
+	var time_label := _stage_label(
+		Rect2(timer_rect.position.x + 38.0, timer_rect.position.y, timer_rect.size.x - 38.0, timer_rect.size.y),
+		_format_time(GameState.current_time_left),
+		22,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
 	time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_stage_score_with_star(
+		score_rect,
+		str(GameState.current_score),
+		22,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		Color.WHITE,
+		1
+	)
 
 func _play_hero_wrong_guess_animation(previous_mistakes: int, current_mistakes: int) -> void:
 	_clear_hero_animation_overlay()
