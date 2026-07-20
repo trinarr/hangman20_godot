@@ -701,23 +701,30 @@ func show_theme_select() -> void:
 	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, difficulty_texture.get_size())
 	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
-	for i in range(Database.get_theme_count()):
-		if i >= 9:
-			break
-		var col: int = i % 3
-		var row: int = int(i / 3)
-		var x: float = 26.0 + float(col) * 262.0
-		var y: float = 125.0 + float(row) * 113.0
+	var theme_count: int = Database.get_theme_count()
+	var compact_grid: bool = theme_count > 9
+	var columns: int = 4 if compact_grid else 3
+	var card_width: float = 190.0 if compact_grid else 239.0
+	var x_start: float = 20.0 if compact_grid else 26.0
+	var x_step: float = 204.0 if compact_grid else 262.0
+	var y_start: float = 106.0 if compact_grid else 125.0
+	var y_step: float = 104.0 if compact_grid else 113.0
+
+	for i in range(theme_count):
+		var col: int = i % columns
+		var row: int = int(i / columns)
+		var x: float = x_start + float(col) * x_step
+		var y: float = y_start + float(row) * y_step
 		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
 		var guessed: int = Database.get_number_of_guessed_words(i, true)
 		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
 		var disabled: bool = words_count == 0
 		var completed: bool = words_count > 0 and guessed >= words_count
 
-		var card := _stage_texture(Rect2(x, y, 239.0, 90.0), THEME_CARD_TEXTURE)
-		var progress_back := _stage_texture(Rect2(x, y, 239.0, 65.0), THEME_CARD_PROGRESS_TEXTURE)
+		var card := _stage_texture(Rect2(x, y, card_width, 90.0), THEME_CARD_TEXTURE)
+		var progress_back := _stage_texture(Rect2(x, y, card_width, 65.0), THEME_CARD_PROGRESS_TEXTURE)
 		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
-		var progress_label := _stage_label(Rect2(x + 11.0, y + 7.0, 217.0, 30.0), progress_text, 15, Color(0.43, 0.49, 0.83, 1.0))
+		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0, card_width - 16.0, 30.0), progress_text, 14 if compact_grid else 15, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
 		progress_label.add_theme_constant_override("outline_size", 0)
@@ -725,7 +732,9 @@ func show_theme_select() -> void:
 		if progress_holder != null:
 			progress_holder.z_index = 10
 
-		var title_label := _stage_label(Rect2(x + 8.0, y + 45.0, 223.0, 37.0), Database.get_theme_name(i).to_upper(), 21, Color.WHITE)
+		var theme_name: String = Database.get_theme_name(i).to_upper()
+		var title_font_size: int = 16 if compact_grid else 21
+		var title_label := _stage_label(Rect2(x + 6.0, y + 45.0, card_width - 12.0, 37.0), theme_name, title_font_size, Color.WHITE)
 		title_label.clip_text = false
 		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
 		title_label.add_theme_constant_override("outline_size", 2)
@@ -740,7 +749,7 @@ func show_theme_select() -> void:
 			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
 
 		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
-		var theme_button := _stage_button(Rect2(x, y, 239.0, 90.0), action, "")
+		var theme_button := _stage_button(Rect2(x, y, card_width, 90.0), action, "")
 		theme_button.disabled = disabled
 
 func _show_clear_theme_popup(theme_index: int) -> void:

@@ -223,8 +223,6 @@ func show_theme_select() -> void:
 	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), theme_title, 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 
 	for i in range(Database.get_theme_count()):
-		if i >= 9:
-			break
 		var col: int = i % 2
 		var row: int = int(i / 2)
 		var x: float = 18.0 + float(col) * 230.0
@@ -239,7 +237,9 @@ func show_theme_select() -> void:
 		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
 		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0, 198.0, 28.0), progress_text, 16, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
-		var title_label := _stage_label(Rect2(x + 6.0, y + 44.0, 202.0, 36.0), Database.get_theme_name(i).to_upper(), 23, Color.WHITE)
+		var theme_name: String = Database.get_theme_name(i).to_upper()
+		var title_font_size: int = 19 if theme_name.length() > 12 else 23
+		var title_label := _stage_label(Rect2(x + 6.0, y + 44.0, 202.0, 36.0), theme_name, title_font_size, Color.WHITE)
 		title_label.clip_text = false
 		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
 		title_label.add_theme_constant_override("outline_size", 2)
