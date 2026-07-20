@@ -832,19 +832,19 @@ func _show_difficulty_popup() -> void:
 		{
 			"value": 2,
 			"title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"),
-			"desc": [Database.tr_text(36, "Hints:") + " 2", Database.tr_text(54, "First and last letter"), Database.tr_text(55, "Easy words")],
+			"desc": [Database.tr_text(55, "Easy words")],
 			"x": popup_x + 24.0
 		},
 		{
 			"value": 1,
 			"title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"),
-			"desc": [Database.tr_text(36, "Hints:") + " 1", Database.tr_text(56, "Hard words")],
+			"desc": [Database.tr_text(56, "Hard words")],
 			"x": popup_x + 264.0
 		},
 		{
 			"value": 0,
 			"title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"),
-			"desc": [Database.tr_text(36, "Hints:") + " 2", Database.tr_text(57, "All words")],
+			"desc": [Database.tr_text(57, "All words")],
 			"x": popup_x + 504.0
 		},
 	]

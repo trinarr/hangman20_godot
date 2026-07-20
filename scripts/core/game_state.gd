@@ -8,7 +8,7 @@ var player_name: String = ""
 # AS3 Settings:
 # 0 - show first/last letters in two-player mode: 1 off, 2 on
 # 1 - hints in two-player mode: 1 off, 2 on
-# 2 - difficulty: 0 all/general, 1 hard, 2 easy
+# 2 - word pool: 0 all/general, 1 hard words, 2 easy words
 # 3 - sound/music: 1 off, 2 on
 # 4 - vibration: 1 off, 2 on
 # 5 - hero: 1 Lucky, 2 El Tigre

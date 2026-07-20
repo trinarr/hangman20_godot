@@ -279,9 +279,9 @@ func _show_difficulty_popup() -> void:
 	var rect := Rect2(28.0, 100.0, 424.0, 520.0)
 	_portrait_popup_shell(rect, Database.tr_text(63, "Choose the difficulty level:"), Callable(self, "_remove_difficulty_popup"), 24)
 	var options := [
-		{"value": 2, "title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"), "desc": Database.tr_text(36, "Hints:") + " 2 · " + Database.tr_text(55, "Easy words")},
-		{"value": 1, "title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"), "desc": Database.tr_text(36, "Hints:") + " 1 · " + Database.tr_text(56, "Hard words")},
-		{"value": 0, "title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"), "desc": Database.tr_text(36, "Hints:") + " 2 · " + Database.tr_text(57, "All words")},
+		{"value": 2, "title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"), "desc": Database.tr_text(55, "Easy words")},
+		{"value": 1, "title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"), "desc": Database.tr_text(56, "Hard words")},
+		{"value": 0, "title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"), "desc": Database.tr_text(57, "All words")},
 	]
 	for index in range(options.size()):
 		var option: Dictionary = options[index]

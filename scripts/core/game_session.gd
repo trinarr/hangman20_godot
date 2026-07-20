@@ -39,7 +39,6 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	is_active = word.text.length() > 0
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
-	_open_initial_letters()
 	GameState.save_game()
 	emit_signal("changed")
 
@@ -69,29 +68,6 @@ func _split_letters(text: String) -> PackedStringArray:
 
 func _is_separator(letter: String) -> bool:
 	return letter == " " or letter == "-" or letter == "—"
-
-func _open_initial_letters() -> void:
-	if letters.is_empty() or mode == 2:
-		return
-	# Category words open first/last letters only in easy mode. Two-player words
-	# never reveal edge letters automatically.
-	var should_open: bool = int(GameState.settings[2]) == 2
-	if !should_open:
-		return
-	var first := ""
-	var last := ""
-	for letter in letters:
-		if !_is_separator(letter):
-			first = letter
-			break
-	for i in range(letters.size() - 1, -1, -1):
-		if !_is_separator(letters[i]):
-			last = letters[i]
-			break
-	if first != "":
-		_reveal_letter(first)
-	if last != "" and last != first:
-		_reveal_letter(last)
 
 func guess(letter: String) -> bool:
 	if !is_active:
@@ -143,15 +119,13 @@ func _reveal_letter(letter: String) -> bool:
 	return found
 
 func can_use_open_letter_hint() -> bool:
-	if theme_id >= 0 and int(GameState.settings[2]) == 1:
-		return false
 	return is_active and !open_hint_used and _has_hidden_letter() and _hints_allowed()
 
 func can_use_remove_wrong_hint() -> bool:
 	return is_active and !remove_wrong_hint_used and _has_removable_wrong_letter() and _hints_allowed()
 
 func _hints_allowed() -> bool:
-	# Category words always had the hint buttons, except the open-letter hint is disabled in hard mode.
+	# Category rounds always allow both hint buttons; custom rounds follow their own setting.
 	if theme_id >= 0:
 		return true
 	return int(GameState.settings[1]) == 2
@@ -332,8 +306,8 @@ func finish_time_attack_timeout(timed_out: bool = true) -> Dictionary:
 	return result
 
 func _time_attack_difficulty_factor() -> int:
-	# Exact AS3 expression:
-	# floor(((Settings[2] + 1) % 3) * 1.5) + 1
+	# Difficulty affects only the selected word pool and the Time Attack reward.
+	# Original AS3 factors: hard x4, general x2, easy x1.
 	match int(GameState.settings[2]):
 		1:
 			return 4 # hard
