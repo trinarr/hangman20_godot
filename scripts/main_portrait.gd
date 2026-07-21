@@ -27,6 +27,9 @@ const PORTRAIT_RESULT_CLOSE_BUTTON_RECT := Rect2(14.0, 711.0, PORTRAIT_ROUND_BUT
 const PORTRAIT_RESULT_THEME_BUTTON_RECT := Rect2(402.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT := Rect2(419.0, 25.0, 49.0, 49.0)
+const PORTRAIT_RESULT_WORD_BUTTON_GAP: float = 12.0
+const PORTRAIT_RESULT_WORD_MAX_FONT_SIZE: int = 29
+const PORTRAIT_RESULT_WORD_MIN_FONT_SIZE: int = 10
 const PORTRAIT_HERO_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const PORTRAIT_RESULT_THEME_MENU_ICON: Texture2D = preload("res://flash_assets/result_theme_menu_icon.png")
@@ -638,6 +641,12 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 			), PORTRAIT_ORANGE)
 		if (revealed and !is_space) or is_dash:
 			var letter_label := _stage_label(Rect2(x, rect.position.y, item_width, rect.size.y - 10.0), letter, effective_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+			# Each revealed letter occupies an identical single-line slot. Disabling
+			# wrapping and resetting the full-rect offsets after parenting prevents
+			# wide glyphs from changing the label's line box and jumping vertically.
+			letter_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+			letter_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+			letter_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			letter_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 			letter_label.clip_text = false
 		x += item_width
@@ -645,15 +654,15 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 			x += slot_gap
 
 func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2, open_hint_disabled: bool, remove_hint_disabled: bool) -> void:
-	_stage_texture_button(open_hint_rect, Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_REMOVE_BUTTON_TEXTURE, 0.44)
-	var open_hint_icon := _stage_texture(Rect2(
+	# Both hints stay blue after they have been used. Previously the open-letter
+	# hint switched back to its orange texture and dimmed its icon when disabled.
+	_stage_texture_button(open_hint_rect, Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
+	_stage_texture(Rect2(
 		open_hint_rect.position.x + (open_hint_rect.size.x - 28.0) * 0.5,
 		open_hint_rect.position.y + (open_hint_rect.size.y - 28.0) * 0.5,
 		28.0,
 		28.0
 	), HINT_ICON_CHECK_TEXTURE)
-	if open_hint_disabled:
-		open_hint_icon.modulate = Color(1.0, 1.0, 1.0, 0.66)
 	_stage_texture_button(remove_hint_rect, Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
 	_stage_texture(Rect2(
 		remove_hint_rect.position.x + (remove_hint_rect.size.x - 28.0) * 0.5,
@@ -715,7 +724,24 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_clear("")
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
-	var result_word_label := _stage_label(Rect2(20.0, 18.0, 440.0, 68.0), full_word, 29, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var result_search_button_rect: Rect2 = PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT
+	var time_attack_finished: bool = GameState.current_mode == 1 and bool(data.get("time_attack_finished", false))
+	if GameState.current_mode == 1 and !time_attack_finished:
+		result_search_button_rect = PORTRAIT_ACTION_BUTTON_RECT
+	var result_word_rect := Rect2(
+		20.0,
+		18.0,
+		result_search_button_rect.position.x - PORTRAIT_RESULT_WORD_BUTTON_GAP - 20.0,
+		68.0
+	)
+	var result_word_label := _stage_label(result_word_rect, full_word, PORTRAIT_RESULT_WORD_MAX_FONT_SIZE, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_fit_single_line_label_to_width(
+		result_word_label,
+		full_word,
+		result_word_rect.size.x,
+		PORTRAIT_RESULT_WORD_MAX_FONT_SIZE,
+		PORTRAIT_RESULT_WORD_MIN_FONT_SIZE
+	)
 	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result_word_label.clip_text = true
 	if GameState.current_mode == 0:
@@ -724,7 +750,6 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	if GameState.current_mode == 2:
 		_show_two_player_result_content(is_win, data)
 		return
-	var time_attack_finished: bool = GameState.current_mode == 1 and bool(data.get("time_attack_finished", false))
 	if time_attack_finished:
 		_show_time_attack_finished_result_content(data)
 		return
@@ -783,6 +808,18 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+
+func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	var font: Font = label.get_theme_font("font")
+	var resolved_font_size: int = maxi(max_font_size, min_font_size)
+	while resolved_font_size > min_font_size:
+		var text_width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_font_size).x
+		if text_width <= available_width:
+			break
+		resolved_font_size -= 1
+	label.add_theme_font_size_override("font_size", resolved_font_size)
 
 func _show_time_attack_finished_result_content(data: Dictionary) -> void:
 	# Match the classic result layout: compact search in the header, result copy

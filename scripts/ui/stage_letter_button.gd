@@ -12,6 +12,9 @@ const WRONG_MARKER_TEXTURE: Texture2D = preload("res://img/_______430______1_0_S
 const MARKER_REVEAL_SHADER: Shader = preload("res://shaders/letter_marker_reveal.gdshader")
 const MARKER_REVEAL_DURATION: float = 0.2
 const LETTER_PRESSED_SCALE := Vector2(0.8, 0.8)
+const LETTER_MARK_BOUNCE_SCALE := Vector2(1.32, 1.32)
+const LETTER_MARK_BOUNCE_GROW_DURATION: float = 0.18
+const LETTER_MARK_BOUNCE_SETTLE_DURATION: float = 0.25
 
 const NORMAL_COLOR := Color(0.2706, 0.3098, 0.6078, 1.0)
 const CROSSED_COLOR := Color(0.98, 0.20, 0.22, 1.0)
@@ -29,6 +32,7 @@ var animate_marker: bool = false
 var _label: Label = null
 var _marker: TextureRect = null
 var _marker_tween: Tween = null
+var _letter_bounce_tween: Tween = null
 var _marker_animation_pending: bool = false
 
 func _ready() -> void:
@@ -47,6 +51,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if _marker_tween != null and _marker_tween.is_valid():
 		_marker_tween.kill()
+	if _letter_bounce_tween != null and _letter_bounce_tween.is_valid():
+		_letter_bounce_tween.kill()
 	super._exit_tree()
 
 func configure(
@@ -150,6 +156,35 @@ func _start_marker_reveal() -> void:
 	_marker_tween.set_trans(Tween.TRANS_LINEAR)
 	_marker_tween.set_ease(Tween.EASE_IN_OUT)
 	_marker_tween.tween_method(_set_marker_reveal_progress.bind(reveal_material), 0.0, 1.0, MARKER_REVEAL_DURATION)
+	_play_letter_mark_bounce()
+
+func _play_letter_mark_bounce() -> void:
+	if _label == null or !is_instance_valid(_label):
+		return
+	if _letter_bounce_tween != null and _letter_bounce_tween.is_valid():
+		_letter_bounce_tween.kill()
+
+	# Keep the marked letter centered while it briefly grows above the marker.
+	_label.pivot_offset = size * 0.5 - _label.position
+	_label.scale = Vector2.ONE
+	_letter_bounce_tween = create_tween()
+	_letter_bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow_tweener: PropertyTweener = _letter_bounce_tween.tween_property(
+		_label,
+		"scale",
+		LETTER_MARK_BOUNCE_SCALE,
+		LETTER_MARK_BOUNCE_GROW_DURATION
+	)
+	grow_tweener.set_trans(Tween.TRANS_QUAD)
+	grow_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = _letter_bounce_tween.tween_property(
+		_label,
+		"scale",
+		Vector2.ONE,
+		LETTER_MARK_BOUNCE_SETTLE_DURATION
+	)
+	settle_tweener.set_trans(Tween.TRANS_BACK)
+	settle_tweener.set_ease(Tween.EASE_OUT)
 
 func _set_marker_reveal_progress(value: float, reveal_material: ShaderMaterial) -> void:
 	if is_instance_valid(reveal_material):

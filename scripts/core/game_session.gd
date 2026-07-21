@@ -246,7 +246,6 @@ func finish_result(is_win: bool) -> Dictionary:
 			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
 			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
 				GameState.records[0][2 + diff] = int(GameState.records[0][diff])
-				result["lines"].append(Database.tr_text(20 + diff, "Words in a row") + ": " + str(GameState.records[0][diff]))
 		else:
 			GameState.records[0][diff] = 0
 
