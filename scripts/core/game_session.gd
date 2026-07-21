@@ -5,7 +5,7 @@ signal round_won
 signal round_lost
 
 const WRONG_LETTER_VIBRATION_MS: int = 35
-const MAX_MISTAKES: int = 7
+const MAX_MISTAKES: int = 6
 
 var word_index: int = -1
 var theme_id: int = -1

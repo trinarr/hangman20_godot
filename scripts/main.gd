@@ -6,9 +6,15 @@ const HEADER_ACTION_BUTTON_RECT: Rect2 = Rect2(639.0, 12.0, 62.0, 62.0)
 const HEADER_CLOSE_BUTTON_RECT: Rect2 = Rect2(716.0, 12.0, 62.0, 62.0)
 const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
 const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
-const HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE: float = 0.65
+const HERO_ANIMATION_SPEED_SCALE: float = 1.0
+const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
+const HERO_NESTED_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
 const HERO_MOV_START_FRAME_TIME: float = 0.0
-const HERO_MOV_IDLE_FRAME_TIME: float = 4.0 / 24.0
+const HERO_MOV_IDLE_FRAME_TIME: float = 4.0 / 24.0 + HERO_NESTED_FRAME_SAMPLE_OFFSET
+const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 5.0 / 24.0 + HERO_NESTED_FRAME_SAMPLE_OFFSET
+const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 9.0 / 24.0 + HERO_NESTED_FRAME_SAMPLE_OFFSET
+const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 40.0 / 24.0
+const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
 const LETTER_MARKER_REVEAL_DURATION: float = 0.2
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
@@ -70,6 +76,10 @@ var custom_word_check_state: int = 0 # 0 neutral, 1 checking, 2 found, 3 not fou
 var custom_word_check_label: Label = null
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
+var hero_pose_round_token: int = 0
+var hero_pose_frame_index: int = -1
+var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
+var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
 var settings_popup_return_content: Control = null
 var pending_letter_marker: String = ""
 var pending_letter_marker_is_correct: bool = false
@@ -106,6 +116,7 @@ func _build_root() -> void:
 	add_child(game_timer)
 
 func _clear(symbol_path: String = "") -> void:
+	_capture_hero_animation_phase()
 	result_transition_generation += 1
 	pending_letter_marker = ""
 	pending_letter_marker_is_correct = false
@@ -1313,6 +1324,7 @@ func _refresh_game_screen() -> void:
 	if game_finished:
 		show_result_screen(last_result_is_win, last_result_data)
 		return
+	_capture_hero_animation_phase()
 	for child: Node in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
@@ -1333,7 +1345,8 @@ func _refresh_game_screen() -> void:
 		_stage_round_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
+	_configure_hero_static_animation()
 
 	var alphabet := Database.get_alphabet()
 	var keyboard_start_x: float = 258.0
@@ -1465,24 +1478,45 @@ func _stage_score_with_star(rect: Rect2, text: String, font_size: int, font_colo
 	row.add_child(star)
 	return label
 
-func _play_hero_wrong_guess_animation(current_mistakes: int) -> void:
-	_clear_hero_animation_overlay()
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.visible = false
+func _create_hero_animation_overlay() -> FlashStageSymbol:
 	var overlay := FlashStageSymbol.new()
 	overlay.name = "HeroAnimationOverlay"
 	overlay.z_index = 150
 	overlay.symbol_path = _hero_symbol_path()
 	overlay.stage_position = Vector2(26.0, 324.0)
-	# In the original AS3 HeroTries.Adder(0) does HeroMov.nextFrame().
-	# The visible animation is not the one-frame jump on HeroType1/2 itself;
-	# it is the nested HeroMov.Mov timeline of the newly selected frame.
-	overlay.animation_time = _hero_animation_time_for_mistakes(current_mistakes)
-	overlay.nested_animation_time = HERO_MOV_START_FRAME_TIME
-	overlay.playback_finished.connect(_on_hero_wrong_guess_animation_finished)
 	add_child(overlay)
+	return overlay
+
+func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
+	_clear_hero_animation_overlay()
+	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
+		hero_static_symbol.visible = false
+	var overlay: FlashStageSymbol = _create_hero_animation_overlay()
+	overlay.animation_time = _hero_animation_time()
+	overlay.nested_animation_time = nested_start_time
+	overlay.playback_finished.connect(_on_hero_animation_finished)
 	hero_animation_overlay = overlay
-	overlay.call_deferred("play_nested_range", _hero_animation_time_for_mistakes(current_mistakes), HERO_MOV_START_FRAME_TIME, HERO_MOV_IDLE_FRAME_TIME, HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE)
+	overlay.call_deferred(
+		"play_nested_range",
+		_hero_animation_time(),
+		nested_start_time,
+		nested_end_time,
+		HERO_ANIMATION_SPEED_SCALE
+	)
+
+func _play_hero_wrong_guess_animation(current_mistakes: int) -> void:
+	_sync_hero_pose_state()
+	if _hero_uses_terminal_loop(current_mistakes):
+		_configure_hero_static_animation()
+		return
+	# HeroTries.Adder(0) advances the outer pose. Its nested timeline then plays
+	# the original reaction frames 0..4 and holds on frame 4.
+	_play_hero_animation_range(HERO_MOV_START_FRAME_TIME, HERO_MOV_IDLE_FRAME_TIME)
+
+func _play_hero_correct_guess_animation() -> void:
+	# In the original AS3 a correct letter resumes the current Mov timeline from
+	# Flash frame 6 (CreateJS/Godot frame index 5) through its stop on frame 9.
+	_play_hero_animation_range(HERO_MOV_RECOVERY_START_FRAME_TIME, HERO_MOV_RECOVERY_END_FRAME_TIME)
 
 func _clear_hero_animation_overlay() -> void:
 	if hero_animation_overlay != null and is_instance_valid(hero_animation_overlay):
@@ -1491,12 +1525,17 @@ func _clear_hero_animation_overlay() -> void:
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
 		hero_static_symbol.visible = true
 
-func _on_hero_wrong_guess_animation_finished() -> void:
+func _on_hero_animation_finished() -> void:
 	_clear_hero_animation_overlay()
 
+func _hero_frame_index_for_mistakes(mistake_count: int) -> int:
+	return clampi(mistake_count, 0, 6)
+
 func _hero_animation_time_for_mistakes(mistake_count: int) -> float:
-	var frame_index: int = clampi(mistake_count + 1, 1, 6)
-	return float(frame_index) / 24.0
+	# Imported Flash keys are rounded to milliseconds (0.042, 0.083, ...), while
+	# exact 24 FPS boundaries can fall just before them (1 / 24 = 0.041666...).
+	# Sampling halfway through the outer frame selects every discrete pose safely.
+	return float(_hero_frame_index_for_mistakes(mistake_count)) / 24.0 + HERO_OUTER_FRAME_SAMPLE_OFFSET
 
 func _hero_symbol_path() -> String:
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
@@ -1504,19 +1543,94 @@ func _hero_symbol_path() -> String:
 	return HERO_TYPE_1_SYMBOL
 
 func _hero_animation_time() -> float:
-	# HeroTries.Adder(0) calls nextFrame() immediately, so the first visible
-	# gameplay pose is one Flash frame after the default frame.
+	# Flash currentFrame is one-based: its original `7 - currentFrame` counter
+	# maps zero mistakes to outer frame index 0 and the sixth mistake to index 6.
 	return _hero_animation_time_for_mistakes(GameSession.mistakes)
 
+func _current_hero_round_token() -> int:
+	if GameSession.word_data == null:
+		return 0
+	return GameSession.word_data.get_instance_id()
+
+func _sync_hero_pose_state() -> void:
+	var round_token: int = _current_hero_round_token()
+	var frame_index: int = _hero_frame_index_for_mistakes(GameSession.mistakes)
+	if round_token == hero_pose_round_token and frame_index == hero_pose_frame_index:
+		return
+	hero_pose_round_token = round_token
+	hero_pose_frame_index = frame_index
+	hero_nested_pose_time = HERO_MOV_IDLE_FRAME_TIME
+	hero_terminal_loop_time = HERO_MOV_START_FRAME_TIME
+
+func _hero_nested_display_time() -> float:
+	_sync_hero_pose_state()
+	return hero_nested_pose_time
+
+func _hero_uses_terminal_loop(mistake_count: int = -1) -> bool:
+	var resolved_mistakes: int = GameSession.mistakes if mistake_count < 0 else mistake_count
+	return _hero_frame_index_for_mistakes(resolved_mistakes) == 6
+
+func _hero_terminal_loop_end_time() -> float:
+	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
+		return HERO_TYPE_2_TERMINAL_END_FRAME_TIME
+	return HERO_TYPE_1_TERMINAL_END_FRAME_TIME
+
+func _capture_hero_animation_phase() -> void:
+	if !_hero_uses_terminal_loop():
+		return
+	if hero_static_symbol == null or !is_instance_valid(hero_static_symbol):
+		return
+	hero_terminal_loop_time = hero_static_symbol.get_nested_playback_position()
+
+func _configure_hero_static_animation() -> void:
+	if hero_static_symbol == null or !is_instance_valid(hero_static_symbol):
+		return
+	_sync_hero_pose_state()
+	hero_static_symbol.nested_animation_time = hero_nested_pose_time
+	if _hero_uses_terminal_loop():
+		hero_static_symbol.call_deferred(
+			"play_nested_loop",
+			_hero_animation_time(),
+			HERO_MOV_START_FRAME_TIME,
+			_hero_terminal_loop_end_time(),
+			HERO_ANIMATION_SPEED_SCALE,
+			hero_terminal_loop_time
+		)
+
 func _press_letter(letter: String) -> void:
+	_sync_hero_pose_state()
+	var round_token_before_guess: int = _current_hero_round_token()
 	var previous_mistakes: int = GameSession.mistakes
+	var guess_is_available: bool = (
+		GameSession.is_active
+		and !GameSession.correct_letters.has(letter)
+		and !GameSession.wrong_letters.has(letter)
+		and !GameSession.removed_wrong_letters.has(letter)
+	)
+	var is_correct_letter: bool = GameSession.letters.has(letter)
+	var should_play_recovery: bool = (
+		guess_is_available
+		and is_correct_letter
+		and !_hero_uses_terminal_loop()
+		and is_equal_approx(hero_nested_pose_time, HERO_MOV_IDLE_FRAME_TIME)
+	)
+	if should_play_recovery:
+		# Set the resting phase before guess() emits changed, so the rebuilt static
+		# symbol is already waiting on frame 9 underneath the transition overlay.
+		hero_nested_pose_time = HERO_MOV_RECOVERY_END_FRAME_TIME
 	pending_letter_marker = letter
-	pending_letter_marker_is_correct = GameSession.letters.has(letter)
+	pending_letter_marker_is_correct = is_correct_letter
 	round_result_delay_requested = true
-	GameSession.guess(letter)
+	var guess_was_correct: bool = GameSession.guess(letter)
 	round_result_delay_requested = false
+	# Time Attack can synchronously start its next word from the round signal.
+	# Never let the previous word's animation appear over that fresh round.
+	if round_token_before_guess != _current_hero_round_token():
+		return
 	if GameSession.mistakes > previous_mistakes:
 		_play_hero_wrong_guess_animation(GameSession.mistakes)
+	elif guess_was_correct and should_play_recovery:
+		_play_hero_correct_guess_animation()
 
 func _use_open_hint() -> void:
 	GameSession.use_open_letter_hint()
@@ -1577,7 +1691,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(18.0, 23.0))
 	_stage_round_icon_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
+	_configure_hero_static_animation()
 
 	# A completed Time Attack session has its own final result state. It is not
 	# a normal defeat and therefore uses "Game over" instead of "Defeat".

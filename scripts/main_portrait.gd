@@ -452,6 +452,7 @@ func _refresh_game_screen() -> void:
 	if game_finished:
 		show_result_screen(last_result_is_win, last_result_data)
 		return
+	_capture_hero_animation_phase()
 	for child: Node in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
@@ -478,9 +479,10 @@ func _refresh_game_screen() -> void:
 	)
 	_portrait_game_adaptive_group = content
 	_portrait_game_hero_stage_position = hero_stage_position
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), hero_stage_position, _hero_animation_time(), 4.0 / 24.0) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), hero_stage_position, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_configure_hero_static_animation()
 
 	var stage_upper_hints: bool = GameState.current_mode != 2
 	var open_hint_rect := Rect2(
@@ -693,25 +695,18 @@ func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> vo
 		1
 	)
 
-func _play_hero_wrong_guess_animation(current_mistakes: int) -> void:
-	_clear_hero_animation_overlay()
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.visible = false
+func _create_hero_animation_overlay() -> FlashStageSymbol:
 	var overlay := FlashStageSymbol.new()
 	overlay.name = "HeroAnimationOverlay"
 	overlay.z_index = 150
 	overlay.symbol_path = _hero_symbol_path()
 	overlay.stage_position = _portrait_game_hero_stage_position
 	overlay.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
-	overlay.animation_time = _hero_animation_time_for_mistakes(current_mistakes)
-	overlay.nested_animation_time = HERO_MOV_START_FRAME_TIME
-	overlay.playback_finished.connect(_on_hero_wrong_guess_animation_finished)
 	if _portrait_game_adaptive_group != null and is_instance_valid(_portrait_game_adaptive_group):
 		_portrait_game_adaptive_group.add_child(overlay)
 	else:
 		add_child(overlay)
-	hero_animation_overlay = overlay
-	overlay.call_deferred("play_nested_range", _hero_animation_time_for_mistakes(current_mistakes), HERO_MOV_START_FRAME_TIME, HERO_MOV_IDLE_FRAME_TIME, HERO_WRONG_GUESS_ANIMATION_SPEED_SCALE)
+	return overlay
 
 func _portrait_result_title_color(is_win: bool, time_attack_finished: bool = false) -> Color:
 	if time_attack_finished:
@@ -756,9 +751,10 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(23.0, 29.0))
 	_stage_round_icon_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 410.0), PORTRAIT_RESULT_MAX_SCALE, 0.12)
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_configure_hero_static_animation()
 	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
 	var title_label := _stage_label(Rect2(48.0, 330.0, 384.0, 70.0), title, 38, _portrait_result_title_color(is_win, time_attack_finished))
 	title_label.clip_text = false
@@ -801,9 +797,10 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	subtitle_label.clip_text = false
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_configure_hero_static_animation()
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
@@ -844,9 +841,10 @@ func _show_time_attack_finished_result_content(data: Dictionary) -> void:
 		details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		details_label.clip_text = false
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_configure_hero_static_animation()
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
@@ -870,9 +868,10 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	if result_score_line != "":
 		_stage_score_with_star(Rect2(64.0, 274.0, 352.0, 38.0), result_score_line, 20, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CLASSIC_RESULT_POSITION, _hero_animation_time(), HERO_MOV_IDLE_FRAME_TIME) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CLASSIC_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	_configure_hero_static_animation()
 	_portrait_end_adaptive_group(result_root_content)
 
 	var bottom_info_content: Control = _portrait_begin_bottom_attached_group()
