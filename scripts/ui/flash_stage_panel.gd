@@ -45,12 +45,12 @@ func _exit_tree() -> void:
 func _draw() -> void:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = fill_color
-	var radius: int = int(round(corner_radius * _fit_scale))
+	var radius: int = int(round(corner_radius))
 	style.corner_radius_top_left = radius
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_left = radius
 	style.corner_radius_bottom_right = radius
-	var scaled_border: int = int(round(border_width * _fit_scale))
+	var scaled_border: int = int(round(border_width))
 	if scaled_border > 0:
 		style.border_color = border_color
 		style.border_width_left = scaled_border
@@ -68,6 +68,7 @@ func _sync_to_stage() -> void:
 	_fit_scale = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	var mapped_position: Vector2 = PORTRAIT_LAYOUT.map_rect_position(stage_rect, viewport_size, self)
 	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * _fit_scale
-	size = stage_rect.size * _fit_scale
+	scale = Vector2.ONE * _fit_scale
+	size = stage_rect.size
 	custom_minimum_size = size
 	queue_redraw()

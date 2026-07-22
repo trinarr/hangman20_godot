@@ -7,6 +7,6 @@ use_parent_material = true
 
 [node name="bitmap" type="Sprite2D" parent="."]
 centered = false
-scale = Vector2(4.1667, 4.1667)
+scale = Vector2(2.08335, 2.08335)
 texture = ExtResource("1_texture")
 use_parent_material = true

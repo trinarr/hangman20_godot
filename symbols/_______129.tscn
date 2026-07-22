@@ -370,6 +370,7 @@ use_parent_material = true
 
 [node name="shape" type="Sprite2D" parent="_____1/shape_0"]
 centered = true
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("tex_126421447")
 position = Vector2(303.5000, 149.5000)
 visible = true

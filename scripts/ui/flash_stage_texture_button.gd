@@ -142,7 +142,8 @@ func _sync_to_stage() -> void:
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	var mapped_position: Vector2 = PORTRAIT_LAYOUT.map_rect_position(stage_rect, viewport_size, self)
 	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * fit_scale
-	size = stage_rect.size * fit_scale
+	scale = Vector2.ONE * fit_scale
+	size = stage_rect.size
 	custom_minimum_size = size
 	_sync_visual_child_scales()
 	queue_redraw()

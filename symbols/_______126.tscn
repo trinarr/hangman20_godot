@@ -539,6 +539,7 @@ use_parent_material = true
 
 [node name="shape" type="Sprite2D" parent="_____2/shape_0"]
 centered = true
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("tex_215319066")
 position = Vector2(213.0000, 79.5000)
 visible = true
@@ -556,6 +557,7 @@ use_parent_material = true
 
 [node name="shape" type="Sprite2D" parent="_____1/shape_0"]
 centered = true
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("tex_36049082")
 position = Vector2(311.0000, 270.5000)
 visible = true

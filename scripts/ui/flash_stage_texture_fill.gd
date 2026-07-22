@@ -3,6 +3,7 @@ extends Control
 
 const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
+const ART_SOURCE_SCALE: float = 2.0
 
 var stage_y: float = 0.0:
 	set(value):
@@ -35,7 +36,7 @@ func _exit_tree() -> void:
 func _draw() -> void:
 	if texture == null:
 		return
-	var tile_size: Vector2 = texture.get_size() * _fit_scale
+	var tile_size: Vector2 = texture.get_size() * _fit_scale / ART_SOURCE_SCALE
 	if tile_size.x <= 0.0 or tile_size.y <= 0.0:
 		return
 	var y: float = 0.0

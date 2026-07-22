@@ -259,7 +259,7 @@ func show_theme_select() -> void:
 	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
 	_stage_round_icon_button(Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_main_icon_button(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, difficulty_texture.get_size(), 22)
+	_stage_main_icon_button(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _art_stage_size(difficulty_texture), 22)
 
 func _portrait_difficulty_button_label() -> String:
 	return "Сложность:" if Database.current_language == "ru" else "Difficulty:"
@@ -294,7 +294,7 @@ func _show_difficulty_popup() -> void:
 			_stage_panel(Rect2(54.0, y - 20.0, 372.0, 2.0), PORTRAIT_RULE)
 		var selected: bool = value == int(GameState.settings[2])
 		var option_texture: Texture2D = _difficulty_star_texture(value)
-		_stage_round_icon_button(Rect2(56.0, y + 2.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, option_texture.get_size(), false, selected)
+		_stage_round_icon_button(Rect2(56.0, y + 2.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, _art_stage_size(option_texture), false, selected)
 		var title_label := _stage_label(Rect2(146.0, y - 2.0, 250.0, 34.0), str(option["title"]), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
 		var desc_label := _stage_label(Rect2(146.0, y + 36.0, 260.0, 38.0), str(option["desc"]), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -308,7 +308,7 @@ func _show_time_attack_popup() -> void:
 	var rect := Rect2(28.0, 120.0, 424.0, 554.0)
 	_portrait_popup_shell(rect, tr("TIME_ATTACK_MODE"), Callable(self, "_remove_time_attack_popup"), 29)
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_portrait_time_attack_difficulty_button = _stage_round_icon_button(Rect2(316.0, 129.0, 62.0, 62.0), Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, difficulty_texture.get_size())
+	_portrait_time_attack_difficulty_button = _stage_round_icon_button(Rect2(316.0, 129.0, 62.0, 62.0), Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, _art_stage_size(difficulty_texture))
 	_stage_texture(Rect2(174.0, 238.0, 133.0, 133.0), TIME_ATTACK_BADGE_OUTER_TEXTURE)
 	_stage_texture(Rect2(185.0, 249.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
 	_stage_texture(Rect2(221.5, 281.0, 38.0, 46.0), TIME_ATTACK_HOURGLASS_TEXTURE)
@@ -326,7 +326,7 @@ func _cycle_time_attack_difficulty() -> void:
 	GameState.save_game()
 	if _portrait_time_attack_difficulty_button != null and is_instance_valid(_portrait_time_attack_difficulty_button):
 		var difficulty_texture: Texture2D = _difficulty_star_texture()
-		_portrait_time_attack_difficulty_button.call("configure_texture", difficulty_texture, difficulty_texture.get_size())
+		_portrait_time_attack_difficulty_button.call("configure_texture", difficulty_texture, _art_stage_size(difficulty_texture))
 
 func show_custom_word() -> void:
 	game_timer.stop()

@@ -6,6 +6,7 @@ const HEADER_ACTION_BUTTON_RECT: Rect2 = Rect2(639.0, 12.0, 62.0, 62.0)
 const HEADER_CLOSE_BUTTON_RECT: Rect2 = Rect2(716.0, 12.0, 62.0, 62.0)
 const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
 const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
+const ART_SOURCE_SCALE: float = 2.0
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
 const HERO_NESTED_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
@@ -697,6 +698,9 @@ func _difficulty_star_texture(value: int = -1) -> Texture2D:
 		_:
 			return DIFFICULTY_STARS_2_TEXTURE
 
+func _art_stage_size(texture: Texture2D) -> Vector2:
+	return texture.get_size() / ART_SOURCE_SCALE
+
 func show_theme_select() -> void:
 	_remove_difficulty_popup()
 	# Build the category screen without the converted GameTemi symbol. That
@@ -709,7 +713,7 @@ func show_theme_select() -> void:
 	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	var difficulty_button_rect: Rect2 = HEADER_ACTION_BUTTON_RECT
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, difficulty_texture.get_size())
+	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, _art_stage_size(difficulty_texture))
 	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	var theme_count: int = Database.get_theme_count()
@@ -885,7 +889,7 @@ func _show_difficulty_popup() -> void:
 		hit_area.mouse_filter = Control.MOUSE_FILTER_STOP
 		var option_button_rect := Rect2(base_x, 148.0, 68.0, 68.0)
 		var option_texture: Texture2D = _difficulty_star_texture(value)
-		_stage_round_icon_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, option_texture.get_size(), false, selected)
+		_stage_round_icon_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, _art_stage_size(option_texture), false, selected)
 
 		var desc: Array = option["desc"] as Array
 		var text_y: float = 154.0
@@ -958,7 +962,7 @@ func _show_time_attack_popup() -> void:
 
 	var difficulty_button_rect := Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y)
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, difficulty_texture.get_size())
+	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, _art_stage_size(difficulty_texture))
 	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_time_attack_popup"), "×")
 
 	# Original Flash badge assembled from its separate bitmap layers.
