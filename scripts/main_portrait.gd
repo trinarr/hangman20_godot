@@ -702,6 +702,7 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 	overlay.symbol_path = _hero_symbol_path()
 	overlay.stage_position = _portrait_game_hero_stage_position
 	overlay.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
+	overlay.animation_time = _hero_animation_time()
 	if _portrait_game_adaptive_group != null and is_instance_valid(_portrait_game_adaptive_group):
 		_portrait_game_adaptive_group.add_child(overlay)
 	else:

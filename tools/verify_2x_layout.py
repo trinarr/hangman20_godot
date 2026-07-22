@@ -116,12 +116,53 @@ def verify_sprite_geometry() -> None:
             require("scale = Vector2(0.5, 0.5)" in block, f"2x sprite compensation is missing in {path.name}")
 
 
+def verify_streamed_hero_states() -> None:
+    source = read("scripts/ui/flash_stage_symbol.gd")
+    expected_states = (
+        "_______192", "_______193", "_______90", "_______91", "_______92", "_______93", "_______89",
+        "_______94", "_______123", "_______126", "_______127", "_______128", "_______129", "_______131",
+    )
+    for state in expected_states:
+        path = f"res://symbols/{state}.tscn"
+        require(source.count(f'"{path}"') == 1, f"Hero state mapping is missing or duplicated: {path}")
+        require((ROOT / "symbols" / f"{state}.tscn").is_file(), f"Hero state scene is missing: {path}")
+
+    require("ResourceLoader.load_threaded_request" in source, "Hero poses are not requested asynchronously")
+    status_guard = source.index("status != ResourceLoader.THREAD_LOAD_LOADED")
+    blocking_get = source.index("ResourceLoader.load_threaded_get(resource_path)")
+    require(status_guard < blocking_get, "Threaded hero resource is fetched before its LOADED guard")
+    require("_request_next_hero_pose(state_index)" in source, "The next hero pose is not prefetched")
+    require("_prune_hero_pose_cache(state_index, false)" in source, "Old hero poses are not released")
+
+    # The direct state scenes replace the composite HeroType scenes, so their
+    # offsets must match the outer Flash timeline at each of its seven frames.
+    expected_offsets = (
+        "Vector2(266.6667, -645.8334)",
+        "Vector2(154.1667, -750.0001)",
+        "Vector2(37.5, -829.1667)",
+        "Vector2(100.0, -612.5)",
+        "Vector2(75.0, -520.8334)",
+        "Vector2(75.0, -383.3334)",
+        "Vector2(75.0, -433.3334)",
+    )
+    for offset in expected_offsets:
+        require(offset in source, f"Hero outer-timeline offset is missing: {offset}")
+
+    main_source = read("scripts/main.gd")
+    stage_symbol = main_source[main_source.index("func _stage_symbol"):main_source.index("func _stage_panel")]
+    require(
+        stage_symbol.index('symbol.set("animation_time"') < stage_symbol.index("content.add_child(symbol)"),
+        "Hero state is selected after the symbol enters the scene tree",
+    )
+
+
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     verify_resolution()
     verify_control_geometry()
     verify_sprite_geometry()
-    print("2x layout invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_streamed_hero_states()
+    print("2x layout and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

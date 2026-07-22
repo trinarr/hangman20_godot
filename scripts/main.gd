@@ -251,11 +251,13 @@ func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Text
 func _stage_symbol(symbol_path: String, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> Node2D:
 	var symbol: Node2D = FLASH_STAGE_SYMBOL_SCRIPT.new() as Node2D
 	symbol.z_index = 5
-	content.add_child(symbol)
 	symbol.set("symbol_path", symbol_path)
 	symbol.set("stage_position", stage_position)
 	symbol.set("animation_time", animation_time)
 	symbol.set("nested_animation_time", nested_animation_time)
+	# Configure the desired hero state before _ready() starts its asynchronous
+	# current/next-pose pipeline. This avoids briefly requesting frame zero.
+	content.add_child(symbol)
 	return symbol
 
 func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, border_color: Color = Color(0.0, 0.0, 0.0, 0.0), border_width: float = 0.0) -> Control:
@@ -1488,6 +1490,7 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 	overlay.z_index = 150
 	overlay.symbol_path = _hero_symbol_path()
 	overlay.stage_position = Vector2(26.0, 324.0)
+	overlay.animation_time = _hero_animation_time()
 	add_child(overlay)
 	return overlay
 
