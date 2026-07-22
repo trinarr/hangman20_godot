@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://yxr5xplmjh74"
-path="res://.godot/imported/user_hint_button_remove_15.png-23e86859b8d9125390f9f918b4bf1e21.ctex"
+uid="uid://dohhhgiixg3v8"
+path="res://.godot/imported/user_main_button_23_center.png-d3ff63b08a060f631c798a9d902f1f3c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://flash_assets/user_hint_button_remove_15.png"
-dest_files=["res://.godot/imported/user_hint_button_remove_15.png-23e86859b8d9125390f9f918b4bf1e21.ctex"]
+source_file="res://flash_assets/user_main_button_23_center.png"
+dest_files=["res://.godot/imported/user_main_button_23_center.png-d3ff63b08a060f631c798a9d902f1f3c.ctex"]
 
 [params]
 

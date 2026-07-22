@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import math
+import hashlib
+import json
 import re
 import subprocess
 from pathlib import Path
+
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +25,10 @@ def require(condition: bool, message: str) -> None:
 
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def fit_scale(viewport: tuple[float, float]) -> float:
@@ -156,13 +164,151 @@ def verify_streamed_hero_states() -> None:
     )
 
 
+def verify_refined_ui_icons() -> None:
+    manifest_path = ROOT / "data" / "ui_icon_refinement_manifest.json"
+    require(manifest_path.is_file(), "UI icon refinement manifest is missing")
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entries = data.get("files", [])
+    require(len(entries) == 18, f"Expected 18 refined UI icons, found {len(entries)}")
+    require("no resize or redraw" in data.get("method", ""), "UI refinement is not style-preserving")
+    for entry in entries:
+        path = ROOT / str(entry["path"])
+        require(path.is_file(), f"Refined UI icon is missing: {path}")
+        with Image.open(path) as image:
+            require(list(image.size) == entry["size"], f"Refined UI icon dimensions changed: {path.name}")
+        require(sha256(path) == entry["target_sha256"], f"Refined UI icon checksum mismatch: {path.name}")
+        require(
+            float(entry["silhouette_iou"]) >= float(data["minimum_silhouette_iou"]),
+            f"Refined UI icon silhouette drifted: {path.name}",
+        )
+
+
+def verify_round_icon_display_sizes() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    expected_constants = (
+        "const RESULT_SEARCH_ICON_SIZE := Vector2(32.0, 41.0)",
+        "const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)",
+        "const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)",
+        "const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)",
+    )
+    for declaration in expected_constants:
+        require(declaration in main, f"Enlarged round-icon size is missing: {declaration}")
+
+    require(main.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Landscape VK icon size is not applied")
+    require(main.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Landscape mail icon size is not applied")
+    require(portrait.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Portrait VK icon size is not applied")
+    require(portrait.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Portrait mail icon size is not applied")
+    require(main.count("RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE") == 1, "Landscape search icon size is not applied")
+    require(portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE") == 1, "Portrait search icon size is not applied")
+    require(
+        portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE") == 3,
+        "Compact portrait search icon size is not applied to every result screen",
+    )
+
+
+def verify_stretchable_long_buttons() -> None:
+    expected_parts = {
+        "user_main_button_21_left.png": (47, 98),
+        "user_main_button_21_center.png": (5, 98),
+        "user_main_button_21_right.png": (47, 98),
+        "user_main_button_23_left.png": (47, 98),
+        "user_main_button_23_center.png": (5, 98),
+        "user_main_button_23_right.png": (47, 98),
+    }
+    for filename, expected_size in expected_parts.items():
+        path = ROOT / "flash_assets" / filename
+        require(path.is_file(), f"Long-button slice is missing: {filename}")
+        with Image.open(path) as image:
+            require(image.size == expected_size, f"Unexpected long-button slice dimensions: {filename}")
+
+    source = read("scripts/ui/stage_long_button.gd")
+    for filename in expected_parts:
+        require(
+            f'preload("res://flash_assets/{filename}")' in source,
+            f"Long-button slice is not preloaded: {filename}",
+        )
+    require("func _draw_stretchable_background(" in source, "Adaptive long-button renderer is missing")
+    require(
+        "rect.size.y * left_source_size.x / left_source_size.y" in source,
+        "Left cap width is not derived from the rendered button height",
+    )
+    require(
+        "rect.size.y * right_source_size.x / right_source_size.y" in source,
+        "Right cap width is not derived from the rendered button height",
+    )
+    require("draw_texture_rect(center_texture, center_rect, false)" in source, "Long-button center is not stretched")
+    require("CENTER_SEAM_OVERLAP" not in source, "Long-button parts still overlap under transparency")
+    require(
+        "Vector2(center_left, rect.position.y)" in source
+        and "Vector2(center_right - center_left, rect.size.y)" in source,
+        "Long-button center does not share exact boundaries with both caps",
+    )
+    require(
+        'preload("res://flash_assets/user_main_button_21.png")' not in source
+        and 'preload("res://flash_assets/user_main_button_23.png")' not in source,
+        "StageLongButton still renders a stretched whole-button texture",
+    )
+
+    # Every currently authored long-button size leaves a real stretchable center.
+    for width, height in ((212.0, 49.0), (196.0, 58.0), (300.0, 64.0)):
+        cap_width = height * (47.0 + 47.0) / 98.0
+        require(width > cap_width, f"Long-button width {width} is too small for its {height}-pixel caps")
+
+
+def verify_hint_button_migration() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    long_button = read("scripts/ui/stage_long_button.gd")
+
+    require("var selected: bool = false:" in long_button, "Persistent blue long-button state is missing")
+    require("var use_pressed_parts: bool = selected or _is_down" in long_button, "Selected long buttons are not blue")
+    require("if button_text.is_empty():" in long_button, "Icon-only long buttons do not center their icon")
+    require("_stage_texture_button(" not in main + portrait, "A legacy hint-texture button call remains")
+    require("FLASH_STAGE_TEXTURE_BUTTON_SCRIPT" not in main, "Unused generic texture-button factory remains")
+    require("HINT_OPEN_BUTTON_TEXTURE" not in main + portrait, "Legacy blue hint texture remains referenced")
+    require("HINT_REMOVE_BUTTON_TEXTURE" not in main + portrait, "Legacy orange hint texture remains referenced")
+
+    require(
+        main.count("HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0)") == 1
+        and main.count("HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0)") == 1,
+        "Landscape hints are not icon-only adaptive long buttons",
+    )
+    require(
+        portrait.count("HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0)") == 1
+        and portrait.count("HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0)") == 1,
+        "Portrait hints are not icon-only adaptive long buttons",
+    )
+    require(
+        'Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled' in main,
+        "Settings switches do not use selected adaptive long buttons",
+    )
+    require(
+        'Callable(self, "_set_settings_language").bind(language_code), label_text, 18, false, 0.0, false, selected' in main,
+        "Language switches do not use selected adaptive long buttons",
+    )
+
+    obsolete_assets = (
+        "user_hint_button_open_18.png",
+        "user_hint_button_remove_15.png",
+        "user_main_button_21.png",
+        "user_main_button_23.png",
+    )
+    for filename in obsolete_assets:
+        require(not (ROOT / "flash_assets" / filename).exists(), f"Obsolete whole-button texture remains: {filename}")
+
+
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     verify_resolution()
     verify_control_geometry()
     verify_sprite_geometry()
     verify_streamed_hero_states()
-    print("2x layout and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_refined_ui_icons()
+    verify_round_icon_display_sizes()
+    verify_stretchable_long_buttons()
+    verify_hint_button_migration()
+    print("2x layout, adaptive hint buttons, pruned UI assets and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

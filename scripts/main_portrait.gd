@@ -210,8 +210,8 @@ func _show_about_popup() -> void:
 	version_label.clip_text = false
 	_stage_panel(Rect2(56.0, 410.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_label(Rect2(56.0, 438.0, 180.0, 40.0), _about_contacts_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_icon_button(Rect2(224.0, 426.0, 62.0, 62.0), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, Vector2(24.0, 14.0))
-	_stage_round_icon_button(Rect2(306.0, 426.0, 62.0, 62.0), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, Vector2(22.0, 18.0))
+	_stage_round_icon_button(Rect2(224.0, 426.0, 62.0, 62.0), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE)
+	_stage_round_icon_button(Rect2(306.0, 426.0, 62.0, 62.0), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE)
 	content = previous_content
 
 func show_theme_select() -> void:
@@ -656,22 +656,10 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 			x += slot_gap
 
 func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2, open_hint_disabled: bool, remove_hint_disabled: bool) -> void:
-	# Both hints stay blue after they have been used. Previously the open-letter
-	# hint switched back to its orange texture and dimmed its icon when disabled.
-	_stage_texture_button(open_hint_rect, Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-	_stage_texture(Rect2(
-		open_hint_rect.position.x + (open_hint_rect.size.x - 28.0) * 0.5,
-		open_hint_rect.position.y + (open_hint_rect.size.y - 28.0) * 0.5,
-		28.0,
-		28.0
-	), HINT_ICON_CHECK_TEXTURE)
-	_stage_texture_button(remove_hint_rect, Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-	_stage_texture(Rect2(
-		remove_hint_rect.position.x + (remove_hint_rect.size.x - 28.0) * 0.5,
-		remove_hint_rect.position.y + (remove_hint_rect.size.y - 28.0) * 0.5,
-		28.0,
-		28.0
-	), HINT_ICON_CROSS_TEXTURE)
+	# Both hints use the adaptive long-button component and remain blue after use.
+	# Keeping the icon inside the component also makes it follow the press bounce.
+	_stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled)
+	_stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled)
 
 func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> void:
 	var timer_icon_size := Vector2(31.0, 31.0)
@@ -749,7 +737,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	if time_attack_finished:
 		_show_time_attack_finished_result_content(data)
 		return
-	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(23.0, 29.0))
+	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE)
 	_stage_round_icon_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 410.0), PORTRAIT_RESULT_MAX_SCALE, 0.12)
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
@@ -783,7 +771,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	# The two-player result uses the same thumb-friendly composition as the final
 	# Time Attack screen: compact search in the header, centered result copy and
 	# hero, plus close/restart controls in the rigid footer.
-	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(16.0, 20.0))
+	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
 	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
@@ -822,7 +810,7 @@ func _fit_single_line_label_to_width(label: Label, text: String, available_width
 func _show_time_attack_finished_result_content(data: Dictionary) -> void:
 	# Match the classic result layout: compact search in the header, result copy
 	# above a centered hero, and thumb-reachable controls in the rigid footer.
-	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(16.0, 20.0))
+	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
 	var title: String = str(data.get("title", Database.tr_text(39, "GAME OVER"))).strip_edges()
@@ -882,7 +870,7 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	_portrait_end_adaptive_group(bottom_info_content)
 
 	# Word search remains in the header, but uses a compact 70% round button.
-	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(16.0, 20.0))
+	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
 	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Deterministically upscale every shipped raster asset by 2x.
+"""Deterministically manage every shipped raster asset at the 2x target scale.
 
 The resampler works in premultiplied-alpha space to keep antialiased sprite
 edges clean. Outputs remain PNG, so the resize introduces no compression loss.
-The generated manifest prevents accidentally applying the operation twice.
+The manifest also accepts explicitly marked native 2x slices and prevents
+accidentally applying the operation twice.
 """
 
 from __future__ import annotations
@@ -116,7 +117,7 @@ def verify_manifest() -> None:
             raise SystemExit(f"Unexpected dimensions for {entry['path']}: {actual_size}")
         if sha256(path) != entry["target_sha256"]:
             raise SystemExit(f"Checksum mismatch for {entry['path']}")
-    print(f"Verified {len(entries)} upscaled raster assets")
+    print(f"Verified {len(entries)} target-scale raster assets")
 
 
 def main() -> None:

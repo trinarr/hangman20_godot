@@ -19,7 +19,6 @@ const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
 const LETTER_MARKER_REVEAL_DURATION: float = 0.2
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
-const FLASH_STAGE_TEXTURE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
@@ -45,12 +44,14 @@ const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_w
 const CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
+const RESULT_SEARCH_ICON_SIZE := Vector2(32.0, 41.0)
+const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)
+const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
+const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
 const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
-const HINT_OPEN_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_open_18.png")
-const HINT_REMOVE_BUTTON_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_button_remove_15.png")
 const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
 const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
@@ -218,36 +219,6 @@ func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: 
 	popup_root.add_child(centered_content)
 	return centered_content
 
-func _stage_texture_button(rect: Rect2, callable: Callable, normal_texture: Texture2D, pressed_texture: Texture2D, text: String = "", font_size: int = 20, disabled: bool = false, disabled_texture: Texture2D = null, disabled_overlay_alpha: float = 0.32) -> Control:
-	var button: Control = FLASH_STAGE_TEXTURE_BUTTON_SCRIPT.new() as Control
-	button.mouse_filter = Control.MOUSE_FILTER_STOP
-	button.set("texture_normal", normal_texture)
-	button.set("texture_pressed", pressed_texture)
-	button.set("disabled", disabled)
-	button.set("texture_disabled", disabled_texture)
-	button.set("disabled_overlay_alpha", disabled_overlay_alpha)
-	button.connect("pressed", callable)
-	content.add_child(button)
-	button.set("stage_rect", rect)
-	if text != "":
-		var label := Label.new()
-		label.name = "Text"
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		label.set_anchors_preset(Control.PRESET_FULL_RECT)
-		label.text = text
-		label.clip_text = true
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", font_size)
-		label.add_theme_color_override("font_color", Color.WHITE if !disabled else Color(1.0, 1.0, 1.0, 0.72))
-		label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 1.0))
-		label.add_theme_constant_override("outline_size", 3)
-		button.add_child(label)
-		label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	return button
-
-
-
 func _stage_symbol(symbol_path: String, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> Node2D:
 	var symbol: Node2D = FLASH_STAGE_SYMBOL_SCRIPT.new() as Node2D
 	symbol.z_index = 5
@@ -297,18 +268,18 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 	node.set("stage_height", stage_height)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false) -> Control:
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled)
+	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	if callable.is_valid():
 		button.pressed.connect(callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
 
-func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false) -> Control:
+func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled)
+	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	if callable.is_valid():
 		button.pressed.connect(callable)
 	content.add_child(button)
@@ -559,14 +530,12 @@ func show_settings() -> void:
 
 func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
-	var texture: Texture2D = HINT_OPEN_BUTTON_TEXTURE if enabled else HINT_REMOVE_BUTTON_TEXTURE
 	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
-	_stage_texture_button(rect, Callable(self, "_toggle_setting").bind(setting_index), texture, HINT_OPEN_BUTTON_TEXTURE, label_text, 18)
+	_stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled)
 
 func _stage_settings_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
 	var selected: bool = GameState.language == language_code
-	var texture: Texture2D = HINT_OPEN_BUTTON_TEXTURE if selected else HINT_REMOVE_BUTTON_TEXTURE
-	_stage_texture_button(rect, Callable(self, "_set_settings_language").bind(language_code), texture, HINT_OPEN_BUTTON_TEXTURE, label_text, 18)
+	_stage_main_button(rect, Callable(self, "_set_settings_language").bind(language_code), label_text, 18, false, 0.0, false, selected)
 
 func _set_settings_language(language_code: String) -> void:
 	GameState.set_language(language_code)
@@ -649,8 +618,8 @@ func _show_about_popup() -> void:
 	version_label.clip_text = false
 
 	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_icon_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, Vector2(24.0, 14.0))
-	_stage_round_icon_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, Vector2(22.0, 18.0))
+	_stage_round_icon_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE)
+	_stage_round_icon_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE)
 
 	content = previous_content
 
@@ -1062,8 +1031,7 @@ func show_custom_word() -> void:
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
-	var normal_texture: Texture2D = HINT_OPEN_BUTTON_TEXTURE if enabled else HINT_REMOVE_BUTTON_TEXTURE
-	_stage_texture_button(rect, Callable(self, "_toggle_custom_setting").bind(setting_index), normal_texture, HINT_OPEN_BUTTON_TEXTURE, _custom_switch_label(enabled), 20)
+	_stage_main_button(rect, Callable(self, "_toggle_custom_setting").bind(setting_index), _custom_switch_label(enabled), 20, false, 0.0, false, enabled)
 
 func _custom_switch_label(enabled: bool) -> String:
 	return Database.tr_text(82, "On") if enabled else Database.tr_text(83, "Off")
@@ -1397,11 +1365,8 @@ func _refresh_game_screen() -> void:
 
 	# Hint buttons match the original Flash behavior and visuals.
 	# Orange is the available state. Blue is only the pressed/already-used state.
-	_stage_texture_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, open_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-	_stage_texture(Rect2(199.0, 416.0, 25.0, 25.0), HINT_ICON_CHECK_TEXTURE)
-
-	_stage_texture_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), HINT_REMOVE_BUTTON_TEXTURE, HINT_OPEN_BUTTON_TEXTURE, "", 26, remove_hint_disabled, HINT_OPEN_BUTTON_TEXTURE, 0.0)
-	_stage_texture(Rect2(311.0, 416.0, 25.0, 25.0), HINT_ICON_CROSS_TEXTURE)
+	_stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled)
+	_stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled)
 
 	var comment_button := _stage_main_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 18, comment_disabled, 0.0)
 	if comment_disabled:
@@ -1695,7 +1660,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
 	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, Vector2(18.0, 23.0))
+	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE)
 	_stage_round_icon_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol

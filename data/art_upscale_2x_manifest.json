@@ -1,7 +1,7 @@
 {
   "scale": 2,
-  "algorithm": "Lanczos, premultiplied alpha, lossless PNG",
-  "file_count": 136,
+  "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
+  "file_count": 138,
   "files": [
     {
       "path": "icon.png",
@@ -43,7 +43,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "6bea67e0dd92dcb8cd0d90e2f608ad595b30ad34d2577f38abae5d9912e3d7c0",
-      "target_sha256": "0af39cf22f45c5c044d85b3ccf8c5e1e1acfd9979412c24be7c88c54179e3f7f"
+      "target_sha256": "2b0afd748c5fc9f9e09c02ebb4dc60a79bd0e5de2b8ae2901b606f4adb836368"
     },
     {
       "path": "flash_assets/about_mail_icon_86.png",
@@ -57,7 +57,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "99fce6b7cb8fca3c22c4aa553376d202ee8a5550c2d45cfb98d370e7e78e226e",
-      "target_sha256": "4537bb345445cdd41df01a7a9fee5b7b8dec29ce04d5a73293f528b8df36034d"
+      "target_sha256": "a69684299e4475a67f7761b5fc62a52c61b09a62c0e0312d4bc3f16c82105b2e"
     },
     {
       "path": "flash_assets/about_vk_icon_87.png",
@@ -71,7 +71,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "f1c09290261676694f1289e434bc6579b4541b46defa3aebbac0bd1e0b21eeab",
-      "target_sha256": "d933c7b83b0174b0bf9bbed1dd329f73975b8fec425e29a9f39dff6a5bda5c7c"
+      "target_sha256": "c36217f50e0c36ae740f3767164f529d30e73df997afe4785730e59fe0b9c9b9"
     },
     {
       "path": "flash_assets/custom_word_random_icon.png",
@@ -85,7 +85,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "216464caf4e980076ef153a60b084e261756ec01161644682b9001146719fad0",
-      "target_sha256": "19f9718b899f259d8efddbea7c6ab4b2d1b6b1b228f65f83d9d5a5d16e215149"
+      "target_sha256": "ee95944998b32107944a1d2122bee102427f37d08d0f19e9ac29f70afcff5e69"
     },
     {
       "path": "flash_assets/custom_word_refresh_icon_341.png",
@@ -99,7 +99,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "360d4bf0971cbbd7760c5f4c0244201ce09a07b06c3a542246b764ef79e5d104",
-      "target_sha256": "06a3cf9625565294fbe75b583af22a7210ea29f985d0188aaf3f198cf2c0cbae"
+      "target_sha256": "ebb4ea69d8bb474f380465695108210fa551a3aed41a0c35d3fd27355a3f00fb"
     },
     {
       "path": "flash_assets/difficulty_stars_1.png",
@@ -113,7 +113,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "de942c14efe2dc234d3055f67bd6ddf6f7839f37ffd5c3972347f6be2e194c29",
-      "target_sha256": "af71b3fda82e014c18b0aea666a3f827a860f03e67136f3c12cc14ada8b7d709"
+      "target_sha256": "f6c52e2f1da26405fe730886a0aeae88229729b74d062d7350bad53b3386abd5"
     },
     {
       "path": "flash_assets/difficulty_stars_2.png",
@@ -127,7 +127,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "25d599924be93642c34461cd2ebf5e5c66c75f1e3e1e3b7ceaf3c85c038420fd",
-      "target_sha256": "deec4c4ea5871fe900f76710d5577bd4465b60c8497806df32ae1a8c8fe789a4"
+      "target_sha256": "ccdfc1b753ed33a8a01ddab489f387d566f64ef5f84ef58f15ea353e185e4736"
     },
     {
       "path": "flash_assets/difficulty_stars_3.png",
@@ -141,7 +141,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "640810ccce6799c84b75deb9203d89215bcff840ece5b0b88499a3cd5b0f3234",
-      "target_sha256": "e27271e477b2b512e5e552a0e9bbba264d0d7e7652a159e1703e8bc02f1cfa75"
+      "target_sha256": "8316f51a2f0ea46cb20c9f35c775ab150a970ed40e71e41e3265f6c3cc368f0c"
     },
     {
       "path": "flash_assets/fon_png.png",
@@ -169,7 +169,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "2e25646b8c5a4b809b9a1e5e8e868a8ec5fd679d7973053878216f428a782ac0",
-      "target_sha256": "cbbaa1f78ee5d25cb6ce4ab48d71773aa82cf7e603f6a5fa7ebab22fd95e2cb9"
+      "target_sha256": "dc38d6952aec79cc49366ecc9803888b0e6381b3dec7ede25c970307fb4dd53f"
     },
     {
       "path": "flash_assets/portrait_back_arrow_icon.png",
@@ -183,7 +183,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "52b760da4eaf58c62f427d0d9de114e74018f7505670caab9580b4fdc0b52ef5",
-      "target_sha256": "b1037e9380b1a463b7fa2fe691509ed51711afed36bbbc156aff2d52b557b20d"
+      "target_sha256": "6672e3a6fa75175983d8c0685e7aa7ff4a8de556d61135f124cb97b7fbcda4a5"
     },
     {
       "path": "flash_assets/records_crown_icon.png",
@@ -197,7 +197,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "fbf941aa114d189df13344880e1039796170343ca2a8df4b8a4fe69e60414e92",
-      "target_sha256": "b2fd87599a4b284fed039b5ab27b54788b15f0230f9917acdd2ad54900961730"
+      "target_sha256": "dac786bc490c56f9e26184a34caec5b8d1ec68f17f855ffe04bfdb442ba5e4ad"
     },
     {
       "path": "flash_assets/result_close_icon_43.png",
@@ -211,7 +211,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "b84308124809148d9c6ce7da43b5e6280d95c9ffea4aa96fba54f31f695d88e6",
-      "target_sha256": "12210f86eaf377a7ffa390524ef14fd2a2daad05b845a961121b30905ef3e5bf"
+      "target_sha256": "f66822dfb67da0d3692a0d1f65c919119d1976df5493ca432d65802fc9eb1fd1"
     },
     {
       "path": "flash_assets/result_search_icon_343.png",
@@ -225,7 +225,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "5e2f70ad34acc65624a24bf802c12a426e626a4ab9a363aacf4ba4451d1044a5",
-      "target_sha256": "a0bde25e7758d9f4e4b115e2ca980390b0e1c65bf5fc64083801c54397d7d516"
+      "target_sha256": "e6dc56a14aa019f98a80c757505fed9919d8ecafc587b756f3d1bdd2fe6f7d21"
     },
     {
       "path": "flash_assets/result_theme_menu_icon.png",
@@ -239,7 +239,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "7a54e32734f6004c159e8939c898543c795cb8ca84271f3b0f6db98bb5fbc3c5",
-      "target_sha256": "be73eb460013f421efde89ccded86746f31a6bbbbf94a7ea933c07e469560d6e"
+      "target_sha256": "328bceed7d87864d92bb1b2a4108a6463ab13663fdc9b66b386487e14495e326"
     },
     {
       "path": "flash_assets/theme_card_progress_user_239x65.png",
@@ -295,7 +295,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "e5ff726268105ec3e73db68b7ab44d76e09f8419832b36079b688c31de1497fd",
-      "target_sha256": "5c8b97112f9c8b15c78f02cac380f3bf979318c20350fd27770c493ad1824bf5"
+      "target_sha256": "ae4a2667dd3d01acbabcf6f8ab8a8a1937aa0c374de070b11c2367fe52b5598c"
     },
     {
       "path": "flash_assets/time_attack_timer_icon.png",
@@ -309,35 +309,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "a2540de2d22fd84d6ae41de99ee3bf481a140c2d84232437d65dea562ed787b8",
-      "target_sha256": "ddbfd45961ea872916b9cc666a6d76591c31df127129fdb23e778c183ad9e3dd"
-    },
-    {
-      "path": "flash_assets/user_hint_button_open_18.png",
-      "source_size": [
-        102,
-        49
-      ],
-      "target_size": [
-        204,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "f05d203952e2c668b20e8856e37237eab6e308361a6aa82172f6a49f2e331f55",
-      "target_sha256": "c943abf6affb74f1180824cbeb92adab4e42a9976f4c7db4ca5549fe56afa38a"
-    },
-    {
-      "path": "flash_assets/user_hint_button_remove_15.png",
-      "source_size": [
-        102,
-        49
-      ],
-      "target_size": [
-        204,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "afedab19964c51aa09873a7f64f42c76c99b6210ef2756b0a4a33c1268950ae2",
-      "target_sha256": "dce414ced7ecfb4f8b24c2a6f23dbfb4d1b5f92f9d28592bf756b0463354a236"
+      "target_sha256": "f461c391b54fdc970a9102304ea3dee07bfd2150df1c112c901c84aa92264fb4"
     },
     {
       "path": "flash_assets/user_hint_check_circle_uploaded.png",
@@ -351,7 +323,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "ec8dcc372d76acb186539603d4a9d7b101b2bfff6e5c14af14d72733593eff38",
-      "target_sha256": "0de7364eb924b9ba48cadb7822b7694acca5471d314f6d4c99c68d42b9d7519a"
+      "target_sha256": "8f331b53a7df9f61505add9de0cd5181176054f4a863692e1bb499cf008b03a8"
     },
     {
       "path": "flash_assets/user_hint_circle_74.png",
@@ -379,35 +351,97 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "9ff2d67751905bdbd8fa54af088f89a6e037e1db19f4e257ec65bea879795cc7",
-      "target_sha256": "6dff2957f39533262efc95029cbe09109af34ec3961854581e2036c0099aecf3"
+      "target_sha256": "4edbc748d99686f0e0359d281eca87d5f08e4eaca83a748dd22afdad545a60f1"
     },
     {
-      "path": "flash_assets/user_main_button_21.png",
+      "path": "flash_assets/user_main_button_21_center.png",
       "source_size": [
-        212,
-        49
+        5,
+        98
       ],
       "target_size": [
-        424,
+        5,
         98
       ],
       "source_mode": "RGBA",
-      "source_sha256": "5868b32bb9b25bab1d9dc8e713d7e7b6674fd5472271f2d188d5988d3ddcae73",
-      "target_sha256": "61718b6fcc64b4a7e8b9746c04c4aac23fa9b882d166eb3bbaa040e6c12278fa"
+      "source_sha256": "510d34c9f1814d5c61f6041731cc7b4cce02d3a96143d055327fa0b6c58dece4",
+      "target_sha256": "510d34c9f1814d5c61f6041731cc7b4cce02d3a96143d055327fa0b6c58dece4",
+      "native_target_scale": true
     },
     {
-      "path": "flash_assets/user_main_button_23.png",
+      "path": "flash_assets/user_main_button_21_left.png",
       "source_size": [
-        213,
-        49
+        47,
+        98
       ],
       "target_size": [
-        426,
+        47,
         98
       ],
       "source_mode": "RGBA",
-      "source_sha256": "1ba857533685db54a360f8548a65926102840c5abaef2982bbd29e1ca0e2d858",
-      "target_sha256": "48227fa7c6cc8f036ddb16b5fa26c4bc9beaaeeb45f48007b348518d5a2783ff"
+      "source_sha256": "ce693997ccd41ee1f898c97254ca88a65c5902de6883ea8016a0ce335a197617",
+      "target_sha256": "ce693997ccd41ee1f898c97254ca88a65c5902de6883ea8016a0ce335a197617",
+      "native_target_scale": true
+    },
+    {
+      "path": "flash_assets/user_main_button_21_right.png",
+      "source_size": [
+        47,
+        98
+      ],
+      "target_size": [
+        47,
+        98
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "1e0283b10aafb546a304d87d44ebcbfecb0f2a2249a1bc0029656da5d73a28e8",
+      "target_sha256": "1e0283b10aafb546a304d87d44ebcbfecb0f2a2249a1bc0029656da5d73a28e8",
+      "native_target_scale": true
+    },
+    {
+      "path": "flash_assets/user_main_button_23_center.png",
+      "source_size": [
+        5,
+        98
+      ],
+      "target_size": [
+        5,
+        98
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "68e12c8a52e3fa4aa60c6e21882a199e5d9234058786a1413bf105843d749344",
+      "target_sha256": "68e12c8a52e3fa4aa60c6e21882a199e5d9234058786a1413bf105843d749344",
+      "native_target_scale": true
+    },
+    {
+      "path": "flash_assets/user_main_button_23_left.png",
+      "source_size": [
+        47,
+        98
+      ],
+      "target_size": [
+        47,
+        98
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "cce5d03546adaa20d02cfc921f60a02f3df855ea157370509fd9ddb653814185",
+      "target_sha256": "cce5d03546adaa20d02cfc921f60a02f3df855ea157370509fd9ddb653814185",
+      "native_target_scale": true
+    },
+    {
+      "path": "flash_assets/user_main_button_23_right.png",
+      "source_size": [
+        47,
+        98
+      ],
+      "target_size": [
+        47,
+        98
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "2290500cf2747c8fec26deeb8aecf69ead8f68e0fe17f81e3ab56772e4af8a1f",
+      "target_sha256": "2290500cf2747c8fec26deeb8aecf69ead8f68e0fe17f81e3ab56772e4af8a1f",
+      "native_target_scale": true
     },
     {
       "path": "flash_assets/user_round_button_36.png",
@@ -1906,6 +1940,13 @@
       "source_mode": "RGBA",
       "source_sha256": "9114c69c27adbba650ee3167cae7ace1d0d61944568672fbacaa361878bf65e5",
       "target_sha256": "569ee97e497e51a721548d5871099768fcbf37473f99c31bb67ca47c7c01e9af"
+    }
+  ],
+  "postprocesses": [
+    {
+      "name": "style-preserving UI icon refinement",
+      "manifest": "data/ui_icon_refinement_manifest.json",
+      "file_count": 18
     }
   ]
 }
