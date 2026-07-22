@@ -2,7 +2,8 @@ extends Node
 
 const SAVE_PATH := "user://save_hangman.json"
 
-var language: String = "ru"
+var interface_language: String = "ru"
+var word_language: String = "ru"
 var player_name: String = ""
 
 # AS3 Settings:
@@ -34,8 +35,9 @@ func _ready() -> void:
 	load_game()
 
 func load_game() -> void:
+	_set_interface_language_from_locale()
+	word_language = interface_language
 	if !FileAccess.file_exists(SAVE_PATH):
-		_set_default_language_from_locale()
 		return
 	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if file == null:
@@ -46,7 +48,10 @@ func load_game() -> void:
 	if !(parsed is Dictionary):
 		return
 
-	language = str(parsed.get("language", language))
+	# Older saves stored a single language for both UI and words. Preserve that
+	# value only as the selected word database; UI language is always device-led.
+	var legacy_language: String = str(parsed.get("language", interface_language))
+	word_language = _normalize_language(str(parsed.get("word_language", legacy_language)))
 	player_name = str(parsed.get("player_name", player_name)).strip_edges()
 	var loaded_settings = parsed.get("settings", settings)
 	if loaded_settings is Array:
@@ -59,11 +64,14 @@ func load_game() -> void:
 		progress = loaded_progress
 	_normalize_arrays()
 
-func _set_default_language_from_locale() -> void:
-	# MainTimeline.as uses Russian for Russian and Ukrainian system locales and
-	# English for every other locale on the first launch.
+func _set_interface_language_from_locale() -> void:
+	# The interface follows the device on every launch: Russian only for a
+	# Russian locale, English for Ukrainian and every other locale.
 	var locale: String = OS.get_locale().to_lower()
-	language = "ru" if locale.begins_with("ru") or locale.begins_with("uk") else "en"
+	interface_language = "ru" if locale.begins_with("ru") else "en"
+
+func _normalize_language(lang: String) -> String:
+	return "ru" if lang.to_lower().begins_with("ru") else "en"
 
 func save_game() -> void:
 	_normalize_arrays()
@@ -72,7 +80,7 @@ func save_game() -> void:
 		push_error("Can not write save: " + SAVE_PATH)
 		return
 	file.store_string(JSON.stringify({
-		"language": language,
+		"word_language": word_language,
 		"player_name": player_name,
 		"settings": settings,
 		"records": records,
@@ -102,9 +110,8 @@ func reset_current_game() -> void:
 	correct_guess_streak = 0
 	save_game()
 
-func set_language(lang: String) -> void:
-	var normalized: String = lang.to_lower()
-	language = "ru" if normalized.begins_with("ru") or normalized.begins_with("uk") else "en"
+func set_word_language(lang: String) -> void:
+	word_language = _normalize_language(lang)
 	save_game()
 
 func ensure_theme_progress(lang: String, theme_index: int, word_count: int) -> Dictionary:

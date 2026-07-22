@@ -2,7 +2,10 @@ extends Node
 
 var data: Dictionary = {}
 var hints: Array = []
+# `current_language` is kept as the word-database language because progress is
+# keyed by it throughout the original game logic.
 var current_language: String = "ru"
+var interface_language: String = "ru"
 
 const WORD_FILES := {
 	"ru": "res://data/words_ru.json",
@@ -106,17 +109,23 @@ const HINT_FILES := {
 }
 
 func _ready() -> void:
-	load_language(current_language)
+	load_languages(interface_language, current_language)
 
-func load_language(lang: String) -> void:
-	current_language = _normalize_language(lang)
-	TranslationServer.set_locale(current_language)
+func load_languages(interface_lang: String, word_lang: String) -> void:
+	interface_language = _normalize_language(interface_lang)
+	current_language = _normalize_language(word_lang)
+	TranslationServer.set_locale(interface_language)
+	_load_words()
+	_load_hints()
+
+func load_word_language(word_lang: String) -> void:
+	current_language = _normalize_language(word_lang)
 	_load_words()
 	_load_hints()
 
 func _normalize_language(lang: String) -> String:
 	var normalized := lang.to_lower()
-	if normalized.begins_with("ru") or normalized.begins_with("uk"):
+	if normalized.begins_with("ru"):
 		return "ru"
 	return "en"
 

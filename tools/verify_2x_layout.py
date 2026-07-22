@@ -284,8 +284,8 @@ def verify_hint_button_migration() -> None:
         "Settings switches do not use selected adaptive long buttons",
     )
     require(
-        'Callable(self, "_set_settings_language").bind(language_code), label_text, 18, false, 0.0, false, selected' in main,
-        "Language switches do not use selected adaptive long buttons",
+        'Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected' in main,
+        "Word-database switches do not use selected adaptive long buttons",
     )
 
     obsolete_assets = (
@@ -454,6 +454,130 @@ def verify_classic_game_close_button() -> None:
     )
 
 
+def verify_android_vibration_feedback() -> None:
+    session = read("scripts/core/game_session.gd")
+    main = read("scripts/main.gd")
+    export_preset = read("export_presets.cfg")
+
+    require("permissions/vibrate=true" in export_preset, "Android VIBRATE permission is disabled")
+    require(
+        "const WRONG_LETTER_VIBRATION_MS: int = 35" in session,
+        "Wrong-letter vibration is not using the short subtle pulse",
+    )
+    require(
+        "WRONG_LETTER_VIBRATION_AMPLITUDE" not in session,
+        "Wrong-letter vibration overrides the Xiaomi system haptic strength",
+    )
+    require(
+        "if int(GameState.settings[4]) == 2:" in session,
+        "Wrong-letter vibration no longer follows its settings toggle",
+    )
+    require(
+        "Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)" in session,
+        "Wrong letters do not trigger the subtle vibration pulse",
+    )
+    require(
+        "const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35" in main
+        and "Input.vibrate_handheld(SETTINGS_TOGGLE_ON_VIBRATION_MS)" in main,
+        "Enabling vibration in settings does not use the short subtle pulse",
+    )
+
+
+def verify_long_button_attention_bounce() -> None:
+    button = read("scripts/ui/stage_long_button.gd")
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+
+    require(
+        "var attention_bounce_enabled: bool = false" in button
+        and "_attention_bounce_tween.set_loops()" in button,
+        "StageLongButton does not expose a cyclic attention-bounce state",
+    )
+    require(
+        "func _set_press_scale(is_pressed: bool, animated: bool = true)" in button
+        and "if is_pressed:\n\t\t_stop_attention_bounce(false)" in button
+        and "_press_scale_tween.finished.connect(_start_attention_bounce, CONNECT_ONE_SHOT)" in button,
+        "StageLongButton does not pause its attention bounce for touch and resume it on release",
+    )
+    require(
+        'button.set("attention_bounce_enabled", attention_bounce)' in main,
+        "The long-button factory cannot activate the attention-bounce state",
+    )
+    require(
+        main.count("false, 0.32, false, false, true)") == 3
+        and portrait.count("false, 0.32, false, false, true)") == 6,
+        "Attention bounce is not enabled on every requested CTA in both layouts",
+    )
+
+
+def verify_settings_popup_and_language_split() -> None:
+    state = read("scripts/core/game_state.gd")
+    database = read("scripts/core/database.gd")
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+
+    require(
+        'var interface_language: String = "ru"' in state
+        and 'var word_language: String = "ru"' in state,
+        "Interface and word-database languages are not stored independently",
+    )
+    require(
+        'var locale: String = OS.get_locale().to_lower()' in state
+        and 'interface_language = "ru" if locale.begins_with("ru") else "en"' in state
+        and "word_language = interface_language" in state,
+        "Interface language does not follow the Russian-versus-other device locale rule",
+    )
+    require('begins_with("uk")' not in state + database, "Ukrainian locale still forces the Russian interface")
+    require(
+        'var legacy_language: String = str(parsed.get("language", interface_language))' in state
+        and 'parsed.get("word_language", legacy_language)' in state,
+        "Existing single-language saves are not migrated to the selected word database",
+    )
+    require(
+        '"word_language": word_language' in state and '"interface_language"' not in state,
+        "Device-derived interface language is incorrectly persisted",
+    )
+    require(
+        "Database.load_languages(GameState.interface_language, GameState.word_language)" in main,
+        "Startup does not configure UI and word languages independently",
+    )
+    require(
+        "TranslationServer.set_locale(interface_language)" in database,
+        "Translations do not use the device-derived interface language",
+    )
+    word_loader = database[database.index("func load_word_language") : database.index("func _normalize_language")]
+    require(
+        "TranslationServer" not in word_loader
+        and "_load_words()" in word_loader
+        and "_load_hints()" in word_loader,
+        "Changing the word database also changes interface translations",
+    )
+
+    toggle_handler = main[main.index("func _toggle_setting") : main.index("func _refresh_settings_toggle_button")]
+    word_handler = main[main.index("func _set_settings_word_language") : main.index("func _refresh_settings_word_language_buttons")]
+    require("show_settings()" not in toggle_handler + word_handler, "A settings change still reopens the popup")
+    require(
+        "_refresh_settings_toggle_button(index)" in toggle_handler
+        and "_refresh_settings_word_language_buttons()" in word_handler,
+        "Open settings controls are not refreshed in place",
+    )
+    require(
+        'button.set("button_text", _settings_on_label() if enabled else _settings_off_label())' in main
+        and 'button.set("selected", enabled)' in main,
+        "Toggle text and selected state are not updated on the existing button",
+    )
+    require(
+        main.count("_stage_settings_word_language_button(") == 3
+        and portrait.count("_stage_settings_word_language_button(") == 2,
+        "Not every word-database selector uses the non-reopening handler",
+    )
+    require("GameState.language" not in main + portrait + state, "Legacy shared language state is still used")
+    require(
+        portrait.count('GameState.interface_language == "ru"') == 3,
+        "Hard-coded portrait UI labels do not follow the device language",
+    )
+
+
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     verify_resolution()
@@ -468,7 +592,10 @@ def main() -> None:
     verify_lives_counter()
     verify_hint_letter_animations()
     verify_classic_game_close_button()
-    print("2x layout, Classic gameplay close action, animated hint markers, six-attempt lives HUD, larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_android_vibration_feedback()
+    verify_long_button_attention_bounce()
+    verify_settings_popup_and_language_split()
+    print("2x layout, stable settings popup, split UI/word languages, subtle Android vibration, Classic gameplay close action, animated hint markers, six-attempt lives HUD, larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

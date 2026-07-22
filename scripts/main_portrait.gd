@@ -198,8 +198,8 @@ func show_settings() -> void:
 	_stage_settings_toggle_button(Rect2(330.0, 256.0, 102.0, 49.0), 4)
 	_stage_panel(Rect2(56.0, 328.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_label(Rect2(56.0, 352.0, 190.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
-	_stage_settings_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
+	_stage_settings_word_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
+	_stage_settings_word_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
 	_stage_panel(Rect2(56.0, 430.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_main_button(Rect2(44.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
 	var remove_ads_button := _stage_main_button(Rect2(246.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
@@ -273,7 +273,7 @@ func show_theme_select() -> void:
 	_stage_main_icon_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _art_stage_size(difficulty_texture), 22)
 
 func _portrait_difficulty_button_label() -> String:
-	return "Сложность:" if Database.current_language == "ru" else "Difficulty:"
+	return "Сложность:" if GameState.interface_language == "ru" else "Difficulty:"
 
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
@@ -329,7 +329,7 @@ func _show_time_attack_popup() -> void:
 	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
 	var record_label := _stage_score_with_star(Rect2(74.0, 500.0, 332.0, 38.0), record_text, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	record_label.clip_text = false
-	_stage_main_button(Rect2(90.0, 586.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 22)
+	_stage_main_button(Rect2(90.0, 586.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 22, false, 0.32, false, false, true)
 	content = previous_content
 
 func _cycle_time_attack_difficulty() -> void:
@@ -389,7 +389,7 @@ func show_custom_word() -> void:
 	# Match the category screen footer: navigation on the left and the primary
 	# action centered inside the rigid bottom blue block.
 	_stage_round_icon_button(Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
-	_stage_main_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "start_custom_game"), _custom_word_start_label(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "start_custom_game"), _custom_word_start_label(), 22, false, 0.32, false, false, true)
 
 func _stage_custom_word_keyboard() -> void:
 	var alphabet: PackedStringArray = Database.get_alphabet()
@@ -413,7 +413,7 @@ func _stage_custom_word_keyboard() -> void:
 	_stage_main_button(Rect2(288.0, 442.0, 150.0, 50.0), Callable(self, "_remove_custom_word_character"), "⌫", 22)
 
 func _custom_word_space_label() -> String:
-	return "Пробел" if Database.current_language == "ru" else "Space"
+	return "Пробел" if GameState.interface_language == "ru" else "Space"
 
 func _append_custom_word_character(character: String) -> void:
 	if custom_word_edit == null or custom_word_text.length() >= 35:
@@ -800,7 +800,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	var show_left_button: bool = GameState.current_mode == 0
 	if show_left_button:
 		_stage_main_button(_portrait_footer_long_button_rect(Rect2(14.0, 708.0, 220.0, 57.0)), Callable(self, "_result_left_action"), _result_left_button_text(), 20)
-	_stage_main_button(_portrait_footer_long_button_rect(Rect2(248.0, 708.0, 220.0, 57.0)), Callable(self, "_result_right_action"), _result_right_button_text(), 20)
+	_stage_main_button(_portrait_footer_long_button_rect(Rect2(248.0, 708.0, 220.0, 57.0)), Callable(self, "_result_right_action"), _result_right_button_text(), 20, false, 0.32, false, false, true)
 
 func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	# The two-player result uses the same thumb-friendly composition as the final
@@ -828,7 +828,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22, false, 0.32, false, false, true)
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -872,7 +872,7 @@ func _show_time_attack_finished_result_content(data: Dictionary) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22, false, 0.32, false, false, true)
 
 func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
@@ -908,7 +908,7 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22, false, 0.32, false, false, true)
 
 func show_records() -> void:
 	show_profile()
@@ -1030,7 +1030,7 @@ func _profile_default_name() -> String:
 	return _profile_text("Игрок", "Player")
 
 func _profile_text(russian_text: String, english_text: String) -> String:
-	return russian_text if GameState.language == "ru" else english_text
+	return russian_text if GameState.interface_language == "ru" else english_text
 
 func _show_word_comment_popup() -> void:
 	var hint: String = GameSession.get_word_hint().strip_edges()

@@ -17,6 +17,7 @@ const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 9.0 / 24.0 + HERO_NESTED_FRAME_S
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 40.0 / 24.0
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
 const LETTER_MARKER_REVEAL_DURATION: float = 0.2
+const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
@@ -84,6 +85,8 @@ var hero_pose_frame_index: int = -1
 var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
 var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
 var settings_popup_return_content: Control = null
+var settings_toggle_buttons: Dictionary = {}
+var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
 var round_result_delay_requested: bool = false
@@ -91,7 +94,7 @@ var result_transition_generation: int = 0
 
 func _ready() -> void:
 	randomize()
-	Database.load_language(GameState.language)
+	Database.load_languages(GameState.interface_language, GameState.word_language)
 	_build_root()
 	GameSession.hint_letters_selected.connect(_on_hint_letters_selected)
 	GameSession.changed.connect(_refresh_game_screen)
@@ -270,9 +273,10 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 	node.set("stage_height", stage_height)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false) -> Control:
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
+	button.set("attention_bounce_enabled", attention_bounce)
 	if callable.is_valid():
 		button.pressed.connect(callable)
 	content.add_child(button)
@@ -518,8 +522,8 @@ func show_settings() -> void:
 	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 185.0, 102.0, 49.0), 4)
 
 	_stage_label(Rect2(popup_x + 444.0, 125.0, 160.0, 36.0), _settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
-	_stage_settings_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
+	_stage_settings_word_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
+	_stage_settings_word_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
 
 	_stage_main_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
 	var remove_ads_button := _stage_main_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
@@ -533,19 +537,30 @@ func show_settings() -> void:
 func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
 	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
-	_stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled)
+	var button := _stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled)
+	settings_toggle_buttons[setting_index] = button
 
-func _stage_settings_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
-	var selected: bool = GameState.language == language_code
-	_stage_main_button(rect, Callable(self, "_set_settings_language").bind(language_code), label_text, 18, false, 0.0, false, selected)
+func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
+	var selected: bool = GameState.word_language == language_code
+	var button := _stage_main_button(rect, Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected)
+	settings_word_language_buttons[language_code] = button
 
-func _set_settings_language(language_code: String) -> void:
-	GameState.set_language(language_code)
-	Database.load_language(GameState.language)
-	show_settings()
+func _set_settings_word_language(language_code: String) -> void:
+	GameState.set_word_language(language_code)
+	Database.load_word_language(GameState.word_language)
+	_refresh_settings_word_language_buttons()
+
+func _refresh_settings_word_language_buttons() -> void:
+	for language_code: String in settings_word_language_buttons:
+		var button := settings_word_language_buttons.get(language_code) as Control
+		if button == null or !is_instance_valid(button):
+			continue
+		button.set("selected", language_code == GameState.word_language)
 
 func _remove_settings_popup() -> void:
 	_remove_about_popup()
+	settings_toggle_buttons.clear()
+	settings_word_language_buttons.clear()
 	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
 	for node: Node in popup_nodes:
 		if is_instance_valid(node) and node.get_parent() != null:
@@ -657,9 +672,17 @@ func _settings_remove_ads_action() -> void:
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
 	if index == 4 and int(GameState.settings[index]) == 2:
-		Input.vibrate_handheld(400)
+		Input.vibrate_handheld(SETTINGS_TOGGLE_ON_VIBRATION_MS)
 	GameState.save_game()
-	show_settings()
+	_refresh_settings_toggle_button(index)
+
+func _refresh_settings_toggle_button(index: int) -> void:
+	var button := settings_toggle_buttons.get(index) as Control
+	if button == null or !is_instance_valid(button):
+		return
+	var enabled: bool = int(GameState.settings[index]) == 2
+	button.set("button_text", _settings_on_label() if enabled else _settings_off_label())
+	button.set("selected", enabled)
 
 func _difficulty_star_texture(value: int = -1) -> Texture2D:
 	var difficulty: int = int(GameState.settings[2]) if value < 0 else value
@@ -951,7 +974,7 @@ func _show_time_attack_popup() -> void:
 	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
 	var record_label := _stage_score_with_star(Rect2(popup_x + 54.0, 275.0, 240.0, 38.0), record_text, 21, Color.WHITE)
 	record_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 333.0, 276.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 20)
+	_stage_main_button(Rect2(popup_x + 333.0, 276.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 20, false, 0.32, false, false, true)
 
 	content = previous_content
 
@@ -1029,7 +1052,7 @@ func show_custom_word() -> void:
 	elif custom_word_check_state == 3:
 		check_color = Color(0.96, 0.67, 0.77)
 	custom_word_check_label = _stage_label(Rect2(497.0, 267.0, 240.0, 34.0), custom_word_check_text, 16, check_color)
-	_stage_main_button(Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), _custom_word_start_label(), 20)
+	_stage_main_button(Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), _custom_word_start_label(), 20, false, 0.32, false, false, true)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
@@ -1745,7 +1768,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			if left_label != null:
 				left_label.add_theme_color_override("font_color", Color.WHITE)
 
-	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18)
+	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true)
 
 	# Keep the HUD between ordinary Time Attack rounds, but remove it after the
 	# entire session has been ended manually or by the timer reaching zero.

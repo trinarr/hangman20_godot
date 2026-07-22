@@ -8,6 +8,21 @@ const PRESSED_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_bu
 const PRESSED_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_23_center.png")
 const PRESSED_RIGHT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_23_right.png")
 
+const ATTENTION_BOUNCE_SCALE: Vector2 = Vector2(1.07, 1.07)
+const ATTENTION_BOUNCE_GROW_DURATION: float = 0.8
+const ATTENTION_BOUNCE_SETTLE_DURATION: float = 0.85
+const ATTENTION_BOUNCE_PAUSE_DURATION: float = 0.2
+
+var attention_bounce_enabled: bool = false:
+	set(value):
+		if attention_bounce_enabled == value:
+			return
+		attention_bounce_enabled = value
+		if attention_bounce_enabled:
+			_start_attention_bounce()
+		else:
+			_stop_attention_bounce(true)
+
 var button_text: String = "":
 	set(value):
 		button_text = value
@@ -67,6 +82,7 @@ var icon_gap_stage: float = 8.0:
 var _label: Label = null
 var _icon_rect: TextureRect = null
 var _use_normal_parts_when_disabled: bool = false
+var _attention_bounce_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
@@ -78,6 +94,58 @@ func _ready() -> void:
 	_sync_label()
 	_sync_icon()
 	_sync_content_layout()
+	_start_attention_bounce()
+
+func _exit_tree() -> void:
+	_stop_attention_bounce(false)
+	super._exit_tree()
+
+func _set_press_scale(is_pressed: bool, animated: bool = true) -> void:
+	# The attention loop and the press response animate the same visual scale.
+	# Give the pressed state exclusive control while the finger is down, then
+	# resume the loop only after the release scale has returned to rest.
+	if is_pressed:
+		_stop_attention_bounce(false)
+	super._set_press_scale(is_pressed, animated)
+	if is_pressed or !attention_bounce_enabled or disabled:
+		return
+	if animated and _press_scale_tween != null and _press_scale_tween.is_valid():
+		_press_scale_tween.finished.connect(_start_attention_bounce, CONNECT_ONE_SHOT)
+	else:
+		_start_attention_bounce()
+
+func _start_attention_bounce() -> void:
+	if !attention_bounce_enabled or disabled or _is_down or !is_inside_tree():
+		return
+	_stop_attention_bounce(false)
+	visual_scale = Vector2.ONE
+	_attention_bounce_tween = create_tween()
+	_attention_bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_attention_bounce_tween.set_loops()
+	var grow_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
+		self,
+		"visual_scale",
+		ATTENTION_BOUNCE_SCALE,
+		ATTENTION_BOUNCE_GROW_DURATION
+	)
+	grow_tweener.set_trans(Tween.TRANS_QUAD)
+	grow_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
+		self,
+		"visual_scale",
+		Vector2.ONE,
+		ATTENTION_BOUNCE_SETTLE_DURATION
+	)
+	settle_tweener.set_trans(Tween.TRANS_BACK)
+	settle_tweener.set_ease(Tween.EASE_OUT)
+	_attention_bounce_tween.tween_interval(ATTENTION_BOUNCE_PAUSE_DURATION)
+
+func _stop_attention_bounce(reset_scale: bool) -> void:
+	if _attention_bounce_tween != null and _attention_bounce_tween.is_valid():
+		_attention_bounce_tween.kill()
+	_attention_bounce_tween = null
+	if reset_scale:
+		visual_scale = Vector2.ONE
 
 func _draw() -> void:
 	var use_pressed_parts: bool = selected or _is_down
