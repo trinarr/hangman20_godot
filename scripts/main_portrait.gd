@@ -11,6 +11,7 @@ const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
 const PORTRAIT_ACTION_BUTTON_RECT := Rect2(324.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(404.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
+const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # Dense screens may grow moderately on tall phones, but gameplay is split into
 # independent upper and lower groups so the keyboard can stay width-safe while
@@ -30,7 +31,8 @@ const PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT := Rect2(419.0, 25.0, 49.0, 49.0
 const PORTRAIT_RESULT_WORD_BUTTON_GAP: float = 12.0
 const PORTRAIT_RESULT_WORD_MAX_FONT_SIZE: int = 29
 const PORTRAIT_RESULT_WORD_MIN_FONT_SIZE: int = 10
-const PORTRAIT_HERO_SCALE_MULTIPLIER: float = 0.86
+const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
+const PORTRAIT_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.15
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const PORTRAIT_RESULT_THEME_MENU_ICON: Texture2D = preload("res://flash_assets/result_theme_menu_icon.png")
 
@@ -45,6 +47,8 @@ const PORTRAIT_GAME_BACK_BUTTON_RECT := Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON
 const PORTRAIT_GAME_COMMENT_BUTTON_RECT := Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(135.0, 604.0, 90.0, 46.0)
 const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(255.0, 604.0, 90.0, 46.0)
+const PORTRAIT_LIVES_ICON_RECT := Rect2(344.0, 57.7, 29.4, 26.6)
+const PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)
 
 var _portrait_time_attack_difficulty_button: Control = null
 var _portrait_custom_word_label: Label = null
@@ -72,6 +76,13 @@ func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: fl
 
 func _portrait_end_adaptive_group(previous_content: Control) -> void:
 	content = previous_content
+
+func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:
+	var shortened_width: float = rect.size.x * PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE
+	return Rect2(
+		Vector2(rect.position.x + (rect.size.x - shortened_width) * 0.5, rect.position.y),
+		Vector2(shortened_width, rect.size.y)
+	)
 
 func _portrait_begin_bottom_attached_group() -> Control:
 	var previous_content: Control = content
@@ -259,7 +270,7 @@ func show_theme_select() -> void:
 	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
 	_stage_round_icon_button(Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_main_icon_button(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _art_stage_size(difficulty_texture), 22)
+	_stage_main_icon_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _art_stage_size(difficulty_texture), 22)
 
 func _portrait_difficulty_button_label() -> String:
 	return "Сложность:" if Database.current_language == "ru" else "Difficulty:"
@@ -378,7 +389,7 @@ func show_custom_word() -> void:
 	# Match the category screen footer: navigation on the left and the primary
 	# action centered inside the rigid bottom blue block.
 	_stage_round_icon_button(Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
-	_stage_main_button(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "start_custom_game"), _custom_word_start_label(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "start_custom_game"), _custom_word_start_label(), 22)
 
 func _stage_custom_word_keyboard() -> void:
 	var alphabet: PackedStringArray = Database.get_alphabet()
@@ -504,6 +515,7 @@ func _refresh_game_screen() -> void:
 			Rect2(46.0, hud_y, 190.0, 40.0),
 			Rect2(310.0, hud_y, 140.0, 40.0)
 		)
+	_stage_portrait_lives_counter(upper_block_shift)
 
 	if stage_upper_hints:
 		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
@@ -562,7 +574,7 @@ func _refresh_game_screen() -> void:
 		elif was_wrong or was_removed:
 			state = StageLetterButton.LetterState.CROSSED
 		var key_rect := Rect2(x, y, key_size.x, key_size.y)
-		var animate_state: bool = letter == pending_letter_marker and (
+		var animate_state: bool = pending_letter_markers.has(letter) and (
 			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
 			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
 		)
@@ -579,8 +591,13 @@ func _refresh_game_screen() -> void:
 	_portrait_end_adaptive_group(keyboard_root_content)
 
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-	_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
-	var comment_button := _stage_main_button(PORTRAIT_GAME_COMMENT_BUTTON_RECT, Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 22, comment_disabled, 0.0)
+	if GameState.current_mode == 0:
+		# Classic exits directly to the main menu. Use the same round close icon as
+		# the result screens so this action cannot be mistaken for theme navigation.
+		_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
+	else:
+		_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
+	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 22, comment_disabled, 0.0)
 	if GameState.current_mode == 0:
 		_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
 	if comment_disabled:
@@ -588,7 +605,7 @@ func _refresh_game_screen() -> void:
 		var comment_label := comment_button.get_node_or_null("Text") as Label
 		if comment_label != null:
 			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
-	pending_letter_marker = ""
+	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 
 func _game_footer_back_action() -> void:
@@ -660,6 +677,24 @@ func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2
 	# Keeping the icon inside the component also makes it follow the press bounce.
 	_stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled)
 	_stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled)
+
+func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
+	var icon_rect: Rect2 = PORTRAIT_LIVES_ICON_RECT
+	icon_rect.position.y += upper_block_shift
+	_stage_texture(icon_rect, LIFE_HEART_ICON_TEXTURE)
+
+	var label_rect: Rect2 = PORTRAIT_LIVES_LABEL_RECT
+	label_rect.position.y += upper_block_shift
+	var lives_label := _stage_label(
+		label_rect,
+		"х" + str(GameSession.get_remaining_attempts()),
+		26,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
+	lives_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lives_label.add_theme_color_override("font_outline_color", Color.WHITE)
+	lives_label.add_theme_constant_override("outline_size", 2)
 
 func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> void:
 	var timer_icon_size := Vector2(31.0, 31.0)
@@ -764,8 +799,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 	var show_left_button: bool = GameState.current_mode == 0
 	if show_left_button:
-		_stage_main_button(Rect2(14.0, 708.0, 220.0, 57.0), Callable(self, "_result_left_action"), _result_left_button_text(), 20)
-	_stage_main_button(Rect2(248.0, 708.0, 220.0, 57.0), Callable(self, "_result_right_action"), _result_right_button_text(), 20)
+		_stage_main_button(_portrait_footer_long_button_rect(Rect2(14.0, 708.0, 220.0, 57.0)), Callable(self, "_result_left_action"), _result_left_button_text(), 20)
+	_stage_main_button(_portrait_footer_long_button_rect(Rect2(248.0, 708.0, 220.0, 57.0)), Callable(self, "_result_right_action"), _result_right_button_text(), 20)
 
 func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	# The two-player result uses the same thumb-friendly composition as the final
@@ -793,7 +828,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22)
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -837,7 +872,7 @@ func _show_time_attack_finished_result_content(data: Dictionary) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22)
 
 func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
@@ -873,7 +908,7 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
 	_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
-	_stage_main_button(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT, Callable(self, "_result_right_action"), _result_right_button_text(), 22)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22)
 
 func show_records() -> void:
 	show_profile()

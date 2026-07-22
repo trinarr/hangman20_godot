@@ -3,6 +3,7 @@ extends Node
 signal changed
 signal round_won
 signal round_lost
+signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
 
 const WRONG_LETTER_VIBRATION_MS: int = 35
 const MAX_MISTAKES: int = 6
@@ -21,6 +22,9 @@ var mode: int = 0 # 0 classic, 1 time attack, 2 two-player
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var word_hint_text: String = ""
+
+func get_remaining_attempts() -> int:
+	return maxi(MAX_MISTAKES - mistakes, 0)
 
 func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: int = 0) -> void:
 	word_data = word
@@ -154,7 +158,9 @@ func use_open_letter_hint() -> bool:
 		return false
 	open_hint_used = true
 	var index: int = candidates[randi() % candidates.size()]
-	_reveal_letter(letters[index])
+	var selected_letter: String = letters[index]
+	_reveal_letter(selected_letter)
+	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
 	if mode == 1:
 		_add_time_attack_points(-25)
 	if is_word_completed():
@@ -181,10 +187,14 @@ func use_remove_wrong_hint() -> bool:
 	# The newer FLA removes three Russian or two English keyboard letters.
 	# They are selected without replacement and never count as mistakes.
 	var remove_count: int = 2 if Database.get_alphabet().size() == 26 else 3
+	var selected_letters := PackedStringArray()
 	for _index in range(mini(remove_count, candidates.size())):
 		var candidate_index: int = randi() % candidates.size()
-		removed_wrong_letters.append(str(candidates[candidate_index]))
+		var selected_letter: String = str(candidates[candidate_index])
+		removed_wrong_letters.append(selected_letter)
+		selected_letters.append(selected_letter)
 		candidates.remove_at(candidate_index)
+	emit_signal("hint_letters_selected", selected_letters, false)
 	if mode == 1:
 		_add_time_attack_points(-20)
 	GameState.save_game()

@@ -54,6 +54,7 @@ const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_use
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
 const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
 const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
+const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
 const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
@@ -83,7 +84,7 @@ var hero_pose_frame_index: int = -1
 var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
 var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
 var settings_popup_return_content: Control = null
-var pending_letter_marker: String = ""
+var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
 var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
@@ -92,6 +93,7 @@ func _ready() -> void:
 	randomize()
 	Database.load_language(GameState.language)
 	_build_root()
+	GameSession.hint_letters_selected.connect(_on_hint_letters_selected)
 	GameSession.changed.connect(_refresh_game_screen)
 	GameSession.round_won.connect(_on_round_won)
 	GameSession.round_lost.connect(_on_round_lost)
@@ -120,7 +122,7 @@ func _build_root() -> void:
 func _clear(symbol_path: String = "") -> void:
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
-	pending_letter_marker = ""
+	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 	round_result_delay_requested = false
 	_clear_hero_animation_overlay()
@@ -1344,7 +1346,7 @@ func _refresh_game_screen() -> void:
 			state = StageLetterButton.LetterState.CROSSED
 
 		var key_rect := Rect2(x, y, KEY_BUTTON_SIZE.x, KEY_BUTTON_SIZE.y)
-		var animate_state: bool = letter == pending_letter_marker and (
+		var animate_state: bool = pending_letter_markers.has(letter) and (
 			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
 			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
 		)
@@ -1378,7 +1380,7 @@ func _refresh_game_screen() -> void:
 	if GameState.current_mode == 1:
 		_stage_time_attack_hud()
 
-	pending_letter_marker = ""
+	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 
 func _game_header_icon() -> String:
@@ -1590,7 +1592,8 @@ func _press_letter(letter: String) -> void:
 		# Set the resting phase before guess() emits changed, so the rebuilt static
 		# symbol is already waiting on frame 9 underneath the transition overlay.
 		hero_nested_pose_time = HERO_MOV_RECOVERY_END_FRAME_TIME
-	pending_letter_marker = letter
+	pending_letter_markers.clear()
+	pending_letter_markers.append(letter)
 	pending_letter_marker_is_correct = is_correct_letter
 	round_result_delay_requested = true
 	var guess_was_correct: bool = GameSession.guess(letter)
@@ -1605,10 +1608,20 @@ func _press_letter(letter: String) -> void:
 		_play_hero_correct_guess_animation()
 
 func _use_open_hint() -> void:
+	# If the hint reveals the final letter, keep the gameplay screen visible long
+	# enough for the standard circle-and-bounce feedback to finish.
+	round_result_delay_requested = true
 	GameSession.use_open_letter_hint()
+	round_result_delay_requested = false
 
 func _use_remove_hint() -> void:
 	GameSession.use_remove_wrong_hint()
+
+func _on_hint_letters_selected(letters: PackedStringArray, is_correct: bool) -> void:
+	# GameSession emits this before `changed`, so the rebuilt keyboard can use the
+	# same marker reveal and bounce path as a regular letter press.
+	pending_letter_markers = letters.duplicate()
+	pending_letter_marker_is_correct = is_correct
 
 func _on_round_won() -> void:
 	_finish_round(true)
@@ -1625,7 +1638,7 @@ func _finish_round(is_win: bool) -> void:
 		# bonus/penalty, then immediately replace it with a fresh round without
 		# stopping the timer or opening the intermediate result screen.
 		GameSession.finish_result(is_win)
-		pending_letter_marker = ""
+		pending_letter_markers.clear()
 		pending_letter_marker_is_correct = false
 		round_result_delay_requested = false
 		_clear_hero_animation_overlay()

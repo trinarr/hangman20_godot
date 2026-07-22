@@ -298,6 +298,162 @@ def verify_hint_button_migration() -> None:
         require(not (ROOT / "flash_assets" / filename).exists(), f"Obsolete whole-button texture remains: {filename}")
 
 
+def verify_footer_buttons_and_hero_scale() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    require(
+        "const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85" in portrait,
+        "Portrait footer buttons are not shortened by 15%",
+    )
+    require(
+        "func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:" in portrait,
+        "Centered footer-button shortening helper is missing",
+    )
+    require(
+        "rect.position.x + (rect.size.x - shortened_width) * 0.5" in portrait,
+        "Shortened footer buttons do not preserve their center",
+    )
+    require(
+        portrait.count("_portrait_footer_long_button_rect(") == 9,
+        "Not every portrait footer long button uses the 15% width reduction",
+    )
+
+    for original_width in (220.0, 300.0):
+        shortened_width = original_width * 0.85
+        original_center = original_width * 0.5
+        shortened_x = (original_width - shortened_width) * 0.5
+        shortened_center = shortened_x + shortened_width * 0.5
+        require(math.isclose(original_center, shortened_center), "Footer button center changed")
+    require(math.isclose(300.0 * 0.85, 255.0), "300-pixel footer button is not shortened to 255")
+    require(math.isclose(220.0 * 0.85, 187.0), "220-pixel footer button is not shortened to 187")
+
+    require(
+        "const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86" in portrait
+        and "const PORTRAIT_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.15" in portrait,
+        "Portrait gameplay/result hero is not enlarged by exactly 15%",
+    )
+    require(
+        portrait.count("stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER") == 6,
+        "The 15% hero scale is not applied to every static and animated gameplay/result state",
+    )
+    require(math.isclose(0.86 * 1.15, 0.989), "Portrait hero scale calculation changed")
+
+
+def verify_lives_counter() -> None:
+    heart_path = ROOT / "flash_assets" / "life_heart_icon.png"
+    require(heart_path.is_file(), "Life-counter heart icon is missing")
+    with Image.open(heart_path) as image:
+        rgba = image.convert("RGBA")
+        require(rgba.size == (84, 76), "Life-counter heart is not stored at its native 2x HUD size")
+        corners = (
+            rgba.getpixel((0, 0))[3],
+            rgba.getpixel((rgba.width - 1, 0))[3],
+            rgba.getpixel((0, rgba.height - 1))[3],
+            rgba.getpixel((rgba.width - 1, rgba.height - 1))[3],
+        )
+        require(corners == (0, 0, 0, 0), "Life-counter heart does not have transparent corners")
+        raw_pixels = rgba.tobytes()
+        pixels = zip(raw_pixels[0::4], raw_pixels[1::4], raw_pixels[2::4], raw_pixels[3::4])
+        red_pixels = sum(1 for red, green, blue, alpha in pixels if alpha > 200 and red > 180 and green < 140 and blue < 140)
+        pixels = zip(raw_pixels[0::4], raw_pixels[1::4], raw_pixels[2::4], raw_pixels[3::4])
+        blue_pixels = sum(1 for red, green, blue, alpha in pixels if alpha > 200 and blue > 80 and blue > red * 1.2)
+        require(red_pixels > 1000 and blue_pixels > 300, "Life-counter heart lost its red fill or blue outline")
+
+    session = read("scripts/core/game_session.gd")
+    require("const MAX_MISTAKES: int = 6" in session, "Life counter is not based on six attempts")
+    require("func get_remaining_attempts() -> int:" in session, "Remaining-attempts API is missing")
+    require("return maxi(MAX_MISTAKES - mistakes, 0)" in session, "Remaining attempts are not clamped to zero")
+
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    require(
+        'preload("res://flash_assets/life_heart_icon.png")' in main,
+        "Life-counter heart is not preloaded",
+    )
+    require("func _stage_portrait_lives_counter(upper_block_shift: float) -> void:" in portrait, "Lives HUD builder is missing")
+    require('"х" + str(GameSession.get_remaining_attempts())' in portrait, "Lives HUD does not render хN")
+    require("PORTRAIT_LIVES_ICON_RECT := Rect2(344.0, 57.7, 29.4, 26.6)" in portrait, "Lives heart placement changed")
+    require("PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)" in portrait, "Lives label placement changed")
+    require(math.isclose(29.4, 42.0 * 0.70) and math.isclose(26.6, 38.0 * 0.70), "Lives heart is not 30% smaller")
+    require(math.isclose(57.7 + 26.6 * 0.5, 50.0 + 42.0 * 0.5), "Lives heart and label are not vertically aligned")
+    require(57.7 + 26.6 < 124.0 and 50.0 + 42.0 < 124.0, "Lives counter is not above the hint buttons")
+    require(50.0 < 68.0, "Lives counter was not moved upward")
+
+    refresh = portrait[portrait.index("func _refresh_game_screen()") : portrait.index("func _stage_portrait_game_word_display")]
+    require(refresh.count("_stage_portrait_lives_counter(upper_block_shift)") == 1, "Lives counter is not staged exactly once")
+    require(
+        refresh.index("_stage_portrait_lives_counter(upper_block_shift)") < refresh.index("if stage_upper_hints:"),
+        "Lives counter incorrectly disappears in Two Player mode",
+    )
+
+
+def verify_hint_letter_animations() -> None:
+    session = read("scripts/core/game_session.gd")
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+
+    require(
+        "signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)" in session,
+        "Hint-selected letters are not exposed before the keyboard refresh",
+    )
+    open_hint = session[session.index("func use_open_letter_hint()") : session.index("func use_remove_wrong_hint()")]
+    remove_hint = session[session.index("func use_remove_wrong_hint()") : session.index("func get_masked_word()")]
+    for source, name in ((open_hint, "open-letter"), (remove_hint, "remove-wrong")):
+        require(
+            source.index('emit_signal("hint_letters_selected"') < source.index('emit_signal("changed")'),
+            f"The {name} hint refreshes the keyboard before registering its marker animation",
+        )
+
+    require("var selected_letters := PackedStringArray()" in remove_hint, "Removed hint letters are not collected")
+    require(
+        'emit_signal("hint_letters_selected", selected_letters, false)' in remove_hint,
+        "The remove-wrong hint does not animate every selected letter",
+    )
+    require(
+        "GameSession.hint_letters_selected.connect(_on_hint_letters_selected)" in main,
+        "Hint marker events are not connected to the game screen",
+    )
+    require("var pending_letter_markers := PackedStringArray()" in main, "Multiple pending hint markers are unsupported")
+    require(
+        main.count("pending_letter_markers.has(letter)") == 1
+        and portrait.count("pending_letter_markers.has(letter)") == 1,
+        "Hint markers do not use the normal letter-button animation in both layouts",
+    )
+    require(
+        "pending_letter_markers = letters.duplicate()" in main,
+        "Selected hint letters are not forwarded to the normal marker animation",
+    )
+    open_handler = main[main.index("func _use_open_hint()") : main.index("func _use_remove_hint()")]
+    require(
+        "round_result_delay_requested = true" in open_handler
+        and "round_result_delay_requested = false" in open_handler,
+        "A final-letter hint can replace the game screen before its animation finishes",
+    )
+    require(
+        re.search(r"pending_letter_marker(?!s|_is_correct)", main + portrait) is None,
+        "A stale single-letter marker path remains",
+    )
+
+
+def verify_classic_game_close_button() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    footer = portrait[
+        portrait.index("var comment_disabled: bool = GameSession.get_word_hint().strip_edges()") :
+        portrait.index("pending_letter_markers.clear()", portrait.index("var comment_disabled: bool = GameSession.get_word_hint().strip_edges()"))
+    ]
+    require(
+        'if GameState.current_mode == 0:' in footer,
+        "The gameplay footer does not select its left action by mode",
+    )
+    require(
+        '_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))' in footer,
+        "Classic gameplay does not show a round close button leading to the main menu",
+    )
+    require(
+        '_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))' in footer,
+        "Non-Classic gameplay lost its existing back action",
+    )
+
+
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     verify_resolution()
@@ -308,7 +464,11 @@ def main() -> None:
     verify_round_icon_display_sizes()
     verify_stretchable_long_buttons()
     verify_hint_button_migration()
-    print("2x layout, adaptive hint buttons, pruned UI assets and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_footer_buttons_and_hero_scale()
+    verify_lives_counter()
+    verify_hint_letter_animations()
+    verify_classic_game_close_button()
+    print("2x layout, Classic gameplay close action, animated hint markers, six-attempt lives HUD, larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

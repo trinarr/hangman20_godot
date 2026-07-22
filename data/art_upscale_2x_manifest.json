@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 138,
+  "file_count": 139,
   "files": [
     {
       "path": "icon.png",
@@ -156,6 +156,21 @@
       "source_mode": "RGBA",
       "source_sha256": "f42783bb5adc1b30b1afdfece82c719a066008230f4e18660f1d37e3742fc754",
       "target_sha256": "1057439f2e0925f2a6a274d5e1fd30fa6fbb3574fb5580a2881cd352a79b387a"
+    },
+    {
+      "path": "flash_assets/life_heart_icon.png",
+      "source_size": [
+        84,
+        76
+      ],
+      "target_size": [
+        84,
+        76
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "60e07c50969e4cc6fc4ac246857c5174fd39f0919e907059f28f453695a847d6",
+      "target_sha256": "60e07c50969e4cc6fc4ac246857c5174fd39f0919e907059f28f453695a847d6",
+      "native_target_scale": true
     },
     {
       "path": "flash_assets/main_menu_hollow_star_icon.png",
