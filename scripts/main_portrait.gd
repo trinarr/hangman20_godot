@@ -128,6 +128,7 @@ func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: f
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
 func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = PORTRAIT_POPUP_DIM_ALPHA) -> Control:
+	_play_popup_open_sound()
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = name + "Canvas"
@@ -718,6 +719,7 @@ func _portrait_result_title_color(is_win: bool, time_attack_finished: bool = fal
 
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	game_timer.stop()
+	_play_result_sound_once(is_win, data)
 	_portrait_game_adaptive_group = null
 	_clear("")
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)

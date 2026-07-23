@@ -24,6 +24,7 @@ const CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = 35
 const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := Color(0.23, 0.26, 0.52, 1.0)
 const CUSTOM_WORD_CHECKING_BUTTON_ALPHA: float = 0.55
+const SOUND_SETTING_INDEX: int = 3
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
@@ -63,6 +64,13 @@ const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint
 const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
+const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
+const WRONG_LETTER_SOUND: AudioStream = preload("res://audio/No_New.wav")
+const LUCKY_DEFEAT_SOUND: AudioStream = preload("res://audio/LuckyDefeat.wav")
+const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
+const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
+const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
+const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
 const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
 const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
@@ -72,6 +80,9 @@ var art_root: FlashBackdrop
 var ui: Control
 var content: Control
 var game_timer: Timer
+var letter_feedback_audio_player: AudioStreamPlayer
+var result_audio_player: AudioStreamPlayer
+var ui_audio_player: AudioStreamPlayer
 var game_finished: bool = false
 var last_result_is_win: bool = false
 var last_result_data: Dictionary = {}
@@ -98,6 +109,7 @@ var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
 var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
+var last_result_sound_key: String = ""
 
 func _ready() -> void:
 	randomize()
@@ -121,6 +133,18 @@ func _build_root() -> void:
 	ui.mouse_filter = Control.MOUSE_FILTER_PASS
 	ui.z_index = 100
 	add_child(ui)
+
+	letter_feedback_audio_player = AudioStreamPlayer.new()
+	letter_feedback_audio_player.name = "LetterFeedbackAudio"
+	add_child(letter_feedback_audio_player)
+
+	result_audio_player = AudioStreamPlayer.new()
+	result_audio_player.name = "ResultAudio"
+	add_child(result_audio_player)
+
+	ui_audio_player = AudioStreamPlayer.new()
+	ui_audio_player.name = "UIAudio"
+	add_child(ui_audio_player)
 
 	game_timer = Timer.new()
 	game_timer.name = "TimeAttackTimer"
@@ -190,11 +214,19 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
 	_apply_transparent_button_style(button, text != "", font_size)
-	if callable.is_valid():
-		button.pressed.connect(callable)
+	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.set("stage_rect", rect)
 	return button
+
+func _connect_stage_button_action(button: BaseButton, callable: Callable, with_click_sound: bool = true) -> void:
+	if !callable.is_valid():
+		return
+	if with_click_sound:
+		# Connect feedback before the action. Popup actions then replace this
+		# short click with their dedicated open sound on the shared UI player.
+		button.pressed.connect(_play_ui_click_sound)
+	button.pressed.connect(callable)
 
 func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.58) -> void:
 	# The fullscreen popup root must not swallow clicks before they reach the
@@ -288,8 +320,7 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.set("attention_bounce_enabled", attention_bounce)
-	if callable.is_valid():
-		button.pressed.connect(callable)
+	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
@@ -297,8 +328,7 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
-	if callable.is_valid():
-		button.pressed.connect(callable)
+	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
@@ -306,8 +336,7 @@ func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
-	if callable.is_valid():
-		button.pressed.connect(callable)
+	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
@@ -315,8 +344,7 @@ func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = ""
 func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
-	if callable.is_valid():
-		button.pressed.connect(callable)
+	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
@@ -324,8 +352,9 @@ func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, 
 func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
 	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
-	if callable.is_valid():
-		button.pressed.connect(callable)
+	# Letter keys already have correct/wrong feedback and must not layer a click
+	# over those gameplay sounds.
+	_connect_stage_button_action(button, callable, false)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
@@ -425,6 +454,7 @@ func _selected_character_id() -> int:
 
 func _show_character_select_popup() -> void:
 	_remove_character_select_popup()
+	_play_popup_open_sound()
 
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
@@ -492,6 +522,7 @@ func show_settings() -> void:
 		previous_content = settings_popup_return_content
 	_remove_settings_popup()
 	settings_popup_return_content = previous_content
+	_play_popup_open_sound()
 
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = "SettingsPopupCanvas"
@@ -604,6 +635,7 @@ func _settings_about_action() -> void:
 
 func _show_about_popup() -> void:
 	_remove_about_popup()
+	_play_popup_open_sound()
 	var previous_content: Control = content
 
 	var popup_layer := CanvasLayer.new()
@@ -684,8 +716,59 @@ func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
 	if index == 4 and int(GameState.settings[index]) == 2:
 		Input.vibrate_handheld(SETTINGS_TOGGLE_ON_VIBRATION_MS)
+	if index == SOUND_SETTING_INDEX:
+		_stop_game_audio_if_disabled()
 	GameState.save_game()
 	_refresh_settings_toggle_button(index)
+
+func _sound_enabled() -> bool:
+	return (
+		GameState.settings.size() > SOUND_SETTING_INDEX
+		and int(GameState.settings[SOUND_SETTING_INDEX]) == 2
+	)
+
+func _play_game_sound(player: AudioStreamPlayer, stream: AudioStream) -> void:
+	if !_sound_enabled() or player == null or stream == null:
+		return
+	player.stream = stream
+	player.play()
+
+func _play_letter_feedback_sound(is_correct: bool) -> void:
+	_play_game_sound(
+		letter_feedback_audio_player,
+		CORRECT_LETTER_SOUND if is_correct else WRONG_LETTER_SOUND
+	)
+
+func _play_ui_click_sound() -> void:
+	_play_game_sound(ui_audio_player, UI_CLICK_SOUND)
+
+func _play_popup_open_sound() -> void:
+	_play_game_sound(ui_audio_player, POPUP_OPEN_SOUND)
+
+func _play_result_sound_once(is_win: bool, data: Dictionary = {}) -> void:
+	var sound_key := "%d:%d:%d:%d" % [
+		_current_hero_round_token(),
+		GameState.current_mode,
+		int(is_win),
+		int(bool(data.get("time_attack_finished", false))),
+	]
+	if sound_key == last_result_sound_key:
+		return
+	last_result_sound_key = sound_key
+	var stream: AudioStream = RESULT_WIN_SOUND
+	if !is_win:
+		stream = EL_TIGRE_DEFEAT_SOUND if _selected_character_id() == 2 else LUCKY_DEFEAT_SOUND
+	_play_game_sound(result_audio_player, stream)
+
+func _stop_game_audio_if_disabled() -> void:
+	if _sound_enabled():
+		return
+	if letter_feedback_audio_player != null:
+		letter_feedback_audio_player.stop()
+	if result_audio_player != null:
+		result_audio_player.stop()
+	if ui_audio_player != null:
+		ui_audio_player.stop()
 
 func _refresh_settings_toggle_button(index: int) -> void:
 	var button := settings_toggle_buttons.get(index) as Control
@@ -776,6 +859,7 @@ func show_theme_select() -> void:
 
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
+	_play_popup_open_sound()
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = "ClearThemePopupCanvas"
@@ -820,6 +904,7 @@ func _remove_clear_theme_popup() -> void:
 
 func _show_difficulty_popup() -> void:
 	_remove_difficulty_popup()
+	_play_popup_open_sound()
 	var previous_content: Control = content
 
 	# A dedicated CanvasLayer keeps every popup element above the category
@@ -935,6 +1020,7 @@ func start_classic_game(theme_index: int) -> void:
 
 func _show_time_attack_popup() -> void:
 	_remove_time_attack_popup()
+	_play_popup_open_sound()
 	var previous_content: Control = content
 
 	var popup_layer := CanvasLayer.new()
@@ -1279,6 +1365,7 @@ func _reset_custom_word_check_feedback() -> void:
 
 func _show_custom_comment_popup() -> void:
 	_remove_custom_comment_popup()
+	_play_popup_open_sound()
 	if custom_word_edit != null:
 		custom_word_text = custom_word_edit.text
 
@@ -1695,6 +1782,8 @@ func _press_letter(letter: String) -> void:
 	round_result_delay_requested = true
 	var guess_was_correct: bool = GameSession.guess(letter)
 	round_result_delay_requested = false
+	if guess_is_available:
+		_play_letter_feedback_sound(guess_was_correct)
 	# Time Attack can synchronously start its next word from the round signal.
 	# Never let the previous word's animation appear over that fresh round.
 	if round_token_before_guess != _current_hero_round_token():
@@ -1719,6 +1808,10 @@ func _on_hint_letters_selected(letters: PackedStringArray, is_correct: bool) -> 
 	# same marker reveal and bounce path as a regular letter press.
 	pending_letter_markers = letters.duplicate()
 	pending_letter_marker_is_correct = is_correct
+	if !letters.is_empty():
+		# A remove-letter hint can cross out several keys, but it is one action
+		# and therefore produces exactly one feedback sound.
+		_play_letter_feedback_sound(is_correct)
 
 func _on_round_won() -> void:
 	_finish_round(true)
@@ -1758,6 +1851,7 @@ func _finish_round(is_win: bool) -> void:
 
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	game_timer.stop()
+	_play_result_sound_once(is_win, data)
 	# The original result screen is not a centered modal. ReztMovBlock keeps the
 	# game stage visible, replaces the header word with the full answer, shows
 	# the hero's current pose on the left and slides only the bottom action bar in.
@@ -1953,6 +2047,7 @@ func _restart_last_mode() -> void:
 
 func show_records() -> void:
 	_remove_records_popup()
+	_play_popup_open_sound()
 
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
@@ -2053,6 +2148,7 @@ func _show_word_comment_popup() -> void:
 		return
 
 	_remove_word_comment_popup()
+	_play_popup_open_sound()
 
 	# PoiasnOk.as adds the comment dialog above the whole game screen together
 	# with a dark blocker (TemnMov). Use a dedicated CanvasLayer so the popup

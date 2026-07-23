@@ -8,6 +8,7 @@ import hashlib
 import json
 import re
 import subprocess
+import wave
 from pathlib import Path
 
 from PIL import Image
@@ -867,6 +868,109 @@ def verify_settings_popup_and_language_split() -> None:
         "Hard-coded portrait UI labels do not follow the device language",
     )
 
+def verify_game_audio_feedback() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    expected_audio = {
+        "audio/Yes_New.wav": ("98ae14c12cf452e72d5c64e95b173fa5a3c826d8c08bdc4f625c33c2f3a6b928", 44100),
+        "audio/No_New.wav": ("6662236232977f26aca98db9140e7742d7026d1ee0d8b0c14d726babfd5fc19f", 44100),
+        "audio/LuckyDefeat.wav": ("6982d563521919d528b91e94931174f0da4ee2ed9c5dfb650bfa1dab3ab1320a", 44100),
+        "audio/LuckyWin.wav": ("cf34e2beba54f6fbe0dfcbeb335ae113a11972d13bc2764a5e2e05fa5e99fe6e", 44100),
+        "audio/CatDefeat.wav": ("5fcffd34a41a514c42e6844105321c7b3ae5edd40dcfbad543235b9a5aa52053", 44100),
+        "audio/Click.wav": ("fec96c44d1818130e55e79eab151fd14708170ce09b2132188ea6ec16aa87728", 5512),
+        "audio/Popup_Open.wav": ("4bd45bc654c93033f12175ee9edf772b4ad8d5a85a1535b77d3a484fbc25d2b1", 5512),
+    }
+    for relative_path, (expected_hash, expected_rate) in expected_audio.items():
+        audio_path = ROOT / relative_path
+        require(audio_path.is_file(), f"Game audio asset is missing: {relative_path}")
+        require(sha256(audio_path) == expected_hash, f"Game audio asset changed: {relative_path}")
+        with wave.open(str(audio_path), "rb") as audio_file:
+            require(audio_file.getnchannels() == 1, f"Game audio must remain mono: {relative_path}")
+            require(audio_file.getsampwidth() == 2, f"Game audio must remain 16-bit: {relative_path}")
+            require(audio_file.getframerate() == expected_rate, f"Game audio sample rate changed: {relative_path}")
+
+    for filename in (
+        "Yes_New.wav",
+        "No_New.wav",
+        "LuckyDefeat.wav",
+        "LuckyWin.wav",
+        "CatDefeat.wav",
+        "Click.wav",
+        "Popup_Open.wav",
+    ):
+        require(f'preload("res://audio/{filename}")' in main, f"Game audio is not preloaded: {filename}")
+    require(
+        main.count("AudioStreamPlayer.new()") == 3
+        and 'letter_feedback_audio_player.name = "LetterFeedbackAudio"' in main
+        and 'result_audio_player.name = "ResultAudio"' in main
+        and 'ui_audio_player.name = "UIAudio"' in main,
+        "Dedicated letter-feedback, result, and UI audio players are missing",
+    )
+    require(
+        "const SOUND_SETTING_INDEX: int = 3" in main
+        and "int(GameState.settings[SOUND_SETTING_INDEX]) == 2" in main
+        and "if !_sound_enabled() or player == null or stream == null:" in main,
+        "Game sounds do not follow the in-game sound setting",
+    )
+    require(
+        "if index == SOUND_SETTING_INDEX:\n\t\t_stop_game_audio_if_disabled()" in main,
+        "Disabling sounds does not stop active game audio",
+    )
+    require(
+        "func _connect_stage_button_action(button: BaseButton, callable: Callable, with_click_sound: bool = true) -> void:"
+        in main
+        and main.count("_connect_stage_button_action(button, callable)") == 5
+        and "_connect_stage_button_action(button, callable, false)" in main
+        and "button.pressed.connect(_play_ui_click_sound)" in main
+        and main.index("button.pressed.connect(_play_ui_click_sound)")
+        < main.index("button.pressed.connect(callable)"),
+        "UI buttons do not share click feedback or letter keys incorrectly layer it",
+    )
+    require(
+        "_play_game_sound(ui_audio_player, UI_CLICK_SOUND)" in main
+        and "_play_game_sound(ui_audio_player, POPUP_OPEN_SOUND)" in main
+        and main.count("_play_popup_open_sound()") >= 10,
+        "Click or popup-open feedback is not routed through the setting-aware UI player",
+    )
+    portrait_popup_begin = portrait[
+        portrait.index("func _portrait_popup_begin(") : portrait.index("func _portrait_popup_shell(")
+    ]
+    require(
+        "_play_popup_open_sound()" in portrait_popup_begin,
+        "Portrait modal popups do not play their open sound",
+    )
+
+    press_letter = main[main.index("func _press_letter(") : main.index("func _use_open_hint(")]
+    require(
+        press_letter.count("_play_letter_feedback_sound(guess_was_correct)") == 1
+        and "if guess_is_available:" in press_letter,
+        "A regular accepted letter does not produce exactly one feedback sound",
+    )
+    hint_feedback = main[
+        main.index("func _on_hint_letters_selected(") : main.index("func _on_round_won(")
+    ]
+    require(
+        hint_feedback.count("_play_letter_feedback_sound(is_correct)") == 1
+        and "if !letters.is_empty():" in hint_feedback,
+        "A multi-letter hint does not produce exactly one feedback sound",
+    )
+    remove_hint = main[main.index("func _use_remove_hint(") : main.index("func _on_hint_letters_selected(")]
+    require(
+        "_play_letter_feedback_sound" not in remove_hint,
+        "The remove-letter hint can trigger duplicate wrong-letter sounds",
+    )
+    require(
+        main.count("\t_play_result_sound_once(is_win, data)") == 1
+        and portrait.count("\t_play_result_sound_once(is_win, data)") == 1,
+        "Every result-screen layout must trigger its guarded result sound",
+    )
+    require(
+        "var stream: AudioStream = RESULT_WIN_SOUND" in main
+        and "EL_TIGRE_DEFEAT_SOUND if _selected_character_id() == 2 else LUCKY_DEFEAT_SOUND" in main
+        and "if sound_key == last_result_sound_key:" in main,
+        "Win/character-specific defeat sounds or duplicate-result protection are missing",
+    )
+
 
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
@@ -886,7 +990,8 @@ def main() -> None:
     verify_long_button_attention_bounce()
     verify_native_custom_word_input()
     verify_settings_popup_and_language_split()
-    print("2x layout, centered 10%-larger bottom-blue-block controls, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_game_audio_feedback()
+    print("2x layout, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":
