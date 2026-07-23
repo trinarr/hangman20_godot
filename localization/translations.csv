@@ -9,7 +9,7 @@ COMMON_EXIT,Выход,Exit
 NEW_GAME,Новая игра,New game
 TIME_ATTACK_MODE,Игра на время,Time Attack mode
 CHARACTER_SELECT_TITLE,Выберите персонажа:,Choose the hero:
-RESTART,Начать заново,Restart
+RESTART,Играть еще,Play again
 MUSIC_LABEL,Музыка:,Music:
 UNUSED_12,,
 ABOUT_TITLE,Об игре,About
@@ -87,8 +87,8 @@ LANGUAGE_RU_SHORT,Рус,Rus
 LANGUAGE_EN_SHORT,Eng,Eng
 ON,Вкл.,On
 OFF,Выкл.,Off
-MAX_35_CHARACTERS,Макс. 35 символов,Max. 35 characters
-RANDOM_WORD,Случайное слово,Random word
+MAX_35_CHARACTERS,Макс. 15 символов,Max. 15 characters
+RANDOM_WORD,Случайное,Random
 START_GAME,Начать игру,Start game
 OK,OK,OK
 POINTS_GAINED,Очков:,Points:
@@ -97,6 +97,9 @@ WORD_CHECKING,Проверка...,Checking...
 WORD_FOUND,Слово найдено,Word found
 WORD_NOT_FOUND,Слово не найдено,Word not found
 WORD_CHECK_FAILED,Не удалось проверить,Check failed
+TOAST_WORD_FOUND,Слово найдено,Word found
+TOAST_WORD_NOT_FOUND,Слово не найдено,Word not found
+TOAST_ERROR,Ошибка,Error
 CONTINUE_CLASSIC,"Доиграть в режиме
 «Классика»","Continue in
 Classic mode"

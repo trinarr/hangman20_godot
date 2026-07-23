@@ -2,6 +2,7 @@ extends "res://scripts/main.gd"
 
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
+const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 const PORTRAIT_HEADER_HEIGHT: float = 102.0
@@ -12,6 +13,10 @@ const PORTRAIT_ACTION_BUTTON_RECT := Rect2(324.0, 19.0, PORTRAIT_ROUND_BUTTON_SI
 const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(404.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
+const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
+const PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT := Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
+const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT := Rect2(402.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # Dense screens may grow moderately on tall phones, but gameplay is split into
 # independent upper and lower groups so the keyboard can stay width-safe while
@@ -24,9 +29,10 @@ const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 300.0)
 const PORTRAIT_HERO_CLASSIC_RESULT_POSITION := Vector2(138.0, 500.0)
 const PORTRAIT_HERO_TIME_RESULT_POSITION := Vector2(138.0, 500.0)
-const PORTRAIT_RESULT_CLOSE_BUTTON_RECT := Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
-const PORTRAIT_RESULT_THEME_BUTTON_RECT := Rect2(402.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
-const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
+const PORTRAIT_RESULT_CLOSE_BUTTON_RECT := PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT
+const PORTRAIT_RESULT_THEME_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT
+const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT
 const PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT := Rect2(419.0, 25.0, 49.0, 49.0)
 const PORTRAIT_RESULT_WORD_BUTTON_GAP: float = 12.0
 const PORTRAIT_RESULT_WORD_MAX_FONT_SIZE: int = 29
@@ -43,15 +49,19 @@ const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.76
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
-const PORTRAIT_GAME_BACK_BUTTON_RECT := Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
-const PORTRAIT_GAME_COMMENT_BUTTON_RECT := Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_GAME_BACK_BUTTON_RECT := PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT
+const PORTRAIT_GAME_COMMENT_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT
+const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT
 const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(135.0, 604.0, 90.0, 46.0)
 const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(255.0, 604.0, 90.0, 46.0)
 const PORTRAIT_LIVES_ICON_RECT := Rect2(344.0, 57.7, 29.4, 26.6)
 const PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)
+const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
+const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 
 var _portrait_time_attack_difficulty_button: Control = null
-var _portrait_custom_word_label: Label = null
+var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
 var _profile_name_edit: LineEdit = null
@@ -61,6 +71,7 @@ var _profile_avatar_halos: Dictionary = {}
 
 func _clear(symbol_path: String = "") -> void:
 	_remove_profile_edit_popup()
+	_portrait_custom_word_input = null
 	super._clear(symbol_path)
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
@@ -79,10 +90,26 @@ func _portrait_end_adaptive_group(previous_content: Control) -> void:
 
 func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:
 	var shortened_width: float = rect.size.x * PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE
-	return Rect2(
+	var shortened_rect := Rect2(
 		Vector2(rect.position.x + (rect.size.x - shortened_width) * 0.5, rect.position.y),
 		Vector2(shortened_width, rect.size.y)
 	)
+	if rect.position.y < PORTRAIT_FOOTER_Y:
+		return shortened_rect
+	return _portrait_scaled_footer_control_rect(shortened_rect)
+
+func _portrait_footer_round_button_rect(rect: Rect2) -> Rect2:
+	return _portrait_scaled_footer_control_rect(rect)
+
+func _portrait_scaled_footer_control_rect(rect: Rect2) -> Rect2:
+	var scaled_size: Vector2 = rect.size * PORTRAIT_FOOTER_CONTROL_SCALE
+	return Rect2(rect.get_center() - scaled_size * 0.5, scaled_size)
+
+func _portrait_footer_font_size(font_size: int) -> int:
+	return int(round(float(font_size) * PORTRAIT_FOOTER_CONTROL_SCALE))
+
+func _portrait_footer_icon_size(icon_size: Vector2) -> Vector2:
+	return icon_size * PORTRAIT_FOOTER_CONTROL_SCALE
 
 func _portrait_begin_bottom_attached_group() -> Control:
 	var previous_content: Control = content
@@ -268,9 +295,9 @@ func show_theme_select() -> void:
 
 	# Footer controls are intentionally authored at y >= PORTRAIT_FOOTER_Y so
 	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
-	_stage_round_icon_button(Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
 	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_main_icon_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _art_stage_size(difficulty_texture), 22)
+	_stage_main_icon_button(_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _portrait_footer_icon_size(_art_stage_size(difficulty_texture)), _portrait_footer_font_size(22))
 
 func _portrait_difficulty_button_label() -> String:
 	return "Сложность:" if GameState.interface_language == "ru" else "Difficulty:"
@@ -354,101 +381,50 @@ func show_custom_word() -> void:
 	if settings_changed:
 		GameState.save_game()
 	custom_comment_text = ""
+	_set_random_custom_word()
 
-	_portrait_screen(124.0, PORTRAIT_FOOTER_Y)
-	# Reuse the same word display as the guessing screen: plain white text on the
-	# blue header, without a separate white input capsule.
-	_portrait_custom_word_label = _stage_label(Rect2(20.0, 18.0, 290.0, 68.0), _custom_word_display_text(), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_portrait_custom_word_label.clip_text = true
+	# Match the category screen: graph-paper background, no blue header, and a
+	# centered blue page title with identical geometry and typography.
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(41, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 
-	# Keep an invisible LineEdit only as the existing validation/checking state
-	# holder. All visible input is performed through the on-screen letter keys.
-	custom_word_edit = LineEdit.new()
-	custom_word_edit.visible = false
-	custom_word_edit.max_length = 35
-	custom_word_edit.text = custom_word_text
+	_portrait_custom_word_input = STAGE_WORD_INPUT_SCRIPT.new() as Control
+	_portrait_custom_word_input.call("configure", custom_word_text, 15, 34)
+	_portrait_custom_word_input.set("avoid_virtual_keyboard", true)
+	content.add_child(_portrait_custom_word_input)
+	# Keep the gameplay word insets at every aspect ratio. Only the authored Y
+	# coordinate changes so the row remains centered on the physical screen.
+	var custom_word_input_rect: Rect2 = PORTRAIT_CUSTOM_WORD_INPUT_RECT
+	custom_word_input_rect.position.y = (
+		PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)
+		- custom_word_input_rect.size.y
+	) * 0.5
+	_portrait_custom_word_input.set("stage_rect", custom_word_input_rect)
+	custom_word_input_visual = _portrait_custom_word_input
+	custom_word_edit = _portrait_custom_word_input.call("get_line_edit") as LineEdit
 	custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-	content.add_child(custom_word_edit)
 
-	_stage_label(Rect2(20.0, 80.0, 205.0, 30.0), _custom_word_max_length_label(), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(190.0, 80.0, 125.0, 30.0), _custom_word_random_label(), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(38.0, 32.0))
-
-	var custom_word_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 350.0), PORTRAIT_DENSE_MAX_SCALE, 0.12)
-	_stage_custom_word_keyboard()
-
-	_stage_main_button(Rect2(120.0, 505.0, 240.0, 54.0), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 21)
-	var check_color := Color.WHITE
-	if custom_word_check_state == 2:
-		check_color = Color(0.58, 0.88, 0.72)
-	elif custom_word_check_state == 3:
-		check_color = Color(0.96, 0.67, 0.77)
-	custom_word_check_label = _stage_label(Rect2(60.0, 563.0, 360.0, 28.0), custom_word_check_text, 17, check_color)
-	_portrait_end_adaptive_group(custom_word_root_content)
+	# Attach both actions to the footer and apply the same 85% width treatment
+	# as the Start Game button. This keeps their visual and touch sizes equal.
+	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
+	custom_word_check_button = _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 22, false, 0.0)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
+	_portrait_end_adaptive_group(custom_word_bottom_content)
 
 	# Match the category screen footer: navigation on the left and the primary
 	# action centered inside the rigid bottom blue block.
-	_stage_round_icon_button(Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
-	_stage_main_button(_portrait_footer_long_button_rect(Rect2(94.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)), Callable(self, "start_custom_game"), _custom_word_start_label(), 22, false, 0.32, false, false, true)
-
-func _stage_custom_word_keyboard() -> void:
-	var alphabet: PackedStringArray = Database.get_alphabet()
-	var columns: int = 6
-	var keyboard_start_x: float = 48.0
-	var keyboard_start_y: float = 145.0
-	var keyboard_step_x: float = 64.0
-	var keyboard_step_y: float = 48.0
-	var key_size := Vector2(50.0, 46.0)
-	for i in range(alphabet.size()):
-		var letter: String = alphabet[i]
-		var row: int = int(i / columns)
-		var col: int = i % columns
-		var x: float = keyboard_start_x + float(col) * keyboard_step_x
-		var y: float = keyboard_start_y + float(row) * keyboard_step_y
-		var key_rect := Rect2(x, y, key_size.x, key_size.y)
-		_stage_letter_button(key_rect, Callable(self, "_append_custom_word_character").bind(letter), letter)
-
-	_stage_main_button(Rect2(42.0, 442.0, 164.0, 50.0), Callable(self, "_append_custom_word_character").bind(" "), _custom_word_space_label(), 17)
-	_stage_main_button(Rect2(211.0, 442.0, 72.0, 50.0), Callable(self, "_append_custom_word_character").bind("—"), "—", 20)
-	_stage_main_button(Rect2(288.0, 442.0, 150.0, 50.0), Callable(self, "_remove_custom_word_character"), "⌫", 22)
-
-func _custom_word_space_label() -> String:
-	return "Пробел" if GameState.interface_language == "ru" else "Space"
-
-func _append_custom_word_character(character: String) -> void:
-	if custom_word_edit == null or custom_word_text.length() >= 35:
-		return
-	var updated: String = _normalize_custom_word_input(custom_word_text + character)
-	_set_custom_word_from_keyboard(updated)
-
-func _remove_custom_word_character() -> void:
-	if custom_word_edit == null or custom_word_text.is_empty():
-		return
-	_set_custom_word_from_keyboard(custom_word_text.substr(0, custom_word_text.length() - 1))
-
-func _custom_word_display_text() -> String:
-	if custom_word_text.is_empty():
-		return Database.tr_text(41, "Input the word")
-	return custom_word_text
-
-func _sync_custom_word_display() -> void:
-	if _portrait_custom_word_label != null and is_instance_valid(_portrait_custom_word_label):
-		_portrait_custom_word_label.text = _custom_word_display_text()
-
-func _set_custom_word_from_keyboard(value: String) -> void:
-	custom_word_text = value
-	if custom_word_edit != null:
-		custom_word_edit.text = custom_word_text
-		custom_word_edit.caret_column = custom_word_edit.text.length()
-	_sync_custom_word_display()
-
-func _on_custom_word_text_changed(value: String) -> void:
-	super._on_custom_word_text_changed(value)
-	_sync_custom_word_display()
-
-func _set_random_custom_word() -> void:
-	super._set_random_custom_word()
-	_sync_custom_word_display()
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
+	custom_word_start_button = _stage_main_button(
+		_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
+		Callable(self, "start_custom_game"),
+		_custom_word_start_label(),
+		_portrait_footer_font_size(22),
+		false,
+		0.32,
+		false,
+		false,
+		!custom_word_text.is_empty()
+	)
 
 func start_custom_game() -> void:
 	# Two-player rounds always start without comments, hints, or edge letters.
@@ -480,9 +456,11 @@ func _refresh_game_screen() -> void:
 	var hero_stage_position := Vector2(76.0, 222.0 + upper_block_shift)
 	if GameState.current_mode == 2:
 		# Two-player rounds have no hint controls, so use their free column and
-		# center the hero (the symbol pivot is 62 px to the right of its origin).
+		# center the visible imported art rather than the symbol's empty origin.
 		hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5
-		hero_stage_position.x = hero_pivot.x - 62.0
+		hero_stage_position.x = (
+			hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X
+		)
 	var hero_root_content: Control = _portrait_begin_adaptive_group(
 		hero_pivot,
 		1.0,
@@ -591,15 +569,16 @@ func _refresh_game_screen() -> void:
 	_portrait_end_adaptive_group(keyboard_root_content)
 
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-	if GameState.current_mode == 0:
-		# Classic exits directly to the main menu. Use the same round close icon as
-		# the result screens so this action cannot be mistaken for theme navigation.
-		_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
+	if GameState.current_mode == 0 or GameState.current_mode == 2:
+		# Classic and Two Player both close directly to the main menu.
+		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
 	else:
-		_stage_round_icon_button(PORTRAIT_GAME_BACK_BUTTON_RECT, Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, Vector2(27.0, 33.0))
-	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 22, comment_disabled, 0.0)
+		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
+	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0)
 	if GameState.current_mode == 0:
-		_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
+		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
+	elif GameState.current_mode == 2:
+		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))
 	if comment_disabled:
 		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
 		var comment_label := comment_button.get_node_or_null("Text") as Label
@@ -799,8 +778,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 	var show_left_button: bool = GameState.current_mode == 0
 	if show_left_button:
-		_stage_main_button(_portrait_footer_long_button_rect(Rect2(14.0, 708.0, 220.0, 57.0)), Callable(self, "_result_left_action"), _result_left_button_text(), 20)
-	_stage_main_button(_portrait_footer_long_button_rect(Rect2(248.0, 708.0, 220.0, 57.0)), Callable(self, "_result_right_action"), _result_right_button_text(), 20, false, 0.32, false, false, true)
+		_stage_main_button(_portrait_footer_long_button_rect(Rect2(14.0, 708.0, 220.0, 57.0)), Callable(self, "_result_left_action"), _result_left_button_text(), _portrait_footer_font_size(20))
+	_stage_main_button(_portrait_footer_long_button_rect(Rect2(248.0, 708.0, 220.0, 57.0)), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(20), false, 0.32, false, false, true)
 
 func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	# The two-player result uses the same thumb-friendly composition as the final
@@ -827,8 +806,8 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	_configure_hero_static_animation()
 	_portrait_end_adaptive_group(result_root_content)
 
-	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22, false, 0.32, false, false, true)
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true)
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -871,8 +850,8 @@ func _show_time_attack_finished_result_content(data: Dictionary) -> void:
 	_configure_hero_static_animation()
 	_portrait_end_adaptive_group(result_root_content)
 
-	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22, false, 0.32, false, false, true)
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true)
 
 func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
@@ -906,9 +885,9 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 
 	# Word search remains in the header, but uses a compact 70% round button.
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
-	_stage_round_icon_button(PORTRAIT_RESULT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	_stage_round_icon_button(PORTRAIT_RESULT_THEME_BUTTON_RECT, Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, Vector2(32.0, 30.0))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), 22, false, 0.32, false, false, true)
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true)
 
 func show_records() -> void:
 	show_profile()

@@ -17,7 +17,13 @@ const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 9.0 / 24.0 + HERO_NESTED_FRAME_S
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 40.0 / 24.0
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
 const LETTER_MARKER_REVEAL_DURATION: float = 0.2
+const RANDOM_CUSTOM_WORD_MAX_LENGTH: int = 7
+const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
 const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
+const CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = 35
+const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
+const CUSTOM_WORD_INPUT_DEFAULT_COLOR := Color(0.23, 0.26, 0.52, 1.0)
+const CUSTOM_WORD_CHECKING_BUTTON_ALPHA: float = 0.55
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
@@ -70,14 +76,15 @@ var game_finished: bool = false
 var last_result_is_win: bool = false
 var last_result_data: Dictionary = {}
 var custom_word_edit: LineEdit
+var custom_word_input_visual: Control = null
 var custom_comment_edit: TextEdit
 var custom_word_text: String = ""
 var custom_comment_text: String = ""
 var custom_word_check_request: HTTPRequest = null
 var custom_word_check_urls: Array[String] = []
-var custom_word_check_text: String = ""
-var custom_word_check_state: int = 0 # 0 neutral, 1 checking, 2 found, 3 not found/error
-var custom_word_check_label: Label = null
+var custom_word_check_button: Control = null
+var custom_word_start_button: Control = null
+var custom_word_color_generation: int = 0
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
 var hero_pose_round_token: int = 0
@@ -125,12 +132,14 @@ func _build_root() -> void:
 func _clear(symbol_path: String = "") -> void:
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
+	custom_word_color_generation += 1
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 	round_result_delay_requested = false
 	_clear_hero_animation_overlay()
 	_cancel_custom_word_check()
-	custom_word_check_label = null
+	custom_word_check_button = null
+	custom_word_start_button = null
 	hero_static_symbol = null
 	_remove_character_select_popup()
 	_remove_settings_popup()
@@ -139,6 +148,8 @@ func _clear(symbol_path: String = "") -> void:
 	_remove_clear_theme_popup()
 	settings_popup_return_content = null
 	_remove_custom_comment_popup()
+	custom_word_edit = null
+	custom_word_input_visual = null
 	if art_root != null:
 		art_root.show_screen(symbol_path)
 	for child: Node in ui.get_children():
@@ -1011,6 +1022,7 @@ func start_time_attack() -> void:
 func show_custom_word() -> void:
 	game_timer.stop()
 	_clear("")
+	_set_random_custom_word()
 
 	# SlovMov.as draws the screen from three simple areas: a 114 px blue header,
 	# the graph-paper settings area, and a blue footer matching the gameplay screen.
@@ -1024,7 +1036,7 @@ func show_custom_word() -> void:
 	# x = 105, y = 27 with width 567, producing this stage-space white capsule.
 	_stage_panel(Rect2(55.0, 27.0, 567.0, 54.0), Color.WHITE, 27.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
 	custom_word_edit = _stage_line_edit(Rect2(76.0, 31.0, 525.0, 46.0), Database.tr_text(41, "Input the word"))
-	custom_word_edit.max_length = 35
+	custom_word_edit.max_length = 15
 	custom_word_edit.text = custom_word_text
 	custom_word_edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	custom_word_edit.add_theme_font_size_override("font_size", 26)
@@ -1044,15 +1056,19 @@ func show_custom_word() -> void:
 	_stage_label(Rect2(66.0, 213.0, 260.0, 49.0), Database.tr_text(28, "Hints"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_custom_switch(Rect2(347.0, 213.0, 102.0, 49.0), 1)
 
-	_stage_main_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 20)
+	custom_word_check_button = _stage_main_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 20, false, 0.0)
 	_stage_main_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), Database.tr_text(47, "Comment"), 20)
-	var check_color := Color.WHITE
-	if custom_word_check_state == 2:
-		check_color = Color(0.58, 0.88, 0.72)
-	elif custom_word_check_state == 3:
-		check_color = Color(0.96, 0.67, 0.77)
-	custom_word_check_label = _stage_label(Rect2(497.0, 267.0, 240.0, 34.0), custom_word_check_text, 16, check_color)
-	_stage_main_button(Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "start_custom_game"), _custom_word_start_label(), 20, false, 0.32, false, false, true)
+	custom_word_start_button = _stage_main_button(
+		Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y),
+		Callable(self, "start_custom_game"),
+		_custom_word_start_label(),
+		20,
+		false,
+		0.32,
+		false,
+		false,
+		!custom_word_text.is_empty()
+	)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
@@ -1062,43 +1078,53 @@ func _custom_switch_label(enabled: bool) -> String:
 	return Database.tr_text(82, "On") if enabled else Database.tr_text(83, "Off")
 
 func _custom_word_max_length_label() -> String:
-	return Database.tr_text(84, "Max. 35 characters")
+	return "Макс. 15 символов" if Database.interface_language == "ru" else "Max. 15 characters"
 
 func _custom_word_random_label() -> String:
-	return Database.tr_text(85, "Random word")
+	return "Случайное" if Database.interface_language == "ru" else "Random"
 
 func _custom_word_start_label() -> String:
 	return Database.tr_text(86, "Start game")
 
 func _on_custom_word_text_changed(value: String) -> void:
-	_cancel_custom_word_check()
-	custom_word_check_state = 0
-	custom_word_check_text = ""
-	if custom_word_check_label != null:
-		custom_word_check_label.text = ""
+	_reset_custom_word_check_feedback()
 	custom_word_text = _normalize_custom_word_input(value)
 	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
 		var caret_column: int = custom_word_edit.caret_column
 		custom_word_edit.text = custom_word_text
 		custom_word_edit.caret_column = mini(caret_column, custom_word_edit.text.length())
-	if custom_word_edit != null:
-		custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
+	_sync_custom_word_input_visual()
+	_sync_custom_word_start_bounce()
 
 func _normalize_custom_word_input(value: String) -> String:
 	var normalized: String = value.to_upper().replace("-", "—").replace("Ё", "Е")
 	var filtered: String = ""
+	var allowed_letters: PackedStringArray = Database.get_alphabet()
 	for i: int in range(normalized.length()):
 		var character: String = normalized.substr(i, 1)
-		var code: int = character.unicode_at(0)
-		var is_supported_letter: bool = (code >= 0x41 and code <= 0x5A) or (code >= 0x410 and code <= 0x42F)
-		if is_supported_letter:
+		if allowed_letters.has(character):
 			filtered += character
 		elif character == " " or character == "—":
 			# TextBlock.CheckLast() in the FLA prevents leading and consecutive
 			# separators while the word is being typed.
 			if filtered != "" and filtered.right(1) != " " and filtered.right(1) != "—":
 				filtered += character
-	return filtered.substr(0, 35)
+	return filtered.substr(0, 15)
+
+func _set_custom_word_input_color(color: Color) -> void:
+	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
+		custom_word_input_visual.set("text_color", color)
+	elif custom_word_edit != null and is_instance_valid(custom_word_edit):
+		custom_word_edit.add_theme_color_override("font_color", color)
+
+func _sync_custom_word_input_visual() -> void:
+	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
+		custom_word_input_visual.call("refresh_display")
+
+func _sync_custom_word_start_bounce() -> void:
+	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
+		return
+	custom_word_start_button.set("attention_bounce_enabled", !custom_word_text.is_empty())
 
 func _toggle_custom_setting(index: int) -> void:
 	if custom_word_edit != null:
@@ -1111,17 +1137,32 @@ func _set_random_custom_word() -> void:
 	var theme_count: int = Database.get_theme_count()
 	if theme_count <= 0:
 		return
-	for _attempt in range(theme_count * 2):
-		var theme_index: int = randi() % theme_count
-		var words: Array = Database.get_words_by_index(theme_index, 0)
-		if words.is_empty():
-			continue
-		var picked: Dictionary = words[randi() % words.size()]
-		custom_word_text = WordManager.normalize_word(str(picked.get("text", "")))
-		if custom_word_edit != null:
-			custom_word_edit.text = custom_word_text
-			custom_word_edit.caret_column = custom_word_edit.text.length()
+	var candidates: PackedStringArray = []
+	for theme_index: int in range(theme_count):
+		# Database difficulty filter 2 is the original game's easy/simple pool.
+		var words: Array = Database.get_words_by_index(theme_index, RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER)
+		for picked: Dictionary in words:
+			var candidate: String = _normalize_custom_word_input(str(picked.get("text", "")))
+			if _is_random_custom_word_candidate(candidate):
+				candidates.append(candidate)
+	if candidates.is_empty():
 		return
+	_reset_custom_word_check_feedback()
+	custom_word_text = candidates[randi() % candidates.size()]
+	if custom_word_edit != null:
+		custom_word_edit.text = custom_word_text
+		custom_word_edit.caret_column = custom_word_edit.text.length()
+		_sync_custom_word_input_visual()
+	_sync_custom_word_start_bounce()
+
+func _is_random_custom_word_candidate(word: String) -> bool:
+	return (
+		!word.is_empty()
+		and word.length() <= RANDOM_CUSTOM_WORD_MAX_LENGTH
+		and !word.contains(" ")
+		and !word.contains("—")
+		and !word.contains("-")
+	)
 
 func _check_custom_word_now() -> void:
 	if custom_word_edit == null:
@@ -1129,17 +1170,16 @@ func _check_custom_word_now() -> void:
 	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
-		custom_word_check_state = 3
-		custom_word_check_text = Database.tr_key(&"WORD_NOT_FOUND", "Word is invalid")
-		custom_word_edit.add_theme_color_override("font_color", Color(0.62, 0.25, 0.42, 1.0))
+		_set_temporary_custom_word_input_color(Color(0.62, 0.25, 0.42, 1.0))
 		custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
-		_update_custom_word_check_label()
+		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
+		_vibrate_custom_word_not_found()
 		return
 
 	_cancel_custom_word_check()
-	custom_word_check_state = 1
-	custom_word_check_text = Database.tr_key(&"WORD_CHECKING", "Checking...")
-	custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
+	_hide_custom_word_toast()
+	_reset_custom_word_input_color()
+	_set_custom_word_checking(true)
 	var encoded_lower: String = custom_word_text.to_lower().uri_encode()
 	var title_case: String = custom_word_text.substr(0, 1) + custom_word_text.substr(1).to_lower()
 	custom_word_check_urls = [
@@ -1152,7 +1192,6 @@ func _check_custom_word_now() -> void:
 	custom_word_check_request.request_completed.connect(_on_custom_word_check_completed)
 	add_child(custom_word_check_request)
 	_request_next_custom_word_url()
-	_update_custom_word_check_label()
 
 func _request_next_custom_word_url() -> void:
 	if custom_word_check_request == null or custom_word_check_urls.is_empty():
@@ -1173,28 +1212,50 @@ func _on_custom_word_check_completed(result: int, response_code: int, _headers: 
 	_set_custom_word_check_result(false, response_code != 404)
 
 func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
-	custom_word_check_state = 2 if found else 3
+	var result_key: StringName
 	if found:
-		custom_word_check_text = Database.tr_key(&"WORD_FOUND", "Word found")
+		result_key = &"TOAST_WORD_FOUND"
 	elif network_error:
-		custom_word_check_text = Database.tr_key(&"WORD_CHECK_FAILED", "Check failed")
+		result_key = &"TOAST_ERROR"
 	else:
-		custom_word_check_text = Database.tr_key(&"WORD_NOT_FOUND", "Word not found")
+		result_key = &"TOAST_WORD_NOT_FOUND"
 	_cancel_custom_word_check()
-	if custom_word_edit != null:
-		custom_word_edit.add_theme_color_override("font_color", Color(0.22, 0.55, 0.41, 1.0) if found else Color(0.62, 0.25, 0.42, 1.0))
-	_update_custom_word_check_label()
+	if network_error:
+		_reset_custom_word_input_color()
+	elif custom_word_edit != null:
+		_set_temporary_custom_word_input_color(
+			Color(0.22, 0.55, 0.41, 1.0) if found else Color(0.62, 0.25, 0.42, 1.0)
+		)
+	if !found and !network_error:
+		_vibrate_custom_word_not_found()
+	_show_custom_word_toast(result_key, found)
 
-func _update_custom_word_check_label() -> void:
-	if custom_word_check_label == null or !is_instance_valid(custom_word_check_label):
+func _show_custom_word_toast(message_key: StringName, is_success: bool) -> void:
+	if custom_word_input_visual == null or !is_instance_valid(custom_word_input_visual):
 		return
-	custom_word_check_label.text = custom_word_check_text
-	var check_color := Color.WHITE
-	if custom_word_check_state == 2:
-		check_color = Color(0.58, 0.88, 0.72)
-	elif custom_word_check_state == 3:
-		check_color = Color(0.96, 0.67, 0.77)
-	custom_word_check_label.add_theme_color_override("font_color", check_color)
+	custom_word_input_visual.call("show_validation_toast", message_key, is_success)
+
+func _hide_custom_word_toast() -> void:
+	if custom_word_input_visual == null or !is_instance_valid(custom_word_input_visual):
+		return
+	custom_word_input_visual.call("hide_validation_toast")
+
+func _set_temporary_custom_word_input_color(color: Color) -> void:
+	custom_word_color_generation += 1
+	var color_generation: int = custom_word_color_generation
+	_set_custom_word_input_color(color)
+	await get_tree().create_timer(CUSTOM_WORD_RESULT_COLOR_DURATION).timeout
+	if color_generation != custom_word_color_generation:
+		return
+	_set_custom_word_input_color(CUSTOM_WORD_INPUT_DEFAULT_COLOR)
+
+func _reset_custom_word_input_color() -> void:
+	custom_word_color_generation += 1
+	_set_custom_word_input_color(CUSTOM_WORD_INPUT_DEFAULT_COLOR)
+
+func _vibrate_custom_word_not_found() -> void:
+	if GameState.settings.size() > 4 and int(GameState.settings[4]) == 2:
+		Input.vibrate_handheld(CUSTOM_WORD_NOT_FOUND_VIBRATION_MS)
 
 func _cancel_custom_word_check() -> void:
 	custom_word_check_urls.clear()
@@ -1202,6 +1263,19 @@ func _cancel_custom_word_check() -> void:
 		custom_word_check_request.cancel_request()
 		custom_word_check_request.queue_free()
 	custom_word_check_request = null
+	_set_custom_word_checking(false)
+
+func _set_custom_word_checking(is_checking: bool) -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		return
+	custom_word_check_button.set("selected", is_checking)
+	custom_word_check_button.set("button_disabled", is_checking)
+	custom_word_check_button.modulate = Color(1.0, 1.0, 1.0, CUSTOM_WORD_CHECKING_BUTTON_ALPHA if is_checking else 1.0)
+
+func _reset_custom_word_check_feedback() -> void:
+	_cancel_custom_word_check()
+	_hide_custom_word_toast()
+	_reset_custom_word_input_color()
 
 func _show_custom_comment_popup() -> void:
 	_remove_custom_comment_popup()
@@ -1257,7 +1331,7 @@ func start_custom_game() -> void:
 	var word := WordManager.normalize_word(source_text)
 	if !_is_valid_custom_word(word):
 		if custom_word_edit != null:
-			custom_word_edit.add_theme_color_override("font_color", Color(0.62, 0.25, 0.42, 1.0))
+			_set_custom_word_input_color(Color(0.62, 0.25, 0.42, 1.0))
 			custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
 		return
 	custom_word_text = word
@@ -1273,7 +1347,7 @@ func start_custom_game() -> void:
 	show_game_screen()
 
 func _is_valid_custom_word(word: String) -> bool:
-	if word.length() == 0:
+	if word.length() == 0 or word.length() > 15:
 		return false
 	if word.begins_with(" ") or word.begins_with("—") or word.ends_with(" ") or word.ends_with("—"):
 		return false
