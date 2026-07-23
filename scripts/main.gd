@@ -25,6 +25,11 @@ const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := Color(0.23, 0.26, 0.52, 1.0)
 const CUSTOM_WORD_CHECKING_BUTTON_ALPHA: float = 0.55
 const SOUND_SETTING_INDEX: int = 3
+const THEME_CARD_PRESSED_MODULATE := Color(0.72, 0.72, 0.72, 1.0)
+const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
+const APP_VERSION_FALLBACK: String = "3.0.0"
+const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
+const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
@@ -219,14 +224,14 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.set("stage_rect", rect)
 	return button
 
-func _connect_stage_button_action(button: BaseButton, callable: Callable, with_click_sound: bool = true) -> void:
+func _connect_stage_button_action(button: Object, callable: Callable, with_click_sound: bool = true) -> void:
 	if !callable.is_valid():
 		return
 	if with_click_sound:
 		# Connect feedback before the action. Popup actions then replace this
 		# short click with their dedicated open sound on the shared UI player.
-		button.pressed.connect(_play_ui_click_sound)
-	button.pressed.connect(callable)
+		button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))
+	button.connect(&"pressed", callable)
 
 func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.58) -> void:
 	# The fullscreen popup root must not swallow clicks before they reach the
@@ -671,10 +676,10 @@ func _show_about_popup() -> void:
 	_stage_round_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_about_popup"), "←")
 	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_close_about_and_settings"), "×")
 
-	var author_label := _stage_label(Rect2(popup_x + 78.0, 160.0, 300.0, 78.0), _about_author_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	author_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	var author_label := _stage_label(Rect2(popup_x + 78.0, 160.0, 300.0, 42.0), _about_author_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	author_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	author_label.clip_text = false
-	var version_label := _stage_label(Rect2(popup_x + 78.0, 255.0, 260.0, 38.0), _about_version_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var version_label := _stage_label(Rect2(popup_x + 78.0, 218.0, 260.0, 38.0), _about_version_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	version_label.clip_text = false
 
 	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -698,16 +703,26 @@ func _about_title_label() -> String:
 	return Database.tr_text(13, "About")
 
 func _about_author_text() -> String:
-	return Database.tr_text(24, "Author:") + " " + Database.tr_text(22, "Nikita Lukanin") + "\n" + Database.tr_text(71, "Bruno Philippsen")
+	return Database.tr_text(24, "Author:") + " " + Database.tr_text(22, "Nikita Lukanin")
 
 func _about_version_text() -> String:
-	return Database.tr_text(23, "Version:") + " 3.0.0"
+	return Database.tr_text(23, "Version:") + " " + _application_version()
+
+func _application_version() -> String:
+	var configured_version: String = str(
+		ProjectSettings.get_setting("application/config/version", APP_VERSION_FALLBACK)
+	).strip_edges()
+	return configured_version if configured_version != "" else APP_VERSION_FALLBACK
 
 func _about_contacts_label() -> String:
 	return Database.tr_text(25, "Contacts:")
 
-func _about_contact_action(_contact_type: String) -> void:
-	pass
+func _about_contact_action(contact_type: String) -> void:
+	match contact_type:
+		"vk":
+			OS.shell_open(AUTHOR_VK_URL)
+		"mail":
+			OS.shell_open(AUTHOR_EMAIL_URL)
 
 func _settings_remove_ads_action() -> void:
 	pass
@@ -829,7 +844,7 @@ func show_theme_select() -> void:
 		var card := _stage_texture(Rect2(x, y, card_width, 90.0), THEME_CARD_TEXTURE)
 		var progress_back := _stage_texture(Rect2(x, y, card_width, 65.0), THEME_CARD_PROGRESS_TEXTURE)
 		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
-		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0, card_width - 16.0, 30.0), progress_text, 14 if compact_grid else 15, Color(0.43, 0.49, 0.83, 1.0))
+		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, card_width - 16.0, 44.0), progress_text, 14 if compact_grid else 15, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
 		progress_label.add_theme_constant_override("outline_size", 0)
@@ -856,6 +871,19 @@ func show_theme_select() -> void:
 		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
 		var theme_button := _stage_button(Rect2(x, y, card_width, 90.0), action, "")
 		theme_button.disabled = disabled
+		_bind_theme_card_press_state(theme_button, card)
+
+func _bind_theme_card_press_state(button: BaseButton, card: CanvasItem) -> void:
+	if button.disabled:
+		return
+	button.button_down.connect(_set_theme_card_pressed.bind(card, true))
+	button.button_up.connect(_set_theme_card_pressed.bind(card, false))
+	button.mouse_exited.connect(_set_theme_card_pressed.bind(card, false))
+
+func _set_theme_card_pressed(card: CanvasItem, is_pressed: bool) -> void:
+	if card == null or !is_instance_valid(card):
+		return
+	card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE
 
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()

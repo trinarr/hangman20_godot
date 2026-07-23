@@ -324,8 +324,8 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Not every portrait footer long button uses the 15% width reduction",
     )
     require(
-        portrait.count("_portrait_footer_round_button_rect(") == 11
-        and portrait.count("_portrait_footer_icon_size(") == 12
+        portrait.count("_portrait_footer_round_button_rect(") == 12
+        and portrait.count("_portrait_footer_icon_size(") == 13
         and portrait.count("_portrait_footer_font_size(") == 9,
         "Not every bottom-blue-block button, icon, and label uses the 10% scale",
     )
@@ -917,13 +917,13 @@ def verify_game_audio_feedback() -> None:
         "Disabling sounds does not stop active game audio",
     )
     require(
-        "func _connect_stage_button_action(button: BaseButton, callable: Callable, with_click_sound: bool = true) -> void:"
+        "func _connect_stage_button_action(button: Object, callable: Callable, with_click_sound: bool = true) -> void:"
         in main
         and main.count("_connect_stage_button_action(button, callable)") == 5
         and "_connect_stage_button_action(button, callable, false)" in main
-        and "button.pressed.connect(_play_ui_click_sound)" in main
-        and main.index("button.pressed.connect(_play_ui_click_sound)")
-        < main.index("button.pressed.connect(callable)"),
+        and 'button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))' in main
+        and main.index('button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))')
+        < main.index('button.connect(&"pressed", callable)'),
         "UI buttons do not share click feedback or letter keys incorrectly layer it",
     )
     require(
@@ -971,6 +971,74 @@ def verify_game_audio_feedback() -> None:
         "Win/character-specific defeat sounds or duplicate-result protection are missing",
     )
 
+def verify_profile_theme_and_about_ui() -> None:
+    project = read("project.godot")
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+
+    profile = portrait[
+        portrait.index("func show_profile()") : portrait.index("func _stage_profile_header_card()")
+    ]
+    require(
+        "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" in profile
+        and 'Rect2(24.0, 14.0, 432.0, 70.0), _profile_text("ПРОФИЛЬ", "PROFILE"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER'
+        in profile,
+        "The profile screen does not use the theme-screen title and footer composition",
+    )
+    require(
+        "_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT)" in profile
+        and "PORTRAIT_BACK_ARROW_ICON" in profile
+        and "PORTRAIT_CLOSE_BUTTON_RECT" not in profile,
+        "The profile screen does not use the bottom Back button",
+    )
+
+    main_themes = main[main.index("func show_theme_select()") : main.index("func _show_clear_theme_popup(")]
+    portrait_themes = portrait[
+        portrait.index("func show_theme_select()") : portrait.index("func _portrait_difficulty_button_label()")
+    ]
+    require(
+        "const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0" in main
+        and "Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, card_width - 16.0, 44.0)"
+        in main_themes
+        and "Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0)"
+        in portrait_themes
+        and math.isclose(7.0 + 44.0 * 0.5, 29.0),
+        "The Guessed label does not apply the shared optical vertical correction",
+    )
+    require(
+        main_themes.count("_bind_theme_card_press_state(theme_button, card)") == 1
+        and portrait_themes.count("_bind_theme_card_press_state(theme_button, card)") == 1
+        and "const THEME_CARD_PRESSED_MODULATE := Color(0.72, 0.72, 0.72, 1.0)" in main
+        and "button.button_down.connect(_set_theme_card_pressed.bind(card, true))" in main
+        and "button.button_up.connect(_set_theme_card_pressed.bind(card, false))" in main
+        and "card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE" in main,
+        "Theme cards do not darken and restore their blue backing while pressed",
+    )
+
+    author_text = main[main.index("func _about_author_text()") : main.index("func _about_version_text()")]
+    version_text = main[main.index("func _about_version_text()") : main.index("func _about_contacts_label()")]
+    contact_action = main[
+        main.index("func _about_contact_action(") : main.index("func _settings_remove_ads_action(")
+    ]
+    require(
+        "Bruno Philippsen" not in author_text
+        and 'Database.tr_text(22, "Nikita Lukanin")' in author_text,
+        "The About popup still displays the former secondary author",
+    )
+    require(
+        'config/version="3.0.0"' in project
+        and 'ProjectSettings.get_setting("application/config/version", APP_VERSION_FALLBACK)' in version_text
+        and '_application_version()' in version_text,
+        "The About popup version is not parsed from project configuration",
+    )
+    require(
+        'const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"' in main
+        and 'const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"' in main
+        and "OS.shell_open(AUTHOR_VK_URL)" in contact_action
+        and "OS.shell_open(AUTHOR_EMAIL_URL)" in contact_action,
+        "The About popup social buttons do not open the requested author links",
+    )
+
 
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
@@ -991,7 +1059,8 @@ def main() -> None:
     verify_native_custom_word_input()
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()
-    print("2x layout, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_profile_theme_and_about_ui()
+    print("2x layout, profile/theme/about UI polish, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

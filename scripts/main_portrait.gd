@@ -242,10 +242,10 @@ func _show_about_popup() -> void:
 	var previous_content := _portrait_popup_begin("AboutPopup", "about_popup", 110, Callable(self, "_remove_about_popup"), 130.0, 520.0, PORTRAIT_POPUP_DIM_ALPHA)
 	var rect := Rect2(28.0, 130.0, 424.0, 390.0)
 	_portrait_popup_shell(rect, _about_title_label(), Callable(self, "_remove_about_popup"), 30)
-	var author_label := _stage_label(Rect2(56.0, 240.0, 368.0, 96.0), _about_author_text(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	author_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	var author_label := _stage_label(Rect2(56.0, 240.0, 368.0, 54.0), _about_author_text(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	author_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	author_label.clip_text = false
-	var version_label := _stage_label(Rect2(56.0, 348.0, 368.0, 42.0), _about_version_text(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var version_label := _stage_label(Rect2(56.0, 310.0, 368.0, 42.0), _about_version_text(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	version_label.clip_text = false
 	_stage_panel(Rect2(56.0, 410.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_label(Rect2(56.0, 438.0, 180.0, 40.0), _about_contacts_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -277,7 +277,7 @@ func show_theme_select() -> void:
 		var card := _stage_texture(Rect2(x, y, 214.0, 88.0), THEME_CARD_TEXTURE)
 		var progress_back := _stage_texture(Rect2(x, y, 214.0, 63.0), THEME_CARD_PROGRESS_TEXTURE)
 		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
-		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0, 198.0, 28.0), progress_text, 16, Color(0.43, 0.49, 0.83, 1.0))
+		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0), progress_text, 16, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		var theme_name: String = Database.get_theme_name(i).to_upper()
 		var title_font_size: int = 19 if theme_name.length() > 12 else 23
@@ -293,6 +293,7 @@ func show_theme_select() -> void:
 		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
 		var theme_button := _stage_button(Rect2(x, y, 214.0, 88.0), action, "")
 		theme_button.disabled = disabled
+		_bind_theme_card_press_state(theme_button, card)
 
 	# Footer controls are intentionally authored at y >= PORTRAIT_FOOTER_Y so
 	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
@@ -897,9 +898,8 @@ func show_records() -> void:
 func show_profile() -> void:
 	game_timer.stop()
 	_clear("")
-	_portrait_screen(112.0)
-	_stage_label(Rect2(22.0, 24.0, 330.0, 62.0), _profile_text("ПРОФИЛЬ", "PROFILE"), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), _profile_text("ПРОФИЛЬ", "PROFILE"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 
 	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)
 	_stage_profile_header_card()
@@ -908,6 +908,7 @@ func show_profile() -> void:
 	_portrait_profile_stat_row(468.0, tr("MENU_TIME_ATTACK"), tr("SCORE"), int(GameState.records[2][2]), tr("VICTORIES_PER_GAME"), int(GameState.records[2][1]), true)
 	_portrait_profile_stat_row(582.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), int(GameState.records[1][0]), tr("DEFEATS"), int(GameState.records[1][1]), false)
 	_portrait_end_adaptive_group(profile_root_content)
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
 
 func _stage_profile_header_card() -> void:
 	var card_rect := Rect2(24.0, 136.0, 432.0, 150.0)
