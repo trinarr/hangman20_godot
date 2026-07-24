@@ -493,8 +493,8 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         "The gameplay footer does not select its left action by mode",
     )
     require(
-        '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))' in footer,
-        "Classic and Two Player gameplay do not show a round close button leading to the main menu",
+        '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))' in footer,
+        "Classic and Two Player gameplay do not show the confirmed round-exit action",
     )
     require(
         '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))' in footer,
@@ -545,6 +545,82 @@ def verify_android_vibration_feedback() -> None:
         "const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35" in main
         and "Input.vibrate_handheld(SETTINGS_TOGGLE_ON_VIBRATION_MS)" in main,
         "Enabling vibration in settings does not use the short subtle pulse",
+    )
+
+
+def verify_android_network_and_result_search() -> None:
+    main = read("scripts/main.gd")
+    export_preset = read("export_presets.cfg")
+    word_search = main[
+        main.index("func _open_word_search()") : main.index("func _unhandled_input(")
+    ]
+
+    require(
+        "permissions/internet=true" in export_preset,
+        "Android INTERNET permission is disabled, so Wiktionary checks cannot work",
+    )
+    require(
+        'OS.shell_open("https://www.google.com/search?q=" + word.to_lower().uri_encode())'
+        in word_search
+        and "yandex" not in word_search.lower(),
+        "The result-screen word lookup does not use Google Search",
+    )
+
+
+def verify_game_exit_confirmation_popup() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    translations = read("localization/translations.csv")
+
+    clear_screen = main[main.index("func _clear(") : main.index("func _add_fullscreen_modal_backdrop(")]
+    base_game = main[main.index("func _refresh_game_screen()") : main.index("func _game_header_icon()")]
+    portrait_game = portrait[
+        portrait.index("func _refresh_game_screen()") : portrait.index("func _game_footer_back_action()")
+    ]
+    base_popup = main[
+        main.index("func _show_exit_game_popup()") : main.index("func start_time_attack()")
+    ]
+    portrait_popup = portrait[
+        portrait.index("func _show_exit_game_popup()") : portrait.index("func _cycle_time_attack_difficulty()")
+    ]
+
+    require(
+        "_remove_exit_game_popup()" in clear_screen
+        and 'popup_layer.add_to_group("exit_game_popup")' in base_popup
+        and '"ExitGamePopup", "exit_game_popup"' in portrait_popup,
+        "The exit confirmation popup is not cleaned up with the active screen",
+    )
+    require(
+        'Callable(self, "_show_exit_game_popup")' in base_game
+        and 'Callable(self, "_show_exit_game_popup")' in portrait_game
+        and 'Callable(self, "show_menu"), RESULT_CLOSE_ICON' not in portrait_game,
+        "A gameplay exit button still bypasses the confirmation popup",
+    )
+    require(
+        'tr("EXIT_GAME_CONFIRM")' in base_popup
+        and 'tr("EXIT_GAME_CONFIRM")' in portrait_popup
+        and 'Callable(self, "_confirm_exit_game"), tr("YES")' in base_popup
+        and 'Callable(self, "_confirm_exit_game"), tr("YES")' in portrait_popup
+        and 'Callable(self, "_remove_exit_game_popup"), tr("NO")' in base_popup
+        and 'Callable(self, "_remove_exit_game_popup"), tr("NO")' in portrait_popup,
+        "The compact exit popup is missing its title or Yes/No actions",
+    )
+    require(
+        'Callable(self, "_remove_exit_game_popup"),\n\t\t"×"' in base_popup
+        and "var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5"
+        in portrait_popup
+        and "var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP" in portrait_popup
+        and 'Callable(self, "_remove_exit_game_popup"),\n\t\t"×"' in portrait_popup,
+        "The exit confirmation popup is missing its standard round close button",
+    )
+    require(
+        "func _confirm_exit_game() -> void:" in base_popup
+        and "_remove_exit_game_popup()\n\tshow_menu()" in base_popup,
+        "Confirming exit does not close the popup and return to the main menu",
+    )
+    require(
+        "EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?" in translations,
+        "The exit confirmation title is not localized",
     )
 
 
@@ -1055,12 +1131,14 @@ def main() -> None:
     verify_hint_letter_animations()
     verify_game_footer_navigation_and_two_player_hero()
     verify_android_vibration_feedback()
+    verify_android_network_and_result_search()
+    verify_game_exit_confirmation_popup()
     verify_long_button_attention_bounce()
     verify_native_custom_word_input()
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()
     verify_profile_theme_and_about_ui()
-    print("2x layout, profile/theme/about UI polish, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    print("2x layout, compact gameplay-exit confirmation, Android word-check networking and Google result lookup, profile/theme/about UI polish, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

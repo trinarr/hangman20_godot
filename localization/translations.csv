@@ -31,6 +31,7 @@ SHOW_HINTS,Подсказки,Hints
 CLEAR_THEME_CONFIRM,Очистить тему?,Clear the category?
 YES,Да,Yes
 NO,Нет,No
+EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?
 THEME_SELECT_TITLE,Выберите тему:,Choose the category:
 ALL_WORDS_GUESSED,Все слова отгаданы,All words are guessed
 GUESSED,Отгадано,Guessed

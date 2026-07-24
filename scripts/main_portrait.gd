@@ -361,6 +361,31 @@ func _show_time_attack_popup() -> void:
 	_stage_main_button(Rect2(90.0, 586.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 22, false, 0.32, false, false, true)
 	content = previous_content
 
+func _show_exit_game_popup() -> void:
+	_remove_exit_game_popup()
+	var previous_content := _portrait_popup_begin("ExitGamePopup", "exit_game_popup", 140, Callable(self, "_remove_exit_game_popup"), 336.0, 526.0)
+	var rect := Rect2(60.0, 336.0, 360.0, 190.0)
+	var header := _stage_panel(Rect2(rect.position, Vector2(rect.size.x, 80.0)), PORTRAIT_BLUE)
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, 110.0)), PORTRAIT_DARK_BLUE)
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
+	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(82.0, 346.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+	_stage_main_button(Rect2(82.0, 444.0, 145.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
+	_stage_main_button(Rect2(253.0, 444.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
+	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
+	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
+	_stage_round_button(
+		Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE),
+		Callable(self, "_remove_exit_game_popup"),
+		"×"
+	)
+	content = previous_content
+
 func _cycle_time_attack_difficulty() -> void:
 	GameState.settings[2] = (int(GameState.settings[2]) + 1) % 3
 	GameState.save_game()
@@ -572,8 +597,8 @@ func _refresh_game_screen() -> void:
 
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
 	if GameState.current_mode == 0 or GameState.current_mode == 2:
-		# Classic and Two Player both close directly to the main menu.
-		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
+		# Classic and Two Player both ask for confirmation before leaving the round.
+		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
 	else:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
 	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0)

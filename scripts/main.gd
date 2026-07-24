@@ -174,6 +174,7 @@ func _clear(symbol_path: String = "") -> void:
 	_remove_settings_popup()
 	_remove_records_popup()
 	_remove_time_attack_popup()
+	_remove_exit_game_popup()
 	_remove_clear_theme_popup()
 	settings_popup_return_content = null
 	_remove_custom_comment_popup()
@@ -1119,6 +1120,60 @@ func _remove_time_attack_popup() -> void:
 			node.get_parent().remove_child(node)
 			node.queue_free()
 
+func _show_exit_game_popup() -> void:
+	_remove_exit_game_popup()
+	_play_popup_open_sound()
+	var previous_content: Control = content
+
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "ExitGamePopupCanvas"
+	popup_layer.layer = 140
+	popup_layer.add_to_group("exit_game_popup")
+	add_child(popup_layer)
+
+	var popup_root := Control.new()
+	popup_root.name = "ExitGamePopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_exit_game_popup"))
+	content = _center_popup_content(popup_root, 92.0, 306.0)
+
+	var popup_x: float = 210.0
+	var popup_width: float = 380.0
+	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 78.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 136.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var separator := _stage_panel(Rect2(popup_x, 169.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(popup_x + 24.0, 102.0, popup_width - 48.0, 54.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+	_stage_main_button(Rect2(popup_x + 28.0, 214.0, 150.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
+	_stage_main_button(Rect2(popup_x + 202.0, 214.0, 150.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
+	_stage_round_button(
+		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 330.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
+		Callable(self, "_remove_exit_game_popup"),
+		"×"
+	)
+
+	content = previous_content
+
+func _confirm_exit_game() -> void:
+	_remove_exit_game_popup()
+	show_menu()
+
+func _remove_exit_game_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("exit_game_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+
 func start_time_attack() -> void:
 	game_finished = false
 	last_result_data = {}
@@ -1531,7 +1586,7 @@ func _refresh_game_screen() -> void:
 		_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
 	else:
 		_stage_round_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
+	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "_show_exit_game_popup"), "×")
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	_configure_hero_static_animation()
@@ -2242,7 +2297,7 @@ func _open_word_search() -> void:
 	var word := GameSession.get_full_word().strip_edges()
 	if word == "":
 		return
-	OS.shell_open("https://yandex.ru/search/?text=" + word.to_lower().uri_encode())
+	OS.shell_open("https://www.google.com/search?q=" + word.to_lower().uri_encode())
 
 func _unhandled_input(event: InputEvent) -> void:
 	if game_finished or !GameSession.is_active:
