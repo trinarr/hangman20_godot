@@ -49,6 +49,8 @@ const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.76
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
+const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
+const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_GAME_BACK_BUTTON_RECT := PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT
 const PORTRAIT_GAME_COMMENT_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT
 const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT
@@ -56,6 +58,12 @@ const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(135.0, 604.0, 90.0, 46.0)
 const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(255.0, 604.0, 90.0, 46.0)
 const PORTRAIT_LIVES_ICON_RECT := Rect2(344.0, 57.7, 29.4, 26.6)
 const PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)
+const PORTRAIT_LAST_LIFE_FIRST_BOUNCE_SCALE: float = 1.20
+const PORTRAIT_LAST_LIFE_SECOND_BOUNCE_SCALE: float = 1.13
+const PORTRAIT_LAST_LIFE_BOUNCE_UP_DURATION: float = 0.12
+const PORTRAIT_LAST_LIFE_BOUNCE_DOWN_DURATION: float = 0.14
+const PORTRAIT_LAST_LIFE_BETWEEN_BOUNCES: float = 0.06
+const PORTRAIT_LAST_LIFE_LOOP_PAUSE: float = 0.72
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
@@ -165,6 +173,69 @@ func _portrait_popup_shell(rect: Rect2, title: String, close_callable: Callable,
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
 	_stage_round_button(Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE), close_callable, "×")
 
+func _portrait_popup_button_rect(rect: Rect2) -> Rect2:
+	# Popup action buttons first receive a uniform 15% scale-up. Their horizontal
+	# length is then reduced by 15%, preserving the larger height and touch target
+	# without making two-button rows wider than their authored popup layout.
+	var scaled_size: Vector2 = rect.size * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
+	scaled_size.x *= PORTRAIT_POPUP_BUTTON_LENGTH_SCALE
+	return Rect2(rect.get_center() - scaled_size * 0.5, scaled_size)
+
+func _portrait_popup_font_size(font_size: int) -> int:
+	return int(round(float(font_size) * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE))
+
+func _stage_portrait_popup_main_button(
+	rect: Rect2,
+	callable: Callable,
+	text: String,
+	font_size: int = 20,
+	disabled: bool = false,
+	disabled_overlay_alpha: float = 0.32,
+	use_normal_texture_when_disabled: bool = false,
+	selected: bool = false,
+	attention_bounce: bool = false
+) -> Control:
+	return _stage_main_button(
+		_portrait_popup_button_rect(rect),
+		callable,
+		text,
+		_portrait_popup_font_size(font_size),
+		disabled,
+		disabled_overlay_alpha,
+		use_normal_texture_when_disabled,
+		selected,
+		attention_bounce
+	)
+
+func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
+	var enabled: bool = int(GameState.settings[setting_index]) == 2
+	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
+	var button := _stage_portrait_popup_main_button(
+		rect,
+		Callable(self, "_toggle_setting").bind(setting_index),
+		label_text,
+		18,
+		false,
+		0.0,
+		false,
+		enabled
+	)
+	settings_toggle_buttons[setting_index] = button
+
+func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
+	var selected: bool = GameState.word_language == language_code
+	var button := _stage_portrait_popup_main_button(
+		rect,
+		Callable(self, "_set_settings_word_language").bind(language_code),
+		label_text,
+		18,
+		false,
+		0.0,
+		false,
+		selected
+	)
+	settings_word_language_buttons[language_code] = button
+
 func show_menu() -> void:
 	game_timer.stop()
 	GameSession.discard_current_round()
@@ -229,8 +300,8 @@ func show_settings() -> void:
 	_stage_settings_word_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
 	_stage_settings_word_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
 	_stage_panel(Rect2(56.0, 430.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_main_button(Rect2(44.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
-	var remove_ads_button := _stage_main_button(Rect2(246.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
+	_stage_portrait_popup_main_button(Rect2(44.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
+	var remove_ads_button := _stage_portrait_popup_main_button(Rect2(246.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
 	remove_ads_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
 	var remove_ads_label := remove_ads_button.get_node_or_null("Text") as Label
 	if remove_ads_label != null:
@@ -312,8 +383,8 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	var theme_name := Database.get_theme_name(theme_index).to_upper()
 	var question_label := _stage_label(Rect2(65.0, 350.0, 350.0, 58.0), theme_name, 24, Color.WHITE)
 	question_label.clip_text = false
-	_stage_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(30, "Yes"), 20)
-	_stage_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(31, "No"), 20)
+	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(30, "Yes"), 20)
+	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(31, "No"), 20)
 	content = previous_content
 
 func _show_difficulty_popup() -> void:
@@ -358,7 +429,7 @@ func _show_time_attack_popup() -> void:
 	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
 	var record_label := _stage_score_with_star(Rect2(74.0, 500.0, 332.0, 38.0), record_text, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	record_label.clip_text = false
-	_stage_main_button(Rect2(90.0, 586.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 22, false, 0.32, false, false, true)
+	_stage_portrait_popup_main_button(Rect2(90.0, 586.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 22, false, 0.32, false, false, true)
 	content = previous_content
 
 func _show_exit_game_popup() -> void:
@@ -375,8 +446,8 @@ func _show_exit_game_popup() -> void:
 	var title_label := _stage_label(Rect2(82.0, 346.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
-	_stage_main_button(Rect2(82.0, 444.0, 145.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
-	_stage_main_button(Rect2(253.0, 444.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
+	_stage_portrait_popup_main_button(Rect2(82.0, 444.0, 145.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
+	_stage_portrait_popup_main_button(Rect2(253.0, 444.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
 	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
 	_stage_round_button(
@@ -687,7 +758,9 @@ func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2
 func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
 	var icon_rect: Rect2 = PORTRAIT_LIVES_ICON_RECT
 	icon_rect.position.y += upper_block_shift
-	_stage_texture(icon_rect, LIFE_HEART_ICON_TEXTURE)
+	var heart_icon: Control = _stage_texture(icon_rect, LIFE_HEART_ICON_TEXTURE)
+	if GameSession.is_active and GameSession.get_remaining_attempts() == 1:
+		_start_portrait_last_life_heart_bounce(heart_icon)
 
 	var label_rect: Rect2 = PORTRAIT_LIVES_LABEL_RECT
 	label_rect.position.y += upper_block_shift
@@ -701,6 +774,59 @@ func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
 	lives_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lives_label.add_theme_color_override("font_outline_color", Color.WHITE)
 	lives_label.add_theme_constant_override("outline_size", 2)
+
+func _start_portrait_last_life_heart_bounce(heart_icon: Control) -> void:
+	if heart_icon == null or !is_instance_valid(heart_icon):
+		return
+	var resting_scale: Vector2 = heart_icon.scale
+	var center_pivot: Vector2 = heart_icon.size * 0.5
+	# FlashStageTexture already carries the viewport fit scale. Changing its pivot
+	# after that scale has been applied would move the rendered icon immediately.
+	# Offset the local position first so the current visual bounds stay unchanged,
+	# then all tweened scale changes happen around the same visible center.
+	heart_icon.position += (resting_scale - Vector2.ONE) * center_pivot
+	heart_icon.pivot_offset = center_pivot
+	var bounce_tween: Tween = heart_icon.create_tween()
+	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	bounce_tween.set_loops()
+
+	var first_up: PropertyTweener = bounce_tween.tween_property(
+		heart_icon,
+		"scale",
+		resting_scale * PORTRAIT_LAST_LIFE_FIRST_BOUNCE_SCALE,
+		PORTRAIT_LAST_LIFE_BOUNCE_UP_DURATION
+	)
+	first_up.set_trans(Tween.TRANS_BACK)
+	first_up.set_ease(Tween.EASE_OUT)
+
+	var first_down: PropertyTweener = bounce_tween.tween_property(
+		heart_icon,
+		"scale",
+		resting_scale,
+		PORTRAIT_LAST_LIFE_BOUNCE_DOWN_DURATION
+	)
+	first_down.set_trans(Tween.TRANS_SINE)
+	first_down.set_ease(Tween.EASE_IN_OUT)
+	bounce_tween.tween_interval(PORTRAIT_LAST_LIFE_BETWEEN_BOUNCES)
+
+	var second_up: PropertyTweener = bounce_tween.tween_property(
+		heart_icon,
+		"scale",
+		resting_scale * PORTRAIT_LAST_LIFE_SECOND_BOUNCE_SCALE,
+		PORTRAIT_LAST_LIFE_BOUNCE_UP_DURATION
+	)
+	second_up.set_trans(Tween.TRANS_BACK)
+	second_up.set_ease(Tween.EASE_OUT)
+
+	var second_down: PropertyTweener = bounce_tween.tween_property(
+		heart_icon,
+		"scale",
+		resting_scale,
+		PORTRAIT_LAST_LIFE_BOUNCE_DOWN_DURATION
+	)
+	second_down.set_trans(Tween.TRANS_SINE)
+	second_down.set_ease(Tween.EASE_IN_OUT)
+	bounce_tween.tween_interval(PORTRAIT_LAST_LIFE_LOOP_PAUSE)
 
 func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> void:
 	var timer_icon_size := Vector2(31.0, 31.0)
@@ -983,7 +1109,7 @@ func _show_profile_edit_popup() -> void:
 	_stage_profile_avatar_choice(1, Rect2(78.0, 404.0, 112.0, 112.0), Rect2(108.0, 431.0, 54.0, 58.0))
 	_stage_profile_avatar_choice(2, Rect2(290.0, 404.0, 112.0, 112.0), Rect2(306.0, 437.0, 80.0, 70.0))
 
-	_stage_main_button(Rect2(90.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_save_profile_edits"), _profile_text("Сохранить", "Save"), 20)
+	_stage_portrait_popup_main_button(Rect2(90.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_save_profile_edits"), _profile_text("Сохранить", "Save"), 20)
 	content = previous_content
 
 func _stage_profile_avatar_choice(character_id: int, circle_rect: Rect2, avatar_rect: Rect2) -> void:
