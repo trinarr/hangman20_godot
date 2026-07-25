@@ -161,28 +161,6 @@
       "mean_absolute_change": 0.013601
     },
     {
-      "path": "flash_assets/time_attack_hourglass_38x46.png",
-      "size": [
-        76,
-        92
-      ],
-      "source_sha256": "5c8b97112f9c8b15c78f02cac380f3bf979318c20350fd27770c493ad1824bf5",
-      "target_sha256": "ae4a2667dd3d01acbabcf6f8ab8a8a1937aa0c374de070b11c2367fe52b5598c",
-      "silhouette_iou": 0.99972,
-      "mean_absolute_change": 0.008093
-    },
-    {
-      "path": "flash_assets/time_attack_timer_icon.png",
-      "size": [
-        48,
-        48
-      ],
-      "source_sha256": "ddbfd45961ea872916b9cc666a6d76591c31df127129fdb23e778c183ad9e3dd",
-      "target_sha256": "f461c391b54fdc970a9102304ea3dee07bfd2150df1c112c901c84aa92264fb4",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.017819
-    },
-    {
       "path": "flash_assets/user_hint_check_circle_uploaded.png",
       "size": [
         50,

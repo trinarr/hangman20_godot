@@ -18,7 +18,7 @@ var wrong_letters: PackedStringArray = []
 var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
 var is_active: bool = false
-var mode: int = 0 # 0 classic, 1 time attack, 2 two-player
+var mode: int = 0 # 0 classic, 1 two-player
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var word_hint_text: String = ""
@@ -46,14 +46,13 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	GameState.save_game()
 	emit_signal("changed")
 
-func start_new_round(theme_index: int, game_mode: int = 0) -> void:
-	var mode_string := "TA" if game_mode == 1 else "CL"
-	var word := WordManager.select_new_word(theme_index, mode_string)
-	start_round(word, word.index, word.theme_index, game_mode)
+func start_new_round(theme_index: int) -> void:
+	var word := WordManager.select_new_word(theme_index)
+	start_round(word, word.index, word.theme_index, 0)
 
 func start_custom_round(text: String, comment: String = "") -> void:
 	var word := WordManager.set_custom_word(text, comment)
-	start_round(word, -1, -1, 2)
+	start_round(word, -1, -1, 1)
 
 func _resolve_word_hint() -> String:
 	if word_data == null:
@@ -83,9 +82,6 @@ func guess(letter: String) -> bool:
 		return false
 	var correct := _reveal_letter(letter)
 	if correct:
-		if mode == 1:
-			GameState.correct_guess_streak += 1
-			_add_time_attack_points(GameState.correct_guess_streak * 2 * _time_attack_difficulty_factor())
 		if is_word_completed():
 			is_active = false
 			GameState.save_game()
@@ -97,8 +93,6 @@ func guess(letter: String) -> bool:
 		return true
 	wrong_letters.append(letter)
 	mistakes += 1
-	if mode == 1:
-		GameState.correct_guess_streak = 0
 	if int(GameState.settings[4]) == 2:
 		# A short pulse gives subtle feedback without interrupting gameplay.
 		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
@@ -161,8 +155,6 @@ func use_open_letter_hint() -> bool:
 	var selected_letter: String = letters[index]
 	_reveal_letter(selected_letter)
 	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
-	if mode == 1:
-		_add_time_attack_points(-25)
 	if is_word_completed():
 		is_active = false
 		GameState.save_game()
@@ -195,8 +187,6 @@ func use_remove_wrong_hint() -> bool:
 		selected_letters.append(selected_letter)
 		candidates.remove_at(candidate_index)
 	emit_signal("hint_letters_selected", selected_letters, false)
-	if mode == 1:
-		_add_time_attack_points(-20)
 	GameState.save_game()
 	emit_signal("changed")
 	return true
@@ -240,7 +230,7 @@ func discard_current_round() -> void:
 
 func finish_result(is_win: bool) -> Dictionary:
 	var result := {
-		"title": Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT"),
+		"title": Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT"),
 		"lines": []
 	}
 	if word_data == null:
@@ -248,8 +238,7 @@ func finish_result(is_win: bool) -> Dictionary:
 
 	var diff := clampi(int(word_data.difficulty), 0, 1)
 
-	# ReztMovBlock.as updates the classic difficulty streak for every category
-	# word, including words played during Time Attack. Only two-player words have
+	# Category words update the classic difficulty streak. Two-player words have
 	# no category and therefore use their own win/loss counters.
 	if theme_id >= 0:
 		if is_win:
@@ -263,29 +252,8 @@ func finish_result(is_win: bool) -> Dictionary:
 		if is_win and theme_id >= 0:
 			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
 			if _is_theme_completed(theme_id):
-				result["lines"].append(Database.tr_text(65, "Category is completed!"))
+				result["lines"].append(Database.tr_text(57, "Category is completed!"))
 	elif mode == 1:
-		if is_win:
-			# New FLA formula:
-			# round * 3 * difficulty_factor + 105 - 15 * HeroMov.currentFrame.
-			# HeroMov starts on frame 1, so currentFrame == mistakes + 1.
-			var bonus: int = (
-				GameState.time_attack_round * 3 * _time_attack_difficulty_factor()
-				+ 105
-				- 15 * (mistakes + 1)
-			)
-			_add_time_attack_points(bonus)
-			result["lines"].append(Database.tr_key(&"POINTS_GAINED", "Points:") + " " + str(bonus))
-			GameState.time_attack_round += 1
-			GameState.records[2][0] = int(GameState.records[2][0]) + 1
-			if int(GameState.records[2][0]) > int(GameState.records[2][1]):
-				GameState.records[2][1] = int(GameState.records[2][0])
-				result["lines"].append(Database.tr_text(45, "Victories per game") + ": " + str(GameState.records[2][0]))
-		else:
-			GameState.time_attack_round = 1
-			_add_time_attack_points(-20)
-			result["lines"].append(Database.tr_key(&"PENALTY", "Penalty:") + " 20")
-	elif mode == 2:
 		if is_win:
 			GameState.records[1][0] = int(GameState.records[1][0]) + 1
 		else:
@@ -293,43 +261,6 @@ func finish_result(is_win: bool) -> Dictionary:
 
 	GameState.save_game()
 	return result
-
-func finish_time_attack_timeout(timed_out: bool = true) -> Dictionary:
-	var final_score: int = int(GameState.current_score)
-	var result := {
-		"title": Database.tr_text(39, "GAME OVER"),
-		"lines": [],
-		"time_attack_finished": true,
-		"final_score": final_score
-	}
-	if timed_out:
-		result["lines"].append(Database.tr_text(51, "Time's up!"))
-	if final_score > int(GameState.records[2][2]):
-		GameState.records[2][2] = final_score
-		result["lines"].append(Database.tr_text(64, "New record!"))
-	GameState.records[2][0] = 0
-	GameState.time_attack_round = 1
-	GameState.correct_guess_streak = 0
-	is_active = false
-	GameState.save_game()
-	return result
-
-func _time_attack_difficulty_factor() -> int:
-	# Difficulty affects only the selected word pool and the Time Attack reward.
-	# Original AS3 factors: hard x4, general x2, easy x1.
-	match int(GameState.settings[2]):
-		1:
-			return 4 # hard
-		2:
-			return 1 # easy
-		_:
-			return 2 # general
-
-func _add_time_attack_points(delta: int) -> void:
-	if mode != 1:
-		return
-	const AS3_INT_MAX: int = 2147483647
-	GameState.current_score = clampi(GameState.current_score + delta, 0, AS3_INT_MAX)
 
 func _is_theme_completed(theme_index: int) -> bool:
 	return Database.get_number_of_all_words(theme_index, true) - Database.get_number_of_guessed_words(theme_index, true) == 0

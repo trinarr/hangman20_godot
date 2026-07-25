@@ -1,11 +1,11 @@
 extends Node
 
-func select_new_word(theme_index: int, mode: String = "CL") -> WordData:
+func select_new_word(theme_index: int) -> WordData:
 	if Database.get_theme_count() == 0:
 		return WordData.new("")
 
 	var selected_theme := theme_index
-	if mode == "TA" or selected_theme < 0:
+	if selected_theme < 0:
 		selected_theme = randi() % Database.get_theme_count()
 
 	var words := Database.get_words_by_index(selected_theme, GameState.settings[2])
@@ -21,18 +21,18 @@ func select_new_word(theme_index: int, mode: String = "CL") -> WordData:
 		var index := int(item["index"])
 		var already_guessed := bool(progress["guessed"][index]) if index < progress["guessed"].size() else false
 		var already_played := bool(progress["played"][index]) if index < progress["played"].size() else false
-		# Classic mode prefers not guessed and not recently played. Time attack may repeat guessed words.
-		if mode == "TA" or (!already_guessed and !already_played):
+		# Prefer words that have not been guessed or played recently.
+		if !already_guessed and !already_played:
 			available.append(item)
 
 	if available.is_empty():
-		# AS3 resets WasCL/WasTA when all eligible words were played.
+		# Reset the recently-played flags when all eligible words were exhausted.
 		for item in words:
 			var index := int(item["index"])
 			if index >= 0 and index < progress["played"].size():
 				progress["played"][index] = false
 			var already_guessed := bool(progress["guessed"][index]) if index < progress["guessed"].size() else false
-			if mode == "TA" or !already_guessed:
+			if !already_guessed:
 				available.append(item)
 
 	if available.is_empty():

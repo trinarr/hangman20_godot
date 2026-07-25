@@ -28,7 +28,7 @@ const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 300.0)
 const PORTRAIT_HERO_CLASSIC_RESULT_POSITION := Vector2(138.0, 500.0)
-const PORTRAIT_HERO_TIME_RESULT_POSITION := Vector2(138.0, 500.0)
+const PORTRAIT_HERO_CENTERED_RESULT_POSITION := Vector2(138.0, 500.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 const PORTRAIT_RESULT_CLOSE_BUTTON_RECT := PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT
 const PORTRAIT_RESULT_THEME_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT
@@ -68,7 +68,6 @@ const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 
-var _portrait_time_attack_difficulty_button: Control = null
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
@@ -237,7 +236,6 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
-	game_timer.stop()
 	GameSession.discard_current_round()
 	_portrait_game_adaptive_group = null
 	_clear("")
@@ -258,9 +256,8 @@ func show_menu() -> void:
 
 	var menu_buttons_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 570.0), 1.0, 0.22)
 	var button_x: float = 90.0
-	_stage_main_button(Rect2(button_x, 500.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
-	_stage_main_button(Rect2(button_x, 570.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), Database.tr_text(2, "Time Attack"), 22)
-	_stage_main_button(Rect2(button_x, 640.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(3, "Two Player"), 22)
+	_stage_main_button(Rect2(button_x, 535.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
+	_stage_main_button(Rect2(button_x, 615.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
 	_portrait_end_adaptive_group(menu_buttons_content)
 
 func _stage_main_menu_character_button() -> void:
@@ -276,9 +273,9 @@ func _show_character_select_popup() -> void:
 	_remove_character_select_popup()
 	var previous_content := _portrait_popup_begin("CharacterSelectPopup", "character_select_popup", 100, Callable(self, "_remove_character_select_popup"), 170.0, 540.0)
 	var rect := Rect2(28.0, 170.0, 424.0, 370.0)
-	_portrait_popup_shell(rect, Database.tr_text(9, "Choose the hero:"), Callable(self, "_remove_character_select_popup"), 27)
-	_stage_character_option(1, Rect2(62.0, 310.0, 120.0, 120.0), Database.tr_text(75, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(91.0, 338.0, 62.0, 66.0))
-	_stage_character_option(2, Rect2(298.0, 310.0, 120.0, 120.0), Database.tr_text(76, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(313.0, 344.0, 90.0, 79.0))
+	_portrait_popup_shell(rect, Database.tr_text(7, "Choose the hero:"), Callable(self, "_remove_character_select_popup"), 27)
+	_stage_character_option(1, Rect2(62.0, 310.0, 120.0, 120.0), Database.tr_text(67, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(91.0, 338.0, 62.0, 66.0))
+	_stage_character_option(2, Rect2(298.0, 310.0, 120.0, 120.0), Database.tr_text(68, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(313.0, 344.0, 90.0, 79.0))
 	content = previous_content
 
 func show_settings() -> void:
@@ -289,7 +286,7 @@ func show_settings() -> void:
 	settings_popup_return_content = previous_content
 	var stored_previous := _portrait_popup_begin("SettingsPopup", "settings_popup", 100, Callable(self, "_remove_settings_popup"), 90.0, 580.0)
 	var rect := Rect2(28.0, 90.0, 424.0, 490.0)
-	_portrait_popup_shell(rect, Database.tr_text(5, "Settings"), Callable(self, "_remove_settings_popup"), 30)
+	_portrait_popup_shell(rect, Database.tr_text(4, "Settings"), Callable(self, "_remove_settings_popup"), 30)
 
 	_stage_label(Rect2(56.0, 192.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_settings_toggle_button(Rect2(330.0, 188.0, 102.0, 49.0), 3)
@@ -297,8 +294,8 @@ func show_settings() -> void:
 	_stage_settings_toggle_button(Rect2(330.0, 256.0, 102.0, 49.0), 4)
 	_stage_panel(Rect2(56.0, 328.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_label(Rect2(56.0, 352.0, 190.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
-	_stage_settings_word_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
+	_stage_settings_word_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
+	_stage_settings_word_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 	_stage_panel(Rect2(56.0, 430.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_portrait_popup_main_button(Rect2(44.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
 	var remove_ads_button := _stage_portrait_popup_main_button(Rect2(246.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
@@ -330,7 +327,7 @@ func show_theme_select() -> void:
 	# Keep the category cards on the graph-paper background and move all screen
 	# navigation into a rigid footer block that follows the physical bottom edge.
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
-	var theme_title: String = Database.tr_text(32, "Choose the category:").strip_edges()
+	var theme_title: String = Database.tr_text(28, "Choose the category:").strip_edges()
 	if theme_title.ends_with(":"):
 		theme_title = theme_title.substr(0, theme_title.length() - 1)
 	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), theme_title, 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
@@ -347,7 +344,7 @@ func show_theme_select() -> void:
 		var completed: bool = words_count > 0 and guessed >= words_count
 		var card := _stage_texture(Rect2(x, y, 214.0, 88.0), THEME_CARD_TEXTURE)
 		var progress_back := _stage_texture(Rect2(x, y, 214.0, 63.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
+		var progress_text: String = Database.tr_text(30, "Guessed") + ": " + str(guessed_percent) + "%"
 		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0), progress_text, 16, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		var theme_name: String = Database.get_theme_name(i).to_upper()
@@ -386,23 +383,23 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
 	var previous_content := _portrait_popup_begin("ClearThemePopup", "clear_theme_popup", 125, Callable(self, "_remove_clear_theme_popup"), 250.0, 540.0)
 	var rect := Rect2(35.0, 250.0, 410.0, 290.0)
-	_portrait_popup_shell(rect, Database.tr_text(29, "Clear the category?"), Callable(self, "_remove_clear_theme_popup"), 25)
+	_portrait_popup_shell(rect, Database.tr_text(25, "Clear the category?"), Callable(self, "_remove_clear_theme_popup"), 25)
 	var theme_name := Database.get_theme_name(theme_index).to_upper()
 	var question_label := _stage_label(Rect2(65.0, 350.0, 350.0, 58.0), theme_name, 24, Color.WHITE)
 	question_label.clip_text = false
-	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(30, "Yes"), 20)
-	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(31, "No"), 20)
+	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
+	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20)
 	content = previous_content
 
 func _show_difficulty_popup() -> void:
 	_remove_difficulty_popup()
 	var previous_content := _portrait_popup_begin("ThemeDifficultyPopup", "difficulty_popup", 120, Callable(self, "_remove_difficulty_popup"), 100.0, 620.0)
 	var rect := Rect2(28.0, 100.0, 424.0, 520.0)
-	_portrait_popup_shell(rect, Database.tr_text(63, "Choose the difficulty level:"), Callable(self, "_remove_difficulty_popup"), 24)
+	_portrait_popup_shell(rect, Database.tr_text(55, "Choose the difficulty level:"), Callable(self, "_remove_difficulty_popup"), 24)
 	var options := [
-		{"value": 2, "title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"), "desc": Database.tr_text(55, "Easy words")},
-		{"value": 1, "title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"), "desc": Database.tr_text(56, "Hard words")},
-		{"value": 0, "title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"), "desc": Database.tr_text(57, "All words")},
+		{"value": 2, "title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"), "desc": Database.tr_text(47, "Easy words")},
+		{"value": 1, "title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"), "desc": Database.tr_text(48, "Hard words")},
+		{"value": 0, "title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"), "desc": Database.tr_text(49, "All words")},
 	]
 	for index in range(options.size()):
 		var option: Dictionary = options[index]
@@ -418,25 +415,6 @@ func _show_difficulty_popup() -> void:
 		var desc_label := _stage_label(Rect2(146.0, y + 36.0, 260.0, 38.0), str(option["desc"]), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		desc_label.clip_text = false
 		_stage_button(Rect2(44.0, y - 8.0, 382.0, 90.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
-	content = previous_content
-
-func _show_time_attack_popup() -> void:
-	_remove_time_attack_popup()
-	var previous_content := _portrait_popup_begin("TimeAttackPopup", "time_attack_popup", 115, Callable(self, "_remove_time_attack_popup"), 120.0, 674.0)
-	var rect := Rect2(28.0, 120.0, 424.0, 554.0)
-	_portrait_popup_shell(rect, tr("TIME_ATTACK_MODE"), Callable(self, "_remove_time_attack_popup"), 29)
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_portrait_time_attack_difficulty_button = _stage_round_icon_button(Rect2(316.0, 129.0, 62.0, 62.0), Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, _art_stage_size(difficulty_texture))
-	_stage_texture(Rect2(174.0, 238.0, 133.0, 133.0), TIME_ATTACK_BADGE_OUTER_TEXTURE)
-	_stage_texture(Rect2(185.0, 249.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
-	_stage_texture(Rect2(221.5, 281.0, 38.0, 46.0), TIME_ATTACK_HOURGLASS_TEXTURE)
-	var description_label := _stage_label(Rect2(62.0, 382.0, 356.0, 96.0), tr("TIME_ATTACK_DESCRIPTION"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	description_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	description_label.clip_text = true
-	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
-	var record_label := _stage_score_with_star(Rect2(74.0, 500.0, 332.0, 38.0), record_text, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	record_label.clip_text = false
-	_stage_portrait_popup_main_button(Rect2(90.0, 586.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 22, false, 0.32, false, false, true)
 	content = previous_content
 
 func _show_exit_game_popup() -> void:
@@ -464,15 +442,7 @@ func _show_exit_game_popup() -> void:
 	)
 	content = previous_content
 
-func _cycle_time_attack_difficulty() -> void:
-	GameState.settings[2] = (int(GameState.settings[2]) + 1) % 3
-	GameState.save_game()
-	if _portrait_time_attack_difficulty_button != null and is_instance_valid(_portrait_time_attack_difficulty_button):
-		var difficulty_texture: Texture2D = _difficulty_star_texture()
-		_portrait_time_attack_difficulty_button.call("configure_texture", difficulty_texture, _art_stage_size(difficulty_texture))
-
 func show_custom_word() -> void:
-	game_timer.stop()
 	_clear("")
 	# Two-player words no longer support comments, gameplay hints, or automatic
 	# opening of the first and last letters.
@@ -491,7 +461,7 @@ func show_custom_word() -> void:
 	# Match the category screen: graph-paper background, no blue header, and a
 	# centered blue page title with identical geometry and typography.
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
-	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(41, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(37, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 
 	_portrait_custom_word_input = STAGE_WORD_INPUT_SCRIPT.new() as Control
 	_portrait_custom_word_input.call("configure", custom_word_text, 15, 34)
@@ -512,7 +482,7 @@ func show_custom_word() -> void:
 	# Attach both actions to the footer and apply the same 85% width treatment
 	# as the Start Game button. This keeps their visual and touch sizes equal.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
-	custom_word_check_button = _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 22, false, 0.0)
+	custom_word_check_button = _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 22, false, 0.0)
 	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 
@@ -559,7 +529,7 @@ func _refresh_game_screen() -> void:
 	# The word and keyboard remain attached to the footer in every mode.
 	var hero_pivot := Vector2(138.0, 206.0 + upper_block_shift)
 	var hero_stage_position := Vector2(76.0, 222.0 + upper_block_shift)
-	if GameState.current_mode == 2:
+	if GameState.current_mode == 1:
 		# Two-player rounds have no hint controls, so use their free column and
 		# center the visible imported art rather than the symbol's empty origin.
 		hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5
@@ -578,7 +548,7 @@ func _refresh_game_screen() -> void:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
 
-	var stage_upper_hints: bool = GameState.current_mode != 2
+	var stage_upper_hints: bool = GameState.current_mode != 1
 	var open_hint_rect := Rect2(
 		340.0,
 		124.0 + upper_block_shift,
@@ -592,12 +562,6 @@ func _refresh_game_screen() -> void:
 		PORTRAIT_GAME_HINT_REMOVE_RECT.size.y
 	)
 
-	if GameState.current_mode == 1:
-		var hud_y: float = 2.0 + upper_block_shift
-		_stage_portrait_time_attack_hud(
-			Rect2(46.0, hud_y, 190.0, 40.0),
-			Rect2(310.0, hud_y, 140.0, 40.0)
-		)
 	_stage_portrait_lives_counter(upper_block_shift)
 
 	if stage_upper_hints:
@@ -674,15 +638,12 @@ func _refresh_game_screen() -> void:
 	_portrait_end_adaptive_group(keyboard_root_content)
 
 	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-	if GameState.current_mode == 0 or GameState.current_mode == 2:
-		# Classic and Two Player both ask for confirmation before leaving the round.
-		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	else:
-		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
-	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0)
+	# Both remaining modes ask for confirmation before leaving the round.
+	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
+	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0)
 	if GameState.current_mode == 0:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
-	elif GameState.current_mode == 2:
+	elif GameState.current_mode == 1:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))
 	if comment_disabled:
 		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
@@ -691,9 +652,6 @@ func _refresh_game_screen() -> void:
 			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
-
-func _game_footer_back_action() -> void:
-	_game_header_action()
 
 func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void:
 	if GameSession.letters.is_empty():
@@ -835,28 +793,6 @@ func _start_portrait_last_life_heart_bounce(heart_icon: Control) -> void:
 	second_down.set_ease(Tween.EASE_IN_OUT)
 	bounce_tween.tween_interval(PORTRAIT_LAST_LIFE_LOOP_PAUSE)
 
-func _stage_portrait_time_attack_hud(timer_rect: Rect2, score_rect: Rect2) -> void:
-	var timer_icon_size := Vector2(31.0, 31.0)
-	var timer_icon_y: float = timer_rect.position.y + (timer_rect.size.y - timer_icon_size.y) * 0.5
-	_stage_texture(Rect2(timer_rect.position.x, timer_icon_y, timer_icon_size.x, timer_icon_size.y), TIME_ATTACK_TIMER_ICON_TEXTURE)
-	var time_label := _stage_label(
-		Rect2(timer_rect.position.x + 38.0, timer_rect.position.y, timer_rect.size.x - 38.0, timer_rect.size.y),
-		_format_time(GameState.current_time_left),
-		22,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_LEFT
-	)
-	time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_stage_score_with_star(
-		score_rect,
-		str(GameState.current_score),
-		22,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		Color.WHITE,
-		1
-	)
-
 func _create_hero_animation_overlay() -> FlashStageSymbol:
 	var overlay := FlashStageSymbol.new()
 	overlay.name = "HeroAnimationOverlay"
@@ -871,26 +807,19 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 		add_child(overlay)
 	return overlay
 
-func _portrait_result_title_color(is_win: bool, time_attack_finished: bool = false) -> Color:
-	if time_attack_finished:
-		return PORTRAIT_ORANGE
+func _portrait_result_title_color(is_win: bool) -> Color:
 	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
 
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
-	game_timer.stop()
 	_play_result_sound_once(is_win, data)
 	_portrait_game_adaptive_group = null
 	_clear("")
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
-	var result_search_button_rect: Rect2 = PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT
-	var time_attack_finished: bool = GameState.current_mode == 1 and bool(data.get("time_attack_finished", false))
-	if GameState.current_mode == 1 and !time_attack_finished:
-		result_search_button_rect = PORTRAIT_ACTION_BUTTON_RECT
 	var result_word_rect := Rect2(
 		20.0,
 		18.0,
-		result_search_button_rect.position.x - PORTRAIT_RESULT_WORD_BUTTON_GAP - 20.0,
+		PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT.position.x - PORTRAIT_RESULT_WORD_BUTTON_GAP - 20.0,
 		68.0
 	)
 	var result_word_label := _stage_label(result_word_rect, full_word, PORTRAIT_RESULT_WORD_MAX_FONT_SIZE, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -903,53 +832,18 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	)
 	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result_word_label.clip_text = true
-	if GameState.current_mode == 0:
-		_show_classic_result_content(is_win, data)
-		return
-	if GameState.current_mode == 2:
+	if GameState.current_mode == 1:
 		_show_two_player_result_content(is_win, data)
-		return
-	if time_attack_finished:
-		_show_time_attack_finished_result_content(data)
-		return
-	_stage_round_icon_button(PORTRAIT_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE)
-	_stage_round_icon_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(23.0, 23.0))
-	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 410.0), PORTRAIT_RESULT_MAX_SCALE, 0.12)
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
-	if hero_static_symbol != null:
-		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
-	_configure_hero_static_animation()
-	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
-	var title_label := _stage_label(Rect2(48.0, 330.0, 384.0, 70.0), title, 38, _portrait_result_title_color(is_win, time_attack_finished))
-	title_label.clip_text = false
-	_apply_result_text_glow(title_label, Color.WHITE, 2)
-	var result_score_line: String = _result_score_line(data)
-	if result_score_line != "":
-		_stage_score_with_star(Rect2(64.0, 410.0, 352.0, 38.0), result_score_line, 21, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
-		var remaining_message: String = _result_non_score_lines(data)
-		if remaining_message != "":
-			var remaining_label := _stage_label(Rect2(64.0, 456.0, 352.0, 58.0), remaining_message, 19, PORTRAIT_BLUE)
-			remaining_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	else:
-		var result_message: String = _result_message(is_win, data)
-		var message_label := _stage_label(Rect2(64.0, 410.0, 352.0, 82.0), result_message, 20, PORTRAIT_BLUE)
-		message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	if GameState.current_mode == 0:
-		_stage_label(Rect2(64.0, 540.0, 352.0, 42.0), _result_theme_label(), 20, PORTRAIT_BLUE)
-	_portrait_end_adaptive_group(result_root_content)
-	var show_left_button: bool = GameState.current_mode == 0
-	if show_left_button:
-		_stage_main_button(_portrait_footer_long_button_rect(Rect2(14.0, 708.0, 220.0, 57.0)), Callable(self, "_result_left_action"), _result_left_button_text(), _portrait_footer_font_size(20))
-	_stage_main_button(_portrait_footer_long_button_rect(Rect2(248.0, 708.0, 220.0, 57.0)), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(20), false, 0.32, false, false, true)
+		_show_classic_result_content(is_win, data)
 
 func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
-	# The two-player result uses the same thumb-friendly composition as the final
-	# Time Attack screen: compact search in the header, centered result copy and
-	# hero, plus close/restart controls in the rigid footer.
+	# Two-player results use a compact search button in the header, centered
+	# result copy and hero, plus close/restart controls in the rigid footer.
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
-	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+	var title: String = Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT").strip_edges()
 	if title == "":
 		title = "VICTORY" if is_win else "DEFEAT"
 	var title_label := _stage_label(Rect2(40.0, 150.0, 400.0, 66.0), title, 38, _portrait_result_title_color(is_win))
@@ -961,7 +855,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	subtitle_label.clip_text = false
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
+	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CENTERED_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
@@ -982,55 +876,19 @@ func _fit_single_line_label_to_width(label: Label, text: String, available_width
 		resolved_font_size -= 1
 	label.add_theme_font_size_override("font_size", resolved_font_size)
 
-func _show_time_attack_finished_result_content(data: Dictionary) -> void:
-	# Match the classic result layout: compact search in the header, result copy
-	# above a centered hero, and thumb-reachable controls in the rigid footer.
-	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
-
-	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
-	var title: String = str(data.get("title", Database.tr_text(39, "GAME OVER"))).strip_edges()
-	if title == "":
-		title = Database.tr_text(39, "GAME OVER")
-	var title_label := _stage_label(Rect2(40.0, 150.0, 400.0, 66.0), title, 38, _portrait_result_title_color(false, true))
-	title_label.clip_text = false
-	_apply_result_text_glow(title_label, Color.WHITE, 2)
-
-	var final_score: int = int(data.get("final_score", GameState.current_score))
-	var final_score_text: String = Database.tr_key(&"FINAL_SCORE", "Final score:") + " " + str(final_score)
-	_stage_score_with_star(Rect2(52.0, 216.0, 376.0, 42.0), final_score_text, 22, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
-
-	var final_details: String = _result_data_lines(data)
-	if final_details != "":
-		var details_label := _stage_label(Rect2(52.0, 260.0, 376.0, 58.0), final_details, 19, PORTRAIT_BLUE)
-		details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		details_label.clip_text = false
-
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_TIME_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
-	if hero_static_symbol != null:
-		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
-	_configure_hero_static_animation()
-	_portrait_end_adaptive_group(result_root_content)
-
-	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true)
-
 func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
-	var title: String = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
+	var title: String = Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT").strip_edges()
 	var title_label := _stage_label(Rect2(40.0, 150.0, 400.0, 66.0), title, 38, _portrait_result_title_color(is_win))
 	title_label.clip_text = false
 	_apply_result_text_glow(title_label, Color.WHITE, 2)
 
-	var subtitle: String = _result_non_score_lines(data)
+	var subtitle: String = _result_data_lines(data)
 	if subtitle == "":
-		subtitle = Database.tr_text(49 if is_win else 50, "Keep going!" if is_win else "You can do better!")
+		subtitle = Database.tr_text(43 if is_win else 44, "Keep going!" if is_win else "You can do better!")
 	var subtitle_label := _stage_label(Rect2(52.0, 216.0, 376.0, 58.0), subtitle, 21, PORTRAIT_BLUE)
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	subtitle_label.clip_text = false
-
-	var result_score_line: String = _result_score_line(data)
-	if result_score_line != "":
-		_stage_score_with_star(Rect2(64.0, 274.0, 352.0, 38.0), result_score_line, 20, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 1)
 
 	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CLASSIC_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
 	if hero_static_symbol != null:
@@ -1054,7 +912,6 @@ func show_records() -> void:
 	show_profile()
 
 func show_profile() -> void:
-	game_timer.stop()
 	_clear("")
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
 	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), _profile_text("ПРОФИЛЬ", "PROFILE"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
@@ -1062,9 +919,8 @@ func show_profile() -> void:
 	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)
 	_stage_profile_header_card()
 	_stage_label(Rect2(26.0, 310.0, 428.0, 40.0), _profile_text("СТАТИСТИКА", "STATISTICS"), 27, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
-	_portrait_profile_stat_row(354.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), int(GameState.records[0][2]), tr("RECORD_HARD_STREAK"), int(GameState.records[0][3]), false)
-	_portrait_profile_stat_row(468.0, tr("MENU_TIME_ATTACK"), tr("SCORE"), int(GameState.records[2][2]), tr("VICTORIES_PER_GAME"), int(GameState.records[2][1]), true)
-	_portrait_profile_stat_row(582.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), int(GameState.records[1][0]), tr("DEFEATS"), int(GameState.records[1][1]), false)
+	_portrait_profile_stat_row(392.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), int(GameState.records[0][2]), tr("RECORD_HARD_STREAK"), int(GameState.records[0][3]))
+	_portrait_profile_stat_row(526.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), int(GameState.records[1][0]), tr("DEFEATS"), int(GameState.records[1][1]))
 	_portrait_end_adaptive_group(profile_root_content)
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
 
@@ -1084,15 +940,12 @@ func _stage_profile_header_card() -> void:
 	_stage_label(Rect2(414.0, 188.0, 26.0, 42.0), "›", 30, Color.WHITE)
 	_stage_button(card_rect, Callable(self, "_show_profile_edit_popup"), "")
 
-func _portrait_profile_stat_row(y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int, score_has_star: bool) -> void:
+func _portrait_profile_stat_row(y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int) -> void:
 	_stage_panel(Rect2(24.0, y, 432.0, 102.0), PORTRAIT_DARK_BLUE, 18.0, PORTRAIT_RULE, 1.5)
 	_stage_label(Rect2(42.0, y + 8.0, 396.0, 30.0), mode_text.to_upper(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_panel(Rect2(42.0, y + 41.0, 396.0, 1.5), PORTRAIT_RULE)
 	_stage_label(Rect2(42.0, y + 48.0, 180.0, 24.0), left_text, 16, Color(0.80, 0.83, 1.0, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	if score_has_star:
-		_stage_score_with_star(Rect2(42.0, y + 70.0, 180.0, 26.0), str(left_value), 22, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_LEFT, Color.TRANSPARENT, 0)
-	else:
-		_stage_label(Rect2(42.0, y + 70.0, 180.0, 26.0), str(left_value), 22, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(42.0, y + 70.0, 180.0, 26.0), str(left_value), 22, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(244.0, y + 48.0, 194.0, 24.0), right_text, 16, Color(0.80, 0.83, 1.0, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_label(Rect2(244.0, y + 70.0, 194.0, 26.0), str(right_value), 22, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_LEFT)
 
@@ -1179,7 +1032,7 @@ func _show_word_comment_popup() -> void:
 	_remove_word_comment_popup()
 	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 612.0)
 	var rect := Rect2(28.0, 160.0, 424.0, 452.0)
-	_portrait_popup_shell(rect, Database.tr_text(47, "Comment"), Callable(self, "_remove_word_comment_popup"), 30)
+	_portrait_popup_shell(rect, Database.tr_text(41, "Comment"), Callable(self, "_remove_word_comment_popup"), 30)
 	var hint_label := _stage_label(Rect2(56.0, 282.0, 368.0, 190.0), hint, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false

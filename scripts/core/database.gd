@@ -15,23 +15,19 @@ const WORD_FILES := {
 const TRANSLATION_KEYS := [
 	"GAME_TITLE",
 	"MENU_CLASSIC",
-	"MENU_TIME_ATTACK",
 	"MENU_TWO_PLAYER",
 	"COMMON_CONTINUE",
 	"SETTINGS_TITLE",
 	"COMMON_EXIT",
 	"NEW_GAME",
-	"TIME_ATTACK_MODE",
 	"CHARACTER_SELECT_TITLE",
 	"RESTART",
 	"MUSIC_LABEL",
 	"UNUSED_12",
 	"ABOUT_TITLE",
-	"TIME_ATTACK_DESCRIPTION",
 	"WORD_DATABASE_LABEL",
 	"GIVE_UP",
 	"START",
-	"RECORD_LABEL",
 	"RECORDS_TITLE",
 	"RECORD_EASY_STREAK",
 	"RECORD_HARD_STREAK",
@@ -57,16 +53,12 @@ const TRANSLATION_KEYS := [
 	"INPUT_WORD",
 	"VICTORIES",
 	"DEFEATS",
-	"SCORE",
-	"VICTORIES_PER_GAME",
 	"NO_CATEGORY",
 	"COMMENT",
 	"CATEGORY_LABEL",
 	"WIN_MESSAGE",
 	"LOSE_MESSAGE",
-	"TIME_UP",
 	"CHANGE_CATEGORY",
-	"FINISH_GAME",
 	"EDGE_LETTERS",
 	"EASY_WORDS",
 	"HARD_WORDS",
@@ -91,7 +83,6 @@ const TRANSLATION_KEYS := [
 	"CHARACTER_LUCKY",
 	"CHARACTER_EL_TIGRE",
 	"WELCOME_BACK",
-	"CONTINUE_TIME_ATTACK",
 	"NO_UNFINISHED_GAMES",
 	"LANGUAGE_RU_SHORT",
 	"LANGUAGE_EN_SHORT",
@@ -216,7 +207,7 @@ func get_theme_name(theme_index: int) -> String:
 	var themes := get_themes()
 	if theme_index >= 0 and theme_index < themes.size():
 		return str(themes[theme_index])
-	return tr_text(46, "No category")
+	return tr_text(40, "No category")
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	var theme_name := get_theme_name(theme_index)

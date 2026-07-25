@@ -15,21 +15,13 @@ var player_name: String = ""
 # 5 - hero: 1 Lucky, 2 El Tigre
 var settings: Array = [2, 2, 0, 2, 2, 1]
 
-# AS3 Records:
+# Records:
 # 0 classic: current easy, current hard, record easy, record hard
 # 1 two-player: wins, defeats
-# 2 time attack: wins, best wins, best score
-var records: Array = [[0, 0, 0, 0], [0, 0], [0, 0, 0]]
+var records: Array = [[0, 0, 0, 0], [0, 0]]
 
 var progress: Dictionary = {}
-var current_mode: int = 0 # 0 classic, 1 time attack, 2 two-player
-var current_score: int = 0
-var current_time_left: int = 180
-# Hangman 3.2.3 keeps two additional values in ErrArr[1]:
-# - the current word number in Time Attack (starts at 1);
-# - the uninterrupted correct-letter streak used by the score multiplier.
-var time_attack_round: int = 1
-var correct_guess_streak: int = 0
+var current_mode: int = 0 # 0 classic, 1 two-player
 
 func _ready() -> void:
 	load_game()
@@ -91,23 +83,17 @@ func save_game() -> void:
 func _normalize_arrays() -> void:
 	while settings.size() < 6:
 		settings.append(1)
-	while records.size() < 3:
+	while records.size() < 2:
 		records.append([])
+	if records.size() > 2:
+		records.resize(2)
 	while Array(records[0]).size() < 4:
 		records[0].append(0)
 	while Array(records[1]).size() < 2:
 		records[1].append(0)
-	while Array(records[2]).size() < 3:
-		records[2].append(0)
-	time_attack_round = maxi(1, time_attack_round)
-	correct_guess_streak = maxi(0, correct_guess_streak)
 
 func reset_current_game() -> void:
 	current_mode = 0
-	current_score = 0
-	current_time_left = 180
-	time_attack_round = 1
-	correct_guess_streak = 0
 	save_game()
 
 func set_word_language(lang: String) -> void:

@@ -285,48 +285,6 @@
       "target_sha256": "615aa497dcc427bedae6e424b905b0acab0fb43b9cdfcad4df663d71546a2c03"
     },
     {
-      "path": "flash_assets/time_attack_badge_outer_133x133.png",
-      "source_size": [
-        133,
-        133
-      ],
-      "target_size": [
-        266,
-        266
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "5143c16072d2c59c9813a77cd63278bc33a045aed418765ab1469c447d4416c4",
-      "target_sha256": "422ed83c49122d665e9599d17e5f536452105bc2bf4e342eaee55355d5aaed43"
-    },
-    {
-      "path": "flash_assets/time_attack_hourglass_38x46.png",
-      "source_size": [
-        38,
-        46
-      ],
-      "target_size": [
-        76,
-        92
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "e5ff726268105ec3e73db68b7ab44d76e09f8419832b36079b688c31de1497fd",
-      "target_sha256": "ae4a2667dd3d01acbabcf6f8ab8a8a1937aa0c374de070b11c2367fe52b5598c"
-    },
-    {
-      "path": "flash_assets/time_attack_timer_icon.png",
-      "source_size": [
-        24,
-        24
-      ],
-      "target_size": [
-        48,
-        48
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "a2540de2d22fd84d6ae41de99ee3bf481a140c2d84232437d65dea562ed787b8",
-      "target_sha256": "f461c391b54fdc970a9102304ea3dee07bfd2150df1c112c901c84aa92264fb4"
-    },
-    {
       "path": "flash_assets/user_hint_check_circle_uploaded.png",
       "source_size": [
         25,

@@ -1,23 +1,19 @@
 keys,ru,en
 GAME_TITLE,ВИСЕЛИЦА,HANGMAN
 MENU_CLASSIC,Классика,Classic
-MENU_TIME_ATTACK,На Время,Time Attack
 MENU_TWO_PLAYER,Два Игрока,Two Player
 COMMON_CONTINUE,Продолжить,Continue
 SETTINGS_TITLE,Настройки,Settings
 COMMON_EXIT,Выход,Exit
 NEW_GAME,Новая игра,New game
-TIME_ATTACK_MODE,Игра на время,Time Attack mode
 CHARACTER_SELECT_TITLE,Выберите персонажа:,Choose the hero:
 RESTART,Играть еще,Play again
 MUSIC_LABEL,Музыка:,Music:
 UNUSED_12,,
 ABOUT_TITLE,Об игре,About
-TIME_ATTACK_DESCRIPTION,"Игроку даются 3 минуты на отгадывание слов. Победы прибавляют количество очков, подсказки и поражения — отнимают",You have 3 minutes to guess as many words as you can. Defeats and using hints reduce your score
 WORD_DATABASE_LABEL,База слов:,Database:
 GIVE_UP,Сдаться,Give up
 START,Начать,Start
-RECORD_LABEL,РЕКОРД:,RECORD:
 RECORDS_TITLE,Статистика,Statistics
 RECORD_EASY_STREAK,Легких слов подряд,Easy words in a row
 RECORD_HARD_STREAK,Сложных слов подряд,Hard words in a row
@@ -44,16 +40,12 @@ UNAVAILABLE,НЕДОСТУПНО,UNAVAILABLE
 INPUT_WORD,Введите слово,Input the word
 VICTORIES,Побед,Victories
 DEFEATS,Поражений,Defeats
-SCORE,Счет,Score
-VICTORIES_PER_GAME,Побед за игру,Victories per game
 NO_CATEGORY,Без темы,No category
 COMMENT,Комментарий,Comment
 CATEGORY_LABEL,Тема:,Category:
 WIN_MESSAGE,Не останавливайтесь!,Don't stop!
 LOSE_MESSAGE,Вы можете лучше!,Try harder!
-TIME_UP,Ваше время истекло!,Time's up!
 CHANGE_CATEGORY,Сменить тему,Change category
-FINISH_GAME,Завершить игру,Finish the game
 EDGE_LETTERS,Крайние буквы,First and last letter
 EASY_WORDS,Простые слова,Easy words
 HARD_WORDS,Сложные слова,Hard words
@@ -78,9 +70,6 @@ NO_COMMENT,Комментария нет,No comment
 CHARACTER_LUCKY,ЛАКИ,LUCKY
 CHARACTER_EL_TIGRE,ЭЛЬ ТИГРЕ,EL TIGRE
 WELCOME_BACK,С возвращением!,Welcome back!
-CONTINUE_TIME_ATTACK,"Доиграть в режиме
-«На время»","Continue in
-Time Attack mode"
 NO_UNFINISHED_GAMES,"Незавершенных игр
 не найдено","No unfinished games
 found"
@@ -92,8 +81,6 @@ MAX_35_CHARACTERS,Макс. 15 символов,Max. 15 characters
 RANDOM_WORD,Случайное,Random
 START_GAME,Начать игру,Start game
 OK,OK,OK
-POINTS_GAINED,Очков:,Points:
-PENALTY,Штраф:,Penalty:
 WORD_CHECKING,Проверка...,Checking...
 WORD_FOUND,Слово найдено,Word found
 WORD_NOT_FOUND,Слово не найдено,Word not found
@@ -107,4 +94,3 @@ Classic mode"
 CONTINUE_TWO_PLAYER,"Доиграть в режиме
 «Два игрока»","Continue in
 Two Player mode"
-FINAL_SCORE,Итоговые очки:,Final score:

@@ -170,7 +170,7 @@ def verify_refined_ui_icons() -> None:
     require(manifest_path.is_file(), "UI icon refinement manifest is missing")
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     entries = data.get("files", [])
-    require(len(entries) == 18, f"Expected 18 refined UI icons, found {len(entries)}")
+    require(len(entries) == 16, f"Expected 16 refined UI icons, found {len(entries)}")
     require("no resize or redraw" in data.get("method", ""), "UI refinement is not style-preserving")
     for entry in entries:
         path = ROOT / str(entry["path"])
@@ -201,9 +201,8 @@ def verify_round_icon_display_sizes() -> None:
     require(portrait.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Portrait VK icon size is not applied")
     require(portrait.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Portrait mail icon size is not applied")
     require(main.count("RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE") == 1, "Landscape search icon size is not applied")
-    require(portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE") == 1, "Portrait search icon size is not applied")
     require(
-        portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE") == 3,
+        portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE") == 2,
         "Compact portrait search icon size is not applied to every result screen",
     )
 
@@ -320,13 +319,13 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Shortened footer buttons do not preserve their center",
     )
     require(
-        portrait.count("_portrait_footer_long_button_rect(") == 11,
+        portrait.count("_portrait_footer_long_button_rect(") == 8,
         "Not every portrait footer long button uses the 15% width reduction",
     )
     require(
-        portrait.count("_portrait_footer_round_button_rect(") == 12
-        and portrait.count("_portrait_footer_icon_size(") == 13
-        and portrait.count("_portrait_footer_font_size(") == 9,
+        portrait.count("_portrait_footer_round_button_rect(") == 10
+        and portrait.count("_portrait_footer_icon_size(") == 11
+        and portrait.count("_portrait_footer_font_size(") == 6,
         "Not every bottom-blue-block button, icon, and label uses the 10% scale",
     )
     require(
@@ -380,7 +379,7 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Portrait gameplay/result hero is not enlarged by exactly 15%",
     )
     require(
-        portrait.count("stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER") == 6,
+        portrait.count("stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER") == 4,
         "The 15% hero scale is not applied to every static and animated gameplay/result state",
     )
     require(math.isclose(0.86 * 1.15, 0.989), "Portrait hero scale calculation changed")
@@ -489,16 +488,8 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         portrait.index("pending_letter_markers.clear()", portrait.index("var comment_disabled: bool = GameSession.get_word_hint().strip_edges()"))
     ]
     require(
-        'if GameState.current_mode == 0 or GameState.current_mode == 2:' in footer,
-        "The gameplay footer does not select its left action by mode",
-    )
-    require(
         '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))' in footer,
         "Classic and Two Player gameplay do not show the confirmed round-exit action",
-    )
-    require(
-        '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_game_footer_back_action"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))' in footer,
-        "Time Attack gameplay lost its existing back action",
     )
     require(
         "const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT" in portrait
@@ -575,13 +566,13 @@ def verify_game_exit_confirmation_popup() -> None:
     clear_screen = main[main.index("func _clear(") : main.index("func _add_fullscreen_modal_backdrop(")]
     base_game = main[main.index("func _refresh_game_screen()") : main.index("func _game_header_icon()")]
     portrait_game = portrait[
-        portrait.index("func _refresh_game_screen()") : portrait.index("func _game_footer_back_action()")
+        portrait.index("func _refresh_game_screen()") : portrait.index("func _stage_portrait_game_word_display(")
     ]
     base_popup = main[
-        main.index("func _show_exit_game_popup()") : main.index("func start_time_attack()")
+        main.index("func _show_exit_game_popup()") : main.index("func _remove_exit_game_popup()")
     ]
     portrait_popup = portrait[
-        portrait.index("func _show_exit_game_popup()") : portrait.index("func _cycle_time_attack_difficulty()")
+        portrait.index("func _show_exit_game_popup()") : portrait.index("func show_custom_word()")
     ]
 
     require(
@@ -645,8 +636,8 @@ def verify_long_button_attention_bounce() -> None:
         "The long-button factory cannot activate the attention-bounce state",
     )
     require(
-        main.count("false, 0.32, false, false, true)") == 2
-        and portrait.count("false, 0.32, false, false, true)") == 5
+        main.count("false, 0.32, false, false, true)") == 1
+        and portrait.count("false, 0.32, false, false, true)") == 2
         and "var custom_word_start_button: Control = null" in main
         and "func _sync_custom_word_start_bounce() -> void:" in main
         and 'custom_word_start_button.set("attention_bounce_enabled", !custom_word_text.is_empty())' in main
@@ -716,7 +707,7 @@ def verify_native_custom_word_input() -> None:
     ]
     require(
         "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" in custom_screen
-        and 'Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(41, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER' in custom_screen,
+        and 'Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(37, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER' in custom_screen,
         "Two Player input does not use the theme-screen title on a headerless background",
     )
     require(
@@ -935,7 +926,7 @@ def verify_settings_popup_and_language_split() -> None:
     )
     require(
         main.count("_stage_settings_word_language_button(") == 3
-        and portrait.count("_stage_settings_word_language_button(") == 2,
+        and portrait.count("_stage_settings_word_language_button(") == 3,
         "Not every word-database selector uses the non-reopening handler",
     )
     require("GameState.language" not in main + portrait + state, "Legacy shared language state is still used")
@@ -1098,11 +1089,11 @@ def verify_profile_theme_and_about_ui() -> None:
     ]
     require(
         "Bruno Philippsen" not in author_text
-        and 'Database.tr_text(22, "Nikita Lukanin")' in author_text,
+        and 'Database.tr_text(18, "Nikita Lukanin")' in author_text,
         "The About popup still displays the former secondary author",
     )
     require(
-        'config/version="3.0.0"' in project
+        'config/version="4.0"' in project
         and 'ProjectSettings.get_setting("application/config/version", APP_VERSION_FALLBACK)' in version_text
         and '_application_version()' in version_text,
         "The About popup version is not parsed from project configuration",
@@ -1138,7 +1129,7 @@ def main() -> None:
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()
     verify_profile_theme_and_about_ui()
-    print("2x layout, compact gameplay-exit confirmation, Android word-check networking and Google result lookup, profile/theme/about UI polish, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, mode-aware gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    print("2x layout, compact gameplay-exit confirmation, Android word-check networking and Google result lookup, profile/theme/about UI polish, centered 10%-larger bottom-blue-block controls, setting-aware gameplay and UI sounds, native filtered Two Player word input, stable settings popup, split UI/word languages, subtle Android vibration, two-mode gameplay footer actions, animated hint markers, six-attempt lives HUD, centered larger hero blocks and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":
