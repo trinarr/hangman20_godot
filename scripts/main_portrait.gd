@@ -351,8 +351,13 @@ func show_theme_select() -> void:
 		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0), progress_text, 16, Color(0.43, 0.49, 0.83, 1.0))
 		progress_label.clip_text = false
 		var theme_name: String = Database.get_theme_name(i).to_upper()
-		var title_font_size: int = 19 if theme_name.length() > 12 else 23
-		var title_label := _stage_label(Rect2(x + 6.0, y + 44.0, 202.0, 36.0), theme_name, title_font_size, Color.WHITE)
+		var theme_icon_texture: Texture2D = _theme_icon_texture(i)
+		var theme_icon: Control = null
+		if theme_icon_texture != null:
+			theme_icon = _stage_texture(Rect2(x + 12.0, y + 42.0, 34.0, 34.0), theme_icon_texture)
+			theme_icon.z_index = 11
+		var title_font_size: int = 17 if theme_name.length() > 12 else 21
+		var title_label := _stage_label(Rect2(x + 52.0, y + 41.0, 152.0, 38.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
 		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
 		title_label.add_theme_constant_override("outline_size", 2)
@@ -360,6 +365,8 @@ func show_theme_select() -> void:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			if theme_icon != null:
+				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
 		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
 		var theme_button := _stage_button(Rect2(x, y, 214.0, 88.0), action, "")
