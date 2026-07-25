@@ -65,6 +65,28 @@ const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint
 const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
+const THEME_ICON_SPORT_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_sport.png")
+const THEME_ICON_GEOGRAPHY_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_geography.png")
+const THEME_ICON_NATURE_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_nature.png")
+const THEME_ICON_TECHNICS_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_technics.png")
+const THEME_ICON_PEOPLE_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_people.png")
+const THEME_ICON_FOOD_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_food.png")
+const THEME_ICON_SCIENCE_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_science.png")
+const THEME_ICON_HISTORY_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_history.png")
+const THEME_ICON_GENERAL_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_general.png")
+const THEME_ICON_FILM_MUSIC_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_film_music.png")
+const THEME_ICON_TEXTURES: Array[Texture2D] = [
+	THEME_ICON_SPORT_TEXTURE,
+	THEME_ICON_GEOGRAPHY_TEXTURE,
+	THEME_ICON_NATURE_TEXTURE,
+	THEME_ICON_TECHNICS_TEXTURE,
+	THEME_ICON_PEOPLE_TEXTURE,
+	THEME_ICON_FOOD_TEXTURE,
+	THEME_ICON_SCIENCE_TEXTURE,
+	THEME_ICON_HISTORY_TEXTURE,
+	THEME_ICON_GENERAL_TEXTURE,
+	THEME_ICON_FILM_MUSIC_TEXTURE,
+]
 const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
 const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
@@ -807,6 +829,11 @@ func _difficulty_star_texture(value: int = -1) -> Texture2D:
 func _art_stage_size(texture: Texture2D) -> Vector2:
 	return texture.get_size() / ART_SOURCE_SCALE
 
+func _theme_icon_texture(theme_index: int) -> Texture2D:
+	if theme_index < 0 or theme_index >= THEME_ICON_TEXTURES.size():
+		return null
+	return THEME_ICON_TEXTURES[theme_index]
+
 func show_theme_select() -> void:
 	_remove_difficulty_popup()
 	# Build the category screen without the converted GameTemi symbol. That
@@ -854,8 +881,13 @@ func show_theme_select() -> void:
 			progress_holder.z_index = 10
 
 		var theme_name: String = Database.get_theme_name(i).to_upper()
+		var theme_icon_texture: Texture2D = _theme_icon_texture(i)
+		var theme_icon: Control = null
+		if theme_icon_texture != null:
+			theme_icon = _stage_texture(Rect2(x + 10.0, y + 41.0, 34.0, 34.0), theme_icon_texture)
+			theme_icon.z_index = 11
 		var title_font_size: int = 16 if compact_grid else 21
-		var title_label := _stage_label(Rect2(x + 6.0, y + 45.0, card_width - 12.0, 37.0), theme_name, title_font_size, Color.WHITE)
+		var title_label := _stage_label(Rect2(x + 48.0, y + 43.0, card_width - 56.0, 39.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
 		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
 		title_label.add_theme_constant_override("outline_size", 2)
@@ -867,6 +899,8 @@ func show_theme_select() -> void:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			if theme_icon_texture != null:
+				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
 
 		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
