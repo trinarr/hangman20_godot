@@ -33,6 +33,8 @@ const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
+const LONG_BUTTON_COLOR_ORANGE: int = 0
+const LONG_BUTTON_COLOR_GREEN: int = 1
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
@@ -333,18 +335,20 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 	node.set("stage_height", stage_height)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false) -> Control:
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_ORANGE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
+	button.call("set_color_preset", color_preset)
 	button.set("attention_bounce_enabled", attention_bounce)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
 
-func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false) -> Control:
+func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, color_preset: int = LONG_BUTTON_COLOR_ORANGE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
+	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
@@ -1164,7 +1168,8 @@ func show_custom_word() -> void:
 		0.32,
 		false,
 		false,
-		!custom_word_text.is_empty()
+		!custom_word_text.is_empty(),
+		LONG_BUTTON_COLOR_GREEN
 	)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
@@ -1832,7 +1837,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			if left_label != null:
 				left_label.add_theme_color_override("font_color", Color.WHITE)
 
-	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true)
+	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
 
 func _spaced_result_word(word: String) -> String:
 	var characters := PackedStringArray()

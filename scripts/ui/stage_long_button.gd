@@ -13,6 +13,23 @@ const ATTENTION_BOUNCE_GROW_DURATION: float = 0.8
 const ATTENTION_BOUNCE_SETTLE_DURATION: float = 0.85
 const ATTENTION_BOUNCE_PAUSE_DURATION: float = 0.2
 
+enum ColorPreset {
+	ORANGE,
+	GREEN,
+	CUSTOM,
+}
+
+# The PNGs are neutral grayscale masks. These tints restore the original
+# orange/blue visual language while allowing other palettes to reuse the same
+# button slices without recoloring the source assets.
+const ORANGE_NORMAL_TINT := Color(0.996078, 0.690196, 0.415686, 1.0)
+const ORANGE_PRESSED_TINT := Color(0.862745, 0.517647, 0.274510, 1.0)
+const ORANGE_SELECTED_TINT := Color(0.552941, 0.631373, 1.0, 1.0)
+# Match the bright green used for a correctly guessed letter.
+const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
+const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
+const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
+
 var attention_bounce_enabled: bool = false:
 	set(value):
 		if attention_bounce_enabled == value:
@@ -42,6 +59,23 @@ var button_disabled: bool = false:
 var selected: bool = false:
 	set(value):
 		selected = value
+		queue_redraw()
+
+var color_preset: int = ColorPreset.ORANGE
+
+var normal_tint: Color = ORANGE_NORMAL_TINT:
+	set(value):
+		normal_tint = value
+		queue_redraw()
+
+var pressed_tint: Color = ORANGE_PRESSED_TINT:
+	set(value):
+		pressed_tint = value
+		queue_redraw()
+
+var selected_tint: Color = ORANGE_SELECTED_TINT:
+	set(value):
+		selected_tint = value
 		queue_redraw()
 
 var text_color: Color = Color.WHITE:
@@ -149,18 +183,24 @@ func _stop_attention_bounce(reset_scale: bool) -> void:
 
 func _draw() -> void:
 	var use_pressed_parts: bool = selected or _is_down
+	var background_tint: Color = normal_tint
+	if selected:
+		background_tint = selected_tint
+	elif _is_down:
+		background_tint = pressed_tint
 	if disabled and _use_normal_parts_when_disabled:
 		use_pressed_parts = false
+		background_tint = normal_tint
 	var left_texture: Texture2D = PRESSED_LEFT_TEXTURE if use_pressed_parts else NORMAL_LEFT_TEXTURE
 	var center_texture: Texture2D = PRESSED_CENTER_TEXTURE if use_pressed_parts else NORMAL_CENTER_TEXTURE
 	var right_texture: Texture2D = PRESSED_RIGHT_TEXTURE if use_pressed_parts else NORMAL_RIGHT_TEXTURE
 	var visual_size: Vector2 = size * visual_scale
 	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
-	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect)
+	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect, background_tint)
 	if disabled and disabled_overlay_alpha > 0.0:
 		draw_rect(visual_rect, Color(1.0, 1.0, 1.0, disabled_overlay_alpha), true)
 
-func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2) -> void:
+func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
 
@@ -181,14 +221,35 @@ func _draw_stretchable_background(left_texture: Texture2D, center_texture: Textu
 			Vector2(center_left, rect.position.y),
 			Vector2(center_right - center_left, rect.size.y)
 		)
-		draw_texture_rect(center_texture, center_rect, false)
+		draw_texture_rect(center_texture, center_rect, false, tint)
 
-	draw_texture_rect(left_texture, Rect2(rect.position, Vector2(left_width, rect.size.y)), false)
+	draw_texture_rect(left_texture, Rect2(rect.position, Vector2(left_width, rect.size.y)), false, tint)
 	draw_texture_rect(
 		right_texture,
 		Rect2(Vector2(rect.end.x - right_width, rect.position.y), Vector2(right_width, rect.size.y)),
-		false
+		false,
+		tint
 	)
+
+func set_color_preset(preset: int) -> void:
+	match preset:
+		ColorPreset.GREEN:
+			color_preset = ColorPreset.GREEN
+			_apply_color_palette(GREEN_NORMAL_TINT, GREEN_PRESSED_TINT, GREEN_SELECTED_TINT)
+		ColorPreset.CUSTOM:
+			color_preset = ColorPreset.CUSTOM
+		_:
+			color_preset = ColorPreset.ORANGE
+			_apply_color_palette(ORANGE_NORMAL_TINT, ORANGE_PRESSED_TINT, ORANGE_SELECTED_TINT)
+
+func set_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color = ORANGE_SELECTED_TINT) -> void:
+	color_preset = ColorPreset.CUSTOM
+	_apply_color_palette(normal_color, pressed_color, selected_color)
+
+func _apply_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color) -> void:
+	normal_tint = normal_color
+	pressed_tint = pressed_color
+	selected_tint = selected_color
 
 func configure(text_value: String, font_size_value: int = 20, disabled_value: bool = false, disabled_overlay_alpha_value: float = 0.32, use_normal_texture_when_disabled: bool = false, selected_value: bool = false) -> void:
 	icon_texture = null

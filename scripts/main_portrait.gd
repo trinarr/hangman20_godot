@@ -192,7 +192,8 @@ func _stage_portrait_popup_main_button(
 	disabled_overlay_alpha: float = 0.32,
 	use_normal_texture_when_disabled: bool = false,
 	selected: bool = false,
-	attention_bounce: bool = false
+	attention_bounce: bool = false,
+	color_preset: int = LONG_BUTTON_COLOR_ORANGE
 ) -> Control:
 	return _stage_main_button(
 		_portrait_popup_button_rect(rect),
@@ -203,7 +204,8 @@ func _stage_portrait_popup_main_button(
 		disabled_overlay_alpha,
 		use_normal_texture_when_disabled,
 		selected,
-		attention_bounce
+		attention_bounce,
+		color_preset
 	)
 
 func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
@@ -498,7 +500,8 @@ func show_custom_word() -> void:
 		0.32,
 		false,
 		false,
-		!custom_word_text.is_empty()
+		!custom_word_text.is_empty(),
+		LONG_BUTTON_COLOR_GREEN
 	)
 
 func start_custom_game() -> void:
@@ -862,7 +865,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -906,7 +909,7 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
 
 func show_records() -> void:
 	show_profile()
