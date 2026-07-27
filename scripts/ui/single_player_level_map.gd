@@ -22,6 +22,7 @@ var level_count: int = 10
 var current_level_index: int = 0
 var unlocked_states: Array = []
 var completed_states: Array = []
+var perfect_states: Array = []
 
 var _scroll: ScrollContainer = null
 var _route_root: Control = null
@@ -31,12 +32,14 @@ func configure(
 	count: int,
 	current_index: int,
 	unlocked: Array,
-	completed: Array
+	completed: Array,
+	perfect: Array = []
 ) -> void:
 	level_count = maxi(count, 0)
 	current_level_index = clampi(current_index, 0, maxi(level_count - 1, 0))
 	unlocked_states = unlocked.duplicate()
 	completed_states = completed.duplicate()
+	perfect_states = perfect.duplicate()
 	if is_inside_tree():
 		_rebuild_route()
 
@@ -171,7 +174,8 @@ func _stage_hand_drawn_route(centers: PackedVector2Array) -> void:
 func _stage_level_button(level_index: int, center: Vector2) -> void:
 	var unlocked: bool = _state_at(unlocked_states, level_index)
 	var completed: bool = _state_at(completed_states, level_index)
-	var is_current: bool = unlocked and level_index == current_level_index
+	var perfect: bool = _state_at(perfect_states, level_index)
+	var is_current: bool = unlocked and !completed and level_index == current_level_index
 	var button: Control = STAGE_ROUND_BUTTON_SCRIPT.new() as Control
 	button.name = "Level%d" % (level_index + 1)
 	button.set("use_stage_layout", false)
@@ -183,8 +187,11 @@ func _stage_level_button(level_index: int, center: Vector2) -> void:
 		33,
 		0.0
 	)
-	if !unlocked:
-		# Locked levels keep the neutral mask visibly gray and ignore all input.
+	if completed:
+		# Both perfect and imperfect completed levels are blue. Perfect levels stay
+		# visible as achievements but deliberately ignore pointer input.
+		button.call("set_color_preset", 2)
+	elif !unlocked:
 		button.call(
 			"set_color_palette",
 			LOCKED_BUTTON_TINT,
@@ -202,24 +209,11 @@ func _stage_level_button(level_index: int, center: Vector2) -> void:
 			Vector2.ONE * LEVEL_BUTTON_SIZE
 		)
 	)
-	if unlocked:
+	if unlocked and !perfect:
 		button.connect(&"pressed", Callable(self, "_on_level_pressed").bind(level_index))
-
-	if completed:
-		var badge := Label.new()
-		badge.name = "Completed"
-		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		badge.position = center + Vector2(24.0, -44.0)
-		badge.size = Vector2(32.0, 32.0)
-		badge.text = "✓"
-		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		badge.add_theme_font_size_override("font_size", 22)
-		badge.add_theme_color_override("font_color", Color.WHITE)
-		badge.add_theme_color_override("font_outline_color", Color(0.06, 0.50, 0.16, 1.0))
-		badge.add_theme_constant_override("outline_size", 5)
-		badge.z_index = 5
-		_route_root.add_child(badge)
+	elif perfect:
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.focus_mode = Control.FOCUS_NONE
 
 func _state_at(states: Array, index: int) -> bool:
 	return index >= 0 and index < states.size() and bool(states[index])

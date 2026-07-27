@@ -389,11 +389,16 @@ func show_theme_select() -> void:
 	# Footer controls are intentionally authored at y >= PORTRAIT_FOOTER_Y so
 	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_main_icon_button(_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT), Callable(self, "_show_difficulty_popup"), _portrait_difficulty_button_label(), difficulty_texture, _portrait_footer_icon_size(_art_stage_size(difficulty_texture)), _portrait_footer_font_size(22))
+	var difficulty_button := _stage_main_button(
+		_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
+		Callable(self, "_cycle_classic_difficulty"),
+		_difficulty_mode_label(),
+		_portrait_footer_font_size(22)
+	)
+	_style_difficulty_button(difficulty_button)
 
 func _portrait_difficulty_button_label() -> String:
-	return "Сложность:" if GameState.interface_language == "ru" else "Difficulty:"
+	return _difficulty_mode_label()
 
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
@@ -408,29 +413,57 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	content = previous_content
 
 func _show_difficulty_popup() -> void:
-	_remove_difficulty_popup()
-	var previous_content := _portrait_popup_begin("ThemeDifficultyPopup", "difficulty_popup", 120, Callable(self, "_remove_difficulty_popup"), 100.0, 620.0)
-	var rect := Rect2(28.0, 100.0, 424.0, 520.0)
-	_portrait_popup_shell(rect, Database.tr_text(55, "Choose the difficulty level:"), Callable(self, "_remove_difficulty_popup"), 24)
-	var options := [
-		{"value": 2, "title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"), "desc": Database.tr_text(47, "Easy words")},
-		{"value": 1, "title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"), "desc": Database.tr_text(48, "Hard words")},
-		{"value": 0, "title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"), "desc": Database.tr_text(49, "All words")},
-	]
-	for index in range(options.size()):
-		var option: Dictionary = options[index]
-		var value: int = int(option["value"])
-		var y: float = 215.0 + float(index) * 145.0
-		if index > 0:
-			_stage_panel(Rect2(54.0, y - 20.0, 372.0, 2.0), PORTRAIT_RULE)
-		var selected: bool = value == int(GameState.settings[2])
-		var option_texture: Texture2D = _difficulty_star_texture(value)
-		_stage_round_icon_button(Rect2(56.0, y + 2.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE), Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, _art_stage_size(option_texture), false, selected)
-		var title_label := _stage_label(Rect2(146.0, y - 2.0, 250.0, 34.0), str(option["title"]), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		title_label.clip_text = false
-		var desc_label := _stage_label(Rect2(146.0, y + 36.0, 260.0, 38.0), str(option["desc"]), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		desc_label.clip_text = false
-		_stage_button(Rect2(44.0, y - 8.0, 382.0, 90.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
+	_cycle_classic_difficulty()
+
+func _show_restart_single_level_popup(level_index: int) -> void:
+	_remove_restart_single_level_popup()
+	var previous_content := _portrait_popup_begin(
+		"RestartSingleLevelPopup",
+		"restart_single_level_popup",
+		135,
+		Callable(self, "_remove_restart_single_level_popup"),
+		286.0,
+		546.0
+	)
+	var rect := Rect2(60.0, 286.0, 360.0, 260.0)
+	var header := _stage_panel(Rect2(rect.position, Vector2(rect.size.x, 82.0)), PORTRAIT_BLUE)
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 82.0), Vector2(rect.size.x, 178.0)), PORTRAIT_DARK_BLUE)
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 81.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
+	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var title_label := _stage_label(Rect2(82.0, 299.0, 316.0, 54.0), _single_player_restart_title(), 25, Color.WHITE)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title_label.clip_text = false
+	var message_label := _stage_label(Rect2(82.0, 388.0, 316.0, 48.0), _single_player_restart_message(), 18, Color(0.92, 0.94, 1.0))
+	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	message_label.clip_text = false
+	_stage_portrait_popup_main_button(
+		Rect2(82.0, 468.0, 145.0, 52.0),
+		Callable(self, "_confirm_restart_single_level").bind(level_index),
+		tr("YES"),
+		20,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	_stage_portrait_popup_main_button(
+		Rect2(253.0, 468.0, 145.0, 52.0),
+		Callable(self, "_remove_restart_single_level_popup"),
+		tr("NO"),
+		20
+	)
+	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
+	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
+	_stage_round_button(
+		Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE),
+		Callable(self, "_remove_restart_single_level_popup"),
+		"×"
+	)
 	content = previous_content
 
 func _show_exit_game_popup() -> void:

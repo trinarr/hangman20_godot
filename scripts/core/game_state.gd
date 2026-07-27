@@ -9,7 +9,7 @@ var player_name: String = ""
 # AS3 Settings:
 # 0 - show first/last letters in two-player mode: 1 off, 2 on
 # 1 - hints in two-player mode: 1 off, 2 on
-# 2 - word pool: 0 all/general, 1 hard words, 2 easy words
+# 2 - word pool: 1 hard mode, 2 normal mode (easy words)
 # 3 - sound/music: 1 off, 2 on
 # 4 - vibration: 1 off, 2 on
 # 5 - hero: 1 Lucky, 2 El Tigre
@@ -96,6 +96,10 @@ func _normalize_arrays() -> void:
 		records[0].append(0)
 	while Array(records[1]).size() < 2:
 		records[1].append(0)
+	# The old three-way selector used 0 for the general pool. The current UI
+	# exposes only normal (easy words) and hard modes, so migrate legacy/general
+	# saves to the normal mode.
+	settings[2] = 1 if int(settings[2]) == 1 else 2
 	_normalize_single_player()
 
 func reset_current_game() -> void:
@@ -150,6 +154,31 @@ func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
 		item["guessed"][i] = false
 	save_game()
 
+func _normalize_single_player_difficulty(value: int = -1) -> int:
+	var resolved: int = int(settings[2]) if value < 0 else value
+	return 1 if resolved == 1 else 2
+
+func _normalize_single_player_progress_bucket(value: Variant) -> Dictionary:
+	var progress_bucket: Dictionary = {}
+	if value is Dictionary:
+		progress_bucket = value
+	if !progress_bucket.has("unlocked_level"):
+		progress_bucket["unlocked_level"] = 0
+	progress_bucket["unlocked_level"] = maxi(int(progress_bucket["unlocked_level"]), 0)
+	if !progress_bucket.has("levels") or !(progress_bucket["levels"] is Dictionary):
+		progress_bucket["levels"] = {}
+	var levels: Dictionary = progress_bucket["levels"]
+	for level_key in levels.keys():
+		if !(levels[level_key] is Array):
+			levels[level_key] = []
+			continue
+		var statuses: Array = levels[level_key]
+		for status_index in range(statuses.size()):
+			statuses[status_index] = _normalize_single_level_status(statuses[status_index])
+		levels[level_key] = statuses
+	progress_bucket["levels"] = levels
+	return progress_bucket
+
 func _normalize_single_player() -> void:
 	if !(single_player is Dictionary):
 		single_player = {}
@@ -157,21 +186,30 @@ func _normalize_single_player() -> void:
 		if !(single_player[lang_key] is Dictionary):
 			single_player[lang_key] = {}
 		var bucket: Dictionary = single_player[lang_key]
-		if !bucket.has("unlocked_level"):
-			bucket["unlocked_level"] = 0
-		bucket["unlocked_level"] = maxi(int(bucket["unlocked_level"]), 0)
-		if !bucket.has("levels") or !(bucket["levels"] is Dictionary):
-			bucket["levels"] = {}
-		var levels: Dictionary = bucket["levels"]
-		for level_key in levels.keys():
-			if !(levels[level_key] is Array):
-				levels[level_key] = []
-				continue
-			var statuses: Array = levels[level_key]
-			for status_index in range(statuses.size()):
-				statuses[status_index] = _normalize_single_level_status(statuses[status_index])
-			levels[level_key] = statuses
-		bucket["levels"] = levels
+
+		# Migrate the original language-level progress into the normal-mode bucket.
+		# Hard mode starts independently, so changing difficulty never changes the
+		# words underneath already played level slots.
+		if !bucket.has("difficulty_progress") or !(bucket["difficulty_progress"] is Dictionary):
+			var legacy_levels: Dictionary = {}
+			if bucket.has("levels") and bucket["levels"] is Dictionary:
+				legacy_levels = bucket["levels"].duplicate(true)
+			bucket["difficulty_progress"] = {
+				"2": {
+					"unlocked_level": maxi(int(bucket.get("unlocked_level", 0)), 0),
+					"levels": legacy_levels,
+				},
+				"1": {"unlocked_level": 0, "levels": {}},
+			}
+		var difficulty_progress: Dictionary = bucket["difficulty_progress"]
+		for difficulty_key in ["1", "2"]:
+			difficulty_progress[difficulty_key] = _normalize_single_player_progress_bucket(
+				difficulty_progress.get(difficulty_key, {})
+			)
+		bucket["difficulty_progress"] = difficulty_progress
+		bucket.erase("unlocked_level")
+		bucket.erase("levels")
+
 		if !bucket.has("word_stats") or !(bucket["word_stats"] is Dictionary):
 			bucket["word_stats"] = {}
 		var word_stats: Dictionary = bucket["word_stats"]
@@ -191,20 +229,38 @@ func _single_player_bucket(lang: String) -> Dictionary:
 	var lang_key := _normalize_language(lang)
 	if !single_player.has(lang_key) or !(single_player[lang_key] is Dictionary):
 		single_player[lang_key] = {
-			"unlocked_level": 0,
-			"levels": {}
+			"difficulty_progress": {
+				"2": {"unlocked_level": 0, "levels": {}},
+				"1": {"unlocked_level": 0, "levels": {}},
+			},
+			"word_stats": {},
 		}
 	var bucket: Dictionary = single_player[lang_key]
-	if !bucket.has("unlocked_level"):
-		bucket["unlocked_level"] = 0
-	bucket["unlocked_level"] = maxi(int(bucket["unlocked_level"]), 0)
-	if !bucket.has("levels") or !(bucket["levels"] is Dictionary):
-		bucket["levels"] = {}
+	if !bucket.has("difficulty_progress") or !(bucket["difficulty_progress"] is Dictionary):
+		bucket["difficulty_progress"] = {}
+	var difficulty_progress: Dictionary = bucket["difficulty_progress"]
+	for difficulty_key in ["1", "2"]:
+		difficulty_progress[difficulty_key] = _normalize_single_player_progress_bucket(
+			difficulty_progress.get(difficulty_key, {})
+		)
+	bucket["difficulty_progress"] = difficulty_progress
 	if !bucket.has("word_stats") or !(bucket["word_stats"] is Dictionary):
 		bucket["word_stats"] = {}
 	single_player[lang_key] = bucket
 	return bucket
 
+func _single_player_progress_bucket(lang: String, difficulty: int = -1) -> Dictionary:
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var difficulty_progress: Dictionary = bucket["difficulty_progress"]
+	var difficulty_key := str(_normalize_single_player_difficulty(difficulty))
+	var progress_bucket := _normalize_single_player_progress_bucket(
+		difficulty_progress.get(difficulty_key, {})
+	)
+	difficulty_progress[difficulty_key] = progress_bucket
+	bucket["difficulty_progress"] = difficulty_progress
+	single_player[lang_key] = bucket
+	return progress_bucket
 
 func ensure_single_player_theme_progress(lang: String, theme_index: int, word_count: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
@@ -256,83 +312,128 @@ func _resize_single_level_status_array(statuses: Array, size: int) -> void:
 	for status_index in range(statuses.size()):
 		statuses[status_index] = _normalize_single_level_status(statuses[status_index])
 
-func ensure_single_level_progress(lang: String, level_index: int, word_count: int) -> Array:
-	var bucket := _single_player_bucket(lang)
-	var levels: Dictionary = bucket["levels"]
+func ensure_single_level_progress(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> Array:
+	var lang_key := _normalize_language(lang)
+	var root_bucket := _single_player_bucket(lang_key)
+	var difficulty_progress: Dictionary = root_bucket["difficulty_progress"]
+	var difficulty_key := str(_normalize_single_player_difficulty(difficulty))
+	var progress_bucket := _normalize_single_player_progress_bucket(
+		difficulty_progress.get(difficulty_key, {})
+	)
+	var levels: Dictionary = progress_bucket["levels"]
 	var level_key := str(level_index)
 	if !levels.has(level_key) or !(levels[level_key] is Array):
 		levels[level_key] = []
 	var statuses: Array = levels[level_key]
 	_resize_single_level_status_array(statuses, word_count)
 	levels[level_key] = statuses
-	bucket["levels"] = levels
-	single_player[_normalize_language(lang)] = bucket
+	progress_bucket["levels"] = levels
+	difficulty_progress[difficulty_key] = progress_bucket
+	root_bucket["difficulty_progress"] = difficulty_progress
+	single_player[lang_key] = root_bucket
 	return statuses
 
-func get_single_level_word_status(lang: String, level_index: int, word_slot: int, word_count: int) -> int:
+func get_single_level_word_status(lang: String, level_index: int, word_slot: int, word_count: int, difficulty: int = -1) -> int:
 	if level_index < 0 or word_slot < 0:
 		return 0
-	var statuses := ensure_single_level_progress(lang, level_index, word_count)
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	if word_slot >= statuses.size():
 		return 0
 	return _normalize_single_level_status(statuses[word_slot])
 
-func is_single_level_word_played(lang: String, level_index: int, word_slot: int, word_count: int) -> bool:
-	return get_single_level_word_status(lang, level_index, word_slot, word_count) != 0
+func is_single_level_word_played(lang: String, level_index: int, word_slot: int, word_count: int, difficulty: int = -1) -> bool:
+	return get_single_level_word_status(lang, level_index, word_slot, word_count, difficulty) != 0
 
-func get_single_level_played_count(lang: String, level_index: int, word_count: int) -> int:
-	var statuses := ensure_single_level_progress(lang, level_index, word_count)
+func get_single_level_played_count(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> int:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var count := 0
 	for status in statuses:
 		if _normalize_single_level_status(status) != 0:
 			count += 1
 	return count
 
-func is_single_level_completed(lang: String, level_index: int, word_count: int) -> bool:
+func get_single_level_guessed_count(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> int:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	var count := 0
+	for status in statuses:
+		if _normalize_single_level_status(status) == 1:
+			count += 1
+	return count
+
+func is_single_level_completed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
 	if word_count <= 0:
 		return false
-	return get_single_level_played_count(lang, level_index, word_count) >= word_count
+	return get_single_level_played_count(lang, level_index, word_count, difficulty) >= word_count
 
-func get_single_level_snapshot(lang: String, level_index: int, word_count: int) -> Dictionary:
-	var statuses := ensure_single_level_progress(lang, level_index, word_count)
+func is_single_level_perfect(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
+	if word_count <= 0:
+		return false
+	return get_single_level_guessed_count(lang, level_index, word_count, difficulty) >= word_count
+
+func get_single_level_snapshot(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> Dictionary:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var played_count: int = 0
+	var guessed_count: int = 0
 	for status in statuses:
-		if _normalize_single_level_status(status) != 0:
+		var normalized_status := _normalize_single_level_status(status)
+		if normalized_status != 0:
 			played_count += 1
+		if normalized_status == 1:
+			guessed_count += 1
 	return {
 		"statuses": statuses.duplicate(),
 		"played_count": played_count,
+		"guessed_count": guessed_count,
 		"completed": word_count > 0 and played_count >= word_count,
+		"perfect": word_count > 0 and guessed_count >= word_count,
 	}
 
-func get_single_player_unlocked_level(lang: String) -> int:
-	var bucket := _single_player_bucket(lang)
-	return maxi(int(bucket.get("unlocked_level", 0)), 0)
+func reset_single_level(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> void:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	for status_index in range(statuses.size()):
+		statuses[status_index] = 0
+	save_game()
 
-func is_single_level_unlocked(lang: String, level_index: int) -> bool:
-	return level_index <= get_single_player_unlocked_level(lang)
+func get_single_player_unlocked_level(lang: String, difficulty: int = -1) -> int:
+	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
+	return maxi(int(progress_bucket.get("unlocked_level", 0)), 0)
 
-func mark_single_level_word_played(lang: String, level_index: int, word_slot: int, word_count: int, total_level_count: int, is_win: bool) -> Dictionary:
-	var statuses := ensure_single_level_progress(lang, level_index, word_count)
+func is_single_level_unlocked(lang: String, level_index: int, difficulty: int = -1) -> bool:
+	return level_index <= get_single_player_unlocked_level(lang, difficulty)
+
+func mark_single_level_word_played(lang: String, level_index: int, word_slot: int, word_count: int, total_level_count: int, is_win: bool, difficulty: int = -1) -> Dictionary:
+	var resolved_difficulty := _normalize_single_player_difficulty(difficulty)
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, resolved_difficulty)
 	if word_slot >= 0 and word_slot < statuses.size():
 		statuses[word_slot] = 1 if is_win else 2
-	var completed: bool = is_single_level_completed(lang, level_index, word_count)
+	var completed: bool = is_single_level_completed(lang, level_index, word_count, resolved_difficulty)
+	var perfect: bool = is_single_level_perfect(lang, level_index, word_count, resolved_difficulty)
 	var unlocked_next: bool = false
-	var bucket := _single_player_bucket(lang)
-	var unlocked_level: int = int(bucket.get("unlocked_level", 0))
+	var lang_key := _normalize_language(lang)
+	var root_bucket := _single_player_bucket(lang_key)
+	var difficulty_progress: Dictionary = root_bucket["difficulty_progress"]
+	var difficulty_key := str(resolved_difficulty)
+	var progress_bucket := _normalize_single_player_progress_bucket(
+		difficulty_progress.get(difficulty_key, {})
+	)
+	var unlocked_level: int = int(progress_bucket.get("unlocked_level", 0))
 	if completed and level_index >= unlocked_level and level_index + 1 < total_level_count:
-		bucket["unlocked_level"] = level_index + 1
-		single_player[_normalize_language(lang)] = bucket
+		progress_bucket["unlocked_level"] = level_index + 1
+		difficulty_progress[difficulty_key] = progress_bucket
+		root_bucket["difficulty_progress"] = difficulty_progress
+		single_player[lang_key] = root_bucket
 		unlocked_next = true
 	save_game()
 	return {
 		"completed": completed,
-		"played_count": get_single_level_played_count(lang, level_index, word_count),
+		"perfect": perfect,
+		"played_count": get_single_level_played_count(lang, level_index, word_count, resolved_difficulty),
+		"guessed_count": get_single_level_guessed_count(lang, level_index, word_count, resolved_difficulty),
 		"unlocked_next": unlocked_next,
-		"unlocked_level": get_single_player_unlocked_level(lang),
+		"unlocked_level": get_single_player_unlocked_level(lang, resolved_difficulty),
 	}
 
-func get_single_player_display_level(lang: String, total_level_count: int) -> int:
+func get_single_player_display_level(lang: String, total_level_count: int, difficulty: int = -1) -> int:
 	if total_level_count <= 0:
 		return 0
-	return mini(get_single_player_unlocked_level(lang) + 1, total_level_count)
+	return mini(get_single_player_unlocked_level(lang, difficulty) + 1, total_level_count)

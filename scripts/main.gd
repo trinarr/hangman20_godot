@@ -33,6 +33,12 @@ const SINGLE_PLAYER_WORDS_PER_LEVEL: int = 6
 const MODE_CLASSIC: int = 0
 const MODE_TWO_PLAYER: int = 1
 const MODE_SINGLE_PLAYER: int = 2
+const DIFFICULTY_MODE_HARD: int = 1
+const DIFFICULTY_MODE_NORMAL: int = 2
+const DIFFICULTY_HARD_NORMAL_TINT := Color("#D866FE")
+const DIFFICULTY_HARD_PRESSED_TINT := Color("#B44AD9")
+const DIFFICULTY_HARD_SELECTED_TINT := Color("#9638B9")
+const DIFFICULTY_HARD_OUTLINE_COLOR := Color("#68267A")
 const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
@@ -57,9 +63,6 @@ const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stag
 const SINGLE_PLAYER_LEVEL_MAP_SCRIPT: GDScript = preload("res://scripts/ui/single_player_level_map.gd")
 
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
-const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_1.png")
-const DIFFICULTY_STARS_2_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_2.png")
-const DIFFICULTY_STARS_3_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_3.png")
 const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
 const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
@@ -129,6 +132,7 @@ var single_player_active_word_slot: int = -1
 var single_player_level_definitions_cache: Array = []
 var single_player_level_cache_language: String = ""
 var single_player_level_cache_theme_count: int = -1
+var single_player_level_cache_difficulty: int = -1
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
 var custom_comment_edit: TextEdit
@@ -210,6 +214,7 @@ func _clear(symbol_path: String = "") -> void:
 	_remove_settings_popup()
 	_remove_records_popup()
 	_remove_exit_game_popup()
+	_remove_restart_single_level_popup()
 	_remove_clear_theme_popup()
 	settings_popup_return_content = null
 	_remove_custom_comment_popup()
@@ -839,15 +844,45 @@ func _refresh_settings_toggle_button(index: int) -> void:
 	button.set("button_text", _settings_on_label() if enabled else _settings_off_label())
 	button.set("selected", enabled)
 
-func _difficulty_star_texture(value: int = -1) -> Texture2D:
-	var difficulty: int = int(GameState.settings[2]) if value < 0 else value
-	match difficulty:
-		2:
-			return DIFFICULTY_STARS_1_TEXTURE
-		1:
-			return DIFFICULTY_STARS_3_TEXTURE
-		_:
-			return DIFFICULTY_STARS_2_TEXTURE
+func _difficulty_mode_value() -> int:
+	return DIFFICULTY_MODE_HARD if int(GameState.settings[2]) == DIFFICULTY_MODE_HARD else DIFFICULTY_MODE_NORMAL
+
+func _difficulty_mode_label(value: int = -1) -> String:
+	var resolved: int = _difficulty_mode_value() if value < 0 else value
+	if resolved == DIFFICULTY_MODE_HARD:
+		return _single_player_text("Сложный режим", "Hard mode")
+	return _single_player_text("Обычный режим", "Normal mode")
+
+func _style_difficulty_button(button: Control) -> Control:
+	if button == null or _difficulty_mode_value() != DIFFICULTY_MODE_HARD:
+		return button
+	button.call(
+		"set_color_palette",
+		DIFFICULTY_HARD_NORMAL_TINT,
+		DIFFICULTY_HARD_PRESSED_TINT,
+		DIFFICULTY_HARD_SELECTED_TINT
+	)
+	button.set("outline_color", DIFFICULTY_HARD_OUTLINE_COLOR)
+	button.set("outline_size", 4)
+	return button
+
+func _cycle_difficulty_mode() -> void:
+	if _difficulty_mode_value() == DIFFICULTY_MODE_NORMAL:
+		GameState.settings[2] = DIFFICULTY_MODE_HARD
+	else:
+		GameState.settings[2] = DIFFICULTY_MODE_NORMAL
+	GameState.save_game()
+	_invalidate_single_player_level_cache()
+
+func _cycle_single_player_difficulty() -> void:
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
+	_cycle_difficulty_mode()
+	show_single_player_level_select()
+
+func _cycle_classic_difficulty() -> void:
+	_cycle_difficulty_mode()
+	show_theme_select()
 
 func _art_stage_size(texture: Texture2D) -> Vector2:
 	return texture.get_size() / ART_SOURCE_SCALE
@@ -885,6 +920,12 @@ func _single_player_next_level_label() -> String:
 func _single_player_levels_button_label() -> String:
 	return _single_player_text("К уровням", "Levels")
 
+func _single_player_restart_title() -> String:
+	return _single_player_text("Перезапустить уровень?", "Restart the level?")
+
+func _single_player_restart_message() -> String:
+	return _single_player_text("Прогресс уровня будет сброшен", "Level progress will be reset")
+
 func _single_player_current_level_number() -> int:
 	return GameState.get_single_player_display_level(Database.current_language, SINGLE_PLAYER_LEVEL_COUNT)
 
@@ -892,6 +933,7 @@ func _invalidate_single_player_level_cache() -> void:
 	single_player_level_definitions_cache.clear()
 	single_player_level_cache_language = ""
 	single_player_level_cache_theme_count = -1
+	single_player_level_cache_difficulty = -1
 
 func _warm_single_player_level_cache() -> void:
 	_single_player_level_definitions()
@@ -899,10 +941,12 @@ func _warm_single_player_level_cache() -> void:
 func _single_player_level_definitions() -> Array:
 	var theme_count: int = Database.get_theme_count()
 	var language: String = Database.current_language
+	var difficulty: int = _difficulty_mode_value()
 	if (
 		!single_player_level_definitions_cache.is_empty()
 		and single_player_level_cache_language == language
 		and single_player_level_cache_theme_count == theme_count
+		and single_player_level_cache_difficulty == difficulty
 	):
 		return single_player_level_definitions_cache
 
@@ -910,20 +954,28 @@ func _single_player_level_definitions() -> Array:
 	if theme_count <= 0:
 		return levels
 
-	# Read and normalize each category once. Database also keeps these immutable
-	# arrays cached, so rebuilding after a language change stays inexpensive.
-	var theme_word_pools: Array = []
+	# Build levels only from categories that contain words for the selected
+	# two-state difficulty. This keeps each level internally consistent and
+	# prevents switching difficulty from changing words under saved slots.
+	var theme_word_pools: Dictionary = {}
+	var eligible_theme_indices: Array[int] = []
 	for theme_index in range(theme_count):
-		theme_word_pools.append(Database.get_words_by_index(theme_index, 0))
+		var filtered_words: Array = Database.get_words_by_index(theme_index, difficulty)
+		if filtered_words.is_empty():
+			continue
+		theme_word_pools[theme_index] = filtered_words
+		eligible_theme_indices.append(theme_index)
 
-	var words_per_level: int = mini(SINGLE_PLAYER_WORDS_PER_LEVEL, theme_count)
+	if eligible_theme_indices.is_empty():
+		return levels
+
+	var words_per_level: int = mini(SINGLE_PLAYER_WORDS_PER_LEVEL, eligible_theme_indices.size())
 	for level_index in range(SINGLE_PLAYER_LEVEL_COUNT):
 		var words: Array = []
 		for slot in range(words_per_level):
-			var theme_index: int = (level_index + slot) % theme_count
+			var eligible_index: int = (level_index + slot) % eligible_theme_indices.size()
+			var theme_index: int = eligible_theme_indices[eligible_index]
 			var theme_words: Array = theme_word_pools[theme_index]
-			if theme_words.is_empty():
-				continue
 			var pick_index: int = int((level_index * 3 + slot) % theme_words.size())
 			var picked: Dictionary = theme_words[pick_index]
 			words.append({
@@ -940,6 +992,7 @@ func _single_player_level_definitions() -> Array:
 	single_player_level_definitions_cache = levels
 	single_player_level_cache_language = language
 	single_player_level_cache_theme_count = theme_count
+	single_player_level_cache_difficulty = difficulty
 	return single_player_level_definitions_cache
 
 func _single_player_level_data(level_index: int) -> Dictionary:
@@ -959,6 +1012,9 @@ func _single_player_level_played_count(level_index: int) -> int:
 
 func _single_player_level_completed(level_index: int) -> bool:
 	return GameState.is_single_level_completed(Database.current_language, level_index, _single_player_level_word_count(level_index))
+
+func _single_player_level_perfect(level_index: int) -> bool:
+	return GameState.is_single_level_perfect(Database.current_language, level_index, _single_player_level_word_count(level_index))
 
 func _single_player_level_unlocked(level_index: int) -> bool:
 	return GameState.is_single_level_unlocked(Database.current_language, level_index)
@@ -989,6 +1045,7 @@ func _single_player_mark_current_word_finished(data: Dictionary, is_win: bool) -
 	result["single_player_played_count"] = int(progress.get("played_count", 0))
 	result["single_player_total_count"] = level_word_count
 	result["single_player_level_completed"] = bool(progress.get("completed", false))
+	result["single_player_level_perfect"] = bool(progress.get("perfect", false))
 	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
 	if bool(progress.get("completed", false)):
 		result["lines"].append(_single_player_level_completed_label())
@@ -1073,9 +1130,6 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	level_label.add_theme_constant_override("outline_size", 1)
 	button.add_child(level_label)
 
-func _single_player_difficulty_placeholder() -> void:
-	pass
-
 func show_single_player_level_select() -> void:
 	_clear("")
 	_stage_texture_fill(0.0, 688.0, MENU_PAPER_COVER)
@@ -1084,6 +1138,7 @@ func show_single_player_level_select() -> void:
 	var unlocked_level: int = GameState.get_single_player_unlocked_level(Database.current_language)
 	var unlocked_states: Array = []
 	var completed_states: Array = []
+	var perfect_states: Array = []
 	for level_index in range(SINGLE_PLAYER_LEVEL_COUNT):
 		var word_count: int = 0
 		if level_index < level_definitions.size():
@@ -1095,6 +1150,7 @@ func show_single_player_level_select() -> void:
 		)
 		unlocked_states.append(level_index <= unlocked_level)
 		completed_states.append(bool(snapshot.get("completed", false)))
+		perfect_states.append(bool(snapshot.get("perfect", false)))
 
 	var level_map: Control = SINGLE_PLAYER_LEVEL_MAP_SCRIPT.new() as Control
 	level_map.call(
@@ -1102,9 +1158,10 @@ func show_single_player_level_select() -> void:
 		SINGLE_PLAYER_LEVEL_COUNT,
 		maxi(_single_player_current_level_number() - 1, 0),
 		unlocked_states,
-		completed_states
+		completed_states,
+		perfect_states
 	)
-	level_map.connect(&"level_selected", Callable(self, "show_single_player_level"))
+	level_map.connect(&"level_selected", Callable(self, "_on_single_player_level_selected"))
 	content.add_child(level_map)
 
 	_stage_horizontal_fill(688.0, 112.0, Color(0.2706, 0.3098, 0.6078, 1.0))
@@ -1114,15 +1171,107 @@ func show_single_player_level_select() -> void:
 		SINGLE_PLAYER_BACK_ARROW_ICON,
 		_single_player_footer_icon_size(Vector2(27.0, 33.0))
 	)
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_main_icon_button(
+	var difficulty_button := _stage_main_button(
 		_single_player_footer_long_rect(),
-		Callable(self, "_single_player_difficulty_placeholder"),
-		_single_player_text("Сложность:", "Difficulty:"),
-		difficulty_texture,
-		_single_player_footer_icon_size(_art_stage_size(difficulty_texture)),
+		Callable(self, "_cycle_single_player_difficulty"),
+		_difficulty_mode_label(),
 		_single_player_footer_font_size(22)
 	)
+	_style_difficulty_button(difficulty_button)
+
+func _on_single_player_level_selected(level_index: int) -> void:
+	if !_single_player_level_unlocked(level_index):
+		return
+	var word_count: int = _single_player_level_word_count(level_index)
+	var snapshot: Dictionary = GameState.get_single_level_snapshot(
+		Database.current_language,
+		level_index,
+		word_count
+	)
+	if bool(snapshot.get("completed", false)):
+		# A perfect level is final. An imperfect completed level may only be
+		# entered after explicitly clearing its six saved outcomes.
+		if bool(snapshot.get("perfect", false)):
+			return
+		_show_restart_single_level_popup(level_index)
+		return
+	show_single_player_level(level_index)
+
+func _show_restart_single_level_popup(level_index: int) -> void:
+	_remove_restart_single_level_popup()
+	_play_popup_open_sound()
+	var previous_content: Control = content
+
+	var popup_layer := CanvasLayer.new()
+	popup_layer.name = "RestartSingleLevelPopupCanvas"
+	popup_layer.layer = 135
+	popup_layer.add_to_group("restart_single_level_popup")
+	add_child(popup_layer)
+
+	var popup_root := Control.new()
+	popup_root.name = "RestartSingleLevelPopupLayer"
+	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_layer.add_child(popup_root)
+	content = popup_root
+
+	_add_fullscreen_modal_backdrop(Callable(self, "_remove_restart_single_level_popup"))
+	content = _center_popup_content(popup_root, 88.0, 350.0)
+
+	var popup_x: float = 190.0
+	var popup_width: float = 420.0
+	var header := _stage_panel(Rect2(popup_x, 88.0, popup_width, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
+	header.mouse_filter = Control.MOUSE_FILTER_STOP
+	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 180.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	body.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stage_panel(Rect2(popup_x, 169.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
+
+	var title_label := _stage_label(Rect2(popup_x + 28.0, 101.0, popup_width - 56.0, 54.0), _single_player_restart_title(), 26, Color.WHITE)
+	title_label.clip_text = false
+	var message_label := _stage_label(Rect2(popup_x + 32.0, 187.0, popup_width - 64.0, 48.0), _single_player_restart_message(), 19, Color(0.92, 0.94, 1.0))
+	message_label.clip_text = false
+	_stage_main_button(
+		Rect2(popup_x + 30.0, 260.0, 160.0, 54.0),
+		Callable(self, "_confirm_restart_single_level").bind(level_index),
+		tr("YES"),
+		20,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	_stage_main_button(
+		Rect2(popup_x + 230.0, 260.0, 160.0, 54.0),
+		Callable(self, "_remove_restart_single_level_popup"),
+		tr("NO"),
+		20
+	)
+	_stage_round_button(
+		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 374.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
+		Callable(self, "_remove_restart_single_level_popup"),
+		"×"
+	)
+	content = previous_content
+
+func _confirm_restart_single_level(level_index: int) -> void:
+	_remove_restart_single_level_popup()
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = -1
+	GameState.reset_single_level(
+		Database.current_language,
+		level_index,
+		_single_player_level_word_count(level_index)
+	)
+	show_single_player_level(level_index)
+
+func _remove_restart_single_level_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("restart_single_level_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func show_single_player_level(level_index: int) -> void:
 	if !_single_player_level_unlocked(level_index):
@@ -1246,10 +1395,14 @@ func show_theme_select() -> void:
 	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
 	# Keep the header height in stage coordinates while filling the real viewport.
 	_stage_horizontal_fill(0.0, 86.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(28, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var difficulty_button_rect: Rect2 = HEADER_ACTION_BUTTON_RECT
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, _art_stage_size(difficulty_texture))
+	_stage_label(Rect2(60.0, 19.0, 395.0, 50.0), Database.tr_text(28, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var difficulty_button := _stage_main_button(
+		Rect2(468.0, 17.0, 233.0, 54.0),
+		Callable(self, "_cycle_classic_difficulty"),
+		_difficulty_mode_label(),
+		18
+	)
+	_style_difficulty_button(difficulty_button)
 	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
 
 	var theme_count: int = Database.get_theme_count()
@@ -1369,98 +1522,12 @@ func _remove_clear_theme_popup() -> void:
 			node.queue_free()
 
 func _show_difficulty_popup() -> void:
-	_remove_difficulty_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-
-	# A dedicated CanvasLayer keeps every popup element above the category
-	# cards. Adding the popup root to RuntimeUI allowed stage controls with their
-	# own z-index to bleed through the dark body on some layouts.
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "ThemeDifficultyPopupCanvas"
-	popup_layer.layer = 120
-	popup_layer.add_to_group("difficulty_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "ThemeDifficultyPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_difficulty_popup"))
-	content = _center_popup_content(popup_root, 0.0, 250.0)
-
-	var popup_x: float = 40.0
-	var popup_width: float = 720.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 76.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 76.0, popup_width, 174.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(popup_x, 76.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_label(Rect2(popup_x + 34.0, 18.0, 520.0, 42.0), Database.tr_text(55, "Choose the difficulty level:"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 10.0, 68.0, 68.0), Callable(self, "_remove_difficulty_popup"), "×")
-
-	var column_separators := [popup_x + 240.0, popup_x + 480.0]
-	for sep_x in column_separators:
-		var divider := _stage_panel(Rect2(sep_x, 94.0, 2.0, 126.0), Color(0.32, 0.39, 0.69, 0.95))
-		divider.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_rule := _stage_panel(Rect2(popup_x + 34.0, 131.0, popup_width - 68.0, 2.0), Color(0.32, 0.39, 0.69, 0.95))
-	top_rule.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var options := [
-		{
-			"value": 2,
-			"title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"),
-			"desc": [Database.tr_text(47, "Easy words")],
-			"x": popup_x + 24.0
-		},
-		{
-			"value": 1,
-			"title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"),
-			"desc": [Database.tr_text(48, "Hard words")],
-			"x": popup_x + 264.0
-		},
-		{
-			"value": 0,
-			"title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"),
-			"desc": [Database.tr_text(49, "All words")],
-			"x": popup_x + 504.0
-		},
-	]
-
-	for option in options:
-		var base_x: float = float(option["x"])
-		var value: int = int(option["value"])
-		var selected: bool = value == int(GameState.settings[2])
-		var title_label := _stage_label(Rect2(base_x, 96.0, 190.0, 30.0), String(option["title"]), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		title_label.clip_text = false
-		title_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
-		title_label.add_theme_constant_override("outline_size", 0)
-		var title_holder := title_label.get_parent() as Control
-		if title_holder != null:
-			title_holder.z_index = 20
-
-		var hit_area := _stage_button(Rect2(base_x - 8.0, 138.0, 210.0, 88.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
-		hit_area.mouse_filter = Control.MOUSE_FILTER_STOP
-		var option_button_rect := Rect2(base_x, 148.0, 68.0, 68.0)
-		var option_texture: Texture2D = _difficulty_star_texture(value)
-		_stage_round_icon_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, _art_stage_size(option_texture), false, selected)
-
-		var desc: Array = option["desc"] as Array
-		var text_y: float = 154.0
-		for line in desc:
-			var line_label := _stage_label(Rect2(base_x + 88.0, text_y, 130.0, 24.0), String(line), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-			line_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
-			line_label.add_theme_constant_override("outline_size", 0)
-			text_y += 24.0
-
-	content = previous_content
+	# Kept as a compatibility entry point for older scene callbacks. Difficulty
+	# now changes immediately and never opens a modal selector.
+	_cycle_classic_difficulty()
 
 func _set_difficulty_from_popup(value: int) -> void:
-	GameState.settings[2] = value
+	GameState.settings[2] = DIFFICULTY_MODE_HARD if value == DIFFICULTY_MODE_HARD else DIFFICULTY_MODE_NORMAL
 	GameState.save_game()
 	_remove_difficulty_popup()
 	show_theme_select()
