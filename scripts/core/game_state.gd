@@ -341,9 +341,6 @@ func get_single_level_word_status(lang: String, level_index: int, word_slot: int
 		return 0
 	return _normalize_single_level_status(statuses[word_slot])
 
-func is_single_level_word_played(lang: String, level_index: int, word_slot: int, word_count: int, difficulty: int = -1) -> bool:
-	return get_single_level_word_status(lang, level_index, word_slot, word_count, difficulty) != 0
-
 func get_single_level_played_count(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> int:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var count := 0

@@ -563,57 +563,49 @@ def verify_game_exit_confirmation_popup() -> None:
     portrait = read("scripts/main_portrait.gd")
     translations = read("localization/translations.csv")
 
-    clear_screen = main[main.index("func _clear(") : main.index("func _add_fullscreen_modal_backdrop(")]
-    base_game = main[main.index("func _refresh_game_screen()") : main.index("func _game_header_icon()")]
+    clear_screen = main[main.index("func _clear(") : main.index("func _stage_holder(")]
     portrait_game = portrait[
         portrait.index("func _refresh_game_screen()") : portrait.index("func _stage_portrait_game_word_display(")
-    ]
-    base_popup = main[
-        main.index("func _show_exit_game_popup()") : main.index("func _remove_exit_game_popup()")
     ]
     portrait_popup = portrait[
         portrait.index("func _show_exit_game_popup()") : portrait.index("func show_custom_word()")
     ]
+    confirm_exit = main[
+        main.index("func _confirm_exit_game()") : main.index("func _forfeit_single_player_round()")
+    ]
 
     require(
         "_remove_exit_game_popup()" in clear_screen
-        and 'popup_layer.add_to_group("exit_game_popup")' in base_popup
         and '"ExitGamePopup", "exit_game_popup"' in portrait_popup,
         "The exit confirmation popup is not cleaned up with the active screen",
     )
     require(
-        'Callable(self, "_show_exit_game_popup")' in base_game
-        and 'Callable(self, "_show_exit_game_popup")' in portrait_game
+        'Callable(self, "_show_exit_game_popup")' in portrait_game
         and 'Callable(self, "show_menu"), RESULT_CLOSE_ICON' not in portrait_game,
         "A gameplay exit button still bypasses the confirmation popup",
     )
     require(
-        'tr("EXIT_GAME_CONFIRM")' in base_popup
-        and 'tr("EXIT_GAME_CONFIRM")' in portrait_popup
-        and 'Callable(self, "_confirm_exit_game"), tr("YES")' in base_popup
+        'tr("EXIT_GAME_CONFIRM")' in portrait_popup
+        and '_exit_game_warning_text()' in portrait_popup
         and 'Callable(self, "_confirm_exit_game"), tr("YES")' in portrait_popup
-        and 'Callable(self, "_remove_exit_game_popup"), tr("NO")' in base_popup
         and 'Callable(self, "_remove_exit_game_popup"), tr("NO")' in portrait_popup,
-        "The compact exit popup is missing its title or Yes/No actions",
+        "The compact exit popup is missing its title, warning, or Yes/No actions",
     )
     require(
-        'Callable(self, "_remove_exit_game_popup"),\n\t\t"×"' in base_popup
-        and "var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5"
+        "var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5"
         in portrait_popup
         and "var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP" in portrait_popup
         and 'Callable(self, "_remove_exit_game_popup"),\n\t\t"×"' in portrait_popup,
         "The exit confirmation popup is missing its standard round close button",
     )
     require(
-        "func _confirm_exit_game() -> void:" in base_popup
-        and "_remove_exit_game_popup()\n\tshow_menu()" in base_popup,
+        "_remove_exit_game_popup()" in confirm_exit and "show_menu()" in confirm_exit,
         "Confirming exit does not close the popup and return to the main menu",
     )
     require(
         "EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?" in translations,
         "The exit confirmation title is not localized",
     )
-
 
 def verify_long_button_attention_bounce() -> None:
     button = read("scripts/ui/stage_long_button.gd")
@@ -1059,22 +1051,18 @@ def verify_profile_theme_and_about_ui() -> None:
         "The profile screen does not use the bottom Back button",
     )
 
-    main_themes = main[main.index("func show_theme_select()") : main.index("func _show_clear_theme_popup(")]
     portrait_themes = portrait[
-        portrait.index("func show_theme_select()") : portrait.index("func _portrait_difficulty_button_label()")
+        portrait.index("func show_theme_select()") : portrait.index("func _show_clear_theme_popup(")
     ]
     require(
         "const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0" in main
-        and "Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, card_width - 16.0, 44.0)"
-        in main_themes
         and "Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0)"
         in portrait_themes
         and math.isclose(7.0 + 44.0 * 0.5, 29.0),
         "The Guessed label does not apply the shared optical vertical correction",
     )
     require(
-        main_themes.count("_bind_theme_card_press_state(theme_button, card)") == 1
-        and portrait_themes.count("_bind_theme_card_press_state(theme_button, card)") == 1
+        portrait_themes.count("_bind_theme_card_press_state(theme_button, card)") == 1
         and "const THEME_CARD_PRESSED_MODULATE := Color(0.72, 0.72, 0.72, 1.0)" in main
         and "button.button_down.connect(_set_theme_card_pressed.bind(card, true))" in main
         and "button.button_up.connect(_set_theme_card_pressed.bind(card, false))" in main
@@ -1085,7 +1073,7 @@ def verify_profile_theme_and_about_ui() -> None:
     author_text = main[main.index("func _about_author_text()") : main.index("func _about_version_text()")]
     version_text = main[main.index("func _about_version_text()") : main.index("func _about_contacts_label()")]
     contact_action = main[
-        main.index("func _about_contact_action(") : main.index("func _settings_remove_ads_action(")
+        main.index("func _about_contact_action(") : main.index("func _toggle_setting(")
     ]
     require(
         "Bruno Philippsen" not in author_text

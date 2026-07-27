@@ -9,7 +9,6 @@ const PORTRAIT_HEADER_HEIGHT: float = 102.0
 const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
-const PORTRAIT_ACTION_BUTTON_RECT := Rect2(324.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(404.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
@@ -21,12 +20,9 @@ const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # Dense screens may grow moderately on tall phones, but gameplay is split into
 # independent upper and lower groups so the keyboard can stay width-safe while
 # moving toward the thumb zone.
-const PORTRAIT_DENSE_MAX_SCALE: float = 1.15
 const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
-const PORTRAIT_RESULT_MAX_SCALE: float = 1.24
 const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
-const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 300.0)
 const PORTRAIT_HERO_CLASSIC_RESULT_POSITION := Vector2(138.0, 500.0)
 const PORTRAIT_HERO_CENTERED_RESULT_POSITION := Vector2(138.0, 500.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
@@ -280,15 +276,6 @@ func _stage_main_menu_character_button() -> void:
 		_stage_texture(Rect2(30.0, 30.0, 43.0, 47.0), HERO_AVATAR_LAKI_TEXTURE)
 	_stage_button(Rect2(2.0, 4.0, 100.0, 100.0), Callable(self, "show_profile"), "")
 
-func _show_character_select_popup() -> void:
-	_remove_character_select_popup()
-	var previous_content := _portrait_popup_begin("CharacterSelectPopup", "character_select_popup", 100, Callable(self, "_remove_character_select_popup"), 170.0, 540.0)
-	var rect := Rect2(28.0, 170.0, 424.0, 370.0)
-	_portrait_popup_shell(rect, Database.tr_text(7, "Choose the hero:"), Callable(self, "_remove_character_select_popup"), 27)
-	_stage_character_option(1, Rect2(62.0, 310.0, 120.0, 120.0), Database.tr_text(67, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(91.0, 338.0, 62.0, 66.0))
-	_stage_character_option(2, Rect2(298.0, 310.0, 120.0, 120.0), Database.tr_text(68, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(313.0, 344.0, 90.0, 79.0))
-	content = previous_content
-
 func show_settings() -> void:
 	var previous_content: Control = content
 	if settings_popup_return_content != null and is_instance_valid(settings_popup_return_content):
@@ -338,7 +325,6 @@ func _show_about_popup() -> void:
 	content = previous_content
 
 func show_theme_select() -> void:
-	_remove_difficulty_popup()
 	_clear("")
 	# Keep the category cards on the graph-paper background and move all screen
 	# navigation into a rigid footer block that follows the physical bottom edge.
@@ -396,10 +382,6 @@ func show_theme_select() -> void:
 		_portrait_footer_font_size(22)
 	)
 	_style_difficulty_button(difficulty_button)
-
-func _portrait_difficulty_button_label() -> String:
-	return _difficulty_mode_label()
-
 func _show_clear_theme_popup(theme_index: int) -> void:
 	_remove_clear_theme_popup()
 	var previous_content := _portrait_popup_begin("ClearThemePopup", "clear_theme_popup", 125, Callable(self, "_remove_clear_theme_popup"), 250.0, 540.0)
@@ -411,10 +393,6 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
 	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
-
-func _show_difficulty_popup() -> void:
-	_cycle_classic_difficulty()
-
 func _show_restart_single_level_popup(level_index: int) -> void:
 	_remove_restart_single_level_popup()
 	var previous_content := _portrait_popup_begin(
@@ -971,10 +949,6 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	if GameState.current_mode == MODE_CLASSIC:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
 	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
-
-func show_records() -> void:
-	show_profile()
-
 func show_profile() -> void:
 	_clear("")
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)

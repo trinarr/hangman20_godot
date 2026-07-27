@@ -1,11 +1,5 @@
 extends Node2D
 
-const MENU_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
-const ROUND_BUTTON_SIZE: Vector2 = Vector2(62.0, 62.0)
-const HEADER_ACTION_BUTTON_RECT: Rect2 = Rect2(639.0, 12.0, 62.0, 62.0)
-const HEADER_CLOSE_BUTTON_RECT: Rect2 = Rect2(716.0, 12.0, 62.0, 62.0)
-const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
-const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
 const ART_SOURCE_SCALE: float = 2.0
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
@@ -45,10 +39,7 @@ const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const LONG_BUTTON_COLOR_ORANGE: int = 0
-const LONG_BUTTON_COLOR_GREEN: int = 1
 const LONG_BUTTON_COLOR_BLUE: int = 2
-const ROUND_BUTTON_COLOR_ORANGE: int = 0
-const ROUND_BUTTON_COLOR_GREEN: int = 1
 const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
@@ -62,22 +53,16 @@ const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flas
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 const SINGLE_PLAYER_LEVEL_MAP_SCRIPT: GDScript = preload("res://scripts/ui/single_player_level_map.gd")
 
-const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
-const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
-const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
-const CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_icon.png")
 const SINGLE_PLAYER_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
-const RESULT_SEARCH_ICON_SIZE := Vector2(32.0, 41.0)
 const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)
 const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
 const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
-const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
 const THEME_ICON_SPORT_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_sport.png")
@@ -135,7 +120,6 @@ var single_player_level_cache_theme_count: int = -1
 var single_player_level_cache_difficulty: int = -1
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
-var custom_comment_edit: TextEdit
 var custom_word_text: String = ""
 var custom_comment_text: String = ""
 var custom_word_check_request: HTTPRequest = null
@@ -172,6 +156,33 @@ func _ready() -> void:
 	show_menu()
 	call_deferred("_warm_single_player_level_cache")
 
+# Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
+# that shared game logic calls; all screen construction lives in the portrait
+# subclass instead of being duplicated here.
+func show_menu() -> void:
+	pass
+
+func show_theme_select() -> void:
+	pass
+
+func show_custom_word() -> void:
+	pass
+
+func show_result_screen(_is_win: bool, _data: Dictionary = {}) -> void:
+	pass
+
+func _refresh_game_screen() -> void:
+	pass
+
+func _create_hero_animation_overlay() -> FlashStageSymbol:
+	return null
+
+func _show_about_popup() -> void:
+	pass
+
+func _show_restart_single_level_popup(_level_index: int) -> void:
+	pass
+
 func _build_root() -> void:
 	art_root = FlashBackdrop.new()
 	art_root.name = "OriginalFlashArt"
@@ -197,7 +208,6 @@ func _build_root() -> void:
 	ui_audio_player.name = "UIAudio"
 	add_child(ui_audio_player)
 
-
 func _clear(symbol_path: String = "") -> void:
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
@@ -210,14 +220,11 @@ func _clear(symbol_path: String = "") -> void:
 	custom_word_check_button = null
 	custom_word_start_button = null
 	hero_static_symbol = null
-	_remove_character_select_popup()
 	_remove_settings_popup()
-	_remove_records_popup()
 	_remove_exit_game_popup()
 	_remove_restart_single_level_popup()
 	_remove_clear_theme_popup()
 	settings_popup_return_content = null
-	_remove_custom_comment_popup()
 	custom_word_edit = null
 	custom_word_input_visual = null
 	if art_root != null:
@@ -431,19 +438,6 @@ func _stage_line_edit(rect: Rect2, placeholder: String = "") -> LineEdit:
 	holder.add_child(edit)
 	return edit
 
-func _stage_text_edit(rect: Rect2, placeholder: String = "") -> TextEdit:
-	var holder: Control = _stage_holder(rect)
-	var edit := TextEdit.new()
-	edit.set_anchors_preset(Control.PRESET_FULL_RECT)
-	edit.placeholder_text = placeholder
-	edit.add_theme_font_size_override("font_size", 18)
-	edit.add_theme_color_override("font_color", Color.WHITE)
-	var empty_style := StyleBoxEmpty.new()
-	edit.add_theme_stylebox_override("normal", empty_style)
-	edit.add_theme_stylebox_override("focus", empty_style)
-	holder.add_child(edit)
-	return edit
-
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
 	var empty_style := StyleBoxEmpty.new()
 	button.add_theme_stylebox_override("normal", empty_style)
@@ -457,191 +451,10 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
 	button.add_theme_font_size_override("font_size", font_size)
-
-func show_menu() -> void:
-	GameSession.discard_current_round()
-	single_player_active_level_index = -1
-	single_player_active_word_slot = -1
-	_clear("")
-	# The main menu is rebuilt completely with native runtime controls. Keep only
-	# the original paper texture and the exact Flash header colour; loading the
-	# converted MainMenu scene would reintroduce hidden duplicate buttons and all
-	# of their obsolete bitmap dependencies.
-	# Keep the header height in Flash stage coordinates while filling the real
-	# viewport width. Menu controls remain positioned in the original stage.
-	_stage_horizontal_fill(0.0, 118.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_texture_fill(118.0, 362.0, MENU_PAPER_COVER)
-
-	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_main_button(Rect2(161.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 20)
-	_stage_main_button(Rect2(161.0, 349.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 20)
-	_stage_single_player_menu_button(Rect2(145.1, 412.0, 243.8, 56.35), Callable(self, "show_single_player_level_select"))
-	_stage_main_button(Rect2(436.0, 317.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(4, "Settings"), 20)
-
-	_stage_round_icon_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_RECORDS_ICON, Vector2(17.0, 18.0))
-
-	# Achievements are not implemented yet: keep the same round-button component
-	# in a disabled, semi-transparent state instead of drawing separate layers.
-	var achievements_button := _stage_round_icon_button(Rect2(569.0, 24.0, 62.0, 62.0), Callable(), MAIN_MENU_HOLLOW_STAR_ICON, Vector2(22.0, 21.0), true, false, Vector2.ZERO, 0.0)
-	achievements_button.self_modulate = Color(1.0, 1.0, 1.0, 0.55)
-	achievements_button.set("icon_modulate", Color(1.0, 1.0, 1.0, 0.72))
-	_stage_main_menu_character_button()
-
-
-func _stage_main_menu_character_button() -> void:
-	# Exact MainMenu.xml placement from the original FLA:
-	# HeroMov is at (716, 23) inside Head, and Head is shifted by x = -50.
-	# The separate blue tail bitmap is at (714, 112), also inside Head.
-	# Draw both original assets instead of synthesizing a rounded rectangle or
-	# masking the bottom with a solid block.
-	_stage_texture(Rect2(664.0, 112.0, 115.0, 33.0), HERO_BADGE_TAIL_TEXTURE)
-	_stage_texture(Rect2(666.0, 23.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
-	if _selected_character_id() == 2:
-		_stage_texture(Rect2(684.0, 53.0, 76.0, 67.0), HERO_AVATAR_TIGRE_TEXTURE)
-	else:
-		_stage_texture(Rect2(695.0, 50.0, 54.0, 58.0), HERO_AVATAR_LAKI_TEXTURE)
-	_stage_button(Rect2(654.0, 11.0, 135.0, 145.0), Callable(self, "_show_character_select_popup"), "")
-
 func _selected_character_id() -> int:
 	if GameState.settings.size() > 5:
 		return int(GameState.settings[5])
 	return 1
-
-func _show_character_select_popup() -> void:
-	_remove_character_select_popup()
-	_play_popup_open_sound()
-
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "CharacterSelectPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("character_select_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "CharacterSelectPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_character_select_popup"))
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), Database.tr_text(7, "Choose the hero:"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_character_select_popup"), "×")
-
-	_stage_character_option(1, Rect2(190.0, 150.0, 130.0, 130.0), Database.tr_text(67, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(224.0, 180.0, 64.0, 69.0))
-	_stage_character_option(2, Rect2(480.0, 150.0, 130.0, 130.0), Database.tr_text(68, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(498.0, 188.0, 94.0, 82.0))
-
-	content = previous_content
-
-func _stage_character_option(character_id: int, circle_rect: Rect2, label_text: String, avatar_texture: Texture2D, avatar_rect: Rect2) -> void:
-	var selected := _selected_character_id() == character_id
-	var halo_color := Color(0.336, 0.388, 0.717, 0.86) if selected else Color(0.336, 0.388, 0.717, 0.42)
-	_stage_panel(Rect2(circle_rect.position - Vector2(14.0, 14.0), circle_rect.size + Vector2(28.0, 28.0)), halo_color, (circle_rect.size.x + 28.0) * 0.5)
-	_stage_panel(circle_rect, Color.WHITE, circle_rect.size.x * 0.5, Color(0.82, 0.56, 0.34, 1.0), 3.0)
-	_stage_texture(avatar_rect, avatar_texture)
-	_stage_label(Rect2(circle_rect.position.x - 55.0, circle_rect.position.y + 155.0, circle_rect.size.x + 110.0, 42.0), label_text, 27, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	_stage_button(Rect2(circle_rect.position - Vector2(20.0, 20.0), circle_rect.size + Vector2(40.0, 88.0)), Callable(self, "_select_character").bind(character_id), "")
-
-func _select_character(character_id: int) -> void:
-	while GameState.settings.size() <= 5:
-		GameState.settings.append(1)
-	GameState.settings[5] = character_id
-	GameState.save_game()
-	_remove_character_select_popup()
-	show_menu()
-
-func _remove_character_select_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("character_select_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func show_settings() -> void:
-	var previous_content: Control = content
-	if settings_popup_return_content != null and is_instance_valid(settings_popup_return_content):
-		previous_content = settings_popup_return_content
-	_remove_settings_popup()
-	settings_popup_return_content = previous_content
-	_play_popup_open_sound()
-
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "SettingsPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("settings_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "SettingsPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_settings_popup"))
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var middle_separator := _stage_panel(Rect2(popup_x + 372.0, 126.0, 2.0, 132.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	middle_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bottom_separator := _stage_panel(Rect2(popup_x + 24.0, 263.0, popup_width - 48.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), Database.tr_text(4, "Settings"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_settings_popup"), "×")
-
-	_stage_label(Rect2(popup_x + 44.0, 125.0, 220.0, 36.0), _settings_sound_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(popup_x + 44.0, 187.0, 220.0, 36.0), _settings_vibration_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 123.0, 102.0, 49.0), 3)
-	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 185.0, 102.0, 49.0), 4)
-
-	_stage_label(Rect2(popup_x + 444.0, 125.0, 160.0, 36.0), _settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
-	_stage_settings_word_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
-
-	_stage_main_button(
-		Rect2(popup_x + (popup_width - MENU_BUTTON_SIZE.x) * 0.5, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y),
-		Callable(self, "_settings_about_action"),
-		_settings_about_label(),
-		18
-	)
-
-	content = previous_content
-
-func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
-	var enabled: bool = int(GameState.settings[setting_index]) == 2
-	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
-	var button := _stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled, false, LONG_BUTTON_COLOR_ORANGE)
-	settings_toggle_buttons[setting_index] = button
-
-func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
-	var selected: bool = GameState.word_language == language_code
-	var button := _stage_main_button(rect, Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected, false, LONG_BUTTON_COLOR_ORANGE)
-	settings_word_language_buttons[language_code] = button
-
 func _set_settings_word_language(language_code: String) -> void:
 	GameState.set_word_language(language_code)
 	Database.load_word_language(GameState.word_language)
@@ -683,73 +496,14 @@ func _settings_off_label() -> String:
 
 func _settings_about_label() -> String:
 	return Database.tr_text(11, "About")
-
-func _settings_remove_ads_label() -> String:
-	return Database.tr_text(62, "Remove ads")
-
 func _settings_about_action() -> void:
 	_show_about_popup()
-
-func _show_about_popup() -> void:
-	_remove_about_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "AboutPopupCanvas"
-	popup_layer.layer = 110
-	popup_layer.add_to_group("about_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "AboutPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_about_popup"), 0.38)
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var middle_separator := _stage_panel(Rect2(popup_x + 408.0, 160.0, 2.0, 128.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	middle_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 430.0, 50.0), _about_title_label(), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_round_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_about_popup"), "←")
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_close_about_and_settings"), "×")
-
-	var author_label := _stage_label(Rect2(popup_x + 78.0, 160.0, 300.0, 42.0), _about_author_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	author_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	author_label.clip_text = false
-	var version_label := _stage_label(Rect2(popup_x + 78.0, 218.0, 260.0, 38.0), _about_version_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	version_label.clip_text = false
-
-	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_icon_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE)
-	_stage_round_icon_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE)
-
-	content = previous_content
-
 func _remove_about_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("about_popup")
 	for node: Node in popup_nodes:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
-
-func _close_about_and_settings() -> void:
-	_remove_about_popup()
-	_remove_settings_popup()
 
 func _about_title_label() -> String:
 	return Database.tr_text(11, "About")
@@ -775,10 +529,6 @@ func _about_contact_action(contact_type: String) -> void:
 			OS.shell_open(AUTHOR_VK_URL)
 		"mail":
 			OS.shell_open(AUTHOR_EMAIL_URL)
-
-func _settings_remove_ads_action() -> void:
-	pass
-
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
 	if index == 4 and int(GameState.settings[index]) == 2:
@@ -883,10 +633,6 @@ func _cycle_single_player_difficulty() -> void:
 func _cycle_classic_difficulty() -> void:
 	_cycle_difficulty_mode()
 	show_theme_select()
-
-func _art_stage_size(texture: Texture2D) -> Vector2:
-	return texture.get_size() / ART_SOURCE_SCALE
-
 func _theme_icon_texture(theme_index: int) -> Texture2D:
 	if theme_index < 0 or theme_index >= THEME_ICON_TEXTURES.size():
 		return null
@@ -903,10 +649,6 @@ func _single_player_levels_title() -> String:
 
 func _single_player_level_label() -> String:
 	return _single_player_text("Уровень", "Level")
-
-func _single_player_choose_word_label() -> String:
-	return _single_player_text("Нажми на категорию, чтобы сыграть", "Tap a category to play")
-
 func _single_player_progress_label(played_count: int, total_count: int) -> String:
 	var prefix := _single_player_text("Сыграно", "Played")
 	return "%s: %d/%d" % [prefix, played_count, total_count]
@@ -1012,16 +754,8 @@ func _single_player_level_played_count(level_index: int) -> int:
 
 func _single_player_level_completed(level_index: int) -> bool:
 	return GameState.is_single_level_completed(Database.current_language, level_index, _single_player_level_word_count(level_index))
-
-func _single_player_level_perfect(level_index: int) -> bool:
-	return GameState.is_single_level_perfect(Database.current_language, level_index, _single_player_level_word_count(level_index))
-
 func _single_player_level_unlocked(level_index: int) -> bool:
 	return GameState.is_single_level_unlocked(Database.current_language, level_index)
-
-func _single_player_level_word_played(level_index: int, word_slot: int) -> bool:
-	return GameState.is_single_level_word_played(Database.current_language, level_index, word_slot, _single_player_level_word_count(level_index))
-
 func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
 	return GameState.get_single_level_word_status(Database.current_language, level_index, word_slot, _single_player_level_word_count(level_index))
 
@@ -1196,65 +930,6 @@ func _on_single_player_level_selected(level_index: int) -> void:
 		_show_restart_single_level_popup(level_index)
 		return
 	show_single_player_level(level_index)
-
-func _show_restart_single_level_popup(level_index: int) -> void:
-	_remove_restart_single_level_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "RestartSingleLevelPopupCanvas"
-	popup_layer.layer = 135
-	popup_layer.add_to_group("restart_single_level_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "RestartSingleLevelPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_restart_single_level_popup"))
-	content = _center_popup_content(popup_root, 88.0, 350.0)
-
-	var popup_x: float = 190.0
-	var popup_width: float = 420.0
-	var header := _stage_panel(Rect2(popup_x, 88.0, popup_width, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 180.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_panel(Rect2(popup_x, 169.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-
-	var title_label := _stage_label(Rect2(popup_x + 28.0, 101.0, popup_width - 56.0, 54.0), _single_player_restart_title(), 26, Color.WHITE)
-	title_label.clip_text = false
-	var message_label := _stage_label(Rect2(popup_x + 32.0, 187.0, popup_width - 64.0, 48.0), _single_player_restart_message(), 19, Color(0.92, 0.94, 1.0))
-	message_label.clip_text = false
-	_stage_main_button(
-		Rect2(popup_x + 30.0, 260.0, 160.0, 54.0),
-		Callable(self, "_confirm_restart_single_level").bind(level_index),
-		tr("YES"),
-		20,
-		false,
-		0.32,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	_stage_main_button(
-		Rect2(popup_x + 230.0, 260.0, 160.0, 54.0),
-		Callable(self, "_remove_restart_single_level_popup"),
-		tr("NO"),
-		20
-	)
-	_stage_round_button(
-		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 374.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
-		Callable(self, "_remove_restart_single_level_popup"),
-		"×"
-	)
-	content = previous_content
-
 func _confirm_restart_single_level(level_index: int) -> void:
 	_remove_restart_single_level_popup()
 	single_player_active_level_index = level_index
@@ -1385,85 +1060,6 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	GameSession.start_round(word, word.index, word.theme_index, MODE_SINGLE_PLAYER)
 	GameState.save_game()
 	show_game_screen()
-
-func show_theme_select() -> void:
-	_remove_difficulty_popup()
-	# Build the category screen without the converted GameTemi symbol. That
-	# symbol already contains legacy Flash buttons, which were visible below the
-	# runtime round buttons and caused the doubled-button artefact.
-	_clear("")
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	# Keep the header height in stage coordinates while filling the real viewport.
-	_stage_horizontal_fill(0.0, 86.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_label(Rect2(60.0, 19.0, 395.0, 50.0), Database.tr_text(28, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var difficulty_button := _stage_main_button(
-		Rect2(468.0, 17.0, 233.0, 54.0),
-		Callable(self, "_cycle_classic_difficulty"),
-		_difficulty_mode_label(),
-		18
-	)
-	_style_difficulty_button(difficulty_button)
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
-
-	var theme_count: int = Database.get_theme_count()
-	var compact_grid: bool = theme_count > 9
-	var columns: int = 4 if compact_grid else 3
-	var card_width: float = 190.0 if compact_grid else 239.0
-	var x_start: float = 20.0 if compact_grid else 26.0
-	var x_step: float = 204.0 if compact_grid else 262.0
-	var y_start: float = 106.0 if compact_grid else 125.0
-	var y_step: float = 104.0 if compact_grid else 113.0
-
-	for i in range(theme_count):
-		var col: int = i % columns
-		var row: int = int(i / columns)
-		var x: float = x_start + float(col) * x_step
-		var y: float = y_start + float(row) * y_step
-		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
-		var guessed: int = Database.get_number_of_guessed_words(i, true)
-		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
-		var disabled: bool = words_count == 0
-		var completed: bool = words_count > 0 and guessed >= words_count
-
-		var card := _stage_texture(Rect2(x, y, card_width, 90.0), THEME_CARD_TEXTURE)
-		var progress_back := _stage_texture(Rect2(x, y, card_width, 65.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = Database.tr_text(30, "Guessed") + ": " + str(guessed_percent) + "%"
-		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, card_width - 16.0, 44.0), progress_text, 14 if compact_grid else 15, Color(0.43, 0.49, 0.83, 1.0))
-		progress_label.clip_text = false
-		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
-		progress_label.add_theme_constant_override("outline_size", 0)
-		var progress_holder := progress_label.get_parent() as Control
-		if progress_holder != null:
-			progress_holder.z_index = 10
-
-		var theme_name: String = Database.get_theme_name(i).to_upper()
-		var theme_icon_texture: Texture2D = _theme_icon_texture(i)
-		var theme_icon: Control = null
-		if theme_icon_texture != null:
-			theme_icon = _stage_texture(Rect2(x + 10.0, y + 41.0, 34.0, 34.0), theme_icon_texture)
-			theme_icon.z_index = 11
-		var title_font_size: int = 16 if compact_grid else 21
-		var title_label := _stage_label(Rect2(x + 48.0, y + 43.0, card_width - 56.0, 39.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		title_label.clip_text = false
-		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
-		title_label.add_theme_constant_override("outline_size", 2)
-		var title_holder := title_label.get_parent() as Control
-		if title_holder != null:
-			title_holder.z_index = 11
-
-		if disabled:
-			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			if theme_icon_texture != null:
-				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-
-		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
-		var theme_button := _stage_button(Rect2(x, y, card_width, 90.0), action, "")
-		theme_button.disabled = disabled
-		_bind_theme_card_press_state(theme_button, card)
-
 func _bind_theme_card_press_state(button: BaseButton, card: CanvasItem) -> void:
 	if button.disabled:
 		return
@@ -1475,40 +1071,6 @@ func _set_theme_card_pressed(card: CanvasItem, is_pressed: bool) -> void:
 	if card == null or !is_instance_valid(card):
 		return
 	card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE
-
-func _show_clear_theme_popup(theme_index: int) -> void:
-	_remove_clear_theme_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "ClearThemePopupCanvas"
-	popup_layer.layer = 125
-	popup_layer.add_to_group("clear_theme_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "ClearThemePopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_clear_theme_popup"))
-	content = _center_popup_content(popup_root, 92.0, 336.0)
-	var popup_x: float = 160.0
-	var popup_width: float = 480.0
-	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 174.0, popup_width, 162.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_panel(Rect2(popup_x, 172.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	var question := Database.tr_text(25, "Clear the category?") + "\n" + Database.get_theme_name(theme_index).to_upper()
-	var question_label := _stage_label(Rect2(popup_x + 32.0, 101.0, popup_width - 64.0, 62.0), question, 25, Color.WHITE)
-	question_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 28.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
-	_stage_main_button(Rect2(popup_x + popup_width - 240.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
-	content = previous_content
-
 func _confirm_clear_theme(theme_index: int) -> void:
 	WordManager.clear_the_theme(theme_index)
 	_remove_clear_theme_popup()
@@ -1520,25 +1082,6 @@ func _remove_clear_theme_popup() -> void:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
-
-func _show_difficulty_popup() -> void:
-	# Kept as a compatibility entry point for older scene callbacks. Difficulty
-	# now changes immediately and never opens a modal selector.
-	_cycle_classic_difficulty()
-
-func _set_difficulty_from_popup(value: int) -> void:
-	GameState.settings[2] = DIFFICULTY_MODE_HARD if value == DIFFICULTY_MODE_HARD else DIFFICULTY_MODE_NORMAL
-	GameState.save_game()
-	_remove_difficulty_popup()
-	show_theme_select()
-
-func _remove_difficulty_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("difficulty_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
 func start_classic_game(theme_index: int) -> void:
 	game_finished = false
 	last_result_data = {}
@@ -1553,53 +1096,6 @@ func _exit_game_warning_text() -> String:
 	if GameState.current_mode == MODE_SINGLE_PLAYER:
 		return _single_player_text("Будет засчитано поражение", "A defeat will be recorded")
 	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
-
-func _show_exit_game_popup() -> void:
-	_remove_exit_game_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "ExitGamePopupCanvas"
-	popup_layer.layer = 140
-	popup_layer.add_to_group("exit_game_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "ExitGamePopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_exit_game_popup"))
-	content = _center_popup_content(popup_root, 92.0, 346.0)
-
-	var popup_x: float = 210.0
-	var popup_width: float = 380.0
-	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 78.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 176.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(popup_x, 169.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 24.0, 102.0, popup_width - 48.0, 54.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	var warning_label := _stage_label(Rect2(popup_x + 24.0, 184.0, popup_width - 48.0, 40.0), _exit_game_warning_text(), 19, Color(0.92, 0.94, 1.0))
-	warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	warning_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 28.0, 246.0, 150.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
-	_stage_main_button(Rect2(popup_x + 202.0, 246.0, 150.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
-	_stage_round_button(
-		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 370.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
-		Callable(self, "_remove_exit_game_popup"),
-		"×"
-	)
-
-	content = previous_content
-
 func _confirm_exit_game() -> void:
 	_remove_exit_game_popup()
 	if GameState.current_mode == MODE_SINGLE_PLAYER:
@@ -1632,70 +1128,6 @@ func _remove_exit_game_popup() -> void:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
-
-func show_custom_word() -> void:
-	single_player_active_level_index = -1
-	single_player_active_word_slot = -1
-	_clear("")
-	_set_random_custom_word()
-
-	# SlovMov.as draws the screen from three simple areas: a 114 px blue header,
-	# the graph-paper settings area, and a blue footer matching the gameplay screen.
-	# Rebuild those areas directly instead of displaying the converted SlovMov
-	# scene, which contains duplicate text fields and broken bitmap fragments.
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, 114.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-
-	# Original input field: Head is shifted by -50 and InputTxt is created at
-	# x = 105, y = 27 with width 567, producing this stage-space white capsule.
-	_stage_panel(Rect2(55.0, 27.0, 567.0, 54.0), Color.WHITE, 27.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
-	custom_word_edit = _stage_line_edit(Rect2(76.0, 31.0, 525.0, 46.0), Database.tr_text(37, "Input the word"))
-	custom_word_edit.max_length = 15
-	custom_word_edit.text = custom_word_text
-	custom_word_edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	custom_word_edit.add_theme_font_size_override("font_size", 26)
-	custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
-	custom_word_edit.add_theme_color_override("font_placeholder_color", Color(0.40, 0.43, 0.63, 0.70))
-	custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-
-	_stage_label(Rect2(49.0, 78.0, 245.0, 28.0), _custom_word_max_length_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(428.0, 78.0, 194.0, 28.0), _custom_word_random_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
-	# Use the same round close button treatment as on the guessing screen so the
-	# close icon has the same look and no deformation.
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
-
-	_stage_label(Rect2(66.0, 151.0, 260.0, 49.0), Database.tr_text(23, "First and last letter"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_custom_switch(Rect2(347.0, 151.0, 102.0, 49.0), 0)
-	_stage_label(Rect2(66.0, 213.0, 260.0, 49.0), Database.tr_text(24, "Hints"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_custom_switch(Rect2(347.0, 213.0, 102.0, 49.0), 1)
-
-	custom_word_check_button = _stage_main_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 20, false, 0.0)
-	_stage_main_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), Database.tr_text(41, "Comment"), 20)
-	custom_word_start_button = _stage_main_button(
-		Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y),
-		Callable(self, "start_custom_game"),
-		_custom_word_start_label(),
-		20,
-		custom_word_text.is_empty(),
-		0.32,
-		false,
-		false,
-		!custom_word_text.is_empty(),
-		LONG_BUTTON_COLOR_ORANGE
-	)
-
-func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
-	var enabled: bool = int(GameState.settings[setting_index]) == 2
-	_stage_main_button(rect, Callable(self, "_toggle_custom_setting").bind(setting_index), _custom_switch_label(enabled), 20, false, 0.0, false, enabled)
-
-func _custom_switch_label(enabled: bool) -> String:
-	return Database.tr_text(73, "On") if enabled else Database.tr_text(74, "Off")
-
-func _custom_word_max_length_label() -> String:
-	return "Макс. 15 символов" if Database.interface_language == "ru" else "Max. 15 characters"
-
 func _custom_word_random_label() -> String:
 	return "Случайное" if Database.interface_language == "ru" else "Random"
 
@@ -1743,13 +1175,6 @@ func _sync_custom_word_start_bounce() -> void:
 	var has_word: bool = !custom_word_text.is_empty()
 	custom_word_start_button.set("button_disabled", !has_word)
 	custom_word_start_button.set("attention_bounce_enabled", has_word)
-
-func _toggle_custom_setting(index: int) -> void:
-	if custom_word_edit != null:
-		custom_word_text = custom_word_edit.text
-	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
-	GameState.save_game()
-	show_custom_word()
 
 func _set_random_custom_word() -> void:
 	var theme_count: int = Database.get_theme_count()
@@ -1938,56 +1363,6 @@ func _reset_custom_word_check_feedback() -> void:
 	_hide_custom_word_toast()
 	_reset_custom_word_input_color()
 
-func _show_custom_comment_popup() -> void:
-	_remove_custom_comment_popup()
-	_play_popup_open_sound()
-	if custom_word_edit != null:
-		custom_word_text = custom_word_edit.text
-
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "CustomCommentPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("custom_comment_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "CustomCommentPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_save_and_close_custom_comment_popup"))
-	content = _center_popup_content(popup_root, 40.0, 358.0)
-	var header := _stage_panel(Rect2(70.0, 40.0, 660.0, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_panel(Rect2(70.0, 120.0, 660.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	_stage_label(Rect2(94.0, 55.0, 420.0, 50.0), Database.tr_text(41, "Comment"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_panel(Rect2(104.0, 151.0, 592.0, 112.0), Color.WHITE, 18.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
-	custom_comment_edit = _stage_text_edit(Rect2(122.0, 165.0, 556.0, 84.0), Database.tr_text(41, "Comment"))
-	custom_comment_edit.text = custom_comment_text
-	custom_comment_edit.add_theme_font_size_override("font_size", 21)
-	custom_comment_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
-	_stage_main_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), Database.tr_text(78, "OK"), 20)
-	_stage_round_icon_button(Rect2(646.0, 50.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), RESULT_CLOSE_ICON, Vector2(21.0, 21.0))
-	content = previous_content
-
-func _save_and_close_custom_comment_popup() -> void:
-	if custom_comment_edit != null:
-		custom_comment_text = custom_comment_edit.text.strip_edges()
-	_remove_custom_comment_popup()
-
-func _remove_custom_comment_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("custom_comment_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-	custom_comment_edit = null
-
 func start_custom_game() -> void:
 	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text
 	var word := WordManager.normalize_word(source_text)
@@ -2050,123 +1425,6 @@ func show_game_screen() -> void:
 	# Flash-stage controls instead.
 	_clear("")
 	_refresh_game_screen()
-
-func _refresh_game_screen() -> void:
-	if content == null:
-		return
-	if game_finished:
-		show_result_screen(last_result_is_win, last_result_data)
-		return
-	_capture_hero_animation_phase()
-	for child: Node in content.get_children():
-		content.remove_child(child)
-		child.queue_free()
-
-	# GameMov.as creates the header at y=0 and the original AIR runtime moves
-	# the hint/comment controls to the bottom safe area.  These elements are not
-	# present as static FLA instances, so the Godot layer must rebuild them in
-	# stage coordinates instead of using generic text buttons.
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, 87.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-
-	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-
-	if GameState.current_mode == MODE_TWO_PLAYER:
-		_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
-	elif GameState.current_mode == MODE_CLASSIC:
-		_stage_round_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "_show_exit_game_popup"), "×")
-
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
-	_configure_hero_static_animation()
-
-	var alphabet := Database.get_alphabet()
-	var keyboard_start_x: float = 258.0
-	var keyboard_start_y: float = 138.0
-	var keyboard_step_x: float = 65.0
-	var keyboard_step_y: float = 58.0
-	var marker_size: Vector2 = Vector2(46.0, 46.0)
-	for i in range(alphabet.size()):
-		var letter: String = alphabet[i]
-		var row: int = int(i / 8)
-		var col: int = i % 8
-		var x: float = keyboard_start_x + float(col) * keyboard_step_x
-		var y: float = keyboard_start_y + float(row) * keyboard_step_y
-		var was_correct: bool = GameSession.correct_letters.has(letter)
-		var was_wrong: bool = GameSession.wrong_letters.has(letter)
-		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
-		var state: int = StageLetterButton.LetterState.NORMAL
-		if was_correct:
-			state = StageLetterButton.LetterState.CIRCLED
-		elif was_wrong or was_removed:
-			state = StageLetterButton.LetterState.CROSSED
-
-		var key_rect := Rect2(x, y, KEY_BUTTON_SIZE.x, KEY_BUTTON_SIZE.y)
-		var animate_state: bool = pending_letter_markers.has(letter) and (
-			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
-			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
-		)
-		_stage_letter_button(
-			key_rect,
-			Callable(self, "_press_letter").bind(letter),
-			letter,
-			state,
-			!GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
-			32,
-			marker_size,
-			animate_state
-		)
-
-	var open_hint_used: bool = GameSession.open_hint_used
-	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
-	var open_hint_unavailable: bool = !open_hint_used and !GameSession.can_use_open_letter_hint()
-	var remove_hint_unavailable: bool = !remove_hint_used and !GameSession.can_use_remove_wrong_hint()
-	# Available hints are orange. Once activated, they keep the same blue pressed
-	# state as enabled switches in Settings, while remaining unavailable for input.
-	var open_hint_button := _stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_unavailable, 0.0, false, open_hint_used, LONG_BUTTON_COLOR_ORANGE)
-	var remove_hint_button := _stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_unavailable, 0.0, false, remove_hint_used, LONG_BUTTON_COLOR_ORANGE)
-	if open_hint_used:
-		_disable_button_input_without_changing_visual(open_hint_button)
-	if remove_hint_used:
-		_disable_button_input_without_changing_visual(remove_hint_button)
-
-	if GameState.current_mode != MODE_TWO_PLAYER:
-		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-		var comment_button := _stage_main_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), 18, comment_disabled, 0.0, false, false, false, LONG_BUTTON_COLOR_ORANGE)
-		if comment_disabled:
-			comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-			var comment_label := comment_button.get_node_or_null("Text") as Label
-			if comment_label != null:
-				comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
-
-
-	pending_letter_markers.clear()
-	pending_letter_marker_is_correct = false
-
-func _game_header_icon() -> String:
-	if GameState.current_mode == MODE_TWO_PLAYER:
-		return "↻"
-	return "☰"
-
-func _game_header_action() -> void:
-	if GameState.current_mode == MODE_TWO_PLAYER:
-		show_custom_word()
-	elif GameState.current_mode == MODE_SINGLE_PLAYER:
-		show_single_player_level(single_player_active_level_index)
-	else:
-		show_theme_select()
-
-func _create_hero_animation_overlay() -> FlashStageSymbol:
-	var overlay := FlashStageSymbol.new()
-	overlay.name = "HeroAnimationOverlay"
-	overlay.z_index = 150
-	overlay.symbol_path = _hero_symbol_path()
-	overlay.stage_position = Vector2(26.0, 324.0)
-	overlay.animation_time = _hero_animation_time()
-	add_child(overlay)
-	return overlay
-
 func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
 	_clear_hero_animation_overlay()
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
@@ -2357,59 +1615,6 @@ func _finish_round(is_win: bool) -> void:
 		if transition_generation != result_transition_generation:
 			return
 	show_result_screen(is_win, last_result_data)
-
-func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
-	_play_result_sound_once(is_win, data)
-	# The original result screen is not a centered modal. ReztMovBlock keeps the
-	# game stage visible, replaces the header word with the full answer, shows
-	# the hero's current pose on the left and slides only the bottom action bar in.
-	_clear("")
-
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, 87.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-
-	var full_word: String = _spaced_result_word(GameSession.get_full_word())
-	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-
-	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE)
-	_stage_round_icon_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
-
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
-	_configure_hero_static_animation()
-
-	var title: String = Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT").strip_edges()
-	if title == "":
-		title = "VICTORY" if is_win else "DEFEAT"
-	var title_label := _stage_label(Rect2(365.0, 128.0, 365.0, 72.0), title, 42, _result_title_color(is_win), HORIZONTAL_ALIGNMENT_CENTER)
-	title_label.clip_text = false
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.z_index = 31
-	var title_holder := title_label.get_parent() as Control
-	if title_holder != null:
-		title_holder.z_index = 30
-	_apply_result_text_glow(title_label, Color.WHITE, 3)
-
-	var result_message: String = _result_message(is_win, data)
-	var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-	message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_apply_result_text_glow(message_label, Color.WHITE, 2)
-
-	if GameState.current_mode != MODE_TWO_PLAYER:
-		var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-		_apply_result_text_glow(theme_label, Color.WHITE, 2)
-
-	if GameState.current_mode == MODE_CLASSIC:
-		var left_disabled: bool = GameSession.theme_id < 0
-		var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
-		if left_disabled:
-			left_button.modulate = Color(1.0, 1.0, 1.0, 0.58)
-			var left_label := left_button.get_node_or_null("Text") as Label
-			if left_label != null:
-				left_label.add_theme_color_override("font_color", Color.WHITE)
-
-	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
-
 func _spaced_result_word(word: String) -> String:
 	var characters := PackedStringArray()
 	for i in range(word.length()):
@@ -2424,9 +1629,6 @@ func _result_data_lines(data: Dictionary) -> String:
 			lines.append(value)
 	return "\n".join(lines)
 
-func _result_title_color(is_win: bool) -> Color:
-	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
-
 func _result_message(is_win: bool, data: Dictionary) -> String:
 	var data_lines: String = _result_data_lines(data)
 	if data_lines != "":
@@ -2440,23 +1642,12 @@ func _result_theme_label() -> String:
 		return Database.tr_text(40, "No category")
 	return Database.tr_text(42, "Category:") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 
-func _result_left_button_text() -> String:
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
-		return _single_player_levels_button_label()
-	return Database.tr_text(45, "Change category")
-
 func _result_right_button_text() -> String:
 	if GameState.current_mode == MODE_SINGLE_PLAYER:
 		return Database.tr_text(3, "Continue")
 	if GameSession.theme_id < 0:
 		return Database.tr_text(8, "Restart")
 	return Database.tr_text(3, "Continue")
-
-func _result_left_action() -> void:
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
-		show_single_player_level_select()
-		return
-	show_theme_select()
 
 func _result_right_action() -> void:
 	_restart_last_mode()
@@ -2475,134 +1666,6 @@ func _restart_last_mode() -> void:
 			show_single_player_level(single_player_active_level_index)
 	else:
 		start_classic_game(max(0, GameSession.theme_id))
-
-func show_records() -> void:
-	_remove_records_popup()
-	_play_popup_open_sound()
-
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "RecordsPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("records_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "RecordsPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_records_popup"))
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var left_separator := _stage_panel(Rect2(popup_x + 174.0, 126.0, 2.0, 220.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	left_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var right_separator := _stage_panel(Rect2(popup_x + 392.0, 126.0, 2.0, 220.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	right_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var first_row_separator := _stage_panel(Rect2(popup_x + 28.0, 216.0, popup_width - 56.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	first_row_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 430.0, 50.0), tr("RECORDS_TITLE"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-
-	var crown_button := _stage_round_icon_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(), ROUND_BUTTON_CROWN_ICON, Vector2(24.0, 20.0), true, false, Vector2.ZERO, 0.0)
-	crown_button.self_modulate = Color(1.0, 1.0, 1.0, 0.55)
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_records_popup"), "×")
-
-	_stage_record_row(158.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), GameState.records[0][2], tr("RECORD_HARD_STREAK"), GameState.records[0][3], popup_x)
-	_stage_record_row(268.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), GameState.records[1][0], tr("DEFEATS"), GameState.records[1][1], popup_x)
-
-	content = previous_content
-
-func _stage_record_row(row_y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int, popup_x: float) -> void:
-	var mode_label := _stage_label(Rect2(popup_x + 28.0, row_y + 13.0, 132.0, 36.0), mode_text.to_upper(), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	mode_label.clip_text = false
-
-	var left_label := _stage_label(Rect2(popup_x + 188.0, row_y + 2.0, 194.0, 28.0), left_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	left_label.clip_text = false
-	var left_value_label := _stage_label(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	left_value_label.clip_text = false
-
-	var right_label := _stage_label(Rect2(popup_x + 406.0, row_y + 2.0, 210.0, 28.0), right_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	right_label.clip_text = false
-	var right_value_label := _stage_label(Rect2(popup_x + 406.0, row_y + 31.0, 210.0, 28.0), str(right_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	right_value_label.clip_text = false
-
-func _remove_records_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("records_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func _show_word_comment_popup() -> void:
-	var hint: String = GameSession.get_word_hint().strip_edges()
-	if hint == "":
-		return
-
-	_remove_word_comment_popup()
-	_play_popup_open_sound()
-
-	# PoiasnOk.as adds the comment dialog above the whole game screen together
-	# with a dark blocker (TemnMov). Use a dedicated CanvasLayer so the popup
-	# always sits above the character art and every other runtime control.
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "WordCommentPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("word_comment_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "WordCommentPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	# TemnMov: dim stage behind the modal. A full-screen invisible button above
-	# the dimmer reproduces PoiasnOk.ExtMouseClick() and closes the dialog when
-	# the user clicks outside the blue popup window.
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_word_comment_popup"))
-	content = _center_popup_content(popup_root, 0.0, 366.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 278.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bottom_separator := _stage_panel(Rect2(popup_x + 33.0, 295.0, popup_width - 66.0, 2.0), Color(0.4509, 0.4862, 0.7607, 0.75))
-	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 360.0, 50.0), Database.tr_text(41, "Comment"), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	var hint_label := _stage_label(Rect2(popup_x + 37.0, 114.0, popup_width - 74.0, 115.0), hint, 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	hint_label.clip_text = false
-	var theme_label := _stage_label(Rect2(popup_x + 330.0, 314.0, 265.0, 34.0), _current_word_source_label(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	theme_label.clip_text = false
-
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_word_comment_popup"), "×")
-
-	content = previous_content
-
 func _current_word_source_label() -> String:
 	if GameState.current_mode == MODE_TWO_PLAYER or GameSession.theme_id < 0:
 		return Database.tr_text(40, "Word from player")

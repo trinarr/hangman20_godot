@@ -5,15 +5,12 @@ const TOAST_HEIGHT: float = 40.0
 const TOAST_PARENT_GAP: float = 8.0
 const TOAST_HORIZONTAL_PADDING: float = 10.0
 const TOAST_ICON_TEXT_GAP: float = 5.0
-const TOAST_ICON_FONT_SIZE: int = 26
 const TOAST_TEXT_FONT_SIZE: int = 18
 const TOAST_ENTER_OFFSET: float = 8.0
 const TOAST_ENTER_DURATION: float = 0.16
 const TOAST_HOLD_DURATION: float = 1.65
 const TOAST_EXIT_DURATION: float = 0.22
 const TOAST_BACKGROUND := Color(0.2314, 0.2627, 0.5176, 0.96)
-const TOAST_SUCCESS := Color(0.24, 0.82, 0.43, 1.0)
-const TOAST_FAILURE := Color(0.96, 0.28, 0.30, 1.0)
 const STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 
 var _available_width: float = 0.0

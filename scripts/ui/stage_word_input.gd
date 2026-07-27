@@ -50,13 +50,6 @@ func get_line_edit() -> LineEdit:
 	_ensure_nodes()
 	return _line_edit
 
-func focus_input() -> void:
-	if _line_edit == null or !is_instance_valid(_line_edit):
-		return
-	_line_edit.grab_focus()
-	_line_edit.edit()
-	_move_caret_to_end()
-
 func refresh_display() -> void:
 	_move_caret_to_end()
 	_rebuild_visuals()

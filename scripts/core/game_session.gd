@@ -191,14 +191,6 @@ func use_remove_wrong_hint() -> bool:
 	emit_signal("changed")
 	return true
 
-func get_masked_word() -> String:
-	if letters.is_empty():
-		return ""
-	var output := PackedStringArray()
-	for i in range(letters.size()):
-		output.append(letters[i] if bool(revealed[i]) else "_")
-	return " ".join(output)
-
 func get_full_word() -> String:
 	return "" if word_data == null else word_data.text
 

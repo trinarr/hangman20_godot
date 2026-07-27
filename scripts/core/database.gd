@@ -176,12 +176,6 @@ func tr_text(index: int, fallback: String = "") -> String:
 		return fallback
 	return translated
 
-func tr_key(key: StringName, fallback: String = "") -> String:
-	var translated: String = str(TranslationServer.translate(key))
-	if translated == "" or translated == str(key):
-		return fallback
-	return translated
-
 func get_alphabet() -> PackedStringArray:
 	var result := PackedStringArray()
 	var alphabet := str(data.get("alphabet", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
