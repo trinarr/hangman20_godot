@@ -22,12 +22,17 @@ const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
 const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
 const CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = 35
 const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
+const CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = 0.4
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := Color(0.23, 0.26, 0.52, 1.0)
-const CUSTOM_WORD_CHECKING_BUTTON_ALPHA: float = 0.55
 const SOUND_SETTING_INDEX: int = 3
 const THEME_CARD_PRESSED_MODULATE := Color(0.72, 0.72, 0.72, 1.0)
 const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
+const SINGLE_PLAYER_LEVEL_COUNT: int = 10
+const SINGLE_PLAYER_WORDS_PER_LEVEL: int = 6
+const MODE_CLASSIC: int = 0
+const MODE_TWO_PLAYER: int = 1
+const MODE_SINGLE_PLAYER: int = 2
 const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
@@ -35,14 +40,21 @@ const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const LONG_BUTTON_COLOR_ORANGE: int = 0
 const LONG_BUTTON_COLOR_GREEN: int = 1
+const LONG_BUTTON_COLOR_BLUE: int = 2
+const ROUND_BUTTON_COLOR_ORANGE: int = 0
+const ROUND_BUTTON_COLOR_GREEN: int = 1
+const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
+const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
+const STAGE_STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
+const SINGLE_PLAYER_LEVEL_MAP_SCRIPT: GDScript = preload("res://scripts/ui/single_player_level_map.gd")
 
 const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
 const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_1.png")
@@ -54,6 +66,7 @@ const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_icon.png")
+const SINGLE_PLAYER_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const RESULT_SEARCH_ICON_SIZE := Vector2(32.0, 41.0)
@@ -111,6 +124,11 @@ var ui_audio_player: AudioStreamPlayer
 var game_finished: bool = false
 var last_result_is_win: bool = false
 var last_result_data: Dictionary = {}
+var single_player_active_level_index: int = -1
+var single_player_active_word_slot: int = -1
+var single_player_level_definitions_cache: Array = []
+var single_player_level_cache_language: String = ""
+var single_player_level_cache_theme_count: int = -1
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
 var custom_comment_edit: TextEdit
@@ -119,6 +137,9 @@ var custom_comment_text: String = ""
 var custom_word_check_request: HTTPRequest = null
 var custom_word_check_urls: Array[String] = []
 var custom_word_check_button: Control = null
+var custom_word_check_animation_timer: Timer = null
+var custom_word_check_dot_count: int = 0
+var custom_word_check_label_base: String = ""
 var custom_word_start_button: Control = null
 var custom_word_color_generation: int = 0
 var hero_animation_overlay: FlashStageSymbol = null
@@ -145,6 +166,7 @@ func _ready() -> void:
 	GameSession.round_won.connect(_on_round_won)
 	GameSession.round_lost.connect(_on_round_lost)
 	show_menu()
+	call_deferred("_warm_single_player_level_cache")
 
 func _build_root() -> void:
 	art_root = FlashBackdrop.new()
@@ -335,7 +357,7 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 	node.set("stage_height", stage_height)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_ORANGE) -> Control:
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
@@ -345,7 +367,7 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	button.stage_rect = rect
 	return button
 
-func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, color_preset: int = LONG_BUTTON_COLOR_ORANGE) -> Control:
+func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
@@ -354,17 +376,19 @@ func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon
 	button.stage_rect = rect
 	return button
 
-func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
+func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
+	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
 
-func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32) -> Control:
+func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
+	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
@@ -425,6 +449,8 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 
 func show_menu() -> void:
 	GameSession.discard_current_round()
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
 	_clear("")
 	# The main menu is rebuilt completely with native runtime controls. Keep only
 	# the original paper texture and the exact Flash header colour; loading the
@@ -436,11 +462,10 @@ func show_menu() -> void:
 	_stage_texture_fill(118.0, 362.0, MENU_PAPER_COVER)
 
 	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
-
-	_stage_main_button(Rect2(161.0, 219.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 20)
-	_stage_main_button(Rect2(161.0, 282.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 20)
-
-	_stage_main_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(4, "Settings"), 20)
+	_stage_main_button(Rect2(161.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 20)
+	_stage_main_button(Rect2(161.0, 349.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 20)
+	_stage_single_player_menu_button(Rect2(145.1, 412.0, 243.8, 56.35), Callable(self, "show_single_player_level_select"))
+	_stage_main_button(Rect2(436.0, 317.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(4, "Settings"), 20)
 
 	_stage_round_icon_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_RECORDS_ICON, Vector2(17.0, 18.0))
 
@@ -586,29 +611,31 @@ func show_settings() -> void:
 	_stage_settings_word_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
 	_stage_settings_word_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 
-	_stage_main_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
-	var remove_ads_button := _stage_main_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
-	remove_ads_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-	var remove_ads_label := remove_ads_button.get_node_or_null("Text") as Label
-	if remove_ads_label != null:
-		remove_ads_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
+	_stage_main_button(
+		Rect2(popup_x + (popup_width - MENU_BUTTON_SIZE.x) * 0.5, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y),
+		Callable(self, "_settings_about_action"),
+		_settings_about_label(),
+		18
+	)
 
 	content = previous_content
 
 func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
 	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
-	var button := _stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled)
+	var button := _stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled, false, LONG_BUTTON_COLOR_ORANGE)
 	settings_toggle_buttons[setting_index] = button
 
 func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
 	var selected: bool = GameState.word_language == language_code
-	var button := _stage_main_button(rect, Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected)
+	var button := _stage_main_button(rect, Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected, false, LONG_BUTTON_COLOR_ORANGE)
 	settings_word_language_buttons[language_code] = button
 
 func _set_settings_word_language(language_code: String) -> void:
 	GameState.set_word_language(language_code)
 	Database.load_word_language(GameState.word_language)
+	_invalidate_single_player_level_cache()
+	call_deferred("_warm_single_player_level_cache")
 	_refresh_settings_word_language_buttons()
 
 func _refresh_settings_word_language_buttons() -> void:
@@ -824,6 +851,386 @@ func _theme_icon_texture(theme_index: int) -> Texture2D:
 		return null
 	return THEME_ICON_TEXTURES[theme_index]
 
+func _single_player_text(ru_text: String, en_text: String) -> String:
+	return ru_text if GameState.interface_language == "ru" else en_text
+
+func _single_player_play_label() -> String:
+	return _single_player_text("Играть", "Play")
+
+func _single_player_levels_title() -> String:
+	return _single_player_text("Одиночный режим", "Single player")
+
+func _single_player_level_label() -> String:
+	return _single_player_text("Уровень", "Level")
+
+func _single_player_choose_word_label() -> String:
+	return _single_player_text("Нажми на категорию, чтобы сыграть", "Tap a category to play")
+
+func _single_player_progress_label(played_count: int, total_count: int) -> String:
+	var prefix := _single_player_text("Сыграно", "Played")
+	return "%s: %d/%d" % [prefix, played_count, total_count]
+
+func _single_player_level_completed_label() -> String:
+	return _single_player_text("Уровень пройден!", "Level completed!")
+
+func _single_player_next_level_label() -> String:
+	return _single_player_text("Следующий уровень", "Next level")
+
+func _single_player_levels_button_label() -> String:
+	return _single_player_text("К уровням", "Levels")
+
+func _single_player_current_level_number() -> int:
+	return GameState.get_single_player_display_level(Database.current_language, SINGLE_PLAYER_LEVEL_COUNT)
+
+func _invalidate_single_player_level_cache() -> void:
+	single_player_level_definitions_cache.clear()
+	single_player_level_cache_language = ""
+	single_player_level_cache_theme_count = -1
+
+func _warm_single_player_level_cache() -> void:
+	_single_player_level_definitions()
+
+func _single_player_level_definitions() -> Array:
+	var theme_count: int = Database.get_theme_count()
+	var language: String = Database.current_language
+	if (
+		!single_player_level_definitions_cache.is_empty()
+		and single_player_level_cache_language == language
+		and single_player_level_cache_theme_count == theme_count
+	):
+		return single_player_level_definitions_cache
+
+	var levels: Array = []
+	if theme_count <= 0:
+		return levels
+
+	# Read and normalize each category once. Database also keeps these immutable
+	# arrays cached, so rebuilding after a language change stays inexpensive.
+	var theme_word_pools: Array = []
+	for theme_index in range(theme_count):
+		theme_word_pools.append(Database.get_words_by_index(theme_index, 0))
+
+	var words_per_level: int = mini(SINGLE_PLAYER_WORDS_PER_LEVEL, theme_count)
+	for level_index in range(SINGLE_PLAYER_LEVEL_COUNT):
+		var words: Array = []
+		for slot in range(words_per_level):
+			var theme_index: int = (level_index + slot) % theme_count
+			var theme_words: Array = theme_word_pools[theme_index]
+			if theme_words.is_empty():
+				continue
+			var pick_index: int = int((level_index * 3 + slot) % theme_words.size())
+			var picked: Dictionary = theme_words[pick_index]
+			words.append({
+				"theme_index": theme_index,
+				"word_index": int(picked.get("index", 0)),
+				"text": str(picked.get("text", "")),
+				"difficulty": int(picked.get("difficulty", 0)),
+			})
+		levels.append({
+			"index": level_index,
+			"words": words,
+		})
+
+	single_player_level_definitions_cache = levels
+	single_player_level_cache_language = language
+	single_player_level_cache_theme_count = theme_count
+	return single_player_level_definitions_cache
+
+func _single_player_level_data(level_index: int) -> Dictionary:
+	var levels: Array = _single_player_level_definitions()
+	if level_index < 0 or level_index >= levels.size():
+		return {}
+	return levels[level_index]
+
+func _single_player_level_words(level_index: int) -> Array:
+	return Array(_single_player_level_data(level_index).get("words", []))
+
+func _single_player_level_word_count(level_index: int) -> int:
+	return _single_player_level_words(level_index).size()
+
+func _single_player_level_played_count(level_index: int) -> int:
+	return GameState.get_single_level_played_count(Database.current_language, level_index, _single_player_level_word_count(level_index))
+
+func _single_player_level_completed(level_index: int) -> bool:
+	return GameState.is_single_level_completed(Database.current_language, level_index, _single_player_level_word_count(level_index))
+
+func _single_player_level_unlocked(level_index: int) -> bool:
+	return GameState.is_single_level_unlocked(Database.current_language, level_index)
+
+func _single_player_level_word_played(level_index: int, word_slot: int) -> bool:
+	return GameState.is_single_level_word_played(Database.current_language, level_index, word_slot, _single_player_level_word_count(level_index))
+
+func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
+	return GameState.get_single_level_word_status(Database.current_language, level_index, word_slot, _single_player_level_word_count(level_index))
+
+func _single_player_mark_current_word_finished(data: Dictionary, is_win: bool) -> Dictionary:
+	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
+		return data
+	var result: Dictionary = data.duplicate(true)
+	var level_word_count: int = _single_player_level_word_count(single_player_active_level_index)
+	var progress: Dictionary = GameState.mark_single_level_word_played(
+		Database.current_language,
+		single_player_active_level_index,
+		single_player_active_word_slot,
+		level_word_count,
+		SINGLE_PLAYER_LEVEL_COUNT,
+		is_win
+	)
+	if !result.has("lines") or !(result["lines"] is Array):
+		result["lines"] = []
+	result["single_player_level_index"] = single_player_active_level_index
+	result["single_player_word_slot"] = single_player_active_word_slot
+	result["single_player_played_count"] = int(progress.get("played_count", 0))
+	result["single_player_total_count"] = level_word_count
+	result["single_player_level_completed"] = bool(progress.get("completed", false))
+	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
+	if bool(progress.get("completed", false)):
+		result["lines"].append(_single_player_level_completed_label())
+	else:
+		result["lines"].append(_single_player_progress_label(int(progress.get("played_count", 0)), level_word_count))
+	return result
+
+func _single_player_result_label() -> String:
+	if single_player_active_level_index < 0:
+		return _single_player_levels_title()
+	return "%s %d • %d/%d" % [
+		_single_player_level_label(),
+		single_player_active_level_index + 1,
+		_single_player_level_played_count(single_player_active_level_index),
+		_single_player_level_word_count(single_player_active_level_index)
+	]
+
+func _single_player_footer_back_rect() -> Rect2:
+	var rect := Rect2(14.0, 711.0, 64.0, 64.0)
+	if has_method("_portrait_footer_round_button_rect"):
+		return call("_portrait_footer_round_button_rect", rect)
+	return rect
+
+func _single_player_footer_long_rect() -> Rect2:
+	var rect := Rect2(90.0, 711.0, 300.0, 64.0)
+	if has_method("_portrait_footer_long_button_rect"):
+		return call("_portrait_footer_long_button_rect", rect)
+	return rect
+
+func _single_player_footer_icon_size(icon_size: Vector2) -> Vector2:
+	if has_method("_portrait_footer_icon_size"):
+		return call("_portrait_footer_icon_size", icon_size)
+	return icon_size
+
+func _single_player_footer_font_size(font_size: int) -> int:
+	if has_method("_portrait_footer_font_size"):
+		return int(call("_portrait_footer_font_size", font_size))
+	return font_size
+
+func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
+	# Keep all visible copy inside the actual StageLongButton. This guarantees
+	# that the whole green surface remains one hit target instead of being
+	# partially covered by separate stage controls.
+	var button := _stage_main_button(
+		rect,
+		callable,
+		"",
+		26,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_GREEN
+	)
+
+	var title_label := Label.new()
+	title_label.name = "PlayTitle"
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_label.position = Vector2(0.0, 3.0)
+	title_label.size = Vector2(rect.size.x, rect.size.y * 0.54)
+	title_label.text = _single_player_play_label()
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	title_label.add_theme_font_size_override("font_size", 27)
+	title_label.add_theme_color_override("font_color", Color.WHITE)
+	title_label.add_theme_color_override("font_outline_color", Color(0.08, 0.36, 0.13, 0.92))
+	title_label.add_theme_constant_override("outline_size", 2)
+	button.add_child(title_label)
+
+	var level_label := Label.new()
+	level_label.name = "LevelSubtitle"
+	level_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	level_label.position = Vector2(0.0, rect.size.y * 0.51)
+	level_label.size = Vector2(rect.size.x, rect.size.y * 0.32)
+	level_label.text = "%s %d" % [_single_player_level_label(), _single_player_current_level_number()]
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	level_label.add_theme_font_size_override("font_size", 15)
+	level_label.add_theme_color_override("font_color", Color(0.91, 1.0, 0.92, 1.0))
+	level_label.add_theme_color_override("font_outline_color", Color(0.08, 0.36, 0.13, 0.80))
+	level_label.add_theme_constant_override("outline_size", 1)
+	button.add_child(level_label)
+
+func _single_player_difficulty_placeholder() -> void:
+	pass
+
+func show_single_player_level_select() -> void:
+	_clear("")
+	_stage_texture_fill(0.0, 688.0, MENU_PAPER_COVER)
+
+	var level_definitions: Array = _single_player_level_definitions()
+	var unlocked_level: int = GameState.get_single_player_unlocked_level(Database.current_language)
+	var unlocked_states: Array = []
+	var completed_states: Array = []
+	for level_index in range(SINGLE_PLAYER_LEVEL_COUNT):
+		var word_count: int = 0
+		if level_index < level_definitions.size():
+			word_count = Array(level_definitions[level_index].get("words", [])).size()
+		var snapshot: Dictionary = GameState.get_single_level_snapshot(
+			Database.current_language,
+			level_index,
+			word_count
+		)
+		unlocked_states.append(level_index <= unlocked_level)
+		completed_states.append(bool(snapshot.get("completed", false)))
+
+	var level_map: Control = SINGLE_PLAYER_LEVEL_MAP_SCRIPT.new() as Control
+	level_map.call(
+		"configure",
+		SINGLE_PLAYER_LEVEL_COUNT,
+		maxi(_single_player_current_level_number() - 1, 0),
+		unlocked_states,
+		completed_states
+	)
+	level_map.connect(&"level_selected", Callable(self, "show_single_player_level"))
+	content.add_child(level_map)
+
+	_stage_horizontal_fill(688.0, 112.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_round_icon_button(
+		_single_player_footer_back_rect(),
+		Callable(self, "show_menu"),
+		SINGLE_PLAYER_BACK_ARROW_ICON,
+		_single_player_footer_icon_size(Vector2(27.0, 33.0))
+	)
+	var difficulty_texture: Texture2D = _difficulty_star_texture()
+	_stage_main_icon_button(
+		_single_player_footer_long_rect(),
+		Callable(self, "_single_player_difficulty_placeholder"),
+		_single_player_text("Сложность:", "Difficulty:"),
+		difficulty_texture,
+		_single_player_footer_icon_size(_art_stage_size(difficulty_texture)),
+		_single_player_footer_font_size(22)
+	)
+
+func show_single_player_level(level_index: int) -> void:
+	if !_single_player_level_unlocked(level_index):
+		show_single_player_level_select()
+		return
+	single_player_active_level_index = level_index
+	_clear("")
+	_stage_texture_fill(0.0, 688.0, MENU_PAPER_COVER)
+	_stage_horizontal_fill(688.0, 112.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	_stage_round_icon_button(
+		_single_player_footer_back_rect(),
+		Callable(self, "show_single_player_level_select"),
+		SINGLE_PLAYER_BACK_ARROW_ICON,
+		_single_player_footer_icon_size(Vector2(27.0, 33.0))
+	)
+
+	var words: Array = _single_player_level_words(level_index)
+	var level_snapshot: Dictionary = GameState.get_single_level_snapshot(
+		Database.current_language,
+		level_index,
+		words.size()
+	)
+	var word_statuses: Array = Array(level_snapshot.get("statuses", []))
+	var tile_colors := [
+		Color(0.70, 0.28, 0.92, 1.0),
+		Color(0.15, 0.74, 0.74, 1.0),
+		Color(0.20, 0.80, 0.24, 1.0),
+		Color(0.15, 0.74, 0.74, 1.0),
+		Color(0.95, 0.27, 0.27, 1.0),
+		Color(0.70, 0.28, 0.92, 1.0),
+	]
+	var tile_size: float = 118.0 * 0.60
+	var tile_gap: float = 30.0
+	var tile_columns: int = mini(3, maxi(words.size(), 1))
+	var tile_rows: int = int(ceil(float(words.size()) / float(tile_columns)))
+	var block_width: float = float(tile_columns) * tile_size + float(maxi(tile_columns - 1, 0)) * tile_gap
+	var block_height: float = float(tile_rows) * tile_size + float(maxi(tile_rows - 1, 0)) * tile_gap
+	var block_x: float = (480.0 - block_width) * 0.5
+	var block_y: float = (688.0 - block_height) * 0.5
+	var icon_size := Vector2(62.0, 62.0)
+	for word_slot in range(words.size()):
+		var col: int = word_slot % tile_columns
+		var row: int = int(word_slot / tile_columns)
+		var tile_x: float = block_x + float(col) * (tile_size + tile_gap)
+		var tile_y: float = block_y + float(row) * (tile_size + tile_gap)
+		var tile_rect := Rect2(tile_x, tile_y, tile_size, tile_size)
+		var tile_color: Color = tile_colors[word_slot % tile_colors.size()]
+		var word_status: int = 0
+		if word_slot < word_statuses.size():
+			word_status = int(word_statuses[word_slot])
+		var theme_index: int = int(words[word_slot].get("theme_index", -1))
+		if word_status == 1 or word_status == 2:
+			var status_icon := STAGE_STATUS_ICON_SCRIPT.new() as Control
+			status_icon.position = tile_rect.position + Vector2(7.0, 7.0)
+			status_icon.size = tile_rect.size - Vector2(14.0, 14.0)
+			status_icon.call("configure", word_status == 1, 7.0)
+			content.add_child(status_icon)
+		else:
+			_stage_panel(tile_rect, tile_color, 14.0, tile_color.darkened(0.25), 3.0)
+			var icon_texture: Texture2D = _theme_icon_texture(theme_index)
+			if icon_texture != null:
+				var icon_position := tile_rect.position + (tile_rect.size - icon_size) * 0.5
+				_stage_texture(Rect2(icon_position, icon_size), icon_texture)
+		var tile_button := _stage_button(tile_rect, Callable(self, "_start_single_player_word").bind(level_index, word_slot), "")
+		tile_button.disabled = word_status != 0
+
+	if bool(level_snapshot.get("completed", false)):
+		var next_level_unlocked: bool = level_index + 1 < SINGLE_PLAYER_LEVEL_COUNT and _single_player_level_unlocked(level_index + 1)
+		var target_action: Callable = Callable(self, "show_single_player_level_select")
+		var target_text: String = _single_player_levels_button_label()
+		if next_level_unlocked:
+			target_action = Callable(self, "show_single_player_level").bind(level_index + 1)
+			target_text = _single_player_next_level_label()
+		_stage_main_button(
+			_single_player_footer_long_rect(),
+			target_action,
+			target_text,
+			_single_player_footer_font_size(22),
+			false,
+			0.32,
+			false,
+			false,
+			false,
+			LONG_BUTTON_COLOR_GREEN
+		)
+
+func _start_single_player_word(level_index: int, word_slot: int) -> void:
+	var words: Array = _single_player_level_words(level_index)
+	if word_slot < 0 or word_slot >= words.size():
+		return
+	if _single_player_level_word_status(level_index, word_slot) != 0:
+		return
+	var word_info: Dictionary = words[word_slot]
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = word_slot
+	game_finished = false
+	last_result_data = {}
+	GameState.current_mode = MODE_SINGLE_PLAYER
+	var word := WordData.new(
+		str(word_info.get("text", "")),
+		int(word_info.get("difficulty", 0)),
+		int(word_info.get("theme_index", -1)),
+		int(word_info.get("word_index", -1))
+	)
+	GameState.mark_single_player_word_shown(
+		Database.current_language,
+		word.theme_index,
+		word.index,
+		Database.get_words_by_index(word.theme_index, 0).size()
+	)
+	GameSession.start_round(word, word.index, word.theme_index, MODE_SINGLE_PLAYER)
+	GameState.save_game()
+	show_game_screen()
+
 func show_theme_select() -> void:
 	_remove_difficulty_popup()
 	# Build the category screen without the converted GameTemi symbol. That
@@ -940,7 +1347,7 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	var question_label := _stage_label(Rect2(popup_x + 32.0, 101.0, popup_width - 64.0, 62.0), question, 25, Color.WHITE)
 	question_label.clip_text = false
 	_stage_main_button(Rect2(popup_x + 28.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
-	_stage_main_button(Rect2(popup_x + popup_width - 240.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20)
+	_stage_main_button(Rect2(popup_x + popup_width - 240.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
 
 func _confirm_clear_theme(theme_index: int) -> void:
@@ -1062,10 +1469,17 @@ func _remove_difficulty_popup() -> void:
 func start_classic_game(theme_index: int) -> void:
 	game_finished = false
 	last_result_data = {}
-	GameState.current_mode = 0
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
+	GameState.current_mode = MODE_CLASSIC
 	GameSession.start_new_round(theme_index)
 	GameState.save_game()
 	show_game_screen()
+
+func _exit_game_warning_text() -> String:
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		return _single_player_text("Будет засчитано поражение", "A defeat will be recorded")
+	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
 
 func _show_exit_game_popup() -> void:
 	_remove_exit_game_popup()
@@ -1086,13 +1500,13 @@ func _show_exit_game_popup() -> void:
 	content = popup_root
 
 	_add_fullscreen_modal_backdrop(Callable(self, "_remove_exit_game_popup"))
-	content = _center_popup_content(popup_root, 92.0, 306.0)
+	content = _center_popup_content(popup_root, 92.0, 346.0)
 
 	var popup_x: float = 210.0
 	var popup_width: float = 380.0
 	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 78.0), Color(0.2706, 0.3098, 0.6078, 1.0))
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 136.0), Color(0.2314, 0.2627, 0.5176, 1.0))
+	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 176.0), Color(0.2314, 0.2627, 0.5176, 1.0))
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var separator := _stage_panel(Rect2(popup_x, 169.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1100,10 +1514,13 @@ func _show_exit_game_popup() -> void:
 	var title_label := _stage_label(Rect2(popup_x + 24.0, 102.0, popup_width - 48.0, 54.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 28.0, 214.0, 150.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
-	_stage_main_button(Rect2(popup_x + 202.0, 214.0, 150.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
+	var warning_label := _stage_label(Rect2(popup_x + 24.0, 184.0, popup_width - 48.0, 40.0), _exit_game_warning_text(), 19, Color(0.92, 0.94, 1.0))
+	warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	warning_label.clip_text = false
+	_stage_main_button(Rect2(popup_x + 28.0, 246.0, 150.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
+	_stage_main_button(Rect2(popup_x + 202.0, 246.0, 150.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	_stage_round_button(
-		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 330.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
+		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 370.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
 		Callable(self, "_remove_exit_game_popup"),
 		"×"
 	)
@@ -1112,7 +1529,29 @@ func _show_exit_game_popup() -> void:
 
 func _confirm_exit_game() -> void:
 	_remove_exit_game_popup()
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		_forfeit_single_player_round()
+		return
 	show_menu()
+
+func _forfeit_single_player_round() -> void:
+	var level_index: int = single_player_active_level_index
+	# A result transition may already be waiting for the letter-marker animation.
+	# In that case the round has already been recorded, so only cancel the delayed
+	# result screen and return to the level without recording it a second time.
+	result_transition_generation += 1
+	round_result_delay_requested = false
+	if !game_finished and GameSession.is_active and level_index >= 0 and single_player_active_word_slot >= 0:
+		game_finished = true
+		_single_player_mark_current_word_finished({}, false)
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
+	if level_index >= 0:
+		show_single_player_level(level_index)
+	else:
+		show_single_player_level_select()
 
 func _remove_exit_game_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("exit_game_popup")
@@ -1122,6 +1561,8 @@ func _remove_exit_game_popup() -> void:
 			node.queue_free()
 
 func show_custom_word() -> void:
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
 	_clear("")
 	_set_random_custom_word()
 
@@ -1164,7 +1605,7 @@ func show_custom_word() -> void:
 		Callable(self, "start_custom_game"),
 		_custom_word_start_label(),
 		20,
-		false,
+		custom_word_text.is_empty(),
 		0.32,
 		false,
 		false,
@@ -1226,7 +1667,9 @@ func _sync_custom_word_input_visual() -> void:
 func _sync_custom_word_start_bounce() -> void:
 	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
 		return
-	custom_word_start_button.set("attention_bounce_enabled", !custom_word_text.is_empty())
+	var has_word: bool = !custom_word_text.is_empty()
+	custom_word_start_button.set("button_disabled", !has_word)
+	custom_word_start_button.set("attention_bounce_enabled", has_word)
 
 func _toggle_custom_setting(index: int) -> void:
 	if custom_word_edit != null:
@@ -1368,11 +1811,54 @@ func _cancel_custom_word_check() -> void:
 	_set_custom_word_checking(false)
 
 func _set_custom_word_checking(is_checking: bool) -> void:
+	if !is_checking:
+		_stop_custom_word_check_text_animation()
 	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
 		return
-	custom_word_check_button.set("selected", is_checking)
+	# The shared disabled state is a neutral gray mask and blocks pointer input.
+	custom_word_check_button.set("selected", false)
 	custom_word_check_button.set("button_disabled", is_checking)
-	custom_word_check_button.modulate = Color(1.0, 1.0, 1.0, CUSTOM_WORD_CHECKING_BUTTON_ALPHA if is_checking else 1.0)
+	custom_word_check_button.modulate = Color.WHITE
+	if is_checking:
+		_start_custom_word_check_text_animation()
+
+func _start_custom_word_check_text_animation() -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		return
+	custom_word_check_label_base = Database.tr_text(60, "Check the word")
+	custom_word_check_dot_count = 0
+	_update_custom_word_check_text()
+	if custom_word_check_animation_timer == null or !is_instance_valid(custom_word_check_animation_timer):
+		custom_word_check_animation_timer = Timer.new()
+		custom_word_check_animation_timer.name = "CustomWordCheckDotsTimer"
+		custom_word_check_animation_timer.wait_time = CUSTOM_WORD_CHECK_DOTS_INTERVAL
+		custom_word_check_animation_timer.one_shot = false
+		custom_word_check_animation_timer.timeout.connect(_advance_custom_word_check_dots)
+		add_child(custom_word_check_animation_timer)
+	custom_word_check_animation_timer.start()
+
+func _stop_custom_word_check_text_animation() -> void:
+	if custom_word_check_animation_timer != null and is_instance_valid(custom_word_check_animation_timer):
+		custom_word_check_animation_timer.stop()
+	custom_word_check_dot_count = 0
+	if custom_word_check_label_base.is_empty():
+		custom_word_check_label_base = Database.tr_text(60, "Check the word")
+	_update_custom_word_check_text()
+
+func _advance_custom_word_check_dots() -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		_stop_custom_word_check_text_animation()
+		return
+	custom_word_check_dot_count = (custom_word_check_dot_count + 1) % 4
+	_update_custom_word_check_text()
+
+func _update_custom_word_check_text() -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		return
+	var dots: String = ""
+	for _index: int in range(custom_word_check_dot_count):
+		dots += "."
+	custom_word_check_button.set("button_text", custom_word_check_label_base + dots)
 
 func _reset_custom_word_check_feedback() -> void:
 	_cancel_custom_word_check()
@@ -1440,7 +1926,9 @@ func start_custom_game() -> void:
 	custom_word_text = word
 	game_finished = false
 	last_result_data = {}
-	GameState.current_mode = 1
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
+	GameState.current_mode = MODE_TWO_PLAYER
 	GameSession.start_custom_round(word, custom_comment_text)
 	GameState.save_game()
 	show_game_screen()
@@ -1511,9 +1999,9 @@ func _refresh_game_screen() -> void:
 
 	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 
-	if GameState.current_mode == 1:
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
-	else:
+	elif GameState.current_mode == MODE_CLASSIC:
 		_stage_round_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
 	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "_show_exit_game_popup"), "×")
 
@@ -1559,32 +2047,34 @@ func _refresh_game_screen() -> void:
 
 	var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
 	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
+	# Gameplay hints are deliberate orange secondary actions. Used or unavailable
+	# hints still fall back to the shared gray disabled state.
+	_stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
+	_stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
 
-	# Hint buttons match the original Flash behavior and visuals.
-	# Orange is the available state. Blue is only the pressed/already-used state.
-	_stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled)
-	_stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled)
-
-	var comment_button := _stage_main_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), 18, comment_disabled, 0.0)
-	if comment_disabled:
-		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-		var comment_label := comment_button.get_node_or_null("Text") as Label
-		if comment_label != null:
-			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
+	if GameState.current_mode != MODE_TWO_PLAYER:
+		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
+		var comment_button := _stage_main_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), 18, comment_disabled, 0.0, false, false, false, LONG_BUTTON_COLOR_ORANGE)
+		if comment_disabled:
+			comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+			var comment_label := comment_button.get_node_or_null("Text") as Label
+			if comment_label != null:
+				comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
 
 
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 
 func _game_header_icon() -> String:
-	if GameState.current_mode == 1:
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		return "↻"
 	return "☰"
 
 func _game_header_action() -> void:
-	if GameState.current_mode == 1:
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		show_custom_word()
+	elif GameState.current_mode == MODE_SINGLE_PLAYER:
+		show_single_player_level(single_player_active_level_index)
 	else:
 		show_theme_select()
 
@@ -1779,6 +2269,8 @@ func _finish_round(is_win: bool) -> void:
 	game_finished = true
 	last_result_is_win = is_win
 	last_result_data = GameSession.finish_result(is_win)
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
 
 	var transition_generation: int = result_transition_generation
 	if round_result_delay_requested:
@@ -1824,11 +2316,11 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_apply_result_text_glow(message_label, Color.WHITE, 2)
 
-	if GameState.current_mode == 0:
+	if GameState.current_mode != MODE_TWO_PLAYER:
 		var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
 		_apply_result_text_glow(theme_label, Color.WHITE, 2)
 
-	if GameState.current_mode != 1:
+	if GameState.current_mode == MODE_CLASSIC:
 		var left_disabled: bool = GameSession.theme_id < 0
 		var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
 		if left_disabled:
@@ -1863,19 +2355,28 @@ func _result_message(is_win: bool, data: Dictionary) -> String:
 	return Database.tr_text(43 if is_win else 44, "Keep going!" if is_win else "You can do better!")
 
 func _result_theme_label() -> String:
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		return _single_player_result_label()
 	if GameSession.theme_id < 0:
 		return Database.tr_text(40, "No category")
 	return Database.tr_text(42, "Category:") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 
 func _result_left_button_text() -> String:
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		return _single_player_levels_button_label()
 	return Database.tr_text(45, "Change category")
 
 func _result_right_button_text() -> String:
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		return Database.tr_text(3, "Continue")
 	if GameSession.theme_id < 0:
 		return Database.tr_text(8, "Restart")
 	return Database.tr_text(3, "Continue")
 
 func _result_left_action() -> void:
+	if GameState.current_mode == MODE_SINGLE_PLAYER:
+		show_single_player_level_select()
+		return
 	show_theme_select()
 
 func _result_right_action() -> void:
@@ -1886,8 +2387,13 @@ func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int)
 	label.add_theme_constant_override("outline_size", outline_size)
 
 func _restart_last_mode() -> void:
-	if GameState.current_mode == 1:
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		show_custom_word()
+	elif GameState.current_mode == MODE_SINGLE_PLAYER:
+		if _single_player_level_completed(single_player_active_level_index):
+			show_single_player_level_select()
+		else:
+			show_single_player_level(single_player_active_level_index)
 	else:
 		start_classic_game(max(0, GameSession.theme_id))
 
@@ -2019,7 +2525,7 @@ func _show_word_comment_popup() -> void:
 	content = previous_content
 
 func _current_word_source_label() -> String:
-	if GameState.current_mode == 1 or GameSession.theme_id < 0:
+	if GameState.current_mode == MODE_TWO_PLAYER or GameSession.theme_id < 0:
 		return Database.tr_text(40, "Word from player")
 	return Database.tr_text(42, "Category") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 

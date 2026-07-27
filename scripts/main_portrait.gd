@@ -193,7 +193,7 @@ func _stage_portrait_popup_main_button(
 	use_normal_texture_when_disabled: bool = false,
 	selected: bool = false,
 	attention_bounce: bool = false,
-	color_preset: int = LONG_BUTTON_COLOR_ORANGE
+	color_preset: int = LONG_BUTTON_COLOR_BLUE
 ) -> Control:
 	return _stage_main_button(
 		_portrait_popup_button_rect(rect),
@@ -219,7 +219,9 @@ func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 		false,
 		0.0,
 		false,
-		enabled
+		enabled,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	settings_toggle_buttons[setting_index] = button
 
@@ -233,12 +235,16 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 		false,
 		0.0,
 		false,
-		selected
+		selected,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
 	GameSession.discard_current_round()
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
 	_portrait_game_adaptive_group = null
 	_clear("")
 
@@ -251,15 +257,18 @@ func show_menu() -> void:
 	# Keep the title visually centered, but do not scale the action buttons.
 	# Long buttons use the same authored 300x64 size everywhere in the app; only
 	# their vertical group is shifted lower on tall screens for thumb reach.
-	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 260.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
-	var title_label := _stage_label(Rect2(40.0, 188.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
+	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
+	var title_label := _stage_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_portrait_end_adaptive_group(menu_title_content)
 
-	var menu_buttons_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 570.0), 1.0, 0.22)
+	var menu_buttons_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 590.0), 1.0, 0.22)
 	var button_x: float = 90.0
-	_stage_main_button(Rect2(button_x, 535.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
-	_stage_main_button(Rect2(button_x, 615.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
+	_stage_main_button(Rect2(button_x, 515.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
+	_stage_main_button(Rect2(button_x, 595.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
+	# The green CTA follows the same 80 px vertical rhythm as the orange buttons.
+	# Its dimensions are 15% larger than the standard long button.
+	_stage_single_player_menu_button(Rect2(67.5, 675.0, 345.0, 73.6), Callable(self, "show_single_player_level_select"))
 	_portrait_end_adaptive_group(menu_buttons_content)
 
 func _stage_main_menu_character_button() -> void:
@@ -299,12 +308,17 @@ func show_settings() -> void:
 	_stage_settings_word_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
 	_stage_settings_word_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 	_stage_panel(Rect2(56.0, 430.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_portrait_popup_main_button(Rect2(44.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
-	var remove_ads_button := _stage_portrait_popup_main_button(Rect2(246.0, 492.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
-	remove_ads_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-	var remove_ads_label := remove_ads_button.get_node_or_null("Text") as Label
-	if remove_ads_label != null:
-		remove_ads_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
+	_stage_portrait_popup_main_button(
+		Rect2(
+			rect.position.x + (rect.size.x - PORTRAIT_SMALL_BUTTON_SIZE.x) * 0.5,
+			492.0,
+			PORTRAIT_SMALL_BUTTON_SIZE.x,
+			PORTRAIT_SMALL_BUTTON_SIZE.y
+		),
+		Callable(self, "_settings_about_action"),
+		_settings_about_label(),
+		18
+	)
 	content = stored_previous
 
 func _show_about_popup() -> void:
@@ -390,7 +404,7 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	var question_label := _stage_label(Rect2(65.0, 350.0, 350.0, 58.0), theme_name, 24, Color.WHITE)
 	question_label.clip_text = false
 	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
-	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20)
+	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
 
 func _show_difficulty_popup() -> void:
@@ -421,20 +435,23 @@ func _show_difficulty_popup() -> void:
 
 func _show_exit_game_popup() -> void:
 	_remove_exit_game_popup()
-	var previous_content := _portrait_popup_begin("ExitGamePopup", "exit_game_popup", 140, Callable(self, "_remove_exit_game_popup"), 336.0, 526.0)
-	var rect := Rect2(60.0, 336.0, 360.0, 190.0)
+	var previous_content := _portrait_popup_begin("ExitGamePopup", "exit_game_popup", 140, Callable(self, "_remove_exit_game_popup"), 306.0, 536.0)
+	var rect := Rect2(60.0, 306.0, 360.0, 230.0)
 	var header := _stage_panel(Rect2(rect.position, Vector2(rect.size.x, 80.0)), PORTRAIT_BLUE)
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, 110.0)), PORTRAIT_DARK_BLUE)
+	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, 150.0)), PORTRAIT_DARK_BLUE)
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var title_label := _stage_label(Rect2(82.0, 346.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
+	var title_label := _stage_label(Rect2(82.0, 316.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
-	_stage_portrait_popup_main_button(Rect2(82.0, 444.0, 145.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
-	_stage_portrait_popup_main_button(Rect2(253.0, 444.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
+	var warning_label := _stage_label(Rect2(82.0, 398.0, 316.0, 40.0), _exit_game_warning_text(), 18, Color(0.92, 0.94, 1.0))
+	warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	warning_label.clip_text = false
+	_stage_portrait_popup_main_button(Rect2(82.0, 456.0, 145.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
+	_stage_portrait_popup_main_button(Rect2(253.0, 456.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
 	_stage_round_button(
@@ -496,7 +513,7 @@ func show_custom_word() -> void:
 		Callable(self, "start_custom_game"),
 		_custom_word_start_label(),
 		_portrait_footer_font_size(22),
-		false,
+		custom_word_text.is_empty(),
 		0.32,
 		false,
 		false,
@@ -532,7 +549,7 @@ func _refresh_game_screen() -> void:
 	# The word and keyboard remain attached to the footer in every mode.
 	var hero_pivot := Vector2(138.0, 206.0 + upper_block_shift)
 	var hero_stage_position := Vector2(76.0, 222.0 + upper_block_shift)
-	if GameState.current_mode == 1:
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		# Two-player rounds have no hint controls, so use their free column and
 		# center the visible imported art rather than the symbol's empty origin.
 		hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5
@@ -551,7 +568,7 @@ func _refresh_game_screen() -> void:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
 
-	var stage_upper_hints: bool = GameState.current_mode != 1
+	var stage_upper_hints: bool = GameState.current_mode != MODE_TWO_PLAYER
 	var open_hint_rect := Rect2(
 		340.0,
 		124.0 + upper_block_shift,
@@ -640,19 +657,21 @@ func _refresh_game_screen() -> void:
 		)
 	_portrait_end_adaptive_group(keyboard_root_content)
 
-	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-	# Both remaining modes ask for confirmation before leaving the round.
+	# Every active round can be closed. In level mode the confirmation action
+	# records the current word as a defeat before returning to the word grid.
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0)
-	if GameState.current_mode == 0:
+	if GameState.current_mode != MODE_TWO_PLAYER:
+		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
+		var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0, false, false, false, LONG_BUTTON_COLOR_ORANGE)
+		if comment_disabled:
+			comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
+			var comment_label := comment_button.get_node_or_null("Text") as Label
+			if comment_label != null:
+				comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
+	if GameState.current_mode == MODE_CLASSIC:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
-	elif GameState.current_mode == 1:
+	elif GameState.current_mode == MODE_TWO_PLAYER:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))
-	if comment_disabled:
-		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-		var comment_label := comment_button.get_node_or_null("Text") as Label
-		if comment_label != null:
-			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 
@@ -718,10 +737,10 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 			x += slot_gap
 
 func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2, open_hint_disabled: bool, remove_hint_disabled: bool) -> void:
-	# Both hints use the adaptive long-button component and remain blue after use.
-	# Keeping the icon inside the component also makes it follow the press bounce.
-	_stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled)
-	_stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled)
+	# Gameplay hints are orange while available. Disabled hints continue to use
+	# the shared neutral gray state from StageLongButton.
+	_stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
+	_stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
 
 func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
 	var icon_rect: Rect2 = PORTRAIT_LIVES_ICON_RECT
@@ -835,7 +854,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	)
 	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result_word_label.clip_text = true
-	if GameState.current_mode == 1:
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		_show_two_player_result_content(is_win, data)
 	else:
 		_show_classic_result_content(is_win, data)
@@ -908,7 +927,8 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	# Word search remains in the header, but uses a compact 70% round button.
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
+	if GameState.current_mode == MODE_CLASSIC:
+		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
 	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
 
 func show_records() -> void:

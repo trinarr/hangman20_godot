@@ -16,6 +16,7 @@ const ATTENTION_BOUNCE_PAUSE_DURATION: float = 0.2
 enum ColorPreset {
 	ORANGE,
 	GREEN,
+	BLUE,
 	CUSTOM,
 }
 
@@ -29,6 +30,12 @@ const ORANGE_SELECTED_TINT := Color(0.552941, 0.631373, 1.0, 1.0)
 const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
 const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
 const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
+const BLUE_NORMAL_TINT := Color("#8097F4")
+const BLUE_PRESSED_TINT := Color("#667DD8")
+const BLUE_SELECTED_TINT := Color("#566BC2")
+const BLUE_OUTLINE_COLOR := Color("#35478F")
+const DEFAULT_OUTLINE_COLOR := Color(0.23, 0.26, 0.52, 1.0)
+const DISABLED_TINT := Color(0.60, 0.60, 0.60, 1.0)
 
 var attention_bounce_enabled: bool = false:
 	set(value):
@@ -54,7 +61,12 @@ var button_disabled: bool = false:
 	set(value):
 		button_disabled = value
 		disabled = value
+		if button_disabled:
+			_stop_attention_bounce(true)
+		elif attention_bounce_enabled:
+			_start_attention_bounce()
 		_sync_label()
+		_sync_icon()
 
 var selected: bool = false:
 	set(value):
@@ -83,12 +95,12 @@ var text_color: Color = Color.WHITE:
 		text_color = value
 		_sync_label()
 
-var disabled_text_color: Color = Color(1.0, 1.0, 1.0, 0.72):
+var disabled_text_color: Color = Color.WHITE:
 	set(value):
 		disabled_text_color = value
 		_sync_label()
 
-var outline_color: Color = Color(0.23, 0.26, 0.52, 1.0):
+var outline_color: Color = DEFAULT_OUTLINE_COLOR:
 	set(value):
 		outline_color = value
 		_sync_label()
@@ -184,21 +196,21 @@ func _stop_attention_bounce(reset_scale: bool) -> void:
 func _draw() -> void:
 	var use_pressed_parts: bool = selected or _is_down
 	var background_tint: Color = normal_tint
-	if selected:
+	if disabled:
+		# Reuse the pressed relief so the disabled button has the same inverted
+		# highlight/shadow direction, but keep it neutral gray and non-interactive.
+		use_pressed_parts = true
+		background_tint = DISABLED_TINT
+	elif selected:
 		background_tint = selected_tint
 	elif _is_down:
 		background_tint = pressed_tint
-	if disabled and _use_normal_parts_when_disabled:
-		use_pressed_parts = false
-		background_tint = normal_tint
 	var left_texture: Texture2D = PRESSED_LEFT_TEXTURE if use_pressed_parts else NORMAL_LEFT_TEXTURE
 	var center_texture: Texture2D = PRESSED_CENTER_TEXTURE if use_pressed_parts else NORMAL_CENTER_TEXTURE
 	var right_texture: Texture2D = PRESSED_RIGHT_TEXTURE if use_pressed_parts else NORMAL_RIGHT_TEXTURE
 	var visual_size: Vector2 = size * visual_scale
 	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
 	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect, background_tint)
-	if disabled and disabled_overlay_alpha > 0.0:
-		draw_rect(visual_rect, Color(1.0, 1.0, 1.0, disabled_overlay_alpha), true)
 
 func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
@@ -235,12 +247,22 @@ func set_color_preset(preset: int) -> void:
 	match preset:
 		ColorPreset.GREEN:
 			color_preset = ColorPreset.GREEN
+			_apply_outline_style(DEFAULT_OUTLINE_COLOR, 3)
 			_apply_color_palette(GREEN_NORMAL_TINT, GREEN_PRESSED_TINT, GREEN_SELECTED_TINT)
+		ColorPreset.BLUE:
+			color_preset = ColorPreset.BLUE
+			_apply_outline_style(BLUE_OUTLINE_COLOR, 4)
+			_apply_color_palette(BLUE_NORMAL_TINT, BLUE_PRESSED_TINT, BLUE_SELECTED_TINT)
 		ColorPreset.CUSTOM:
 			color_preset = ColorPreset.CUSTOM
 		_:
 			color_preset = ColorPreset.ORANGE
+			_apply_outline_style(DEFAULT_OUTLINE_COLOR, 3)
 			_apply_color_palette(ORANGE_NORMAL_TINT, ORANGE_PRESSED_TINT, ORANGE_SELECTED_TINT)
+
+func _apply_outline_style(color: Color, size_value: int) -> void:
+	outline_color = color
+	outline_size = size_value
 
 func set_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color = ORANGE_SELECTED_TINT) -> void:
 	color_preset = ColorPreset.CUSTOM
@@ -316,6 +338,7 @@ func _sync_icon() -> void:
 		return
 	_icon_rect.texture = icon_texture
 	_icon_rect.visible = icon_texture != null
+	_icon_rect.modulate = Color.WHITE
 	_sync_content_layout()
 
 func _sync_content_layout() -> void:

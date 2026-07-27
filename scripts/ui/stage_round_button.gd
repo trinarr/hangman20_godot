@@ -4,6 +4,44 @@ extends "res://scripts/ui/flash_stage_texture_button.gd"
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ICON_VISUAL_SCALE: float = 0.82
+const ATTENTION_BOUNCE_SCALE: Vector2 = Vector2(1.10, 1.10)
+const ATTENTION_BOUNCE_GROW_DURATION: float = 0.72
+const ATTENTION_BOUNCE_SETTLE_DURATION: float = 0.82
+const ATTENTION_BOUNCE_PAUSE_DURATION: float = 0.24
+
+enum ColorPreset {
+	ORANGE,
+	GREEN,
+	BLUE,
+	CUSTOM,
+}
+
+# The round-button PNGs are neutral grayscale masks. Modulation restores the
+# authored orange visual language while allowing the same component to be
+# recolored without producing additional textures. Pressed orange matches the
+# long button; selected remains a separate blue state.
+const ORANGE_NORMAL_TINT := Color(0.995215, 0.688995, 0.416268, 1.0)
+const ORANGE_PRESSED_TINT := Color(0.862745, 0.517647, 0.274510, 1.0)
+const ORANGE_SELECTED_TINT := Color(0.550420, 0.630252, 1.0, 1.0)
+const DISABLED_TINT := Color(0.60, 0.60, 0.60, 1.0)
+const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
+const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
+const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
+const BLUE_NORMAL_TINT := Color("#8097F4")
+const BLUE_PRESSED_TINT := Color("#667DD8")
+const BLUE_SELECTED_TINT := Color("#566BC2")
+const BLUE_ICON_OUTLINE_COLOR := Color("#35478F")
+const DEFAULT_ICON_OUTLINE_COLOR := Color(0.27, 0.31, 0.61, 1.0)
+
+var attention_bounce_enabled: bool = false:
+	set(value):
+		if attention_bounce_enabled == value:
+			return
+		attention_bounce_enabled = value
+		if attention_bounce_enabled:
+			_start_attention_bounce()
+		else:
+			_stop_attention_bounce(true)
 
 var icon_text: String = "":
 	set(value):
@@ -35,7 +73,7 @@ var icon_color: Color = Color.WHITE:
 		icon_color = value
 		_sync_visuals()
 
-var icon_outline_color: Color = Color(0.27, 0.31, 0.61, 1.0):
+var icon_outline_color: Color = DEFAULT_ICON_OUTLINE_COLOR:
 	set(value):
 		icon_outline_color = value
 		_sync_visuals()
@@ -55,14 +93,36 @@ var selected: bool = false:
 		selected = value
 		_sync_background()
 
+var color_preset: int = ColorPreset.ORANGE
+
+var normal_tint: Color = ORANGE_NORMAL_TINT:
+	set(value):
+		normal_tint = value
+		queue_redraw()
+
+var pressed_tint: Color = ORANGE_PRESSED_TINT:
+	set(value):
+		pressed_tint = value
+		queue_redraw()
+
+var selected_tint: Color = ORANGE_SELECTED_TINT:
+	set(value):
+		selected_tint = value
+		queue_redraw()
+
 var button_disabled: bool = false:
 	set(value):
 		button_disabled = value
 		disabled = value
+		if button_disabled:
+			_stop_attention_bounce(true)
+		elif attention_bounce_enabled:
+			_start_attention_bounce()
 		_sync_visuals()
 
 var _icon_rect: TextureRect = null
 var _icon_label: Label = null
+var _attention_bounce_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
@@ -73,6 +133,75 @@ func _ready() -> void:
 	super._ready()
 	_sync_visuals()
 	_sync_icon_layout()
+	_start_attention_bounce()
+
+func _exit_tree() -> void:
+	_stop_attention_bounce(false)
+	super._exit_tree()
+
+func _set_press_scale(is_pressed: bool, animated: bool = true) -> void:
+	# Press feedback and the attention loop animate the same visual scale. Pause
+	# the loop while the button is held and resume it after release.
+	if is_pressed:
+		_stop_attention_bounce(false)
+	super._set_press_scale(is_pressed, animated)
+	if is_pressed or !attention_bounce_enabled or disabled:
+		return
+	if animated and _press_scale_tween != null and _press_scale_tween.is_valid():
+		_press_scale_tween.finished.connect(_start_attention_bounce, CONNECT_ONE_SHOT)
+	else:
+		_start_attention_bounce()
+
+func _start_attention_bounce() -> void:
+	if !attention_bounce_enabled or disabled or _is_down or !is_inside_tree():
+		return
+	_stop_attention_bounce(false)
+	visual_scale = Vector2.ONE
+	_attention_bounce_tween = create_tween()
+	_attention_bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_attention_bounce_tween.set_loops()
+	var grow_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
+		self,
+		"visual_scale",
+		ATTENTION_BOUNCE_SCALE,
+		ATTENTION_BOUNCE_GROW_DURATION
+	)
+	grow_tweener.set_trans(Tween.TRANS_QUAD)
+	grow_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
+		self,
+		"visual_scale",
+		Vector2.ONE,
+		ATTENTION_BOUNCE_SETTLE_DURATION
+	)
+	settle_tweener.set_trans(Tween.TRANS_BACK)
+	settle_tweener.set_ease(Tween.EASE_OUT)
+	_attention_bounce_tween.tween_interval(ATTENTION_BOUNCE_PAUSE_DURATION)
+
+func _stop_attention_bounce(reset_scale: bool) -> void:
+	if _attention_bounce_tween != null and _attention_bounce_tween.is_valid():
+		_attention_bounce_tween.kill()
+	_attention_bounce_tween = null
+	if reset_scale:
+		visual_scale = Vector2.ONE
+
+func _draw() -> void:
+	var background_texture: Texture2D = NORMAL_TEXTURE
+	var background_tint: Color = normal_tint
+	if disabled:
+		# Match the pressed button's inverted relief while keeping the disabled
+		# state neutral gray and unavailable for pointer input.
+		background_texture = PRESSED_TEXTURE
+		background_tint = DISABLED_TINT
+	elif selected:
+		background_texture = PRESSED_TEXTURE
+		background_tint = selected_tint
+	elif _is_down:
+		background_texture = PRESSED_TEXTURE
+		background_tint = pressed_tint
+	var visual_size: Vector2 = size * visual_scale
+	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
+	draw_texture_rect(background_texture, visual_rect, false, background_tint)
 
 func configure_text(text_value: String, disabled_value: bool = false, selected_value: bool = false, font_size_value: int = 26, disabled_overlay_alpha_value: float = 0.32) -> void:
 	icon_texture = null
@@ -115,9 +244,37 @@ func _ensure_visual_nodes() -> void:
 		add_child(_icon_label)
 
 func _sync_background() -> void:
-	texture_normal = PRESSED_TEXTURE if selected else NORMAL_TEXTURE
-	texture_pressed = PRESSED_TEXTURE
 	queue_redraw()
+
+func set_color_preset(preset: int) -> void:
+	match preset:
+		ColorPreset.GREEN:
+			color_preset = ColorPreset.GREEN
+			_apply_icon_outline_style(DEFAULT_ICON_OUTLINE_COLOR, 3)
+			_apply_color_palette(GREEN_NORMAL_TINT, GREEN_PRESSED_TINT, GREEN_SELECTED_TINT)
+		ColorPreset.BLUE:
+			color_preset = ColorPreset.BLUE
+			_apply_icon_outline_style(BLUE_ICON_OUTLINE_COLOR, 4)
+			_apply_color_palette(BLUE_NORMAL_TINT, BLUE_PRESSED_TINT, BLUE_SELECTED_TINT)
+		ColorPreset.CUSTOM:
+			color_preset = ColorPreset.CUSTOM
+		_:
+			color_preset = ColorPreset.ORANGE
+			_apply_icon_outline_style(DEFAULT_ICON_OUTLINE_COLOR, 3)
+			_apply_color_palette(ORANGE_NORMAL_TINT, ORANGE_PRESSED_TINT, ORANGE_SELECTED_TINT)
+
+func _apply_icon_outline_style(color: Color, size_value: int) -> void:
+	icon_outline_color = color
+	icon_outline_size = size_value
+
+func set_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color = ORANGE_SELECTED_TINT) -> void:
+	color_preset = ColorPreset.CUSTOM
+	_apply_color_palette(normal_color, pressed_color, selected_color)
+
+func _apply_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color) -> void:
+	normal_tint = normal_color
+	pressed_tint = pressed_color
+	selected_tint = selected_color
 
 func _sync_visuals() -> void:
 	if _icon_rect == null or _icon_label == null:
@@ -129,7 +286,7 @@ func _sync_visuals() -> void:
 	_icon_label.visible = !has_texture and icon_text != ""
 	_icon_label.text = icon_text
 	_icon_label.add_theme_font_size_override("font_size", icon_font_size)
-	_icon_label.add_theme_color_override("font_color", icon_color if !button_disabled else Color(icon_color.r, icon_color.g, icon_color.b, 0.72))
+	_icon_label.add_theme_color_override("font_color", icon_color)
 	_icon_label.add_theme_color_override("font_outline_color", icon_outline_color)
 	_icon_label.add_theme_constant_override("outline_size", icon_outline_size)
 

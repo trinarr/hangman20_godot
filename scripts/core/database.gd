@@ -7,6 +7,12 @@ var hints: Array = []
 var current_language: String = "ru"
 var interface_language: String = "ru"
 
+# Normalized word lists are immutable after loading. Cache them per category and
+# difficulty so screen rebuilds do not repeatedly normalize the whole database.
+var _themes_cache: Array = []
+var _themes_cache_ready: bool = false
+var _words_by_index_cache: Dictionary = {}
+
 const WORD_FILES := {
 	"ru": "res://data/words_ru.json",
 	"en": "res://data/words_en.json"
@@ -143,11 +149,17 @@ func _load_json(path: String) -> Variant:
 	return result
 
 func _load_words() -> void:
+	_invalidate_word_runtime_cache()
 	var result = _load_json(WORD_FILES[current_language])
 	if result is Dictionary:
 		data = result
 	else:
 		data = {}
+
+func _invalidate_word_runtime_cache() -> void:
+	_themes_cache.clear()
+	_themes_cache_ready = false
+	_words_by_index_cache.clear()
 
 func _load_hints() -> void:
 	hints.clear()
@@ -181,27 +193,28 @@ func get_theme_count() -> int:
 	return get_themes().size()
 
 func get_themes() -> Array:
+	if _themes_cache_ready:
+		return _themes_cache
+
 	var result: Array = []
 
 	# Russian file shape: { "words": { "THEME": [ ... ] } }
 	if data.has("words") and data["words"] is Dictionary:
 		for theme_name in data["words"].keys():
 			result.append(str(theme_name))
-		return result
-
 	# English file shape: { "themes": [ { "type": "SPORT", "words": [...] } ] }
-	if data.has("themes") and data["themes"] is Array:
+	elif data.has("themes") and data["themes"] is Array:
 		for item in data["themes"]:
 			if item is Dictionary:
 				result.append(str(item.get("type", "Theme " + str(result.size() + 1))))
-		return result
-
 	# Legacy/old shape support: { "themes": { "THEME": { "words": [...] } } }
-	if data.has("themes") and data["themes"] is Dictionary:
+	elif data.has("themes") and data["themes"] is Dictionary:
 		for theme_name in data["themes"].keys():
 			result.append(str(theme_name))
 
-	return result
+	_themes_cache = result
+	_themes_cache_ready = true
+	return _themes_cache
 
 func get_theme_name(theme_index: int) -> String:
 	var themes := get_themes()
@@ -210,6 +223,11 @@ func get_theme_name(theme_index: int) -> String:
 	return tr_text(40, "No category")
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
+	var cache_key := "%d:%d" % [theme_index, difficulty_filter]
+	var cached_words: Variant = _words_by_index_cache.get(cache_key)
+	if cached_words is Array:
+		return cached_words
+
 	var theme_name := get_theme_name(theme_index)
 	var words: Array = []
 
@@ -229,15 +247,16 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 		var word := normalize_loaded_word(str(words[i]))
 		if word == "" or word == "_":
 			continue
+		var diff: int = get_word_difficulty(theme_index, i)
 		if difficulty_filter != 0:
-			var diff := get_word_difficulty(theme_index, i)
 			# AS3 Settings[2]: 0 = all/general, 1 = hard only, 2 = easy only.
 			# Difficulty XML uses 0 = easy/simple, 1 = hard.
 			if difficulty_filter == 1 and diff != 1:
 				continue
 			if difficulty_filter == 2 and diff != 0:
 				continue
-		filtered.append({"text": word, "index": i, "difficulty": get_word_difficulty(theme_index, i)})
+		filtered.append({"text": word, "index": i, "difficulty": diff})
+	_words_by_index_cache[cache_key] = filtered
 	return filtered
 
 func normalize_loaded_word(word: String) -> String:

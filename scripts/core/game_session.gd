@@ -18,7 +18,7 @@ var wrong_letters: PackedStringArray = []
 var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
 var is_active: bool = false
-var mode: int = 0 # 0 classic, 1 two-player
+var mode: int = 0 # 0 classic, 1 two-player, 2 level mode
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var word_hint_text: String = ""
@@ -238,9 +238,9 @@ func finish_result(is_win: bool) -> Dictionary:
 
 	var diff := clampi(int(word_data.difficulty), 0, 1)
 
-	# Category words update the classic difficulty streak. Two-player words have
-	# no category and therefore use their own win/loss counters.
-	if theme_id >= 0:
+	# Only Classic category words update the Classic difficulty streak. Level
+	# rounds keep their word statistics and progression in a separate bucket.
+	if mode == 0 and theme_id >= 0:
 		if is_win:
 			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
 			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
@@ -253,6 +253,14 @@ func finish_result(is_win: bool) -> Dictionary:
 			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
 			if _is_theme_completed(theme_id):
 				result["lines"].append(Database.tr_text(57, "Category is completed!"))
+	elif mode == 2:
+		if is_win and theme_id >= 0:
+			GameState.mark_single_player_word_guessed(
+				Database.current_language,
+				theme_id,
+				word_index,
+				Database.get_words_by_index(theme_id, 0).size()
+			)
 	elif mode == 1:
 		if is_win:
 			GameState.records[1][0] = int(GameState.records[1][0]) + 1
