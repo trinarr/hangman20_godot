@@ -376,6 +376,12 @@ func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon
 	button.stage_rect = rect
 	return button
 
+func _disable_button_input_without_changing_visual(button: Control) -> void:
+	# Some selected states must stay visually active after their one-time action,
+	# but using the regular disabled flag would replace that state with gray.
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.mouse_default_cursor_shape = Control.CURSOR_ARROW
+
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
@@ -1024,7 +1030,7 @@ func _single_player_footer_font_size(font_size: int) -> int:
 
 func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	# Keep all visible copy inside the actual StageLongButton. This guarantees
-	# that the whole green surface remains one hit target instead of being
+	# that the whole orange surface remains one hit target instead of being
 	# partially covered by separate stage controls.
 	var button := _stage_main_button(
 		rect,
@@ -1036,7 +1042,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		false,
 		false,
 		false,
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
 
 	var title_label := Label.new()
@@ -1049,7 +1055,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	title_label.add_theme_font_size_override("font_size", 27)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
-	title_label.add_theme_color_override("font_outline_color", Color(0.08, 0.36, 0.13, 0.92))
+	title_label.add_theme_color_override("font_outline_color", Color(0.48, 0.24, 0.08, 0.92))
 	title_label.add_theme_constant_override("outline_size", 2)
 	button.add_child(title_label)
 
@@ -1062,8 +1068,8 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	level_label.add_theme_font_size_override("font_size", 15)
-	level_label.add_theme_color_override("font_color", Color(0.91, 1.0, 0.92, 1.0))
-	level_label.add_theme_color_override("font_outline_color", Color(0.08, 0.36, 0.13, 0.80))
+	level_label.add_theme_color_override("font_color", Color(1.0, 0.96, 0.90, 1.0))
+	level_label.add_theme_color_override("font_outline_color", Color(0.48, 0.24, 0.08, 0.80))
 	level_label.add_theme_constant_override("outline_size", 1)
 	button.add_child(level_label)
 
@@ -1200,7 +1206,7 @@ func show_single_player_level(level_index: int) -> void:
 			false,
 			false,
 			false,
-			LONG_BUTTON_COLOR_GREEN
+			LONG_BUTTON_COLOR_ORANGE
 		)
 
 func _start_single_player_word(level_index: int, word_slot: int) -> void:
@@ -1610,7 +1616,7 @@ func show_custom_word() -> void:
 		false,
 		false,
 		!custom_word_text.is_empty(),
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
 
 func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
@@ -2045,12 +2051,18 @@ func _refresh_game_screen() -> void:
 			animate_state
 		)
 
-	var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-	# Gameplay hints are deliberate orange secondary actions. Used or unavailable
-	# hints still fall back to the shared gray disabled state.
-	_stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
-	_stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
+	var open_hint_used: bool = GameSession.open_hint_used
+	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
+	var open_hint_unavailable: bool = !open_hint_used and !GameSession.can_use_open_letter_hint()
+	var remove_hint_unavailable: bool = !remove_hint_used and !GameSession.can_use_remove_wrong_hint()
+	# Available hints are orange. Once activated, they keep the same blue pressed
+	# state as enabled switches in Settings, while remaining unavailable for input.
+	var open_hint_button := _stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_unavailable, 0.0, false, open_hint_used, LONG_BUTTON_COLOR_ORANGE)
+	var remove_hint_button := _stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_unavailable, 0.0, false, remove_hint_used, LONG_BUTTON_COLOR_ORANGE)
+	if open_hint_used:
+		_disable_button_input_without_changing_visual(open_hint_button)
+	if remove_hint_used:
+		_disable_button_input_without_changing_visual(remove_hint_button)
 
 	if GameState.current_mode != MODE_TWO_PLAYER:
 		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
@@ -2329,7 +2341,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 			if left_label != null:
 				left_label.add_theme_color_override("font_color", Color.WHITE)
 
-	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
+	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
 
 func _spaced_result_word(word: String) -> String:
 	var characters := PackedStringArray()

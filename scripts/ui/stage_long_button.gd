@@ -30,12 +30,13 @@ const ORANGE_SELECTED_TINT := Color(0.552941, 0.631373, 1.0, 1.0)
 const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
 const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
 const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
-const BLUE_NORMAL_TINT := Color("#8097F4")
-const BLUE_PRESSED_TINT := Color("#667DD8")
-const BLUE_SELECTED_TINT := Color("#566BC2")
-const BLUE_OUTLINE_COLOR := Color("#35478F")
+const BLUE_NORMAL_TINT := Color("#728EFF")
+const BLUE_PRESSED_TINT := Color("#5B74E0")
+const BLUE_SELECTED_TINT := Color("#4B61C7")
+const BLUE_OUTLINE_COLOR := Color("#2F438C")
 const DEFAULT_OUTLINE_COLOR := Color(0.23, 0.26, 0.52, 1.0)
 const DISABLED_TINT := Color(0.60, 0.60, 0.60, 1.0)
+const DISABLED_OPACITY: float = 0.85
 
 var attention_bounce_enabled: bool = false:
 	set(value):
@@ -200,7 +201,7 @@ func _draw() -> void:
 		# Reuse the pressed relief so the disabled button has the same inverted
 		# highlight/shadow direction, but keep it neutral gray and non-interactive.
 		use_pressed_parts = true
-		background_tint = DISABLED_TINT
+		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
 	elif selected:
 		background_tint = selected_tint
 	elif _is_down:
@@ -328,7 +329,10 @@ func _sync_label() -> void:
 		return
 	_label.text = button_text
 	_label.add_theme_font_size_override("font_size", button_font_size)
-	_label.add_theme_color_override("font_color", disabled_text_color if button_disabled else text_color)
+	var label_color: Color = disabled_text_color if button_disabled else text_color
+	if button_disabled:
+		label_color = Color(label_color.r, label_color.g, label_color.b, label_color.a * DISABLED_OPACITY)
+	_label.add_theme_color_override("font_color", label_color)
 	_label.add_theme_color_override("font_outline_color", outline_color)
 	_label.add_theme_constant_override("outline_size", outline_size)
 	_sync_content_layout()
@@ -338,7 +342,7 @@ func _sync_icon() -> void:
 		return
 	_icon_rect.texture = icon_texture
 	_icon_rect.visible = icon_texture != null
-	_icon_rect.modulate = Color.WHITE
+	_icon_rect.modulate = Color(1.0, 1.0, 1.0, DISABLED_OPACITY if button_disabled else 1.0)
 	_sync_content_layout()
 
 func _sync_content_layout() -> void:

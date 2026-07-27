@@ -266,7 +266,7 @@ func show_menu() -> void:
 	var button_x: float = 90.0
 	_stage_main_button(Rect2(button_x, 515.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
 	_stage_main_button(Rect2(button_x, 595.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
-	# The green CTA follows the same 80 px vertical rhythm as the orange buttons.
+	# The primary CTA follows the same 80 px vertical rhythm as the other buttons.
 	# Its dimensions are 15% larger than the standard long button.
 	_stage_single_player_menu_button(Rect2(67.5, 675.0, 345.0, 73.6), Callable(self, "show_single_player_level_select"))
 	_portrait_end_adaptive_group(menu_buttons_content)
@@ -518,7 +518,7 @@ func show_custom_word() -> void:
 		false,
 		false,
 		!custom_word_text.is_empty(),
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
 
 func start_custom_game() -> void:
@@ -737,10 +737,18 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 			x += slot_gap
 
 func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2, open_hint_disabled: bool, remove_hint_disabled: bool) -> void:
-	# Gameplay hints are orange while available. Disabled hints continue to use
-	# the shared neutral gray state from StageLongButton.
-	_stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
-	_stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled, LONG_BUTTON_COLOR_ORANGE)
+	var open_hint_used: bool = GameSession.open_hint_used
+	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
+	var open_hint_unavailable: bool = open_hint_disabled and !open_hint_used
+	var remove_hint_unavailable: bool = remove_hint_disabled and !remove_hint_used
+	# Activated hints mirror the blue selected state of enabled Settings toggles,
+	# but their input remains blocked because each hint can only be used once.
+	var open_hint_button := _stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_unavailable, 0.0, false, open_hint_used, LONG_BUTTON_COLOR_ORANGE)
+	var remove_hint_button := _stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_unavailable, 0.0, false, remove_hint_used, LONG_BUTTON_COLOR_ORANGE)
+	if open_hint_used:
+		_disable_button_input_without_changing_visual(open_hint_button)
+	if remove_hint_used:
+		_disable_button_input_without_changing_visual(remove_hint_button)
 
 func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
 	var icon_rect: Rect2 = PORTRAIT_LIVES_ICON_RECT
@@ -884,7 +892,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	_portrait_end_adaptive_group(result_root_content)
 
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -929,7 +937,7 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
 	if GameState.current_mode == MODE_CLASSIC:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_GREEN)
+	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
 
 func show_records() -> void:
 	show_profile()

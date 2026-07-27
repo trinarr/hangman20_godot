@@ -24,13 +24,14 @@ const ORANGE_NORMAL_TINT := Color(0.995215, 0.688995, 0.416268, 1.0)
 const ORANGE_PRESSED_TINT := Color(0.862745, 0.517647, 0.274510, 1.0)
 const ORANGE_SELECTED_TINT := Color(0.550420, 0.630252, 1.0, 1.0)
 const DISABLED_TINT := Color(0.60, 0.60, 0.60, 1.0)
+const DISABLED_OPACITY: float = 0.85
 const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
 const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
 const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
-const BLUE_NORMAL_TINT := Color("#8097F4")
-const BLUE_PRESSED_TINT := Color("#667DD8")
-const BLUE_SELECTED_TINT := Color("#566BC2")
-const BLUE_ICON_OUTLINE_COLOR := Color("#35478F")
+const BLUE_NORMAL_TINT := Color("#728EFF")
+const BLUE_PRESSED_TINT := Color("#5B74E0")
+const BLUE_SELECTED_TINT := Color("#4B61C7")
+const BLUE_ICON_OUTLINE_COLOR := Color("#2F438C")
 const DEFAULT_ICON_OUTLINE_COLOR := Color(0.27, 0.31, 0.61, 1.0)
 
 var attention_bounce_enabled: bool = false:
@@ -192,7 +193,7 @@ func _draw() -> void:
 		# Match the pressed button's inverted relief while keeping the disabled
 		# state neutral gray and unavailable for pointer input.
 		background_texture = PRESSED_TEXTURE
-		background_tint = DISABLED_TINT
+		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
 	elif selected:
 		background_texture = PRESSED_TEXTURE
 		background_tint = selected_tint
@@ -280,14 +281,17 @@ func _sync_visuals() -> void:
 	if _icon_rect == null or _icon_label == null:
 		return
 	var has_texture: bool = icon_texture != null
+	var visual_opacity: float = DISABLED_OPACITY if button_disabled else 1.0
+	var current_icon_color := Color(icon_color.r, icon_color.g, icon_color.b, icon_color.a * visual_opacity)
+	var current_outline_color := Color(icon_outline_color.r, icon_outline_color.g, icon_outline_color.b, icon_outline_color.a * visual_opacity)
 	_icon_rect.visible = has_texture
 	_icon_rect.texture = icon_texture
-	_icon_rect.modulate = icon_modulate
+	_icon_rect.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_modulate.a * visual_opacity)
 	_icon_label.visible = !has_texture and icon_text != ""
 	_icon_label.text = icon_text
 	_icon_label.add_theme_font_size_override("font_size", icon_font_size)
-	_icon_label.add_theme_color_override("font_color", icon_color)
-	_icon_label.add_theme_color_override("font_outline_color", icon_outline_color)
+	_icon_label.add_theme_color_override("font_color", current_icon_color)
+	_icon_label.add_theme_color_override("font_outline_color", current_outline_color)
 	_icon_label.add_theme_constant_override("outline_size", icon_outline_size)
 
 func _sync_icon_layout() -> void:
