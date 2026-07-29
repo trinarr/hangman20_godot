@@ -10,7 +10,7 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 5.0 / 24.0 + HERO_NESTED_FRAME
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 9.0 / 24.0 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 40.0 / 24.0
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
-const LETTER_MARKER_REVEAL_DURATION: float = 0.2
+const LETTER_FEEDBACK_ANIMATION_DURATION: float = 0.42
 const RANDOM_CUSTOM_WORD_MAX_LENGTH: int = 7
 const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
 const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
@@ -51,7 +51,6 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
-const SINGLE_PLAYER_LEVEL_MAP_SCRIPT: GDScript = preload("res://scripts/ui/single_player_level_map.gd")
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
@@ -180,7 +179,7 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 func _show_about_popup() -> void:
 	pass
 
-func _show_restart_single_level_popup(_level_index: int) -> void:
+func _show_single_player_difficulty_popup() -> void:
 	pass
 
 func _build_root() -> void:
@@ -222,7 +221,7 @@ func _clear(symbol_path: String = "") -> void:
 	hero_static_symbol = null
 	_remove_settings_popup()
 	_remove_exit_game_popup()
-	_remove_restart_single_level_popup()
+	_remove_single_player_difficulty_popup()
 	_remove_clear_theme_popup()
 	settings_popup_return_content = null
 	custom_word_edit = null
@@ -624,11 +623,27 @@ func _cycle_difficulty_mode() -> void:
 	GameState.save_game()
 	_invalidate_single_player_level_cache()
 
-func _cycle_single_player_difficulty() -> void:
-	single_player_active_level_index = -1
-	single_player_active_word_slot = -1
+func _next_difficulty_mode_value() -> int:
+	return DIFFICULTY_MODE_HARD if _difficulty_mode_value() == DIFFICULTY_MODE_NORMAL else DIFFICULTY_MODE_NORMAL
+
+func _request_single_player_difficulty_change() -> void:
+	_show_single_player_difficulty_popup()
+
+func _confirm_single_player_difficulty_change() -> void:
+	_remove_single_player_difficulty_popup()
 	_cycle_difficulty_mode()
-	show_single_player_level_select()
+	var level_index: int = _single_player_next_level_index()
+	var word_count: int = _single_player_level_word_count(level_index)
+	GameState.regenerate_single_level(
+		Database.current_language,
+		level_index,
+		word_count,
+		_difficulty_mode_value()
+	)
+	_invalidate_single_player_level_cache()
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = -1
+	show_single_player_level(level_index)
 
 func _cycle_classic_difficulty() -> void:
 	_cycle_difficulty_mode()
@@ -656,20 +671,29 @@ func _single_player_progress_label(played_count: int, total_count: int) -> Strin
 func _single_player_level_completed_label() -> String:
 	return _single_player_text("Уровень пройден!", "Level completed!")
 
-func _single_player_next_level_label() -> String:
-	return _single_player_text("Следующий уровень", "Next level")
+func _single_player_difficulty_popup_title() -> String:
+	return _single_player_text("Сменить сложность?", "Change difficulty?")
 
-func _single_player_levels_button_label() -> String:
-	return _single_player_text("К уровням", "Levels")
-
-func _single_player_restart_title() -> String:
-	return _single_player_text("Перезапустить уровень?", "Restart the level?")
-
-func _single_player_restart_message() -> String:
-	return _single_player_text("Прогресс уровня будет сброшен", "Level progress will be reset")
+func _single_player_difficulty_popup_message() -> String:
+	var target_mode: String = _difficulty_mode_label(_next_difficulty_mode_value())
+	return _single_player_text(
+		"Уровень будет создан заново с новыми словами: %s" % target_mode,
+		"The level will be regenerated with new words: %s" % target_mode
+	)
 
 func _single_player_current_level_number() -> int:
 	return GameState.get_single_player_display_level(Database.current_language, SINGLE_PLAYER_LEVEL_COUNT)
+
+func _single_player_next_level_index() -> int:
+	return clampi(
+		GameState.get_single_player_unlocked_level(Database.current_language, _difficulty_mode_value()),
+		0,
+		SINGLE_PLAYER_LEVEL_COUNT - 1
+	)
+
+func _open_next_single_player_level() -> void:
+	single_player_active_word_slot = -1
+	show_single_player_level(_single_player_next_level_index())
 
 func _invalidate_single_player_level_cache() -> void:
 	single_player_level_definitions_cache.clear()
@@ -697,8 +721,8 @@ func _single_player_level_definitions() -> Array:
 		return levels
 
 	# Build levels only from categories that contain words for the selected
-	# two-state difficulty. This keeps each level internally consistent and
-	# prevents switching difficulty from changing words under saved slots.
+	# two-state difficulty. A saved generation keeps each set stable until the
+	# player explicitly confirms rebuilding it from the footer switch.
 	var theme_word_pools: Dictionary = {}
 	var eligible_theme_indices: Array[int] = []
 	for theme_index in range(theme_count):
@@ -713,12 +737,16 @@ func _single_player_level_definitions() -> Array:
 
 	var words_per_level: int = mini(SINGLE_PLAYER_WORDS_PER_LEVEL, eligible_theme_indices.size())
 	for level_index in range(SINGLE_PLAYER_LEVEL_COUNT):
+		var generation: int = GameState.get_single_level_generation(language, level_index, difficulty)
 		var words: Array = []
 		for slot in range(words_per_level):
-			var eligible_index: int = (level_index + slot) % eligible_theme_indices.size()
+			# Confirmed difficulty changes advance the saved generation. Rotate both
+			# the category and word offsets so switching back does not restore the
+			# previous set of words.
+			var eligible_index: int = (level_index + slot + generation * 3) % eligible_theme_indices.size()
 			var theme_index: int = eligible_theme_indices[eligible_index]
 			var theme_words: Array = theme_word_pools[theme_index]
-			var pick_index: int = int((level_index * 3 + slot) % theme_words.size())
+			var pick_index: int = int((level_index * 3 + slot + generation * 5) % theme_words.size())
 			var picked: Dictionary = theme_words[pick_index]
 			words.append({
 				"theme_index": theme_index,
@@ -750,14 +778,12 @@ func _single_player_level_word_count(level_index: int) -> int:
 	return _single_player_level_words(level_index).size()
 
 func _single_player_level_played_count(level_index: int) -> int:
-	return GameState.get_single_level_played_count(Database.current_language, level_index, _single_player_level_word_count(level_index))
+	return GameState.get_single_level_played_count(Database.current_language, level_index, _single_player_level_word_count(level_index), _difficulty_mode_value())
 
 func _single_player_level_completed(level_index: int) -> bool:
-	return GameState.is_single_level_completed(Database.current_language, level_index, _single_player_level_word_count(level_index))
-func _single_player_level_unlocked(level_index: int) -> bool:
-	return GameState.is_single_level_unlocked(Database.current_language, level_index)
+	return GameState.is_single_level_completed(Database.current_language, level_index, _single_player_level_word_count(level_index), _difficulty_mode_value())
 func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
-	return GameState.get_single_level_word_status(Database.current_language, level_index, word_slot, _single_player_level_word_count(level_index))
+	return GameState.get_single_level_word_status(Database.current_language, level_index, word_slot, _single_player_level_word_count(level_index), _difficulty_mode_value())
 
 func _single_player_mark_current_word_finished(data: Dictionary, is_win: bool) -> Dictionary:
 	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
@@ -770,7 +796,8 @@ func _single_player_mark_current_word_finished(data: Dictionary, is_win: bool) -
 		single_player_active_word_slot,
 		level_word_count,
 		SINGLE_PLAYER_LEVEL_COUNT,
-		is_win
+		is_win,
+		_difficulty_mode_value()
 	)
 	if !result.has("lines") or !(result["lines"] is Array):
 		result["lines"] = []
@@ -864,101 +891,35 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	level_label.add_theme_constant_override("outline_size", 1)
 	button.add_child(level_label)
 
-func show_single_player_level_select() -> void:
-	_clear("")
-	_stage_texture_fill(0.0, 688.0, MENU_PAPER_COVER)
-
-	var level_definitions: Array = _single_player_level_definitions()
-	var unlocked_level: int = GameState.get_single_player_unlocked_level(Database.current_language)
-	var unlocked_states: Array = []
-	var completed_states: Array = []
-	var perfect_states: Array = []
-	for level_index in range(SINGLE_PLAYER_LEVEL_COUNT):
-		var word_count: int = 0
-		if level_index < level_definitions.size():
-			word_count = Array(level_definitions[level_index].get("words", [])).size()
-		var snapshot: Dictionary = GameState.get_single_level_snapshot(
-			Database.current_language,
-			level_index,
-			word_count
-		)
-		unlocked_states.append(level_index <= unlocked_level)
-		completed_states.append(bool(snapshot.get("completed", false)))
-		perfect_states.append(bool(snapshot.get("perfect", false)))
-
-	var level_map: Control = SINGLE_PLAYER_LEVEL_MAP_SCRIPT.new() as Control
-	level_map.call(
-		"configure",
-		SINGLE_PLAYER_LEVEL_COUNT,
-		maxi(_single_player_current_level_number() - 1, 0),
-		unlocked_states,
-		completed_states,
-		perfect_states
-	)
-	level_map.connect(&"level_selected", Callable(self, "_on_single_player_level_selected"))
-	content.add_child(level_map)
-
-	_stage_horizontal_fill(688.0, 112.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_round_icon_button(
-		_single_player_footer_back_rect(),
-		Callable(self, "show_menu"),
-		SINGLE_PLAYER_BACK_ARROW_ICON,
-		_single_player_footer_icon_size(Vector2(27.0, 33.0))
-	)
-	var difficulty_button := _stage_main_button(
-		_single_player_footer_long_rect(),
-		Callable(self, "_cycle_single_player_difficulty"),
-		_difficulty_mode_label(),
-		_single_player_footer_font_size(22)
-	)
-	_style_difficulty_button(difficulty_button)
-
-func _on_single_player_level_selected(level_index: int) -> void:
-	if !_single_player_level_unlocked(level_index):
-		return
-	var word_count: int = _single_player_level_word_count(level_index)
-	var snapshot: Dictionary = GameState.get_single_level_snapshot(
-		Database.current_language,
-		level_index,
-		word_count
-	)
-	if bool(snapshot.get("completed", false)):
-		# A perfect level is final. An imperfect completed level may only be
-		# entered after explicitly clearing its six saved outcomes.
-		if bool(snapshot.get("perfect", false)):
-			return
-		_show_restart_single_level_popup(level_index)
-		return
-	show_single_player_level(level_index)
-func _confirm_restart_single_level(level_index: int) -> void:
-	_remove_restart_single_level_popup()
-	single_player_active_level_index = level_index
-	single_player_active_word_slot = -1
-	GameState.reset_single_level(
-		Database.current_language,
-		level_index,
-		_single_player_level_word_count(level_index)
-	)
-	show_single_player_level(level_index)
-
-func _remove_restart_single_level_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("restart_single_level_popup")
+func _remove_single_player_difficulty_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_difficulty_popup")
 	for node: Node in popup_nodes:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
 
 func show_single_player_level(level_index: int) -> void:
-	if !_single_player_level_unlocked(level_index):
-		show_single_player_level_select()
-		return
+	level_index = clampi(level_index, 0, SINGLE_PLAYER_LEVEL_COUNT - 1)
 	single_player_active_level_index = level_index
 	_clear("")
-	_stage_texture_fill(0.0, 688.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(688.0, 112.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+	var header_height: float = 102.0
+	var footer_y: float = 688.0
+	var screen_blue := Color(0.2706, 0.3098, 0.6078, 1.0)
+	_stage_texture_fill(0.0, footer_y, MENU_PAPER_COVER)
+	_stage_horizontal_fill(footer_y, 800.0 - footer_y, screen_blue)
+	# Match the category-selection title: graph-paper background, no header
+	# panel, and a centered blue text label.
+	var level_title := _stage_label(
+		Rect2(24.0, 14.0, 432.0, 70.0),
+		"%s %d" % [_single_player_level_label(), level_index + 1],
+		38,
+		screen_blue,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	level_title.clip_text = false
 	_stage_round_icon_button(
 		_single_player_footer_back_rect(),
-		Callable(self, "show_single_player_level_select"),
+		Callable(self, "show_menu"),
 		SINGLE_PLAYER_BACK_ARROW_ICON,
 		_single_player_footer_icon_size(Vector2(27.0, 33.0))
 	)
@@ -985,7 +946,8 @@ func show_single_player_level(level_index: int) -> void:
 	var block_width: float = float(tile_columns) * tile_size + float(maxi(tile_columns - 1, 0)) * tile_gap
 	var block_height: float = float(tile_rows) * tile_size + float(maxi(tile_rows - 1, 0)) * tile_gap
 	var block_x: float = (480.0 - block_width) * 0.5
-	var block_y: float = (688.0 - block_height) * 0.5
+	var available_height: float = footer_y - header_height
+	var block_y: float = header_height + (available_height - block_height) * 0.5
 	var icon_size := Vector2(62.0, 62.0)
 	for word_slot in range(words.size()):
 		var col: int = word_slot % tile_columns
@@ -999,11 +961,18 @@ func show_single_player_level(level_index: int) -> void:
 			word_status = int(word_statuses[word_slot])
 		var theme_index: int = int(words[word_slot].get("theme_index", -1))
 		if word_status == 1 or word_status == 2:
+			# StageStatusIcon draws in its local coordinates. Keep it inside a
+			# stage-aware holder so viewport scaling and horizontal centering are
+			# identical to the word tile it replaces.
+			var status_rect := Rect2(
+				tile_rect.position + Vector2(7.0, 7.0),
+				tile_rect.size - Vector2(14.0, 14.0)
+			)
+			var status_holder := _stage_holder(status_rect, Control.MOUSE_FILTER_IGNORE)
 			var status_icon := STAGE_STATUS_ICON_SCRIPT.new() as Control
-			status_icon.position = tile_rect.position + Vector2(7.0, 7.0)
-			status_icon.size = tile_rect.size - Vector2(14.0, 14.0)
+			status_holder.add_child(status_icon)
+			status_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			status_icon.call("configure", word_status == 1, 7.0)
-			content.add_child(status_icon)
 		else:
 			_stage_panel(tile_rect, tile_color, 14.0, tile_color.darkened(0.25), 3.0)
 			var icon_texture: Texture2D = _theme_icon_texture(theme_index)
@@ -1013,25 +982,13 @@ func show_single_player_level(level_index: int) -> void:
 		var tile_button := _stage_button(tile_rect, Callable(self, "_start_single_player_word").bind(level_index, word_slot), "")
 		tile_button.disabled = word_status != 0
 
-	if bool(level_snapshot.get("completed", false)):
-		var next_level_unlocked: bool = level_index + 1 < SINGLE_PLAYER_LEVEL_COUNT and _single_player_level_unlocked(level_index + 1)
-		var target_action: Callable = Callable(self, "show_single_player_level_select")
-		var target_text: String = _single_player_levels_button_label()
-		if next_level_unlocked:
-			target_action = Callable(self, "show_single_player_level").bind(level_index + 1)
-			target_text = _single_player_next_level_label()
-		_stage_main_button(
-			_single_player_footer_long_rect(),
-			target_action,
-			target_text,
-			_single_player_footer_font_size(22),
-			false,
-			0.32,
-			false,
-			false,
-			false,
-			LONG_BUTTON_COLOR_ORANGE
-		)
+	var difficulty_button := _stage_main_button(
+		_single_player_footer_long_rect(),
+		Callable(self, "_request_single_player_difficulty_change"),
+		_difficulty_mode_label(),
+		_single_player_footer_font_size(22)
+	)
+	_style_difficulty_button(difficulty_button)
 
 func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	var words: Array = _single_player_level_words(level_index)
@@ -1120,7 +1077,7 @@ func _forfeit_single_player_round() -> void:
 	if level_index >= 0:
 		show_single_player_level(level_index)
 	else:
-		show_single_player_level_select()
+		show_menu()
 
 func _remove_exit_game_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("exit_game_popup")
@@ -1611,7 +1568,7 @@ func _finish_round(is_win: bool) -> void:
 
 	var transition_generation: int = result_transition_generation
 	if round_result_delay_requested:
-		await get_tree().create_timer(LETTER_MARKER_REVEAL_DURATION).timeout
+		await get_tree().create_timer(LETTER_FEEDBACK_ANIMATION_DURATION).timeout
 		if transition_generation != result_transition_generation:
 			return
 	show_result_screen(is_win, last_result_data)
@@ -1661,7 +1618,7 @@ func _restart_last_mode() -> void:
 		show_custom_word()
 	elif GameState.current_mode == MODE_SINGLE_PLAYER:
 		if _single_player_level_completed(single_player_active_level_index):
-			show_single_player_level_select()
+			_open_next_single_player_level()
 		else:
 			show_single_player_level(single_player_active_level_index)
 	else:

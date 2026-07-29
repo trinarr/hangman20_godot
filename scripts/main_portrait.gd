@@ -60,6 +60,10 @@ const PORTRAIT_LAST_LIFE_BOUNCE_UP_DURATION: float = 0.12
 const PORTRAIT_LAST_LIFE_BOUNCE_DOWN_DURATION: float = 0.14
 const PORTRAIT_LAST_LIFE_BETWEEN_BOUNCES: float = 0.06
 const PORTRAIT_LAST_LIFE_LOOP_PAUSE: float = 0.72
+const PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE := Vector2(0.58, 0.58)
+const PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE := Vector2(1.24, 1.24)
+const PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = 0.18
+const PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = 0.24
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
@@ -264,7 +268,7 @@ func show_menu() -> void:
 	_stage_main_button(Rect2(button_x, 595.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
 	# The primary CTA follows the same 80 px vertical rhythm as the other buttons.
 	# Its dimensions are 15% larger than the standard long button.
-	_stage_single_player_menu_button(Rect2(67.5, 675.0, 345.0, 73.6), Callable(self, "show_single_player_level_select"))
+	_stage_single_player_menu_button(Rect2(67.5, 675.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
 	_portrait_end_adaptive_group(menu_buttons_content)
 
 func _stage_main_menu_character_button() -> void:
@@ -393,33 +397,34 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
 	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
-func _show_restart_single_level_popup(level_index: int) -> void:
-	_remove_restart_single_level_popup()
+func _show_single_player_difficulty_popup() -> void:
+	_remove_single_player_difficulty_popup()
 	var previous_content := _portrait_popup_begin(
-		"RestartSingleLevelPopup",
-		"restart_single_level_popup",
+		"SinglePlayerDifficultyPopup",
+		"single_player_difficulty_popup",
 		135,
-		Callable(self, "_remove_restart_single_level_popup"),
-		286.0,
-		546.0
+		Callable(self, "_remove_single_player_difficulty_popup"),
+		270.0,
+		570.0
 	)
-	var rect := Rect2(60.0, 286.0, 360.0, 260.0)
+	var rect := Rect2(60.0, 270.0, 360.0, 300.0)
 	var header := _stage_panel(Rect2(rect.position, Vector2(rect.size.x, 82.0)), PORTRAIT_BLUE)
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 82.0), Vector2(rect.size.x, 178.0)), PORTRAIT_DARK_BLUE)
+	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 82.0), Vector2(rect.size.x, 218.0)), PORTRAIT_DARK_BLUE)
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
 	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 81.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var title_label := _stage_label(Rect2(82.0, 299.0, 316.0, 54.0), _single_player_restart_title(), 25, Color.WHITE)
+	var title_label := _stage_label(Rect2(82.0, 283.0, 316.0, 54.0), _single_player_difficulty_popup_title(), 25, Color.WHITE)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
-	var message_label := _stage_label(Rect2(82.0, 388.0, 316.0, 48.0), _single_player_restart_message(), 18, Color(0.92, 0.94, 1.0))
+	var message_label := _stage_label(Rect2(82.0, 368.0, 316.0, 76.0), _single_player_difficulty_popup_message(), 18, Color(0.92, 0.94, 1.0))
 	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	message_label.clip_text = false
 	_stage_portrait_popup_main_button(
-		Rect2(82.0, 468.0, 145.0, 52.0),
-		Callable(self, "_confirm_restart_single_level").bind(level_index),
+		Rect2(82.0, 492.0, 145.0, 52.0),
+		Callable(self, "_confirm_single_player_difficulty_change"),
 		tr("YES"),
 		20,
 		false,
@@ -430,8 +435,8 @@ func _show_restart_single_level_popup(level_index: int) -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_stage_portrait_popup_main_button(
-		Rect2(253.0, 468.0, 145.0, 52.0),
-		Callable(self, "_remove_restart_single_level_popup"),
+		Rect2(253.0, 492.0, 145.0, 52.0),
+		Callable(self, "_remove_single_player_difficulty_popup"),
 		tr("NO"),
 		20
 	)
@@ -439,7 +444,7 @@ func _show_restart_single_level_popup(level_index: int) -> void:
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
 	_stage_round_button(
 		Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE),
-		Callable(self, "_remove_restart_single_level_popup"),
+		Callable(self, "_remove_single_player_difficulty_popup"),
 		"×"
 	)
 	content = previous_content
@@ -743,9 +748,47 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 			letter_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			letter_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 			letter_label.clip_text = false
+			var animate_reveal: bool = (
+				revealed
+				and !is_dash
+				and pending_letter_marker_is_correct
+				and pending_letter_markers.has(letter)
+			)
+			if animate_reveal:
+				_prepare_portrait_word_letter_bounce(letter_label)
 		x += item_width
 		if i < layout.size() - 1:
 			x += slot_gap
+
+func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
+	# Every occurrence of the newly revealed letter gets its own tween, so words
+	# with repeated letters animate all matching slots at the same time.
+	letter_label.pivot_offset = letter_label.size * 0.5
+	letter_label.scale = PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE
+	call_deferred("_play_portrait_word_letter_bounce", letter_label)
+
+func _play_portrait_word_letter_bounce(letter_label: Label) -> void:
+	if letter_label == null or !is_instance_valid(letter_label) or !letter_label.is_inside_tree():
+		return
+	letter_label.pivot_offset = letter_label.size * 0.5
+	var tween: Tween = create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow_tweener: PropertyTweener = tween.tween_property(
+		letter_label,
+		"scale",
+		PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE,
+		PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION
+	)
+	grow_tweener.set_trans(Tween.TRANS_QUAD)
+	grow_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = tween.tween_property(
+		letter_label,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION
+	)
+	settle_tweener.set_trans(Tween.TRANS_BACK)
+	settle_tweener.set_ease(Tween.EASE_OUT)
 
 func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2, open_hint_disabled: bool, remove_hint_disabled: bool) -> void:
 	var open_hint_used: bool = GameSession.open_hint_used
