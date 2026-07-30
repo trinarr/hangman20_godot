@@ -884,7 +884,7 @@ def verify_native_custom_word_input() -> None:
     require(
         "const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)" in portrait
         and "PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)" in custom_screen
-        and '_portrait_custom_word_input.set("stage_rect", custom_word_input_rect)' in custom_screen
+        and "_stage_portrait_custom_word_field()" in custom_screen
         and "_portrait_begin_adaptive_group" not in custom_screen,
         "The single-line word input is not centered with gameplay side insets",
     )
@@ -903,8 +903,22 @@ def verify_native_custom_word_input() -> None:
         'var avoid_virtual_keyboard: bool = false:' in word_input
         and "DisplayServer.virtual_keyboard_get_height()" in word_input
         and "_apply_virtual_keyboard_avoidance()" in word_input
-        and '_portrait_custom_word_input.set("avoid_virtual_keyboard", true)' in custom_screen,
+        and "word_input.avoid_virtual_keyboard = true" in custom_screen,
         "The centered word input does not avoid the native keyboard",
+    )
+    custom_field = portrait[
+        portrait.index("func _stage_portrait_custom_word_field()") :
+        portrait.index("func start_custom_game()", portrait.index("func _stage_portrait_custom_word_field()"))
+    ]
+    require(
+        "word_input.stage_rect = custom_word_input_rect" in custom_field
+        and custom_field.index("word_input.stage_rect = custom_word_input_rect")
+        < custom_field.index("content.add_child(word_input)")
+        and custom_field.index("content.add_child(word_input)")
+        < custom_field.index("word_input.configure(custom_word_text, 15, 34)")
+        and custom_screen.index("custom_word_start_button = _stage_main_button(")
+        < custom_screen.index("_stage_portrait_custom_word_field()"),
+        "The Two Player field is initialized before geometry/tree readiness or can hide its actions",
     )
     require(
         'if value.length() < max_input_length:' not in word_input

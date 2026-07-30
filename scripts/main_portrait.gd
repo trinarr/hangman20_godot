@@ -625,22 +625,6 @@ func show_custom_word() -> void:
 		Callable(self, "show_menu")
 	)
 
-	_portrait_custom_word_input = STAGE_WORD_INPUT_SCRIPT.new() as Control
-	_portrait_custom_word_input.call("configure", custom_word_text, 15, 34)
-	_portrait_custom_word_input.set("avoid_virtual_keyboard", true)
-	content.add_child(_portrait_custom_word_input)
-	# Keep the gameplay word insets at every aspect ratio. Only the authored Y
-	# coordinate changes so the row remains centered on the physical screen.
-	var custom_word_input_rect: Rect2 = PORTRAIT_CUSTOM_WORD_INPUT_RECT
-	custom_word_input_rect.position.y = (
-		PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)
-		- custom_word_input_rect.size.y
-	) * 0.5
-	_portrait_custom_word_input.set("stage_rect", custom_word_input_rect)
-	custom_word_input_visual = _portrait_custom_word_input
-	custom_word_edit = _portrait_custom_word_input.call("get_line_edit") as LineEdit
-	custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-
 	# Attach both actions to the footer and apply the same 85% width treatment
 	# as the Start Game button. This keeps their visual and touch sizes equal.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
@@ -661,6 +645,34 @@ func show_custom_word() -> void:
 		!custom_word_text.is_empty(),
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	_stage_portrait_custom_word_field()
+
+func _stage_portrait_custom_word_field() -> void:
+	var word_input := STAGE_WORD_INPUT_SCRIPT.new() as StageWordInput
+	if word_input == null:
+		push_error("Could not instantiate the custom-word input")
+		return
+
+	# Set authored geometry before entering the tree. The base control can then
+	# complete _ready() with a real size instead of briefly initializing at 0×0.
+	var custom_word_input_rect: Rect2 = PORTRAIT_CUSTOM_WORD_INPUT_RECT
+	custom_word_input_rect.position.y = (
+		PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)
+		- custom_word_input_rect.size.y
+	) * 0.5
+	word_input.stage_rect = custom_word_input_rect
+	content.add_child(word_input)
+
+	# Theme-dependent child controls are configured only after the component is
+	# inside the scene tree. This also keeps an input failure from hiding the
+	# already-created Check, Random and Start actions.
+	word_input.configure(custom_word_text, 15, 34)
+	word_input.avoid_virtual_keyboard = true
+	_portrait_custom_word_input = word_input
+	custom_word_input_visual = word_input
+	custom_word_edit = word_input.get_line_edit()
+	if custom_word_edit != null and !custom_word_edit.text_changed.is_connected(_on_custom_word_text_changed):
+		custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
 
 func start_custom_game() -> void:
 	# Two-player rounds always start without comments or hints.
