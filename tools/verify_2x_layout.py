@@ -259,33 +259,30 @@ def verify_stretchable_long_buttons() -> None:
 def verify_hint_button_migration() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
-    long_button = read("scripts/ui/stage_long_button.gd")
+    round_button = read("scripts/ui/stage_round_button.gd")
 
-    require("var selected: bool = false:" in long_button, "Persistent blue long-button state is missing")
-    require("var use_pressed_parts: bool = selected or _is_down" in long_button, "Selected long buttons are not blue")
-    require("if button_text.is_empty():" in long_button, "Icon-only long buttons do not center their icon")
+    require("var selected: bool = false:" in round_button, "Persistent blue round-button state is missing")
+    require("elif selected:" in round_button, "Selected round buttons are not blue")
     require("_stage_texture_button(" not in main + portrait, "A legacy hint-texture button call remains")
-    require("FLASH_STAGE_TEXTURE_BUTTON_SCRIPT" not in main, "Unused generic texture-button factory remains")
     require("HINT_OPEN_BUTTON_TEXTURE" not in main + portrait, "Legacy blue hint texture remains referenced")
     require("HINT_REMOVE_BUTTON_TEXTURE" not in main + portrait, "Legacy orange hint texture remains referenced")
-
     require(
-        main.count("HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0)") == 1
-        and main.count("HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0)") == 1,
-        "Landscape hints are not icon-only adaptive long buttons",
+        "const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT" in portrait
+        and "const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT" in portrait
+        and "const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT" in portrait
+        and "func _stage_portrait_hint_buttons() -> void:" in portrait,
+        "Gameplay does not build the three bottom hint actions",
     )
     require(
-        portrait.count("HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0)") == 1
-        and portrait.count("HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0)") == 1,
-        "Portrait hints are not icon-only adaptive long buttons",
+        'Callable(self, "_use_open_hint")' in portrait
+        and 'Callable(self, "_use_remove_hint")' in portrait
+        and 'Callable(self, "_use_comment_hint")' in portrait,
+        "One of the three gameplay hint actions is missing",
     )
     require(
-        'Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled' in main,
-        "Settings switches do not use selected adaptive long buttons",
-    )
-    require(
-        'Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected' in main,
-        "Word-database switches do not use selected adaptive long buttons",
+        "func _stage_portrait_hint_counter(button_rect: Rect2, count: int) -> void:" in portrait
+        and portrait.count("_stage_portrait_hint_counter(") == 4,
+        "Global hint counters are not rendered on all three buttons",
     )
 
     obsolete_assets = (
@@ -296,7 +293,6 @@ def verify_hint_button_migration() -> None:
     )
     for filename in obsolete_assets:
         require(not (ROOT / "flash_assets" / filename).exists(), f"Obsolete whole-button texture remains: {filename}")
-
 
 def verify_footer_buttons_and_hero_scale() -> None:
     portrait = read("scripts/main_portrait.gd")
@@ -319,19 +315,17 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Shortened footer buttons do not preserve their center",
     )
     require(
-        portrait.count("_portrait_footer_long_button_rect(") == 8,
+        portrait.count("_portrait_footer_long_button_rect(") == 7,
         "Not every portrait footer long button uses the 15% width reduction",
     )
     require(
-        portrait.count("_portrait_footer_round_button_rect(") == 10
-        and portrait.count("_portrait_footer_icon_size(") == 11
-        and portrait.count("_portrait_footer_font_size(") == 6,
-        "Not every bottom-blue-block button, icon, and label uses the 10% scale",
+        portrait.count("_portrait_footer_round_button_rect(") == 9
+        and portrait.count("_portrait_footer_icon_size(") == 8
+        and portrait.count("_portrait_footer_font_size(") == 5,
+        "Not every remaining bottom control, icon, and label uses the 10% scale",
     )
     require(
         "const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)"
-        in portrait
-        and "const PORTRAIT_GAME_COMMENT_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT"
         in portrait
         and "const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT"
         in portrait
@@ -422,14 +416,14 @@ def verify_lives_counter() -> None:
     require("PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)" in portrait, "Lives label placement changed")
     require(math.isclose(29.4, 42.0 * 0.70) and math.isclose(26.6, 38.0 * 0.70), "Lives heart is not 30% smaller")
     require(math.isclose(57.7 + 26.6 * 0.5, 50.0 + 42.0 * 0.5), "Lives heart and label are not vertically aligned")
-    require(57.7 + 26.6 < 124.0 and 50.0 + 42.0 < 124.0, "Lives counter is not above the hint buttons")
+    require(57.7 + 26.6 < 124.0 and 50.0 + 42.0 < 124.0, "Lives counter is not contained in the header area")
     require(50.0 < 68.0, "Lives counter was not moved upward")
 
     refresh = portrait[portrait.index("func _refresh_game_screen()") : portrait.index("func _stage_portrait_game_word_display")]
     require(refresh.count("_stage_portrait_lives_counter(upper_block_shift)") == 1, "Lives counter is not staged exactly once")
     require(
-        refresh.index("_stage_portrait_lives_counter(upper_block_shift)") < refresh.index("if stage_upper_hints:"),
-        "Lives counter incorrectly disappears in Two Player mode",
+        refresh.index("_stage_portrait_lives_counter(upper_block_shift)") < refresh.index("_portrait_end_adaptive_group(hero_root_content)"),
+        "Lives counter is not staged in the shared upper gameplay block",
     )
 
 
@@ -443,7 +437,7 @@ def verify_hint_letter_animations() -> None:
         "Hint-selected letters are not exposed before the keyboard refresh",
     )
     open_hint = session[session.index("func use_open_letter_hint()") : session.index("func use_remove_wrong_hint()")]
-    remove_hint = session[session.index("func use_remove_wrong_hint()") : session.index("func get_masked_word()")]
+    remove_hint = session[session.index("func use_remove_wrong_hint()") : session.index("func unlock_comment_hint()")]
     for source, name in ((open_hint, "open-letter"), (remove_hint, "remove-wrong")):
         require(
             source.index('emit_signal("hint_letters_selected"') < source.index('emit_signal("changed")'),
@@ -461,9 +455,8 @@ def verify_hint_letter_animations() -> None:
     )
     require("var pending_letter_markers := PackedStringArray()" in main, "Multiple pending hint markers are unsupported")
     require(
-        main.count("pending_letter_markers.has(letter)") == 1
-        and portrait.count("pending_letter_markers.has(letter)") == 1,
-        "Hint markers do not use the normal letter-button animation in both layouts",
+        portrait.count("pending_letter_markers.has(letter)") == 2,
+        "Hint markers do not use the normal portrait letter-button animation",
     )
     require(
         "pending_letter_markers = letters.duplicate()" in main,
@@ -481,31 +474,102 @@ def verify_hint_letter_animations() -> None:
     )
 
 
+def verify_global_hint_inventory() -> None:
+    state = read("scripts/core/game_state.gd")
+    session = read("scripts/core/game_session.gd")
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+
+    for key in ("HINT_OPEN_LETTER", "HINT_REMOVE_WRONG", "HINT_COMMENT"):
+        require(key in state, f"Global hint key is missing: {key}")
+    require(
+        '"hint_counts": hint_counts' in state
+        and "func get_hint_count(hint_key: String) -> int:" in state
+        and "func consume_hint(hint_key: String) -> bool:" in state,
+        "Hint inventory is not persisted and consumed globally",
+    )
+    require(
+        "GameState.consume_hint(GameState.HINT_OPEN_LETTER)" in session
+        and "GameState.consume_hint(GameState.HINT_REMOVE_WRONG)" in session
+        and "GameState.consume_hint(GameState.HINT_COMMENT)" in session,
+        "Hint activation does not decrement all three global counters",
+    )
+    require(
+        "var remove_count: int = 3" in session,
+        "The wrong-letter hint does not remove exactly three letters",
+    )
+    require(
+        "var comment_hint_unlocked: bool = false" in session
+        and "func unlock_comment_hint() -> bool:" in session
+        and "func can_view_comment_hint() -> bool:" in session
+        and "if GameSession.comment_hint_unlocked:" in main
+        and "if !GameSession.can_view_comment_hint():" in portrait,
+        "Comment hint is not a one-time unlock with repeatable viewing",
+    )
+
+
 def verify_game_footer_navigation_and_two_player_hero() -> None:
     portrait = read("scripts/main_portrait.gd")
-    footer = portrait[
-        portrait.index("var comment_disabled: bool = GameSession.get_word_hint().strip_edges()") :
-        portrait.index("pending_letter_markers.clear()", portrait.index("var comment_disabled: bool = GameSession.get_word_hint().strip_edges()"))
+    refresh = portrait[
+        portrait.index("func _refresh_game_screen()") :
+        portrait.index("func _stage_portrait_game_word_display")
     ]
     require(
-        '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))' in footer,
-        "Classic and Two Player gameplay do not show the confirmed round-exit action",
+        "_portrait_screen(0.0)" in refresh
+        and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" not in refresh,
+        "Gameplay still draws the bottom blue footer backdrop",
+    )
+    require(
+        "const PORTRAIT_GAME_EXIT_ICON_SIZE := Vector2(18.4, 18.4)" in portrait
+        and "PORTRAIT_PAGE_BACK_BUTTON_RECT" in refresh
+        and 'Callable(self, "_show_exit_game_popup")' in refresh
+        and "RESULT_CLOSE_ICON" in refresh
+        and "PORTRAIT_GAME_EXIT_ICON_SIZE" in refresh
+        and "PORTRAIT_GAME_BACK_BUTTON_RECT" not in portrait,
+        "Gameplay exit is not using the compact shared top-left navigation position",
+    )
+    require(
+        'Callable(self, "show_theme_select")' not in refresh,
+        "Classic gameplay still exposes the removed theme-selection shortcut",
+    )
+    require(
+        "_stage_portrait_game_header()" in refresh
+        and "func _stage_portrait_game_header() -> void:" in portrait
+        and '_single_player_text("Классика", "Classic")' in portrait
+        and '_single_player_text("2 игрока", "2 players")' in portrait
+        and 'title = "%s %d" % [_single_player_level_label(), level_number]' in portrait
+        and "Database.get_theme_name(GameSession.theme_id).to_upper()" in portrait,
+        "Gameplay mode titles and category subtitles are not staged in the centered header",
+    )
+    require(
+        "const PORTRAIT_GAME_SUBTITLE_RECT := Rect2(140.0, 72.0, 200.0, 32.0)" in portrait
+        and "PORTRAIT_PAGE_TITLE_RECT," in portrait
+        and "\t\t38," in portrait
+        and "\t\t22," in portrait,
+        "Gameplay header no longer matches the category title or its larger subtitle geometry",
     )
     require(
         "const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT" in portrait
-        and '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))' in footer,
-        "Two Player gameplay does not show the new-word refresh action beside Comment",
+        and '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))' in refresh,
+        "Two Player gameplay lost the new-word refresh action",
+    )
+    require(
+        "_stage_portrait_hint_buttons()" in refresh
+        and "PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT" in portrait
+        and "PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT" in portrait
+        and "PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT" in portrait,
+        "The footerless gameplay screen does not expose all three bottom hints",
     )
 
-    refresh = portrait[
+    hero_setup = portrait[
         portrait.index("func _refresh_game_screen()") :
-        portrait.index("var stage_upper_hints:", portrait.index("func _refresh_game_screen()"))
+        portrait.index("_stage_portrait_lives_counter(upper_block_shift)", portrait.index("func _refresh_game_screen()"))
     ]
     require(
         "const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0" in portrait
-        and "hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5" in refresh
-        and "hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X" in refresh
-        and "hero_pivot.x - 62.0" not in refresh,
+        and "hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5" in hero_setup
+        and "hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X" in hero_setup
+        and "hero_pivot.x - 62.0" not in hero_setup,
         "The Two Player hero is not centered by the visible imported-art bounds",
     )
 
@@ -698,9 +762,23 @@ def verify_native_custom_word_input() -> None:
         portrait.index("func start_custom_game()", portrait.index("func show_custom_word()"))
     ]
     require(
-        "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" in custom_screen
-        and 'Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(37, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER' in custom_screen,
-        "Two Player input does not use the theme-screen title on a headerless background",
+        "_portrait_screen(0.0)" in custom_screen
+        and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" not in custom_screen
+        and '_stage_portrait_page_header(' in custom_screen
+        and 'Database.tr_text(37, "Input the word")' in custom_screen
+        and 'Callable(self, "show_menu")' in custom_screen
+        and "_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT)" not in custom_screen,
+        "Two Player input does not use the shared top navigation row on a footerless background",
+    )
+    require(
+        "const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80" in portrait
+        and "const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE" in portrait
+        and "const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 23.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)" in portrait
+        and "const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)" in portrait
+        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(80.0, 14.0, 320.0, 70.0)" in portrait
+        and "func _stage_portrait_page_header(title: String, back_callable: Callable) -> void:" in portrait
+        and "_fit_single_line_label_to_width(" in portrait,
+        "The shared portrait page header does not keep a 20-percent smaller Back button independent from a screen-centered fitted title",
     )
     require(
         "const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)" in portrait
@@ -1055,6 +1133,14 @@ def verify_profile_theme_and_about_ui() -> None:
         portrait.index("func show_theme_select()") : portrait.index("func _show_clear_theme_popup(")
     ]
     require(
+        "_portrait_screen(0.0)" in portrait_themes
+        and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" not in portrait_themes
+        and '_stage_portrait_page_header(theme_title, Callable(self, "show_menu"))' in portrait_themes
+        and "_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT)" not in portrait_themes
+        and "_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT)" in portrait_themes,
+        "Theme selection does not use top Back navigation with a footerless floating difficulty control",
+    )
+    require(
         "const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0" in main
         and "Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0)"
         in portrait_themes
@@ -1108,6 +1194,7 @@ def main() -> None:
     verify_footer_buttons_and_hero_scale()
     verify_lives_counter()
     verify_hint_letter_animations()
+    verify_global_hint_inventory()
     verify_game_footer_navigation_and_two_player_hero()
     verify_android_vibration_feedback()
     verify_android_network_and_result_search()

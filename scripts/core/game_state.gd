@@ -1,6 +1,10 @@
 extends Node
 
 const SAVE_PATH := "user://save_hangman.json"
+const HINT_OPEN_LETTER: String = "open_letter"
+const HINT_REMOVE_WRONG: String = "remove_wrong"
+const HINT_COMMENT: String = "comment"
+const DEFAULT_HINT_COUNT: int = 100
 
 var interface_language: String = "ru"
 var word_language: String = "ru"
@@ -9,7 +13,7 @@ var player_name: String = ""
 # AS3 Settings:
 # 0 - show first/last letters in two-player mode: 1 off, 2 on
 # 1 - hints in two-player mode: 1 off, 2 on
-# 2 - word pool: 1 hard mode, 2 normal mode (easy words)
+# 2 - Classic word pool: 1 hard mode, 2 normal mode (easy words)
 # 3 - sound/music: 1 off, 2 on
 # 4 - vibration: 1 off, 2 on
 # 5 - hero: 1 Lucky, 2 El Tigre
@@ -22,6 +26,11 @@ var records: Array = [[0, 0, 0, 0], [0, 0]]
 
 var progress: Dictionary = {}
 var single_player: Dictionary = {}
+var hint_counts: Dictionary = {
+	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
+	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
+	HINT_COMMENT: DEFAULT_HINT_COUNT,
+}
 var current_mode: int = 0 # 0 classic, 1 two-player, 2 level mode
 
 func _ready() -> void:
@@ -58,6 +67,9 @@ func load_game() -> void:
 	var loaded_single_player = parsed.get("single_player", single_player)
 	if loaded_single_player is Dictionary:
 		single_player = loaded_single_player
+	var loaded_hint_counts = parsed.get("hint_counts", hint_counts)
+	if loaded_hint_counts is Dictionary:
+		hint_counts = loaded_hint_counts
 	_normalize_arrays()
 
 func _set_interface_language_from_locale() -> void:
@@ -81,7 +93,8 @@ func save_game() -> void:
 		"settings": settings,
 		"records": records,
 		"progress": progress,
-		"single_player": single_player
+		"single_player": single_player,
+		"hint_counts": hint_counts
 	}, "\t"))
 	file.close()
 
@@ -100,7 +113,25 @@ func _normalize_arrays() -> void:
 	# exposes only normal (easy words) and hard modes, so migrate legacy/general
 	# saves to the normal mode.
 	settings[2] = 1 if int(settings[2]) == 1 else 2
+	_normalize_hint_counts()
 	_normalize_single_player()
+
+func _normalize_hint_counts() -> void:
+	for hint_key in [HINT_OPEN_LETTER, HINT_REMOVE_WRONG, HINT_COMMENT]:
+		hint_counts[hint_key] = maxi(int(hint_counts.get(hint_key, DEFAULT_HINT_COUNT)), 0)
+
+func get_hint_count(hint_key: String) -> int:
+	_normalize_hint_counts()
+	return maxi(int(hint_counts.get(hint_key, 0)), 0)
+
+func consume_hint(hint_key: String) -> bool:
+	_normalize_hint_counts()
+	var current_count: int = maxi(int(hint_counts.get(hint_key, 0)), 0)
+	if current_count <= 0:
+		return false
+	hint_counts[hint_key] = current_count - 1
+	save_game()
+	return true
 
 func reset_current_game() -> void:
 	current_mode = 0
@@ -154,9 +185,10 @@ func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
 		item["guessed"][i] = false
 	save_game()
 
-func _normalize_single_player_difficulty(value: int = -1) -> int:
-	var resolved: int = int(settings[2]) if value < 0 else value
-	return 1 if resolved == 1 else 2
+func _normalize_single_player_difficulty(_value: int = -1) -> int:
+	# The single-player campaign has one shared progression track. The difficulty
+	# selector remains available only in Classic mode.
+	return 0
 
 func _normalize_single_player_progress_bucket(value: Variant) -> Dictionary:
 	var progress_bucket: Dictionary = {}
@@ -169,10 +201,22 @@ func _normalize_single_player_progress_bucket(value: Variant) -> Dictionary:
 		progress_bucket["levels"] = {}
 	if !progress_bucket.has("level_generations") or !(progress_bucket["level_generations"] is Dictionary):
 		progress_bucket["level_generations"] = {}
+	if !progress_bucket.has("selected_themes") or !(progress_bucket["selected_themes"] is Dictionary):
+		progress_bucket["selected_themes"] = {}
+	if !progress_bucket.has("level_seeds") or !(progress_bucket["level_seeds"] is Dictionary):
+		progress_bucket["level_seeds"] = {}
 	var level_generations: Dictionary = progress_bucket["level_generations"]
 	for level_key in level_generations.keys():
 		level_generations[level_key] = maxi(int(level_generations[level_key]), 0)
 	progress_bucket["level_generations"] = level_generations
+	var selected_themes: Dictionary = progress_bucket["selected_themes"]
+	for level_key in selected_themes.keys():
+		selected_themes[level_key] = int(selected_themes[level_key])
+	progress_bucket["selected_themes"] = selected_themes
+	var level_seeds: Dictionary = progress_bucket["level_seeds"]
+	for seed_level_key in level_seeds.keys():
+		level_seeds[seed_level_key] = maxi(int(level_seeds[seed_level_key]), 1)
+	progress_bucket["level_seeds"] = level_seeds
 	var levels: Dictionary = progress_bucket["levels"]
 	for level_key in levels.keys():
 		if !(levels[level_key] is Array):
@@ -185,6 +229,21 @@ func _normalize_single_player_progress_bucket(value: Variant) -> Dictionary:
 	progress_bucket["levels"] = levels
 	return progress_bucket
 
+func _single_player_progress_score(progress_bucket: Dictionary) -> int:
+	var score: int = maxi(int(progress_bucket.get("unlocked_level", 0)), 0) * 10000
+	var selected_themes: Variant = progress_bucket.get("selected_themes", {})
+	if selected_themes is Dictionary:
+		score += selected_themes.size() * 100
+	var levels: Variant = progress_bucket.get("levels", {})
+	if levels is Dictionary:
+		for statuses_value in levels.values():
+			if !(statuses_value is Array):
+				continue
+			for status in statuses_value:
+				if _normalize_single_level_status(status) != 0:
+					score += 1
+	return score
+
 func _normalize_single_player() -> void:
 	if !(single_player is Dictionary):
 		single_player = {}
@@ -193,27 +252,34 @@ func _normalize_single_player() -> void:
 			single_player[lang_key] = {}
 		var bucket: Dictionary = single_player[lang_key]
 
-		# Migrate the original language-level progress into the normal-mode bucket.
-		# Hard mode starts independently, so changing difficulty never changes the
-		# words underneath already played level slots.
-		if !bucket.has("difficulty_progress") or !(bucket["difficulty_progress"] is Dictionary):
-			var legacy_levels: Dictionary = {}
-			if bucket.has("levels") and bucket["levels"] is Dictionary:
-				legacy_levels = bucket["levels"].duplicate(true)
-			bucket["difficulty_progress"] = {
-				"2": {
-					"unlocked_level": maxi(int(bucket.get("unlocked_level", 0)), 0),
-					"levels": legacy_levels,
-					"level_generations": {},
-				},
-				"1": {"unlocked_level": 0, "levels": {}, "level_generations": {}},
-			}
-		var difficulty_progress: Dictionary = bucket["difficulty_progress"]
-		for difficulty_key in ["1", "2"]:
-			difficulty_progress[difficulty_key] = _normalize_single_player_progress_bucket(
-				difficulty_progress.get(difficulty_key, {})
-			)
-		bucket["difficulty_progress"] = difficulty_progress
+		# Older builds kept independent Normal and Hard campaigns. Keep whichever
+		# track progressed furthest and migrate it into the new shared campaign.
+		var campaign_source: Dictionary = {}
+		var best_score: int = -1
+		if bucket.has("levels") and bucket["levels"] is Dictionary:
+			var legacy_bucket := _normalize_single_player_progress_bucket({
+				"unlocked_level": maxi(int(bucket.get("unlocked_level", 0)), 0),
+				"levels": bucket["levels"].duplicate(true),
+				"level_generations": {},
+				"selected_themes": {},
+				"level_seeds": {},
+			})
+			campaign_source = legacy_bucket
+			best_score = _single_player_progress_score(legacy_bucket)
+		var difficulty_progress: Dictionary = {}
+		if bucket.has("difficulty_progress") and bucket["difficulty_progress"] is Dictionary:
+			difficulty_progress = bucket["difficulty_progress"]
+		for difficulty_key in ["0", "2", "1"]:
+			if !difficulty_progress.has(difficulty_key):
+				continue
+			var candidate := _normalize_single_player_progress_bucket(difficulty_progress[difficulty_key])
+			var candidate_score: int = _single_player_progress_score(candidate)
+			if candidate_score > best_score:
+				campaign_source = candidate
+				best_score = candidate_score
+		bucket["difficulty_progress"] = {
+			"0": _normalize_single_player_progress_bucket(campaign_source)
+		}
 		bucket.erase("unlocked_level")
 		bucket.erase("levels")
 
@@ -237,8 +303,13 @@ func _single_player_bucket(lang: String) -> Dictionary:
 	if !single_player.has(lang_key) or !(single_player[lang_key] is Dictionary):
 		single_player[lang_key] = {
 			"difficulty_progress": {
-				"2": {"unlocked_level": 0, "levels": {}, "level_generations": {}},
-				"1": {"unlocked_level": 0, "levels": {}, "level_generations": {}},
+				"0": {
+					"unlocked_level": 0,
+					"levels": {},
+					"level_generations": {},
+					"selected_themes": {},
+					"level_seeds": {},
+				}
 			},
 			"word_stats": {},
 		}
@@ -246,10 +317,9 @@ func _single_player_bucket(lang: String) -> Dictionary:
 	if !bucket.has("difficulty_progress") or !(bucket["difficulty_progress"] is Dictionary):
 		bucket["difficulty_progress"] = {}
 	var difficulty_progress: Dictionary = bucket["difficulty_progress"]
-	for difficulty_key in ["1", "2"]:
-		difficulty_progress[difficulty_key] = _normalize_single_player_progress_bucket(
-			difficulty_progress.get(difficulty_key, {})
-		)
+	difficulty_progress["0"] = _normalize_single_player_progress_bucket(
+		difficulty_progress.get("0", {})
+	)
 	bucket["difficulty_progress"] = difficulty_progress
 	if !bucket.has("word_stats") or !(bucket["word_stats"] is Dictionary):
 		bucket["word_stats"] = {}
@@ -325,6 +395,64 @@ func get_single_level_generation(lang: String, level_index: int, difficulty: int
 	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
 	var level_generations: Dictionary = progress_bucket["level_generations"]
 	return maxi(int(level_generations.get(str(level_index), 0)), 0)
+
+func get_or_create_single_level_seed(lang: String, level_index: int, difficulty: int = -1) -> int:
+	if level_index < 0:
+		return 1
+	var resolved_difficulty := _normalize_single_player_difficulty(difficulty)
+	var lang_key := _normalize_language(lang)
+	var root_bucket := _single_player_bucket(lang_key)
+	var difficulty_progress: Dictionary = root_bucket["difficulty_progress"]
+	var difficulty_key := str(resolved_difficulty)
+	var progress_bucket := _normalize_single_player_progress_bucket(
+		difficulty_progress.get(difficulty_key, {})
+	)
+	var level_key := str(level_index)
+	var level_seeds: Dictionary = progress_bucket["level_seeds"]
+	var seed: int = maxi(int(level_seeds.get(level_key, 0)), 0)
+	if seed <= 0:
+		seed = maxi(int(randi() & 0x7fffffff), 1)
+		level_seeds[level_key] = seed
+		progress_bucket["level_seeds"] = level_seeds
+		difficulty_progress[difficulty_key] = progress_bucket
+		root_bucket["difficulty_progress"] = difficulty_progress
+		single_player[lang_key] = root_bucket
+		save_game()
+	return seed
+
+func get_single_level_selected_theme(lang: String, level_index: int, difficulty: int = -1) -> int:
+	if level_index < 0:
+		return -1
+	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
+	var selected_themes: Dictionary = progress_bucket["selected_themes"]
+	return int(selected_themes.get(str(level_index), -1))
+
+func select_single_level_theme(lang: String, level_index: int, theme_index: int, word_count: int, difficulty: int = -1) -> void:
+	if level_index < 0 or theme_index < 0:
+		return
+	var resolved_difficulty := _normalize_single_player_difficulty(difficulty)
+	var lang_key := _normalize_language(lang)
+	var root_bucket := _single_player_bucket(lang_key)
+	var difficulty_progress: Dictionary = root_bucket["difficulty_progress"]
+	var difficulty_key := str(resolved_difficulty)
+	var progress_bucket := _normalize_single_player_progress_bucket(
+		difficulty_progress.get(difficulty_key, {})
+	)
+	var level_key := str(level_index)
+	var selected_themes: Dictionary = progress_bucket["selected_themes"]
+	if int(selected_themes.get(level_key, -1)) >= 0:
+		return
+	selected_themes[level_key] = theme_index
+	progress_bucket["selected_themes"] = selected_themes
+	var levels: Dictionary = progress_bucket["levels"]
+	var statuses: Array = []
+	_resize_single_level_status_array(statuses, word_count)
+	levels[level_key] = statuses
+	progress_bucket["levels"] = levels
+	difficulty_progress[difficulty_key] = progress_bucket
+	root_bucket["difficulty_progress"] = difficulty_progress
+	single_player[lang_key] = root_bucket
+	save_game()
 
 func ensure_single_level_progress(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> Array:
 	var lang_key := _normalize_language(lang)
@@ -423,6 +551,12 @@ func regenerate_single_level(lang: String, level_index: int, word_count: int, di
 		statuses[status_index] = 0
 	levels[level_key] = statuses
 	progress_bucket["levels"] = levels
+	var selected_themes: Dictionary = progress_bucket["selected_themes"]
+	selected_themes.erase(level_key)
+	progress_bucket["selected_themes"] = selected_themes
+	var level_seeds: Dictionary = progress_bucket["level_seeds"]
+	level_seeds.erase(level_key)
+	progress_bucket["level_seeds"] = level_seeds
 
 	difficulty_progress[difficulty_key] = progress_bucket
 	root_bucket["difficulty_progress"] = difficulty_progress

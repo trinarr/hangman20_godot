@@ -21,6 +21,7 @@ var is_active: bool = false
 var mode: int = 0 # 0 classic, 1 two-player, 2 level mode
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
+var comment_hint_unlocked: bool = false
 var word_hint_text: String = ""
 
 func get_remaining_attempts() -> int:
@@ -39,6 +40,7 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	mistakes = 0
 	open_hint_used = false
 	remove_wrong_hint_used = false
+	comment_hint_unlocked = false
 	word_hint_text = _resolve_word_hint()
 	is_active = word.text.length() > 0
 	for i in range(letters.size()):
@@ -117,10 +119,37 @@ func _reveal_letter(letter: String) -> bool:
 	return found
 
 func can_use_open_letter_hint() -> bool:
-	return is_active and !open_hint_used and _has_hidden_letter() and _hints_allowed()
+	return (
+		is_active
+		and !open_hint_used
+		and _has_hidden_letter()
+		and _hints_allowed()
+		and GameState.get_hint_count(GameState.HINT_OPEN_LETTER) > 0
+	)
 
 func can_use_remove_wrong_hint() -> bool:
-	return is_active and !remove_wrong_hint_used and _has_removable_wrong_letter() and _hints_allowed()
+	return (
+		is_active
+		and !remove_wrong_hint_used
+		and _has_removable_wrong_letter()
+		and _hints_allowed()
+		and GameState.get_hint_count(GameState.HINT_REMOVE_WRONG) > 0
+	)
+
+func has_word_hint() -> bool:
+	return word_hint_text.strip_edges() != ""
+
+func can_unlock_comment_hint() -> bool:
+	return (
+		is_active
+		and !comment_hint_unlocked
+		and has_word_hint()
+		and _hints_allowed()
+		and GameState.get_hint_count(GameState.HINT_COMMENT) > 0
+	)
+
+func can_view_comment_hint() -> bool:
+	return is_active and comment_hint_unlocked and has_word_hint() and _hints_allowed()
 
 func _hints_allowed() -> bool:
 	# Category rounds always allow both hint buttons; custom rounds follow their own setting.
@@ -150,6 +179,8 @@ func use_open_letter_hint() -> bool:
 			candidates.append(i)
 	if candidates.is_empty():
 		return false
+	if !GameState.consume_hint(GameState.HINT_OPEN_LETTER):
+		return false
 	open_hint_used = true
 	var index: int = candidates[randi() % candidates.size()]
 	var selected_letter: String = letters[index]
@@ -175,10 +206,12 @@ func use_remove_wrong_hint() -> bool:
 			candidates.append(letter)
 	if candidates.is_empty():
 		return false
+	if !GameState.consume_hint(GameState.HINT_REMOVE_WRONG):
+		return false
 	remove_wrong_hint_used = true
-	# The newer FLA removes three Russian or two English keyboard letters.
-	# They are selected without replacement and never count as mistakes.
-	var remove_count: int = 2 if Database.get_alphabet().size() == 26 else 3
+	# Remove exactly three unavailable keyboard letters in every language. They
+	# are selected without replacement and never count as mistakes.
+	var remove_count: int = 3
 	var selected_letters := PackedStringArray()
 	for _index in range(mini(remove_count, candidates.size())):
 		var candidate_index: int = randi() % candidates.size()
@@ -187,6 +220,18 @@ func use_remove_wrong_hint() -> bool:
 		selected_letters.append(selected_letter)
 		candidates.remove_at(candidate_index)
 	emit_signal("hint_letters_selected", selected_letters, false)
+	GameState.save_game()
+	emit_signal("changed")
+	return true
+
+func unlock_comment_hint() -> bool:
+	if comment_hint_unlocked:
+		return can_view_comment_hint()
+	if !can_unlock_comment_hint():
+		return false
+	if !GameState.consume_hint(GameState.HINT_COMMENT):
+		return false
+	comment_hint_unlocked = true
 	GameState.save_game()
 	emit_signal("changed")
 	return true
@@ -217,6 +262,7 @@ func discard_current_round() -> void:
 	mode = 0
 	open_hint_used = false
 	remove_wrong_hint_used = false
+	comment_hint_unlocked = false
 	word_hint_text = ""
 	GameState.reset_current_game()
 

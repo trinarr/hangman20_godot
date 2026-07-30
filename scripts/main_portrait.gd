@@ -10,6 +10,12 @@ const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
 const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(404.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
+const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80
+const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE
+const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 23.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
+const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
+const PORTRAIT_PAGE_TITLE_RECT := Rect2(80.0, 14.0, 320.0, 70.0)
+const PORTRAIT_GAME_SUBTITLE_RECT := Rect2(140.0, 72.0, 200.0, 32.0)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
@@ -37,6 +43,9 @@ const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.15
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const PORTRAIT_RESULT_THEME_MENU_ICON: Texture2D = preload("res://flash_assets/result_theme_menu_icon.png")
+const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
+const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
+const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -47,11 +56,15 @@ const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
-const PORTRAIT_GAME_BACK_BUTTON_RECT := PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT
-const PORTRAIT_GAME_COMMENT_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT
+const PORTRAIT_GAME_EXIT_ICON_SIZE := Vector2(18.4, 18.4)
+const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2(120.0, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(42.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(180.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(318.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(72.0, 72.0)
+const PORTRAIT_GAME_HINT_ART_RISE: float = 18.0
 const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT
-const PORTRAIT_GAME_HINT_OPEN_RECT := Rect2(135.0, 604.0, 90.0, 46.0)
-const PORTRAIT_GAME_HINT_REMOVE_RECT := Rect2(255.0, 604.0, 90.0, 46.0)
+const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 const PORTRAIT_LIVES_ICON_RECT := Rect2(344.0, 57.7, 29.4, 26.6)
 const PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)
 const PORTRAIT_LAST_LIFE_FIRST_BOUNCE_SCALE: float = 1.20
@@ -133,6 +146,95 @@ func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: f
 	_stage_horizontal_fill(0.0, header_height, PORTRAIT_BLUE)
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
+
+func _stage_portrait_page_header(title: String, back_callable: Callable) -> void:
+	_stage_round_icon_button(
+		PORTRAIT_PAGE_BACK_BUTTON_RECT,
+		back_callable,
+		PORTRAIT_BACK_ARROW_ICON,
+		PORTRAIT_PAGE_BACK_ICON_SIZE
+	)
+	var title_label := _stage_label(
+		PORTRAIT_PAGE_TITLE_RECT,
+		title,
+		38,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	title_label.clip_text = false
+	_fit_single_line_label_to_width(
+		title_label,
+		title,
+		PORTRAIT_PAGE_TITLE_RECT.size.x,
+		38,
+		28
+	)
+
+func _stage_portrait_game_header() -> void:
+	var title: String = ""
+	var subtitle: String = ""
+	match GameState.current_mode:
+		MODE_TWO_PLAYER:
+			title = _single_player_text("2 игрока", "2 players")
+		MODE_SINGLE_PLAYER:
+			var level_number: int = single_player_active_level_index + 1
+			if level_number <= 0:
+				level_number = _single_player_current_level_number()
+			title = "%s %d" % [_single_player_level_label(), level_number]
+			if GameSession.theme_id >= 0:
+				subtitle = Database.get_theme_name(GameSession.theme_id).to_upper()
+		_:
+			title = _single_player_text("Классика", "Classic")
+			if GameSession.theme_id >= 0:
+				subtitle = Database.get_theme_name(GameSession.theme_id).to_upper()
+
+	# Match the exact title geometry used by the category screen.  When a
+	# subtitle is present, treat the two lines as one centered block whose total
+	# vertical center aligns with the close button.
+	var title_rect: Rect2 = PORTRAIT_PAGE_TITLE_RECT
+	var subtitle_rect: Rect2 = PORTRAIT_GAME_SUBTITLE_RECT
+	if !subtitle.is_empty():
+		var button_center_y: float = PORTRAIT_PAGE_BACK_BUTTON_RECT.get_center().y
+		var block_height: float = 64.0
+		var block_top: float = button_center_y - block_height * 0.5
+		title_rect = Rect2(80.0, block_top, 320.0, 38.0)
+		subtitle_rect = Rect2(100.0, block_top + 40.0, 280.0, 24.0)
+
+	var title_label := _stage_label(
+		title_rect,
+		title,
+		38,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	title_label.clip_text = false
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_fit_single_line_label_to_width(
+		title_label,
+		title,
+		title_rect.size.x,
+		38,
+		28
+	)
+
+	if subtitle.is_empty():
+		return
+	var subtitle_label := _stage_label(
+		subtitle_rect,
+		subtitle,
+		26,
+		PORTRAIT_ORANGE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	subtitle_label.clip_text = false
+	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_fit_single_line_label_to_width(
+		subtitle_label,
+		subtitle,
+		subtitle_rect.size.x,
+		26,
+		16
+	)
 
 func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = PORTRAIT_POPUP_DIM_ALPHA) -> Control:
 	_play_popup_open_sound()
@@ -330,13 +432,13 @@ func _show_about_popup() -> void:
 
 func show_theme_select() -> void:
 	_clear("")
-	# Keep the category cards on the graph-paper background and move all screen
-	# navigation into a rigid footer block that follows the physical bottom edge.
-	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	# Category navigation now uses a compact top row. The difficulty control
+	# remains bottom-attached, but the graph-paper background is uninterrupted.
+	_portrait_screen(0.0)
 	var theme_title: String = Database.tr_text(28, "Choose the category:").strip_edges()
 	if theme_title.ends_with(":"):
 		theme_title = theme_title.substr(0, theme_title.length() - 1)
-	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), theme_title, 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	_stage_portrait_page_header(theme_title, Callable(self, "show_menu"))
 
 	for i in range(Database.get_theme_count()):
 		var col: int = i % 2
@@ -376,9 +478,8 @@ func show_theme_select() -> void:
 		theme_button.disabled = disabled
 		_bind_theme_card_press_state(theme_button, card)
 
-	# Footer controls are intentionally authored at y >= PORTRAIT_FOOTER_Y so
-	# portrait_stage_layout moves the entire blue block to the actual screen bottom.
-	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
+	# The difficulty control stays thumb-reachable at the physical bottom,
+	# without a footer backdrop or a duplicated navigation button.
 	var difficulty_button := _stage_main_button(
 		_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
 		Callable(self, "_cycle_classic_difficulty"),
@@ -397,35 +498,74 @@ func _show_clear_theme_popup(theme_index: int) -> void:
 	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(26, "Yes"), 20)
 	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
-func _show_single_player_difficulty_popup() -> void:
-	_remove_single_player_difficulty_popup()
+func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
+	_remove_single_player_theme_popup()
+	var options: Array = _single_player_level_theme_options(level_index)
+	if !options.has(theme_index):
+		return
 	var previous_content := _portrait_popup_begin(
-		"SinglePlayerDifficultyPopup",
-		"single_player_difficulty_popup",
+		"SinglePlayerThemePopup",
+		"single_player_theme_popup",
 		135,
-		Callable(self, "_remove_single_player_difficulty_popup"),
-		270.0,
-		570.0
+		Callable(self, "_remove_single_player_theme_popup"),
+		220.0,
+		610.0
 	)
-	var rect := Rect2(60.0, 270.0, 360.0, 300.0)
-	var header := _stage_panel(Rect2(rect.position, Vector2(rect.size.x, 82.0)), PORTRAIT_BLUE)
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 82.0), Vector2(rect.size.x, 218.0)), PORTRAIT_DARK_BLUE)
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 81.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(82.0, 283.0, 316.0, 54.0), _single_player_difficulty_popup_title(), 25, Color.WHITE)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	var message_label := _stage_label(Rect2(82.0, 368.0, 316.0, 76.0), _single_player_difficulty_popup_message(), 18, Color(0.92, 0.94, 1.0))
-	message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	message_label.clip_text = false
+	var rect := Rect2(48.0, 220.0, 384.0, 390.0)
+	_portrait_popup_shell(
+		rect,
+		_single_player_theme_popup_title(),
+		Callable(self, "_remove_single_player_theme_popup"),
+		26
+	)
+	var badge_rect := Rect2(185.0, 312.0, 110.0, 110.0)
+	var badge := _stage_panel(
+		badge_rect,
+		PORTRAIT_BLUE,
+		55.0,
+		PORTRAIT_ORANGE,
+		3.0
+	)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+	if theme_icon_texture != null:
+		_stage_texture(Rect2(210.0, 337.0, 60.0, 60.0), theme_icon_texture)
+	var theme_name := Database.get_theme_name(theme_index).to_upper()
+	var theme_font_size: int = 26 if theme_name.length() > 16 else 31
+	var theme_label := _stage_label(
+		Rect2(76.0, 418.0, 328.0, 48.0),
+		theme_name,
+		theme_font_size,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	theme_label.clip_text = false
+	var word_count: int = _single_player_level_word_count(level_index)
+	var details_label := _stage_label(
+		Rect2(76.0, 466.0, 328.0, 42.0),
+		"%s %d • %s" % [
+			_single_player_level_label(),
+			level_index + 1,
+			_single_player_word_count_label(word_count)
+		],
+		20,
+		Color(0.92, 0.94, 1.0),
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	details_label.clip_text = false
+	var note_label := _stage_label(
+		Rect2(82.0, 506.0, 316.0, 38.0),
+		_single_player_theme_locked_note(),
+		16,
+		Color(0.82, 0.86, 1.0),
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note_label.clip_text = false
 	_stage_portrait_popup_main_button(
-		Rect2(82.0, 492.0, 145.0, 52.0),
-		Callable(self, "_confirm_single_player_difficulty_change"),
-		tr("YES"),
+		Rect2(70.0, 552.0, 160.0, 52.0),
+		Callable(self, "_confirm_single_player_theme_selection").bind(level_index, theme_index),
+		_single_player_theme_start_label(),
 		20,
 		false,
 		0.32,
@@ -435,17 +575,10 @@ func _show_single_player_difficulty_popup() -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_stage_portrait_popup_main_button(
-		Rect2(253.0, 492.0, 145.0, 52.0),
-		Callable(self, "_remove_single_player_difficulty_popup"),
-		tr("NO"),
+		Rect2(250.0, 552.0, 160.0, 52.0),
+		Callable(self, "_remove_single_player_theme_popup"),
+		_single_player_theme_cancel_label(),
 		20
-	)
-	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
-	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
-	_stage_round_button(
-		Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE),
-		Callable(self, "_remove_single_player_difficulty_popup"),
-		"×"
 	)
 	content = previous_content
 
@@ -493,10 +626,13 @@ func show_custom_word() -> void:
 	custom_comment_text = ""
 	_set_random_custom_word()
 
-	# Match the category screen: graph-paper background, no blue header, and a
-	# centered blue page title with identical geometry and typography.
-	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
-	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), Database.tr_text(37, "Input the word"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	# Match the category screen: graph-paper background with a shared top
+	# navigation row and no footer backdrop.
+	_portrait_screen(0.0)
+	_stage_portrait_page_header(
+		Database.tr_text(37, "Input the word"),
+		Callable(self, "show_menu")
+	)
 
 	_portrait_custom_word_input = STAGE_WORD_INPUT_SCRIPT.new() as Control
 	_portrait_custom_word_input.call("configure", custom_word_text, 15, 34)
@@ -521,9 +657,7 @@ func show_custom_word() -> void:
 	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 
-	# Match the category screen footer: navigation on the left and the primary
-	# action centered inside the rigid bottom blue block.
-	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
+	# Keep the primary action bottom-attached without drawing a blue footer.
 	custom_word_start_button = _stage_main_button(
 		_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
 		Callable(self, "start_custom_game"),
@@ -558,20 +692,17 @@ func _refresh_game_screen() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var extra_stage_height: float = PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size)
 	var upper_block_shift: float = extra_stage_height * 0.5
-	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	_portrait_screen(0.0)
+	_stage_portrait_game_header()
 
-	# All gameplay modes share one portrait composition: the hero stays on the
-	# left beside hints, but is centered when Two Player has no hint controls.
-	# The word and keyboard remain attached to the footer in every mode.
-	var hero_pivot := Vector2(138.0, 206.0 + upper_block_shift)
-	var hero_stage_position := Vector2(76.0, 222.0 + upper_block_shift)
-	if GameState.current_mode == MODE_TWO_PLAYER:
-		# Two-player rounds have no hint controls, so use their free column and
-		# center the visible imported art rather than the symbol's empty origin.
-		hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5
-		hero_stage_position.x = (
-			hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X
-		)
+	# The hangman character should remain horizontally centered on the screen in
+	# every gameplay mode.  Compensate for the imported symbol's empty origin so
+	# the visible art, not the symbol pivot, sits in the middle.
+	var hero_pivot := Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 206.0 + upper_block_shift)
+	var hero_stage_position := Vector2(
+		hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X,
+		222.0 + upper_block_shift
+	)
 	var hero_root_content: Control = _portrait_begin_adaptive_group(
 		hero_pivot,
 		1.0,
@@ -584,31 +715,7 @@ func _refresh_game_screen() -> void:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
 
-	var stage_upper_hints: bool = GameState.current_mode != MODE_TWO_PLAYER
-	var open_hint_rect := Rect2(
-		340.0,
-		124.0 + upper_block_shift,
-		PORTRAIT_GAME_HINT_OPEN_RECT.size.x,
-		PORTRAIT_GAME_HINT_OPEN_RECT.size.y
-	)
-	var remove_hint_rect := Rect2(
-		340.0,
-		186.0 + upper_block_shift,
-		PORTRAIT_GAME_HINT_REMOVE_RECT.size.x,
-		PORTRAIT_GAME_HINT_REMOVE_RECT.size.y
-	)
-
 	_stage_portrait_lives_counter(upper_block_shift)
-
-	if stage_upper_hints:
-		var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
-		var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-		_stage_portrait_hint_buttons(
-			open_hint_rect,
-			remove_hint_rect,
-			open_hint_disabled,
-			remove_hint_disabled
-		)
 	_portrait_end_adaptive_group(hero_root_content)
 
 	var alphabet := Database.get_alphabet()
@@ -619,8 +726,8 @@ func _refresh_game_screen() -> void:
 	var marker_size := Vector2(44.0, 44.0)
 	var keyboard_font_size: int = 29
 
-	# Match the successful Classic keyboard in every mode. The bottom attached
-	# group keeps the footer gap stable, while the same adaptive scale preserves
+	# Match the successful Classic keyboard in every mode. The bottom-attached
+	# group keeps the action-area gap stable, while the same adaptive scale preserves
 	# the larger Two Player letter size and spacing on tall screens.
 	var keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
 		viewport_size,
@@ -673,20 +780,17 @@ func _refresh_game_screen() -> void:
 		)
 	_portrait_end_adaptive_group(keyboard_root_content)
 
-	# Every active round can be closed. In level mode the confirmation action
-	# records the current word as a defeat before returning to the word grid.
-	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_BACK_BUTTON_RECT), Callable(self, "_show_exit_game_popup"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
+	# Keep the confirmed round-exit action in the same compact top-left
+	# navigation position used by the footerless selection screens.
+	_stage_round_icon_button(
+		PORTRAIT_PAGE_BACK_BUTTON_RECT,
+		Callable(self, "_show_exit_game_popup"),
+		RESULT_CLOSE_ICON,
+		PORTRAIT_GAME_EXIT_ICON_SIZE
+	)
 	if GameState.current_mode != MODE_TWO_PLAYER:
-		var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-		var comment_button := _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_GAME_COMMENT_BUTTON_RECT), Callable(self, "_show_word_comment_popup"), Database.tr_text(41, "Comment"), _portrait_footer_font_size(22), comment_disabled, 0.0, false, false, false, LONG_BUTTON_COLOR_ORANGE)
-		if comment_disabled:
-			comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-			var comment_label := comment_button.get_node_or_null("Text") as Label
-			if comment_label != null:
-				comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
-	if GameState.current_mode == MODE_CLASSIC:
-		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
-	elif GameState.current_mode == MODE_TWO_PLAYER:
+		_stage_portrait_hint_buttons()
+	if GameState.current_mode == MODE_TWO_PLAYER:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
@@ -790,19 +894,113 @@ func _play_portrait_word_letter_bounce(letter_label: Label) -> void:
 	settle_tweener.set_trans(Tween.TRANS_BACK)
 	settle_tweener.set_ease(Tween.EASE_OUT)
 
-func _stage_portrait_hint_buttons(open_hint_rect: Rect2, remove_hint_rect: Rect2, open_hint_disabled: bool, remove_hint_disabled: bool) -> void:
+func _stage_portrait_hint_buttons() -> void:
 	var open_hint_used: bool = GameSession.open_hint_used
 	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
-	var open_hint_unavailable: bool = open_hint_disabled and !open_hint_used
-	var remove_hint_unavailable: bool = remove_hint_disabled and !remove_hint_used
-	# Activated hints mirror the blue selected state of enabled Settings toggles,
-	# but their input remains blocked because each hint can only be used once.
-	var open_hint_button := _stage_main_icon_button(open_hint_rect, Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(28.0, 28.0), 26, open_hint_unavailable, 0.0, false, open_hint_used, LONG_BUTTON_COLOR_ORANGE)
-	var remove_hint_button := _stage_main_icon_button(remove_hint_rect, Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(28.0, 28.0), 26, remove_hint_unavailable, 0.0, false, remove_hint_used, LONG_BUTTON_COLOR_ORANGE)
+	var comment_unlocked: bool = GameSession.comment_hint_unlocked
+	var open_hint_disabled: bool = !open_hint_used and !GameSession.can_use_open_letter_hint()
+	var remove_hint_disabled: bool = !remove_hint_used and !GameSession.can_use_remove_wrong_hint()
+	var comment_disabled: bool = !comment_unlocked and !GameSession.can_unlock_comment_hint()
+
+	var open_rect: Rect2 = PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT
+	var remove_rect: Rect2 = PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT
+	var comment_rect: Rect2 = PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT
+
+	# The authored long-button component remains the clickable base. The larger
+	# doodle artwork is staged separately so it can rise above the button, like a
+	# physical hint item resting on the top edge.
+	var open_button := _stage_main_button(
+		open_rect,
+		Callable(self, "_use_open_hint"),
+		"",
+		14,
+		open_hint_disabled,
+		0.0,
+		false,
+		open_hint_used,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	var remove_button := _stage_main_button(
+		remove_rect,
+		Callable(self, "_use_remove_hint"),
+		"",
+		14,
+		remove_hint_disabled,
+		0.0,
+		false,
+		remove_hint_used,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	var comment_button := _stage_main_button(
+		comment_rect,
+		Callable(self, "_use_comment_hint"),
+		"",
+		13,
+		comment_disabled,
+		0.0,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+
+	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_REVEAL_LETTER_ICON)
+	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_REMOVE_WRONG_ICON)
+	_stage_portrait_hint_art(comment_button, PORTRAIT_HINT_COMMENT_UNLOCK_ICON)
+
+	# Letter-removal and letter-opening hints are one-use actions for the current
+	# word. Keep their blue activated state without replacing it with disabled gray.
 	if open_hint_used:
-		_disable_button_input_without_changing_visual(open_hint_button)
+		_disable_button_input_without_changing_visual(open_button)
 	if remove_hint_used:
-		_disable_button_input_without_changing_visual(remove_hint_button)
+		_disable_button_input_without_changing_visual(remove_button)
+
+	# The comment remains an orange action after it has been unlocked: opening the
+	# same comment again is free and should not look like a consumed one-shot hint.
+	_stage_portrait_hint_counter(open_rect, GameState.get_hint_count(GameState.HINT_OPEN_LETTER))
+	_stage_portrait_hint_counter(remove_rect, GameState.get_hint_count(GameState.HINT_REMOVE_WRONG))
+	_stage_portrait_hint_counter(comment_rect, GameState.get_hint_count(GameState.HINT_COMMENT))
+
+func _stage_portrait_hint_art(button: Control, texture: Texture2D) -> void:
+	if button == null:
+		return
+	var art := TextureRect.new()
+	art.name = "HintArt"
+	art.texture = texture
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	art.size = PORTRAIT_GAME_HINT_ART_SIZE
+	art.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
+	art.position = Vector2(
+		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
+		-PORTRAIT_GAME_HINT_ART_RISE
+	)
+	art.z_index = 4
+	button.add_child(art)
+
+func _stage_portrait_hint_counter(button_rect: Rect2, count: int) -> void:
+	var badge_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var badge_rect := Rect2(
+		Vector2(
+			button_rect.end.x - badge_size.x * 0.72,
+			button_rect.end.y - badge_size.y * 0.82
+		),
+		badge_size
+	)
+	_stage_panel(badge_rect, PORTRAIT_DARK_BLUE, badge_size.x * 0.5)
+	var counter_label := _stage_label(
+		badge_rect,
+		str(maxi(count, 0)),
+		17,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	counter_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
+	counter_label.add_theme_constant_override("outline_size", 2)
 
 func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
 	var icon_rect: Rect2 = PORTRAIT_LIVES_ICON_RECT
@@ -1107,6 +1305,8 @@ func _profile_text(russian_text: String, english_text: String) -> String:
 	return russian_text if GameState.interface_language == "ru" else english_text
 
 func _show_word_comment_popup() -> void:
+	if !GameSession.can_view_comment_hint():
+		return
 	var hint: String = GameSession.get_word_hint().strip_edges()
 	if hint == "":
 		return
