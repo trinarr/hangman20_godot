@@ -18,7 +18,7 @@ var wrong_letters: PackedStringArray = []
 var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
 var is_active: bool = false
-var mode: int = 0 # 0 classic, 1 two-player, 2 level mode
+var mode: int = GameState.GameMode.CLASSIC
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var comment_hint_unlocked: bool = false
@@ -27,10 +27,10 @@ var word_hint_text: String = ""
 func get_remaining_attempts() -> int:
 	return maxi(MAX_MISTAKES - mistakes, 0)
 
-func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: int = 0) -> void:
+func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) -> void:
 	word_data = word
-	word_index = index if index >= 0 else word.index
-	theme_id = theme if theme >= -1 else word.theme_index
+	word_index = word.index
+	theme_id = word.theme_index
 	mode = game_mode
 	letters = _split_letters(word.text)
 	revealed.clear()
@@ -45,16 +45,15 @@ func start_round(word: WordData, index: int = -1, theme: int = -1, game_mode: in
 	is_active = word.text.length() > 0
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
-	GameState.save_game()
 	emit_signal("changed")
 
 func start_new_round(theme_index: int) -> void:
 	var word := WordManager.select_new_word(theme_index)
-	start_round(word, word.index, word.theme_index, 0)
+	start_round(word, GameState.GameMode.CLASSIC)
 
 func start_custom_round(text: String, comment: String = "") -> void:
 	var word := WordManager.set_custom_word(text, comment)
-	start_round(word, -1, -1, 1)
+	start_round(word, GameState.GameMode.TWO_PLAYER)
 
 func _resolve_word_hint() -> String:
 	if word_data == null:
@@ -86,11 +85,9 @@ func guess(letter: String) -> bool:
 	if correct:
 		if is_word_completed():
 			is_active = false
-			GameState.save_game()
 			emit_signal("changed")
 			emit_signal("round_won")
 		else:
-			GameState.save_game()
 			emit_signal("changed")
 		return true
 	wrong_letters.append(letter)
@@ -100,11 +97,9 @@ func guess(letter: String) -> bool:
 		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
 	if mistakes >= MAX_MISTAKES:
 		is_active = false
-		GameState.save_game()
 		emit_signal("changed")
 		emit_signal("round_lost")
 	else:
-		GameState.save_game()
 		emit_signal("changed")
 	return false
 
@@ -152,10 +147,9 @@ func can_view_comment_hint() -> bool:
 	return is_active and comment_hint_unlocked and has_word_hint() and _hints_allowed()
 
 func _hints_allowed() -> bool:
-	# Category rounds always allow both hint buttons; custom rounds follow their own setting.
-	if theme_id >= 0:
-		return true
-	return int(GameState.settings[1]) == 2
+	# Hints belong to database-backed rounds. Two-player custom words intentionally
+	# have no hints, regardless of legacy values left in older save files.
+	return theme_id >= 0
 
 func _has_hidden_letter() -> bool:
 	for i in range(letters.size()):
@@ -188,11 +182,9 @@ func use_open_letter_hint() -> bool:
 	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
 	if is_word_completed():
 		is_active = false
-		GameState.save_game()
 		emit_signal("changed")
 		emit_signal("round_won")
 	else:
-		GameState.save_game()
 		emit_signal("changed")
 	return true
 
@@ -220,7 +212,6 @@ func use_remove_wrong_hint() -> bool:
 		selected_letters.append(selected_letter)
 		candidates.remove_at(candidate_index)
 	emit_signal("hint_letters_selected", selected_letters, false)
-	GameState.save_game()
 	emit_signal("changed")
 	return true
 
@@ -232,7 +223,6 @@ func unlock_comment_hint() -> bool:
 	if !GameState.consume_hint(GameState.HINT_COMMENT):
 		return false
 	comment_hint_unlocked = true
-	GameState.save_game()
 	emit_signal("changed")
 	return true
 
@@ -259,7 +249,7 @@ func discard_current_round() -> void:
 	removed_wrong_letters.clear()
 	mistakes = 0
 	is_active = false
-	mode = 0
+	mode = GameState.GameMode.CLASSIC
 	open_hint_used = false
 	remove_wrong_hint_used = false
 	comment_hint_unlocked = false
@@ -278,7 +268,7 @@ func finish_result(is_win: bool) -> Dictionary:
 
 	# Only Classic category words update the Classic difficulty streak. Level
 	# rounds keep their word statistics and progression in a separate bucket.
-	if mode == 0 and theme_id >= 0:
+	if mode == GameState.GameMode.CLASSIC and theme_id >= 0:
 		if is_win:
 			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
 			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
@@ -286,12 +276,12 @@ func finish_result(is_win: bool) -> Dictionary:
 		else:
 			GameState.records[0][diff] = 0
 
-	if mode == 0:
+	if mode == GameState.GameMode.CLASSIC:
 		if is_win and theme_id >= 0:
 			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
 			if _is_theme_completed(theme_id):
 				result["lines"].append(Database.tr_text(57, "Category is completed!"))
-	elif mode == 2:
+	elif mode == GameState.GameMode.SINGLE_PLAYER:
 		if is_win and theme_id >= 0:
 			GameState.mark_single_player_word_guessed(
 				Database.current_language,
@@ -299,7 +289,7 @@ func finish_result(is_win: bool) -> Dictionary:
 				word_index,
 				Database.get_words_by_index(theme_id, 0).size()
 			)
-	elif mode == 1:
+	elif mode == GameState.GameMode.TWO_PLAYER:
 		if is_win:
 			GameState.records[1][0] = int(GameState.records[1][0]) + 1
 		else:

@@ -1,7 +1,6 @@
 class_name FlashStagePanel
 extends Control
 
-const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 
 var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):

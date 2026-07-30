@@ -3,12 +3,15 @@ extends Node2D
 
 signal playback_finished
 
-const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
+enum HeroType {
+	NONE,
+	LUCKY,
+	EL_TIGRE,
+}
+
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FLASH_TO_GODOT_SCALE: float = 0.24
 const HERO_FRAME_RATE: float = 24.0
-const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
-const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 const HERO_TYPE_1_STATES: Array[String] = [
 	"res://symbols/_______192.tscn",
 	"res://symbols/_______193.tscn",
@@ -57,6 +60,11 @@ var stage_position: Vector2 = Vector2.ZERO:
 		stage_position = value
 		_sync_to_stage()
 
+var hero_type: HeroType = HeroType.NONE:
+	set(value):
+		hero_type = value
+		_reload_symbol()
+
 var symbol_path: String = "":
 	set(value):
 		symbol_path = value
@@ -65,7 +73,7 @@ var symbol_path: String = "":
 var animation_time: float = -1.0:
 	set(value):
 		animation_time = value
-		if _is_hero_type_symbol():
+		if _is_hero_symbol():
 			_reload_symbol()
 		else:
 			_apply_animation_time()
@@ -109,11 +117,14 @@ func _reload_symbol() -> void:
 	_pending_playback.clear()
 	_pending_symbol_path = ""
 	_pending_symbol_offset = Vector2.ZERO
-	if !is_inside_tree() or symbol_path.strip_edges() == "":
+	if !is_inside_tree():
 		_remove_symbol_instance()
 		return
-	if _is_hero_type_symbol():
+	if _is_hero_symbol():
 		_reload_hero_symbol()
+		return
+	if symbol_path.strip_edges() == "":
+		_remove_symbol_instance()
 		return
 	_remove_symbol_instance()
 	if !ResourceLoader.exists(symbol_path):
@@ -299,14 +310,14 @@ func _resume_pending_playback() -> void:
 		float(playback["initial_time"])
 	)
 
-func _is_hero_type_symbol() -> bool:
-	return symbol_path == HERO_TYPE_1_SYMBOL or symbol_path == HERO_TYPE_2_SYMBOL
+func _is_hero_symbol() -> bool:
+	return hero_type != HeroType.NONE
 
 func _hero_states() -> Array[String]:
-	return HERO_TYPE_2_STATES if symbol_path == HERO_TYPE_2_SYMBOL else HERO_TYPE_1_STATES
+	return HERO_TYPE_2_STATES if hero_type == HeroType.EL_TIGRE else HERO_TYPE_1_STATES
 
 func _hero_offsets() -> Array[Vector2]:
-	return HERO_TYPE_2_OFFSETS if symbol_path == HERO_TYPE_2_SYMBOL else HERO_TYPE_1_OFFSETS
+	return HERO_TYPE_2_OFFSETS if hero_type == HeroType.EL_TIGRE else HERO_TYPE_1_OFFSETS
 
 func _hero_state_index() -> int:
 	return clampi(int(floor(maxf(animation_time, 0.0) * HERO_FRAME_RATE)), 0, _hero_states().size() - 1)
@@ -314,7 +325,7 @@ func _hero_state_index() -> int:
 func _apply_animation_time() -> void:
 	if _symbol_instance == null:
 		return
-	if _is_hero_type_symbol():
+	if _is_hero_symbol():
 		_apply_direct_hero_time_recursive(_symbol_instance)
 		return
 	_apply_animation_time_recursive(_symbol_instance, false)
@@ -375,7 +386,7 @@ func _play_nested(root_time: float, nested_start_time: float, nested_end_time: f
 	animation_time = root_time
 	nested_animation_time = initial_time
 	_apply_animation_time()
-	if _symbol_instance == null or (_is_hero_type_symbol() and _loaded_symbol_path != _hero_states()[_hero_state_index()]):
+	if _symbol_instance == null or (_is_hero_symbol() and _loaded_symbol_path != _hero_states()[_hero_state_index()]):
 		_pending_playback = {
 			"root_time": root_time,
 			"start_time": nested_start_time,
@@ -389,7 +400,7 @@ func _play_nested(root_time: float, nested_start_time: float, nested_end_time: f
 
 	var root_player := _find_first_animation_player(_symbol_instance)
 
-	var nested_player: AnimationPlayer = root_player if _is_hero_type_symbol() else _find_first_visible_nested_animation_player(_symbol_instance, root_player)
+	var nested_player: AnimationPlayer = root_player if _is_hero_symbol() else _find_first_visible_nested_animation_player(_symbol_instance, root_player)
 	if nested_player == null or !nested_player.has_animation("default"):
 		nested_animation_time = nested_end_time
 		_apply_animation_time()

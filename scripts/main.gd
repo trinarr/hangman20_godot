@@ -1,6 +1,5 @@
 extends Node2D
 
-const ART_SOURCE_SCALE: float = 2.0
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
 const HERO_NESTED_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
@@ -26,9 +25,6 @@ const SINGLE_PLAYER_LEVEL_COUNT: int = 10
 const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
 const SINGLE_PLAYER_MIN_WORDS_PER_LEVEL: int = 3
 const SINGLE_PLAYER_MAX_WORDS_PER_LEVEL: int = 8
-const MODE_CLASSIC: int = 0
-const MODE_TWO_PLAYER: int = 1
-const MODE_SINGLE_PLAYER: int = 2
 const DIFFICULTY_MODE_HARD: int = 1
 const DIFFICULTY_MODE_NORMAL: int = 2
 const DIFFICULTY_HARD_NORMAL_TINT := Color("#D866FE")
@@ -45,7 +41,6 @@ const LONG_BUTTON_COLOR_BLUE: int = 2
 const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
-const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
@@ -87,8 +82,6 @@ const THEME_ICON_TEXTURES: Array[Texture2D] = [
 	THEME_ICON_GENERAL_TEXTURE,
 	THEME_ICON_FILM_MUSIC_TEXTURE,
 ]
-const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
-const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
@@ -98,12 +91,9 @@ const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
 const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
 const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
-const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
-const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
 const HERO_AVATAR_TIGRE_TEXTURE: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 
-var art_root: FlashBackdrop
 var ui: Control
 var content: Control
 var letter_feedback_audio_player: AudioStreamPlayer
@@ -185,11 +175,6 @@ func _show_word_comment_popup() -> void:
 	pass
 
 func _build_root() -> void:
-	art_root = FlashBackdrop.new()
-	art_root.name = "OriginalFlashArt"
-	art_root.z_index = 0
-	add_child(art_root)
-
 	ui = Control.new()
 	ui.name = "RuntimeUI"
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -209,7 +194,7 @@ func _build_root() -> void:
 	ui_audio_player.name = "UIAudio"
 	add_child(ui_audio_player)
 
-func _clear(symbol_path: String = "") -> void:
+func _clear() -> void:
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
 	custom_word_color_generation += 1
@@ -228,8 +213,6 @@ func _clear(symbol_path: String = "") -> void:
 	settings_popup_return_content = null
 	custom_word_edit = null
 	custom_word_input_visual = null
-	if art_root != null:
-		art_root.show_screen(symbol_path)
 	for child: Node in ui.get_children():
 		ui.remove_child(child)
 		child.queue_free()
@@ -321,13 +304,13 @@ func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: 
 	popup_root.add_child(centered_content)
 	return centered_content
 
-func _stage_symbol(symbol_path: String, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> Node2D:
-	var symbol: Node2D = FLASH_STAGE_SYMBOL_SCRIPT.new() as Node2D
+func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> FlashStageSymbol:
+	var symbol: FlashStageSymbol = FLASH_STAGE_SYMBOL_SCRIPT.new() as FlashStageSymbol
 	symbol.z_index = 5
-	symbol.set("symbol_path", symbol_path)
-	symbol.set("stage_position", stage_position)
-	symbol.set("animation_time", animation_time)
-	symbol.set("nested_animation_time", nested_animation_time)
+	symbol.hero_type = hero_type
+	symbol.stage_position = stage_position
+	symbol.animation_time = animation_time
+	symbol.nested_animation_time = nested_animation_time
 	# Configure the desired hero state before _ready() starts its asynchronous
 	# current/next-pose pipeline. This avoids briefly requesting frame zero.
 	content.add_child(symbol)
@@ -375,15 +358,6 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
 	button.set("attention_bounce_enabled", attention_bounce)
-	_connect_stage_button_action(button, callable)
-	content.add_child(button)
-	button.stage_rect = rect
-	return button
-
-func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
-	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
-	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
@@ -1012,7 +986,7 @@ func show_single_player_level(level_index: int) -> void:
 	level_index = clampi(level_index, 0, SINGLE_PLAYER_LEVEL_COUNT - 1)
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = -1
-	_clear("")
+	_clear()
 	var footer_y: float = 688.0
 	var screen_blue := Color(0.2706, 0.3098, 0.6078, 1.0)
 	_stage_texture_fill(0.0, footer_y, MENU_PAPER_COVER)
@@ -1116,7 +1090,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	single_player_active_word_slot = word_slot
 	game_finished = false
 	last_result_data = {}
-	GameState.current_mode = MODE_SINGLE_PLAYER
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	var word := WordData.new(
 		str(word_info.get("text", "")),
 		int(word_info.get("difficulty", 0)),
@@ -1129,8 +1103,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		word.index,
 		Database.get_words_by_index(word.theme_index, 0).size()
 	)
-	GameSession.start_round(word, word.index, word.theme_index, MODE_SINGLE_PLAYER)
-	GameState.save_game()
+	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
 	show_game_screen()
 
 func _bind_theme_card_press_state(button: BaseButton, card: CanvasItem) -> void:
@@ -1160,18 +1133,17 @@ func start_classic_game(theme_index: int) -> void:
 	last_result_data = {}
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
-	GameState.current_mode = MODE_CLASSIC
+	GameState.current_mode = GameState.GameMode.CLASSIC
 	GameSession.start_new_round(theme_index)
-	GameState.save_game()
 	show_game_screen()
 
 func _exit_game_warning_text() -> String:
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		return _single_player_text("Будет засчитано поражение", "A defeat will be recorded")
 	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
 func _confirm_exit_game() -> void:
 	_remove_exit_game_popup()
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		_forfeit_single_player_round()
 		return
 	show_menu()
@@ -1449,9 +1421,8 @@ func start_custom_game() -> void:
 	last_result_data = {}
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
-	GameState.current_mode = MODE_TWO_PLAYER
+	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	GameSession.start_custom_round(word, custom_comment_text)
-	GameState.save_game()
 	show_game_screen()
 
 func _is_valid_custom_word(word: String) -> bool:
@@ -1494,9 +1465,8 @@ func show_game_screen() -> void:
 	# The converted GameMov scene contains button frame debris and large nested
 	# helper symbols that the original AS3 created/controlled at runtime.  Drawing
 	# it as a static backdrop caused the white dead spots and wrong orange button
-	# ghosts on the gameplay screen.  Rebuild this screen from MainFon + runtime
-	# Flash-stage controls instead.
-	_clear("")
+	# ghosts on the gameplay screen. Rebuild it from runtime stage controls.
+	_clear()
 	_refresh_game_screen()
 func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
 	_clear_hero_animation_overlay()
@@ -1548,10 +1518,10 @@ func _hero_animation_time_for_mistakes(mistake_count: int) -> float:
 	# Sampling halfway through the outer frame selects every discrete pose safely.
 	return float(_hero_frame_index_for_mistakes(mistake_count)) / 24.0 + HERO_OUTER_FRAME_SAMPLE_OFFSET
 
-func _hero_symbol_path() -> String:
+func _hero_type() -> int:
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
-		return HERO_TYPE_2_SYMBOL
-	return HERO_TYPE_1_SYMBOL
+		return FlashStageSymbol.HeroType.EL_TIGRE
+	return FlashStageSymbol.HeroType.LUCKY
 
 func _hero_animation_time() -> float:
 	# Flash currentFrame is one-based: its original `7 - currentFrame` counter
@@ -1686,7 +1656,7 @@ func _finish_round(is_win: bool) -> void:
 	game_finished = true
 	last_result_is_win = is_win
 	last_result_data = GameSession.finish_result(is_win)
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
 
 	var transition_generation: int = result_transition_generation
@@ -1716,14 +1686,14 @@ func _result_message(is_win: bool, data: Dictionary) -> String:
 	return Database.tr_text(43 if is_win else 44, "Keep going!" if is_win else "You can do better!")
 
 func _result_theme_label() -> String:
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		return _single_player_result_label()
 	if GameSession.theme_id < 0:
 		return Database.tr_text(40, "No category")
 	return Database.tr_text(42, "Category:") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 
 func _result_right_button_text() -> String:
-	if GameState.current_mode == MODE_SINGLE_PLAYER:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		return Database.tr_text(3, "Continue")
 	if GameSession.theme_id < 0:
 		return Database.tr_text(8, "Restart")
@@ -1737,9 +1707,9 @@ func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int)
 	label.add_theme_constant_override("outline_size", outline_size)
 
 func _restart_last_mode() -> void:
-	if GameState.current_mode == MODE_TWO_PLAYER:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		show_custom_word()
-	elif GameState.current_mode == MODE_SINGLE_PLAYER:
+	elif GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if _single_player_level_completed(single_player_active_level_index):
 			_open_next_single_player_level()
 		else:
@@ -1747,7 +1717,7 @@ func _restart_last_mode() -> void:
 	else:
 		start_classic_game(max(0, GameSession.theme_id))
 func _current_word_source_label() -> String:
-	if GameState.current_mode == MODE_TWO_PLAYER or GameSession.theme_id < 0:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER or GameSession.theme_id < 0:
 		return Database.tr_text(40, "Word from player")
 	return Database.tr_text(42, "Category") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 

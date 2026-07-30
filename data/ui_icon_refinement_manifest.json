@@ -82,28 +82,6 @@
       "target_sha256": "328bceed7d87864d92bb1b2a4108a6463ab13663fdc9b66b386487e14495e326",
       "silhouette_iou": 1.0,
       "mean_absolute_change": 0.013601
-    },
-    {
-      "path": "flash_assets/user_hint_check_circle_uploaded.png",
-      "size": [
-        50,
-        50
-      ],
-      "source_sha256": "0de7364eb924b9ba48cadb7822b7694acca5471d314f6d4c99c68d42b9d7519a",
-      "target_sha256": "8f331b53a7df9f61505add9de0cd5181176054f4a863692e1bb499cf008b03a8",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.013113
-    },
-    {
-      "path": "flash_assets/user_hint_cross_circle_uploaded.png",
-      "size": [
-        50,
-        50
-      ],
-      "source_sha256": "6dff2957f39533262efc95029cbe09109af34ec3961854581e2036c0099aecf3",
-      "target_sha256": "4edbc748d99686f0e0359d281eca87d5f08e4eaca83a748dd22afdad545a60f1",
-      "silhouette_iou": 0.994253,
-      "mean_absolute_change": 0.019584
     }
   ]
 }

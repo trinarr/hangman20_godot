@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 128,
+  "file_count": 139,
   "files": [
     {
       "path": "icon.png",
@@ -72,6 +72,51 @@
       "source_mode": "RGBA",
       "source_sha256": "f42783bb5adc1b30b1afdfece82c719a066008230f4e18660f1d37e3742fc754",
       "target_sha256": "1057439f2e0925f2a6a274d5e1fd30fa6fbb3574fb5580a2881cd352a79b387a"
+    },
+    {
+      "path": "flash_assets/hint_comment_unlock_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "4d2a1708518b25b27de10984b38b99843aff2501fd4f7fc8a44226e689e81350",
+      "target_sha256": "4d2a1708518b25b27de10984b38b99843aff2501fd4f7fc8a44226e689e81350",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/hint_remove_wrong_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "1844689223f93d5bd9b63d4bb68c00ec2c3bf8100dbc464955ea64439a093b40",
+      "target_sha256": "1844689223f93d5bd9b63d4bb68c00ec2c3bf8100dbc464955ea64439a093b40",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/hint_reveal_letter_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "b68eb3e46d34e307fab2774a543ee84127321d274c72e0d3c58e3f341d301f6c",
+      "target_sha256": "b68eb3e46d34e307fab2774a543ee84127321d274c72e0d3c58e3f341d301f6c",
+      "native_2x": true
     },
     {
       "path": "flash_assets/life_heart_icon.png",
@@ -173,18 +218,154 @@
       "target_sha256": "615aa497dcc427bedae6e424b905b0acab0fb43b9cdfcad4df663d71546a2c03"
     },
     {
-      "path": "flash_assets/user_hint_check_circle_uploaded.png",
+      "path": "flash_assets/theme_icons/theme_icon_film_music.png",
       "source_size": [
-        25,
-        25
+        96,
+        96
       ],
       "target_size": [
-        50,
-        50
+        96,
+        96
       ],
       "source_mode": "RGBA",
-      "source_sha256": "ec8dcc372d76acb186539603d4a9d7b101b2bfff6e5c14af14d72733593eff38",
-      "target_sha256": "8f331b53a7df9f61505add9de0cd5181176054f4a863692e1bb499cf008b03a8"
+      "source_sha256": "272697452a91e9f58c09ecfc187b15501b0c93fa06b8de2be46f8fb864120ef3",
+      "target_sha256": "272697452a91e9f58c09ecfc187b15501b0c93fa06b8de2be46f8fb864120ef3",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_food.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "ac519d3974c96add116d79048d2c34f0d7643f312190d7afdc1206a55e37598b",
+      "target_sha256": "ac519d3974c96add116d79048d2c34f0d7643f312190d7afdc1206a55e37598b",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_general.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "18bf65afea28ad8a85c4391c2a34722cbc982e355bc2b25cee7c301166d14fd2",
+      "target_sha256": "18bf65afea28ad8a85c4391c2a34722cbc982e355bc2b25cee7c301166d14fd2",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_geography.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "d492123cdcea684616a339410a42597b3a9f939cfdd16eb7444122a82049be46",
+      "target_sha256": "d492123cdcea684616a339410a42597b3a9f939cfdd16eb7444122a82049be46",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_history.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "c6667b912872c8aacf8208be415b7f9c89a7465729885fe3a14cda2c0ba7d2ab",
+      "target_sha256": "c6667b912872c8aacf8208be415b7f9c89a7465729885fe3a14cda2c0ba7d2ab",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_nature.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "c245e5c0b504461cd930d85fc677aa4f5ab8598e82819b896e39e00f386c9e5b",
+      "target_sha256": "c245e5c0b504461cd930d85fc677aa4f5ab8598e82819b896e39e00f386c9e5b",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_people.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "53057fde0cc7417ef37f8b41179b27ee2fde747d855f66c259122f3df2dda896",
+      "target_sha256": "53057fde0cc7417ef37f8b41179b27ee2fde747d855f66c259122f3df2dda896",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_science.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "2b6f65a5edc1edafd0c745bdc4c3433821dabcc6909522125159828f05334228",
+      "target_sha256": "2b6f65a5edc1edafd0c745bdc4c3433821dabcc6909522125159828f05334228",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_sport.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "45430ca9f9199f73db1a4c0413b4030b062a826e6dd056ba883f05a7a77af8f1",
+      "target_sha256": "45430ca9f9199f73db1a4c0413b4030b062a826e6dd056ba883f05a7a77af8f1",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_technics.png",
+      "source_size": [
+        96,
+        96
+      ],
+      "target_size": [
+        96,
+        96
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "3aaf9e9472eb510c28fd35bd0390f6c968f324d553158d1fa5a382fda3042571",
+      "target_sha256": "3aaf9e9472eb510c28fd35bd0390f6c968f324d553158d1fa5a382fda3042571",
+      "native_2x": true
     },
     {
       "path": "flash_assets/user_hint_circle_74.png",
@@ -201,20 +382,6 @@
       "target_sha256": "13f9e7f9d4cf0db5f265257cfea4b187ea62991f04420a82c0a95151fd1be45d"
     },
     {
-      "path": "flash_assets/user_hint_cross_circle_uploaded.png",
-      "source_size": [
-        25,
-        25
-      ],
-      "target_size": [
-        50,
-        50
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "9ff2d67751905bdbd8fa54af088f89a6e037e1db19f4e257ec65bea879795cc7",
-      "target_sha256": "4edbc748d99686f0e0359d281eca87d5f08e4eaca83a748dd22afdad545a60f1"
-    },
-    {
       "path": "flash_assets/user_main_button_21_center.png",
       "source_size": [
         5,
@@ -226,7 +393,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "510d34c9f1814d5c61f6041731cc7b4cce02d3a96143d055327fa0b6c58dece4",
-      "target_sha256": "510d34c9f1814d5c61f6041731cc7b4cce02d3a96143d055327fa0b6c58dece4",
+      "target_sha256": "bd0a1ce40cf547580593f07012eef59e429fc01594481671cd23ea4614f4c8b3",
       "native_target_scale": true
     },
     {
@@ -241,7 +408,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "ce693997ccd41ee1f898c97254ca88a65c5902de6883ea8016a0ce335a197617",
-      "target_sha256": "ce693997ccd41ee1f898c97254ca88a65c5902de6883ea8016a0ce335a197617",
+      "target_sha256": "283cfab2e5ccb6c2f586af9cecfc0275666f819a971646940da602e347ffa572",
       "native_target_scale": true
     },
     {
@@ -256,7 +423,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "1e0283b10aafb546a304d87d44ebcbfecb0f2a2249a1bc0029656da5d73a28e8",
-      "target_sha256": "1e0283b10aafb546a304d87d44ebcbfecb0f2a2249a1bc0029656da5d73a28e8",
+      "target_sha256": "a0ef20ab861bfee5d805bf4611251b125362b88673550f2243ff28154f03c80e",
       "native_target_scale": true
     },
     {
@@ -271,7 +438,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "68e12c8a52e3fa4aa60c6e21882a199e5d9234058786a1413bf105843d749344",
-      "target_sha256": "68e12c8a52e3fa4aa60c6e21882a199e5d9234058786a1413bf105843d749344",
+      "target_sha256": "7b5cbbcd73a6b95a912336fd2c08ceaf6f490a4231e10b7d82639375207cf1b2",
       "native_target_scale": true
     },
     {
@@ -286,7 +453,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "cce5d03546adaa20d02cfc921f60a02f3df855ea157370509fd9ddb653814185",
-      "target_sha256": "cce5d03546adaa20d02cfc921f60a02f3df855ea157370509fd9ddb653814185",
+      "target_sha256": "63599692d9cc091c4077dad12e679becfdc2fe94a9b18fc5cff921f147e5e07e",
       "native_target_scale": true
     },
     {
@@ -301,7 +468,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "2290500cf2747c8fec26deeb8aecf69ead8f68e0fe17f81e3ab56772e4af8a1f",
-      "target_sha256": "2290500cf2747c8fec26deeb8aecf69ead8f68e0fe17f81e3ab56772e4af8a1f",
+      "target_sha256": "44943d4b2dd6c09765f049c23243764c6ff5045ed761408896f676042ce04a50",
       "native_target_scale": true
     },
     {
@@ -316,7 +483,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "eb06d14d56d867301a12abcc5be4cded4f608a2322456e87e58eb6892300bd08",
-      "target_sha256": "85ca82bc18f238de202f73083471f2b8a329b7a86f06842617b07f83e5d1f46c"
+      "target_sha256": "720f4b6baaf0a70c3a6df23fea5da5217ea7cac647e04d5acea323b888d7f4ff"
     },
     {
       "path": "flash_assets/user_round_button_38.png",
@@ -330,7 +497,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "b6493844f5bf1d4e6f03a11ae1eb25f2b9d76d44a33a3ebe859376002f8137e8",
-      "target_sha256": "208b1fb8efb4aa7ad3d5890d6c508fe5fae2114b18fd9ebfcda860254cb025da"
+      "target_sha256": "afab32d9b4467fdf3edaa7faf59db5af0320d084968bf42d75b4fda2bdcdcd9c"
     },
     {
       "path": "img/_______107______1_0_SHAPE_0_BOUNDS_-0.96_-4.96_SIZE_212_809.png",
@@ -1807,7 +1974,7 @@
     {
       "name": "style-preserving UI icon refinement",
       "manifest": "data/ui_icon_refinement_manifest.json",
-      "file_count": 9
+      "file_count": 7
     }
   ]
 }

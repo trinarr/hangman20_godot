@@ -3,7 +3,6 @@ extends Control
 
 signal pressed
 
-const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 
 var use_stage_layout: bool = true:

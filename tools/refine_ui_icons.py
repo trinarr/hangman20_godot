@@ -35,8 +35,6 @@ ICON_NAMES = (
     "result_close_icon_43.png",
     "result_search_icon_343.png",
     "result_theme_menu_icon.png",
-    "user_hint_check_circle_uploaded.png",
-    "user_hint_cross_circle_uploaded.png",
 )
 
 

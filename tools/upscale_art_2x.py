@@ -36,7 +36,7 @@ def raster_paths() -> list[Path]:
     paths = [PROJECT_ROOT / "icon.png"]
     for directory_name in ("flash_assets", "img"):
         directory = PROJECT_ROOT / directory_name
-        paths.extend(sorted(directory.glob("*.png")))
+        paths.extend(sorted(directory.rglob("*.png")))
     return paths
 
 
@@ -120,15 +120,84 @@ def verify_manifest() -> None:
     print(f"Verified {len(entries)} target-scale raster assets")
 
 
+def refresh_manifest() -> None:
+    if not MANIFEST_PATH.exists():
+        raise SystemExit("2x art manifest is missing")
+
+    data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    recorded_entries = {
+        str(entry["path"]): entry
+        for entry in data.get("files", [])
+    }
+    refreshed_entries: list[dict[str, Any]] = []
+
+    for path in raster_paths():
+        relative_path = path.relative_to(PROJECT_ROOT).as_posix()
+        if relative_path in recorded_entries:
+            entry = recorded_entries[relative_path]
+            with Image.open(path) as image:
+                actual_size = list(image.size)
+            if actual_size != entry["target_size"]:
+                raise SystemExit(f"Unexpected dimensions for {relative_path}: {actual_size}")
+            # A refresh is an explicit snapshot update after intentional,
+            # non-resizing post-processing (for example button slicing).
+            entry["target_sha256"] = sha256(path)
+            refreshed_entries.append(entry)
+            continue
+
+        with Image.open(path) as image:
+            image.load()
+            current_size = list(image.size)
+            current_mode = image.mode
+        current_hash = sha256(path)
+        refreshed_entries.append(
+            {
+                "path": relative_path,
+                "source_size": current_size,
+                "target_size": current_size,
+                "source_mode": current_mode,
+                "source_sha256": current_hash,
+                "target_sha256": current_hash,
+                "native_2x": True,
+            }
+        )
+
+    data["file_count"] = len(refreshed_entries)
+    data["files"] = refreshed_entries
+    for postprocess in data.get("postprocesses", []):
+        postprocess_manifest = PROJECT_ROOT / str(postprocess.get("manifest", ""))
+        if postprocess_manifest.is_file():
+            postprocess_data = json.loads(postprocess_manifest.read_text(encoding="utf-8"))
+            postprocess["file_count"] = len(postprocess_data.get("files", []))
+
+    MANIFEST_PATH.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    verify_manifest()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument(
+        "--refresh-manifest",
+        action="store_true",
+        help="Add native-2x rasters and remove entries for deleted files without resizing art",
+    )
     args = parser.parse_args()
+
+    if args.verify and args.refresh_manifest:
+        parser.error("--verify and --refresh-manifest are mutually exclusive")
 
     if args.verify:
         if not MANIFEST_PATH.exists():
             raise SystemExit("2x art manifest is missing")
         verify_manifest()
+        return
+
+    if args.refresh_manifest:
+        refresh_manifest()
         return
 
     if MANIFEST_PATH.exists():

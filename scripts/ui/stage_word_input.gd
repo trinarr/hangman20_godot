@@ -5,6 +5,7 @@ signal input_submitted(value: String)
 
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 
+const STAGE_SIZE := Vector2(480.0, 800.0)
 const EMPTY_PREVIEW_SLOTS: int = 5
 const BASE_SLOT_WIDTH: float = 38.0
 const BASE_SPACE_WIDTH: float = 18.0

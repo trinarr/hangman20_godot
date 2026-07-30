@@ -89,10 +89,10 @@ var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
 
-func _clear(symbol_path: String = "") -> void:
+func _clear() -> void:
 	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
-	super._clear(symbol_path)
+	super._clear()
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -174,9 +174,9 @@ func _stage_portrait_game_header() -> void:
 	var title: String = ""
 	var subtitle: String = ""
 	match GameState.current_mode:
-		MODE_TWO_PLAYER:
+		GameState.GameMode.TWO_PLAYER:
 			title = _single_player_text("2 игрока", "2 players")
-		MODE_SINGLE_PLAYER:
+		GameState.GameMode.SINGLE_PLAYER:
 			var level_number: int = single_player_active_level_index + 1
 			if level_number <= 0:
 				level_number = _single_player_current_level_number()
@@ -348,7 +348,7 @@ func show_menu() -> void:
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
 	_portrait_game_adaptive_group = null
-	_clear("")
+	_clear()
 
 	# The main menu uses only the paper background. The profile avatar and
 	# settings button stay pinned to opposite top corners without a blue header.
@@ -431,7 +431,7 @@ func _show_about_popup() -> void:
 	content = previous_content
 
 func show_theme_select() -> void:
-	_clear("")
+	_clear()
 	# Category navigation now uses a compact top row. The difficulty control
 	# remains bottom-attached, but the graph-paper background is uninterrupted.
 	_portrait_screen(0.0)
@@ -611,18 +611,9 @@ func _show_exit_game_popup() -> void:
 	content = previous_content
 
 func show_custom_word() -> void:
-	_clear("")
-	# Two-player words no longer support comments, gameplay hints, or automatic
-	# opening of the first and last letters.
-	var settings_changed: bool = false
-	if int(GameState.settings[0]) != 1:
-		GameState.settings[0] = 1
-		settings_changed = true
-	if int(GameState.settings[1]) != 1:
-		GameState.settings[1] = 1
-		settings_changed = true
-	if settings_changed:
-		GameState.save_game()
+	_clear()
+	# Two-player words do not support comments, gameplay hints, or automatic
+	# opening of edge letters. GameSession enforces that rule directly.
 	custom_comment_text = ""
 	_set_random_custom_word()
 
@@ -672,9 +663,7 @@ func show_custom_word() -> void:
 	)
 
 func start_custom_game() -> void:
-	# Two-player rounds always start without comments, hints, or edge letters.
-	GameState.settings[0] = 1
-	GameState.settings[1] = 1
+	# Two-player rounds always start without comments or hints.
 	custom_comment_text = ""
 	super.start_custom_game()
 
@@ -710,7 +699,7 @@ func _refresh_game_screen() -> void:
 	)
 	_portrait_game_adaptive_group = content
 	_portrait_game_hero_stage_position = hero_stage_position
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), hero_stage_position, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
+	hero_static_symbol = _stage_hero_symbol(_hero_type(), hero_stage_position, _hero_animation_time(), _hero_nested_display_time())
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
@@ -788,9 +777,9 @@ func _refresh_game_screen() -> void:
 		RESULT_CLOSE_ICON,
 		PORTRAIT_GAME_EXIT_ICON_SIZE
 	)
-	if GameState.current_mode != MODE_TWO_PLAYER:
+	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
 		_stage_portrait_hint_buttons()
-	if GameState.current_mode == MODE_TWO_PLAYER:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
@@ -1079,7 +1068,7 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 	var overlay := FlashStageSymbol.new()
 	overlay.name = "HeroAnimationOverlay"
 	overlay.z_index = 150
-	overlay.symbol_path = _hero_symbol_path()
+	overlay.hero_type = _hero_type()
 	overlay.stage_position = _portrait_game_hero_stage_position
 	overlay.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	overlay.animation_time = _hero_animation_time()
@@ -1095,7 +1084,7 @@ func _portrait_result_title_color(is_win: bool) -> Color:
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_play_result_sound_once(is_win, data)
 	_portrait_game_adaptive_group = null
-	_clear("")
+	_clear()
 	_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)
 	var full_word: String = _spaced_result_word(GameSession.get_full_word())
 	var result_word_rect := Rect2(
@@ -1114,7 +1103,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	)
 	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result_word_label.clip_text = true
-	if GameState.current_mode == MODE_TWO_PLAYER:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		_show_two_player_result_content(is_win, data)
 	else:
 		_show_classic_result_content(is_win, data)
@@ -1137,7 +1126,7 @@ func _show_two_player_result_content(is_win: bool, data: Dictionary) -> void:
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	subtitle_label.clip_text = false
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CENTERED_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
+	hero_static_symbol = _stage_hero_symbol(_hero_type(), PORTRAIT_HERO_CENTERED_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time())
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
@@ -1172,7 +1161,7 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	subtitle_label.clip_text = false
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), PORTRAIT_HERO_CLASSIC_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
+	hero_static_symbol = _stage_hero_symbol(_hero_type(), PORTRAIT_HERO_CLASSIC_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time())
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
@@ -1187,11 +1176,11 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 	# Word search remains in the header, but uses a compact 70% round button.
 	_stage_round_icon_button(PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE)
 	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_CLOSE_BUTTON_RECT), Callable(self, "show_menu"), RESULT_CLOSE_ICON, _portrait_footer_icon_size(Vector2(23.0, 23.0)))
-	if GameState.current_mode == MODE_CLASSIC:
+	if GameState.current_mode == GameState.GameMode.CLASSIC:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
 	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
 func show_profile() -> void:
-	_clear("")
+	_clear()
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
 	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), _profile_text("ПРОФИЛЬ", "PROFILE"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 

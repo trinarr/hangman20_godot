@@ -105,9 +105,6 @@ const HINT_FILES := {
 	"en": "res://data/hints_en.json"
 }
 
-func _ready() -> void:
-	load_languages(interface_language, current_language)
-
 func load_languages(interface_lang: String, word_lang: String) -> void:
 	interface_language = _normalize_language(interface_lang)
 	current_language = _normalize_language(word_lang)

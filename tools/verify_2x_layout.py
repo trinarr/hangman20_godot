@@ -116,13 +116,10 @@ def verify_sprite_geometry() -> None:
     for path in sorted((ROOT / "symbols").glob("*.tscn")):
         for block in sprite_blocks(path.read_text(encoding="utf-8")):
             blocks.append((path, block))
-    require(len(blocks) == 20, f"Expected 20 Sprite2D nodes, found {len(blocks)}")
+    require(len(blocks) == 19, f"Expected 19 Sprite2D nodes, found {len(blocks)}")
 
     for path, block in blocks:
-        if path.name == "fon_png.tscn":
-            require("scale = Vector2(2.08335, 2.08335)" in block, "Backdrop scale is not compensated")
-        else:
-            require("scale = Vector2(0.5, 0.5)" in block, f"2x sprite compensation is missing in {path.name}")
+        require("scale = Vector2(0.5, 0.5)" in block, f"2x sprite compensation is missing in {path.name}")
 
 
 def verify_streamed_hero_states() -> None:
@@ -157,12 +154,104 @@ def verify_streamed_hero_states() -> None:
     for offset in expected_offsets:
         require(offset in source, f"Hero outer-timeline offset is missing: {offset}")
 
-    main_source = read("scripts/main.gd")
-    stage_symbol = main_source[main_source.index("func _stage_symbol"):main_source.index("func _stage_panel")]
     require(
-        stage_symbol.index('symbol.set("animation_time"') < stage_symbol.index("content.add_child(symbol)"),
+        "enum HeroType {" in source
+        and "var hero_type: HeroType = HeroType.NONE:" in source
+        and "return hero_type != HeroType.NONE" in source,
+        "Hero selection is not represented by an explicit enum",
+    )
+    main_source = read("scripts/main.gd")
+    stage_symbol = main_source[
+        main_source.index("func _stage_hero_symbol"):
+        main_source.index("func _stage_panel")
+    ]
+    require(
+        stage_symbol.index("symbol.hero_type = hero_type") < stage_symbol.index("content.add_child(symbol)")
+        and stage_symbol.index("symbol.animation_time = animation_time") < stage_symbol.index("content.add_child(symbol)"),
         "Hero state is selected after the symbol enters the scene tree",
     )
+    require(
+        "HeroType1.tscn" not in source + main_source
+        and "HeroType2.tscn" not in source + main_source,
+        "Deleted composite hero scenes are still used as runtime sentinels",
+    )
+
+
+def verify_optimized_architecture() -> None:
+    obsolete_paths = (
+        "scripts/ui/flash_backdrop.gd",
+        "symbols/MainFon.tscn",
+        "symbols/fon_png.tscn",
+        "symbols/HeroType1.tscn",
+        "symbols/HeroType2.tscn",
+        "flash_assets/user_hint_check_circle_uploaded.png",
+        "flash_assets/user_hint_cross_circle_uploaded.png",
+    )
+    for relative_path in obsolete_paths:
+        require(not (ROOT / relative_path).exists(), f"Obsolete resource remains: {relative_path}")
+
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    state = read("scripts/core/game_state.gd")
+    session = read("scripts/core/game_session.gd")
+    database = read("scripts/core/database.gd")
+    export_preset = read("export_presets.cfg")
+
+    require(
+        "enum GameMode {" in state
+        and "GameMode.CLASSIC" in state
+        and "GameState.GameMode.TWO_PLAYER" in main + portrait + session
+        and "GameState.GameMode.SINGLE_PLAYER" in main + portrait,
+        "Game modes are not represented by the shared GameState enum",
+    )
+    require(
+        not re.search(r"\bmode\s*==\s*[012]\b", session)
+        and not re.search(r"\bcurrent_mode\s*=\s*[012]\b", main + portrait + state),
+        "Raw integer game-mode checks remain",
+    )
+    require(
+        "func _ready()" not in database
+        and main.count("Database.load_languages(GameState.interface_language, GameState.word_language)") == 1,
+        "The word database can still be loaded twice during startup",
+    )
+    round_mutations = session[:session.index("func finish_result(")]
+    require(
+        "GameState.save_game()" not in round_mutations,
+        "Transient round mutations still rewrite the persistent save",
+    )
+    require(
+        "func get_single_level_generation(" not in state
+        and "func get_single_level_snapshot(" not in state
+        and "func regenerate_single_level(" not in state
+        and 'progress_bucket.erase("level_generations")' in state,
+        "Unused single-player regeneration state remains",
+    )
+    require(
+        "FlashBackdrop" not in main + portrait
+        and "var art_root" not in main
+        and "func _clear(symbol_path" not in main + portrait,
+        "The removed full-screen backdrop wrapper still affects screen construction",
+    )
+    require(
+        'exclude_filter="data/*manifest.json,tools/*"' in export_preset,
+        "Development manifests and tools are not excluded from Android exports",
+    )
+
+    missing_references: list[str] = []
+    resource_files = (
+        list(ROOT.rglob("*.gd"))
+        + list(ROOT.rglob("*.tscn"))
+        + [ROOT / "project.godot"]
+    )
+    for source_path in resource_files:
+        if ".git" in source_path.parts or ".godot" in source_path.parts:
+            continue
+        source = source_path.read_text(encoding="utf-8")
+        for resource_path in re.findall(r"""res://[^"'\s\)\],]+""", source):
+            resource_path = resource_path.rstrip(";,")
+            if not (ROOT / resource_path.removeprefix("res://")).exists():
+                missing_references.append(f"{source_path.relative_to(ROOT)} -> {resource_path}")
+    require(not missing_references, "Missing res:// references: " + ", ".join(missing_references))
 
 
 def verify_refined_ui_icons() -> None:
@@ -170,7 +259,17 @@ def verify_refined_ui_icons() -> None:
     require(manifest_path.is_file(), "UI icon refinement manifest is missing")
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     entries = data.get("files", [])
-    require(len(entries) == 16, f"Expected 16 refined UI icons, found {len(entries)}")
+    refinement_source = read("tools/refine_ui_icons.py")
+    icon_names_block = refinement_source[
+        refinement_source.index("ICON_NAMES = ("):
+        refinement_source.index(")\n\n\ndef sha256")
+    ]
+    expected_paths = {
+        f"flash_assets/{name}"
+        for name in re.findall(r'"([^"]+\.png)"', icon_names_block)
+    }
+    recorded_paths = {str(entry["path"]) for entry in entries}
+    require(recorded_paths == expected_paths, "Refined UI icon manifest differs from ICON_NAMES")
     require("no resize or redraw" in data.get("method", ""), "UI refinement is not style-preserving")
     for entry in entries:
         path = ROOT / str(entry["path"])
@@ -188,7 +287,6 @@ def verify_round_icon_display_sizes() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     expected_constants = (
-        "const RESULT_SEARCH_ICON_SIZE := Vector2(32.0, 41.0)",
         "const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)",
         "const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)",
         "const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)",
@@ -196,11 +294,8 @@ def verify_round_icon_display_sizes() -> None:
     for declaration in expected_constants:
         require(declaration in main, f"Enlarged round-icon size is missing: {declaration}")
 
-    require(main.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Landscape VK icon size is not applied")
-    require(main.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Landscape mail icon size is not applied")
     require(portrait.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Portrait VK icon size is not applied")
     require(portrait.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Portrait mail icon size is not applied")
-    require(main.count("RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE") == 1, "Landscape search icon size is not applied")
     require(
         portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE") == 2,
         "Compact portrait search icon size is not applied to every result screen",
@@ -237,7 +332,7 @@ def verify_stretchable_long_buttons() -> None:
         "rect.size.y * right_source_size.x / right_source_size.y" in source,
         "Right cap width is not derived from the rendered button height",
     )
-    require("draw_texture_rect(center_texture, center_rect, false)" in source, "Long-button center is not stretched")
+    require("draw_texture_rect(center_texture, center_rect, false, tint)" in source, "Long-button center is not stretched")
     require("CENTER_SEAM_OVERLAP" not in source, "Long-button parts still overlap under transparency")
     require(
         "Vector2(center_left, rect.position.y)" in source
@@ -319,8 +414,8 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Not every portrait footer long button uses the 15% width reduction",
     )
     require(
-        portrait.count("_portrait_footer_round_button_rect(") == 9
-        and portrait.count("_portrait_footer_icon_size(") == 8
+        portrait.count("_portrait_footer_round_button_rect(") == 6
+        and portrait.count("_portrait_footer_icon_size(") == 6
         and portrait.count("_portrait_footer_font_size(") == 5,
         "Not every remaining bottom control, icon, and label uses the 10% scale",
     )
@@ -545,7 +640,8 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         "const PORTRAIT_GAME_SUBTITLE_RECT := Rect2(140.0, 72.0, 200.0, 32.0)" in portrait
         and "PORTRAIT_PAGE_TITLE_RECT," in portrait
         and "\t\t38," in portrait
-        and "\t\t22," in portrait,
+        and "\t\t26," in portrait
+        and "\t\t16" in portrait,
         "Gameplay header no longer matches the category title or its larger subtitle geometry",
     )
     require(
@@ -567,7 +663,7 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
     ]
     require(
         "const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0" in portrait
-        and "hero_pivot.x = PORTRAIT_STAGE_SIZE.x * 0.5" in hero_setup
+        and "Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 206.0 + upper_block_shift)" in hero_setup
         and "hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X" in hero_setup
         and "hero_pivot.x - 62.0" not in hero_setup,
         "The Two Player hero is not centered by the visible imported-art bounds",
@@ -692,20 +788,20 @@ def verify_long_button_attention_bounce() -> None:
         "The long-button factory cannot activate the attention-bounce state",
     )
     require(
-        main.count("false, 0.32, false, false, true)") == 1
-        and portrait.count("false, 0.32, false, false, true)") == 2
+        portrait.count("false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)") == 2
         and "var custom_word_start_button: Control = null" in main
         and "func _sync_custom_word_start_bounce() -> void:" in main
-        and 'custom_word_start_button.set("attention_bounce_enabled", !custom_word_text.is_empty())' in main
-        and main.count("!custom_word_text.is_empty()") == 2
-        and portrait.count("!custom_word_text.is_empty()") == 1,
-        "Attention bounce is not enabled on every requested CTA in both layouts",
+        and 'custom_word_start_button.set("attention_bounce_enabled", has_word)' in main
+        and 'custom_word_start_button.set("button_disabled", !has_word)' in main
+        and portrait.count("!custom_word_text.is_empty(),") == 1,
+        "Attention bounce is not enabled on every active portrait CTA",
     )
 
 
 def verify_native_custom_word_input() -> None:
     word_input = read("scripts/ui/stage_word_input.gd")
     toast = read("scripts/ui/stage_toast.gd")
+    status_icon = read("scripts/ui/stage_status_icon.gd")
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     translations = read("localization/translations.csv")
@@ -714,6 +810,11 @@ def verify_native_custom_word_input() -> None:
         "class_name StageWordInput" in word_input
         and "var _line_edit: LineEdit = null" in word_input,
         "The reusable underlined native word-input component is missing",
+    )
+    require(
+        "const STAGE_SIZE := Vector2(480.0, 800.0)" in word_input
+        and "viewport_size.x / STAGE_SIZE.x" in word_input,
+        "The native-keyboard avoidance code is missing its authored-stage size",
     )
     require(
         "_line_edit.virtual_keyboard_enabled = true" in word_input
@@ -834,11 +935,13 @@ def verify_native_custom_word_input() -> None:
     )
     require(
         'var custom_word_check_button: Control = null' in main
-        and 'custom_word_check_button.set("selected", is_checking)' in main
+        and 'custom_word_check_button.set("selected", false)' in main
         and 'custom_word_check_button.set("button_disabled", is_checking)' in main
-        and "CUSTOM_WORD_CHECKING_BUTTON_ALPHA" in main
+        and "custom_word_check_button.modulate = Color.WHITE" in main
+        and "CUSTOM_WORD_CHECK_DOTS_INTERVAL" in main
+        and "_start_custom_word_check_text_animation()" in main
         and "custom_word_check_button = _stage_main_button" in custom_screen,
-        "The word-check button does not stay pressed, disabled, and faded during lookup",
+        "The word-check button does not stay disabled with animated lookup feedback",
     )
     require(
         'preload("res://scripts/ui/stage_toast.gd")' in word_input
@@ -862,8 +965,13 @@ def verify_native_custom_word_input() -> None:
         and "const TOAST_HORIZONTAL_PADDING: float = 10.0" in toast
         and "const TOAST_ICON_TEXT_GAP: float = 5.0" in toast
         and "-TOAST_HEIGHT - TOAST_PARENT_GAP" in toast
-        and '_status_icon.text = "✓" if is_success else "×"' in toast
-        and "TOAST_SUCCESS if is_success else TOAST_FAILURE" in toast
+        and 'preload("res://scripts/ui/stage_status_icon.gd")' in toast
+        and '_status_icon.call("configure", is_success, 4.5)' in toast
+        and "class_name StageStatusIcon" in status_icon
+        and "_draw_check(draw_rect)" in status_icon
+        and "_draw_cross(draw_rect)" in status_icon
+        and "SUCCESS_COLOR" in status_icon
+        and "FAILURE_COLOR" in status_icon
         and "message_font.get_string_size(" in toast
         and "TOAST_HORIZONTAL_PADDING * 2.0" in toast
         and "TOAST_HORIZONTAL_PADDING + icon_width + TOAST_ICON_TEXT_GAP" in toast
@@ -900,10 +1008,9 @@ def verify_native_custom_word_input() -> None:
         "A network failure does not show Error with a red status while preserving the default input color",
     )
     require(
-        "custom_word_check_label" not in main
-        and "custom_word_check_text" not in main
+        "PORTRAIT_CUSTOM_WORD_STATUS_RECT" not in portrait
         and "custom_word_check_state" not in main
-        and "PORTRAIT_CUSTOM_WORD_STATUS_RECT" not in portrait,
+        and "_show_custom_word_toast" in main,
         "The obsolete secondary word-check status text is still rendered",
     )
     require(
@@ -914,7 +1021,7 @@ def verify_native_custom_word_input() -> None:
     require(
         "return filtered.substr(0, 15)" in main
         and "word.length() > 15" in main
-        and "custom_word_edit.max_length = 15" in main,
+        and "_line_edit.max_length = max_input_length" in word_input,
         "The shared custom-word path still permits more than 15 characters",
     )
     require(
@@ -995,13 +1102,13 @@ def verify_settings_popup_and_language_split() -> None:
         "Toggle text and selected state are not updated on the existing button",
     )
     require(
-        main.count("_stage_settings_word_language_button(") == 3
+        main.count("_stage_settings_word_language_button(") == 0
         and portrait.count("_stage_settings_word_language_button(") == 3,
         "Not every word-database selector uses the non-reopening handler",
     )
     require("GameState.language" not in main + portrait + state, "Legacy shared language state is still used")
     require(
-        portrait.count('GameState.interface_language == "ru"') == 2,
+        (main + portrait).count('GameState.interface_language == "ru"') == 2,
         "Hard-coded portrait UI labels do not follow the device language",
     )
 
@@ -1056,7 +1163,7 @@ def verify_game_audio_feedback() -> None:
     require(
         "func _connect_stage_button_action(button: Object, callable: Callable, with_click_sound: bool = true) -> void:"
         in main
-        and main.count("_connect_stage_button_action(button, callable)") == 5
+        and main.count("_connect_stage_button_action(button, callable)") == 4
         and "_connect_stage_button_action(button, callable, false)" in main
         and 'button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))' in main
         and main.index('button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))')
@@ -1066,7 +1173,7 @@ def verify_game_audio_feedback() -> None:
     require(
         "_play_game_sound(ui_audio_player, UI_CLICK_SOUND)" in main
         and "_play_game_sound(ui_audio_player, POPUP_OPEN_SOUND)" in main
-        and main.count("_play_popup_open_sound()") >= 10,
+        and portrait.count("_play_popup_open_sound()") == 1,
         "Click or popup-open feedback is not routed through the setting-aware UI player",
     )
     portrait_popup_begin = portrait[
@@ -1097,9 +1204,9 @@ def verify_game_audio_feedback() -> None:
         "The remove-letter hint can trigger duplicate wrong-letter sounds",
     )
     require(
-        main.count("\t_play_result_sound_once(is_win, data)") == 1
+        main.count("\t_play_result_sound_once(is_win, data)") == 0
         and portrait.count("\t_play_result_sound_once(is_win, data)") == 1,
-        "Every result-screen layout must trigger its guarded result sound",
+        "The portrait result screen must trigger its guarded result sound exactly once",
     )
     require(
         "var stream: AudioStream = RESULT_WIN_SOUND" in main
@@ -1187,6 +1294,7 @@ def main() -> None:
     verify_control_geometry()
     verify_sprite_geometry()
     verify_streamed_hero_states()
+    verify_optimized_architecture()
     verify_refined_ui_icons()
     verify_round_icon_display_sizes()
     verify_stretchable_long_buttons()
