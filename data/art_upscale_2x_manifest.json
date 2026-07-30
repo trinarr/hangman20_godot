@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 139,
+  "file_count": 145,
   "files": [
     {
       "path": "icon.png",
@@ -134,6 +134,81 @@
       "native_target_scale": true
     },
     {
+      "path": "flash_assets/nav_home_icon.png",
+      "source_size": [
+        160,
+        160
+      ],
+      "target_size": [
+        160,
+        160
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "6092b7a3a0a94d4de26dcfb154d5b450782a4fc91bbdd2de395486dbd59180bc",
+      "target_sha256": "6092b7a3a0a94d4de26dcfb154d5b450782a4fc91bbdd2de395486dbd59180bc",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/nav_profile_icon.png",
+      "source_size": [
+        160,
+        160
+      ],
+      "target_size": [
+        160,
+        160
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "9eaa78f0d27680e7709cd7a1dc18800aad682af3face99b5192ed4057272d813",
+      "target_sha256": "9eaa78f0d27680e7709cd7a1dc18800aad682af3face99b5192ed4057272d813",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/nav_settings_icon.png",
+      "source_size": [
+        160,
+        160
+      ],
+      "target_size": [
+        160,
+        160
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "2de63cce0edd5cae5cce780a5f28dec72d1d33fe52c782d16c4c9b9633d9f593",
+      "target_sha256": "2de63cce0edd5cae5cce780a5f28dec72d1d33fe52c782d16c4c9b9633d9f593",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/nav_shop_icon.png",
+      "source_size": [
+        160,
+        160
+      ],
+      "target_size": [
+        160,
+        160
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "8a7227173abe7fc0423025c1f153b02022cd06df1b1b0e301ccd56f38e44fe0d",
+      "target_sha256": "8a7227173abe7fc0423025c1f153b02022cd06df1b1b0e301ccd56f38e44fe0d",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/nav_tasks_icon.png",
+      "source_size": [
+        160,
+        160
+      ],
+      "target_size": [
+        160,
+        160
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "6d11cb2a98a748283ccc7fa5d375b87b5ac2683962d190d38eb655cd9d74b92f",
+      "target_sha256": "6d11cb2a98a748283ccc7fa5d375b87b5ac2683962d190d38eb655cd9d74b92f",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/portrait_back_arrow_icon.png",
       "source_size": [
         14,
@@ -188,6 +263,21 @@
       "source_mode": "RGBA",
       "source_sha256": "7a54e32734f6004c159e8939c898543c795cb8ca84271f3b0f6db98bb5fbc3c5",
       "target_sha256": "328bceed7d87864d92bb1b2a4108a6463ab13663fdc9b66b386487e14495e326"
+    },
+    {
+      "path": "flash_assets/soft_currency_coin.png",
+      "source_size": [
+        128,
+        128
+      ],
+      "target_size": [
+        128,
+        128
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "728ba2d326bd70db20900c156e8121b9d80c7d407a68d528c9746b7d194a6de8",
+      "target_sha256": "728ba2d326bd70db20900c156e8121b9d80c7d407a68d528c9746b7d194a6de8",
+      "native_2x": true
     },
     {
       "path": "flash_assets/theme_card_progress_user_239x65.png",

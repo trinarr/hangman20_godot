@@ -9,13 +9,20 @@ const PORTRAIT_HEADER_HEIGHT: float = 102.0
 const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
-const PORTRAIT_CLOSE_BUTTON_RECT := Rect2(404.0, 19.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80
 const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE
-const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 23.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
+const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
 const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
-const PORTRAIT_PAGE_TITLE_RECT := Rect2(80.0, 14.0, 320.0, 70.0)
-const PORTRAIT_GAME_SUBTITLE_RECT := Rect2(140.0, 72.0, 200.0, 32.0)
+const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 76.0, 400.0, 42.0)
+const PORTRAIT_GAME_SUBTITLE_RECT := Rect2(70.0, 108.0, 340.0, 28.0)
+const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(182.0, 17.0, 116.0, 48.0)
+const PORTRAIT_CURRENCY_ICON_SIZE: float = 44.0
+const PORTRAIT_MAIN_NAV_Y: float = 688.0
+const PORTRAIT_MAIN_NAV_HEIGHT: float = 112.0
+const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0
+const PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(92.0, 122.0)
+const PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 676.0
+const PORTRAIT_MAIN_NAV_ICON_SIZE: float = 58.0
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
@@ -46,6 +53,11 @@ const PORTRAIT_RESULT_THEME_MENU_ICON: Texture2D = preload("res://flash_assets/r
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
 const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
+const PORTRAIT_NAV_PROFILE_ICON: Texture2D = preload("res://flash_assets/nav_profile_icon.png")
+const PORTRAIT_NAV_SHOP_ICON: Texture2D = preload("res://flash_assets/nav_shop_icon.png")
+const PORTRAIT_NAV_HOME_ICON: Texture2D = preload("res://flash_assets/nav_home_icon.png")
+const PORTRAIT_NAV_TASKS_ICON: Texture2D = preload("res://flash_assets/nav_tasks_icon.png")
+const PORTRAIT_NAV_SETTINGS_ICON: Texture2D = preload("res://flash_assets/nav_settings_icon.png")
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -65,8 +77,8 @@ const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(72.0, 72.0)
 const PORTRAIT_GAME_HINT_ART_RISE: float = 18.0
 const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
-const PORTRAIT_LIVES_ICON_RECT := Rect2(344.0, 57.7, 29.4, 26.6)
-const PORTRAIT_LIVES_LABEL_RECT := Rect2(378.0, 50.0, 50.0, 42.0)
+const PORTRAIT_LIVES_ICON_RECT := Rect2(336.0, 25.0, 35.7, 32.3)
+const PORTRAIT_LIVES_LABEL_RECT := Rect2(376.0, 19.0, 78.0, 44.0)
 const PORTRAIT_LAST_LIFE_FIRST_BOUNCE_SCALE: float = 1.20
 const PORTRAIT_LAST_LIFE_SECOND_BOUNCE_SCALE: float = 1.13
 const PORTRAIT_LAST_LIFE_BOUNCE_UP_DURATION: float = 0.12
@@ -81,6 +93,14 @@ const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 
+enum MainTab {
+	PROFILE,
+	SHOP,
+	HOME,
+	TASKS,
+	SETTINGS,
+}
+
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
@@ -88,6 +108,7 @@ var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
+var _preserve_custom_word_on_next_show: bool = false
 
 func _clear() -> void:
 	_remove_profile_edit_popup()
@@ -147,17 +168,31 @@ func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: f
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
-func _stage_portrait_page_header(title: String, back_callable: Callable) -> void:
-	_stage_round_icon_button(
-		PORTRAIT_PAGE_BACK_BUTTON_RECT,
-		back_callable,
-		PORTRAIT_BACK_ARROW_ICON,
-		PORTRAIT_PAGE_BACK_ICON_SIZE
-	)
+func _stage_portrait_page_header(
+	title: String,
+	back_callable: Callable,
+	currency_return_action: Callable = Callable()
+) -> void:
+	if back_callable.is_valid():
+		_stage_round_icon_button(
+			PORTRAIT_PAGE_BACK_BUTTON_RECT,
+			back_callable,
+			PORTRAIT_BACK_ARROW_ICON,
+			PORTRAIT_PAGE_BACK_ICON_SIZE
+		)
+	var resolved_return_action: Callable = currency_return_action
+	if !resolved_return_action.is_valid():
+		resolved_return_action = back_callable
+	if !resolved_return_action.is_valid():
+		resolved_return_action = Callable(self, "show_menu")
+	_stage_currency_counter(resolved_return_action)
+	_stage_portrait_page_title(title)
+
+func _stage_portrait_page_title(title: String) -> void:
 	var title_label := _stage_label(
 		PORTRAIT_PAGE_TITLE_RECT,
 		title,
-		38,
+		30,
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -166,8 +201,157 @@ func _stage_portrait_page_header(title: String, back_callable: Callable) -> void
 		title_label,
 		title,
 		PORTRAIT_PAGE_TITLE_RECT.size.x,
-		38,
-		28
+		30,
+		20
+	)
+
+func _stage_currency_counter(return_action: Callable, rect: Rect2 = Rect2()) -> void:
+	var counter_rect: Rect2 = rect if rect.size.x > 0.0 and rect.size.y > 0.0 else PORTRAIT_CURRENCY_COUNTER_RECT
+	var panel := _stage_panel(
+		counter_rect,
+		PORTRAIT_DARK_BLUE,
+		counter_rect.size.y * 0.5,
+		Color(0.72, 0.77, 0.91, 1.0),
+		2.0
+	)
+	panel.z_index = 20
+	var icon_rect := Rect2(
+		counter_rect.position + Vector2(2.0, (counter_rect.size.y - PORTRAIT_CURRENCY_ICON_SIZE) * 0.5),
+		Vector2(PORTRAIT_CURRENCY_ICON_SIZE, PORTRAIT_CURRENCY_ICON_SIZE)
+	)
+	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
+	coin_icon.z_index = 21
+	var balance_rect := Rect2(
+		Vector2(counter_rect.position.x + 43.0, counter_rect.position.y),
+		Vector2(counter_rect.size.x - 49.0, counter_rect.size.y)
+	)
+	var balance_text: String = str(GameState.get_soft_currency())
+	var balance_label := _stage_label(
+		balance_rect,
+		balance_text,
+		24,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	balance_label.z_index = 21
+	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, 24, 14)
+	var counter_action: Callable = Callable(self, "_open_coin_store").bind(return_action)
+	if return_action.is_valid() and return_action.get_method() == &"show_coin_store":
+		counter_action = return_action
+	var counter_button := _stage_button(counter_rect, counter_action, "")
+	counter_button.z_index = 22
+
+func _stage_main_navigation(active_tab: int) -> void:
+	var navigation_panel := _stage_panel(
+		Rect2(0.0, PORTRAIT_MAIN_NAV_Y, PORTRAIT_STAGE_SIZE.x, PORTRAIT_MAIN_NAV_HEIGHT),
+		PORTRAIT_BLUE
+	)
+	navigation_panel.z_index = 40
+	var top_rule := _stage_panel(
+		Rect2(0.0, PORTRAIT_MAIN_NAV_Y, PORTRAIT_STAGE_SIZE.x, 2.0),
+		Color(0.68, 0.75, 0.94, 1.0)
+	)
+	top_rule.z_index = 41
+
+	for tab_index in range(5):
+		var tab_action: Callable
+		var tab_icon: Texture2D
+		var tab_label: String
+		match tab_index:
+			MainTab.PROFILE:
+				tab_action = Callable(self, "show_profile")
+				tab_icon = PORTRAIT_NAV_PROFILE_ICON
+				tab_label = _profile_text("Профиль", "Profile")
+			MainTab.SHOP:
+				tab_action = Callable(self, "_show_coin_store_tab")
+				tab_icon = PORTRAIT_NAV_SHOP_ICON
+				tab_label = _profile_text("Магазин", "Shop")
+			MainTab.HOME:
+				tab_action = Callable(self, "show_menu")
+				tab_icon = PORTRAIT_NAV_HOME_ICON
+				tab_label = _profile_text("Главная", "Home")
+			MainTab.TASKS:
+				tab_action = Callable(self, "show_tasks")
+				tab_icon = PORTRAIT_NAV_TASKS_ICON
+				tab_label = _profile_text("Задания", "Tasks")
+			_:
+				tab_action = Callable(self, "show_settings")
+				tab_icon = PORTRAIT_NAV_SETTINGS_ICON
+				tab_label = _profile_text("Настройки", "Settings")
+
+		var tab_x: float = float(tab_index) * PORTRAIT_MAIN_NAV_ITEM_WIDTH
+		var is_active: bool = tab_index == active_tab
+		var hit_rect := Rect2(tab_x, PORTRAIT_MAIN_NAV_ACTIVE_Y, PORTRAIT_MAIN_NAV_ITEM_WIDTH, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.y)
+		if is_active:
+			var active_rect := Rect2(
+				Vector2(tab_x + 2.0, PORTRAIT_MAIN_NAV_ACTIVE_Y),
+				PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE
+			)
+			var active_panel := _stage_panel(
+				active_rect,
+				PORTRAIT_ORANGE,
+				20.0,
+				Color(0.95, 0.72, 0.42, 1.0),
+				2.0
+			)
+			active_panel.z_index = 42
+			var active_icon := _stage_texture(
+				Rect2(tab_x + 19.0, 684.0, PORTRAIT_MAIN_NAV_ICON_SIZE, PORTRAIT_MAIN_NAV_ICON_SIZE),
+				tab_icon
+			)
+			active_icon.z_index = 43
+			var active_label := _stage_label(
+				Rect2(tab_x + 4.0, 744.0, 88.0, 48.0),
+				tab_label,
+				17,
+				Color.WHITE,
+				HORIZONTAL_ALIGNMENT_CENTER
+			)
+			active_label.z_index = 43
+			active_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
+			active_label.add_theme_constant_override("outline_size", 2)
+			_fit_single_line_label_to_width(active_label, tab_label, 88.0, 17, 12)
+		else:
+			var inactive_icon := _stage_texture(
+				Rect2(tab_x + 17.0, 710.0, 62.0, 62.0),
+				tab_icon
+			)
+			inactive_icon.z_index = 42
+			inactive_icon.modulate = Color(0.92, 0.94, 1.0, 1.0)
+		var tab_button := _stage_button(hit_rect, tab_action, "")
+		tab_button.z_index = 44
+
+func _show_coin_store_tab() -> void:
+	coin_store_return_action = Callable()
+	show_coin_store()
+
+func show_coin_store() -> void:
+	_clear()
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	if coin_store_return_action.is_valid():
+		_stage_portrait_page_header(
+			tr("COIN_STORE_TITLE"),
+			Callable(self, "_close_coin_store"),
+			Callable(self, "show_coin_store")
+		)
+	else:
+		_stage_currency_counter(Callable(self, "show_coin_store"))
+		_stage_portrait_page_title(tr("COIN_STORE_TITLE"))
+	_stage_main_navigation(MainTab.SHOP)
+
+func show_tasks() -> void:
+	coin_store_return_action = Callable()
+	_clear()
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	_stage_currency_counter(Callable(self, "show_tasks"))
+	_stage_portrait_page_title(_profile_text("ЗАДАНИЯ", "TASKS"))
+	_stage_main_navigation(MainTab.TASKS)
+
+func _stage_single_player_level_header(level_index: int) -> void:
+	_stage_portrait_page_header(
+		"%s %d" % [_single_player_level_label(), level_index + 1],
+		Callable(self, "show_menu"),
+		Callable(self, "show_single_player_level").bind(level_index)
 	)
 
 func _stage_portrait_game_header() -> void:
@@ -188,22 +372,13 @@ func _stage_portrait_game_header() -> void:
 			if GameSession.theme_id >= 0:
 				subtitle = Database.get_theme_name(GameSession.theme_id).to_upper()
 
-	# Match the exact title geometry used by the category screen.  When a
-	# subtitle is present, treat the two lines as one centered block whose total
-	# vertical center aligns with the close button.
 	var title_rect: Rect2 = PORTRAIT_PAGE_TITLE_RECT
 	var subtitle_rect: Rect2 = PORTRAIT_GAME_SUBTITLE_RECT
-	if !subtitle.is_empty():
-		var button_center_y: float = PORTRAIT_PAGE_BACK_BUTTON_RECT.get_center().y
-		var block_height: float = 64.0
-		var block_top: float = button_center_y - block_height * 0.5
-		title_rect = Rect2(80.0, block_top, 320.0, 38.0)
-		subtitle_rect = Rect2(100.0, block_top + 40.0, 280.0, 24.0)
 
 	var title_label := _stage_label(
 		title_rect,
 		title,
-		38,
+		30,
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -213,28 +388,28 @@ func _stage_portrait_game_header() -> void:
 		title_label,
 		title,
 		title_rect.size.x,
-		38,
-		28
+		30,
+		20
 	)
 
-	if subtitle.is_empty():
-		return
-	var subtitle_label := _stage_label(
-		subtitle_rect,
-		subtitle,
-		26,
-		PORTRAIT_ORANGE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	subtitle_label.clip_text = false
-	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_fit_single_line_label_to_width(
-		subtitle_label,
-		subtitle,
-		subtitle_rect.size.x,
-		26,
-		16
-	)
+	if !subtitle.is_empty():
+		var subtitle_label := _stage_label(
+			subtitle_rect,
+			subtitle,
+			20,
+			PORTRAIT_ORANGE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		subtitle_label.clip_text = false
+		subtitle_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_fit_single_line_label_to_width(
+			subtitle_label,
+			subtitle,
+			subtitle_rect.size.x,
+			20,
+			14
+		)
+	_stage_currency_counter(Callable(self, "show_game_screen"))
 
 func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = PORTRAIT_POPUP_DIM_ALPHA) -> Control:
 	_play_popup_open_sound()
@@ -348,63 +523,51 @@ func show_menu() -> void:
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
 	_portrait_game_adaptive_group = null
+	coin_store_return_action = Callable()
 	_clear()
 
-	# The main menu uses only the paper background. The profile avatar and
-	# settings button stay pinned to opposite top corners without a blue header.
-	_stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
-	_stage_main_menu_character_button()
-	_stage_round_button(PORTRAIT_CLOSE_BUTTON_RECT, Callable(self, "show_settings"), "⚙")
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	_stage_currency_counter(Callable(self, "show_menu"))
 
-	# Keep the title visually centered, but do not scale the action buttons.
-	# Long buttons use the same authored 300x64 size everywhere in the app; only
-	# their vertical group is shifted lower on tall screens for thumb reach.
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
 	var title_label := _stage_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_portrait_end_adaptive_group(menu_title_content)
 
-	var menu_buttons_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 590.0), 1.0, 0.22)
 	var button_x: float = 90.0
-	_stage_main_button(Rect2(button_x, 515.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
-	_stage_main_button(Rect2(button_x, 595.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
-	# The primary CTA follows the same 80 px vertical rhythm as the other buttons.
-	# Its dimensions are 15% larger than the standard long button.
-	_stage_single_player_menu_button(Rect2(67.5, 675.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
-	_portrait_end_adaptive_group(menu_buttons_content)
-
-func _stage_main_menu_character_button() -> void:
-	var badge_rect := Rect2(8.0, 10.0, 86.0, 86.0)
-	_stage_texture(badge_rect, HERO_BADGE_RING_TEXTURE)
-	if _selected_character_id() == 2:
-		_stage_texture(Rect2(21.0, 32.0, 60.0, 53.0), HERO_AVATAR_TIGRE_TEXTURE)
-	else:
-		_stage_texture(Rect2(30.0, 30.0, 43.0, 47.0), HERO_AVATAR_LAKI_TEXTURE)
-	_stage_button(Rect2(2.0, 4.0, 100.0, 100.0), Callable(self, "show_profile"), "")
+	_stage_main_button(Rect2(button_x, 430.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 22)
+	_stage_main_button(Rect2(button_x, 510.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
+	_stage_single_player_menu_button(Rect2(67.5, 590.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
+	_stage_main_navigation(MainTab.HOME)
 
 func show_settings() -> void:
-	var previous_content: Control = content
-	if settings_popup_return_content != null and is_instance_valid(settings_popup_return_content):
-		previous_content = settings_popup_return_content
-	_remove_settings_popup()
-	settings_popup_return_content = previous_content
-	var stored_previous := _portrait_popup_begin("SettingsPopup", "settings_popup", 100, Callable(self, "_remove_settings_popup"), 90.0, 580.0)
-	var rect := Rect2(28.0, 90.0, 424.0, 490.0)
-	_portrait_popup_shell(rect, Database.tr_text(4, "Settings"), Callable(self, "_remove_settings_popup"), 30)
+	coin_store_return_action = Callable()
+	_clear()
+	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
+	_stage_currency_counter(Callable(self, "show_settings"))
+	_stage_portrait_page_title(Database.tr_text(4, "Settings"))
+	var settings_card := _stage_panel(
+		Rect2(28.0, 138.0, 424.0, 440.0),
+		PORTRAIT_DARK_BLUE,
+		24.0,
+		PORTRAIT_RULE,
+		2.0
+	)
+	settings_card.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	_stage_label(Rect2(56.0, 192.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 188.0, 102.0, 49.0), 3)
-	_stage_label(Rect2(56.0, 260.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 256.0, 102.0, 49.0), 4)
-	_stage_panel(Rect2(56.0, 328.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_label(Rect2(56.0, 352.0, 190.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(210.0, 350.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
-	_stage_settings_word_language_button(Rect2(322.0, 350.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
-	_stage_panel(Rect2(56.0, 430.0, 368.0, 2.0), PORTRAIT_RULE)
+	_stage_label(Rect2(56.0, 176.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 172.0, 102.0, 49.0), 3)
+	_stage_label(Rect2(56.0, 244.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 240.0, 102.0, 49.0), 4)
+	_stage_panel(Rect2(56.0, 312.0, 368.0, 2.0), PORTRAIT_RULE)
+	_stage_label(Rect2(56.0, 336.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_word_language_button(Rect2(210.0, 332.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
+	_stage_settings_word_language_button(Rect2(322.0, 332.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
+	_stage_panel(Rect2(56.0, 412.0, 368.0, 2.0), PORTRAIT_RULE)
 	_stage_portrait_popup_main_button(
 		Rect2(
-			rect.position.x + (rect.size.x - PORTRAIT_SMALL_BUTTON_SIZE.x) * 0.5,
-			492.0,
+			142.0,
+			466.0,
 			PORTRAIT_SMALL_BUTTON_SIZE.x,
 			PORTRAIT_SMALL_BUTTON_SIZE.y
 		),
@@ -412,7 +575,7 @@ func show_settings() -> void:
 		_settings_about_label(),
 		18
 	)
-	content = stored_previous
+	_stage_main_navigation(MainTab.SETTINGS)
 
 func _show_about_popup() -> void:
 	_remove_about_popup()
@@ -438,13 +601,17 @@ func show_theme_select() -> void:
 	var theme_title: String = Database.tr_text(28, "Choose the category:").strip_edges()
 	if theme_title.ends_with(":"):
 		theme_title = theme_title.substr(0, theme_title.length() - 1)
-	_stage_portrait_page_header(theme_title, Callable(self, "show_menu"))
+	_stage_portrait_page_header(
+		theme_title,
+		Callable(self, "show_menu"),
+		Callable(self, "show_theme_select")
+	)
 
 	for i in range(Database.get_theme_count()):
 		var col: int = i % 2
 		var row: int = int(i / 2)
 		var x: float = 18.0 + float(col) * 230.0
-		var y: float = 118.0 + float(row) * 104.0
+		var y: float = 132.0 + float(row) * 104.0
 		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
 		var guessed: int = Database.get_number_of_guessed_words(i, true)
 		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
@@ -615,14 +782,17 @@ func show_custom_word() -> void:
 	# Two-player words do not support comments, gameplay hints, or automatic
 	# opening of edge letters. GameSession enforces that rule directly.
 	custom_comment_text = ""
-	_set_random_custom_word()
+	if !_preserve_custom_word_on_next_show or custom_word_text.is_empty():
+		_set_random_custom_word()
+	_preserve_custom_word_on_next_show = false
 
 	# Match the category screen: graph-paper background with a shared top
 	# navigation row and no footer backdrop.
 	_portrait_screen(0.0)
 	_stage_portrait_page_header(
 		Database.tr_text(37, "Input the word"),
-		Callable(self, "show_menu")
+		Callable(self, "show_menu"),
+		Callable(self, "_return_to_custom_word_from_coin_store")
 	)
 
 	# Attach both actions to the footer and apply the same 85% width treatment
@@ -646,6 +816,10 @@ func show_custom_word() -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_stage_portrait_custom_word_field()
+
+func _return_to_custom_word_from_coin_store() -> void:
+	_preserve_custom_word_on_next_show = true
+	show_custom_word()
 
 func _stage_portrait_custom_word_field() -> void:
 	var word_input := STAGE_WORD_INPUT_SCRIPT.new() as StageWordInput
@@ -695,6 +869,7 @@ func _refresh_game_screen() -> void:
 	var upper_block_shift: float = extra_stage_height * 0.5
 	_portrait_screen(0.0)
 	_stage_portrait_game_header()
+	_stage_portrait_lives_counter()
 
 	# The hangman character should remain horizontally centered on the screen in
 	# every gameplay mode.  Compensate for the imported symbol's empty origin so
@@ -716,7 +891,6 @@ func _refresh_game_screen() -> void:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
 	_configure_hero_static_animation()
 
-	_stage_portrait_lives_counter(upper_block_shift)
 	_portrait_end_adaptive_group(hero_root_content)
 
 	var alphabet := Database.get_alphabet()
@@ -960,9 +1134,9 @@ func _stage_portrait_hint_buttons() -> void:
 
 	# The comment remains an orange action after it has been unlocked: opening the
 	# same comment again is free and should not look like a consumed one-shot hint.
-	_stage_portrait_hint_counter(open_rect, GameState.get_hint_count(GameState.HINT_OPEN_LETTER))
-	_stage_portrait_hint_counter(remove_rect, GameState.get_hint_count(GameState.HINT_REMOVE_WRONG))
-	_stage_portrait_hint_counter(comment_rect, GameState.get_hint_count(GameState.HINT_COMMENT))
+	_stage_portrait_hint_counter(open_rect, GameState.HINT_OPEN_LETTER)
+	_stage_portrait_hint_counter(remove_rect, GameState.HINT_REMOVE_WRONG)
+	_stage_portrait_hint_counter(comment_rect, GameState.HINT_COMMENT)
 
 func _stage_portrait_hint_art(button: Control, texture: Texture2D) -> void:
 	if button == null:
@@ -983,7 +1157,11 @@ func _stage_portrait_hint_art(button: Control, texture: Texture2D) -> void:
 	art.z_index = 4
 	button.add_child(art)
 
-func _stage_portrait_hint_counter(button_rect: Rect2, count: int) -> void:
+func _stage_portrait_hint_counter(button_rect: Rect2, hint_key: String) -> void:
+	var count: int = GameState.get_hint_count(hint_key)
+	if count <= 0:
+		_stage_portrait_hint_price(button_rect, GameState.get_hint_cost(hint_key))
+		return
 	var badge_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
 	var badge_rect := Rect2(
 		Vector2(
@@ -1003,19 +1181,50 @@ func _stage_portrait_hint_counter(button_rect: Rect2, count: int) -> void:
 	counter_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
 	counter_label.add_theme_constant_override("outline_size", 2)
 
-func _stage_portrait_lives_counter(upper_block_shift: float) -> void:
-	var icon_rect: Rect2 = PORTRAIT_LIVES_ICON_RECT
-	icon_rect.position.y += upper_block_shift
-	var heart_icon: Control = _stage_texture(icon_rect, LIFE_HEART_ICON_TEXTURE)
+func _stage_portrait_hint_price(button_rect: Rect2, price: int) -> void:
+	var badge_size := Vector2(58.0, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var badge_rect := Rect2(
+		Vector2(
+			button_rect.end.x - badge_size.x * 0.88,
+			button_rect.end.y - badge_size.y * 0.82
+		),
+		badge_size
+	)
+	var badge := _stage_panel(
+		badge_rect,
+		PORTRAIT_DARK_BLUE,
+		badge_size.y * 0.5,
+		Color(0.72, 0.77, 0.91, 1.0),
+		1.5
+	)
+	badge.z_index = 8
+	var mini_coin_rect := Rect2(
+		badge_rect.position + Vector2(2.0, 2.0),
+		Vector2(24.0, 24.0)
+	)
+	var coin_icon := _stage_texture(mini_coin_rect, SOFT_CURRENCY_COIN_TEXTURE)
+	coin_icon.z_index = 9
+	var price_label := _stage_label(
+		Rect2(
+			Vector2(badge_rect.position.x + 25.0, badge_rect.position.y),
+			Vector2(badge_rect.size.x - 27.0, badge_rect.size.y)
+		),
+		str(maxi(price, 0)),
+		16,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	price_label.z_index = 9
+
+func _stage_portrait_lives_counter() -> void:
+	var heart_icon: Control = _stage_texture(PORTRAIT_LIVES_ICON_RECT, LIFE_HEART_ICON_TEXTURE)
 	if GameSession.is_active and GameSession.get_remaining_attempts() == 1:
 		_start_portrait_last_life_heart_bounce(heart_icon)
 
-	var label_rect: Rect2 = PORTRAIT_LIVES_LABEL_RECT
-	label_rect.position.y += upper_block_shift
 	var lives_label := _stage_label(
-		label_rect,
+		PORTRAIT_LIVES_LABEL_RECT,
 		"х" + str(GameSession.get_remaining_attempts()),
-		26,
+		27,
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)
@@ -1102,7 +1311,7 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	var result_word_rect := Rect2(
 		20.0,
 		18.0,
-		PORTRAIT_RESULT_HEADER_SEARCH_BUTTON_RECT.position.x - PORTRAIT_RESULT_WORD_BUTTON_GAP - 20.0,
+		PORTRAIT_CURRENCY_COUNTER_RECT.position.x - PORTRAIT_RESULT_WORD_BUTTON_GAP - 20.0,
 		68.0
 	)
 	var result_word_label := _stage_label(result_word_rect, full_word, PORTRAIT_RESULT_WORD_MAX_FONT_SIZE, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -1115,6 +1324,9 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	)
 	result_word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	result_word_label.clip_text = true
+	_stage_currency_counter(
+		Callable(self, "show_result_screen").bind(is_win, data)
+	)
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		_show_two_player_result_content(is_win, data)
 	else:
@@ -1192,9 +1404,11 @@ func _show_classic_result_content(is_win: bool, data: Dictionary) -> void:
 		_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_RESULT_THEME_BUTTON_RECT), Callable(self, "show_theme_select"), PORTRAIT_RESULT_THEME_MENU_ICON, _portrait_footer_icon_size(Vector2(32.0, 30.0)))
 	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT), Callable(self, "_result_right_action"), _result_right_button_text(), _portrait_footer_font_size(22), false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)
 func show_profile() -> void:
+	coin_store_return_action = Callable()
 	_clear()
 	_portrait_screen(0.0, PORTRAIT_FOOTER_Y)
-	_stage_label(Rect2(24.0, 14.0, 432.0, 70.0), _profile_text("ПРОФИЛЬ", "PROFILE"), 38, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	_stage_currency_counter(Callable(self, "show_profile"))
+	_stage_portrait_page_title(_profile_text("ПРОФИЛЬ", "PROFILE"))
 
 	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)
 	_stage_profile_header_card()
@@ -1202,7 +1416,7 @@ func show_profile() -> void:
 	_portrait_profile_stat_row(392.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), int(GameState.records[0][2]), tr("RECORD_HARD_STREAK"), int(GameState.records[0][3]))
 	_portrait_profile_stat_row(526.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), int(GameState.records[1][0]), tr("DEFEATS"), int(GameState.records[1][1]))
 	_portrait_end_adaptive_group(profile_root_content)
-	_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT), Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, _portrait_footer_icon_size(Vector2(27.0, 33.0)))
+	_stage_main_navigation(MainTab.PROFILE)
 
 func _stage_profile_header_card() -> void:
 	var card_rect := Rect2(24.0, 136.0, 432.0, 150.0)

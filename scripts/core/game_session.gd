@@ -119,7 +119,6 @@ func can_use_open_letter_hint() -> bool:
 		and !open_hint_used
 		and _has_hidden_letter()
 		and _hints_allowed()
-		and GameState.get_hint_count(GameState.HINT_OPEN_LETTER) > 0
 	)
 
 func can_use_remove_wrong_hint() -> bool:
@@ -128,7 +127,6 @@ func can_use_remove_wrong_hint() -> bool:
 		and !remove_wrong_hint_used
 		and _has_removable_wrong_letter()
 		and _hints_allowed()
-		and GameState.get_hint_count(GameState.HINT_REMOVE_WRONG) > 0
 	)
 
 func has_word_hint() -> bool:
@@ -140,7 +138,6 @@ func can_unlock_comment_hint() -> bool:
 		and !comment_hint_unlocked
 		and has_word_hint()
 		and _hints_allowed()
-		and GameState.get_hint_count(GameState.HINT_COMMENT) > 0
 	)
 
 func can_view_comment_hint() -> bool:
@@ -148,7 +145,7 @@ func can_view_comment_hint() -> bool:
 
 func _hints_allowed() -> bool:
 	# Hints belong to database-backed rounds. Two-player custom words intentionally
-	# have no hints, regardless of legacy values left in older save files.
+	# have no hints.
 	return theme_id >= 0
 
 func _has_hidden_letter() -> bool:
@@ -173,7 +170,7 @@ func use_open_letter_hint() -> bool:
 			candidates.append(i)
 	if candidates.is_empty():
 		return false
-	if !GameState.consume_hint(GameState.HINT_OPEN_LETTER):
+	if GameState.pay_for_hint(GameState.HINT_OPEN_LETTER) == GameState.HintPayment.FAILED:
 		return false
 	open_hint_used = true
 	var index: int = candidates[randi() % candidates.size()]
@@ -198,7 +195,7 @@ func use_remove_wrong_hint() -> bool:
 			candidates.append(letter)
 	if candidates.is_empty():
 		return false
-	if !GameState.consume_hint(GameState.HINT_REMOVE_WRONG):
+	if GameState.pay_for_hint(GameState.HINT_REMOVE_WRONG) == GameState.HintPayment.FAILED:
 		return false
 	remove_wrong_hint_used = true
 	# Remove exactly three unavailable keyboard letters in every language. They
@@ -220,7 +217,7 @@ func unlock_comment_hint() -> bool:
 		return can_view_comment_hint()
 	if !can_unlock_comment_hint():
 		return false
-	if !GameState.consume_hint(GameState.HINT_COMMENT):
+	if GameState.pay_for_hint(GameState.HINT_COMMENT) == GameState.HintPayment.FAILED:
 		return false
 	comment_hint_unlocked = true
 	emit_signal("changed")
@@ -263,6 +260,13 @@ func finish_result(is_win: bool) -> Dictionary:
 	}
 	if word_data == null:
 		return result
+
+	if is_win:
+		GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
+		var reward_text: String = tr("COINS_EARNED")
+		if reward_text == "COINS_EARNED":
+			reward_text = "Coins: +%d"
+		result["lines"].append(reward_text % GameState.WORD_REWARD_COINS)
 
 	var diff := clampi(int(word_data.difficulty), 0, 1)
 

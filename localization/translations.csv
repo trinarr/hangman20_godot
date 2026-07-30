@@ -94,3 +94,5 @@ Classic mode"
 CONTINUE_TWO_PLAYER,"Доиграть в режиме
 «Два игрока»","Continue in
 Two Player mode"
+COIN_STORE_TITLE,МОНЕТЫ,COINS
+COINS_EARNED,Монеты: +%d,Coins: +%d

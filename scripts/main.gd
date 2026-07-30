@@ -51,6 +51,7 @@ const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stag
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
+const SOFT_CURRENCY_COIN_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin.png")
 const SINGLE_PLAYER_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
@@ -125,7 +126,6 @@ var hero_pose_round_token: int = 0
 var hero_pose_frame_index: int = -1
 var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
 var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
-var settings_popup_return_content: Control = null
 var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
@@ -133,6 +133,7 @@ var pending_letter_marker_is_correct: bool = false
 var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
+var coin_store_return_action: Callable = Callable()
 
 func _ready() -> void:
 	randomize()
@@ -158,6 +159,29 @@ func show_custom_word() -> void:
 
 func show_result_screen(_is_win: bool, _data: Dictionary = {}) -> void:
 	pass
+
+func show_coin_store() -> void:
+	pass
+
+func _stage_currency_counter(_return_action: Callable, _rect: Rect2 = Rect2()) -> void:
+	pass
+
+func _stage_single_player_level_header(_level_index: int) -> void:
+	pass
+
+func _open_coin_store(return_action: Callable = Callable()) -> void:
+	coin_store_return_action = return_action
+	if !coin_store_return_action.is_valid():
+		coin_store_return_action = Callable(self, "show_menu")
+	show_coin_store()
+
+func _close_coin_store() -> void:
+	var return_action: Callable = coin_store_return_action
+	coin_store_return_action = Callable()
+	if return_action.is_valid():
+		return_action.call()
+	else:
+		show_menu()
 
 func _refresh_game_screen() -> void:
 	pass
@@ -206,11 +230,12 @@ func _clear() -> void:
 	custom_word_check_button = null
 	custom_word_start_button = null
 	hero_static_symbol = null
-	_remove_settings_popup()
+	_remove_about_popup()
+	settings_toggle_buttons.clear()
+	settings_word_language_buttons.clear()
 	_remove_exit_game_popup()
 	_remove_single_player_theme_popup()
 	_remove_clear_theme_popup()
-	settings_popup_return_content = null
 	custom_word_edit = null
 	custom_word_input_visual = null
 	for child: Node in ui.get_children():
@@ -442,16 +467,6 @@ func _refresh_settings_word_language_buttons() -> void:
 		if button == null or !is_instance_valid(button):
 			continue
 		button.set("selected", language_code == GameState.word_language)
-
-func _remove_settings_popup() -> void:
-	_remove_about_popup()
-	settings_toggle_buttons.clear()
-	settings_word_language_buttons.clear()
-	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
 
 func _settings_sound_label() -> String:
 	return Database.tr_text(65, "Sounds and music")
@@ -987,36 +1002,21 @@ func show_single_player_level(level_index: int) -> void:
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = -1
 	_clear()
-	var footer_y: float = 688.0
 	var screen_blue := Color(0.2706, 0.3098, 0.6078, 1.0)
-	_stage_texture_fill(0.0, footer_y, MENU_PAPER_COVER)
-	_stage_horizontal_fill(footer_y, 800.0 - footer_y, screen_blue)
-	var level_title := _stage_label(
-		Rect2(24.0, 14.0, 432.0, 70.0),
-		"%s %d" % [_single_player_level_label(), level_index + 1],
-		38,
-		screen_blue,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	level_title.clip_text = false
+	_stage_texture_fill(0.0, 800.0, MENU_PAPER_COVER)
+	_stage_single_player_level_header(level_index)
 	var selected_theme: int = _single_player_level_selected_theme(level_index)
 	var instruction_text: String = _single_player_choose_theme_label()
 	if selected_theme >= 0:
 		instruction_text = _single_player_text("Продолжите выбранную тему", "Continue the selected category")
 	var instruction_label := _stage_label(
-		Rect2(36.0, 82.0, 408.0, 46.0),
+		Rect2(36.0, 118.0, 408.0, 42.0),
 		instruction_text,
-		21,
+		19,
 		screen_blue,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	instruction_label.clip_text = false
-	_stage_round_icon_button(
-		_single_player_footer_back_rect(),
-		Callable(self, "show_menu"),
-		SINGLE_PLAYER_BACK_ARROW_ICON,
-		_single_player_footer_icon_size(Vector2(27.0, 33.0))
-	)
 
 	var word_count: int = _single_player_level_word_count(level_index)
 	var played_count: int = _single_player_level_played_count(level_index)
@@ -1033,7 +1033,7 @@ func show_single_player_level(level_index: int) -> void:
 		unavailable_label.clip_text = false
 		return
 
-	var card_rect := Rect2(30.0, 144.0, 420.0, 112.0)
+	var card_rect := Rect2(30.0, 166.0, 420.0, 112.0)
 	for option_index in range(theme_options.size()):
 		var theme_index: int = int(theme_options[option_index])
 		var is_selected: bool = selected_theme == theme_index
@@ -1617,6 +1617,9 @@ func _press_letter(letter: String) -> void:
 		_play_hero_correct_guess_animation()
 
 func _use_open_hint() -> void:
+	if GameSession.can_use_open_letter_hint() and !GameState.can_pay_for_hint(GameState.HINT_OPEN_LETTER):
+		_open_coin_store(Callable(self, "show_game_screen"))
+		return
 	# If the hint reveals the final letter, keep the gameplay screen visible long
 	# enough for the standard circle-and-bounce feedback to finish.
 	round_result_delay_requested = true
@@ -1624,11 +1627,17 @@ func _use_open_hint() -> void:
 	round_result_delay_requested = false
 
 func _use_remove_hint() -> void:
+	if GameSession.can_use_remove_wrong_hint() and !GameState.can_pay_for_hint(GameState.HINT_REMOVE_WRONG):
+		_open_coin_store(Callable(self, "show_game_screen"))
+		return
 	GameSession.use_remove_wrong_hint()
 
 func _use_comment_hint() -> void:
 	if GameSession.comment_hint_unlocked:
 		_show_word_comment_popup()
+		return
+	if GameSession.can_unlock_comment_hint() and !GameState.can_pay_for_hint(GameState.HINT_COMMENT):
+		_open_coin_store(Callable(self, "show_game_screen"))
 		return
 	if GameSession.unlock_comment_hint():
 		_show_word_comment_popup()
