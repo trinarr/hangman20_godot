@@ -135,6 +135,15 @@ func add_soft_currency(amount: int, persist: bool = true) -> int:
 		save_game()
 	return soft_currency
 
+func spend_soft_currency(amount: int, persist: bool = true) -> bool:
+	if amount <= 0 or get_soft_currency() < amount:
+		return false
+	soft_currency -= amount
+	soft_currency_changed.emit(soft_currency)
+	if persist:
+		save_game()
+	return true
+
 func get_hint_cost(hint_key: String) -> int:
 	return maxi(int(HINT_COSTS.get(hint_key, 0)), 0)
 
@@ -152,11 +161,8 @@ func pay_for_hint(hint_key: String) -> int:
 		return HintPayment.FREE_HINT
 
 	var cost: int = get_hint_cost(hint_key)
-	if cost <= 0 or get_soft_currency() < cost:
+	if cost <= 0 or !spend_soft_currency(cost):
 		return HintPayment.FAILED
-	soft_currency -= cost
-	soft_currency_changed.emit(soft_currency)
-	save_game()
 	return HintPayment.SOFT_CURRENCY
 
 func reset_current_game() -> void:

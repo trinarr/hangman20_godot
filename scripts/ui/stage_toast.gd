@@ -135,8 +135,11 @@ func _layout_message() -> void:
 		(_available_width - toast_width) * 0.5,
 		-TOAST_HEIGHT - TOAST_PARENT_GAP
 	)
-	_status_icon.position = Vector2(TOAST_HORIZONTAL_PADDING, 0.0)
-	_status_icon.size = Vector2(icon_width, TOAST_HEIGHT)
+	_status_icon.position = Vector2(
+		TOAST_HORIZONTAL_PADDING,
+		(TOAST_HEIGHT - icon_width) * 0.5
+	)
+	_status_icon.size = Vector2(icon_width, icon_width)
 	_message_label.position = Vector2(
 		TOAST_HORIZONTAL_PADDING + icon_width + TOAST_ICON_TEXT_GAP,
 		0.0

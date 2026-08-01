@@ -288,7 +288,6 @@ def verify_round_icon_display_sizes() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     expected_constants = (
-        "const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)",
         "const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)",
         "const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)",
     )
@@ -298,8 +297,10 @@ def verify_round_icon_display_sizes() -> None:
     require(portrait.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Portrait VK icon size is not applied")
     require(portrait.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Portrait mail icon size is not applied")
     require(
-        portrait.count("RESULT_SEARCH_ICON, RESULT_SEARCH_COMPACT_ICON_SIZE") == 2,
-        "Compact portrait search icon size is not applied to every result screen",
+        "const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(25.0, 32.0)" in portrait
+        and "const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 51.2" in portrait
+        and "RESULT_SEARCH_ICON,\n\t\tPORTRAIT_RESULT_SEARCH_ICON_SIZE" in portrait,
+        "The result word-search button does not match the Back-button size",
     )
 
 
@@ -411,13 +412,13 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Shortened footer buttons do not preserve their center",
     )
     require(
-        portrait.count("_portrait_footer_long_button_rect(") == 7,
+        portrait.count("_portrait_footer_long_button_rect(") == 6,
         "Not every portrait footer long button uses the 15% width reduction",
     )
     require(
-        portrait.count("_portrait_footer_round_button_rect(") == 5
-        and portrait.count("_portrait_footer_icon_size(") == 5
-        and portrait.count("_portrait_footer_font_size(") == 5,
+        portrait.count("_portrait_footer_round_button_rect(") == 1
+        and portrait.count("_portrait_footer_icon_size(") == 1
+        and portrait.count("_portrait_footer_font_size(") == 4,
         "Not every remaining bottom control, icon, and label uses the 10% scale",
     )
     require(
@@ -469,7 +470,7 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Portrait gameplay/result hero is not enlarged by exactly 15%",
     )
     require(
-        portrait.count("stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER") == 4,
+        portrait.count("stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER") == 3,
         "The 15% hero scale is not applied to every static and animated gameplay/result state",
     )
     require(math.isclose(0.86 * 1.15, 0.989), "Portrait hero scale calculation changed")
@@ -512,7 +513,7 @@ def verify_lives_counter() -> None:
     require("PORTRAIT_LIVES_LABEL_RECT := Rect2(376.0, 19.0, 78.0, 44.0)" in portrait, "Lives label placement changed")
     require(math.isclose(25.0 + 32.3 * 0.5, 19.0 + 44.0 * 0.5, abs_tol=0.5), "Lives heart and label are not vertically aligned")
     require(336.0 + 35.7 < 376.0, "Lives heart overlaps the attempt count")
-    require(182.0 + 116.0 < 336.0, "Centered currency counter overlaps the lives HUD")
+    require(199.4 + 81.2 < 336.0, "Compact centered currency counter overlaps the lives HUD")
 
     refresh = portrait[portrait.index("func _refresh_game_screen()") : portrait.index("func _stage_portrait_game_word_display")]
     require(refresh.count("_stage_portrait_lives_counter()") == 1, "Lives counter is not staged exactly once")
@@ -644,13 +645,21 @@ def verify_soft_currency_economy() -> None:
         and 'parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)' in state,
         "Soft-currency defaults, prices, or persistence are missing",
     )
+    spend = state[state.index("func spend_soft_currency(") : state.index("func get_hint_cost(")]
     payment = state[state.index("func pay_for_hint(") : state.index("func reset_current_game()")]
     require(
         payment.index("if free_count > 0:") < payment.index("var cost: int = get_hint_cost(hint_key)")
         and "hint_counts[hint_key] = free_count - 1" in payment
-        and "soft_currency -= cost" in payment
+        and "!spend_soft_currency(cost)" in payment
         and "return HintPayment.FAILED" in payment,
         "Hint payment does not prioritize free inventory before coins or reject insufficient funds",
+    )
+    require(
+        "func spend_soft_currency(amount: int, persist: bool = true) -> bool:" in spend
+        and "soft_currency -= amount" in spend
+        and "soft_currency_changed.emit(soft_currency)" in spend
+        and "save_game()" in spend,
+        "Paid hints do not use an atomic persisted soft-currency deduction",
     )
     result = session[session.index("func finish_result(") :]
     require(
@@ -661,37 +670,53 @@ def verify_soft_currency_economy() -> None:
     )
     require(
         'preload("res://flash_assets/soft_currency_coin.png")' in main
-        and main.count("_open_coin_store(Callable(self, \"show_game_screen\"))") == 3
-        and "GameState.can_pay_for_hint(GameState.HINT_OPEN_LETTER)" in main
-        and "GameState.can_pay_for_hint(GameState.HINT_REMOVE_WRONG)" in main
-        and "GameState.can_pay_for_hint(GameState.HINT_COMMENT)" in main,
+        and "func _can_activate_hint(hint_key: String, hint_is_available: bool) -> bool:" in main
+        and main.count("_can_activate_hint(GameState.HINT_") == 3
+        and "GameState.can_pay_for_hint(hint_key)" in main
+        and main.count("_open_coin_store(Callable(self, \"show_game_screen\"))") == 1,
         "Hints do not route insufficient-funds actions to the coin store",
     )
     require(
         "func _stage_currency_counter(return_action: Callable, rect: Rect2 = Rect2()) -> void:" in portrait
         and 'Callable(self, "_open_coin_store").bind(return_action)' in portrait
         and "SOFT_CURRENCY_COIN_TEXTURE" in portrait
-        and "GameState.get_soft_currency()" in portrait,
+        and "GameState.get_soft_currency()" in portrait
+        and "currency_balance_label = balance_label" in portrait
+        and "GameState.soft_currency_changed.connect(_on_soft_currency_changed)" in main,
         "The clickable currency counter is missing its balance or store action",
     )
     require(
-        'const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(182.0, 17.0, 116.0, 48.0)' in portrait
+        "const PORTRAIT_CURRENCY_COUNTER_SCALE: float = 0.70" in portrait
+        and 'const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(199.4, 24.2, 81.2, 33.6)' in portrait
+        and "const PORTRAIT_CURRENCY_ICON_SIZE: float = 30.8" in portrait
         and '_stage_currency_counter(Callable(self, "show_game_screen"))' in portrait
-        and 'Callable(self, "show_result_screen").bind(is_win, data)' in portrait
         and '_stage_currency_counter(Callable(self, "show_profile"))' in portrait
         and 'Callable(self, "show_single_player_level").bind(level_index)' in portrait,
         "One or more title areas do not expose the currency counter",
     )
-    store_screen = portrait[
+    tab_store_entry = portrait[
+        portrait.index("func _show_coin_store_tab()") :
+        portrait.index("func show_coin_store()")
+    ]
+    standalone_store_entry = portrait[
         portrait.index("func show_coin_store()") :
-        portrait.index("func _stage_portrait_game_header()")
+        portrait.index("func _show_coin_store_screen(")
+    ]
+    store_screen = portrait[
+        portrait.index("func _show_coin_store_screen(") :
+        portrait.index("func show_tasks()")
     ]
     require(
-        "_clear()" in store_screen
-        and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" in store_screen
+        'Callable(self, "_show_coin_store_screen").bind(true)' in tab_store_entry
+        and "MainTab.SHOP" in tab_store_entry
+        and "_show_coin_store_screen(false)" in standalone_store_entry
+        and "_clear()" in store_screen
+        and "if with_main_navigation:" in store_screen
+        and "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" in store_screen
+        and "_portrait_screen(0.0)" in store_screen
         and 'tr("COIN_STORE_TITLE")' in store_screen
         and 'Callable(self, "_close_coin_store")' in store_screen,
-        "The empty coin-purchase screen is missing its title or Back action",
+        "The store does not separate its tab and standalone gameplay contexts",
     )
     require(
         "func _stage_portrait_hint_price(button_rect: Rect2, price: int) -> void:" in portrait
@@ -704,9 +729,11 @@ def verify_soft_currency_economy() -> None:
         and "COINS_EARNED,Монеты: +%d,Coins: +%d" in translations,
         "Soft-currency screen and reward copy are not localized",
     )
-    require(math.isclose(182.0 + 116.0 * 0.5, 240.0), "Currency counter is not horizontally centered")
-    require(17.0 + 48.0 < 76.0, "Currency counter overlaps the title below it")
-    require(182.0 + 116.0 < 419.0, "Result Search overlaps the centered currency counter")
+    require(math.isclose(81.2, 116.0 * 0.70), "Currency counter width is not reduced by 30 percent")
+    require(math.isclose(33.6, 48.0 * 0.70), "Currency counter height is not reduced by 30 percent")
+    require(math.isclose(199.4 + 81.2 * 0.5, 240.0), "Currency counter is not horizontally centered")
+    require(24.2 + 33.6 < 76.0, "Currency counter overlaps the title below it")
+    require(199.4 + 81.2 < 419.0, "Result Search overlaps the centered currency counter")
 
 
 def verify_main_tab_navigation() -> None:
@@ -746,13 +773,35 @@ def verify_main_tab_navigation() -> None:
         "The five requested main tabs are not defined",
     )
     require(
-        "PORTRAIT_MAIN_NAV_Y: float = 688.0" in portrait
-        and "PORTRAIT_MAIN_NAV_HEIGHT: float = 112.0" in portrait
+        "PORTRAIT_MAIN_NAV_Y: float = 725.0" in portrait
+        and "PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0" in portrait
         and "PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0" in portrait
+        and "PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(92.0, 92.0)" in portrait
+        and "PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0" in portrait
+        and "PORTRAIT_MAIN_NAV_ICON_SIZE: float = 50.0" in portrait
+        and "PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 54.0" in portrait
+        and "Rect2(tab_x + 23.0, 714.0, PORTRAIT_MAIN_NAV_ICON_SIZE" in navigation
+        and "Rect2(tab_x + 21.0, 731.0, PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE" in navigation
+        and "Rect2(tab_x + 4.0, 760.0, 88.0, 34.0)" in navigation
         and "PORTRAIT_ORANGE" in navigation
         and "if is_active:" in navigation
         and navigation.count("_stage_label(") == 1,
-        "The active tab is not the only orange tab with a text label",
+        "The compact bottom bar or its protruding tab icons use the wrong geometry",
+    )
+    require(
+        math.isclose(725.0 + 75.0, 800.0)
+        and math.isclose(708.0 + 92.0, 800.0)
+        and 714.0 < 725.0
+        and 731.0 >= 725.0
+        and math.isclose(760.0 + 34.0, 794.0),
+        "The navigation does not keep only the active icon protruding with compact inner spacing",
+    )
+    require(
+        "var active_cap := _stage_panel(" in navigation
+        and "var active_body := _stage_panel(" in navigation
+        and "PORTRAIT_MAIN_NAV_ACTIVE_Y + 18.0" in navigation
+        and "active_panel" not in navigation,
+        "The active tab still rounds its bottom corners",
     )
     require(
         'Callable(self, "show_profile")' in navigation
@@ -763,23 +812,25 @@ def verify_main_tab_navigation() -> None:
         "One or more main-tab actions are missing",
     )
     require(
-        "_stage_main_navigation(MainTab.HOME)" in portrait
-        and "_stage_main_navigation(MainTab.PROFILE)" in portrait
-        and "_stage_main_navigation(MainTab.SHOP)" in portrait
-        and "_stage_main_navigation(MainTab.TASKS)" in portrait
-        and "_stage_main_navigation(MainTab.SETTINGS)" in portrait,
-        "One of the main screens does not mark its active tab",
+        "func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:" in navigation
+        and "screen_builder.call()" in navigation
+        and "_stage_main_navigation(active_tab)" in navigation
+        and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
+        and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
+        and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
+        and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
+        and 'Callable(self, "_show_settings_screen"), MainTab.SETTINGS' in portrait,
+        "The five main screens are not composed independently with the shared tab layer",
     )
     tasks_screen = portrait[
         portrait.index("func show_tasks()") :
         portrait.index("func _stage_single_player_level_header(")
     ]
     require(
-        "_clear()" in tasks_screen
-        and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" in tasks_screen
-        and "_stage_portrait_page_title(" in tasks_screen
-        and "_stage_main_navigation(MainTab.TASKS)" in tasks_screen,
-        "The empty Tasks screen is missing its header or navigation",
+        "coin_store_return_action = Callable()" in tasks_screen
+        and 'Callable(self, "_show_theme_select_screen").bind(true)' in tasks_screen
+        and "MainTab.TASKS" in tasks_screen,
+        "The Tasks tab does not open the classic category screen",
     )
     menu_screen = portrait[
         portrait.index("func show_menu()") :
@@ -788,13 +839,19 @@ def verify_main_tab_navigation() -> None:
     require(
         "_stage_main_menu_character_button" not in portrait
         and "PORTRAIT_CLOSE_BUTTON_RECT" not in portrait
-        and "Rect2(67.5, 590.0, 345.0, 73.6)" in menu_screen
-        and 590.0 + 73.6 < 676.0,
-        "Main-menu actions overlap the new navigation or obsolete top buttons remain",
+        and 'Database.tr_text(1, "Classic")' not in menu_screen
+        and 'Callable(self, "show_theme_select")' not in menu_screen
+        and "Rect2(button_x, 558.0, PORTRAIT_LONG_BUTTON_SIZE.x" in menu_screen
+        and "Rect2(67.5, 628.0, 345.0, 73.6)" in menu_screen
+        and math.isclose(628.0 - (558.0 + 64.0), 6.0)
+        and 628.0 + 73.6 < 708.0
+        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 5,
+        "The Classic button remains on Home or main-menu actions overlap the compact navigation",
     )
 
 
 def verify_game_footer_navigation_and_two_player_hero() -> None:
+    main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     refresh = portrait[
         portrait.index("func _refresh_game_screen()") :
@@ -806,13 +863,14 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         "Gameplay still draws the bottom blue footer backdrop",
     )
     require(
-        "const PORTRAIT_GAME_EXIT_ICON_SIZE := Vector2(18.4, 18.4)" in portrait
-        and "PORTRAIT_PAGE_BACK_BUTTON_RECT" in refresh
+        "PORTRAIT_PAGE_BACK_BUTTON_RECT" in refresh
         and 'Callable(self, "_show_exit_game_popup")' in refresh
-        and "RESULT_CLOSE_ICON" in refresh
-        and "PORTRAIT_GAME_EXIT_ICON_SIZE" in refresh
+        and "PORTRAIT_BACK_ARROW_ICON" in refresh
+        and "PORTRAIT_PAGE_BACK_ICON_SIZE" in refresh
+        and "RESULT_CLOSE_ICON" not in refresh
+        and "PORTRAIT_GAME_EXIT_ICON_SIZE" not in portrait
         and "PORTRAIT_GAME_BACK_BUTTON_RECT" not in portrait,
-        "Gameplay exit is not using the compact shared top-left navigation position",
+        "Gameplay exit is not using the shared top-left Back button",
     )
     require(
         'Callable(self, "show_theme_select")' not in refresh,
@@ -837,9 +895,10 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         "Gameplay title is not smaller and positioned below the top controls",
     )
     require(
-        "const PORTRAIT_GAME_RIGHT_BUTTON_RECT := PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT" in portrait
-        and '_stage_round_icon_button(_portrait_footer_round_button_rect(PORTRAIT_GAME_RIGHT_BUTTON_RECT), Callable(self, "show_custom_word"), CUSTOM_WORD_REFRESH_ICON, _portrait_footer_icon_size(Vector2(27.0, 27.0)))' in refresh,
-        "Two Player gameplay lost the new-word refresh action",
+        "PORTRAIT_GAME_RIGHT_BUTTON_RECT" not in portrait
+        and "CUSTOM_WORD_REFRESH_ICON" not in main + portrait
+        and 'Callable(self, "show_custom_word")' not in refresh,
+        "Two Player gameplay still shows the removed restart action",
     )
     require(
         "_stage_portrait_hint_buttons()" in refresh
@@ -859,6 +918,114 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         and "hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X" in hero_setup
         and "hero_pivot.x - 62.0" not in hero_setup,
         "The Two Player hero is not centered by the visible imported-art bounds",
+    )
+
+
+def verify_result_screen_rebuild() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    refresh = portrait[
+        portrait.index("func _refresh_game_screen()") :
+        portrait.index("func _stage_portrait_game_word_display(")
+    ]
+    result = portrait[
+        portrait.index("func show_result_screen(") :
+        portrait.index("func _fit_single_line_label_to_width(")
+    ]
+    result_word = portrait[
+        portrait.index("func _stage_portrait_result_word_display(") :
+        portrait.index("func _prepare_portrait_word_letter_bounce(")
+    ]
+    continue_logic = main[
+        main.index("func _result_continue_button_text()") :
+        main.index("func _current_word_source_label()")
+    ]
+
+    require(
+        "_portrait_screen(0.0)" in result
+        and "_portrait_screen(PORTRAIT_HEADER_HEIGHT, PORTRAIT_FOOTER_Y)" not in result
+        and "_stage_portrait_game_header()" not in result
+        and "_stage_portrait_lives_counter()" not in result
+        and '_stage_currency_counter(Callable(self, "show_game_screen"))' in result
+        and "PORTRAIT_PAGE_BACK_BUTTON_RECT" in result
+        and 'Callable(self, "_result_back_action")' in result
+        and "RESULT_CLOSE_ICON" in result
+        and "PORTRAIT_BACK_ARROW_ICON" not in result
+        and 'Callable(self, "_show_exit_game_popup")' not in result,
+        "The result top bar still shows lives, a blue backing, or a confirming Back action",
+    )
+    require(
+        "func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:" in portrait
+        and '_portrait_game_keyboard_metrics(viewport_size)' in refresh
+        and '_portrait_game_keyboard_metrics(viewport_size)' in result
+        and 'var game_word_rect: Rect2 = keyboard_metrics["word_rect"]' in refresh
+        and 'var word_rect: Rect2 = keyboard_metrics["word_rect"]' in result
+        and "_stage_portrait_game_word_display(game_word_rect, 34)" in refresh
+        and "_stage_portrait_result_word_display(word_rect, continue_button)" in result,
+        "The result word does not reuse the gameplay word position",
+    )
+    require(
+        "_stage_portrait_word_slots(word_rect, 34, true, true)" in result_word
+        and '"revealed": reveal_all or bool(GameSession.revealed[i])' in result_word
+        and "for letter_label: Label in valid_labels:" in result_word
+        and "PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION" in result_word
+        and "PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION" in result_word
+        and "PORTRAIT_RESULT_LETTER_BOUNCE_GAP" in result_word
+        and 'Callable(self, "_reveal_portrait_result_actions").bind(search_button, continue_button)'
+        in result_word,
+        "Result letters do not bounce once in a left-to-right sequence",
+    )
+    require(
+        "word_bounds.end.x + PORTRAIT_RESULT_WORD_SEARCH_GAP" in result_word
+        and 'Callable(self, "_open_word_search")' in result_word
+        and "search_button.visible = false" in result_word
+        and result_word.index("search_button.visible = false")
+        < result_word.index("call_deferred(")
+        and "func _reveal_portrait_result_actions(search_button: Control, continue_button: Control) -> void:"
+        in result_word
+        and result_word.count("continue_button.visible = true") == 1
+        and "continue_button.modulate = Color(1.0, 1.0, 1.0, 0.0)" in result_word
+        and "PORTRAIT_RESULT_SEARCH_APPEAR_DURATION" in result_word,
+        "Search and Continue are not revealed together after the last bounce",
+    )
+    require(
+        result.count("_stage_main_button(") == 1
+        and "func _show_result_content(is_win: bool, data: Dictionary) -> Control:" in result
+        and "_result_continue_action()" in result
+        and "_result_continue_button_text()" in result
+        and "continue_button.visible = false" in result
+        and "return continue_button" in result
+        and "_portrait_footer_round_button_rect(" not in result
+        and "PORTRAIT_RESULT_CLOSE_BUTTON_RECT" not in portrait
+        and "PORTRAIT_RESULT_THEME_BUTTON_RECT" not in portrait
+        and "_show_two_player_result_content" not in portrait
+        and "_show_classic_result_content" not in portrait,
+        "The result footer still contains controls other than Continue",
+    )
+    require(
+        "Rect2(40.0, 142.0, 400.0, 54.0)" in result
+        and "Rect2(52.0, 196.0, 376.0, 44.0)" in result
+        and math.isclose(142.0 + 54.0, 196.0)
+        and "var subtitle_y" not in result
+        and "func _portrait_game_header_texts() -> Dictionary:" in portrait
+        and "var header_texts: Dictionary = _portrait_game_header_texts()" in result
+        and "Rect2(40.0, 650.0, 400.0, 48.0)" in result
+        and 'mode_theme_text += " • " + theme_text' in result,
+        "The result title/message are separated or mode/theme is not above Continue",
+    )
+    require(
+        'return Callable(self, "_continue_classic_result")' in continue_logic
+        and 'return Callable(self, "_continue_two_player_result")' in continue_logic
+        and 'return Callable(self, "_continue_single_player_result")' in continue_logic
+        and "start_classic_game(max(0, GameSession.theme_id))" in continue_logic
+        and "show_custom_word()" in continue_logic
+        and "_open_next_single_player_level()" in continue_logic
+        and "_start_next_single_player_word(single_player_active_level_index)" in continue_logic,
+        "Continue does not have a mode-specific action",
+    )
+    require(
+        'func _result_back_action() -> void:\n\t_confirm_exit_game()' in continue_logic,
+        "The result Close action does not immediately leave the finished round",
     )
 
 
@@ -937,6 +1104,14 @@ def verify_game_exit_confirmation_popup() -> None:
         "A gameplay exit button still bypasses the confirmation popup",
     )
     require(
+        "if event.keycode == KEY_ESCAPE:" in main
+        and "if game_finished:" in main
+        and "_result_back_action()" in main
+        and "elif GameSession.is_active:" in main
+        and "_show_exit_game_popup()" in main,
+        "The device Back action does not separate direct result exit from gameplay confirmation",
+    )
+    require(
         'tr("EXIT_GAME_CONFIRM")' in portrait_popup
         and '_exit_game_warning_text()' in portrait_popup
         and 'Callable(self, "_confirm_exit_game"), tr("YES")' in portrait_popup
@@ -951,8 +1126,13 @@ def verify_game_exit_confirmation_popup() -> None:
         "The exit confirmation popup is missing its standard round close button",
     )
     require(
-        "_remove_exit_game_popup()" in confirm_exit and "show_menu()" in confirm_exit,
-        "Confirming exit does not close the popup and return to the main menu",
+        "_remove_exit_game_popup()" in confirm_exit
+        and "_forfeit_single_player_round()" in confirm_exit
+        and "show_tasks()" in confirm_exit
+        and "show_custom_word()" in confirm_exit
+        and "_preserve_custom_word_on_next_show = true" in confirm_exit
+        and "show_menu()" not in confirm_exit,
+        "Confirming exit does not return each mode to its preceding screen",
     )
     require(
         "EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?" in translations,
@@ -963,6 +1143,9 @@ def verify_long_button_attention_bounce() -> None:
     button = read("scripts/ui/stage_long_button.gd")
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
+    result = portrait[
+        portrait.index("func show_result_screen(") : portrait.index("func show_profile()")
+    ]
 
     require(
         "var attention_bounce_enabled: bool = false" in button
@@ -980,7 +1163,7 @@ def verify_long_button_attention_bounce() -> None:
         "The long-button factory cannot activate the attention-bounce state",
     )
     require(
-        portrait.count("false, 0.32, false, false, true, LONG_BUTTON_COLOR_ORANGE)") == 2
+        result.count("\t\ttrue,\n\t\tLONG_BUTTON_COLOR_ORANGE") == 1
         and "var custom_word_start_button: Control = null" in main
         and "func _sync_custom_word_start_bounce() -> void:" in main
         and 'custom_word_start_button.set("attention_bounce_enabled", has_word)' in main
@@ -1321,7 +1504,7 @@ def verify_settings_popup_and_language_split() -> None:
     require(
         "settings_popup_return_content" not in main + portrait
         and '"settings_popup"' not in main + portrait
-        and "_stage_main_navigation(MainTab.SETTINGS)" in portrait,
+        and 'Callable(self, "_show_settings_screen"), MainTab.SETTINGS' in portrait,
         "Settings are still implemented as a modal instead of a main tab",
     )
     require("GameState.language" not in main + portrait + state, "Removed shared language state is still used")
@@ -1442,14 +1625,14 @@ def verify_profile_theme_and_about_ui() -> None:
         portrait.index("func show_profile()") : portrait.index("func _stage_profile_header_card()")
     ]
     require(
-        "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" in profile
+        "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" in profile
         and '_profile_text("ПРОФИЛЬ", "PROFILE")' in profile
         and '_stage_currency_counter(Callable(self, "show_profile"))' in profile
         and "_stage_portrait_page_title(" in profile,
         "The profile screen does not use the title/currency header and footer composition",
     )
     require(
-        "_stage_main_navigation(MainTab.PROFILE)" in profile
+        'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in profile
         and "PORTRAIT_BACK_ARROW_ICON" not in profile,
         "The profile screen does not use its active bottom tab",
     )
@@ -1458,13 +1641,28 @@ def verify_profile_theme_and_about_ui() -> None:
         portrait.index("func show_theme_select()") : portrait.index("func _show_clear_theme_popup(")
     ]
     require(
-        "_portrait_screen(0.0)" in portrait_themes
+        "_show_theme_select_screen(false)" in portrait_themes
+        and "func _show_theme_select_screen(with_main_navigation: bool) -> void:" in portrait_themes
+        and "if with_main_navigation:" in portrait_themes
+        and "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" in portrait_themes
+        and "_portrait_screen(0.0)" in portrait_themes
         and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" not in portrait_themes
         and 'Callable(self, "show_theme_select")' in portrait_themes
-        and "132.0 + float(row) * 104.0" in portrait_themes
+        and "154.0 + float(row) * 96.0" in portrait_themes
         and "_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT)" not in portrait_themes
-        and "_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT)" in portrait_themes,
-        "Theme selection does not use top Back navigation with a footerless floating difficulty control",
+        and "_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT)" in portrait_themes
+        and "const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 632.0, 280.5, 70.4)" in portrait
+        and "difficulty_rect = PORTRAIT_TASKS_DIFFICULTY_RECT" in portrait_themes
+        and "var difficulty_font_size: int = _portrait_footer_font_size(22)" in portrait_themes
+        and 'Callable(self, "_cycle_classic_difficulty").bind(true)' in portrait_themes,
+        "Theme selection does not support both the Tasks-tab and standalone contexts",
+    )
+    require(
+        math.isclose(154.0 + 4.0 * 96.0 + 88.0, 626.0)
+        and 626.0 < 632.0
+        and math.isclose(632.0 + 70.4, 702.4)
+        and 702.4 < 708.0,
+        "The full-size difficulty button overlaps the theme grid or active navigation tab",
     )
     require(
         "const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0" in main
@@ -1525,6 +1723,7 @@ def main() -> None:
     verify_soft_currency_economy()
     verify_main_tab_navigation()
     verify_game_footer_navigation_and_two_player_hero()
+    verify_result_screen_rebuild()
     verify_android_vibration_feedback()
     verify_android_network_and_result_search()
     verify_game_exit_confirmation_popup()
@@ -1533,7 +1732,7 @@ def main() -> None:
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()
     verify_profile_theme_and_about_ui()
-    print("2x layout, first-version save schema without migrations, five-tab main navigation with generated transparent art, centered soft-currency HUD, fixed non-adaptive lives counter, paid hint fallback, compact gameplay-exit confirmation, Android word-check networking and Google result lookup, profile/theme/about UI polish, setting-aware gameplay and UI sounds, native filtered Two Player word input, split UI/word languages, subtle Android vibration, animated hint markers and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    print("2x layout, first-version save schema without migrations, 75-pixel five-tab navigation with active-only icon protrusion, low compact Home actions, full-size Tasks difficulty control, Two Player gameplay without restart, layered footerless result layout, sequential result-word bounce with synchronized Search/Continue reveal, direct result Close flow, bottom mode/theme caption, standalone gameplay store, centered soft-currency HUD, fixed gameplay lives counter, paid hint fallback, compact gameplay exit confirmation, Android word-check networking and Google result lookup, profile/theme/about UI polish, setting-aware gameplay and UI sounds, native filtered Two Player word input, split UI/word languages, subtle Android vibration, animated hint markers and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

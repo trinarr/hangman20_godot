@@ -25,7 +25,11 @@ func configure(success: bool, width: float = 6.0) -> void:
 
 func _draw() -> void:
 	var inset: float = maxf(line_width * 0.75, 2.0)
-	var draw_rect := Rect2(Vector2(inset, inset), size - Vector2(inset, inset) * 2.0)
+	var icon_side: float = minf(size.x, size.y) - inset * 2.0
+	var draw_rect := Rect2(
+		(size - Vector2(icon_side, icon_side)) * 0.5,
+		Vector2(icon_side, icon_side)
+	)
 	if draw_rect.size.x <= 0.0 or draw_rect.size.y <= 0.0:
 		return
 	if is_success:

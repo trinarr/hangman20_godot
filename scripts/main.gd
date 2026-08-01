@@ -50,12 +50,10 @@ const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stag
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
-const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const SOFT_CURRENCY_COIN_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin.png")
 const SINGLE_PLAYER_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
-const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)
 const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
 const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
@@ -134,6 +132,8 @@ var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
+var currency_balance_label: Label = null
+var _preserve_custom_word_on_next_show: bool = false
 
 func _ready() -> void:
 	randomize()
@@ -143,6 +143,8 @@ func _ready() -> void:
 	GameSession.changed.connect(_refresh_game_screen)
 	GameSession.round_won.connect(_on_round_won)
 	GameSession.round_lost.connect(_on_round_lost)
+	if !GameState.soft_currency_changed.is_connected(_on_soft_currency_changed):
+		GameState.soft_currency_changed.connect(_on_soft_currency_changed)
 	show_menu()
 
 # Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
@@ -152,6 +154,9 @@ func show_menu() -> void:
 	pass
 
 func show_theme_select() -> void:
+	pass
+
+func show_tasks() -> void:
 	pass
 
 func show_custom_word() -> void:
@@ -183,6 +188,10 @@ func _close_coin_store() -> void:
 	else:
 		show_menu()
 
+func _on_soft_currency_changed(balance: int) -> void:
+	if currency_balance_label != null and is_instance_valid(currency_balance_label):
+		currency_balance_label.text = str(maxi(balance, 0))
+
 func _refresh_game_screen() -> void:
 	pass
 
@@ -193,6 +202,9 @@ func _show_about_popup() -> void:
 	pass
 
 func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> void:
+	pass
+
+func _show_exit_game_popup() -> void:
 	pass
 
 func _show_word_comment_popup() -> void:
@@ -229,6 +241,7 @@ func _clear() -> void:
 	_cancel_custom_word_check()
 	custom_word_check_button = null
 	custom_word_start_button = null
+	currency_balance_label = null
 	hero_static_symbol = null
 	_remove_about_popup()
 	settings_toggle_buttons.clear()
@@ -612,9 +625,12 @@ func _cycle_difficulty_mode() -> void:
 		GameState.settings[2] = DIFFICULTY_MODE_NORMAL
 	GameState.save_game()
 
-func _cycle_classic_difficulty() -> void:
+func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:
 	_cycle_difficulty_mode()
-	show_theme_select()
+	if return_to_tasks:
+		show_tasks()
+	else:
+		show_theme_select()
 
 func _theme_icon_texture(theme_index: int) -> Texture2D:
 	if theme_index < 0 or theme_index >= THEME_ICON_TEXTURES.size():
@@ -857,16 +873,6 @@ func _single_player_mark_current_word_finished(data: Dictionary, is_win: bool) -
 	else:
 		result["lines"].append(_single_player_progress_label(int(progress.get("played_count", 0)), level_word_count))
 	return result
-
-func _single_player_result_label() -> String:
-	if single_player_active_level_index < 0:
-		return _single_player_levels_title()
-	return "%s %d • %d/%d" % [
-		_single_player_level_label(),
-		single_player_active_level_index + 1,
-		_single_player_level_played_count(single_player_active_level_index),
-		_single_player_level_word_count(single_player_active_level_index)
-	]
 
 func _single_player_footer_back_rect() -> Rect2:
 	var rect := Rect2(14.0, 711.0, 64.0, 64.0)
@@ -1117,10 +1123,13 @@ func _set_theme_card_pressed(card: CanvasItem, is_pressed: bool) -> void:
 	if card == null or !is_instance_valid(card):
 		return
 	card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE
-func _confirm_clear_theme(theme_index: int) -> void:
+func _confirm_clear_theme(theme_index: int, return_to_tasks: bool = false) -> void:
 	WordManager.clear_the_theme(theme_index)
 	_remove_clear_theme_popup()
-	show_theme_select()
+	if return_to_tasks:
+		show_tasks()
+	else:
+		show_theme_select()
 
 func _remove_clear_theme_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("clear_theme_popup")
@@ -1146,7 +1155,22 @@ func _confirm_exit_game() -> void:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		_forfeit_single_player_round()
 		return
-	show_menu()
+	var return_to_custom_word: bool = GameState.current_mode == GameState.GameMode.TWO_PLAYER
+	_discard_round_for_navigation()
+	if return_to_custom_word:
+		_preserve_custom_word_on_next_show = true
+		show_custom_word()
+	else:
+		show_tasks()
+
+func _discard_round_for_navigation() -> void:
+	result_transition_generation += 1
+	round_result_delay_requested = false
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
 
 func _forfeit_single_player_round() -> void:
 	var level_index: int = single_player_active_level_index
@@ -1617,8 +1641,7 @@ func _press_letter(letter: String) -> void:
 		_play_hero_correct_guess_animation()
 
 func _use_open_hint() -> void:
-	if GameSession.can_use_open_letter_hint() and !GameState.can_pay_for_hint(GameState.HINT_OPEN_LETTER):
-		_open_coin_store(Callable(self, "show_game_screen"))
+	if !_can_activate_hint(GameState.HINT_OPEN_LETTER, GameSession.can_use_open_letter_hint()):
 		return
 	# If the hint reveals the final letter, keep the gameplay screen visible long
 	# enough for the standard circle-and-bounce feedback to finish.
@@ -1627,8 +1650,7 @@ func _use_open_hint() -> void:
 	round_result_delay_requested = false
 
 func _use_remove_hint() -> void:
-	if GameSession.can_use_remove_wrong_hint() and !GameState.can_pay_for_hint(GameState.HINT_REMOVE_WRONG):
-		_open_coin_store(Callable(self, "show_game_screen"))
+	if !_can_activate_hint(GameState.HINT_REMOVE_WRONG, GameSession.can_use_remove_wrong_hint()):
 		return
 	GameSession.use_remove_wrong_hint()
 
@@ -1636,11 +1658,18 @@ func _use_comment_hint() -> void:
 	if GameSession.comment_hint_unlocked:
 		_show_word_comment_popup()
 		return
-	if GameSession.can_unlock_comment_hint() and !GameState.can_pay_for_hint(GameState.HINT_COMMENT):
-		_open_coin_store(Callable(self, "show_game_screen"))
+	if !_can_activate_hint(GameState.HINT_COMMENT, GameSession.can_unlock_comment_hint()):
 		return
 	if GameSession.unlock_comment_hint():
 		_show_word_comment_popup()
+
+func _can_activate_hint(hint_key: String, hint_is_available: bool) -> bool:
+	if !hint_is_available:
+		return false
+	if !GameState.can_pay_for_hint(hint_key):
+		_open_coin_store(Callable(self, "show_game_screen"))
+		return false
+	return true
 
 func _on_hint_letters_selected(letters: PackedStringArray, is_correct: bool) -> void:
 	# GameSession emits this before `changed`, so the rebuilt keyboard can use the
@@ -1674,11 +1703,6 @@ func _finish_round(is_win: bool) -> void:
 		if transition_generation != result_transition_generation:
 			return
 	show_result_screen(is_win, last_result_data)
-func _spaced_result_word(word: String) -> String:
-	var characters := PackedStringArray()
-	for i in range(word.length()):
-		characters.append(word.substr(i, 1))
-	return " ".join(characters)
 
 func _result_data_lines(data: Dictionary) -> String:
 	var lines := PackedStringArray()
@@ -1694,37 +1718,37 @@ func _result_message(is_win: bool, data: Dictionary) -> String:
 		return data_lines
 	return Database.tr_text(43 if is_win else 44, "Keep going!" if is_win else "You can do better!")
 
-func _result_theme_label() -> String:
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return _single_player_result_label()
-	if GameSession.theme_id < 0:
-		return Database.tr_text(40, "No category")
-	return Database.tr_text(42, "Category:") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
-
-func _result_right_button_text() -> String:
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return Database.tr_text(3, "Continue")
-	if GameSession.theme_id < 0:
-		return Database.tr_text(8, "Restart")
+func _result_continue_button_text() -> String:
 	return Database.tr_text(3, "Continue")
 
-func _result_right_action() -> void:
-	_restart_last_mode()
+func _result_continue_action() -> Callable:
+	match GameState.current_mode:
+		GameState.GameMode.TWO_PLAYER:
+			return Callable(self, "_continue_two_player_result")
+		GameState.GameMode.SINGLE_PLAYER:
+			return Callable(self, "_continue_single_player_result")
+		_:
+			return Callable(self, "_continue_classic_result")
+
+func _result_back_action() -> void:
+	_confirm_exit_game()
 
 func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int) -> void:
 	label.add_theme_color_override("font_outline_color", glow_color)
 	label.add_theme_constant_override("outline_size", outline_size)
 
-func _restart_last_mode() -> void:
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		show_custom_word()
-	elif GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		if _single_player_level_completed(single_player_active_level_index):
-			_open_next_single_player_level()
-		else:
-			_start_next_single_player_word(single_player_active_level_index)
+func _continue_classic_result() -> void:
+	start_classic_game(max(0, GameSession.theme_id))
+
+func _continue_two_player_result() -> void:
+	show_custom_word()
+
+func _continue_single_player_result() -> void:
+	if _single_player_level_completed(single_player_active_level_index):
+		_open_next_single_player_level()
 	else:
-		start_classic_game(max(0, GameSession.theme_id))
+		_start_next_single_player_word(single_player_active_level_index)
+
 func _current_word_source_label() -> String:
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER or GameSession.theme_id < 0:
 		return Database.tr_text(40, "Word from player")
@@ -1744,12 +1768,16 @@ func _open_word_search() -> void:
 	OS.shell_open("https://www.google.com/search?q=" + word.to_lower().uri_encode())
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and !event.echo:
+		if event.keycode == KEY_ESCAPE:
+			if game_finished:
+				_result_back_action()
+			elif GameSession.is_active:
+				_show_exit_game_popup()
+			return
 	if game_finished or !GameSession.is_active:
 		return
 	if event is InputEventKey and event.pressed and !event.echo:
-		if event.keycode == KEY_ESCAPE:
-			show_menu()
-			return
 		var letter := OS.get_keycode_string(event.keycode).to_upper()
 		letter = WordManager.normalize_word(letter)
 		if letter.length() == 1 and Database.get_alphabet().has(letter):
