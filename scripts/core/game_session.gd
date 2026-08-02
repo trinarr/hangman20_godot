@@ -268,7 +268,7 @@ func finish_result(is_win: bool) -> Dictionary:
 			reward_text = "Coins: +%d"
 		result["lines"].append(reward_text % GameState.WORD_REWARD_COINS)
 
-	var diff := clampi(int(word_data.difficulty), 0, 1)
+	var diff: int = 1 if word_data.difficulty > Database.DIFFICULTY_SPLIT else 0
 
 	# Only Classic category words update the Classic difficulty streak. Level
 	# rounds keep their word statistics and progression in a separate bucket.

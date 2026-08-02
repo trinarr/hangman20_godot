@@ -13,6 +13,8 @@ var _themes_cache: Array = []
 var _themes_cache_ready: bool = false
 var _words_by_index_cache: Dictionary = {}
 
+const DIFFICULTY_SPLIT: float = 0.5
+
 const WORD_FILES := {
 	"ru": "res://data/words_ru.json",
 	"en": "res://data/words_en.json"
@@ -238,13 +240,13 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 		var word := normalize_loaded_word(str(words[i]))
 		if word == "" or word == "_":
 			continue
-		var diff: int = get_word_difficulty(theme_index, i)
+		var diff: float = get_word_difficulty(theme_index, i)
 		if difficulty_filter != 0:
 			# AS3 Settings[2]: 0 = all/general, 1 = hard only, 2 = easy only.
-			# Difficulty XML uses 0 = easy/simple, 1 = hard.
-			if difficulty_filter == 1 and diff != 1:
+			# Scores up to and including 0.5 are easy; scores above 0.5 are hard.
+			if difficulty_filter == 1 and diff <= DIFFICULTY_SPLIT:
 				continue
-			if difficulty_filter == 2 and diff != 0:
+			if difficulty_filter == 2 and diff > DIFFICULTY_SPLIT:
 				continue
 		filtered.append({"text": word, "index": i, "difficulty": diff})
 	_words_by_index_cache[cache_key] = filtered
@@ -256,18 +258,27 @@ func normalize_loaded_word(word: String) -> String:
 	result = result.replace("Ё", "Е")
 	return result
 
-func get_word_difficulty(theme_index: int, word_index: int) -> int:
+func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	var theme_name := get_theme_name(theme_index)
 	var difficulty_data = data.get("difficulty", {})
+	var theme_difficulty: Variant = null
 	if difficulty_data is Dictionary:
-		var diff_str := str(difficulty_data.get(theme_name, ""))
-		if word_index >= 0 and word_index < diff_str.length():
-			return int(diff_str.substr(word_index, 1))
+		theme_difficulty = difficulty_data.get(theme_name, [])
 	elif difficulty_data is Array and theme_index >= 0 and theme_index < difficulty_data.size():
-		var diff_text := str(difficulty_data[theme_index])
-		if word_index >= 0 and word_index < diff_text.length():
-			return int(diff_text.substr(word_index, 1))
-	return 0
+		theme_difficulty = difficulty_data[theme_index]
+
+	if theme_difficulty == null:
+		return 0.0
+	if theme_difficulty is Array:
+		var scores: Array = theme_difficulty
+		if word_index >= 0 and word_index < scores.size():
+			return clampf(float(scores[word_index]), 0.0, 1.0)
+	else:
+		# Backward compatibility for old databases containing strings of 0/1.
+		var legacy_values := str(theme_difficulty)
+		if word_index >= 0 and word_index < legacy_values.length():
+			return clampf(float(legacy_values.substr(word_index, 1)), 0.0, 1.0)
+	return 0.0
 
 func get_hint(theme_index: int, word_index: int) -> String:
 	if theme_index < 0 or word_index < 0:

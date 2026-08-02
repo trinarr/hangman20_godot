@@ -10,6 +10,13 @@ const HINT_COMMENT: String = "comment"
 const DEFAULT_HINT_COUNT: int = 3
 const DEFAULT_SOFT_CURRENCY: int = 0
 const WORD_REWARD_COINS: int = 10
+const SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = 0.18
+const SINGLE_PLAYER_DIFFICULTY_MIN: float = 0.08
+const SINGLE_PLAYER_DIFFICULTY_MAX: float = 0.92
+const SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP: float = 0.02
+const SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP: float = 0.04
+const SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = 10
+const SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS: int = 5
 const HINT_COSTS: Dictionary = {
 	HINT_OPEN_LETTER: 20,
 	HINT_REMOVE_WRONG: 15,
@@ -219,6 +226,10 @@ func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
 func _new_single_player_bucket() -> Dictionary:
 	return {
 		"unlocked_level": 0,
+		"adaptive_difficulty": SINGLE_PLAYER_DIFFICULTY_DEFAULT,
+		"completed_attempts": 0,
+		"failed_attempts": 0,
+		"forfeited_attempts": 0,
 		"levels": {},
 		"selected_themes": {},
 		"level_seeds": {},
@@ -235,6 +246,13 @@ func _single_player_bucket(lang: String) -> Dictionary:
 			bucket[dictionary_key] = {}
 	if !bucket.has("unlocked_level"):
 		bucket["unlocked_level"] = 0
+	bucket["adaptive_difficulty"] = clampf(
+		float(bucket.get("adaptive_difficulty", SINGLE_PLAYER_DIFFICULTY_DEFAULT)),
+		SINGLE_PLAYER_DIFFICULTY_MIN,
+		SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+	for counter_key in ["completed_attempts", "failed_attempts", "forfeited_attempts"]:
+		bucket[counter_key] = maxi(int(bucket.get(counter_key, 0)), 0)
 	single_player[lang_key] = bucket
 	return bucket
 
@@ -370,44 +388,134 @@ func get_single_level_guessed_count(lang: String, level_index: int, word_count: 
 	return count
 
 func is_single_level_completed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
-	if word_count <= 0:
-		return false
-	return get_single_level_played_count(lang, level_index, word_count, difficulty) >= word_count
+	return is_single_level_perfect(lang, level_index, word_count, difficulty)
 
 func is_single_level_perfect(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
 	if word_count <= 0:
 		return false
 	return get_single_level_guessed_count(lang, level_index, word_count, difficulty) >= word_count
 
+func is_single_level_failed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	for status in statuses:
+		if _single_level_status(status) == 2:
+			return true
+	return false
+
 func get_single_player_unlocked_level(lang: String, difficulty: int = -1) -> int:
 	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
 	return maxi(int(progress_bucket.get("unlocked_level", 0)), 0)
 
-func mark_single_level_word_played(lang: String, level_index: int, word_slot: int, word_count: int, total_level_count: int, is_win: bool, difficulty: int = -1) -> Dictionary:
+func ensure_single_player_next_level_unlocked(lang: String, completed_level_index: int) -> void:
+	if completed_level_index < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	if completed_level_index < int(bucket.get("unlocked_level", 0)):
+		return
+	bucket["unlocked_level"] = completed_level_index + 1
+	single_player[lang_key] = bucket
+	save_game()
+
+func get_single_player_adaptive_difficulty(lang: String) -> float:
+	var bucket := _single_player_bucket(lang)
+	return clampf(
+		float(bucket.get("adaptive_difficulty", SINGLE_PLAYER_DIFFICULTY_DEFAULT)),
+		SINGLE_PLAYER_DIFFICULTY_MIN,
+		SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+
+func _single_player_level_completion_bonus(word_count: int) -> int:
+	return SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS + maxi(word_count, 0) * SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS
+
+func mark_single_level_word_played(
+	lang: String,
+	level_index: int,
+	word_slot: int,
+	word_count: int,
+	is_win: bool,
+	failure_affects_difficulty: bool = true,
+	difficulty: int = -1
+) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
 	if word_slot >= 0 and word_slot < statuses.size():
 		statuses[word_slot] = 1 if is_win else 2
 	var completed: bool = is_single_level_completed(lang, level_index, word_count, difficulty)
 	var perfect: bool = is_single_level_perfect(lang, level_index, word_count, difficulty)
+	var failed: bool = is_single_level_failed(lang, level_index, word_count, difficulty)
 	var unlocked_next: bool = false
+	var completion_bonus: int = 0
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var unlocked_level: int = int(bucket.get("unlocked_level", 0))
-	if completed and level_index >= unlocked_level and level_index + 1 < total_level_count:
+	var difficulty_before: float = get_single_player_adaptive_difficulty(lang_key)
+	var difficulty_after: float = difficulty_before
+	if was_unplayed and is_win and completed:
+		difficulty_after = clampf(
+			difficulty_before + SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP,
+			SINGLE_PLAYER_DIFFICULTY_MIN,
+			SINGLE_PLAYER_DIFFICULTY_MAX
+		)
+		bucket["adaptive_difficulty"] = difficulty_after
+		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
+		completion_bonus = _single_player_level_completion_bonus(word_count)
+		add_soft_currency(completion_bonus, false)
+	elif was_unplayed and !is_win:
+		if failure_affects_difficulty:
+			difficulty_after = clampf(
+				difficulty_before - SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP,
+				SINGLE_PLAYER_DIFFICULTY_MIN,
+				SINGLE_PLAYER_DIFFICULTY_MAX
+			)
+			bucket["adaptive_difficulty"] = difficulty_after
+			bucket["failed_attempts"] = int(bucket.get("failed_attempts", 0)) + 1
+		else:
+			bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
+	if completed and level_index >= unlocked_level:
 		bucket["unlocked_level"] = level_index + 1
-		single_player[lang_key] = bucket
 		unlocked_next = true
+	single_player[lang_key] = bucket
 	save_game()
 	return {
 		"completed": completed,
 		"perfect": perfect,
+		"failed": failed,
+		"chain_ended": completed or failed,
 		"played_count": get_single_level_played_count(lang, level_index, word_count, difficulty),
 		"guessed_count": get_single_level_guessed_count(lang, level_index, word_count, difficulty),
 		"unlocked_next": unlocked_next,
 		"unlocked_level": get_single_player_unlocked_level(lang, difficulty),
+		"completion_bonus": completion_bonus,
+		"difficulty_before": difficulty_before,
+		"difficulty_after": difficulty_after,
 	}
 
-func get_single_player_display_level(lang: String, total_level_count: int, difficulty: int = -1) -> int:
-	if total_level_count <= 0:
-		return 0
-	return mini(get_single_player_unlocked_level(lang, difficulty) + 1, total_level_count)
+func record_single_player_forfeit(lang: String) -> void:
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
+	single_player[lang_key] = bucket
+	save_game()
+
+func reset_single_level_attempt(lang: String, level_index: int, reroll_seed: bool = true) -> void:
+	if level_index < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_key := str(level_index)
+	var levels: Dictionary = bucket["levels"]
+	var selected_themes: Dictionary = bucket["selected_themes"]
+	var level_seeds: Dictionary = bucket["level_seeds"]
+	levels.erase(level_key)
+	selected_themes.erase(level_key)
+	if reroll_seed:
+		level_seeds.erase(level_key)
+	bucket["levels"] = levels
+	bucket["selected_themes"] = selected_themes
+	bucket["level_seeds"] = level_seeds
+	single_player[lang_key] = bucket
+	save_game()
+
+func get_single_player_display_level(lang: String, difficulty: int = -1) -> int:
+	return get_single_player_unlocked_level(lang, difficulty) + 1

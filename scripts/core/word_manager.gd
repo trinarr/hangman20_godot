@@ -40,13 +40,13 @@ func select_new_word(theme_index: int) -> WordData:
 		available = words
 
 	var picked: Dictionary = available[randi() % available.size()]
-	var selected_word := WordData.new(str(picked["text"]), int(picked["difficulty"]), selected_theme, int(picked["index"]))
+	var selected_word := WordData.new(str(picked["text"]), float(picked["difficulty"]), selected_theme, int(picked["index"]))
 	GameState.mark_played(Database.current_language, selected_theme, selected_word.index, _real_word_count(selected_theme))
 	return selected_word
 
 func set_custom_word(text: String, comment: String = "") -> WordData:
 	var normalized := normalize_word(text)
-	var custom_word := WordData.new(normalized, 0, -1, -1, comment)
+	var custom_word := WordData.new(normalized, 0.0, -1, -1, comment)
 	return custom_word
 
 func normalize_word(text: String) -> String:

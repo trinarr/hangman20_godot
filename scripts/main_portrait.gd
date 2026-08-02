@@ -54,6 +54,7 @@ const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
 const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
 const PORTRAIT_RESULT_WORD_SEARCH_GAP: float = 10.0
 const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(24.0, 31.0)
+const PORTRAIT_RESULT_CHAIN_CARD_RECT := Rect2(83.0, 648.0, 314.0, 40.0)
 const PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION: float = 0.068
 const PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION: float = 0.072
 const PORTRAIT_RESULT_LETTER_BOUNCE_GAP: float = 0.0094
@@ -77,6 +78,7 @@ const PORTRAIT_NAV_SETTINGS_ICON: Texture2D = preload("res://flash_assets/nav_se
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
+const PORTRAIT_INSUFFICIENT_PRICE_COLOR := Color("#FF5C6D")
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.76
@@ -819,88 +821,249 @@ func _show_clear_theme_popup(theme_index: int, return_to_tasks: bool = false) ->
 	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
+	_show_single_player_level_popup(level_index, theme_index)
+
+func _show_single_player_level_popup(level_index: int, selected_theme: int = -1) -> void:
 	_remove_single_player_theme_popup()
+	level_index = _prepare_single_player_level_attempt(level_index)
 	var options: Array = _single_player_level_theme_options(level_index)
-	if !options.has(theme_index):
+	if options.is_empty():
 		return
+	var persisted_theme: int = GameState.get_single_level_selected_theme(
+		Database.current_language,
+		level_index
+	)
+	if persisted_theme >= 0:
+		selected_theme = persisted_theme
+	elif !options.has(selected_theme):
+		selected_theme = int(options[0])
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = -1
+	single_player_popup_level_index = level_index
+	single_player_popup_selected_theme = selected_theme
 	var previous_content := _portrait_popup_begin(
-		"SinglePlayerThemePopup",
+		"SinglePlayerLevelPopup",
 		"single_player_theme_popup",
 		135,
 		Callable(self, "_remove_single_player_theme_popup"),
-		220.0,
-		610.0
+		118.0,
+		578.0
 	)
-	var rect := Rect2(48.0, 220.0, 384.0, 390.0)
+	single_player_popup_stage_content = content
+	var rect := Rect2(24.0, 118.0, 432.0, 460.0)
 	_portrait_popup_shell(
 		rect,
-		_single_player_theme_popup_title(),
+		"%s %d" % [_single_player_level_label(), level_index + 1],
 		Callable(self, "_remove_single_player_theme_popup"),
-		26
+		29
 	)
-	var badge_rect := Rect2(185.0, 312.0, 110.0, 110.0)
-	var badge := _stage_panel(
-		badge_rect,
-		PORTRAIT_BLUE,
-		55.0,
-		PORTRAIT_ORANGE,
-		3.0
-	)
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
-	if theme_icon_texture != null:
-		_stage_texture(Rect2(210.0, 337.0, 60.0, 60.0), theme_icon_texture)
-	var theme_name := Database.get_theme_name(theme_index).to_upper()
-	var theme_font_size: int = 26 if theme_name.length() > 16 else 31
-	var theme_label := _stage_label(
-		Rect2(76.0, 418.0, 328.0, 48.0),
-		theme_name,
-		theme_font_size,
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	if challenge_level:
+		var challenge_label := _stage_label(
+			Rect2(48.0, 202.0, 384.0, 28.0),
+			_single_player_challenge_level_label().to_upper(),
+			17,
+			DIFFICULTY_HARD_NORMAL_TINT,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		challenge_label.add_theme_color_override("font_outline_color", DIFFICULTY_HARD_OUTLINE_COLOR)
+		challenge_label.add_theme_constant_override("outline_size", 2)
+	var instruction_y: float = 230.0 if challenge_level else 210.0
+	var instruction_label := _stage_label(
+		Rect2(48.0, instruction_y, 384.0, 38.0),
+		_single_player_choose_theme_label(),
+		21,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	theme_label.clip_text = false
+	instruction_label.clip_text = false
+	var refresh_disabled: bool = persisted_theme >= 0
+	var refresh_button := _stage_round_icon_button(
+		Rect2(370.0, instruction_y - 6.0, 48.0, 48.0),
+		Callable(self, "_refresh_single_player_theme_popup").bind(level_index),
+		SINGLE_PLAYER_REFRESH_ICON,
+		Vector2(27.0, 27.0),
+		refresh_disabled
+	)
+	refresh_button.z_index = 15
+	var price_badge := _stage_panel(
+		Rect2(390.0, instruction_y + 26.0, 44.0, 22.0),
+		PORTRAIT_DARK_BLUE,
+		11.0,
+		PORTRAIT_RULE,
+		1.0
+	)
+	price_badge.z_index = 16
+	var price_coin := _stage_texture(
+		Rect2(393.0, instruction_y + 29.0, 16.0, 16.0),
+		SOFT_CURRENCY_COIN_TEXTURE
+	)
+	price_coin.z_index = 17
+	single_player_popup_refresh_price_label = _stage_label(
+		Rect2(408.0, instruction_y + 26.0, 24.0, 22.0),
+		str(SINGLE_PLAYER_THEME_REFRESH_COST),
+		13,
+		_purchase_price_color(SINGLE_PLAYER_THEME_REFRESH_COST),
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	single_player_popup_refresh_price_label.z_index = 17
+	if refresh_disabled:
+		for refresh_item in [price_badge, price_coin, single_player_popup_refresh_price_label]:
+			refresh_item.modulate = Color(1.0, 1.0, 1.0, 0.45)
+
 	var word_count: int = _single_player_level_word_count(level_index)
-	var details_label := _stage_label(
-		Rect2(76.0, 466.0, 328.0, 42.0),
-		"%s %d • %s" % [
-			_single_player_level_label(),
-			level_index + 1,
-			_single_player_word_count_label(word_count)
-		],
-		20,
-		Color(0.92, 0.94, 1.0),
-		HORIZONTAL_ALIGNMENT_CENTER
+	var card_y: float = 282.0 if challenge_level else 270.0
+	_stage_single_player_popup_theme_cards(
+		level_index,
+		options,
+		card_y,
+		word_count,
+		persisted_theme
 	)
-	details_label.clip_text = false
-	var note_label := _stage_label(
-		Rect2(82.0, 506.0, 316.0, 38.0),
-		_single_player_theme_locked_note(),
-		16,
-		Color(0.82, 0.86, 1.0),
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	note_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note_label.clip_text = false
-	_stage_portrait_popup_main_button(
-		Rect2(70.0, 552.0, 160.0, 52.0),
-		Callable(self, "_confirm_single_player_theme_selection").bind(level_index, theme_index),
+
+	single_player_popup_play_button = _stage_portrait_popup_main_button(
+		Rect2(90.0, 500.0, 300.0, 56.0),
+		Callable(self, "_start_single_player_popup_level").bind(level_index),
 		_single_player_theme_start_label(),
-		20,
-		false,
+		22,
+		selected_theme < 0,
 		0.32,
 		false,
 		false,
-		false,
+		true,
 		LONG_BUTTON_COLOR_ORANGE
 	)
-	_stage_portrait_popup_main_button(
-		Rect2(250.0, 552.0, 160.0, 52.0),
-		Callable(self, "_remove_single_player_theme_popup"),
-		_single_player_theme_cancel_label(),
-		20
-	)
+	_style_single_player_level_button(single_player_popup_play_button, level_index)
+	if selected_theme >= 0:
+		_select_single_player_popup_theme(level_index, selected_theme)
 	content = previous_content
+
+func _stage_single_player_popup_theme_cards(
+	level_index: int,
+	options: Array,
+	card_y: float,
+	word_count: int,
+	persisted_theme: int
+) -> void:
+	_clear_single_player_popup_theme_cards()
+	if single_player_popup_stage_content == null or !is_instance_valid(single_player_popup_stage_content):
+		return
+	var previous_content: Control = content
+	content = single_player_popup_stage_content
+	var first_card_node_index: int = content.get_child_count()
+	var card_size := Vector2(128.0, 202.0)
+	for option_index in range(options.size()):
+		var theme_index: int = int(options[option_index])
+		var card_rect := Rect2(39.0 + float(option_index) * 137.0, card_y, card_size.x, card_size.y)
+		var card := _stage_panel(
+			card_rect,
+			Color(0.30, 0.35, 0.68, 1.0),
+			18.0,
+			PORTRAIT_RULE,
+			2.0
+		)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		single_player_popup_theme_panels[theme_index] = card
+		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+		if theme_icon_texture != null:
+			_stage_texture(
+				Rect2(card_rect.position + Vector2(29.0, 18.0), Vector2(70.0, 70.0)),
+				theme_icon_texture
+			)
+		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
+		var theme_label := _stage_label(
+			Rect2(card_rect.position + Vector2(8.0, 98.0), Vector2(card_rect.size.x - 16.0, 70.0)),
+			theme_name,
+			17 if theme_name.length() <= 15 else 15,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		theme_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		theme_label.clip_text = false
+		var count_label := _stage_label(
+			Rect2(card_rect.position + Vector2(8.0, 170.0), Vector2(card_rect.size.x - 16.0, 24.0)),
+			_single_player_word_count_label(word_count),
+			14,
+			Color(0.84, 0.88, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		count_label.clip_text = false
+		var theme_button := _stage_button(
+			card_rect,
+			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
+			""
+		)
+		theme_button.disabled = persisted_theme >= 0 and persisted_theme != theme_index
+	for child_index in range(first_card_node_index, content.get_child_count()):
+		single_player_popup_theme_card_nodes.append(content.get_child(child_index))
+	content = previous_content
+
+func _update_single_player_theme_popup(level_index: int) -> void:
+	if level_index != single_player_popup_level_index:
+		return
+	var options: Array = _single_player_level_theme_options(level_index)
+	if options.is_empty():
+		return
+	var selected_theme: int = int(options[0])
+	single_player_popup_selected_theme = selected_theme
+	_stage_single_player_popup_theme_cards(
+		level_index,
+		options,
+		282.0 if _single_player_is_bonus_level(level_index) else 270.0,
+		_single_player_level_word_count(level_index),
+		-1
+	)
+	_select_single_player_popup_theme(level_index, selected_theme)
+	_update_single_player_refresh_price(GameState.get_soft_currency())
+
+func _purchase_price_color(price: int) -> Color:
+	return (
+		Color.WHITE
+		if GameState.get_soft_currency() >= maxi(price, 0)
+		else PORTRAIT_INSUFFICIENT_PRICE_COLOR
+	)
+
+func _update_single_player_refresh_price(balance: int) -> void:
+	if (
+		single_player_popup_refresh_price_label == null
+		or !is_instance_valid(single_player_popup_refresh_price_label)
+	):
+		return
+	var price_color: Color = (
+		Color.WHITE
+		if balance >= SINGLE_PLAYER_THEME_REFRESH_COST
+		else PORTRAIT_INSUFFICIENT_PRICE_COLOR
+	)
+	single_player_popup_refresh_price_label.add_theme_color_override("font_color", price_color)
+
+func _select_single_player_popup_theme(level_index: int, theme_index: int) -> void:
+	if level_index != single_player_popup_level_index:
+		return
+	var persisted_theme: int = GameState.get_single_level_selected_theme(
+		Database.current_language,
+		level_index
+	)
+	if persisted_theme >= 0 and persisted_theme != theme_index:
+		return
+	if !_single_player_level_theme_options(level_index).has(theme_index):
+		return
+	single_player_popup_selected_theme = theme_index
+	var selection_color: Color = (
+		DIFFICULTY_HARD_NORMAL_TINT
+		if _single_player_is_bonus_level(level_index)
+		else PORTRAIT_ORANGE
+	)
+	for option_theme in single_player_popup_theme_panels.keys():
+		var panel := single_player_popup_theme_panels.get(option_theme) as Control
+		if panel == null or !is_instance_valid(panel):
+			continue
+		var is_selected: bool = int(option_theme) == theme_index
+		panel.set("fill_color", Color(0.38, 0.43, 0.76, 1.0) if is_selected else Color(0.30, 0.35, 0.68, 1.0))
+		panel.set("border_color", selection_color if is_selected else PORTRAIT_RULE)
+		panel.set("border_width", 4.0 if is_selected else 2.0)
+	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+		single_player_popup_play_button.set("button_disabled", false)
 
 func _show_exit_game_popup() -> void:
 	_remove_exit_game_popup()
@@ -1599,7 +1762,7 @@ func _stage_portrait_hint_price(button_rect: Rect2, price: int) -> void:
 		),
 		str(maxi(price, 0)),
 		16,
-		Color.WHITE,
+		_purchase_price_color(price),
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	price_label.z_index = 9
@@ -1711,6 +1874,57 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 func _portrait_result_title_color(is_win: bool) -> Color:
 	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
 
+func _stage_single_player_result_chain_progress(data: Dictionary, is_win: bool) -> void:
+	if GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+		return
+	var total_count: int = maxi(int(data.get("single_player_total_count", 0)), 0)
+	var current_slot: int = clampi(int(data.get("single_player_word_slot", 0)), 0, maxi(total_count - 1, 0))
+	if total_count <= 0:
+		return
+
+	var card := _stage_panel(
+		PORTRAIT_RESULT_CHAIN_CARD_RECT,
+		PORTRAIT_BLUE,
+		13.0,
+		PORTRAIT_ORANGE,
+		2.0
+	)
+	card.z_index = 20
+	var progress_text: String = _single_player_text(
+		"СЛОВО %d ИЗ %d",
+		"WORD %d OF %d"
+	) % [current_slot + 1, total_count]
+	var progress_label := _stage_label(
+		Rect2(93.0, 649.0, 294.0, 22.0),
+		progress_text,
+		16,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	progress_label.clip_text = false
+	var progress_holder := progress_label.get_parent() as CanvasItem
+	if progress_holder != null:
+		progress_holder.z_index = 21
+
+	var track_rect := Rect2(105.0, 676.0, 270.0, 7.0)
+	var gap: float = 4.0
+	var segment_width: float = (track_rect.size.x - gap * float(total_count - 1)) / float(total_count)
+	for segment_index in range(total_count):
+		var segment_color := Color(0.36, 0.41, 0.72, 1.0)
+		if segment_index < current_slot:
+			segment_color = PORTRAIT_ORANGE
+		elif segment_index == current_slot:
+			segment_color = StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
+		var segment := _stage_panel(
+			Rect2(
+				track_rect.position + Vector2(float(segment_index) * (segment_width + gap), 0.0),
+				Vector2(segment_width, track_rect.size.y)
+			),
+			segment_color,
+			4.0
+		)
+		segment.z_index = 21
+
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_show_portrait_result_screen(is_win, data, true)
 
@@ -1741,7 +1955,30 @@ func _show_portrait_result_screen(is_win: bool, data: Dictionary, animate_result
 		continue_text,
 		animate_result
 	)
+	_stage_single_player_result_chain_progress(data, is_win)
 	_portrait_end_adaptive_group(word_content)
+
+func _stage_portrait_result_mode_theme_label(rect: Rect2, animate_result: bool) -> Label:
+	var header_texts: Dictionary = _portrait_game_header_texts()
+	var mode_theme_text: String = str(header_texts["title"])
+	var theme_text: String = str(header_texts["subtitle"])
+	if !theme_text.is_empty():
+		mode_theme_text += " • " + theme_text
+	var mode_theme_label := _stage_label(
+		rect,
+		mode_theme_text,
+		22,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	mode_theme_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	mode_theme_label.clip_text = false
+	var mode_theme_holder := mode_theme_label.get_parent() as CanvasItem
+	if mode_theme_holder != null:
+		mode_theme_holder.z_index = 20
+	_fit_single_line_label_to_width(mode_theme_label, mode_theme_text, rect.size.x, 22, 15)
+	mode_theme_label.visible = !animate_result
+	return mode_theme_label
 
 func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) -> Dictionary:
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
@@ -1762,6 +1999,12 @@ func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) 
 	var subtitle_holder := subtitle_label.get_parent() as CanvasItem
 	if subtitle_holder != null:
 		subtitle_holder.z_index = 20
+	var mode_theme_label: Label = null
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		mode_theme_label = _stage_portrait_result_mode_theme_label(
+			Rect2(28.0, 250.0, 424.0, 36.0),
+			animate_result
+		)
 
 	hero_static_symbol = _stage_hero_symbol(_hero_type(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time())
 	if hero_static_symbol != null:
@@ -1770,25 +2013,11 @@ func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) 
 	_portrait_end_adaptive_group(result_root_content)
 
 	var bottom_content: Control = _portrait_begin_bottom_attached_group()
-	var header_texts: Dictionary = _portrait_game_header_texts()
-	var mode_theme_text: String = str(header_texts["title"])
-	var theme_text: String = str(header_texts["subtitle"])
-	if !theme_text.is_empty():
-		mode_theme_text += " • " + theme_text
-	var mode_theme_label := _stage_label(
-		Rect2(28.0, 660.0, 424.0, 42.0),
-		mode_theme_text,
-		22,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	mode_theme_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	mode_theme_label.clip_text = false
-	var mode_theme_holder := mode_theme_label.get_parent() as CanvasItem
-	if mode_theme_holder != null:
-		mode_theme_holder.z_index = 20
-	_fit_single_line_label_to_width(mode_theme_label, mode_theme_text, 424.0, 22, 15)
-	mode_theme_label.visible = !animate_result
+	if mode_theme_label == null:
+		mode_theme_label = _stage_portrait_result_mode_theme_label(
+			Rect2(28.0, 660.0, 424.0, 42.0),
+			animate_result
+		)
 	var continue_button := _stage_main_button(
 		_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT),
 		_result_continue_action(),
@@ -1801,6 +2030,11 @@ func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) 
 		true,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		_style_single_player_level_button(
+			continue_button,
+			int(data.get("single_player_level_index", single_player_active_level_index))
+		)
 	continue_button.z_index = 20
 	continue_button.visible = !animate_result
 	_portrait_end_adaptive_group(bottom_content)
