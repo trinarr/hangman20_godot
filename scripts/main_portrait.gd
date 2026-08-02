@@ -68,6 +68,7 @@ const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
 const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
+const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
 const PORTRAIT_NAV_PROFILE_ICON: Texture2D = preload("res://flash_assets/nav_profile_icon.png")
 const PORTRAIT_NAV_SHOP_ICON: Texture2D = preload("res://flash_assets/nav_shop_icon.png")
 const PORTRAIT_NAV_HOME_ICON: Texture2D = preload("res://flash_assets/nav_home_icon.png")
@@ -1459,8 +1460,8 @@ func _stage_portrait_hint_buttons() -> void:
 	var open_hint_used: bool = GameSession.open_hint_used
 	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
 	var comment_unlocked: bool = GameSession.comment_hint_unlocked
-	var open_hint_disabled: bool = !open_hint_used and !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = !remove_hint_used and !GameSession.can_use_remove_wrong_hint()
+	var open_hint_disabled: bool = open_hint_used or !GameSession.can_use_open_letter_hint()
+	var remove_hint_disabled: bool = remove_hint_used or !GameSession.can_use_remove_wrong_hint()
 	var comment_disabled: bool = !comment_unlocked and !GameSession.can_unlock_comment_hint()
 
 	var open_rect: Rect2 = PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT
@@ -1478,7 +1479,7 @@ func _stage_portrait_hint_buttons() -> void:
 		open_hint_disabled,
 		0.0,
 		false,
-		open_hint_used,
+		false,
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
@@ -1490,7 +1491,7 @@ func _stage_portrait_hint_buttons() -> void:
 		remove_hint_disabled,
 		0.0,
 		false,
-		remove_hint_used,
+		false,
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
@@ -1507,20 +1508,13 @@ func _stage_portrait_hint_buttons() -> void:
 		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
 	)
 
-	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_REVEAL_LETTER_ICON)
-	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_REMOVE_WRONG_ICON)
+	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_REVEAL_LETTER_ICON, open_hint_used)
+	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_REMOVE_WRONG_ICON, remove_hint_used)
 	_stage_portrait_hint_art(comment_button, PORTRAIT_HINT_COMMENT_UNLOCK_ICON)
 
-	# Letter-removal and letter-opening hints are one-use actions for the current
-	# word. Keep their blue activated state without replacing it with disabled gray.
-	if open_hint_used:
-		_disable_button_input_without_changing_visual(open_button)
-	if remove_hint_used:
-		_disable_button_input_without_changing_visual(remove_button)
-
 	# Prices and inventory badges only describe actions that still consume a hint.
-	# Once used, one-shot hints keep their selected state without a stale badge;
-	# the unlocked comment becomes a regular free blue action.
+	# Used one-shot hints use the shared gray disabled state without a stale badge;
+	# the unlocked comment remains a regular free blue action.
 	if !open_hint_used:
 		_stage_portrait_hint_counter(open_rect, GameState.HINT_OPEN_LETTER)
 	if !remove_hint_used:
@@ -1528,7 +1522,7 @@ func _stage_portrait_hint_buttons() -> void:
 	if !comment_unlocked:
 		_stage_portrait_hint_counter(comment_rect, GameState.HINT_COMMENT)
 
-func _stage_portrait_hint_art(button: Control, texture: Texture2D) -> void:
+func _stage_portrait_hint_art(button: Control, texture: Texture2D, grayscale: bool = false) -> void:
 	if button == null:
 		return
 	var art := TextureRect.new()
@@ -1544,6 +1538,10 @@ func _stage_portrait_hint_art(button: Control, texture: Texture2D) -> void:
 		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
 		-PORTRAIT_GAME_HINT_ART_RISE
 	)
+	if grayscale:
+		var grayscale_material := ShaderMaterial.new()
+		grayscale_material.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
+		art.material = grayscale_material
 	art.z_index = 4
 	button.add_child(art)
 
