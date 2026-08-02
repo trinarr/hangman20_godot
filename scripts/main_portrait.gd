@@ -49,10 +49,11 @@ const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 500.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT
 const PORTRAIT_RESULT_WORD_RECT := Rect2(22.0, 582.0, 436.0, 72.0)
-const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 80.0
+const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 44.0
+const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
+const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
 const PORTRAIT_RESULT_WORD_SEARCH_GAP: float = 10.0
-const PORTRAIT_RESULT_SEARCH_OPTICAL_OFFSET_Y: float = 19.0
-const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(50.0, 64.0)
+const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(24.0, 31.0)
 const PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION: float = 0.068
 const PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION: float = 0.072
 const PORTRAIT_RESULT_LETTER_BOUNCE_GAP: float = 0.0094
@@ -1233,12 +1234,10 @@ func _stage_portrait_result_word_display(
 		Vector2(measured_word_width, word_rect.size.y)
 	)
 	var search_x: float = word_bounds.end.x + PORTRAIT_RESULT_WORD_SEARCH_GAP
-	var letter_center_y: float = rect.position.y + (rect.size.y - 10.0) * 0.5
-	var search_y: float = (
-		letter_center_y
-		+ PORTRAIT_RESULT_SEARCH_OPTICAL_OFFSET_Y
-		- PORTRAIT_RESULT_SEARCH_BUTTON_SIZE * 0.5
-	)
+	# RichTextLabel centers the shaped line inside word_rect. Center the search
+	# button on that same rect so its vertical alignment follows the text layout
+	# automatically instead of relying on a device-specific optical offset.
+	var search_y: float = word_rect.get_center().y - PORTRAIT_RESULT_SEARCH_BUTTON_SIZE * 0.5
 	var search_button := _stage_round_icon_button(
 		Rect2(
 			search_x,
@@ -1251,6 +1250,8 @@ func _stage_portrait_result_word_display(
 		PORTRAIT_RESULT_SEARCH_ICON_SIZE
 	)
 	search_button.z_index = 20
+	search_button.set("press_scale_enabled", true)
+	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE)
 	search_button.visible = !animate_result
 	if animate_result:
 		call_deferred(
@@ -1379,7 +1380,7 @@ func _reveal_portrait_result_actions(search_button: Control, continue_button: Co
 		return
 	search_button.visible = true
 	search_button.modulate = Color(1.0, 1.0, 1.0, 0.0)
-	search_button.set("visual_scale", Vector2(0.72, 0.72))
+	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE)
 	if continue_button != null and is_instance_valid(continue_button) and continue_button.is_inside_tree():
 		continue_button.visible = true
 		continue_button.modulate = Color(1.0, 1.0, 1.0, 0.0)
@@ -1418,7 +1419,7 @@ func _reveal_portrait_result_actions(search_button: Control, continue_button: Co
 	var scale_tweener: PropertyTweener = reveal_tween.tween_property(
 		search_button,
 		"visual_scale",
-		Vector2.ONE,
+		PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE,
 		PORTRAIT_RESULT_SEARCH_APPEAR_DURATION
 	)
 	scale_tweener.set_trans(Tween.TRANS_BACK)
