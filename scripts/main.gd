@@ -210,9 +210,6 @@ func _refresh_game_screen() -> void:
 func _create_hero_animation_overlay() -> FlashStageSymbol:
 	return null
 
-func _show_about_popup() -> void:
-	pass
-
 func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> void:
 	pass
 
@@ -264,7 +261,6 @@ func _clear() -> void:
 	custom_word_start_button = null
 	currency_balance_label = null
 	hero_static_symbol = null
-	_remove_about_popup()
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 	_remove_exit_game_popup()
@@ -517,23 +513,6 @@ func _settings_on_label() -> String:
 func _settings_off_label() -> String:
 	return Database.tr_text(74, "Off")
 
-func _settings_about_label() -> String:
-	return Database.tr_text(11, "About")
-func _settings_about_action() -> void:
-	_show_about_popup()
-func _remove_about_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("about_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func _about_title_label() -> String:
-	return Database.tr_text(11, "About")
-
-func _about_author_text() -> String:
-	return Database.tr_text(20, "Author:") + " " + Database.tr_text(18, "Nikita Lukanin")
-
 func _about_version_text() -> String:
 	return Database.tr_text(19, "Version:") + " " + _application_version()
 
@@ -543,15 +522,13 @@ func _application_version() -> String:
 	).strip_edges()
 	return configured_version if configured_version != "" else APP_VERSION_FALLBACK
 
-func _about_contacts_label() -> String:
-	return Database.tr_text(21, "Contacts:")
-
 func _about_contact_action(contact_type: String) -> void:
 	match contact_type:
 		"vk":
 			OS.shell_open(AUTHOR_VK_URL)
 		"mail":
 			OS.shell_open(AUTHOR_EMAIL_URL)
+
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
 	if index == 4 and int(GameState.settings[index]) == 2:

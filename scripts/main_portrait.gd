@@ -2,11 +2,12 @@ extends "res://scripts/main.gd"
 
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
+const PORTRAIT_THEME_ICON_PATTERN_SCRIPT: GDScript = preload("res://scripts/ui/portrait_theme_icon_pattern.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
-const PORTRAIT_HEADER_HEIGHT: float = 102.0
+const PORTRAIT_HEADER_HEIGHT: float = 80.0
 const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
@@ -14,8 +15,8 @@ const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80
 const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE
 const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
 const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
-const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 76.0, 400.0, 42.0)
-const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 76.0, 432.0, 48.0)
+const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)
+const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 92.0, 432.0, 48.0)
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(185.03, 21.68, 109.94, 38.64)
 const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
@@ -23,8 +24,17 @@ const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
 const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0
 const PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(92.0, 92.0)
 const PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0
-const PORTRAIT_MAIN_NAV_ICON_SIZE: float = 50.0
-const PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 54.0
+const PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0
+const PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15
+const PORTRAIT_MAIN_NAV_ICON_SIZE: float = PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE * PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE
+const PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y: float = 709.0
+const PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y: float = 735.0
+const PORTRAIT_MAIN_NAV_LABEL_Y: float = 748.0
+const PORTRAIT_MAIN_NAV_LABEL_HEIGHT: float = 44.0
+const PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE: int = 18
+const PORTRAIT_MAIN_NAV_TRANSITION_DURATION: float = 0.24
+const PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE: float = 0.82
+const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE: float = 64.0
 const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO: float = 0.14
 const PORTRAIT_MAIN_TAB_SWIPE_HORIZONTAL_BIAS: float = 1.35
@@ -78,6 +88,9 @@ const PORTRAIT_NAV_SETTINGS_ICON: Texture2D = preload("res://flash_assets/nav_se
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
+const PORTRAIT_CHALLENGE_POPUP_HEADER := Color("#9638B9")
+const PORTRAIT_CHALLENGE_POPUP_BODY := Color("#4A2158")
+const PORTRAIT_CHALLENGE_POPUP_SEPARATOR := Color("#D866FE")
 const PORTRAIT_INSUFFICIENT_PRICE_COLOR := Color("#FF5C6D")
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
@@ -202,7 +215,6 @@ func _switch_portrait_main_tab_from_swipe(swipe_delta: Vector2) -> bool:
 	var tab_action: Callable = _portrait_main_tab_action(target_tab)
 	if !tab_action.is_valid():
 		return false
-	_portrait_active_main_tab = target_tab
 	_play_ui_click_sound()
 	tab_action.call_deferred()
 	return true
@@ -254,9 +266,16 @@ func _portrait_begin_bottom_attached_group() -> Control:
 	content = bottom_group
 	return previous_content
 
-func _portrait_screen(header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: float = -1.0) -> void:
-	_stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, header_height, PORTRAIT_BLUE)
+func _portrait_screen(_header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: float = -1.0) -> void:
+	var paper_background := _stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
+	paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)
+	paper_background.z_index = -2
+	var icon_pattern: Control = PORTRAIT_THEME_ICON_PATTERN_SCRIPT.new() as Control
+	icon_pattern.name = "PortraitThemeIconPattern"
+	icon_pattern.set("theme_icons", THEME_ICON_TEXTURES)
+	icon_pattern.z_index = -1
+	content.add_child(icon_pattern)
+	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, PORTRAIT_BLUE)
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
@@ -280,12 +299,12 @@ func _stage_portrait_page_header(
 	_stage_currency_counter(resolved_return_action)
 	_stage_portrait_page_title(title)
 
-func _stage_portrait_page_title(title: String) -> void:
+func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:
 	var title_label := _stage_label(
 		PORTRAIT_PAGE_TITLE_RECT,
 		title,
 		30,
-		PORTRAIT_BLUE,
+		color,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	title_label.clip_text = false
@@ -365,9 +384,121 @@ func _portrait_main_tab_label(tab_index: int) -> String:
 			return _profile_text("Настройки", "Settings")
 	return ""
 
-func _stage_main_navigation(active_tab: int) -> void:
+func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
+	var icon_size: float = PORTRAIT_MAIN_NAV_ICON_SIZE if is_active else PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE
+	var icon_y: float = PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y if is_active else PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y
+	return Rect2(
+		tab_x + (PORTRAIT_MAIN_NAV_ITEM_WIDTH - icon_size) * 0.5,
+		icon_y,
+		icon_size,
+		icon_size
+	)
+
+func _portrait_main_nav_label_rect(tab_x: float) -> Rect2:
+	return Rect2(
+		tab_x + 2.0,
+		PORTRAIT_MAIN_NAV_LABEL_Y,
+		PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x,
+		PORTRAIT_MAIN_NAV_LABEL_HEIGHT
+	)
+
+func _stage_main_nav_label(tab_x: float, tab_label: String) -> Label:
+	var label_rect: Rect2 = _portrait_main_nav_label_rect(tab_x)
+	var label := _stage_label(
+		label_rect,
+		tab_label,
+		PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	label.z_index = 44
+	label.clip_text = false
+	label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
+	label.add_theme_constant_override("outline_size", 2)
+	var bold_font := FontVariation.new()
+	bold_font.base_font = label.get_theme_font("font")
+	bold_font.variation_embolden = 0.75
+	label.add_theme_font_override("font", bold_font)
+	_fit_single_line_label_to_width(
+		label,
+		tab_label,
+		label_rect.size.x,
+		PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE,
+		12
+	)
+	label.pivot_offset = label_rect.size * 0.5
+	return label
+
+func _animate_main_nav_tab_enter(icon: Control, label: Label, final_icon_rect: Rect2) -> void:
+	icon.modulate = Color(0.92, 0.94, 1.0, 1.0)
+	label.scale = Vector2.ONE * PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE
+	label.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var tween: Tween = icon.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_parallel(true)
+	var icon_size_tweener: PropertyTweener = tween.tween_property(
+		icon,
+		"stage_rect",
+		final_icon_rect,
+		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
+	)
+	icon_size_tweener.set_trans(Tween.TRANS_QUAD)
+	icon_size_tweener.set_ease(Tween.EASE_OUT)
+	tween.tween_property(icon, "modulate", Color.WHITE, PORTRAIT_MAIN_NAV_TRANSITION_DURATION)
+	var label_scale_tweener: PropertyTweener = tween.tween_property(
+		label,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
+	)
+	label_scale_tweener.set_trans(Tween.TRANS_QUAD)
+	label_scale_tweener.set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate", Color.WHITE, PORTRAIT_MAIN_NAV_TRANSITION_DURATION)
+
+func _animate_main_nav_tab_leave(icon: Control, label: Label, final_icon_rect: Rect2) -> void:
+	var label_holder: Control = label.get_parent() as Control
+	var tween: Tween = icon.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_parallel(true)
+	var icon_size_tweener: PropertyTweener = tween.tween_property(
+		icon,
+		"stage_rect",
+		final_icon_rect,
+		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
+	)
+	icon_size_tweener.set_trans(Tween.TRANS_SINE)
+	icon_size_tweener.set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(
+		icon,
+		"modulate",
+		Color(0.92, 0.94, 1.0, 1.0),
+		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
+	)
+	var label_scale_tweener: PropertyTweener = tween.tween_property(
+		label,
+		"scale",
+		Vector2.ONE * PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE,
+		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
+	)
+	label_scale_tweener.set_trans(Tween.TRANS_SINE)
+	label_scale_tweener.set_ease(Tween.EASE_IN)
+	tween.tween_property(
+		label,
+		"modulate",
+		Color(1.0, 1.0, 1.0, 0.0),
+		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
+	)
+	if label_holder != null:
+		tween.finished.connect(Callable(label_holder, "queue_free"))
+
+func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 	_portrait_active_main_tab = active_tab
 	_reset_portrait_main_tab_swipe()
+	var animates_switch: bool = (
+		previous_tab >= MainTab.PROFILE
+		and previous_tab <= MainTab.SETTINGS
+		and previous_tab != active_tab
+	)
 	# Keep every navigation element in one bottom-attached coordinate space.
 	# The active tab intentionally begins above PORTRAIT_MAIN_NAV_Y; without
 	# this group, tall screens map it as regular content while the blue bar is
@@ -402,6 +533,7 @@ func _stage_main_navigation(active_tab: int) -> void:
 
 		var tab_x: float = float(tab_index) * PORTRAIT_MAIN_NAV_ITEM_WIDTH
 		var is_active: bool = tab_index == active_tab
+		var was_active: bool = animates_switch and tab_index == previous_tab
 		var hit_rect := Rect2(tab_x, PORTRAIT_MAIN_NAV_ACTIVE_Y, PORTRAIT_MAIN_NAV_ITEM_WIDTH, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.y)
 		if is_active:
 			# Compose a rounded cap with a square body: only the upper corners of
@@ -418,35 +550,40 @@ func _stage_main_navigation(active_tab: int) -> void:
 			)
 			active_body.z_index = 42
 			var active_icon := _stage_texture(
-				Rect2(tab_x + 23.0, 714.0, PORTRAIT_MAIN_NAV_ICON_SIZE, PORTRAIT_MAIN_NAV_ICON_SIZE),
+				_portrait_main_nav_icon_rect(tab_x, !animates_switch),
 				tab_icon
 			)
 			active_icon.z_index = 43
-			var active_label := _stage_label(
-				Rect2(tab_x + 4.0, 760.0, 88.0, 34.0),
-				tab_label,
-				16,
-				Color.WHITE,
-				HORIZONTAL_ALIGNMENT_CENTER
-			)
-			active_label.z_index = 43
-			active_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
-			active_label.add_theme_constant_override("outline_size", 2)
-			_fit_single_line_label_to_width(active_label, tab_label, 88.0, 16, 11)
+			var active_label := _stage_main_nav_label(tab_x, tab_label)
+			if animates_switch:
+				_animate_main_nav_tab_enter(
+					active_icon,
+					active_label,
+					_portrait_main_nav_icon_rect(tab_x, true)
+				)
 		else:
 			var inactive_icon := _stage_texture(
-				Rect2(tab_x + 21.0, 731.0, PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE, PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE),
+				_portrait_main_nav_icon_rect(tab_x, was_active),
 				tab_icon
 			)
 			inactive_icon.z_index = 42
-			inactive_icon.modulate = Color(0.92, 0.94, 1.0, 1.0)
+			if was_active:
+				var departing_label := _stage_main_nav_label(tab_x, tab_label)
+				_animate_main_nav_tab_leave(
+					inactive_icon,
+					departing_label,
+					_portrait_main_nav_icon_rect(tab_x, false)
+				)
+			else:
+				inactive_icon.modulate = Color(0.92, 0.94, 1.0, 1.0)
 		var tab_button := _stage_button(hit_rect, tab_action, "")
-		tab_button.z_index = 44
+		tab_button.z_index = 46
 	content = previous_content
 
 func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:
+	var previous_tab: int = _portrait_active_main_tab
 	screen_builder.call()
-	_stage_main_navigation(active_tab)
+	_stage_main_navigation(active_tab, previous_tab)
 
 func _show_coin_store_tab() -> void:
 	coin_store_return_action = Callable()
@@ -564,20 +701,49 @@ func _portrait_popup_begin(name: String, group_name: String, layer_index: int, c
 	content = _center_popup_content(popup_root, popup_top, popup_bottom)
 	return previous_content
 
-func _portrait_popup_shell(rect: Rect2, title: String, close_callable: Callable, title_font_size: int = 28) -> void:
-	# Portrait popups are bottom-anchored by PopupStageCenter. Their authored
-	# height is content-specific, so the top edge moves while the bottom edge and
-	# thumb-reachable close button stay at a stable screen position.
+func _portrait_popup_shell(
+	rect: Rect2,
+	title: String,
+	close_callable: Callable,
+	title_font_size: int = 28,
+	header_color: Color = PORTRAIT_BLUE,
+	body_color: Color = PORTRAIT_DARK_BLUE,
+	separator_color: Color = PORTRAIT_ORANGE,
+	subtitle: String = ""
+) -> void:
+	# PopupStageCenter centers the authored body bounds and scales the complete
+	# modal composition around that center on every supported aspect ratio.
 	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 80.0))
 	var body_rect := Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, rect.size.y - 80.0))
-	var header := _stage_panel(header_rect, PORTRAIT_BLUE)
+	var header := _stage_panel(header_rect, header_color)
 	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(body_rect, PORTRAIT_DARK_BLUE)
+	var body := _stage_panel(body_rect, body_color)
 	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
+	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), separator_color)
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var title_label := _stage_label(Rect2(rect.position.x + 20.0, rect.position.y + 10.0, rect.size.x - 40.0, 56.0), title, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var title_rect := Rect2(
+		rect.position.x + 20.0,
+		rect.position.y + (3.0 if !subtitle.is_empty() else 10.0),
+		rect.size.x - 40.0,
+		56.0 if subtitle.is_empty() else 42.0
+	)
+	var title_label := _stage_label(
+		title_rect,
+		title,
+		title_font_size,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
 	title_label.clip_text = false
+	if !subtitle.is_empty():
+		var subtitle_label := _stage_label(
+			Rect2(rect.position.x + 20.0, rect.position.y + 43.0, rect.size.x - 40.0, 28.0),
+			subtitle,
+			16,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		subtitle_label.clip_text = false
 
 	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
@@ -682,17 +848,14 @@ func _show_settings_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
 	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-	_stage_currency_counter(Callable(self, "show_settings"))
-	_stage_portrait_page_title(_portrait_main_tab_label(MainTab.SETTINGS))
-	var settings_card := _stage_panel(
-		Rect2(28.0, 138.0, 424.0, 440.0),
-		PORTRAIT_DARK_BLUE,
-		24.0,
-		PORTRAIT_RULE,
-		2.0
+	var settings_body_fill := _stage_horizontal_fill(
+		PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_DARK_BLUE
 	)
-	settings_card.mouse_filter = Control.MOUSE_FILTER_STOP
-
+	settings_body_fill.set("follows_safe_top_inset", true)
+	_stage_currency_counter(Callable(self, "show_settings"))
+	_stage_portrait_page_title(_portrait_main_tab_label(MainTab.SETTINGS), Color.WHITE)
 	_stage_label(Rect2(56.0, 176.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_settings_toggle_button(Rect2(330.0, 172.0, 102.0, 49.0), 3)
 	_stage_label(Rect2(56.0, 244.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -702,33 +865,30 @@ func _show_settings_screen() -> void:
 	_stage_settings_word_language_button(Rect2(210.0, 332.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
 	_stage_settings_word_language_button(Rect2(322.0, 332.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 	_stage_panel(Rect2(56.0, 412.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_portrait_popup_main_button(
-		Rect2(
-			142.0,
-			466.0,
-			PORTRAIT_SMALL_BUTTON_SIZE.x,
-			PORTRAIT_SMALL_BUTTON_SIZE.y
-		),
-		Callable(self, "_settings_about_action"),
-		_settings_about_label(),
-		18
-	)
 
-func _show_about_popup() -> void:
-	_remove_about_popup()
-	var previous_content := _portrait_popup_begin("AboutPopup", "about_popup", 110, Callable(self, "_remove_about_popup"), 130.0, 520.0, PORTRAIT_POPUP_DIM_ALPHA)
-	var rect := Rect2(28.0, 130.0, 424.0, 390.0)
-	_portrait_popup_shell(rect, _about_title_label(), Callable(self, "_remove_about_popup"), 30)
-	var author_label := _stage_label(Rect2(56.0, 240.0, 368.0, 54.0), _about_author_text(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	author_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	author_label.clip_text = false
-	var version_label := _stage_label(Rect2(56.0, 310.0, 368.0, 42.0), _about_version_text(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var settings_footer_content: Control = _portrait_begin_bottom_attached_group()
+	_stage_round_icon_button(
+		Rect2(174.0, 616.0, 58.0, 58.0),
+		Callable(self, "_about_contact_action").bind("vk"),
+		ABOUT_VK_ICON,
+		ABOUT_VK_ICON_SIZE
+	)
+	_stage_round_icon_button(
+		Rect2(248.0, 616.0, 58.0, 58.0),
+		Callable(self, "_about_contact_action").bind("mail"),
+		ABOUT_MAIL_ICON,
+		ABOUT_MAIL_ICON_SIZE
+	)
+	var version_label := _stage_label(
+		Rect2(40.0, 678.0, 400.0, 28.0),
+		_about_version_text(),
+		14,
+		Color(0.78, 0.82, 0.96, 0.88),
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	version_label.clip_text = false
-	_stage_panel(Rect2(56.0, 410.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_label(Rect2(56.0, 438.0, 180.0, 40.0), _about_contacts_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_icon_button(Rect2(224.0, 426.0, 62.0, 62.0), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE)
-	_stage_round_icon_button(Rect2(306.0, 426.0, 62.0, 62.0), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE)
-	content = previous_content
+	_portrait_end_adaptive_group(settings_footer_content)
 
 func show_theme_select() -> void:
 	_show_theme_select_screen(false)
@@ -851,24 +1011,18 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 	)
 	single_player_popup_stage_content = content
 	var rect := Rect2(24.0, 118.0, 432.0, 460.0)
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	_portrait_popup_shell(
 		rect,
 		"%s %d" % [_single_player_level_label(), level_index + 1],
 		Callable(self, "_remove_single_player_theme_popup"),
-		29
+		29,
+		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE,
+		PORTRAIT_CHALLENGE_POPUP_BODY if challenge_level else PORTRAIT_DARK_BLUE,
+		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_ORANGE,
+		_single_player_challenge_level_label() if challenge_level else ""
 	)
-	var challenge_level: bool = _single_player_is_bonus_level(level_index)
-	if challenge_level:
-		var challenge_label := _stage_label(
-			Rect2(48.0, 202.0, 384.0, 28.0),
-			_single_player_challenge_level_label().to_upper(),
-			17,
-			DIFFICULTY_HARD_NORMAL_TINT,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		challenge_label.add_theme_color_override("font_outline_color", DIFFICULTY_HARD_OUTLINE_COLOR)
-		challenge_label.add_theme_constant_override("outline_size", 2)
-	var instruction_y: float = 230.0 if challenge_level else 210.0
+	var instruction_y: float = 210.0
 	var instruction_label := _stage_label(
 		Rect2(48.0, instruction_y, 384.0, 38.0),
 		_single_player_choose_theme_label(),
@@ -912,7 +1066,7 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 			refresh_item.modulate = Color(1.0, 1.0, 1.0, 0.45)
 
 	var word_count: int = _single_player_level_word_count(level_index)
-	var card_y: float = 282.0 if challenge_level else 270.0
+	var card_y: float = 270.0
 	_stage_single_player_popup_theme_cards(
 		level_index,
 		options,
@@ -933,7 +1087,6 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		true,
 		LONG_BUTTON_COLOR_ORANGE
 	)
-	_style_single_player_level_button(single_player_popup_play_button, level_index)
 	if selected_theme >= 0:
 		_select_single_player_popup_theme(level_index, selected_theme)
 	content = previous_content
@@ -1010,7 +1163,7 @@ func _update_single_player_theme_popup(level_index: int) -> void:
 	_stage_single_player_popup_theme_cards(
 		level_index,
 		options,
-		282.0 if _single_player_is_bonus_level(level_index) else 270.0,
+		270.0,
 		_single_player_level_word_count(level_index),
 		-1
 	)
@@ -1062,7 +1215,11 @@ func _select_single_player_popup_theme(level_index: int, theme_index: int) -> vo
 		panel.set("fill_color", Color(0.38, 0.43, 0.76, 1.0) if is_selected else Color(0.30, 0.35, 0.68, 1.0))
 		panel.set("border_color", selection_color if is_selected else PORTRAIT_RULE)
 		panel.set("border_width", 4.0 if is_selected else 2.0)
-	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+	if (
+		single_player_popup_play_button != null
+		and is_instance_valid(single_player_popup_play_button)
+		and bool(single_player_popup_play_button.get("button_disabled"))
+	):
 		single_player_popup_play_button.set("button_disabled", false)
 
 func _show_exit_game_popup() -> void:

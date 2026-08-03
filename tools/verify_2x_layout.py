@@ -71,12 +71,50 @@ def verify_control_geometry() -> None:
     require("border_width * _fit_scale" not in panel, "Panel border is scaled twice")
 
     texture_fill = read("scripts/ui/flash_stage_texture_fill.gd")
-    require("texture.get_size() * _fit_scale / ART_SOURCE_SCALE" in texture_fill, "Tile art compensation is missing")
+    require(
+        "texture.get_size() * _fit_scale * tile_scale / ART_SOURCE_SCALE" in texture_fill
+        and "var tile_scale: float = 1.0" in texture_fill,
+        "Scalable tile-art compensation is missing",
+    )
+
+    popup_center = read("scripts/ui/popup_stage_center.gd")
+    require(
+        "viewport_size.y * 0.5 - pivot_offset.y" in popup_center
+        and "desired_popup_bottom_pixels" not in popup_center
+        and "POPUP_BOTTOM_RESERVED_STAGE" not in popup_center,
+        "Modal popups are not centered by their authored body bounds",
+    )
 
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     raw_texture_size_calls = re.findall(r"(?<!return )\b\w+_texture\.get_size\(\)", main + portrait)
     require(not raw_texture_size_calls, f"Unscaled texture-size calls remain: {raw_texture_size_calls}")
+    portrait_screen = portrait[
+        portrait.index("func _portrait_screen(") : portrait.index("func _stage_portrait_page_header(")
+    ]
+    icon_pattern = read("scripts/ui/portrait_theme_icon_pattern.gd")
+    require(
+        "const PORTRAIT_HEADER_HEIGHT: float = 80.0" in portrait
+        and "_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, PORTRAIT_BLUE)" in portrait_screen
+        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)" in portrait
+        and math.isclose(15.4 + 64.0 * 0.80, 66.6)
+        and 66.6 < 80.0 < 92.0,
+        "The application header does not contain Back/HUD controls above the title area",
+    )
+    require(
+        "const PORTRAIT_PAPER_GRID_SCALE: float = 1.35" in portrait
+        and 'paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)' in portrait_screen
+        and 'preload("res://scripts/ui/portrait_theme_icon_pattern.gd")' in portrait
+        and 'icon_pattern.set("theme_icons", THEME_ICON_TEXTURES)' in portrait_screen
+        and "const DIAGONAL_STAGE_SPEED := Vector2(4.0, 4.0)" in icon_pattern
+        and "const ICON_STAGE_SIZE: float = 64.0" in icon_pattern
+        and "const ICON_TINT := Color(0.48, 0.62, 0.95, 0.20)" in icon_pattern
+        and "paper_background.z_index = -2" in portrait_screen
+        and "icon_pattern.z_index = -1" in portrait_screen
+        and "mouse_filter = Control.MOUSE_FILTER_IGNORE" in icon_pattern
+        and "queue_redraw()" in icon_pattern,
+        "The enlarged grid or slowly moving non-interactive theme pattern is missing",
+    )
 
     # The new Control transform must render the same rectangles as the old
     # physical-size approach at every tested aspect ratio.
@@ -287,6 +325,10 @@ def verify_refined_ui_icons() -> None:
 def verify_round_icon_display_sizes() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
+    settings = portrait[
+        portrait.index("func _show_settings_screen()") : portrait.index("func show_theme_select()")
+    ]
+    horizontal_fill = read("scripts/ui/flash_stage_horizontal_fill.gd")
     expected_constants = (
         "const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)",
         "const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)",
@@ -294,8 +336,14 @@ def verify_round_icon_display_sizes() -> None:
     for declaration in expected_constants:
         require(declaration in main, f"Enlarged round-icon size is missing: {declaration}")
 
-    require(portrait.count("ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE") == 1, "Portrait VK icon size is not applied")
-    require(portrait.count("ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE") == 1, "Portrait mail icon size is not applied")
+    require(
+        settings.count("ABOUT_VK_ICON,\n\t\tABOUT_VK_ICON_SIZE") == 1,
+        "Settings VK icon size is not applied",
+    )
+    require(
+        settings.count("ABOUT_MAIL_ICON,\n\t\tABOUT_MAIL_ICON_SIZE") == 1,
+        "Settings mail icon size is not applied",
+    )
     require(
         "const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(25.0, 32.0)" in portrait
         and "const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 51.2" in portrait
@@ -732,7 +780,7 @@ def verify_soft_currency_economy() -> None:
     require(math.isclose(81.2, 116.0 * 0.70), "Currency counter width is not reduced by 30 percent")
     require(math.isclose(33.6, 48.0 * 0.70), "Currency counter height is not reduced by 30 percent")
     require(math.isclose(199.4 + 81.2 * 0.5, 240.0), "Currency counter is not horizontally centered")
-    require(24.2 + 33.6 < 76.0, "Currency counter overlaps the title below it")
+    require(24.2 + 33.6 < 80.0 < 92.0, "Currency counter overlaps the header edge or title below it")
     require(199.4 + 81.2 < 419.0, "Result Search overlaps the centered currency counter")
 
 
@@ -763,7 +811,7 @@ def verify_main_tab_navigation() -> None:
         )
 
     navigation = portrait[
-        portrait.index("func _stage_main_navigation(") :
+        portrait.index("func _portrait_main_tab_action(") :
         portrait.index("func _show_coin_store_tab()")
     ]
     require(
@@ -778,23 +826,29 @@ def verify_main_tab_navigation() -> None:
         and "PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0" in portrait
         and "PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(92.0, 92.0)" in portrait
         and "PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0" in portrait
-        and "PORTRAIT_MAIN_NAV_ICON_SIZE: float = 50.0" in portrait
-        and "PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 54.0" in portrait
-        and "Rect2(tab_x + 23.0, 714.0, PORTRAIT_MAIN_NAV_ICON_SIZE" in navigation
-        and "Rect2(tab_x + 21.0, 731.0, PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE" in navigation
-        and "Rect2(tab_x + 4.0, 760.0, 88.0, 34.0)" in navigation
+        and "PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0" in portrait
+        and "PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15" in portrait
+        and "PORTRAIT_MAIN_NAV_ICON_SIZE: float = PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE * PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE" in portrait
+        and "PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y: float = 709.0" in portrait
+        and "PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y: float = 735.0" in portrait
+        and "PORTRAIT_MAIN_NAV_LABEL_Y: float = 748.0" in portrait
+        and "PORTRAIT_MAIN_NAV_LABEL_HEIGHT: float = 44.0" in portrait
+        and "PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE: int = 18" in portrait
+        and "variation_embolden = 0.75" in navigation
         and "PORTRAIT_ORANGE" in navigation
         and "if is_active:" in navigation
         and navigation.count("_stage_label(") == 1,
-        "The compact bottom bar or its protruding tab icons use the wrong geometry",
+        "The compact bottom bar or its enlarged active-tab visuals use the wrong geometry",
     )
     require(
         math.isclose(725.0 + 75.0, 800.0)
         and math.isclose(708.0 + 92.0, 800.0)
-        and 714.0 < 725.0
-        and 731.0 >= 725.0
-        and math.isclose(760.0 + 34.0, 794.0),
-        "The navigation does not keep only the active icon protruding with compact inner spacing",
+        and math.isclose(52.0 * 1.15, 59.8)
+        and 709.0 < 725.0
+        and 735.0 >= 725.0
+        and 748.0 < 709.0 + 59.8
+        and math.isclose(748.0 + 44.0, 792.0),
+        "The active icon/label do not overlap or the inactive icon protrudes from the navigation",
     )
     require(
         "var active_cap := _stage_panel(" in navigation
@@ -813,14 +867,18 @@ def verify_main_tab_navigation() -> None:
     )
     require(
         "func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:" in navigation
+        and "var previous_tab: int = _portrait_active_main_tab" in navigation
         and "screen_builder.call()" in navigation
-        and "_stage_main_navigation(active_tab)" in navigation
+        and "_stage_main_navigation(active_tab, previous_tab)" in navigation
+        and 'tween_property(\n\t\ticon,\n\t\t"stage_rect"' in navigation
+        and 'tween_property(\n\t\tlabel,\n\t\t"scale"' in navigation
+        and "_portrait_active_main_tab = target_tab" not in portrait
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
         and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
         and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
         and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
         and 'Callable(self, "_show_settings_screen"), MainTab.SETTINGS' in portrait,
-        "The five main screens are not composed independently with the shared tab layer",
+        "The shared tab layer does not animate both sides of a real tab switch",
     )
     tasks_screen = portrait[
         portrait.index("func show_tasks()") :
@@ -886,11 +944,9 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         "Gameplay mode titles and category subtitles are not staged in the centered header",
     )
     require(
-        "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 76.0, 400.0, 42.0)" in portrait
-        and "const PORTRAIT_GAME_SUBTITLE_RECT := Rect2(70.0, 108.0, 340.0, 28.0)" in portrait
-        and "var title_rect: Rect2 = PORTRAIT_PAGE_TITLE_RECT" in portrait
-        and "\t\t30," in portrait
-        and "\t\t20," in portrait
+        "const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 92.0, 432.0, 48.0)" in portrait
+        and "PORTRAIT_GAME_HEADER_RECT" in portrait
+        and "header_text += \" • \" + subtitle" in portrait
         and "block_top" not in portrait,
         "Gameplay title is not smaller and positioned below the top controls",
     )
@@ -1146,6 +1202,14 @@ def verify_long_button_attention_bounce() -> None:
     result = portrait[
         portrait.index("func show_result_screen(") : portrait.index("func show_profile()")
     ]
+    theme_selection = portrait[
+        portrait.index("func _select_single_player_popup_theme(") :
+        portrait.index("func _show_exit_game_popup(")
+    ]
+    single_player_popup = portrait[
+        portrait.index("func _show_single_player_level_popup(") :
+        portrait.index("func _stage_single_player_popup_theme_cards(")
+    ]
 
     require(
         "var attention_bounce_enabled: bool = false" in button
@@ -1170,6 +1234,19 @@ def verify_long_button_attention_bounce() -> None:
         and 'custom_word_start_button.set("button_disabled", !has_word)' in main
         and portrait.count("!custom_word_text.is_empty(),") == 1,
         "Attention bounce is not enabled on every active portrait CTA",
+    )
+    require(
+        'bool(single_player_popup_play_button.get("button_disabled"))' in theme_selection
+        and theme_selection.count('single_player_popup_play_button.set("button_disabled", false)') == 1,
+        "Theme selection restarts the already active Play-button bounce",
+    )
+    require(
+        "_style_single_player_level_button(single_player_popup_play_button" not in single_player_popup
+        and "PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE" in single_player_popup
+        and "PORTRAIT_CHALLENGE_POPUP_BODY if challenge_level else PORTRAIT_DARK_BLUE" in single_player_popup
+        and "_single_player_challenge_level_label() if challenge_level else \"\"" in single_player_popup
+        and ".to_upper()" not in single_player_popup,
+        "The challenge popup does not keep Play orange while styling its shell and sentence-case subtitle",
     )
 
 
@@ -1251,9 +1328,9 @@ def verify_native_custom_word_input() -> None:
         and "const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE" in portrait
         and "const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)" in portrait
         and "const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)" in portrait
-        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 76.0, 400.0, 42.0)" in portrait
+        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)" in portrait
         and "func _stage_portrait_page_header(" in portrait
-        and "func _stage_portrait_page_title(title: String) -> void:" in portrait
+        and "func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:" in portrait
         and "currency_return_action: Callable = Callable()" in portrait
         and "_fit_single_line_label_to_width(" in portrait,
         "The shared portrait page header does not place its smaller title below Back and currency controls",
@@ -1616,7 +1693,7 @@ def verify_game_audio_feedback() -> None:
         "Win/character-specific defeat sounds or duplicate-result protection are missing",
     )
 
-def verify_profile_theme_and_about_ui() -> None:
+def verify_profile_theme_and_settings_footer_ui() -> None:
     project = read("project.godot")
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
@@ -1680,33 +1757,51 @@ def verify_profile_theme_and_about_ui() -> None:
         "Theme cards do not darken and restore their blue backing while pressed",
     )
 
-    author_text = main[main.index("func _about_author_text()") : main.index("func _about_version_text()")]
-    version_text = main[main.index("func _about_version_text()") : main.index("func _about_contacts_label()")]
+    settings = portrait[
+        portrait.index("func _show_settings_screen()") : portrait.index("func show_theme_select()")
+    ]
+    version_text = main[
+        main.index("func _about_version_text()") : main.index("func _about_contact_action(")
+    ]
     contact_action = main[
         main.index("func _about_contact_action(") : main.index("func _toggle_setting(")
     ]
     require(
-        "Bruno Philippsen" not in author_text
-        and 'Database.tr_text(18, "Nikita Lukanin")' in author_text,
-        "The About popup still displays the former secondary author",
+        "settings_card" not in settings
+        and "PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT" in settings
+        and "PORTRAIT_DARK_BLUE" in settings
+        and 'settings_body_fill.set("follows_safe_top_inset", true)' in settings
+        and "mapped_y += PORTRAIT_LAYOUT.safe_top_stage(viewport_size)" in horizontal_fill
+        and settings.count("Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT") == 3
+        and "_show_about_popup" not in main + portrait
+        and "about_popup" not in main + portrait,
+        "Settings do not keep their body below the safe-area-aware blue header",
     )
     require(
         'config/version="4.0"' in project
         and 'ProjectSettings.get_setting("application/config/version", APP_VERSION_FALLBACK)' in version_text
-        and '_application_version()' in version_text,
-        "The About popup version is not parsed from project configuration",
+        and '_application_version()' in version_text
+        and "Rect2(40.0, 678.0, 400.0, 28.0)" in settings
+        and "HORIZONTAL_ALIGNMENT_CENTER" in settings,
+        "The centered settings version is not parsed from project configuration",
     )
     require(
         'const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"' in main
         and 'const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"' in main
         and "OS.shell_open(AUTHOR_VK_URL)" in contact_action
-        and "OS.shell_open(AUTHOR_EMAIL_URL)" in contact_action,
-        "The About popup social buttons do not open the requested author links",
+        and "OS.shell_open(AUTHOR_EMAIL_URL)" in contact_action
+        and settings.count('_about_contact_action").bind(') == 2
+        and "_portrait_begin_bottom_attached_group()" in settings
+        and "Rect2(174.0, 616.0, 58.0, 58.0)" in settings
+        and "Rect2(248.0, 616.0, 58.0, 58.0)" in settings
+        and "_about_contacts_label" not in main + portrait,
+        "The inline settings contact buttons or caption-free footer are missing",
     )
 
 
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
+    subprocess.run(["python3", "tools/rebalance_hint_difficulty.py", "--check"], cwd=ROOT, check=True)
     verify_resolution()
     verify_control_geometry()
     verify_sprite_geometry()
@@ -1731,8 +1826,8 @@ def main() -> None:
     verify_native_custom_word_input()
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()
-    verify_profile_theme_and_about_ui()
-    print("2x layout, first-version save schema without migrations, 75-pixel five-tab navigation with active-only icon protrusion, low compact Home actions, full-size Tasks difficulty control, Two Player gameplay without restart, layered footerless result layout, sequential result-word bounce with synchronized Search/Continue reveal, direct result Close flow, bottom mode/theme caption, standalone gameplay store, centered soft-currency HUD, fixed gameplay lives counter, paid hint fallback, compact gameplay exit confirmation, Android word-check networking and Google result lookup, profile/theme/about UI polish, setting-aware gameplay and UI sounds, native filtered Two Player word input, split UI/word languages, subtle Android vibration, animated hint markers and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
+    verify_profile_theme_and_settings_footer_ui()
+    print("2x layout, first-version save schema without migrations, 75-pixel five-tab navigation with active-only icon protrusion, low compact Home actions, full-size Tasks difficulty control, Two Player gameplay without restart, layered footerless result layout, sequential result-word bounce with synchronized Search/Continue reveal, direct result Close flow, bottom mode/theme caption, standalone gameplay store, centered soft-currency HUD, fixed gameplay lives counter, paid hint fallback, compact gameplay exit confirmation, Android word-check networking and Google result lookup, profile/theme/settings-footer UI polish, setting-aware gameplay and UI sounds, native filtered Two Player word input, split UI/word languages, subtle Android vibration, animated hint markers and streamed hero-state invariants verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

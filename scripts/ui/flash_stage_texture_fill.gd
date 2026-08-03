@@ -20,6 +20,11 @@ var texture: Texture2D:
 		texture = value
 		queue_redraw()
 
+var tile_scale: float = 1.0:
+	set(value):
+		tile_scale = maxf(value, 0.01)
+		queue_redraw()
+
 var _fit_scale: float = 1.0
 
 func _ready() -> void:
@@ -36,7 +41,7 @@ func _exit_tree() -> void:
 func _draw() -> void:
 	if texture == null:
 		return
-	var tile_size: Vector2 = texture.get_size() * _fit_scale / ART_SOURCE_SCALE
+	var tile_size: Vector2 = texture.get_size() * _fit_scale * tile_scale / ART_SOURCE_SCALE
 	if tile_size.x <= 0.0 or tile_size.y <= 0.0:
 		return
 	var y: float = 0.0

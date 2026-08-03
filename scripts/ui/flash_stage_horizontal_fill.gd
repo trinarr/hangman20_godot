@@ -19,6 +19,14 @@ var fill_color: Color = Color.WHITE:
 		fill_color = value
 		queue_redraw()
 
+# Content-colored fills that begin immediately below the top bar must follow
+# the same safe-area translation as the controls in that bar. Full-screen
+# backgrounds and the bar itself deliberately keep this disabled.
+var follows_safe_top_inset: bool = false:
+	set(value):
+		follows_safe_top_inset = value
+		_sync_to_stage()
+
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -41,6 +49,8 @@ func _sync_to_stage() -> void:
 		return
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	var mapped_y: float = PORTRAIT_LAYOUT.map_fill_y(stage_y, viewport_size)
+	if follows_safe_top_inset:
+		mapped_y += PORTRAIT_LAYOUT.safe_top_stage(viewport_size)
 	position = Vector2(0.0, mapped_y * fit_scale)
 	var fill_height: float = stage_height * fit_scale
 	if stage_y <= 0.0 and stage_height >= STAGE_SIZE.y:
