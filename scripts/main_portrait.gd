@@ -380,16 +380,25 @@ func _complete_portrait_main_tab_swipe(commit: bool) -> void:
 	var target_tab: int = _portrait_main_tab_swipe_target_tab
 	var departing_content: Control = _portrait_main_tab_swipe_departing_content
 	var target_content: Control = _portrait_main_tab_swipe_target_content
+	var departing_navigation: Control = _portrait_main_tab_swipe_departing_navigation
 	var target_navigation: Control = _portrait_main_tab_swipe_target_navigation
 	if commit and target_content != null and is_instance_valid(target_content):
+		if departing_navigation != null and is_instance_valid(departing_navigation):
+			departing_navigation.visible = false
 		if departing_content != null and is_instance_valid(departing_content):
 			departing_content.queue_free()
 		target_content.position.x = 0.0
 		target_content.mouse_filter = Control.MOUSE_FILTER_PASS
 		if target_navigation != null and is_instance_valid(target_navigation):
-			target_navigation.visible = true
+			var navigation_parent: Node = target_navigation.get_parent()
+			if navigation_parent != null:
+				navigation_parent.remove_child(target_navigation)
+			target_navigation.queue_free()
 		content = target_content
-		_portrait_active_main_tab = target_tab
+		# The preview navigation is static and hidden during the drag. Rebuild it
+		# only after the page arrives so the old tab shrinks and the new tab grows
+		# with the original enter/leave animation in the fixed bottom bar.
+		_stage_main_navigation(target_tab, origin_tab)
 		_play_ui_click_sound()
 		_clear_portrait_main_tab_swipe_transition()
 		return
@@ -486,7 +495,7 @@ func _stage_portrait_page_header(
 	_stage_portrait_page_title(title)
 
 func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:
-	var title_label := _stage_label(
+	var title_label := _stage_heading_label(
 		PORTRAIT_PAGE_TITLE_RECT,
 		title,
 		30,
@@ -909,6 +918,7 @@ func _portrait_popup_begin(name: String, group_name: String, layer_index: int, c
 	popup_root.name = name + "Layer"
 	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	popup_root.theme = ui.theme
 	popup_layer.add_child(popup_root)
 	content = popup_root
 	_add_fullscreen_modal_backdrop(close_callable, alpha)
@@ -941,7 +951,7 @@ func _portrait_popup_shell(
 		rect.size.x - 40.0,
 		56.0 if subtitle.is_empty() else 42.0
 	)
-	var title_label := _stage_label(
+	var title_label := _stage_heading_label(
 		title_rect,
 		title,
 		title_font_size,
@@ -1047,7 +1057,7 @@ func _show_menu_screen() -> void:
 	_stage_currency_counter(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
-	var title_label := _stage_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
+	var title_label := _stage_heading_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_portrait_end_adaptive_group(menu_title_content)
 
@@ -1481,7 +1491,7 @@ func _show_exit_game_popup() -> void:
 	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var title_label := _stage_label(Rect2(82.0, 316.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
+	var title_label := _stage_heading_label(Rect2(82.0, 316.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
 	var warning_label := _stage_label(Rect2(82.0, 398.0, 316.0, 40.0), _exit_game_warning_text(), 18, Color(0.92, 0.94, 1.0))
@@ -2400,7 +2410,7 @@ func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) 
 	var title: String = Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT").strip_edges()
 	if title == "":
 		title = "VICTORY" if is_win else "DEFEAT"
-	var title_label := _stage_label(Rect2(40.0, 142.0, 400.0, 54.0), title, 38, _portrait_result_title_color(is_win))
+	var title_label := _stage_heading_label(Rect2(40.0, 142.0, 400.0, 54.0), title, 38, _portrait_result_title_color(is_win))
 	title_label.clip_text = false
 	var title_holder := title_label.get_parent() as CanvasItem
 	if title_holder != null:

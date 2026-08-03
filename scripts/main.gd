@@ -49,6 +49,8 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
+const UI_PRIMARY_FONT: Font = preload("res://fonts/ShantellSans-SemiBold.ttf")
+const UI_HEADING_FONT: Font = preload("res://fonts/Neucha-Regular.ttf")
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
@@ -234,6 +236,10 @@ func _build_root() -> void:
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_PASS
 	ui.z_index = 100
+	ThemeDB.fallback_font = UI_PRIMARY_FONT
+	var runtime_theme := Theme.new()
+	runtime_theme.default_font = UI_PRIMARY_FONT
+	ui.theme = runtime_theme
 	add_child(ui)
 
 	letter_feedback_audio_player = AudioStreamPlayer.new()
@@ -297,6 +303,17 @@ func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color =
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	holder.add_child(label)
+	return label
+
+func _stage_heading_label(
+	rect: Rect2,
+	text: String,
+	font_size: int,
+	color: Color = Color.WHITE,
+	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
+) -> Label:
+	var label := _stage_label(rect, text, font_size, color, align)
+	label.add_theme_font_override("font", UI_HEADING_FONT)
 	return label
 
 func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size: int = 20) -> Button:

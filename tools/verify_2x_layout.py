@@ -346,6 +346,42 @@ def verify_round_icon_display_sizes() -> None:
     )
 
 
+def verify_application_fonts() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    export_presets = read("export_presets.cfg")
+    primary_font = ROOT / "fonts/ShantellSans-SemiBold.ttf"
+    heading_font = ROOT / "fonts/Neucha-Regular.ttf"
+    primary_license = ROOT / "fonts/OFL-ShantellSans.txt"
+    heading_license = ROOT / "fonts/OFL-Neucha.txt"
+    require(
+        primary_font.is_file()
+        and primary_font.stat().st_size > 300_000
+        and heading_font.is_file()
+        and heading_font.stat().st_size > 90_000,
+        "The bundled Shantell Sans or Neucha font file is missing",
+    )
+    require(
+        primary_license.is_file()
+        and "SIL Open Font License, Version 1.1" in primary_license.read_text(encoding="utf-8")
+        and heading_license.is_file()
+        and "SIL Open Font License, Version 1.1" in heading_license.read_text(encoding="utf-8")
+        and 'include_filter="fonts/*.txt"' in export_presets,
+        "The bundled fonts are missing their exported OFL notices",
+    )
+    require(
+        'const UI_PRIMARY_FONT: Font = preload("res://fonts/ShantellSans-SemiBold.ttf")' in main
+        and 'const UI_HEADING_FONT: Font = preload("res://fonts/Neucha-Regular.ttf")' in main
+        and "ThemeDB.fallback_font = UI_PRIMARY_FONT" in main
+        and "runtime_theme.default_font = UI_PRIMARY_FONT" in main
+        and "ui.theme = runtime_theme" in main
+        and "popup_root.theme = ui.theme" in portrait
+        and 'label.add_theme_font_override("font", UI_HEADING_FONT)' in main
+        and portrait.count("_stage_heading_label(") == 5,
+        "Shantell Sans is not the inherited UI font or Neucha is not limited to large headings",
+    )
+
+
 def verify_stretchable_long_buttons() -> None:
     expected_parts = {
         "user_main_button_21_left.png": (47, 98),
@@ -890,6 +926,16 @@ def verify_main_tab_navigation() -> None:
         and 'content.name = "PortraitMainNavigation"' in navigation
         and "content.visible = !_portrait_main_tab_swipe_building_target" in navigation,
         "Main-tab swipes do not drag two live pages with a fixed navigation bar",
+    )
+    swipe_completion = portrait[
+        portrait.index("func _complete_portrait_main_tab_swipe(commit: bool) -> void:") :
+        portrait.index("func _portrait_begin_adaptive_group(")
+    ]
+    require(
+        "departing_navigation.visible = false" in swipe_completion
+        and "navigation_parent.remove_child(target_navigation)" in swipe_completion
+        and "_stage_main_navigation(target_tab, origin_tab)" in swipe_completion,
+        "Completing an interactive swipe does not restart the bottom-tab enter/leave animation",
     )
     tasks_screen = portrait[
         portrait.index("func show_tasks()") :
@@ -1852,6 +1898,7 @@ def main() -> None:
     verify_optimized_architecture()
     verify_refined_ui_icons()
     verify_round_icon_display_sizes()
+    verify_application_fonts()
     verify_stretchable_long_buttons()
     verify_hint_button_migration()
     verify_footer_buttons_and_hero_scale()
