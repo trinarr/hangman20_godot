@@ -2,7 +2,6 @@ extends "res://scripts/main.gd"
 
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
-const PORTRAIT_THEME_ICON_PATTERN_SCRIPT: GDScript = preload("res://scripts/ui/portrait_theme_icon_pattern.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
 
@@ -38,6 +37,8 @@ const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE: float = 64.0
 const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO: float = 0.14
 const PORTRAIT_MAIN_TAB_SWIPE_HORIZONTAL_BIAS: float = 1.35
+const PORTRAIT_MAIN_TAB_SWIPE_ACTIVATION_RATIO: float = 0.018
+const PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION: float = 0.22
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 646.0, 280.5, 70.4)
 const PORTRAIT_THEME_DIFFICULTY_BASE_RECT := Rect2(90.0, 725.0, 300.0, 64.0)
@@ -91,6 +92,10 @@ const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
 const PORTRAIT_CHALLENGE_POPUP_HEADER := Color("#9638B9")
 const PORTRAIT_CHALLENGE_POPUP_BODY := Color("#4A2158")
 const PORTRAIT_CHALLENGE_POPUP_SEPARATOR := Color("#D866FE")
+const PORTRAIT_CHALLENGE_THEME_CARD := Color("#642B74")
+const PORTRAIT_CHALLENGE_THEME_CARD_SELECTED := Color("#7C3590")
+const PORTRAIT_CHALLENGE_HUD_PANEL := Color("#642A75")
+const PORTRAIT_CHALLENGE_HUD_BORDER := Color("#E19AF4")
 const PORTRAIT_INSUFFICIENT_PRICE_COLOR := Color("#FF5C6D")
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
@@ -138,16 +143,39 @@ var _portrait_active_main_tab: int = -1
 var _portrait_main_tab_swipe_touch_index: int = -1
 var _portrait_main_tab_swipe_start_position := Vector2.ZERO
 var _portrait_main_tab_swipe_last_position := Vector2.ZERO
+var _portrait_main_tab_swipe_origin_tab: int = -1
+var _portrait_main_tab_swipe_target_tab: int = -1
+var _portrait_main_tab_swipe_tab_step: int = 0
+var _portrait_main_tab_swipe_departing_content: Control = null
+var _portrait_main_tab_swipe_target_content: Control = null
+var _portrait_main_tab_swipe_departing_navigation: Control = null
+var _portrait_main_tab_swipe_target_navigation: Control = null
+var _portrait_main_tab_swipe_building_target: bool = false
+var _portrait_main_tab_swipe_animating: bool = false
 var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
 func _clear() -> void:
+	var preserved_swipe_content: Control = null
+	if (
+		_portrait_main_tab_swipe_building_target
+		and content != null
+		and is_instance_valid(content)
+		and content.get_parent() == ui
+	):
+		preserved_swipe_content = content
+		ui.remove_child(preserved_swipe_content)
 	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
-	_portrait_active_main_tab = -1
-	_reset_portrait_main_tab_swipe()
+	if !_portrait_main_tab_swipe_building_target:
+		_portrait_active_main_tab = -1
+		_reset_portrait_main_tab_swipe()
+		_clear_portrait_main_tab_swipe_transition()
 	super._clear()
+	if preserved_swipe_content != null and is_instance_valid(preserved_swipe_content):
+		ui.add_child(preserved_swipe_content)
+		ui.move_child(preserved_swipe_content, ui.get_child_count() - 1)
 
 func _input(event: InputEvent) -> void:
 	if !_portrait_main_tab_swipe_is_available():
@@ -161,27 +189,43 @@ func _input(event: InputEvent) -> void:
 				_portrait_main_tab_swipe_touch_index = touch_event.index
 				_portrait_main_tab_swipe_start_position = touch_event.position
 				_portrait_main_tab_swipe_last_position = touch_event.position
+				_portrait_main_tab_swipe_origin_tab = _portrait_active_main_tab
 			return
 		if touch_event.index != _portrait_main_tab_swipe_touch_index:
 			return
-
-		var release_position: Vector2 = touch_event.position
-		if _portrait_main_tab_swipe_start_position.distance_squared_to(_portrait_main_tab_swipe_last_position) > _portrait_main_tab_swipe_start_position.distance_squared_to(release_position):
-			release_position = _portrait_main_tab_swipe_last_position
-		var swipe_delta: Vector2 = release_position - _portrait_main_tab_swipe_start_position
 		var touch_was_canceled: bool = touch_event.canceled
+		var has_interactive_target: bool = (
+			_portrait_main_tab_swipe_target_content != null
+			and is_instance_valid(_portrait_main_tab_swipe_target_content)
+		)
+		var should_commit: bool = false
+		if has_interactive_target:
+			var viewport_width: float = get_viewport().get_visible_rect().size.x
+			var minimum_distance: float = maxf(
+				PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE,
+				viewport_width * PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO
+			)
+			should_commit = (
+				!touch_was_canceled
+				and absf(_portrait_main_tab_swipe_departing_content.position.x) >= minimum_distance
+			)
 		_reset_portrait_main_tab_swipe()
-		if !touch_was_canceled and _switch_portrait_main_tab_from_swipe(swipe_delta):
+		if has_interactive_target:
+			_animate_portrait_main_tab_swipe(should_commit)
 			get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		var drag_event := event as InputEventScreenDrag
 		if drag_event.index == _portrait_main_tab_swipe_touch_index:
 			_portrait_main_tab_swipe_last_position = drag_event.position
+			if _update_portrait_main_tab_swipe(drag_event.position):
+				get_viewport().set_input_as_handled()
 
 func _portrait_main_tab_swipe_is_available() -> bool:
 	return (
 		_portrait_active_main_tab >= MainTab.PROFILE
 		and _portrait_active_main_tab <= MainTab.SETTINGS
+		and !_portrait_main_tab_swipe_building_target
+		and !_portrait_main_tab_swipe_animating
 		and get_tree().get_first_node_in_group(PORTRAIT_MODAL_POPUP_GROUP) == null
 	)
 
@@ -190,20 +234,44 @@ func _reset_portrait_main_tab_swipe() -> void:
 	_portrait_main_tab_swipe_start_position = Vector2.ZERO
 	_portrait_main_tab_swipe_last_position = Vector2.ZERO
 
-func _switch_portrait_main_tab_from_swipe(swipe_delta: Vector2) -> bool:
+func _clear_portrait_main_tab_swipe_transition() -> void:
+	_portrait_main_tab_swipe_origin_tab = -1
+	_portrait_main_tab_swipe_target_tab = -1
+	_portrait_main_tab_swipe_tab_step = 0
+	_portrait_main_tab_swipe_departing_content = null
+	_portrait_main_tab_swipe_target_content = null
+	_portrait_main_tab_swipe_departing_navigation = null
+	_portrait_main_tab_swipe_target_navigation = null
+	_portrait_main_tab_swipe_building_target = false
+	_portrait_main_tab_swipe_animating = false
+
+func _update_portrait_main_tab_swipe(pointer_position: Vector2) -> bool:
+	var swipe_delta: Vector2 = pointer_position - _portrait_main_tab_swipe_start_position
 	var horizontal_distance: float = absf(swipe_delta.x)
 	var vertical_distance: float = absf(swipe_delta.y)
 	var viewport_width: float = get_viewport().get_visible_rect().size.x
-	var minimum_distance: float = maxf(
-		PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE,
-		viewport_width * PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO
-	)
-	if horizontal_distance < minimum_distance:
-		return false
-	if horizontal_distance < vertical_distance * PORTRAIT_MAIN_TAB_SWIPE_HORIZONTAL_BIAS:
-		return false
+	if _portrait_main_tab_swipe_target_content == null:
+		var activation_distance: float = maxf(
+			12.0,
+			viewport_width * PORTRAIT_MAIN_TAB_SWIPE_ACTIVATION_RATIO
+		)
+		if horizontal_distance < activation_distance:
+			return false
+		if horizontal_distance < vertical_distance * PORTRAIT_MAIN_TAB_SWIPE_HORIZONTAL_BIAS:
+			return false
+		var tab_step: int = 1 if swipe_delta.x < 0.0 else -1
+		if !_prepare_portrait_main_tab_swipe_target(tab_step):
+			return false
 
-	var tab_step: int = 1 if swipe_delta.x < 0.0 else -1
+	var drag_x: float = (
+		clampf(swipe_delta.x, -viewport_width, 0.0)
+		if _portrait_main_tab_swipe_tab_step > 0
+		else clampf(swipe_delta.x, 0.0, viewport_width)
+	)
+	_set_portrait_main_tab_swipe_positions(drag_x, viewport_width)
+	return true
+
+func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 	var target_tab: int = clampi(
 		_portrait_active_main_tab + tab_step,
 		MainTab.PROFILE,
@@ -211,13 +279,132 @@ func _switch_portrait_main_tab_from_swipe(swipe_delta: Vector2) -> bool:
 	)
 	if target_tab == _portrait_active_main_tab:
 		return false
-
 	var tab_action: Callable = _portrait_main_tab_action(target_tab)
-	if !tab_action.is_valid():
+	if !tab_action.is_valid() or content == null or !is_instance_valid(content):
 		return false
-	_play_ui_click_sound()
-	tab_action.call_deferred()
+
+	_portrait_main_tab_swipe_origin_tab = _portrait_active_main_tab
+	_portrait_main_tab_swipe_target_tab = target_tab
+	_portrait_main_tab_swipe_tab_step = tab_step
+	_portrait_main_tab_swipe_departing_content = content
+	_portrait_main_tab_swipe_departing_navigation = content.find_child(
+		"PortraitMainNavigation",
+		true,
+		false
+	) as Control
+	_portrait_main_tab_swipe_departing_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portrait_main_tab_swipe_building_target = true
+	tab_action.call()
+	_portrait_main_tab_swipe_building_target = false
+
+	_portrait_main_tab_swipe_target_content = content
+	if (
+		_portrait_main_tab_swipe_target_content == null
+		or !is_instance_valid(_portrait_main_tab_swipe_target_content)
+		or _portrait_main_tab_swipe_target_content == _portrait_main_tab_swipe_departing_content
+	):
+		_clear_portrait_main_tab_swipe_transition()
+		return false
+	_portrait_main_tab_swipe_target_navigation = content.find_child(
+		"PortraitMainNavigation",
+		true,
+		false
+	) as Control
+	if _portrait_main_tab_swipe_target_navigation != null:
+		_portrait_main_tab_swipe_target_navigation.visible = false
 	return true
+
+func _set_portrait_main_tab_swipe_positions(drag_x: float, viewport_width: float) -> void:
+	if (
+		_portrait_main_tab_swipe_departing_content == null
+		or _portrait_main_tab_swipe_target_content == null
+	):
+		return
+	_portrait_main_tab_swipe_departing_content.position.x = drag_x
+	_portrait_main_tab_swipe_target_content.position.x = (
+		drag_x + float(_portrait_main_tab_swipe_tab_step) * viewport_width
+	)
+	if _portrait_main_tab_swipe_departing_navigation != null:
+		_portrait_main_tab_swipe_departing_navigation.position.x = -drag_x
+
+func _animate_portrait_main_tab_swipe(commit: bool) -> void:
+	if (
+		_portrait_main_tab_swipe_departing_content == null
+		or _portrait_main_tab_swipe_target_content == null
+	):
+		_clear_portrait_main_tab_swipe_transition()
+		return
+	_portrait_main_tab_swipe_animating = true
+	var viewport_width: float = get_viewport().get_visible_rect().size.x
+	var departing_end_x: float = (
+		-float(_portrait_main_tab_swipe_tab_step) * viewport_width
+		if commit
+		else 0.0
+	)
+	var target_end_x: float = (
+		0.0
+		if commit
+		else float(_portrait_main_tab_swipe_tab_step) * viewport_width
+	)
+	var tween: Tween = _portrait_main_tab_swipe_departing_content.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		_portrait_main_tab_swipe_departing_content,
+		"position:x",
+		departing_end_x,
+		PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
+	)
+	tween.tween_property(
+		_portrait_main_tab_swipe_target_content,
+		"position:x",
+		target_end_x,
+		PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
+	)
+	if _portrait_main_tab_swipe_departing_navigation != null:
+		tween.tween_property(
+			_portrait_main_tab_swipe_departing_navigation,
+			"position:x",
+			-departing_end_x,
+			PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
+		)
+	tween.finished.connect(
+		Callable(self, "_complete_portrait_main_tab_swipe").bind(commit),
+		CONNECT_ONE_SHOT
+	)
+
+func _complete_portrait_main_tab_swipe(commit: bool) -> void:
+	var origin_tab: int = _portrait_main_tab_swipe_origin_tab
+	var target_tab: int = _portrait_main_tab_swipe_target_tab
+	var departing_content: Control = _portrait_main_tab_swipe_departing_content
+	var target_content: Control = _portrait_main_tab_swipe_target_content
+	var target_navigation: Control = _portrait_main_tab_swipe_target_navigation
+	if commit and target_content != null and is_instance_valid(target_content):
+		if departing_content != null and is_instance_valid(departing_content):
+			departing_content.queue_free()
+		target_content.position.x = 0.0
+		target_content.mouse_filter = Control.MOUSE_FILTER_PASS
+		if target_navigation != null and is_instance_valid(target_navigation):
+			target_navigation.visible = true
+		content = target_content
+		_portrait_active_main_tab = target_tab
+		_play_ui_click_sound()
+		_clear_portrait_main_tab_swipe_transition()
+		return
+
+	if target_content != null and is_instance_valid(target_content):
+		target_content.queue_free()
+	if departing_content != null and is_instance_valid(departing_content):
+		departing_content.position.x = 0.0
+		departing_content.mouse_filter = Control.MOUSE_FILTER_PASS
+		content = departing_content
+	_portrait_active_main_tab = origin_tab
+	var restore_action: Callable = _portrait_main_tab_action(origin_tab)
+	_clear_portrait_main_tab_swipe_transition()
+	if restore_action.is_valid():
+		restore_action.call_deferred()
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -266,16 +453,15 @@ func _portrait_begin_bottom_attached_group() -> Control:
 	content = bottom_group
 	return previous_content
 
-func _portrait_screen(_header_height: float = PORTRAIT_HEADER_HEIGHT, footer_y: float = -1.0) -> void:
+func _portrait_screen(
+	_header_height: float = PORTRAIT_HEADER_HEIGHT,
+	footer_y: float = -1.0,
+	header_color: Color = PORTRAIT_BLUE
+) -> void:
 	var paper_background := _stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
 	paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)
 	paper_background.z_index = -2
-	var icon_pattern: Control = PORTRAIT_THEME_ICON_PATTERN_SCRIPT.new() as Control
-	icon_pattern.name = "PortraitThemeIconPattern"
-	icon_pattern.set("theme_icons", THEME_ICON_TEXTURES)
-	icon_pattern.z_index = -1
-	content.add_child(icon_pattern)
-	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, PORTRAIT_BLUE)
+	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
@@ -316,14 +502,20 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 		20
 	)
 
-func _stage_currency_counter(return_action: Callable, rect: Rect2 = Rect2()) -> void:
+func _stage_currency_counter(
+	return_action: Callable,
+	rect: Rect2 = Rect2(),
+	challenge_colors: bool = false
+) -> void:
 	var counter_rect: Rect2 = rect if rect.size.x > 0.0 and rect.size.y > 0.0 else PORTRAIT_CURRENCY_COUNTER_RECT
 	var counter_scale: float = counter_rect.size.y / 48.0
+	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
+	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
 	var panel := _stage_panel(
 		counter_rect,
-		PORTRAIT_DARK_BLUE,
+		panel_color,
 		counter_rect.size.y * 0.5,
-		Color(0.72, 0.77, 0.91, 1.0),
+		border_color,
 		2.0 * counter_scale
 	)
 	panel.z_index = 20
@@ -492,8 +684,9 @@ func _animate_main_nav_tab_leave(icon: Control, label: Label, final_icon_rect: R
 		tween.finished.connect(Callable(label_holder, "queue_free"))
 
 func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
-	_portrait_active_main_tab = active_tab
-	_reset_portrait_main_tab_swipe()
+	if !_portrait_main_tab_swipe_building_target:
+		_portrait_active_main_tab = active_tab
+		_reset_portrait_main_tab_swipe()
 	var animates_switch: bool = (
 		previous_tab >= MainTab.PROFILE
 		and previous_tab <= MainTab.SETTINGS
@@ -504,6 +697,8 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 	# this group, tall screens map it as regular content while the blue bar is
 	# pinned to the bottom, separating both the visuals and their hit areas.
 	var previous_content: Control = _portrait_begin_bottom_attached_group()
+	content.name = "PortraitMainNavigation"
+	content.visible = !_portrait_main_tab_swipe_building_target
 	var navigation_panel := _stage_panel(
 		Rect2(0.0, PORTRAIT_MAIN_NAV_Y, PORTRAIT_STAGE_SIZE.x, PORTRAIT_MAIN_NAV_HEIGHT),
 		PORTRAIT_BLUE
@@ -581,7 +776,11 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 	content = previous_content
 
 func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:
-	var previous_tab: int = _portrait_active_main_tab
+	var previous_tab: int = (
+		-1
+		if _portrait_main_tab_swipe_building_target
+		else _portrait_active_main_tab
+	)
 	screen_builder.call()
 	_stage_main_navigation(active_tab, previous_tab)
 
@@ -678,7 +877,22 @@ func _stage_portrait_game_header() -> void:
 		22,
 		13
 	)
-	_stage_currency_counter(Callable(self, "show_game_screen"))
+	_stage_currency_counter(
+		Callable(self, "show_game_screen"),
+		Rect2(),
+		_portrait_game_is_challenge_level()
+	)
+
+func _portrait_game_is_challenge_level() -> bool:
+	return (
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and _single_player_is_bonus_level(single_player_active_level_index)
+	)
+
+func _portrait_game_header_color() -> Color:
+	if _portrait_game_is_challenge_level():
+		return PORTRAIT_CHALLENGE_POPUP_HEADER
+	return PORTRAIT_BLUE
 
 func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = PORTRAIT_POPUP_DIM_ALPHA) -> Control:
 	_play_popup_open_sound()
@@ -1039,12 +1253,19 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		Vector2(27.0, 27.0),
 		refresh_disabled
 	)
+	if challenge_level:
+		refresh_button.call(
+			"set_color_palette",
+			DIFFICULTY_HARD_NORMAL_TINT,
+			DIFFICULTY_HARD_PRESSED_TINT,
+			DIFFICULTY_HARD_SELECTED_TINT
+		)
 	refresh_button.z_index = 15
 	var price_badge := _stage_panel(
 		Rect2(390.0, instruction_y + 26.0, 44.0, 22.0),
-		PORTRAIT_DARK_BLUE,
+		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_DARK_BLUE,
 		11.0,
-		PORTRAIT_RULE,
+		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_RULE,
 		1.0
 	)
 	price_badge.z_index = 16
@@ -1105,14 +1326,25 @@ func _stage_single_player_popup_theme_cards(
 	content = single_player_popup_stage_content
 	var first_card_node_index: int = content.get_child_count()
 	var card_size := Vector2(128.0, 202.0)
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var card_fill: Color = (
+		PORTRAIT_CHALLENGE_THEME_CARD
+		if challenge_level
+		else Color(0.30, 0.35, 0.68, 1.0)
+	)
+	var card_border: Color = (
+		PORTRAIT_CHALLENGE_POPUP_HEADER
+		if challenge_level
+		else PORTRAIT_RULE
+	)
 	for option_index in range(options.size()):
 		var theme_index: int = int(options[option_index])
 		var card_rect := Rect2(39.0 + float(option_index) * 137.0, card_y, card_size.x, card_size.y)
 		var card := _stage_panel(
 			card_rect,
-			Color(0.30, 0.35, 0.68, 1.0),
+			card_fill,
 			18.0,
-			PORTRAIT_RULE,
+			card_border,
 			2.0
 		)
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1207,13 +1439,29 @@ func _select_single_player_popup_theme(level_index: int, theme_index: int) -> vo
 		if _single_player_is_bonus_level(level_index)
 		else PORTRAIT_ORANGE
 	)
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var unselected_fill: Color = (
+		PORTRAIT_CHALLENGE_THEME_CARD
+		if challenge_level
+		else Color(0.30, 0.35, 0.68, 1.0)
+	)
+	var selected_fill: Color = (
+		PORTRAIT_CHALLENGE_THEME_CARD_SELECTED
+		if challenge_level
+		else Color(0.38, 0.43, 0.76, 1.0)
+	)
+	var unselected_border: Color = (
+		PORTRAIT_CHALLENGE_POPUP_HEADER
+		if challenge_level
+		else PORTRAIT_RULE
+	)
 	for option_theme in single_player_popup_theme_panels.keys():
 		var panel := single_player_popup_theme_panels.get(option_theme) as Control
 		if panel == null or !is_instance_valid(panel):
 			continue
 		var is_selected: bool = int(option_theme) == theme_index
-		panel.set("fill_color", Color(0.38, 0.43, 0.76, 1.0) if is_selected else Color(0.30, 0.35, 0.68, 1.0))
-		panel.set("border_color", selection_color if is_selected else PORTRAIT_RULE)
+		panel.set("fill_color", selected_fill if is_selected else unselected_fill)
+		panel.set("border_color", selection_color if is_selected else unselected_border)
 		panel.set("border_width", 4.0 if is_selected else 2.0)
 	if (
 		single_player_popup_play_button != null
@@ -1367,7 +1615,7 @@ func _refresh_game_screen() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var extra_stage_height: float = PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size)
 	var upper_block_shift: float = extra_stage_height * 0.5
-	_portrait_screen(0.0)
+	_portrait_screen(0.0, -1.0, _portrait_game_header_color())
 	_stage_portrait_game_header()
 	_stage_portrait_lives_counter()
 
@@ -1443,12 +1691,19 @@ func _refresh_game_screen() -> void:
 
 	# Keep the confirmed round-exit action in the same compact top-left
 	# navigation position used by the footerless selection screens.
-	_stage_round_icon_button(
+	var back_button := _stage_round_icon_button(
 		PORTRAIT_PAGE_BACK_BUTTON_RECT,
 		Callable(self, "_show_exit_game_popup"),
 		PORTRAIT_BACK_ARROW_ICON,
 		PORTRAIT_PAGE_BACK_ICON_SIZE
 	)
+	if _portrait_game_is_challenge_level():
+		back_button.call(
+			"set_color_palette",
+			DIFFICULTY_HARD_NORMAL_TINT,
+			DIFFICULTY_HARD_PRESSED_TINT,
+			DIFFICULTY_HARD_SELECTED_TINT
+		)
 	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
 		_stage_portrait_hint_buttons()
 	pending_letter_markers.clear()
@@ -1927,11 +2182,14 @@ func _stage_portrait_hint_price(button_rect: Rect2, price: int) -> void:
 func _stage_portrait_lives_counter() -> void:
 	var counter_rect: Rect2 = PORTRAIT_LIVES_COUNTER_RECT
 	var counter_scale: float = counter_rect.size.y / 48.0
+	var challenge_colors: bool = _portrait_game_is_challenge_level()
+	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
+	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
 	var counter_panel := _stage_panel(
 		counter_rect,
-		PORTRAIT_DARK_BLUE,
+		panel_color,
 		counter_rect.size.y * 0.5,
-		Color(0.72, 0.77, 0.91, 1.0),
+		border_color,
 		2.0 * counter_scale
 	)
 	counter_panel.z_index = 20

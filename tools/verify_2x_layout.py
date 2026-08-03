@@ -92,10 +92,10 @@ def verify_control_geometry() -> None:
     portrait_screen = portrait[
         portrait.index("func _portrait_screen(") : portrait.index("func _stage_portrait_page_header(")
     ]
-    icon_pattern = read("scripts/ui/portrait_theme_icon_pattern.gd")
     require(
         "const PORTRAIT_HEADER_HEIGHT: float = 80.0" in portrait
-        and "_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, PORTRAIT_BLUE)" in portrait_screen
+        and "header_color: Color = PORTRAIT_BLUE" in portrait_screen
+        and "_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)" in portrait_screen
         and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)" in portrait
         and math.isclose(15.4 + 64.0 * 0.80, 66.6)
         and 66.6 < 80.0 < 92.0,
@@ -104,16 +104,10 @@ def verify_control_geometry() -> None:
     require(
         "const PORTRAIT_PAPER_GRID_SCALE: float = 1.35" in portrait
         and 'paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)' in portrait_screen
-        and 'preload("res://scripts/ui/portrait_theme_icon_pattern.gd")' in portrait
-        and 'icon_pattern.set("theme_icons", THEME_ICON_TEXTURES)' in portrait_screen
-        and "const DIAGONAL_STAGE_SPEED := Vector2(4.0, 4.0)" in icon_pattern
-        and "const ICON_STAGE_SIZE: float = 64.0" in icon_pattern
-        and "const ICON_TINT := Color(0.48, 0.62, 0.95, 0.20)" in icon_pattern
         and "paper_background.z_index = -2" in portrait_screen
-        and "icon_pattern.z_index = -1" in portrait_screen
-        and "mouse_filter = Control.MOUSE_FILTER_IGNORE" in icon_pattern
-        and "queue_redraw()" in icon_pattern,
-        "The enlarged grid or slowly moving non-interactive theme pattern is missing",
+        and "PortraitThemeIconPattern" not in portrait
+        and "portrait_theme_icon_pattern.gd" not in portrait,
+        "The enlarged paper grid is missing or the removed icon pattern is still connected",
     )
 
     # The new Control transform must render the same rectangles as the old
@@ -867,18 +861,35 @@ def verify_main_tab_navigation() -> None:
     )
     require(
         "func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:" in navigation
-        and "var previous_tab: int = _portrait_active_main_tab" in navigation
+        and "_portrait_main_tab_swipe_building_target" in navigation
         and "screen_builder.call()" in navigation
         and "_stage_main_navigation(active_tab, previous_tab)" in navigation
         and 'tween_property(\n\t\ticon,\n\t\t"stage_rect"' in navigation
         and 'tween_property(\n\t\tlabel,\n\t\t"scale"' in navigation
-        and "_portrait_active_main_tab = target_tab" not in portrait
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
         and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
         and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
         and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
         and 'Callable(self, "_show_settings_screen"), MainTab.SETTINGS' in portrait,
         "The shared tab layer does not animate both sides of a real tab switch",
+    )
+    interactive_swipe = portrait[
+        portrait.index("func _input(event: InputEvent) -> void:") :
+        portrait.index("func _portrait_begin_adaptive_group(")
+    ]
+    require(
+        "func _update_portrait_main_tab_swipe(pointer_position: Vector2) -> bool:" in interactive_swipe
+        and "func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:" in interactive_swipe
+        and "func _set_portrait_main_tab_swipe_positions(drag_x: float, viewport_width: float)" in interactive_swipe
+        and "func _animate_portrait_main_tab_swipe(commit: bool) -> void:" in interactive_swipe
+        and "tab_action.call()" in interactive_swipe
+        and "_portrait_main_tab_swipe_departing_content.position.x = drag_x" in interactive_swipe
+        and "drag_x + float(_portrait_main_tab_swipe_tab_step) * viewport_width" in interactive_swipe
+        and '"position:x"' in interactive_swipe
+        and "PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION" in interactive_swipe
+        and 'content.name = "PortraitMainNavigation"' in navigation
+        and "content.visible = !_portrait_main_tab_swipe_building_target" in navigation,
+        "Main-tab swipes do not drag two live pages with a fixed navigation bar",
     )
     tasks_screen = portrait[
         portrait.index("func show_tasks()") :
@@ -916,7 +927,7 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         portrait.index("func _stage_portrait_game_word_display")
     ]
     require(
-        "_portrait_screen(0.0)" in refresh
+        "_portrait_screen(0.0, -1.0, _portrait_game_header_color())" in refresh
         and "_portrait_screen(0.0, PORTRAIT_FOOTER_Y)" not in refresh,
         "Gameplay still draws the bottom blue footer backdrop",
     )
@@ -1244,9 +1255,41 @@ def verify_long_button_attention_bounce() -> None:
         "_style_single_player_level_button(single_player_popup_play_button" not in single_player_popup
         and "PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE" in single_player_popup
         and "PORTRAIT_CHALLENGE_POPUP_BODY if challenge_level else PORTRAIT_DARK_BLUE" in single_player_popup
+        and 'refresh_button.call(\n\t\t\t"set_color_palette"' in single_player_popup
+        and "DIFFICULTY_HARD_NORMAL_TINT" in single_player_popup
+        and "PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_DARK_BLUE" in single_player_popup
+        and "PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_RULE" in single_player_popup
         and "_single_player_challenge_level_label() if challenge_level else \"\"" in single_player_popup
         and ".to_upper()" not in single_player_popup,
         "The challenge popup does not keep Play orange while styling its shell and sentence-case subtitle",
+    )
+    theme_cards = portrait[
+        portrait.index("func _stage_single_player_popup_theme_cards(") :
+        portrait.index("func _show_exit_game_popup(")
+    ]
+    require(
+        'const PORTRAIT_CHALLENGE_THEME_CARD := Color("#642B74")' in portrait
+        and 'const PORTRAIT_CHALLENGE_THEME_CARD_SELECTED := Color("#7C3590")' in portrait
+        and "PORTRAIT_CHALLENGE_THEME_CARD" in theme_cards
+        and "PORTRAIT_CHALLENGE_THEME_CARD_SELECTED" in theme_cards
+        and "PORTRAIT_CHALLENGE_POPUP_HEADER" in theme_cards,
+        "Challenge theme cards are not using the purple popup palette",
+    )
+    require(
+        "func _portrait_game_header_color() -> Color:" in portrait
+        and "func _portrait_game_is_challenge_level() -> bool:" in portrait
+        and "GameState.current_mode == GameState.GameMode.SINGLE_PLAYER" in portrait
+        and "_single_player_is_bonus_level(single_player_active_level_index)" in portrait
+        and "return PORTRAIT_CHALLENGE_POPUP_HEADER" in portrait,
+        "Challenge gameplay does not use the purple application header",
+    )
+    require(
+        'const PORTRAIT_CHALLENGE_HUD_PANEL := Color("#642A75")' in portrait
+        and 'const PORTRAIT_CHALLENGE_HUD_BORDER := Color("#E19AF4")' in portrait
+        and "challenge_colors: bool = false" in portrait
+        and "_portrait_game_is_challenge_level()" in portrait
+        and 'back_button.call(\n\t\t\t"set_color_palette"' in portrait,
+        "Challenge gameplay does not recolor its Back button and HUD counters",
     )
 
 
