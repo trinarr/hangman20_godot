@@ -139,6 +139,7 @@ var hero_pose_frame_index: int = -1
 var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
 var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
 var hero_force_default_pose: bool = false
+var game_screen_visible: bool = false
 var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
@@ -257,6 +258,7 @@ func _build_root() -> void:
 	add_child(ui_audio_player)
 
 func _clear() -> void:
+	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
 	custom_word_color_generation += 1
@@ -890,16 +892,16 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		return {}
 	var theme_count: int = Database.get_theme_count()
 	var language: String = Database.current_language
-	var target_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)
+	var adaptive_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)
 	if (
 		single_player_level_cache_language != language
 		or single_player_level_cache_theme_count != theme_count
-		or !is_equal_approx(single_player_level_cache_difficulty, target_difficulty)
+		or !is_equal_approx(single_player_level_cache_difficulty, adaptive_difficulty)
 	):
 		_invalidate_single_player_level_cache()
 		single_player_level_cache_language = language
 		single_player_level_cache_theme_count = theme_count
-		single_player_level_cache_difficulty = target_difficulty
+		single_player_level_cache_difficulty = adaptive_difficulty
 	var level_key := str(level_index)
 	if single_player_level_definitions_cache.has(level_key):
 		var cached: Variant = single_player_level_definitions_cache[level_key]
@@ -907,6 +909,13 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			return cached
 	if theme_count <= 0:
 		return {}
+	var target_difficulty: float = adaptive_difficulty
+	if _single_player_is_bonus_level(level_index):
+		target_difficulty = clampf(
+			adaptive_difficulty + GameState.SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP,
+			GameState.SINGLE_PLAYER_DIFFICULTY_MIN,
+			GameState.SINGLE_PLAYER_DIFFICULTY_MAX
+		)
 	var word_count: int = _single_player_level_word_target(level_index)
 	var level_seed: int = GameState.get_or_create_single_level_seed(language, level_index)
 	var options: Array = _single_player_theme_options(level_index, level_seed, word_count)
@@ -1696,6 +1705,7 @@ func show_game_screen() -> void:
 	# ghosts on the gameplay screen. Rebuild it from runtime stage controls.
 	hero_force_default_pose = false
 	_clear()
+	game_screen_visible = true
 	_refresh_game_screen()
 func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
 	_clear_hero_animation_overlay()

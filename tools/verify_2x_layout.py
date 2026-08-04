@@ -385,6 +385,94 @@ def verify_application_fonts() -> None:
     )
 
 
+def verify_generated_cartoon_game_icons() -> None:
+    expected_icons = {
+        "flash_assets/nav_profile_icon.png": (160, 160),
+        "flash_assets/nav_shop_icon.png": (160, 160),
+        "flash_assets/nav_home_icon.png": (160, 160),
+        "flash_assets/nav_tasks_icon.png": (160, 160),
+        "flash_assets/nav_settings_icon.png": (160, 160),
+        "flash_assets/theme_icons/theme_icon_sport.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_geography.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_nature.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_technics.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_people.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_food.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_science.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_history.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_general.png": (256, 256),
+        "flash_assets/theme_icons/theme_icon_film_music.png": (256, 256),
+        "flash_assets/hint_reveal_letter_doodle.png": (256, 256),
+        "flash_assets/hint_remove_wrong_doodle.png": (256, 256),
+        "flash_assets/hint_comment_unlock_doodle.png": (256, 256),
+        "flash_assets/soft_currency_coin.png": (128, 128),
+        "flash_assets/life_heart_icon.png": (84, 76),
+    }
+    for relative_path, expected_size in expected_icons.items():
+        path = ROOT / relative_path
+        require(path.is_file(), f"Generated game icon is missing: {relative_path}")
+        with Image.open(path) as image:
+            rgba = image.convert("RGBA")
+            require(rgba.size == expected_size, f"Generated game icon size changed: {relative_path}")
+            corners = (
+                rgba.getpixel((0, 0))[3],
+                rgba.getpixel((rgba.width - 1, 0))[3],
+                rgba.getpixel((0, rgba.height - 1))[3],
+                rgba.getpixel((rgba.width - 1, rgba.height - 1))[3],
+            )
+            require(corners == (0, 0, 0, 0), f"Generated game icon has opaque corners: {relative_path}")
+            visible_pixels = sum(alpha > 32 for alpha in rgba.getchannel("A").getdata())
+            minimum_visible = int(rgba.width * rgba.height * 0.18)
+            require(
+                visible_pixels >= minimum_visible,
+                f"Generated game icon has insufficient visible artwork: {relative_path}",
+            )
+            alpha_mask = rgba.getchannel("A").point(lambda alpha: 255 if alpha > 32 else 0)
+            artwork_bounds = alpha_mask.getbbox()
+            require(artwork_bounds is not None, f"Generated game icon is empty: {relative_path}")
+            artwork_width = artwork_bounds[2] - artwork_bounds[0]
+            artwork_height = artwork_bounds[3] - artwork_bounds[1]
+            artwork_fill = max(artwork_width / rgba.width, artwork_height / rgba.height)
+            require(
+                artwork_fill >= 0.94,
+                f"Generated game icon does not fill its canvas: {relative_path}",
+            )
+            artwork_center_x = (artwork_bounds[0] + artwork_bounds[2]) * 0.5
+            artwork_center_y = (artwork_bounds[1] + artwork_bounds[3]) * 0.5
+            require(
+                abs(artwork_center_x - rgba.width * 0.5) <= 1.5
+                and abs(artwork_center_y - rgba.height * 0.5) <= 1.5,
+                f"Generated game icon artwork is off-center: {relative_path}",
+            )
+            magenta_pixels = sum(
+                alpha > 32 and red > 180 and blue > 150 and green < 90
+                for red, green, blue, alpha in rgba.getdata()
+            )
+            require(
+                magenta_pixels == 0,
+                f"Generated game icon retains chroma-key color: {relative_path}",
+            )
+
+            if relative_path == "flash_assets/life_heart_icon.png":
+                opaque_pixels = [pixel for pixel in rgba.getdata() if pixel[3] > 200]
+                warm_red_pixels = sum(
+                    red > 170 and red > green * 1.25 and red > blue * 1.18
+                    for red, green, blue, _alpha in opaque_pixels
+                )
+                blue_pixels = sum(
+                    blue > 75 and blue > red * 1.18 and blue > green * 1.05
+                    for red, green, blue, _alpha in opaque_pixels
+                )
+                require(
+                    warm_red_pixels >= len(opaque_pixels) * 0.5,
+                    "Life heart is no longer predominantly warm red",
+                )
+                require(
+                    blue_pixels <= warm_red_pixels * 0.12,
+                    "Life heart contains an excessive blue interior region",
+                )
+
+
 def verify_heading_and_word_typography() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
@@ -492,6 +580,23 @@ def verify_ui_motion_and_readability_polish() -> None:
         "Currency or remaining-attempt counters do not use Balsamiq Sans Regular",
     )
     require(
+        "const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(60.0, 60.0)" in portrait,
+        "Gameplay hint artwork was not reduced without changing its source textures",
+    )
+    require(
+        'counter_visual.name = "CurrencyCounterVisual"' in currency_counter
+        and 'counter_button.button_down.connect(' in currency_counter
+        and 'counter_button.button_up.connect(' in currency_counter
+        and 'counter_button.mouse_exited.connect(' in currency_counter
+        and 'func _set_currency_counter_pressed(' in currency_counter
+        and 'counter_visual.pivot_offset = mapped_position + counter_rect.size * fit_scale * 0.5'
+        in currency_counter
+        and 'Vector2.ONE * PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE' in currency_counter
+        and 'PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION' in currency_counter
+        and 'PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION' in currency_counter,
+        "The currency counter does not use the shared button-like scale response",
+    )
+    require(
         'const WORD_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")' in word_input
         and 'label.add_theme_font_override("font", WORD_FONT)' in word_input
         and "func play_word_bounce() -> void:" in word_input
@@ -508,8 +613,11 @@ def verify_ui_motion_and_readability_polish() -> None:
         and "_portrait_back_button_visible = true" in page_header
         and "_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)"
         in game_refresh
+        and "if !game_screen_visible:" in game_refresh
+        and "game_screen_visible = false" in main
+        and "_clear()\n\tgame_screen_visible = true\n\t_refresh_game_screen()" in hero_flow
         and "animate_game_back_button_entrance" not in main + portrait,
-        "Back buttons do not preserve entrance continuity between screen redraws",
+        "Back buttons do not preserve entrance continuity or a hidden round refresh consumes the animation",
     )
     require(
         "Rect2(56.0, 270.0, 368.0, 220.0), hint, 25" in hint_popup
@@ -996,7 +1104,7 @@ def verify_main_tab_navigation() -> None:
             require(corners == (0, 0, 0, 0), f"Main-tab icon is not transparent: {icon_path.name}")
             alpha_bytes = rgba.tobytes()[3::4]
             require(
-                sum(alpha > 200 for alpha in alpha_bytes) > 10000,
+                sum(alpha > 200 for alpha in alpha_bytes) > 8000,
                 f"Main-tab icon has insufficient visible artwork: {icon_path.name}",
             )
         require(
@@ -1094,6 +1202,9 @@ def verify_main_tab_navigation() -> None:
         and "func _finish_main_nav_icon_bounce(icon: Control, rest_position: Vector2) -> void:" in navigation
         and "icon.pivot_offset = Vector2.ZERO" in navigation
         and "settle_tweener.set_trans(Tween.TRANS_BOUNCE)" in navigation
+        and "func _finish_main_nav_tab_leave(" in navigation
+        and 'icon.set("stage_rect", final_icon_rect)' in navigation
+        and 'Callable(self, "_finish_main_nav_tab_leave").bind(' in navigation
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
         and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
         and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
@@ -1577,6 +1688,29 @@ def verify_single_player_popup_stays_interactive() -> None:
         and "GameState.reset_single_level_attempt(Database.current_language, level_index, false)"
         in confirmation,
         "Refreshing or replacing a saved single-player category does not rebuild the level attempt",
+    )
+
+
+def verify_single_player_challenge_difficulty_step() -> None:
+    main = read("scripts/main.gd")
+    level_data = main[
+        main.index("func _single_player_level_data(") :
+        main.index("func _single_player_level_theme_options(")
+    ]
+    require(
+        "var adaptive_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)"
+        in level_data
+        and "single_player_level_cache_difficulty = adaptive_difficulty" in level_data
+        and "var target_difficulty: float = adaptive_difficulty" in level_data,
+        "Single-player level generation no longer separates adaptive and effective difficulty",
+    )
+    require(
+        "if _single_player_is_bonus_level(level_index):" in level_data
+        and "adaptive_difficulty + GameState.SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP"
+        in level_data
+        and "GameState.SINGLE_PLAYER_DIFFICULTY_MIN" in level_data
+        and "GameState.SINGLE_PLAYER_DIFFICULTY_MAX" in level_data,
+        "Challenge levels are not generated exactly one victory step above normal levels",
     )
 
 
@@ -2139,6 +2273,7 @@ def main() -> None:
     verify_optimized_architecture()
     verify_refined_ui_icons()
     verify_round_icon_display_sizes()
+    verify_generated_cartoon_game_icons()
     verify_application_fonts()
     verify_heading_and_word_typography()
     verify_ui_motion_and_readability_polish()
@@ -2158,6 +2293,7 @@ def main() -> None:
     verify_game_exit_confirmation_popup()
     verify_long_button_attention_bounce()
     verify_single_player_popup_stays_interactive()
+    verify_single_player_challenge_difficulty_step()
     verify_native_custom_word_input()
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()

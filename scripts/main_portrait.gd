@@ -20,6 +20,9 @@ const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
 const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 104.0, 432.0, 48.0)
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(185.03, 21.68, 109.94, 38.64)
 const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
+const PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE: float = 0.94
+const PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION: float = 0.055
+const PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION: float = 0.085
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
 const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
 const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0
@@ -113,7 +116,7 @@ const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2(120.0, PORTRAIT_LONG_BUTTON_SIZE
 const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(42.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(180.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(318.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(72.0, 72.0)
+const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(60.0, 60.0)
 const PORTRAIT_GAME_HINT_ART_RISE: float = 18.0
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 const PORTRAIT_LIVES_COUNTER_RECT := Rect2(350.66, 21.68, 109.94, 38.64)
@@ -607,6 +610,13 @@ func _stage_currency_counter(
 	var counter_scale: float = counter_rect.size.y / 48.0
 	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
 	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
+	var counter_parent_content: Control = content
+	var counter_visual := Control.new()
+	counter_visual.name = "CurrencyCounterVisual"
+	counter_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	counter_parent_content.add_child(counter_visual)
+	counter_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content = counter_visual
 	var panel := _stage_panel(
 		counter_rect,
 		panel_color,
@@ -639,12 +649,77 @@ func _stage_currency_counter(
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
+	content = counter_parent_content
 	var counter_action: Callable = Callable(self, "_open_coin_store").bind(return_action)
 	if return_action.is_valid() and return_action.get_method() in [&"show_coin_store", &"_show_coin_store_tab"]:
 		counter_action = return_action
 	var counter_button := _stage_button(counter_rect, counter_action, "")
 	counter_button.z_index = 22
+	counter_button.button_down.connect(
+		Callable(self, "_set_currency_counter_pressed").bind(
+			counter_visual,
+			counter_rect,
+			true
+		)
+	)
+	counter_button.button_up.connect(
+		Callable(self, "_set_currency_counter_pressed").bind(
+			counter_visual,
+			counter_rect,
+			false
+		)
+	)
+	counter_button.mouse_exited.connect(
+		Callable(self, "_set_currency_counter_pressed").bind(
+			counter_visual,
+			counter_rect,
+			false
+		)
+	)
 	content = screen_content
+
+func _set_currency_counter_pressed(
+	counter_visual: Control,
+	counter_rect: Rect2,
+	is_pressed: bool
+) -> void:
+	if counter_visual == null or !is_instance_valid(counter_visual) or !counter_visual.is_inside_tree():
+		return
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
+	var mapped_position: Vector2 = Vector2(
+		PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
+		0.0
+	) + PORTRAIT_STAGE_LAYOUT.map_rect_position(
+		counter_rect,
+		viewport_size,
+		counter_visual
+	) * fit_scale
+	counter_visual.pivot_offset = mapped_position + counter_rect.size * fit_scale * 0.5
+	var previous_tween: Tween = counter_visual.get_meta(&"press_tween", null) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	var target_scale: Vector2 = (
+		Vector2.ONE * PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE
+		if is_pressed
+		else Vector2.ONE
+	)
+	var duration: float = (
+		PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION
+		if is_pressed
+		else PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION
+	)
+	var press_tween: Tween = counter_visual.create_tween()
+	press_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var scale_tweener: PropertyTweener = press_tween.tween_property(
+		counter_visual,
+		"scale",
+		target_scale,
+		duration
+	)
+	scale_tweener.set_trans(Tween.TRANS_QUAD)
+	scale_tweener.set_ease(Tween.EASE_OUT)
+	counter_visual.set_meta(&"press_tween", press_tween)
 
 func _portrait_main_tab_action(tab_index: int) -> Callable:
 	match tab_index:
@@ -834,8 +909,28 @@ func _animate_main_nav_tab_leave(icon: Control, label: Label, final_icon_rect: R
 		Color(1.0, 1.0, 1.0, 0.0),
 		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
 	)
-	if label_holder != null:
-		tween.finished.connect(Callable(label_holder, "queue_free"))
+	tween.finished.connect(
+		Callable(self, "_finish_main_nav_tab_leave").bind(
+			icon,
+			label_holder,
+			final_icon_rect
+		),
+		CONNECT_ONE_SHOT
+	)
+
+func _finish_main_nav_tab_leave(
+	icon: Control,
+	label_holder: Control,
+	final_icon_rect: Rect2
+) -> void:
+	# A stage-rect tween can finish between two viewport/layout synchronizations.
+	# Reapply the inactive rectangle once at rest so the departed icon cannot
+	# retain the transition frame's lower mapped position until the next rebuild.
+	if icon != null and is_instance_valid(icon) and icon.is_inside_tree():
+		icon.pivot_offset = Vector2.ZERO
+		icon.set("stage_rect", final_icon_rect)
+	if label_holder != null and is_instance_valid(label_holder):
+		label_holder.queue_free()
 
 func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 	if !_portrait_main_tab_swipe_building_target:
@@ -1745,6 +1840,11 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	}
 
 func _refresh_game_screen() -> void:
+	# Starting a round emits GameSession.changed before show_game_screen() clears
+	# the previous page. Ignore that hidden rebuild; otherwise it consumes the
+	# one-shot Back-button entrance before the gameplay page becomes visible.
+	if !game_screen_visible:
+		return
 	if content == null:
 		return
 	if game_finished:
