@@ -580,8 +580,13 @@ def verify_ui_motion_and_readability_polish() -> None:
         "Currency or remaining-attempt counters do not use Balsamiq Sans Regular",
     )
     require(
-        "const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(60.0, 60.0)" in portrait,
+        "const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)" in portrait,
         "Gameplay hint artwork was not reduced without changing its source textures",
+    )
+    require(
+        "const PORTRAIT_GAME_HINT_ART_RISE: float = -5.0" in portrait
+        and "-PORTRAIT_GAME_HINT_ART_RISE" in portrait,
+        "Gameplay hint artwork was not lowered on its buttons",
     )
     require(
         'counter_visual.name = "CurrencyCounterVisual"' in currency_counter
@@ -595,6 +600,17 @@ def verify_ui_motion_and_readability_polish() -> None:
         and 'PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION' in currency_counter
         and 'PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION' in currency_counter,
         "The currency counter does not use the shared button-like scale response",
+    )
+    require(
+        'const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := Color("#35C759")' in portrait
+        and 'const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := Color("#167A34")' in portrait
+        and 'var add_badge_rect := Rect2(' in currency_counter
+        and 'icon_rect.end - Vector2.ONE * add_badge_size * 0.82' in currency_counter
+        and "var plus_horizontal := _stage_panel(" in currency_counter
+        and "var plus_vertical := _stage_panel(" in currency_counter
+        and "Color.WHITE" in currency_counter
+        and "plus_arm: float = add_badge_size * 0.58" in currency_counter,
+        "The currency icon is missing its lower-right green add badge",
     )
     require(
         'const WORD_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")' in word_input
@@ -1203,7 +1219,10 @@ def verify_main_tab_navigation() -> None:
         and "icon.pivot_offset = Vector2.ZERO" in navigation
         and "settle_tweener.set_trans(Tween.TRANS_BOUNCE)" in navigation
         and "func _finish_main_nav_tab_leave(" in navigation
-        and 'icon.set("stage_rect", final_icon_rect)' in navigation
+        and "var rest_icon: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control" in navigation
+        and 'rest_icon.set("texture", icon.get("texture"))' in navigation
+        and 'rest_icon.set("stage_rect", final_icon_rect)' in navigation
+        and "icon.queue_free()" in navigation
         and 'Callable(self, "_finish_main_nav_tab_leave").bind(' in navigation
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
         and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
@@ -1621,6 +1640,16 @@ def verify_long_button_attention_bounce() -> None:
         and ".to_upper()" not in single_player_popup,
         "The challenge popup does not keep Play orange while styling its shell and sentence-case subtitle",
     )
+    require(
+        "const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10" in portrait
+        and "var refresh_base_rect := Rect2(370.0, instruction_y - 6.0, 48.0, 48.0)"
+        in single_player_popup
+        and "refresh_base_rect.size * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE"
+        in single_player_popup
+        and "Vector2(27.0, 27.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE"
+        in single_player_popup,
+        "The single-player theme refresh button was not enlarged by ten percent",
+    )
     theme_cards = portrait[
         portrait.index("func _stage_single_player_popup_theme_cards(") :
         portrait.index("func _show_exit_game_popup(")
@@ -1632,6 +1661,16 @@ def verify_long_button_attention_bounce() -> None:
         and "PORTRAIT_CHALLENGE_THEME_CARD_SELECTED" in theme_cards
         and "PORTRAIT_CHALLENGE_POPUP_HEADER" in theme_cards,
         "Challenge theme cards are not using the purple popup palette",
+    )
+    require(
+        "const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14" in portrait
+        and "var info_bottom_padding: float = 6.0" in theme_cards
+        and "card_rect.end.y - info_bottom_padding - count_height" in theme_cards
+        and "count_rect.position.y - theme_name_height" in theme_cards
+        and "17 if theme_name.length() <= 15 else 16" in theme_cards
+        and "_fit_single_line_label_to_width(count_label, word_count_text, count_rect.size.x, 15, 12)"
+        in theme_cards,
+        "Single-player theme cards do not pin their larger title and count to the card bottom",
     )
     require(
         "func _portrait_game_header_color() -> Color:" in portrait

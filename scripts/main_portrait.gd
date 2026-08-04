@@ -23,6 +23,9 @@ const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE: float = 0.94
 const PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION: float = 0.055
 const PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION: float = 0.085
+const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 16.0
+const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := Color("#35C759")
+const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := Color("#167A34")
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
 const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
 const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0
@@ -112,12 +115,14 @@ const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
+const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2(120.0, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(42.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(180.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(318.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(60.0, 60.0)
-const PORTRAIT_GAME_HINT_ART_RISE: float = 18.0
+const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
+const PORTRAIT_GAME_HINT_ART_RISE: float = -5.0
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 const PORTRAIT_LIVES_COUNTER_RECT := Rect2(350.66, 21.68, 109.94, 38.64)
 const PORTRAIT_LIVES_ICON_SIZE: float = PORTRAIT_CURRENCY_ICON_SIZE
@@ -631,6 +636,43 @@ func _stage_currency_counter(
 	)
 	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
 	coin_icon.z_index = 21
+	var add_badge_size: float = PORTRAIT_CURRENCY_ADD_BADGE_SIZE * counter_scale
+	var add_badge_rect := Rect2(
+		icon_rect.end - Vector2.ONE * add_badge_size * 0.82,
+		Vector2.ONE * add_badge_size
+	)
+	var add_badge := _stage_panel(
+		add_badge_rect,
+		PORTRAIT_CURRENCY_ADD_BADGE_GREEN,
+		add_badge_size * 0.5,
+		PORTRAIT_CURRENCY_ADD_BADGE_BORDER,
+		maxf(1.0, 1.5 * counter_scale)
+	)
+	add_badge.z_index = 22
+	# Draw the plus as two solid strokes instead of a font glyph. At the compact
+	# HUD scale a glyph can be clipped down to an indistinguishable green dot,
+	# while these arms remain crisp on every viewport density.
+	var plus_arm: float = add_badge_size * 0.58
+	var plus_stroke: float = maxf(2.0, add_badge_size * 0.20)
+	var plus_center: Vector2 = add_badge_rect.get_center()
+	var plus_horizontal := _stage_panel(
+		Rect2(
+			plus_center - Vector2(plus_arm, plus_stroke) * 0.5,
+			Vector2(plus_arm, plus_stroke)
+		),
+		Color.WHITE,
+		plus_stroke * 0.5
+	)
+	plus_horizontal.z_index = 23
+	var plus_vertical := _stage_panel(
+		Rect2(
+			plus_center - Vector2(plus_stroke, plus_arm) * 0.5,
+			Vector2(plus_stroke, plus_arm)
+		),
+		Color.WHITE,
+		plus_stroke * 0.5
+	)
+	plus_vertical.z_index = 23
 	var balance_rect := Rect2(
 		Vector2(counter_rect.position.x + 43.0 * counter_scale, counter_rect.position.y),
 		Vector2(counter_rect.size.x - 49.0 * counter_scale, counter_rect.size.y)
@@ -654,7 +696,7 @@ func _stage_currency_counter(
 	if return_action.is_valid() and return_action.get_method() in [&"show_coin_store", &"_show_coin_store_tab"]:
 		counter_action = return_action
 	var counter_button := _stage_button(counter_rect, counter_action, "")
-	counter_button.z_index = 22
+	counter_button.z_index = 24
 	counter_button.button_down.connect(
 		Callable(self, "_set_currency_counter_pressed").bind(
 			counter_visual,
@@ -923,12 +965,19 @@ func _finish_main_nav_tab_leave(
 	label_holder: Control,
 	final_icon_rect: Rect2
 ) -> void:
-	# A stage-rect tween can finish between two viewport/layout synchronizations.
-	# Reapply the inactive rectangle once at rest so the departed icon cannot
-	# retain the transition frame's lower mapped position until the next rebuild.
+	# Replace the animated texture with a clean, static instance. Reusing the
+	# tweened Control could retain a transform frame from the active-tab bounce,
+	# which made the Tasks icon sit too low until the navigation was rebuilt.
 	if icon != null and is_instance_valid(icon) and icon.is_inside_tree():
-		icon.pivot_offset = Vector2.ZERO
-		icon.set("stage_rect", final_icon_rect)
+		var icon_parent: Node = icon.get_parent()
+		var rest_icon: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control
+		rest_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rest_icon.set("texture", icon.get("texture"))
+		rest_icon.modulate = Color(0.92, 0.94, 1.0, 1.0)
+		rest_icon.z_index = 42
+		icon_parent.add_child(rest_icon)
+		rest_icon.set("stage_rect", final_icon_rect)
+		icon.queue_free()
 	if label_holder != null and is_instance_valid(label_holder):
 		label_holder.queue_free()
 
@@ -1497,11 +1546,16 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	instruction_label.clip_text = false
+	var refresh_base_rect := Rect2(370.0, instruction_y - 6.0, 48.0, 48.0)
+	var refresh_button_rect := Rect2(
+		refresh_base_rect.get_center() - refresh_base_rect.size * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE * 0.5,
+		refresh_base_rect.size * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE
+	)
 	var refresh_button := _stage_round_icon_button(
-		Rect2(370.0, instruction_y - 6.0, 48.0, 48.0),
+		refresh_button_rect,
 		Callable(self, "_refresh_single_player_theme_popup").bind(level_index),
 		SINGLE_PLAYER_REFRESH_ICON,
-		Vector2(27.0, 27.0),
+		Vector2(27.0, 27.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE,
 		false
 	)
 	if challenge_level:
@@ -1596,29 +1650,56 @@ func _stage_single_player_popup_theme_cards(
 		single_player_popup_theme_panels[theme_index] = card
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
 		if theme_icon_texture != null:
+			var theme_icon_size := Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
 			_stage_texture(
-				Rect2(card_rect.position + Vector2(29.0, 18.0), Vector2(70.0, 70.0)),
+				Rect2(
+					card_rect.position + Vector2(
+						(card_rect.size.x - theme_icon_size.x) * 0.5,
+						23.0
+					),
+					theme_icon_size
+				),
 				theme_icon_texture
 			)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
+		var info_bottom_padding: float = 6.0
+		var count_height: float = 32.0
+		var theme_name_height: float = 50.0
+		var count_rect := Rect2(
+			Vector2(
+				card_rect.position.x + 6.0,
+				card_rect.end.y - info_bottom_padding - count_height
+			),
+			Vector2(card_rect.size.x - 12.0, count_height)
+		)
+		var theme_name_rect := Rect2(
+			Vector2(
+				card_rect.position.x + 6.0,
+				count_rect.position.y - theme_name_height
+			),
+			Vector2(card_rect.size.x - 12.0, theme_name_height)
+		)
 		var theme_label := _stage_label(
-			Rect2(card_rect.position + Vector2(8.0, 98.0), Vector2(card_rect.size.x - 16.0, 70.0)),
+			theme_name_rect,
 			theme_name,
-			17 if theme_name.length() <= 15 else 15,
+			17 if theme_name.length() <= 15 else 16,
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
 		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		theme_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		theme_label.clip_text = false
+		var word_count_text: String = _single_player_word_count_label(word_count)
 		var count_label := _stage_label(
-			Rect2(card_rect.position + Vector2(8.0, 170.0), Vector2(card_rect.size.x - 16.0, 24.0)),
-			_single_player_word_count_label(word_count),
-			14,
+			count_rect,
+			word_count_text,
+			15,
 			Color(0.84, 0.88, 1.0),
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
+		count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		count_label.clip_text = false
+		_fit_single_line_label_to_width(count_label, word_count_text, count_rect.size.x, 15, 12)
 		var theme_button := _stage_button(
 			card_rect,
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
