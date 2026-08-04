@@ -283,7 +283,12 @@ func _sync_visuals() -> void:
 	var has_texture: bool = icon_texture != null
 	var visual_opacity: float = DISABLED_OPACITY if button_disabled else 1.0
 	var current_icon_color := Color(icon_color.r, icon_color.g, icon_color.b, icon_color.a * visual_opacity)
-	var current_outline_color := Color(icon_outline_color.r, icon_outline_color.g, icon_outline_color.b, icon_outline_color.a * visual_opacity)
+	var current_effect_color := Color(
+		icon_outline_color.r,
+		icon_outline_color.g,
+		icon_outline_color.b,
+		icon_outline_color.a * visual_opacity * 0.55
+	)
 	_icon_rect.visible = has_texture
 	_icon_rect.texture = icon_texture
 	_icon_rect.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_modulate.a * visual_opacity)
@@ -291,8 +296,12 @@ func _sync_visuals() -> void:
 	_icon_label.text = icon_text
 	_icon_label.add_theme_font_size_override("font_size", icon_font_size)
 	_icon_label.add_theme_color_override("font_color", current_icon_color)
-	_icon_label.add_theme_color_override("font_outline_color", current_outline_color)
-	_icon_label.add_theme_constant_override("outline_size", icon_outline_size)
+	_icon_label.add_theme_color_override("font_outline_color", current_effect_color)
+	_icon_label.add_theme_constant_override("outline_size", 1 if icon_outline_size > 0 else 0)
+	_icon_label.add_theme_color_override("font_shadow_color", current_effect_color)
+	_icon_label.add_theme_constant_override("shadow_offset_x", 2)
+	_icon_label.add_theme_constant_override("shadow_offset_y", 2)
+	_icon_label.add_theme_constant_override("shadow_outline_size", 0)
 
 func _sync_icon_layout() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):

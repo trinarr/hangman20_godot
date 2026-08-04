@@ -333,8 +333,18 @@ func _sync_label() -> void:
 	if button_disabled:
 		label_color = Color(label_color.r, label_color.g, label_color.b, label_color.a * DISABLED_OPACITY)
 	_label.add_theme_color_override("font_color", label_color)
-	_label.add_theme_color_override("font_outline_color", outline_color)
-	_label.add_theme_constant_override("outline_size", outline_size)
+	var text_effect_color := Color(
+		outline_color.r,
+		outline_color.g,
+		outline_color.b,
+		outline_color.a * 0.55
+	)
+	_label.add_theme_color_override("font_outline_color", text_effect_color)
+	_label.add_theme_constant_override("outline_size", 1 if outline_size > 0 else 0)
+	_label.add_theme_color_override("font_shadow_color", text_effect_color)
+	_label.add_theme_constant_override("shadow_offset_x", 2)
+	_label.add_theme_constant_override("shadow_offset_y", 2)
+	_label.add_theme_constant_override("shadow_outline_size", 0)
 	_sync_content_layout()
 
 func _sync_icon() -> void:

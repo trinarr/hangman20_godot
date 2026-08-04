@@ -504,6 +504,13 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_hover_color", font_color)
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
+	var text_effect_color := Color(0.02, 0.04, 0.16, 0.30) if show_text else Color.TRANSPARENT
+	button.add_theme_color_override("font_outline_color", text_effect_color)
+	button.add_theme_color_override("font_shadow_color", text_effect_color)
+	button.add_theme_constant_override("outline_size", 1 if show_text else 0)
+	button.add_theme_constant_override("shadow_offset_x", 2)
+	button.add_theme_constant_override("shadow_offset_y", 2)
+	button.add_theme_constant_override("shadow_outline_size", 0)
 	button.add_theme_font_size_override("font_size", font_size)
 func _selected_character_id() -> int:
 	if GameState.settings.size() > 5:
@@ -1063,11 +1070,20 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if challenge_level else VERTICAL_ALIGNMENT_CENTER
 	title_label.add_theme_font_size_override("font_size", 28)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
-	title_label.add_theme_color_override(
-		"font_outline_color",
-		DIFFICULTY_HARD_OUTLINE_COLOR if challenge_level else Color(0.48, 0.24, 0.08, 0.92)
+	var title_effect_color := (
+		Color(DIFFICULTY_HARD_OUTLINE_COLOR.r, DIFFICULTY_HARD_OUTLINE_COLOR.g, DIFFICULTY_HARD_OUTLINE_COLOR.b, 0.55)
+		if challenge_level
+		else Color(0.48, 0.24, 0.08, 0.50)
 	)
-	title_label.add_theme_constant_override("outline_size", 3 if challenge_level else 2)
+	title_label.add_theme_color_override("font_outline_color", title_effect_color)
+	title_label.add_theme_constant_override("outline_size", 1)
+	title_label.add_theme_color_override(
+		"font_shadow_color",
+		title_effect_color
+	)
+	title_label.add_theme_constant_override("shadow_offset_x", 2)
+	title_label.add_theme_constant_override("shadow_offset_y", 2)
+	title_label.add_theme_constant_override("shadow_outline_size", 0)
 	button.add_child(title_label)
 
 	if challenge_level:
@@ -1081,8 +1097,18 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		challenge_label.add_theme_font_size_override("font_size", 15)
 		challenge_label.add_theme_color_override("font_color", Color(0.98, 0.91, 1.0, 1.0))
-		challenge_label.add_theme_color_override("font_outline_color", DIFFICULTY_HARD_OUTLINE_COLOR)
-		challenge_label.add_theme_constant_override("outline_size", 2)
+		var challenge_effect_color := Color(
+			DIFFICULTY_HARD_OUTLINE_COLOR.r,
+			DIFFICULTY_HARD_OUTLINE_COLOR.g,
+			DIFFICULTY_HARD_OUTLINE_COLOR.b,
+			0.52
+		)
+		challenge_label.add_theme_color_override("font_outline_color", challenge_effect_color)
+		challenge_label.add_theme_constant_override("outline_size", 1)
+		challenge_label.add_theme_color_override("font_shadow_color", challenge_effect_color)
+		challenge_label.add_theme_constant_override("shadow_offset_x", 2)
+		challenge_label.add_theme_constant_override("shadow_offset_y", 2)
+		challenge_label.add_theme_constant_override("shadow_outline_size", 0)
 		button.add_child(challenge_label)
 
 func _remove_single_player_theme_popup() -> void:
@@ -1112,7 +1138,7 @@ func _stage_single_player_theme_card(
 	rect: Rect2,
 	theme_index: int,
 	word_count: int,
-	played_count: int,
+	_played_count: int,
 	selected: bool,
 	disabled: bool,
 	action: Callable
@@ -1120,53 +1146,70 @@ func _stage_single_player_theme_card(
 	# Reuse the same layered card artwork as Classic mode, expanded to one wide
 	# row so the three offered categories read as the main level choices.
 	var card := _stage_texture(rect, THEME_CARD_TEXTURE)
-	var progress_height: float = rect.size.y * 0.70
-	var progress_back := _stage_texture(
-		Rect2(rect.position, Vector2(rect.size.x, progress_height)),
-		THEME_CARD_PROGRESS_TEXTURE
-	)
-	var progress_text: String = (
-		_single_player_progress_label(played_count, word_count)
-		if selected
-		else _single_player_word_count_label(word_count)
-	)
-	var progress_label := _stage_label(
-		Rect2(
-			rect.position + Vector2(18.0, 6.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y),
-			Vector2(rect.size.x - 36.0, progress_height - 12.0)
-		),
-		progress_text,
-		20,
-		Color(0.43, 0.49, 0.83, 1.0)
-	)
-	progress_label.clip_text = false
 
 	var theme_icon: Control = null
+	var word_badge: Control = null
+	var word_badge_label: Label = null
 	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+	var theme_icon_rect := Rect2(rect.position + Vector2(20.0, 18.0), Vector2(64.0, 64.0))
 	if theme_icon_texture != null:
-		theme_icon = _stage_texture(
-			Rect2(rect.position + Vector2(20.0, 56.0), Vector2(48.0, 48.0)),
-			theme_icon_texture
-		)
+		theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
 		theme_icon.z_index = 11
+		var word_badge_size := Vector2(43.0, 25.0)
+		var word_badge_rect := Rect2(
+			theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
+			word_badge_size
+		)
+		word_badge = _stage_panel(
+			word_badge_rect,
+			Color(0.94, 0.58, 0.22, 1.0),
+			word_badge_size.y * 0.5,
+			Color.WHITE,
+			1.5
+		)
+		word_badge.z_index = 12
+		word_badge_label = _stage_label(
+			word_badge_rect,
+			"x%d" % word_count,
+			16,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		word_badge_label.z_index = 13
+		var badge_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+		word_badge_label.add_theme_color_override("font_outline_color", badge_effect_color)
+		word_badge_label.add_theme_constant_override("outline_size", 1)
+		word_badge_label.add_theme_color_override("font_shadow_color", badge_effect_color)
+		word_badge_label.add_theme_constant_override("shadow_offset_x", 2)
+		word_badge_label.add_theme_constant_override("shadow_offset_y", 2)
+		word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
 
 	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 	var title_font_size: int = 20 if theme_name.length() > 15 else 26
 	var title_label := _stage_label(
-		Rect2(rect.position + Vector2(84.0, 55.0), Vector2(rect.size.x - 104.0, 50.0)),
+		Rect2(
+			rect.position + Vector2(100.0, rect.size.y - 45.0),
+			Vector2(rect.size.x - 118.0, 35.0)
+		),
 		theme_name,
 		title_font_size,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	title_label.clip_text = false
-	title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
-	title_label.add_theme_constant_override("outline_size", 2)
+	var theme_title_effect_color := Color(0.42, 0.49, 0.82, 0.55)
+	title_label.add_theme_color_override("font_outline_color", theme_title_effect_color)
+	title_label.add_theme_constant_override("outline_size", 1)
+	title_label.add_theme_color_override("font_shadow_color", theme_title_effect_color)
+	title_label.add_theme_constant_override("shadow_offset_x", 2)
+	title_label.add_theme_constant_override("shadow_offset_y", 2)
+	title_label.add_theme_constant_override("shadow_outline_size", 0)
 
 	if selected:
 		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, Color(0.94, 0.58, 0.22, 1.0), 3.0)
 	if disabled:
-		for item in [card, progress_back, progress_label, theme_icon, title_label]:
+		for item in [card, theme_icon, word_badge, word_badge_label, title_label]:
 			if item != null:
 				item.modulate = Color(1.0, 1.0, 1.0, 0.30)
 
@@ -2000,7 +2043,7 @@ func _continue_single_player_result() -> void:
 func _current_word_source_label() -> String:
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER or GameSession.theme_id < 0:
 		return Database.tr_text(40, "Word from player")
-	return Database.tr_text(42, "Category") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
+	return Database.tr_text(42, "Category").to_upper() + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 
 func _remove_word_comment_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("word_comment_popup")

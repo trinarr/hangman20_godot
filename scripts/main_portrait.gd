@@ -23,7 +23,7 @@ const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE: float = 0.94
 const PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION: float = 0.055
 const PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION: float = 0.085
-const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 16.0
+const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 20.0
 const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := Color("#35C759")
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := Color("#167A34")
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
@@ -36,8 +36,8 @@ const PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15
 const PORTRAIT_MAIN_NAV_ICON_SIZE: float = PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE * PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE
 const PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y: float = 709.0
 const PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y: float = 735.0
-const PORTRAIT_MAIN_NAV_LABEL_Y: float = 748.0
-const PORTRAIT_MAIN_NAV_LABEL_HEIGHT: float = 44.0
+const PORTRAIT_MAIN_NAV_LABEL_Y: float = 770.0
+const PORTRAIT_MAIN_NAV_LABEL_HEIGHT: float = 28.0
 const PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE: int = 18
 const PORTRAIT_MAIN_NAV_TRANSITION_DURATION: float = 0.16
 const PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE: float = 0.82
@@ -110,7 +110,7 @@ const PORTRAIT_CHALLENGE_HUD_BORDER := Color("#E19AF4")
 const PORTRAIT_INSUFFICIENT_PRICE_COLOR := Color("#FF5C6D")
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
-const PORTRAIT_POPUP_DIM_ALPHA: float = 0.76
+const PORTRAIT_POPUP_DIM_ALPHA: float = 0.874
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
@@ -687,7 +687,7 @@ func _stage_currency_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_HEADING_FONT)
+	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -833,8 +833,18 @@ func _stage_main_nav_label(tab_x: float, tab_label: String) -> Label:
 	)
 	label.z_index = 44
 	label.clip_text = false
-	label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
-	label.add_theme_constant_override("outline_size", 2)
+	var nav_label_effect_color := Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.55
+	)
+	label.add_theme_color_override("font_outline_color", nav_label_effect_color)
+	label.add_theme_constant_override("outline_size", 1)
+	label.add_theme_color_override("font_shadow_color", nav_label_effect_color)
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.add_theme_constant_override("shadow_outline_size", 0)
 	var bold_font := FontVariation.new()
 	bold_font.base_font = label.get_theme_font("font")
 	bold_font.variation_embolden = 0.75
@@ -1453,8 +1463,13 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		var title_font_size: int = 17 if theme_name.length() > 12 else 21
 		var title_label := _stage_label(Rect2(x + 52.0, y + 41.0, 152.0, 38.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
-		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
-		title_label.add_theme_constant_override("outline_size", 2)
+		var theme_effect_color := Color(0.42, 0.49, 0.82, 0.55)
+		title_label.add_theme_color_override("font_outline_color", theme_effect_color)
+		title_label.add_theme_constant_override("outline_size", 1)
+		title_label.add_theme_color_override("font_shadow_color", theme_effect_color)
+		title_label.add_theme_constant_override("shadow_offset_x", 2)
+		title_label.add_theme_constant_override("shadow_offset_y", 2)
+		title_label.add_theme_constant_override("shadow_outline_size", 0)
 		if disabled:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
@@ -1586,6 +1601,7 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		_purchase_price_color(SINGLE_PLAYER_THEME_REFRESH_COST),
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	single_player_popup_refresh_price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	single_player_popup_refresh_price_label.z_index = 17
 	var word_count: int = _single_player_level_word_count(level_index)
 	var card_y: float = 270.0
@@ -1651,31 +1667,53 @@ func _stage_single_player_popup_theme_cards(
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
 		if theme_icon_texture != null:
 			var theme_icon_size := Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
-			_stage_texture(
-				Rect2(
-					card_rect.position + Vector2(
-						(card_rect.size.x - theme_icon_size.x) * 0.5,
-						23.0
-					),
-					theme_icon_size
+			var theme_icon_rect := Rect2(
+				card_rect.position + Vector2(
+					(card_rect.size.x - theme_icon_size.x) * 0.5,
+					35.0
 				),
-				theme_icon_texture
+				theme_icon_size
 			)
+			_stage_texture(theme_icon_rect, theme_icon_texture)
+			var word_badge_size := Vector2(43.0, 25.0)
+			var word_badge_rect := Rect2(
+				theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
+				word_badge_size
+			)
+			var word_badge := _stage_panel(
+				word_badge_rect,
+				PORTRAIT_ORANGE,
+				word_badge_size.y * 0.5,
+				Color.WHITE,
+				1.5
+			)
+			word_badge.z_index = 13
+			var word_badge_label := _stage_label(
+				word_badge_rect,
+				"x%d" % word_count,
+				16,
+				Color.WHITE,
+				HORIZONTAL_ALIGNMENT_CENTER
+			)
+			word_badge_label.z_index = 14
+			var badge_effect_color := Color(
+				PORTRAIT_DARK_BLUE.r,
+				PORTRAIT_DARK_BLUE.g,
+				PORTRAIT_DARK_BLUE.b,
+				0.55
+			)
+			word_badge_label.add_theme_color_override("font_outline_color", badge_effect_color)
+			word_badge_label.add_theme_constant_override("outline_size", 1)
+			word_badge_label.add_theme_color_override("font_shadow_color", badge_effect_color)
+			word_badge_label.add_theme_constant_override("shadow_offset_x", 2)
+			word_badge_label.add_theme_constant_override("shadow_offset_y", 2)
+			word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
-		var info_bottom_padding: float = 6.0
-		var count_height: float = 32.0
-		var theme_name_height: float = 50.0
-		var count_rect := Rect2(
-			Vector2(
-				card_rect.position.x + 6.0,
-				card_rect.end.y - info_bottom_padding - count_height
-			),
-			Vector2(card_rect.size.x - 12.0, count_height)
-		)
+		var theme_name_height: float = 56.0
 		var theme_name_rect := Rect2(
 			Vector2(
 				card_rect.position.x + 6.0,
-				count_rect.position.y - theme_name_height
+				card_rect.end.y - theme_name_height - 24.0
 			),
 			Vector2(card_rect.size.x - 12.0, theme_name_height)
 		)
@@ -1686,20 +1724,21 @@ func _stage_single_player_popup_theme_cards(
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
-		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		theme_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		theme_label.clip_text = false
-		var word_count_text: String = _single_player_word_count_label(word_count)
-		var count_label := _stage_label(
-			count_rect,
-			word_count_text,
-			15,
-			Color(0.84, 0.88, 1.0),
-			HORIZONTAL_ALIGNMENT_CENTER
+		var popup_theme_effect_color := Color(
+			PORTRAIT_DARK_BLUE.r,
+			PORTRAIT_DARK_BLUE.g,
+			PORTRAIT_DARK_BLUE.b,
+			0.55
 		)
-		count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		count_label.clip_text = false
-		_fit_single_line_label_to_width(count_label, word_count_text, count_rect.size.x, 15, 12)
+		theme_label.add_theme_color_override("font_outline_color", popup_theme_effect_color)
+		theme_label.add_theme_constant_override("outline_size", 1)
+		theme_label.add_theme_color_override("font_shadow_color", popup_theme_effect_color)
+		theme_label.add_theme_constant_override("shadow_offset_x", 2)
+		theme_label.add_theme_constant_override("shadow_offset_y", 2)
+		theme_label.add_theme_constant_override("shadow_outline_size", 0)
 		var theme_button := _stage_button(
 			card_rect,
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
@@ -1800,7 +1839,7 @@ func _show_exit_game_popup() -> void:
 	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
 	separator.mouse_filter = Control.MOUSE_FILTER_STOP
 
-	var title_label := _stage_heading_label(Rect2(82.0, 316.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
+	var title_label := _stage_heading_label(Rect2(82.0, 316.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM").to_upper(), 27, Color.WHITE)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title_label.clip_text = false
 	var warning_label := _stage_label(Rect2(82.0, 398.0, 316.0, 40.0), _exit_game_warning_text(), 18, Color(0.92, 0.94, 1.0))
@@ -2468,8 +2507,18 @@ func _stage_portrait_hint_counter(button_rect: Rect2, hint_key: String) -> void:
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	counter_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
-	counter_label.add_theme_constant_override("outline_size", 2)
+	var counter_effect_color := Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.55
+	)
+	counter_label.add_theme_color_override("font_outline_color", counter_effect_color)
+	counter_label.add_theme_constant_override("outline_size", 1)
+	counter_label.add_theme_color_override("font_shadow_color", counter_effect_color)
+	counter_label.add_theme_constant_override("shadow_offset_x", 2)
+	counter_label.add_theme_constant_override("shadow_offset_y", 2)
+	counter_label.add_theme_constant_override("shadow_outline_size", 0)
 
 func _stage_portrait_hint_price(button_rect: Rect2, price: int) -> void:
 	var badge_size := Vector2(58.0, PORTRAIT_GAME_HINT_COUNTER_SIZE)
@@ -2504,6 +2553,7 @@ func _stage_portrait_hint_price(button_rect: Rect2, price: int) -> void:
 		_purchase_price_color(price),
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	price_label.z_index = 9
 
 func _stage_portrait_lives_counter() -> void:
@@ -2924,8 +2974,9 @@ func _show_word_comment_popup() -> void:
 	_remove_word_comment_popup()
 	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 612.0)
 	var rect := Rect2(28.0, 160.0, 424.0, 452.0)
-	_portrait_popup_shell(rect, Database.tr_text(41, "Comment"), Callable(self, "_remove_word_comment_popup"), 30)
+	_portrait_popup_shell(rect, Database.tr_text(41, "Comment").to_upper(), Callable(self, "_remove_word_comment_popup"), 30)
 	var hint_label := _stage_label(Rect2(56.0, 270.0, 368.0, 220.0), hint, 25, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	hint_label.add_theme_font_override("font", UI_HEADING_FONT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false
 	_stage_panel(Rect2(56.0, 506.0, 368.0, 2.0), Color(0.4509, 0.4862, 0.7607, 0.75))

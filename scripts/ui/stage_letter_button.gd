@@ -99,8 +99,13 @@ func _sync_visuals() -> void:
 	_label.text = letter_text
 	_label.add_theme_font_size_override("font_size", letter_font_size)
 	_label.add_theme_color_override("font_color", _letter_color())
+	# Gameplay keyboard letters stay clean and flat: no outline or shadow.
 	_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	_label.add_theme_constant_override("outline_size", 0)
+	_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+	_label.add_theme_constant_override("shadow_offset_x", 0)
+	_label.add_theme_constant_override("shadow_offset_y", 0)
+	_label.add_theme_constant_override("shadow_outline_size", 0)
 
 	_marker.visible = letter_state != LetterState.NORMAL
 	_marker.texture = _marker_texture()
