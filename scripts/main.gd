@@ -138,6 +138,7 @@ var hero_pose_round_token: int = 0
 var hero_pose_frame_index: int = -1
 var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
 var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
+var hero_force_default_pose: bool = false
 var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
@@ -1229,7 +1230,12 @@ func _confirm_single_player_theme_selection(level_index: int, theme_index: int) 
 	if !options.has(theme_index):
 		return
 	var existing_theme: int = GameState.get_single_level_selected_theme(Database.current_language, level_index)
-	if existing_theme < 0:
+	if existing_theme != theme_index:
+		if existing_theme >= 0:
+			# A saved choice identifies the current chain, not a permanent UI lock.
+			# Keep the offered cards stable while replacing that chain with the
+			# newly confirmed category.
+			GameState.reset_single_level_attempt(Database.current_language, level_index, false)
 		GameState.select_single_level_theme(
 			Database.current_language,
 			level_index,
@@ -1248,8 +1254,6 @@ func _start_single_player_popup_level(level_index: int) -> void:
 
 func _refresh_single_player_theme_popup(level_index: int) -> void:
 	if level_index != single_player_popup_level_index:
-		return
-	if GameState.get_single_level_selected_theme(Database.current_language, level_index) >= 0:
 		return
 	if GameState.get_soft_currency() < SINGLE_PLAYER_THEME_REFRESH_COST:
 		_open_coin_store(
@@ -1463,6 +1467,8 @@ func _set_random_custom_word() -> void:
 		custom_word_edit.text = custom_word_text
 		custom_word_edit.caret_column = custom_word_edit.text.length()
 		_sync_custom_word_input_visual()
+	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
+		custom_word_input_visual.call_deferred("play_word_bounce")
 	_sync_custom_word_start_bounce()
 
 func _is_random_custom_word_candidate(word: String) -> bool:
@@ -1688,6 +1694,7 @@ func show_game_screen() -> void:
 	# helper symbols that the original AS3 created/controlled at runtime.  Drawing
 	# it as a static backdrop caused the white dead spots and wrong orange button
 	# ghosts on the gameplay screen. Rebuild it from runtime stage controls.
+	hero_force_default_pose = false
 	_clear()
 	_refresh_game_screen()
 func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
@@ -1748,6 +1755,8 @@ func _hero_type() -> int:
 func _hero_animation_time() -> float:
 	# Flash currentFrame is one-based: its original `7 - currentFrame` counter
 	# maps zero mistakes to outer frame index 0 and the sixth mistake to index 6.
+	if hero_force_default_pose:
+		return _hero_animation_time_for_mistakes(0)
 	return _hero_animation_time_for_mistakes(GameSession.mistakes)
 
 func _current_hero_round_token() -> int:
@@ -1757,7 +1766,7 @@ func _current_hero_round_token() -> int:
 
 func _sync_hero_pose_state() -> void:
 	var round_token: int = _current_hero_round_token()
-	var frame_index: int = _hero_frame_index_for_mistakes(GameSession.mistakes)
+	var frame_index: int = 0 if hero_force_default_pose else _hero_frame_index_for_mistakes(GameSession.mistakes)
 	if round_token == hero_pose_round_token and frame_index == hero_pose_frame_index:
 		return
 	hero_pose_round_token = round_token
@@ -1770,8 +1779,19 @@ func _hero_nested_display_time() -> float:
 	return hero_nested_pose_time
 
 func _hero_uses_terminal_loop(mistake_count: int = -1) -> bool:
+	if hero_force_default_pose:
+		return false
 	var resolved_mistakes: int = GameSession.mistakes if mistake_count < 0 else mistake_count
 	return _hero_frame_index_for_mistakes(resolved_mistakes) == 6
+
+func _show_hero_default_pose() -> void:
+	hero_pose_frame_index = 0
+	hero_nested_pose_time = HERO_MOV_IDLE_FRAME_TIME
+	hero_terminal_loop_time = HERO_MOV_START_FRAME_TIME
+	_clear_hero_animation_overlay()
+	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
+		hero_static_symbol.animation_time = _hero_animation_time_for_mistakes(0)
+		hero_static_symbol.nested_animation_time = HERO_MOV_IDLE_FRAME_TIME
 
 func _hero_terminal_loop_end_time() -> float:
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
@@ -1891,6 +1911,9 @@ func _finish_round(is_win: bool) -> void:
 
 	game_finished = true
 	last_result_is_win = is_win
+	hero_force_default_pose = is_win
+	if is_win:
+		_show_hero_default_pose()
 	last_result_data = GameSession.finish_result(is_win)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)

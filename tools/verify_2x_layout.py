@@ -96,9 +96,9 @@ def verify_control_geometry() -> None:
         "const PORTRAIT_HEADER_HEIGHT: float = 80.0" in portrait
         and "header_color: Color = PORTRAIT_BLUE" in portrait_screen
         and "_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)" in portrait_screen
-        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)" in portrait
+        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)" in portrait
         and math.isclose(15.4 + 64.0 * 0.80, 66.6)
-        and 66.6 < 80.0 < 92.0,
+        and 66.6 < 80.0 < 104.0,
         "The application header does not contain Back/HUD controls above the title area",
     )
     require(
@@ -440,6 +440,94 @@ def verify_heading_and_word_typography() -> None:
         and "UI_PRIMARY_FONT" in main
         and "add_theme_font_override" not in letter_button,
         "The guessed word is not Regular or the keyboard no longer inherits Balsamiq Sans Bold",
+    )
+
+
+def verify_ui_motion_and_readability_polish() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    word_input = read("scripts/ui/stage_word_input.gd")
+    texture_button = read("scripts/ui/flash_stage_texture_button.gd")
+    letter_button = read("scripts/ui/stage_letter_button.gd")
+    navigation = portrait[
+        portrait.index("func _portrait_main_nav_icon_rect(") :
+        portrait.index("func _stage_main_navigation(")
+    ]
+    currency_counter = portrait[
+        portrait.index("func _stage_currency_counter(") :
+        portrait.index("func _portrait_main_tab_action(")
+    ]
+    lives_counter = portrait[
+        portrait.index("func _stage_portrait_lives_counter(") :
+        portrait.index("func _start_portrait_last_life_heart_bounce(")
+    ]
+    page_header = portrait[
+        portrait.index("func _stage_portrait_page_header(") :
+        portrait.index("func _stage_portrait_page_title(")
+    ]
+    game_refresh = portrait[
+        portrait.index("func _refresh_game_screen()") :
+        portrait.index("func _stage_portrait_game_word_display(")
+    ]
+    hint_popup = portrait[
+        portrait.index("func _show_word_comment_popup()") :
+    ]
+    random_word = main[
+        main.index("func _set_random_custom_word()") :
+        main.index("func _is_random_custom_word_candidate(")
+    ]
+    hero_flow = main[
+        main.index("func show_game_screen()") :
+        main.index("func _result_data_lines(")
+    ]
+    require(
+        "icon_center_x = _portrait_main_nav_active_x(tab_x) + PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x * 0.5"
+        in navigation
+        and "icon_center_x - icon_size * 0.5" in navigation,
+        "Active edge-tab icons are not centered on their clamped orange backing",
+    )
+    require(
+        'balance_label.add_theme_font_override("font", UI_HEADING_FONT)' in currency_counter
+        and 'lives_label.add_theme_font_override("font", UI_HEADING_FONT)' in lives_counter,
+        "Currency or remaining-attempt counters do not use Balsamiq Sans Regular",
+    )
+    require(
+        'const WORD_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")' in word_input
+        and 'label.add_theme_font_override("font", WORD_FONT)' in word_input
+        and "func play_word_bounce() -> void:" in word_input
+        and 'custom_word_input_visual.call_deferred("play_word_bounce")' in random_word,
+        "The Two Player random word is not Regular or does not bounce as one row",
+    )
+    require(
+        "func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:"
+        in page_header
+        and 'tween_property(\n\t\tbutton,\n\t\t"stage_rect"' in page_header
+        and "_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)"
+        in page_header
+        and "!_portrait_previous_screen_had_back" in page_header
+        and "_portrait_back_button_visible = true" in page_header
+        and "_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)"
+        in game_refresh
+        and "animate_game_back_button_entrance" not in main + portrait,
+        "Back buttons do not preserve entrance continuity between screen redraws",
+    )
+    require(
+        "Rect2(56.0, 270.0, 368.0, 220.0), hint, 25" in hint_popup
+        and "Rect2(56.0, 526.0, 368.0, 60.0), theme_text, 22" in hint_popup
+        and "_fit_single_line_label_to_width(theme_label, theme_text, 368.0, 22, 17)" in hint_popup,
+        "The hint body or category line is still too small",
+    )
+    require(
+        "hero_force_default_pose = is_win" in hero_flow
+        and "func _show_hero_default_pose() -> void:" in hero_flow
+        and "hero_static_symbol.animation_time = _hero_animation_time_for_mistakes(0)" in hero_flow
+        and "if hero_force_default_pose:\n\t\treturn _hero_animation_time_for_mistakes(0)" in hero_flow,
+        "A successfully guessed word does not return the hero to pose zero",
+    )
+    require(
+        "var pressed_scale: Vector2 = Vector2(0.94, 0.94)" in texture_button
+        and "const LETTER_PRESSED_SCALE := Vector2(0.90, 0.90)" in letter_button,
+        "Shared buttons still shrink too aggressively while pressed",
     )
 
 
@@ -1113,7 +1201,7 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         "Gameplay mode titles and category subtitles are not staged in the centered header",
     )
     require(
-        "const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 92.0, 432.0, 48.0)" in portrait
+        "const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 104.0, 432.0, 48.0)" in portrait
         and "PORTRAIT_GAME_HEADER_RECT" in portrait
         and "header_text += \" • \" + subtitle" in portrait
         and "block_top" not in portrait,
@@ -1139,7 +1227,8 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
     ]
     require(
         "const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0" in portrait
-        and "Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 206.0 + upper_block_shift)" in hero_setup
+        and "Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 222.0 + upper_block_shift)" in hero_setup
+        and "238.0 + upper_block_shift" in hero_setup
         and "hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X" in hero_setup
         and "hero_pivot.x - 62.0" not in hero_setup,
         "The Two Player hero is not centered by the visible imported-art bounds",
@@ -1451,6 +1540,46 @@ def verify_long_button_attention_bounce() -> None:
     )
 
 
+def verify_single_player_popup_stays_interactive() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    popup = portrait[
+        portrait.index("func _show_single_player_level_popup(") :
+        portrait.index("func _stage_single_player_popup_theme_cards(")
+    ]
+    cards = portrait[
+        portrait.index("func _stage_single_player_popup_theme_cards(") :
+        portrait.index("func _update_single_player_theme_popup(")
+    ]
+    selection = portrait[
+        portrait.index("func _select_single_player_popup_theme(") :
+        portrait.index("func _show_exit_game_popup(")
+    ]
+    confirmation = main[
+        main.index("func _confirm_single_player_theme_selection(") :
+        main.index("func _start_single_player_popup_level(")
+    ]
+    refresh = main[
+        main.index("func _refresh_single_player_theme_popup(") :
+        main.index("func _return_to_single_player_theme_popup(")
+    ]
+    require(
+        "var refresh_disabled:" not in popup
+        and "theme_button.disabled = false" in cards
+        and "persisted_theme: int" not in cards
+        and "get_single_level_selected_theme" not in selection,
+        "A saved category still disables refresh or makes the other popup cards unclickable",
+    )
+    require(
+        "get_single_level_selected_theme" not in refresh
+        and "GameState.reset_single_level_attempt(Database.current_language, level_index)" in refresh
+        and "if existing_theme != theme_index:" in confirmation
+        and "GameState.reset_single_level_attempt(Database.current_language, level_index, false)"
+        in confirmation,
+        "Refreshing or replacing a saved single-player category does not rebuild the level attempt",
+    )
+
+
 def verify_native_custom_word_input() -> None:
     word_input = read("scripts/ui/stage_word_input.gd")
     toast = read("scripts/ui/stage_toast.gd")
@@ -1529,7 +1658,7 @@ def verify_native_custom_word_input() -> None:
         and "const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE" in portrait
         and "const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)" in portrait
         and "const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)" in portrait
-        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)" in portrait
+        and "const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)" in portrait
         and "func _stage_portrait_page_header(" in portrait
         and "func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:" in portrait
         and "currency_return_action: Callable = Callable()" in portrait
@@ -2012,6 +2141,7 @@ def main() -> None:
     verify_round_icon_display_sizes()
     verify_application_fonts()
     verify_heading_and_word_typography()
+    verify_ui_motion_and_readability_polish()
     verify_button_label_capitalization()
     verify_stretchable_long_buttons()
     verify_hint_button_migration()
@@ -2027,6 +2157,7 @@ def main() -> None:
     verify_android_network_and_result_search()
     verify_game_exit_confirmation_popup()
     verify_long_button_attention_bounce()
+    verify_single_player_popup_stays_interactive()
     verify_native_custom_word_input()
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()

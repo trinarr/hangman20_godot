@@ -48,7 +48,7 @@ var disabled: bool = false:
 # Long and round button components enable this behavior. Other texture buttons
 # keep their previous interaction and size.
 var press_scale_enabled: bool = false
-var pressed_scale: Vector2 = Vector2(0.9, 0.9)
+var pressed_scale: Vector2 = Vector2(0.94, 0.94)
 var press_scale_duration: float = 0.055
 var release_scale_duration: float = 0.085
 

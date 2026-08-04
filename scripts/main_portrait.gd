@@ -14,8 +14,10 @@ const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80
 const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE
 const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
 const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
-const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 92.0, 400.0, 42.0)
-const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 92.0, 432.0, 48.0)
+const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
+const PORTRAIT_BACK_ENTRANCE_DURATION: float = 0.24
+const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
+const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 104.0, 432.0, 48.0)
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(185.03, 21.68, 109.94, 38.64)
 const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
@@ -158,11 +160,15 @@ var _portrait_main_tab_swipe_target_top_bar: Control = null
 var _portrait_main_tab_swipe_building_target: bool = false
 var _portrait_main_tab_swipe_animating: bool = false
 var _portrait_top_bar_content: Control = null
+var _portrait_back_button_visible: bool = false
+var _portrait_previous_screen_had_back: bool = false
 var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
 func _clear() -> void:
+	_portrait_previous_screen_had_back = _portrait_back_button_visible
+	_portrait_back_button_visible = false
 	var preserved_swipe_content: Control = null
 	if (
 		_portrait_main_tab_swipe_building_target
@@ -532,12 +538,13 @@ func _stage_portrait_page_header(
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
 	if back_callable.is_valid():
-		_stage_round_icon_button(
+		var back_button := _stage_round_icon_button(
 			PORTRAIT_PAGE_BACK_BUTTON_RECT,
 			back_callable,
 			PORTRAIT_BACK_ARROW_ICON,
 			PORTRAIT_PAGE_BACK_ICON_SIZE
 		)
+		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	var resolved_return_action: Callable = currency_return_action
 	if !resolved_return_action.is_valid():
 		resolved_return_action = back_callable
@@ -546,6 +553,30 @@ func _stage_portrait_page_header(
 	_stage_currency_counter(resolved_return_action)
 	content = screen_content
 	_stage_portrait_page_title(title)
+
+func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:
+	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
+		return
+	var should_animate: bool = (
+		!_portrait_back_button_visible
+		and !_portrait_previous_screen_had_back
+	)
+	_portrait_back_button_visible = true
+	if !should_animate:
+		return
+	var start_rect: Rect2 = final_rect
+	start_rect.position.x = -final_rect.size.x - PORTRAIT_BACK_ENTRANCE_GAP
+	button.set("stage_rect", start_rect)
+	var tween: Tween = button.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var slide_tweener: PropertyTweener = tween.tween_property(
+		button,
+		"stage_rect",
+		final_rect,
+		PORTRAIT_BACK_ENTRANCE_DURATION
+	)
+	slide_tweener.set_trans(Tween.TRANS_QUAD)
+	slide_tweener.set_ease(Tween.EASE_OUT)
 
 func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:
 	var title_label := _stage_heading_label(
@@ -604,6 +635,7 @@ func _stage_currency_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	balance_label.add_theme_font_override("font", UI_HEADING_FONT)
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -645,8 +677,11 @@ func _portrait_main_tab_label(tab_index: int) -> String:
 func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
 	var icon_size: float = PORTRAIT_MAIN_NAV_ICON_SIZE if is_active else PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE
 	var icon_y: float = PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y if is_active else PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y
+	var icon_center_x: float = tab_x + PORTRAIT_MAIN_NAV_ITEM_WIDTH * 0.5
+	if is_active:
+		icon_center_x = _portrait_main_nav_active_x(tab_x) + PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x * 0.5
 	return Rect2(
-		tab_x + (PORTRAIT_MAIN_NAV_ITEM_WIDTH - icon_size) * 0.5,
+		icon_center_x - icon_size * 0.5,
 		icon_y,
 		icon_size,
 		icon_size
@@ -1367,13 +1402,12 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	instruction_label.clip_text = false
-	var refresh_disabled: bool = persisted_theme >= 0
 	var refresh_button := _stage_round_icon_button(
 		Rect2(370.0, instruction_y - 6.0, 48.0, 48.0),
 		Callable(self, "_refresh_single_player_theme_popup").bind(level_index),
 		SINGLE_PLAYER_REFRESH_ICON,
 		Vector2(27.0, 27.0),
-		refresh_disabled
+		false
 	)
 	if challenge_level:
 		refresh_button.call(
@@ -1404,18 +1438,13 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	single_player_popup_refresh_price_label.z_index = 17
-	if refresh_disabled:
-		for refresh_item in [price_badge, price_coin, single_player_popup_refresh_price_label]:
-			refresh_item.modulate = Color(1.0, 1.0, 1.0, 0.45)
-
 	var word_count: int = _single_player_level_word_count(level_index)
 	var card_y: float = 270.0
 	_stage_single_player_popup_theme_cards(
 		level_index,
 		options,
 		card_y,
-		word_count,
-		persisted_theme
+		word_count
 	)
 
 	single_player_popup_play_button = _stage_portrait_popup_main_button(
@@ -1438,8 +1467,7 @@ func _stage_single_player_popup_theme_cards(
 	level_index: int,
 	options: Array,
 	card_y: float,
-	word_count: int,
-	persisted_theme: int
+	word_count: int
 ) -> void:
 	_clear_single_player_popup_theme_cards()
 	if single_player_popup_stage_content == null or !is_instance_valid(single_player_popup_stage_content):
@@ -1501,7 +1529,7 @@ func _stage_single_player_popup_theme_cards(
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
 			""
 		)
-		theme_button.disabled = persisted_theme >= 0 and persisted_theme != theme_index
+		theme_button.disabled = false
 	for child_index in range(first_card_node_index, content.get_child_count()):
 		single_player_popup_theme_card_nodes.append(content.get_child(child_index))
 	content = previous_content
@@ -1518,8 +1546,7 @@ func _update_single_player_theme_popup(level_index: int) -> void:
 		level_index,
 		options,
 		270.0,
-		_single_player_level_word_count(level_index),
-		-1
+		_single_player_level_word_count(level_index)
 	)
 	_select_single_player_popup_theme(level_index, selected_theme)
 	_update_single_player_refresh_price(GameState.get_soft_currency())
@@ -1546,12 +1573,6 @@ func _update_single_player_refresh_price(balance: int) -> void:
 
 func _select_single_player_popup_theme(level_index: int, theme_index: int) -> void:
 	if level_index != single_player_popup_level_index:
-		return
-	var persisted_theme: int = GameState.get_single_level_selected_theme(
-		Database.current_language,
-		level_index
-	)
-	if persisted_theme >= 0 and persisted_theme != theme_index:
 		return
 	if !_single_player_level_theme_options(level_index).has(theme_index):
 		return
@@ -1744,10 +1765,10 @@ func _refresh_game_screen() -> void:
 	# The hangman character should remain horizontally centered on the screen in
 	# every gameplay mode.  Compensate for the imported symbol's empty origin so
 	# the visible art, not the symbol pivot, sits in the middle.
-	var hero_pivot := Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 206.0 + upper_block_shift)
+	var hero_pivot := Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 222.0 + upper_block_shift)
 	var hero_stage_position := Vector2(
 		hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X,
-		222.0 + upper_block_shift
+		238.0 + upper_block_shift
 	)
 	var hero_root_content: Control = _portrait_begin_adaptive_group(
 		hero_pivot,
@@ -1826,6 +1847,7 @@ func _refresh_game_screen() -> void:
 			DIFFICULTY_HARD_PRESSED_TINT,
 			DIFFICULTY_HARD_SELECTED_TINT
 		)
+	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
 		_stage_portrait_hint_buttons()
 	pending_letter_markers.clear()
@@ -2340,6 +2362,7 @@ func _stage_portrait_lives_counter() -> void:
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	lives_label.add_theme_font_override("font", UI_HEADING_FONT)
 	lives_label.z_index = 21
 	lives_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -2721,10 +2744,12 @@ func _show_word_comment_popup() -> void:
 	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 612.0)
 	var rect := Rect2(28.0, 160.0, 424.0, 452.0)
 	_portrait_popup_shell(rect, Database.tr_text(41, "Comment"), Callable(self, "_remove_word_comment_popup"), 30)
-	var hint_label := _stage_label(Rect2(56.0, 282.0, 368.0, 190.0), hint, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var hint_label := _stage_label(Rect2(56.0, 270.0, 368.0, 220.0), hint, 25, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false
-	_stage_panel(Rect2(56.0, 512.0, 368.0, 2.0), Color(0.4509, 0.4862, 0.7607, 0.75))
-	var theme_label := _stage_label(Rect2(56.0, 538.0, 368.0, 48.0), _current_word_source_label(), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	_stage_panel(Rect2(56.0, 506.0, 368.0, 2.0), Color(0.4509, 0.4862, 0.7607, 0.75))
+	var theme_text: String = _current_word_source_label()
+	var theme_label := _stage_label(Rect2(56.0, 526.0, 368.0, 60.0), theme_text, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 	theme_label.clip_text = false
+	_fit_single_line_label_to_width(theme_label, theme_text, 368.0, 22, 17)
 	content = previous_content
