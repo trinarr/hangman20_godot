@@ -46,7 +46,7 @@ var attention_bounce_enabled: bool = false:
 
 var icon_text: String = "":
 	set(value):
-		icon_text = value
+		icon_text = value.to_upper()
 		_sync_visuals()
 
 var icon_texture: Texture2D = null:

@@ -63,7 +63,7 @@ func configure(
 	disabled_value: bool = false,
 	animate_marker_value: bool = false
 ) -> void:
-	letter_text = letter_value
+	letter_text = letter_value.to_upper()
 	letter_state = clampi(state_value, LetterState.NORMAL, LetterState.CIRCLED)
 	letter_font_size = font_size_value
 	marker_stage_size = marker_size_value

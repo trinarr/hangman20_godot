@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bu4t4r2vfkfig"
-path="res://.godot/imported/ShantellSans-SemiBold.ttf-ffb406e1e7b3cfcfe4352d341c7ba478.fontdata"
+uid="uid://y660q5kdy6p2"
+path="res://.godot/imported/BalsamiqSans-Regular.ttf-efc1c1585a8c247e72c8a5e2a6386b30.fontdata"
 
 [deps]
 
-source_file="res://fonts/ShantellSans-SemiBold.ttf"
-dest_files=["res://.godot/imported/ShantellSans-SemiBold.ttf-ffb406e1e7b3cfcfe4352d341c7ba478.fontdata"]
+source_file="res://fonts/BalsamiqSans-Regular.ttf"
+dest_files=["res://.godot/imported/BalsamiqSans-Regular.ttf-efc1c1585a8c247e72c8a5e2a6386b30.fontdata"]
 
 [params]
 

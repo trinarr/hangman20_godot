@@ -350,16 +350,16 @@ def verify_application_fonts() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     export_presets = read("export_presets.cfg")
-    primary_font = ROOT / "fonts/ShantellSans-SemiBold.ttf"
-    heading_font = ROOT / "fonts/Neucha-Regular.ttf"
-    primary_license = ROOT / "fonts/OFL-ShantellSans.txt"
-    heading_license = ROOT / "fonts/OFL-Neucha.txt"
+    primary_font = ROOT / "fonts/BalsamiqSans-Bold.ttf"
+    heading_font = ROOT / "fonts/BalsamiqSans-Regular.ttf"
+    primary_license = ROOT / "fonts/OFL-BalsamiqSans.txt"
+    heading_license = ROOT / "fonts/OFL-BalsamiqSans.txt"
     require(
         primary_font.is_file()
-        and primary_font.stat().st_size > 300_000
+        and primary_font.stat().st_size > 350_000
         and heading_font.is_file()
-        and heading_font.stat().st_size > 90_000,
-        "The bundled Shantell Sans or Neucha font file is missing",
+        and heading_font.stat().st_size > 400_000,
+        "The bundled Balsamiq Sans Bold or Regular font file is missing",
     )
     require(
         primary_license.is_file()
@@ -370,15 +370,90 @@ def verify_application_fonts() -> None:
         "The bundled fonts are missing their exported OFL notices",
     )
     require(
-        'const UI_PRIMARY_FONT: Font = preload("res://fonts/ShantellSans-SemiBold.ttf")' in main
-        and 'const UI_HEADING_FONT: Font = preload("res://fonts/Neucha-Regular.ttf")' in main
+        'const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")' in main
+        and 'const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")' in main
         and "ThemeDB.fallback_font = UI_PRIMARY_FONT" in main
         and "runtime_theme.default_font = UI_PRIMARY_FONT" in main
         and "ui.theme = runtime_theme" in main
         and "popup_root.theme = ui.theme" in portrait
+        and "const UI_HEADING_FONT_SCALE: float = 1.12" in main
+        and "func _heading_font_size(font_size: int) -> int:" in main
+        and "_heading_font_size(font_size)" in main
         and 'label.add_theme_font_override("font", UI_HEADING_FONT)' in main
-        and portrait.count("_stage_heading_label(") == 5,
-        "Shantell Sans is not the inherited UI font or Neucha is not limited to large headings",
+        and portrait.count("_stage_heading_label(") == 6,
+        "Balsamiq Sans Bold is not inherited by the UI or Regular is not limited to large headings",
+    )
+
+
+def verify_heading_and_word_typography() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    letter_button = read("scripts/ui/stage_letter_button.gd")
+    page_title = portrait[
+        portrait.index("func _stage_portrait_page_title(") :
+        portrait.index("func _stage_currency_counter(")
+    ]
+    game_header = portrait[
+        portrait.index("func _stage_portrait_game_header()") :
+        portrait.index("func _portrait_game_is_challenge_level()")
+    ]
+    single_player_popup = portrait[
+        portrait.index("func _show_single_player_level_popup(") :
+        portrait.index("func _stage_single_player_popup_theme_cards(")
+    ]
+    custom_word_screen = portrait[
+        portrait.index("func show_custom_word()") :
+        portrait.index("func start_custom_game()", portrait.index("func show_custom_word()"))
+    ]
+    result_word = portrait[
+        portrait.index("func _stage_portrait_result_word_display(") :
+        portrait.index("func _stage_portrait_word_slots(")
+    ]
+    word_slots = portrait[
+        portrait.index("func _stage_portrait_word_slots(") :
+        portrait.index("func _play_portrait_result_word_bounce_sequence(")
+    ]
+    require(
+        "_stage_heading_label(" in page_title
+        and "_heading_font_size(30)" in page_title
+        and '_stage_portrait_page_header(' in custom_word_screen
+        and 'Database.tr_text(37, "Input the word").to_upper()' in custom_word_screen,
+        "The larger shared heading style or uppercase treatment is missing from the Two Player word-entry title",
+    )
+    require(
+        "var title_label := _stage_heading_label(" in game_header
+        and "var heading_font_size: int = 24" in game_header
+        and "_heading_font_size(heading_font_size)" in game_header
+        and "header_text = header_text.to_upper()" in game_header,
+        "The gameplay mode text below the top bar is not rendered as an uppercase heading",
+    )
+    require(
+        '("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()'
+        in single_player_popup
+        and "_single_player_choose_theme_label()," in single_player_popup
+        and "_single_player_choose_theme_label().to_upper()" not in single_player_popup,
+        "The single-player level is not uppercase or its regular theme prompt was capitalized",
+    )
+    require(
+        'word_label.add_theme_font_override("normal_font", UI_HEADING_FONT)' in result_word
+        and 'letter_label.add_theme_font_override("font", UI_HEADING_FONT)' in word_slots
+        and "UI_PRIMARY_FONT" in main
+        and "add_theme_font_override" not in letter_button,
+        "The guessed word is not Regular or the keyboard no longer inherits Balsamiq Sans Bold",
+    )
+
+
+def verify_button_label_capitalization() -> None:
+    main = read("scripts/main.gd")
+    long_button = read("scripts/ui/stage_long_button.gd")
+    round_button = read("scripts/ui/stage_round_button.gd")
+    letter_button = read("scripts/ui/stage_letter_button.gd")
+    require(
+        "button.text = text.to_upper()" in main
+        and "button_text = value.to_upper()" in long_button
+        and "icon_text = value.to_upper()" in round_button
+        and "letter_text = letter_value.to_upper()" in letter_button,
+        "One or more shared button components can still render mixed-case text",
     )
 
 
@@ -815,6 +890,7 @@ def verify_soft_currency_economy() -> None:
 
 
 def verify_main_tab_navigation() -> None:
+    main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     icon_names = ("profile", "shop", "home", "tasks", "settings")
     for icon_name in icon_names:
@@ -850,11 +926,23 @@ def verify_main_tab_navigation() -> None:
         and "for tab_index in range(5):" in navigation,
         "The five requested main tabs are not defined",
     )
+    home_screen = portrait[
+        portrait.index("func _show_menu_screen() -> void:") :
+        portrait.index("func show_settings() -> void:")
+    ]
+    require(
+        navigation.count(".to_upper()") == 5
+        and 'Database.tr_text(0, "HANGMAN").to_upper()' in home_screen
+        and 'Database.tr_text(2, "Two Player").to_upper()' in home_screen
+        and '("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()' in main
+        and '_single_player_challenge_level_label().to_upper()' in main,
+        "The Home screen or main navigation still contains mixed-case labels",
+    )
     require(
         "PORTRAIT_MAIN_NAV_Y: float = 725.0" in portrait
         and "PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0" in portrait
         and "PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0" in portrait
-        and "PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(92.0, 92.0)" in portrait
+        and "PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(116.0, 92.0)" in portrait
         and "PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0" in portrait
         and "PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0" in portrait
         and "PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15" in portrait
@@ -873,6 +961,7 @@ def verify_main_tab_navigation() -> None:
     require(
         math.isclose(725.0 + 75.0, 800.0)
         and math.isclose(708.0 + 92.0, 800.0)
+        and math.isclose(116.0 - 96.0, 20.0)
         and math.isclose(52.0 * 1.15, 59.8)
         and 709.0 < 725.0
         and 735.0 >= 725.0
@@ -883,6 +972,9 @@ def verify_main_tab_navigation() -> None:
     require(
         "var active_cap := _stage_panel(" in navigation
         and "var active_body := _stage_panel(" in navigation
+        and "func _portrait_main_nav_active_x(tab_x: float) -> float:" in navigation
+        and "PORTRAIT_STAGE_SIZE.x - PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x" in navigation
+        and navigation.count("_portrait_main_nav_active_x(tab_x)") >= 3
         and "PORTRAIT_MAIN_NAV_ACTIVE_Y + 18.0" in navigation
         and "active_panel" not in navigation,
         "The active tab still rounds its bottom corners",
@@ -902,12 +994,24 @@ def verify_main_tab_navigation() -> None:
         and "_stage_main_navigation(active_tab, previous_tab)" in navigation
         and 'tween_property(\n\t\ticon,\n\t\t"stage_rect"' in navigation
         and 'tween_property(\n\t\tlabel,\n\t\t"scale"' in navigation
+        and "PORTRAIT_MAIN_NAV_TRANSITION_DURATION: float = 0.16" in portrait
+        and "func _play_main_nav_icon_bounce(icon: Control) -> void:" in navigation
+        and 'Callable(self, "_play_main_nav_icon_bounce").bind(icon)' in navigation
+        and "PORTRAIT_MAIN_NAV_BOUNCE_SCALE: float = 1.10" in portrait
+        and "PORTRAIT_MAIN_NAV_BOUNCE_GROW_DURATION: float = 0.08" in portrait
+        and "PORTRAIT_MAIN_NAV_BOUNCE_SETTLE_DURATION: float = 0.12" in portrait
+        and "icon.pivot_offset = icon.size * 0.5" in navigation
+        and "icon.position = rest_position + (rest_scale - Vector2.ONE) * icon.pivot_offset" in navigation
+        and "rest_scale * PORTRAIT_MAIN_NAV_BOUNCE_SCALE" in navigation
+        and "func _finish_main_nav_icon_bounce(icon: Control, rest_position: Vector2) -> void:" in navigation
+        and "icon.pivot_offset = Vector2.ZERO" in navigation
+        and "settle_tweener.set_trans(Tween.TRANS_BOUNCE)" in navigation
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
         and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
         and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
         and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
         and 'Callable(self, "_show_settings_screen"), MainTab.SETTINGS' in portrait,
-        "The shared tab layer does not animate both sides of a real tab switch",
+        "The shared tab layer does not animate both sides or bounce the newly active icon once",
     )
     interactive_swipe = portrait[
         portrait.index("func _input(event: InputEvent) -> void:") :
@@ -926,6 +1030,14 @@ def verify_main_tab_navigation() -> None:
         and 'content.name = "PortraitMainNavigation"' in navigation
         and "content.visible = !_portrait_main_tab_swipe_building_target" in navigation,
         "Main-tab swipes do not drag two live pages with a fixed navigation bar",
+    )
+    require(
+        'top_bar.name = "PortraitTopBar"' in portrait
+        and "_portrait_main_tab_swipe_departing_top_bar.position.x = -drag_x" in interactive_swipe
+        and "_portrait_main_tab_swipe_target_top_bar.visible = false" in interactive_swipe
+        and "target_top_bar.visible = true" in interactive_swipe
+        and '"position:x",\n\t\t\t-departing_end_x' in interactive_swipe,
+        "The top header does not remain fixed while the page content is swiped",
     )
     swipe_completion = portrait[
         portrait.index("func _complete_portrait_main_tab_swipe(commit: bool) -> void:") :
@@ -1899,6 +2011,8 @@ def main() -> None:
     verify_refined_ui_icons()
     verify_round_icon_display_sizes()
     verify_application_fonts()
+    verify_heading_and_word_typography()
+    verify_button_label_capitalization()
     verify_stretchable_long_buttons()
     verify_hint_button_migration()
     verify_footer_buttons_and_hero_scale()

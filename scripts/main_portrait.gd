@@ -21,7 +21,7 @@ const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
 const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
 const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0
-const PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(92.0, 92.0)
+const PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(116.0, 92.0)
 const PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0
 const PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0
 const PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15
@@ -31,8 +31,11 @@ const PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y: float = 735.0
 const PORTRAIT_MAIN_NAV_LABEL_Y: float = 748.0
 const PORTRAIT_MAIN_NAV_LABEL_HEIGHT: float = 44.0
 const PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE: int = 18
-const PORTRAIT_MAIN_NAV_TRANSITION_DURATION: float = 0.24
+const PORTRAIT_MAIN_NAV_TRANSITION_DURATION: float = 0.16
 const PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE: float = 0.82
+const PORTRAIT_MAIN_NAV_BOUNCE_SCALE: float = 1.10
+const PORTRAIT_MAIN_NAV_BOUNCE_GROW_DURATION: float = 0.08
+const PORTRAIT_MAIN_NAV_BOUNCE_SETTLE_DURATION: float = 0.12
 const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE: float = 64.0
 const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO: float = 0.14
@@ -150,8 +153,11 @@ var _portrait_main_tab_swipe_departing_content: Control = null
 var _portrait_main_tab_swipe_target_content: Control = null
 var _portrait_main_tab_swipe_departing_navigation: Control = null
 var _portrait_main_tab_swipe_target_navigation: Control = null
+var _portrait_main_tab_swipe_departing_top_bar: Control = null
+var _portrait_main_tab_swipe_target_top_bar: Control = null
 var _portrait_main_tab_swipe_building_target: bool = false
 var _portrait_main_tab_swipe_animating: bool = false
+var _portrait_top_bar_content: Control = null
 var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
@@ -168,6 +174,7 @@ func _clear() -> void:
 		ui.remove_child(preserved_swipe_content)
 	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
+	_portrait_top_bar_content = null
 	if !_portrait_main_tab_swipe_building_target:
 		_portrait_active_main_tab = -1
 		_reset_portrait_main_tab_swipe()
@@ -242,6 +249,8 @@ func _clear_portrait_main_tab_swipe_transition() -> void:
 	_portrait_main_tab_swipe_target_content = null
 	_portrait_main_tab_swipe_departing_navigation = null
 	_portrait_main_tab_swipe_target_navigation = null
+	_portrait_main_tab_swipe_departing_top_bar = null
+	_portrait_main_tab_swipe_target_top_bar = null
 	_portrait_main_tab_swipe_building_target = false
 	_portrait_main_tab_swipe_animating = false
 
@@ -292,6 +301,11 @@ func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 		true,
 		false
 	) as Control
+	_portrait_main_tab_swipe_departing_top_bar = content.find_child(
+		"PortraitTopBar",
+		true,
+		false
+	) as Control
 	_portrait_main_tab_swipe_departing_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_portrait_main_tab_swipe_building_target = true
 	tab_action.call()
@@ -310,8 +324,15 @@ func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 		true,
 		false
 	) as Control
+	_portrait_main_tab_swipe_target_top_bar = content.find_child(
+		"PortraitTopBar",
+		true,
+		false
+	) as Control
 	if _portrait_main_tab_swipe_target_navigation != null:
 		_portrait_main_tab_swipe_target_navigation.visible = false
+	if _portrait_main_tab_swipe_target_top_bar != null:
+		_portrait_main_tab_swipe_target_top_bar.visible = false
 	return true
 
 func _set_portrait_main_tab_swipe_positions(drag_x: float, viewport_width: float) -> void:
@@ -326,6 +347,8 @@ func _set_portrait_main_tab_swipe_positions(drag_x: float, viewport_width: float
 	)
 	if _portrait_main_tab_swipe_departing_navigation != null:
 		_portrait_main_tab_swipe_departing_navigation.position.x = -drag_x
+	if _portrait_main_tab_swipe_departing_top_bar != null:
+		_portrait_main_tab_swipe_departing_top_bar.position.x = -drag_x
 
 func _animate_portrait_main_tab_swipe(commit: bool) -> void:
 	if (
@@ -370,6 +393,13 @@ func _animate_portrait_main_tab_swipe(commit: bool) -> void:
 			-departing_end_x,
 			PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
 		)
+	if _portrait_main_tab_swipe_departing_top_bar != null:
+		tween.tween_property(
+			_portrait_main_tab_swipe_departing_top_bar,
+			"position:x",
+			-departing_end_x,
+			PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
+		)
 	tween.finished.connect(
 		Callable(self, "_complete_portrait_main_tab_swipe").bind(commit),
 		CONNECT_ONE_SHOT
@@ -382,9 +412,16 @@ func _complete_portrait_main_tab_swipe(commit: bool) -> void:
 	var target_content: Control = _portrait_main_tab_swipe_target_content
 	var departing_navigation: Control = _portrait_main_tab_swipe_departing_navigation
 	var target_navigation: Control = _portrait_main_tab_swipe_target_navigation
+	var departing_top_bar: Control = _portrait_main_tab_swipe_departing_top_bar
+	var target_top_bar: Control = _portrait_main_tab_swipe_target_top_bar
 	if commit and target_content != null and is_instance_valid(target_content):
 		if departing_navigation != null and is_instance_valid(departing_navigation):
 			departing_navigation.visible = false
+		if departing_top_bar != null and is_instance_valid(departing_top_bar):
+			departing_top_bar.visible = false
+		if target_top_bar != null and is_instance_valid(target_top_bar):
+			target_top_bar.position.x = 0.0
+			target_top_bar.visible = true
 		if departing_content != null and is_instance_valid(departing_content):
 			departing_content.queue_free()
 		target_content.position.x = 0.0
@@ -462,6 +499,15 @@ func _portrait_begin_bottom_attached_group() -> Control:
 	content = bottom_group
 	return previous_content
 
+func _portrait_create_top_bar_group() -> Control:
+	var top_bar := Control.new()
+	top_bar.name = "PortraitTopBar"
+	top_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(top_bar)
+	_portrait_top_bar_content = top_bar
+	return top_bar
+
 func _portrait_screen(
 	_header_height: float = PORTRAIT_HEADER_HEIGHT,
 	footer_y: float = -1.0,
@@ -470,7 +516,10 @@ func _portrait_screen(
 	var paper_background := _stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
 	paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)
 	paper_background.z_index = -2
+	var screen_content: Control = content
+	content = _portrait_create_top_bar_group()
 	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
+	content = screen_content
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
@@ -479,6 +528,9 @@ func _stage_portrait_page_header(
 	back_callable: Callable,
 	currency_return_action: Callable = Callable()
 ) -> void:
+	var screen_content: Control = content
+	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
+		content = _portrait_top_bar_content
 	if back_callable.is_valid():
 		_stage_round_icon_button(
 			PORTRAIT_PAGE_BACK_BUTTON_RECT,
@@ -492,6 +544,7 @@ func _stage_portrait_page_header(
 	if !resolved_return_action.is_valid():
 		resolved_return_action = Callable(self, "show_menu")
 	_stage_currency_counter(resolved_return_action)
+	content = screen_content
 	_stage_portrait_page_title(title)
 
 func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:
@@ -507,8 +560,8 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 		title_label,
 		title,
 		PORTRAIT_PAGE_TITLE_RECT.size.x,
-		30,
-		20
+		_heading_font_size(30),
+		_heading_font_size(20)
 	)
 
 func _stage_currency_counter(
@@ -516,6 +569,9 @@ func _stage_currency_counter(
 	rect: Rect2 = Rect2(),
 	challenge_colors: bool = false
 ) -> void:
+	var screen_content: Control = content
+	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
+		content = _portrait_top_bar_content
 	var counter_rect: Rect2 = rect if rect.size.x > 0.0 and rect.size.y > 0.0 else PORTRAIT_CURRENCY_COUNTER_RECT
 	var counter_scale: float = counter_rect.size.y / 48.0
 	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
@@ -556,6 +612,7 @@ func _stage_currency_counter(
 		counter_action = return_action
 	var counter_button := _stage_button(counter_rect, counter_action, "")
 	counter_button.z_index = 22
+	content = screen_content
 
 func _portrait_main_tab_action(tab_index: int) -> Callable:
 	match tab_index:
@@ -574,15 +631,15 @@ func _portrait_main_tab_action(tab_index: int) -> Callable:
 func _portrait_main_tab_label(tab_index: int) -> String:
 	match tab_index:
 		MainTab.PROFILE:
-			return _profile_text("Профиль", "Profile")
+			return _profile_text("Профиль", "Profile").to_upper()
 		MainTab.SHOP:
-			return _profile_text("Магазин", "Shop")
+			return _profile_text("Магазин", "Shop").to_upper()
 		MainTab.HOME:
-			return _profile_text("Главная", "Home")
+			return _profile_text("Главная", "Home").to_upper()
 		MainTab.TASKS:
-			return _profile_text("Задания", "Tasks")
+			return _profile_text("Задания", "Tasks").to_upper()
 		MainTab.SETTINGS:
-			return _profile_text("Настройки", "Settings")
+			return _profile_text("Настройки", "Settings").to_upper()
 	return ""
 
 func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
@@ -595,9 +652,19 @@ func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
 		icon_size
 	)
 
+func _portrait_main_nav_active_x(tab_x: float) -> float:
+	var centered_x: float = tab_x + (
+		PORTRAIT_MAIN_NAV_ITEM_WIDTH - PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x
+	) * 0.5
+	return clampf(
+		centered_x,
+		0.0,
+		PORTRAIT_STAGE_SIZE.x - PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x
+	)
+
 func _portrait_main_nav_label_rect(tab_x: float) -> Rect2:
 	return Rect2(
-		tab_x + 2.0,
+		_portrait_main_nav_active_x(tab_x),
 		PORTRAIT_MAIN_NAV_LABEL_Y,
 		PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x,
 		PORTRAIT_MAIN_NAV_LABEL_HEIGHT
@@ -655,6 +722,49 @@ func _animate_main_nav_tab_enter(icon: Control, label: Label, final_icon_rect: R
 	label_scale_tweener.set_trans(Tween.TRANS_QUAD)
 	label_scale_tweener.set_ease(Tween.EASE_OUT)
 	tween.tween_property(label, "modulate", Color.WHITE, PORTRAIT_MAIN_NAV_TRANSITION_DURATION)
+	tween.finished.connect(
+		Callable(self, "_play_main_nav_icon_bounce").bind(icon),
+		CONNECT_ONE_SHOT
+	)
+
+func _play_main_nav_icon_bounce(icon: Control) -> void:
+	if icon == null or !is_instance_valid(icon) or !icon.is_inside_tree():
+		return
+	# Transform around the texture's local center. Animating stage_rect also
+	# remaps its authored position every frame and can drift sideways inside the
+	# bottom-attached coordinate group on tall screens.
+	var rest_position: Vector2 = icon.position
+	var rest_scale: Vector2 = icon.scale
+	icon.pivot_offset = icon.size * 0.5
+	icon.position = rest_position + (rest_scale - Vector2.ONE) * icon.pivot_offset
+	var tween: Tween = icon.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow_tweener: PropertyTweener = tween.tween_property(
+		icon,
+		"scale",
+		rest_scale * PORTRAIT_MAIN_NAV_BOUNCE_SCALE,
+		PORTRAIT_MAIN_NAV_BOUNCE_GROW_DURATION
+	)
+	grow_tweener.set_trans(Tween.TRANS_QUAD)
+	grow_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = tween.tween_property(
+		icon,
+		"scale",
+		rest_scale,
+		PORTRAIT_MAIN_NAV_BOUNCE_SETTLE_DURATION
+	)
+	settle_tweener.set_trans(Tween.TRANS_BOUNCE)
+	settle_tweener.set_ease(Tween.EASE_OUT)
+	tween.finished.connect(
+		Callable(self, "_finish_main_nav_icon_bounce").bind(icon, rest_position),
+		CONNECT_ONE_SHOT
+	)
+
+func _finish_main_nav_icon_bounce(icon: Control, rest_position: Vector2) -> void:
+	if icon == null or !is_instance_valid(icon) or !icon.is_inside_tree():
+		return
+	icon.pivot_offset = Vector2.ZERO
+	icon.position = rest_position
 
 func _animate_main_nav_tab_leave(icon: Control, label: Label, final_icon_rect: Rect2) -> void:
 	var label_holder: Control = label.get_parent() as Control
@@ -743,13 +853,13 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 			# Compose a rounded cap with a square body: only the upper corners of
 			# the selected tab are rounded, while its lower edge joins the bar.
 			var active_cap := _stage_panel(
-				Rect2(tab_x + 2.0, PORTRAIT_MAIN_NAV_ACTIVE_Y, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x, 36.0),
+				Rect2(_portrait_main_nav_active_x(tab_x), PORTRAIT_MAIN_NAV_ACTIVE_Y, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x, 36.0),
 				PORTRAIT_ORANGE,
 				18.0
 			)
 			active_cap.z_index = 42
 			var active_body := _stage_panel(
-				Rect2(tab_x + 2.0, PORTRAIT_MAIN_NAV_ACTIVE_Y + 18.0, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.y - 18.0),
+				Rect2(_portrait_main_nav_active_x(tab_x), PORTRAIT_MAIN_NAV_ACTIVE_Y + 18.0, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.y - 18.0),
 				PORTRAIT_ORANGE
 			)
 			active_body.z_index = 42
@@ -867,13 +977,15 @@ func _stage_portrait_game_header() -> void:
 	var title: String = str(header_texts["title"])
 	var subtitle: String = str(header_texts["subtitle"])
 	var header_text: String = title
+	var heading_font_size: int = 24
 	if !subtitle.is_empty():
 		header_text += " • " + subtitle
+	header_text = header_text.to_upper()
 
-	var title_label := _stage_label(
+	var title_label := _stage_heading_label(
 		PORTRAIT_GAME_HEADER_RECT,
 		header_text,
-		22,
+		heading_font_size,
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -883,8 +995,8 @@ func _stage_portrait_game_header() -> void:
 		title_label,
 		header_text,
 		PORTRAIT_GAME_HEADER_RECT.size.x,
-		22,
-		13
+		_heading_font_size(heading_font_size),
+		_heading_font_size(13)
 	)
 	_stage_currency_counter(
 		Callable(self, "show_game_screen"),
@@ -1057,12 +1169,12 @@ func _show_menu_screen() -> void:
 	_stage_currency_counter(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
-	var title_label := _stage_heading_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN"), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
+	var title_label := _stage_heading_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN").to_upper(), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
-	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player"), 22)
+	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
 
 func show_settings() -> void:
@@ -1238,7 +1350,7 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	_portrait_popup_shell(
 		rect,
-		"%s %d" % [_single_player_level_label(), level_index + 1],
+		("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper(),
 		Callable(self, "_remove_single_player_theme_popup"),
 		29,
 		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE,
@@ -1521,7 +1633,7 @@ func show_custom_word() -> void:
 	# navigation row and no footer backdrop.
 	_portrait_screen(0.0)
 	_stage_portrait_page_header(
-		Database.tr_text(37, "Input the word"),
+		Database.tr_text(37, "Input the word").to_upper(),
 		Callable(self, "show_menu"),
 		Callable(self, "_return_to_custom_word_from_coin_store")
 	)
@@ -1755,6 +1867,7 @@ func _stage_portrait_result_word_display(
 	word_label.context_menu_enabled = false
 	word_label.clip_contents = false
 	word_label.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	word_label.add_theme_font_override("normal_font", UI_HEADING_FONT)
 	word_label.add_theme_color_override("default_color", PORTRAIT_BLUE)
 	word_holder.add_child(word_label)
 
@@ -1908,6 +2021,7 @@ func _stage_portrait_word_slots(
 			), PORTRAIT_ORANGE)
 		if (revealed and !is_space) or is_dash:
 			var letter_label := _stage_label(Rect2(x, rect.position.y, item_width, rect.size.y - 10.0), letter, effective_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+			letter_label.add_theme_font_override("font", UI_HEADING_FONT)
 			# Each revealed letter occupies an identical single-line slot. Disabling
 			# wrapping and resetting the full-rect offsets after parenting prevents
 			# wide glyphs from changing the label's line box and jumping vertically.

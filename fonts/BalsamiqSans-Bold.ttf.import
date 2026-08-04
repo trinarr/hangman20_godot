@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://8t0ejmpgsug8"
-path="res://.godot/imported/Neucha-Regular.ttf-2f644188e21d3f5bbedf948940858bbf.fontdata"
+uid="uid://ba5s872nqnnse"
+path="res://.godot/imported/BalsamiqSans-Bold.ttf-4f7cf10c48c549ba255b7ba9366457ce.fontdata"
 
 [deps]
 
-source_file="res://fonts/Neucha-Regular.ttf"
-dest_files=["res://.godot/imported/Neucha-Regular.ttf-2f644188e21d3f5bbedf948940858bbf.fontdata"]
+source_file="res://fonts/BalsamiqSans-Bold.ttf"
+dest_files=["res://.godot/imported/BalsamiqSans-Bold.ttf-4f7cf10c48c549ba255b7ba9366457ce.fontdata"]
 
 [params]
 

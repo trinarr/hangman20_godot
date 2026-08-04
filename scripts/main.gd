@@ -49,8 +49,9 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
-const UI_PRIMARY_FONT: Font = preload("res://fonts/ShantellSans-SemiBold.ttf")
-const UI_HEADING_FONT: Font = preload("res://fonts/Neucha-Regular.ttf")
+const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
+const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
+const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
@@ -312,13 +313,16 @@ func _stage_heading_label(
 	color: Color = Color.WHITE,
 	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
 ) -> Label:
-	var label := _stage_label(rect, text, font_size, color, align)
+	var label := _stage_label(rect, text, _heading_font_size(font_size), color, align)
 	label.add_theme_font_override("font", UI_HEADING_FONT)
 	return label
 
+func _heading_font_size(font_size: int) -> int:
+	return maxi(1, int(round(float(font_size) * UI_HEADING_FONT_SCALE)))
+
 func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size: int = 20) -> Button:
 	var button: Button = FLASH_STAGE_BUTTON_SCRIPT.new() as Button
-	button.text = text
+	button.text = text.to_upper()
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
@@ -1044,7 +1048,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.position = Vector2(0.0, 0.0 if challenge_level else 3.0)
 	title_label.size = Vector2(rect.size.x, rect.size.y * (0.60 if challenge_level else 0.92))
-	title_label.text = "%s %d" % [_single_player_level_label(), level_index + 1]
+	title_label.text = ("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if challenge_level else VERTICAL_ALIGNMENT_CENTER
 	title_label.add_theme_font_size_override("font_size", 28)
@@ -1062,7 +1066,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		challenge_label.position = Vector2(0.0, rect.size.y * 0.57)
 		challenge_label.size = Vector2(rect.size.x, rect.size.y * 0.30)
-		challenge_label.text = _single_player_challenge_level_label()
+		challenge_label.text = _single_player_challenge_level_label().to_upper()
 		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		challenge_label.add_theme_font_size_override("font_size", 15)

@@ -50,7 +50,7 @@ var attention_bounce_enabled: bool = false:
 
 var button_text: String = "":
 	set(value):
-		button_text = value
+		button_text = value.to_upper()
 		_sync_label()
 
 var button_font_size: int = 20:
