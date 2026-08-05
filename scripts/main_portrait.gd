@@ -14,6 +14,8 @@ const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80
 const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE
 const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
 const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
+const PORTRAIT_MENU_SETTINGS_BUTTON_RECT := Rect2(410.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
+const PORTRAIT_MENU_SETTINGS_ICON_SIZE := Vector2(29.0, 29.0)
 const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 const PORTRAIT_BACK_ENTRANCE_DURATION: float = 0.24
 const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
@@ -28,7 +30,8 @@ const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := Color("#35C759")
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := Color("#167A34")
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
 const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
-const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 96.0
+const PORTRAIT_MAIN_NAV_TAB_COUNT: int = 4
+const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 120.0
 const PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(116.0, 92.0)
 const PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0
 const PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0
@@ -95,7 +98,7 @@ const PORTRAIT_NAV_PROFILE_ICON: Texture2D = preload("res://flash_assets/nav_pro
 const PORTRAIT_NAV_SHOP_ICON: Texture2D = preload("res://flash_assets/nav_shop_icon.png")
 const PORTRAIT_NAV_HOME_ICON: Texture2D = preload("res://flash_assets/nav_home_icon.png")
 const PORTRAIT_NAV_TASKS_ICON: Texture2D = preload("res://flash_assets/nav_tasks_icon.png")
-const PORTRAIT_NAV_SETTINGS_ICON: Texture2D = preload("res://flash_assets/nav_settings_icon.png")
+const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -141,11 +144,10 @@ const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTO
 const PORTRAIT_COIN_TEST_BUTTON_RECT := Rect2(90.0, 340.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 
 enum MainTab {
-	PROFILE,
-	SHOP,
 	HOME,
+	SHOP,
 	TASKS,
-	SETTINGS,
+	PROFILE,
 }
 
 var _portrait_custom_word_input: Control = null
@@ -185,6 +187,7 @@ func _clear() -> void:
 	):
 		preserved_swipe_content = content
 		ui.remove_child(preserved_swipe_content)
+	_remove_settings_popup()
 	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
 	_portrait_top_bar_content = null
@@ -242,8 +245,8 @@ func _input(event: InputEvent) -> void:
 
 func _portrait_main_tab_swipe_is_available() -> bool:
 	return (
-		_portrait_active_main_tab >= MainTab.PROFILE
-		and _portrait_active_main_tab <= MainTab.SETTINGS
+		_portrait_active_main_tab >= MainTab.HOME
+		and _portrait_active_main_tab <= MainTab.PROFILE
 		and !_portrait_main_tab_swipe_building_target
 		and !_portrait_main_tab_swipe_animating
 		and get_tree().get_first_node_in_group(PORTRAIT_MODAL_POPUP_GROUP) == null
@@ -296,8 +299,8 @@ func _update_portrait_main_tab_swipe(pointer_position: Vector2) -> bool:
 func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 	var target_tab: int = clampi(
 		_portrait_active_main_tab + tab_step,
-		MainTab.PROFILE,
-		MainTab.SETTINGS
+		MainTab.HOME,
+		MainTab.PROFILE
 	)
 	if target_tab == _portrait_active_main_tab:
 		return false
@@ -561,6 +564,18 @@ func _stage_portrait_page_header(
 	content = screen_content
 	_stage_portrait_page_title(title)
 
+func _stage_menu_settings_button() -> void:
+	var screen_content: Control = content
+	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
+		content = _portrait_top_bar_content
+	_stage_round_icon_button(
+		PORTRAIT_MENU_SETTINGS_BUTTON_RECT,
+		Callable(self, "show_settings"),
+		PORTRAIT_MENU_SETTINGS_ICON,
+		PORTRAIT_MENU_SETTINGS_ICON_SIZE
+	)
+	content = screen_content
+
 func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:
 	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
 		return
@@ -764,30 +779,26 @@ func _set_currency_counter_pressed(
 
 func _portrait_main_tab_action(tab_index: int) -> Callable:
 	match tab_index:
-		MainTab.PROFILE:
-			return Callable(self, "show_profile")
-		MainTab.SHOP:
-			return Callable(self, "_show_coin_store_tab")
 		MainTab.HOME:
 			return Callable(self, "show_menu")
+		MainTab.SHOP:
+			return Callable(self, "_show_coin_store_tab")
 		MainTab.TASKS:
 			return Callable(self, "show_tasks")
-		MainTab.SETTINGS:
-			return Callable(self, "show_settings")
+		MainTab.PROFILE:
+			return Callable(self, "show_profile")
 	return Callable()
 
 func _portrait_main_tab_label(tab_index: int) -> String:
 	match tab_index:
-		MainTab.PROFILE:
-			return _profile_text("Профиль", "Profile").to_upper()
-		MainTab.SHOP:
-			return _profile_text("Магазин", "Shop").to_upper()
 		MainTab.HOME:
 			return _profile_text("Главная", "Home").to_upper()
+		MainTab.SHOP:
+			return _profile_text("Магазин", "Shop").to_upper()
 		MainTab.TASKS:
 			return _profile_text("Задания", "Tasks").to_upper()
-		MainTab.SETTINGS:
-			return _profile_text("Настройки", "Settings").to_upper()
+		MainTab.PROFILE:
+			return _profile_text("Профиль", "Profile").to_upper()
 	return ""
 
 func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
@@ -995,8 +1006,8 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 		_portrait_active_main_tab = active_tab
 		_reset_portrait_main_tab_swipe()
 	var animates_switch: bool = (
-		previous_tab >= MainTab.PROFILE
-		and previous_tab <= MainTab.SETTINGS
+		previous_tab >= MainTab.HOME
+		and previous_tab <= MainTab.PROFILE
 		and previous_tab != active_tab
 	)
 	# Keep every navigation element in one bottom-attached coordinate space.
@@ -1017,21 +1028,19 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 	)
 	top_rule.z_index = 41
 
-	for tab_index in range(5):
+	for tab_index in range(PORTRAIT_MAIN_NAV_TAB_COUNT):
 		var tab_action: Callable = _portrait_main_tab_action(tab_index)
 		var tab_icon: Texture2D
 		var tab_label: String = _portrait_main_tab_label(tab_index)
 		match tab_index:
-			MainTab.PROFILE:
-				tab_icon = PORTRAIT_NAV_PROFILE_ICON
-			MainTab.SHOP:
-				tab_icon = PORTRAIT_NAV_SHOP_ICON
 			MainTab.HOME:
 				tab_icon = PORTRAIT_NAV_HOME_ICON
+			MainTab.SHOP:
+				tab_icon = PORTRAIT_NAV_SHOP_ICON
 			MainTab.TASKS:
 				tab_icon = PORTRAIT_NAV_TASKS_ICON
-			_:
-				tab_icon = PORTRAIT_NAV_SETTINGS_ICON
+			MainTab.PROFILE:
+				tab_icon = PORTRAIT_NAV_PROFILE_ICON
 
 		var tab_x: float = float(tab_index) * PORTRAIT_MAIN_NAV_ITEM_WIDTH
 		var is_active: bool = tab_index == active_tab
@@ -1089,6 +1098,7 @@ func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:
 		else _portrait_active_main_tab
 	)
 	screen_builder.call()
+	_stage_menu_settings_button()
 	_stage_main_navigation(active_tab, previous_tab)
 
 func _show_coin_store_tab() -> void:
@@ -1383,45 +1393,52 @@ func _show_menu_screen() -> void:
 	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
 
 func show_settings() -> void:
-	_show_main_tab_screen(Callable(self, "_show_settings_screen"), MainTab.SETTINGS)
+	_show_settings_popup()
 
-func _show_settings_screen() -> void:
-	coin_store_return_action = Callable()
-	_clear()
-	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-	var settings_body_fill := _stage_horizontal_fill(
-		PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_DARK_BLUE
+func _show_settings_popup() -> void:
+	_remove_settings_popup()
+	settings_toggle_buttons.clear()
+	settings_word_language_buttons.clear()
+	var previous_content := _portrait_popup_begin(
+		"SettingsPopup",
+		"settings_popup",
+		130,
+		Callable(self, "_remove_settings_popup"),
+		120.0,
+		680.0
 	)
-	settings_body_fill.set("follows_safe_top_inset", true)
-	_stage_currency_counter(Callable(self, "show_settings"))
-	_stage_portrait_page_title(_portrait_main_tab_label(MainTab.SETTINGS), Color.WHITE)
-	_stage_label(Rect2(56.0, 176.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 172.0, 102.0, 49.0), 3)
-	_stage_label(Rect2(56.0, 244.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 240.0, 102.0, 49.0), 4)
-	_stage_panel(Rect2(56.0, 312.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_label(Rect2(56.0, 336.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(210.0, 332.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
-	_stage_settings_word_language_button(Rect2(322.0, 332.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
-	_stage_panel(Rect2(56.0, 412.0, 368.0, 2.0), PORTRAIT_RULE)
+	var rect := Rect2(28.0, 120.0, 424.0, 560.0)
+	_portrait_popup_shell(
+		rect,
+		_profile_text("Настройки", "Settings").to_upper(),
+		Callable(self, "_remove_settings_popup"),
+		28
+	)
 
-	var settings_footer_content: Control = _portrait_begin_bottom_attached_group()
+	_stage_label(Rect2(56.0, 218.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 214.0, 102.0, 49.0), 3)
+	_stage_label(Rect2(56.0, 286.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 282.0, 102.0, 49.0), 4)
+	_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
+	_stage_label(Rect2(56.0, 374.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
+	_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
+	_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
+
 	_stage_round_icon_button(
-		Rect2(174.0, 616.0, 58.0, 58.0),
+		Rect2(174.0, 492.0, 58.0, 58.0),
 		Callable(self, "_about_contact_action").bind("vk"),
 		ABOUT_VK_ICON,
 		ABOUT_VK_ICON_SIZE
 	)
 	_stage_round_icon_button(
-		Rect2(248.0, 616.0, 58.0, 58.0),
+		Rect2(248.0, 492.0, 58.0, 58.0),
 		Callable(self, "_about_contact_action").bind("mail"),
 		ABOUT_MAIL_ICON,
 		ABOUT_MAIL_ICON_SIZE
 	)
 	var version_label := _stage_label(
-		Rect2(40.0, 678.0, 400.0, 28.0),
+		Rect2(40.0, 574.0, 400.0, 28.0),
 		_about_version_text(),
 		14,
 		Color(0.78, 0.82, 0.96, 0.88),
@@ -1429,7 +1446,16 @@ func _show_settings_screen() -> void:
 	)
 	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	version_label.clip_text = false
-	_portrait_end_adaptive_group(settings_footer_content)
+	content = previous_content
+
+func _remove_settings_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	settings_toggle_buttons.clear()
+	settings_word_language_buttons.clear()
 
 func show_theme_select() -> void:
 	_show_theme_select_screen(false)
@@ -2609,7 +2635,7 @@ func _stage_portrait_lives_counter() -> void:
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	lives_label.add_theme_font_override("font", UI_HEADING_FONT)
+	lives_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	lives_label.z_index = 21
 	lives_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
