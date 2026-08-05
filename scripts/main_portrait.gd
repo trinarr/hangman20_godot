@@ -76,7 +76,6 @@ const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
 const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
 const PORTRAIT_RESULT_WORD_SEARCH_GAP: float = 10.0
 const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(24.0, 31.0)
-const PORTRAIT_RESULT_CHAIN_CARD_RECT := Rect2(83.0, 648.0, 314.0, 40.0)
 const PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION: float = 0.068
 const PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION: float = 0.072
 const PORTRAIT_RESULT_LETTER_BOUNCE_GAP: float = 0.0094
@@ -1167,7 +1166,24 @@ func _stage_portrait_game_header() -> void:
 	var subtitle: String = str(header_texts["subtitle"])
 	var header_text: String = title
 	var heading_font_size: int = 24
-	if !subtitle.is_empty():
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		header_text = subtitle if !subtitle.is_empty() else title
+		if single_player_active_level_index >= 0 and single_player_active_word_slot >= 0:
+			var total_count: int = maxi(
+				_single_player_level_word_count(single_player_active_level_index),
+				0
+			)
+			if total_count > 0:
+				var current_word: int = clampi(
+					single_player_active_word_slot + 1,
+					1,
+					total_count
+				)
+				header_text += " • " + (
+					_single_player_text("%d из %d", "%d of %d")
+					% [current_word, total_count]
+				)
+	elif !subtitle.is_empty():
 		header_text += " • " + subtitle
 	header_text = header_text.to_upper()
 
@@ -2667,57 +2683,6 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 func _portrait_result_title_color(is_win: bool) -> Color:
 	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
 
-func _stage_single_player_result_chain_progress(data: Dictionary, is_win: bool) -> void:
-	if GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
-		return
-	var total_count: int = maxi(int(data.get("single_player_total_count", 0)), 0)
-	var current_slot: int = clampi(int(data.get("single_player_word_slot", 0)), 0, maxi(total_count - 1, 0))
-	if total_count <= 0:
-		return
-
-	var card := _stage_panel(
-		PORTRAIT_RESULT_CHAIN_CARD_RECT,
-		PORTRAIT_BLUE,
-		13.0,
-		PORTRAIT_ORANGE,
-		2.0
-	)
-	card.z_index = 20
-	var progress_text: String = _single_player_text(
-		"СЛОВО %d ИЗ %d",
-		"WORD %d OF %d"
-	) % [current_slot + 1, total_count]
-	var progress_label := _stage_label(
-		Rect2(93.0, 649.0, 294.0, 22.0),
-		progress_text,
-		16,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	progress_label.clip_text = false
-	var progress_holder := progress_label.get_parent() as CanvasItem
-	if progress_holder != null:
-		progress_holder.z_index = 21
-
-	var track_rect := Rect2(105.0, 676.0, 270.0, 7.0)
-	var gap: float = 4.0
-	var segment_width: float = (track_rect.size.x - gap * float(total_count - 1)) / float(total_count)
-	for segment_index in range(total_count):
-		var segment_color := Color(0.36, 0.41, 0.72, 1.0)
-		if segment_index < current_slot:
-			segment_color = PORTRAIT_ORANGE
-		elif segment_index == current_slot:
-			segment_color = StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
-		var segment := _stage_panel(
-			Rect2(
-				track_rect.position + Vector2(float(segment_index) * (segment_width + gap), 0.0),
-				Vector2(segment_width, track_rect.size.y)
-			),
-			segment_color,
-			4.0
-		)
-		segment.z_index = 21
-
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	_show_portrait_result_screen(is_win, data, true)
 
@@ -2748,7 +2713,6 @@ func _show_portrait_result_screen(is_win: bool, data: Dictionary, animate_result
 		continue_text,
 		animate_result
 	)
-	_stage_single_player_result_chain_progress(data, is_win)
 	_portrait_end_adaptive_group(word_content)
 
 func _stage_portrait_result_mode_theme_label(rect: Rect2, animate_result: bool) -> Label:
