@@ -1,6 +1,8 @@
 class_name PopupStageCenter
 extends Control
 
+signal open_bounce_finished
+
 const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const OPEN_START_FACTOR: float = 0.965
@@ -21,6 +23,7 @@ var popup_bottom: float = 0.0:
 
 var _open_tween: Tween = null
 var _rest_scale: float = 1.0
+var open_bounce_complete: bool = false
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -43,6 +46,7 @@ func _play_open_bounce() -> void:
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
 
+	open_bounce_complete = false
 	scale = Vector2.ONE * _rest_scale * OPEN_START_FACTOR
 	_open_tween = create_tween()
 	_open_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -52,6 +56,13 @@ func _play_open_bounce() -> void:
 	var settle_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE * _rest_scale, OPEN_SETTLE_DURATION)
 	settle_tweener.set_trans(Tween.TRANS_QUAD)
 	settle_tweener.set_ease(Tween.EASE_IN_OUT)
+	_open_tween.finished.connect(_finish_open_bounce, CONNECT_ONE_SHOT)
+
+func _finish_open_bounce() -> void:
+	if !is_inside_tree():
+		return
+	open_bounce_complete = true
+	open_bounce_finished.emit()
 
 func _sync_to_viewport() -> void:
 	if !is_inside_tree():

@@ -307,6 +307,14 @@ func _resize_single_level_status_array(statuses: Array, size: int) -> void:
 	for status_index in range(statuses.size()):
 		statuses[status_index] = _single_level_status(statuses[status_index])
 
+func has_single_level_seed(lang: String, level_index: int, _difficulty: int = -1) -> bool:
+	if level_index < 0:
+		return false
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_seeds: Dictionary = bucket["level_seeds"]
+	return maxi(int(level_seeds.get(str(level_index), 0)), 0) > 0
+
 func get_or_create_single_level_seed(lang: String, level_index: int, _difficulty: int = -1) -> int:
 	if level_index < 0:
 		return 1
