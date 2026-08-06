@@ -119,6 +119,17 @@ const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
+const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
+const PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS: int = 9
+const PORTRAIT_SINGLE_PLAYER_SLOT_SPINS_PER_REEL: int = 3
+const PORTRAIT_SINGLE_PLAYER_SLOT_BASE_DURATION: float = 1.12
+const PORTRAIT_SINGLE_PLAYER_SLOT_DURATION_STEP: float = 0.28
+const PORTRAIT_SINGLE_PLAYER_SLOT_LANDING_DURATION: float = 0.10
+const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER: float = 0.05
+const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_START_SCALE := Vector2(0.52, 0.52)
+const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE := Vector2(1.16, 1.16)
+const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION: float = 0.12
+const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION: float = 0.18
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2(120.0, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(42.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(180.0, 711.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
@@ -175,6 +186,13 @@ var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
+var single_player_popup_refresh_button: Control = null
+var _single_player_popup_theme_card_visuals: Array = []
+var _single_player_theme_slot_animation_nodes: Array[Node] = []
+var _single_player_theme_slot_tweens: Array[Tween] = []
+var _single_player_theme_slot_animating: bool = false
+var _single_player_theme_slot_generation: int = 0
+
 func _clear() -> void:
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
@@ -1552,6 +1570,12 @@ func _show_clear_theme_popup(theme_index: int, return_to_tasks: bool = false) ->
 	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index, return_to_tasks), Database.tr_text(26, "Yes"), 20)
 	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
+func _remove_single_player_theme_popup() -> void:
+	_cancel_single_player_theme_slot_animation()
+	super._remove_single_player_theme_popup()
+	single_player_popup_refresh_button = null
+	_single_player_popup_theme_card_visuals.clear()
+
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
 	_show_single_player_level_popup(level_index, theme_index)
 
@@ -1615,6 +1639,7 @@ func _show_single_player_level_popup(level_index: int, selected_theme: int = -1)
 		Vector2(27.0, 27.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE,
 		false
 	)
+	single_player_popup_refresh_button = refresh_button
 	if challenge_level:
 		refresh_button.call(
 			"set_color_palette",
@@ -1676,6 +1701,8 @@ func _stage_single_player_popup_theme_cards(
 	card_y: float,
 	word_count: int
 ) -> void:
+	_clear_single_player_theme_slot_nodes()
+	_single_player_popup_theme_card_visuals.clear()
 	_clear_single_player_popup_theme_cards()
 	if single_player_popup_stage_content == null or !is_instance_valid(single_player_popup_stage_content):
 		return
@@ -1706,6 +1733,9 @@ func _stage_single_player_popup_theme_cards(
 		)
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		single_player_popup_theme_panels[theme_index] = card
+		var theme_icon: Control = null
+		var word_badge: Control = null
+		var word_badge_label: Label = null
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
 		if theme_icon_texture != null:
 			var theme_icon_size := Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
@@ -1716,13 +1746,13 @@ func _stage_single_player_popup_theme_cards(
 				),
 				theme_icon_size
 			)
-			_stage_texture(theme_icon_rect, theme_icon_texture)
+			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
 			var word_badge_size := Vector2(43.0, 25.0)
 			var word_badge_rect := Rect2(
 				theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
 				word_badge_size
 			)
-			var word_badge := _stage_panel(
+			word_badge = _stage_panel(
 				word_badge_rect,
 				PORTRAIT_ORANGE,
 				word_badge_size.y * 0.5,
@@ -1730,7 +1760,7 @@ func _stage_single_player_popup_theme_cards(
 				1.5
 			)
 			word_badge.z_index = 13
-			var word_badge_label := _stage_label(
+			word_badge_label = _stage_label(
 				word_badge_rect,
 				"x%d" % word_count,
 				16,
@@ -1787,9 +1817,409 @@ func _stage_single_player_popup_theme_cards(
 			""
 		)
 		theme_button.disabled = false
+		_single_player_popup_theme_card_visuals.append({
+			"card_rect": card_rect,
+			"theme_index": theme_index,
+			"theme_icon": theme_icon,
+			"word_badge": word_badge,
+			"word_badge_label": word_badge_label,
+			"theme_label": theme_label,
+			"theme_button": theme_button,
+		})
 	for child_index in range(first_card_node_index, content.get_child_count()):
 		single_player_popup_theme_card_nodes.append(content.get_child(child_index))
 	content = previous_content
+
+func _refresh_single_player_theme_popup(level_index: int) -> void:
+	if level_index != single_player_popup_level_index or _single_player_theme_slot_animating:
+		return
+	if GameState.get_soft_currency() < SINGLE_PLAYER_THEME_REFRESH_COST:
+		_open_coin_store(
+			Callable(self, "_return_to_single_player_theme_popup").bind(level_index)
+		)
+		return
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
+		return
+	var previous_options: Array = _single_player_level_theme_options(level_index).duplicate()
+	var next_options: Array = _reroll_single_player_theme_options(level_index, previous_options)
+	_update_single_player_refresh_price(GameState.get_soft_currency())
+	if (
+		previous_options.size() != next_options.size()
+		or next_options.size() != _single_player_popup_theme_card_visuals.size()
+	):
+		_update_single_player_theme_popup(level_index)
+		return
+	_start_single_player_theme_slot_animation(level_index, previous_options, next_options)
+
+func _reroll_single_player_theme_options(level_index: int, previous_options: Array) -> Array:
+	var next_options: Array = []
+	var require_fully_new_options: bool = Database.get_theme_count() >= previous_options.size() * 2
+	var max_attempts: int = 16 if require_fully_new_options else 1
+	for _attempt_index in range(max_attempts):
+		GameState.reset_single_level_attempt(Database.current_language, level_index)
+		_invalidate_single_player_level_cache()
+		next_options = _single_player_level_theme_options(level_index)
+		if !require_fully_new_options or _single_player_theme_options_are_fully_new(
+			previous_options,
+			next_options
+		):
+			break
+	return next_options
+
+func _single_player_theme_options_are_fully_new(
+	previous_options: Array,
+	next_options: Array
+) -> bool:
+	if previous_options.size() != next_options.size():
+		return false
+	for theme_variant: Variant in next_options:
+		if previous_options.has(theme_variant):
+			return false
+	return true
+
+func _start_single_player_theme_slot_animation(
+	level_index: int,
+	previous_options: Array,
+	next_options: Array
+) -> void:
+	if (
+		_single_player_theme_slot_animating
+		or single_player_popup_stage_content == null
+		or !is_instance_valid(single_player_popup_stage_content)
+	):
+		return
+	_single_player_theme_slot_animating = true
+	_single_player_theme_slot_generation += 1
+	var animation_generation: int = _single_player_theme_slot_generation
+	single_player_popup_selected_theme = -1
+	_set_single_player_theme_panels_unselected(level_index)
+	_set_single_player_theme_static_visuals_visible(false)
+	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
+		single_player_popup_refresh_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+		single_player_popup_play_button.set("button_disabled", true)
+
+	var previous_content: Control = content
+	content = single_player_popup_stage_content
+	var theme_count: int = Database.get_theme_count()
+	for reel_index in range(next_options.size()):
+		var visual: Dictionary = _single_player_popup_theme_card_visuals[reel_index]
+		var start_theme: int = int(previous_options[reel_index])
+		var final_theme: int = int(next_options[reel_index])
+		var sequence: Array = _single_player_theme_slot_sequence(
+			start_theme,
+			final_theme,
+			reel_index,
+			theme_count
+		)
+		var reel_data: Dictionary = _stage_single_player_theme_slot_reel(visual, sequence)
+		var track := reel_data.get("track") as Control
+		if track == null or !is_instance_valid(track):
+			continue
+		var distance: float = float(reel_data.get("distance", 0.0))
+		var icon_step: float = float(reel_data.get("icon_step", 0.0))
+		var duration: float = (
+			PORTRAIT_SINGLE_PLAYER_SLOT_BASE_DURATION
+			+ float(reel_index) * PORTRAIT_SINGLE_PLAYER_SLOT_DURATION_STEP
+		)
+		var landing_duration: float = minf(
+			PORTRAIT_SINGLE_PLAYER_SLOT_LANDING_DURATION,
+			duration * 0.25
+		)
+		var landing_start_distance: float = maxf(distance - icon_step, 0.0)
+		var spin_duration: float = maxf(duration - landing_duration, 0.01)
+		var tween: Tween = track.create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		if landing_start_distance > 0.0:
+			var spin_tweener: PropertyTweener = tween.tween_property(
+				track,
+				"position",
+				Vector2(0.0, landing_start_distance),
+				spin_duration
+			)
+			spin_tweener.set_trans(Tween.TRANS_LINEAR)
+			spin_tweener.set_ease(Tween.EASE_IN_OUT)
+		var landing_tweener: PropertyTweener = tween.tween_property(
+			track,
+			"position",
+			Vector2(0.0, distance),
+			landing_duration
+		)
+		landing_tweener.set_trans(Tween.TRANS_CUBIC)
+		landing_tweener.set_ease(Tween.EASE_OUT)
+		_single_player_theme_slot_tweens.append(tween)
+		if reel_index == next_options.size() - 1:
+			tween.finished.connect(
+				Callable(self, "_finish_single_player_theme_slot_animation").bind(
+					level_index,
+					animation_generation
+				),
+				CONNECT_ONE_SHOT
+			)
+	content = previous_content
+
+func _single_player_theme_slot_sequence(
+	start_theme: int,
+	final_theme: int,
+	reel_index: int,
+	theme_count: int
+) -> Array:
+	var sequence: Array = [start_theme]
+	if theme_count <= 0:
+		sequence.append(final_theme)
+		return sequence
+	var spin_count: int = (
+		PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS
+		+ reel_index * PORTRAIT_SINGLE_PLAYER_SLOT_SPINS_PER_REEL
+	)
+	var previous_theme: int = start_theme
+	for spin_index in range(spin_count):
+		var next_theme: int = int(randi() % theme_count)
+		if theme_count > 1:
+			var attempts: int = 0
+			while (
+				next_theme == previous_theme
+				or (spin_index == spin_count - 1 and next_theme == final_theme)
+			) and attempts < theme_count * 2:
+				next_theme = int(randi() % theme_count)
+				attempts += 1
+		sequence.append(next_theme)
+		previous_theme = next_theme
+	sequence.append(final_theme)
+	return sequence
+
+func _stage_single_player_theme_slot_reel(
+	visual: Dictionary,
+	sequence: Array
+) -> Dictionary:
+	var card_rect: Rect2 = visual.get("card_rect", Rect2())
+	# Clip the moving icons at the actual top and bottom edges of the whole
+	# theme card. This keeps the reel visible throughout the complete card
+	# instead of cutting it off inside a smaller icon-only viewport.
+	var reel_rect := card_rect
+	var reel_view: Control = _stage_holder(reel_rect, Control.MOUSE_FILTER_IGNORE)
+	reel_view.name = "ThemeSlotReel"
+	reel_view.clip_contents = true
+	reel_view.z_index = 20
+	_single_player_theme_slot_animation_nodes.append(reel_view)
+
+	var track := Control.new()
+	track.name = "ThemeSlotTrack"
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.position = Vector2.ZERO
+	track.size = reel_rect.size
+	reel_view.add_child(track)
+
+	var icon_size := Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
+	var icon_step: float = icon_size.y + PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP
+	var icon_x: float = (reel_rect.size.x - icon_size.x) * 0.5
+	# Match the authored resting position of the normal card icon so swapping
+	# the reel for the final static icon is visually seamless.
+	var icon_y: float = 35.0
+	for sequence_index in range(sequence.size()):
+		var theme_index: int = int(sequence[sequence_index])
+		var texture: Texture2D = _theme_icon_texture(theme_index)
+		if texture == null:
+			continue
+		var icon := TextureRect.new()
+		icon.name = "ThemeSlotIcon%d" % sequence_index
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture = texture
+		icon.position = Vector2(icon_x, icon_y - float(sequence_index) * icon_step)
+		icon.size = icon_size
+		track.add_child(icon)
+	return {
+		"track": track,
+		"distance": maxf(float(sequence.size() - 1) * icon_step, 0.0),
+		"icon_step": icon_step,
+	}
+
+func _set_single_player_theme_static_visuals_visible(visible_value: bool) -> void:
+	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
+		if !(visual_variant is Dictionary):
+			continue
+		var visual: Dictionary = visual_variant
+		for key: String in ["theme_icon", "word_badge", "word_badge_label", "theme_label"]:
+			var node := visual.get(key) as CanvasItem
+			if node != null and is_instance_valid(node):
+				node.visible = visible_value
+		var theme_button := visual.get("theme_button") as Control
+		if theme_button != null and is_instance_valid(theme_button):
+			theme_button.mouse_filter = (
+				Control.MOUSE_FILTER_STOP
+				if visible_value
+				else Control.MOUSE_FILTER_IGNORE
+			)
+
+func _set_single_player_theme_panels_unselected(level_index: int) -> void:
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var fill_color: Color = (
+		PORTRAIT_CHALLENGE_THEME_CARD
+		if challenge_level
+		else Color(0.30, 0.35, 0.68, 1.0)
+	)
+	var border_color: Color = (
+		PORTRAIT_CHALLENGE_POPUP_HEADER
+		if challenge_level
+		else PORTRAIT_RULE
+	)
+	for panel_variant: Variant in single_player_popup_theme_panels.values():
+		var panel := panel_variant as Control
+		if panel == null or !is_instance_valid(panel):
+			continue
+		panel.set("fill_color", fill_color)
+		panel.set("border_color", border_color)
+		panel.set("border_width", 2.0)
+
+func _finish_single_player_theme_slot_animation(
+	level_index: int,
+	animation_generation: int
+) -> void:
+	if (
+		animation_generation != _single_player_theme_slot_generation
+		or !_single_player_theme_slot_animating
+	):
+		return
+	_single_player_theme_slot_tweens.clear()
+	_clear_single_player_theme_slot_nodes()
+	if (
+		level_index != single_player_popup_level_index
+		or single_player_popup_stage_content == null
+		or !is_instance_valid(single_player_popup_stage_content)
+	):
+		_single_player_theme_slot_animating = false
+		return
+	_update_single_player_theme_popup(level_index)
+	_start_single_player_theme_slot_reveal(animation_generation)
+
+func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
+	var reveal_visuals: Array = []
+	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
+		if !(visual_variant is Dictionary):
+			continue
+		var visual: Dictionary = visual_variant
+		var reveal_nodes: Array = []
+		for key: String in ["theme_label", "word_badge", "word_badge_label"]:
+			var node := visual.get(key) as Control
+			if node == null or !is_instance_valid(node):
+				continue
+			node.visible = true
+			node.pivot_offset = node.size * 0.5
+			node.scale = PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_START_SCALE
+			node.modulate = Color(1.0, 1.0, 1.0, 0.0)
+			reveal_nodes.append(node)
+		if !reveal_nodes.is_empty():
+			reveal_visuals.append({"nodes": reveal_nodes})
+
+	if reveal_visuals.is_empty():
+		_finish_single_player_theme_slot_reveal(animation_generation)
+		return
+
+	# Keep every card and the play button locked until the labels and counters
+	# have completed their entrance bounce.
+	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
+		if !(visual_variant is Dictionary):
+			continue
+		var button_visual: Dictionary = visual_variant
+		var theme_button := button_visual.get("theme_button") as Control
+		if theme_button != null and is_instance_valid(theme_button):
+			theme_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+		single_player_popup_play_button.set("button_disabled", true)
+
+	var last_reveal_tween: Tween = null
+	for visual_index in range(reveal_visuals.size()):
+		var reveal_visual: Dictionary = reveal_visuals[visual_index]
+		var nodes: Array = reveal_visual.get("nodes", [])
+		var reveal_delay: float = (
+			float(visual_index) * PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER
+		)
+		for node_variant: Variant in nodes:
+			var node := node_variant as Control
+			if node == null or !is_instance_valid(node):
+				continue
+			var reveal_tween: Tween = node.create_tween()
+			reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			if reveal_delay > 0.0:
+				reveal_tween.tween_interval(reveal_delay)
+			var grow_tweener: PropertyTweener = reveal_tween.tween_property(
+				node,
+				"scale",
+				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE,
+				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION
+			)
+			grow_tweener.set_trans(Tween.TRANS_QUAD)
+			grow_tweener.set_ease(Tween.EASE_OUT)
+			var fade_tweener: PropertyTweener = reveal_tween.parallel().tween_property(
+				node,
+				"modulate",
+				Color.WHITE,
+				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION
+			)
+			fade_tweener.set_trans(Tween.TRANS_SINE)
+			fade_tweener.set_ease(Tween.EASE_OUT)
+			var settle_tweener: PropertyTweener = reveal_tween.tween_property(
+				node,
+				"scale",
+				Vector2.ONE,
+				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
+			)
+			settle_tweener.set_trans(Tween.TRANS_BOUNCE)
+			settle_tweener.set_ease(Tween.EASE_OUT)
+			_single_player_theme_slot_tweens.append(reveal_tween)
+			last_reveal_tween = reveal_tween
+
+	if last_reveal_tween == null:
+		_finish_single_player_theme_slot_reveal(animation_generation)
+		return
+	last_reveal_tween.finished.connect(
+		Callable(self, "_finish_single_player_theme_slot_reveal").bind(
+			animation_generation
+		),
+		CONNECT_ONE_SHOT
+	)
+
+func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
+	if animation_generation != _single_player_theme_slot_generation:
+		return
+	_single_player_theme_slot_animating = false
+	_single_player_theme_slot_tweens.clear()
+	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
+		if !(visual_variant is Dictionary):
+			continue
+		var visual: Dictionary = visual_variant
+		for key: String in ["theme_label", "word_badge", "word_badge_label"]:
+			var node := visual.get(key) as Control
+			if node != null and is_instance_valid(node):
+				node.scale = Vector2.ONE
+				node.modulate = Color.WHITE
+				node.pivot_offset = Vector2.ZERO
+		var theme_button := visual.get("theme_button") as Control
+		if theme_button != null and is_instance_valid(theme_button):
+			theme_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+		single_player_popup_play_button.set("button_disabled", false)
+	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
+		single_player_popup_refresh_button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+func _cancel_single_player_theme_slot_animation() -> void:
+	_single_player_theme_slot_generation += 1
+	_single_player_theme_slot_animating = false
+	for tween: Tween in _single_player_theme_slot_tweens:
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_single_player_theme_slot_tweens.clear()
+	_clear_single_player_theme_slot_nodes()
+
+func _clear_single_player_theme_slot_nodes() -> void:
+	for node: Node in _single_player_theme_slot_animation_nodes:
+		if node != null and is_instance_valid(node):
+			if node.get_parent() != null:
+				node.get_parent().remove_child(node)
+			node.queue_free()
+	_single_player_theme_slot_animation_nodes.clear()
 
 func _update_single_player_theme_popup(level_index: int) -> void:
 	if level_index != single_player_popup_level_index:
