@@ -698,6 +698,9 @@ func _single_player_progress_label(played_count: int, total_count: int) -> Strin
 func _single_player_level_completed_label() -> String:
 	return _single_player_text("Уровень пройден!", "Level completed!")
 
+func _single_player_level_failed_label() -> String:
+	return _single_player_text("УРОВЕНЬ ПРОВАЛЕН", "LEVEL FAILED")
+
 func _single_player_level_completed_reward_label(bonus_coins: int) -> String:
 	return _single_player_text(
 		"Уровень пройден! Бонус: +%d",
@@ -705,7 +708,7 @@ func _single_player_level_completed_reward_label(bonus_coins: int) -> String:
 	) % maxi(bonus_coins, 0)
 
 func _single_player_chain_failed_label() -> String:
-	return _single_player_text("Цепочка прервана", "Chain interrupted")
+	return _single_player_text("Вы можете лучше", "You can do better")
 
 func _single_player_choose_theme_label() -> String:
 	return _single_player_text("Выберите тему", "Choose a category")

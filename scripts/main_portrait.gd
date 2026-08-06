@@ -3434,9 +3434,17 @@ func _stage_portrait_result_mode_theme_label(rect: Rect2, animate_result: bool) 
 
 func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) -> Dictionary:
 	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
-	var title: String = Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT").strip_edges()
-	if title == "":
-		title = "VICTORY" if is_win else "DEFEAT"
+	var is_single_player_failure: bool = (
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and !is_win
+	)
+	var title: String
+	if is_single_player_failure:
+		title = _single_player_level_failed_label()
+	else:
+		title = Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT").strip_edges()
+		if title == "":
+			title = "VICTORY" if is_win else "DEFEAT"
 	var title_label := _stage_heading_label(Rect2(40.0, 142.0, 400.0, 54.0), title, 38, _portrait_result_title_color(is_win))
 	title_label.clip_text = false
 	var title_holder := title_label.get_parent() as CanvasItem
