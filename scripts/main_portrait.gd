@@ -182,6 +182,7 @@ var _portrait_main_tab_swipe_target_top_bar: Control = null
 var _portrait_main_tab_swipe_building_target: bool = false
 var _portrait_main_tab_swipe_animating: bool = false
 var _portrait_top_bar_content: Control = null
+var _portrait_coin_store_active: bool = false
 var _portrait_back_button_visible: bool = false
 var _portrait_previous_screen_had_back: bool = false
 var _profile_name_edit: LineEdit = null
@@ -212,6 +213,7 @@ func _clear() -> void:
 	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
 	_portrait_top_bar_content = null
+	_portrait_coin_store_active = false
 	if !_portrait_main_tab_swipe_building_target:
 		_portrait_active_main_tab = -1
 		_reset_portrait_main_tab_swipe()
@@ -641,7 +643,8 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 func _stage_currency_counter(
 	return_action: Callable,
 	rect: Rect2 = Rect2(),
-	challenge_colors: bool = false
+	challenge_colors: bool = false,
+	interactive: bool = true
 ) -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
@@ -650,6 +653,10 @@ func _stage_currency_counter(
 	var counter_scale: float = counter_rect.size.y / 48.0
 	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
 	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
+	# A currency counter shown inside the shop is always display-only. Keeping this
+	# rule here prevents any shop entry point from accidentally restoring the plus
+	# badge or an invisible click target.
+	var counter_is_interactive: bool = interactive and !_portrait_coin_store_active
 	var counter_parent_content: Control = content
 	var counter_visual := Control.new()
 	counter_visual.name = "CurrencyCounterVisual"
@@ -671,43 +678,44 @@ func _stage_currency_counter(
 	)
 	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
 	coin_icon.z_index = 21
-	var add_badge_size: float = PORTRAIT_CURRENCY_ADD_BADGE_SIZE * counter_scale
-	var add_badge_rect := Rect2(
-		icon_rect.end - Vector2.ONE * add_badge_size * 0.82,
-		Vector2.ONE * add_badge_size
-	)
-	var add_badge := _stage_panel(
-		add_badge_rect,
-		PORTRAIT_CURRENCY_ADD_BADGE_GREEN,
-		add_badge_size * 0.5,
-		PORTRAIT_CURRENCY_ADD_BADGE_BORDER,
-		maxf(1.0, 1.5 * counter_scale)
-	)
-	add_badge.z_index = 22
-	# Draw the plus as two solid strokes instead of a font glyph. At the compact
-	# HUD scale a glyph can be clipped down to an indistinguishable green dot,
-	# while these arms remain crisp on every viewport density.
-	var plus_arm: float = add_badge_size * 0.58
-	var plus_stroke: float = maxf(2.0, add_badge_size * 0.20)
-	var plus_center: Vector2 = add_badge_rect.get_center()
-	var plus_horizontal := _stage_panel(
-		Rect2(
-			plus_center - Vector2(plus_arm, plus_stroke) * 0.5,
-			Vector2(plus_arm, plus_stroke)
-		),
-		Color.WHITE,
-		plus_stroke * 0.5
-	)
-	plus_horizontal.z_index = 23
-	var plus_vertical := _stage_panel(
-		Rect2(
-			plus_center - Vector2(plus_stroke, plus_arm) * 0.5,
-			Vector2(plus_stroke, plus_arm)
-		),
-		Color.WHITE,
-		plus_stroke * 0.5
-	)
-	plus_vertical.z_index = 23
+	if counter_is_interactive:
+		var add_badge_size: float = PORTRAIT_CURRENCY_ADD_BADGE_SIZE * counter_scale
+		var add_badge_rect := Rect2(
+			icon_rect.end - Vector2.ONE * add_badge_size * 0.82,
+			Vector2.ONE * add_badge_size
+		)
+		var add_badge := _stage_panel(
+			add_badge_rect,
+			PORTRAIT_CURRENCY_ADD_BADGE_GREEN,
+			add_badge_size * 0.5,
+			PORTRAIT_CURRENCY_ADD_BADGE_BORDER,
+			maxf(1.0, 1.5 * counter_scale)
+		)
+		add_badge.z_index = 22
+		# Draw the plus as two solid strokes instead of a font glyph. At the compact
+		# HUD scale a glyph can be clipped down to an indistinguishable green dot,
+		# while these arms remain crisp on every viewport density.
+		var plus_arm: float = add_badge_size * 0.58
+		var plus_stroke: float = maxf(2.0, add_badge_size * 0.20)
+		var plus_center: Vector2 = add_badge_rect.get_center()
+		var plus_horizontal := _stage_panel(
+			Rect2(
+				plus_center - Vector2(plus_arm, plus_stroke) * 0.5,
+				Vector2(plus_arm, plus_stroke)
+			),
+			Color.WHITE,
+			plus_stroke * 0.5
+		)
+		plus_horizontal.z_index = 23
+		var plus_vertical := _stage_panel(
+			Rect2(
+				plus_center - Vector2(plus_stroke, plus_arm) * 0.5,
+				Vector2(plus_stroke, plus_arm)
+			),
+			Color.WHITE,
+			plus_stroke * 0.5
+		)
+		plus_vertical.z_index = 23
 	var balance_rect := Rect2(
 		Vector2(counter_rect.position.x + 43.0 * counter_scale, counter_rect.position.y),
 		Vector2(counter_rect.size.x - 49.0 * counter_scale, counter_rect.size.y)
@@ -727,32 +735,33 @@ func _stage_currency_counter(
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
 	content = counter_parent_content
-	var counter_action: Callable = Callable(self, "_open_coin_store").bind(return_action)
-	if return_action.is_valid() and return_action.get_method() in [&"show_coin_store", &"_show_coin_store_tab"]:
-		counter_action = return_action
-	var counter_button := _stage_button(counter_rect, counter_action, "")
-	counter_button.z_index = 24
-	counter_button.button_down.connect(
-		Callable(self, "_set_currency_counter_pressed").bind(
-			counter_visual,
-			counter_rect,
-			true
+	if counter_is_interactive:
+		var counter_action: Callable = Callable(self, "_open_coin_store").bind(return_action)
+		if return_action.is_valid() and return_action.get_method() in [&"show_coin_store", &"_show_coin_store_tab"]:
+			counter_action = return_action
+		var counter_button := _stage_button(counter_rect, counter_action, "")
+		counter_button.z_index = 24
+		counter_button.button_down.connect(
+			Callable(self, "_set_currency_counter_pressed").bind(
+				counter_visual,
+				counter_rect,
+				true
+			)
 		)
-	)
-	counter_button.button_up.connect(
-		Callable(self, "_set_currency_counter_pressed").bind(
-			counter_visual,
-			counter_rect,
-			false
+		counter_button.button_up.connect(
+			Callable(self, "_set_currency_counter_pressed").bind(
+				counter_visual,
+				counter_rect,
+				false
+			)
 		)
-	)
-	counter_button.mouse_exited.connect(
-		Callable(self, "_set_currency_counter_pressed").bind(
-			counter_visual,
-			counter_rect,
-			false
+		counter_button.mouse_exited.connect(
+			Callable(self, "_set_currency_counter_pressed").bind(
+				counter_visual,
+				counter_rect,
+				false
+			)
 		)
-	)
 	content = screen_content
 
 func _set_currency_counter_pressed(
@@ -1131,9 +1140,12 @@ func show_coin_store() -> void:
 
 func _show_coin_store_screen(with_main_navigation: bool) -> void:
 	_clear()
+	_portrait_coin_store_active = true
 	if with_main_navigation:
 		_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-		_stage_currency_counter(Callable(self, "_show_coin_store_tab"))
+		# The shop is already open, so the balance is display-only here: no plus
+		# badge and no invisible button intercepting input.
+		_stage_currency_counter(Callable(), Rect2(), false, false)
 		_stage_portrait_page_title(_portrait_main_tab_label(MainTab.SHOP))
 	else:
 		_portrait_screen(0.0)
@@ -1402,7 +1414,7 @@ func _show_menu_screen() -> void:
 	_clear()
 
 	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-	_stage_currency_counter(Callable(self, "show_menu"))
+	_stage_currency_counter(Callable(self, "_show_coin_store_tab"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
 	var title_label := _stage_heading_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN").to_upper(), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
@@ -1493,7 +1505,7 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		else _single_player_text("ИСПЫТАНИЯ", "CHALLENGES")
 	)
 	if with_main_navigation:
-		_stage_currency_counter(Callable(self, "show_tasks"))
+		_stage_currency_counter(Callable(self, "_show_coin_store_tab"))
 		_stage_portrait_page_title(theme_title)
 	else:
 		_stage_portrait_page_header(
@@ -3502,7 +3514,7 @@ func _show_profile_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
 	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-	_stage_currency_counter(Callable(self, "show_profile"))
+	_stage_currency_counter(Callable(self, "_show_coin_store_tab"))
 	_stage_portrait_page_title(_portrait_main_tab_label(MainTab.PROFILE))
 
 	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)

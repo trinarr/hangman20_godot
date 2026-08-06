@@ -81,12 +81,17 @@ func load_game() -> void:
 		return
 	if int(parsed.get("save_version", -1)) != SAVE_FORMAT_VERSION:
 		return
+
+	# Load the hint inventory independently from the rest of the profile. Older or
+	# partially written saves can miss another section; that must not leave the
+	# in-memory 3/3/3 defaults and grant the free hints again.
+	_load_hint_counts_from_save(parsed)
+
 	if (
 		!(parsed.get("settings") is Array)
 		or !(parsed.get("records") is Array)
 		or !(parsed.get("progress") is Dictionary)
 		or !(parsed.get("single_player") is Dictionary)
-		or !(parsed.get("hint_counts") is Dictionary)
 	):
 		return
 
@@ -97,7 +102,19 @@ func load_game() -> void:
 	records = Array(parsed["records"]).duplicate(true)
 	progress = Dictionary(parsed["progress"]).duplicate(true)
 	single_player = Dictionary(parsed["single_player"]).duplicate(true)
-	hint_counts = Dictionary(parsed["hint_counts"]).duplicate(true)
+
+func _load_hint_counts_from_save(parsed: Dictionary) -> void:
+	var stored_counts = parsed.get("hint_counts")
+	if !(stored_counts is Dictionary):
+		# The save already exists, so missing inventory data must not be treated as
+		# a new player bonus. A genuinely new player still keeps DEFAULT_HINT_COUNT
+		# because load_game() returns earlier when no save file exists.
+		for hint_key in HINT_COSTS.keys():
+			hint_counts[hint_key] = 0
+		return
+
+	for hint_key in HINT_COSTS.keys():
+		hint_counts[hint_key] = maxi(int(stored_counts.get(hint_key, 0)), 0)
 
 func _set_interface_language_from_locale() -> void:
 	# The interface follows the device on every launch: Russian only for a
