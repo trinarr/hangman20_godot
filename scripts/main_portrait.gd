@@ -114,6 +114,17 @@ const PORTRAIT_GAME_WORD_PAPER_CORNER_RADIUS: float = 18.0
 const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
 const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0
 const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0
+const PORTRAIT_ROUND_END_KEY_FADE_DURATION: float = 0.22
+const PORTRAIT_ROUND_END_KEY_WAVE_DURATION: float = 0.48
+const PORTRAIT_ROUND_END_KEY_SCALE: float = 1.28
+const PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = 0.92
+const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
+const PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = 0.20
+const PORTRAIT_GAME_ENTRANCE_START_DELAY: float = 0.05
+const PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE: float = 0.72
+const PORTRAIT_GAME_HINT_ENTRANCE_PEAK_SCALE: float = 1.12
+const PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION: float = 0.13
+const PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION: float = 0.16
 const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 44.0
 const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
 const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
@@ -144,6 +155,7 @@ const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/setti
 const PORTRAIT_ATTEMPTS_SHIELD_ICON: Texture2D = preload("res://flash_assets/attempt_shield_icon.png")
 const PORTRAIT_PROGRESS_GIFT_ICON: Texture2D = preload("res://flash_assets/progress_gift_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
+const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
 
 const PORTRAIT_BLUE := Color(0.2706, 0.3098, 0.6078, 1.0)
 const PORTRAIT_DARK_BLUE := Color(0.2314, 0.2627, 0.5176, 1.0)
@@ -205,6 +217,22 @@ enum MainTab {
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
+var _portrait_game_input_group: Control = null
+var _portrait_game_word_paper_mask: Control = null
+var _portrait_game_word_paper_layer: Control = null
+var _portrait_game_word_paper_backside: Control = null
+var _portrait_game_word_paper_backside_visual: TextureRect = null
+var _portrait_game_word_rect := Rect2()
+var _portrait_game_keyboard_buttons: Array = []
+var _portrait_game_hint_buttons: Array[Control] = []
+var _portrait_game_attempts_controls: Array[Control] = []
+var _portrait_round_end_transition_active: bool = false
+var _portrait_round_end_bounce_started: bool = false
+var _portrait_inline_result_visible: bool = false
+var _portrait_inline_result_search_button: Control = null
+var _portrait_inline_result_word_holder: Control = null
+var _portrait_game_entrance_pending: bool = false
+var _portrait_game_entrance_active: bool = false
 var _portrait_active_main_tab: int = -1
 var _portrait_main_tab_swipe_touch_index: int = -1
 var _portrait_main_tab_swipe_start_position := Vector2.ZERO
@@ -1461,6 +1489,9 @@ func _stage_portrait_game_attempts_panel(word_rect: Rect2) -> void:
 		24,
 		15
 	)
+	_portrait_game_attempts_controls.append(attempts_panel)
+	_portrait_game_attempts_controls.append(attempts_icon)
+	_portrait_game_attempts_controls.append(attempts_label)
 
 func _stage_single_player_progress_indicator(theme_name: String, word_rect: Rect2) -> void:
 	var word_count: int = maxi(_single_player_level_word_count(single_player_active_level_index), 1)
@@ -2992,6 +3023,12 @@ func start_custom_game() -> void:
 	custom_comment_text = ""
 	super.start_custom_game()
 
+func show_game_screen() -> void:
+	# Only actual navigation into the active gameplay page gets the entrance
+	# animation. Regular GameSession.changed rebuilds must stay visually stable.
+	_portrait_game_entrance_pending = !game_finished
+	super.show_game_screen()
+
 func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var alphabet := Database.get_alphabet()
 	var columns: int = 6
@@ -3031,9 +3068,24 @@ func _refresh_game_screen() -> void:
 		return
 	if content == null:
 		return
-	if game_finished:
-		show_result_screen(last_result_is_win, last_result_data)
-		return
+	var restore_finished_round: bool = game_finished
+	var play_game_entrance: bool = _portrait_game_entrance_pending and !restore_finished_round
+	_portrait_game_entrance_pending = false
+	_portrait_game_entrance_active = false
+	_portrait_game_input_group = null
+	_portrait_game_word_paper_mask = null
+	_portrait_game_word_paper_layer = null
+	_portrait_game_word_paper_backside = null
+	_portrait_game_word_paper_backside_visual = null
+	_portrait_game_word_rect = Rect2()
+	_portrait_game_keyboard_buttons.clear()
+	_portrait_game_hint_buttons.clear()
+	_portrait_game_attempts_controls.clear()
+	_portrait_round_end_transition_active = false
+	_portrait_round_end_bounce_started = false
+	_portrait_inline_result_visible = false
+	_portrait_inline_result_search_button = null
+	_portrait_inline_result_word_holder = null
 	_capture_hero_animation_phase()
 	for child: Node in content.get_children():
 		content.remove_child(child)
@@ -3085,7 +3137,65 @@ func _refresh_game_screen() -> void:
 	# This makes the entire input cluster translate as a single unit on tall
 	# screens instead of letting the hint row drift independently.
 	var input_root_content: Control = _portrait_begin_bottom_attached_group()
+	_portrait_game_input_group = content
+	_portrait_game_word_rect = game_word_rect
+
+	# Keep the paper and current word inside a clipping mask. During the round-end
+	# page turn, the mask edge moves from left to right while the actual paper art
+	# stays fixed in screen space. This reveals the solved word underneath without
+	# shrinking or deforming the sheet.
+	var word_paper_mask := Control.new()
+	word_paper_mask.name = "PortraitGameWordPaperMask"
+	word_paper_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	word_paper_mask.clip_contents = true
+	word_paper_mask.z_index = 30
+	content.add_child(word_paper_mask)
+	word_paper_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_game_word_paper_mask = word_paper_mask
+
+	var word_paper_layer := Control.new()
+	word_paper_layer.name = "PortraitGameWordPaperLayer"
+	word_paper_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	word_paper_mask.add_child(word_paper_layer)
+	word_paper_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_game_word_paper_layer = word_paper_layer
+	var input_group_content: Control = content
+	content = word_paper_layer
 	_stage_portrait_game_word_display(game_word_rect, 34)
+	content = input_group_content
+
+	# The darker reverse side uses a fixed-width stage holder. Only the child
+	# TextureRect scales on X around its LEFT edge. Resizing FlashStageTexture's
+	# stage_rect used to re-stretch the entire wide source image every frame, which
+	# made the fold look squashed instead of physically opening from the contact line.
+	var backside_rect := Rect2(
+		0.0,
+		game_word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
+		PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
+		PORTRAIT_GAME_WORD_PAPER_HEIGHT
+	)
+	var word_paper_backside := _stage_holder(backside_rect, Control.MOUSE_FILTER_IGNORE)
+	word_paper_backside.z_index = 31
+	word_paper_backside.visible = false
+	_portrait_game_word_paper_backside = word_paper_backside
+
+	var word_paper_backside_visual := TextureRect.new()
+	word_paper_backside_visual.name = "PortraitGameWordPaperBacksideVisual"
+	word_paper_backside_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	word_paper_backside_visual.texture = PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE
+	word_paper_backside_visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	word_paper_backside_visual.stretch_mode = TextureRect.STRETCH_SCALE
+	word_paper_backside_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	word_paper_backside_visual.pivot_offset = Vector2(0.0, PORTRAIT_GAME_WORD_PAPER_HEIGHT * 0.5)
+	word_paper_backside_visual.scale = Vector2(0.0, 1.0)
+	word_paper_backside.add_child(word_paper_backside_visual)
+	_portrait_game_word_paper_backside_visual = word_paper_backside_visual
+
+	# Explicitly initialize the page-turn mask in its fully closed/front-facing
+	# state. PRESET_FULL_RECT alone can still have a zero-sized clip rect during
+	# the first layout pass, which made the normal paper and guessed word vanish.
+	_set_portrait_word_paper_peel_progress(0.0)
+
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		var progress_header: Dictionary = _portrait_game_header_texts()
 		var progress_theme_name: String = str(progress_header.get("subtitle", ""))
@@ -3113,7 +3223,7 @@ func _refresh_game_screen() -> void:
 			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
 			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
 		)
-		_stage_letter_button(
+		var key_button := _stage_letter_button(
 			key_rect,
 			Callable(self, "_press_letter").bind(letter),
 			letter,
@@ -3123,6 +3233,11 @@ func _refresh_game_screen() -> void:
 			marker_size,
 			animate_state
 		)
+		_portrait_game_keyboard_buttons.append({
+			"button": key_button,
+			"stage_x": x,
+			"rest_disabled": !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
+		})
 	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
 		_stage_portrait_hint_buttons()
 	_portrait_end_adaptive_group(input_root_content)
@@ -3146,6 +3261,15 @@ func _refresh_game_screen() -> void:
 	_stage_portrait_admob_banner_placeholder()
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
+	if play_game_entrance:
+		_prepare_portrait_game_entrance()
+	if restore_finished_round:
+		call_deferred(
+			"_show_portrait_inline_round_result",
+			last_result_is_win,
+			last_result_data,
+			false
+		)
 
 func _stage_portrait_admob_banner_placeholder() -> void:
 	# Reserve a real 320×50 mobile-banner slot at the physical bottom. The named
@@ -3194,7 +3318,7 @@ func _stage_portrait_result_word_display(
 	continue_button: Control,
 	continue_text: Control,
 	animate_result: bool
-) -> void:
+) -> Dictionary:
 	var reserved_width: float = PORTRAIT_RESULT_SEARCH_BUTTON_SIZE + PORTRAIT_RESULT_WORD_SEARCH_GAP
 	# The result is a single shaped line, so the font controls glyph advances and
 	# kerning. The search button is appended after the measured text without
@@ -3315,6 +3439,11 @@ func _stage_portrait_result_word_display(
 			continue_button,
 			continue_text
 		)
+	return {
+		"word_holder": word_holder,
+		"word_label": word_label,
+		"search_button": search_button,
+	}
 
 func _stage_portrait_word_slots(
 	rect: Rect2,
@@ -3516,9 +3645,10 @@ func _stage_portrait_hint_buttons() -> void:
 	var open_hint_used: bool = GameSession.open_hint_used
 	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
 	var comment_unlocked: bool = GameSession.comment_hint_unlocked
-	var open_hint_disabled: bool = open_hint_used or !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = remove_hint_used or !GameSession.can_use_remove_wrong_hint()
-	var comment_disabled: bool = !comment_unlocked and !GameSession.can_unlock_comment_hint()
+	var round_inactive: bool = !GameSession.is_active
+	var open_hint_disabled: bool = round_inactive or open_hint_used or !GameSession.can_use_open_letter_hint()
+	var remove_hint_disabled: bool = round_inactive or remove_hint_used or !GameSession.can_use_remove_wrong_hint()
+	var comment_disabled: bool = round_inactive or (!comment_unlocked and !GameSession.can_unlock_comment_hint())
 
 	# Place the hint row directly after the last keyboard row. Both controls live
 	# in bottom-attached coordinate space, so this gap stays stable on tall phones.
@@ -3585,6 +3715,11 @@ func _stage_portrait_hint_buttons() -> void:
 		false,
 		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
 	)
+
+	_portrait_game_hint_buttons.clear()
+	_portrait_game_hint_buttons.append(open_button)
+	_portrait_game_hint_buttons.append(remove_button)
+	_portrait_game_hint_buttons.append(comment_button)
 
 	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_REVEAL_LETTER_ICON, open_hint_used)
 	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_REMOVE_WRONG_ICON, remove_hint_used)
@@ -3772,11 +3907,581 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 func _portrait_result_title_color(is_win: bool) -> Color:
 	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
 
+func _prepare_portrait_game_entrance() -> void:
+	_portrait_game_entrance_active = true
+	# Entrance has its own page-turn state. Do not run the round-end peel formula
+	# backwards: the reverse-side fold has a different width curve while the sheet
+	# is being laid back down. Start with the face completely masked.
+	_set_portrait_word_paper_entrance_progress(0.0)
+	for entry_variant: Variant in _portrait_game_keyboard_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as Control
+		if button == null or !is_instance_valid(button):
+			continue
+		var rest_visual_scale: Vector2 = button.get("visual_scale")
+		button.set_meta(&"portrait_entrance_rest_visual_scale", rest_visual_scale)
+		button.set_meta(&"portrait_entrance_rest_mouse_filter", button.mouse_filter)
+		button.modulate.a = 0.0
+		button.set("visual_scale", rest_visual_scale * PORTRAIT_ROUND_END_KEY_SCALE)
+		button.set("disabled", true)
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# Hints must not flash in before the keyboard entrance. Keep their authored
+	# disabled/click state, but render them only after the final keyboard key has
+	# settled, using a short bounce.
+	for hint_button: Control in _portrait_game_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		var rest_hint_scale: Vector2 = hint_button.get("visual_scale")
+		hint_button.set_meta(&"portrait_entrance_rest_visual_scale", rest_hint_scale)
+		hint_button.set_meta(&"portrait_entrance_rest_mouse_filter", hint_button.mouse_filter)
+		hint_button.set_meta(&"portrait_entrance_rest_disabled", bool(hint_button.get("disabled")))
+		hint_button.modulate.a = 0.0
+		hint_button.set(
+			"visual_scale",
+			rest_hint_scale * PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE
+		)
+		hint_button.set("disabled", true)
+		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	call_deferred("_play_portrait_game_entrance")
+
+func _play_portrait_game_entrance() -> void:
+	if !_portrait_game_entrance_active or !game_screen_visible or game_finished:
+		return
+	var paper_tween := create_tween()
+	paper_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	if PORTRAIT_GAME_ENTRANCE_START_DELAY > 0.0:
+		paper_tween.tween_interval(PORTRAIT_GAME_ENTRANCE_START_DELAY)
+	var paper_reveal := paper_tween.tween_method(
+		Callable(self, "_set_portrait_word_paper_entrance_progress"),
+		0.0,
+		1.0,
+		PORTRAIT_ROUND_END_PAPER_FLIP_DURATION
+	)
+	paper_reveal.set_trans(Tween.TRANS_QUAD)
+	paper_reveal.set_ease(Tween.EASE_IN_OUT)
+
+	var valid_buttons: Array = []
+	var min_x: float = INF
+	var max_x: float = -INF
+	for entry_variant: Variant in _portrait_game_keyboard_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as Control
+		if button == null or !is_instance_valid(button):
+			continue
+		var stage_x: float = float(entry.get("stage_x", 0.0))
+		valid_buttons.append(entry)
+		min_x = minf(min_x, stage_x)
+		max_x = maxf(max_x, stage_x)
+	var x_range: float = maxf(max_x - min_x, 1.0)
+	var latest_key_finish: float = 0.0
+	for entry_variant: Variant in valid_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as Control
+		var stage_x: float = float(entry.get("stage_x", 0.0))
+		# True reverse of the exit wave: the rightmost keys return first.
+		var delay: float = PORTRAIT_GAME_ENTRANCE_START_DELAY + (
+			(max_x - stage_x) / x_range
+		) * PORTRAIT_ROUND_END_KEY_WAVE_DURATION
+		latest_key_finish = maxf(
+			latest_key_finish,
+			delay + PORTRAIT_ROUND_END_KEY_FADE_DURATION
+		)
+		var rest_visual_scale: Vector2 = button.get_meta(
+			&"portrait_entrance_rest_visual_scale",
+			Vector2.ONE
+		)
+		var alpha_tween := button.create_tween()
+		alpha_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		alpha_tween.tween_interval(delay)
+		var alpha_tweener := alpha_tween.tween_property(
+			button,
+			"modulate:a",
+			1.0,
+			PORTRAIT_ROUND_END_KEY_FADE_DURATION
+		)
+		alpha_tweener.set_trans(Tween.TRANS_QUAD)
+		alpha_tweener.set_ease(Tween.EASE_OUT)
+		var scale_tween := button.create_tween()
+		scale_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		scale_tween.tween_interval(delay)
+		var scale_tweener := scale_tween.tween_property(
+			button,
+			"visual_scale",
+			rest_visual_scale,
+			PORTRAIT_ROUND_END_KEY_FADE_DURATION
+		)
+		scale_tweener.set_trans(Tween.TRANS_BACK)
+		scale_tweener.set_ease(Tween.EASE_OUT)
+
+	# Hints enter only after the keyboard wave has completely settled.
+	var hint_tween := create_tween()
+	hint_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	if latest_key_finish > 0.0:
+		hint_tween.tween_interval(latest_key_finish)
+	hint_tween.tween_callback(Callable(self, "_play_portrait_game_hint_entrance_bounce"))
+
+	var hint_finish: float = (
+		latest_key_finish
+		+ PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+		+ PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+	)
+	var entrance_finish: float = maxf(
+		PORTRAIT_GAME_ENTRANCE_START_DELAY + PORTRAIT_ROUND_END_PAPER_FLIP_DURATION,
+		hint_finish
+	)
+	var finish_tween := create_tween()
+	finish_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	finish_tween.tween_interval(entrance_finish)
+	finish_tween.tween_callback(Callable(self, "_finish_portrait_game_entrance"))
+
+func _play_portrait_game_hint_entrance_bounce() -> void:
+	if !_portrait_game_entrance_active:
+		return
+	for hint_button: Control in _portrait_game_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		var rest_scale: Vector2 = hint_button.get_meta(
+			&"portrait_entrance_rest_visual_scale",
+			Vector2.ONE
+		)
+		hint_button.visible = true
+		hint_button.modulate.a = 0.0
+		var alpha_tween := hint_button.create_tween()
+		alpha_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		alpha_tween.tween_property(
+			hint_button,
+			"modulate:a",
+			1.0,
+			PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+		)
+		var bounce_tween := hint_button.create_tween()
+		bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var grow := bounce_tween.tween_property(
+			hint_button,
+			"visual_scale",
+			rest_scale * PORTRAIT_GAME_HINT_ENTRANCE_PEAK_SCALE,
+			PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+		)
+		grow.set_trans(Tween.TRANS_BACK)
+		grow.set_ease(Tween.EASE_OUT)
+		var settle := bounce_tween.tween_property(
+			hint_button,
+			"visual_scale",
+			rest_scale,
+			PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+		)
+		settle.set_trans(Tween.TRANS_BOUNCE)
+		settle.set_ease(Tween.EASE_OUT)
+
+func _finish_portrait_game_entrance() -> void:
+	if !_portrait_game_entrance_active:
+		return
+	_set_portrait_word_paper_peel_progress(0.0)
+	for entry_variant: Variant in _portrait_game_keyboard_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as Control
+		if button == null or !is_instance_valid(button):
+			continue
+		button.modulate.a = 1.0
+		button.set(
+			"visual_scale",
+			button.get_meta(&"portrait_entrance_rest_visual_scale", Vector2.ONE)
+		)
+		button.set("disabled", bool(entry.get("rest_disabled", false)))
+		button.mouse_filter = int(button.get_meta(
+			&"portrait_entrance_rest_mouse_filter",
+			Control.MOUSE_FILTER_STOP
+		))
+		button.remove_meta(&"portrait_entrance_rest_visual_scale")
+		button.remove_meta(&"portrait_entrance_rest_mouse_filter")
+	for hint_button: Control in _portrait_game_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		hint_button.modulate.a = 1.0
+		hint_button.set(
+			"visual_scale",
+			hint_button.get_meta(&"portrait_entrance_rest_visual_scale", Vector2.ONE)
+		)
+		hint_button.set(
+			"disabled",
+			bool(hint_button.get_meta(&"portrait_entrance_rest_disabled", false))
+		)
+		hint_button.mouse_filter = int(hint_button.get_meta(
+			&"portrait_entrance_rest_mouse_filter",
+			Control.MOUSE_FILTER_STOP
+		))
+		hint_button.remove_meta(&"portrait_entrance_rest_visual_scale")
+		hint_button.remove_meta(&"portrait_entrance_rest_mouse_filter")
+		hint_button.remove_meta(&"portrait_entrance_rest_disabled")
+	_portrait_game_entrance_active = false
+
 func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
-	_show_portrait_result_screen(is_win, data, true)
+	# Round completion now stays on the gameplay screen. If another screen has
+	# temporarily cleared the game UI, rebuild the finished gameplay state first;
+	# _refresh_game_screen() will restore the inline result without opening the old
+	# dedicated result screen.
+	if !game_screen_visible or _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
+		show_game_screen()
+		return
+	_show_portrait_inline_round_result(is_win, data, true)
 
 func _return_to_result_from_coin_store() -> void:
-	_show_portrait_result_screen(last_result_is_win, last_result_data, false)
+	show_game_screen()
+
+func _disable_portrait_finished_round_hints() -> void:
+	for hint_button: Control in _portrait_game_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		hint_button.set("disabled", true)
+		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _stage_portrait_inline_result_word(animate_result: bool = false) -> Dictionary:
+	if (
+		_portrait_game_input_group == null
+		or !is_instance_valid(_portrait_game_input_group)
+		or _portrait_game_word_rect.size.x <= 0.0
+	):
+		return {}
+	var previous_content: Control = content
+	content = _portrait_game_input_group
+	var result_controls: Dictionary = _stage_portrait_result_word_display(
+		_portrait_game_word_rect,
+		null,
+		null,
+		animate_result
+	)
+	content = previous_content
+	_portrait_inline_result_word_holder = result_controls.get("word_holder") as Control
+	return result_controls
+
+func _hide_portrait_keyboard_for_round_end(animated: bool) -> float:
+	var valid_buttons: Array = []
+	var min_x: float = INF
+	var max_x: float = -INF
+	for entry_variant: Variant in _portrait_game_keyboard_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as Control
+		if button == null or !is_instance_valid(button):
+			continue
+		var stage_x: float = float(entry.get("stage_x", 0.0))
+		valid_buttons.append({"button": button, "stage_x": stage_x})
+		min_x = minf(min_x, stage_x)
+		max_x = maxf(max_x, stage_x)
+	if valid_buttons.is_empty():
+		return 0.0
+	var x_range: float = maxf(max_x - min_x, 1.0)
+	for entry_variant: Variant in valid_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as Control
+		var stage_x: float = float(entry.get("stage_x", 0.0))
+		button.set("disabled", true)
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Do not touch the Control transform used by the stage layout here. Letter
+		# buttons carry the viewport fit scale on `button.scale`; changing their pivot
+		# while that scale is active shifts the whole keyboard left/up for one frame.
+		# Animate only the button's internal visual scale so the first animation frame
+		# is pixel-identical to the gameplay position.
+		if !animated:
+			button.modulate.a = 0.0
+			button.visible = false
+			continue
+		var delay: float = ((stage_x - min_x) / x_range) * PORTRAIT_ROUND_END_KEY_WAVE_DURATION
+		var rest_visual_scale: Vector2 = button.get("visual_scale")
+		var tween := button.create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.tween_interval(delay)
+		var alpha_tweener := tween.tween_property(
+			button,
+			"modulate:a",
+			0.0,
+			PORTRAIT_ROUND_END_KEY_FADE_DURATION
+		)
+		alpha_tweener.set_trans(Tween.TRANS_QUAD)
+		alpha_tweener.set_ease(Tween.EASE_IN)
+		var scale_tween := button.create_tween()
+		scale_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		scale_tween.tween_interval(delay)
+		var scale_tweener := scale_tween.tween_property(
+			button,
+			"visual_scale",
+			rest_visual_scale * PORTRAIT_ROUND_END_KEY_SCALE,
+			PORTRAIT_ROUND_END_KEY_FADE_DURATION
+		)
+		scale_tweener.set_trans(Tween.TRANS_QUAD)
+		scale_tweener.set_ease(Tween.EASE_OUT)
+	return PORTRAIT_ROUND_END_KEY_WAVE_DURATION + PORTRAIT_ROUND_END_KEY_FADE_DURATION
+
+func _hide_portrait_attempts_for_round_end(animated: bool) -> void:
+	for attempts_control: Control in _portrait_game_attempts_controls:
+		if attempts_control == null or !is_instance_valid(attempts_control):
+			continue
+		attempts_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if !animated:
+			attempts_control.modulate.a = 0.0
+			attempts_control.visible = false
+			continue
+		var fade_tween := attempts_control.create_tween()
+		fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var fade_tweener := fade_tween.tween_property(
+			attempts_control,
+			"modulate:a",
+			0.0,
+			PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION
+		)
+		fade_tweener.set_trans(Tween.TRANS_QUAD)
+		fade_tweener.set_ease(Tween.EASE_IN)
+
+func _set_portrait_word_paper_entrance_progress(progress: float) -> void:
+	var reveal: float = clampf(progress, 0.0, 1.0)
+	if (
+		_portrait_game_word_paper_mask == null
+		or !is_instance_valid(_portrait_game_word_paper_mask)
+		or _portrait_game_word_paper_layer == null
+		or !is_instance_valid(_portrait_game_word_paper_layer)
+	):
+		return
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+
+	# Lay the page back down from right to left. The clipping boundary travels
+	# from the right edge toward the left while the front texture itself stays
+	# fixed in screen space. This is deliberately separate from the exit formula.
+	var hidden_progress: float = 1.0 - reveal
+	var mask_x: float = viewport_size.x * hidden_progress
+	_portrait_game_word_paper_mask.visible = reveal > 0.001
+	_portrait_game_word_paper_layer.visible = true
+	_portrait_game_word_paper_layer.modulate = Color.WHITE
+	_portrait_game_word_paper_mask.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_portrait_game_word_paper_mask.position = Vector2(mask_x, 0.0)
+	_portrait_game_word_paper_mask.size = Vector2(
+		maxf(1.0, viewport_size.x - mask_x),
+		viewport_size.y
+	)
+	_portrait_game_word_paper_layer.position = Vector2(-mask_x, 0.0)
+
+	if (
+		_portrait_game_word_paper_backside == null
+		or !is_instance_valid(_portrait_game_word_paper_backside)
+		or _portrait_game_word_paper_backside_visual == null
+		or !is_instance_valid(_portrait_game_word_paper_backside_visual)
+	):
+		return
+
+	var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
+	if fit_scale <= 0.0:
+		return
+	var horizontal_offset: float = PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size)
+	var fold_stage_x: float = (mask_x - horizontal_offset) / fit_scale
+
+	# Keep the reverse texture at a stable authored width and scale the child from
+	# its left pivot. This is a real horizontal scale, not a repeated texture
+	# re-layout. The fold is widest around the middle and flat at both endpoints.
+	var fold_curve: float = sin(PI * reveal)
+	_portrait_game_word_paper_backside.set(
+		"stage_rect",
+		Rect2(
+			fold_stage_x,
+			_portrait_game_word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
+			PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
+			PORTRAIT_GAME_WORD_PAPER_HEIGHT
+		)
+	)
+	_portrait_game_word_paper_backside_visual.scale = Vector2(fold_curve, 1.0)
+	_portrait_game_word_paper_backside.modulate.a = fold_curve
+	_portrait_game_word_paper_backside.visible = (
+		reveal > 0.001
+		and reveal < 0.999
+		and fold_curve > 0.005
+	)
+
+func _set_portrait_word_paper_peel_progress(progress: float) -> void:
+	var p: float = clampf(progress, 0.0, 1.0)
+	if (
+		_portrait_game_word_paper_mask == null
+		or !is_instance_valid(_portrait_game_word_paper_mask)
+		or _portrait_game_word_paper_layer == null
+		or !is_instance_valid(_portrait_game_word_paper_layer)
+	):
+		return
+
+	var viewport_size: Vector2 = get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+
+	# The mask's left edge travels across the physical viewport. Compensate the
+	# paper layer by the exact opposite X offset so the front face never scales or
+	# slides; only its visible portion is clipped away.
+	var mask_x: float = viewport_size.x * p
+	_portrait_game_word_paper_mask.visible = p < 0.999
+	_portrait_game_word_paper_layer.visible = true
+	_portrait_game_word_paper_layer.modulate = Color.WHITE
+	_portrait_game_word_paper_mask.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_portrait_game_word_paper_mask.position = Vector2(mask_x, 0.0)
+	_portrait_game_word_paper_mask.size = Vector2(
+		maxf(1.0, viewport_size.x - mask_x),
+		viewport_size.y
+	)
+	_portrait_game_word_paper_layer.position = Vector2(-mask_x, 0.0)
+
+	if (
+		_portrait_game_word_paper_backside == null
+		or !is_instance_valid(_portrait_game_word_paper_backside)
+		or _portrait_game_word_paper_backside_visual == null
+		or !is_instance_valid(_portrait_game_word_paper_backside_visual)
+	):
+		return
+
+	var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
+	if fit_scale <= 0.0:
+		return
+	var horizontal_offset: float = PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size)
+	var fold_stage_x: float = (mask_x - horizontal_offset) / fit_scale
+	_portrait_game_word_paper_backside.set(
+		"stage_rect",
+		Rect2(
+			fold_stage_x,
+			_portrait_game_word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
+			PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
+			PORTRAIT_GAME_WORD_PAPER_HEIGHT
+		)
+	)
+	_portrait_game_word_paper_backside_visual.scale = Vector2(p, 1.0)
+	# Entrance fades the reverse side at its endpoints. Reset its opacity here so
+	# a later round-end peel always uses the normal fully opaque backside.
+	_portrait_game_word_paper_backside.modulate.a = 1.0
+	_portrait_game_word_paper_backside.visible = p > 0.001 and p < 0.999
+
+func _start_portrait_inline_result_bounce_during_peel() -> void:
+	if _portrait_round_end_bounce_started or !_portrait_round_end_transition_active:
+		return
+	_portrait_round_end_bounce_started = true
+	# Replace the static solved word with the same animated result word once half
+	# of the paper has already been uncovered. The still-masked right side remains
+	# naturally hidden by the paper while the bounce wave begins on the left.
+	if (
+		_portrait_inline_result_word_holder != null
+		and is_instance_valid(_portrait_inline_result_word_holder)
+	):
+		_portrait_inline_result_word_holder.visible = false
+		_portrait_inline_result_word_holder.queue_free()
+	if (
+		_portrait_inline_result_search_button != null
+		and is_instance_valid(_portrait_inline_result_search_button)
+	):
+		_portrait_inline_result_search_button.visible = false
+		_portrait_inline_result_search_button.queue_free()
+	_portrait_inline_result_word_holder = null
+	_portrait_inline_result_search_button = null
+	var bounced_controls: Dictionary = _stage_portrait_inline_result_word(true)
+	_portrait_inline_result_search_button = bounced_controls.get("search_button") as Control
+
+func _peel_portrait_word_paper_for_round_end(animated: bool) -> void:
+	if _portrait_game_word_paper_layer == null or !is_instance_valid(_portrait_game_word_paper_layer):
+		_finish_portrait_word_paper_peel(null, animated)
+		return
+	var paper_layer: Control = _portrait_game_word_paper_layer
+	paper_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if !animated:
+		if _portrait_game_word_paper_mask != null and is_instance_valid(_portrait_game_word_paper_mask):
+			_portrait_game_word_paper_mask.visible = false
+		if _portrait_game_word_paper_backside != null and is_instance_valid(_portrait_game_word_paper_backside):
+			_portrait_game_word_paper_backside.visible = false
+		paper_layer.visible = false
+		_finish_portrait_word_paper_peel(paper_layer, false)
+		return
+
+	_set_portrait_word_paper_peel_progress(0.0)
+	_portrait_round_end_bounce_started = false
+	var flip_tween := create_tween()
+	flip_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var mask_tweener := flip_tween.tween_method(
+		Callable(self, "_set_portrait_word_paper_peel_progress"),
+		0.0,
+		1.0,
+		PORTRAIT_ROUND_END_PAPER_FLIP_DURATION
+	)
+	mask_tweener.set_trans(Tween.TRANS_QUAD)
+	mask_tweener.set_ease(Tween.EASE_IN_OUT)
+	flip_tween.finished.connect(
+		Callable(self, "_finish_portrait_word_paper_peel").bind(paper_layer, false),
+		CONNECT_ONE_SHOT
+	)
+
+	var bounce_start_tween := create_tween()
+	bounce_start_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	bounce_start_tween.tween_interval(PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5)
+	bounce_start_tween.tween_callback(
+		Callable(self, "_start_portrait_inline_result_bounce_during_peel")
+	)
+
+func _finish_portrait_word_paper_peel(paper_layer: Control, play_result_bounce: bool = false) -> void:
+	if paper_layer != null and is_instance_valid(paper_layer):
+		paper_layer.visible = false
+	if _portrait_game_word_paper_mask != null and is_instance_valid(_portrait_game_word_paper_mask):
+		_portrait_game_word_paper_mask.visible = false
+	if _portrait_game_word_paper_backside != null and is_instance_valid(_portrait_game_word_paper_backside):
+		_portrait_game_word_paper_backside.visible = false
+	if (
+		_portrait_game_word_paper_backside_visual != null
+		and is_instance_valid(_portrait_game_word_paper_backside_visual)
+	):
+		_portrait_game_word_paper_backside_visual.scale = Vector2(0.0, 1.0)
+
+	# Animated exits now start the result bounce at 50% paper progress. Keep the
+	# old boolean path only as a safe fallback for direct/nonstandard callers.
+	if play_result_bounce and !_portrait_round_end_bounce_started:
+		_start_portrait_inline_result_bounce_during_peel()
+	elif !play_result_bounce and !_portrait_round_end_bounce_started:
+		if (
+			_portrait_inline_result_search_button != null
+			and is_instance_valid(_portrait_inline_result_search_button)
+		):
+			_portrait_inline_result_search_button.set("disabled", false)
+
+	_portrait_round_end_transition_active = false
+	_portrait_inline_result_visible = true
+
+func _begin_portrait_inline_word_reveal(animated: bool) -> void:
+	if !_portrait_round_end_transition_active and animated:
+		return
+	var result_controls: Dictionary = _stage_portrait_inline_result_word(false)
+	_portrait_inline_result_search_button = result_controls.get("search_button") as Control
+	if (
+		_portrait_inline_result_search_button != null
+		and is_instance_valid(_portrait_inline_result_search_button)
+	):
+		_portrait_inline_result_search_button.set("disabled", animated)
+		# The static solved word sits under the peeling sheet, but its search button
+		# must not peek out early. The animated result recreates this button hidden
+		# and reveals it only after the bounce wave has passed the final letter.
+		_portrait_inline_result_search_button.visible = !animated
+	_peel_portrait_word_paper_for_round_end(animated)
+
+func _show_portrait_inline_round_result(
+	is_win: bool,
+	data: Dictionary,
+	animated: bool = true
+) -> void:
+	if _portrait_round_end_transition_active or _portrait_inline_result_visible:
+		return
+	if (
+		_portrait_game_input_group == null
+		or !is_instance_valid(_portrait_game_input_group)
+	):
+		return
+	_play_result_sound_once(is_win, data)
+	_disable_portrait_finished_round_hints()
+	_portrait_round_end_transition_active = animated
+
+	# Attempts, keyboard and paper now all start their exit on the same frame.
+	# Keyboard letters keep their left-to-right wave, while the slower paper turn
+	# overlaps it; the result bounce still starts at 50% paper progress.
+	_hide_portrait_attempts_for_round_end(animated)
+	_hide_portrait_keyboard_for_round_end(animated)
+	_begin_portrait_inline_word_reveal(animated)
 
 func _show_portrait_result_screen(is_win: bool, data: Dictionary, animate_result: bool) -> void:
 	_play_result_sound_once(is_win, data)
