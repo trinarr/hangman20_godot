@@ -124,7 +124,9 @@ const PORTRAIT_ROUND_END_HINTS_FADE_DURATION: float = 0.18
 const PORTRAIT_GAME_ENTRANCE_START_DELAY: float = 0.05
 const PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER: float = 1.30
 const PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION: float = 0.26
-const PORTRAIT_INLINE_RESULT_TITLE_RECT := Rect2(40.0, 96.0, 400.0, 54.0)
+const PORTRAIT_GAME_HERO_EXIT_FADE_DURATION: float = 0.24
+const PORTRAIT_INLINE_RESULT_TITLE_RECT := Rect2(40.0, 138.0, 400.0, 54.0)
+const PORTRAIT_INLINE_RESULT_CONTINUE_BUTTON_RECT := Rect2(99.75, 620.0, 280.5, 70.4)
 const PORTRAIT_INLINE_RESULT_TITLE_FADE_DURATION: float = 0.18
 const PORTRAIT_INLINE_RESULT_CONTINUE_START_SCALE: float = 0.72
 const PORTRAIT_INLINE_RESULT_CONTINUE_PEAK_SCALE: float = 1.10
@@ -154,6 +156,7 @@ const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.15
 const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.32
 const PORTRAIT_GAME_HERO_Y_LIFT: float = 42.0
+const PORTRAIT_GAME_HERO_LEFT_CENTER_X: float = PORTRAIT_STAGE_SIZE.x * 0.25
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
 const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
@@ -3132,10 +3135,10 @@ func _refresh_game_screen() -> void:
 	_portrait_screen(0.0, -1.0, _portrait_game_header_color())
 	_stage_portrait_game_header()
 
-	# The hangman character should remain horizontally centered on the screen in
-	# every gameplay mode.  Compensate for the imported symbol's empty origin so
-	# the visible art, not the symbol pivot, sits in the middle.
-	var hero_pivot := Vector2(PORTRAIT_STAGE_SIZE.x * 0.5, 222.0 - PORTRAIT_GAME_HERO_Y_LIFT + upper_block_shift)
+	# Center the visible hangman character in the LEFT half of the gameplay area.
+	# The imported symbol has a wide empty origin, so hero_stage_position below
+	# compensates for it while hero_pivot represents the visual center.
+	var hero_pivot := Vector2(PORTRAIT_GAME_HERO_LEFT_CENTER_X, 222.0 - PORTRAIT_GAME_HERO_Y_LIFT + upper_block_shift)
 	var hero_stage_position := Vector2(
 		hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X,
 		238.0 - PORTRAIT_GAME_HERO_Y_LIFT + upper_block_shift
@@ -3240,12 +3243,9 @@ func _refresh_game_screen() -> void:
 	# the first layout pass, which made the normal paper and guessed word vanish.
 	_set_portrait_word_paper_peel_progress(0.0)
 
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		var progress_header: Dictionary = _portrait_game_header_texts()
-		var progress_theme_name: String = str(progress_header.get("subtitle", ""))
-		if progress_theme_name.is_empty():
-			progress_theme_name = str(progress_header.get("title", ""))
-		_stage_single_player_progress_indicator(progress_theme_name.to_upper(), game_word_rect)
+	# Theme + level word-progress pill is intentionally hidden for now.
+	# Keep _stage_single_player_progress_indicator() intact so it can be restored
+	# without rebuilding its layout/styling later.
 	_stage_portrait_game_attempts_panel(game_word_rect)
 
 	for i in range(alphabet.size()):
@@ -4628,7 +4628,7 @@ func _show_portrait_inline_result_chrome(is_win: bool, animated: bool) -> void:
 
 	content = _portrait_game_input_group
 	var continue_button := _stage_main_button(
-		_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT),
+		PORTRAIT_INLINE_RESULT_CONTINUE_BUTTON_RECT,
 		_result_continue_action(),
 		_result_continue_button_text(),
 		_portrait_footer_font_size(22),
@@ -4745,6 +4745,26 @@ func _peel_portrait_word_paper_for_round_end(animated: bool) -> void:
 		Callable(self, "_start_portrait_inline_result_bounce_during_peel")
 	)
 
+func _hide_portrait_hero_after_word_paper(animated: bool) -> void:
+	# The character stays visible through the entire keyboard/paper exit. Only once
+	# the sheet has fully finished peeling do we remove the character, for both
+	# victory and defeat. Restored finished rounds skip the tween and stay hidden.
+	if hero_static_symbol == null or !is_instance_valid(hero_static_symbol):
+		return
+	if !animated:
+		hero_static_symbol.modulate.a = 0.0
+		return
+	var hero_fade_tween := hero_static_symbol.create_tween()
+	hero_fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var fade := hero_fade_tween.tween_property(
+		hero_static_symbol,
+		"modulate:a",
+		0.0,
+		PORTRAIT_GAME_HERO_EXIT_FADE_DURATION
+	)
+	fade.set_trans(Tween.TRANS_QUAD)
+	fade.set_ease(Tween.EASE_OUT)
+
 func _finish_portrait_word_paper_peel(paper_layer: Control, play_result_bounce: bool = false) -> void:
 	var animate_result_chrome: bool = _portrait_round_end_transition_active
 	if paper_layer != null and is_instance_valid(paper_layer):
@@ -4758,6 +4778,8 @@ func _finish_portrait_word_paper_peel(paper_layer: Control, play_result_bounce: 
 		and is_instance_valid(_portrait_game_word_paper_backside_visual)
 	):
 		_portrait_game_word_paper_backside_visual.scale = Vector2(0.0, 1.0)
+
+	_hide_portrait_hero_after_word_paper(animate_result_chrome)
 
 	# Animated exits now start the result bounce at 50% paper progress. Keep the
 	# old boolean path only as a safe fallback for direct/nonstandard callers.
