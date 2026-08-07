@@ -32,20 +32,23 @@ const PORTRAIT_BACK_ENTRANCE_DURATION: float = 0.24
 const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
 const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 104.0, 432.0, 48.0)
 const PORTRAIT_GAME_HEADER_TEXT_RECT := Rect2(24.0, 104.0, 300.0, 48.0)
-const PORTRAIT_GAME_ATTEMPTS_PANEL_SIZE := Vector2(128.0, 56.0)
-const PORTRAIT_GAME_ATTEMPTS_OFFSCREEN_RIGHT: float = 22.0
-const PORTRAIT_GAME_ATTEMPTS_WORD_OFFSET_Y: float = -86.0
-const PORTRAIT_GAME_ATTEMPTS_ICON_SIZE: float = 32.0
-const PORTRAIT_GAME_PROGRESS_OFFSCREEN_LEFT: float = 22.0
-const PORTRAIT_GAME_PROGRESS_WORD_OFFSET_Y: float = -58.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_RECT := Rect2(0.0, 0.0, 290.0, 48.0)
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_HORIZONTAL_PADDING: float = 14.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_INNER_GAP: float = 7.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_GAP: float = 5.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_MAX_WIDTH: float = 27.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_MIN_WIDTH: float = 24.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_HEIGHT: float = 27.0
-const PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_AREA_MAX_WIDTH: float = 166.0
+# Compact text-only gameplay HUD placed in the free space to the right of the
+# left-aligned character. The old white attempts/theme pills are intentionally
+# removed; these labels are the only in-round status presentation now.
+const PORTRAIT_GAME_INFO_X: float = 270.0
+const PORTRAIT_GAME_INFO_WIDTH: float = 170.0
+# Keep the complete text HUD above the word-paper band. On tall screens this
+# block follows half of the extra-height shift together with the hero, while the
+# bottom-attached paper moves by the full extra height, so the two can never
+# collide as the aspect ratio grows. The labels are center-aligned and packed
+# into the open area to the right of the hero.
+const PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 46.0, PORTRAIT_GAME_INFO_WIDTH, 24.0)
+const PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 68.0, PORTRAIT_GAME_INFO_WIDTH, 48.0)
+const PORTRAIT_GAME_INFO_THEME_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 118.0, PORTRAIT_GAME_INFO_WIDTH, 22.0)
+const PORTRAIT_GAME_INFO_THEME_LINE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 142.0, PORTRAIT_GAME_INFO_WIDTH, 40.0)
+const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
+const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
+const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Coins and hearts form one centered resource block on every screen.
 const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(116.06, 21.68, 109.94, 38.64)
@@ -167,8 +170,6 @@ const PORTRAIT_NAV_SHOP_ICON: Texture2D = preload("res://flash_assets/nav_shop_i
 const PORTRAIT_NAV_HOME_ICON: Texture2D = preload("res://flash_assets/nav_home_icon.png")
 const PORTRAIT_NAV_TASKS_ICON: Texture2D = preload("res://flash_assets/nav_tasks_icon.png")
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
-const PORTRAIT_ATTEMPTS_SHIELD_ICON: Texture2D = preload("res://flash_assets/attempt_shield_icon.png")
-const PORTRAIT_PROGRESS_GIFT_ICON: Texture2D = preload("res://flash_assets/progress_gift_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
 const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
 
@@ -1477,156 +1478,90 @@ func _stage_portrait_game_header() -> void:
 		_portrait_game_is_challenge_level()
 	)
 
-func _stage_portrait_game_attempts_panel(word_rect: Rect2) -> void:
-	# Dock the attempts pill to the physical right edge near the guessed word.
-	# Its rounded right cap intentionally extends beyond the 480-wide stage.
-	var panel_rect := Rect2(
-		Vector2(
-			PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_ATTEMPTS_PANEL_SIZE.x + PORTRAIT_GAME_ATTEMPTS_OFFSCREEN_RIGHT,
-			word_rect.position.y + PORTRAIT_GAME_ATTEMPTS_WORD_OFFSET_Y
-		),
-		PORTRAIT_GAME_ATTEMPTS_PANEL_SIZE
-	)
-	var attempts_panel := _stage_panel(
-		panel_rect,
-		Color.WHITE,
-		panel_rect.size.y * 0.5,
-		Color(0.83, 0.86, 0.94, 1.0),
-		1.7
-	)
-	attempts_panel.z_index = 10
-	var attempts_icon_rect := Rect2(
-		panel_rect.position + Vector2(12.0, (panel_rect.size.y - PORTRAIT_GAME_ATTEMPTS_ICON_SIZE) * 0.5),
-		Vector2(PORTRAIT_GAME_ATTEMPTS_ICON_SIZE, PORTRAIT_GAME_ATTEMPTS_ICON_SIZE)
-	)
-	var attempts_icon := _stage_texture(attempts_icon_rect, PORTRAIT_ATTEMPTS_SHIELD_ICON)
-	attempts_icon.z_index = 12
-	var attempts_text: String = "x%d" % GameSession.get_remaining_attempts()
-	var attempts_label_rect := Rect2(
-		Vector2(attempts_icon_rect.end.x + 6.0, panel_rect.position.y),
-		Vector2(PORTRAIT_STAGE_SIZE.x - (attempts_icon_rect.end.x + 6.0) - 4.0, panel_rect.size.y)
-	)
-	var attempts_label := _stage_label(
-		attempts_label_rect,
-		attempts_text,
-		24,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_LEFT
-	)
-	attempts_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	attempts_label.add_theme_color_override("font_color", PORTRAIT_BLUE)
-	attempts_label.z_index = 12
-	attempts_label.clip_text = false
-	attempts_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_fit_single_line_label_to_width(
-		attempts_label,
-		attempts_text,
-		attempts_label_rect.size.x,
-		24,
-		15
-	)
-	_portrait_game_attempts_controls.append(attempts_panel)
-	_portrait_game_attempts_controls.append(attempts_icon)
-	_portrait_game_attempts_controls.append(attempts_label)
-
-func _stage_single_player_progress_indicator(theme_name: String, word_rect: Rect2) -> void:
-	var word_count: int = maxi(_single_player_level_word_count(single_player_active_level_index), 1)
-	var current_word_index: int = clampi(single_player_active_word_slot, 0, word_count - 1)
-	var marker_gap: float = PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_GAP
-	var marker_diameter: float = minf(
-		PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_MAX_WIDTH,
-		maxf(
-			PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_MIN_WIDTH,
-			(
-				PORTRAIT_SINGLE_PLAYER_PROGRESS_PIP_AREA_MAX_WIDTH
-				- marker_gap * float(maxi(word_count - 1, 0))
-			) / float(word_count)
-		)
-	)
-	var marker_total_width: float = marker_diameter * float(word_count) + marker_gap * float(maxi(word_count - 1, 0))
-	var title_text: String = theme_name.to_upper()
-	var title_font_size: int = 20
-	var title_min_font_size: int = 13
-	var title_size: Vector2 = UI_PRIMARY_FONT.get_string_size(title_text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_font_size)
-	var panel_padding: float = PORTRAIT_SINGLE_PLAYER_PROGRESS_HORIZONTAL_PADDING
-	var panel_gap: float = PORTRAIT_SINGLE_PLAYER_PROGRESS_INNER_GAP
-	var max_panel_width: float = PORTRAIT_SINGLE_PLAYER_PROGRESS_RECT.size.x
-	var panel_width: float = minf(max_panel_width, panel_padding * 2.0 + title_size.x + panel_gap + marker_total_width)
-	var title_available_width: float = maxf(48.0, panel_width - panel_padding * 2.0 - marker_total_width - panel_gap)
-	var indicator_rect := Rect2(
-		Vector2(
-			-PORTRAIT_GAME_PROGRESS_OFFSCREEN_LEFT,
-			word_rect.position.y + PORTRAIT_GAME_PROGRESS_WORD_OFFSET_Y
-		),
-		Vector2(panel_width + PORTRAIT_GAME_PROGRESS_OFFSCREEN_LEFT, PORTRAIT_SINGLE_PLAYER_PROGRESS_RECT.size.y)
-	)
-	var indicator_panel := _stage_panel(
-		indicator_rect,
-		Color.WHITE,
-		indicator_rect.size.y * 0.5,
-		Color(0.83, 0.86, 0.94, 1.0),
-		1.7
-	)
-	indicator_panel.z_index = 10
-	var title_rect := Rect2(
-		Vector2(indicator_rect.position.x + PORTRAIT_GAME_PROGRESS_OFFSCREEN_LEFT + panel_padding, indicator_rect.position.y),
-		Vector2(title_available_width, indicator_rect.size.y)
-	)
-	var theme_label := _stage_label(
-		title_rect,
-		title_text,
-		title_font_size,
+func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
+	var attempts_title_rect := PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT
+	attempts_title_rect.position.y += y_shift
+	var attempts_value_rect := PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT
+	attempts_value_rect.position.y += y_shift
+	var theme_title_rect := PORTRAIT_GAME_INFO_THEME_TITLE_RECT
+	theme_title_rect.position.y += y_shift
+	var theme_line_rect := PORTRAIT_GAME_INFO_THEME_LINE_RECT
+	theme_line_rect.position.y += y_shift
+	var attempts_title_text: String = _single_player_text("Попытки", "Attempts")
+	var attempts_title := _stage_label(
+		attempts_title_rect,
+		attempts_title_text,
+		PORTRAIT_GAME_INFO_TITLE_FONT_SIZE,
 		PORTRAIT_DARK_BLUE,
-		HORIZONTAL_ALIGNMENT_LEFT
+		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	theme_label.z_index = 11
-	theme_label.clip_text = false
-	theme_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	attempts_title.add_theme_font_override("font", UI_PRIMARY_FONT)
+	attempts_title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	attempts_title.clip_text = false
+	attempts_title.z_index = 12
+
+	var attempts_value_text: String = str(GameSession.get_remaining_attempts())
+	var attempts_value := _stage_label(
+		attempts_value_rect,
+		attempts_value_text,
+		PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	attempts_value.add_theme_font_override("font", UI_HEADING_FONT)
+	attempts_value.autowrap_mode = TextServer.AUTOWRAP_OFF
+	attempts_value.clip_text = false
+	attempts_value.z_index = 12
+
+	# Keep the existing attempts-animation collection as the generic gameplay HUD
+	# collection so the new text fades in/out at the same moments as before.
+	_portrait_game_attempts_controls.append(attempts_title)
+	_portrait_game_attempts_controls.append(attempts_value)
+
+	if GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+		return
+
+	var theme_caption_text: String = _single_player_text("Тема", "Theme")
+	var theme_caption := _stage_label(
+		theme_title_rect,
+		theme_caption_text,
+		PORTRAIT_GAME_INFO_TITLE_FONT_SIZE,
+		PORTRAIT_DARK_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	theme_caption.add_theme_font_override("font", UI_PRIMARY_FONT)
+	theme_caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	theme_caption.clip_text = false
+	theme_caption.z_index = 12
+
+	var theme_text: String = ""
+	if GameSession.theme_id >= 0:
+		theme_text = _portrait_sentence_case(Database.get_theme_name(GameSession.theme_id))
+	if theme_text.is_empty():
+		return
+
+	var theme_line_text: String = theme_text
+	var theme_line_label := _stage_label(
+		theme_line_rect,
+		theme_line_text,
+		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
+		PORTRAIT_BLUE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	theme_line_label.add_theme_font_override("font", UI_HEADING_FONT)
+	theme_line_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	theme_line_label.clip_text = false
+	theme_line_label.z_index = 12
 	_fit_single_line_label_to_width(
-		theme_label,
-		title_text,
-		title_rect.size.x,
-		title_font_size,
-		title_min_font_size
+		theme_line_label,
+		theme_line_text,
+		theme_line_rect.size.x,
+		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
+		20
 	)
-	var marker_start_x: float = title_rect.end.x + panel_gap
-	var marker_y: float = indicator_rect.position.y + (indicator_rect.size.y - marker_diameter) * 0.5
-	for word_index in range(word_count):
-		var marker_rect := Rect2(
-			Vector2(marker_start_x + float(word_index) * (marker_diameter + marker_gap), marker_y),
-			Vector2(marker_diameter, marker_diameter)
-		)
-		var is_reached: bool = word_index <= current_word_index
-		var marker_color: Color = PORTRAIT_ORANGE if is_reached else Color(0.24, 0.26, 0.63, 1.0)
-		if word_index == word_count - 1:
-			var gift_marker := _stage_panel(
-				marker_rect,
-				marker_color,
-				marker_diameter * 0.5,
-				Color.WHITE,
-				1.6
-			)
-			gift_marker.z_index = 11
-			var gift_inset: float = marker_diameter * 0.22
-			var gift_icon := _stage_texture(
-				Rect2(
-					marker_rect.position + Vector2(gift_inset, gift_inset),
-					Vector2(marker_diameter - gift_inset * 2.0, marker_diameter - gift_inset * 2.0)
-				),
-				PORTRAIT_PROGRESS_GIFT_ICON
-			)
-			gift_icon.modulate = Color.WHITE
-			gift_icon.z_index = 12
-		else:
-			var marker := _stage_panel(
-				marker_rect,
-				marker_color,
-				marker_diameter * 0.5,
-				Color.WHITE,
-				1.6
-			)
-			marker.z_index = 11
+
+	_portrait_game_attempts_controls.append(theme_caption)
+	_portrait_game_attempts_controls.append(theme_line_label)
 
 func _portrait_game_is_challenge_level() -> bool:
 	return (
@@ -3157,6 +3092,10 @@ func _refresh_game_screen() -> void:
 
 	_portrait_end_adaptive_group(hero_root_content)
 
+	# Keep the new text-only HUD beside the character, including the same extra
+	# vertical shift used by the hero on taller portrait screens.
+	_stage_portrait_game_info_text(upper_block_shift)
+
 	var alphabet := Database.get_alphabet()
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(viewport_size)
 	var columns: int = int(keyboard_metrics["columns"])
@@ -3242,11 +3181,6 @@ func _refresh_game_screen() -> void:
 	# state. PRESET_FULL_RECT alone can still have a zero-sized clip rect during
 	# the first layout pass, which made the normal paper and guessed word vanish.
 	_set_portrait_word_paper_peel_progress(0.0)
-
-	# Theme + level word-progress pill is intentionally hidden for now.
-	# Keep _stage_single_player_progress_indicator() intact so it can be restored
-	# without rebuilding its layout/styling later.
-	_stage_portrait_game_attempts_panel(game_word_rect)
 
 	for i in range(alphabet.size()):
 		var letter: String = alphabet[i]
