@@ -152,6 +152,7 @@ var currency_balance_label: Label = null
 var heart_count_label: Label = null
 var heart_status_label: Label = null
 var heart_add_badge_visual: Control = null
+var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
 
 func _ready() -> void:
@@ -166,6 +167,7 @@ func _ready() -> void:
 		GameState.soft_currency_changed.connect(_on_soft_currency_changed)
 	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
 		GameState.hearts_changed.connect(_on_hearts_changed)
+	_last_heart_count_for_animation = GameState.get_hearts()
 	show_menu()
 
 # Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
@@ -216,6 +218,13 @@ func _on_soft_currency_changed(balance: int) -> void:
 
 func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
 	var resolved_count: int = clampi(heart_count, 0, GameState.MAX_HEARTS)
+	var previous_count: int = _last_heart_count_for_animation
+	_last_heart_count_for_animation = resolved_count
+	# The only runtime heart increment currently comes from the recovery timer.
+	# Trigger a visual hook only on an actual increment, never on the per-second
+	# countdown signal or when a heart is spent.
+	if previous_count >= 0 and resolved_count > previous_count:
+		_on_timer_heart_recovered()
 	if heart_count_label != null and is_instance_valid(heart_count_label):
 		heart_count_label.text = str(resolved_count)
 	if heart_status_label != null and is_instance_valid(heart_status_label):
@@ -223,6 +232,9 @@ func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
 	if heart_add_badge_visual != null and is_instance_valid(heart_add_badge_visual):
 		var badge_allowed: bool = bool(heart_add_badge_visual.get_meta(&"badge_allowed", true))
 		heart_add_badge_visual.visible = badge_allowed and resolved_count < GameState.MAX_HEARTS
+
+func _on_timer_heart_recovered() -> void:
+	pass
 
 func _heart_status_text(heart_count: int, recovery_seconds: int) -> String:
 	if heart_count >= GameState.MAX_HEARTS:
@@ -1491,12 +1503,25 @@ func _custom_word_start_label() -> String:
 
 func _on_custom_word_text_changed(value: String) -> void:
 	_reset_custom_word_check_feedback()
+	var previous_word_text: String = custom_word_text
 	custom_word_text = _normalize_custom_word_input(value)
 	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
 		var caret_column: int = custom_word_edit.caret_column
 		custom_word_edit.text = custom_word_text
 		custom_word_edit.caret_column = mini(caret_column, custom_word_edit.text.length())
 	_sync_custom_word_input_visual()
+	# When the player appends letters, animate only the newly entered glyphs with
+	# the exact same reveal bounce as letters on the guessing screen.
+	if (
+		custom_word_input_visual != null
+		and is_instance_valid(custom_word_input_visual)
+		and custom_word_text.length() > previous_word_text.length()
+		and custom_word_text.begins_with(previous_word_text)
+	):
+		custom_word_input_visual.call_deferred(
+			"play_new_letter_bounce",
+			previous_word_text.length()
+		)
 	_sync_custom_word_start_bounce()
 
 func _normalize_custom_word_input(value: String) -> String:
