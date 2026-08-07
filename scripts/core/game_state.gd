@@ -1,6 +1,7 @@
 extends Node
 
 signal soft_currency_changed(balance: int)
+signal hearts_changed(hearts: int, recovery_seconds: int)
 
 const SAVE_PATH := "user://save_hangman.json"
 const SAVE_FORMAT_VERSION: int = 1
@@ -9,6 +10,8 @@ const HINT_REMOVE_WRONG: String = "remove_wrong"
 const HINT_COMMENT: String = "comment"
 const DEFAULT_HINT_COUNT: int = 3
 const DEFAULT_SOFT_CURRENCY: int = 0
+const MAX_HEARTS: int = 5
+const HEART_RECOVERY_SECONDS: int = 5 * 60
 const WORD_REWARD_COINS: int = 10
 const SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = 0.18
 const SINGLE_PLAYER_DIFFICULTY_MIN: float = 0.08
@@ -39,6 +42,11 @@ var interface_language: String = "ru"
 var word_language: String = "ru"
 var player_name: String = ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
+var hearts: int = MAX_HEARTS
+var heart_recovery_at: int = 0
+var _heart_tick_accumulator: float = 0.0
+var _last_emitted_hearts: int = -1
+var _last_emitted_heart_seconds: int = -1
 
 # Settings:
 # 0 - reserved
@@ -65,6 +73,16 @@ var current_mode: int = GameMode.CLASSIC
 
 func _ready() -> void:
 	load_game()
+	set_process(true)
+	_emit_heart_status_if_changed(true)
+
+func _process(delta: float) -> void:
+	_heart_tick_accumulator += delta
+	if _heart_tick_accumulator < 1.0:
+		return
+	_heart_tick_accumulator = fmod(_heart_tick_accumulator, 1.0)
+	_apply_elapsed_heart_recovery(true)
+	_emit_heart_status_if_changed()
 
 func load_game() -> void:
 	_set_interface_language_from_locale()
@@ -86,6 +104,7 @@ func load_game() -> void:
 	# partially written saves can miss another section; that must not leave the
 	# in-memory 3/3/3 defaults and grant the free hints again.
 	_load_hint_counts_from_save(parsed)
+	_load_hearts_from_save(parsed)
 
 	if (
 		!(parsed.get("settings") is Array)
@@ -116,6 +135,14 @@ func _load_hint_counts_from_save(parsed: Dictionary) -> void:
 	for hint_key in HINT_COSTS.keys():
 		hint_counts[hint_key] = maxi(int(stored_counts.get(hint_key, 0)), 0)
 
+func _load_hearts_from_save(parsed: Dictionary) -> void:
+	# Existing saves predate the global-heart system and start full. Once the
+	# fields exist, both the inventory and the absolute recovery deadline are
+	# restored so regeneration continues while the app is closed.
+	hearts = clampi(int(parsed.get("hearts", MAX_HEARTS)), 0, MAX_HEARTS)
+	heart_recovery_at = maxi(int(parsed.get("heart_recovery_at", 0)), 0)
+	_apply_elapsed_heart_recovery(false)
+
 func _set_interface_language_from_locale() -> void:
 	# The interface follows the device on every launch: Russian only for a
 	# Russian locale, English for Ukrainian and every other locale.
@@ -139,7 +166,9 @@ func save_game() -> void:
 		"progress": progress,
 		"single_player": single_player,
 		"hint_counts": hint_counts,
-		"soft_currency": soft_currency
+		"soft_currency": soft_currency,
+		"hearts": hearts,
+		"heart_recovery_at": heart_recovery_at
 	}, "\t"))
 	file.close()
 
@@ -149,6 +178,69 @@ func get_hint_count(hint_key: String) -> int:
 func get_soft_currency() -> int:
 	soft_currency = maxi(soft_currency, 0)
 	return soft_currency
+
+func get_hearts() -> int:
+	_apply_elapsed_heart_recovery(true)
+	return clampi(hearts, 0, MAX_HEARTS)
+
+func get_heart_recovery_seconds() -> int:
+	_apply_elapsed_heart_recovery(true)
+	if hearts >= MAX_HEARTS or heart_recovery_at <= 0:
+		return 0
+	return mini(maxi(heart_recovery_at - _heart_now(), 0), HEART_RECOVERY_SECONDS)
+
+func lose_heart(persist: bool = true) -> bool:
+	_apply_elapsed_heart_recovery(false)
+	if hearts <= 0:
+		_emit_heart_status_if_changed(true)
+		return false
+	var was_full: bool = hearts >= MAX_HEARTS
+	hearts = maxi(hearts - 1, 0)
+	if was_full or heart_recovery_at <= 0:
+		heart_recovery_at = _heart_now() + HEART_RECOVERY_SECONDS
+	if persist:
+		save_game()
+	_emit_heart_status_if_changed(true)
+	return true
+
+func _heart_now() -> int:
+	return int(floor(Time.get_unix_time_from_system()))
+
+func _apply_elapsed_heart_recovery(persist: bool) -> bool:
+	var now: int = _heart_now()
+	var changed: bool = false
+	hearts = clampi(hearts, 0, MAX_HEARTS)
+	if hearts >= MAX_HEARTS:
+		if heart_recovery_at != 0:
+			heart_recovery_at = 0
+			changed = true
+	elif heart_recovery_at <= 0:
+		heart_recovery_at = now + HEART_RECOVERY_SECONDS
+		changed = true
+	elif now >= heart_recovery_at:
+		var restored_count: int = 1 + int((now - heart_recovery_at) / HEART_RECOVERY_SECONDS)
+		hearts = mini(hearts + restored_count, MAX_HEARTS)
+		if hearts >= MAX_HEARTS:
+			heart_recovery_at = 0
+		else:
+			heart_recovery_at += restored_count * HEART_RECOVERY_SECONDS
+		changed = true
+	if changed and persist:
+		save_game()
+	return changed
+
+func _emit_heart_status_if_changed(force: bool = false) -> void:
+	var recovery_seconds: int = 0
+	if hearts < MAX_HEARTS and heart_recovery_at > 0:
+		recovery_seconds = mini(maxi(heart_recovery_at - _heart_now(), 0), HEART_RECOVERY_SECONDS)
+	if (
+		force
+		or hearts != _last_emitted_hearts
+		or recovery_seconds != _last_emitted_heart_seconds
+	):
+		_last_emitted_hearts = hearts
+		_last_emitted_heart_seconds = recovery_seconds
+		hearts_changed.emit(hearts, recovery_seconds)
 
 func add_soft_currency(amount: int, persist: bool = true) -> int:
 	if amount <= 0:

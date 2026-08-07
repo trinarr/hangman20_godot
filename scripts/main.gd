@@ -149,6 +149,9 @@ var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
 var currency_balance_label: Label = null
+var heart_count_label: Label = null
+var heart_status_label: Label = null
+var heart_add_badge_visual: Control = null
 var _preserve_custom_word_on_next_show: bool = false
 
 func _ready() -> void:
@@ -161,6 +164,8 @@ func _ready() -> void:
 	GameSession.round_lost.connect(_on_round_lost)
 	if !GameState.soft_currency_changed.is_connected(_on_soft_currency_changed):
 		GameState.soft_currency_changed.connect(_on_soft_currency_changed)
+	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
+		GameState.hearts_changed.connect(_on_hearts_changed)
 	show_menu()
 
 # Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
@@ -208,6 +213,22 @@ func _on_soft_currency_changed(balance: int) -> void:
 	if currency_balance_label != null and is_instance_valid(currency_balance_label):
 		currency_balance_label.text = str(maxi(balance, 0))
 	_update_single_player_refresh_price(maxi(balance, 0))
+
+func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
+	var resolved_count: int = clampi(heart_count, 0, GameState.MAX_HEARTS)
+	if heart_count_label != null and is_instance_valid(heart_count_label):
+		heart_count_label.text = str(resolved_count)
+	if heart_status_label != null and is_instance_valid(heart_status_label):
+		heart_status_label.text = _heart_status_text(resolved_count, recovery_seconds)
+	if heart_add_badge_visual != null and is_instance_valid(heart_add_badge_visual):
+		var badge_allowed: bool = bool(heart_add_badge_visual.get_meta(&"badge_allowed", true))
+		heart_add_badge_visual.visible = badge_allowed and resolved_count < GameState.MAX_HEARTS
+
+func _heart_status_text(heart_count: int, recovery_seconds: int) -> String:
+	if heart_count >= GameState.MAX_HEARTS:
+		return "Макс" if GameState.interface_language == "ru" else "Max"
+	var resolved_seconds: int = maxi(recovery_seconds, 0)
+	return "%d:%02d" % [int(resolved_seconds / 60), resolved_seconds % 60]
 
 func _refresh_game_screen() -> void:
 	pass
@@ -270,6 +291,9 @@ func _clear() -> void:
 	custom_word_check_button = null
 	custom_word_start_button = null
 	currency_balance_label = null
+	heart_count_label = null
+	heart_status_label = null
+	heart_add_badge_visual = null
 	hero_static_symbol = null
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
@@ -1431,14 +1455,19 @@ func _forfeit_single_player_round() -> void:
 	# result screen and return to the level without recording it a second time.
 	result_transition_generation += 1
 	round_result_delay_requested = false
+	var should_lose_heart: bool = false
 	if !game_finished and GameSession.is_active and level_index >= 0 and single_player_active_word_slot >= 0:
 		game_finished = true
 		_single_player_mark_current_word_finished({}, false, false)
 		chain_failed = true
+		should_lose_heart = true
 	elif game_finished and level_index >= 0 and !level_completed and !chain_failed:
 		# Leaving after a successfully guessed word still forfeits the unfinished
 		# chain, but intentionally leaves adaptive difficulty unchanged.
 		GameState.record_single_player_forfeit(Database.current_language)
+		should_lose_heart = true
+	if should_lose_heart:
+		GameState.lose_heart()
 	if level_index >= 0 and !level_completed:
 		GameState.reset_single_level_attempt(Database.current_language, level_index)
 		_invalidate_single_player_level_cache()
@@ -1972,6 +2001,8 @@ func _finish_round(is_win: bool) -> void:
 		_show_hero_default_pose()
 	last_result_data = GameSession.finish_result(is_win)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		if !is_win:
+			GameState.lose_heart()
 		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
 
 	var transition_generation: int = result_transition_generation
