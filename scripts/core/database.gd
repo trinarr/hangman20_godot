@@ -12,6 +12,7 @@ var interface_language: String = "ru"
 var _themes_cache: Array = []
 var _themes_cache_ready: bool = false
 var _words_by_index_cache: Dictionary = {}
+var _alphabet_cache := PackedStringArray()
 
 const DIFFICULTY_SPLIT: float = 0.5
 
@@ -159,6 +160,7 @@ func _invalidate_word_runtime_cache() -> void:
 	_themes_cache.clear()
 	_themes_cache_ready = false
 	_words_by_index_cache.clear()
+	_alphabet_cache.clear()
 
 func _load_hints() -> void:
 	hints.clear()
@@ -176,11 +178,12 @@ func tr_text(index: int, fallback: String = "") -> String:
 	return translated
 
 func get_alphabet() -> PackedStringArray:
-	var result := PackedStringArray()
+	if !_alphabet_cache.is_empty():
+		return _alphabet_cache
 	var alphabet := str(data.get("alphabet", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 	for i in range(alphabet.length()):
-		result.append(alphabet.substr(i, 1))
-	return result
+		_alphabet_cache.append(alphabet.substr(i, 1))
+	return _alphabet_cache
 
 func get_theme_count() -> int:
 	return get_themes().size()

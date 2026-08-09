@@ -32,9 +32,7 @@ ICON_NAMES = (
     "about_vk_icon_87.png",
     "custom_word_refresh_icon_341.png",
     "portrait_back_arrow_icon.png",
-    "result_close_icon_43.png",
     "result_search_icon_343.png",
-    "result_theme_menu_icon.png",
 )
 
 

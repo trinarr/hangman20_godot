@@ -54,10 +54,8 @@ const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
-const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
 const SOFT_CURRENCY_COIN_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin.png")
 const SINGLE_PLAYER_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
-const SINGLE_PLAYER_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
@@ -478,12 +476,6 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	button.stage_rect = rect
 	return button
 
-func _disable_button_input_without_changing_visual(button: Control) -> void:
-	# Some selected states must stay visually active after their one-time action,
-	# but using the regular disabled flag would replace that state with gray.
-	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button.mouse_default_cursor_shape = Control.CURSOR_ARROW
-
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
@@ -715,24 +707,11 @@ func _theme_icon_texture(theme_index: int) -> Texture2D:
 func _single_player_text(ru_text: String, en_text: String) -> String:
 	return ru_text if GameState.interface_language == "ru" else en_text
 
-func _single_player_play_label() -> String:
-	return _single_player_text("Играть", "Play")
-
-func _single_player_levels_title() -> String:
-	return _single_player_text("Одиночный режим", "Single player")
-
 func _single_player_level_label() -> String:
 	return _single_player_text("Уровень", "Level")
 
 func _single_player_challenge_level_label() -> String:
 	return _single_player_text("Сложный уровень", "Challenge level")
-
-func _single_player_progress_label(played_count: int, total_count: int) -> String:
-	var prefix := _single_player_text("Сыграно", "Played")
-	return "%s: %d/%d" % [prefix, played_count, total_count]
-
-func _single_player_level_completed_label() -> String:
-	return _single_player_text("Уровень пройден!", "Level completed!")
 
 func _single_player_level_failed_label() -> String:
 	return _single_player_text("УРОВЕНЬ ПРОВАЛЕН", "LEVEL FAILED")
@@ -749,39 +728,8 @@ func _single_player_chain_failed_label() -> String:
 func _single_player_choose_theme_label() -> String:
 	return _single_player_text("Выберите тему", "Choose a category")
 
-func _single_player_theme_popup_title() -> String:
-	return _single_player_text("Выбрать тему?", "Choose this category?")
-
 func _single_player_theme_start_label() -> String:
 	return _single_player_text("Играть", "Play")
-
-func _single_player_theme_refresh_label() -> String:
-	return _single_player_text("Обновить", "Refresh")
-
-func _single_player_theme_cancel_label() -> String:
-	return _single_player_text("Отмена", "Cancel")
-
-func _single_player_theme_locked_note() -> String:
-	return _single_player_text(
-		"После выбора тема закрепится за уровнем",
-		"The category will be locked for this level"
-	)
-
-func _single_player_word_count_label(word_count: int) -> String:
-	if GameState.interface_language != "ru":
-		return "%d %s" % [word_count, "word" if word_count == 1 else "words"]
-	var last_two: int = word_count % 100
-	var last_digit: int = word_count % 10
-	var suffix := "слов"
-	if last_two < 11 or last_two > 14:
-		if last_digit == 1:
-			suffix = "слово"
-		elif last_digit >= 2 and last_digit <= 4:
-			suffix = "слова"
-	return "%d %s" % [word_count, suffix]
-
-func _single_player_current_level_number() -> int:
-	return GameState.get_single_player_display_level(Database.current_language)
 
 func _single_player_next_level_index() -> int:
 	return maxi(GameState.get_single_player_unlocked_level(Database.current_language), 0)
@@ -1013,13 +961,6 @@ func _single_player_level_played_count(level_index: int) -> int:
 		_single_player_level_word_count(level_index)
 	)
 
-func _single_player_level_completed(level_index: int) -> bool:
-	return GameState.is_single_level_completed(
-		Database.current_language,
-		level_index,
-		_single_player_level_word_count(level_index)
-	)
-
 func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
 	return GameState.get_single_level_word_status(
 		Database.current_language,
@@ -1070,17 +1011,6 @@ func _single_player_mark_current_word_finished(
 	elif bool(progress.get("failed", false)):
 		result["lines"].append(_single_player_chain_failed_label())
 	return result
-
-func _single_player_footer_back_rect() -> Rect2:
-	var rect := Rect2(14.0, 711.0, 64.0, 64.0)
-	if has_method("_portrait_footer_round_button_rect"):
-		return call("_portrait_footer_round_button_rect", rect)
-	return rect
-
-func _single_player_footer_icon_size(icon_size: Vector2) -> Vector2:
-	if has_method("_portrait_footer_icon_size"):
-		return call("_portrait_footer_icon_size", icon_size)
-	return icon_size
 
 func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	var level_index: int = _single_player_next_level_index()
@@ -2036,20 +1966,6 @@ func _finish_round(is_win: bool) -> void:
 		if transition_generation != result_transition_generation:
 			return
 	show_result_screen(is_win, last_result_data)
-
-func _result_data_lines(data: Dictionary) -> String:
-	var lines := PackedStringArray()
-	for line in Array(data.get("lines", [])):
-		var value: String = str(line).strip_edges()
-		if value != "":
-			lines.append(value)
-	return "\n".join(lines)
-
-func _result_message(is_win: bool, data: Dictionary) -> String:
-	var data_lines: String = _result_data_lines(data)
-	if data_lines != "":
-		return data_lines
-	return Database.tr_text(43 if is_win else 44, "Keep going!" if is_win else "You can do better!")
 
 func _result_continue_button_text() -> String:
 	return Database.tr_text(3, "Continue")

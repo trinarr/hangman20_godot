@@ -16,7 +16,6 @@ const PORTRAIT_ADMOB_BANNER_RECT := Rect2(
 	PORTRAIT_ADMOB_BANNER_SIZE.x,
 	PORTRAIT_ADMOB_BANNER_SIZE.y
 )
-const PORTRAIT_GAME_BOTTOM_INTERFACE_LIFT: float = PORTRAIT_ADMOB_BANNER_HEIGHT
 const PORTRAIT_GAME_KEYBOARD_BOTTOM_RESERVE: float = PORTRAIT_ADMOB_BANNER_HEIGHT
 const PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT: float = 24.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
@@ -30,8 +29,6 @@ const PORTRAIT_MENU_SETTINGS_ICON_SIZE := Vector2(29.0, 29.0)
 const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 const PORTRAIT_BACK_ENTRANCE_DURATION: float = 0.24
 const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
-const PORTRAIT_GAME_HEADER_RECT := Rect2(24.0, 104.0, 432.0, 48.0)
-const PORTRAIT_GAME_HEADER_TEXT_RECT := Rect2(24.0, 104.0, 300.0, 48.0)
 # Compact text-only gameplay HUD placed in the free space to the right of the
 # left-aligned character. The old white attempts/theme pills are intentionally
 # removed; these labels are the only in-round status presentation now.
@@ -52,9 +49,7 @@ const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Coins and hearts form one centered resource block on every screen.
 const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(116.06, 21.68, 109.94, 38.64)
-const PORTRAIT_HEART_COUNTER_RECT := Rect2(254.0, 21.68, 109.94, 38.64)
 const PORTRAIT_GAME_CURRENCY_COUNTER_RECT := PORTRAIT_CURRENCY_COUNTER_RECT
-const PORTRAIT_GAME_LIVES_COUNTER_RECT := PORTRAIT_HEART_COUNTER_RECT
 const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_HEART_ICON_ASPECT_RATIO: float = 84.0 / 76.0
 const PORTRAIT_HEART_ICON_LEFT_INSET: float = 2.0
@@ -95,9 +90,7 @@ const PORTRAIT_THEME_DIFFICULTY_BASE_RECT := Rect2(90.0, 725.0, 300.0, 64.0)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
-const PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT := Rect2(14.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_FOOTER_RIGHT_ROUND_BUTTON_RECT := Rect2(402.0, 711.0, PORTRAIT_ROUND_BUTTON_SIZE, PORTRAIT_ROUND_BUTTON_SIZE)
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # Dense screens may grow moderately on tall phones, but gameplay is split into
 # independent upper and lower groups so the keyboard can stay width-safe while
@@ -106,14 +99,7 @@ const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
 const PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET: float = 64.0
 const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
-const PORTRAIT_HERO_RESULT_POSITION := Vector2(138.0, 500.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
-const PORTRAIT_RESULT_CONTINUE_BUTTON_RECT := PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT
-const PORTRAIT_RESULT_WORD_RECT := Rect2(22.0, 582.0, 436.0, 72.0)
-const PORTRAIT_GAME_WORD_PAPER_PADDING_X: float = 24.0
-const PORTRAIT_GAME_WORD_PAPER_PADDING_Y: float = 20.0
-const PORTRAIT_GAME_WORD_PAPER_SHADOW_OFFSET := Vector2(4.0, 7.0)
-const PORTRAIT_GAME_WORD_PAPER_CORNER_RADIUS: float = 18.0
 const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
 const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0
 const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0
@@ -156,7 +142,6 @@ const PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_STRENGTH: float = 0.42
 const PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_RADIUS: int = 2
 const PORTRAIT_RESULT_SEARCH_APPEAR_DURATION: float = 0.18
 const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
-const PORTRAIT_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.15
 const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.32
 const PORTRAIT_GAME_HERO_Y_LIFT: float = 42.0
 const PORTRAIT_GAME_HERO_LEFT_CENTER_X: float = PORTRAIT_STAGE_SIZE.x * 0.25
@@ -239,10 +224,14 @@ var _portrait_game_word_paper_mask: Control = null
 var _portrait_game_word_paper_layer: Control = null
 var _portrait_game_word_paper_backside: Control = null
 var _portrait_game_word_paper_backside_visual: TextureRect = null
+var _portrait_game_word_slots_root: Control = null
 var _portrait_game_word_rect := Rect2()
 var _portrait_game_keyboard_buttons: Array = []
 var _portrait_game_hint_buttons: Array[Control] = []
+var _portrait_game_hint_signature: String = ""
 var _portrait_game_attempts_controls: Array[Control] = []
+var _portrait_game_attempts_value_label: Label = null
+var _portrait_game_runtime_ready: bool = false
 var _portrait_heart_icon_visual: Control = null
 var _portrait_round_end_transition_active: bool = false
 var _portrait_round_end_bounce_started: bool = false
@@ -303,6 +292,20 @@ func _clear() -> void:
 	_portrait_custom_word_input = null
 	_portrait_top_bar_content = null
 	_portrait_coin_store_active = false
+	_portrait_game_adaptive_group = null
+	_portrait_game_input_group = null
+	_portrait_game_word_paper_mask = null
+	_portrait_game_word_paper_layer = null
+	_portrait_game_word_paper_backside = null
+	_portrait_game_word_paper_backside_visual = null
+	_portrait_game_word_slots_root = null
+	_portrait_game_word_rect = Rect2()
+	_portrait_game_keyboard_buttons.clear()
+	_portrait_game_hint_buttons.clear()
+	_portrait_game_hint_signature = ""
+	_portrait_game_attempts_controls.clear()
+	_portrait_game_attempts_value_label = null
+	_portrait_game_runtime_ready = false
 	if !_portrait_main_tab_swipe_building_target:
 		_portrait_active_main_tab = -1
 		_reset_portrait_main_tab_swipe()
@@ -604,18 +607,12 @@ func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:
 		return shortened_rect
 	return _portrait_scaled_footer_control_rect(shortened_rect)
 
-func _portrait_footer_round_button_rect(rect: Rect2) -> Rect2:
-	return _portrait_scaled_footer_control_rect(rect)
-
 func _portrait_scaled_footer_control_rect(rect: Rect2) -> Rect2:
 	var scaled_size: Vector2 = rect.size * PORTRAIT_FOOTER_CONTROL_SCALE
 	return Rect2(rect.get_center() - scaled_size * 0.5, scaled_size)
 
 func _portrait_footer_font_size(font_size: int) -> int:
 	return int(round(float(font_size) * PORTRAIT_FOOTER_CONTROL_SCALE))
-
-func _portrait_footer_icon_size(icon_size: Vector2) -> Vector2:
-	return icon_size * PORTRAIT_FOOTER_CONTROL_SCALE
 
 func _portrait_begin_bottom_attached_group() -> Control:
 	var previous_content: Control = content
@@ -1413,62 +1410,7 @@ func _stage_single_player_level_header(level_index: int) -> void:
 		Callable(self, "show_single_player_level").bind(level_index)
 	)
 
-func _portrait_game_header_texts() -> Dictionary:
-	var title: String = ""
-	var subtitle: String = ""
-	match GameState.current_mode:
-		GameState.GameMode.TWO_PLAYER:
-			title = _single_player_text("2 игрока", "2 players")
-		GameState.GameMode.SINGLE_PLAYER:
-			var level_number: int = single_player_active_level_index + 1
-			if level_number <= 0:
-				level_number = _single_player_current_level_number()
-			title = "%s %d" % [_single_player_level_label(), level_number]
-			if GameSession.theme_id >= 0:
-				subtitle = _portrait_sentence_case(Database.get_theme_name(GameSession.theme_id))
-		_:
-			title = _single_player_text("Классика", "Classic")
-			if GameSession.theme_id >= 0:
-				subtitle = _portrait_sentence_case(Database.get_theme_name(GameSession.theme_id))
-	return {
-		"title": title,
-		"subtitle": subtitle,
-	}
-
-func _portrait_sentence_case(text: String) -> String:
-	var lowered_text: String = text.to_lower()
-	if lowered_text.is_empty():
-		return lowered_text
-	return lowered_text.substr(0, 1).to_upper() + lowered_text.substr(1)
-
 func _stage_portrait_game_header() -> void:
-	# Single-player round information is staged beside the guessed word, so the
-	# top header only needs the normal text label for the other modes plus resources.
-	if false:
-		var header_texts: Dictionary = _portrait_game_header_texts()
-		var title: String = str(header_texts["title"])
-		var subtitle: String = str(header_texts["subtitle"])
-		var header_text: String = title
-		var heading_font_size: int = 24
-		if !subtitle.is_empty():
-			header_text += " • " + subtitle
-		header_text = header_text.to_upper()
-		var title_label := _stage_heading_label(
-			PORTRAIT_GAME_HEADER_TEXT_RECT,
-			header_text,
-			heading_font_size,
-			PORTRAIT_BLUE,
-			HORIZONTAL_ALIGNMENT_LEFT
-		)
-		title_label.clip_text = false
-		title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		_fit_single_line_label_to_width(
-			title_label,
-			header_text,
-			PORTRAIT_GAME_HEADER_TEXT_RECT.size.x,
-			_heading_font_size(heading_font_size),
-			_heading_font_size(13)
-		)
 	_stage_currency_counter(
 		Callable(self, "_return_to_game_from_coin_store"),
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
@@ -1521,6 +1463,7 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	attempts_value.autowrap_mode = TextServer.AUTOWRAP_OFF
 	attempts_value.clip_text = false
 	attempts_value.z_index = 12
+	_portrait_game_attempts_value_label = attempts_value
 
 	# Keep the existing attempts-animation collection as the generic gameplay HUD
 	# collection so the new text fades in/out at the same moments as before.
@@ -3048,6 +2991,15 @@ func _refresh_game_screen() -> void:
 		return
 	if content == null:
 		return
+	# Keep the gameplay tree alive for the whole round. Guesses and hints update
+	# only the controls whose state changed instead of recreating every node.
+	if (
+		_portrait_game_runtime_ready
+		and _portrait_game_input_group != null
+		and is_instance_valid(_portrait_game_input_group)
+	):
+		_refresh_portrait_game_runtime_state()
+		return
 	var restore_finished_round: bool = game_finished
 	var play_game_entrance: bool = _portrait_game_entrance_pending and !restore_finished_round
 	_portrait_game_entrance_pending = false
@@ -3057,10 +3009,13 @@ func _refresh_game_screen() -> void:
 	_portrait_game_word_paper_layer = null
 	_portrait_game_word_paper_backside = null
 	_portrait_game_word_paper_backside_visual = null
+	_portrait_game_word_slots_root = null
 	_portrait_game_word_rect = Rect2()
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
+	_portrait_game_hint_signature = ""
 	_portrait_game_attempts_controls.clear()
+	_portrait_game_attempts_value_label = null
 	_portrait_round_end_transition_active = false
 	_portrait_round_end_bounce_started = false
 	_portrait_inline_result_visible = false
@@ -3222,7 +3177,11 @@ func _refresh_game_screen() -> void:
 		)
 		_portrait_game_keyboard_buttons.append({
 			"button": key_button,
+			"letter": letter,
 			"stage_x": x,
+			"font_size": keyboard_font_size,
+			"marker_size": marker_size,
+			"state": state,
 			"rest_disabled": !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
 		})
 	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
@@ -3246,6 +3205,7 @@ func _refresh_game_screen() -> void:
 		)
 	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	_stage_portrait_admob_banner_placeholder()
+	_portrait_game_runtime_ready = true
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 	if play_game_entrance:
@@ -3257,6 +3217,109 @@ func _refresh_game_screen() -> void:
 			last_result_data,
 			false
 		)
+
+func _refresh_portrait_game_runtime_state() -> void:
+	if _portrait_game_attempts_value_label != null and is_instance_valid(_portrait_game_attempts_value_label):
+		_portrait_game_attempts_value_label.text = str(GameSession.get_remaining_attempts())
+
+	_rebuild_portrait_game_word_slots()
+	_refresh_portrait_game_keyboard()
+	_refresh_portrait_game_hints_if_needed()
+
+	# Preserve one hero node across guesses. FlashStageSymbol already streams the
+	# next pose in the background, so updating it is cheaper than rebuilding the
+	# complete character hierarchy.
+	_capture_hero_animation_phase()
+	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
+		hero_static_symbol.animation_time = _hero_animation_time()
+		hero_static_symbol.nested_animation_time = _hero_nested_display_time()
+		_configure_hero_static_animation()
+
+	pending_letter_markers.clear()
+	pending_letter_marker_is_correct = false
+
+func _rebuild_portrait_game_word_slots() -> void:
+	if (
+		_portrait_game_word_slots_root == null
+		or !is_instance_valid(_portrait_game_word_slots_root)
+		or _portrait_game_word_rect.size.x <= 0.0
+	):
+		return
+	for child: Node in _portrait_game_word_slots_root.get_children():
+		_portrait_game_word_slots_root.remove_child(child)
+		child.queue_free()
+	var previous_content: Control = content
+	content = _portrait_game_word_slots_root
+	_stage_portrait_word_slots(_portrait_game_word_rect, 34, false, false)
+	content = previous_content
+
+func _refresh_portrait_game_keyboard() -> void:
+	for entry_variant: Variant in _portrait_game_keyboard_buttons:
+		var entry: Dictionary = entry_variant
+		var button := entry.get("button") as StageLetterButton
+		if button == null or !is_instance_valid(button):
+			continue
+		var letter: String = str(entry.get("letter", ""))
+		var state: int = StageLetterButton.LetterState.NORMAL
+		if GameSession.correct_letters.has(letter):
+			state = StageLetterButton.LetterState.CIRCLED
+		elif GameSession.wrong_letters.has(letter) or GameSession.removed_wrong_letters.has(letter):
+			state = StageLetterButton.LetterState.CROSSED
+		var disabled_value: bool = !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL
+		var animate_state: bool = (
+			state != int(entry.get("state", StageLetterButton.LetterState.NORMAL))
+			and pending_letter_markers.has(letter)
+			and (
+				(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
+				or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
+			)
+		)
+		if state != int(entry.get("state", -1)) or disabled_value != bool(entry.get("rest_disabled", false)):
+			var marker_size_value: Vector2 = entry.get("marker_size", Vector2(44.0, 44.0))
+			button.configure(
+				letter,
+				state,
+				int(entry.get("font_size", 29)),
+				marker_size_value,
+				disabled_value,
+				animate_state
+			)
+			entry["state"] = state
+			entry["rest_disabled"] = disabled_value
+
+func _portrait_game_hint_state_signature() -> String:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		return "two_player"
+	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
+		int(GameSession.is_active),
+		int(GameSession.open_hint_used),
+		int(GameSession.remove_wrong_hint_used),
+		int(GameSession.comment_hint_unlocked),
+		GameState.get_hint_count(GameState.HINT_OPEN_LETTER),
+		GameState.get_hint_count(GameState.HINT_REMOVE_WRONG),
+		GameState.get_hint_count(GameState.HINT_COMMENT),
+		int(GameSession.can_use_open_letter_hint()),
+		int(GameSession.can_use_remove_wrong_hint()),
+		int(GameSession.can_unlock_comment_hint()),
+	]
+
+func _refresh_portrait_game_hints_if_needed() -> void:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		return
+	var next_signature: String = _portrait_game_hint_state_signature()
+	if next_signature == _portrait_game_hint_signature:
+		return
+	for hint_button: Control in _portrait_game_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		hint_button.visible = false
+		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint_button.queue_free()
+	_portrait_game_hint_buttons.clear()
+	var previous_content: Control = content
+	content = _portrait_game_input_group
+	_stage_portrait_hint_buttons()
+	content = previous_content
 
 func _stage_portrait_admob_banner_placeholder() -> void:
 	# Reserve a real 320×50 mobile-banner slot at the physical bottom. The named
@@ -3298,7 +3361,16 @@ func _stage_portrait_game_word_paper(rect: Rect2) -> void:
 
 func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void:
 	_stage_portrait_game_word_paper(rect)
+	var slots_root := Control.new()
+	slots_root.name = "PortraitGameWordSlots"
+	slots_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(slots_root)
+	slots_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_game_word_slots_root = slots_root
+	var previous_content: Control = content
+	content = slots_root
 	_stage_portrait_word_slots(rect, font_size, false, false)
+	content = previous_content
 
 func _stage_portrait_result_word_display(
 	rect: Rect2,
@@ -3736,6 +3808,7 @@ func _stage_portrait_hint_buttons() -> void:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
 	if !comment_unlocked:
 		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
+	_portrait_game_hint_signature = _portrait_game_hint_state_signature()
 
 func _stage_portrait_hint_art(
 	button: Control,
@@ -4106,15 +4179,6 @@ func _play_portrait_game_entrance() -> void:
 	finish_tween.tween_interval(entrance_finish)
 	finish_tween.tween_callback(Callable(self, "_finish_portrait_game_entrance"))
 
-func _show_portrait_game_attempts_after_entrance() -> void:
-	if !_portrait_game_entrance_active:
-		return
-	for attempts_control: Control in _portrait_game_attempts_controls:
-		if attempts_control == null or !is_instance_valid(attempts_control):
-			continue
-		attempts_control.visible = true
-		attempts_control.modulate.a = 1.0
-
 func _play_portrait_game_hint_entrance_bounce() -> void:
 	if !_portrait_game_entrance_active:
 		return
@@ -4244,17 +4308,6 @@ func _return_to_game_from_coin_store() -> void:
 	# the current stage without scheduling the one-shot entrance choreography.
 	_portrait_game_entrance_pending = false
 	super.show_game_screen()
-
-func _return_to_result_from_coin_store() -> void:
-	_portrait_game_entrance_pending = false
-	super.show_game_screen()
-
-func _disable_portrait_finished_round_hints() -> void:
-	for hint_button: Control in _portrait_game_hint_buttons:
-		if hint_button == null or !is_instance_valid(hint_button):
-			continue
-		hint_button.set("disabled", true)
-		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _stage_portrait_inline_result_word(animate_result: bool = false) -> Dictionary:
 	if (
@@ -4780,130 +4833,6 @@ func _show_portrait_inline_round_result(
 	_hide_portrait_hints_for_round_end(animated)
 	_hide_portrait_keyboard_for_round_end(animated)
 	_begin_portrait_inline_word_reveal(animated)
-
-func _show_portrait_result_screen(is_win: bool, data: Dictionary, animate_result: bool) -> void:
-	_play_result_sound_once(is_win, data)
-	_portrait_game_adaptive_group = null
-	_clear()
-	_portrait_screen(0.0)
-	_stage_currency_counter(Callable(self, "_return_to_result_from_coin_store"))
-	var close_button := _stage_round_icon_button(
-		PORTRAIT_PAGE_BACK_BUTTON_RECT,
-		Callable(self, "_result_back_action"),
-		RESULT_CLOSE_ICON,
-		Vector2(23.0, 23.0)
-	)
-	close_button.z_index = 20
-
-	var result_controls: Dictionary = _show_result_content(is_win, data, animate_result)
-	var continue_button: Control = result_controls.get("continue_button") as Control
-	var continue_text: Control = result_controls.get("continue_text") as Control
-	# Keep the solved word in exactly the same stage position as the puzzle word
-	# on the gameplay screen. Both views use the same bottom-attached transform,
-	# so reusing the gameplay word rect also keeps the position stable on tall
-	# devices. Only the paper backing disappears on the result screen.
-	var result_keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(get_viewport_rect().size)
-	var result_word_rect: Rect2 = result_keyboard_metrics["word_rect"]
-	var word_content: Control = _portrait_begin_bottom_attached_group()
-	_stage_portrait_result_word_display(
-		result_word_rect,
-		continue_button,
-		continue_text,
-		animate_result
-	)
-	_portrait_end_adaptive_group(word_content)
-
-func _stage_portrait_result_mode_theme_label(rect: Rect2, animate_result: bool) -> Label:
-	var header_texts: Dictionary = _portrait_game_header_texts()
-	var mode_theme_text: String = str(header_texts["title"])
-	var theme_text: String = str(header_texts["subtitle"])
-	if !theme_text.is_empty():
-		mode_theme_text += " • " + theme_text
-	var mode_theme_label := _stage_label(
-		rect,
-		mode_theme_text,
-		18,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	mode_theme_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	mode_theme_label.clip_text = false
-	var mode_theme_holder := mode_theme_label.get_parent() as CanvasItem
-	if mode_theme_holder != null:
-		mode_theme_holder.z_index = 20
-	_fit_single_line_label_to_width(mode_theme_label, mode_theme_text, rect.size.x, 22, 15)
-	mode_theme_label.visible = !animate_result
-	return mode_theme_label
-
-func _show_result_content(is_win: bool, data: Dictionary, animate_result: bool) -> Dictionary:
-	var result_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 390.0), 1.15, 0.08)
-	var title: String = _portrait_inline_result_title_text(is_win)
-	var title_rect := Rect2(40.0, 142.0, 400.0, 54.0)
-	var title_label := _stage_heading_label(title_rect, title, 38, _portrait_result_title_color(is_win))
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title_label.clip_text = false
-	_fit_single_line_label_to_width(
-		title_label,
-		title,
-		title_rect.size.x,
-		_heading_font_size(38),
-		_heading_font_size(23)
-	)
-	var title_holder := title_label.get_parent() as CanvasItem
-	if title_holder != null:
-		title_holder.z_index = 20
-	_apply_result_text_glow(title_label, Color.WHITE, 2)
-
-	var subtitle: String = _result_message(is_win, data)
-	var subtitle_label := _stage_label(Rect2(52.0, 196.0, 376.0, 44.0), subtitle, 21, PORTRAIT_BLUE)
-	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	subtitle_label.clip_text = false
-	var subtitle_holder := subtitle_label.get_parent() as CanvasItem
-	if subtitle_holder != null:
-		subtitle_holder.z_index = 20
-	var mode_theme_label: Label = null
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		mode_theme_label = _stage_portrait_result_mode_theme_label(
-			Rect2(28.0, 250.0, 424.0, 36.0),
-			animate_result
-		)
-
-	hero_static_symbol = _stage_hero_symbol(_hero_type(), PORTRAIT_HERO_RESULT_POSITION, _hero_animation_time(), _hero_nested_display_time())
-	if hero_static_symbol != null:
-		hero_static_symbol.stage_scale_multiplier = PORTRAIT_HERO_SCALE_MULTIPLIER
-	_configure_hero_static_animation()
-	_portrait_end_adaptive_group(result_root_content)
-
-	var bottom_content: Control = _portrait_begin_bottom_attached_group()
-	if mode_theme_label == null:
-		mode_theme_label = _stage_portrait_result_mode_theme_label(
-			Rect2(28.0, 660.0, 424.0, 42.0),
-			animate_result
-		)
-	var continue_button := _stage_main_button(
-		_portrait_footer_long_button_rect(PORTRAIT_RESULT_CONTINUE_BUTTON_RECT),
-		_result_continue_action(),
-		_result_continue_button_text(),
-		_portrait_footer_font_size(22),
-		false,
-		0.32,
-		false,
-		false,
-		true,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		_style_single_player_level_button(
-			continue_button,
-			int(data.get("single_player_level_index", single_player_active_level_index))
-		)
-	continue_button.z_index = 20
-	continue_button.visible = !animate_result
-	_portrait_end_adaptive_group(bottom_content)
-	return {
-		"continue_button": continue_button,
-		"continue_text": mode_theme_label,
-	}
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF

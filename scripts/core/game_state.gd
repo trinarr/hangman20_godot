@@ -44,7 +44,7 @@ var player_name: String = ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
 var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
-var _heart_tick_accumulator: float = 0.0
+var _heart_tick_timer: Timer = null
 var _last_emitted_hearts: int = -1
 var _last_emitted_heart_seconds: int = -1
 
@@ -73,14 +73,16 @@ var current_mode: int = GameMode.CLASSIC
 
 func _ready() -> void:
 	load_game()
-	set_process(true)
+	_heart_tick_timer = Timer.new()
+	_heart_tick_timer.name = "HeartRecoveryTick"
+	_heart_tick_timer.wait_time = 1.0
+	_heart_tick_timer.one_shot = false
+	_heart_tick_timer.timeout.connect(_on_heart_tick)
+	add_child(_heart_tick_timer)
+	_heart_tick_timer.start()
 	_emit_heart_status_if_changed(true)
 
-func _process(delta: float) -> void:
-	_heart_tick_accumulator += delta
-	if _heart_tick_accumulator < 1.0:
-		return
-	_heart_tick_accumulator = fmod(_heart_tick_accumulator, 1.0)
+func _on_heart_tick() -> void:
 	_apply_elapsed_heart_recovery(true)
 	_emit_heart_status_if_changed()
 
@@ -157,6 +159,8 @@ func save_game() -> void:
 	if file == null:
 		push_error("Can not write save: " + SAVE_PATH)
 		return
+	# Saves are written frequently after progress and economy actions. Compact JSON
+	# avoids formatting thousands of progress flags and reduces synchronous I/O.
 	file.store_string(JSON.stringify({
 		"save_version": SAVE_FORMAT_VERSION,
 		"word_language": word_language,
@@ -169,7 +173,7 @@ func save_game() -> void:
 		"soft_currency": soft_currency,
 		"hearts": hearts,
 		"heart_recovery_at": heart_recovery_at
-	}, "\t"))
+	}))
 	file.close()
 
 func get_hint_count(hint_key: String) -> int:
@@ -633,6 +637,3 @@ func reset_single_level_attempt(lang: String, level_index: int, reroll_seed: boo
 	bucket["level_seeds"] = level_seeds
 	single_player[lang_key] = bucket
 	save_game()
-
-func get_single_player_display_level(lang: String, difficulty: int = -1) -> int:
-	return get_single_player_unlocked_level(lang, difficulty) + 1

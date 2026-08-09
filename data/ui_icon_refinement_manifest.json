@@ -51,17 +51,6 @@
       "mean_absolute_change": 0.018265
     },
     {
-      "path": "flash_assets/result_close_icon_43.png",
-      "size": [
-        36,
-        36
-      ],
-      "source_sha256": "12210f86eaf377a7ffa390524ef14fd2a2daad05b845a961121b30905ef3e5bf",
-      "target_sha256": "f66822dfb67da0d3692a0d1f65c919119d1976df5493ca432d65802fc9eb1fd1",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.027442
-    },
-    {
       "path": "flash_assets/result_search_icon_343.png",
       "size": [
         36,
@@ -71,17 +60,6 @@
       "target_sha256": "e6dc56a14aa019f98a80c757505fed9919d8ecafc587b756f3d1bdd2fe6f7d21",
       "silhouette_iou": 1.0,
       "mean_absolute_change": 0.013537
-    },
-    {
-      "path": "flash_assets/result_theme_menu_icon.png",
-      "size": [
-        36,
-        34
-      ],
-      "source_sha256": "be73eb460013f421efde89ccded86746f31a6bbbbf94a7ea933c07e469560d6e",
-      "target_sha256": "328bceed7d87864d92bb1b2a4108a6463ab13663fdc9b66b386487e14495e326",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.013601
     }
   ]
 }

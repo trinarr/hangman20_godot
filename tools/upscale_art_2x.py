@@ -137,8 +137,16 @@ def refresh_manifest() -> None:
             entry = recorded_entries[relative_path]
             with Image.open(path) as image:
                 actual_size = list(image.size)
+                actual_mode = image.mode
             if actual_size != entry["target_size"]:
-                raise SystemExit(f"Unexpected dimensions for {relative_path}: {actual_size}")
+                if not entry.get("native_2x", False):
+                    raise SystemExit(f"Unexpected dimensions for {relative_path}: {actual_size}")
+                # Native target-scale art can be intentionally replaced with a
+                # newly authored version that has different dimensions.
+                entry["source_size"] = actual_size
+                entry["target_size"] = actual_size
+                entry["source_mode"] = actual_mode
+                entry["source_sha256"] = sha256(path)
             # A refresh is an explicit snapshot update after intentional,
             # non-resizing post-processing (for example button slicing).
             entry["target_sha256"] = sha256(path)

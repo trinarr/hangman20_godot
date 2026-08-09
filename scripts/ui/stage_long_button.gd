@@ -288,21 +288,6 @@ func configure(text_value: String, font_size_value: int = 20, disabled_value: bo
 	_sync_icon()
 	_sync_content_layout()
 
-func configure_with_icon(text_value: String, texture_value: Texture2D, icon_size_value: Vector2, font_size_value: int = 20, disabled_value: bool = false, disabled_overlay_alpha_value: float = 0.32, use_normal_texture_when_disabled: bool = false, selected_value: bool = false) -> void:
-	button_text = text_value
-	button_font_size = font_size_value
-	icon_texture = texture_value
-	icon_stage_size = icon_size_value
-	disabled_overlay_alpha = disabled_overlay_alpha_value
-	_use_normal_parts_when_disabled = use_normal_texture_when_disabled
-	selected = selected_value
-	button_disabled = disabled_value
-	_ensure_label()
-	_ensure_icon()
-	_sync_label()
-	_sync_icon()
-	_sync_content_layout()
-
 func _ensure_label() -> void:
 	if _label != null and is_instance_valid(_label):
 		return

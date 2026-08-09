@@ -30,7 +30,7 @@ var input_font_size: int = 34
 var avoid_virtual_keyboard: bool = false:
 	set(value):
 		avoid_virtual_keyboard = value
-		set_process(avoid_virtual_keyboard)
+		set_process(avoid_virtual_keyboard and _has_input_focus)
 var text_color: Color = Color(0.2706, 0.3098, 0.6078, 1.0):
 	set(value):
 		text_color = value
@@ -122,7 +122,7 @@ func _ready() -> void:
 	if !resized.is_connected(_rebuild_visuals):
 		resized.connect(_rebuild_visuals)
 	super._ready()
-	set_process(avoid_virtual_keyboard)
+	set_process(avoid_virtual_keyboard and _has_input_focus)
 	_rebuild_visuals()
 
 func _exit_tree() -> void:
@@ -133,8 +133,7 @@ func _exit_tree() -> void:
 	super._exit_tree()
 
 func _process(_delta: float) -> void:
-	if avoid_virtual_keyboard:
-		_sync_to_stage()
+	_sync_to_stage()
 
 func _sync_to_stage() -> void:
 	super._sync_to_stage()
@@ -231,11 +230,13 @@ func _on_line_edit_text_submitted(value: String) -> void:
 
 func _on_focus_entered() -> void:
 	_has_input_focus = true
+	set_process(avoid_virtual_keyboard)
 	_move_caret_to_end()
 	_rebuild_visuals()
 
 func _on_focus_exited() -> void:
 	_has_input_focus = false
+	set_process(false)
 	_rebuild_visuals()
 
 func _on_line_edit_gui_input(event: InputEvent) -> void:
