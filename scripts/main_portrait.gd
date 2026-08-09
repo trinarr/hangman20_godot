@@ -35,17 +35,17 @@ const PORTRAIT_GAME_HEADER_TEXT_RECT := Rect2(24.0, 104.0, 300.0, 48.0)
 # Compact text-only gameplay HUD placed in the free space to the right of the
 # left-aligned character. The old white attempts/theme pills are intentionally
 # removed; these labels are the only in-round status presentation now.
-const PORTRAIT_GAME_INFO_X: float = 270.0
-const PORTRAIT_GAME_INFO_WIDTH: float = 170.0
+const PORTRAIT_GAME_INFO_X: float = 242.0
+const PORTRAIT_GAME_INFO_WIDTH: float = 192.0
 # Keep the complete text HUD above the word-paper band. On tall screens this
 # block follows half of the extra-height shift together with the hero, while the
 # bottom-attached paper moves by the full extra height, so the two can never
 # collide as the aspect ratio grows. The labels are center-aligned and packed
 # into the open area to the right of the hero.
-const PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 46.0, PORTRAIT_GAME_INFO_WIDTH, 24.0)
-const PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 68.0, PORTRAIT_GAME_INFO_WIDTH, 48.0)
-const PORTRAIT_GAME_INFO_THEME_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 118.0, PORTRAIT_GAME_INFO_WIDTH, 22.0)
-const PORTRAIT_GAME_INFO_THEME_LINE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 142.0, PORTRAIT_GAME_INFO_WIDTH, 40.0)
+const PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 48.0, PORTRAIT_GAME_INFO_WIDTH, 24.0)
+const PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 66.0, PORTRAIT_GAME_INFO_WIDTH, 48.0)
+const PORTRAIT_GAME_INFO_THEME_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 134.0, PORTRAIT_GAME_INFO_WIDTH, 22.0)
+const PORTRAIT_GAME_INFO_THEME_LINE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 150.0, PORTRAIT_GAME_INFO_WIDTH, 44.0)
 const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
 const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
 const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
@@ -1444,10 +1444,7 @@ func _portrait_sentence_case(text: String) -> String:
 func _stage_portrait_game_header() -> void:
 	# Single-player round information is staged beside the guessed word, so the
 	# top header only needs the normal text label for the other modes plus resources.
-	if (
-		GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
-		and GameState.current_mode != GameState.GameMode.TWO_PLAYER
-	):
+	if false:
 		var header_texts: Dictionary = _portrait_game_header_texts()
 		var title: String = str(header_texts["title"])
 		var subtitle: String = str(header_texts["subtitle"])
@@ -1479,14 +1476,26 @@ func _stage_portrait_game_header() -> void:
 	)
 
 func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
+	var theme_text: String = ""
+	if GameState.current_mode != GameState.GameMode.TWO_PLAYER and GameSession.theme_id >= 0:
+		theme_text = String(Database.get_theme_name(GameSession.theme_id)).to_upper()
+
+	var show_theme_block: bool = !theme_text.is_empty()
+	var additional_y_shift: float = -10.0 if GameState.current_mode == GameState.GameMode.TWO_PLAYER else 0.0
+	var group_center_y: float = 104.0 + y_shift + additional_y_shift
+	var attempts_block_height: float = 66.0
+	var theme_block_height: float = 60.0
+	var block_gap: float = 30.0
+	var total_group_height: float = attempts_block_height
+	if show_theme_block:
+		total_group_height += block_gap + theme_block_height
+	var group_top: float = group_center_y - total_group_height * 0.5
+
 	var attempts_title_rect := PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT
-	attempts_title_rect.position.y += y_shift
+	attempts_title_rect.position.y = group_top
 	var attempts_value_rect := PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT
-	attempts_value_rect.position.y += y_shift
-	var theme_title_rect := PORTRAIT_GAME_INFO_THEME_TITLE_RECT
-	theme_title_rect.position.y += y_shift
-	var theme_line_rect := PORTRAIT_GAME_INFO_THEME_LINE_RECT
-	theme_line_rect.position.y += y_shift
+	attempts_value_rect.position.y = group_top + 18.0
+
 	var attempts_title_text: String = _single_player_text("Попытки", "Attempts")
 	var attempts_title := _stage_label(
 		attempts_title_rect,
@@ -1495,7 +1504,7 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 		PORTRAIT_DARK_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	attempts_title.add_theme_font_override("font", UI_PRIMARY_FONT)
+	attempts_title.add_theme_font_override("font", UI_HEADING_FONT)
 	attempts_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	attempts_title.clip_text = false
 	attempts_title.z_index = 12
@@ -1518,8 +1527,13 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	_portrait_game_attempts_controls.append(attempts_title)
 	_portrait_game_attempts_controls.append(attempts_value)
 
-	if GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+	if !show_theme_block:
 		return
+
+	var theme_title_rect := PORTRAIT_GAME_INFO_THEME_TITLE_RECT
+	theme_title_rect.position.y = group_top + attempts_block_height + block_gap
+	var theme_line_rect := PORTRAIT_GAME_INFO_THEME_LINE_RECT
+	theme_line_rect.position.y = theme_title_rect.position.y + 16.0
 
 	var theme_caption_text: String = _single_player_text("Тема", "Theme")
 	var theme_caption := _stage_label(
@@ -1529,37 +1543,32 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 		PORTRAIT_DARK_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	theme_caption.add_theme_font_override("font", UI_PRIMARY_FONT)
+	theme_caption.add_theme_font_override("font", UI_HEADING_FONT)
 	theme_caption.autowrap_mode = TextServer.AUTOWRAP_OFF
 	theme_caption.clip_text = false
 	theme_caption.z_index = 12
 
-	var theme_text: String = ""
-	if GameSession.theme_id >= 0:
-		theme_text = _portrait_sentence_case(Database.get_theme_name(GameSession.theme_id))
-	if theme_text.is_empty():
-		return
-
-	var theme_line_text: String = theme_text
 	var theme_line_label := _stage_label(
 		theme_line_rect,
-		theme_line_text,
+		theme_text,
 		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	theme_line_label.add_theme_font_override("font", UI_HEADING_FONT)
+	_fit_single_line_label_to_width(
+		theme_line_label,
+		theme_text,
+		theme_line_rect.size.x,
+		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
+		maxi(
+			int(round(float(PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE) * 0.8)),
+			PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE - 7
+		)
+	)
 	theme_line_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	theme_line_label.clip_text = false
 	theme_line_label.z_index = 12
-	_fit_single_line_label_to_width(
-		theme_line_label,
-		theme_line_text,
-		theme_line_rect.size.x,
-		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
-		20
-	)
-
 	_portrait_game_attempts_controls.append(theme_caption)
 	_portrait_game_attempts_controls.append(theme_line_label)
 
