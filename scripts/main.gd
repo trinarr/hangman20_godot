@@ -23,6 +23,7 @@ const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
 const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
 const SINGLE_PLAYER_THEME_REFRESH_COST: int = 25
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25
 const SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = 0.06
 const SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = 0.05
 const SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = 0.12
@@ -39,6 +40,7 @@ const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const LONG_BUTTON_COLOR_ORANGE: int = 0
+const LONG_BUTTON_COLOR_GREEN: int = 1
 const LONG_BUTTON_COLOR_BLUE: int = 2
 const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
@@ -118,6 +120,7 @@ var single_player_popup_stage_content: Control = null
 var single_player_popup_theme_card_nodes: Array[Node] = []
 var single_player_popup_play_button: Control = null
 var single_player_popup_refresh_price_label: Label = null
+var single_player_retry_after_loss: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
 var custom_word_text: String = ""
@@ -249,7 +252,17 @@ func _create_hero_animation_overlay() -> FlashStageSymbol:
 func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> void:
 	pass
 
-func _show_single_player_level_popup(_level_index: int, _selected_theme: int = -1) -> void:
+func _show_single_player_level_popup(
+	_level_index: int,
+	_selected_theme: int = -1,
+	_retry_after_loss: bool = false
+) -> void:
+	pass
+
+func _show_single_player_last_chance_popup() -> void:
+	pass
+
+func _show_single_player_defeat_retry_state(_animated: bool = true) -> void:
 	pass
 
 func _update_single_player_theme_popup(_level_index: int) -> void:
@@ -308,6 +321,7 @@ func _clear() -> void:
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 	_remove_exit_game_popup()
+	_remove_single_player_last_chance_popup()
 	_remove_single_player_theme_popup()
 	_remove_clear_theme_popup()
 	custom_word_edit = null
@@ -1094,6 +1108,13 @@ func _remove_single_player_theme_popup() -> void:
 	single_player_popup_play_button = null
 	single_player_popup_refresh_price_label = null
 
+func _remove_single_player_last_chance_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_last_chance_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+
 func _clear_single_player_popup_theme_cards() -> void:
 	for card_node: Node in single_player_popup_theme_card_nodes:
 		if card_node != null and is_instance_valid(card_node):
@@ -1271,6 +1292,7 @@ func _confirm_single_player_theme_selection(level_index: int, theme_index: int) 
 func _start_single_player_popup_level(level_index: int) -> void:
 	if level_index != single_player_popup_level_index or single_player_popup_selected_theme < 0:
 		return
+	single_player_retry_after_loss = false
 	_confirm_single_player_theme_selection(level_index, single_player_popup_selected_theme)
 
 func _refresh_single_player_theme_popup(level_index: int) -> void:
@@ -1278,7 +1300,10 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 		return
 	if GameState.get_soft_currency() < SINGLE_PLAYER_THEME_REFRESH_COST:
 		_open_coin_store(
-			Callable(self, "_return_to_single_player_theme_popup").bind(level_index)
+			Callable(self, "_return_to_single_player_theme_popup").bind(
+				level_index,
+				single_player_retry_after_loss
+			)
 		)
 		return
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
@@ -1287,9 +1312,35 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	_invalidate_single_player_level_cache()
 	_update_single_player_theme_popup(level_index)
 
-func _return_to_single_player_theme_popup(level_index: int) -> void:
+func _return_to_single_player_theme_popup(level_index: int, retry_after_loss: bool = false) -> void:
 	show_menu()
-	_show_single_player_level_popup(level_index)
+	_show_single_player_level_popup(level_index, -1, retry_after_loss)
+
+func _purchase_single_player_extra_attempt() -> void:
+	if !GameSession.has_deferred_loss():
+		_remove_single_player_last_chance_popup()
+		return
+	if GameState.get_soft_currency() < SINGLE_PLAYER_EXTRA_ATTEMPT_COST:
+		_remove_single_player_last_chance_popup()
+		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
+		return
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST):
+		return
+	_remove_single_player_last_chance_popup()
+	GameSession.grant_deferred_attempt()
+
+func _decline_single_player_extra_attempt() -> void:
+	_remove_single_player_last_chance_popup()
+	GameSession.resolve_deferred_loss()
+
+func _return_to_single_player_last_chance_from_coin_store() -> void:
+	show_game_screen()
+	call_deferred("_show_single_player_last_chance_popup")
+
+func _close_single_player_retry_popup() -> void:
+	single_player_retry_after_loss = false
+	_remove_single_player_theme_popup()
+	show_menu()
 
 func _start_next_single_player_word(level_index: int) -> void:
 	if _single_player_level_selected_theme(level_index) < 0:
@@ -1861,6 +1912,8 @@ func _configure_hero_static_animation() -> void:
 		)
 
 func _press_letter(letter: String) -> void:
+	if GameSession.has_deferred_loss():
+		return
 	_sync_hero_pose_state()
 	var round_token_before_guess: int = _current_hero_round_token()
 	var previous_mistakes: int = GameSession.mistakes
@@ -1884,11 +1937,20 @@ func _press_letter(letter: String) -> void:
 	pending_letter_markers.clear()
 	pending_letter_markers.append(letter)
 	pending_letter_marker_is_correct = is_correct_letter
+	var should_defer_loss: bool = (
+		guess_is_available
+		and !is_correct_letter
+		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and GameSession.get_remaining_attempts() == 1
+	)
 	round_result_delay_requested = true
-	var guess_was_correct: bool = GameSession.guess(letter)
+	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
 	round_result_delay_requested = false
 	if guess_is_available:
 		_play_letter_feedback_sound(guess_was_correct)
+	if GameSession.has_deferred_loss():
+		call_deferred("_show_single_player_last_chance_popup")
+		return
 	# A round signal can replace the current screen synchronously. Never let the
 	# previous word's animation appear over the newly built result screen.
 	if round_token_before_guess != _current_hero_round_token():
@@ -1959,6 +2021,9 @@ func _finish_round(is_win: bool) -> void:
 		if !is_win:
 			GameState.lose_heart()
 		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
+		if !is_win:
+			_show_single_player_defeat_retry_state()
+			return
 
 	var transition_generation: int = result_transition_generation
 	if round_result_delay_requested:
@@ -1966,6 +2031,19 @@ func _finish_round(is_win: bool) -> void:
 		if transition_generation != result_transition_generation:
 			return
 	show_result_screen(is_win, last_result_data)
+
+func _open_single_player_retry_theme_popup() -> void:
+	var level_index: int = single_player_active_level_index
+	if level_index < 0:
+		show_menu()
+		return
+	GameState.reset_single_level_attempt(Database.current_language, level_index)
+	_invalidate_single_player_level_cache()
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
+	_show_single_player_level_popup(level_index, -1, true)
 
 func _result_continue_button_text() -> String:
 	return Database.tr_text(3, "Continue")
@@ -2001,12 +2079,11 @@ func _continue_two_player_result() -> void:
 
 func _continue_single_player_result() -> void:
 	var level_index: int = single_player_active_level_index
-	var chain_failed: bool = bool(last_result_data.get("single_player_chain_failed", false))
 	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
-	if chain_failed:
-		GameState.reset_single_level_attempt(Database.current_language, level_index)
-		_invalidate_single_player_level_cache()
-	if chain_failed or level_completed:
+	if !last_result_is_win:
+		_open_single_player_retry_theme_popup()
+		return
+	if level_completed:
 		GameSession.discard_current_round()
 		game_finished = false
 		last_result_data = {}
@@ -2036,7 +2113,14 @@ func _open_word_search() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and !event.echo:
 		if event.keycode == KEY_ESCAPE:
-			if game_finished:
+			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
+				_decline_single_player_extra_attempt()
+			elif (
+				single_player_retry_after_loss
+				and !get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
+			):
+				_close_single_player_retry_popup()
+			elif game_finished:
 				_result_back_action()
 			elif GameSession.is_active:
 				_show_exit_game_popup()

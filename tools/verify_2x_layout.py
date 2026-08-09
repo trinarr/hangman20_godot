@@ -1432,7 +1432,7 @@ def verify_result_screen_rebuild() -> None:
     )
     require(
         "func _show_portrait_inline_result_chrome(is_win: bool, animated: bool) -> void:" in result
-        and result.count("_stage_main_button(") == 1
+        and result.count("_stage_main_button(") == 2
         and "_result_continue_action()" in result
         and "_result_continue_button_text()" in result
         and "_portrait_inline_result_continue_button = continue_button" in result
@@ -1541,6 +1541,13 @@ def verify_game_exit_confirmation_popup() -> None:
         "A gameplay exit button still bypasses the confirmation popup",
     )
     require(
+        "if game_finished and !last_result_is_win:" in portrait_popup
+        and "_result_back_action()" in portrait_popup
+        and portrait_popup.index("_result_back_action()")
+        < portrait_popup.index("_remove_exit_game_popup()"),
+        "The gameplay Back button still opens confirmation after a lost word",
+    )
+    require(
         "if event.keycode == KEY_ESCAPE:" in main
         and "if game_finished:" in main
         and "_result_back_action()" in main
@@ -1575,6 +1582,61 @@ def verify_game_exit_confirmation_popup() -> None:
         "EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?" in translations,
         "The exit confirmation title is not localized",
     )
+
+
+def verify_low_attempts_attention_bounce() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    runtime_refresh = portrait[
+        portrait.index("func _refresh_portrait_game_runtime_state()") :
+        portrait.index("func _sync_portrait_attempts_attention_bounce()")
+    ]
+    bounce = portrait[
+        portrait.index("func _sync_portrait_attempts_attention_bounce()") :
+        portrait.index("func _rebuild_portrait_game_word_slots()")
+    ]
+    entrance_finish = portrait[
+        portrait.index("func _finish_portrait_game_entrance()") :
+        portrait.index("func _on_timer_heart_recovered()")
+    ]
+    defeat_state = portrait[
+        portrait.index("func _show_single_player_defeat_retry_state(") :
+        portrait.index("func _dim_portrait_keyboard_for_single_player_defeat()")
+    ]
+    inline_result = portrait[
+        portrait.index("func _show_portrait_inline_round_result(") :
+        portrait.index("func _fit_single_line_label_to_width(")
+    ]
+
+    require(
+        "const PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = 2" in portrait
+        and "const PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SCALE" in portrait
+        and "var _portrait_game_attempts_bounce_tween: Tween = null" in portrait,
+        "The low-attempt warning bounce is missing its explicit threshold or state",
+    )
+    require(
+        "remaining_attempts > 0" in bounce
+        and "remaining_attempts <= PORTRAIT_ATTEMPTS_WARNING_THRESHOLD" in bounce
+        and "GameSession.is_active" in bounce
+        and "!game_finished" in bounce
+        and "_portrait_game_attempts_bounce_tween.set_loops()" in bounce
+        and '"scale"' in bounce
+        and "func _stop_portrait_attempts_attention_bounce(reset_scale: bool) -> void:"
+        in bounce,
+        "The attempts number does not cycle only while one or two active attempts remain",
+    )
+    require(
+        "_sync_portrait_attempts_attention_bounce()" in runtime_refresh
+        and runtime_refresh.index("_portrait_game_attempts_value_label.text")
+        < runtime_refresh.index("_sync_portrait_attempts_attention_bounce()")
+        and "_sync_portrait_attempts_attention_bounce()" in entrance_finish,
+        "The attempts warning does not follow the live counter or restored entrance state",
+    )
+    require(
+        "_stop_portrait_attempts_attention_bounce(true)" in defeat_state
+        and "_stop_portrait_attempts_attention_bounce(true)" in inline_result,
+        "The attempts warning keeps bouncing after a guessed or unguessed word",
+    )
+
 
 def verify_long_button_attention_bounce() -> None:
     button = read("scripts/ui/stage_long_button.gd")
@@ -2293,6 +2355,177 @@ def verify_profile_theme_and_settings_footer_ui() -> None:
     )
 
 
+def verify_single_player_last_chance_flow() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    session = read("scripts/core/game_session.gd")
+
+    guess_flow = session[session.index("func guess(") : session.index("func _reveal_letter(")]
+    require(
+        "var loss_deferred: bool = false" in session
+        and "func guess(letter: String, defer_loss: bool = false) -> bool:" in guess_flow
+        and "if defer_loss and reaches_loss_limit:" in guess_flow
+        and "loss_deferred = true" in guess_flow
+        and "func grant_deferred_attempt() -> bool:" in guess_flow
+        and "func resolve_deferred_loss() -> bool:" in guess_flow
+        and 'emit_signal("round_lost")' in guess_flow,
+        "The final single-player mistake cannot be deferred, purchased, and resolved safely",
+    )
+    require(
+        "if loss_deferred:\n\t\treturn 0" in session
+        and session.count("loss_deferred = false") >= 4,
+        "Deferred defeat is not reflected in the attempts counter or reset with the round",
+    )
+
+    press_letter = main[main.index("func _press_letter(") : main.index("func _use_open_hint(")]
+    purchase_flow = main[
+        main.index("func _purchase_single_player_extra_attempt(") :
+        main.index("func _start_next_single_player_word(")
+    ]
+    finish_flow = main[
+        main.index("func _finish_round(") :
+        main.index("func _open_single_player_retry_theme_popup(")
+    ]
+    retry_flow = main[
+        main.index("func _open_single_player_retry_theme_popup(") :
+        main.index("func _result_continue_button_text(")
+    ]
+    resolve_flow = session[
+        session.index("func resolve_deferred_loss(") :
+        session.index("func _reveal_letter(")
+    ]
+    refresh_flow = portrait[
+        portrait.index("func _refresh_game_screen(") :
+        portrait.index("func _refresh_portrait_game_runtime_state(")
+    ]
+    defeat_state = portrait[
+        portrait.index("func _stage_single_player_defeat_word(") :
+        portrait.index("func _hide_portrait_keyboard_for_round_end(")
+    ]
+    defeat_show = portrait[
+        portrait.index("func _show_single_player_defeat_retry_state(") :
+        portrait.index("func _dim_portrait_keyboard_for_single_player_defeat(")
+    ]
+    defeat_bounce = portrait[
+        portrait.index("func _replace_portrait_inline_result_word_with_bounce(") :
+        portrait.index("func _portrait_inline_result_title_text(")
+    ]
+    result_action_reveal = portrait[
+        portrait.index("func _play_portrait_result_word_bounce_sequence(") :
+        portrait.index("func _prepare_portrait_word_letter_bounce(")
+    ]
+    retry_geometry = portrait[
+        portrait.index("func _portrait_game_hint_y(") :
+        portrait.index("func _stage_portrait_hint_buttons(")
+    ]
+    require(
+        "GameState.current_mode == GameState.GameMode.SINGLE_PLAYER" in press_letter
+        and "GameSession.get_remaining_attempts() == 1" in press_letter
+        and "GameSession.guess(letter, should_defer_loss)" in press_letter
+        and 'call_deferred("_show_single_player_last_chance_popup")' in press_letter,
+        "The last wrong single-player guess does not open the deferred-loss popup",
+    )
+    require(
+        "const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25" in main
+        and "GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)" in purchase_flow
+        and "GameSession.grant_deferred_attempt()" in purchase_flow
+        and "GameSession.resolve_deferred_loss()" in purchase_flow
+        and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store")' in purchase_flow,
+        "The extra attempt is not connected to currency, the shop fallback, and defeat resolution",
+    )
+    require(
+        "GameState.lose_heart()" in finish_flow
+        and "_show_single_player_defeat_retry_state()\n\t\t\treturn" in finish_flow
+        and "GameState.reset_single_level_attempt(Database.current_language, level_index)" in retry_flow
+        and "_show_single_player_level_popup(level_index, -1, true)" in retry_flow,
+        "A declined extra attempt does not enter the in-game defeat/retry state",
+    )
+    require(
+        "mistakes = MAX_MISTAKES" in resolve_flow
+        and "is_active = false" in resolve_flow
+        and resolve_flow.index('emit_signal("changed")') < resolve_flow.index('emit_signal("round_lost")'),
+        "The terminal hero stage is not refreshed before the defeat flow starts",
+    )
+
+    last_chance_popup = portrait[
+        portrait.index("func _show_single_player_last_chance_popup(") :
+        portrait.index("func _show_single_player_level_popup(")
+    ]
+    retry_popup = portrait[
+        portrait.index("func _show_single_player_level_popup(") :
+        portrait.index("func _stage_single_player_popup_theme_cards(")
+    ]
+    require(
+        '"single_player_last_chance_popup"' in last_chance_popup
+        and '"+1"' in last_chance_popup
+        and "SINGLE_PLAYER_EXTRA_ATTEMPT_COST" in last_chance_popup
+        and "SOFT_CURRENCY_COIN_TEXTURE" in last_chance_popup
+        and "LONG_BUTTON_COLOR_GREEN" in last_chance_popup
+        and 'Callable(self, "_decline_single_player_extra_attempt")' in last_chance_popup,
+        "The portrait extra-attempt popup is missing its price, purchase action, or decline path",
+    )
+    require(
+        "retry_after_loss: bool = false" in retry_popup
+        and 'Callable(self, "_close_single_player_retry_popup")' in retry_popup
+        and 'return _single_player_text("Играть", "Play")' in main
+        and "func _close_single_player_retry_popup() -> void:" in main
+        and "_remove_single_player_theme_popup()\n\tshow_menu()" in main,
+        "The post-retry theme popup does not use Play or return to the main menu on close",
+    )
+    require(
+        'call_deferred("_show_single_player_defeat_retry_state", false)' in refresh_flow
+        and "func _show_single_player_defeat_retry_state(animated: bool = true) -> void:" in defeat_state
+        and "_hide_portrait_hints_for_round_end(animated)" in defeat_state
+        and "func _stage_single_player_defeat_word(animated: bool) -> void:" in defeat_state
+        and "_stage_single_player_defeat_word(animated)" in defeat_state
+        and "_peel_portrait_word_paper_for_single_player_defeat(animated)" in defeat_state
+        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION" in defeat_state
+        and "_finalize_portrait_word_paper_peel_visuals(paper_layer)" in defeat_state,
+        "The declined purchase does not peel the paper and replace the hint row in place",
+    )
+    require(
+        "search_button.visible = !animated" in defeat_state
+        and 'search_button.set("disabled", animated)' in defeat_state
+        and "_set_portrait_result_word_color(result_controls, StageLetterButton.CROSSED_COLOR)" in defeat_state
+        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5" in defeat_state
+        and 'Callable(self, "_start_single_player_defeat_word_bounce")' in defeat_state
+        and "_replace_portrait_inline_result_word_with_bounce(StageLetterButton.CROSSED_COLOR)" in defeat_state
+        and "_stage_portrait_inline_result_word(true)" in defeat_bounce
+        and "_set_portrait_result_word_color(bounced_controls, word_color)" in defeat_bounce
+        and "sequence.tween_interval(animation_duration)" in result_action_reveal
+        and 'Callable(self, "_reveal_portrait_result_actions")' in result_action_reveal
+        and "search_button.visible = true" in result_action_reveal,
+        "The red answer does not start bouncing at half-paper before revealing Search",
+    )
+    require(
+        "const PORTRAIT_SINGLE_PLAYER_DEFEAT_KEYBOARD_ALPHA: float = 0.70" in portrait
+        and "_dim_portrait_keyboard_for_single_player_defeat()" in defeat_show
+        and "button.modulate.a = PORTRAIT_SINGLE_PLAYER_DEFEAT_KEYBOARD_ALPHA" in defeat_state
+        and defeat_show.index("_dim_portrait_keyboard_for_single_player_defeat()")
+        < defeat_show.index("_stage_single_player_defeat_word(animated)")
+        < defeat_show.index("_peel_portrait_word_paper_for_single_player_defeat(animated)"),
+        "The inactive keyboard is not dimmed to 70% before the red word and paper peel begin",
+    )
+    require(
+        "_hide_portrait_keyboard_for_round_end" not in defeat_state
+        and "_hide_portrait_hero_after_word_paper" not in defeat_state
+        and "_show_portrait_inline_result_chrome" not in defeat_state
+        and "PORTRAIT_INLINE_RESULT_TITLE_RECT" not in defeat_state,
+        "The special single-player defeat incorrectly hides the keyboard/hero or adds result chrome",
+    )
+    require(
+        "func _portrait_game_hint_y() -> float:" in retry_geometry
+        and "func _portrait_single_player_retry_button_rect() -> Rect2:" in retry_geometry
+        and "_portrait_game_hint_y()" in retry_geometry
+        and "_portrait_single_player_retry_button_rect()" in defeat_state
+        and 'Callable(self, "_open_single_player_retry_theme_popup")' in defeat_state
+        and '_single_player_text("Повторить", "Retry")' in defeat_state
+        and 'retry_button.set("attention_bounce_enabled", true)' in defeat_state
+        and "var bounce_tween := retry_button.create_tween()" not in defeat_state,
+        "Retry does not use the standard cyclic attention bounce in the former hint row",
+    )
+
+
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     subprocess.run(["python3", "tools/rebalance_hint_difficulty.py", "--check"], cwd=ROOT, check=True)
@@ -2315,12 +2548,14 @@ def main() -> None:
     verify_hint_letter_animations()
     verify_global_hint_inventory()
     verify_soft_currency_economy()
+    verify_single_player_last_chance_flow()
     verify_main_tab_navigation()
     verify_game_footer_navigation_and_two_player_hero()
     verify_result_screen_rebuild()
     verify_android_vibration_feedback()
     verify_android_network_and_result_search()
     verify_game_exit_confirmation_popup()
+    verify_low_attempts_attention_bounce()
     verify_long_button_attention_bounce()
     verify_single_player_popup_stays_interactive()
     verify_single_player_challenge_difficulty_step()

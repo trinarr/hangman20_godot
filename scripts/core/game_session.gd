@@ -18,6 +18,7 @@ var wrong_letters: PackedStringArray = []
 var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
 var is_active: bool = false
+var loss_deferred: bool = false
 var mode: int = GameState.GameMode.CLASSIC
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
@@ -25,6 +26,8 @@ var comment_hint_unlocked: bool = false
 var word_hint_text: String = ""
 
 func get_remaining_attempts() -> int:
+	if loss_deferred:
+		return 0
 	return maxi(MAX_MISTAKES - mistakes, 0)
 
 func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) -> void:
@@ -38,6 +41,7 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) ->
 	wrong_letters.clear()
 	removed_wrong_letters.clear()
 	mistakes = 0
+	loss_deferred = false
 	open_hint_used = false
 	remove_wrong_hint_used = false
 	comment_hint_unlocked = false
@@ -73,8 +77,8 @@ func _split_letters(text: String) -> PackedStringArray:
 func _is_separator(letter: String) -> bool:
 	return letter == " " or letter == "-" or letter == "—"
 
-func guess(letter: String) -> bool:
-	if !is_active:
+func guess(letter: String, defer_loss: bool = false) -> bool:
+	if !is_active or loss_deferred:
 		return false
 	letter = WordManager.normalize_word(letter)
 	if letter.length() != 1:
@@ -91,7 +95,11 @@ func guess(letter: String) -> bool:
 			emit_signal("changed")
 		return true
 	wrong_letters.append(letter)
-	mistakes += 1
+	var reaches_loss_limit: bool = mistakes + 1 >= MAX_MISTAKES
+	if defer_loss and reaches_loss_limit:
+		loss_deferred = true
+	else:
+		mistakes += 1
 	if int(GameState.settings[4]) == 2:
 		# A short pulse gives subtle feedback without interrupting gameplay.
 		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
@@ -102,6 +110,26 @@ func guess(letter: String) -> bool:
 	else:
 		emit_signal("changed")
 	return false
+
+func has_deferred_loss() -> bool:
+	return loss_deferred
+
+func grant_deferred_attempt() -> bool:
+	if !loss_deferred or !is_active:
+		return false
+	loss_deferred = false
+	emit_signal("changed")
+	return true
+
+func resolve_deferred_loss() -> bool:
+	if !loss_deferred:
+		return false
+	loss_deferred = false
+	mistakes = MAX_MISTAKES
+	is_active = false
+	emit_signal("changed")
+	emit_signal("round_lost")
+	return true
 
 func _reveal_letter(letter: String) -> bool:
 	var found := false
@@ -245,6 +273,7 @@ func discard_current_round() -> void:
 	wrong_letters.clear()
 	removed_wrong_letters.clear()
 	mistakes = 0
+	loss_deferred = false
 	is_active = false
 	mode = GameState.GameMode.CLASSIC
 	open_hint_used = false
