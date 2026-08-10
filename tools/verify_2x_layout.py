@@ -1397,9 +1397,9 @@ def verify_result_screen_rebuild() -> None:
         main.index("func _finish_round(") :
         main.index("func _open_single_player_retry_theme_popup(")
     ]
-    defeat_show = portrait[
-        portrait.index("func _show_in_place_defeat_state(") :
-        portrait.index("func _dim_portrait_keyboard_for_in_place_defeat(")
+    in_place_show = portrait[
+        portrait.index("func _show_in_place_round_result(") :
+        portrait.index("func _dim_portrait_keyboard_for_in_place_result(")
     ]
 
     require(
@@ -1458,14 +1458,23 @@ def verify_result_screen_rebuild() -> None:
         "Inline round-result elements do not transition together on the existing gameplay tree",
     )
     require(
-        "if !is_win:\n\t\t_show_in_place_defeat_state()\n\t\treturn" in finish_flow
-        and "GameState.current_mode" not in defeat_show
-        and result.count("if !is_win:\n\t\t_show_in_place_defeat_state(") >= 2
+        "var use_in_place_result: bool = (" in finish_flow
+        and "or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER" in finish_flow
+        and "_show_in_place_round_result(is_win)" in finish_flow
+        and "GameState.current_mode" not in in_place_show
+        and 'call_deferred("_show_in_place_round_result", last_result_is_win, false)' in refresh
+        and "or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER" in refresh
+        and '"_show_portrait_inline_round_result"' in refresh
+        and result.count("if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:") >= 3
+        and result.count("_show_in_place_round_result(is_win,") >= 2
         and "func _portrait_inline_result_title_text() -> String:" in result
         and 'Database.tr_text(33, "VICTORY")' in result
         and '"DEFEAT"' not in result
-        and "if !is_win:\n\t\treturn" in result,
-        "Classic or Two Player defeat still uses the titled result transition",
+        and "func _in_place_result_word_color() -> Color:" in result
+        and "StageLetterButton.CIRCLED_COLOR" in result
+        and "StageLetterButton.CROSSED_COLOR" in result
+        and "if _portrait_in_place_result_is_win" in result,
+        "Classic or Two Player completion still uses the titled result transition or wrong word color",
     )
     require(
         'return Callable(self, "_continue_classic_result")' in continue_logic
@@ -1559,11 +1568,13 @@ def verify_game_exit_confirmation_popup() -> None:
         "A gameplay exit button still bypasses the confirmation popup",
     )
     require(
-        "if game_finished and !last_result_is_win:" in portrait_popup
+        "game_finished" in portrait_popup
+        and "!last_result_is_win" in portrait_popup
+        and "or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER" in portrait_popup
         and "_result_back_action()" in portrait_popup
         and portrait_popup.index("_result_back_action()")
         < portrait_popup.index("_remove_exit_game_popup()"),
-        "The gameplay Back button still opens confirmation after a lost word",
+        "The gameplay Back button still opens confirmation for an in-place result",
     )
     require(
         "if event.keycode == KEY_ESCAPE:" in main
@@ -1616,9 +1627,9 @@ def verify_low_attempts_attention_bounce() -> None:
         portrait.index("func _finish_portrait_game_entrance()") :
         portrait.index("func _on_timer_heart_recovered()")
     ]
-    defeat_state = portrait[
-        portrait.index("func _show_in_place_defeat_state(") :
-        portrait.index("func _dim_portrait_keyboard_for_in_place_defeat()")
+    in_place_state = portrait[
+        portrait.index("func _show_in_place_round_result(") :
+        portrait.index("func _dim_portrait_keyboard_for_in_place_result()")
     ]
     inline_result = portrait[
         portrait.index("func _show_portrait_inline_round_result(") :
@@ -1650,7 +1661,7 @@ def verify_low_attempts_attention_bounce() -> None:
         "The attempts warning does not follow the live counter or restored entrance state",
     )
     require(
-        "_stop_portrait_attempts_attention_bounce(true)" in defeat_state
+        "_stop_portrait_attempts_attention_bounce(true)" in in_place_state
         and "_stop_portrait_attempts_attention_bounce(true)" in inline_result,
         "The attempts warning keeps bouncing after a guessed or unguessed word",
     )
@@ -2416,13 +2427,13 @@ def verify_single_player_last_chance_flow() -> None:
         portrait.index("func _refresh_game_screen(") :
         portrait.index("func _refresh_portrait_game_runtime_state(")
     ]
-    defeat_state = portrait[
-        portrait.index("func _stage_in_place_defeat_word(") :
+    result_state = portrait[
+        portrait.index("func _in_place_result_word_color(") :
         portrait.index("func _hide_portrait_keyboard_for_round_end(")
     ]
-    defeat_show = portrait[
-        portrait.index("func _show_in_place_defeat_state(") :
-        portrait.index("func _dim_portrait_keyboard_for_in_place_defeat(")
+    result_show = portrait[
+        portrait.index("func _show_in_place_round_result(") :
+        portrait.index("func _dim_portrait_keyboard_for_in_place_result(")
     ]
     defeat_bounce = portrait[
         portrait.index("func _replace_portrait_inline_result_word_with_bounce(") :
@@ -2453,7 +2464,9 @@ def verify_single_player_last_chance_flow() -> None:
     )
     require(
         "GameState.lose_heart()" in finish_flow
-        and "if !is_win:\n\t\t_show_in_place_defeat_state()\n\t\treturn" in finish_flow
+        and "var use_in_place_result: bool = (" in finish_flow
+        and "!is_win" in finish_flow
+        and "_show_in_place_round_result(is_win)" in finish_flow
         and "GameState.reset_single_level_attempt(Database.current_language, level_index)" in retry_flow
         and "_show_single_player_level_popup(level_index, -1, true)" in retry_flow,
         "A declined extra attempt does not enter the in-game defeat/retry state",
@@ -2491,24 +2504,27 @@ def verify_single_player_last_chance_flow() -> None:
         "The post-retry theme popup does not use Play or return to the main menu on close",
     )
     require(
-        'call_deferred("_show_in_place_defeat_state", false)' in refresh_flow
-        and "if !last_result_is_win:" in refresh_flow
-        and "func _show_in_place_defeat_state(animated: bool = true) -> void:" in defeat_state
-        and "_hide_portrait_hints_for_round_end(animated)" in defeat_state
-        and "func _stage_in_place_defeat_word(animated: bool) -> void:" in defeat_state
-        and "_stage_in_place_defeat_word(animated)" in defeat_state
-        and "_peel_portrait_word_paper_for_in_place_defeat(animated)" in defeat_state
-        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION" in defeat_state
-        and "_finalize_portrait_word_paper_peel_visuals(paper_layer)" in defeat_state,
+        'call_deferred("_show_in_place_round_result", last_result_is_win, false)' in refresh_flow
+        and "!last_result_is_win" in refresh_flow
+        and "func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:" in result_state
+        and "_portrait_in_place_result_is_win = is_win" in result_state
+        and "_hide_portrait_hints_for_round_end(animated)" in result_state
+        and "func _stage_in_place_result_word(animated: bool) -> void:" in result_state
+        and "_stage_in_place_result_word(animated)" in result_state
+        and "_peel_portrait_word_paper_for_in_place_result(animated)" in result_state
+        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION" in result_state
+        and "_finalize_portrait_word_paper_peel_visuals(paper_layer)" in result_state,
         "A restored defeat does not peel the paper and replace the hint row in place",
     )
     require(
-        "search_button.visible = !animated" in defeat_state
-        and 'search_button.set("disabled", animated)' in defeat_state
-        and "_set_portrait_result_word_color(result_controls, StageLetterButton.CROSSED_COLOR)" in defeat_state
-        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5" in defeat_state
-        and 'Callable(self, "_start_in_place_defeat_word_bounce")' in defeat_state
-        and "_replace_portrait_inline_result_word_with_bounce(StageLetterButton.CROSSED_COLOR)" in defeat_state
+        "search_button.visible = !animated" in result_state
+        and 'search_button.set("disabled", animated)' in result_state
+        and "_set_portrait_result_word_color(result_controls, _in_place_result_word_color())" in result_state
+        and "StageLetterButton.CROSSED_COLOR" in result_state
+        and "StageLetterButton.CIRCLED_COLOR" in result_state
+        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5" in result_state
+        and 'Callable(self, "_start_in_place_result_word_bounce")' in result_state
+        and "_replace_portrait_inline_result_word_with_bounce(_in_place_result_word_color())" in result_state
         and "_stage_portrait_inline_result_word(true)" in defeat_bounce
         and "_set_portrait_result_word_color(bounced_controls, word_color)" in defeat_bounce
         and "sequence.tween_interval(animation_duration)" in result_action_reveal
@@ -2517,32 +2533,32 @@ def verify_single_player_last_chance_flow() -> None:
         "The red answer does not start bouncing at half-paper before revealing Search",
     )
     require(
-        "const PORTRAIT_IN_PLACE_DEFEAT_KEYBOARD_ALPHA: float = 0.70" in portrait
-        and "_dim_portrait_keyboard_for_in_place_defeat()" in defeat_show
-        and "button.modulate.a = PORTRAIT_IN_PLACE_DEFEAT_KEYBOARD_ALPHA" in defeat_state
-        and defeat_show.index("_dim_portrait_keyboard_for_in_place_defeat()")
-        < defeat_show.index("_stage_in_place_defeat_word(animated)")
-        < defeat_show.index("_peel_portrait_word_paper_for_in_place_defeat(animated)"),
+        "const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70" in portrait
+        and "_dim_portrait_keyboard_for_in_place_result()" in result_show
+        and "button.modulate.a = PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA" in result_state
+        and result_show.index("_dim_portrait_keyboard_for_in_place_result()")
+        < result_show.index("_stage_in_place_result_word(animated)")
+        < result_show.index("_peel_portrait_word_paper_for_in_place_result(animated)"),
         "The inactive keyboard is not dimmed to 70% before the red word and paper peel begin",
     )
     require(
-        "_hide_portrait_keyboard_for_round_end" not in defeat_state
-        and "_hide_portrait_hero_after_word_paper" not in defeat_state
-        and "_show_portrait_inline_result_chrome" not in defeat_state
-        and "PORTRAIT_INLINE_RESULT_TITLE_RECT" not in defeat_state,
-        "The shared defeat incorrectly hides the keyboard/hero or adds result chrome",
+        "_hide_portrait_keyboard_for_round_end" not in result_state
+        and "_hide_portrait_hero_after_word_paper" not in result_state
+        and "_show_portrait_inline_result_chrome" not in result_state
+        and "PORTRAIT_INLINE_RESULT_TITLE_RECT" not in result_state,
+        "The shared in-place result incorrectly hides the keyboard/hero or adds result chrome",
     )
     require(
         "func _portrait_game_hint_y() -> float:" in retry_geometry
-        and "func _portrait_in_place_defeat_button_rect() -> Rect2:" in retry_geometry
+        and "func _portrait_in_place_result_button_rect() -> Rect2:" in retry_geometry
         and "_portrait_game_hint_y()" in retry_geometry
         and "PORTRAIT_ADMOB_BANNER_RECT.position.y" in retry_geometry
-        and "_portrait_in_place_defeat_button_rect()" in defeat_state
-        and "_result_continue_action()" in defeat_state
-        and "_result_continue_button_text()" in defeat_state
-        and '_single_player_text("Повторить", "Retry")' in defeat_state
-        and 'action_button.set("attention_bounce_enabled", true)' in defeat_state
-        and "var bounce_tween := action_button.create_tween()" not in defeat_state,
+        and "_portrait_in_place_result_button_rect()" in result_state
+        and "_result_continue_action()" in result_state
+        and "_result_continue_button_text()" in result_state
+        and '_single_player_text("Повторить", "Retry")' in result_state
+        and 'action_button.set("attention_bounce_enabled", true)' in result_state
+        and "var bounce_tween := action_button.create_tween()" not in result_state,
         "The mode-specific defeat action does not bounce safely above the ad banner",
     )
 

@@ -262,7 +262,7 @@ func _show_single_player_level_popup(
 func _show_single_player_last_chance_popup() -> void:
 	pass
 
-func _show_in_place_defeat_state(_animated: bool = true) -> void:
+func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
 	pass
 
 func _update_single_player_theme_popup(_level_index: int) -> void:
@@ -2021,8 +2021,12 @@ func _finish_round(is_win: bool) -> void:
 		if !is_win:
 			GameState.lose_heart()
 		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
-	if !is_win:
-		_show_in_place_defeat_state()
+	var use_in_place_result: bool = (
+		!is_win
+		or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
+	)
+	if use_in_place_result:
+		_show_in_place_round_result(is_win)
 		return
 
 	var transition_generation: int = result_transition_generation

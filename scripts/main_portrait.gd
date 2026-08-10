@@ -110,7 +110,7 @@ const PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = 0.92
 const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
 const PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = 0.20
 const PORTRAIT_ROUND_END_HINTS_FADE_DURATION: float = 0.18
-const PORTRAIT_IN_PLACE_DEFEAT_KEYBOARD_ALPHA: float = 0.70
+const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70
 const PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = 2
 const PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SCALE := Vector2(1.18, 1.18)
 const PORTRAIT_ATTEMPTS_WARNING_BOUNCE_GROW_DURATION: float = 0.48
@@ -248,7 +248,8 @@ var _portrait_inline_result_search_button: Control = null
 var _portrait_inline_result_word_holder: Control = null
 var _portrait_inline_result_title_label: Label = null
 var _portrait_inline_result_continue_button: Control = null
-var _portrait_in_place_defeat_active: bool = false
+var _portrait_in_place_result_active: bool = false
+var _portrait_in_place_result_is_win: bool = false
 var _portrait_game_entrance_pending: bool = false
 var _portrait_game_entrance_active: bool = false
 var _portrait_active_main_tab: int = -1
@@ -316,7 +317,8 @@ func _clear() -> void:
 	_portrait_game_attempts_controls.clear()
 	_portrait_game_attempts_value_label = null
 	_portrait_game_runtime_ready = false
-	_portrait_in_place_defeat_active = false
+	_portrait_in_place_result_active = false
+	_portrait_in_place_result_is_win = false
 	if !_portrait_main_tab_swipe_building_target:
 		_portrait_active_main_tab = -1
 		_reset_portrait_main_tab_swipe()
@@ -2937,10 +2939,16 @@ func _start_single_player_popup_level(level_index: int) -> void:
 	super._start_single_player_popup_level(level_index)
 
 func _show_exit_game_popup() -> void:
-	# A finished loss has already been recorded and has no live progress left to
+	# An in-place result has already been recorded and has no live progress left to
 	# protect. The gameplay Back button therefore leaves immediately, matching the
 	# device Back action, instead of asking for confirmation a second time.
-	if game_finished and !last_result_is_win:
+	if (
+		game_finished
+		and (
+			!last_result_is_win
+			or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
+		)
+	):
 		_result_back_action()
 		return
 	_remove_exit_game_popup()
@@ -3124,7 +3132,8 @@ func _refresh_game_screen() -> void:
 	_portrait_inline_result_word_holder = null
 	_portrait_inline_result_title_label = null
 	_portrait_inline_result_continue_button = null
-	_portrait_in_place_defeat_active = false
+	_portrait_in_place_result_active = false
+	_portrait_in_place_result_is_win = false
 	_capture_hero_animation_phase()
 	for child: Node in content.get_children():
 		content.remove_child(child)
@@ -3314,8 +3323,11 @@ func _refresh_game_screen() -> void:
 	if play_game_entrance:
 		_prepare_portrait_game_entrance()
 	if restore_finished_round:
-		if !last_result_is_win:
-			call_deferred("_show_in_place_defeat_state", false)
+		if (
+			!last_result_is_win
+			or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
+		):
+			call_deferred("_show_in_place_round_result", last_result_is_win, false)
 		else:
 			call_deferred(
 				"_show_portrait_inline_round_result",
@@ -3356,7 +3368,7 @@ func _sync_portrait_attempts_attention_bounce() -> void:
 		and !game_finished
 		and !_portrait_game_entrance_active
 		and !_portrait_round_end_transition_active
-		and !_portrait_in_place_defeat_active
+		and !_portrait_in_place_result_active
 		and remaining_attempts > 0
 		and remaining_attempts <= PORTRAIT_ATTEMPTS_WARNING_THRESHOLD
 	)
@@ -3891,7 +3903,7 @@ func _portrait_game_hint_y() -> float:
 	)
 	return keyboard_bottom_y + PORTRAIT_GAME_HINT_KEYBOARD_GAP
 
-func _portrait_in_place_defeat_button_rect() -> Rect2:
+func _portrait_in_place_result_button_rect() -> Rect2:
 	var button_y: float = minf(
 		_portrait_game_hint_y(),
 		PORTRAIT_ADMOB_BANNER_RECT.position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
@@ -4485,8 +4497,8 @@ func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
 	if !game_screen_visible or _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
 		show_game_screen()
 		return
-	if !is_win:
-		_show_in_place_defeat_state(true)
+	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+		_show_in_place_round_result(is_win, true)
 		return
 	_show_portrait_inline_round_result(is_win, data, true)
 
@@ -4525,36 +4537,42 @@ func _set_portrait_result_word_color(result_controls: Dictionary, color: Color) 
 	if word_label != null and is_instance_valid(word_label):
 		word_label.add_theme_color_override("default_color", color)
 
-func _stage_in_place_defeat_word(animated: bool) -> void:
+func _in_place_result_word_color() -> Color:
+	return (
+		StageLetterButton.CIRCLED_COLOR
+		if _portrait_in_place_result_is_win
+		else StageLetterButton.CROSSED_COLOR
+	)
+
+func _stage_in_place_result_word(animated: bool) -> void:
 	var result_controls: Dictionary = _stage_portrait_inline_result_word(false)
-	_set_portrait_result_word_color(result_controls, StageLetterButton.CROSSED_COLOR)
+	_set_portrait_result_word_color(result_controls, _in_place_result_word_color())
 	var search_button := result_controls.get("search_button") as Control
 	_portrait_inline_result_search_button = search_button
 	if search_button != null and is_instance_valid(search_button):
 		search_button.visible = !animated
 		search_button.set("disabled", animated)
 
-func _show_in_place_defeat_state(animated: bool = true) -> void:
-	if _portrait_in_place_defeat_active:
-		return
-	if last_result_is_win:
+func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
+	if _portrait_in_place_result_active:
 		return
 	if _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
 		show_game_screen()
 		return
-	_portrait_in_place_defeat_active = true
+	_portrait_in_place_result_active = true
+	_portrait_in_place_result_is_win = is_win
 	_stop_portrait_attempts_attention_bounce(true)
-	_play_result_sound_once(false, last_result_data)
-	# Keep the inactive keyboard, attempts and terminal hero pose exactly where
-	# they are in every mode. Only the hint row leaves while the full red answer
-	# is uncovered; Two Player simply has no hint row to remove.
-	_dim_portrait_keyboard_for_in_place_defeat()
+	_play_result_sound_once(is_win, last_result_data)
+	# Keep the inactive keyboard, attempts and current terminal/default hero pose
+	# exactly where they are. Only the hint row leaves while the full answer is
+	# uncovered; Two Player simply has no hint row to remove.
+	_dim_portrait_keyboard_for_in_place_result()
 	_hide_portrait_hints_for_round_end(animated)
 	_portrait_round_end_bounce_started = false
-	_stage_in_place_defeat_word(animated)
-	_peel_portrait_word_paper_for_in_place_defeat(animated)
+	_stage_in_place_result_word(animated)
+	_peel_portrait_word_paper_for_in_place_result(animated)
 
-func _dim_portrait_keyboard_for_in_place_defeat() -> void:
+func _dim_portrait_keyboard_for_in_place_result() -> void:
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
 		var entry: Dictionary = entry_variant
 		var button := entry.get("button") as Control
@@ -4562,17 +4580,17 @@ func _dim_portrait_keyboard_for_in_place_defeat() -> void:
 			continue
 		button.set("disabled", true)
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.modulate.a = PORTRAIT_IN_PLACE_DEFEAT_KEYBOARD_ALPHA
+		button.modulate.a = PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA
 
-func _peel_portrait_word_paper_for_in_place_defeat(animated: bool) -> void:
+func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:
 	if _portrait_game_word_paper_layer == null or !is_instance_valid(_portrait_game_word_paper_layer):
-		_finish_in_place_defeat_paper_peel(null, animated)
+		_finish_in_place_result_paper_peel(null, animated)
 		return
 	var paper_layer: Control = _portrait_game_word_paper_layer
 	paper_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if !animated:
 		_set_portrait_word_paper_peel_progress(1.0)
-		_finish_in_place_defeat_paper_peel(paper_layer, false)
+		_finish_in_place_result_paper_peel(paper_layer, false)
 		return
 
 	_set_portrait_word_paper_peel_progress(0.0)
@@ -4587,7 +4605,7 @@ func _peel_portrait_word_paper_for_in_place_defeat(animated: bool) -> void:
 	mask_tweener.set_trans(Tween.TRANS_QUAD)
 	mask_tweener.set_ease(Tween.EASE_OUT)
 	flip_tween.finished.connect(
-		Callable(self, "_finish_in_place_defeat_paper_peel").bind(paper_layer, true),
+		Callable(self, "_finish_in_place_result_paper_peel").bind(paper_layer, true),
 		CONNECT_ONE_SHOT
 	)
 
@@ -4595,29 +4613,29 @@ func _peel_portrait_word_paper_for_in_place_defeat(animated: bool) -> void:
 	bounce_start_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	bounce_start_tween.tween_interval(PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5)
 	bounce_start_tween.tween_callback(
-		Callable(self, "_start_in_place_defeat_word_bounce")
+		Callable(self, "_start_in_place_result_word_bounce")
 	)
 
-func _start_in_place_defeat_word_bounce() -> void:
-	if _portrait_round_end_bounce_started or !_portrait_in_place_defeat_active:
+func _start_in_place_result_word_bounce() -> void:
+	if _portrait_round_end_bounce_started or !_portrait_in_place_result_active:
 		return
 	_portrait_round_end_bounce_started = true
-	_replace_portrait_inline_result_word_with_bounce(StageLetterButton.CROSSED_COLOR)
+	_replace_portrait_inline_result_word_with_bounce(_in_place_result_word_color())
 
-func _finish_in_place_defeat_paper_peel(paper_layer: Control, animated: bool) -> void:
+func _finish_in_place_result_paper_peel(paper_layer: Control, animated: bool) -> void:
 	_finalize_portrait_word_paper_peel_visuals(paper_layer)
 	if animated:
 		if !_portrait_round_end_bounce_started:
-			_start_in_place_defeat_word_bounce()
+			_start_in_place_result_word_bounce()
 	elif (
 		_portrait_inline_result_search_button != null
 		and is_instance_valid(_portrait_inline_result_search_button)
 	):
 		_portrait_inline_result_search_button.set("disabled", false)
 		_portrait_inline_result_search_button.visible = true
-	_show_in_place_defeat_action_button(animated)
+	_show_in_place_result_action_button(animated)
 
-func _show_in_place_defeat_action_button(animated: bool) -> void:
+func _show_in_place_result_action_button(animated: bool) -> void:
 	if _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
 		return
 	if (
@@ -4633,7 +4651,7 @@ func _show_in_place_defeat_action_button(animated: bool) -> void:
 		else _result_continue_button_text()
 	)
 	var action_button := _stage_main_button(
-		_portrait_in_place_defeat_button_rect(),
+		_portrait_in_place_result_button_rect(),
 		_result_continue_action(),
 		action_text,
 		22,
@@ -4927,8 +4945,9 @@ func _portrait_inline_result_title_text() -> String:
 	return title
 
 func _show_portrait_inline_result_chrome(is_win: bool, animated: bool) -> void:
-	# Defeats use the shared in-place reveal and never stage a red result title.
-	if !is_win:
+	# Only a Single Player victory uses the titled result transition. Every defeat,
+	# plus Classic and Two Player victories, uses the shared in-place reveal.
+	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
 		return
 	if (
 		_portrait_inline_result_title_label != null
@@ -5161,8 +5180,8 @@ func _show_portrait_inline_round_result(
 	data: Dictionary,
 	animated: bool = true
 ) -> void:
-	if !is_win:
-		_show_in_place_defeat_state(animated)
+	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+		_show_in_place_round_result(is_win, animated)
 		return
 	if _portrait_round_end_transition_active or _portrait_inline_result_visible:
 		return
