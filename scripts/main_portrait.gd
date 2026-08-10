@@ -127,6 +127,20 @@ const PORTRAIT_INLINE_RESULT_CONTINUE_START_SCALE: float = 0.72
 const PORTRAIT_INLINE_RESULT_CONTINUE_PEAK_SCALE: float = 1.10
 const PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = 0.12
 const PORTRAIT_INLINE_RESULT_CONTINUE_SETTLE_DURATION: float = 0.18
+# Reward-screen hero is deliberately only 30% larger than the in-round hero.
+# The X offset scales with the hero so the visible artwork (not the Flash origin)
+# stays centered on the 480 px portrait stage.
+const PORTRAIT_SINGLE_REWARD_HERO_SCALE_MULTIPLIER: float = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER * 1.30
+const PORTRAIT_SINGLE_REWARD_HERO_POSITION := Vector2(
+	PORTRAIT_STAGE_SIZE.x * 0.5 - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X * 1.30,
+	390.0
+)
+const PORTRAIT_SINGLE_REWARD_CHAIN_Y: float = 505.0
+const PORTRAIT_SINGLE_REWARD_CHAIN_WIDTH: float = 372.0
+const PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE: float = 54.0
+const PORTRAIT_SINGLE_REWARD_NODE_MIN_SIZE: float = 40.0
+const PORTRAIT_SINGLE_REWARD_NODE_GAP: float = 10.0
+const PORTRAIT_SINGLE_REWARD_PROMPT_RECT := Rect2(28.0, 700.0, 424.0, 56.0)
 const PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE: float = 0.72
 const PORTRAIT_GAME_HINT_ENTRANCE_PEAK_SCALE: float = 1.12
 const PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION: float = 0.13
@@ -3323,18 +3337,10 @@ func _refresh_game_screen() -> void:
 	if play_game_entrance:
 		_prepare_portrait_game_entrance()
 	if restore_finished_round:
-		if (
-			!last_result_is_win
-			or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
-		):
-			call_deferred("_show_in_place_round_result", last_result_is_win, false)
-		else:
-			call_deferred(
-				"_show_portrait_inline_round_result",
-				last_result_is_win,
-				last_result_data,
-				false
-			)
+		# Victory is restored with the same in-place presentation in every mode:
+		# peel only the word paper, keep the gameplay composition, and color the
+		# solved word green. Single Player used to restore a separate result layout.
+		call_deferred("_show_in_place_round_result", last_result_is_win, false)
 
 func _refresh_portrait_game_runtime_state() -> void:
 	if _portrait_game_attempts_value_label != null and is_instance_valid(_portrait_game_attempts_value_label):
@@ -4489,18 +4495,17 @@ func _on_timer_heart_recovered() -> void:
 	settle.set_trans(Tween.TRANS_BOUNCE)
 	settle.set_ease(Tween.EASE_OUT)
 
-func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
+func show_result_screen(is_win: bool, _data: Dictionary = {}) -> void:
 	# Round completion now stays on the gameplay screen. If another screen has
 	# temporarily cleared the game UI, rebuild the finished gameplay state first;
-	# _refresh_game_screen() will restore the inline result without opening the old
+	# _refresh_game_screen() will restore the in-place result without opening the old
 	# dedicated result screen.
 	if !game_screen_visible or _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
 		show_game_screen()
 		return
-	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
-		_show_in_place_round_result(is_win, true)
-		return
-	_show_portrait_inline_round_result(is_win, data, true)
+	# Single Player wins now deliberately follow the Classic victory flow too:
+	# the paper peels away in place and the solved word is shown in green.
+	_show_in_place_round_result(is_win, true)
 
 func _return_to_game_from_coin_store() -> void:
 	# Returning from the modal shop is not a fresh gameplay navigation. Rebuild
@@ -4563,8 +4568,8 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 	_portrait_in_place_result_is_win = is_win
 	_stop_portrait_attempts_attention_bounce(true)
 	_play_result_sound_once(is_win, last_result_data)
-	# Keep the inactive keyboard, attempts and current terminal/default hero pose
-	# exactly where they are. Only the hint row leaves while the full answer is
+	# Keep the inactive keyboard, attempts and the hero pose reached during this
+	# round exactly where they are. Only the hint row leaves while the full answer is
 	# uncovered; Two Player simply has no hint row to remove.
 	_dim_portrait_keyboard_for_in_place_result()
 	_hide_portrait_hints_for_round_end(animated)
@@ -4647,7 +4652,7 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 	content = _portrait_game_input_group
 	var action_text: String = (
 		_single_player_text("Повторить", "Retry")
-		if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER and !_portrait_in_place_result_is_win
 		else _result_continue_button_text()
 	)
 	var action_button := _stage_main_button(
@@ -4683,6 +4688,291 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 		1.0,
 		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
 	)
+
+func _single_player_reward_for_slot(word_slot: int, word_count: int) -> int:
+	var reward: int = GameState.WORD_REWARD_COINS
+	if word_slot == word_count - 1:
+		reward += (
+			GameState.SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS
+			+ maxi(word_count, 0) * GameState.SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS
+		)
+	return reward
+
+func _show_single_player_reward_chain_screen() -> void:
+	var level_index: int = int(last_result_data.get(
+		"single_player_level_index",
+		single_player_active_level_index
+	))
+	if level_index < 0:
+		show_menu()
+		return
+
+	var word_count: int = maxi(
+		int(last_result_data.get(
+			"single_player_total_count",
+			_single_player_level_word_count(level_index)
+		)),
+		1
+	)
+	var current_slot: int = clampi(
+		int(last_result_data.get(
+			"single_player_word_slot",
+			single_player_active_word_slot
+		)),
+		0,
+		word_count - 1
+	)
+	var level_completed: bool = bool(last_result_data.get(
+		"single_player_level_completed",
+		false
+	))
+	var selected_theme: int = _single_player_level_selected_theme(level_index)
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var header_color: Color = PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE
+	var accent_color: Color = StageLetterButton.CIRCLED_COLOR
+
+	_clear()
+	_portrait_screen(0.0, -1.0, header_color)
+
+	var screen_content: Control = content
+	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
+		content = _portrait_top_bar_content
+	var header_title := _stage_heading_label(
+		Rect2(30.0, 17.0, 420.0, 46.0),
+		_single_player_text("НАГРАДЫ УРОВНЯ", "LEVEL REWARDS"),
+		27,
+		Color.WHITE
+	)
+	header_title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	header_title.clip_text = false
+	content = screen_content
+
+	# The reference is an open celebration screen, not a dialog card. Keep the
+	# paper/grid screen background visible and place a large clean/default hero
+	# directly on it. This is the only place where a solved round returns the hero
+	# to its pristine first state.
+	var reward_hero := _stage_hero_symbol(
+		_hero_type(),
+		PORTRAIT_SINGLE_REWARD_HERO_POSITION,
+		_hero_animation_time_for_mistakes(0),
+		HERO_MOV_IDLE_FRAME_TIME
+	)
+	if reward_hero != null:
+		reward_hero.stage_scale_multiplier = PORTRAIT_SINGLE_REWARD_HERO_SCALE_MULTIPLIER
+
+	var level_title: String = "%s %d" % [_single_player_level_label().to_upper(), level_index + 1]
+	if challenge_level:
+		level_title = "%s %d" % [
+			_single_player_challenge_level_label().to_upper(),
+			level_index + 1,
+		]
+	var level_label := _stage_heading_label(
+		Rect2(58.0, 91.0, 364.0, 34.0),
+		level_title,
+		22,
+		header_color
+	)
+	level_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	level_label.clip_text = false
+
+	var theme_name: String = ""
+	if selected_theme >= 0:
+		theme_name = Database.get_theme_name(selected_theme).to_upper()
+	var progress_caption: String = _single_player_text(
+		"СЛОВО %d/%d",
+		"WORD %d/%d"
+	) % [current_slot + 1, word_count]
+	var meta_text: String = progress_caption
+	if !theme_name.is_empty():
+		meta_text = "%s  •  %s" % [theme_name, progress_caption]
+	var meta_label := _stage_label(
+		Rect2(48.0, 122.0, 384.0, 27.0),
+		meta_text,
+		16,
+		Color(header_color.r, header_color.g, header_color.b, 0.82)
+	)
+	meta_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	meta_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	meta_label.clip_text = false
+	_fit_single_line_label_to_width(meta_label, meta_text, 384.0, 16, 12)
+
+	var total_gap_width: float = float(maxi(word_count - 1, 0)) * PORTRAIT_SINGLE_REWARD_NODE_GAP
+	var node_size: float = clampf(
+		(PORTRAIT_SINGLE_REWARD_CHAIN_WIDTH - total_gap_width) / float(word_count),
+		PORTRAIT_SINGLE_REWARD_NODE_MIN_SIZE,
+		PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE
+	)
+	var chain_width: float = node_size * float(word_count) + total_gap_width
+	var chain_start_x: float = (PORTRAIT_STAGE_SIZE.x - chain_width) * 0.5
+	var node_center_y: float = PORTRAIT_SINGLE_REWARD_CHAIN_Y + node_size * 0.5
+
+	for word_slot in range(word_count):
+		var node_x: float = chain_start_x + float(word_slot) * (node_size + PORTRAIT_SINGLE_REWARD_NODE_GAP)
+		if word_slot > 0:
+			var connector_x: float = node_x - PORTRAIT_SINGLE_REWARD_NODE_GAP
+			var connector_color: Color = (
+				Color(accent_color.r, accent_color.g, accent_color.b, 0.86)
+				if word_slot <= current_slot
+				else Color(header_color.r, header_color.g, header_color.b, 0.24)
+			)
+			_stage_panel(
+				Rect2(
+					connector_x,
+					node_center_y - 2.0,
+					PORTRAIT_SINGLE_REWARD_NODE_GAP,
+					4.0
+				),
+				connector_color,
+				2.0
+			)
+
+		var is_previous: bool = word_slot < current_slot
+		var is_current: bool = word_slot == current_slot
+		var node_border: Color = (
+			accent_color
+			if word_slot <= current_slot
+			else Color(header_color.r, header_color.g, header_color.b, 0.38)
+		)
+		var node_fill: Color = (
+			Color(accent_color.r, accent_color.g, accent_color.b, 0.10)
+			if word_slot <= current_slot
+			else Color(header_color.r, header_color.g, header_color.b, 0.055)
+		)
+		_stage_panel(
+			Rect2(node_x, PORTRAIT_SINGLE_REWARD_CHAIN_Y, node_size, node_size),
+			node_fill,
+			node_size * 0.5,
+			node_border,
+			4.0 if is_current else 3.0
+		)
+
+		if is_previous:
+			var check_label := _stage_heading_label(
+				Rect2(node_x, PORTRAIT_SINGLE_REWARD_CHAIN_Y - 1.0, node_size, node_size),
+				"✓",
+				27,
+				accent_color
+			)
+			check_label.clip_text = false
+		else:
+			var coin_size: float = clampf(node_size * 0.58, 24.0, 32.0)
+			_stage_texture(
+				Rect2(
+					node_x + (node_size - coin_size) * 0.5,
+					PORTRAIT_SINGLE_REWARD_CHAIN_Y + (node_size - coin_size) * 0.5,
+					coin_size,
+					coin_size
+				),
+				SOFT_CURRENCY_COIN_TEXTURE
+			)
+
+		var reward_amount: int = _single_player_reward_for_slot(word_slot, word_count)
+		var reward_color: Color = (
+			accent_color
+			if word_slot <= current_slot
+			else Color(header_color.r, header_color.g, header_color.b, 0.56)
+		)
+		var reward_label := _stage_label(
+			Rect2(node_x - 7.0, PORTRAIT_SINGLE_REWARD_CHAIN_Y + node_size + 5.0, node_size + 14.0, 24.0),
+			"+%d" % reward_amount,
+			15,
+			reward_color
+		)
+		reward_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		reward_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		reward_label.clip_text = false
+
+	var status_text: String = (
+		_single_player_text("УРОВЕНЬ ПРОЙДЕН!", "LEVEL COMPLETE!")
+		if level_completed
+		else _single_player_text("НАГРАДА ПОЛУЧЕНА", "REWARD COLLECTED")
+	)
+	var status_label := _stage_heading_label(
+		Rect2(64.0, 596.0, 352.0, 38.0),
+		status_text,
+		24,
+		accent_color
+	)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	status_label.clip_text = false
+
+	var current_reward: int = _single_player_reward_for_slot(current_slot, word_count)
+	var reward_text: String = _single_player_text(
+		"+%d МОНЕТ",
+		"+%d COINS"
+	) % current_reward
+	var reward_summary := _stage_label(
+		Rect2(98.0, 632.0, 284.0, 32.0),
+		reward_text,
+		19,
+		header_color
+	)
+	reward_summary.add_theme_font_override("font", UI_PRIMARY_FONT)
+	reward_summary.autowrap_mode = TextServer.AUTOWRAP_OFF
+	reward_summary.clip_text = false
+
+	if level_completed:
+		var completion_bonus: int = int(last_result_data.get(
+			"single_player_completion_bonus",
+			0
+		))
+		if completion_bonus > 0:
+			var bonus_text: String = _single_player_text(
+				"ВКЛЮЧАЯ БОНУС УРОВНЯ +%d",
+				"INCLUDING LEVEL BONUS +%d"
+			) % completion_bonus
+			var bonus_label := _stage_label(
+				Rect2(66.0, 660.0, 348.0, 24.0),
+				bonus_text,
+				13,
+				Color(header_color.r, header_color.g, header_color.b, 0.72)
+			)
+			bonus_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+			bonus_label.clip_text = false
+
+	var prompt_label := _stage_heading_label(
+		PORTRAIT_SINGLE_REWARD_PROMPT_RECT,
+		_single_player_text("НАЖМИТЕ, ЧТОБЫ ПРОДОЛЖИТЬ", "TAP TO CONTINUE"),
+		21,
+		Color(header_color.r, header_color.g, header_color.b, 0.72)
+	)
+	prompt_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	prompt_label.clip_text = false
+
+	# Match the reference interaction: after the player inspects the chain, any
+	# tap on the content area continues to the next word (or closes a completed
+	# level). The invisible stage button deliberately sits above the visuals.
+	var continue_overlay := _stage_button(
+		Rect2(0.0, PORTRAIT_HEADER_HEIGHT, PORTRAIT_STAGE_SIZE.x, PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT),
+		Callable(self, "_continue_from_single_player_reward_chain")
+	)
+	continue_overlay.z_index = 100
+
+func _continue_from_single_player_reward_chain() -> void:
+	var level_index: int = int(last_result_data.get(
+		"single_player_level_index",
+		single_player_active_level_index
+	))
+	var level_completed: bool = bool(last_result_data.get(
+		"single_player_level_completed",
+		false
+	))
+	if level_completed:
+		GameSession.discard_current_round()
+		game_finished = false
+		last_result_data = {}
+		single_player_active_word_slot = -1
+		show_menu()
+		return
+	_start_next_single_player_word(level_index)
+
+func _continue_single_player_result() -> void:
+	# A loss keeps the existing retry flow. A win first opens the reward-chain
+	# interstitial; only the next tap advances the level chain.
+	if !last_result_is_win:
+		_open_single_player_retry_theme_popup()
+		return
+	_show_single_player_reward_chain_screen()
 
 func _hide_portrait_keyboard_for_round_end(animated: bool) -> float:
 	var valid_buttons: Array = []

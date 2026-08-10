@@ -2013,28 +2013,19 @@ func _finish_round(is_win: bool) -> void:
 
 	game_finished = true
 	last_result_is_win = is_win
-	hero_force_default_pose = is_win
-	if is_win:
-		_show_hero_default_pose()
+	# Keep the hero in the pose reached during the round. The pristine/default
+	# pose is reserved for the Single Player reward interstitial and should never
+	# replace the gameplay pose just because the word was solved.
+	hero_force_default_pose = false
 	last_result_data = GameSession.finish_result(is_win)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if !is_win:
 			GameState.lose_heart()
 		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
-	var use_in_place_result: bool = (
-		!is_win
-		or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
-	)
-	if use_in_place_result:
-		_show_in_place_round_result(is_win)
-		return
-
-	var transition_generation: int = result_transition_generation
-	if round_result_delay_requested:
-		await get_tree().create_timer(LETTER_FEEDBACK_ANIMATION_DURATION).timeout
-		if transition_generation != result_transition_generation:
-			return
-	show_result_screen(is_win, last_result_data)
+	# All round results now use the same in-place presentation. In particular,
+	# Single Player victories follow Classic exactly instead of entering the old
+	# dedicated win transition after the final letter feedback delay.
+	_show_in_place_round_result(is_win)
 
 func _open_single_player_retry_theme_popup() -> void:
 	var level_index: int = single_player_active_level_index
