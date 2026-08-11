@@ -157,6 +157,7 @@ var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
 
 func _ready() -> void:
+	Engine.max_fps = 60
 	randomize()
 	Database.load_languages(GameState.interface_language, GameState.word_language)
 	_build_root()

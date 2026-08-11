@@ -259,6 +259,10 @@ func _request_next_hero_pose(state_index: int) -> void:
 func _prune_hero_pose_cache(state_index: int, keep_previous: bool) -> void:
 	var keep_paths: Dictionary = {}
 	var states: Array[String] = _hero_states()
+	# Reward screens always use the clean first pose. Keep it warm once it has
+	# been loaded so finishing a damaged round never has to synchronously reload
+	# and instantiate that resource during the screen transition.
+	keep_paths[states[0]] = true
 	keep_paths[states[state_index]] = true
 	if state_index + 1 < states.size():
 		keep_paths[states[state_index + 1]] = true
