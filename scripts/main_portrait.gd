@@ -164,7 +164,7 @@ const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_PEAK_SCALE: float = 1.16
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_GROW_DURATION: float = 0.15
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_SETTLE_DURATION: float = 0.20
 const PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT: int = 9
-const PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE: float = 47.0
+const PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE: float = 66.0
 const PORTRAIT_SINGLE_REWARD_FLY_SPREAD_X: float = 30.0
 const PORTRAIT_SINGLE_REWARD_FLY_SPREAD_Y: float = 18.0
 const PORTRAIT_SINGLE_REWARD_FLY_START_DELAY: float = 0.02
@@ -806,12 +806,19 @@ func _stage_menu_settings_button() -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
-	_stage_round_icon_button(
+	var settings_button := _stage_round_icon_button(
 		PORTRAIT_MENU_SETTINGS_BUTTON_RECT,
 		Callable(self, "show_settings"),
 		PORTRAIT_MENU_SETTINGS_ICON,
 		PORTRAIT_MENU_SETTINGS_ICON_SIZE
 	)
+	if game_screen_visible and _portrait_game_is_challenge_level():
+		settings_button.call(
+			"set_color_palette",
+			DIFFICULTY_HARD_NORMAL_TINT,
+			DIFFICULTY_HARD_PRESSED_TINT,
+			DIFFICULTY_HARD_SELECTED_TINT
+		)
 	content = screen_content
 
 func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:
@@ -5382,15 +5389,14 @@ func _stage_single_player_reward_count(
 	var count_text: String = _single_player_reward_chain_count_text(amount)
 	var count_label := Label.new()
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label_y: float = minf(
-		node_rect.size.y - 24.0,
-		icon_rect.position.y + icon_rect.size.y * 0.62
-	)
-	count_label.position = Vector2(
-		0.0,
-		label_y
-	)
-	count_label.size = Vector2(node_rect.size.x, 20.0)
+	# Anchor the amount to the lower part of its own reward tile. This keeps xN
+	# visually between the coin art and the bottom edge instead of floating over
+	# the middle of the icon, while remaining stable when the whole chain moves.
+	var label_height: float = 22.0
+	var label_bottom_inset: float = 4.0
+	var label_y: float = node_rect.size.y - label_height - label_bottom_inset
+	count_label.position = Vector2(0.0, label_y)
+	count_label.size = Vector2(node_rect.size.x, label_height)
 	count_label.text = count_text
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -5401,7 +5407,10 @@ func _stage_single_player_reward_count(
 	count_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	count_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	count_label.clip_text = false
-	_apply_portrait_standard_text_outline(count_label, 0.78, 1)
+	# Match the exact outline/shadow weight used by the green solved word.
+	_apply_portrait_standard_text_outline(count_label, 0.94, 4)
+	count_label.add_theme_constant_override("shadow_offset_x", 3)
+	count_label.add_theme_constant_override("shadow_offset_y", 3)
 	_fit_single_line_label_to_width(
 		count_label,
 		count_text,
@@ -5459,7 +5468,7 @@ func _play_single_player_reward_coin_collection(source_visual: Control) -> void:
 		coin.size = coin_size
 		coin.pivot_offset = coin_size * 0.5
 		coin.position = source_viewport_center - coin_size * 0.5
-		coin.scale = Vector2.ONE * 0.82
+		coin.scale = Vector2.ONE
 		coin.modulate.a = 0.0
 		overlay.add_child(coin)
 
@@ -5482,15 +5491,9 @@ func _play_single_player_reward_coin_collection(source_visual: Control) -> void:
 		var rise := tween.tween_property(coin, "position", flight_start, 0.10)
 		rise.set_trans(Tween.TRANS_SINE)
 		rise.set_ease(Tween.EASE_OUT)
-		var rise_scale := tween.parallel().tween_property(coin, "scale", Vector2.ONE, 0.10)
-		rise_scale.set_trans(Tween.TRANS_BACK)
-		rise_scale.set_ease(Tween.EASE_OUT)
 		var fly := tween.tween_property(coin, "position", flight_end, PORTRAIT_SINGLE_REWARD_FLY_DURATION)
 		fly.set_trans(Tween.TRANS_CUBIC)
 		fly.set_ease(Tween.EASE_IN)
-		var shrink := tween.parallel().tween_property(coin, "scale", Vector2.ONE * 0.62, PORTRAIT_SINGLE_REWARD_FLY_DURATION)
-		shrink.set_trans(Tween.TRANS_SINE)
-		shrink.set_ease(Tween.EASE_IN)
 		# Every coin is absorbed by the exact center of the HUD coin icon. Pulse the
 		# icon at the moment of impact, then remove the flying copy immediately.
 		tween.tween_callback(Callable(self, "_bounce_portrait_currency_coin_icon"))
@@ -5881,7 +5884,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		Callable(self, "_return_to_single_player_reward_from_coin_store"),
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
 		challenge_level,
-		true
+		false
 	)
 
 	# Keep the just-earned reward locked to the horizontal center. Neighboring
