@@ -14,8 +14,8 @@ config/name="Hangman 2.0"
 config/version="4.0"
 run/main_scene="uid://778614541"
 config/features=PackedStringArray("4.7", "Mobile")
-boot_splash/show_image=false
 run/max_fps=60
+boot_splash/show_image=false
 config/icon="res://icon.png"
 
 [autoload]
