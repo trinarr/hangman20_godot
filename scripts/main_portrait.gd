@@ -157,7 +157,7 @@ const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE: int = 22
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE: int = 15
 const PORTRAIT_SINGLE_REWARD_CHECK_LINE_WIDTH: float = 7.5
 const PORTRAIT_SINGLE_REWARD_CLAIM_ICON_FADE_DURATION: float = 0.18
-const PORTRAIT_SINGLE_REWARD_CLAIMED_COIN_ALPHA: float = 0.45
+const PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA: float = 0.45
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_DELAY: float = 0.12
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE: float = 0.42
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_PEAK_SCALE: float = 1.16
@@ -5385,15 +5385,20 @@ func _stage_single_player_reward_count(
 	amount: int,
 	font_size: int,
 	count_color: Color
-) -> void:
+) -> Label:
 	var count_text: String = _single_player_reward_chain_count_text(amount)
 	var count_label := Label.new()
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Anchor the amount to the lower part of its own reward tile. This keeps xN
-	# visually between the coin art and the bottom edge instead of floating over
-	# the middle of the icon, while remaining stable when the whole chain moves.
-	var label_height: float = 22.0
-	var label_bottom_inset: float = 4.0
+	# Keep xN at the same normalized vertical position inside every reward tile.
+	# The current tile is larger than side tiles, so scale both the label box and
+	# its bottom inset by the same factor. This prevents the active counter from
+	# drifting down into the border while preserving the authored side-tile layout.
+	var side_node_size: float = (
+		PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE * PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE
+	)
+	var node_layout_scale: float = node_rect.size.y / side_node_size
+	var label_height: float = 22.0 * node_layout_scale
+	var label_bottom_inset: float = 10.0 * node_layout_scale
 	var label_y: float = node_rect.size.y - label_height - label_bottom_inset
 	count_label.position = Vector2(0.0, label_y)
 	count_label.size = Vector2(node_rect.size.x, label_height)
@@ -5407,8 +5412,9 @@ func _stage_single_player_reward_count(
 	count_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	count_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	count_label.clip_text = false
-	# Match the exact outline/shadow weight used by the green solved word.
-	_apply_portrait_standard_text_outline(count_label, 0.94, 4)
+	# Keep the heavier 4 px counter outline, but use the same deep navy
+	# outline/shadow colors as the reward-screen heading.
+	_apply_portrait_reward_header_text_effect(count_label, 4)
 	count_label.add_theme_constant_override("shadow_offset_x", 3)
 	count_label.add_theme_constant_override("shadow_offset_y", 3)
 	_fit_single_line_label_to_width(
@@ -5418,6 +5424,7 @@ func _stage_single_player_reward_count(
 		font_size,
 		PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE
 	)
+	return count_label
 
 func _control_center_in_control_space(source: Control, target_space: Control) -> Vector2:
 	if (
@@ -5593,6 +5600,7 @@ func _set_single_player_reward_hero_mask_from_title_rect(
 
 func _start_single_player_reward_claim_animation_deferred(
 	coin_visual: Control,
+	count_visual: Label,
 	check_visual: Control
 ) -> void:
 	# Let stage-layout controls resolve their final size/pivot before animating.
@@ -5603,21 +5611,18 @@ func _start_single_player_reward_claim_animation_deferred(
 		return
 	if coin_visual == null or !is_instance_valid(coin_visual) or !coin_visual.is_inside_tree():
 		return
+	if count_visual == null or !is_instance_valid(count_visual) or !count_visual.is_inside_tree():
+		return
 	if check_visual == null or !is_instance_valid(check_visual) or !check_visual.is_inside_tree():
 		return
 
 	_play_single_player_reward_coin_collection(coin_visual)
 
-	var coin_fade := coin_visual.create_tween()
-	coin_fade.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var fade_tweener := coin_fade.tween_property(
-		coin_visual,
-		"modulate:a",
-		PORTRAIT_SINGLE_REWARD_CLAIMED_COIN_ALPHA,
-		PORTRAIT_SINGLE_REWARD_CLAIM_ICON_FADE_DURATION
-	)
-	fade_tweener.set_trans(Tween.TRANS_QUAD)
-	fade_tweener.set_ease(Tween.EASE_OUT)
+	# Keep the reward art and xN fully active while the coins are flying. As soon
+	# as the checkmark starts appearing, dim both and keep them dimmed: the
+	# checkmark marks the reward as permanently claimed.
+	coin_visual.modulate.a = 1.0
+	count_visual.modulate.a = 1.0
 
 	check_visual.pivot_offset = check_visual.size * 0.5
 	check_visual.modulate.a = 0.0
@@ -5626,6 +5631,22 @@ func _start_single_player_reward_claim_animation_deferred(
 	check_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	check_tween.tween_interval(_single_player_reward_coin_collection_total_duration())
 	check_tween.tween_property(check_visual, "modulate:a", 1.0, 0.08)
+	var coin_dim := check_tween.parallel().tween_property(
+		coin_visual,
+		"modulate:a",
+		PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA,
+		0.08
+	)
+	coin_dim.set_trans(Tween.TRANS_QUAD)
+	coin_dim.set_ease(Tween.EASE_OUT)
+	var count_dim := check_tween.parallel().tween_property(
+		count_visual,
+		"modulate:a",
+		PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA,
+		0.08
+	)
+	count_dim.set_trans(Tween.TRANS_QUAD)
+	count_dim.set_ease(Tween.EASE_OUT)
 	var grow := check_tween.parallel().tween_property(
 		check_visual,
 		"scale",
@@ -5652,6 +5673,7 @@ func _start_single_player_reward_intro_deferred(
 	hud_content: Control,
 	animate_claim: bool,
 	coin_visual: Control,
+	count_visual: Label,
 	check_visual: Control,
 	continue_button: Control
 ) -> void:
@@ -5749,7 +5771,7 @@ func _start_single_player_reward_intro_deferred(
 	await body_tween.finished
 
 	if animate_claim:
-		_start_single_player_reward_claim_animation_deferred(coin_visual, check_visual)
+		_start_single_player_reward_claim_animation_deferred(coin_visual, count_visual, check_visual)
 		await get_tree().create_timer(
 			_single_player_reward_coin_collection_total_duration()
 			+ PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_GROW_DURATION
@@ -5929,6 +5951,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		node_positions_x.append(slot_x)
 
 	var current_reward_coin_visual: Control = null
+	var current_reward_count_visual: Label = null
 	var current_reward_check_icon: Control = null
 	for word_slot in range(word_count):
 		var node_size: float = float(node_sizes[word_slot])
@@ -5948,11 +5971,9 @@ func _show_single_player_reward_chain_screen() -> void:
 			else Color(header_color.r, header_color.g, header_color.b, 0.055)
 		)
 		var reward_amount: int = _single_player_reward_for_slot(word_slot, word_count)
-		var count_color: Color = (
-			Color.WHITE
-			if word_slot <= current_slot
-			else Color(1.0, 1.0, 1.0, 0.72)
-		)
+		# Reward amounts start fully white. Once a reward is claimed, the checkmark
+		# dims both its coin pile and xN; future/unclaimed rewards stay white.
+		var count_color: Color = Color.WHITE
 
 		var node_rect := Rect2(node_x, node_y, node_size, node_size)
 		var node_holder := _stage_holder(node_rect, Control.MOUSE_FILTER_IGNORE)
@@ -5967,7 +5988,13 @@ func _show_single_player_reward_chain_screen() -> void:
 			header_color
 		)
 		var local_node_rect := Rect2(Vector2.ZERO, Vector2.ONE * node_size)
-		var coin_size: float = clampf(node_size * PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE, 30.0, 72.0)
+		# Scale the reward art by the same authored factor as its tile. Do not cap
+		# the current slot at the old 72 px limit: the current tile is 4/3 larger
+		# than a side tile, so its coin pile should be 4/3 larger as well.
+		var coin_size: float = maxf(
+			node_size * PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE,
+			30.0
+		)
 		var coin_rect := Rect2(
 			(node_size - coin_size) * 0.5,
 			(node_size - coin_size) * 0.5 - 4.0,
@@ -5977,9 +6004,6 @@ func _show_single_player_reward_chain_screen() -> void:
 		var coin_visual := _stage_single_player_reward_coin_pile(node_holder, coin_rect)
 		var is_claimed: bool = is_previous or (is_current and !animate_current_claim)
 		if is_claimed:
-			# Keep the actual reward visible after collection. The check is a status
-			# overlay, not a replacement for the coin icon.
-			coin_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CLAIMED_COIN_ALPHA
 			_stage_single_player_reward_check(node_holder, local_node_rect)
 		elif is_current:
 			current_reward_coin_visual = coin_visual
@@ -5988,7 +6012,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		var count_font_size: int = int(round(
 			float(PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE) * (1.12 if is_current else 1.0)
 		))
-		_stage_single_player_reward_count(
+		var count_visual := _stage_single_player_reward_count(
 			node_holder,
 			local_node_rect,
 			coin_rect,
@@ -5996,6 +6020,13 @@ func _show_single_player_reward_chain_screen() -> void:
 			count_font_size,
 			count_color
 		)
+		if is_claimed:
+			# Claimed rewards keep both the coin pile and xN in the same inactive
+			# state reached when the checkmark appears. Unclaimed rewards stay white.
+			coin_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
+			count_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
+		elif is_current:
+			current_reward_count_visual = count_visual
 
 	# Put the reward CTA in the same bottom-attached coordinate space as the
 	# gameplay retry/continue CTA. _portrait_begin_bottom_attached_group() already
@@ -6045,6 +6076,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	if (
 		animate_current_claim
 		and current_reward_coin_visual != null
+		and current_reward_count_visual != null
 		and current_reward_check_icon != null
 	):
 		_portrait_last_animated_reward_claim_key = reward_claim_key
@@ -6058,6 +6090,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		reward_hud_content,
 		animate_current_claim,
 		current_reward_coin_visual,
+		current_reward_count_visual,
 		current_reward_check_icon,
 		continue_button
 	)
