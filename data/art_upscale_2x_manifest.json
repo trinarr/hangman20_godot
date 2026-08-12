@@ -209,21 +209,6 @@
       "native_2x": true
     },
     {
-      "path": "flash_assets/nav_shop_icon.png",
-      "source_size": [
-        160,
-        160
-      ],
-      "target_size": [
-        160,
-        160
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "8a7227173abe7fc0423025c1f153b02022cd06df1b1b0e301ccd56f38e44fe0d",
-      "target_sha256": "3625b0969d77cd7c37fa2563186676453ca814335c75952d764277eb3c1b251f",
-      "native_2x": true
-    },
-    {
       "path": "flash_assets/nav_tasks_icon.png",
       "source_size": [
         160,

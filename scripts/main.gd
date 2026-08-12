@@ -9,7 +9,6 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 5.0 / 24.0 + HERO_NESTED_FRAME
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 9.0 / 24.0 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 40.0 / 24.0
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
-const LETTER_FEEDBACK_ANIMATION_DURATION: float = 0.20
 const RANDOM_CUSTOM_WORD_MAX_LENGTH: int = 7
 const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
 const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
@@ -309,6 +308,9 @@ func _show_heart_refill_popup(
 
 func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
 	pass
+
+func _show_single_player_forfeit_reward_screen() -> void:
+	show_menu()
 
 func _update_single_player_theme_popup(_level_index: int) -> void:
 	pass
@@ -775,7 +777,7 @@ func _single_player_challenge_level_label() -> String:
 	return _single_player_text("Сложный уровень", "Challenge level")
 
 func _single_player_level_failed_label() -> String:
-	return _single_player_text("УРОВЕНЬ ПРОВАЛЕН", "LEVEL FAILED")
+	return _single_player_text("НЕУДАЧА", "FAILURE")
 
 func _single_player_level_completed_reward_label(bonus_coins: int) -> String:
 	return _single_player_text(
@@ -1503,10 +1505,10 @@ func _exit_game_warning_text() -> String:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		return _single_player_text("Будет засчитано поражение", "A defeat will be recorded")
 	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
-func _confirm_exit_game() -> void:
+func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 	_remove_exit_game_popup()
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		_forfeit_single_player_round()
+		_forfeit_single_player_round(confirmed_by_popup)
 		return
 	var return_to_custom_word: bool = GameState.current_mode == GameState.GameMode.TWO_PLAYER
 	_discard_round_for_navigation()
@@ -1525,10 +1527,31 @@ func _discard_round_for_navigation() -> void:
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
 
-func _forfeit_single_player_round() -> void:
+func _single_player_forfeit_reward_data(source_result: Dictionary, level_index: int) -> Dictionary:
+	var result: Dictionary = source_result.duplicate(true)
+	var word_count: int = maxi(_single_player_level_word_count(level_index), 1)
+	var word_slot: int = clampi(single_player_active_word_slot, 0, word_count - 1)
+	result["title"] = _single_player_level_failed_label()
+	result["lines"] = [_single_player_level_failed_label()]
+	result["single_player_level_index"] = level_index
+	result["single_player_word_slot"] = word_slot
+	result["single_player_total_count"] = word_count
+	result["single_player_level_completed"] = false
+	result["single_player_level_perfect"] = false
+	result["single_player_chain_failed"] = true
+	result["single_player_chain_ended"] = true
+	result["single_player_unlocked_next"] = false
+	result["single_player_completion_bonus"] = 0
+	result["single_player_forfeit_reward"] = true
+	result["single_player_reward_granted"] = false
+	return result
+
+func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 	var level_index: int = single_player_active_level_index
 	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
 	var chain_failed: bool = bool(last_result_data.get("single_player_chain_failed", false))
+	var forfeit_result: Dictionary = last_result_data.duplicate(true)
+	var reward_was_granted: bool = game_finished and last_result_is_win
 	# A result transition may already be waiting for the letter-marker animation.
 	# In that case the round has already been recorded, so only cancel the delayed
 	# result screen and return to the level without recording it a second time.
@@ -1537,7 +1560,7 @@ func _forfeit_single_player_round() -> void:
 	var should_lose_heart: bool = false
 	if !game_finished and GameSession.is_active and level_index >= 0 and single_player_active_word_slot >= 0:
 		game_finished = true
-		_single_player_mark_current_word_finished({}, false, false)
+		forfeit_result = _single_player_mark_current_word_finished({}, false, false)
 		chain_failed = true
 		should_lose_heart = true
 	elif game_finished and level_index >= 0 and !level_completed and !chain_failed:
@@ -1550,6 +1573,17 @@ func _forfeit_single_player_round() -> void:
 	if level_index >= 0 and !level_completed:
 		GameState.reset_single_level_attempt(Database.current_language, level_index)
 		_invalidate_single_player_level_cache()
+	if show_failure_reward and should_lose_heart and level_index >= 0 and !level_completed:
+		# A successfully guessed word has already credited its regular reward before
+		# the result Back button can open the confirmation popup. Revoke that credit
+		# so a confirmed forfeit has the same zero-reward outcome as leaving mid-word.
+		if reward_was_granted:
+			GameState.spend_soft_currency(GameState.WORD_REWARD_COINS)
+		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
+		last_result_is_win = false
+		hero_force_default_pose = false
+		_show_single_player_forfeit_reward_screen()
+		return
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
@@ -1961,15 +1995,6 @@ func _hero_uses_terminal_loop(mistake_count: int = -1) -> bool:
 	var resolved_mistakes: int = GameSession.mistakes if mistake_count < 0 else mistake_count
 	return _hero_frame_index_for_mistakes(resolved_mistakes) == 6
 
-func _show_hero_default_pose() -> void:
-	hero_pose_frame_index = 0
-	hero_nested_pose_time = HERO_MOV_IDLE_FRAME_TIME
-	hero_terminal_loop_time = HERO_MOV_START_FRAME_TIME
-	_clear_hero_animation_overlay()
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.animation_time = _hero_animation_time_for_mistakes(0)
-		hero_static_symbol.nested_animation_time = HERO_MOV_IDLE_FRAME_TIME
-
 func _hero_terminal_loop_end_time() -> float:
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
 		return HERO_TYPE_2_TERMINAL_END_FRAME_TIME
@@ -2147,10 +2172,6 @@ func _result_back_action() -> void:
 		_show_exit_game_popup()
 		return
 	_confirm_exit_game()
-
-func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int) -> void:
-	label.add_theme_color_override("font_outline_color", glow_color)
-	label.add_theme_constant_override("outline_size", outline_size)
 
 func _continue_classic_result() -> void:
 	start_classic_game(max(0, GameSession.theme_id))

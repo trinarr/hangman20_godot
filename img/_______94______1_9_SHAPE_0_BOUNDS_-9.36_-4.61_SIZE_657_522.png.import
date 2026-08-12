@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1hjnoto0q4bb"
-path="res://.godot/imported/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png-48b7772d3a2c52c8346c5b0014b7ee0a.ctex"
+path.s3tc="res://.godot/imported/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png-48b7772d3a2c52c8346c5b0014b7ee0a.s3tc.ctex"
+path.etc2="res://.godot/imported/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png-48b7772d3a2c52c8346c5b0014b7ee0a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://img/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png"
-dest_files=["res://.godot/imported/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png-48b7772d3a2c52c8346c5b0014b7ee0a.ctex"]
+dest_files=["res://.godot/imported/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png-48b7772d3a2c52c8346c5b0014b7ee0a.s3tc.ctex", "res://.godot/imported/_______94______1_9_SHAPE_0_BOUNDS_-9.36_-4.61_SIZE_657_522.png-48b7772d3a2c52c8346c5b0014b7ee0a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

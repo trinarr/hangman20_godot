@@ -166,11 +166,30 @@ def verify_streamed_hero_states() -> None:
         require((ROOT / "symbols" / f"{state}.tscn").is_file(), f"Hero state scene is missing: {path}")
 
     require("ResourceLoader.load_threaded_request" in source, "Hero poses are not requested asynchronously")
-    status_guard = source.index("status != ResourceLoader.THREAD_LOAD_LOADED")
-    blocking_get = source.index("ResourceLoader.load_threaded_get(resource_path)")
+    ready_loader = source[
+        source.index("func _get_hero_scene_if_ready(") :
+        source.index("func _request_next_hero_pose(")
+    ]
+    status_guard = ready_loader.index("status != ResourceLoader.THREAD_LOAD_LOADED")
+    blocking_get = ready_loader.index("ResourceLoader.load_threaded_get(resource_path)")
     require(status_guard < blocking_get, "Threaded hero resource is fetched before its LOADED guard")
     require("_request_next_hero_pose(state_index)" in source, "The next hero pose is not prefetched")
-    require("_prune_hero_pose_cache(state_index, false)" in source, "Old hero poses are not released")
+    require(
+        "for previous_offset in range(1, 3):" in source
+        and "keep_paths[states[previous_index]] = true" in source,
+        "The two recoverable previous hero poses are not retained",
+    )
+
+    hero_texture_paths: set[str] = set()
+    for scene_path in (ROOT / "symbols").glob("*.tscn"):
+        hero_texture_paths.update(re.findall(r'path="res://(img/[^"]+\.png)"', scene_path.read_text()))
+    require(len(hero_texture_paths) == 101, "Unexpected hero texture inventory")
+    for texture_path in hero_texture_paths:
+        import_text = read(texture_path + ".import")
+        require(
+            "compress/mode=2" in import_text,
+            f"Hero texture is not configured for platform VRAM compression: {texture_path}",
+        )
 
     # The direct state scenes replace the composite HeroType scenes, so their
     # offsets must match the outer Flash timeline at each of its seven frames.
@@ -218,6 +237,7 @@ def verify_optimized_architecture() -> None:
         "symbols/HeroType2.tscn",
         "flash_assets/user_hint_check_circle_uploaded.png",
         "flash_assets/user_hint_cross_circle_uploaded.png",
+        "flash_assets/nav_shop_icon.png",
     )
     for relative_path in obsolete_paths:
         require(not (ROOT / relative_path).exists(), f"Obsolete resource remains: {relative_path}")
@@ -245,6 +265,35 @@ def verify_optimized_architecture() -> None:
         "func _ready()" not in database
         and main.count("Database.load_languages(GameState.interface_language, GameState.word_language)") == 1,
         "The word database can still be loaded twice during startup",
+    )
+    require(
+        "var _json_cache: Dictionary = {}" in database
+        and "var _loaded_word_language: String = \"\"" in database
+        and "if _loaded_word_language == current_language:" in database
+        and "if _json_cache.has(path):" in database
+        and "_json_cache[path] = result" in database,
+        "Language changes still reread and reparse unchanged JSON files",
+    )
+    require(
+        "if !_portrait_main_tab_swipe_building_target and active_tab == _portrait_active_main_tab:"
+        in portrait
+        and "func _capture_portrait_main_tab_swipe_origin_references() -> void:" in portrait
+        and "func _restore_portrait_main_tab_swipe_origin_references() -> void:" in portrait
+        and "_restore_portrait_main_tab_swipe_origin_references()\n\t_portrait_active_main_tab = origin_tab"
+        in portrait
+        and "restore_action.call_deferred()" not in portrait,
+        "Main-tab taps or canceled swipes still rebuild the visible page unnecessarily",
+    )
+    require(
+        "hero_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE" in portrait
+        and "SubViewport.UPDATE_ALWAYS" not in portrait,
+        "The fixed reward hero still redraws its full-screen offscreen viewport every frame",
+    )
+    require(
+        "while lower_bound <= upper_bound:" in portrait
+        and "lower_bound = candidate_size + 1" in portrait
+        and "upper_bound = candidate_size - 1" in portrait,
+        "Single-line labels still probe every font size during screen construction",
     )
     round_mutations = session[:session.index("func finish_result(")]
     require(
@@ -380,7 +429,7 @@ def verify_application_fonts() -> None:
         and "func _heading_font_size(font_size: int) -> int:" in main
         and "_heading_font_size(font_size)" in main
         and 'label.add_theme_font_override("font", UI_HEADING_FONT)' in main
-        and portrait.count("_stage_heading_label(") == 5,
+        and portrait.count("_stage_heading_label(") == 4,
         "Balsamiq Sans Bold is not inherited by the UI or Regular is not limited to large headings",
     )
 
@@ -388,7 +437,6 @@ def verify_application_fonts() -> None:
 def verify_generated_cartoon_game_icons() -> None:
     expected_icons = {
         "flash_assets/nav_profile_icon.png": (160, 160),
-        "flash_assets/nav_shop_icon.png": (160, 160),
         "flash_assets/nav_home_icon.png": (160, 160),
         "flash_assets/nav_tasks_icon.png": (160, 160),
         "flash_assets/theme_icons/theme_icon_sport.png": (256, 256),
@@ -420,7 +468,9 @@ def verify_generated_cartoon_game_icons() -> None:
                 rgba.getpixel((rgba.width - 1, rgba.height - 1))[3],
             )
             require(corners == (0, 0, 0, 0), f"Generated game icon has opaque corners: {relative_path}")
-            visible_pixels = sum(alpha > 32 for alpha in rgba.getchannel("A").getdata())
+            visible_pixels = sum(
+                alpha > 32 for alpha in rgba.getchannel("A").get_flattened_data()
+            )
             minimum_visible = int(rgba.width * rgba.height * 0.18)
             require(
                 visible_pixels >= minimum_visible,
@@ -445,7 +495,7 @@ def verify_generated_cartoon_game_icons() -> None:
             )
             magenta_pixels = sum(
                 alpha > 32 and red > 180 and blue > 150 and green < 90
-                for red, green, blue, alpha in rgba.getdata()
+                for red, green, blue, alpha in rgba.get_flattened_data()
             )
             require(
                 magenta_pixels == 0,
@@ -453,7 +503,9 @@ def verify_generated_cartoon_game_icons() -> None:
             )
 
             if relative_path == "flash_assets/life_heart_icon.png":
-                opaque_pixels = [pixel for pixel in rgba.getdata() if pixel[3] > 200]
+                opaque_pixels = [
+                    pixel for pixel in rgba.get_flattened_data() if pixel[3] > 200
+                ]
                 warm_red_pixels = sum(
                     red > 170 and red > green * 1.25 and red > blue * 1.18
                     for red, green, blue, _alpha in opaque_pixels
@@ -511,9 +563,9 @@ def verify_heading_and_word_typography() -> None:
         "var attempts_title := _stage_label(" in game_header
         and 'attempts_title.add_theme_font_override("font", UI_HEADING_FONT)' in game_header
         and "var theme_line_label := _stage_label(" in game_header
-        and 'theme_line_label.add_theme_font_override("font", UI_PRIMARY_FONT)' in game_header
+        and 'theme_line_label.add_theme_font_override("font", UI_HEADING_FONT)' in game_header
         and "Database.get_theme_name(GameSession.theme_id)).to_upper()" in game_header,
-        "The gameplay attempts title is not Regular or the theme name is not Bold",
+        "The gameplay attempts title or theme name is not Regular",
     )
     require(
         '("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()'
@@ -596,8 +648,8 @@ def verify_ui_motion_and_readability_polish() -> None:
         and 'counter_button.button_up.connect(' in currency_counter
         and 'counter_button.mouse_exited.connect(' in currency_counter
         and 'func _set_currency_counter_pressed(' in currency_counter
-        and 'counter_visual.pivot_offset = mapped_position + counter_rect.size * fit_scale * 0.5'
-        in currency_counter
+        and 'counter_visual.pivot_offset = _portrait_stage_point_to_viewport(' in currency_counter
+        and "counter_rect.get_center()" in currency_counter
         and 'Vector2.ONE * PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE' in currency_counter
         and 'PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION' in currency_counter
         and 'PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION' in currency_counter,
@@ -644,11 +696,10 @@ def verify_ui_motion_and_readability_polish() -> None:
         "The hint body or category line is still too small",
     )
     require(
-        "hero_force_default_pose = is_win" in hero_flow
-        and "func _show_hero_default_pose() -> void:" in hero_flow
-        and "hero_static_symbol.animation_time = _hero_animation_time_for_mistakes(0)" in hero_flow
-        and "if hero_force_default_pose:\n\t\treturn _hero_animation_time_for_mistakes(0)" in hero_flow,
-        "A successfully guessed word does not return the hero to pose zero",
+        "hero_force_default_pose = false" in hero_flow
+        and "Keep the hero in the pose reached during the round" in hero_flow
+        and "_show_in_place_round_result(is_win)" in hero_flow,
+        "A completed round does not preserve the hero pose reached during gameplay",
     )
     require(
         "var pressed_scale: Vector2 = Vector2(0.94, 0.94)" in texture_button
@@ -788,8 +839,9 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
         "Paid popups do not stage the coin balance above their modal dimmer",
     )
     require(
-        "PORTRAIT_CURRENCY_COUNTER_RECT,\n\t\tfalse,\n\t\tfalse,\n\t\ttrue" in popup_begin,
-        "The above-dimmer popup coin balance is not horizontally centered",
+        "var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect" in popup_begin
+        and "source_counter_rect,\n\t\tfalse,\n\t\tfalse,\n\t\tfalse,\n\t\tfalse" in popup_begin,
+        "The above-dimmer popup coin balance does not preserve its source-screen position",
     )
     require(
         portrait.count('balance_label.add_to_group(&"soft_currency_balance_label")') == 2
@@ -830,14 +882,13 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
         portrait.index("func _continue_from_single_player_reward_chain(")
     ]
     require(
-        reward_link.count("_portrait_hint_local_panel(") == 1
-        and "var link_panel := _portrait_hint_local_panel(" in reward_link
-        and "parent: Control" in reward_link
-        and "parent.add_child(link_holder)" in reward_link
-        and "_stage_holder(" not in reward_link
-        and "link_panel.z_index = 0" in reward_link
-        and "PORTRAIT_SINGLE_REWARD_CHAIN_LINK_CAP_SIZE" not in portrait,
-        "Reward-chain connectors still have overlapping cap seams or render above reward tiles",
+        "var link_bar := ColorRect.new()" in reward_link
+        and 'link_bar.name = "RewardChainBlueLine"' in reward_link
+        and "link_bar.color = PORTRAIT_SINGLE_REWARD_CHAIN_LINK_COLOR" in reward_link
+        and "link_bar.z_index = 0" in reward_link
+        and "parent.add_child(link_bar)" in reward_link
+        and "PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS: float = 6.0" in portrait,
+        "Reward-chain connectors are not thin blue strips behind the reward tiles",
     )
     require(
         'chain_holder.name = "SinglePlayerRewardChain"' in reward_screen
@@ -865,8 +916,8 @@ def verify_reward_status_icons() -> None:
         "The reward screen does not use the generated outlined status textures",
     )
     require(
-        portrait.count("_stage_single_player_reward_status_icon(") == 3,
-        "The generated reward check is not used for claimed reward tiles",
+        portrait.count("_stage_single_player_reward_status_icon(") == 4,
+        "The generated reward check/cross is not used for reward tile states",
     )
 
     for filename, accent in (
@@ -885,7 +936,9 @@ def verify_reward_status_icons() -> None:
                 rgba.getpixel((rgba.width - 1, rgba.height - 1))[3],
             )
             require(corners == (0, 0, 0, 0), f"Reward status icon is not transparent: {filename}")
-            opaque_pixels = [pixel for pixel in rgba.getdata() if pixel[3] > 200]
+            opaque_pixels = [
+                pixel for pixel in rgba.get_flattened_data() if pixel[3] > 200
+            ]
             navy_pixels = sum(
                 blue > green * 1.05 and blue > red * 1.2 and blue > 35
                 for red, green, blue, _alpha in opaque_pixels
@@ -897,7 +950,7 @@ def verify_reward_status_icons() -> None:
                 )
             else:
                 accent_pixels = sum(
-                    red > 140 and red > green * 1.25 and red > blue * 1.15
+                    red > 145 and red > green * 1.25 and red > blue * 1.12
                     for red, green, blue, _alpha in opaque_pixels
                 )
             require(accent_pixels > 5000, f"Reward status icon lost its {accent} fill: {filename}")
@@ -979,7 +1032,7 @@ def verify_footer_buttons_and_hero_scale() -> None:
     require(
         "_portrait_footer_round_button_rect(" not in portrait
         and "_portrait_footer_icon_size(" not in portrait
-        and portrait.count("_portrait_footer_font_size(") == 4,
+        and portrait.count("_portrait_footer_font_size(") == 3,
         "Footer controls retain obsolete scale helpers or unscaled labels",
     )
     require(
@@ -987,7 +1040,8 @@ def verify_footer_buttons_and_hero_scale() -> None:
         in portrait
         and portrait.count("_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT)")
         == 1
-        and "const PORTRAIT_INLINE_RESULT_CONTINUE_BUTTON_RECT" in portrait
+        and "func _portrait_in_place_result_button_rect() -> Rect2:" in portrait
+        and "_portrait_in_place_result_button_rect()," in portrait
         and "Rect2(94.0, 711.0" not in portrait,
         "Portrait footer and inline-result buttons are not consistently positioned",
     )
@@ -1235,7 +1289,8 @@ def verify_soft_currency_economy() -> None:
 
     require(
         "func _soft_currency_balance_text(balance: int) -> String:" in main
-        and "if resolved_balance <= 99999:" in main
+        and "if resolved_balance <= 999999:" in main
+        and "return _grouped_counter_text(resolved_balance)" in main
         and 'return compact_text + ("к" if GameState.interface_language == "ru" else "k")'
         in main
         and "var balance_text: String = _soft_currency_balance_text(balance)" in main
@@ -1557,8 +1612,9 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
     require(
         "PORTRAIT_PAGE_BACK_BUTTON_RECT" in refresh
         and 'Callable(self, "_show_exit_game_popup")' in refresh
-        and "PORTRAIT_BACK_ARROW_ICON" in refresh
-        and "PORTRAIT_PAGE_BACK_ICON_SIZE" in refresh
+        and "var back_button := _stage_round_button(" in refresh
+        and '\n\t\t"×"\n\t)' in refresh
+        and "PORTRAIT_BACK_ARROW_ICON" not in refresh
         and "RESULT_CLOSE_ICON" not in refresh
         and "PORTRAIT_GAME_EXIT_ICON_SIZE" not in portrait
         and "PORTRAIT_GAME_BACK_BUTTON_RECT" not in portrait,
@@ -1631,7 +1687,7 @@ def verify_result_screen_rebuild() -> None:
     ]
     result = portrait[
         portrait.index("func show_result_screen(") :
-        portrait.index("func _fit_single_line_label_to_width(")
+        portrait.index("func show_profile()")
     ]
     result_word = portrait[
         portrait.index("func _stage_portrait_result_word_display(") :
@@ -1687,42 +1743,33 @@ def verify_result_screen_rebuild() -> None:
         "The word-search action is not revealed after the result bounce",
     )
     require(
-        "func _show_portrait_inline_result_chrome(is_win: bool, animated: bool) -> void:" in result
-        and result.count("_stage_main_button(") == 2
+        "func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:" in result
+        and "_hide_portrait_hints_for_round_end(animated)" in result
+        and "_dim_portrait_keyboard_for_in_place_result()" in result
+        and "_stage_in_place_result_word(animated)" in result
+        and "_peel_portrait_word_paper_for_in_place_result(animated)" in result
+        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5" in result
         and "_result_continue_action()" in result
-        and "_result_continue_button_text()" in result
-        and "_portrait_inline_result_continue_button = continue_button" in result
+        and "_portrait_inline_result_continue_button = action_button" in result
         and "_portrait_screen(" not in result
         and "RESULT_CLOSE_ICON" not in main + portrait,
-        "Round completion still builds a dedicated result screen or obsolete controls",
+        "Round completion no longer stays on the existing gameplay tree",
     )
     require(
-        "func _show_portrait_inline_round_result(" in result
-        and "_hide_portrait_attempts_for_round_end(animated)" in result
-        and "_hide_portrait_hints_for_round_end(animated)" in result
-        and "_hide_portrait_keyboard_for_round_end(animated)" in result
-        and "_begin_portrait_inline_word_reveal(animated)" in result
-        and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5" in result,
-        "Inline round-result elements do not transition together on the existing gameplay tree",
-    )
-    require(
-        "var use_in_place_result: bool = (" in finish_flow
-        and "or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER" in finish_flow
-        and "_show_in_place_round_result(is_win)" in finish_flow
+        "_show_in_place_round_result(is_win)" in finish_flow
         and "GameState.current_mode" not in in_place_show
+        and "_portrait_game_back_button.visible = false" in in_place_show
         and 'call_deferred("_show_in_place_round_result", last_result_is_win, false)' in refresh
-        and "or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER" in refresh
-        and '"_show_portrait_inline_round_result"' in refresh
-        and result.count("if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:") >= 3
-        and result.count("_show_in_place_round_result(is_win,") >= 2
-        and "func _portrait_inline_result_title_text() -> String:" in result
-        and 'Database.tr_text(33, "VICTORY")' in result
-        and '"DEFEAT"' not in result
+        and "_show_portrait_inline_round_result" not in portrait
+        and "_show_portrait_inline_result_chrome" not in portrait
+        and "_hide_portrait_keyboard_for_round_end" not in portrait
+        and "_hide_portrait_attempts_for_round_end" not in portrait
+        and "PORTRAIT_INLINE_RESULT_TITLE_RECT" not in portrait
         and "func _in_place_result_word_color() -> Color:" in result
         and "StageLetterButton.CIRCLED_COLOR" in result
         and "StageLetterButton.CROSSED_COLOR" in result
         and "if _portrait_in_place_result_is_win" in result,
-        "Classic or Two Player completion still uses the titled result transition or wrong word color",
+        "A game mode still uses the obsolete titled result transition or wrong word color",
     )
     require(
         'return Callable(self, "_continue_classic_result")' in continue_logic
@@ -1802,7 +1849,8 @@ def verify_game_exit_confirmation_popup() -> None:
         portrait.index("func _show_exit_game_popup()") : portrait.index("func show_custom_word()")
     ]
     confirm_exit = main[
-        main.index("func _confirm_exit_game()") : main.index("func _forfeit_single_player_round()")
+        main.index("func _confirm_exit_game(") :
+        main.index("func _single_player_forfeit_reward_data(")
     ]
 
     require(
@@ -1835,7 +1883,7 @@ def verify_game_exit_confirmation_popup() -> None:
     require(
         'tr("EXIT_GAME_CONFIRM")' in portrait_popup
         and '_exit_game_warning_text()' in portrait_popup
-        and 'Callable(self, "_confirm_exit_game"), tr("YES")' in portrait_popup
+        and 'Callable(self, "_confirm_exit_game").bind(true)' in portrait_popup
         and 'Callable(self, "_remove_exit_game_popup"), tr("NO")' in portrait_popup,
         "The compact exit popup is missing its title, warning, or Yes/No actions",
     )
@@ -1848,7 +1896,8 @@ def verify_game_exit_confirmation_popup() -> None:
     )
     require(
         "_remove_exit_game_popup()" in confirm_exit
-        and "_forfeit_single_player_round()" in confirm_exit
+        and "confirmed_by_popup: bool = false" in confirm_exit
+        and "_forfeit_single_player_round(confirmed_by_popup)" in confirm_exit
         and "show_tasks()" in confirm_exit
         and "show_custom_word()" in confirm_exit
         and "_preserve_custom_word_on_next_show = true" in confirm_exit
@@ -1858,6 +1907,97 @@ def verify_game_exit_confirmation_popup() -> None:
     require(
         "EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?" in translations,
         "The exit confirmation title is not localized",
+    )
+
+
+def verify_single_player_forfeit_reward() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    symbol = read("scripts/ui/flash_stage_symbol.gd")
+
+    forfeit_flow = main[
+        main.index("func _single_player_forfeit_reward_data(") :
+        main.index("func _remove_exit_game_popup(")
+    ]
+    reward_screen = portrait[
+        portrait.index("func _show_single_player_reward_chain_screen(") :
+        portrait.index("func _continue_from_single_player_reward_chain(")
+    ]
+    reward_continue = portrait[
+        portrait.index("func _continue_from_single_player_reward_chain(") :
+        portrait.index("func _continue_single_player_result(")
+    ]
+    reward_hero = portrait[
+        portrait.index("func _create_single_player_reward_masked_hero(") :
+        portrait.index("func _set_single_player_reward_hero_mask_from_title_rect(")
+    ]
+    reward_tile = portrait[
+        portrait.index("func _stage_single_player_reward_tile(") :
+        portrait.index("func _stage_single_player_reward_chain_link(")
+    ]
+
+    require(
+        'result["single_player_forfeit_reward"] = true' in forfeit_flow
+        and 'result["single_player_reward_granted"] = false' in forfeit_flow
+        and 'result["single_player_level_completed"] = false' in forfeit_flow
+        and 'result["single_player_chain_failed"] = true' in forfeit_flow
+        and '_single_player_level_failed_label()' in forfeit_flow
+        and 'return _single_player_text("НЕУДАЧА", "FAILURE")' in main,
+        "Confirmed single-player exit does not create an explicit failed reward result",
+    )
+    require(
+        "show_failure_reward and should_lose_heart" in forfeit_flow
+        and "GameState.spend_soft_currency(GameState.WORD_REWARD_COINS)" in forfeit_flow
+        and "GameSession.finish_result" not in forfeit_flow
+        and "_show_single_player_forfeit_reward_screen()" in forfeit_flow
+        and forfeit_flow.index("_show_single_player_forfeit_reward_screen()")
+        < forfeit_flow.index("GameSession.discard_current_round()"),
+        "Confirmed exit can still grant coins or discard its result before the reward screen",
+    )
+    require(
+        "var is_failure_reward: bool = !last_result_is_win" in reward_screen
+        and "_single_player_level_failed_label()" in reward_screen
+        and '_single_player_text("Награда не получена", "Reward not received")' in reward_screen
+        and "!is_failure_reward" in reward_screen
+        and "var is_failed_current: bool = is_failure_reward and is_current" in reward_screen
+        and "false,\n\t\t\t\tfalse" in reward_screen
+        and "if is_claimed or is_failed_current:" in reward_screen,
+        "Failed reward screen does not show a dimmed red cross on the current tile",
+    )
+    require(
+        'Callable(self, "_leave_single_player_failure_reward_to_menu")' in reward_screen
+        and "PORTRAIT_PAGE_BACK_BUTTON_RECT" in reward_screen
+        and "var back_button := _stage_round_button(" in reward_screen
+        and '\n\t\t\t"×"\n\t\t)' in reward_screen
+        and "PORTRAIT_BACK_ARROW_ICON" not in reward_screen
+        and "back_button.z_index = 200" in reward_screen
+        and reward_screen.index("var back_button := _stage_round_button(")
+        > reward_screen.index("var continue_button := _stage_main_button(")
+        and '_single_player_text("Начать заново", "Start over")' in reward_screen
+        and "if is_failure_reward" in reward_screen,
+        "The failed reward screen is missing its interactive Back button or Start-over action",
+    )
+    require(
+        "is_failed: bool" in reward_tile
+        and "StageLetterButton.CROSSED_COLOR if is_failed else accent_color" in reward_tile
+        and "is_failed_current," in reward_screen,
+        "The current failed reward tile does not use the red failure border",
+    )
+    require(
+        "GameSession.MAX_MISTAKES if is_failure_reward else 0" in reward_screen
+        and "force_immediate_hero_pose_load = show_terminal_pose" in reward_hero
+        and "_hero_terminal_loop_end_time() - HERO_NESTED_FRAME_SAMPLE_OFFSET" in reward_hero
+        and "force_immediate_hero_pose_load: bool = false" in symbol
+        and "func _load_hero_scene_immediately(resource_path: String) -> PackedScene:" in symbol,
+        "Failed reward does not synchronously sample the hero's terminal pose",
+    )
+    require(
+        "if !last_result_is_win:" in reward_continue
+        and "_open_single_player_retry_theme_popup()" in reward_continue
+        and "func _leave_single_player_failure_reward_to_menu() -> void:" in reward_continue
+        and "_discard_round_for_navigation()" in reward_continue
+        and "show_menu()" in reward_continue,
+        "The failed reward Start-over/Back actions do not open theme selection and the main screen",
     )
 
 
@@ -1879,10 +2019,6 @@ def verify_low_attempts_attention_bounce() -> None:
         portrait.index("func _show_in_place_round_result(") :
         portrait.index("func _dim_portrait_keyboard_for_in_place_result()")
     ]
-    inline_result = portrait[
-        portrait.index("func _show_portrait_inline_round_result(") :
-        portrait.index("func _fit_single_line_label_to_width(")
-    ]
 
     require(
         "const PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = 2" in portrait
@@ -1903,14 +2039,13 @@ def verify_low_attempts_attention_bounce() -> None:
     )
     require(
         "_sync_portrait_attempts_attention_bounce()" in runtime_refresh
-        and runtime_refresh.index("_portrait_game_attempts_value_label.text")
+        and runtime_refresh.index("_refresh_portrait_attempts_value()")
         < runtime_refresh.index("_sync_portrait_attempts_attention_bounce()")
         and "_sync_portrait_attempts_attention_bounce()" in entrance_finish,
         "The attempts warning does not follow the live counter or restored entrance state",
     )
     require(
-        "_stop_portrait_attempts_attention_bounce(true)" in in_place_state
-        and "_stop_portrait_attempts_attention_bounce(true)" in inline_result,
+        "_stop_portrait_attempts_attention_bounce(true)" in in_place_state,
         "The attempts warning keeps bouncing after a guessed or unguessed word",
     )
 
@@ -1948,7 +2083,7 @@ def verify_long_button_attention_bounce() -> None:
     )
     require(
         "PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION" in result
-        and "PORTRAIT_INLINE_RESULT_CONTINUE_PEAK_SCALE" in result
+        and 'action_button.set("attention_bounce_enabled", true)' in result
         and "var custom_word_start_button: Control = null" in main
         and "func _sync_custom_word_start_bounce() -> void:" in main
         and 'custom_word_start_button.set("attention_bounce_enabled", has_word)' in main
@@ -2052,6 +2187,10 @@ def verify_single_player_popup_stays_interactive() -> None:
         portrait.index("func _finish_single_player_theme_slot_animation(") :
         portrait.index("func _start_single_player_theme_slot_reveal(")
     ]
+    manual_reroll = portrait[
+        portrait.index("func _refresh_single_player_theme_popup(") :
+        portrait.index("func _update_single_player_theme_reroll_button_state(")
+    ]
     require(
         "var refresh_disabled:" not in popup
         and "theme_button.disabled = false" in cards
@@ -2069,13 +2208,17 @@ def verify_single_player_popup_stays_interactive() -> None:
     )
     require(
         "_single_player_popup_refresh_visuals" in portrait
-        and "_set_single_player_theme_slot_action_visibility(false)" in reel_prepare
+        and "_set_single_player_theme_slot_action_visibility(!hide_actions_during_animation)"
+        in reel_prepare
         and "func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:"
         in reel_prepare
+        and "if !is_visible and !_single_player_theme_slot_hide_actions:" in reel_prepare
         and "single_player_popup_play_button.visible = is_visible" in reel_prepare
         and "refresh_visual.visible = is_visible" in reel_prepare
+        and "_single_player_theme_slot_hide_actions = false" in manual_reroll
+        and "_set_single_player_theme_slot_action_visibility(true)" in manual_reroll
         and "_set_single_player_theme_slot_action_visibility(true)" in reel_finish,
-        "Play or reroll controls remain visible while the theme reels are spinning",
+        "Theme actions do not distinguish automatic hidden reels from visible manual rerolls",
     )
 
 
@@ -2440,7 +2583,7 @@ def verify_settings_popup_and_language_split() -> None:
     )
     require("GameState.language" not in main + portrait + state, "Removed shared language state is still used")
     require(
-        (main + portrait).count('GameState.interface_language == "ru"') == 3,
+        (main + portrait).count('GameState.interface_language == "ru"') == 4,
         "Hard-coded portrait UI labels do not follow the device language",
     )
 
@@ -2537,7 +2680,7 @@ def verify_game_audio_feedback() -> None:
     )
     require(
         main.count("\t_play_result_sound_once(is_win, data)") == 0
-        and portrait.count("\t_play_result_sound_once(is_win, data)") == 1,
+        and portrait.count("\t_play_result_sound_once(is_win, last_result_data)") == 1,
         "The portrait result screen must trigger its guarded result sound exactly once",
     )
     require(
@@ -2633,7 +2776,9 @@ def verify_profile_theme_and_settings_footer_ui() -> None:
         'config/version="4.0"' in project
         and 'ProjectSettings.get_setting("application/config/version", APP_VERSION_FALLBACK)' in version_text
         and '_application_version()' in version_text
-        and "Rect2(40.0, 574.0, 400.0, 28.0)" in settings
+        and "var footer_bottom_y: float = rect.end.y" in settings
+        and "var version_y: float = footer_bottom_y - 44.0" in settings
+        and "Rect2(40.0, version_y, 400.0, 28.0)" in settings
         and "HORIZONTAL_ALIGNMENT_CENTER" in settings,
         "The centered settings version is not parsed from project configuration",
     )
@@ -2643,8 +2788,9 @@ def verify_profile_theme_and_settings_footer_ui() -> None:
         and "OS.shell_open(AUTHOR_VK_URL)" in contact_action
         and "OS.shell_open(AUTHOR_EMAIL_URL)" in contact_action
         and settings.count('_about_contact_action").bind(') == 2
-        and "Rect2(174.0, 492.0, 58.0, 58.0)" in settings
-        and "Rect2(248.0, 492.0, 58.0, 58.0)" in settings
+        and "var social_buttons_y: float = footer_bottom_y - 122.0" in settings
+        and "Rect2(174.0, social_buttons_y, 58.0, 58.0)" in settings
+        and "Rect2(248.0, social_buttons_y, 58.0, 58.0)" in settings
         and "_about_contacts_label" not in main + portrait,
         "The modal settings contact buttons or caption-free footer are missing",
     )
@@ -2696,15 +2842,19 @@ def verify_single_player_last_chance_flow() -> None:
     ]
     result_state = portrait[
         portrait.index("func _in_place_result_word_color(") :
-        portrait.index("func _hide_portrait_keyboard_for_round_end(")
+        portrait.index("func _single_player_reward_for_slot(")
     ]
     result_show = portrait[
         portrait.index("func _show_in_place_round_result(") :
         portrait.index("func _dim_portrait_keyboard_for_in_place_result(")
     ]
+    result_continue = portrait[
+        portrait.index("func _continue_single_player_result(") :
+        portrait.index("func _use_open_hint(")
+    ]
     defeat_bounce = portrait[
         portrait.index("func _replace_portrait_inline_result_word_with_bounce(") :
-        portrait.index("func _portrait_inline_result_title_text(")
+        portrait.index("func _finalize_portrait_word_paper_peel_visuals(")
     ]
     result_action_reveal = portrait[
         portrait.index("func _play_portrait_result_word_bounce_sequence(") :
@@ -2773,7 +2923,6 @@ def verify_single_player_last_chance_flow() -> None:
     )
     require(
         'call_deferred("_show_in_place_round_result", last_result_is_win, false)' in refresh_flow
-        and "!last_result_is_win" in refresh_flow
         and "func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:" in result_state
         and "_portrait_in_place_result_is_win = is_win" in result_state
         and "_hide_portrait_hints_for_round_end(animated)" in result_state
@@ -2782,7 +2931,7 @@ def verify_single_player_last_chance_flow() -> None:
         and "_peel_portrait_word_paper_for_in_place_result(animated)" in result_state
         and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION" in result_state
         and "_finalize_portrait_word_paper_peel_visuals(paper_layer)" in result_state,
-        "A restored defeat does not peel the paper and replace the hint row in place",
+        "A restored result does not peel the paper and replace the hint row in place",
     )
     require(
         "search_button.visible = !animated" in result_state
@@ -2824,10 +2973,17 @@ def verify_single_player_last_chance_flow() -> None:
         and "_portrait_in_place_result_button_rect()" in result_state
         and "_result_continue_action()" in result_state
         and "_result_continue_button_text()" in result_state
-        and '_single_player_text("Повторить", "Retry")' in result_state
+        and '_single_player_text("Повторить", "Retry")' not in result_state
         and 'action_button.set("attention_bounce_enabled", true)' in result_state
         and "var bounce_tween := action_button.create_tween()" not in result_state,
-        "The mode-specific defeat action does not bounce safely above the ad banner",
+        "The in-place Continue action does not bounce safely above the ad banner",
+    )
+    require(
+        "_portrait_game_back_button.visible = false" in result_show
+        and '_portrait_game_back_button.set("disabled", true)' in result_show
+        and "_show_single_player_reward_chain_screen()" in result_continue
+        and "_open_single_player_retry_theme_popup()" not in result_continue,
+        "A single-player defeat still exposes Back or skips the failed reward screen",
     )
 
 
@@ -2863,6 +3019,7 @@ def main() -> None:
     verify_android_vibration_feedback()
     verify_android_network_and_result_search()
     verify_game_exit_confirmation_popup()
+    verify_single_player_forfeit_reward()
     verify_low_attempts_attention_bounce()
     verify_long_button_attention_bounce()
     verify_single_player_popup_stays_interactive()

@@ -13,6 +13,11 @@ var _themes_cache: Array = []
 var _themes_cache_ready: bool = false
 var _words_by_index_cache: Dictionary = {}
 var _alphabet_cache := PackedStringArray()
+# Parsed source files are immutable during a run. Keeping both language payloads
+# avoids reparsing several hundred kilobytes of JSON whenever the player toggles
+# the word database in Settings.
+var _json_cache: Dictionary = {}
+var _loaded_word_language: String = ""
 
 const DIFFICULTY_SPLIT: float = 0.5
 
@@ -112,13 +117,18 @@ func load_languages(interface_lang: String, word_lang: String) -> void:
 	interface_language = _normalize_language(interface_lang)
 	current_language = _normalize_language(word_lang)
 	TranslationServer.set_locale(interface_language)
-	_load_words()
-	_load_hints()
+	_ensure_word_language_loaded()
 
 func load_word_language(word_lang: String) -> void:
 	current_language = _normalize_language(word_lang)
+	_ensure_word_language_loaded()
+
+func _ensure_word_language_loaded() -> void:
+	if _loaded_word_language == current_language:
+		return
 	_load_words()
 	_load_hints()
+	_loaded_word_language = current_language
 
 func _normalize_language(lang: String) -> String:
 	var normalized := lang.to_lower()
@@ -127,6 +137,8 @@ func _normalize_language(lang: String) -> String:
 	return "en"
 
 func _load_json(path: String) -> Variant:
+	if _json_cache.has(path):
+		return _json_cache[path]
 	if !FileAccess.file_exists(path):
 		push_error("File not found: " + path)
 		return null
@@ -146,6 +158,8 @@ func _load_json(path: String) -> Variant:
 	var result = JSON.parse_string(text)
 	if result == null:
 		push_error("JSON parse error: " + path)
+	else:
+		_json_cache[path] = result
 	return result
 
 func _load_words() -> void:
@@ -163,7 +177,9 @@ func _invalidate_word_runtime_cache() -> void:
 	_alphabet_cache.clear()
 
 func _load_hints() -> void:
-	hints.clear()
+	# Do not clear the previous array in place: it may be the array retained by
+	# the parsed JSON cache for another language.
+	hints = []
 	var result = _load_json(HINT_FILES[current_language])
 	if result is Dictionary and result.has("themes") and result["themes"] is Array:
 		hints = result["themes"]

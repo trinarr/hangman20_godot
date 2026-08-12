@@ -55,6 +55,8 @@ const HERO_TYPE_2_OFFSETS: Array[Vector2] = [
 static var _hero_pose_cache: Dictionary = {}
 static var _hero_pose_requests: Dictionary = {}
 
+var force_immediate_hero_pose_load: bool = false
+
 var stage_position: Vector2 = Vector2.ZERO:
 	set(value):
 		stage_position = value
@@ -146,25 +148,29 @@ func _reload_hero_symbol() -> void:
 	var target_offset: Vector2 = _hero_offsets()[state_index]
 	if _symbol_instance != null and _loaded_symbol_path == target_path:
 		_apply_animation_time()
-		_prune_hero_pose_cache(state_index, false)
+		_prune_hero_pose_cache(state_index)
 		_request_next_hero_pose(state_index)
 		return
 
 	var target_scene: PackedScene = _get_hero_scene_if_ready(target_path)
-	if target_scene == null and state_index == 0 and !_hero_pose_requests.has(target_path):
+	if target_scene == null and force_immediate_hero_pose_load:
+		# Failure rewards must render the terminal pose in the viewport's first and
+		# only update. Finish an existing background request here when necessary.
+		target_scene = _load_hero_scene_immediately(target_path)
+	elif target_scene == null and state_index == 0 and !_hero_pose_requests.has(target_path):
 		# The first pose is needed before the player can interact. Load that one
 		# synchronously, then prepare every later pose off the main thread.
 		target_scene = _load_initial_hero_scene(target_path)
 	if target_scene != null:
 		_instantiate_hero_pose(target_scene, target_offset, target_path)
-		_prune_hero_pose_cache(state_index, false)
+		_prune_hero_pose_cache(state_index)
 		_request_next_hero_pose(state_index)
 		return
 
 	_request_hero_scene(target_path)
 	_pending_symbol_path = target_path
 	_pending_symbol_offset = target_offset
-	_prune_hero_pose_cache(state_index, true)
+	_prune_hero_pose_cache(state_index)
 
 	# Keep the currently instantiated pose visible until the requested pose is
 	# fully loaded. This matters when buying attempts moves the hero backwards:
@@ -201,8 +207,19 @@ func _load_initial_hero_scene(resource_path: String) -> PackedScene:
 		push_warning("Hero pose is not a PackedScene: " + resource_path)
 		return null
 	var scene: PackedScene = resource as PackedScene
+	_hero_pose_requests.erase(resource_path)
 	_hero_pose_cache[resource_path] = scene
 	return scene
+
+func _load_hero_scene_immediately(resource_path: String) -> PackedScene:
+	if _hero_pose_requests.has(resource_path):
+		var threaded_resource: Resource = ResourceLoader.load_threaded_get(resource_path)
+		_hero_pose_requests.erase(resource_path)
+		if threaded_resource is PackedScene:
+			var threaded_scene: PackedScene = threaded_resource as PackedScene
+			_hero_pose_cache[resource_path] = threaded_scene
+			return threaded_scene
+	return _load_initial_hero_scene(resource_path)
 
 func _request_hero_scene(resource_path: String) -> void:
 	if _hero_pose_cache.has(resource_path) or _hero_pose_requests.has(resource_path):
@@ -248,12 +265,17 @@ func _get_hero_scene_if_ready(resource_path: String) -> PackedScene:
 	return scene
 
 func _request_next_hero_pose(state_index: int) -> void:
+	var states: Array[String] = _hero_states()
 	var next_index: int = state_index + 1
-	if next_index >= _hero_states().size():
-		return
-	_request_hero_scene(_hero_states()[next_index])
+	if next_index < states.size():
+		_request_hero_scene(states[next_index])
+	# Prepare the failure-screen pose in parallel with normal sequential loading.
+	# It remains outside the strong cache until actually needed.
+	var terminal_index: int = states.size() - 1
+	if terminal_index >= 0 and terminal_index != state_index and terminal_index != next_index:
+		_request_hero_scene(states[terminal_index])
 
-func _prune_hero_pose_cache(state_index: int, keep_previous: bool) -> void:
+func _prune_hero_pose_cache(state_index: int) -> void:
 	var keep_paths: Dictionary = {}
 	var states: Array[String] = _hero_states()
 	# Reward screens always use the clean first pose. Keep it warm once it has
@@ -263,8 +285,13 @@ func _prune_hero_pose_cache(state_index: int, keep_previous: bool) -> void:
 	keep_paths[states[state_index]] = true
 	if state_index + 1 < states.size():
 		keep_paths[states[state_index + 1]] = true
-	if keep_previous and state_index > 0:
-		keep_paths[states[state_index - 1]] = true
+	# A last-chance purchase restores two attempts and can move the character two
+	# poses backwards at once. Retain both previous scenes after they have already
+	# been displayed, eliminating a second disk/decode request on that transition.
+	for previous_offset in range(1, 3):
+		var previous_index: int = state_index - previous_offset
+		if previous_index >= 0:
+			keep_paths[states[previous_index]] = true
 	for cached_path: Variant in _hero_pose_cache.keys():
 		if !keep_paths.has(cached_path):
 			_hero_pose_cache.erase(cached_path)
@@ -291,7 +318,7 @@ func _poll_pending_hero_pose() -> bool:
 	_instantiate_hero_pose(target_scene, target_offset, target_path)
 	var state_index: int = _hero_states().find(target_path)
 	if state_index >= 0:
-		_prune_hero_pose_cache(state_index, false)
+		_prune_hero_pose_cache(state_index)
 		_request_next_hero_pose(state_index)
 	_resume_pending_playback()
 	return true

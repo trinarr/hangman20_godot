@@ -130,14 +130,7 @@ const PORTRAIT_ATTEMPTS_COUNTER_ROLL_DURATION: float = 0.20
 const PORTRAIT_GAME_ENTRANCE_START_DELAY: float = 0.05
 const PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER: float = 1.30
 const PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION: float = 0.26
-const PORTRAIT_GAME_HERO_EXIT_FADE_DURATION: float = 0.24
-const PORTRAIT_INLINE_RESULT_TITLE_RECT := Rect2(40.0, 138.0, 400.0, 54.0)
-const PORTRAIT_INLINE_RESULT_CONTINUE_BUTTON_RECT := Rect2(99.75, 620.0, 280.5, 70.4)
-const PORTRAIT_INLINE_RESULT_TITLE_FADE_DURATION: float = 0.18
-const PORTRAIT_INLINE_RESULT_CONTINUE_START_SCALE: float = 0.72
-const PORTRAIT_INLINE_RESULT_CONTINUE_PEAK_SCALE: float = 1.10
 const PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = 0.12
-const PORTRAIT_INLINE_RESULT_CONTINUE_SETTLE_DURATION: float = 0.18
 # Reward-screen hero is deliberately only 30% larger than the in-round hero.
 # The X offset scales with the hero so the visible artwork (not the Flash origin)
 # stays centered on the 480 px portrait stage.
@@ -151,25 +144,18 @@ const PORTRAIT_SINGLE_REWARD_HERO_POSITION := Vector2(
 # position of the bottom-attached Continue button, so it stays visually centered
 # between the character and CTA on both 16:9 and extra-tall phones.
 const PORTRAIT_SINGLE_REWARD_HERO_VISUAL_BOTTOM_Y: float = 530.0
-const PORTRAIT_SINGLE_REWARD_CHAIN_WIDTH: float = 430.0
 const PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE: float = 102.0
-const PORTRAIT_SINGLE_REWARD_NODE_MIN_SIZE: float = 40.0
 const PORTRAIT_SINGLE_REWARD_NODE_GAP: float = 14.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS: float = 6.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP: float = 10.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_COLOR := Color("#2E73C9")
 const PORTRAIT_SINGLE_REWARD_CURRENT_NODE_SCALE: float = 1.20
 const PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE: float = 0.90
-const PORTRAIT_SINGLE_REWARD_STATUS_Y: float = 604.0
-const PORTRAIT_SINGLE_REWARD_SUMMARY_Y: float = 642.0
-const PORTRAIT_SINGLE_REWARD_BONUS_Y: float = 672.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE: float = 0.72
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE: int = 22
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE: int = 15
 const PORTRAIT_SINGLE_REWARD_STATUS_ICON_SCALE: float = 0.574
-const PORTRAIT_SINGLE_REWARD_CLAIM_ICON_FADE_DURATION: float = 0.18
 const PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA: float = 0.45
-const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_DELAY: float = 0.12
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE: float = 0.42
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_PEAK_SCALE: float = 1.16
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_GROW_DURATION: float = 0.15
@@ -181,11 +167,8 @@ const PORTRAIT_SINGLE_REWARD_FLY_SPREAD_Y: float = 18.0
 const PORTRAIT_SINGLE_REWARD_FLY_START_DELAY: float = 0.02
 const PORTRAIT_SINGLE_REWARD_FLY_STAGGER: float = 0.09
 const PORTRAIT_SINGLE_REWARD_FLY_DURATION: float = 0.52
-const PORTRAIT_SINGLE_REWARD_TITLE_RECT := Rect2(44.0, 120.0, 392.0, 64.0)
-const PORTRAIT_SINGLE_REWARD_SUBTITLE_RECT := Rect2(52.0, 184.0, 376.0, 40.0)
 const PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE: int = 46
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE: int = 24
-const PORTRAIT_SINGLE_REWARD_BLUE_OVERLAY_COLOR := Color(0.22, 0.46, 0.92, 0.76)
 const PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_HEIGHT: float = 112.0
 const PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT := Rect2(
 	0.0,
@@ -332,6 +315,7 @@ var _portrait_game_word_rect := Rect2()
 var _portrait_game_keyboard_buttons: Array = []
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
+var _portrait_game_back_button: Control = null
 var _portrait_game_attempts_controls: Array[Control] = []
 var _portrait_game_attempts_value_label: Label = null
 var _portrait_game_attempts_bounce_tween: Tween = null
@@ -342,12 +326,9 @@ var _portrait_game_runtime_ready: bool = false
 var _portrait_currency_counter_visual: Control = null
 var _portrait_currency_coin_icon_visual: Control = null
 var _portrait_heart_icon_visual: Control = null
-var _portrait_round_end_transition_active: bool = false
 var _portrait_round_end_bounce_started: bool = false
-var _portrait_inline_result_visible: bool = false
 var _portrait_inline_result_search_button: Control = null
 var _portrait_inline_result_word_holder: Control = null
-var _portrait_inline_result_title_label: Label = null
 var _portrait_inline_result_continue_button: Control = null
 var _portrait_in_place_result_active: bool = false
 var _portrait_in_place_result_is_win: bool = false
@@ -366,6 +347,7 @@ var _portrait_main_tab_swipe_departing_navigation: Control = null
 var _portrait_main_tab_swipe_target_navigation: Control = null
 var _portrait_main_tab_swipe_departing_top_bar: Control = null
 var _portrait_main_tab_swipe_target_top_bar: Control = null
+var _portrait_main_tab_swipe_origin_references: Dictionary = {}
 var _portrait_main_tab_swipe_building_target: bool = false
 var _portrait_main_tab_swipe_animating: bool = false
 var _portrait_top_bar_content: Control = null
@@ -421,6 +403,7 @@ func _clear() -> void:
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
+	_portrait_game_back_button = null
 	_stop_portrait_attempts_attention_bounce(true)
 	_portrait_game_attempts_controls.clear()
 	_portrait_game_attempts_value_label = null
@@ -514,8 +497,60 @@ func _clear_portrait_main_tab_swipe_transition() -> void:
 	_portrait_main_tab_swipe_target_navigation = null
 	_portrait_main_tab_swipe_departing_top_bar = null
 	_portrait_main_tab_swipe_target_top_bar = null
+	_portrait_main_tab_swipe_origin_references.clear()
 	_portrait_main_tab_swipe_building_target = false
 	_portrait_main_tab_swipe_animating = false
+
+func _capture_portrait_main_tab_swipe_origin_references() -> void:
+	_portrait_main_tab_swipe_origin_references = {
+		"top_bar": _portrait_top_bar_content,
+		"currency_counter_visual": _portrait_currency_counter_visual,
+		"currency_coin_icon_visual": _portrait_currency_coin_icon_visual,
+		"heart_icon_visual": _portrait_heart_icon_visual,
+		"currency_counter_rect": _portrait_active_currency_counter_rect,
+		"currency_balance_label": currency_balance_label,
+		"heart_count_label": heart_count_label,
+		"heart_status_label": heart_status_label,
+		"heart_add_badge_visual": heart_add_badge_visual,
+		"heart_counter_button": heart_counter_button,
+		"coin_store_return_action": coin_store_return_action,
+	}
+
+func _restore_portrait_main_tab_swipe_origin_references() -> void:
+	if _portrait_main_tab_swipe_origin_references.is_empty():
+		return
+	_portrait_top_bar_content = _portrait_main_tab_swipe_origin_references.get("top_bar") as Control
+	_portrait_currency_counter_visual = _portrait_main_tab_swipe_origin_references.get(
+		"currency_counter_visual"
+	) as Control
+	_portrait_currency_coin_icon_visual = _portrait_main_tab_swipe_origin_references.get(
+		"currency_coin_icon_visual"
+	) as Control
+	_portrait_heart_icon_visual = _portrait_main_tab_swipe_origin_references.get(
+		"heart_icon_visual"
+	) as Control
+	_portrait_active_currency_counter_rect = _portrait_main_tab_swipe_origin_references.get(
+		"currency_counter_rect",
+		PORTRAIT_CURRENCY_COUNTER_RECT
+	)
+	currency_balance_label = _portrait_main_tab_swipe_origin_references.get(
+		"currency_balance_label"
+	) as Label
+	heart_count_label = _portrait_main_tab_swipe_origin_references.get("heart_count_label") as Label
+	heart_status_label = _portrait_main_tab_swipe_origin_references.get("heart_status_label") as Label
+	heart_add_badge_visual = _portrait_main_tab_swipe_origin_references.get(
+		"heart_add_badge_visual"
+	) as Control
+	heart_counter_button = _portrait_main_tab_swipe_origin_references.get(
+		"heart_counter_button"
+	) as Control
+	var saved_return_action: Variant = _portrait_main_tab_swipe_origin_references.get(
+		"coin_store_return_action",
+		Callable()
+	)
+	coin_store_return_action = Callable()
+	if saved_return_action is Callable:
+		coin_store_return_action = saved_return_action
 
 func _update_portrait_main_tab_swipe(pointer_position: Vector2) -> bool:
 	var swipe_delta: Vector2 = pointer_position - _portrait_main_tab_swipe_start_position
@@ -570,6 +605,7 @@ func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 		false
 	) as Control
 	_portrait_main_tab_swipe_departing_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_capture_portrait_main_tab_swipe_origin_references()
 	_portrait_main_tab_swipe_building_target = true
 	tab_action.call()
 	_portrait_main_tab_swipe_building_target = false
@@ -580,6 +616,7 @@ func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 		or !is_instance_valid(_portrait_main_tab_swipe_target_content)
 		or _portrait_main_tab_swipe_target_content == _portrait_main_tab_swipe_departing_content
 	):
+		_restore_portrait_main_tab_swipe_origin_references()
 		_clear_portrait_main_tab_swipe_transition()
 		return false
 	_portrait_main_tab_swipe_target_navigation = content.find_child(
@@ -709,11 +746,9 @@ func _complete_portrait_main_tab_swipe(commit: bool) -> void:
 		departing_content.position.x = 0.0
 		departing_content.mouse_filter = Control.MOUSE_FILTER_PASS
 		content = departing_content
+	_restore_portrait_main_tab_swipe_origin_references()
 	_portrait_active_main_tab = origin_tab
-	var restore_action: Callable = _portrait_main_tab_action(origin_tab)
 	_clear_portrait_main_tab_swipe_transition()
-	if restore_action.is_valid():
-		restore_action.call_deferred()
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -1269,34 +1304,6 @@ func _set_currency_counter_pressed(
 	scale_tweener.set_ease(Tween.EASE_OUT)
 	counter_visual.set_meta(&"press_tween", press_tween)
 
-func _bounce_portrait_currency_counter() -> void:
-	if (
-		_portrait_currency_counter_visual == null
-		or !is_instance_valid(_portrait_currency_counter_visual)
-		or !_portrait_currency_counter_visual.is_inside_tree()
-	):
-		return
-	var counter_visual: Control = _portrait_currency_counter_visual
-	counter_visual.pivot_offset = _portrait_stage_point_to_viewport(
-		PORTRAIT_CURRENCY_COUNTER_RECT.get_center(),
-		counter_visual
-	)
-	var previous_tween: Tween = counter_visual.get_meta(&"reward_bounce_tween", null) as Tween
-	if previous_tween != null and previous_tween.is_valid():
-		previous_tween.kill()
-	var rest_scale: Vector2 = counter_visual.scale
-	if rest_scale == Vector2.ZERO:
-		rest_scale = Vector2.ONE
-	var bounce_tween := counter_visual.create_tween()
-	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow := bounce_tween.tween_property(counter_visual, "scale", rest_scale * 1.12, 0.12)
-	grow.set_trans(Tween.TRANS_BACK)
-	grow.set_ease(Tween.EASE_OUT)
-	var settle := bounce_tween.tween_property(counter_visual, "scale", rest_scale, 0.18)
-	settle.set_trans(Tween.TRANS_BOUNCE)
-	settle.set_ease(Tween.EASE_OUT)
-	counter_visual.set_meta(&"reward_bounce_tween", bounce_tween)
-
 func _bounce_portrait_currency_coin_icon() -> void:
 	if (
 		_portrait_currency_coin_icon_visual == null
@@ -1701,6 +1708,10 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 	content = previous_content
 
 func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:
+	# Tapping the already active tab should not destroy and rebuild the complete
+	# page tree. The click feedback still plays through the shared tab button.
+	if !_portrait_main_tab_swipe_building_target and active_tab == _portrait_active_main_tab:
+		return
 	var previous_tab: int = (
 		-1
 		if _portrait_main_tab_swipe_building_target
@@ -3653,7 +3664,12 @@ func _show_exit_game_popup() -> void:
 	var warning_label := _stage_label(Rect2(82.0, 398.0, 316.0, 40.0), _exit_game_warning_text(), 18, Color(0.92, 0.94, 1.0))
 	warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	warning_label.clip_text = false
-	_stage_portrait_popup_main_button(Rect2(82.0, 456.0, 145.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
+	_stage_portrait_popup_main_button(
+		Rect2(82.0, 456.0, 145.0, 52.0),
+		Callable(self, "_confirm_exit_game").bind(true),
+		tr("YES"),
+		20
+	)
 	_stage_portrait_popup_main_button(Rect2(253.0, 456.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
@@ -3818,12 +3834,9 @@ func _refresh_game_screen() -> void:
 		_portrait_game_attempts_roll_clip.queue_free()
 	_portrait_game_attempts_roll_clip = null
 	_portrait_game_attempts_displayed_value = -1
-	_portrait_round_end_transition_active = false
 	_portrait_round_end_bounce_started = false
-	_portrait_inline_result_visible = false
 	_portrait_inline_result_search_button = null
 	_portrait_inline_result_word_holder = null
-	_portrait_inline_result_title_label = null
 	_portrait_inline_result_continue_button = null
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
@@ -3994,12 +4007,12 @@ func _refresh_game_screen() -> void:
 
 	# Keep the confirmed round-exit action in the same compact top-left
 	# navigation position used by the footerless selection screens.
-	var back_button := _stage_round_icon_button(
+	var back_button := _stage_round_button(
 		PORTRAIT_PAGE_BACK_BUTTON_RECT,
 		Callable(self, "_show_exit_game_popup"),
-		PORTRAIT_BACK_ARROW_ICON,
-		PORTRAIT_PAGE_BACK_ICON_SIZE
+		"×"
 	)
+	_portrait_game_back_button = back_button
 	if _portrait_game_is_challenge_level():
 		back_button.call(
 			"set_color_palette",
@@ -4016,9 +4029,8 @@ func _refresh_game_screen() -> void:
 	if play_game_entrance:
 		_prepare_portrait_game_entrance()
 	if restore_finished_round:
-		# Victory is restored with the same in-place presentation in every mode:
-		# peel only the word paper, keep the gameplay composition, and color the
-		# solved word green. Single Player used to restore a separate result layout.
+		# Restore the same in-place presentation used when the round ended: peel only
+		# the word paper and keep the gameplay composition around the revealed word.
 		call_deferred("_show_in_place_round_result", last_result_is_win, false)
 
 func _refresh_portrait_game_runtime_state() -> void:
@@ -4169,7 +4181,6 @@ func _sync_portrait_attempts_attention_bounce() -> void:
 		and GameSession.is_active
 		and !game_finished
 		and !_portrait_game_entrance_active
-		and !_portrait_round_end_transition_active
 		and !_portrait_in_place_result_active
 		and (_portrait_game_attempts_roll_tween == null or !_portrait_game_attempts_roll_tween.is_valid())
 		and remaining_attempts > 0
@@ -4793,15 +4804,6 @@ func _portrait_in_place_result_button_rect() -> Rect2:
 		Vector2(
 			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_RETRY_BUTTON_SIZE.x) * 0.5,
 			button_y
-		),
-		PORTRAIT_GAME_RETRY_BUTTON_SIZE
-	)
-
-func _portrait_reward_continue_button_rect() -> Rect2:
-	return Rect2(
-		Vector2(
-			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_RETRY_BUTTON_SIZE.x) * 0.5,
-			PORTRAIT_ADMOB_BANNER_RECT.position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
 		),
 		PORTRAIT_GAME_RETRY_BUTTON_SIZE
 	)
@@ -5440,6 +5442,10 @@ func _return_to_single_player_reward_from_coin_store() -> void:
 	_portrait_single_reward_resume_without_intro = true
 	_show_single_player_reward_chain_screen()
 
+func _show_single_player_forfeit_reward_screen() -> void:
+	_portrait_single_reward_resume_without_intro = false
+	_show_single_player_reward_chain_screen()
+
 func _return_to_single_player_last_chance_from_coin_store() -> void:
 	_portrait_game_entrance_pending = false
 	super.show_game_screen()
@@ -5497,6 +5503,14 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 		return
 	_portrait_in_place_result_active = true
 	_portrait_in_place_result_is_win = is_win
+	if (
+		_portrait_game_back_button != null
+		and is_instance_valid(_portrait_game_back_button)
+	):
+		_portrait_game_back_button.visible = false
+		_portrait_game_back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_portrait_game_back_button.set("disabled", true)
+		_portrait_back_button_visible = false
 	_stop_portrait_attempts_attention_bounce(true)
 	_play_result_sound_once(is_win, last_result_data)
 	# Keep the inactive keyboard, attempts and the hero pose reached during this
@@ -5581,15 +5595,10 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 		return
 	var previous_content: Control = content
 	content = _portrait_game_input_group
-	var action_text: String = (
-		_single_player_text("Повторить", "Retry")
-		if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER and !_portrait_in_place_result_is_win
-		else _result_continue_button_text()
-	)
 	var action_button := _stage_main_button(
 		_portrait_in_place_result_button_rect(),
 		_result_continue_action(),
-		action_text,
+		_result_continue_button_text(),
 		22,
 		false,
 		0.32,
@@ -5652,6 +5661,7 @@ func _stage_single_player_reward_tile(
 	level_index: int,
 	is_claimed_or_current: bool,
 	is_current: bool,
+	is_failed: bool,
 	accent_color: Color,
 	header_color: Color
 ) -> void:
@@ -5678,13 +5688,14 @@ func _stage_single_player_reward_tile(
 		2.0
 	)
 	card.z_index = 1
+	var state_accent: Color = StageLetterButton.CROSSED_COLOR if is_failed else accent_color
 	var state_fill: Color = (
-		Color(accent_color.r, accent_color.g, accent_color.b, 0.10)
+		Color(state_accent.r, state_accent.g, state_accent.b, 0.10)
 		if is_claimed_or_current
 		else Color(header_color.r, header_color.g, header_color.b, 0.055)
 	)
 	var state_border: Color = (
-		accent_color
+		state_accent
 		if is_claimed_or_current
 		else Color(header_color.r, header_color.g, header_color.b, 0.38)
 	)
@@ -5727,8 +5738,8 @@ func _stage_single_player_reward_coin_pile(parent: Control, icon_rect: Rect2) ->
 func _stage_single_player_reward_status_icon(
 	parent: Control,
 	node_rect: Rect2,
-	is_success: bool,
-	start_hidden: bool = false
+	start_hidden: bool = false,
+	is_success: bool = true
 ) -> Control:
 	var icon_size: Vector2 = node_rect.size * PORTRAIT_SINGLE_REWARD_STATUS_ICON_SCALE
 	var icon_rect := Rect2(
@@ -5918,7 +5929,11 @@ func _single_player_reward_check_reveal_delay() -> float:
 	)
 	return lerpf(PORTRAIT_SINGLE_REWARD_FLY_START_DELAY, last_coin_arrival, 0.5)
 
-func _create_single_player_reward_masked_hero(parent: Control, initial_title_rect: Rect2) -> Dictionary:
+func _create_single_player_reward_masked_hero(
+	parent: Control,
+	initial_title_rect: Rect2,
+	hero_mistakes: int = 0
+) -> Dictionary:
 	var viewport_size: Vector2 = get_viewport_rect().size
 	var hero_mask := Control.new()
 	hero_mask.name = "SinglePlayerRewardHeroMask"
@@ -5935,15 +5950,23 @@ func _create_single_player_reward_masked_hero(parent: Control, initial_title_rec
 		maxi(1, int(round(viewport_size.x))),
 		maxi(1, int(round(viewport_size.y)))
 	)
-	hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	# The reward hero is sampled at a fixed pose. Render the transparent viewport
+	# once instead of redrawing a full-screen offscreen target every frame.
+	hero_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	hero_mask.add_child(hero_viewport)
 
 	var reward_hero: FlashStageSymbol = FLASH_STAGE_SYMBOL_SCRIPT.new() as FlashStageSymbol
 	reward_hero.z_index = 5
+	var show_terminal_pose: bool = hero_mistakes >= GameSession.MAX_MISTAKES
+	reward_hero.force_immediate_hero_pose_load = show_terminal_pose
 	reward_hero.hero_type = _hero_type()
 	reward_hero.stage_position = PORTRAIT_SINGLE_REWARD_HERO_POSITION
-	reward_hero.animation_time = _hero_animation_time_for_mistakes(0)
-	reward_hero.nested_animation_time = HERO_MOV_IDLE_FRAME_TIME
+	reward_hero.animation_time = _hero_animation_time_for_mistakes(hero_mistakes)
+	reward_hero.nested_animation_time = (
+		maxf(_hero_terminal_loop_end_time() - HERO_NESTED_FRAME_SAMPLE_OFFSET, 0.0)
+		if show_terminal_pose
+		else HERO_MOV_IDLE_FRAME_TIME
+	)
 	reward_hero.stage_scale_multiplier = PORTRAIT_SINGLE_REWARD_HERO_SCALE_MULTIPLIER
 	hero_viewport.add_child(reward_hero)
 
@@ -6222,6 +6245,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	if level_index < 0:
 		show_menu()
 		return
+	var is_failure_reward: bool = !last_result_is_win
 
 	var word_count: int = maxi(
 		int(last_result_data.get(
@@ -6274,7 +6298,11 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	reward_title.position = Vector2(0.0, PORTRAIT_SINGLE_REWARD_TITLE_TOP_PADDING)
 	reward_title.size = Vector2(title_visual.size.x, PORTRAIT_SINGLE_REWARD_TITLE_HEIGHT)
-	reward_title.text = _single_player_text("ОТЛИЧНО!", "WELL DONE!")
+	reward_title.text = (
+		_single_player_level_failed_label()
+		if is_failure_reward
+		else _single_player_text("ОТЛИЧНО!", "WELL DONE!")
+	)
 	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_title.add_theme_font_override("font", UI_PRIMARY_FONT)
@@ -6283,6 +6311,13 @@ func _show_single_player_reward_chain_screen() -> void:
 	_apply_portrait_reward_header_text_effect(reward_title, 2)
 	reward_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	reward_title.clip_text = false
+	_fit_single_line_label_to_width(
+		reward_title,
+		reward_title.text,
+		reward_title.size.x,
+		PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE,
+		28
+	)
 	reward_title.z_index = 1
 	title_visual.add_child(reward_title)
 	var reward_subtitle := Label.new()
@@ -6290,7 +6325,11 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	reward_subtitle.position = Vector2(0.0, PORTRAIT_SINGLE_REWARD_SUBTITLE_TOP)
 	reward_subtitle.size = Vector2(title_visual.size.x, PORTRAIT_SINGLE_REWARD_SUBTITLE_HEIGHT)
-	reward_subtitle.text = _single_player_text("Слово отгадано", "Word guessed")
+	reward_subtitle.text = (
+		_single_player_text("Награда не получена", "Reward not received")
+		if is_failure_reward
+		else _single_player_text("Слово отгадано", "Word guessed")
+	)
 	reward_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_subtitle.add_theme_font_override("font", UI_HEADING_FONT)
@@ -6306,13 +6345,14 @@ func _show_single_player_reward_chain_screen() -> void:
 
 	# Keep the persistent HUD and the celebratory title visible independently.
 	# Reward content itself is revealed only after the title finishes its first
-	# bounce, making ОТЛИЧНО!/WELL DONE! the first reward-screen element shown.
+	# bounce, making the success/failure title the first screen element shown.
 	# Render the hero into a transparent viewport and reveal only the portion below
 	# the moving title block. This is a real clip: no covering texture or color is
 	# drawn over the paper background.
 	var masked_hero: Dictionary = _create_single_player_reward_masked_hero(
 		reward_screen_content,
-		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT
+		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
+		GameSession.MAX_MISTAKES if is_failure_reward else 0
 	)
 	var hero_mask := masked_hero.get("mask") as Control
 	var hero_texture := masked_hero.get("texture") as TextureRect
@@ -6329,7 +6369,6 @@ func _show_single_player_reward_chain_screen() -> void:
 		challenge_level,
 		false
 	)
-
 	# Keep the just-earned reward locked to the horizontal center. Neighboring
 	# rewards expand away from it. Reward tiles now keep a fixed authored size; if
 	# a long chain does not fit fully on screen, outer tiles are allowed to run
@@ -6344,7 +6383,10 @@ func _show_single_player_reward_chain_screen() -> void:
 		level_index,
 		current_slot,
 	]
-	var animate_current_claim: bool = reward_claim_key != _portrait_last_animated_reward_claim_key
+	var animate_current_claim: bool = (
+		!is_failure_reward
+		and reward_claim_key != _portrait_last_animated_reward_claim_key
+	)
 	var chain_center_y: float = _single_player_reward_chain_center_y()
 	var node_sizes: Array = []
 	var node_positions_x: Array = []
@@ -6422,16 +6464,7 @@ func _show_single_player_reward_chain_screen() -> void:
 
 		var is_previous: bool = word_slot < current_slot
 		var is_current: bool = word_slot == current_slot
-		var node_border: Color = (
-			accent_color
-			if word_slot <= current_slot
-			else Color(header_color.r, header_color.g, header_color.b, 0.38)
-		)
-		var node_fill: Color = (
-			Color(accent_color.r, accent_color.g, accent_color.b, 0.10)
-			if word_slot <= current_slot
-			else Color(header_color.r, header_color.g, header_color.b, 0.055)
-		)
+		var is_failed_current: bool = is_failure_reward and is_current
 		var reward_amount: int = _single_player_reward_for_slot(word_slot, word_count)
 		# Reward amounts start fully white. Once a reward is claimed, the checkmark
 		# dims both its coin pile and xN; future/unclaimed rewards stay white.
@@ -6450,6 +6483,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			level_index,
 			word_slot <= current_slot,
 			is_current,
+			is_failed_current,
 			accent_color,
 			header_color
 		)
@@ -6468,15 +6502,24 @@ func _show_single_player_reward_chain_screen() -> void:
 			coin_size
 		)
 		var coin_visual := _stage_single_player_reward_coin_pile(node_holder, coin_rect)
-		var is_claimed: bool = is_previous or (is_current and !animate_current_claim)
-		if is_claimed:
-			_stage_single_player_reward_status_icon(node_holder, local_node_rect, true)
+		var is_claimed: bool = (
+			is_previous
+			or (is_current and !animate_current_claim and !is_failed_current)
+		)
+		if is_failed_current:
+			_stage_single_player_reward_status_icon(
+				node_holder,
+				local_node_rect,
+				false,
+				false
+			)
+		elif is_claimed:
+			_stage_single_player_reward_status_icon(node_holder, local_node_rect)
 		elif is_current:
 			current_reward_coin_visual = coin_visual
 			current_reward_check_icon = _stage_single_player_reward_status_icon(
 				node_holder,
 				local_node_rect,
-				true,
 				true
 			)
 
@@ -6491,9 +6534,9 @@ func _show_single_player_reward_chain_screen() -> void:
 			count_font_size,
 			count_color
 		)
-		if is_claimed:
-			# Claimed rewards keep both the coin pile and xN in the same inactive
-			# state reached when the checkmark appears. Unclaimed rewards stay white.
+		if is_claimed or is_failed_current:
+			# Claimed and failed rewards keep both the coin pile and xN inactive.
+			# Future rewards stay white.
 			coin_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
 			count_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
 		elif is_current:
@@ -6509,7 +6552,11 @@ func _show_single_player_reward_chain_screen() -> void:
 		# pixel-for-pixel the same on every portrait aspect ratio.
 		_portrait_in_place_result_button_rect(),
 		Callable(self, "_continue_from_single_player_reward_chain"),
-		_result_continue_button_text(),
+		(
+			_single_player_text("Начать заново", "Start over")
+			if is_failure_reward
+			else _result_continue_button_text()
+		),
 		22,
 		false,
 		0.32,
@@ -6523,6 +6570,17 @@ func _show_single_player_reward_chain_screen() -> void:
 	continue_button.set("disabled", true)
 	content = reward_content
 	content = reward_screen_content
+	if is_failure_reward:
+		# Stage Back only after every full-screen reward layer. Godot resolves GUI
+		# picking by scene-tree order, so z_index alone cannot keep an earlier button
+		# clickable above controls created later in the reward composition.
+		var back_button := _stage_round_button(
+			PORTRAIT_PAGE_BACK_BUTTON_RECT,
+			Callable(self, "_leave_single_player_failure_reward_to_menu"),
+			"×"
+		)
+		back_button.z_index = 200
+		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	var reward_hud_content: Control = _portrait_top_bar_content
 	if resume_without_intro:
 		title_block.set("stage_rect", PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT)
@@ -6567,6 +6625,9 @@ func _show_single_player_reward_chain_screen() -> void:
 	)
 
 func _continue_from_single_player_reward_chain() -> void:
+	if !last_result_is_win:
+		_open_single_player_retry_theme_popup()
+		return
 	var level_index: int = int(last_result_data.get(
 		"single_player_level_index",
 		single_player_active_level_index
@@ -6584,12 +6645,13 @@ func _continue_from_single_player_reward_chain() -> void:
 		return
 	_start_next_single_player_word(level_index)
 
+func _leave_single_player_failure_reward_to_menu() -> void:
+	_discard_round_for_navigation()
+	show_menu()
+
 func _continue_single_player_result() -> void:
-	# A loss keeps the existing retry flow. A win first opens the reward-chain
-	# interstitial; only the next tap advances the level chain.
-	if !last_result_is_win:
-		_open_single_player_retry_theme_popup()
-		return
+	# Both outcomes use the reward-chain interstitial. A loss presents the failed
+	# current reward before Start over opens a fresh theme selection.
 	_show_single_player_reward_chain_screen()
 
 func _use_open_hint() -> void:
@@ -6636,83 +6698,6 @@ func _use_comment_hint() -> void:
 		previous_count,
 		GameState.get_hint_count(GameState.HINT_COMMENT)
 	)
-
-func _hide_portrait_keyboard_for_round_end(animated: bool) -> float:
-	var valid_buttons: Array = []
-	var min_x: float = INF
-	var max_x: float = -INF
-	for entry_variant: Variant in _portrait_game_keyboard_buttons:
-		var entry: Dictionary = entry_variant
-		var button := entry.get("button") as Control
-		if button == null or !is_instance_valid(button):
-			continue
-		var stage_x: float = float(entry.get("stage_x", 0.0))
-		valid_buttons.append({"button": button, "stage_x": stage_x})
-		min_x = minf(min_x, stage_x)
-		max_x = maxf(max_x, stage_x)
-	if valid_buttons.is_empty():
-		return 0.0
-	var x_range: float = maxf(max_x - min_x, 1.0)
-	for entry_variant: Variant in valid_buttons:
-		var entry: Dictionary = entry_variant
-		var button := entry.get("button") as Control
-		var stage_x: float = float(entry.get("stage_x", 0.0))
-		button.set("disabled", true)
-		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# Do not touch the Control transform used by the stage layout here. Letter
-		# buttons carry the viewport fit scale on `button.scale`; changing their pivot
-		# while that scale is active shifts the whole keyboard left/up for one frame.
-		# Animate only the button's internal visual scale so the first animation frame
-		# is pixel-identical to the gameplay position.
-		if !animated:
-			button.modulate.a = 0.0
-			button.visible = false
-			continue
-		var delay: float = ((stage_x - min_x) / x_range) * PORTRAIT_ROUND_END_KEY_WAVE_DURATION
-		var rest_visual_scale: Vector2 = button.get("visual_scale")
-		var tween := button.create_tween()
-		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tween.tween_interval(delay)
-		var alpha_tweener := tween.tween_property(
-			button,
-			"modulate:a",
-			0.0,
-			PORTRAIT_ROUND_END_KEY_FADE_DURATION
-		)
-		alpha_tweener.set_trans(Tween.TRANS_QUAD)
-		alpha_tweener.set_ease(Tween.EASE_IN)
-		var scale_tween := button.create_tween()
-		scale_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		scale_tween.tween_interval(delay)
-		var scale_tweener := scale_tween.tween_property(
-			button,
-			"visual_scale",
-			rest_visual_scale * PORTRAIT_ROUND_END_KEY_SCALE,
-			PORTRAIT_ROUND_END_KEY_FADE_DURATION
-		)
-		scale_tweener.set_trans(Tween.TRANS_QUAD)
-		scale_tweener.set_ease(Tween.EASE_OUT)
-	return PORTRAIT_ROUND_END_KEY_WAVE_DURATION + PORTRAIT_ROUND_END_KEY_FADE_DURATION
-
-func _hide_portrait_attempts_for_round_end(animated: bool) -> void:
-	for attempts_control: Control in _portrait_game_attempts_controls:
-		if attempts_control == null or !is_instance_valid(attempts_control):
-			continue
-		attempts_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if !animated:
-			attempts_control.modulate.a = 0.0
-			attempts_control.visible = false
-			continue
-		var fade_tween := attempts_control.create_tween()
-		fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		var fade_tweener := fade_tween.tween_property(
-			attempts_control,
-			"modulate:a",
-			0.0,
-			PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION
-		)
-		fade_tweener.set_trans(Tween.TRANS_QUAD)
-		fade_tweener.set_ease(Tween.EASE_IN)
 
 func _hide_portrait_hints_for_round_end(animated: bool) -> void:
 	for hint_button: Control in _portrait_game_hint_buttons:
@@ -6882,199 +6867,6 @@ func _replace_portrait_inline_result_word_with_bounce(
 	_set_portrait_result_word_color(bounced_controls, word_color)
 	_portrait_inline_result_search_button = bounced_controls.get("search_button") as Control
 
-func _start_portrait_inline_result_bounce_during_peel() -> void:
-	if _portrait_round_end_bounce_started or !_portrait_round_end_transition_active:
-		return
-	_portrait_round_end_bounce_started = true
-	# Replace the static solved word with the same animated result word once half
-	# of the paper has already been uncovered. The still-masked right side remains
-	# naturally hidden by the paper while the bounce wave begins on the left.
-	_replace_portrait_inline_result_word_with_bounce()
-
-func _portrait_inline_result_title_text() -> String:
-	var title: String = Database.tr_text(33, "VICTORY").strip_edges()
-	if title.is_empty():
-		title = "VICTORY"
-	return title
-
-func _show_portrait_inline_result_chrome(is_win: bool, animated: bool) -> void:
-	# Only a Single Player victory uses the titled result transition. Every defeat,
-	# plus Classic and Two Player victories, uses the shared in-place reveal.
-	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
-		return
-	if (
-		_portrait_inline_result_title_label != null
-		and is_instance_valid(_portrait_inline_result_title_label)
-	):
-		return
-	if _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
-		return
-
-	var previous_content: Control = content
-	var game_root := _portrait_game_input_group.get_parent() as Control
-	if game_root != null:
-		content = game_root
-	var title: String = _portrait_inline_result_title_text()
-	var title_label := _stage_heading_label(
-		PORTRAIT_INLINE_RESULT_TITLE_RECT,
-		title,
-		38,
-		StageLetterButton.CIRCLED_COLOR
-	)
-	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	title_label.clip_text = false
-	_fit_single_line_label_to_width(
-		title_label,
-		title,
-		PORTRAIT_INLINE_RESULT_TITLE_RECT.size.x,
-		_heading_font_size(38),
-		_heading_font_size(23)
-	)
-	var title_holder := title_label.get_parent() as CanvasItem
-	if title_holder != null:
-		title_holder.z_index = 50
-	_apply_result_text_glow(title_label, Color.WHITE, 2)
-	_portrait_inline_result_title_label = title_label
-
-	content = _portrait_game_input_group
-	var continue_button := _stage_main_button(
-		PORTRAIT_INLINE_RESULT_CONTINUE_BUTTON_RECT,
-		_result_continue_action(),
-		_result_continue_button_text(),
-		_portrait_footer_font_size(22),
-		false,
-		0.32,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		_style_single_player_level_button(
-			continue_button,
-			int(last_result_data.get(
-				"single_player_level_index",
-				single_player_active_level_index
-			))
-		)
-	continue_button.z_index = 50
-	_portrait_inline_result_continue_button = continue_button
-	content = previous_content
-
-	if !animated:
-		title_label.modulate.a = 1.0
-		continue_button.visible = true
-		continue_button.modulate.a = 1.0
-		continue_button.set("visual_scale", Vector2.ONE)
-		return
-
-	title_label.modulate.a = 0.0
-	var title_tween := title_label.create_tween()
-	title_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var title_fade := title_tween.tween_property(
-		title_label,
-		"modulate:a",
-		1.0,
-		PORTRAIT_INLINE_RESULT_TITLE_FADE_DURATION
-	)
-	title_fade.set_trans(Tween.TRANS_QUAD)
-	title_fade.set_ease(Tween.EASE_OUT)
-
-	continue_button.visible = true
-	continue_button.modulate.a = 0.0
-	continue_button.set(
-		"visual_scale",
-		Vector2.ONE * PORTRAIT_INLINE_RESULT_CONTINUE_START_SCALE
-	)
-	var continue_alpha := continue_button.create_tween()
-	continue_alpha.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	continue_alpha.tween_property(
-		continue_button,
-		"modulate:a",
-		1.0,
-		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
-	)
-	var continue_bounce := continue_button.create_tween()
-	continue_bounce.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow := continue_bounce.tween_property(
-		continue_button,
-		"visual_scale",
-		Vector2.ONE * PORTRAIT_INLINE_RESULT_CONTINUE_PEAK_SCALE,
-		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
-	)
-	grow.set_trans(Tween.TRANS_BACK)
-	grow.set_ease(Tween.EASE_OUT)
-	var settle := continue_bounce.tween_property(
-		continue_button,
-		"visual_scale",
-		Vector2.ONE,
-		PORTRAIT_INLINE_RESULT_CONTINUE_SETTLE_DURATION
-	)
-	settle.set_trans(Tween.TRANS_BOUNCE)
-	settle.set_ease(Tween.EASE_OUT)
-
-func _peel_portrait_word_paper_for_round_end(animated: bool) -> void:
-	if _portrait_game_word_paper_layer == null or !is_instance_valid(_portrait_game_word_paper_layer):
-		_finish_portrait_word_paper_peel(null, animated)
-		return
-	var paper_layer: Control = _portrait_game_word_paper_layer
-	paper_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if !animated:
-		if _portrait_game_word_paper_mask != null and is_instance_valid(_portrait_game_word_paper_mask):
-			_portrait_game_word_paper_mask.visible = false
-		if _portrait_game_word_paper_backside != null and is_instance_valid(_portrait_game_word_paper_backside):
-			_portrait_game_word_paper_backside.visible = false
-		paper_layer.visible = false
-		_finish_portrait_word_paper_peel(paper_layer, false)
-		return
-
-	_set_portrait_word_paper_peel_progress(0.0)
-	_portrait_round_end_bounce_started = false
-	var flip_tween := create_tween()
-	flip_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var mask_tweener := flip_tween.tween_method(
-		Callable(self, "_set_portrait_word_paper_peel_progress"),
-		0.0,
-		1.0,
-		PORTRAIT_ROUND_END_PAPER_FLIP_DURATION
-	)
-	# Start the sheet movement visibly on the same frame as the first keyboard
-	# fade. EASE_OUT removes the old slow ease-in that made the paper appear to
-	# wait even though both tweens were created together.
-	mask_tweener.set_trans(Tween.TRANS_QUAD)
-	mask_tweener.set_ease(Tween.EASE_OUT)
-	flip_tween.finished.connect(
-		Callable(self, "_finish_portrait_word_paper_peel").bind(paper_layer, false),
-		CONNECT_ONE_SHOT
-	)
-
-	var bounce_start_tween := create_tween()
-	bounce_start_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	bounce_start_tween.tween_interval(PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5)
-	bounce_start_tween.tween_callback(
-		Callable(self, "_start_portrait_inline_result_bounce_during_peel")
-	)
-
-func _hide_portrait_hero_after_word_paper(animated: bool) -> void:
-	# The character stays visible through the entire keyboard/paper exit. Only once
-	# the sheet has fully finished peeling do we remove the character, for both
-	# victory and defeat. Restored finished rounds skip the tween and stay hidden.
-	if hero_static_symbol == null or !is_instance_valid(hero_static_symbol):
-		return
-	if !animated:
-		hero_static_symbol.modulate.a = 0.0
-		return
-	var hero_fade_tween := hero_static_symbol.create_tween()
-	hero_fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var fade := hero_fade_tween.tween_property(
-		hero_static_symbol,
-		"modulate:a",
-		0.0,
-		PORTRAIT_GAME_HERO_EXIT_FADE_DURATION
-	)
-	fade.set_trans(Tween.TRANS_QUAD)
-	fade.set_ease(Tween.EASE_OUT)
-
 func _finalize_portrait_word_paper_peel_visuals(paper_layer: Control) -> void:
 	if paper_layer != null and is_instance_valid(paper_layer):
 		paper_layer.visible = false
@@ -7088,83 +6880,28 @@ func _finalize_portrait_word_paper_peel_visuals(paper_layer: Control) -> void:
 	):
 		_portrait_game_word_paper_backside_visual.scale = Vector2(0.0, 1.0)
 
-func _finish_portrait_word_paper_peel(paper_layer: Control, play_result_bounce: bool = false) -> void:
-	var animate_result_chrome: bool = _portrait_round_end_transition_active
-	_finalize_portrait_word_paper_peel_visuals(paper_layer)
-
-	_hide_portrait_hero_after_word_paper(animate_result_chrome)
-
-	# Animated exits now start the result bounce at 50% paper progress. Keep the
-	# old boolean path only as a safe fallback for direct/nonstandard callers.
-	if play_result_bounce and !_portrait_round_end_bounce_started:
-		_start_portrait_inline_result_bounce_during_peel()
-	elif !play_result_bounce and !_portrait_round_end_bounce_started:
-		if (
-			_portrait_inline_result_search_button != null
-			and is_instance_valid(_portrait_inline_result_search_button)
-		):
-			_portrait_inline_result_search_button.set("disabled", false)
-
-	_portrait_round_end_transition_active = false
-	_portrait_inline_result_visible = true
-	# The dedicated result screen is no longer part of the round flow. Once the
-	# keyboard, attempts, hints and paper have all cleared, reveal the result title
-	# and the Continue action directly on the gameplay screen.
-	_show_portrait_inline_result_chrome(last_result_is_win, animate_result_chrome)
-
-func _begin_portrait_inline_word_reveal(animated: bool) -> void:
-	if !_portrait_round_end_transition_active and animated:
-		return
-	var result_controls: Dictionary = _stage_portrait_inline_result_word(false)
-	_portrait_inline_result_search_button = result_controls.get("search_button") as Control
-	if (
-		_portrait_inline_result_search_button != null
-		and is_instance_valid(_portrait_inline_result_search_button)
-	):
-		_portrait_inline_result_search_button.set("disabled", animated)
-		# The static solved word sits under the peeling sheet, but its search button
-		# must not peek out early. The animated result recreates this button hidden
-		# and reveals it only after the bounce wave has passed the final letter.
-		_portrait_inline_result_search_button.visible = !animated
-	_peel_portrait_word_paper_for_round_end(animated)
-
-func _show_portrait_inline_round_result(
-	is_win: bool,
-	data: Dictionary,
-	animated: bool = true
-) -> void:
-	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
-		_show_in_place_round_result(is_win, animated)
-		return
-	if _portrait_round_end_transition_active or _portrait_inline_result_visible:
-		return
-	if (
-		_portrait_game_input_group == null
-		or !is_instance_valid(_portrait_game_input_group)
-	):
-		return
-	_stop_portrait_attempts_attention_bounce(true)
-	_play_result_sound_once(is_win, data)
-	_portrait_round_end_transition_active = animated
-
-	# Attempts, hints, keyboard and paper all start their exit on the same frame.
-	# Hints fade as a single row while keyboard letters keep their left-to-right
-	# scale/fade wave; the slower paper turn overlaps both animations.
-	_hide_portrait_attempts_for_round_end(animated)
-	_hide_portrait_hints_for_round_end(animated)
-	_hide_portrait_keyboard_for_round_end(animated)
-	_begin_portrait_inline_word_reveal(animated)
-
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	var font: Font = label.get_theme_font("font")
-	var resolved_font_size: int = maxi(max_font_size, min_font_size)
-	while resolved_font_size > min_font_size:
-		var text_width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_font_size).x
+	var lower_bound: int = mini(min_font_size, max_font_size)
+	var upper_bound: int = maxi(max_font_size, min_font_size)
+	var resolved_font_size: int = lower_bound
+	# Font measurement is relatively expensive during a screen rebuild. Find the
+	# largest fitting size with logarithmic probes instead of checking every size.
+	while lower_bound <= upper_bound:
+		var candidate_size: int = int((lower_bound + upper_bound) / 2)
+		var text_width: float = font.get_string_size(
+			text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			candidate_size
+		).x
 		if text_width <= available_width:
-			break
-		resolved_font_size -= 1
+			resolved_font_size = candidate_size
+			lower_bound = candidate_size + 1
+		else:
+			upper_bound = candidate_size - 1
 	label.add_theme_font_size_override("font_size", resolved_font_size)
 
 func show_profile() -> void:
