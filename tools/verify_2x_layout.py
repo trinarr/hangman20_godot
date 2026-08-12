@@ -511,8 +511,9 @@ def verify_heading_and_word_typography() -> None:
         "var attempts_title := _stage_label(" in game_header
         and 'attempts_title.add_theme_font_override("font", UI_HEADING_FONT)' in game_header
         and "var theme_line_label := _stage_label(" in game_header
+        and 'theme_line_label.add_theme_font_override("font", UI_PRIMARY_FONT)' in game_header
         and "Database.get_theme_name(GameSession.theme_id)).to_upper()" in game_header,
-        "The gameplay attempts and theme text do not use the compact heading style",
+        "The gameplay attempts title is not Regular or the theme name is not Bold",
     )
     require(
         '("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()'
@@ -847,12 +848,80 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
     )
 
 
+def verify_reward_status_icons() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    status_icon = portrait[
+        portrait.index("func _stage_single_player_reward_status_icon(") :
+        portrait.index("func _stage_single_player_reward_count(")
+    ]
+    require(
+        'preload("res://flash_assets/reward_status_check_wide.png")' in portrait
+        and 'preload("res://flash_assets/reward_status_cross_wide.png")' in portrait
+        and "REWARD_STATUS_CHECK_TEXTURE if is_success else REWARD_STATUS_CROSS_TEXTURE"
+        in status_icon
+        and "var status_icon := TextureRect.new()" in status_icon
+        and "TextureRect.STRETCH_KEEP_ASPECT_CENTERED" in status_icon
+        and "STAGE_STATUS_ICON_SCRIPT" not in portrait,
+        "The reward screen does not use the generated outlined status textures",
+    )
+    require(
+        portrait.count("_stage_single_player_reward_status_icon(") == 3,
+        "The generated reward check is not used for claimed reward tiles",
+    )
+
+    for filename, accent in (
+        ("reward_status_check_wide.png", "green"),
+        ("reward_status_cross_wide.png", "red"),
+    ):
+        icon_path = ROOT / "flash_assets" / filename
+        require(icon_path.is_file(), f"Reward status icon is missing: {filename}")
+        with Image.open(icon_path) as image:
+            rgba = image.convert("RGBA")
+            require(rgba.size == (512, 512), f"Reward status icon has the wrong size: {filename}")
+            corners = (
+                rgba.getpixel((0, 0))[3],
+                rgba.getpixel((rgba.width - 1, 0))[3],
+                rgba.getpixel((0, rgba.height - 1))[3],
+                rgba.getpixel((rgba.width - 1, rgba.height - 1))[3],
+            )
+            require(corners == (0, 0, 0, 0), f"Reward status icon is not transparent: {filename}")
+            opaque_pixels = [pixel for pixel in rgba.getdata() if pixel[3] > 200]
+            navy_pixels = sum(
+                blue > green * 1.05 and blue > red * 1.2 and blue > 35
+                for red, green, blue, _alpha in opaque_pixels
+            )
+            if accent == "green":
+                accent_pixels = sum(
+                    green > 125 and green > red * 1.15 and green > blue * 1.05
+                    for red, green, blue, _alpha in opaque_pixels
+                )
+            else:
+                accent_pixels = sum(
+                    red > 140 and red > green * 1.25 and red > blue * 1.15
+                    for red, green, blue, _alpha in opaque_pixels
+                )
+            require(accent_pixels > 5000, f"Reward status icon lost its {accent} fill: {filename}")
+            require(navy_pixels > 2500, f"Reward status icon lost its navy outline: {filename}")
+
+
 def verify_coin_store_pack_grid() -> None:
     portrait = read("scripts/main_portrait.gd")
+    page_header = portrait[
+        portrait.index("func _stage_portrait_page_header(") :
+        portrait.index("func _stage_menu_settings_button(")
+    ]
     store_screen = portrait[
         portrait.index("func _show_coin_store_screen(") :
         portrait.index("func show_tasks()")
     ]
+    require(
+        "show_heart_counter: bool = true" in page_header
+        and "if show_heart_counter:" in page_header
+        and "_stage_centered_coin_only_counter(resolved_return_action)" in page_header
+        and "_stage_menu_settings_button()" in page_header
+        and 'Callable(self, "show_coin_store"),\n\t\tfalse' in store_screen,
+        "The store header still stages the heart counter or drops its centered coin/settings controls",
+    )
     require(
         "const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]"
         in portrait
@@ -1163,6 +1232,18 @@ def verify_soft_currency_economy() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     translations = read("localization/translations.csv")
+
+    require(
+        "func _soft_currency_balance_text(balance: int) -> String:" in main
+        and "if resolved_balance <= 99999:" in main
+        and 'return compact_text + ("к" if GameState.interface_language == "ru" else "k")'
+        in main
+        and "var balance_text: String = _soft_currency_balance_text(balance)" in main
+        and portrait.count(
+            "var balance_text: String = _soft_currency_balance_text(GameState.get_soft_currency())"
+        ) == 2,
+        "Large soft-currency balances are not compacted consistently in every counter",
+    )
 
     require(
         "const DEFAULT_SOFT_CURRENCY: int = 0" in state
@@ -1963,6 +2044,14 @@ def verify_single_player_popup_stays_interactive() -> None:
         main.index("func _refresh_single_player_theme_popup(") :
         main.index("func _return_to_single_player_theme_popup(")
     ]
+    reel_prepare = portrait[
+        portrait.index("func _prepare_single_player_theme_slot_animation_visuals(") :
+        portrait.index("func _start_single_player_theme_slot_animation(")
+    ]
+    reel_finish = portrait[
+        portrait.index("func _finish_single_player_theme_slot_animation(") :
+        portrait.index("func _start_single_player_theme_slot_reveal(")
+    ]
     require(
         "var refresh_disabled:" not in popup
         and "theme_button.disabled = false" in cards
@@ -1977,6 +2066,16 @@ def verify_single_player_popup_stays_interactive() -> None:
         and "GameState.reset_single_level_attempt(Database.current_language, level_index, false)"
         in confirmation,
         "Refreshing or replacing a saved single-player category does not rebuild the level attempt",
+    )
+    require(
+        "_single_player_popup_refresh_visuals" in portrait
+        and "_set_single_player_theme_slot_action_visibility(false)" in reel_prepare
+        and "func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:"
+        in reel_prepare
+        and "single_player_popup_play_button.visible = is_visible" in reel_prepare
+        and "refresh_visual.visible = is_visible" in reel_prepare
+        and "_set_single_player_theme_slot_action_visibility(true)" in reel_finish,
+        "Play or reroll controls remain visible while the theme reels are spinning",
     )
 
 
@@ -2750,6 +2849,7 @@ def main() -> None:
     verify_stretchable_long_buttons()
     verify_hint_button_migration()
     verify_paid_popup_coin_balance_and_reward_links()
+    verify_reward_status_icons()
     verify_coin_store_pack_grid()
     verify_footer_buttons_and_hero_scale()
     verify_lives_counter()

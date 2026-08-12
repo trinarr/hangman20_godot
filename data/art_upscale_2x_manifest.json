@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 145,
+  "file_count": 151,
   "files": [
     {
       "path": "icon.png",
@@ -44,6 +44,51 @@
       "source_mode": "RGBA",
       "source_sha256": "f1c09290261676694f1289e434bc6579b4541b46defa3aebbac0bd1e0b21eeab",
       "target_sha256": "c36217f50e0c36ae740f3767164f529d30e73df997afe4785730e59fe0b9c9b9"
+    },
+    {
+      "path": "flash_assets/coin_pack_04.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "ae6add5e5212a037b00452cb73ed5cd2abe0f6dcb1843b7738a7ffd242f6febb",
+      "target_sha256": "ae6add5e5212a037b00452cb73ed5cd2abe0f6dcb1843b7738a7ffd242f6febb",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/coin_pack_05.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "db2a80f1339ca07324f0bdc8a5967bea2e01cbd1a6df74a8127352b98d7b593f",
+      "target_sha256": "db2a80f1339ca07324f0bdc8a5967bea2e01cbd1a6df74a8127352b98d7b593f",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/coin_pack_06_large.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "29d292679ee0b683967ca8cf13619936e0d64451dc71e1354ac028c495051e4e",
+      "target_sha256": "29d292679ee0b683967ca8cf13619936e0d64451dc71e1354ac028c495051e4e",
+      "native_2x": true
     },
     {
       "path": "flash_assets/custom_word_refresh_icon_341.png",
@@ -222,6 +267,36 @@
       "target_sha256": "e6dc56a14aa019f98a80c757505fed9919d8ecafc587b756f3d1bdd2fe6f7d21"
     },
     {
+      "path": "flash_assets/reward_status_check_wide.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "460124dd6cbb8350909923824bcb7f4b055e0c08f5fa55cc0e1aaf489b886700",
+      "target_sha256": "460124dd6cbb8350909923824bcb7f4b055e0c08f5fa55cc0e1aaf489b886700",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/reward_status_cross_wide.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "93e54975baa2104d1925d7bc3406b3f2da9226224ff5063e7d2fec9b517f5bea",
+      "target_sha256": "93e54975baa2104d1925d7bc3406b3f2da9226224ff5063e7d2fec9b517f5bea",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/settings_gear_icon.png",
       "source_size": [
         64,
@@ -249,6 +324,21 @@
       "source_mode": "RGBA",
       "source_sha256": "728ba2d326bd70db20900c156e8121b9d80c7d407a68d528c9746b7d194a6de8",
       "target_sha256": "b4d1e197db14f97e38279ce7551d002a3be974853712c9bbaabad986629938a6",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/soft_currency_coin_pile.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "4bc1e5a112346875ce8e77490c1bbd6892e31e4f03be47350bd25403a8f514cc",
+      "target_sha256": "4bc1e5a112346875ce8e77490c1bbd6892e31e4f03be47350bd25403a8f514cc",
       "native_2x": true
     },
     {

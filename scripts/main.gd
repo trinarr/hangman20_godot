@@ -219,8 +219,20 @@ func _close_coin_store() -> void:
 	else:
 		show_menu()
 
+func _soft_currency_balance_text(balance: int) -> String:
+	var resolved_balance: int = maxi(balance, 0)
+	if resolved_balance <= 99999:
+		return str(resolved_balance)
+	var tenths_of_thousand: int = int(round(float(resolved_balance) / 100.0))
+	var whole_thousands: int = int(tenths_of_thousand / 10)
+	var decimal_digit: int = tenths_of_thousand % 10
+	var compact_text: String = str(whole_thousands)
+	if decimal_digit > 0:
+		compact_text += ".%d" % decimal_digit
+	return compact_text + ("к" if GameState.interface_language == "ru" else "k")
+
 func _on_soft_currency_changed(balance: int) -> void:
-	var balance_text: String = str(maxi(balance, 0))
+	var balance_text: String = _soft_currency_balance_text(balance)
 	for balance_node: Node in get_tree().get_nodes_in_group(&"soft_currency_balance_label"):
 		var balance_label := balance_node as Label
 		if balance_label != null and is_instance_valid(balance_label):

@@ -3,13 +3,14 @@ extends "res://scripts/main.gd"
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
-const STAGE_STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 const SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT: GDScript = preload("res://scripts/ui/soft_currency_coin_pile_icon.gd")
 const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
 const COIN_PACK_02_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin_pile.png")
 const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
 const COIN_PACK_05_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_05.png")
 const COIN_PACK_06_LARGE_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_06_large.png")
+const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
+const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 const PORTRAIT_HEADER_HEIGHT: float = 80.0
@@ -163,7 +164,6 @@ const PORTRAIT_SINGLE_REWARD_BONUS_Y: float = 672.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE: float = 0.72
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE: int = 22
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE: int = 15
-const PORTRAIT_SINGLE_REWARD_CHECK_LINE_WIDTH: float = 7.5
 const PORTRAIT_SINGLE_REWARD_CLAIM_ICON_FADE_DURATION: float = 0.18
 const PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA: float = 0.45
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_DELAY: float = 0.12
@@ -378,6 +378,7 @@ var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
 var single_player_popup_refresh_button: Control = null
+var _single_player_popup_refresh_visuals: Array[CanvasItem] = []
 var _single_player_popup_theme_card_visuals: Array = []
 var _single_player_theme_slot_animation_nodes: Array[Node] = []
 var _single_player_theme_slot_tweens: Array[Tween] = []
@@ -792,7 +793,8 @@ func _portrait_screen_without_header(footer_y: float = -1.0) -> void:
 func _stage_portrait_page_header(
 	title: String,
 	back_callable: Callable,
-	currency_return_action: Callable = Callable()
+	currency_return_action: Callable = Callable(),
+	show_heart_counter: bool = true
 ) -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
@@ -810,7 +812,11 @@ func _stage_portrait_page_header(
 		resolved_return_action = back_callable
 	if !resolved_return_action.is_valid():
 		resolved_return_action = Callable(self, "show_menu")
-	_stage_currency_counter(resolved_return_action)
+	if show_heart_counter:
+		_stage_currency_counter(resolved_return_action)
+	else:
+		_stage_centered_coin_only_counter(resolved_return_action)
+		_stage_menu_settings_button()
 	content = screen_content
 	_stage_portrait_page_title(title)
 
@@ -924,7 +930,7 @@ func _stage_currency_counter(
 		Vector2(counter_rect.position.x + 43.0 * counter_scale, counter_rect.position.y),
 		Vector2(counter_rect.size.x - 49.0 * counter_scale, counter_rect.size.y)
 	)
-	var balance_text: String = str(GameState.get_soft_currency())
+	var balance_text: String = _soft_currency_balance_text(GameState.get_soft_currency())
 	var balance_font_size: int = maxi(1, int(round(24.0 * counter_scale)))
 	var balance_min_font_size: int = maxi(1, int(round(14.0 * counter_scale)))
 	var balance_label := _stage_label(
@@ -1013,7 +1019,7 @@ func _stage_centered_coin_only_counter(
 		Vector2(counter_rect.position.x + 43.0 * counter_scale, counter_rect.position.y),
 		Vector2(counter_rect.size.x - 49.0 * counter_scale, counter_rect.size.y)
 	)
-	var balance_text: String = str(GameState.get_soft_currency())
+	var balance_text: String = _soft_currency_balance_text(GameState.get_soft_currency())
 	var balance_font_size: int = maxi(1, int(round(24.0 * counter_scale)))
 	var balance_min_font_size: int = maxi(1, int(round(14.0 * counter_scale)))
 	var balance_label := _stage_label(
@@ -1717,7 +1723,8 @@ func _show_coin_store_screen() -> void:
 	_stage_portrait_page_header(
 		tr("COIN_STORE_TITLE"),
 		Callable(self, "_close_coin_store"),
-		Callable(self, "show_coin_store")
+		Callable(self, "show_coin_store"),
+		false
 	)
 	for pack_index in range(PORTRAIT_COIN_STORE_PACK_AMOUNTS.size()):
 		_stage_coin_store_pack_card(
@@ -1935,7 +1942,7 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	theme_line_label.add_theme_font_override("font", UI_HEADING_FONT)
+	theme_line_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	_fit_single_line_label_to_width(
 		theme_line_label,
 		theme_text,
@@ -2341,6 +2348,7 @@ func _remove_single_player_theme_popup() -> void:
 	_cancel_single_player_theme_slot_animation()
 	super._remove_single_player_theme_popup()
 	single_player_popup_refresh_button = null
+	_single_player_popup_refresh_visuals.clear()
 	_single_player_popup_theme_card_visuals.clear()
 
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
@@ -2658,6 +2666,16 @@ func _show_single_player_level_popup(
 	)
 	single_player_popup_refresh_price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	single_player_popup_refresh_price_label.z_index = 17
+	_single_player_popup_refresh_visuals.clear()
+	for refresh_visual_variant: Variant in [
+		refresh_button,
+		price_badge,
+		price_coin,
+		single_player_popup_refresh_price_label,
+	]:
+		var refresh_visual := refresh_visual_variant as CanvasItem
+		if refresh_visual != null:
+			_single_player_popup_refresh_visuals.append(refresh_visual)
 	_update_single_player_theme_reroll_button_state()
 	var word_count: int = _single_player_level_word_count(level_index)
 	_stage_single_player_popup_theme_cards(
@@ -2951,12 +2969,20 @@ func _prepare_single_player_theme_slot_animation_visuals(level_index: int) -> vo
 	single_player_popup_selected_theme = -1
 	_set_single_player_theme_panels_unselected(level_index)
 	_set_single_player_theme_static_visuals_visible(false)
+	_set_single_player_theme_slot_action_visibility(false)
 	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
 		# Match the disabled treatment of the Play button while the reels and
 		# their result bounce are still running.
 		single_player_popup_refresh_button.set("button_disabled", true)
 	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
 		single_player_popup_play_button.set("button_disabled", true)
+
+func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:
+	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+		single_player_popup_play_button.visible = is_visible
+	for refresh_visual: CanvasItem in _single_player_popup_refresh_visuals:
+		if refresh_visual != null and is_instance_valid(refresh_visual):
+			refresh_visual.visible = is_visible
 
 func _start_single_player_theme_slot_animation(
 	level_index: int,
@@ -3221,6 +3247,10 @@ func _finish_single_player_theme_slot_animation(
 	var current_options: Array = _single_player_level_theme_options(level_index)
 	if final_selected_theme >= 0 and current_options.has(final_selected_theme):
 		_select_single_player_popup_theme(level_index, final_selected_theme)
+	# The reels have stopped and their temporary tracks are already gone. Bring
+	# both actions back now; the icon/name reveal may keep them disabled briefly,
+	# but they no longer flash underneath the spinning cards.
+	_set_single_player_theme_slot_action_visibility(true)
 	_start_single_player_theme_slot_reveal(animation_generation)
 
 func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
@@ -5659,51 +5689,40 @@ func _stage_single_player_reward_coin_pile(parent: Control, icon_rect: Rect2) ->
 	parent.add_child(pile_icon)
 	return pile_icon
 
-func _stage_single_player_reward_check(
+func _stage_single_player_reward_status_icon(
 	parent: Control,
 	node_rect: Rect2,
+	is_success: bool,
 	start_hidden: bool = false
 ) -> Control:
-	var check_size: Vector2 = node_rect.size * 0.72
-	var check_rect := Rect2(
+	var icon_size: Vector2 = node_rect.size * 0.82
+	var icon_rect := Rect2(
 		Vector2(
-			node_rect.get_center().x - check_size.x * 0.5,
-			node_rect.position.y + node_rect.size.y * 0.08
+			node_rect.get_center().x - icon_size.x * 0.5,
+			node_rect.position.y + node_rect.size.y * 0.06
 		),
-		check_size
+		icon_size
 	)
-	var check_holder := Control.new()
-	check_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	check_holder.position = check_rect.position
-	check_holder.size = check_rect.size
-	check_holder.pivot_offset = check_rect.size * 0.5
-	parent.add_child(check_holder)
-	check_holder.z_index = 4
-	var shadow_icon: Control = STAGE_STATUS_ICON_SCRIPT.new() as Control
-	shadow_icon.name = "RewardClaimedCheckShadow"
-	shadow_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	check_holder.add_child(shadow_icon)
-	shadow_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shadow_icon.position += Vector2(2.0, 2.0)
-	shadow_icon.modulate = Color(0.12, 0.22, 0.48, 0.75)
-	shadow_icon.call("configure", true, PORTRAIT_SINGLE_REWARD_CHECK_LINE_WIDTH + 1.0)
-	var outline_icon: Control = STAGE_STATUS_ICON_SCRIPT.new() as Control
-	outline_icon.name = "RewardClaimedCheckOutline"
-	outline_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	check_holder.add_child(outline_icon)
-	outline_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	outline_icon.modulate = Color(0.12, 0.22, 0.48, 0.92)
-	outline_icon.call("configure", true, PORTRAIT_SINGLE_REWARD_CHECK_LINE_WIDTH + 2.0)
-	var check_icon: Control = STAGE_STATUS_ICON_SCRIPT.new() as Control
-	check_icon.name = "RewardClaimedCheck"
-	check_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	check_holder.add_child(check_icon)
-	check_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	check_icon.call("configure", true, PORTRAIT_SINGLE_REWARD_CHECK_LINE_WIDTH)
+	var icon_holder := Control.new()
+	icon_holder.name = "RewardStatusCheck" if is_success else "RewardStatusCross"
+	icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_holder.position = icon_rect.position
+	icon_holder.size = icon_rect.size
+	icon_holder.pivot_offset = icon_rect.size * 0.5
+	parent.add_child(icon_holder)
+	icon_holder.z_index = 4
+	var status_icon := TextureRect.new()
+	status_icon.name = "StatusTexture"
+	status_icon.texture = REWARD_STATUS_CHECK_TEXTURE if is_success else REWARD_STATUS_CROSS_TEXTURE
+	status_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	status_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_holder.add_child(status_icon)
+	status_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if start_hidden:
-		check_holder.modulate.a = 0.0
-		check_holder.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE
-	return check_holder
+		icon_holder.modulate.a = 0.0
+		icon_holder.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE
+	return icon_holder
 
 func _stage_single_player_reward_count(
 	parent: Control,
@@ -6379,10 +6398,15 @@ func _show_single_player_reward_chain_screen() -> void:
 		var coin_visual := _stage_single_player_reward_coin_pile(node_holder, coin_rect)
 		var is_claimed: bool = is_previous or (is_current and !animate_current_claim)
 		if is_claimed:
-			_stage_single_player_reward_check(node_holder, local_node_rect)
+			_stage_single_player_reward_status_icon(node_holder, local_node_rect, true)
 		elif is_current:
 			current_reward_coin_visual = coin_visual
-			current_reward_check_icon = _stage_single_player_reward_check(node_holder, local_node_rect, true)
+			current_reward_check_icon = _stage_single_player_reward_status_icon(
+				node_holder,
+				local_node_rect,
+				true,
+				true
+			)
 
 		var count_font_size: int = int(round(
 			float(PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE) * (1.12 if is_current else 1.0)
