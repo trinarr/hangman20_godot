@@ -155,9 +155,12 @@ var currency_balance_label: Label = null
 var heart_count_label: Label = null
 var heart_status_label: Label = null
 var heart_add_badge_visual: Control = null
+var heart_counter_button: Control = null
 var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
 var heart_refill_continue_action: Callable = Callable()
+var heart_refill_store_return_action: Callable = Callable()
+var heart_refill_store_is_open: bool = false
 
 func _ready() -> void:
 	Engine.max_fps = 60
@@ -217,8 +220,11 @@ func _close_coin_store() -> void:
 		show_menu()
 
 func _on_soft_currency_changed(balance: int) -> void:
-	if currency_balance_label != null and is_instance_valid(currency_balance_label):
-		currency_balance_label.text = str(maxi(balance, 0))
+	var balance_text: String = str(maxi(balance, 0))
+	for balance_node: Node in get_tree().get_nodes_in_group(&"soft_currency_balance_label"):
+		var balance_label := balance_node as Label
+		if balance_label != null and is_instance_valid(balance_label):
+			balance_label.text = balance_text
 	_update_single_player_refresh_price(maxi(balance, 0))
 
 func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
@@ -237,6 +243,12 @@ func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
 	if heart_add_badge_visual != null and is_instance_valid(heart_add_badge_visual):
 		var badge_allowed: bool = bool(heart_add_badge_visual.get_meta(&"badge_allowed", true))
 		heart_add_badge_visual.visible = badge_allowed and resolved_count < GameState.MAX_HEARTS
+	if heart_counter_button != null and is_instance_valid(heart_counter_button):
+		var counter_is_full: bool = resolved_count >= GameState.MAX_HEARTS
+		heart_counter_button.set("disabled", counter_is_full)
+		heart_counter_button.mouse_filter = (
+			Control.MOUSE_FILTER_IGNORE if counter_is_full else Control.MOUSE_FILTER_STOP
+		)
 
 func _on_timer_heart_recovered() -> void:
 	pass
@@ -266,7 +278,10 @@ func _show_single_player_level_popup(
 func _show_single_player_last_chance_popup() -> void:
 	pass
 
-func _show_heart_refill_popup(_continue_action: Callable = Callable()) -> void:
+func _show_heart_refill_popup(
+	_continue_action: Callable = Callable(),
+	_store_return_action: Callable = Callable()
+) -> void:
 	pass
 
 func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
@@ -324,6 +339,7 @@ func _clear() -> void:
 	heart_count_label = null
 	heart_status_label = null
 	heart_add_badge_visual = null
+	heart_counter_button = null
 	hero_static_symbol = null
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
@@ -1130,11 +1146,25 @@ func _remove_heart_refill_popup() -> void:
 			node.get_parent().remove_child(node)
 			node.queue_free()
 	heart_refill_continue_action = Callable()
+	heart_refill_store_return_action = Callable()
+	heart_refill_store_is_open = false
 
 func _purchase_heart_refill() -> void:
 	if GameState.get_hearts() >= GameState.MAX_HEARTS:
 		return
 	if GameState.get_soft_currency() < HEART_REFILL_COST:
+		if heart_refill_store_is_open:
+			_remove_heart_refill_popup()
+			return
+		var continue_action: Callable = heart_refill_continue_action
+		var restore_action: Callable = heart_refill_store_return_action
+		_remove_heart_refill_popup()
+		_open_coin_store(
+			Callable(self, "_return_to_heart_refill_from_coin_store").bind(
+				continue_action,
+				restore_action
+			)
+		)
 		return
 	if !GameState.spend_soft_currency(HEART_REFILL_COST, false):
 		return

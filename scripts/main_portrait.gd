@@ -6,6 +6,10 @@ const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_i
 const STAGE_STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 const SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT: GDScript = preload("res://scripts/ui/soft_currency_coin_pile_icon.gd")
 const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
+const COIN_PACK_02_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin_pile.png")
+const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
+const COIN_PACK_05_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_05.png")
+const COIN_PACK_06_LARGE_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_06_large.png")
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 const PORTRAIT_HEADER_HEIGHT: float = 80.0
@@ -48,7 +52,8 @@ const PORTRAIT_GAME_INFO_THEME_LINE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 150.0, P
 const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
 const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
 const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
-# Coins and hearts form one centered resource block on every screen.
+# Regular screens use a centered coins-and-hearts block. Gameplay deliberately
+# keeps only its coin plate centered, leaving the life inventory off the round.
 const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(116.06, 21.68, 109.94, 38.64)
 const PORTRAIT_GAME_CURRENCY_COUNTER_RECT := PORTRAIT_CURRENCY_COUNTER_RECT
@@ -150,7 +155,6 @@ const PORTRAIT_SINGLE_REWARD_NODE_GAP: float = 14.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS: float = 16.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_BORDER_WIDTH: float = 3.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP: float = 10.0
-const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_CAP_SIZE: float = 20.0
 const PORTRAIT_SINGLE_REWARD_CURRENT_NODE_SCALE: float = 1.20
 const PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE: float = 0.90
 const PORTRAIT_SINGLE_REWARD_STATUS_Y: float = 604.0
@@ -298,11 +302,17 @@ const PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = 0.24
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_COIN_TEST_BUTTON_RECT := Rect2(90.0, 340.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]
+const PORTRAIT_COIN_STORE_CARD_SIZE := Vector2(132.0, 220.0)
+const PORTRAIT_COIN_STORE_GRID_ORIGIN := Vector2(26.0, 174.0)
+const PORTRAIT_COIN_STORE_COLUMN_GAP: float = 16.0
+const PORTRAIT_COIN_STORE_ROW_GAP: float = 22.0
+const PORTRAIT_COIN_STORE_ICON_SIZE := Vector2(112.0, 112.0)
+const PORTRAIT_COIN_STORE_AMOUNT_RECT := Rect2(8.0, 156.0, 116.0, 54.0)
 
 enum MainTab {
-	HOME,
 	TASKS,
+	HOME,
 	PROFILE,
 }
 
@@ -476,7 +486,7 @@ func _input(event: InputEvent) -> void:
 
 func _portrait_main_tab_swipe_is_available() -> bool:
 	return (
-		_portrait_active_main_tab >= MainTab.HOME
+		_portrait_active_main_tab >= MainTab.TASKS
 		and _portrait_active_main_tab <= MainTab.PROFILE
 		and !_portrait_main_tab_swipe_building_target
 		and !_portrait_main_tab_swipe_animating
@@ -530,7 +540,7 @@ func _update_portrait_main_tab_swipe(pointer_position: Vector2) -> bool:
 func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
 	var target_tab: int = clampi(
 		_portrait_active_main_tab + tab_step,
-		MainTab.HOME,
+		MainTab.TASKS,
 		MainTab.PROFILE
 	)
 	if target_tab == _portrait_active_main_tab:
@@ -925,6 +935,7 @@ func _stage_currency_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	balance_label.add_to_group(&"soft_currency_balance_label")
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -947,14 +958,20 @@ func _stage_centered_coin_only_counter(
 	return_action: Callable,
 	rect: Rect2 = Rect2(),
 	challenge_colors: bool = false,
-	interactive: bool = true
+	interactive: bool = true,
+	center_horizontally: bool = true
 ) -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
 	var source_rect: Rect2 = rect if rect.size.x > 0.0 and rect.size.y > 0.0 else PORTRAIT_CURRENCY_COUNTER_RECT
+	var counter_x: float = (
+		(PORTRAIT_STAGE_SIZE.x - source_rect.size.x) * 0.5
+		if center_horizontally
+		else source_rect.position.x
+	)
 	var counter_rect := Rect2(
-		(PORTRAIT_STAGE_SIZE.x - source_rect.size.x) * 0.5,
+		counter_x,
 		source_rect.position.y,
 		source_rect.size.x,
 		source_rect.size.y
@@ -1007,6 +1024,7 @@ func _stage_centered_coin_only_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	balance_label.add_to_group(&"soft_currency_balance_label")
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -1016,7 +1034,7 @@ func _stage_centered_coin_only_counter(
 	content = screen_content
 
 func _stage_heart_counter(
-	_return_action: Callable,
+	return_action: Callable,
 	counter_rect: Rect2,
 	challenge_colors: bool = false,
 	interactive: bool = true
@@ -1027,7 +1045,10 @@ func _stage_heart_counter(
 	var counter_scale: float = counter_rect.size.y / 48.0
 	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
 	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
-	var counter_is_interactive: bool = interactive
+	var resolved_hearts: int = GameState.get_hearts()
+	# A full inventory has no available action: omit both the invisible hit area
+	# and the plus badge so the complete heart plate behaves as static UI.
+	var counter_is_interactive: bool = interactive and resolved_hearts < GameState.MAX_HEARTS
 	var counter_parent_content: Control = content
 	var counter_visual := Control.new()
 	counter_visual.name = "HeartCounterVisual"
@@ -1061,7 +1082,6 @@ func _stage_heart_counter(
 	heart_icon.z_index = 21
 	_portrait_heart_icon_visual = heart_icon
 
-	var resolved_hearts: int = GameState.get_hearts()
 	var count_label := _stage_label(
 		icon_rect,
 		str(resolved_hearts),
@@ -1078,7 +1098,7 @@ func _stage_heart_counter(
 	if counter_is_interactive:
 		var add_badge_visual: Control = _stage_resource_add_badge(icon_rect, counter_scale)
 		add_badge_visual.set_meta(&"badge_allowed", true)
-		add_badge_visual.visible = resolved_hearts < GameState.MAX_HEARTS
+		add_badge_visual.visible = true
 		heart_add_badge_visual = add_badge_visual
 
 	var status_rect := Rect2(
@@ -1102,11 +1122,11 @@ func _stage_heart_counter(
 	_fit_single_line_label_to_width(status_label, status_text, status_rect.size.x, status_font_size, status_min_font_size)
 	content = counter_parent_content
 	if counter_is_interactive:
-		_stage_resource_counter_button(
+		heart_counter_button = _stage_resource_counter_button(
 			counter_rect,
 			counter_visual,
 			Callable(),
-			Callable(self, "_show_heart_refill_popup")
+			Callable(self, "_show_heart_refill_popup").bind(Callable(), return_action)
 		)
 	content = screen_content
 
@@ -1160,7 +1180,7 @@ func _stage_resource_counter_button(
 	counter_visual: Control,
 	return_action: Callable,
 	direct_action: Callable = Callable()
-) -> void:
+) -> Control:
 	var counter_action: Callable = direct_action
 	if !counter_action.is_valid():
 		counter_action = Callable(self, "_open_coin_store").bind(return_action)
@@ -1191,6 +1211,7 @@ func _stage_resource_counter_button(
 			false
 		)
 	)
+	return counter_button
 
 func _ignore_resource_counter_press() -> void:
 	# The shop is already visible. Keep the button and its press animation, but
@@ -1581,7 +1602,7 @@ func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
 		_portrait_active_main_tab = active_tab
 		_reset_portrait_main_tab_swipe()
 	var animates_switch: bool = (
-		previous_tab >= MainTab.HOME
+		previous_tab >= MainTab.TASKS
 		and previous_tab <= MainTab.PROFILE
 		and previous_tab != active_tab
 	)
@@ -1698,15 +1719,105 @@ func _show_coin_store_screen() -> void:
 		Callable(self, "_close_coin_store"),
 		Callable(self, "show_coin_store")
 	)
-	_stage_main_button(
-		PORTRAIT_COIN_TEST_BUTTON_RECT,
-		Callable(self, "_grant_test_coins"),
-		_single_player_text("ТЕСТ: +100 МОНЕТ", "TEST: +100 COINS"),
-		22
-	)
+	for pack_index in range(PORTRAIT_COIN_STORE_PACK_AMOUNTS.size()):
+		_stage_coin_store_pack_card(
+			pack_index,
+			PORTRAIT_COIN_STORE_PACK_AMOUNTS[pack_index]
+		)
 
-func _grant_test_coins() -> void:
-	GameState.add_soft_currency(100)
+func _coin_store_pack_texture(pack_index: int) -> Texture2D:
+	match pack_index:
+		0:
+			return COIN_PACK_02_TEXTURE
+		1:
+			return COIN_PACK_04_TEXTURE
+		2, 3:
+			return COIN_PACK_05_TEXTURE
+		4, 5:
+			return COIN_PACK_06_LARGE_TEXTURE
+	return COIN_PACK_02_TEXTURE
+
+func _stage_coin_store_pack_card(pack_index: int, amount: int) -> void:
+	var column: int = pack_index % 3
+	var row: int = int(pack_index / 3)
+	var card_rect := Rect2(
+		PORTRAIT_COIN_STORE_GRID_ORIGIN + Vector2(
+			float(column) * (PORTRAIT_COIN_STORE_CARD_SIZE.x + PORTRAIT_COIN_STORE_COLUMN_GAP),
+			float(row) * (PORTRAIT_COIN_STORE_CARD_SIZE.y + PORTRAIT_COIN_STORE_ROW_GAP)
+		),
+		PORTRAIT_COIN_STORE_CARD_SIZE
+	)
+	# Reuse the rounded navy cards from the category-selection popup. Keeping all
+	# art below one holder also gives the complete pack the existing pressed tint.
+	var card_visual := _stage_holder(card_rect, Control.MOUSE_FILTER_IGNORE)
+	card_visual.name = "CoinPackCard%d" % pack_index
+	card_visual.z_index = 8
+	var card := _portrait_hint_local_panel(
+		card_visual,
+		Rect2(Vector2.ZERO, card_rect.size),
+		Color(0.16, 0.20, 0.48, 1.0),
+		18.0,
+		PORTRAIT_RULE,
+		2.0
+	)
+	card.z_index = 0
+	var art_panel := _portrait_hint_local_panel(
+		card_visual,
+		Rect2(8.0, 8.0, card_rect.size.x - 16.0, 140.0),
+		Color(0.94, 0.91, 0.78, 0.96),
+		14.0,
+		Color(1.0, 1.0, 1.0, 0.78),
+		2.0
+	)
+	art_panel.z_index = 1
+
+	var pack_icon := TextureRect.new()
+	pack_icon.name = "CoinPackArt"
+	pack_icon.texture = _coin_store_pack_texture(pack_index)
+	pack_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pack_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pack_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pack_icon.position = Vector2(
+		(card_rect.size.x - PORTRAIT_COIN_STORE_ICON_SIZE.x) * 0.5,
+		18.0
+	)
+	pack_icon.size = PORTRAIT_COIN_STORE_ICON_SIZE
+	pack_icon.z_index = 2
+	card_visual.add_child(pack_icon)
+
+	var amount_panel := _portrait_hint_local_panel(
+		card_visual,
+		PORTRAIT_COIN_STORE_AMOUNT_RECT,
+		PORTRAIT_ORANGE,
+		14.0,
+		Color.WHITE,
+		2.0
+	)
+	amount_panel.z_index = 3
+	var amount_label := _portrait_hint_local_label(
+		amount_panel,
+		"+%d" % amount,
+		28,
+		Color.WHITE
+	)
+	amount_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
+	amount_label.add_theme_constant_override("outline_size", 3)
+	amount_label.z_index = 1
+
+	var pack_button := _stage_button(
+		card_rect,
+		Callable(self, "_purchase_coin_pack").bind(amount),
+		""
+	)
+	pack_button.z_index = 20
+	_bind_theme_card_press_state(pack_button, card_visual)
+
+func _purchase_coin_pack(amount: int) -> void:
+	# The project currently has a local prototype purchase flow rather than IAP.
+	# Preserve it while exposing the six requested pack sizes through real cards.
+	if !PORTRAIT_COIN_STORE_PACK_AMOUNTS.has(amount):
+		return
+	GameState.add_soft_currency(amount)
 
 func show_tasks() -> void:
 	coin_store_return_action = Callable()
@@ -1729,11 +1840,12 @@ func _stage_single_player_level_header(level_index: int) -> void:
 	)
 
 func _stage_portrait_game_header() -> void:
-	_stage_currency_counter(
+	_stage_centered_coin_only_counter(
 		Callable(self, "_return_to_game_from_coin_store"),
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
 		_portrait_game_is_challenge_level()
 	)
+	_stage_menu_settings_button()
 
 func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	var theme_text: String = ""
@@ -1851,7 +1963,16 @@ func _portrait_game_header_color() -> Color:
 		return PORTRAIT_CHALLENGE_POPUP_HEADER
 	return PORTRAIT_BLUE
 
-func _portrait_popup_begin(name: String, group_name: String, layer_index: int, close_callable: Callable, popup_top: float, popup_bottom: float, alpha: float = PORTRAIT_POPUP_DIM_ALPHA) -> Control:
+func _portrait_popup_begin(
+	name: String,
+	group_name: String,
+	layer_index: int,
+	close_callable: Callable,
+	popup_top: float,
+	popup_bottom: float,
+	show_coin_balance: bool = false,
+	alpha: float = PORTRAIT_POPUP_DIM_ALPHA
+) -> Control:
 	_play_popup_open_sound()
 	_reset_portrait_main_tab_swipe()
 	var previous_content: Control = content
@@ -1870,8 +1991,32 @@ func _portrait_popup_begin(name: String, group_name: String, layer_index: int, c
 	popup_layer.add_child(popup_root)
 	content = popup_root
 	_add_fullscreen_modal_backdrop(close_callable, alpha)
+	if show_coin_balance:
+		_stage_popup_coin_balance_above_dimmer(popup_root)
 	content = _center_popup_content(popup_root, popup_top, popup_bottom)
 	return previous_content
+
+func _stage_popup_coin_balance_above_dimmer(popup_root: Control) -> void:
+	var popup_balance_layer := Control.new()
+	popup_balance_layer.name = "PopupCoinBalance"
+	popup_balance_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	popup_balance_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup_balance_layer.z_index = 200
+	popup_root.add_child(popup_balance_layer)
+
+	var previous_content: Control = content
+	var previous_top_bar: Control = _portrait_top_bar_content
+	_portrait_top_bar_content = null
+	content = popup_balance_layer
+	_stage_centered_coin_only_counter(
+		Callable(),
+		PORTRAIT_CURRENCY_COUNTER_RECT,
+		false,
+		false,
+		true
+	)
+	content = previous_content
+	_portrait_top_bar_content = previous_top_bar
 
 func _portrait_popup_shell(
 	rect: Rect2,
@@ -1956,6 +2101,24 @@ func _stage_portrait_popup_main_button(
 		attention_bounce,
 		color_preset
 	)
+
+func _stage_portrait_popup_button_price(button: Control, price: int) -> Label:
+	var price_label := Label.new()
+	price_label.name = "Price"
+	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_label.position = Vector2(button.size.x - 64.0, 0.0)
+	price_label.size = Vector2(52.0, button.size.y)
+	price_label.text = str(maxi(price, 0))
+	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	price_label.add_theme_font_size_override("font_size", _portrait_popup_font_size(18))
+	price_label.add_theme_color_override("font_color", _purchase_price_color(price))
+	price_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.55))
+	price_label.add_theme_constant_override("outline_size", 1)
+	price_label.z_index = 5
+	button.add_child(price_label)
+	return price_label
 
 func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
@@ -2194,7 +2357,8 @@ func _show_single_player_last_chance_popup() -> void:
 		140,
 		close_action,
 		170.0,
-		570.0
+		570.0,
+		true
 	)
 	var rect := Rect2(28.0, 170.0, 424.0, 400.0)
 	_portrait_popup_shell(
@@ -2236,10 +2400,7 @@ func _show_single_player_last_chance_popup() -> void:
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 492.0, 300.0, 56.0),
 		Callable(self, "_purchase_single_player_extra_attempt"),
-		"%s  %d" % [
-			_single_player_text("Продолжить", "Continue"),
-			SINGLE_PLAYER_EXTRA_ATTEMPT_COST,
-		],
+		_single_player_text("Продолжить", "Continue"),
 		18,
 		false,
 		0.32,
@@ -2250,11 +2411,17 @@ func _show_single_player_last_chance_popup() -> void:
 	)
 	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
 	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
+	_stage_portrait_popup_button_price(purchase_button, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
 	content = previous_content
 
-func _show_heart_refill_popup(continue_action: Callable = Callable()) -> void:
+func _show_heart_refill_popup(
+	continue_action: Callable = Callable(),
+	store_return_action: Callable = Callable()
+) -> void:
 	_remove_heart_refill_popup()
 	heart_refill_continue_action = continue_action
+	heart_refill_store_return_action = store_return_action
+	heart_refill_store_is_open = _portrait_coin_store_active
 	var close_action := Callable(self, "_remove_heart_refill_popup")
 	var previous_content := _portrait_popup_begin(
 		"HeartRefillPopup",
@@ -2262,7 +2429,8 @@ func _show_heart_refill_popup(continue_action: Callable = Callable()) -> void:
 		150,
 		close_action,
 		145.0,
-		605.0
+		605.0,
+		true
 	)
 	var rect := Rect2(28.0, 145.0, 424.0, 460.0)
 	_portrait_popup_shell(
@@ -2318,28 +2486,48 @@ func _show_heart_refill_popup(continue_action: Callable = Callable()) -> void:
 	)
 	recovery_label.clip_text = false
 
-	var purchase_disabled: bool = (
-		current_hearts >= GameState.MAX_HEARTS
-		or GameState.get_soft_currency() < HEART_REFILL_COST
-	)
+	var purchase_disabled: bool = current_hearts >= GameState.MAX_HEARTS
+	var has_enough_coins: bool = GameState.get_soft_currency() >= HEART_REFILL_COST
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 510.0, 300.0, 56.0),
 		Callable(self, "_purchase_heart_refill"),
-		"%s  %d" % [
-			_single_player_text("Пополнить", "Refill"),
-			HEART_REFILL_COST,
-		],
+		_single_player_text("Пополнить", "Refill"),
 		18,
 		purchase_disabled,
 		0.32,
 		false,
 		false,
-		!purchase_disabled,
+		false,
 		LONG_BUTTON_COLOR_GREEN
 	)
 	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
 	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
+	var price_label := _stage_label(
+		Rect2(324.0, 510.0, 58.0, 56.0),
+		str(HEART_REFILL_COST),
+		21,
+		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	price_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.55))
+	price_label.add_theme_constant_override("outline_size", 1)
+	price_label.z_index = 17
 	content = previous_content
+
+func _return_to_heart_refill_from_coin_store(
+	continue_action: Callable,
+	restore_action: Callable
+) -> void:
+	if restore_action.is_valid():
+		restore_action.call()
+	else:
+		show_menu()
+	_show_heart_refill_popup(continue_action, restore_action)
+
+func _restore_single_player_heart_refill_context(level_index: int, theme_index: int) -> void:
+	show_tasks()
+	_show_single_player_level_popup(level_index, theme_index)
 
 func _show_single_player_level_popup(
 	level_index: int,
@@ -2385,7 +2573,8 @@ func _show_single_player_level_popup(
 		135,
 		close_action,
 		118.0,
-		578.0
+		578.0,
+		true
 	)
 	single_player_popup_stage_content = content
 	var rect := Rect2(24.0, 118.0, 432.0, 460.0)
@@ -3336,8 +3525,13 @@ func _start_single_player_popup_level(level_index: int) -> void:
 	if level_index != single_player_popup_level_index or single_player_popup_selected_theme < 0:
 		return
 	if GameState.get_hearts() <= 0:
+		var restore_action := Callable(
+			self,
+			"_restore_single_player_heart_refill_context"
+		).bind(level_index, single_player_popup_selected_theme)
 		_show_heart_refill_popup(
-			Callable(self, "_start_single_player_popup_level").bind(level_index)
+			Callable(self, "_start_single_player_popup_level").bind(level_index),
+			restore_action
 		)
 		return
 	_single_player_theme_reroll_level_index = -1
@@ -4093,7 +4287,15 @@ func _play_portrait_hint_spend_animation_if_needed(
 	if previous_count <= 0 or current_count >= previous_count:
 		return
 	_portrait_hint_counter_animation_active = true
-	_portrait_hint_counter_refresh_requested = false
+	# `GameSession.changed` already requested a hint-row rebuild after marking a
+	# one-shot hint as used. Keep that request alive while the free-count badge
+	# rolls to zero; otherwise the old active orange button survives indefinitely.
+	_portrait_hint_counter_refresh_requested = true
+	if hint_key in [GameState.HINT_OPEN_LETTER, GameState.HINT_REMOVE_WRONG]:
+		var used_button: Control = _portrait_game_hint_button_for_key(hint_key)
+		if used_button != null and is_instance_valid(used_button):
+			used_button.set("disabled", true)
+			used_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_animate_portrait_hint_counter_roll(hint_key, previous_count, current_count)
 
 func _stage_portrait_admob_banner_placeholder() -> void:
@@ -5411,12 +5613,19 @@ func _stage_single_player_reward_tile(
 	overlay.z_index = 2
 
 func _stage_single_player_reward_chain_link(
+	parent: Control,
 	link_rect: Rect2,
 	is_active: bool,
 	accent_color: Color,
 	header_color: Color
 ) -> void:
-	var link_holder := _stage_holder(link_rect, Control.MOUSE_FILTER_IGNORE)
+	if parent == null or !is_instance_valid(parent):
+		return
+	var link_holder := Control.new()
+	link_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	link_holder.position = link_rect.position
+	link_holder.size = link_rect.size
+	parent.add_child(link_holder)
 	link_holder.z_index = 0
 	var fill_color: Color = (
 		Color(accent_color.r, accent_color.g, accent_color.b, 0.12)
@@ -5428,45 +5637,18 @@ func _stage_single_player_reward_chain_link(
 		if is_active
 		else Color(header_color.r, header_color.g, header_color.b, 0.38)
 	)
-	var local_rect := Rect2(Vector2.ZERO, link_rect.size)
-	var cap_size: float = minf(PORTRAIT_SINGLE_REWARD_CHAIN_LINK_CAP_SIZE, link_rect.size.x)
-	var cap_y: float = (link_rect.size.y - cap_size) * 0.5
-	var left_cap_rect := Rect2(
-		-cap_size * 0.35,
-		cap_y,
-		cap_size,
-		cap_size
-	)
-	var right_cap_rect := Rect2(
-		link_rect.size.x - cap_size * 0.65,
-		cap_y,
-		cap_size,
-		cap_size
-	)
-	_portrait_hint_local_panel(
+	# A single capsule has no overlapping borders or cap seams. Explicitly reset
+	# the helper's generic z=8: links must stay behind the z=1 reward tiles while
+	# their overlapped ends remain hidden underneath the cards.
+	var link_panel := _portrait_hint_local_panel(
 		link_holder,
-		left_cap_rect,
-		fill_color,
-		cap_size * 0.5,
-		border_color,
-		PORTRAIT_SINGLE_REWARD_CHAIN_LINK_BORDER_WIDTH
-	)
-	_portrait_hint_local_panel(
-		link_holder,
-		right_cap_rect,
-		fill_color,
-		cap_size * 0.5,
-		border_color,
-		PORTRAIT_SINGLE_REWARD_CHAIN_LINK_BORDER_WIDTH
-	)
-	_portrait_hint_local_panel(
-		link_holder,
-		local_rect,
+		Rect2(Vector2.ZERO, link_rect.size),
 		fill_color,
 		link_rect.size.y * 0.5,
 		border_color,
 		PORTRAIT_SINGLE_REWARD_CHAIN_LINK_BORDER_WIDTH
 	)
+	link_panel.z_index = 0
 
 func _stage_single_player_reward_coin_pile(parent: Control, icon_rect: Rect2) -> Control:
 	var pile_icon: Control = SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT.new() as Control
@@ -6095,6 +6277,17 @@ func _show_single_player_reward_chain_screen() -> void:
 		node_sizes.append(slot_size)
 		node_positions_x.append(slot_x)
 
+	# Chain pieces share one fixed-stage parent. Its stage Y stays at zero while
+	# children use local coordinates, preventing connectors from jumping to the
+	# physical bottom when their midpoint crosses the y=688 layout threshold on
+	# tall phones. Tiles and links now remain one inseparable composition.
+	var chain_holder := _stage_holder(
+		Rect2(Vector2.ZERO, PORTRAIT_STAGE_SIZE),
+		Control.MOUSE_FILTER_IGNORE
+	)
+	chain_holder.name = "SinglePlayerRewardChain"
+	chain_holder.z_index = 0
+
 	for link_slot in range(maxi(word_count - 1, 0)):
 		var left_size: float = float(node_sizes[link_slot])
 		var right_size: float = float(node_sizes[link_slot + 1])
@@ -6121,6 +6314,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		# Visually connect adjacent rewards into one continuous chain. A link is
 		# considered active as soon as the path reaches the reward on its right.
 		_stage_single_player_reward_chain_link(
+			chain_holder,
 			link_rect,
 			link_slot < current_slot,
 			accent_color,
@@ -6153,7 +6347,11 @@ func _show_single_player_reward_chain_screen() -> void:
 		var count_color: Color = Color.WHITE
 
 		var node_rect := Rect2(node_x, node_y, node_size, node_size)
-		var node_holder := _stage_holder(node_rect, Control.MOUSE_FILTER_IGNORE)
+		var node_holder := Control.new()
+		node_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node_holder.position = node_rect.position
+		node_holder.size = node_rect.size
+		chain_holder.add_child(node_holder)
 		node_holder.z_index = 1
 		_stage_single_player_reward_tile(
 			node_holder,

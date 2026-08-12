@@ -747,6 +747,18 @@ def verify_hint_button_migration() -> None:
         and portrait.count("_stage_portrait_hint_counter(") == 4,
         "Global hint counters are not rendered on all three buttons",
     )
+    free_hint_spend = portrait[
+        portrait.index("func _play_portrait_hint_spend_animation_if_needed(") :
+        portrait.index("func _stage_portrait_admob_banner_placeholder(")
+    ]
+    require(
+        "_portrait_hint_counter_refresh_requested = true" in free_hint_spend
+        and "GameState.HINT_OPEN_LETTER" in free_hint_spend
+        and "GameState.HINT_REMOVE_WRONG" in free_hint_spend
+        and 'used_button.set("disabled", true)' in free_hint_spend
+        and "used_button.mouse_filter = Control.MOUSE_FILTER_IGNORE" in free_hint_spend,
+        "Free one-shot hints do not become inactive after their inventory counter is spent",
+    )
 
     obsolete_assets = (
         "user_hint_button_open_18.png",
@@ -756,6 +768,120 @@ def verify_hint_button_migration() -> None:
     )
     for filename in obsolete_assets:
         require(not (ROOT / "flash_assets" / filename).exists(), f"Obsolete whole-button texture remains: {filename}")
+
+
+def verify_paid_popup_coin_balance_and_reward_links() -> None:
+    main = read("scripts/main.gd")
+    portrait = read("scripts/main_portrait.gd")
+    popup_begin = portrait[
+        portrait.index("func _portrait_popup_begin(") :
+        portrait.index("func _portrait_popup_shell(")
+    ]
+    require(
+        "show_coin_balance: bool = false" in popup_begin
+        and "if show_coin_balance:" in popup_begin
+        and "func _stage_popup_coin_balance_above_dimmer(" in popup_begin
+        and 'popup_balance_layer.name = "PopupCoinBalance"' in popup_begin
+        and "popup_balance_layer.z_index = 200" in popup_begin
+        and "_stage_centered_coin_only_counter(" in popup_begin,
+        "Paid popups do not stage the coin balance above their modal dimmer",
+    )
+    require(
+        "PORTRAIT_CURRENCY_COUNTER_RECT,\n\t\tfalse,\n\t\tfalse,\n\t\ttrue" in popup_begin,
+        "The above-dimmer popup coin balance is not horizontally centered",
+    )
+    require(
+        portrait.count('balance_label.add_to_group(&"soft_currency_balance_label")') == 2
+        and 'get_tree().get_nodes_in_group(&"soft_currency_balance_label")' in main,
+        "Stacked popup and underlying coin balances do not update together",
+    )
+
+    last_chance = portrait[
+        portrait.index("func _show_single_player_last_chance_popup(") :
+        portrait.index("func _show_heart_refill_popup(")
+    ]
+    heart_refill = portrait[
+        portrait.index("func _show_heart_refill_popup(") :
+        portrait.index("func _show_single_player_level_popup(")
+    ]
+    theme_popup = portrait[
+        portrait.index("func _show_single_player_level_popup(") :
+        portrait.index("func _stage_single_player_popup_theme_cards(")
+    ]
+    require(
+        all("\t\ttrue\n\t)" in popup for popup in (last_chance, heart_refill, theme_popup)),
+        "A popup that can spend coins does not request the above-dimmer balance",
+    )
+    require(
+        "func _stage_portrait_popup_button_price(button: Control, price: int) -> Label:" in portrait
+        and "_purchase_price_color(price)" in portrait
+        and "_stage_portrait_popup_button_price(purchase_button, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)"
+        in last_chance,
+        "The extra-attempt popup does not color its standalone price by affordability",
+    )
+
+    reward_link = portrait[
+        portrait.index("func _stage_single_player_reward_chain_link(") :
+        portrait.index("func _stage_single_player_reward_coin_pile(")
+    ]
+    reward_screen = portrait[
+        portrait.index("func _show_single_player_reward_chain_screen(") :
+        portrait.index("func _continue_from_single_player_reward_chain(")
+    ]
+    require(
+        reward_link.count("_portrait_hint_local_panel(") == 1
+        and "var link_panel := _portrait_hint_local_panel(" in reward_link
+        and "parent: Control" in reward_link
+        and "parent.add_child(link_holder)" in reward_link
+        and "_stage_holder(" not in reward_link
+        and "link_panel.z_index = 0" in reward_link
+        and "PORTRAIT_SINGLE_REWARD_CHAIN_LINK_CAP_SIZE" not in portrait,
+        "Reward-chain connectors still have overlapping cap seams or render above reward tiles",
+    )
+    require(
+        'chain_holder.name = "SinglePlayerRewardChain"' in reward_screen
+        and "Rect2(Vector2.ZERO, PORTRAIT_STAGE_SIZE)" in reward_screen
+        and "_stage_single_player_reward_chain_link(\n\t\t\tchain_holder," in reward_screen
+        and "chain_holder.add_child(node_holder)" in reward_screen,
+        "Reward tiles and their connectors do not share one fixed-stage composition",
+    )
+
+
+def verify_coin_store_pack_grid() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    store_screen = portrait[
+        portrait.index("func _show_coin_store_screen(") :
+        portrait.index("func show_tasks()")
+    ]
+    require(
+        "const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]"
+        in portrait
+        and "var column: int = pack_index % 3" in store_screen
+        and "var row: int = int(pack_index / 3)" in store_screen
+        and "PORTRAIT_COIN_STORE_PACK_AMOUNTS.size()" in store_screen,
+        "The coin store is not a six-pack 3x2 grid with the requested amounts",
+    )
+    require(
+        'preload("res://flash_assets/soft_currency_coin_pile.png")' in portrait
+        and 'preload("res://flash_assets/coin_pack_04.png")' in portrait
+        and 'preload("res://flash_assets/coin_pack_05.png")' in portrait
+        and 'preload("res://flash_assets/coin_pack_06_large.png")' in portrait
+        and (ROOT / "flash_assets" / "coin_pack_04.png").exists()
+        and (ROOT / "flash_assets" / "coin_pack_05.png").exists()
+        and (ROOT / "flash_assets" / "coin_pack_06_large.png").exists(),
+        "One or more requested coin-pack textures are missing from the store",
+    )
+    require(
+        "2, 3:\n\t\t\treturn COIN_PACK_05_TEXTURE" in store_screen
+        and "4, 5:\n\t\t\treturn COIN_PACK_06_LARGE_TEXTURE" in store_screen
+        and "_portrait_hint_local_panel(" in store_screen
+        and "_bind_theme_card_press_state(pack_button, card_visual)" in store_screen
+        and 'Callable(self, "_purchase_coin_pack").bind(amount)' in store_screen
+        and "GameState.add_soft_currency(amount)" in store_screen
+        and "_grant_test_coins" not in portrait,
+        "Coin packs do not use the requested art, existing card treatment, or purchase action",
+    )
+
 
 def verify_footer_buttons_and_hero_scale() -> None:
     portrait = read("scripts/main_portrait.gd")
@@ -879,9 +1005,11 @@ def verify_lives_counter() -> None:
     require(
         "const PORTRAIT_HEART_ICON_ASPECT_RATIO: float = 84.0 / 76.0" in portrait
         and "var resolved_hearts: int = GameState.get_hearts()" in heart_counter
+        and "interactive and resolved_hearts < GameState.MAX_HEARTS" in heart_counter
+        and "heart_counter_button = _stage_resource_counter_button(" in heart_counter
         and "heart_count_label = count_label" in heart_counter
         and "heart_status_label = status_label" in heart_counter,
-        "Global heart counter does not render the current balance and recovery status",
+        "Global heart counter does not render its status or become inert at maximum lives",
     )
     currency_counter = portrait[
         portrait.index("func _stage_currency_counter(") :
@@ -900,12 +1028,21 @@ def verify_lives_counter() -> None:
         portrait.index("func _start_single_player_popup_level(") :
         portrait.index("func _show_exit_game_popup(")
     ]
+    purchase_flow = main[
+        main.index("func _purchase_heart_refill(") :
+        main.index("func _clear_single_player_popup_theme_cards(")
+    ]
     require(
         'Callable(self, "_show_heart_refill_popup")' in heart_counter
         and '"heart_refill_popup"' in heart_popup
         and 'Callable(self, "_purchase_heart_refill")' in heart_popup
         and "HEART_REFILL_COST" in heart_popup
         and "LIFE_HEART_ICON_TEXTURE" in heart_popup
+        and "var purchase_disabled: bool = current_hearts >= GameState.MAX_HEARTS" in heart_popup
+        and "PORTRAIT_INSUFFICIENT_PRICE_COLOR" in heart_popup
+        and "str(HEART_REFILL_COST)" in heart_popup
+        and 'Callable(self, "_return_to_heart_refill_from_coin_store").bind(' in purchase_flow
+        and "_open_coin_store(" in purchase_flow
         and "func refill_hearts(persist: bool = true) -> int:" in state
         and "hearts = MAX_HEARTS" in state
         and "heart_recovery_at = 0" in state
@@ -1082,7 +1219,8 @@ def verify_soft_currency_economy() -> None:
         'const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(116.06, 21.68, 109.94, 38.64)' in portrait
         and "const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42" in portrait
         and "const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0" in portrait
-        and portrait.count("_stage_currency_counter(") >= 6,
+        and portrait.count("_stage_currency_counter(") >= 5
+        and portrait.count("_stage_centered_coin_only_counter(") >= 3,
         "One or more title areas do not expose the shared resource counters",
     )
     standalone_store_entry = portrait[
@@ -1159,6 +1297,7 @@ def verify_main_tab_navigation() -> None:
     ]
     require(
         "enum MainTab {" in portrait
+        and "enum MainTab {\n\tTASKS,\n\tHOME,\n\tPROFILE," in portrait
         and all(name in portrait for name in ("PROFILE", "HOME", "TASKS"))
         and "MainTab.SHOP" not in portrait
         and "PORTRAIT_MAIN_NAV_TAB_COUNT: int = 3" in portrait
@@ -1270,6 +1409,8 @@ def verify_main_tab_navigation() -> None:
         and "drag_x + float(_portrait_main_tab_swipe_tab_step) * viewport_width" in interactive_swipe
         and '"position:x"' in interactive_swipe
         and "PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION" in interactive_swipe
+        and "_portrait_active_main_tab >= MainTab.TASKS" in interactive_swipe
+        and "MainTab.TASKS,\n\t\tMainTab.PROFILE" in interactive_swipe
         and 'content.name = "PortraitMainNavigation"' in navigation
         and "content.visible = !_portrait_main_tab_swipe_building_target" in navigation,
         "Main-tab swipes do not drag two live pages with a fixed navigation bar",
@@ -1353,6 +1494,16 @@ def verify_game_footer_navigation_and_two_player_hero() -> None:
         and '_single_player_text("Попытки", "Attempts")' in portrait
         and "Database.get_theme_name(GameSession.theme_id)).to_upper()" in portrait,
         "Gameplay attempts and category information are not staged beside the hero",
+    )
+    game_header = portrait[
+        portrait.index("func _stage_portrait_game_header() -> void:") :
+        portrait.index("func _stage_portrait_game_info_text(")
+    ]
+    require(
+        "_stage_centered_coin_only_counter(" in game_header
+        and "_stage_currency_counter(" not in game_header
+        and "_stage_menu_settings_button()" in game_header,
+        "Gameplay does not use a centered coin-only top counter",
     )
     require(
         "const PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT" in portrait
@@ -2598,6 +2749,8 @@ def main() -> None:
     verify_button_label_capitalization()
     verify_stretchable_long_buttons()
     verify_hint_button_migration()
+    verify_paid_popup_coin_balance_and_reward_links()
+    verify_coin_store_pack_grid()
     verify_footer_buttons_and_hero_scale()
     verify_lives_counter()
     verify_hint_letter_animations()
