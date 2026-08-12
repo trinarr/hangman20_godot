@@ -114,10 +114,15 @@ func guess(letter: String, defer_loss: bool = false) -> bool:
 func has_deferred_loss() -> bool:
 	return loss_deferred
 
-func grant_deferred_attempt() -> bool:
+func grant_deferred_attempt(attempt_count: int = 1) -> bool:
 	if !loss_deferred or !is_active:
 		return false
+	var granted_attempts: int = maxi(attempt_count, 1)
 	loss_deferred = false
+	# The deferred final mistake was never committed. Clearing the deferred flag
+	# already restores one attempt; roll back additional mistakes so a +2 purchase
+	# leaves two real guesses available on the gameplay counter.
+	mistakes = maxi(mistakes - (granted_attempts - 1), 0)
 	emit_signal("changed")
 	return true
 

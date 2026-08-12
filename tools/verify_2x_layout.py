@@ -891,6 +891,28 @@ def verify_lives_counter() -> None:
         currency_counter.count("_stage_heart_counter(") == 1,
         "The shared top bar does not stage the heart counter exactly once",
     )
+    state = read("scripts/core/game_state.gd")
+    heart_popup = portrait[
+        portrait.index("func _show_heart_refill_popup(") :
+        portrait.index("func _show_single_player_level_popup(")
+    ]
+    play_guard = portrait[
+        portrait.index("func _start_single_player_popup_level(") :
+        portrait.index("func _show_exit_game_popup(")
+    ]
+    require(
+        'Callable(self, "_show_heart_refill_popup")' in heart_counter
+        and '"heart_refill_popup"' in heart_popup
+        and 'Callable(self, "_purchase_heart_refill")' in heart_popup
+        and "HEART_REFILL_COST" in heart_popup
+        and "LIFE_HEART_ICON_TEXTURE" in heart_popup
+        and "func refill_hearts(persist: bool = true) -> int:" in state
+        and "hearts = MAX_HEARTS" in state
+        and "heart_recovery_at = 0" in state
+        and "GameState.get_hearts() <= 0" in play_guard
+        and 'Callable(self, "_start_single_player_popup_level").bind(level_index)' in play_guard,
+        "The heart counter or zero-life Play flow does not use the five-life refill popup",
+    )
 
 
 def verify_hint_letter_animations() -> None:
@@ -1063,10 +1085,6 @@ def verify_soft_currency_economy() -> None:
         and portrait.count("_stage_currency_counter(") >= 6,
         "One or more title areas do not expose the shared resource counters",
     )
-    tab_store_entry = portrait[
-        portrait.index("func _show_coin_store_tab()") :
-        portrait.index("func show_coin_store()")
-    ]
     standalone_store_entry = portrait[
         portrait.index("func show_coin_store()") :
         portrait.index("func _show_coin_store_screen(")
@@ -1076,16 +1094,14 @@ def verify_soft_currency_economy() -> None:
         portrait.index("func show_tasks()")
     ]
     require(
-        'Callable(self, "_show_coin_store_screen").bind(true)' in tab_store_entry
-        and "MainTab.SHOP" in tab_store_entry
-        and "_show_coin_store_screen(false)" in standalone_store_entry
+        "_show_coin_store_screen()" in standalone_store_entry
         and "_clear()" in store_screen
-        and "if with_main_navigation:" in store_screen
-        and "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" in store_screen
         and "_portrait_screen(0.0)" in store_screen
         and 'tr("COIN_STORE_TITLE")' in store_screen
-        and 'Callable(self, "_close_coin_store")' in store_screen,
-        "The store does not separate its tab and standalone gameplay contexts",
+        and 'Callable(self, "_close_coin_store")' in store_screen
+        and "MainTab.SHOP" not in portrait
+        and "_show_coin_store_tab" not in portrait,
+        "The store is not restricted to the standalone top-counter entry",
     )
     require(
         "func _stage_portrait_hint_price(button: Control, price: int) -> void:" in portrait
@@ -1106,7 +1122,7 @@ def verify_soft_currency_economy() -> None:
 def verify_main_tab_navigation() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
-    icon_names = ("profile", "shop", "home", "tasks")
+    icon_names = ("profile", "home", "tasks")
     for icon_name in icon_names:
         icon_path = ROOT / "flash_assets" / f"nav_{icon_name}_icon.png"
         require(icon_path.is_file(), f"Main-tab icon is missing: {icon_path.name}")
@@ -1139,21 +1155,22 @@ def verify_main_tab_navigation() -> None:
 
     navigation = portrait[
         portrait.index("func _portrait_main_tab_action(") :
-        portrait.index("func _show_coin_store_tab()")
+        portrait.index("func show_coin_store()")
     ]
     require(
         "enum MainTab {" in portrait
-        and all(name in portrait for name in ("PROFILE", "SHOP", "HOME", "TASKS"))
-        and "PORTRAIT_MAIN_NAV_TAB_COUNT: int = 4" in portrait
+        and all(name in portrait for name in ("PROFILE", "HOME", "TASKS"))
+        and "MainTab.SHOP" not in portrait
+        and "PORTRAIT_MAIN_NAV_TAB_COUNT: int = 3" in portrait
         and "for tab_index in range(PORTRAIT_MAIN_NAV_TAB_COUNT):" in navigation,
-        "The four bottom main tabs are not defined",
+        "The three bottom main tabs are not defined",
     )
     home_screen = portrait[
         portrait.index("func _show_menu_screen() -> void:") :
         portrait.index("func show_settings() -> void:")
     ]
     require(
-        navigation.count(".to_upper()") == 4
+        navigation.count(".to_upper()") == 3
         and 'Database.tr_text(0, "HANGMAN").to_upper()' in home_screen
         and 'Database.tr_text(2, "Two Player").to_upper()' in home_screen
         and '("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()' in main
@@ -1163,8 +1180,8 @@ def verify_main_tab_navigation() -> None:
     require(
         "PORTRAIT_MAIN_NAV_Y: float = 725.0" in portrait
         and "PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0" in portrait
-        and "PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 120.0" in portrait
-        and "PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(116.0, 92.0)" in portrait
+        and "PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 160.0" in portrait
+        and "PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(156.0, 92.0)" in portrait
         and "PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0" in portrait
         and "PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0" in portrait
         and "PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15" in portrait
@@ -1183,7 +1200,7 @@ def verify_main_tab_navigation() -> None:
     require(
         math.isclose(725.0 + 75.0, 800.0)
         and math.isclose(708.0 + 92.0, 800.0)
-        and math.isclose(120.0 * 4.0, 480.0)
+        and math.isclose(160.0 * 3.0, 480.0)
         and math.isclose(52.0 * 1.15, 59.8)
         and 709.0 < 725.0
         and 735.0 >= 725.0
@@ -1203,9 +1220,9 @@ def verify_main_tab_navigation() -> None:
     )
     require(
         'Callable(self, "show_profile")' in navigation
-        and 'Callable(self, "_show_coin_store_tab")' in navigation
         and 'Callable(self, "show_menu")' in navigation
-        and 'Callable(self, "show_tasks")' in navigation,
+        and 'Callable(self, "show_tasks")' in navigation
+        and '_show_coin_store_tab' not in navigation,
         "One or more main-tab actions are missing",
     )
     require(
@@ -1234,7 +1251,6 @@ def verify_main_tab_navigation() -> None:
         and "icon.queue_free()" in navigation
         and 'Callable(self, "_finish_main_nav_tab_leave").bind(' in navigation
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
-        and 'Callable(self, "_show_coin_store_screen").bind(true), MainTab.SHOP' in portrait
         and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
         and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
         and "_stage_menu_settings_button()" in portrait,
@@ -1299,7 +1315,7 @@ def verify_main_tab_navigation() -> None:
         and "Rect2(67.5, 632.0, 345.0, 73.6)" in menu_screen
         and math.isclose(632.0 - (554.0 + 64.0), 14.0)
         and 632.0 + 73.6 < 708.0
-        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 4,
+        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 3,
         "The Classic button remains on Home or main-menu actions overlap the compact navigation",
     )
 
@@ -2291,7 +2307,7 @@ def verify_profile_theme_and_settings_footer_ui() -> None:
     ]
     require(
         "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" in profile
-        and '_stage_currency_counter(Callable(self, "_show_coin_store_tab"))' in profile
+        and '_stage_currency_counter(Callable(self, "show_profile"))' in profile
         and "_stage_portrait_page_title(_portrait_main_tab_label(MainTab.PROFILE))" in profile,
         "The profile screen does not use the title/currency header and footer composition",
     )
@@ -2395,7 +2411,8 @@ def verify_single_player_last_chance_flow() -> None:
         and "func guess(letter: String, defer_loss: bool = false) -> bool:" in guess_flow
         and "if defer_loss and reaches_loss_limit:" in guess_flow
         and "loss_deferred = true" in guess_flow
-        and "func grant_deferred_attempt() -> bool:" in guess_flow
+        and "func grant_deferred_attempt(attempt_count: int = 1) -> bool:" in guess_flow
+        and "mistakes = maxi(mistakes - (granted_attempts - 1), 0)" in guess_flow
         and "func resolve_deferred_loss() -> bool:" in guess_flow
         and 'emit_signal("round_lost")' in guess_flow,
         "The final single-player mistake cannot be deferred, purchased, and resolved safely",
@@ -2456,16 +2473,15 @@ def verify_single_player_last_chance_flow() -> None:
     )
     require(
         "const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25" in main
+        and "const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2" in main
         and "GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)" in purchase_flow
-        and "GameSession.grant_deferred_attempt()" in purchase_flow
+        and "GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)" in purchase_flow
         and "GameSession.resolve_deferred_loss()" in purchase_flow
         and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store")' in purchase_flow,
         "The extra attempt is not connected to currency, the shop fallback, and defeat resolution",
     )
     require(
         "GameState.lose_heart()" in finish_flow
-        and "var use_in_place_result: bool = (" in finish_flow
-        and "!is_win" in finish_flow
         and "_show_in_place_round_result(is_win)" in finish_flow
         and "GameState.reset_single_level_attempt(Database.current_language, level_index)" in retry_flow
         and "_show_single_player_level_popup(level_index, -1, true)" in retry_flow,
@@ -2488,7 +2504,9 @@ def verify_single_player_last_chance_flow() -> None:
     ]
     require(
         '"single_player_last_chance_popup"' in last_chance_popup
-        and '"+1"' in last_chance_popup
+        and '"+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT' in last_chance_popup
+        and '"Добавьте 2 попытки' in last_chance_popup
+        and '"Add 2 tries' in last_chance_popup
         and "SINGLE_PLAYER_EXTRA_ATTEMPT_COST" in last_chance_popup
         and "SOFT_CURRENCY_COIN_TEXTURE" in last_chance_popup
         and "LONG_BUTTON_COLOR_GREEN" in last_chance_popup
@@ -2600,7 +2618,7 @@ def main() -> None:
     verify_settings_popup_and_language_split()
     verify_game_audio_feedback()
     verify_profile_theme_and_settings_footer_ui()
-    print("2x art, adaptive portrait layout, four-tab navigation, top-bar settings modal, persistent gameplay tree, inline result flow, hints, economy, audio, networking, language split, native word input, vibration, and streamed hero states verified at 960x1600, 1080x2400 and 1440x3200")
+    print("2x art, adaptive portrait layout, three-tab navigation, top-bar settings modal, persistent gameplay tree, inline result flow, hints, economy, audio, networking, language split, native word input, vibration, and streamed hero states verified at 960x1600, 1080x2400 and 1440x3200")
 
 
 if __name__ == "__main__":

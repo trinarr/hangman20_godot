@@ -24,6 +24,8 @@ const APP_VERSION_FALLBACK: String = "3.0.0"
 const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
 const SINGLE_PLAYER_THEME_REFRESH_COST: int = 25
 const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2
+const HEART_REFILL_COST: int = 100
 const SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = 0.06
 const SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = 0.05
 const SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = 0.12
@@ -155,6 +157,7 @@ var heart_status_label: Label = null
 var heart_add_badge_visual: Control = null
 var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
+var heart_refill_continue_action: Callable = Callable()
 
 func _ready() -> void:
 	Engine.max_fps = 60
@@ -263,6 +266,9 @@ func _show_single_player_level_popup(
 func _show_single_player_last_chance_popup() -> void:
 	pass
 
+func _show_heart_refill_popup(_continue_action: Callable = Callable()) -> void:
+	pass
+
 func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
 	pass
 
@@ -322,6 +328,7 @@ func _clear() -> void:
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 	_remove_exit_game_popup()
+	_remove_heart_refill_popup()
 	_remove_single_player_last_chance_popup()
 	_remove_single_player_theme_popup()
 	_remove_clear_theme_popup()
@@ -1116,6 +1123,27 @@ func _remove_single_player_last_chance_popup() -> void:
 			node.get_parent().remove_child(node)
 			node.queue_free()
 
+func _remove_heart_refill_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("heart_refill_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	heart_refill_continue_action = Callable()
+
+func _purchase_heart_refill() -> void:
+	if GameState.get_hearts() >= GameState.MAX_HEARTS:
+		return
+	if GameState.get_soft_currency() < HEART_REFILL_COST:
+		return
+	if !GameState.spend_soft_currency(HEART_REFILL_COST, false):
+		return
+	var continue_action: Callable = heart_refill_continue_action
+	GameState.refill_hearts(true)
+	_remove_heart_refill_popup()
+	if continue_action.is_valid():
+		continue_action.call_deferred()
+
 func _clear_single_player_popup_theme_cards() -> void:
 	for card_node: Node in single_player_popup_theme_card_nodes:
 		if card_node != null and is_instance_valid(card_node):
@@ -1328,7 +1356,7 @@ func _purchase_single_player_extra_attempt() -> void:
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST):
 		return
 	_remove_single_player_last_chance_popup()
-	GameSession.grant_deferred_attempt()
+	GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
 
 func _decline_single_player_extra_attempt() -> void:
 	_remove_single_player_last_chance_popup()

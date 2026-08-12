@@ -207,6 +207,17 @@ func lose_heart(persist: bool = true) -> bool:
 	_emit_heart_status_if_changed(true)
 	return true
 
+func refill_hearts(persist: bool = true) -> int:
+	# A paid refill always restores the global inventory to exactly five lives.
+	# Reset the recovery deadline as well: a full inventory must not keep a stale
+	# countdown that could grant an extra life after the next one is spent.
+	hearts = MAX_HEARTS
+	heart_recovery_at = 0
+	if persist:
+		save_game()
+	_emit_heart_status_if_changed(true)
+	return hearts
+
 func _heart_now() -> int:
 	return int(floor(Time.get_unix_time_from_system()))
 
