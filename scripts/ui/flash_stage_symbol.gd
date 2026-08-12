@@ -150,7 +150,6 @@ func _reload_hero_symbol() -> void:
 		_request_next_hero_pose(state_index)
 		return
 
-	_remove_symbol_instance()
 	var target_scene: PackedScene = _get_hero_scene_if_ready(target_path)
 	if target_scene == null and state_index == 0 and !_hero_pose_requests.has(target_path):
 		# The first pose is needed before the player can interact. Load that one
@@ -167,13 +166,10 @@ func _reload_hero_symbol() -> void:
 	_pending_symbol_offset = target_offset
 	_prune_hero_pose_cache(state_index, true)
 
-	# A very fast tap can beat the background request. Keep the previous pose on
-	# screen and defer the reaction instead of blocking the frame on texture IO.
-	if state_index > 0:
-		var previous_path: String = _hero_states()[state_index - 1]
-		var previous_scene: PackedScene = _cached_hero_scene(previous_path)
-		if previous_scene != null:
-			_instantiate_hero_pose(previous_scene, _hero_offsets()[state_index - 1], previous_path)
+	# Keep the currently instantiated pose visible until the requested pose is
+	# fully loaded. This matters when buying attempts moves the hero backwards:
+	# the older target pose may no longer be cached, but the player must never see
+	# an empty character slot while its threaded request completes.
 	set_process(true)
 
 func _remove_symbol_instance() -> void:
@@ -186,6 +182,7 @@ func _remove_symbol_instance() -> void:
 	_loaded_symbol_path = ""
 
 func _instantiate_hero_pose(scene: PackedScene, pose_offset: Vector2, resource_path: String) -> void:
+	_remove_symbol_instance()
 	var pose_holder := Node2D.new()
 	pose_holder.name = "HeroPose"
 	pose_holder.position = pose_offset
@@ -291,7 +288,6 @@ func _poll_pending_hero_pose() -> bool:
 	var target_offset: Vector2 = _pending_symbol_offset
 	_pending_symbol_path = ""
 	_pending_symbol_offset = Vector2.ZERO
-	_remove_symbol_instance()
 	_instantiate_hero_pose(target_scene, target_offset, target_path)
 	var state_index: int = _hero_states().find(target_path)
 	if state_index >= 0:

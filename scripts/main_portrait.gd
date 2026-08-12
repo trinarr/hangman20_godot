@@ -56,7 +56,9 @@ const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Regular screens use a centered coins-and-hearts block. Gameplay deliberately
 # keeps only its coin plate centered, leaving the life inventory off the round.
 const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0
-const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(116.06, 21.68, 109.94, 38.64)
+# Both resource plates are 10% wider than the original 109.94 px layout. Shift
+# the complete pair left by the same added half-width so it stays centered.
+const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(105.066, 21.68, 120.934, 38.64)
 const PORTRAIT_GAME_CURRENCY_COUNTER_RECT := PORTRAIT_CURRENCY_COUNTER_RECT
 const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42
 const PORTRAIT_HEART_ICON_ASPECT_RATIO: float = 84.0 / 76.0
@@ -153,9 +155,9 @@ const PORTRAIT_SINGLE_REWARD_CHAIN_WIDTH: float = 430.0
 const PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE: float = 102.0
 const PORTRAIT_SINGLE_REWARD_NODE_MIN_SIZE: float = 40.0
 const PORTRAIT_SINGLE_REWARD_NODE_GAP: float = 14.0
-const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS: float = 16.0
-const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_BORDER_WIDTH: float = 3.0
+const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS: float = 6.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP: float = 10.0
+const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_COLOR := Color("#2E73C9")
 const PORTRAIT_SINGLE_REWARD_CURRENT_NODE_SCALE: float = 1.20
 const PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE: float = 0.90
 const PORTRAIT_SINGLE_REWARD_STATUS_Y: float = 604.0
@@ -164,6 +166,7 @@ const PORTRAIT_SINGLE_REWARD_BONUS_Y: float = 672.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE: float = 0.72
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE: int = 22
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE: int = 15
+const PORTRAIT_SINGLE_REWARD_STATUS_ICON_SCALE: float = 0.574
 const PORTRAIT_SINGLE_REWARD_CLAIM_ICON_FADE_DURATION: float = 0.18
 const PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA: float = 0.45
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_DELAY: float = 0.12
@@ -366,6 +369,7 @@ var _portrait_main_tab_swipe_target_top_bar: Control = null
 var _portrait_main_tab_swipe_building_target: bool = false
 var _portrait_main_tab_swipe_animating: bool = false
 var _portrait_top_bar_content: Control = null
+var _portrait_active_currency_counter_rect: Rect2 = PORTRAIT_CURRENCY_COUNTER_RECT
 var _portrait_coin_store_active: bool = false
 var _portrait_back_button_visible: bool = false
 var _portrait_previous_screen_had_back: bool = false
@@ -383,6 +387,7 @@ var _single_player_popup_theme_card_visuals: Array = []
 var _single_player_theme_slot_animation_nodes: Array[Node] = []
 var _single_player_theme_slot_tweens: Array[Tween] = []
 var _single_player_theme_slot_animating: bool = false
+var _single_player_theme_slot_hide_actions: bool = false
 var _single_player_theme_slot_generation: int = 0
 var _single_player_theme_slot_final_selection: int = -1
 var _single_player_theme_reroll_level_index: int = -1
@@ -890,6 +895,7 @@ func _stage_currency_counter(
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
 	var counter_rect: Rect2 = rect if rect.size.x > 0.0 and rect.size.y > 0.0 else PORTRAIT_CURRENCY_COUNTER_RECT
+	_portrait_active_currency_counter_rect = counter_rect
 	var counter_scale: float = counter_rect.size.y / 48.0
 	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
 	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
@@ -965,7 +971,8 @@ func _stage_centered_coin_only_counter(
 	rect: Rect2 = Rect2(),
 	challenge_colors: bool = false,
 	interactive: bool = true,
-	center_horizontally: bool = true
+	center_horizontally: bool = true,
+	track_as_active_counter: bool = true
 ) -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
@@ -982,6 +989,8 @@ func _stage_centered_coin_only_counter(
 		source_rect.size.x,
 		source_rect.size.y
 	)
+	if track_as_active_counter:
+		_portrait_active_currency_counter_rect = counter_rect
 	var counter_scale: float = counter_rect.size.y / 48.0
 	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
 	var border_color: Color = PORTRAIT_CHALLENGE_HUD_BORDER if challenge_colors else Color(0.72, 0.77, 0.91, 1.0)
@@ -1942,7 +1951,7 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	theme_line_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	theme_line_label.add_theme_font_override("font", UI_HEADING_FONT)
 	_fit_single_line_label_to_width(
 		theme_line_label,
 		theme_text,
@@ -2013,14 +2022,16 @@ func _stage_popup_coin_balance_above_dimmer(popup_root: Control) -> void:
 
 	var previous_content: Control = content
 	var previous_top_bar: Control = _portrait_top_bar_content
+	var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect
 	_portrait_top_bar_content = null
 	content = popup_balance_layer
 	_stage_centered_coin_only_counter(
 		Callable(),
-		PORTRAIT_CURRENCY_COUNTER_RECT,
+		source_counter_rect,
 		false,
 		false,
-		true
+		false,
+		false
 	)
 	content = previous_content
 	_portrait_top_bar_content = previous_top_bar
@@ -2217,20 +2228,25 @@ func _show_settings_popup() -> void:
 	_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 	_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
 
+	# Anchor the contact buttons and version to the shell bottom instead of
+	# leaving the footer floating beneath the settings controls.
+	var footer_bottom_y: float = rect.end.y
+	var social_buttons_y: float = footer_bottom_y - 122.0
+	var version_y: float = footer_bottom_y - 44.0
 	_stage_round_icon_button(
-		Rect2(174.0, 492.0, 58.0, 58.0),
+		Rect2(174.0, social_buttons_y, 58.0, 58.0),
 		Callable(self, "_about_contact_action").bind("vk"),
 		ABOUT_VK_ICON,
 		ABOUT_VK_ICON_SIZE
 	)
 	_stage_round_icon_button(
-		Rect2(248.0, 492.0, 58.0, 58.0),
+		Rect2(248.0, social_buttons_y, 58.0, 58.0),
 		Callable(self, "_about_contact_action").bind("mail"),
 		ABOUT_MAIL_ICON,
 		ABOUT_MAIL_ICON_SIZE
 	)
 	var version_label := _stage_label(
-		Rect2(40.0, 574.0, 400.0, 28.0),
+		Rect2(40.0, version_y, 400.0, 28.0),
 		_about_version_text(),
 		14,
 		Color(0.78, 0.82, 0.96, 0.88),
@@ -2875,7 +2891,17 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	):
 		_update_single_player_theme_popup(level_index)
 		return
-	_start_single_player_theme_slot_animation(level_index, previous_options, next_options)
+	# Manual rerolls never inherit the automatic opening roll's hidden-controls
+	# mode. Keep the controls rendered and only block their input during motion.
+	_single_player_theme_slot_hide_actions = false
+	_set_single_player_theme_slot_action_visibility(true)
+	_start_single_player_theme_slot_animation(
+		level_index,
+		previous_options,
+		next_options,
+		-1,
+		false
+	)
 
 func _update_single_player_theme_reroll_button_state() -> void:
 	if single_player_popup_refresh_button == null or !is_instance_valid(single_player_popup_refresh_button):
@@ -2939,12 +2965,12 @@ func _schedule_single_player_theme_slot_opening_animation(
 		return
 	# Hide the generated result before the popup entrance so the player never
 	# sees the final cards flash before their reels begin.
-	_prepare_single_player_theme_slot_animation_visuals(level_index)
+	_prepare_single_player_theme_slot_animation_visuals(level_index, true)
 	var popup_stage: Control = single_player_popup_stage_content
 	var start_callable := Callable(
 		self,
 		"_start_single_player_theme_slot_animation"
-	).bind(level_index, previous_options, next_options, final_selected_theme)
+	).bind(level_index, previous_options, next_options, final_selected_theme, true)
 	if bool(popup_stage.get("open_bounce_complete")):
 		start_callable.call()
 		return
@@ -2962,14 +2988,19 @@ func _schedule_single_player_theme_slot_opening_animation(
 			level_index,
 			previous_options,
 			next_options,
-			final_selected_theme
+			final_selected_theme,
+			true
 		)
 
-func _prepare_single_player_theme_slot_animation_visuals(level_index: int) -> void:
+func _prepare_single_player_theme_slot_animation_visuals(
+	level_index: int,
+	hide_actions_during_animation: bool
+) -> void:
+	_single_player_theme_slot_hide_actions = hide_actions_during_animation
 	single_player_popup_selected_theme = -1
 	_set_single_player_theme_panels_unselected(level_index)
 	_set_single_player_theme_static_visuals_visible(false)
-	_set_single_player_theme_slot_action_visibility(false)
+	_set_single_player_theme_slot_action_visibility(!hide_actions_during_animation)
 	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
 		# Match the disabled treatment of the Play button while the reels and
 		# their result bounce are still running.
@@ -2978,6 +3009,10 @@ func _prepare_single_player_theme_slot_animation_visuals(level_index: int) -> vo
 		single_player_popup_play_button.set("button_disabled", true)
 
 func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:
+	# Only the initial automatic roll is allowed to hide these controls. This
+	# guard prevents any later callback from hiding a manual reroll's buttons.
+	if !is_visible and !_single_player_theme_slot_hide_actions:
+		return
 	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
 		single_player_popup_play_button.visible = is_visible
 	for refresh_visual: CanvasItem in _single_player_popup_refresh_visuals:
@@ -2988,7 +3023,8 @@ func _start_single_player_theme_slot_animation(
 	level_index: int,
 	previous_options: Array,
 	next_options: Array,
-	final_selected_theme: int = -1
+	final_selected_theme: int = -1,
+	hide_actions_during_animation: bool = false
 ) -> void:
 	if (
 		_single_player_theme_slot_animating
@@ -3000,7 +3036,10 @@ func _start_single_player_theme_slot_animation(
 	_single_player_theme_slot_final_selection = final_selected_theme
 	_single_player_theme_slot_generation += 1
 	var animation_generation: int = _single_player_theme_slot_generation
-	_prepare_single_player_theme_slot_animation_visuals(level_index)
+	_prepare_single_player_theme_slot_animation_visuals(
+		level_index,
+		hide_actions_during_animation
+	)
 
 	var previous_content: Control = content
 	content = single_player_popup_stage_content
@@ -3239,6 +3278,7 @@ func _finish_single_player_theme_slot_animation(
 		or !is_instance_valid(single_player_popup_stage_content)
 	):
 		_single_player_theme_slot_animating = false
+		_single_player_theme_slot_hide_actions = false
 		_single_player_theme_slot_final_selection = -1
 		return
 	var final_selected_theme: int = _single_player_theme_slot_final_selection
@@ -3247,9 +3287,16 @@ func _finish_single_player_theme_slot_animation(
 	var current_options: Array = _single_player_level_theme_options(level_index)
 	if final_selected_theme >= 0 and current_options.has(final_selected_theme):
 		_select_single_player_popup_theme(level_index, final_selected_theme)
-	# The reels have stopped and their temporary tracks are already gone. Bring
-	# both actions back now; the icon/name reveal may keep them disabled briefly,
-	# but they no longer flash underneath the spinning cards.
+	# The automatic opening roll kept both actions hidden. Restore their orange
+	# state before making them visible, then block clicks through mouse_filter
+	# while the cards finish revealing. This avoids a one-frame grey flash.
+	if _single_player_theme_slot_hide_actions:
+		if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+			single_player_popup_play_button.set("button_disabled", false)
+			single_player_popup_play_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
+			single_player_popup_refresh_button.set("button_disabled", false)
+			single_player_popup_refresh_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_set_single_player_theme_slot_action_visibility(true)
 	_start_single_player_theme_slot_reveal(animation_generation)
 
@@ -3302,10 +3349,14 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		if theme_button != null and is_instance_valid(theme_button):
 			theme_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
-		single_player_popup_play_button.set("button_disabled", true)
-	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
-		single_player_popup_refresh_button.set("button_disabled", true)
+	# Manual rerolls keep the existing grey disabled treatment. During the
+	# automatic opening reveal the buttons stay orange and visible, with input
+	# blocked by mouse_filter until the reveal completes.
+	if !_single_player_theme_slot_hide_actions:
+		if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
+			single_player_popup_play_button.set("button_disabled", true)
+		if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
+			single_player_popup_refresh_button.set("button_disabled", true)
 
 	if reveal_visuals.is_empty():
 		_start_single_player_theme_slot_labels_reveal(animation_generation)
@@ -3452,11 +3503,16 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			theme_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
 		single_player_popup_play_button.set("button_disabled", false)
+		single_player_popup_play_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
+		single_player_popup_refresh_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_single_player_theme_reroll_button_state()
+	_single_player_theme_slot_hide_actions = false
 
 func _cancel_single_player_theme_slot_animation() -> void:
 	_single_player_theme_slot_generation += 1
 	_single_player_theme_slot_animating = false
+	_single_player_theme_slot_hide_actions = false
 	_single_player_theme_slot_final_selection = -1
 	for tween: Tween in _single_player_theme_slot_tweens:
 		if tween != null and tween.is_valid():
@@ -5644,41 +5700,20 @@ func _stage_single_player_reward_tile(
 
 func _stage_single_player_reward_chain_link(
 	parent: Control,
-	link_rect: Rect2,
-	is_active: bool,
-	accent_color: Color,
-	header_color: Color
+	link_rect: Rect2
 ) -> void:
 	if parent == null or !is_instance_valid(parent):
 		return
-	var link_holder := Control.new()
-	link_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	link_holder.position = link_rect.position
-	link_holder.size = link_rect.size
-	parent.add_child(link_holder)
-	link_holder.z_index = 0
-	var fill_color: Color = (
-		Color(accent_color.r, accent_color.g, accent_color.b, 0.12)
-		if is_active
-		else Color(header_color.r, header_color.g, header_color.b, 0.055)
-	)
-	var border_color: Color = (
-		accent_color
-		if is_active
-		else Color(header_color.r, header_color.g, header_color.b, 0.38)
-	)
-	# A single capsule has no overlapping borders or cap seams. Explicitly reset
-	# the helper's generic z=8: links must stay behind the z=1 reward tiles while
-	# their overlapped ends remain hidden underneath the cards.
-	var link_panel := _portrait_hint_local_panel(
-		link_holder,
-		Rect2(Vector2.ZERO, link_rect.size),
-		fill_color,
-		link_rect.size.y * 0.5,
-		border_color,
-		PORTRAIT_SINGLE_REWARD_CHAIN_LINK_BORDER_WIDTH
-	)
-	link_panel.z_index = 0
+	# One opaque blue strip stays visible in the gap while its ends remain tucked
+	# beneath the neighboring z=1 reward tiles.
+	var link_bar := ColorRect.new()
+	link_bar.name = "RewardChainBlueLine"
+	link_bar.color = PORTRAIT_SINGLE_REWARD_CHAIN_LINK_COLOR
+	link_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	link_bar.position = link_rect.position
+	link_bar.size = link_rect.size
+	link_bar.z_index = 0
+	parent.add_child(link_bar)
 
 func _stage_single_player_reward_coin_pile(parent: Control, icon_rect: Rect2) -> Control:
 	var pile_icon: Control = SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT.new() as Control
@@ -5695,12 +5730,9 @@ func _stage_single_player_reward_status_icon(
 	is_success: bool,
 	start_hidden: bool = false
 ) -> Control:
-	var icon_size: Vector2 = node_rect.size * 0.82
+	var icon_size: Vector2 = node_rect.size * PORTRAIT_SINGLE_REWARD_STATUS_ICON_SCALE
 	var icon_rect := Rect2(
-		Vector2(
-			node_rect.get_center().x - icon_size.x * 0.5,
-			node_rect.position.y + node_rect.size.y * 0.06
-		),
+		node_rect.get_center() - icon_size * 0.5,
 		icon_size
 	)
 	var icon_holder := Control.new()
@@ -5785,7 +5817,10 @@ func _control_center_in_control_space(source: Control, target_space: Control) ->
 	)
 	return target_space.get_global_transform_with_canvas().affine_inverse() * source_center_global
 
-func _play_single_player_reward_coin_collection(source_visual: Control) -> void:
+func _play_single_player_reward_coin_collection(
+	source_visual: Control,
+	continue_button: Control = null
+) -> void:
 	if ui == null or !is_instance_valid(ui):
 		return
 	if source_visual == null or !is_instance_valid(source_visual) or !source_visual.is_inside_tree():
@@ -5850,6 +5885,14 @@ func _play_single_player_reward_coin_collection(source_visual: Control) -> void:
 		# Every coin is absorbed by the exact center of the HUD coin icon. Pulse the
 		# icon at the moment of impact, then remove the flying copy immediately.
 		tween.tween_callback(Callable(self, "_bounce_portrait_currency_coin_icon"))
+		if coin_index == PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1:
+			# The last impact marks the end of the visible crediting sequence. Only
+			# now make Continue available; the later overlay cleanup is technical.
+			tween.tween_callback(
+				Callable(self, "_reveal_single_player_reward_continue_button").bind(
+					continue_button
+				)
+			)
 		tween.tween_callback(Callable(coin, "queue_free"))
 
 	var cleanup_delay: float = (
@@ -5864,14 +5907,16 @@ func _play_single_player_reward_coin_collection(source_visual: Control) -> void:
 	cleanup_tween.tween_interval(cleanup_delay)
 	cleanup_tween.tween_callback(Callable(overlay_layer, "queue_free"))
 
-func _single_player_reward_coin_collection_total_duration() -> float:
-	return (
+func _single_player_reward_check_reveal_delay() -> float:
+	# Reveal the claimed marker halfway between the first launch and the last
+	# coin reaching the HUD. The overlay cleanup tail is not part of the flight.
+	var last_coin_arrival: float = (
 		PORTRAIT_SINGLE_REWARD_FLY_START_DELAY
 		+ float(maxi(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1, 0)) * PORTRAIT_SINGLE_REWARD_FLY_STAGGER
 		+ 0.10
 		+ PORTRAIT_SINGLE_REWARD_FLY_DURATION
-		+ 0.12
 	)
+	return lerpf(PORTRAIT_SINGLE_REWARD_FLY_START_DELAY, last_coin_arrival, 0.5)
 
 func _create_single_player_reward_masked_hero(parent: Control, initial_title_rect: Rect2) -> Dictionary:
 	var viewport_size: Vector2 = get_viewport_rect().size
@@ -5947,7 +5992,8 @@ func _set_single_player_reward_hero_mask_from_title_rect(
 func _start_single_player_reward_claim_animation_deferred(
 	coin_visual: Control,
 	count_visual: Label,
-	check_visual: Control
+	check_visual: Control,
+	continue_button: Control
 ) -> void:
 	# Let stage-layout controls resolve their final size/pivot before animating.
 	# Flying coins and the source icon fade begin together; the claimed check then
@@ -5956,13 +6002,16 @@ func _start_single_player_reward_claim_animation_deferred(
 	if !is_inside_tree():
 		return
 	if coin_visual == null or !is_instance_valid(coin_visual) or !coin_visual.is_inside_tree():
+		_reveal_single_player_reward_continue_button(continue_button)
 		return
 	if count_visual == null or !is_instance_valid(count_visual) or !count_visual.is_inside_tree():
+		_reveal_single_player_reward_continue_button(continue_button)
 		return
 	if check_visual == null or !is_instance_valid(check_visual) or !check_visual.is_inside_tree():
+		_reveal_single_player_reward_continue_button(continue_button)
 		return
 
-	_play_single_player_reward_coin_collection(coin_visual)
+	_play_single_player_reward_coin_collection(coin_visual, continue_button)
 
 	# Keep the reward art and xN fully active while the coins are flying. As soon
 	# as the checkmark starts appearing, dim both and keep them dimmed: the
@@ -5975,7 +6024,7 @@ func _start_single_player_reward_claim_animation_deferred(
 	check_visual.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE
 	var check_tween := check_visual.create_tween()
 	check_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	check_tween.tween_interval(_single_player_reward_coin_collection_total_duration())
+	check_tween.tween_interval(_single_player_reward_check_reveal_delay())
 	check_tween.tween_property(check_visual, "modulate:a", 1.0, 0.08)
 	var coin_dim := check_tween.parallel().tween_property(
 		coin_visual,
@@ -6009,6 +6058,45 @@ func _start_single_player_reward_claim_animation_deferred(
 	)
 	settle.set_trans(Tween.TRANS_BOUNCE)
 	settle.set_ease(Tween.EASE_OUT)
+
+func _reveal_single_player_reward_continue_button(continue_button: Control) -> void:
+	if (
+		continue_button == null
+		or !is_instance_valid(continue_button)
+		or !continue_button.is_inside_tree()
+	):
+		return
+	continue_button.set("disabled", false)
+	continue_button.set("attention_bounce_enabled", false)
+	var button_tween := continue_button.create_tween()
+	button_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	button_tween.tween_property(continue_button, "modulate:a", 1.0, 0.12)
+	var button_grow := button_tween.parallel().tween_property(
+		continue_button,
+		"visual_scale",
+		Vector2.ONE * 1.06,
+		0.12
+	)
+	button_grow.set_trans(Tween.TRANS_BACK)
+	button_grow.set_ease(Tween.EASE_OUT)
+	var button_settle := button_tween.tween_property(
+		continue_button,
+		"visual_scale",
+		Vector2.ONE,
+		0.16
+	)
+	button_settle.set_trans(Tween.TRANS_BOUNCE)
+	button_settle.set_ease(Tween.EASE_OUT)
+	button_tween.finished.connect(
+		Callable(self, "_enable_single_player_reward_continue_attention").bind(
+			continue_button
+		),
+		CONNECT_ONE_SHOT
+	)
+
+func _enable_single_player_reward_continue_attention(continue_button: Control) -> void:
+	if continue_button != null and is_instance_valid(continue_button):
+		continue_button.set("attention_bounce_enabled", true)
 
 func _start_single_player_reward_intro_deferred(
 	title_block: Control,
@@ -6117,27 +6205,14 @@ func _start_single_player_reward_intro_deferred(
 	await body_tween.finished
 
 	if animate_claim:
-		_start_single_player_reward_claim_animation_deferred(coin_visual, count_visual, check_visual)
-		await get_tree().create_timer(
-			_single_player_reward_coin_collection_total_duration()
-			+ PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_GROW_DURATION
-			+ PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_SETTLE_DURATION
-			+ 0.04
-		).timeout
-	if continue_button != null and is_instance_valid(continue_button) and continue_button.is_inside_tree():
-		continue_button.set("disabled", false)
-		var button_tween := continue_button.create_tween()
-		button_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		button_tween.tween_property(continue_button, "modulate:a", 1.0, 0.12)
-		var button_grow := button_tween.parallel().tween_property(continue_button, "visual_scale", Vector2.ONE * 1.06, 0.12)
-		button_grow.set_trans(Tween.TRANS_BACK)
-		button_grow.set_ease(Tween.EASE_OUT)
-		var button_settle := button_tween.tween_property(continue_button, "visual_scale", Vector2.ONE, 0.16)
-		button_settle.set_trans(Tween.TRANS_BOUNCE)
-		button_settle.set_ease(Tween.EASE_OUT)
-		await button_tween.finished
-		if continue_button != null and is_instance_valid(continue_button):
-			continue_button.set("attention_bounce_enabled", true)
+		_start_single_player_reward_claim_animation_deferred(
+			coin_visual,
+			count_visual,
+			check_visual,
+			continue_button
+		)
+	else:
+		_reveal_single_player_reward_continue_button(continue_button)
 
 func _show_single_player_reward_chain_screen() -> void:
 	var level_index: int = int(last_result_data.get(
@@ -6334,10 +6409,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		# considered active as soon as the path reaches the reward on its right.
 		_stage_single_player_reward_chain_link(
 			chain_holder,
-			link_rect,
-			link_slot < current_slot,
-			accent_color,
-			header_color
+			link_rect
 		)
 
 	var current_reward_coin_visual: Control = null

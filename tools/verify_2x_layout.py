@@ -1297,7 +1297,7 @@ def verify_soft_currency_economy() -> None:
         "The clickable currency counter is missing its balance or store action",
     )
     require(
-        'const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(116.06, 21.68, 109.94, 38.64)' in portrait
+        'const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(105.066, 21.68, 120.934, 38.64)' in portrait
         and "const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42" in portrait
         and "const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0" in portrait
         and portrait.count("_stage_currency_counter(") >= 5
@@ -1333,8 +1333,8 @@ def verify_soft_currency_economy() -> None:
         and "COINS_EARNED,Монеты: +%d,Coins: +%d" in translations,
         "Soft-currency screen and reward copy are not localized",
     )
-    resource_block_width = 109.94 * 2.0 + 28.0
-    require(math.isclose(116.06 + resource_block_width * 0.5, 240.0), "Resource counters are not horizontally centered")
+    resource_block_width = 120.934 * 2.0 + 28.0
+    require(math.isclose(105.066 + resource_block_width * 0.5, 240.0), "Resource counters are not horizontally centered")
     require(21.68 + 38.64 < 80.0, "Resource counters overlap the title below them")
 
 

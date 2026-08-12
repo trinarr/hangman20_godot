@@ -219,14 +219,25 @@ func _close_coin_store() -> void:
 	else:
 		show_menu()
 
+func _grouped_counter_text(value: int) -> String:
+	var digits: String = str(maxi(value, 0))
+	var grouped_text: String = ""
+	for digit_index in range(digits.length()):
+		if digit_index > 0 and (digits.length() - digit_index) % 3 == 0:
+			# A narrow non-breaking space keeps the group compact and prevents the
+			# balance from wrapping between thousands.
+			grouped_text += "\u202f"
+		grouped_text += digits.substr(digit_index, 1)
+	return grouped_text
+
 func _soft_currency_balance_text(balance: int) -> String:
 	var resolved_balance: int = maxi(balance, 0)
-	if resolved_balance <= 99999:
-		return str(resolved_balance)
+	if resolved_balance <= 999999:
+		return _grouped_counter_text(resolved_balance)
 	var tenths_of_thousand: int = int(round(float(resolved_balance) / 100.0))
 	var whole_thousands: int = int(tenths_of_thousand / 10)
 	var decimal_digit: int = tenths_of_thousand % 10
-	var compact_text: String = str(whole_thousands)
+	var compact_text: String = _grouped_counter_text(whole_thousands)
 	if decimal_digit > 0:
 		compact_text += ".%d" % decimal_digit
 	return compact_text + ("к" if GameState.interface_language == "ru" else "k")
@@ -1398,6 +1409,10 @@ func _purchase_single_player_extra_attempt() -> void:
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST):
 		return
 	_remove_single_player_last_chance_popup()
+	# A reaction overlay from the previous wrong guess can still be playing under
+	# the modal. Remove it before the session signal refreshes the restored pose,
+	# otherwise the static hero remains hidden until that old animation finishes.
+	_clear_hero_animation_overlay()
 	GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
 
 func _decline_single_player_extra_attempt() -> void:
