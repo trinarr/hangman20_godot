@@ -15,15 +15,7 @@ const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/rewar
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 const PORTRAIT_HEADER_HEIGHT: float = 80.0
 const PORTRAIT_FOOTER_Y: float = 688.0
-const PORTRAIT_ADMOB_BANNER_HEIGHT: float = 50.0
-const PORTRAIT_ADMOB_BANNER_SIZE := Vector2(320.0, PORTRAIT_ADMOB_BANNER_HEIGHT)
-const PORTRAIT_ADMOB_BANNER_RECT := Rect2(
-	(PORTRAIT_STAGE_SIZE.x - PORTRAIT_ADMOB_BANNER_SIZE.x) * 0.5,
-	PORTRAIT_STAGE_SIZE.y - PORTRAIT_ADMOB_BANNER_HEIGHT,
-	PORTRAIT_ADMOB_BANNER_SIZE.x,
-	PORTRAIT_ADMOB_BANNER_SIZE.y
-)
-const PORTRAIT_GAME_KEYBOARD_BOTTOM_RESERVE: float = PORTRAIT_ADMOB_BANNER_HEIGHT
+const PORTRAIT_AD_BANNER_FALLBACK_HEIGHT: float = 50.0
 const PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT: float = 24.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
@@ -296,6 +288,7 @@ const PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE := Vector2(1.24, 1.24)
 const PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = 0.18
 const PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = 0.24
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
+const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]
@@ -385,7 +378,40 @@ var _single_player_theme_slot_final_selection: int = -1
 var _single_player_theme_reroll_level_index: int = -1
 var _single_player_theme_reroll_used: bool = false
 
+func _portrait_ads_service() -> Node:
+	return get_node_or_null("/root/YandexAdsService")
+
+func _portrait_ad_banner_height_stage() -> float:
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !ads_service.has_method("get_banner_dimension"):
+		return PORTRAIT_AD_BANNER_FALLBACK_HEIGHT
+	var banner_size_pixels: Vector2 = ads_service.call("get_banner_dimension")
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	if banner_size_pixels.y <= 0.0 or window_size.x <= 0:
+		return PORTRAIT_AD_BANNER_FALLBACK_HEIGHT
+	# The portrait stage is fitted to the full physical window width. Convert the
+	# native Android banner height back into authored 480-wide stage coordinates.
+	return maxf(
+		PORTRAIT_AD_BANNER_FALLBACK_HEIGHT,
+		banner_size_pixels.y * PORTRAIT_STAGE_SIZE.x / float(window_size.x)
+	)
+
+func _portrait_ad_banner_rect() -> Rect2:
+	var banner_height: float = _portrait_ad_banner_height_stage()
+	return Rect2(
+		0.0,
+		PORTRAIT_STAGE_SIZE.y - banner_height,
+		PORTRAIT_STAGE_SIZE.x,
+		banner_height
+	)
+
+func _hide_portrait_ad_banner() -> void:
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service != null and ads_service.has_method("hide_banner"):
+		ads_service.call("hide_banner")
+
 func _clear() -> void:
+	_hide_portrait_ad_banner()
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
 	var preserved_swipe_content: Control = null
@@ -2307,7 +2333,7 @@ func _show_menu_screen() -> void:
 	var button_x: float = 90.0
 	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
-	_stage_portrait_admob_banner_placeholder()
+	_stage_portrait_ad_banner()
 
 func show_settings() -> void:
 	_show_settings_popup()
@@ -2446,8 +2472,8 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		theme_button.disabled = disabled
 		_bind_theme_card_press_state(theme_button, card)
 
-	# The standalone Classic screen also owns the AdMob footer. Keep its difficulty
-	# action in the same verified gap between the last theme card and that footer;
+	# The standalone Classic screen keeps its difficulty action in the verified
+	# gap between the last theme card and the advertising area;
 	# the previous y=725 placement was covered by the banner and stopped receiving input.
 	var difficulty_rect: Rect2 = PORTRAIT_TASKS_DIFFICULTY_RECT
 	# Always bind the context explicitly. The texture button emits a zero-argument
@@ -3810,16 +3836,15 @@ func show_custom_word() -> void:
 		Callable(self, "_return_to_custom_word_from_coin_store")
 	)
 
-	# Attach both actions to the footer and apply the same 85% width treatment
-	# as the Start Game button. This keeps their visual and touch sizes equal.
+	# Keep the complete action stack above the advertising reserve. The group is
+	# still bottom-attached, so it follows the physical bottom on tall screens.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
-	custom_word_check_button = _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 22, false, 0.0)
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
-	_portrait_end_adaptive_group(custom_word_bottom_content)
+	custom_word_check_button = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 22, false, 0.0)
+	_stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
 
-	# Keep the primary action bottom-attached without drawing a blue footer.
+	# Keep the primary action above the banner without drawing a blue footer.
 	custom_word_start_button = _stage_main_button(
-		_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
+		_portrait_custom_word_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
 		Callable(self, "start_custom_game"),
 		_custom_word_start_label(),
 		_portrait_footer_font_size(22),
@@ -3830,7 +3855,16 @@ func show_custom_word() -> void:
 		!custom_word_text.is_empty(),
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_custom_word_field()
+	_stage_portrait_ad_banner()
+
+func _portrait_custom_word_button_rect(source_rect: Rect2) -> Rect2:
+	# Resolve the original footer sizing first, then raise the result. This keeps
+	# every button's existing dimensions while moving the whole stack together.
+	var raised_rect: Rect2 = _portrait_footer_long_button_rect(source_rect)
+	raised_rect.position.y -= PORTRAIT_CUSTOM_WORD_BUTTON_RISE
+	return raised_rect
 
 func _return_to_custom_word_from_coin_store() -> void:
 	_preserve_custom_word_on_next_show = true
@@ -3887,12 +3921,14 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var marker_size := Vector2(44.0, 44.0) * keyboard_scale
 	var keyboard_rows: int = int(ceil(float(alphabet.size()) / float(columns)))
 	var keyboard_height: float = key_size.y + float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
-	var keyboard_start_y: float = (PORTRAIT_FOOTER_Y - PORTRAIT_GAME_KEYBOARD_BOTTOM_RESERVE) - 24.0 - keyboard_height
+	var keyboard_start_y: float = (
+		PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage()
+	) - 24.0 - keyboard_height
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		keyboard_start_y += PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET
 	else:
 		# Keyboard, word and hints share one bottom-attached block. Move the whole
-		# block down together so the hint row sits closer to the AdMob reserve.
+		# block down together so the hint row sits closer to the banner reserve.
 		keyboard_start_y += PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
 	return {
 		"columns": columns,
@@ -4133,7 +4169,7 @@ func _refresh_game_screen() -> void:
 			DIFFICULTY_HARD_SELECTED_TINT
 		)
 	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
-	_stage_portrait_admob_banner_placeholder()
+	_stage_portrait_ad_banner()
 	_portrait_game_runtime_ready = true
 	call_deferred("_sync_portrait_attempts_attention_bounce")
 	pending_letter_markers.clear()
@@ -4507,15 +4543,25 @@ func _play_portrait_hint_spend_animation_if_needed(
 			used_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_animate_portrait_hint_counter_roll(hint_key, previous_count, current_count)
 
-func _stage_portrait_admob_banner_placeholder() -> void:
-	# Reserve a real 320×50 mobile-banner slot at the physical bottom. The named
-	# holder can later be used as the anchor/registration point for the AdMob view.
-	var banner_slot := _stage_holder(PORTRAIT_ADMOB_BANNER_RECT, Control.MOUSE_FILTER_IGNORE)
-	banner_slot.name = "AdMobBannerSlot"
-	banner_slot.add_to_group(&"admob_banner_slot")
+func _stage_portrait_ad_banner() -> void:
+	# Yandex renders a native Android view above Godot. The Godot holder reserves
+	# the same physical-bottom area and remains visible as a preview in the editor.
+	var banner_rect: Rect2 = _portrait_ad_banner_rect()
+	var banner_slot := _stage_holder(banner_rect, Control.MOUSE_FILTER_IGNORE)
+	banner_slot.name = "YandexAdsBannerSlot"
+	banner_slot.add_to_group(&"ad_banner_slot")
 	banner_slot.z_index = 30
+	var ads_service: Node = _portrait_ads_service()
+	var native_ads_available: bool = false
+	if ads_service != null:
+		if ads_service.has_method("is_native_available"):
+			native_ads_available = bool(ads_service.call("is_native_available"))
+		if ads_service.has_method("show_banner"):
+			ads_service.call("show_banner")
+	if native_ads_available:
+		return
 	var banner_panel := _stage_panel(
-		PORTRAIT_ADMOB_BANNER_RECT,
+		banner_rect,
 		Color(0.97, 0.97, 0.98, 1.0),
 		0.0,
 		Color(0.72, 0.75, 0.82, 1.0),
@@ -4523,8 +4569,8 @@ func _stage_portrait_admob_banner_placeholder() -> void:
 	)
 	banner_panel.z_index = 30
 	var banner_label := _stage_label(
-		PORTRAIT_ADMOB_BANNER_RECT,
-		"ADMOB 320×50",
+		banner_rect,
+		"YANDEX ADS • ADAPTIVE STICKY",
 		12,
 		Color(0.43, 0.46, 0.54, 1.0),
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -4910,7 +4956,7 @@ func _portrait_game_hint_y() -> float:
 func _portrait_in_place_result_button_rect() -> Rect2:
 	var button_y: float = minf(
 		_portrait_game_hint_y(),
-		PORTRAIT_ADMOB_BANNER_RECT.position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
+		_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
 	)
 	return Rect2(
 		Vector2(
@@ -6650,7 +6696,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_subtitle.z_index = 1
 	title_visual.add_child(reward_subtitle)
 
-	_stage_portrait_admob_banner_placeholder()
+	_stage_portrait_ad_banner()
 
 	# Keep the persistent HUD and the celebratory title visible independently.
 	# Reward content itself is revealed only after the title finishes its first
