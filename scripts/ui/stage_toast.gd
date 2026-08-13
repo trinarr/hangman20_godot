@@ -5,18 +5,16 @@ const TOAST_HEIGHT: float = 40.0
 const TOAST_PARENT_GAP: float = 8.0
 const TOAST_HORIZONTAL_PADDING: float = 10.0
 const TOAST_ICON_TEXT_GAP: float = 5.0
-const TOAST_ICON_FONT_SIZE: int = 26
 const TOAST_TEXT_FONT_SIZE: int = 18
 const TOAST_ENTER_OFFSET: float = 8.0
 const TOAST_ENTER_DURATION: float = 0.16
 const TOAST_HOLD_DURATION: float = 1.65
 const TOAST_EXIT_DURATION: float = 0.22
 const TOAST_BACKGROUND := Color(0.2314, 0.2627, 0.5176, 0.96)
-const TOAST_SUCCESS := Color(0.24, 0.82, 0.43, 1.0)
-const TOAST_FAILURE := Color(0.96, 0.28, 0.30, 1.0)
+const STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 
 var _available_width: float = 0.0
-var _status_icon: Label = null
+var _status_icon: Control = null
 var _message_label: Label = null
 var _toast_tween: Tween = null
 
@@ -39,11 +37,7 @@ func show_message(message: String, is_success: bool) -> void:
 		hide_message()
 		return
 	_ensure_content()
-	_status_icon.text = "✓" if is_success else "×"
-	_status_icon.add_theme_color_override(
-		"font_color",
-		TOAST_SUCCESS if is_success else TOAST_FAILURE
-	)
+	_status_icon.call("configure", is_success, 4.5)
 	_message_label.text = message
 	_layout_message()
 	if _toast_tween != null and _toast_tween.is_valid():
@@ -94,12 +88,9 @@ func _exit_tree() -> void:
 func _ensure_content() -> void:
 	if _status_icon != null and is_instance_valid(_status_icon):
 		return
-	_status_icon = Label.new()
+	_status_icon = STATUS_ICON_SCRIPT.new() as Control
 	_status_icon.name = "StatusIcon"
 	_status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_status_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_status_icon.add_theme_font_size_override("font_size", TOAST_ICON_FONT_SIZE)
 	add_child(_status_icon)
 
 	_message_label = Label.new()
@@ -117,14 +108,8 @@ func _ensure_content() -> void:
 func _layout_message() -> void:
 	if _status_icon == null or !is_instance_valid(_status_icon):
 		return
-	var icon_font: Font = _status_icon.get_theme_font("font")
+	var icon_width: float = 24.0
 	var message_font: Font = _message_label.get_theme_font("font")
-	var icon_width: float = ceilf(icon_font.get_string_size(
-		_status_icon.text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		TOAST_ICON_FONT_SIZE
-	).x)
 	var measured_message_width: float = ceilf(message_font.get_string_size(
 		_message_label.text,
 		HORIZONTAL_ALIGNMENT_LEFT,
@@ -150,8 +135,11 @@ func _layout_message() -> void:
 		(_available_width - toast_width) * 0.5,
 		-TOAST_HEIGHT - TOAST_PARENT_GAP
 	)
-	_status_icon.position = Vector2(TOAST_HORIZONTAL_PADDING, 0.0)
-	_status_icon.size = Vector2(icon_width, TOAST_HEIGHT)
+	_status_icon.position = Vector2(
+		TOAST_HORIZONTAL_PADDING,
+		(TOAST_HEIGHT - icon_width) * 0.5
+	)
+	_status_icon.size = Vector2(icon_width, icon_width)
 	_message_label.position = Vector2(
 		TOAST_HORIZONTAL_PADDING + icon_width + TOAST_ICON_TEXT_GAP,
 		0.0

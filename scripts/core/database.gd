@@ -7,6 +7,20 @@ var hints: Array = []
 var current_language: String = "ru"
 var interface_language: String = "ru"
 
+# Normalized word lists are immutable after loading. Cache them per category and
+# difficulty so screen rebuilds do not repeatedly normalize the whole database.
+var _themes_cache: Array = []
+var _themes_cache_ready: bool = false
+var _words_by_index_cache: Dictionary = {}
+var _alphabet_cache := PackedStringArray()
+# Parsed source files are immutable during a run. Keeping both language payloads
+# avoids reparsing several hundred kilobytes of JSON whenever the player toggles
+# the word database in Settings.
+var _json_cache: Dictionary = {}
+var _loaded_word_language: String = ""
+
+const DIFFICULTY_SPLIT: float = 0.5
+
 const WORD_FILES := {
 	"ru": "res://data/words_ru.json",
 	"en": "res://data/words_en.json"
@@ -15,23 +29,19 @@ const WORD_FILES := {
 const TRANSLATION_KEYS := [
 	"GAME_TITLE",
 	"MENU_CLASSIC",
-	"MENU_TIME_ATTACK",
 	"MENU_TWO_PLAYER",
 	"COMMON_CONTINUE",
 	"SETTINGS_TITLE",
 	"COMMON_EXIT",
 	"NEW_GAME",
-	"TIME_ATTACK_MODE",
 	"CHARACTER_SELECT_TITLE",
 	"RESTART",
 	"MUSIC_LABEL",
 	"UNUSED_12",
 	"ABOUT_TITLE",
-	"TIME_ATTACK_DESCRIPTION",
 	"WORD_DATABASE_LABEL",
 	"GIVE_UP",
 	"START",
-	"RECORD_LABEL",
 	"RECORDS_TITLE",
 	"RECORD_EASY_STREAK",
 	"RECORD_HARD_STREAK",
@@ -57,16 +67,12 @@ const TRANSLATION_KEYS := [
 	"INPUT_WORD",
 	"VICTORIES",
 	"DEFEATS",
-	"SCORE",
-	"VICTORIES_PER_GAME",
 	"NO_CATEGORY",
 	"COMMENT",
 	"CATEGORY_LABEL",
 	"WIN_MESSAGE",
 	"LOSE_MESSAGE",
-	"TIME_UP",
 	"CHANGE_CATEGORY",
-	"FINISH_GAME",
 	"EDGE_LETTERS",
 	"EASY_WORDS",
 	"HARD_WORDS",
@@ -91,7 +97,6 @@ const TRANSLATION_KEYS := [
 	"CHARACTER_LUCKY",
 	"CHARACTER_EL_TIGRE",
 	"WELCOME_BACK",
-	"CONTINUE_TIME_ATTACK",
 	"NO_UNFINISHED_GAMES",
 	"LANGUAGE_RU_SHORT",
 	"LANGUAGE_EN_SHORT",
@@ -108,20 +113,22 @@ const HINT_FILES := {
 	"en": "res://data/hints_en.json"
 }
 
-func _ready() -> void:
-	load_languages(interface_language, current_language)
-
 func load_languages(interface_lang: String, word_lang: String) -> void:
 	interface_language = _normalize_language(interface_lang)
 	current_language = _normalize_language(word_lang)
 	TranslationServer.set_locale(interface_language)
-	_load_words()
-	_load_hints()
+	_ensure_word_language_loaded()
 
 func load_word_language(word_lang: String) -> void:
 	current_language = _normalize_language(word_lang)
+	_ensure_word_language_loaded()
+
+func _ensure_word_language_loaded() -> void:
+	if _loaded_word_language == current_language:
+		return
 	_load_words()
 	_load_hints()
+	_loaded_word_language = current_language
 
 func _normalize_language(lang: String) -> String:
 	var normalized := lang.to_lower()
@@ -130,6 +137,8 @@ func _normalize_language(lang: String) -> String:
 	return "en"
 
 func _load_json(path: String) -> Variant:
+	if _json_cache.has(path):
+		return _json_cache[path]
 	if !FileAccess.file_exists(path):
 		push_error("File not found: " + path)
 		return null
@@ -149,17 +158,28 @@ func _load_json(path: String) -> Variant:
 	var result = JSON.parse_string(text)
 	if result == null:
 		push_error("JSON parse error: " + path)
+	else:
+		_json_cache[path] = result
 	return result
 
 func _load_words() -> void:
+	_invalidate_word_runtime_cache()
 	var result = _load_json(WORD_FILES[current_language])
 	if result is Dictionary:
 		data = result
 	else:
 		data = {}
 
+func _invalidate_word_runtime_cache() -> void:
+	_themes_cache.clear()
+	_themes_cache_ready = false
+	_words_by_index_cache.clear()
+	_alphabet_cache.clear()
+
 func _load_hints() -> void:
-	hints.clear()
+	# Do not clear the previous array in place: it may be the array retained by
+	# the parsed JSON cache for another language.
+	hints = []
 	var result = _load_json(HINT_FILES[current_language])
 	if result is Dictionary and result.has("themes") and result["themes"] is Array:
 		hints = result["themes"]
@@ -173,52 +193,53 @@ func tr_text(index: int, fallback: String = "") -> String:
 		return fallback
 	return translated
 
-func tr_key(key: StringName, fallback: String = "") -> String:
-	var translated: String = str(TranslationServer.translate(key))
-	if translated == "" or translated == str(key):
-		return fallback
-	return translated
-
 func get_alphabet() -> PackedStringArray:
-	var result := PackedStringArray()
+	if !_alphabet_cache.is_empty():
+		return _alphabet_cache
 	var alphabet := str(data.get("alphabet", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
 	for i in range(alphabet.length()):
-		result.append(alphabet.substr(i, 1))
-	return result
+		_alphabet_cache.append(alphabet.substr(i, 1))
+	return _alphabet_cache
 
 func get_theme_count() -> int:
 	return get_themes().size()
 
 func get_themes() -> Array:
+	if _themes_cache_ready:
+		return _themes_cache
+
 	var result: Array = []
 
 	# Russian file shape: { "words": { "THEME": [ ... ] } }
 	if data.has("words") and data["words"] is Dictionary:
 		for theme_name in data["words"].keys():
 			result.append(str(theme_name))
-		return result
-
 	# English file shape: { "themes": [ { "type": "SPORT", "words": [...] } ] }
-	if data.has("themes") and data["themes"] is Array:
+	elif data.has("themes") and data["themes"] is Array:
 		for item in data["themes"]:
 			if item is Dictionary:
 				result.append(str(item.get("type", "Theme " + str(result.size() + 1))))
-		return result
-
 	# Legacy/old shape support: { "themes": { "THEME": { "words": [...] } } }
-	if data.has("themes") and data["themes"] is Dictionary:
+	elif data.has("themes") and data["themes"] is Dictionary:
 		for theme_name in data["themes"].keys():
 			result.append(str(theme_name))
 
-	return result
+	_themes_cache = result
+	_themes_cache_ready = true
+	return _themes_cache
 
 func get_theme_name(theme_index: int) -> String:
 	var themes := get_themes()
 	if theme_index >= 0 and theme_index < themes.size():
 		return str(themes[theme_index])
-	return tr_text(46, "No category")
+	return tr_text(40, "No category")
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
+	var cache_key := "%d:%d" % [theme_index, difficulty_filter]
+	var cached_words: Variant = _words_by_index_cache.get(cache_key)
+	if cached_words is Array:
+		return cached_words
+
 	var theme_name := get_theme_name(theme_index)
 	var words: Array = []
 
@@ -238,15 +259,16 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 		var word := normalize_loaded_word(str(words[i]))
 		if word == "" or word == "_":
 			continue
+		var diff: float = get_word_difficulty(theme_index, i)
 		if difficulty_filter != 0:
-			var diff := get_word_difficulty(theme_index, i)
 			# AS3 Settings[2]: 0 = all/general, 1 = hard only, 2 = easy only.
-			# Difficulty XML uses 0 = easy/simple, 1 = hard.
-			if difficulty_filter == 1 and diff != 1:
+			# Scores up to and including 0.5 are easy; scores above 0.5 are hard.
+			if difficulty_filter == 1 and diff <= DIFFICULTY_SPLIT:
 				continue
-			if difficulty_filter == 2 and diff != 0:
+			if difficulty_filter == 2 and diff > DIFFICULTY_SPLIT:
 				continue
-		filtered.append({"text": word, "index": i, "difficulty": get_word_difficulty(theme_index, i)})
+		filtered.append({"text": word, "index": i, "difficulty": diff})
+	_words_by_index_cache[cache_key] = filtered
 	return filtered
 
 func normalize_loaded_word(word: String) -> String:
@@ -255,18 +277,27 @@ func normalize_loaded_word(word: String) -> String:
 	result = result.replace("Ё", "Е")
 	return result
 
-func get_word_difficulty(theme_index: int, word_index: int) -> int:
+func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	var theme_name := get_theme_name(theme_index)
 	var difficulty_data = data.get("difficulty", {})
+	var theme_difficulty: Variant = null
 	if difficulty_data is Dictionary:
-		var diff_str := str(difficulty_data.get(theme_name, ""))
-		if word_index >= 0 and word_index < diff_str.length():
-			return int(diff_str.substr(word_index, 1))
+		theme_difficulty = difficulty_data.get(theme_name, [])
 	elif difficulty_data is Array and theme_index >= 0 and theme_index < difficulty_data.size():
-		var diff_text := str(difficulty_data[theme_index])
-		if word_index >= 0 and word_index < diff_text.length():
-			return int(diff_text.substr(word_index, 1))
-	return 0
+		theme_difficulty = difficulty_data[theme_index]
+
+	if theme_difficulty == null:
+		return 0.0
+	if theme_difficulty is Array:
+		var scores: Array = theme_difficulty
+		if word_index >= 0 and word_index < scores.size():
+			return clampf(float(scores[word_index]), 0.0, 1.0)
+	else:
+		# Backward compatibility for old databases containing strings of 0/1.
+		var legacy_values := str(theme_difficulty)
+		if word_index >= 0 and word_index < legacy_values.length():
+			return clampf(float(legacy_values.substr(word_index, 1)), 0.0, 1.0)
+	return 0.0
 
 func get_hint(theme_index: int, word_index: int) -> String:
 	if theme_index < 0 or word_index < 0:

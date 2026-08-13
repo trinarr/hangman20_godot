@@ -3,8 +3,12 @@ extends Control
 
 signal pressed
 
-const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
+
+var use_stage_layout: bool = true:
+	set(value):
+		use_stage_layout = value
+		_sync_to_stage()
 
 var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):
 	set(value):
@@ -44,7 +48,7 @@ var disabled: bool = false:
 # Long and round button components enable this behavior. Other texture buttons
 # keep their previous interaction and size.
 var press_scale_enabled: bool = false
-var pressed_scale: Vector2 = Vector2(0.9, 0.9)
+var pressed_scale: Vector2 = Vector2(0.94, 0.94)
 var press_scale_duration: float = 0.055
 var release_scale_duration: float = 0.085
 
@@ -64,7 +68,7 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_NONE
 	if !resized.is_connected(_sync_visual_child_scales):
 		resized.connect(_sync_visual_child_scales)
-	if !get_viewport().size_changed.is_connected(_sync_to_stage):
+	if use_stage_layout and !get_viewport().size_changed.is_connected(_sync_to_stage):
 		get_viewport().size_changed.connect(_sync_to_stage)
 	_sync_to_stage()
 
@@ -135,6 +139,14 @@ func _set_press_scale(is_pressed: bool, animated: bool = true) -> void:
 
 func _sync_to_stage() -> void:
 	if !is_inside_tree():
+		return
+	if !use_stage_layout:
+		position = stage_rect.position
+		scale = Vector2.ONE
+		size = stage_rect.size
+		custom_minimum_size = size
+		_sync_visual_child_scales()
+		queue_redraw()
 		return
 	var viewport_size: Vector2 = get_viewport_rect().size
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:

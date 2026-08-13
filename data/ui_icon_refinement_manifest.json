@@ -7,17 +7,6 @@
   "minimum_silhouette_iou": 0.988,
   "files": [
     {
-      "path": "flash_assets/_____________________png.png",
-      "size": [
-        34,
-        36
-      ],
-      "source_sha256": "0af39cf22f45c5c044d85b3ccf8c5e1e1acfd9979412c24be7c88c54179e3f7f",
-      "target_sha256": "2b0afd748c5fc9f9e09c02ebb4dc60a79bd0e5de2b8ae2901b606f4adb836368",
-      "silhouette_iou": 0.98873,
-      "mean_absolute_change": 0.008693
-    },
-    {
       "path": "flash_assets/about_mail_icon_86.png",
       "size": [
         44,
@@ -40,17 +29,6 @@
       "mean_absolute_change": 0.012801
     },
     {
-      "path": "flash_assets/custom_word_random_icon.png",
-      "size": [
-        50,
-        42
-      ],
-      "source_sha256": "19f9718b899f259d8efddbea7c6ab4b2d1b6b1b228f65f83d9d5a5d16e215149",
-      "target_sha256": "ee95944998b32107944a1d2122bee102427f37d08d0f19e9ac29f70afcff5e69",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.00996
-    },
-    {
       "path": "flash_assets/custom_word_refresh_icon_341.png",
       "size": [
         42,
@@ -60,50 +38,6 @@
       "target_sha256": "ebb4ea69d8bb474f380465695108210fa551a3aed41a0c35d3fd27355a3f00fb",
       "silhouette_iou": 0.998858,
       "mean_absolute_change": 0.012526
-    },
-    {
-      "path": "flash_assets/difficulty_stars_1.png",
-      "size": [
-        42,
-        40
-      ],
-      "source_sha256": "af71b3fda82e014c18b0aea666a3f827a860f03e67136f3c12cc14ada8b7d709",
-      "target_sha256": "f6c52e2f1da26405fe730886a0aeae88229729b74d062d7350bad53b3386abd5",
-      "silhouette_iou": 0.997579,
-      "mean_absolute_change": 0.008065
-    },
-    {
-      "path": "flash_assets/difficulty_stars_2.png",
-      "size": [
-        56,
-        26
-      ],
-      "source_sha256": "deec4c4ea5871fe900f76710d5577bd4465b60c8497806df32ae1a8c8fe789a4",
-      "target_sha256": "ccdfc1b753ed33a8a01ddab489f387d566f64ef5f84ef58f15ea353e185e4736",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.01392
-    },
-    {
-      "path": "flash_assets/difficulty_stars_3.png",
-      "size": [
-        58,
-        48
-      ],
-      "source_sha256": "e27271e477b2b512e5e552a0e9bbba264d0d7e7652a159e1703e8bc02f1cfa75",
-      "target_sha256": "8316f51a2f0ea46cb20c9f35c775ab150a970ed40e71e41e3265f6c3cc368f0c",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.009728
-    },
-    {
-      "path": "flash_assets/main_menu_hollow_star_icon.png",
-      "size": [
-        44,
-        42
-      ],
-      "source_sha256": "cbbaa1f78ee5d25cb6ce4ab48d71773aa82cf7e603f6a5fa7ebab22fd95e2cb9",
-      "target_sha256": "dc38d6952aec79cc49366ecc9803888b0e6381b3dec7ede25c970307fb4dd53f",
-      "silhouette_iou": 0.996283,
-      "mean_absolute_change": 0.011875
     },
     {
       "path": "flash_assets/portrait_back_arrow_icon.png",
@@ -117,28 +51,6 @@
       "mean_absolute_change": 0.018265
     },
     {
-      "path": "flash_assets/records_crown_icon.png",
-      "size": [
-        48,
-        40
-      ],
-      "source_sha256": "b2fd87599a4b284fed039b5ab27b54788b15f0230f9917acdd2ad54900961730",
-      "target_sha256": "dac786bc490c56f9e26184a34caec5b8d1ec68f17f855ffe04bfdb442ba5e4ad",
-      "silhouette_iou": 0.999143,
-      "mean_absolute_change": 0.010114
-    },
-    {
-      "path": "flash_assets/result_close_icon_43.png",
-      "size": [
-        36,
-        36
-      ],
-      "source_sha256": "12210f86eaf377a7ffa390524ef14fd2a2daad05b845a961121b30905ef3e5bf",
-      "target_sha256": "f66822dfb67da0d3692a0d1f65c919119d1976df5493ca432d65802fc9eb1fd1",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.027442
-    },
-    {
       "path": "flash_assets/result_search_icon_343.png",
       "size": [
         36,
@@ -148,61 +60,6 @@
       "target_sha256": "e6dc56a14aa019f98a80c757505fed9919d8ecafc587b756f3d1bdd2fe6f7d21",
       "silhouette_iou": 1.0,
       "mean_absolute_change": 0.013537
-    },
-    {
-      "path": "flash_assets/result_theme_menu_icon.png",
-      "size": [
-        36,
-        34
-      ],
-      "source_sha256": "be73eb460013f421efde89ccded86746f31a6bbbbf94a7ea933c07e469560d6e",
-      "target_sha256": "328bceed7d87864d92bb1b2a4108a6463ab13663fdc9b66b386487e14495e326",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.013601
-    },
-    {
-      "path": "flash_assets/time_attack_hourglass_38x46.png",
-      "size": [
-        76,
-        92
-      ],
-      "source_sha256": "5c8b97112f9c8b15c78f02cac380f3bf979318c20350fd27770c493ad1824bf5",
-      "target_sha256": "ae4a2667dd3d01acbabcf6f8ab8a8a1937aa0c374de070b11c2367fe52b5598c",
-      "silhouette_iou": 0.99972,
-      "mean_absolute_change": 0.008093
-    },
-    {
-      "path": "flash_assets/time_attack_timer_icon.png",
-      "size": [
-        48,
-        48
-      ],
-      "source_sha256": "ddbfd45961ea872916b9cc666a6d76591c31df127129fdb23e778c183ad9e3dd",
-      "target_sha256": "f461c391b54fdc970a9102304ea3dee07bfd2150df1c112c901c84aa92264fb4",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.017819
-    },
-    {
-      "path": "flash_assets/user_hint_check_circle_uploaded.png",
-      "size": [
-        50,
-        50
-      ],
-      "source_sha256": "0de7364eb924b9ba48cadb7822b7694acca5471d314f6d4c99c68d42b9d7519a",
-      "target_sha256": "8f331b53a7df9f61505add9de0cd5181176054f4a863692e1bb499cf008b03a8",
-      "silhouette_iou": 1.0,
-      "mean_absolute_change": 0.013113
-    },
-    {
-      "path": "flash_assets/user_hint_cross_circle_uploaded.png",
-      "size": [
-        50,
-        50
-      ],
-      "source_sha256": "6dff2957f39533262efc95029cbe09109af34ec3961854581e2036c0099aecf3",
-      "target_sha256": "4edbc748d99686f0e0359d281eca87d5f08e4eaca83a748dd22afdad545a60f1",
-      "silhouette_iou": 0.994253,
-      "mean_absolute_change": 0.019584
     }
   ]
 }

@@ -28,24 +28,11 @@ CHANGE_THRESHOLD = 0.015
 MIN_SILHOUETTE_IOU = 0.988
 
 ICON_NAMES = (
-    "_____________________png.png",
     "about_mail_icon_86.png",
     "about_vk_icon_87.png",
-    "custom_word_random_icon.png",
     "custom_word_refresh_icon_341.png",
-    "difficulty_stars_1.png",
-    "difficulty_stars_2.png",
-    "difficulty_stars_3.png",
-    "main_menu_hollow_star_icon.png",
     "portrait_back_arrow_icon.png",
-    "records_crown_icon.png",
-    "result_close_icon_43.png",
     "result_search_icon_343.png",
-    "result_theme_menu_icon.png",
-    "time_attack_hourglass_38x46.png",
-    "time_attack_timer_icon.png",
-    "user_hint_check_circle_uploaded.png",
-    "user_hint_cross_circle_uploaded.png",
 )
 
 

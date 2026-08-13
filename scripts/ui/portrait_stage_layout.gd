@@ -66,7 +66,13 @@ static func is_inside_centered_popup(node: Node) -> bool:
 static func is_inside_bottom_attached_group(node: Node) -> bool:
 	var current: Node = node.get_parent()
 	while current != null:
-		if current.name == &"PortraitBottomAttached":
+		# Metadata is the authoritative marker. Duplicate sibling names are not
+		# stable in Godot: add_child() may assign an internal @Control@... name,
+		# so name-based detection alone can silently fail for the second group.
+		if current.has_meta("portrait_bottom_attached") and bool(current.get_meta("portrait_bottom_attached")):
+			return true
+		# Keep the old readable-name check for older/pre-existing containers.
+		if String(current.name).begins_with("PortraitBottomAttached"):
 			return true
 		current = current.get_parent()
 	return false

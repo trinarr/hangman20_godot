@@ -4,7 +4,9 @@ extends "res://scripts/ui/flash_stage_control.gd"
 signal input_submitted(value: String)
 
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
+const WORD_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 
+const STAGE_SIZE := Vector2(480.0, 800.0)
 const EMPTY_PREVIEW_SLOTS: int = 5
 const BASE_SLOT_WIDTH: float = 38.0
 const BASE_SPACE_WIDTH: float = 18.0
@@ -16,13 +18,19 @@ const MIN_FONT_SIZE: int = 18
 const MIN_RENDER_FONT_SIZE: int = 24
 const MIN_GAMEPLAY_FONT_SCALE: float = 0.82
 const KEYBOARD_SAFE_MARGIN_STAGE: float = 24.0
+# Match the exact gameplay reveal bounce used when a correct guessed letter
+# appears on the word strip.
+const WORD_BOUNCE_START_SCALE := Vector2(0.58, 0.58)
+const WORD_BOUNCE_PEAK_SCALE := Vector2(1.24, 1.24)
+const WORD_BOUNCE_GROW_DURATION: float = 0.18
+const WORD_BOUNCE_SETTLE_DURATION: float = 0.24
 
 var max_input_length: int = 15
 var input_font_size: int = 34
 var avoid_virtual_keyboard: bool = false:
 	set(value):
 		avoid_virtual_keyboard = value
-		set_process(avoid_virtual_keyboard)
+		set_process(avoid_virtual_keyboard and _has_input_focus)
 var text_color: Color = Color(0.2706, 0.3098, 0.6078, 1.0):
 	set(value):
 		text_color = value
@@ -36,6 +44,7 @@ var _line_edit: LineEdit = null
 var _visual_root: Control = null
 var _has_input_focus: bool = false
 var _validation_toast: Control = null
+var _word_bounce_tweens: Array[Tween] = []
 
 func configure(initial_text: String, maximum_length: int = 15, font_size: int = 34) -> void:
 	max_input_length = maxi(maximum_length, 1)
@@ -50,16 +59,55 @@ func get_line_edit() -> LineEdit:
 	_ensure_nodes()
 	return _line_edit
 
-func focus_input() -> void:
-	if _line_edit == null or !is_instance_valid(_line_edit):
-		return
-	_line_edit.grab_focus()
-	_line_edit.edit()
-	_move_caret_to_end()
-
 func refresh_display() -> void:
 	_move_caret_to_end()
 	_rebuild_visuals()
+
+func play_word_bounce() -> void:
+	_play_letter_bounce_from_slot(0)
+
+func play_new_letter_bounce(first_slot_index: int) -> void:
+	_play_letter_bounce_from_slot(maxi(first_slot_index, 0))
+
+func _play_letter_bounce_from_slot(first_slot_index: int) -> void:
+	if _visual_root == null or !is_instance_valid(_visual_root) or !is_inside_tree():
+		return
+	for bounce_tween: Tween in _word_bounce_tweens:
+		if bounce_tween != null and bounce_tween.is_valid():
+			bounce_tween.kill()
+	_word_bounce_tweens.clear()
+
+	# Use the same scale envelope as a newly revealed gameplay letter. Only glyph
+	# Labels participate; the orange answer slots are separate ColorRects and stay
+	# completely fixed.
+	for child: Node in _visual_root.get_children():
+		var label := child as Label
+		if label == null or label.text.is_empty() or label.text == "-" or label.text == "—":
+			continue
+		var slot_index: int = int(label.get_meta(&"word_slot_index", -1))
+		if slot_index < first_slot_index:
+			continue
+		label.pivot_offset = label.size * 0.5
+		label.scale = WORD_BOUNCE_START_SCALE
+		var bounce_tween := label.create_tween()
+		bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var grow_tweener: PropertyTweener = bounce_tween.tween_property(
+			label,
+			"scale",
+			WORD_BOUNCE_PEAK_SCALE,
+			WORD_BOUNCE_GROW_DURATION
+		)
+		grow_tweener.set_trans(Tween.TRANS_QUAD)
+		grow_tweener.set_ease(Tween.EASE_OUT)
+		var settle_tweener: PropertyTweener = bounce_tween.tween_property(
+			label,
+			"scale",
+			Vector2.ONE,
+			WORD_BOUNCE_SETTLE_DURATION
+		)
+		settle_tweener.set_trans(Tween.TRANS_BACK)
+		settle_tweener.set_ease(Tween.EASE_OUT)
+		_word_bounce_tweens.append(bounce_tween)
 
 func show_validation_toast(message_key: StringName, is_success: bool) -> void:
 	_ensure_nodes()
@@ -74,12 +122,18 @@ func _ready() -> void:
 	if !resized.is_connected(_rebuild_visuals):
 		resized.connect(_rebuild_visuals)
 	super._ready()
-	set_process(avoid_virtual_keyboard)
+	set_process(avoid_virtual_keyboard and _has_input_focus)
 	_rebuild_visuals()
 
+func _exit_tree() -> void:
+	for bounce_tween: Tween in _word_bounce_tweens:
+		if bounce_tween != null and bounce_tween.is_valid():
+			bounce_tween.kill()
+	_word_bounce_tweens.clear()
+	super._exit_tree()
+
 func _process(_delta: float) -> void:
-	if avoid_virtual_keyboard:
-		_sync_to_stage()
+	_sync_to_stage()
 
 func _sync_to_stage() -> void:
 	super._sync_to_stage()
@@ -137,6 +191,7 @@ func _ensure_nodes() -> void:
 	_line_edit.virtual_keyboard_show_on_focus = true
 	_line_edit.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_DEFAULT
 	_line_edit.mouse_default_cursor_shape = Control.CURSOR_IBEAM
+	_line_edit.add_theme_font_override("font", WORD_FONT)
 	_line_edit.add_theme_font_size_override("font_size", input_font_size)
 	_line_edit.add_theme_color_override("font_color", Color.TRANSPARENT)
 	_line_edit.add_theme_color_override("font_selected_color", Color.TRANSPARENT)
@@ -175,11 +230,13 @@ func _on_line_edit_text_submitted(value: String) -> void:
 
 func _on_focus_entered() -> void:
 	_has_input_focus = true
+	set_process(avoid_virtual_keyboard)
 	_move_caret_to_end()
 	_rebuild_visuals()
 
 func _on_focus_exited() -> void:
 	_has_input_focus = false
+	set_process(false)
 	_rebuild_visuals()
 
 func _on_line_edit_gui_input(event: InputEvent) -> void:
@@ -264,8 +321,10 @@ func _rebuild_visuals() -> void:
 			# The gameplay field allows wide glyphs to slightly overhang their slot.
 			# The visual root still clips the complete row to the screen-safe rect.
 			label.clip_text = false
+			label.add_theme_font_override("font", WORD_FONT)
 			label.add_theme_font_size_override("font_size", resolved_font_size)
 			label.add_theme_color_override("font_color", text_color)
+			label.set_meta(&"word_slot_index", slot_index)
 			_visual_root.add_child(label)
 		x += slot_width
 		if slot_index < slots.size() - 1:

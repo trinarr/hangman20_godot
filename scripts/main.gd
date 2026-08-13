@@ -1,12 +1,5 @@
 extends Node2D
 
-const MENU_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
-const ROUND_BUTTON_SIZE: Vector2 = Vector2(62.0, 62.0)
-const HEADER_ACTION_BUTTON_RECT: Rect2 = Rect2(639.0, 12.0, 62.0, 62.0)
-const HEADER_CLOSE_BUTTON_RECT: Rect2 = Rect2(716.0, 12.0, 62.0, 62.0)
-const COMMENT_BUTTON_SIZE: Vector2 = Vector2(212.0, 49.0)
-const KEY_BUTTON_SIZE: Vector2 = Vector2(51.0, 47.0)
-const ART_SOURCE_SCALE: float = 2.0
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
 const HERO_NESTED_FRAME_SAMPLE_OFFSET: float = 0.5 / 24.0
@@ -16,23 +9,41 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 5.0 / 24.0 + HERO_NESTED_FRAME
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 9.0 / 24.0 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 40.0 / 24.0
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 12.0 / 24.0
-const LETTER_MARKER_REVEAL_DURATION: float = 0.2
 const RANDOM_CUSTOM_WORD_MAX_LENGTH: int = 7
 const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
 const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
 const CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = 35
 const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
+const CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = 0.4
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := Color(0.23, 0.26, 0.52, 1.0)
-const CUSTOM_WORD_CHECKING_BUTTON_ALPHA: float = 0.55
 const SOUND_SETTING_INDEX: int = 3
 const THEME_CARD_PRESSED_MODULATE := Color(0.72, 0.72, 0.72, 1.0)
 const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
+const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
+const SINGLE_PLAYER_THEME_REFRESH_COST: int = 25
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2
+const HEART_REFILL_COST: int = 100
+const SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = 0.06
+const SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = 0.05
+const SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = 0.12
+const SINGLE_PLAYER_WORD_PICK_JITTER: float = 0.012
+const DIFFICULTY_MODE_HARD: int = 1
+const DIFFICULTY_MODE_NORMAL: int = 2
+const DIFFICULTY_HARD_NORMAL_TINT := Color("#D866FE")
+const DIFFICULTY_HARD_PRESSED_TINT := Color("#B44AD9")
+const DIFFICULTY_HARD_SELECTED_TINT := Color("#9638B9")
+const DIFFICULTY_HARD_OUTLINE_COLOR := Color("#68267A")
 const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
+const LONG_BUTTON_COLOR_ORANGE: int = 0
+const LONG_BUTTON_COLOR_GREEN: int = 1
+const LONG_BUTTON_COLOR_BLUE: int = 2
+const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
@@ -41,28 +52,18 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
+const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
+const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
+const UI_HEADING_FONT_SCALE: float = 1.12
 
-const ROUND_BUTTON_RECORDS_ICON: Texture2D = preload("res://flash_assets/_____________________png.png")
-const DIFFICULTY_STARS_1_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_1.png")
-const DIFFICULTY_STARS_2_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_2.png")
-const DIFFICULTY_STARS_3_TEXTURE: Texture2D = preload("res://flash_assets/difficulty_stars_3.png")
-const TIME_ATTACK_BADGE_OUTER_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_badge_outer_133x133.png")
-const TIME_ATTACK_HOURGLASS_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_hourglass_38x46.png")
-const TIME_ATTACK_TIMER_ICON_TEXTURE: Texture2D = preload("res://flash_assets/time_attack_timer_icon.png")
-const ROUND_BUTTON_CROWN_ICON: Texture2D = preload("res://flash_assets/records_crown_icon.png")
-const MAIN_MENU_HOLLOW_STAR_ICON: Texture2D = preload("res://flash_assets/main_menu_hollow_star_icon.png")
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
-const RESULT_CLOSE_ICON: Texture2D = preload("res://flash_assets/result_close_icon_43.png")
-const CUSTOM_WORD_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
-const CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_icon.png")
+const SOFT_CURRENCY_COIN_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin.png")
+const SINGLE_PLAYER_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
-const RESULT_SEARCH_ICON_SIZE := Vector2(32.0, 41.0)
-const RESULT_SEARCH_COMPACT_ICON_SIZE := Vector2(25.0, 32.0)
 const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
 const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
-const HERO_BADGE_TAIL_TEXTURE: Texture2D = preload("res://flash_assets/_________________2_png.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
 const THEME_ICON_SPORT_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_sport.png")
@@ -87,8 +88,6 @@ const THEME_ICON_TEXTURES: Array[Texture2D] = [
 	THEME_ICON_GENERAL_TEXTURE,
 	THEME_ICON_FILM_MUSIC_TEXTURE,
 ]
-const HINT_ICON_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_check_circle_uploaded.png")
-const HINT_ICON_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_cross_circle_uploaded.png")
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
@@ -98,29 +97,41 @@ const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
 const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
 const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
-const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
-const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
 const HERO_AVATAR_TIGRE_TEXTURE: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 
-var art_root: FlashBackdrop
 var ui: Control
 var content: Control
-var game_timer: Timer
 var letter_feedback_audio_player: AudioStreamPlayer
 var result_audio_player: AudioStreamPlayer
 var ui_audio_player: AudioStreamPlayer
 var game_finished: bool = false
 var last_result_is_win: bool = false
 var last_result_data: Dictionary = {}
+var single_player_active_level_index: int = -1
+var single_player_active_word_slot: int = -1
+var single_player_level_definitions_cache: Dictionary = {}
+var single_player_level_cache_language: String = ""
+var single_player_level_cache_theme_count: int = -1
+var single_player_level_cache_difficulty: float = -1.0
+var single_player_popup_level_index: int = -1
+var single_player_popup_selected_theme: int = -1
+var single_player_popup_theme_panels: Dictionary = {}
+var single_player_popup_stage_content: Control = null
+var single_player_popup_theme_card_nodes: Array[Node] = []
+var single_player_popup_play_button: Control = null
+var single_player_popup_refresh_price_label: Label = null
+var single_player_retry_after_loss: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
-var custom_comment_edit: TextEdit
 var custom_word_text: String = ""
 var custom_comment_text: String = ""
 var custom_word_check_request: HTTPRequest = null
 var custom_word_check_urls: Array[String] = []
 var custom_word_check_button: Control = null
+var custom_word_check_animation_timer: Timer = null
+var custom_word_check_dot_count: int = 0
+var custom_word_check_label_base: String = ""
 var custom_word_start_button: Control = null
 var custom_word_color_generation: int = 0
 var hero_animation_overlay: FlashStageSymbol = null
@@ -129,7 +140,8 @@ var hero_pose_round_token: int = 0
 var hero_pose_frame_index: int = -1
 var hero_nested_pose_time: float = HERO_MOV_IDLE_FRAME_TIME
 var hero_terminal_loop_time: float = HERO_MOV_START_FRAME_TIME
-var settings_popup_return_content: Control = null
+var hero_force_default_pose: bool = false
+var game_screen_visible: bool = false
 var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
@@ -137,8 +149,20 @@ var pending_letter_marker_is_correct: bool = false
 var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
+var coin_store_return_action: Callable = Callable()
+var currency_balance_label: Label = null
+var heart_count_label: Label = null
+var heart_status_label: Label = null
+var heart_add_badge_visual: Control = null
+var heart_counter_button: Control = null
+var _last_heart_count_for_animation: int = -1
+var _preserve_custom_word_on_next_show: bool = false
+var heart_refill_continue_action: Callable = Callable()
+var heart_refill_store_return_action: Callable = Callable()
+var heart_refill_store_is_open: bool = false
 
 func _ready() -> void:
+	Engine.max_fps = 60
 	randomize()
 	Database.load_languages(GameState.interface_language, GameState.word_language)
 	_build_root()
@@ -146,19 +170,170 @@ func _ready() -> void:
 	GameSession.changed.connect(_refresh_game_screen)
 	GameSession.round_won.connect(_on_round_won)
 	GameSession.round_lost.connect(_on_round_lost)
+	if !GameState.soft_currency_changed.is_connected(_on_soft_currency_changed):
+		GameState.soft_currency_changed.connect(_on_soft_currency_changed)
+	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
+		GameState.hearts_changed.connect(_on_hearts_changed)
+	_last_heart_count_for_animation = GameState.get_hearts()
 	show_menu()
 
-func _build_root() -> void:
-	art_root = FlashBackdrop.new()
-	art_root.name = "OriginalFlashArt"
-	art_root.z_index = 0
-	add_child(art_root)
+# Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
+# that shared game logic calls; all screen construction lives in the portrait
+# subclass instead of being duplicated here.
+func show_menu() -> void:
+	pass
 
+func show_theme_select() -> void:
+	pass
+
+func show_tasks() -> void:
+	pass
+
+func show_custom_word() -> void:
+	pass
+
+func show_result_screen(_is_win: bool, _data: Dictionary = {}) -> void:
+	pass
+
+func show_coin_store() -> void:
+	pass
+
+func _stage_currency_counter(_return_action: Callable, _rect: Rect2 = Rect2()) -> void:
+	pass
+
+func _stage_single_player_level_header(_level_index: int) -> void:
+	pass
+
+func _open_coin_store(return_action: Callable = Callable()) -> void:
+	coin_store_return_action = return_action
+	if !coin_store_return_action.is_valid():
+		coin_store_return_action = Callable(self, "show_menu")
+	show_coin_store()
+
+func _close_coin_store() -> void:
+	var return_action: Callable = coin_store_return_action
+	coin_store_return_action = Callable()
+	if return_action.is_valid():
+		return_action.call()
+	else:
+		show_menu()
+
+func _grouped_counter_text(value: int) -> String:
+	var digits: String = str(maxi(value, 0))
+	var grouped_text: String = ""
+	for digit_index in range(digits.length()):
+		if digit_index > 0 and (digits.length() - digit_index) % 3 == 0:
+			# A narrow non-breaking space keeps the group compact and prevents the
+			# balance from wrapping between thousands.
+			grouped_text += "\u202f"
+		grouped_text += digits.substr(digit_index, 1)
+	return grouped_text
+
+func _soft_currency_balance_text(balance: int) -> String:
+	var resolved_balance: int = maxi(balance, 0)
+	if resolved_balance <= 999999:
+		return _grouped_counter_text(resolved_balance)
+	var tenths_of_thousand: int = int(round(float(resolved_balance) / 100.0))
+	var whole_thousands: int = int(tenths_of_thousand / 10)
+	var decimal_digit: int = tenths_of_thousand % 10
+	var compact_text: String = _grouped_counter_text(whole_thousands)
+	if decimal_digit > 0:
+		compact_text += ".%d" % decimal_digit
+	return compact_text + ("к" if GameState.interface_language == "ru" else "k")
+
+func _on_soft_currency_changed(balance: int) -> void:
+	var balance_text: String = _soft_currency_balance_text(balance)
+	for balance_node: Node in get_tree().get_nodes_in_group(&"soft_currency_balance_label"):
+		var balance_label := balance_node as Label
+		if balance_label != null and is_instance_valid(balance_label):
+			balance_label.text = balance_text
+	_update_single_player_refresh_price(maxi(balance, 0))
+
+func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
+	var resolved_count: int = clampi(heart_count, 0, GameState.MAX_HEARTS)
+	var previous_count: int = _last_heart_count_for_animation
+	_last_heart_count_for_animation = resolved_count
+	# The only runtime heart increment currently comes from the recovery timer.
+	# Trigger a visual hook only on an actual increment, never on the per-second
+	# countdown signal or when a heart is spent.
+	if previous_count >= 0 and resolved_count > previous_count:
+		_on_timer_heart_recovered()
+	if heart_count_label != null and is_instance_valid(heart_count_label):
+		heart_count_label.text = str(resolved_count)
+	if heart_status_label != null and is_instance_valid(heart_status_label):
+		heart_status_label.text = _heart_status_text(resolved_count, recovery_seconds)
+	if heart_add_badge_visual != null and is_instance_valid(heart_add_badge_visual):
+		var badge_allowed: bool = bool(heart_add_badge_visual.get_meta(&"badge_allowed", true))
+		heart_add_badge_visual.visible = badge_allowed and resolved_count < GameState.MAX_HEARTS
+	if heart_counter_button != null and is_instance_valid(heart_counter_button):
+		var counter_is_full: bool = resolved_count >= GameState.MAX_HEARTS
+		heart_counter_button.set("disabled", counter_is_full)
+		heart_counter_button.mouse_filter = (
+			Control.MOUSE_FILTER_IGNORE if counter_is_full else Control.MOUSE_FILTER_STOP
+		)
+
+func _on_timer_heart_recovered() -> void:
+	pass
+
+func _heart_status_text(heart_count: int, recovery_seconds: int) -> String:
+	if heart_count >= GameState.MAX_HEARTS:
+		return "Макс" if GameState.interface_language == "ru" else "Max"
+	var resolved_seconds: int = maxi(recovery_seconds, 0)
+	return "%d:%02d" % [int(resolved_seconds / 60), resolved_seconds % 60]
+
+func _refresh_game_screen() -> void:
+	pass
+
+func _create_hero_animation_overlay() -> FlashStageSymbol:
+	return null
+
+func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> void:
+	pass
+
+func _show_single_player_level_popup(
+	_level_index: int,
+	_selected_theme: int = -1,
+	_retry_after_loss: bool = false
+) -> void:
+	pass
+
+func _show_single_player_last_chance_popup() -> void:
+	pass
+
+func _show_heart_refill_popup(
+	_continue_action: Callable = Callable(),
+	_store_return_action: Callable = Callable()
+) -> void:
+	pass
+
+func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
+	pass
+
+func _show_single_player_forfeit_reward_screen() -> void:
+	show_menu()
+
+func _update_single_player_theme_popup(_level_index: int) -> void:
+	pass
+
+func _update_single_player_refresh_price(_balance: int) -> void:
+	pass
+
+func _show_exit_game_popup() -> void:
+	pass
+
+func _show_word_comment_popup() -> void:
+	pass
+
+func _build_root() -> void:
 	ui = Control.new()
 	ui.name = "RuntimeUI"
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_PASS
 	ui.z_index = 100
+	ThemeDB.fallback_font = UI_PRIMARY_FONT
+	var runtime_theme := Theme.new()
+	runtime_theme.default_font = UI_PRIMARY_FONT
+	ui.theme = runtime_theme
 	add_child(ui)
 
 	letter_feedback_audio_player = AudioStreamPlayer.new()
@@ -173,14 +348,8 @@ func _build_root() -> void:
 	ui_audio_player.name = "UIAudio"
 	add_child(ui_audio_player)
 
-	game_timer = Timer.new()
-	game_timer.name = "TimeAttackTimer"
-	game_timer.wait_time = 1.0
-	game_timer.one_shot = false
-	game_timer.timeout.connect(_on_timer_tick)
-	add_child(game_timer)
-
-func _clear(symbol_path: String = "") -> void:
+func _clear() -> void:
+	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
 	custom_word_color_generation += 1
@@ -191,19 +360,21 @@ func _clear(symbol_path: String = "") -> void:
 	_cancel_custom_word_check()
 	custom_word_check_button = null
 	custom_word_start_button = null
+	currency_balance_label = null
+	heart_count_label = null
+	heart_status_label = null
+	heart_add_badge_visual = null
+	heart_counter_button = null
 	hero_static_symbol = null
-	_remove_character_select_popup()
-	_remove_settings_popup()
-	_remove_records_popup()
-	_remove_time_attack_popup()
+	settings_toggle_buttons.clear()
+	settings_word_language_buttons.clear()
 	_remove_exit_game_popup()
+	_remove_heart_refill_popup()
+	_remove_single_player_last_chance_popup()
+	_remove_single_player_theme_popup()
 	_remove_clear_theme_popup()
-	settings_popup_return_content = null
-	_remove_custom_comment_popup()
 	custom_word_edit = null
 	custom_word_input_visual = null
-	if art_root != null:
-		art_root.show_screen(symbol_path)
 	for child: Node in ui.get_children():
 		ui.remove_child(child)
 		child.queue_free()
@@ -235,9 +406,23 @@ func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color =
 	holder.add_child(label)
 	return label
 
+func _stage_heading_label(
+	rect: Rect2,
+	text: String,
+	font_size: int,
+	color: Color = Color.WHITE,
+	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
+) -> Label:
+	var label := _stage_label(rect, text, _heading_font_size(font_size), color, align)
+	label.add_theme_font_override("font", UI_HEADING_FONT)
+	return label
+
+func _heading_font_size(font_size: int) -> int:
+	return maxi(1, int(round(float(font_size) * UI_HEADING_FONT_SCALE)))
+
 func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size: int = 20) -> Button:
 	var button: Button = FLASH_STAGE_BUTTON_SCRIPT.new() as Button
-	button.text = text
+	button.text = text.to_upper()
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
@@ -295,13 +480,13 @@ func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: 
 	popup_root.add_child(centered_content)
 	return centered_content
 
-func _stage_symbol(symbol_path: String, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> Node2D:
-	var symbol: Node2D = FLASH_STAGE_SYMBOL_SCRIPT.new() as Node2D
+func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> FlashStageSymbol:
+	var symbol: FlashStageSymbol = FLASH_STAGE_SYMBOL_SCRIPT.new() as FlashStageSymbol
 	symbol.z_index = 5
-	symbol.set("symbol_path", symbol_path)
-	symbol.set("stage_position", stage_position)
-	symbol.set("animation_time", animation_time)
-	symbol.set("nested_animation_time", nested_animation_time)
+	symbol.hero_type = hero_type
+	symbol.stage_position = stage_position
+	symbol.animation_time = animation_time
+	symbol.nested_animation_time = nested_animation_time
 	# Configure the desired hero state before _ready() starts its asynchronous
 	# current/next-pose pipeline. This avoids briefly requesting frame zero.
 	content.add_child(symbol)
@@ -344,34 +529,29 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 	node.set("stage_height", stage_height)
 	return node
 
-func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false) -> Control:
+func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
+	button.call("set_color_preset", color_preset)
 	button.set("attention_bounce_enabled", attention_bounce)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
 
-func _stage_main_icon_button(rect: Rect2, callable: Callable, text: String, icon: Texture2D, icon_size: Vector2, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false) -> Control:
-	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_with_icon", text, icon, icon_size, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
-	_connect_stage_button_action(button, callable)
-	content.add_child(button)
-	button.stage_rect = rect
-	return button
-
-func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32) -> Control:
+func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
+	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
 	return button
 
-func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32) -> Control:
+func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
+	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
@@ -403,19 +583,6 @@ func _stage_line_edit(rect: Rect2, placeholder: String = "") -> LineEdit:
 	holder.add_child(edit)
 	return edit
 
-func _stage_text_edit(rect: Rect2, placeholder: String = "") -> TextEdit:
-	var holder: Control = _stage_holder(rect)
-	var edit := TextEdit.new()
-	edit.set_anchors_preset(Control.PRESET_FULL_RECT)
-	edit.placeholder_text = placeholder
-	edit.add_theme_font_size_override("font_size", 18)
-	edit.add_theme_color_override("font_color", Color.WHITE)
-	var empty_style := StyleBoxEmpty.new()
-	edit.add_theme_stylebox_override("normal", empty_style)
-	edit.add_theme_stylebox_override("focus", empty_style)
-	holder.add_child(edit)
-	return edit
-
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
 	var empty_style := StyleBoxEmpty.new()
 	button.add_theme_stylebox_override("normal", empty_style)
@@ -428,196 +595,22 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_hover_color", font_color)
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
+	var text_effect_color := Color(0.02, 0.04, 0.16, 0.30) if show_text else Color.TRANSPARENT
+	button.add_theme_color_override("font_outline_color", text_effect_color)
+	button.add_theme_color_override("font_shadow_color", text_effect_color)
+	button.add_theme_constant_override("outline_size", 1 if show_text else 0)
+	button.add_theme_constant_override("shadow_offset_x", 2)
+	button.add_theme_constant_override("shadow_offset_y", 2)
+	button.add_theme_constant_override("shadow_outline_size", 0)
 	button.add_theme_font_size_override("font_size", font_size)
-
-func show_menu() -> void:
-	game_timer.stop()
-	GameSession.discard_current_round()
-	_clear("")
-	# The main menu is rebuilt completely with native runtime controls. Keep only
-	# the original paper texture and the exact Flash header colour; loading the
-	# converted MainMenu scene would reintroduce hidden duplicate buttons and all
-	# of their obsolete bitmap dependencies.
-	# Keep the header height in Flash stage coordinates while filling the real
-	# viewport width. Menu controls remain positioned in the original stage.
-	_stage_horizontal_fill(0.0, 118.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_texture_fill(118.0, 362.0, MENU_PAPER_COVER)
-
-	_stage_label(Rect2(84.0, 28.0, 360.0, 58.0), Database.tr_text(0, "HANGMAN"), 38, Color(0.82, 0.56, 0.34), HORIZONTAL_ALIGNMENT_LEFT)
-
-	_stage_main_button(Rect2(161.0, 188.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_theme_select"), Database.tr_text(1, "Classic"), 20)
-	_stage_main_button(Rect2(161.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_time_attack_popup"), Database.tr_text(2, "Time Attack"), 20)
-	_stage_main_button(Rect2(161.0, 313.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(3, "Two Player"), 20)
-
-	_stage_main_button(Rect2(436.0, 251.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "show_settings"), Database.tr_text(5, "Settings"), 20)
-
-	_stage_round_icon_button(Rect2(492.0, 24.0, 62.0, 62.0), Callable(self, "show_records"), ROUND_BUTTON_RECORDS_ICON, Vector2(17.0, 18.0))
-
-	# Achievements are not implemented yet: keep the same round-button component
-	# in a disabled, semi-transparent state instead of drawing separate layers.
-	var achievements_button := _stage_round_icon_button(Rect2(569.0, 24.0, 62.0, 62.0), Callable(), MAIN_MENU_HOLLOW_STAR_ICON, Vector2(22.0, 21.0), true, false, Vector2.ZERO, 0.0)
-	achievements_button.self_modulate = Color(1.0, 1.0, 1.0, 0.55)
-	achievements_button.set("icon_modulate", Color(1.0, 1.0, 1.0, 0.72))
-	_stage_main_menu_character_button()
-
-
-func _stage_main_menu_character_button() -> void:
-	# Exact MainMenu.xml placement from the original FLA:
-	# HeroMov is at (716, 23) inside Head, and Head is shifted by x = -50.
-	# The separate blue tail bitmap is at (714, 112), also inside Head.
-	# Draw both original assets instead of synthesizing a rounded rectangle or
-	# masking the bottom with a solid block.
-	_stage_texture(Rect2(664.0, 112.0, 115.0, 33.0), HERO_BADGE_TAIL_TEXTURE)
-	_stage_texture(Rect2(666.0, 23.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
-	if _selected_character_id() == 2:
-		_stage_texture(Rect2(684.0, 53.0, 76.0, 67.0), HERO_AVATAR_TIGRE_TEXTURE)
-	else:
-		_stage_texture(Rect2(695.0, 50.0, 54.0, 58.0), HERO_AVATAR_LAKI_TEXTURE)
-	_stage_button(Rect2(654.0, 11.0, 135.0, 145.0), Callable(self, "_show_character_select_popup"), "")
-
 func _selected_character_id() -> int:
 	if GameState.settings.size() > 5:
 		return int(GameState.settings[5])
 	return 1
-
-func _show_character_select_popup() -> void:
-	_remove_character_select_popup()
-	_play_popup_open_sound()
-
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "CharacterSelectPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("character_select_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "CharacterSelectPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_character_select_popup"))
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), Database.tr_text(9, "Choose the hero:"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_character_select_popup"), "×")
-
-	_stage_character_option(1, Rect2(190.0, 150.0, 130.0, 130.0), Database.tr_text(75, "LUCKY"), HERO_AVATAR_LAKI_TEXTURE, Rect2(224.0, 180.0, 64.0, 69.0))
-	_stage_character_option(2, Rect2(480.0, 150.0, 130.0, 130.0), Database.tr_text(76, "EL TIGRE"), HERO_AVATAR_TIGRE_TEXTURE, Rect2(498.0, 188.0, 94.0, 82.0))
-
-	content = previous_content
-
-func _stage_character_option(character_id: int, circle_rect: Rect2, label_text: String, avatar_texture: Texture2D, avatar_rect: Rect2) -> void:
-	var selected := _selected_character_id() == character_id
-	var halo_color := Color(0.336, 0.388, 0.717, 0.86) if selected else Color(0.336, 0.388, 0.717, 0.42)
-	_stage_panel(Rect2(circle_rect.position - Vector2(14.0, 14.0), circle_rect.size + Vector2(28.0, 28.0)), halo_color, (circle_rect.size.x + 28.0) * 0.5)
-	_stage_panel(circle_rect, Color.WHITE, circle_rect.size.x * 0.5, Color(0.82, 0.56, 0.34, 1.0), 3.0)
-	_stage_texture(avatar_rect, avatar_texture)
-	_stage_label(Rect2(circle_rect.position.x - 55.0, circle_rect.position.y + 155.0, circle_rect.size.x + 110.0, 42.0), label_text, 27, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	_stage_button(Rect2(circle_rect.position - Vector2(20.0, 20.0), circle_rect.size + Vector2(40.0, 88.0)), Callable(self, "_select_character").bind(character_id), "")
-
-func _select_character(character_id: int) -> void:
-	while GameState.settings.size() <= 5:
-		GameState.settings.append(1)
-	GameState.settings[5] = character_id
-	GameState.save_game()
-	_remove_character_select_popup()
-	show_menu()
-
-func _remove_character_select_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("character_select_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func show_settings() -> void:
-	var previous_content: Control = content
-	if settings_popup_return_content != null and is_instance_valid(settings_popup_return_content):
-		previous_content = settings_popup_return_content
-	_remove_settings_popup()
-	settings_popup_return_content = previous_content
-	_play_popup_open_sound()
-
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "SettingsPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("settings_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "SettingsPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_settings_popup"))
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var middle_separator := _stage_panel(Rect2(popup_x + 372.0, 126.0, 2.0, 132.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	middle_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bottom_separator := _stage_panel(Rect2(popup_x + 24.0, 263.0, popup_width - 48.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 450.0, 50.0), Database.tr_text(5, "Settings"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_settings_popup"), "×")
-
-	_stage_label(Rect2(popup_x + 44.0, 125.0, 220.0, 36.0), _settings_sound_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(popup_x + 44.0, 187.0, 220.0, 36.0), _settings_vibration_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 123.0, 102.0, 49.0), 3)
-	_stage_settings_toggle_button(Rect2(popup_x + 260.0, 185.0, 102.0, 49.0), 4)
-
-	_stage_label(Rect2(popup_x + 444.0, 125.0, 160.0, 36.0), _settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(popup_x + 406.0, 184.0, 102.0, 49.0), "ru", Database.tr_text(80, "Rus"))
-	_stage_settings_word_language_button(Rect2(popup_x + 520.0, 184.0, 102.0, 49.0), "en", Database.tr_text(81, "Eng"))
-
-	_stage_main_button(Rect2(popup_x + 111.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_about_action"), _settings_about_label(), 18)
-	var remove_ads_button := _stage_main_button(Rect2(popup_x + 349.0, 296.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_settings_remove_ads_action"), _settings_remove_ads_label(), 18, true, 0.0, true)
-	remove_ads_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-	var remove_ads_label := remove_ads_button.get_node_or_null("Text") as Label
-	if remove_ads_label != null:
-		remove_ads_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
-
-	content = previous_content
-
-func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
-	var enabled: bool = int(GameState.settings[setting_index]) == 2
-	var label_text: String = _settings_on_label() if enabled else _settings_off_label()
-	var button := _stage_main_button(rect, Callable(self, "_toggle_setting").bind(setting_index), label_text, 18, false, 0.0, false, enabled)
-	settings_toggle_buttons[setting_index] = button
-
-func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
-	var selected: bool = GameState.word_language == language_code
-	var button := _stage_main_button(rect, Callable(self, "_set_settings_word_language").bind(language_code), label_text, 18, false, 0.0, false, selected)
-	settings_word_language_buttons[language_code] = button
-
 func _set_settings_word_language(language_code: String) -> void:
 	GameState.set_word_language(language_code)
 	Database.load_word_language(GameState.word_language)
+	_invalidate_single_player_level_cache()
 	_refresh_settings_word_language_buttons()
 
 func _refresh_settings_word_language_buttons() -> void:
@@ -627,109 +620,23 @@ func _refresh_settings_word_language_buttons() -> void:
 			continue
 		button.set("selected", language_code == GameState.word_language)
 
-func _remove_settings_popup() -> void:
-	_remove_about_popup()
-	settings_toggle_buttons.clear()
-	settings_word_language_buttons.clear()
-	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
 func _settings_sound_label() -> String:
-	return Database.tr_text(73, "Sounds and music")
+	return Database.tr_text(65, "Sounds and music")
 
 func _settings_vibration_label() -> String:
-	return Database.tr_text(69, "Vibration")
+	return Database.tr_text(61, "Vibration")
 
 func _settings_word_base_label() -> String:
-	return Database.tr_text(15, "Database:")
+	return Database.tr_text(12, "Database:")
 
 func _settings_on_label() -> String:
-	return Database.tr_text(82, "On")
+	return Database.tr_text(73, "On")
 
 func _settings_off_label() -> String:
-	return Database.tr_text(83, "Off")
-
-func _settings_about_label() -> String:
-	return Database.tr_text(13, "About")
-
-func _settings_remove_ads_label() -> String:
-	return Database.tr_text(70, "Remove ads")
-
-func _settings_about_action() -> void:
-	_show_about_popup()
-
-func _show_about_popup() -> void:
-	_remove_about_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "AboutPopupCanvas"
-	popup_layer.layer = 110
-	popup_layer.add_to_group("about_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "AboutPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_about_popup"), 0.38)
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var middle_separator := _stage_panel(Rect2(popup_x + 408.0, 160.0, 2.0, 128.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	middle_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 430.0, 50.0), _about_title_label(), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_round_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_about_popup"), "←")
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_close_about_and_settings"), "×")
-
-	var author_label := _stage_label(Rect2(popup_x + 78.0, 160.0, 300.0, 42.0), _about_author_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	author_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	author_label.clip_text = false
-	var version_label := _stage_label(Rect2(popup_x + 78.0, 218.0, 260.0, 38.0), _about_version_text(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	version_label.clip_text = false
-
-	_stage_label(Rect2(popup_x + 462.0, 160.0, 150.0, 38.0), _about_contacts_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_icon_button(Rect2(popup_x + 436.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE)
-	_stage_round_icon_button(Rect2(popup_x + 516.0, 208.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE)
-
-	content = previous_content
-
-func _remove_about_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("about_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func _close_about_and_settings() -> void:
-	_remove_about_popup()
-	_remove_settings_popup()
-
-func _about_title_label() -> String:
-	return Database.tr_text(13, "About")
-
-func _about_author_text() -> String:
-	return Database.tr_text(24, "Author:") + " " + Database.tr_text(22, "Nikita Lukanin")
+	return Database.tr_text(74, "Off")
 
 func _about_version_text() -> String:
-	return Database.tr_text(23, "Version:") + " " + _application_version()
+	return Database.tr_text(19, "Version:") + " " + _application_version()
 
 func _application_version() -> String:
 	var configured_version: String = str(
@@ -737,18 +644,12 @@ func _application_version() -> String:
 	).strip_edges()
 	return configured_version if configured_version != "" else APP_VERSION_FALLBACK
 
-func _about_contacts_label() -> String:
-	return Database.tr_text(25, "Contacts:")
-
 func _about_contact_action(contact_type: String) -> void:
 	match contact_type:
 		"vk":
 			OS.shell_open(AUTHOR_VK_URL)
 		"mail":
 			OS.shell_open(AUTHOR_EMAIL_URL)
-
-func _settings_remove_ads_action() -> void:
-	pass
 
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
@@ -784,11 +685,10 @@ func _play_popup_open_sound() -> void:
 	_play_game_sound(ui_audio_player, POPUP_OPEN_SOUND)
 
 func _play_result_sound_once(is_win: bool, data: Dictionary = {}) -> void:
-	var sound_key := "%d:%d:%d:%d" % [
+	var sound_key := "%d:%d:%d" % [
 		_current_hero_round_token(),
 		GameState.current_mode,
 		int(is_win),
-		int(bool(data.get("time_attack_finished", false))),
 	]
 	if sound_key == last_result_sound_key:
 		return
@@ -816,97 +716,759 @@ func _refresh_settings_toggle_button(index: int) -> void:
 	button.set("button_text", _settings_on_label() if enabled else _settings_off_label())
 	button.set("selected", enabled)
 
-func _difficulty_star_texture(value: int = -1) -> Texture2D:
-	var difficulty: int = int(GameState.settings[2]) if value < 0 else value
-	match difficulty:
-		2:
-			return DIFFICULTY_STARS_1_TEXTURE
-		1:
-			return DIFFICULTY_STARS_3_TEXTURE
-		_:
-			return DIFFICULTY_STARS_2_TEXTURE
+func _difficulty_mode_value() -> int:
+	return DIFFICULTY_MODE_HARD if int(GameState.settings[2]) == DIFFICULTY_MODE_HARD else DIFFICULTY_MODE_NORMAL
 
-func _art_stage_size(texture: Texture2D) -> Vector2:
-	return texture.get_size() / ART_SOURCE_SCALE
+func _difficulty_mode_label(value: int = -1) -> String:
+	var resolved: int = _difficulty_mode_value() if value < 0 else value
+	if resolved == DIFFICULTY_MODE_HARD:
+		return _single_player_text("Сложный режим", "Hard mode")
+	return _single_player_text("Обычный режим", "Normal mode")
+
+func _style_hard_button(button: Control) -> Control:
+	if button == null:
+		return button
+	button.call(
+		"set_color_palette",
+		DIFFICULTY_HARD_NORMAL_TINT,
+		DIFFICULTY_HARD_PRESSED_TINT,
+		DIFFICULTY_HARD_SELECTED_TINT
+	)
+	button.set("outline_color", DIFFICULTY_HARD_OUTLINE_COLOR)
+	button.set("outline_size", 4)
+	return button
+
+func _style_difficulty_button(button: Control) -> Control:
+	if _difficulty_mode_value() != DIFFICULTY_MODE_HARD:
+		return button
+	return _style_hard_button(button)
+
+func _style_single_player_level_button(button: Control, level_index: int) -> Control:
+	if !_single_player_is_bonus_level(level_index):
+		return button
+	return _style_hard_button(button)
+
+func _cycle_difficulty_mode() -> void:
+	if _difficulty_mode_value() == DIFFICULTY_MODE_NORMAL:
+		GameState.settings[2] = DIFFICULTY_MODE_HARD
+	else:
+		GameState.settings[2] = DIFFICULTY_MODE_NORMAL
+	GameState.save_game()
+
+func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:
+	_cycle_difficulty_mode()
+	if return_to_tasks:
+		show_tasks()
+	else:
+		show_theme_select()
 
 func _theme_icon_texture(theme_index: int) -> Texture2D:
 	if theme_index < 0 or theme_index >= THEME_ICON_TEXTURES.size():
 		return null
 	return THEME_ICON_TEXTURES[theme_index]
 
-func show_theme_select() -> void:
-	_remove_difficulty_popup()
-	# Build the category screen without the converted GameTemi symbol. That
-	# symbol already contains legacy Flash buttons, which were visible below the
-	# runtime round buttons and caused the doubled-button artefact.
-	_clear("")
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	# Keep the header height in stage coordinates while filling the real viewport.
-	_stage_horizontal_fill(0.0, 86.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_label(Rect2(60.0, 19.0, 500.0, 50.0), Database.tr_text(32, "Choose the category:"), 30, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var difficulty_button_rect: Rect2 = HEADER_ACTION_BUTTON_RECT
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_show_difficulty_popup"), difficulty_texture, _art_stage_size(difficulty_texture))
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
+func _single_player_text(ru_text: String, en_text: String) -> String:
+	return ru_text if GameState.interface_language == "ru" else en_text
 
+func _single_player_level_label() -> String:
+	return _single_player_text("Уровень", "Level")
+
+func _single_player_challenge_level_label() -> String:
+	return _single_player_text("Сложный уровень", "Challenge level")
+
+func _single_player_level_failed_label() -> String:
+	return _single_player_text("НЕУДАЧА", "FAILURE")
+
+func _single_player_level_completed_reward_label(bonus_coins: int) -> String:
+	return _single_player_text(
+		"Уровень пройден! Бонус: +%d",
+		"Level completed! Bonus: +%d"
+	) % maxi(bonus_coins, 0)
+
+func _single_player_chain_failed_label() -> String:
+	return _single_player_text("Вы можете лучше", "You can do better")
+
+func _single_player_choose_theme_label() -> String:
+	return _single_player_text("Выберите тему", "Choose a category")
+
+func _single_player_theme_start_label() -> String:
+	return _single_player_text("Играть", "Play")
+
+func _single_player_next_level_index() -> int:
+	return maxi(GameState.get_single_player_unlocked_level(Database.current_language), 0)
+
+func _open_next_single_player_level() -> void:
+	single_player_active_level_index = _single_player_next_level_index()
+	single_player_active_word_slot = -1
+	_show_single_player_level_popup(single_player_active_level_index)
+
+func _invalidate_single_player_level_cache() -> void:
+	single_player_level_definitions_cache.clear()
+	single_player_level_cache_language = ""
+	single_player_level_cache_theme_count = -1
+	single_player_level_cache_difficulty = -1.0
+
+func _single_player_level_word_target(level_index: int) -> int:
+	var level_number: int = maxi(level_index + 1, 1)
+	var word_count: int = 2
+	if level_number > 30:
+		word_count = 5
+	elif level_number > 10:
+		word_count = 4
+	elif level_number > 5:
+		word_count = 3
+	if _single_player_is_bonus_level(level_index):
+		word_count += 2
+	return word_count
+
+func _single_player_is_bonus_level(level_index: int) -> bool:
+	var level_number: int = level_index + 1
+	return level_number > 0 and level_number % 10 == 0
+
+func _prepare_single_player_level_attempt(level_index: int) -> int:
+	level_index = maxi(level_index, 0)
+	for _migration_step in range(32):
+		var word_count: int = _single_player_level_word_target(level_index)
+		var selected_theme: int = GameState.get_single_level_selected_theme(
+			Database.current_language,
+			level_index
+		)
+		if selected_theme < 0:
+			return level_index
+		if GameState.is_single_level_failed(Database.current_language, level_index, word_count):
+			GameState.reset_single_level_attempt(Database.current_language, level_index)
+			_invalidate_single_player_level_cache()
+			return level_index
+		if !GameState.is_single_level_completed(Database.current_language, level_index, word_count):
+			return level_index
+		# Older saves could contain a completed tenth level that was previously
+		# capped by the finite campaign. Advance it into the endless ladder.
+		GameState.ensure_single_player_next_level_unlocked(Database.current_language, level_index)
+		level_index += 1
+	return level_index
+
+func _single_player_seed(level_index: int, level_seed: int, salt: int) -> int:
+	var language_seed: int = 37 if Database.current_language == "ru" else 73
+	return int(
+		maxi(level_seed, 1)
+		+ (level_index + 1) * 1000003
+		+ salt * 7919
+		+ language_seed
+	)
+
+func _single_player_shuffle(values: Array, rng: RandomNumberGenerator) -> void:
+	for index in range(values.size() - 1, 0, -1):
+		var swap_index: int = rng.randi_range(0, index)
+		var temporary: Variant = values[index]
+		values[index] = values[swap_index]
+		values[swap_index] = temporary
+
+func _single_player_theme_options(level_index: int, level_seed: int, word_count: int) -> Array:
+	var eligible: Array = []
+	for theme_index in range(Database.get_theme_count()):
+		if Database.get_words_by_index(theme_index, 0).size() >= word_count:
+			eligible.append(theme_index)
+	if eligible.is_empty():
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _single_player_seed(level_index, level_seed, 11)
+	_single_player_shuffle(eligible, rng)
+	eligible.resize(mini(SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL, eligible.size()))
+	return eligible
+
+func _single_player_slot_difficulty(target_difficulty: float, word_slot: int, word_count: int) -> float:
+	if word_count <= 1:
+		return target_difficulty
+	var chain_progress: float = float(word_slot) / float(word_count - 1)
+	var offset: float = lerpf(
+		-SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD,
+		SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD,
+		chain_progress
+	)
+	return clampf(
+		target_difficulty + offset,
+		GameState.SINGLE_PLAYER_DIFFICULTY_MIN,
+		GameState.SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+
+func _single_player_words_for_theme(
+	level_index: int,
+	level_seed: int,
+	theme_index: int,
+	word_count: int,
+	target_difficulty: float
+) -> Array:
+	var candidates: Array = Database.get_words_by_index(theme_index, 0).duplicate(true)
+	if candidates.is_empty():
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 101)
+	var theme_progress: Dictionary = GameState.ensure_single_player_theme_progress(
+		Database.current_language,
+		theme_index,
+		candidates.size()
+	)
+	var played_words: Array = Array(theme_progress.get("played", []))
+	var guessed_words: Array = Array(theme_progress.get("guessed", []))
+	var words: Array = []
+	for word_slot in range(mini(word_count, candidates.size())):
+		var slot_target: float = _single_player_slot_difficulty(target_difficulty, word_slot, word_count)
+		var picked_pool_index: int = -1
+		var picked_score: float = INF
+		for pool_index in range(candidates.size()):
+			var candidate: Dictionary = candidates[pool_index]
+			var candidate_word_index: int = int(candidate.get("index", -1))
+			var repeat_penalty: float = 0.0
+			if candidate_word_index >= 0 and candidate_word_index < played_words.size() and bool(played_words[candidate_word_index]):
+				repeat_penalty += SINGLE_PLAYER_PLAYED_WORD_PENALTY
+			if candidate_word_index >= 0 and candidate_word_index < guessed_words.size() and bool(guessed_words[candidate_word_index]):
+				repeat_penalty += SINGLE_PLAYER_GUESSED_WORD_PENALTY
+			var score: float = (
+				absf(float(candidate.get("difficulty", 0.0)) - slot_target)
+				+ repeat_penalty
+				+ rng.randf_range(0.0, SINGLE_PLAYER_WORD_PICK_JITTER)
+			)
+			if score < picked_score:
+				picked_score = score
+				picked_pool_index = pool_index
+		if picked_pool_index < 0:
+			break
+		var picked: Dictionary = candidates[picked_pool_index]
+		candidates.remove_at(picked_pool_index)
+		words.append({
+			"theme_index": theme_index,
+			"word_index": int(picked.get("index", 0)),
+			"text": str(picked.get("text", "")),
+			"difficulty": float(picked.get("difficulty", 0.0)),
+			"target_difficulty": slot_target,
+		})
+	return words
+
+func _single_player_level_data(level_index: int) -> Dictionary:
+	if level_index < 0:
+		return {}
 	var theme_count: int = Database.get_theme_count()
-	var compact_grid: bool = theme_count > 9
-	var columns: int = 4 if compact_grid else 3
-	var card_width: float = 190.0 if compact_grid else 239.0
-	var x_start: float = 20.0 if compact_grid else 26.0
-	var x_step: float = 204.0 if compact_grid else 262.0
-	var y_start: float = 106.0 if compact_grid else 125.0
-	var y_step: float = 104.0 if compact_grid else 113.0
+	var language: String = Database.current_language
+	var adaptive_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)
+	if (
+		single_player_level_cache_language != language
+		or single_player_level_cache_theme_count != theme_count
+		or !is_equal_approx(single_player_level_cache_difficulty, adaptive_difficulty)
+	):
+		_invalidate_single_player_level_cache()
+		single_player_level_cache_language = language
+		single_player_level_cache_theme_count = theme_count
+		single_player_level_cache_difficulty = adaptive_difficulty
+	var level_key := str(level_index)
+	if single_player_level_definitions_cache.has(level_key):
+		var cached: Variant = single_player_level_definitions_cache[level_key]
+		if cached is Dictionary:
+			return cached
+	if theme_count <= 0:
+		return {}
+	var target_difficulty: float = adaptive_difficulty
+	if _single_player_is_bonus_level(level_index):
+		target_difficulty = clampf(
+			adaptive_difficulty + GameState.SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP,
+			GameState.SINGLE_PLAYER_DIFFICULTY_MIN,
+			GameState.SINGLE_PLAYER_DIFFICULTY_MAX
+		)
+	var word_count: int = _single_player_level_word_target(level_index)
+	var level_seed: int = GameState.get_or_create_single_level_seed(language, level_index)
+	var options: Array = _single_player_theme_options(level_index, level_seed, word_count)
+	var selected_theme: int = GameState.get_single_level_selected_theme(language, level_index)
+	if selected_theme < 0 or selected_theme >= theme_count:
+		selected_theme = -1
+	elif !options.has(selected_theme):
+		if options.is_empty():
+			options.append(selected_theme)
+		else:
+			options[0] = selected_theme
+	var words: Array = []
+	if selected_theme >= 0:
+		words = _single_player_words_for_theme(
+			level_index,
+			level_seed,
+			selected_theme,
+			word_count,
+			target_difficulty
+		)
+	var level_data := {
+		"index": level_index,
+		"theme_options": options,
+		"selected_theme_index": selected_theme,
+		"word_count": word_count,
+		"words": words,
+		"target_difficulty": target_difficulty,
+		"is_bonus_level": _single_player_is_bonus_level(level_index),
+	}
+	single_player_level_definitions_cache[level_key] = level_data
+	return level_data
 
-	for i in range(theme_count):
-		var col: int = i % columns
-		var row: int = int(i / columns)
-		var x: float = x_start + float(col) * x_step
-		var y: float = y_start + float(row) * y_step
-		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
-		var guessed: int = Database.get_number_of_guessed_words(i, true)
-		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
-		var disabled: bool = words_count == 0
-		var completed: bool = words_count > 0 and guessed >= words_count
+func _single_player_level_theme_options(level_index: int) -> Array:
+	return Array(_single_player_level_data(level_index).get("theme_options", []))
 
-		var card := _stage_texture(Rect2(x, y, card_width, 90.0), THEME_CARD_TEXTURE)
-		var progress_back := _stage_texture(Rect2(x, y, card_width, 65.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = Database.tr_text(34, "Guessed") + ": " + str(guessed_percent) + "%"
-		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, card_width - 16.0, 44.0), progress_text, 14 if compact_grid else 15, Color(0.43, 0.49, 0.83, 1.0))
-		progress_label.clip_text = false
-		progress_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
-		progress_label.add_theme_constant_override("outline_size", 0)
-		var progress_holder := progress_label.get_parent() as Control
-		if progress_holder != null:
-			progress_holder.z_index = 10
+func _single_player_level_selected_theme(level_index: int) -> int:
+	return int(_single_player_level_data(level_index).get("selected_theme_index", -1))
 
-		var theme_name: String = Database.get_theme_name(i).to_upper()
-		var theme_icon_texture: Texture2D = _theme_icon_texture(i)
-		var theme_icon: Control = null
-		if theme_icon_texture != null:
-			theme_icon = _stage_texture(Rect2(x + 10.0, y + 41.0, 34.0, 34.0), theme_icon_texture)
-			theme_icon.z_index = 11
-		var title_font_size: int = 16 if compact_grid else 21
-		var title_label := _stage_label(Rect2(x + 48.0, y + 43.0, card_width - 56.0, 39.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		title_label.clip_text = false
-		title_label.add_theme_color_override("font_outline_color", Color(0.42, 0.49, 0.82, 1.0))
-		title_label.add_theme_constant_override("outline_size", 2)
-		var title_holder := title_label.get_parent() as Control
-		if title_holder != null:
-			title_holder.z_index = 11
+func _single_player_level_words(level_index: int) -> Array:
+	return Array(_single_player_level_data(level_index).get("words", []))
 
-		if disabled:
-			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			if theme_icon_texture != null:
-				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+func _single_player_level_word_count(level_index: int) -> int:
+	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
 
-		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i) if completed else Callable(self, "start_classic_game").bind(i)
-		var theme_button := _stage_button(Rect2(x, y, card_width, 90.0), action, "")
-		theme_button.disabled = disabled
-		_bind_theme_card_press_state(theme_button, card)
+func _single_player_level_played_count(level_index: int) -> int:
+	return GameState.get_single_level_played_count(
+		Database.current_language,
+		level_index,
+		_single_player_level_word_count(level_index)
+	)
+
+func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
+	return GameState.get_single_level_word_status(
+		Database.current_language,
+		level_index,
+		word_slot,
+		_single_player_level_word_count(level_index)
+	)
+
+func _single_player_next_unplayed_word_slot(level_index: int) -> int:
+	for word_slot in range(_single_player_level_word_count(level_index)):
+		if _single_player_level_word_status(level_index, word_slot) == 0:
+			return word_slot
+	return -1
+
+func _single_player_mark_current_word_finished(
+	data: Dictionary,
+	is_win: bool,
+	failure_affects_difficulty: bool = true
+) -> Dictionary:
+	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
+		return data
+	var result: Dictionary = data.duplicate(true)
+	var level_word_count: int = _single_player_level_word_count(single_player_active_level_index)
+	var progress: Dictionary = GameState.mark_single_level_word_played(
+		Database.current_language,
+		single_player_active_level_index,
+		single_player_active_word_slot,
+		level_word_count,
+		is_win,
+		failure_affects_difficulty
+	)
+	if !result.has("lines") or !(result["lines"] is Array):
+		result["lines"] = []
+	result["single_player_level_index"] = single_player_active_level_index
+	result["single_player_word_slot"] = single_player_active_word_slot
+	result["single_player_played_count"] = int(progress.get("played_count", 0))
+	result["single_player_total_count"] = level_word_count
+	result["single_player_level_completed"] = bool(progress.get("completed", false))
+	result["single_player_level_perfect"] = bool(progress.get("perfect", false))
+	result["single_player_chain_failed"] = bool(progress.get("failed", false))
+	result["single_player_chain_ended"] = bool(progress.get("chain_ended", false))
+	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
+	result["single_player_completion_bonus"] = int(progress.get("completion_bonus", 0))
+	result["single_player_difficulty_before"] = float(progress.get("difficulty_before", 0.0))
+	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
+	if bool(progress.get("completed", false)):
+		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
+	elif bool(progress.get("failed", false)):
+		result["lines"].append(_single_player_chain_failed_label())
+	return result
+
+func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
+	var level_index: int = _single_player_next_level_index()
+	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var button := _stage_main_button(
+		rect,
+		callable,
+		"",
+		26,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	_style_single_player_level_button(button, level_index)
+
+	var title_label := Label.new()
+	title_label.name = "LevelTitle"
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_label.position = Vector2(0.0, 0.0 if challenge_level else 3.0)
+	title_label.size = Vector2(rect.size.x, rect.size.y * (0.60 if challenge_level else 0.92))
+	title_label.text = ("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if challenge_level else VERTICAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 28)
+	title_label.add_theme_color_override("font_color", Color.WHITE)
+	var title_effect_color := (
+		Color(DIFFICULTY_HARD_OUTLINE_COLOR.r, DIFFICULTY_HARD_OUTLINE_COLOR.g, DIFFICULTY_HARD_OUTLINE_COLOR.b, 0.55)
+		if challenge_level
+		else Color(0.48, 0.24, 0.08, 0.50)
+	)
+	title_label.add_theme_color_override("font_outline_color", title_effect_color)
+	title_label.add_theme_constant_override("outline_size", 1)
+	title_label.add_theme_color_override(
+		"font_shadow_color",
+		title_effect_color
+	)
+	title_label.add_theme_constant_override("shadow_offset_x", 2)
+	title_label.add_theme_constant_override("shadow_offset_y", 2)
+	title_label.add_theme_constant_override("shadow_outline_size", 0)
+	button.add_child(title_label)
+
+	if challenge_level:
+		var challenge_label := Label.new()
+		challenge_label.name = "ChallengeSubtitle"
+		challenge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		challenge_label.position = Vector2(0.0, rect.size.y * 0.57)
+		challenge_label.size = Vector2(rect.size.x, rect.size.y * 0.30)
+		challenge_label.text = _single_player_challenge_level_label().to_upper()
+		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		challenge_label.add_theme_font_size_override("font_size", 15)
+		challenge_label.add_theme_color_override("font_color", Color(0.98, 0.91, 1.0, 1.0))
+		var challenge_effect_color := Color(
+			DIFFICULTY_HARD_OUTLINE_COLOR.r,
+			DIFFICULTY_HARD_OUTLINE_COLOR.g,
+			DIFFICULTY_HARD_OUTLINE_COLOR.b,
+			0.52
+		)
+		challenge_label.add_theme_color_override("font_outline_color", challenge_effect_color)
+		challenge_label.add_theme_constant_override("outline_size", 1)
+		challenge_label.add_theme_color_override("font_shadow_color", challenge_effect_color)
+		challenge_label.add_theme_constant_override("shadow_offset_x", 2)
+		challenge_label.add_theme_constant_override("shadow_offset_y", 2)
+		challenge_label.add_theme_constant_override("shadow_outline_size", 0)
+		button.add_child(challenge_label)
+
+func _remove_single_player_theme_popup() -> void:
+	_clear_single_player_popup_theme_cards()
+	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_theme_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	single_player_popup_level_index = -1
+	single_player_popup_selected_theme = -1
+	single_player_popup_theme_panels.clear()
+	single_player_popup_stage_content = null
+	single_player_popup_play_button = null
+	single_player_popup_refresh_price_label = null
+
+func _remove_single_player_last_chance_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_last_chance_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+
+func _remove_heart_refill_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("heart_refill_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+	heart_refill_continue_action = Callable()
+	heart_refill_store_return_action = Callable()
+	heart_refill_store_is_open = false
+
+func _purchase_heart_refill() -> void:
+	if GameState.get_hearts() >= GameState.MAX_HEARTS:
+		return
+	if GameState.get_soft_currency() < HEART_REFILL_COST:
+		if heart_refill_store_is_open:
+			_remove_heart_refill_popup()
+			return
+		var continue_action: Callable = heart_refill_continue_action
+		var restore_action: Callable = heart_refill_store_return_action
+		_remove_heart_refill_popup()
+		_open_coin_store(
+			Callable(self, "_return_to_heart_refill_from_coin_store").bind(
+				continue_action,
+				restore_action
+			)
+		)
+		return
+	if !GameState.spend_soft_currency(HEART_REFILL_COST, false):
+		return
+	var continue_action: Callable = heart_refill_continue_action
+	GameState.refill_hearts(true)
+	_remove_heart_refill_popup()
+	if continue_action.is_valid():
+		continue_action.call_deferred()
+
+func _clear_single_player_popup_theme_cards() -> void:
+	for card_node: Node in single_player_popup_theme_card_nodes:
+		if card_node != null and is_instance_valid(card_node):
+			if card_node.get_parent() != null:
+				card_node.get_parent().remove_child(card_node)
+			card_node.queue_free()
+	single_player_popup_theme_card_nodes.clear()
+	single_player_popup_theme_panels.clear()
+
+func _stage_single_player_theme_card(
+	rect: Rect2,
+	theme_index: int,
+	word_count: int,
+	_played_count: int,
+	selected: bool,
+	disabled: bool,
+	action: Callable
+) -> void:
+	# Reuse the same layered card artwork as Classic mode, expanded to one wide
+	# row so the three offered categories read as the main level choices.
+	var card := _stage_texture(rect, THEME_CARD_TEXTURE)
+
+	var theme_icon: Control = null
+	var word_badge: Control = null
+	var word_badge_label: Label = null
+	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+	var theme_icon_rect := Rect2(rect.position + Vector2(20.0, 18.0), Vector2(64.0, 64.0))
+	if theme_icon_texture != null:
+		theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
+		theme_icon.z_index = 11
+		var word_badge_size := Vector2(43.0, 25.0)
+		var word_badge_rect := Rect2(
+			theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
+			word_badge_size
+		)
+		word_badge = _stage_panel(
+			word_badge_rect,
+			Color(0.94, 0.58, 0.22, 1.0),
+			word_badge_size.y * 0.5,
+			Color.WHITE,
+			1.5
+		)
+		word_badge.z_index = 12
+		word_badge_label = _stage_label(
+			word_badge_rect,
+			"x%d" % word_count,
+			16,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		word_badge_label.z_index = 13
+		var badge_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+		word_badge_label.add_theme_color_override("font_outline_color", badge_effect_color)
+		word_badge_label.add_theme_constant_override("outline_size", 1)
+		word_badge_label.add_theme_color_override("font_shadow_color", badge_effect_color)
+		word_badge_label.add_theme_constant_override("shadow_offset_x", 2)
+		word_badge_label.add_theme_constant_override("shadow_offset_y", 2)
+		word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+
+	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
+	var title_font_size: int = 20 if theme_name.length() > 15 else 26
+	var title_label := _stage_label(
+		Rect2(
+			rect.position + Vector2(100.0, rect.size.y - 45.0),
+			Vector2(rect.size.x - 118.0, 35.0)
+		),
+		theme_name,
+		title_font_size,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	title_label.clip_text = false
+	var theme_title_effect_color := Color(0.42, 0.49, 0.82, 0.55)
+	title_label.add_theme_color_override("font_outline_color", theme_title_effect_color)
+	title_label.add_theme_constant_override("outline_size", 1)
+	title_label.add_theme_color_override("font_shadow_color", theme_title_effect_color)
+	title_label.add_theme_constant_override("shadow_offset_x", 2)
+	title_label.add_theme_constant_override("shadow_offset_y", 2)
+	title_label.add_theme_constant_override("shadow_outline_size", 0)
+
+	if selected:
+		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, Color(0.94, 0.58, 0.22, 1.0), 3.0)
+	if disabled:
+		for item in [card, theme_icon, word_badge, word_badge_label, title_label]:
+			if item != null:
+				item.modulate = Color(1.0, 1.0, 1.0, 0.30)
+
+	var theme_button := _stage_button(rect, action, "")
+	theme_button.disabled = disabled
+	_bind_theme_card_press_state(theme_button, card)
+
+func show_single_player_level(level_index: int) -> void:
+	level_index = _prepare_single_player_level_attempt(level_index)
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = -1
+	_clear()
+	var screen_blue := Color(0.2706, 0.3098, 0.6078, 1.0)
+	_stage_texture_fill(0.0, 800.0, MENU_PAPER_COVER)
+	_stage_single_player_level_header(level_index)
+	var selected_theme: int = _single_player_level_selected_theme(level_index)
+	var instruction_text: String = _single_player_choose_theme_label()
+	if selected_theme >= 0:
+		instruction_text = _single_player_text("Продолжите выбранную тему", "Continue the selected category")
+	if _single_player_is_bonus_level(level_index):
+		instruction_text += "\n" + _single_player_text(
+			"УСЛОЖНЁННЫЙ УРОВЕНЬ • +2 СЛОВА",
+			"CHALLENGE LEVEL • +2 WORDS"
+		)
+	var instruction_label := _stage_label(
+		Rect2(36.0, 114.0, 408.0, 50.0),
+		instruction_text,
+		17 if _single_player_is_bonus_level(level_index) else 19,
+		screen_blue,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	instruction_label.clip_text = false
+
+	var word_count: int = _single_player_level_word_count(level_index)
+	var played_count: int = _single_player_level_played_count(level_index)
+	var theme_options: Array = _single_player_level_theme_options(level_index)
+	if theme_options.is_empty():
+		var unavailable_label := _stage_label(
+			Rect2(42.0, 260.0, 396.0, 100.0),
+			_single_player_text("Нет доступных тем", "No categories available"),
+			24,
+			screen_blue,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		unavailable_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		unavailable_label.clip_text = false
+		return
+
+	var card_rect := Rect2(30.0, 166.0, 420.0, 112.0)
+	for option_index in range(theme_options.size()):
+		var theme_index: int = int(theme_options[option_index])
+		var is_selected: bool = selected_theme == theme_index
+		var disabled: bool = selected_theme >= 0 and !is_selected
+		var action: Callable = Callable(self, "_show_single_player_theme_popup").bind(level_index, theme_index)
+		if is_selected:
+			action = Callable(self, "_start_next_single_player_word").bind(level_index)
+		_stage_single_player_theme_card(
+			Rect2(card_rect.position + Vector2(0.0, float(option_index) * 144.0), card_rect.size),
+			theme_index,
+			word_count,
+			played_count,
+			is_selected,
+			disabled,
+			action
+		)
+
+func _confirm_single_player_theme_selection(level_index: int, theme_index: int) -> void:
+	_remove_single_player_theme_popup()
+	var options: Array = _single_player_level_theme_options(level_index)
+	if !options.has(theme_index):
+		return
+	var existing_theme: int = GameState.get_single_level_selected_theme(Database.current_language, level_index)
+	if existing_theme != theme_index:
+		if existing_theme >= 0:
+			# A saved choice identifies the current chain, not a permanent UI lock.
+			# Keep the offered cards stable while replacing that chain with the
+			# newly confirmed category.
+			GameState.reset_single_level_attempt(Database.current_language, level_index, false)
+		GameState.select_single_level_theme(
+			Database.current_language,
+			level_index,
+			theme_index,
+			_single_player_level_word_count(level_index)
+		)
+	_invalidate_single_player_level_cache()
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = -1
+	_start_next_single_player_word(level_index)
+
+func _start_single_player_popup_level(level_index: int) -> void:
+	if level_index != single_player_popup_level_index or single_player_popup_selected_theme < 0:
+		return
+	single_player_retry_after_loss = false
+	_confirm_single_player_theme_selection(level_index, single_player_popup_selected_theme)
+
+func _refresh_single_player_theme_popup(level_index: int) -> void:
+	if level_index != single_player_popup_level_index:
+		return
+	if GameState.get_soft_currency() < SINGLE_PLAYER_THEME_REFRESH_COST:
+		_open_coin_store(
+			Callable(self, "_return_to_single_player_theme_popup").bind(
+				level_index,
+				single_player_retry_after_loss
+			)
+		)
+		return
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
+		return
+	GameState.reset_single_level_attempt(Database.current_language, level_index)
+	_invalidate_single_player_level_cache()
+	_update_single_player_theme_popup(level_index)
+
+func _return_to_single_player_theme_popup(level_index: int, retry_after_loss: bool = false) -> void:
+	show_menu()
+	_show_single_player_level_popup(level_index, -1, retry_after_loss)
+
+func _purchase_single_player_extra_attempt() -> void:
+	if !GameSession.has_deferred_loss():
+		_remove_single_player_last_chance_popup()
+		return
+	if GameState.get_soft_currency() < SINGLE_PLAYER_EXTRA_ATTEMPT_COST:
+		_remove_single_player_last_chance_popup()
+		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
+		return
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST):
+		return
+	_remove_single_player_last_chance_popup()
+	_grant_single_player_extra_attempt()
+
+func _grant_single_player_extra_attempt() -> void:
+	# A reaction overlay from the previous wrong guess can still be playing under
+	# the modal. Remove it before the session signal refreshes the restored pose,
+	# otherwise the static hero remains hidden until that old animation finishes.
+	_clear_hero_animation_overlay()
+	GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
+
+func _decline_single_player_extra_attempt() -> void:
+	_remove_single_player_last_chance_popup()
+	GameSession.resolve_deferred_loss()
+
+func _return_to_single_player_last_chance_from_coin_store() -> void:
+	show_game_screen()
+	call_deferred("_show_single_player_last_chance_popup")
+
+func _close_single_player_retry_popup() -> void:
+	single_player_retry_after_loss = false
+	_remove_single_player_theme_popup()
+	show_menu()
+
+func _start_next_single_player_word(level_index: int) -> void:
+	if _single_player_level_selected_theme(level_index) < 0:
+		_show_single_player_level_popup(level_index)
+		return
+	var next_slot: int = _single_player_next_unplayed_word_slot(level_index)
+	if next_slot < 0:
+		_open_next_single_player_level()
+		return
+	_start_single_player_word(level_index, next_slot)
+
+func _start_single_player_word(level_index: int, word_slot: int) -> void:
+	var words: Array = _single_player_level_words(level_index)
+	if word_slot < 0 or word_slot >= words.size():
+		return
+	if _single_player_level_word_status(level_index, word_slot) != 0:
+		return
+	var word_info: Dictionary = words[word_slot]
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = word_slot
+	game_finished = false
+	last_result_data = {}
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	var word := WordData.new(
+		str(word_info.get("text", "")),
+		float(word_info.get("difficulty", 0.0)),
+		int(word_info.get("theme_index", -1)),
+		int(word_info.get("word_index", -1))
+	)
+	GameState.mark_single_player_word_shown(
+		Database.current_language,
+		word.theme_index,
+		word.index,
+		Database.get_words_by_index(word.theme_index, 0).size()
+	)
+	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
+	show_game_screen()
 
 func _bind_theme_card_press_state(button: BaseButton, card: CanvasItem) -> void:
 	if button.disabled:
@@ -919,44 +1481,13 @@ func _set_theme_card_pressed(card: CanvasItem, is_pressed: bool) -> void:
 	if card == null or !is_instance_valid(card):
 		return
 	card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE
-
-func _show_clear_theme_popup(theme_index: int) -> void:
-	_remove_clear_theme_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "ClearThemePopupCanvas"
-	popup_layer.layer = 125
-	popup_layer.add_to_group("clear_theme_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "ClearThemePopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_clear_theme_popup"))
-	content = _center_popup_content(popup_root, 92.0, 336.0)
-	var popup_x: float = 160.0
-	var popup_width: float = 480.0
-	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 174.0, popup_width, 162.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_panel(Rect2(popup_x, 172.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	var question := Database.tr_text(29, "Clear the category?") + "\n" + Database.get_theme_name(theme_index).to_upper()
-	var question_label := _stage_label(Rect2(popup_x + 32.0, 101.0, popup_width - 64.0, 62.0), question, 25, Color.WHITE)
-	question_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 28.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index), Database.tr_text(30, "Yes"), 20)
-	_stage_main_button(Rect2(popup_x + popup_width - 240.0, 238.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(31, "No"), 20)
-	content = previous_content
-
-func _confirm_clear_theme(theme_index: int) -> void:
+func _confirm_clear_theme(theme_index: int, return_to_tasks: bool = false) -> void:
 	WordManager.clear_the_theme(theme_index)
 	_remove_clear_theme_popup()
-	show_theme_select()
+	if return_to_tasks:
+		show_tasks()
+	else:
+		show_theme_select()
 
 func _remove_clear_theme_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("clear_theme_popup")
@@ -964,241 +1495,108 @@ func _remove_clear_theme_popup() -> void:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
-
-func _show_difficulty_popup() -> void:
-	_remove_difficulty_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
-
-	# A dedicated CanvasLayer keeps every popup element above the category
-	# cards. Adding the popup root to RuntimeUI allowed stage controls with their
-	# own z-index to bleed through the dark body on some layouts.
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "ThemeDifficultyPopupCanvas"
-	popup_layer.layer = 120
-	popup_layer.add_to_group("difficulty_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "ThemeDifficultyPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_difficulty_popup"))
-	content = _center_popup_content(popup_root, 0.0, 250.0)
-
-	var popup_x: float = 40.0
-	var popup_width: float = 720.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 76.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 76.0, popup_width, 174.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(popup_x, 76.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_label(Rect2(popup_x + 34.0, 18.0, 520.0, 42.0), Database.tr_text(63, "Choose the difficulty level:"), 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 10.0, 68.0, 68.0), Callable(self, "_remove_difficulty_popup"), "×")
-
-	var column_separators := [popup_x + 240.0, popup_x + 480.0]
-	for sep_x in column_separators:
-		var divider := _stage_panel(Rect2(sep_x, 94.0, 2.0, 126.0), Color(0.32, 0.39, 0.69, 0.95))
-		divider.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_rule := _stage_panel(Rect2(popup_x + 34.0, 131.0, popup_width - 68.0, 2.0), Color(0.32, 0.39, 0.69, 0.95))
-	top_rule.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var options := [
-		{
-			"value": 2,
-			"title": Database.tr_key(&"DIFFICULTY_EASY", "ПРОСТОЙ"),
-			"desc": [Database.tr_text(55, "Easy words")],
-			"x": popup_x + 24.0
-		},
-		{
-			"value": 1,
-			"title": Database.tr_key(&"DIFFICULTY_HARD", "СЛОЖНЫЙ"),
-			"desc": [Database.tr_text(56, "Hard words")],
-			"x": popup_x + 264.0
-		},
-		{
-			"value": 0,
-			"title": Database.tr_key(&"DIFFICULTY_GENERAL", "ОБЩИЙ"),
-			"desc": [Database.tr_text(57, "All words")],
-			"x": popup_x + 504.0
-		},
-	]
-
-	for option in options:
-		var base_x: float = float(option["x"])
-		var value: int = int(option["value"])
-		var selected: bool = value == int(GameState.settings[2])
-		var title_label := _stage_label(Rect2(base_x, 96.0, 190.0, 30.0), String(option["title"]), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		title_label.clip_text = false
-		title_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
-		title_label.add_theme_constant_override("outline_size", 0)
-		var title_holder := title_label.get_parent() as Control
-		if title_holder != null:
-			title_holder.z_index = 20
-
-		var hit_area := _stage_button(Rect2(base_x - 8.0, 138.0, 210.0, 88.0), Callable(self, "_set_difficulty_from_popup").bind(value), "")
-		hit_area.mouse_filter = Control.MOUSE_FILTER_STOP
-		var option_button_rect := Rect2(base_x, 148.0, 68.0, 68.0)
-		var option_texture: Texture2D = _difficulty_star_texture(value)
-		_stage_round_icon_button(option_button_rect, Callable(self, "_set_difficulty_from_popup").bind(value), option_texture, _art_stage_size(option_texture), false, selected)
-
-		var desc: Array = option["desc"] as Array
-		var text_y: float = 154.0
-		for line in desc:
-			var line_label := _stage_label(Rect2(base_x + 88.0, text_y, 130.0, 24.0), String(line), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-			line_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.0))
-			line_label.add_theme_constant_override("outline_size", 0)
-			text_y += 24.0
-
-	content = previous_content
-
-func _set_difficulty_from_popup(value: int) -> void:
-	GameState.settings[2] = value
-	GameState.save_game()
-	_remove_difficulty_popup()
-	show_theme_select()
-
-func _remove_difficulty_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("difficulty_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
 func start_classic_game(theme_index: int) -> void:
 	game_finished = false
 	last_result_data = {}
-	GameState.current_mode = 0
-	GameState.current_score = 0
-	GameState.current_time_left = 180
-	GameState.time_attack_round = 1
-	GameState.correct_guess_streak = 0
-	GameSession.start_new_round(theme_index, 0)
-	GameState.save_game()
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
+	GameState.current_mode = GameState.GameMode.CLASSIC
+	GameSession.start_new_round(theme_index)
 	show_game_screen()
 
-func _show_time_attack_popup() -> void:
-	_remove_time_attack_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
+func _exit_game_warning_text() -> String:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		return _single_player_text("Вы потеряете одну жизнь!", "You will lose one life!")
+	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
 
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "TimeAttackPopupCanvas"
-	popup_layer.layer = 115
-	popup_layer.add_to_group("time_attack_popup")
-	add_child(popup_layer)
+func _exit_game_title_text() -> String:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		return _single_player_text("Покинуть уровень?", "Leave level?")
+	return tr("EXIT_GAME_CONFIRM")
 
-	var popup_root := Control.new()
-	popup_root.name = "TimeAttackPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_time_attack_popup"))
-	content = _center_popup_content(popup_root, 0.0, 340.0)
-
-	var popup_x: float = 70.0
-	var popup_width: float = 660.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 87.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 87.0, popup_width, 253.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 87.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bottom_separator := _stage_panel(Rect2(popup_x + 35.0, 259.0, popup_width - 70.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 420.0, 50.0), tr("TIME_ATTACK_MODE"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.clip_text = false
-
-	var difficulty_button_rect := Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y)
-	var difficulty_texture: Texture2D = _difficulty_star_texture()
-	_stage_round_icon_button(difficulty_button_rect, Callable(self, "_cycle_time_attack_difficulty"), difficulty_texture, _art_stage_size(difficulty_texture))
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_time_attack_popup"), "×")
-
-	# Original Flash badge assembled from its separate bitmap layers.
-	# Draw in source order: blue outer backing, white inner badge, hourglass.
-	_stage_texture(Rect2(popup_x + 118.0, 112.0, 133.0, 133.0), TIME_ATTACK_BADGE_OUTER_TEXTURE)
-	_stage_texture(Rect2(popup_x + 129.0, 123.0, 111.0, 111.0), HERO_BADGE_RING_TEXTURE)
-	_stage_texture(Rect2(popup_x + 165.5, 155.5, 38.0, 46.0), TIME_ATTACK_HOURGLASS_TEXTURE)
-
-	var description_label := _stage_label(Rect2(popup_x + 315.0, 116.0, 285.0, 128.0), tr("TIME_ATTACK_DESCRIPTION"), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	description_label.clip_text = true
-
-	var record_text: String = tr("RECORD_LABEL") + " " + str(int(GameState.records[2][2]))
-	var record_label := _stage_score_with_star(Rect2(popup_x + 54.0, 275.0, 240.0, 38.0), record_text, 21, Color.WHITE)
-	record_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 333.0, 276.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_start_time_attack_from_popup"), tr("START"), 20, false, 0.32, false, false, true)
-
-	content = previous_content
-
-func _cycle_time_attack_difficulty() -> void:
-	GameState.settings[2] = (int(GameState.settings[2]) + 1) % 3
-	GameState.save_game()
-	_show_time_attack_popup()
-
-func _start_time_attack_from_popup() -> void:
-	_remove_time_attack_popup()
-	start_time_attack()
-
-func _remove_time_attack_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("time_attack_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func _show_exit_game_popup() -> void:
+func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 	_remove_exit_game_popup()
-	_play_popup_open_sound()
-	var previous_content: Control = content
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		_forfeit_single_player_round(confirmed_by_popup)
+		return
+	var return_to_custom_word: bool = GameState.current_mode == GameState.GameMode.TWO_PLAYER
+	_discard_round_for_navigation()
+	if return_to_custom_word:
+		_preserve_custom_word_on_next_show = true
+		show_custom_word()
+	else:
+		show_tasks()
 
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "ExitGamePopupCanvas"
-	popup_layer.layer = 140
-	popup_layer.add_to_group("exit_game_popup")
-	add_child(popup_layer)
+func _discard_round_for_navigation() -> void:
+	result_transition_generation += 1
+	round_result_delay_requested = false
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
 
-	var popup_root := Control.new()
-	popup_root.name = "ExitGamePopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
+func _single_player_forfeit_reward_data(source_result: Dictionary, level_index: int) -> Dictionary:
+	var result: Dictionary = source_result.duplicate(true)
+	var word_count: int = maxi(_single_player_level_word_count(level_index), 1)
+	var word_slot: int = clampi(single_player_active_word_slot, 0, word_count - 1)
+	result["title"] = _single_player_level_failed_label()
+	result["lines"] = [_single_player_level_failed_label()]
+	result["single_player_level_index"] = level_index
+	result["single_player_word_slot"] = word_slot
+	result["single_player_total_count"] = word_count
+	result["single_player_level_completed"] = false
+	result["single_player_level_perfect"] = false
+	result["single_player_chain_failed"] = true
+	result["single_player_chain_ended"] = true
+	result["single_player_unlocked_next"] = false
+	result["single_player_completion_bonus"] = 0
+	result["single_player_forfeit_reward"] = true
+	result["single_player_reward_granted"] = false
+	return result
 
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_exit_game_popup"))
-	content = _center_popup_content(popup_root, 92.0, 306.0)
-
-	var popup_x: float = 210.0
-	var popup_width: float = 380.0
-	var header := _stage_panel(Rect2(popup_x, 92.0, popup_width, 78.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 170.0, popup_width, 136.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(popup_x, 169.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 24.0, 102.0, popup_width - 48.0, 54.0), tr("EXIT_GAME_CONFIRM"), 27, Color.WHITE)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	_stage_main_button(Rect2(popup_x + 28.0, 214.0, 150.0, 52.0), Callable(self, "_confirm_exit_game"), tr("YES"), 20)
-	_stage_main_button(Rect2(popup_x + 202.0, 214.0, 150.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20)
-	_stage_round_button(
-		Rect2(popup_x + (popup_width - ROUND_BUTTON_SIZE.x) * 0.5, 330.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y),
-		Callable(self, "_remove_exit_game_popup"),
-		"×"
-	)
-
-	content = previous_content
-
-func _confirm_exit_game() -> void:
-	_remove_exit_game_popup()
+func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
+	var level_index: int = single_player_active_level_index
+	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
+	var chain_failed: bool = bool(last_result_data.get("single_player_chain_failed", false))
+	var forfeit_result: Dictionary = last_result_data.duplicate(true)
+	var reward_was_granted: bool = game_finished and last_result_is_win
+	# A result transition may already be waiting for the letter-marker animation.
+	# In that case the round has already been recorded, so only cancel the delayed
+	# result screen and return to the level without recording it a second time.
+	result_transition_generation += 1
+	round_result_delay_requested = false
+	var should_lose_heart: bool = false
+	if !game_finished and GameSession.is_active and level_index >= 0 and single_player_active_word_slot >= 0:
+		game_finished = true
+		forfeit_result = _single_player_mark_current_word_finished({}, false, false)
+		chain_failed = true
+		should_lose_heart = true
+	elif game_finished and level_index >= 0 and !level_completed and !chain_failed:
+		# Leaving after a successfully guessed word still forfeits the unfinished
+		# chain, but intentionally leaves adaptive difficulty unchanged.
+		GameState.record_single_player_forfeit(Database.current_language)
+		should_lose_heart = true
+	if should_lose_heart:
+		GameState.lose_heart()
+	if level_index >= 0 and !level_completed:
+		GameState.reset_single_level_attempt(Database.current_language, level_index)
+		_invalidate_single_player_level_cache()
+	if show_failure_reward and should_lose_heart and level_index >= 0 and !level_completed:
+		# A successfully guessed word has already credited its regular reward before
+		# the result Back button can open the confirmation popup. Revoke that credit
+		# so a confirmed forfeit has the same zero-reward outcome as leaving mid-word.
+		if reward_was_granted:
+			GameState.spend_soft_currency(GameState.WORD_REWARD_COINS)
+		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
+		last_result_is_win = false
+		hero_force_default_pose = false
+		_show_single_player_forfeit_reward_screen()
+		return
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
 	show_menu()
 
 func _remove_exit_game_popup() -> void:
@@ -1207,96 +1605,33 @@ func _remove_exit_game_popup() -> void:
 		if is_instance_valid(node) and node.get_parent() != null:
 			node.get_parent().remove_child(node)
 			node.queue_free()
-
-func start_time_attack() -> void:
-	game_finished = false
-	last_result_data = {}
-	GameState.current_mode = 1
-	GameState.current_score = 0
-	GameState.current_time_left = 180
-	GameState.time_attack_round = 1
-	GameState.correct_guess_streak = 0
-	GameState.records[2][0] = 0
-	GameSession.start_new_round(-1, 1)
-	GameState.save_game()
-	show_game_screen()
-	game_timer.start()
-
-func show_custom_word() -> void:
-	game_timer.stop()
-	_clear("")
-	_set_random_custom_word()
-
-	# SlovMov.as draws the screen from three simple areas: a 114 px blue header,
-	# the graph-paper settings area, and a blue footer matching the gameplay screen.
-	# Rebuild those areas directly instead of displaying the converted SlovMov
-	# scene, which contains duplicate text fields and broken bitmap fragments.
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, 114.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-
-	# Original input field: Head is shifted by -50 and InputTxt is created at
-	# x = 105, y = 27 with width 567, producing this stage-space white capsule.
-	_stage_panel(Rect2(55.0, 27.0, 567.0, 54.0), Color.WHITE, 27.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
-	custom_word_edit = _stage_line_edit(Rect2(76.0, 31.0, 525.0, 46.0), Database.tr_text(41, "Input the word"))
-	custom_word_edit.max_length = 15
-	custom_word_edit.text = custom_word_text
-	custom_word_edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	custom_word_edit.add_theme_font_size_override("font_size", 26)
-	custom_word_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
-	custom_word_edit.add_theme_color_override("font_placeholder_color", Color(0.40, 0.43, 0.63, 0.70))
-	custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-
-	_stage_label(Rect2(49.0, 78.0, 245.0, 28.0), _custom_word_max_length_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(428.0, 78.0, 194.0, 28.0), _custom_word_random_label(), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_set_random_custom_word"), CUSTOM_WORD_RANDOM_ICON, Vector2(32.0, 27.0))
-	# Use the same round close button treatment as on the guessing screen so the
-	# close icon has the same look and no deformation.
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), "×")
-
-	_stage_label(Rect2(66.0, 151.0, 260.0, 49.0), Database.tr_text(27, "First and last letter"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_custom_switch(Rect2(347.0, 151.0, 102.0, 49.0), 0)
-	_stage_label(Rect2(66.0, 213.0, 260.0, 49.0), Database.tr_text(28, "Hints"), 22, Color(0.27, 0.31, 0.61, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_custom_switch(Rect2(347.0, 213.0, 102.0, 49.0), 1)
-
-	custom_word_check_button = _stage_main_button(Rect2(511.0, 151.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_check_custom_word_now"), Database.tr_text(68, "Check the word"), 20, false, 0.0)
-	_stage_main_button(Rect2(511.0, 213.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_show_custom_comment_popup"), Database.tr_text(47, "Comment"), 20)
-	custom_word_start_button = _stage_main_button(
-		Rect2(511.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y),
-		Callable(self, "start_custom_game"),
-		_custom_word_start_label(),
-		20,
-		false,
-		0.32,
-		false,
-		false,
-		!custom_word_text.is_empty()
-	)
-
-func _stage_custom_switch(rect: Rect2, setting_index: int) -> void:
-	var enabled: bool = int(GameState.settings[setting_index]) == 2
-	_stage_main_button(rect, Callable(self, "_toggle_custom_setting").bind(setting_index), _custom_switch_label(enabled), 20, false, 0.0, false, enabled)
-
-func _custom_switch_label(enabled: bool) -> String:
-	return Database.tr_text(82, "On") if enabled else Database.tr_text(83, "Off")
-
-func _custom_word_max_length_label() -> String:
-	return "Макс. 15 символов" if Database.interface_language == "ru" else "Max. 15 characters"
-
 func _custom_word_random_label() -> String:
 	return "Случайное" if Database.interface_language == "ru" else "Random"
 
 func _custom_word_start_label() -> String:
-	return Database.tr_text(86, "Start game")
+	return Database.tr_text(77, "Start game")
 
 func _on_custom_word_text_changed(value: String) -> void:
 	_reset_custom_word_check_feedback()
+	var previous_word_text: String = custom_word_text
 	custom_word_text = _normalize_custom_word_input(value)
 	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
 		var caret_column: int = custom_word_edit.caret_column
 		custom_word_edit.text = custom_word_text
 		custom_word_edit.caret_column = mini(caret_column, custom_word_edit.text.length())
 	_sync_custom_word_input_visual()
+	# When the player appends letters, animate only the newly entered glyphs with
+	# the exact same reveal bounce as letters on the guessing screen.
+	if (
+		custom_word_input_visual != null
+		and is_instance_valid(custom_word_input_visual)
+		and custom_word_text.length() > previous_word_text.length()
+		and custom_word_text.begins_with(previous_word_text)
+	):
+		custom_word_input_visual.call_deferred(
+			"play_new_letter_bounce",
+			previous_word_text.length()
+		)
 	_sync_custom_word_start_bounce()
 
 func _normalize_custom_word_input(value: String) -> String:
@@ -1327,14 +1662,9 @@ func _sync_custom_word_input_visual() -> void:
 func _sync_custom_word_start_bounce() -> void:
 	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
 		return
-	custom_word_start_button.set("attention_bounce_enabled", !custom_word_text.is_empty())
-
-func _toggle_custom_setting(index: int) -> void:
-	if custom_word_edit != null:
-		custom_word_text = custom_word_edit.text
-	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
-	GameState.save_game()
-	show_custom_word()
+	var has_word: bool = !custom_word_text.is_empty()
+	custom_word_start_button.set("button_disabled", !has_word)
+	custom_word_start_button.set("attention_bounce_enabled", has_word)
 
 func _set_random_custom_word() -> void:
 	var theme_count: int = Database.get_theme_count()
@@ -1356,6 +1686,8 @@ func _set_random_custom_word() -> void:
 		custom_word_edit.text = custom_word_text
 		custom_word_edit.caret_column = custom_word_edit.text.length()
 		_sync_custom_word_input_visual()
+	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
+		custom_word_input_visual.call_deferred("play_word_bounce")
 	_sync_custom_word_start_bounce()
 
 func _is_random_custom_word_candidate(word: String) -> bool:
@@ -1374,7 +1706,7 @@ func _check_custom_word_now() -> void:
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
 		_set_temporary_custom_word_input_color(Color(0.62, 0.25, 0.42, 1.0))
-		custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
+		custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
 		_vibrate_custom_word_not_found()
 		return
@@ -1469,66 +1801,59 @@ func _cancel_custom_word_check() -> void:
 	_set_custom_word_checking(false)
 
 func _set_custom_word_checking(is_checking: bool) -> void:
+	if !is_checking:
+		_stop_custom_word_check_text_animation()
 	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
 		return
-	custom_word_check_button.set("selected", is_checking)
+	# The shared disabled state is a neutral gray mask and blocks pointer input.
+	custom_word_check_button.set("selected", false)
 	custom_word_check_button.set("button_disabled", is_checking)
-	custom_word_check_button.modulate = Color(1.0, 1.0, 1.0, CUSTOM_WORD_CHECKING_BUTTON_ALPHA if is_checking else 1.0)
+	custom_word_check_button.modulate = Color.WHITE
+	if is_checking:
+		_start_custom_word_check_text_animation()
+
+func _start_custom_word_check_text_animation() -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		return
+	custom_word_check_label_base = Database.tr_text(60, "Check the word")
+	custom_word_check_dot_count = 0
+	_update_custom_word_check_text()
+	if custom_word_check_animation_timer == null or !is_instance_valid(custom_word_check_animation_timer):
+		custom_word_check_animation_timer = Timer.new()
+		custom_word_check_animation_timer.name = "CustomWordCheckDotsTimer"
+		custom_word_check_animation_timer.wait_time = CUSTOM_WORD_CHECK_DOTS_INTERVAL
+		custom_word_check_animation_timer.one_shot = false
+		custom_word_check_animation_timer.timeout.connect(_advance_custom_word_check_dots)
+		add_child(custom_word_check_animation_timer)
+	custom_word_check_animation_timer.start()
+
+func _stop_custom_word_check_text_animation() -> void:
+	if custom_word_check_animation_timer != null and is_instance_valid(custom_word_check_animation_timer):
+		custom_word_check_animation_timer.stop()
+	custom_word_check_dot_count = 0
+	if custom_word_check_label_base.is_empty():
+		custom_word_check_label_base = Database.tr_text(60, "Check the word")
+	_update_custom_word_check_text()
+
+func _advance_custom_word_check_dots() -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		_stop_custom_word_check_text_animation()
+		return
+	custom_word_check_dot_count = (custom_word_check_dot_count + 1) % 4
+	_update_custom_word_check_text()
+
+func _update_custom_word_check_text() -> void:
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		return
+	var dots: String = ""
+	for _index: int in range(custom_word_check_dot_count):
+		dots += "."
+	custom_word_check_button.set("button_text", custom_word_check_label_base + dots)
 
 func _reset_custom_word_check_feedback() -> void:
 	_cancel_custom_word_check()
 	_hide_custom_word_toast()
 	_reset_custom_word_input_color()
-
-func _show_custom_comment_popup() -> void:
-	_remove_custom_comment_popup()
-	_play_popup_open_sound()
-	if custom_word_edit != null:
-		custom_word_text = custom_word_edit.text
-
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "CustomCommentPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("custom_comment_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "CustomCommentPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_save_and_close_custom_comment_popup"))
-	content = _center_popup_content(popup_root, 40.0, 358.0)
-	var header := _stage_panel(Rect2(70.0, 40.0, 660.0, 82.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(70.0, 122.0, 660.0, 236.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_panel(Rect2(70.0, 120.0, 660.0, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	_stage_label(Rect2(94.0, 55.0, 420.0, 50.0), Database.tr_text(47, "Comment"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_panel(Rect2(104.0, 151.0, 592.0, 112.0), Color.WHITE, 18.0, Color(0.78, 0.80, 0.86, 1.0), 2.0)
-	custom_comment_edit = _stage_text_edit(Rect2(122.0, 165.0, 556.0, 84.0), Database.tr_text(47, "Comment"))
-	custom_comment_edit.text = custom_comment_text
-	custom_comment_edit.add_theme_font_size_override("font_size", 21)
-	custom_comment_edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52, 1.0))
-	_stage_main_button(Rect2(488.0, 286.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), Database.tr_text(87, "OK"), 20)
-	_stage_round_icon_button(Rect2(646.0, 50.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_save_and_close_custom_comment_popup"), RESULT_CLOSE_ICON, Vector2(21.0, 21.0))
-	content = previous_content
-
-func _save_and_close_custom_comment_popup() -> void:
-	if custom_comment_edit != null:
-		custom_comment_text = custom_comment_edit.text.strip_edges()
-	_remove_custom_comment_popup()
-
-func _remove_custom_comment_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("custom_comment_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-	custom_comment_edit = null
 
 func start_custom_game() -> void:
 	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text
@@ -1536,18 +1861,15 @@ func start_custom_game() -> void:
 	if !_is_valid_custom_word(word):
 		if custom_word_edit != null:
 			_set_custom_word_input_color(Color(0.62, 0.25, 0.42, 1.0))
-			custom_word_edit.placeholder_text = Database.tr_text(72, "Error! Something goes wrong.")
+			custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		return
 	custom_word_text = word
 	game_finished = false
 	last_result_data = {}
-	GameState.current_mode = 2
-	GameState.current_score = 0
-	GameState.current_time_left = 180
-	GameState.time_attack_round = 1
-	GameState.correct_guess_streak = 0
+	single_player_active_level_index = -1
+	single_player_active_word_slot = -1
+	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	GameSession.start_custom_round(word, custom_comment_text)
-	GameState.save_game()
 	show_game_screen()
 
 func _is_valid_custom_word(word: String) -> bool:
@@ -1590,178 +1912,11 @@ func show_game_screen() -> void:
 	# The converted GameMov scene contains button frame debris and large nested
 	# helper symbols that the original AS3 created/controlled at runtime.  Drawing
 	# it as a static backdrop caused the white dead spots and wrong orange button
-	# ghosts on the gameplay screen.  Rebuild this screen from MainFon + runtime
-	# Flash-stage controls instead.
-	_clear("")
+	# ghosts on the gameplay screen. Rebuild it from runtime stage controls.
+	hero_force_default_pose = false
+	_clear()
+	game_screen_visible = true
 	_refresh_game_screen()
-
-func _refresh_game_screen() -> void:
-	if content == null:
-		return
-	if game_finished:
-		show_result_screen(last_result_is_win, last_result_data)
-		return
-	_capture_hero_animation_phase()
-	for child: Node in content.get_children():
-		content.remove_child(child)
-		child.queue_free()
-
-	# GameMov.as creates the header at y=0 and the original AIR runtime moves
-	# the hint/comment controls to the bottom safe area.  These elements are not
-	# present as static FLA instances, so the Godot layer must rebuild them in
-	# stage coordinates instead of using generic text buttons.
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, 87.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-
-	_stage_label(Rect2(27.0, 22.0, 625.0, 58.0), GameSession.get_masked_word(), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-
-	if GameState.current_mode == 2:
-		_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), CUSTOM_WORD_REFRESH_ICON, Vector2(27.0, 27.0))
-	else:
-		_stage_round_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_game_header_action"), _game_header_icon())
-	_stage_round_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "_show_exit_game_popup"), "×")
-
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
-	_configure_hero_static_animation()
-
-	var alphabet := Database.get_alphabet()
-	var keyboard_start_x: float = 258.0
-	var keyboard_start_y: float = 138.0
-	var keyboard_step_x: float = 65.0
-	var keyboard_step_y: float = 58.0
-	var marker_size: Vector2 = Vector2(46.0, 46.0)
-	for i in range(alphabet.size()):
-		var letter: String = alphabet[i]
-		var row: int = int(i / 8)
-		var col: int = i % 8
-		var x: float = keyboard_start_x + float(col) * keyboard_step_x
-		var y: float = keyboard_start_y + float(row) * keyboard_step_y
-		var was_correct: bool = GameSession.correct_letters.has(letter)
-		var was_wrong: bool = GameSession.wrong_letters.has(letter)
-		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
-		var state: int = StageLetterButton.LetterState.NORMAL
-		if was_correct:
-			state = StageLetterButton.LetterState.CIRCLED
-		elif was_wrong or was_removed:
-			state = StageLetterButton.LetterState.CROSSED
-
-		var key_rect := Rect2(x, y, KEY_BUTTON_SIZE.x, KEY_BUTTON_SIZE.y)
-		var animate_state: bool = pending_letter_markers.has(letter) and (
-			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
-			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
-		)
-		_stage_letter_button(
-			key_rect,
-			Callable(self, "_press_letter").bind(letter),
-			letter,
-			state,
-			!GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
-			32,
-			marker_size,
-			animate_state
-		)
-
-	var open_hint_disabled: bool = !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = !GameSession.can_use_remove_wrong_hint()
-	var comment_disabled: bool = GameSession.get_word_hint().strip_edges() == ""
-
-	# Hint buttons match the original Flash behavior and visuals.
-	# Orange is the available state. Blue is only the pressed/already-used state.
-	_stage_main_icon_button(Rect2(160.0, 404.0, 102.0, 49.0), Callable(self, "_use_open_hint"), "", HINT_ICON_CHECK_TEXTURE, Vector2(25.0, 25.0), 26, open_hint_disabled, 0.0, false, open_hint_disabled)
-	_stage_main_icon_button(Rect2(272.0, 404.0, 102.0, 49.0), Callable(self, "_use_remove_hint"), "", HINT_ICON_CROSS_TEXTURE, Vector2(25.0, 25.0), 26, remove_hint_disabled, 0.0, false, remove_hint_disabled)
-
-	var comment_button := _stage_main_button(Rect2(460.0, 404.0, COMMENT_BUTTON_SIZE.x, COMMENT_BUTTON_SIZE.y), Callable(self, "_show_word_comment_popup"), Database.tr_text(47, "Comment"), 18, comment_disabled, 0.0)
-	if comment_disabled:
-		comment_button.modulate = Color(1.0, 1.0, 1.0, 0.56)
-		var comment_label := comment_button.get_node_or_null("Text") as Label
-		if comment_label != null:
-			comment_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.82))
-
-	if GameState.current_mode == 1:
-		_stage_time_attack_hud()
-
-	pending_letter_markers.clear()
-	pending_letter_marker_is_correct = false
-
-func _game_header_icon() -> String:
-	if GameState.current_mode == 1:
-		return "■"
-	if GameState.current_mode == 2:
-		return "↻"
-	return "☰"
-
-func _game_header_action() -> void:
-	if GameState.current_mode == 1:
-		# The square button ends the whole Time Attack session immediately.
-		# This is different from losing a single word: the final result screen
-		# cannot be continued and shows the session's final score.
-		game_finished = true
-		last_result_is_win = false
-		last_result_data = GameSession.finish_time_attack_timeout(false)
-		game_timer.stop()
-		show_result_screen(false, last_result_data)
-	elif GameState.current_mode == 2:
-		show_custom_word()
-	else:
-		show_theme_select()
-
-
-func _stage_time_attack_hud() -> void:
-	_stage_score_with_star(Rect2(58.0, 399.0, 150.0, 28.0), str(GameState.current_score), 19, Color.WHITE)
-	_stage_texture(Rect2(23.0, 433.0, 26.0, 26.0), TIME_ATTACK_TIMER_ICON_TEXTURE)
-
-	var time_label := _stage_label(Rect2(58.0, 429.0, 150.0, 28.0), _format_time(GameState.current_time_left), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_apply_result_text_glow(time_label, Color(0.2314, 0.2627, 0.5176, 1.0), 2)
-
-func _stage_score_with_star(rect: Rect2, text: String, font_size: int, font_color: Color, text_align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT, glow_color: Color = Color(0.2314, 0.2627, 0.5176, 1.0), glow_size: int = 2) -> Label:
-	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
-	holder.z_index = 25
-
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.add_theme_constant_override("separation", 5)
-	match text_align:
-		HORIZONTAL_ALIGNMENT_CENTER:
-			row.alignment = BoxContainer.ALIGNMENT_CENTER
-		HORIZONTAL_ALIGNMENT_RIGHT:
-			row.alignment = BoxContainer.ALIGNMENT_END
-		_:
-			row.alignment = BoxContainer.ALIGNMENT_BEGIN
-	holder.add_child(row)
-
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.text = text
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", font_color)
-	_apply_result_text_glow(label, glow_color, glow_size)
-	row.add_child(label)
-
-	var star := TextureRect.new()
-	star.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	star.texture = MAIN_MENU_HOLLOW_STAR_ICON
-	star.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	star.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	star.custom_minimum_size = Vector2(float(font_size), float(font_size))
-	star.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(star)
-	return label
-
-func _create_hero_animation_overlay() -> FlashStageSymbol:
-	var overlay := FlashStageSymbol.new()
-	overlay.name = "HeroAnimationOverlay"
-	overlay.z_index = 150
-	overlay.symbol_path = _hero_symbol_path()
-	overlay.stage_position = Vector2(26.0, 324.0)
-	overlay.animation_time = _hero_animation_time()
-	add_child(overlay)
-	return overlay
-
 func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
 	_clear_hero_animation_overlay()
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
@@ -1812,14 +1967,16 @@ func _hero_animation_time_for_mistakes(mistake_count: int) -> float:
 	# Sampling halfway through the outer frame selects every discrete pose safely.
 	return float(_hero_frame_index_for_mistakes(mistake_count)) / 24.0 + HERO_OUTER_FRAME_SAMPLE_OFFSET
 
-func _hero_symbol_path() -> String:
+func _hero_type() -> int:
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
-		return HERO_TYPE_2_SYMBOL
-	return HERO_TYPE_1_SYMBOL
+		return FlashStageSymbol.HeroType.EL_TIGRE
+	return FlashStageSymbol.HeroType.LUCKY
 
 func _hero_animation_time() -> float:
 	# Flash currentFrame is one-based: its original `7 - currentFrame` counter
 	# maps zero mistakes to outer frame index 0 and the sixth mistake to index 6.
+	if hero_force_default_pose:
+		return _hero_animation_time_for_mistakes(0)
 	return _hero_animation_time_for_mistakes(GameSession.mistakes)
 
 func _current_hero_round_token() -> int:
@@ -1829,7 +1986,7 @@ func _current_hero_round_token() -> int:
 
 func _sync_hero_pose_state() -> void:
 	var round_token: int = _current_hero_round_token()
-	var frame_index: int = _hero_frame_index_for_mistakes(GameSession.mistakes)
+	var frame_index: int = 0 if hero_force_default_pose else _hero_frame_index_for_mistakes(GameSession.mistakes)
 	if round_token == hero_pose_round_token and frame_index == hero_pose_frame_index:
 		return
 	hero_pose_round_token = round_token
@@ -1842,6 +1999,8 @@ func _hero_nested_display_time() -> float:
 	return hero_nested_pose_time
 
 func _hero_uses_terminal_loop(mistake_count: int = -1) -> bool:
+	if hero_force_default_pose:
+		return false
 	var resolved_mistakes: int = GameSession.mistakes if mistake_count < 0 else mistake_count
 	return _hero_frame_index_for_mistakes(resolved_mistakes) == 6
 
@@ -1873,6 +2032,8 @@ func _configure_hero_static_animation() -> void:
 		)
 
 func _press_letter(letter: String) -> void:
+	if GameSession.has_deferred_loss():
+		return
 	_sync_hero_pose_state()
 	var round_token_before_guess: int = _current_hero_round_token()
 	var previous_mistakes: int = GameSession.mistakes
@@ -1896,13 +2057,22 @@ func _press_letter(letter: String) -> void:
 	pending_letter_markers.clear()
 	pending_letter_markers.append(letter)
 	pending_letter_marker_is_correct = is_correct_letter
+	var should_defer_loss: bool = (
+		guess_is_available
+		and !is_correct_letter
+		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and GameSession.get_remaining_attempts() == 1
+	)
 	round_result_delay_requested = true
-	var guess_was_correct: bool = GameSession.guess(letter)
+	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
 	round_result_delay_requested = false
 	if guess_is_available:
 		_play_letter_feedback_sound(guess_was_correct)
-	# Time Attack can synchronously start its next word from the round signal.
-	# Never let the previous word's animation appear over that fresh round.
+	if GameSession.has_deferred_loss():
+		call_deferred("_show_single_player_last_chance_popup")
+		return
+	# A round signal can replace the current screen synchronously. Never let the
+	# previous word's animation appear over the newly built result screen.
 	if round_token_before_guess != _current_hero_round_token():
 		return
 	if GameSession.mistakes > previous_mistakes:
@@ -1911,6 +2081,8 @@ func _press_letter(letter: String) -> void:
 		_play_hero_correct_guess_animation()
 
 func _use_open_hint() -> void:
+	if !_can_activate_hint(GameState.HINT_OPEN_LETTER, GameSession.can_use_open_letter_hint()):
+		return
 	# If the hint reveals the final letter, keep the gameplay screen visible long
 	# enough for the standard circle-and-bounce feedback to finish.
 	round_result_delay_requested = true
@@ -1918,7 +2090,26 @@ func _use_open_hint() -> void:
 	round_result_delay_requested = false
 
 func _use_remove_hint() -> void:
+	if !_can_activate_hint(GameState.HINT_REMOVE_WRONG, GameSession.can_use_remove_wrong_hint()):
+		return
 	GameSession.use_remove_wrong_hint()
+
+func _use_comment_hint() -> void:
+	if GameSession.comment_hint_unlocked:
+		_show_word_comment_popup()
+		return
+	if !_can_activate_hint(GameState.HINT_COMMENT, GameSession.can_unlock_comment_hint()):
+		return
+	if GameSession.unlock_comment_hint():
+		_show_word_comment_popup()
+
+func _can_activate_hint(hint_key: String, hint_is_available: bool) -> bool:
+	if !hint_is_available:
+		return false
+	if !GameState.can_pay_for_hint(hint_key):
+		_open_coin_store(Callable(self, "show_game_screen"))
+		return false
+	return true
 
 func _on_hint_letters_selected(letters: PackedStringArray, is_correct: bool) -> void:
 	# GameSession emits this before `changed`, so the rebuilt keyboard can use the
@@ -1940,385 +2131,82 @@ func _finish_round(is_win: bool) -> void:
 	if game_finished:
 		return
 
-	if GameState.current_mode == 1:
-		# Time Attack is one continuous session. Apply the completed word's
-		# bonus/penalty, then immediately replace it with a fresh round without
-		# stopping the timer or opening the intermediate result screen.
-		GameSession.finish_result(is_win)
-		pending_letter_markers.clear()
-		pending_letter_marker_is_correct = false
-		round_result_delay_requested = false
-		_clear_hero_animation_overlay()
-		last_result_data = {}
-		GameSession.start_new_round(-1, 1)
-		GameState.save_game()
-		return
-
 	game_finished = true
 	last_result_is_win = is_win
+	# Keep the hero in the pose reached during the round. The pristine/default
+	# pose is reserved for the Single Player reward interstitial and should never
+	# replace the gameplay pose just because the word was solved.
+	hero_force_default_pose = false
 	last_result_data = GameSession.finish_result(is_win)
-	game_timer.stop()
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		if !is_win:
+			GameState.lose_heart()
+		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
+	# All round results now use the same in-place presentation. In particular,
+	# Single Player victories follow Classic exactly instead of entering the old
+	# dedicated win transition after the final letter feedback delay.
+	_show_in_place_round_result(is_win)
 
-	var transition_generation: int = result_transition_generation
-	if round_result_delay_requested:
-		await get_tree().create_timer(LETTER_MARKER_REVEAL_DURATION).timeout
-		if transition_generation != result_transition_generation:
-			return
-	show_result_screen(is_win, last_result_data)
+func _open_single_player_retry_theme_popup() -> void:
+	var level_index: int = single_player_active_level_index
+	if level_index < 0:
+		show_menu()
+		return
+	GameState.reset_single_level_attempt(Database.current_language, level_index)
+	_invalidate_single_player_level_cache()
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
+	_show_single_player_level_popup(level_index, -1, true)
 
-func show_result_screen(is_win: bool, data: Dictionary = {}) -> void:
-	game_timer.stop()
-	_play_result_sound_once(is_win, data)
-	# The original result screen is not a centered modal. ReztMovBlock keeps the
-	# game stage visible, replaces the header word with the full answer, shows
-	# the hero's current pose on the left and slides only the bottom action bar in.
-	_clear("")
+func _result_continue_button_text() -> String:
+	return Database.tr_text(3, "Continue")
 
-	_stage_texture_fill(0.0, 480.0, MENU_PAPER_COVER)
-	_stage_horizontal_fill(0.0, 87.0, Color(0.2706, 0.3098, 0.6078, 1.0))
-	_stage_horizontal_fill(387.0, 93.0, Color(0.2706, 0.3098, 0.6078, 1.0))
+func _result_continue_action() -> Callable:
+	match GameState.current_mode:
+		GameState.GameMode.TWO_PLAYER:
+			return Callable(self, "_continue_two_player_result")
+		GameState.GameMode.SINGLE_PLAYER:
+			return Callable(self, "_continue_single_player_result")
+		_:
+			return Callable(self, "_continue_classic_result")
 
-	var full_word: String = _spaced_result_word(GameSession.get_full_word())
-	_stage_label(Rect2(27.0, 22.0, 585.0, 58.0), full_word, 36, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+func _result_back_action() -> void:
+	if (
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and last_result_is_win
+		and !bool(last_result_data.get("single_player_level_completed", false))
+	):
+		_show_exit_game_popup()
+		return
+	_confirm_exit_game()
 
-	_stage_round_icon_button(HEADER_ACTION_BUTTON_RECT, Callable(self, "_open_word_search"), RESULT_SEARCH_ICON, RESULT_SEARCH_ICON_SIZE)
-	_stage_round_icon_button(HEADER_CLOSE_BUTTON_RECT, Callable(self, "show_menu"), RESULT_CLOSE_ICON, Vector2(18.0, 18.0))
+func _continue_classic_result() -> void:
+	start_classic_game(max(0, GameSession.theme_id))
 
-	hero_static_symbol = _stage_symbol(_hero_symbol_path(), Vector2(26.0, 324.0), _hero_animation_time(), _hero_nested_display_time()) as FlashStageSymbol
-	_configure_hero_static_animation()
+func _continue_two_player_result() -> void:
+	show_custom_word()
 
-	# A completed Time Attack session has its own final result state. It is not
-	# a normal defeat and therefore uses "Game over" instead of "Defeat".
-	var time_attack_finished: bool = (
-		GameState.current_mode == 1
-		and bool(data.get("time_attack_finished", false))
-	)
-	var title: String
-	if time_attack_finished:
-		title = str(data.get("title", Database.tr_text(39, "GAME OVER"))).strip_edges()
-		if title == "":
-			title = Database.tr_text(39, "GAME OVER")
-	else:
-		title = Database.tr_text(37 if is_win else 38, "VICTORY" if is_win else "DEFEAT").strip_edges()
-		if title == "":
-			title = "VICTORY" if is_win else "DEFEAT"
-	var title_label := _stage_label(Rect2(365.0, 128.0, 365.0, 72.0), title, 42, _result_title_color(is_win, time_attack_finished), HORIZONTAL_ALIGNMENT_CENTER)
-	title_label.clip_text = false
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.z_index = 31
-	var title_holder := title_label.get_parent() as Control
-	if title_holder != null:
-		title_holder.z_index = 30
-	_apply_result_text_glow(title_label, Color.WHITE, 3)
-
-	if time_attack_finished:
-		var final_score: int = int(data.get("final_score", GameState.current_score))
-		var final_score_text: String = Database.tr_key(&"FINAL_SCORE", "Final score:") + " " + str(final_score)
-		var final_score_label := _stage_score_with_star(Rect2(395.0, 198.0, 307.0, 38.0), final_score_text, 24, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 2)
-		final_score_label.clip_text = false
-
-		var final_details: String = _result_data_lines(data)
-		if final_details != "":
-			var details_label := _stage_label(Rect2(395.0, 241.0, 307.0, 54.0), final_details, 19, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-			details_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-			_apply_result_text_glow(details_label, Color.WHITE, 2)
-	else:
-		var result_score_line: String = _result_score_line(data)
-		if result_score_line != "":
-			var score_line_label := _stage_score_with_star(Rect2(395.0, 193.0, 307.0, 34.0), result_score_line, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE, 2)
-			score_line_label.clip_text = false
-			var remaining_message: String = _result_non_score_lines(data)
-			if remaining_message != "":
-				var remaining_label := _stage_label(Rect2(395.0, 229.0, 307.0, 42.0), remaining_message, 19, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-				remaining_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-				_apply_result_text_glow(remaining_label, Color.WHITE, 2)
-		else:
-			var result_message: String = _result_message(is_win, data)
-			var message_label := _stage_label(Rect2(395.0, 193.0, 307.0, 67.0), result_message, 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-			message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-			_apply_result_text_glow(message_label, Color.WHITE, 2)
-
-	var show_theme_label: bool = GameState.current_mode == 0
-	if show_theme_label:
-		var theme_label := _stage_label(Rect2(395.0, 306.0, 307.0, 30.0), _result_theme_label(), 21, Color(0.2706, 0.3098, 0.6078), HORIZONTAL_ALIGNMENT_CENTER)
-		_apply_result_text_glow(theme_label, Color.WHITE, 2)
-
-	var show_left_button: bool = GameState.current_mode != 1 and GameState.current_mode != 2
-	if show_left_button:
-		var left_disabled: bool = GameSession.theme_id < 0 or GameState.current_mode == 2
-		var left_button := _stage_main_button(Rect2(161.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_left_action"), _result_left_button_text(), 18, left_disabled, 0.0)
-		if left_disabled:
-			left_button.modulate = Color(1.0, 1.0, 1.0, 0.58)
-			var left_label := left_button.get_node_or_null("Text") as Label
-			if left_label != null:
-				left_label.add_theme_color_override("font_color", Color.WHITE)
-
-	_stage_main_button(Rect2(435.0, 404.0, MENU_BUTTON_SIZE.x, MENU_BUTTON_SIZE.y), Callable(self, "_result_right_action"), _result_right_button_text(), 18, false, 0.32, false, false, true)
-
-	# Keep the HUD between ordinary Time Attack rounds, but remove it after the
-	# entire session has been ended manually or by the timer reaching zero.
-	if GameState.current_mode == 1 and !time_attack_finished:
-		_stage_time_attack_hud()
-
-func _spaced_result_word(word: String) -> String:
-	var characters := PackedStringArray()
-	for i in range(word.length()):
-		characters.append(word.substr(i, 1))
-	return " ".join(characters)
-
-func _result_data_lines(data: Dictionary) -> String:
-	var lines := PackedStringArray()
-	for line in Array(data.get("lines", [])):
-		var value: String = str(line).strip_edges()
-		if value != "":
-			lines.append(value)
-	return "\n".join(lines)
-
-func _result_score_line(data: Dictionary) -> String:
-	var bonus_prefix: String = Database.tr_key(&"POINTS_GAINED", "Bonus:").strip_edges()
-	var penalty_prefix: String = Database.tr_key(&"PENALTY", "Penalty:").strip_edges()
-	for raw_line in Array(data.get("lines", [])):
-		var line: String = str(raw_line).strip_edges()
-		if line.begins_with(bonus_prefix) or line.begins_with(penalty_prefix):
-			return line
-	return ""
-
-func _result_non_score_lines(data: Dictionary) -> String:
-	var score_line: String = _result_score_line(data)
-	var lines := PackedStringArray()
-	for raw_line in Array(data.get("lines", [])):
-		var line: String = str(raw_line).strip_edges()
-		if line != "" and line != score_line:
-			lines.append(line)
-	return "\n".join(lines)
-
-func _result_title_color(is_win: bool, time_attack_finished: bool = false) -> Color:
-	if time_attack_finished:
-		return Color(0.8157, 0.5647, 0.3412, 1.0)
-	return StageLetterButton.CIRCLED_COLOR if is_win else StageLetterButton.CROSSED_COLOR
-
-func _result_message(is_win: bool, data: Dictionary) -> String:
-	var data_lines: String = _result_data_lines(data)
-	if data_lines != "":
-		return data_lines
-	return Database.tr_text(49 if is_win else 50, "Keep going!" if is_win else "You can do better!")
-
-func _result_theme_label() -> String:
-	if GameSession.theme_id < 0:
-		return Database.tr_text(46, "No category")
-	return Database.tr_text(48, "Category:") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
-
-func _result_left_button_text() -> String:
-	if GameState.current_mode == 1:
-		return Database.tr_text(53, "Finish game")
-	return Database.tr_text(52, "Change category")
-
-func _result_right_button_text() -> String:
-	if GameState.current_mode == 1:
-		if _is_time_attack_finished_result():
-			return Database.tr_text(10, "Restart")
-		return Database.tr_text(4, "Continue")
-	if GameSession.theme_id < 0:
-		return Database.tr_text(10, "Restart")
-	return Database.tr_text(4, "Continue")
-
-func _is_time_attack_finished_result() -> bool:
-	return (
-		GameState.current_mode == 1
-		and bool(last_result_data.get("time_attack_finished", false))
-	)
-
-func _result_left_action() -> void:
-	if GameState.current_mode == 1:
+func _continue_single_player_result() -> void:
+	var level_index: int = single_player_active_level_index
+	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
+	if !last_result_is_win:
+		_open_single_player_retry_theme_popup()
+		return
+	if level_completed:
+		GameSession.discard_current_round()
+		game_finished = false
+		last_result_data = {}
+		single_player_active_word_slot = -1
 		show_menu()
 	else:
-		show_theme_select()
-
-func _result_right_action() -> void:
-	if GameState.current_mode == 1:
-		if _is_time_attack_finished_result() or GameState.current_time_left <= 0:
-			start_time_attack()
-		else:
-			_continue_time_attack()
-	else:
-		_restart_last_mode()
-
-func _apply_result_text_glow(label: Label, glow_color: Color, outline_size: int) -> void:
-	label.add_theme_color_override("font_outline_color", glow_color)
-	label.add_theme_constant_override("outline_size", outline_size)
-
-func _continue_time_attack() -> void:
-	game_finished = false
-	GameSession.start_new_round(-1, 1)
-	GameState.save_game()
-	show_game_screen()
-	game_timer.start()
-
-func _restart_last_mode() -> void:
-	if GameState.current_mode == 2:
-		show_custom_word()
-	elif GameState.current_mode == 1:
-		start_time_attack()
-	else:
-		start_classic_game(max(0, GameSession.theme_id))
-
-func show_records() -> void:
-	_remove_records_popup()
-	_play_popup_open_sound()
-
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "RecordsPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("records_popup")
-	add_child(popup_layer)
-
-	var popup_root := Control.new()
-	popup_root.name = "RecordsPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_records_popup"))
-	content = _center_popup_content(popup_root, 0.0, 370.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 282.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var left_separator := _stage_panel(Rect2(popup_x + 174.0, 126.0, 2.0, 220.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	left_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var right_separator := _stage_panel(Rect2(popup_x + 392.0, 126.0, 2.0, 220.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	right_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var first_row_separator := _stage_panel(Rect2(popup_x + 28.0, 216.0, popup_width - 56.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	first_row_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var second_row_separator := _stage_panel(Rect2(popup_x + 28.0, 300.0, popup_width - 56.0, 2.0), Color(0.3157, 0.3765, 0.6902, 0.95))
-	second_row_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 430.0, 50.0), tr("RECORDS_TITLE"), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-
-	var crown_button := _stage_round_icon_button(Rect2(popup_x + popup_width - 146.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(), ROUND_BUTTON_CROWN_ICON, Vector2(24.0, 20.0), true, false, Vector2.ZERO, 0.0)
-	crown_button.self_modulate = Color(1.0, 1.0, 1.0, 0.55)
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_records_popup"), "×")
-
-	_stage_record_row(132.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), GameState.records[0][2], tr("RECORD_HARD_STREAK"), GameState.records[0][3], popup_x)
-	_stage_record_row(218.0, tr("MENU_TIME_ATTACK"), tr("SCORE"), GameState.records[2][2], tr("VICTORIES_PER_GAME"), GameState.records[2][1], popup_x, true)
-	_stage_record_row(302.0, tr("MENU_TWO_PLAYER"), tr("VICTORIES"), GameState.records[1][0], tr("DEFEATS"), GameState.records[1][1], popup_x)
-
-	content = previous_content
-
-func _stage_record_row(row_y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int, popup_x: float, left_value_has_star: bool = false) -> void:
-	var mode_label := _stage_label(Rect2(popup_x + 28.0, row_y + 13.0, 132.0, 36.0), mode_text.to_upper(), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	mode_label.clip_text = false
-
-	var left_label := _stage_label(Rect2(popup_x + 188.0, row_y + 2.0, 194.0, 28.0), left_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	left_label.clip_text = false
-	var left_value_label: Label
-	if left_value_has_star:
-		left_value_label = _stage_score_with_star(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT, Color.TRANSPARENT, 0)
-	else:
-		left_value_label = _stage_label(Rect2(popup_x + 188.0, row_y + 31.0, 194.0, 28.0), str(left_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	left_value_label.clip_text = false
-
-	var right_label := _stage_label(Rect2(popup_x + 406.0, row_y + 2.0, 210.0, 28.0), right_text, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	right_label.clip_text = false
-	var right_value_label := _stage_label(Rect2(popup_x + 406.0, row_y + 31.0, 210.0, 28.0), str(right_value), 19, Color(0.82, 0.56, 0.34, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
-	right_value_label.clip_text = false
-
-func _remove_records_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("records_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-
-func _on_timer_tick() -> void:
-	if GameState.current_mode != 1 or game_finished:
-		return
-	GameState.current_time_left = max(0, GameState.current_time_left - 1)
-	if GameState.current_time_left <= 0:
-		game_finished = true
-		last_result_is_win = false
-		last_result_data = GameSession.finish_time_attack_timeout()
-		game_timer.stop()
-		show_result_screen(false, last_result_data)
-	else:
-		GameState.save_game()
-		_refresh_game_screen()
-
-func _format_time(seconds: int) -> String:
-	var minutes := int(seconds / 60)
-	var sec := int(seconds % 60)
-	return "%02d:%02d" % [minutes, sec]
-
-func _show_word_comment_popup() -> void:
-	var hint: String = GameSession.get_word_hint().strip_edges()
-	if hint == "":
-		return
-
-	_remove_word_comment_popup()
-	_play_popup_open_sound()
-
-	# PoiasnOk.as adds the comment dialog above the whole game screen together
-	# with a dark blocker (TemnMov). Use a dedicated CanvasLayer so the popup
-	# always sits above the character art and every other runtime control.
-	var previous_content: Control = content
-	var popup_layer := CanvasLayer.new()
-	popup_layer.name = "WordCommentPopupCanvas"
-	popup_layer.layer = 100
-	popup_layer.add_to_group("word_comment_popup")
-	add_child(popup_layer)
-
-	var popup_root: Control = Control.new()
-	popup_root.name = "WordCommentPopupLayer"
-	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_layer.add_child(popup_root)
-	content = popup_root
-
-	# TemnMov: dim stage behind the modal. A full-screen invisible button above
-	# the dimmer reproduces PoiasnOk.ExtMouseClick() and closes the dialog when
-	# the user clicks outside the blue popup window.
-	_add_fullscreen_modal_backdrop(Callable(self, "_remove_word_comment_popup"))
-	content = _center_popup_content(popup_root, 0.0, 366.0)
-
-	var popup_x: float = 56.0
-	var popup_width: float = 648.0
-	var header := _stage_panel(Rect2(popup_x, 0.0, popup_width, 88.0), Color(0.2706, 0.3098, 0.6078, 1.0))
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(popup_x, 88.0, popup_width, 278.0), Color(0.2314, 0.2627, 0.5176, 1.0))
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var top_separator := _stage_panel(Rect2(popup_x, 88.0, popup_width, 2.0), Color(0.8157, 0.5647, 0.3412, 1.0))
-	top_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bottom_separator := _stage_panel(Rect2(popup_x + 33.0, 295.0, popup_width - 66.0, 2.0), Color(0.4509, 0.4862, 0.7607, 0.75))
-	bottom_separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_label(Rect2(popup_x + 21.0, 12.0, 360.0, 50.0), Database.tr_text(47, "Comment"), 34, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	var hint_label := _stage_label(Rect2(popup_x + 37.0, 114.0, popup_width - 74.0, 115.0), hint, 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	hint_label.clip_text = false
-	var theme_label := _stage_label(Rect2(popup_x + 330.0, 314.0, 265.0, 34.0), _current_word_source_label(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	theme_label.clip_text = false
-
-	_stage_round_button(Rect2(popup_x + popup_width - 68.0, 12.0, ROUND_BUTTON_SIZE.x, ROUND_BUTTON_SIZE.y), Callable(self, "_remove_word_comment_popup"), "×")
-
-	content = previous_content
+		_start_next_single_player_word(level_index)
 
 func _current_word_source_label() -> String:
-	if GameState.current_mode == 2 or GameSession.theme_id < 0:
-		return Database.tr_text(46, "Word from player")
-	return Database.tr_text(48, "Category") + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER or GameSession.theme_id < 0:
+		return Database.tr_text(40, "Word from player")
+	return Database.tr_text(42, "Category").to_upper() + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 
 func _remove_word_comment_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("word_comment_popup")
@@ -2334,12 +2222,23 @@ func _open_word_search() -> void:
 	OS.shell_open("https://www.google.com/search?q=" + word.to_lower().uri_encode())
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and !event.echo:
+		if event.keycode == KEY_ESCAPE:
+			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
+				_decline_single_player_extra_attempt()
+			elif (
+				single_player_retry_after_loss
+				and !get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
+			):
+				_close_single_player_retry_popup()
+			elif game_finished:
+				_result_back_action()
+			elif GameSession.is_active:
+				_show_exit_game_popup()
+			return
 	if game_finished or !GameSession.is_active:
 		return
 	if event is InputEventKey and event.pressed and !event.echo:
-		if event.keycode == KEY_ESCAPE:
-			show_menu()
-			return
 		var letter := OS.get_keycode_string(event.keycode).to_upper()
 		letter = WordManager.normalize_word(letter)
 		if letter.length() == 1 and Database.get_alphabet().has(letter):

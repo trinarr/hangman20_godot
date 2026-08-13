@@ -1,38 +1,90 @@
 extends Node
 
+signal soft_currency_changed(balance: int)
+signal hearts_changed(hearts: int, recovery_seconds: int)
+
 const SAVE_PATH := "user://save_hangman.json"
+const SAVE_FORMAT_VERSION: int = 1
+const HINT_OPEN_LETTER: String = "open_letter"
+const HINT_REMOVE_WRONG: String = "remove_wrong"
+const HINT_COMMENT: String = "comment"
+const DEFAULT_HINT_COUNT: int = 3
+const DEFAULT_SOFT_CURRENCY: int = 0
+const MAX_HEARTS: int = 5
+const HEART_RECOVERY_SECONDS: int = 5 * 60
+const WORD_REWARD_COINS: int = 10
+const SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = 0.18
+const SINGLE_PLAYER_DIFFICULTY_MIN: float = 0.08
+const SINGLE_PLAYER_DIFFICULTY_MAX: float = 0.92
+const SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP: float = 0.02
+const SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP: float = 0.04
+const SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = 10
+const SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS: int = 5
+const HINT_COSTS: Dictionary = {
+	HINT_OPEN_LETTER: 20,
+	HINT_REMOVE_WRONG: 15,
+	HINT_COMMENT: 10,
+}
+
+enum GameMode {
+	CLASSIC,
+	TWO_PLAYER,
+	SINGLE_PLAYER,
+}
+
+enum HintPayment {
+	FAILED,
+	FREE_HINT,
+	SOFT_CURRENCY,
+}
 
 var interface_language: String = "ru"
 var word_language: String = "ru"
 var player_name: String = ""
+var soft_currency: int = DEFAULT_SOFT_CURRENCY
+var hearts: int = MAX_HEARTS
+var heart_recovery_at: int = 0
+var _heart_tick_timer: Timer = null
+var _last_emitted_hearts: int = -1
+var _last_emitted_heart_seconds: int = -1
 
-# AS3 Settings:
-# 0 - show first/last letters in two-player mode: 1 off, 2 on
-# 1 - hints in two-player mode: 1 off, 2 on
-# 2 - word pool: 0 all/general, 1 hard words, 2 easy words
+# Settings:
+# 0 - reserved
+# 1 - reserved
+# 2 - Classic word pool: 1 hard mode, 2 normal mode (easy words)
 # 3 - sound/music: 1 off, 2 on
 # 4 - vibration: 1 off, 2 on
 # 5 - hero: 1 Lucky, 2 El Tigre
-var settings: Array = [2, 2, 0, 2, 2, 1]
+var settings: Array = [1, 1, 2, 2, 2, 1]
 
-# AS3 Records:
+# Records:
 # 0 classic: current easy, current hard, record easy, record hard
 # 1 two-player: wins, defeats
-# 2 time attack: wins, best wins, best score
-var records: Array = [[0, 0, 0, 0], [0, 0], [0, 0, 0]]
+var records: Array = [[0, 0, 0, 0], [0, 0]]
 
 var progress: Dictionary = {}
-var current_mode: int = 0 # 0 classic, 1 time attack, 2 two-player
-var current_score: int = 0
-var current_time_left: int = 180
-# Hangman 3.2.3 keeps two additional values in ErrArr[1]:
-# - the current word number in Time Attack (starts at 1);
-# - the uninterrupted correct-letter streak used by the score multiplier.
-var time_attack_round: int = 1
-var correct_guess_streak: int = 0
+var single_player: Dictionary = {}
+var hint_counts: Dictionary = {
+	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
+	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
+	HINT_COMMENT: DEFAULT_HINT_COUNT,
+}
+var current_mode: int = GameMode.CLASSIC
 
 func _ready() -> void:
 	load_game()
+	_heart_tick_timer = Timer.new()
+	_heart_tick_timer.name = "HeartRecoveryTick"
+	_heart_tick_timer.wait_time = 1.0
+	_heart_tick_timer.one_shot = false
+	_heart_tick_timer.timeout.connect(_on_heart_tick)
+	add_child(_heart_tick_timer)
+	_heart_tick_timer.start()
+	_emit_heart_status_if_changed(true)
+
+func _on_heart_tick() -> void:
+	_apply_elapsed_heart_recovery(true)
+	_emit_heart_status_if_changed()
 
 func load_game() -> void:
 	_set_interface_language_from_locale()
@@ -47,22 +99,51 @@ func load_game() -> void:
 	var parsed = JSON.parse_string(text)
 	if !(parsed is Dictionary):
 		return
+	if int(parsed.get("save_version", -1)) != SAVE_FORMAT_VERSION:
+		return
 
-	# Older saves stored a single language for both UI and words. Preserve that
-	# value only as the selected word database; UI language is always device-led.
-	var legacy_language: String = str(parsed.get("language", interface_language))
-	word_language = _normalize_language(str(parsed.get("word_language", legacy_language)))
-	player_name = str(parsed.get("player_name", player_name)).strip_edges()
-	var loaded_settings = parsed.get("settings", settings)
-	if loaded_settings is Array:
-		settings = loaded_settings
-	var loaded_records = parsed.get("records", records)
-	if loaded_records is Array:
-		records = loaded_records
-	var loaded_progress = parsed.get("progress", progress)
-	if loaded_progress is Dictionary:
-		progress = loaded_progress
-	_normalize_arrays()
+	# Load the hint inventory independently from the rest of the profile. Older or
+	# partially written saves can miss another section; that must not leave the
+	# in-memory 3/3/3 defaults and grant the free hints again.
+	_load_hint_counts_from_save(parsed)
+	_load_hearts_from_save(parsed)
+
+	if (
+		!(parsed.get("settings") is Array)
+		or !(parsed.get("records") is Array)
+		or !(parsed.get("progress") is Dictionary)
+		or !(parsed.get("single_player") is Dictionary)
+	):
+		return
+
+	word_language = _normalize_language(str(parsed.get("word_language", word_language)))
+	player_name = str(parsed.get("player_name", "")).strip_edges()
+	soft_currency = maxi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0)
+	settings = Array(parsed["settings"]).duplicate(true)
+	records = Array(parsed["records"]).duplicate(true)
+	progress = Dictionary(parsed["progress"]).duplicate(true)
+	single_player = Dictionary(parsed["single_player"]).duplicate(true)
+
+func _load_hint_counts_from_save(parsed: Dictionary) -> void:
+	var stored_counts = parsed.get("hint_counts")
+	if !(stored_counts is Dictionary):
+		# The save already exists, so missing inventory data must not be treated as
+		# a new player bonus. A genuinely new player still keeps DEFAULT_HINT_COUNT
+		# because load_game() returns earlier when no save file exists.
+		for hint_key in HINT_COSTS.keys():
+			hint_counts[hint_key] = 0
+		return
+
+	for hint_key in HINT_COSTS.keys():
+		hint_counts[hint_key] = maxi(int(stored_counts.get(hint_key, 0)), 0)
+
+func _load_hearts_from_save(parsed: Dictionary) -> void:
+	# Existing saves predate the global-heart system and start full. Once the
+	# fields exist, both the inventory and the absolute recovery deadline are
+	# restored so regeneration continues while the app is closed.
+	hearts = clampi(int(parsed.get("hearts", MAX_HEARTS)), 0, MAX_HEARTS)
+	heart_recovery_at = maxi(int(parsed.get("heart_recovery_at", 0)), 0)
+	_apply_elapsed_heart_recovery(false)
 
 func _set_interface_language_from_locale() -> void:
 	# The interface follows the device on every launch: Russian only for a
@@ -74,41 +155,149 @@ func _normalize_language(lang: String) -> String:
 	return "ru" if lang.to_lower().begins_with("ru") else "en"
 
 func save_game() -> void:
-	_normalize_arrays()
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
 		push_error("Can not write save: " + SAVE_PATH)
 		return
+	# Saves are written frequently after progress and economy actions. Compact JSON
+	# avoids formatting thousands of progress flags and reduces synchronous I/O.
 	file.store_string(JSON.stringify({
+		"save_version": SAVE_FORMAT_VERSION,
 		"word_language": word_language,
 		"player_name": player_name,
 		"settings": settings,
 		"records": records,
-		"progress": progress
-	}, "\t"))
+		"progress": progress,
+		"single_player": single_player,
+		"hint_counts": hint_counts,
+		"soft_currency": soft_currency,
+		"hearts": hearts,
+		"heart_recovery_at": heart_recovery_at
+	}))
 	file.close()
 
-func _normalize_arrays() -> void:
-	while settings.size() < 6:
-		settings.append(1)
-	while records.size() < 3:
-		records.append([])
-	while Array(records[0]).size() < 4:
-		records[0].append(0)
-	while Array(records[1]).size() < 2:
-		records[1].append(0)
-	while Array(records[2]).size() < 3:
-		records[2].append(0)
-	time_attack_round = maxi(1, time_attack_round)
-	correct_guess_streak = maxi(0, correct_guess_streak)
+func get_hint_count(hint_key: String) -> int:
+	return maxi(int(hint_counts.get(hint_key, 0)), 0)
+
+func get_soft_currency() -> int:
+	soft_currency = maxi(soft_currency, 0)
+	return soft_currency
+
+func get_hearts() -> int:
+	_apply_elapsed_heart_recovery(true)
+	return clampi(hearts, 0, MAX_HEARTS)
+
+func get_heart_recovery_seconds() -> int:
+	_apply_elapsed_heart_recovery(true)
+	if hearts >= MAX_HEARTS or heart_recovery_at <= 0:
+		return 0
+	return mini(maxi(heart_recovery_at - _heart_now(), 0), HEART_RECOVERY_SECONDS)
+
+func lose_heart(persist: bool = true) -> bool:
+	_apply_elapsed_heart_recovery(false)
+	if hearts <= 0:
+		_emit_heart_status_if_changed(true)
+		return false
+	var was_full: bool = hearts >= MAX_HEARTS
+	hearts = maxi(hearts - 1, 0)
+	if was_full or heart_recovery_at <= 0:
+		heart_recovery_at = _heart_now() + HEART_RECOVERY_SECONDS
+	if persist:
+		save_game()
+	_emit_heart_status_if_changed(true)
+	return true
+
+func refill_hearts(persist: bool = true) -> int:
+	# A paid refill always restores the global inventory to exactly five lives.
+	# Reset the recovery deadline as well: a full inventory must not keep a stale
+	# countdown that could grant an extra life after the next one is spent.
+	hearts = MAX_HEARTS
+	heart_recovery_at = 0
+	if persist:
+		save_game()
+	_emit_heart_status_if_changed(true)
+	return hearts
+
+func _heart_now() -> int:
+	return int(floor(Time.get_unix_time_from_system()))
+
+func _apply_elapsed_heart_recovery(persist: bool) -> bool:
+	var now: int = _heart_now()
+	var changed: bool = false
+	hearts = clampi(hearts, 0, MAX_HEARTS)
+	if hearts >= MAX_HEARTS:
+		if heart_recovery_at != 0:
+			heart_recovery_at = 0
+			changed = true
+	elif heart_recovery_at <= 0:
+		heart_recovery_at = now + HEART_RECOVERY_SECONDS
+		changed = true
+	elif now >= heart_recovery_at:
+		var restored_count: int = 1 + int((now - heart_recovery_at) / HEART_RECOVERY_SECONDS)
+		hearts = mini(hearts + restored_count, MAX_HEARTS)
+		if hearts >= MAX_HEARTS:
+			heart_recovery_at = 0
+		else:
+			heart_recovery_at += restored_count * HEART_RECOVERY_SECONDS
+		changed = true
+	if changed and persist:
+		save_game()
+	return changed
+
+func _emit_heart_status_if_changed(force: bool = false) -> void:
+	var recovery_seconds: int = 0
+	if hearts < MAX_HEARTS and heart_recovery_at > 0:
+		recovery_seconds = mini(maxi(heart_recovery_at - _heart_now(), 0), HEART_RECOVERY_SECONDS)
+	if (
+		force
+		or hearts != _last_emitted_hearts
+		or recovery_seconds != _last_emitted_heart_seconds
+	):
+		_last_emitted_hearts = hearts
+		_last_emitted_heart_seconds = recovery_seconds
+		hearts_changed.emit(hearts, recovery_seconds)
+
+func add_soft_currency(amount: int, persist: bool = true) -> int:
+	if amount <= 0:
+		return get_soft_currency()
+	soft_currency = maxi(soft_currency + amount, 0)
+	soft_currency_changed.emit(soft_currency)
+	if persist:
+		save_game()
+	return soft_currency
+
+func spend_soft_currency(amount: int, persist: bool = true) -> bool:
+	if amount <= 0 or get_soft_currency() < amount:
+		return false
+	soft_currency -= amount
+	soft_currency_changed.emit(soft_currency)
+	if persist:
+		save_game()
+	return true
+
+func get_hint_cost(hint_key: String) -> int:
+	return maxi(int(HINT_COSTS.get(hint_key, 0)), 0)
+
+func can_pay_for_hint(hint_key: String) -> bool:
+	if get_hint_count(hint_key) > 0:
+		return true
+	var cost: int = get_hint_cost(hint_key)
+	return cost > 0 and get_soft_currency() >= cost
+
+func pay_for_hint(hint_key: String) -> int:
+	var free_count: int = get_hint_count(hint_key)
+	if free_count > 0:
+		hint_counts[hint_key] = free_count - 1
+		save_game()
+		return HintPayment.FREE_HINT
+
+	var cost: int = get_hint_cost(hint_key)
+	if cost <= 0 or !spend_soft_currency(cost):
+		return HintPayment.FAILED
+	return HintPayment.SOFT_CURRENCY
 
 func reset_current_game() -> void:
-	current_mode = 0
-	current_score = 0
-	current_time_left = 180
-	time_attack_round = 1
-	correct_guess_streak = 0
-	save_game()
+	current_mode = GameMode.CLASSIC
 
 func set_word_language(lang: String) -> void:
 	word_language = _normalize_language(lang)
@@ -156,4 +345,306 @@ func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
 	for i in range(item["played"].size()):
 		item["played"][i] = false
 		item["guessed"][i] = false
+	save_game()
+
+func _new_single_player_bucket() -> Dictionary:
+	return {
+		"unlocked_level": 0,
+		"adaptive_difficulty": SINGLE_PLAYER_DIFFICULTY_DEFAULT,
+		"completed_attempts": 0,
+		"failed_attempts": 0,
+		"forfeited_attempts": 0,
+		"levels": {},
+		"selected_themes": {},
+		"level_seeds": {},
+		"word_stats": {},
+	}
+
+func _single_player_bucket(lang: String) -> Dictionary:
+	var lang_key := _normalize_language(lang)
+	if !single_player.has(lang_key) or !(single_player[lang_key] is Dictionary):
+		single_player[lang_key] = _new_single_player_bucket()
+	var bucket: Dictionary = single_player[lang_key]
+	for dictionary_key in ["levels", "selected_themes", "level_seeds", "word_stats"]:
+		if !bucket.has(dictionary_key) or !(bucket[dictionary_key] is Dictionary):
+			bucket[dictionary_key] = {}
+	if !bucket.has("unlocked_level"):
+		bucket["unlocked_level"] = 0
+	bucket["adaptive_difficulty"] = clampf(
+		float(bucket.get("adaptive_difficulty", SINGLE_PLAYER_DIFFICULTY_DEFAULT)),
+		SINGLE_PLAYER_DIFFICULTY_MIN,
+		SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+	for counter_key in ["completed_attempts", "failed_attempts", "forfeited_attempts"]:
+		bucket[counter_key] = maxi(int(bucket.get(counter_key, 0)), 0)
+	single_player[lang_key] = bucket
+	return bucket
+
+func _single_player_progress_bucket(lang: String, _difficulty: int = -1) -> Dictionary:
+	return _single_player_bucket(lang)
+
+func ensure_single_player_theme_progress(lang: String, theme_index: int, word_count: int) -> Dictionary:
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var word_stats: Dictionary = bucket["word_stats"]
+	var theme_key := str(theme_index)
+	if !word_stats.has(theme_key) or !(word_stats[theme_key] is Dictionary):
+		word_stats[theme_key] = {"played": [], "guessed": []}
+	var item: Dictionary = word_stats[theme_key]
+	if !item.has("played") or !(item["played"] is Array):
+		item["played"] = []
+	if !item.has("guessed") or !(item["guessed"] is Array):
+		item["guessed"] = []
+	_resize_bool_array(item["played"], word_count)
+	_resize_bool_array(item["guessed"], word_count)
+	word_stats[theme_key] = item
+	bucket["word_stats"] = word_stats
+	single_player[lang_key] = bucket
+	return item
+
+func mark_single_player_word_shown(lang: String, theme_index: int, word_index: int, word_count: int) -> void:
+	if theme_index < 0 or word_index < 0:
+		return
+	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
+	if word_index >= item["played"].size():
+		return
+	item["played"][word_index] = true
+	save_game()
+
+func mark_single_player_word_guessed(lang: String, theme_index: int, word_index: int, word_count: int) -> void:
+	if theme_index < 0 or word_index < 0:
+		return
+	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
+	if word_index >= item["guessed"].size():
+		return
+	item["guessed"][word_index] = true
+	save_game()
+
+func _single_level_status(value: Variant) -> int:
+	return clampi(int(value), 0, 2)
+
+func _resize_single_level_status_array(statuses: Array, size: int) -> void:
+	while statuses.size() < size:
+		statuses.append(0)
+	if statuses.size() > size:
+		statuses.resize(size)
+	for status_index in range(statuses.size()):
+		statuses[status_index] = _single_level_status(statuses[status_index])
+
+func has_single_level_seed(lang: String, level_index: int, _difficulty: int = -1) -> bool:
+	if level_index < 0:
+		return false
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_seeds: Dictionary = bucket["level_seeds"]
+	return maxi(int(level_seeds.get(str(level_index), 0)), 0) > 0
+
+func get_or_create_single_level_seed(lang: String, level_index: int, _difficulty: int = -1) -> int:
+	if level_index < 0:
+		return 1
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_key := str(level_index)
+	var level_seeds: Dictionary = bucket["level_seeds"]
+	var seed: int = maxi(int(level_seeds.get(level_key, 0)), 0)
+	if seed <= 0:
+		seed = maxi(int(randi() & 0x7fffffff), 1)
+		level_seeds[level_key] = seed
+		bucket["level_seeds"] = level_seeds
+		single_player[lang_key] = bucket
+		save_game()
+	return seed
+
+func get_single_level_selected_theme(lang: String, level_index: int, difficulty: int = -1) -> int:
+	if level_index < 0:
+		return -1
+	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
+	var selected_themes: Dictionary = progress_bucket["selected_themes"]
+	return int(selected_themes.get(str(level_index), -1))
+
+func select_single_level_theme(lang: String, level_index: int, theme_index: int, word_count: int, _difficulty: int = -1) -> void:
+	if level_index < 0 or theme_index < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_key := str(level_index)
+	var selected_themes: Dictionary = bucket["selected_themes"]
+	if int(selected_themes.get(level_key, -1)) >= 0:
+		return
+	selected_themes[level_key] = theme_index
+	bucket["selected_themes"] = selected_themes
+	var levels: Dictionary = bucket["levels"]
+	var statuses: Array = []
+	_resize_single_level_status_array(statuses, word_count)
+	levels[level_key] = statuses
+	bucket["levels"] = levels
+	single_player[lang_key] = bucket
+	save_game()
+
+func ensure_single_level_progress(lang: String, level_index: int, word_count: int, _difficulty: int = -1) -> Array:
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var levels: Dictionary = bucket["levels"]
+	var level_key := str(level_index)
+	if !levels.has(level_key) or !(levels[level_key] is Array):
+		levels[level_key] = []
+	var statuses: Array = levels[level_key]
+	_resize_single_level_status_array(statuses, word_count)
+	levels[level_key] = statuses
+	bucket["levels"] = levels
+	single_player[lang_key] = bucket
+	return statuses
+
+func get_single_level_word_status(lang: String, level_index: int, word_slot: int, word_count: int, difficulty: int = -1) -> int:
+	if level_index < 0 or word_slot < 0:
+		return 0
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	if word_slot >= statuses.size():
+		return 0
+	return _single_level_status(statuses[word_slot])
+
+func get_single_level_played_count(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> int:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	var count := 0
+	for status in statuses:
+		if _single_level_status(status) != 0:
+			count += 1
+	return count
+
+func get_single_level_guessed_count(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> int:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	var count := 0
+	for status in statuses:
+		if _single_level_status(status) == 1:
+			count += 1
+	return count
+
+func is_single_level_completed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
+	return is_single_level_perfect(lang, level_index, word_count, difficulty)
+
+func is_single_level_perfect(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
+	if word_count <= 0:
+		return false
+	return get_single_level_guessed_count(lang, level_index, word_count, difficulty) >= word_count
+
+func is_single_level_failed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	for status in statuses:
+		if _single_level_status(status) == 2:
+			return true
+	return false
+
+func get_single_player_unlocked_level(lang: String, difficulty: int = -1) -> int:
+	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
+	return maxi(int(progress_bucket.get("unlocked_level", 0)), 0)
+
+func ensure_single_player_next_level_unlocked(lang: String, completed_level_index: int) -> void:
+	if completed_level_index < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	if completed_level_index < int(bucket.get("unlocked_level", 0)):
+		return
+	bucket["unlocked_level"] = completed_level_index + 1
+	single_player[lang_key] = bucket
+	save_game()
+
+func get_single_player_adaptive_difficulty(lang: String) -> float:
+	var bucket := _single_player_bucket(lang)
+	return clampf(
+		float(bucket.get("adaptive_difficulty", SINGLE_PLAYER_DIFFICULTY_DEFAULT)),
+		SINGLE_PLAYER_DIFFICULTY_MIN,
+		SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+
+func _single_player_level_completion_bonus(word_count: int) -> int:
+	return SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS + maxi(word_count, 0) * SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS
+
+func mark_single_level_word_played(
+	lang: String,
+	level_index: int,
+	word_slot: int,
+	word_count: int,
+	is_win: bool,
+	failure_affects_difficulty: bool = true,
+	difficulty: int = -1
+) -> Dictionary:
+	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
+	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
+	if word_slot >= 0 and word_slot < statuses.size():
+		statuses[word_slot] = 1 if is_win else 2
+	var completed: bool = is_single_level_completed(lang, level_index, word_count, difficulty)
+	var perfect: bool = is_single_level_perfect(lang, level_index, word_count, difficulty)
+	var failed: bool = is_single_level_failed(lang, level_index, word_count, difficulty)
+	var unlocked_next: bool = false
+	var completion_bonus: int = 0
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var unlocked_level: int = int(bucket.get("unlocked_level", 0))
+	var difficulty_before: float = get_single_player_adaptive_difficulty(lang_key)
+	var difficulty_after: float = difficulty_before
+	if was_unplayed and is_win and completed:
+		difficulty_after = clampf(
+			difficulty_before + SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP,
+			SINGLE_PLAYER_DIFFICULTY_MIN,
+			SINGLE_PLAYER_DIFFICULTY_MAX
+		)
+		bucket["adaptive_difficulty"] = difficulty_after
+		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
+		completion_bonus = _single_player_level_completion_bonus(word_count)
+		add_soft_currency(completion_bonus, false)
+	elif was_unplayed and !is_win:
+		if failure_affects_difficulty:
+			difficulty_after = clampf(
+				difficulty_before - SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP,
+				SINGLE_PLAYER_DIFFICULTY_MIN,
+				SINGLE_PLAYER_DIFFICULTY_MAX
+			)
+			bucket["adaptive_difficulty"] = difficulty_after
+			bucket["failed_attempts"] = int(bucket.get("failed_attempts", 0)) + 1
+		else:
+			bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
+	if completed and level_index >= unlocked_level:
+		bucket["unlocked_level"] = level_index + 1
+		unlocked_next = true
+	single_player[lang_key] = bucket
+	save_game()
+	return {
+		"completed": completed,
+		"perfect": perfect,
+		"failed": failed,
+		"chain_ended": completed or failed,
+		"played_count": get_single_level_played_count(lang, level_index, word_count, difficulty),
+		"guessed_count": get_single_level_guessed_count(lang, level_index, word_count, difficulty),
+		"unlocked_next": unlocked_next,
+		"unlocked_level": get_single_player_unlocked_level(lang, difficulty),
+		"completion_bonus": completion_bonus,
+		"difficulty_before": difficulty_before,
+		"difficulty_after": difficulty_after,
+	}
+
+func record_single_player_forfeit(lang: String) -> void:
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
+	single_player[lang_key] = bucket
+	save_game()
+
+func reset_single_level_attempt(lang: String, level_index: int, reroll_seed: bool = true) -> void:
+	if level_index < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_key := str(level_index)
+	var levels: Dictionary = bucket["levels"]
+	var selected_themes: Dictionary = bucket["selected_themes"]
+	var level_seeds: Dictionary = bucket["level_seeds"]
+	levels.erase(level_key)
+	selected_themes.erase(level_key)
+	if reroll_seed:
+		level_seeds.erase(level_key)
+	bucket["levels"] = levels
+	bucket["selected_themes"] = selected_themes
+	bucket["level_seeds"] = level_seeds
+	single_player[lang_key] = bucket
 	save_game()

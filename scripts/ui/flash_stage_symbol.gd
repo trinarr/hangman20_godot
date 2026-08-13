@@ -3,12 +3,15 @@ extends Node2D
 
 signal playback_finished
 
-const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
+enum HeroType {
+	NONE,
+	LUCKY,
+	EL_TIGRE,
+}
+
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FLASH_TO_GODOT_SCALE: float = 0.24
 const HERO_FRAME_RATE: float = 24.0
-const HERO_TYPE_1_SYMBOL: String = "res://symbols/HeroType1.tscn"
-const HERO_TYPE_2_SYMBOL: String = "res://symbols/HeroType2.tscn"
 const HERO_TYPE_1_STATES: Array[String] = [
 	"res://symbols/_______192.tscn",
 	"res://symbols/_______193.tscn",
@@ -52,10 +55,17 @@ const HERO_TYPE_2_OFFSETS: Array[Vector2] = [
 static var _hero_pose_cache: Dictionary = {}
 static var _hero_pose_requests: Dictionary = {}
 
+var force_immediate_hero_pose_load: bool = false
+
 var stage_position: Vector2 = Vector2.ZERO:
 	set(value):
 		stage_position = value
 		_sync_to_stage()
+
+var hero_type: HeroType = HeroType.NONE:
+	set(value):
+		hero_type = value
+		_reload_symbol()
 
 var symbol_path: String = "":
 	set(value):
@@ -65,7 +75,7 @@ var symbol_path: String = "":
 var animation_time: float = -1.0:
 	set(value):
 		animation_time = value
-		if _is_hero_type_symbol():
+		if _is_hero_symbol():
 			_reload_symbol()
 		else:
 			_apply_animation_time()
@@ -109,11 +119,14 @@ func _reload_symbol() -> void:
 	_pending_playback.clear()
 	_pending_symbol_path = ""
 	_pending_symbol_offset = Vector2.ZERO
-	if !is_inside_tree() or symbol_path.strip_edges() == "":
+	if !is_inside_tree():
 		_remove_symbol_instance()
 		return
-	if _is_hero_type_symbol():
+	if _is_hero_symbol():
 		_reload_hero_symbol()
+		return
+	if symbol_path.strip_edges() == "":
+		_remove_symbol_instance()
 		return
 	_remove_symbol_instance()
 	if !ResourceLoader.exists(symbol_path):
@@ -135,34 +148,34 @@ func _reload_hero_symbol() -> void:
 	var target_offset: Vector2 = _hero_offsets()[state_index]
 	if _symbol_instance != null and _loaded_symbol_path == target_path:
 		_apply_animation_time()
-		_prune_hero_pose_cache(state_index, false)
+		_prune_hero_pose_cache(state_index)
 		_request_next_hero_pose(state_index)
 		return
 
-	_remove_symbol_instance()
 	var target_scene: PackedScene = _get_hero_scene_if_ready(target_path)
-	if target_scene == null and state_index == 0 and !_hero_pose_requests.has(target_path):
+	if target_scene == null and force_immediate_hero_pose_load:
+		# Failure rewards must render the terminal pose in the viewport's first and
+		# only update. Finish an existing background request here when necessary.
+		target_scene = _load_hero_scene_immediately(target_path)
+	elif target_scene == null and state_index == 0 and !_hero_pose_requests.has(target_path):
 		# The first pose is needed before the player can interact. Load that one
 		# synchronously, then prepare every later pose off the main thread.
 		target_scene = _load_initial_hero_scene(target_path)
 	if target_scene != null:
 		_instantiate_hero_pose(target_scene, target_offset, target_path)
-		_prune_hero_pose_cache(state_index, false)
+		_prune_hero_pose_cache(state_index)
 		_request_next_hero_pose(state_index)
 		return
 
 	_request_hero_scene(target_path)
 	_pending_symbol_path = target_path
 	_pending_symbol_offset = target_offset
-	_prune_hero_pose_cache(state_index, true)
+	_prune_hero_pose_cache(state_index)
 
-	# A very fast tap can beat the background request. Keep the previous pose on
-	# screen and defer the reaction instead of blocking the frame on texture IO.
-	if state_index > 0:
-		var previous_path: String = _hero_states()[state_index - 1]
-		var previous_scene: PackedScene = _cached_hero_scene(previous_path)
-		if previous_scene != null:
-			_instantiate_hero_pose(previous_scene, _hero_offsets()[state_index - 1], previous_path)
+	# Keep the currently instantiated pose visible until the requested pose is
+	# fully loaded. This matters when buying attempts moves the hero backwards:
+	# the older target pose may no longer be cached, but the player must never see
+	# an empty character slot while its threaded request completes.
 	set_process(true)
 
 func _remove_symbol_instance() -> void:
@@ -175,6 +188,7 @@ func _remove_symbol_instance() -> void:
 	_loaded_symbol_path = ""
 
 func _instantiate_hero_pose(scene: PackedScene, pose_offset: Vector2, resource_path: String) -> void:
+	_remove_symbol_instance()
 	var pose_holder := Node2D.new()
 	pose_holder.name = "HeroPose"
 	pose_holder.position = pose_offset
@@ -193,8 +207,19 @@ func _load_initial_hero_scene(resource_path: String) -> PackedScene:
 		push_warning("Hero pose is not a PackedScene: " + resource_path)
 		return null
 	var scene: PackedScene = resource as PackedScene
+	_hero_pose_requests.erase(resource_path)
 	_hero_pose_cache[resource_path] = scene
 	return scene
+
+func _load_hero_scene_immediately(resource_path: String) -> PackedScene:
+	if _hero_pose_requests.has(resource_path):
+		var threaded_resource: Resource = ResourceLoader.load_threaded_get(resource_path)
+		_hero_pose_requests.erase(resource_path)
+		if threaded_resource is PackedScene:
+			var threaded_scene: PackedScene = threaded_resource as PackedScene
+			_hero_pose_cache[resource_path] = threaded_scene
+			return threaded_scene
+	return _load_initial_hero_scene(resource_path)
 
 func _request_hero_scene(resource_path: String) -> void:
 	if _hero_pose_cache.has(resource_path) or _hero_pose_requests.has(resource_path):
@@ -240,19 +265,33 @@ func _get_hero_scene_if_ready(resource_path: String) -> PackedScene:
 	return scene
 
 func _request_next_hero_pose(state_index: int) -> void:
+	var states: Array[String] = _hero_states()
 	var next_index: int = state_index + 1
-	if next_index >= _hero_states().size():
-		return
-	_request_hero_scene(_hero_states()[next_index])
+	if next_index < states.size():
+		_request_hero_scene(states[next_index])
+	# Prepare the failure-screen pose in parallel with normal sequential loading.
+	# It remains outside the strong cache until actually needed.
+	var terminal_index: int = states.size() - 1
+	if terminal_index >= 0 and terminal_index != state_index and terminal_index != next_index:
+		_request_hero_scene(states[terminal_index])
 
-func _prune_hero_pose_cache(state_index: int, keep_previous: bool) -> void:
+func _prune_hero_pose_cache(state_index: int) -> void:
 	var keep_paths: Dictionary = {}
 	var states: Array[String] = _hero_states()
+	# Reward screens always use the clean first pose. Keep it warm once it has
+	# been loaded so finishing a damaged round never has to synchronously reload
+	# and instantiate that resource during the screen transition.
+	keep_paths[states[0]] = true
 	keep_paths[states[state_index]] = true
 	if state_index + 1 < states.size():
 		keep_paths[states[state_index + 1]] = true
-	if keep_previous and state_index > 0:
-		keep_paths[states[state_index - 1]] = true
+	# A last-chance purchase restores two attempts and can move the character two
+	# poses backwards at once. Retain both previous scenes after they have already
+	# been displayed, eliminating a second disk/decode request on that transition.
+	for previous_offset in range(1, 3):
+		var previous_index: int = state_index - previous_offset
+		if previous_index >= 0:
+			keep_paths[states[previous_index]] = true
 	for cached_path: Variant in _hero_pose_cache.keys():
 		if !keep_paths.has(cached_path):
 			_hero_pose_cache.erase(cached_path)
@@ -276,11 +315,10 @@ func _poll_pending_hero_pose() -> bool:
 	var target_offset: Vector2 = _pending_symbol_offset
 	_pending_symbol_path = ""
 	_pending_symbol_offset = Vector2.ZERO
-	_remove_symbol_instance()
 	_instantiate_hero_pose(target_scene, target_offset, target_path)
 	var state_index: int = _hero_states().find(target_path)
 	if state_index >= 0:
-		_prune_hero_pose_cache(state_index, false)
+		_prune_hero_pose_cache(state_index)
 		_request_next_hero_pose(state_index)
 	_resume_pending_playback()
 	return true
@@ -299,14 +337,14 @@ func _resume_pending_playback() -> void:
 		float(playback["initial_time"])
 	)
 
-func _is_hero_type_symbol() -> bool:
-	return symbol_path == HERO_TYPE_1_SYMBOL or symbol_path == HERO_TYPE_2_SYMBOL
+func _is_hero_symbol() -> bool:
+	return hero_type != HeroType.NONE
 
 func _hero_states() -> Array[String]:
-	return HERO_TYPE_2_STATES if symbol_path == HERO_TYPE_2_SYMBOL else HERO_TYPE_1_STATES
+	return HERO_TYPE_2_STATES if hero_type == HeroType.EL_TIGRE else HERO_TYPE_1_STATES
 
 func _hero_offsets() -> Array[Vector2]:
-	return HERO_TYPE_2_OFFSETS if symbol_path == HERO_TYPE_2_SYMBOL else HERO_TYPE_1_OFFSETS
+	return HERO_TYPE_2_OFFSETS if hero_type == HeroType.EL_TIGRE else HERO_TYPE_1_OFFSETS
 
 func _hero_state_index() -> int:
 	return clampi(int(floor(maxf(animation_time, 0.0) * HERO_FRAME_RATE)), 0, _hero_states().size() - 1)
@@ -314,7 +352,7 @@ func _hero_state_index() -> int:
 func _apply_animation_time() -> void:
 	if _symbol_instance == null:
 		return
-	if _is_hero_type_symbol():
+	if _is_hero_symbol():
 		_apply_direct_hero_time_recursive(_symbol_instance)
 		return
 	_apply_animation_time_recursive(_symbol_instance, false)
@@ -375,7 +413,7 @@ func _play_nested(root_time: float, nested_start_time: float, nested_end_time: f
 	animation_time = root_time
 	nested_animation_time = initial_time
 	_apply_animation_time()
-	if _symbol_instance == null or (_is_hero_type_symbol() and _loaded_symbol_path != _hero_states()[_hero_state_index()]):
+	if _symbol_instance == null or (_is_hero_symbol() and _loaded_symbol_path != _hero_states()[_hero_state_index()]):
 		_pending_playback = {
 			"root_time": root_time,
 			"start_time": nested_start_time,
@@ -389,7 +427,7 @@ func _play_nested(root_time: float, nested_start_time: float, nested_end_time: f
 
 	var root_player := _find_first_animation_player(_symbol_instance)
 
-	var nested_player: AnimationPlayer = root_player if _is_hero_type_symbol() else _find_first_visible_nested_animation_player(_symbol_instance, root_player)
+	var nested_player: AnimationPlayer = root_player if _is_hero_symbol() else _find_first_visible_nested_animation_player(_symbol_instance, root_player)
 	if nested_player == null or !nested_player.has_animation("default"):
 		nested_animation_time = nested_end_time
 		_apply_animation_time()

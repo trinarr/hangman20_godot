@@ -1,6 +1,8 @@
 class_name PopupStageCenter
 extends Control
 
+signal open_bounce_finished
+
 const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const OPEN_START_FACTOR: float = 0.965
@@ -8,10 +10,6 @@ const OPEN_PEAK_FACTOR: float = 1.025
 const OPEN_GROW_DURATION: float = 0.15
 const OPEN_SETTLE_DURATION: float = 0.11
 const MAX_ADAPTIVE_POPUP_SCALE: float = 1.00
-const POPUP_CLOSE_TOP_GAP_STAGE: float = 48.0
-const POPUP_CLOSE_SIZE_STAGE: float = 70.0
-const POPUP_CLOSE_BOTTOM_MARGIN_STAGE: float = 64.0
-const POPUP_BOTTOM_RESERVED_STAGE: float = POPUP_CLOSE_TOP_GAP_STAGE + POPUP_CLOSE_SIZE_STAGE + POPUP_CLOSE_BOTTOM_MARGIN_STAGE
 
 var popup_top: float = 0.0:
 	set(value):
@@ -25,6 +23,7 @@ var popup_bottom: float = 0.0:
 
 var _open_tween: Tween = null
 var _rest_scale: float = 1.0
+var open_bounce_complete: bool = false
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -47,6 +46,7 @@ func _play_open_bounce() -> void:
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
 
+	open_bounce_complete = false
 	scale = Vector2.ONE * _rest_scale * OPEN_START_FACTOR
 	_open_tween = create_tween()
 	_open_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -56,6 +56,13 @@ func _play_open_bounce() -> void:
 	var settle_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE * _rest_scale, OPEN_SETTLE_DURATION)
 	settle_tweener.set_trans(Tween.TRANS_QUAD)
 	settle_tweener.set_ease(Tween.EASE_IN_OUT)
+	_open_tween.finished.connect(_finish_open_bounce, CONNECT_ONE_SHOT)
+
+func _finish_open_bounce() -> void:
+	if !is_inside_tree():
+		return
+	open_bounce_complete = true
+	open_bounce_finished.emit()
 
 func _sync_to_viewport() -> void:
 	if !is_inside_tree():
@@ -65,25 +72,17 @@ func _sync_to_viewport() -> void:
 		return
 
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
-	var stage_height: float = PORTRAIT_LAYOUT.expanded_stage_height(viewport_size)
 	_rest_scale = PORTRAIT_LAYOUT.adaptive_ui_scale(viewport_size, MAX_ADAPTIVE_POPUP_SCALE)
 
-	# Keep popup width at the authored 480x800 size instead of enlarging it on
-	# extra-tall screens. This preserves comfortable side margins while the popup
-	# remains bottom-anchored above a reserved close-button zone. The larger gap
-	# above and thumb-safe margin below the button match the mobile reference.
-	# This keeps the body
-	# bottom and close button stable while content-specific popup heights make
-	# only the top edge move.
+	# Keep every modal centered by its authored body bounds. The pivot matches the
+	# popup center, so the opening scale animation expands symmetrically instead
+	# of making differently sized popups drift toward the bottom of the screen.
 	var popup_center_stage := Vector2(STAGE_SIZE.x * 0.5, (popup_top + popup_bottom) * 0.5)
 	pivot_offset = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + popup_center_stage * fit_scale
+	var resolved_shift_pixels: float = viewport_size.y * 0.5 - pivot_offset.y
 
-	var desired_popup_bottom_pixels: float = (stage_height - POPUP_BOTTOM_RESERVED_STAGE) * fit_scale
-	var transformed_bottom_without_position: float = pivot_offset.y + (popup_bottom * fit_scale - pivot_offset.y) * _rest_scale
-	var resolved_shift_pixels: float = desired_popup_bottom_pixels - transformed_bottom_without_position
-
-	# A very tall popup can still be clamped below the camera/notch. Compact
-	# popups remain bottom-anchored and therefore thumb-reachable.
+	# Centering is primary, but a tall popup must still remain below a camera or
+	# display cutout when the safe top inset reaches into its authored bounds.
 	var safe_top_pixels: float = PORTRAIT_LAYOUT.safe_top_inset_pixels(viewport_size)
 	var safe_margin_pixels: float = PORTRAIT_LAYOUT.SAFE_TOP_EXTRA_MARGIN * fit_scale if safe_top_pixels > 0.0 else 0.0
 	var transformed_top_without_position: float = pivot_offset.y + (popup_top * fit_scale - pivot_offset.y) * _rest_scale
