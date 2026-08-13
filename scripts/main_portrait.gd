@@ -742,10 +742,17 @@ func _complete_portrait_main_tab_swipe(commit: bool) -> void:
 				navigation_parent.remove_child(target_navigation)
 			target_navigation.queue_free()
 		content = target_content
-		# The preview navigation is static and hidden during the drag. Rebuild it
-		# only after the page arrives so the old tab shrinks and the new tab grows
-		# with the original enter/leave animation in the fixed bottom bar.
-		_stage_main_navigation(target_tab, origin_tab)
+		# Home no longer owns the shared bottom navigation: its lower edge is
+		# reserved for the advertising banner. Profile and Classic keep their
+		# existing navigation implementation so they can be wired to new entry
+		# points later without rebuilding either screen.
+		if target_tab == MainTab.HOME:
+			_portrait_active_main_tab = -1
+		else:
+			# The preview navigation is static and hidden during the drag. Rebuild it
+			# only after the page arrives so the old tab shrinks and the new tab grows
+			# with the original enter/leave animation in the fixed bottom bar.
+			_stage_main_navigation(target_tab, origin_tab)
 		_play_ui_click_sound()
 		_clear_portrait_main_tab_swipe_transition()
 		return
@@ -2275,7 +2282,10 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
-	_show_main_tab_screen(Callable(self, "_show_menu_screen"), MainTab.HOME)
+	# Home is now a standalone landing screen. Profile and Classic remain intact,
+	# but their future entry points must be explicit instead of the removed bar or
+	# a hidden horizontal swipe from Home.
+	_show_menu_screen()
 
 func _show_menu_screen() -> void:
 	GameSession.discard_current_round()
@@ -2286,7 +2296,7 @@ func _show_menu_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
 
-	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
+	_portrait_screen(0.0)
 	_stage_currency_counter(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
@@ -2297,6 +2307,7 @@ func _show_menu_screen() -> void:
 	var button_x: float = 90.0
 	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
+	_stage_portrait_admob_banner_placeholder()
 
 func show_settings() -> void:
 	_show_settings_popup()

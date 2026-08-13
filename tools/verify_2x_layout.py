@@ -1559,7 +1559,6 @@ def verify_main_tab_navigation() -> None:
         and "icon.queue_free()" in navigation
         and 'Callable(self, "_finish_main_nav_tab_leave").bind(' in navigation
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
-        and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
         and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
         and "_stage_menu_settings_button()" in portrait,
         "The shared tab layer does not animate both sides or bounce the newly active icon once",
@@ -1599,8 +1598,10 @@ def verify_main_tab_navigation() -> None:
     require(
         "departing_navigation.visible = false" in swipe_completion
         and "navigation_parent.remove_child(target_navigation)" in swipe_completion
+        and "if target_tab == MainTab.HOME:" in swipe_completion
+        and "_portrait_active_main_tab = -1" in swipe_completion
         and "_stage_main_navigation(target_tab, origin_tab)" in swipe_completion,
-        "Completing an interactive swipe does not restart the bottom-tab enter/leave animation",
+        "A swipe can restore the removed Home navigation or break the remaining tab transition",
     )
     tasks_screen = portrait[
         portrait.index("func show_tasks()") :
@@ -1619,14 +1620,20 @@ def verify_main_tab_navigation() -> None:
     require(
         "_stage_main_menu_character_button" not in portrait
         and "PORTRAIT_CLOSE_BUTTON_RECT" not in portrait
+        and 'func show_menu() -> void:\n\t# Home is now a standalone landing screen.' in menu_screen
+        and "\t_show_menu_screen()" in menu_screen
+        and '_show_main_tab_screen(Callable(self, "_show_menu_screen"), MainTab.HOME)' not in portrait
+        and "_portrait_screen(0.0)" in menu_screen
+        and "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" not in menu_screen
         and 'Database.tr_text(1, "Classic")' not in menu_screen
         and 'Callable(self, "show_theme_select")' not in menu_screen
         and "Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x" in menu_screen
         and "Rect2(67.5, 632.0, 345.0, 73.6)" in menu_screen
+        and "_stage_portrait_admob_banner_placeholder()" in menu_screen
         and math.isclose(632.0 - (554.0 + 64.0), 14.0)
-        and 632.0 + 73.6 < 708.0
-        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 3,
-        "The Classic button remains on Home or main-menu actions overlap the compact navigation",
+        and 632.0 + 73.6 < 750.0
+        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 2,
+        "Home still exposes the old navigation or overlaps its advertising reserve",
     )
 
 
