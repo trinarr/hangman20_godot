@@ -1503,8 +1503,14 @@ func start_classic_game(theme_index: int) -> void:
 
 func _exit_game_warning_text() -> String:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return _single_player_text("Будет засчитано поражение", "A defeat will be recorded")
+		return _single_player_text("Вы потеряете одну жизнь!", "You will lose one life!")
 	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
+
+func _exit_game_title_text() -> String:
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		return _single_player_text("Покинуть уровень?", "Leave level?")
+	return tr("EXIT_GAME_CONFIRM")
+
 func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 	_remove_exit_game_popup()
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:

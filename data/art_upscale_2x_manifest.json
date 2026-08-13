@@ -46,6 +46,21 @@
       "target_sha256": "c36217f50e0c36ae740f3767164f529d30e73df997afe4785730e59fe0b9c9b9"
     },
     {
+      "path": "flash_assets/coin_pack_01_small.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "1b17a0ce7a2cd011d3ee7093a6153f01e57420c425e5712bbd5cded26670eff5",
+      "target_sha256": "1b17a0ce7a2cd011d3ee7093a6153f01e57420c425e5712bbd5cded26670eff5",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/coin_pack_04.png",
       "source_size": [
         512,

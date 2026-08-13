@@ -3,12 +3,12 @@ extends "res://scripts/main.gd"
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
-const SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT: GDScript = preload("res://scripts/ui/soft_currency_coin_pile_icon.gd")
 const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
 const COIN_PACK_02_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin_pile.png")
 const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
 const COIN_PACK_05_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_05.png")
 const COIN_PACK_06_LARGE_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_06_large.png")
+const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_small.png")
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 
@@ -2095,6 +2095,43 @@ func _portrait_popup_shell(
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
 	_stage_round_button(Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE), close_callable, "×")
 
+func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
+	# Reuse the same life art as the refill popup and draw a bold zig-zag split on
+	# top. Keeping this composition code-native avoids shipping a duplicate heart.
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
+	var heart_icon := TextureRect.new()
+	heart_icon.name = "BrokenHeartBase"
+	heart_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart_icon.texture = LIFE_HEART_ICON_TEXTURE
+	heart_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	heart_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	heart_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(heart_icon)
+
+	var crack_points := PackedVector2Array([
+		Vector2(rect.size.x * 0.54, rect.size.y * 0.10),
+		Vector2(rect.size.x * 0.43, rect.size.y * 0.37),
+		Vector2(rect.size.x * 0.55, rect.size.y * 0.47),
+		Vector2(rect.size.x * 0.45, rect.size.y * 0.68),
+		Vector2(rect.size.x * 0.54, rect.size.y * 0.91),
+	])
+	var crack_outline := Line2D.new()
+	crack_outline.name = "BrokenHeartCrackOutline"
+	crack_outline.points = crack_points
+	crack_outline.width = maxf(8.0, rect.size.x * 0.09)
+	crack_outline.default_color = Color(0.11, 0.15, 0.38, 1.0)
+	crack_outline.antialiased = true
+	holder.add_child(crack_outline)
+	var crack_fill := Line2D.new()
+	crack_fill.name = "BrokenHeartCrack"
+	crack_fill.points = crack_points
+	crack_fill.width = maxf(3.5, rect.size.x * 0.035)
+	crack_fill.default_color = Color(1.0, 0.95, 0.78, 1.0)
+	crack_fill.antialiased = true
+	holder.add_child(crack_fill)
+	holder.z_index = 11
+	return holder
+
 func _portrait_popup_button_rect(rect: Rect2) -> Rect2:
 	# Popup action buttons first receive a uniform 15% scale-up. Their horizontal
 	# length is then reduced by 15%, preserving the larger height and touch target
@@ -3649,35 +3686,28 @@ func _show_exit_game_popup() -> void:
 		_result_back_action()
 		return
 	_remove_exit_game_popup()
-	var previous_content := _portrait_popup_begin("ExitGamePopup", "exit_game_popup", 140, Callable(self, "_remove_exit_game_popup"), 306.0, 536.0)
-	var rect := Rect2(60.0, 306.0, 360.0, 230.0)
-	var header := _stage_panel(Rect2(rect.position, Vector2(rect.size.x, 80.0)), PORTRAIT_BLUE)
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, 150.0)), PORTRAIT_DARK_BLUE)
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), PORTRAIT_ORANGE)
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	var title_label := _stage_heading_label(Rect2(82.0, 316.0, 316.0, 56.0), tr("EXIT_GAME_CONFIRM").to_upper(), 27, Color.WHITE)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.clip_text = false
-	var warning_label := _stage_label(Rect2(82.0, 398.0, 316.0, 40.0), _exit_game_warning_text(), 18, Color(0.92, 0.94, 1.0))
+	var close_action := Callable(self, "_remove_exit_game_popup")
+	var previous_content := _portrait_popup_begin(
+		"ExitGamePopup",
+		"exit_game_popup",
+		140,
+		close_action,
+		170.0,
+		570.0
+	)
+	var rect := Rect2(28.0, 170.0, 424.0, 400.0)
+	_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)
+	_stage_portrait_broken_heart_icon(Rect2(176.0, 266.0, 128.0, 116.0))
+	var warning_label := _stage_label(Rect2(58.0, 394.0, 364.0, 54.0), _exit_game_warning_text(), 21, Color.WHITE)
 	warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	warning_label.clip_text = false
 	_stage_portrait_popup_main_button(
-		Rect2(82.0, 456.0, 145.0, 52.0),
+		Rect2(82.0, 492.0, 145.0, 52.0),
 		Callable(self, "_confirm_exit_game").bind(true),
 		tr("YES"),
 		20
 	)
-	_stage_portrait_popup_main_button(Rect2(253.0, 456.0, 145.0, 52.0), Callable(self, "_remove_exit_game_popup"), tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
-	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
-	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
-	_stage_round_button(
-		Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE),
-		Callable(self, "_remove_exit_game_popup"),
-		"×"
-	)
+	_stage_portrait_popup_main_button(Rect2(253.0, 492.0, 145.0, 52.0), close_action, tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
 	content = previous_content
 
 func show_custom_word() -> void:
@@ -5727,13 +5757,17 @@ func _stage_single_player_reward_chain_link(
 	parent.add_child(link_bar)
 
 func _stage_single_player_reward_coin_pile(parent: Control, icon_rect: Rect2) -> Control:
-	var pile_icon: Control = SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT.new() as Control
-	pile_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pile_icon.position = icon_rect.position
-	pile_icon.size = icon_rect.size
-	pile_icon.z_index = 3
-	parent.add_child(pile_icon)
-	return pile_icon
+	var coin_icon := TextureRect.new()
+	coin_icon.name = "RewardCoinIcon"
+	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coin_icon.texture = REWARD_COIN_TEXTURE
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coin_icon.position = icon_rect.position
+	coin_icon.size = icon_rect.size
+	coin_icon.z_index = 3
+	parent.add_child(coin_icon)
+	return coin_icon
 
 func _stage_single_player_reward_status_icon(
 	parent: Control,

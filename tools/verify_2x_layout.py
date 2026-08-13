@@ -429,7 +429,7 @@ def verify_application_fonts() -> None:
         and "func _heading_font_size(font_size: int) -> int:" in main
         and "_heading_font_size(font_size)" in main
         and 'label.add_theme_font_override("font", UI_HEADING_FONT)' in main
-        and portrait.count("_stage_heading_label(") == 4,
+        and portrait.count("_stage_heading_label(") == 3,
         "Balsamiq Sans Bold is not inherited by the UI or Regular is not limited to large headings",
     )
 
@@ -901,6 +901,10 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
 
 def verify_reward_status_icons() -> None:
     portrait = read("scripts/main_portrait.gd")
+    reward_coin = portrait[
+        portrait.index("func _stage_single_player_reward_coin_pile(") :
+        portrait.index("func _stage_single_player_reward_status_icon(")
+    ]
     status_icon = portrait[
         portrait.index("func _stage_single_player_reward_status_icon(") :
         portrait.index("func _stage_single_player_reward_count(")
@@ -919,6 +923,26 @@ def verify_reward_status_icons() -> None:
         portrait.count("_stage_single_player_reward_status_icon(") == 4,
         "The generated reward check/cross is not used for reward tile states",
     )
+    reward_coin_path = ROOT / "flash_assets" / "coin_pack_01_small.png"
+    require(
+        reward_coin_path.is_file()
+        and 'preload("res://flash_assets/coin_pack_01_small.png")' in portrait
+        and "var coin_icon := TextureRect.new()" in reward_coin
+        and "coin_icon.texture = REWARD_COIN_TEXTURE" in reward_coin
+        and "TextureRect.STRETCH_KEEP_ASPECT_CENTERED" in reward_coin
+        and "SOFT_CURRENCY_COIN_PILE_ICON_SCRIPT" not in portrait,
+        "Reward tiles do not use the supplied single-coin texture",
+    )
+    with Image.open(reward_coin_path) as image:
+        rgba = image.convert("RGBA")
+        require(rgba.size == (512, 512), "Reward coin texture has the wrong size")
+        require(
+            all(
+                rgba.getpixel(point)[3] == 0
+                for point in ((0, 0), (rgba.width - 1, 0), (0, rgba.height - 1), (rgba.width - 1, rgba.height - 1))
+            ),
+            "Reward coin texture does not have transparent corners",
+        )
 
     for filename, accent in (
         ("reward_status_check_wide.png", "green"),
@@ -1848,6 +1872,10 @@ def verify_game_exit_confirmation_popup() -> None:
     portrait_popup = portrait[
         portrait.index("func _show_exit_game_popup()") : portrait.index("func show_custom_word()")
     ]
+    broken_heart = portrait[
+        portrait.index("func _stage_portrait_broken_heart_icon(") :
+        portrait.index("func _portrait_popup_button_rect(")
+    ]
     confirm_exit = main[
         main.index("func _confirm_exit_game(") :
         main.index("func _single_player_forfeit_reward_data(")
@@ -1855,7 +1883,7 @@ def verify_game_exit_confirmation_popup() -> None:
 
     require(
         "_remove_exit_game_popup()" in clear_screen
-        and '"ExitGamePopup", "exit_game_popup"' in portrait_popup,
+        and '"ExitGamePopup",\n\t\t"exit_game_popup"' in portrait_popup,
         "The exit confirmation popup is not cleaned up with the active screen",
     )
     require(
@@ -1881,18 +1909,21 @@ def verify_game_exit_confirmation_popup() -> None:
         "The device Back action does not separate direct result exit from gameplay confirmation",
     )
     require(
-        'tr("EXIT_GAME_CONFIRM")' in portrait_popup
+        '_exit_game_title_text().to_upper()' in portrait_popup
         and '_exit_game_warning_text()' in portrait_popup
         and 'Callable(self, "_confirm_exit_game").bind(true)' in portrait_popup
-        and 'Callable(self, "_remove_exit_game_popup"), tr("NO")' in portrait_popup,
-        "The compact exit popup is missing its title, warning, or Yes/No actions",
+        and 'close_action, tr("NO")' in portrait_popup,
+        "The exit popup is missing its title, warning, or unchanged Yes/No actions",
     )
     require(
-        "var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5"
+        '_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)'
         in portrait_popup
-        and "var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP" in portrait_popup
-        and 'Callable(self, "_remove_exit_game_popup"),\n\t\t"×"' in portrait_popup,
-        "The exit confirmation popup is missing its standard round close button",
+        and "func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:" in broken_heart
+        and "heart_icon.texture = LIFE_HEART_ICON_TEXTURE" in broken_heart
+        and "var crack_outline := Line2D.new()" in broken_heart
+        and "var crack_fill := Line2D.new()" in broken_heart
+        and "_stage_portrait_broken_heart_icon(" in portrait_popup,
+        "The level-exit popup is missing its shared shell or broken-heart warning art",
     )
     require(
         "_remove_exit_game_popup()" in confirm_exit
@@ -1905,8 +1936,11 @@ def verify_game_exit_confirmation_popup() -> None:
         "Confirming exit does not return each mode to its preceding screen",
     )
     require(
-        "EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?" in translations,
-        "The exit confirmation title is not localized",
+        'return _single_player_text("Покинуть уровень?", "Leave level?")' in main
+        and 'return _single_player_text("Вы потеряете одну жизнь!", "You will lose one life!")' in main
+        and "EXIT_LEVEL_CONFIRM" not in translations
+        and "EXIT_LEVEL_HEART_WARNING" not in translations,
+        "The single-player exit title or life-loss warning does not use the reliable RU/EN selector",
     )
 
 
