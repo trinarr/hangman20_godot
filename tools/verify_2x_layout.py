@@ -275,8 +275,8 @@ def verify_optimized_architecture() -> None:
         "Language changes still reread and reparse unchanged JSON files",
     )
     require(
-        "if !_portrait_main_tab_swipe_building_target and active_tab == _portrait_active_main_tab:"
-        in portrait
+        "force_rebuild: bool = false" in portrait
+        and "!force_rebuild\n\t\tand !_portrait_main_tab_swipe_building_target" in portrait
         and "func _capture_portrait_main_tab_swipe_origin_references() -> void:" in portrait
         and "func _restore_portrait_main_tab_swipe_origin_references() -> void:" in portrait
         and "_restore_portrait_main_tab_swipe_origin_references()\n\t_portrait_active_main_tab = origin_tab"
@@ -285,9 +285,9 @@ def verify_optimized_architecture() -> None:
         "Main-tab taps or canceled swipes still rebuild the visible page unnecessarily",
     )
     require(
-        "hero_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE" in portrait
-        and "SubViewport.UPDATE_ALWAYS" not in portrait,
-        "The fixed reward hero still redraws its full-screen offscreen viewport every frame",
+        "SubViewport.UPDATE_ALWAYS if show_terminal_pose else SubViewport.UPDATE_ONCE"
+        in portrait,
+        "The fixed success hero or animated failure hero uses the wrong viewport update mode",
     )
     require(
         "while lower_bound <= upper_bound:" in portrait
@@ -665,6 +665,14 @@ def verify_ui_motion_and_readability_polish() -> None:
         and "Color.WHITE" in currency_counter
         and "plus_arm: float = add_badge_size * 0.58" in currency_counter,
         "The currency icon is missing its lower-right green add badge",
+    )
+    require(
+        "if counter_is_interactive and !_portrait_coin_store_active:" in currency_counter
+        and currency_counter.count(
+            "if counter_is_interactive and !_portrait_coin_store_active:"
+        )
+        == 2,
+        "The coin store still shows the green add badge on its currency counter",
     )
     require(
         'const WORD_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")' in word_input
@@ -1050,7 +1058,7 @@ def verify_footer_buttons_and_hero_scale() -> None:
         "Shortened footer buttons do not preserve their center",
     )
     require(
-        portrait.count("_portrait_footer_long_button_rect(") == 5,
+        portrait.count("_portrait_footer_long_button_rect(") == 4,
         "Not every portrait footer long button uses the 15% width reduction",
     )
     require(
@@ -1525,7 +1533,8 @@ def verify_main_tab_navigation() -> None:
         "One or more main-tab actions are missing",
     )
     require(
-        "func _show_main_tab_screen(screen_builder: Callable, active_tab: int) -> void:" in navigation
+        "func _show_main_tab_screen(\n\tscreen_builder: Callable,\n\tactive_tab: int,\n\tforce_rebuild: bool = false"
+        in navigation
         and "_portrait_main_tab_swipe_building_target" in navigation
         and "screen_builder.call()" in navigation
         and "_stage_main_navigation(active_tab, previous_tab)" in navigation
@@ -1775,7 +1784,7 @@ def verify_result_screen_rebuild() -> None:
         and "PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5" in result
         and "_result_continue_action()" in result
         and "_portrait_inline_result_continue_button = action_button" in result
-        and "_portrait_screen(" not in result
+        and "_portrait_screen(" not in in_place_show
         and "RESULT_CLOSE_ICON" not in main + portrait,
         "Round completion no longer stays on the existing gameplay tree",
     )
@@ -1969,6 +1978,10 @@ def verify_single_player_forfeit_reward() -> None:
         portrait.index("func _stage_single_player_reward_tile(") :
         portrait.index("func _stage_single_player_reward_chain_link(")
     ]
+    reward_action_reveal = portrait[
+        portrait.index("func _reveal_single_player_reward_continue_button(") :
+        portrait.index("func _enable_single_player_reward_continue_attention(")
+    ]
 
     require(
         'result["single_player_forfeit_reward"] = true' in forfeit_flow
@@ -1994,22 +2007,55 @@ def verify_single_player_forfeit_reward() -> None:
         and '_single_player_text("Награда не получена", "Reward not received")' in reward_screen
         and "!is_failure_reward" in reward_screen
         and "var is_failed_current: bool = is_failure_reward and is_current" in reward_screen
-        and "false,\n\t\t\t\tfalse" in reward_screen
+        and "true,\n\t\t\t\tfalse" in reward_screen
+        and "failure_reward_cross_visual = _stage_single_player_reward_status_icon("
+        in reward_screen
         and "if is_claimed or is_failed_current:" in reward_screen,
         "Failed reward screen does not show a dimmed red cross on the current tile",
     )
     require(
+        "_portrait_screen()" in reward_screen
+        and "_portrait_screen_without_header" not in reward_screen
+        and 'const PORTRAIT_SINGLE_REWARD_FAILURE_TITLE_COLOR := Color("#F45B77")'
+        in portrait
+        and 'const PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR := Color("#56D782")'
+        in portrait
+        and 'const PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR := Color("#6371CB")'
+        in portrait
+        and "0.0,\n\tPORTRAIT_HEADER_HEIGHT,\n\tPORTRAIT_STAGE_SIZE.x," in portrait
+        and "var result_title_color: Color = (" in reward_screen
+        and "PORTRAIT_SINGLE_REWARD_FAILURE_TITLE_COLOR" in reward_screen
+        and "if is_failure_reward" in reward_screen
+        and "else PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR" in reward_screen
+        and 'reward_title.add_theme_color_override("font_color", result_title_color)'
+        in reward_screen
+        and reward_screen.count("PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR,") == 2,
+        "The reward result is missing its standard header, blue backing, or outcome title color",
+    )
+    require(
         'Callable(self, "_leave_single_player_failure_reward_to_menu")' in reward_screen
         and "PORTRAIT_PAGE_BACK_BUTTON_RECT" in reward_screen
-        and "var back_button := _stage_round_button(" in reward_screen
+        and "failure_back_button = _stage_round_button(" in reward_screen
         and '\n\t\t\t"×"\n\t\t)' in reward_screen
         and "PORTRAIT_BACK_ARROW_ICON" not in reward_screen
-        and "back_button.z_index = 200" in reward_screen
-        and reward_screen.index("var back_button := _stage_round_button(")
+        and "failure_back_button.z_index = 200" in reward_screen
+        and reward_screen.index("failure_back_button = _stage_round_button(")
         > reward_screen.index("var continue_button := _stage_main_button(")
         and '_single_player_text("Начать заново", "Start over")' in reward_screen
         and "if is_failure_reward" in reward_screen,
         "The failed reward screen is missing its interactive Back button or Start-over action",
+    )
+    require(
+        "failure_back_button.modulate.a = 0.0" in reward_screen
+        and 'failure_back_button.set("disabled", true)' in reward_screen
+        and 'continue_button.set_meta(&"paired_failure_back_button", failure_back_button)'
+        in reward_screen
+        and '&"paired_failure_back_button"' in reward_action_reveal
+        and 'paired_back_button.set("disabled", false)' in reward_action_reveal
+        and 'button_tween.parallel().tween_property(\n\t\t\tpaired_back_button,'
+        in reward_action_reveal
+        and "_animate_portrait_back_button_entrance(failure_back_button" not in reward_screen,
+        "The failure Back button appears before Start over instead of sharing its reveal",
     )
     require(
         "is_failed: bool" in reward_tile
@@ -2020,10 +2066,30 @@ def verify_single_player_forfeit_reward() -> None:
     require(
         "GameSession.MAX_MISTAKES if is_failure_reward else 0" in reward_screen
         and "force_immediate_hero_pose_load = show_terminal_pose" in reward_hero
-        and "_hero_terminal_loop_end_time() - HERO_NESTED_FRAME_SAMPLE_OFFSET" in reward_hero
+        and "SubViewport.UPDATE_ALWAYS if show_terminal_pose else SubViewport.UPDATE_ONCE"
+        in reward_hero
+        and 'reward_hero.call_deferred(\n\t\t\t"play_nested_loop"' in reward_hero
+        and "HERO_MOV_START_FRAME_TIME" in reward_hero
+        and "_hero_terminal_loop_end_time()" in reward_hero
         and "force_immediate_hero_pose_load: bool = false" in symbol
         and "func _load_hero_scene_immediately(resource_path: String) -> PackedScene:" in symbol,
-        "Failed reward does not synchronously sample the hero's terminal pose",
+        "Failed reward does not synchronously load and animate the terminal hero state",
+    )
+    require(
+        "func _stage_single_player_reward_crown(" in portrait
+        and 'crown_holder.name = "FinalRewardCrown"' in portrait
+        and "(node_rect.size.x - crown_size.x) * 0.5,\n\t\t-crown_size.y * 0.78"
+        in portrait
+        and 'Color("#FFD84A")' in portrait
+        and 'Color("#173A7A")' in portrait
+        and "if word_slot == word_count - 1:" in reward_screen
+        and "_stage_single_player_reward_crown(node_holder, local_node_rect)"
+        in reward_screen
+        and "func _animate_single_player_failed_reward_marker(" in portrait
+        and "PORTRAIT_SINGLE_REWARD_CROWN_FLY_OFFSET" in portrait
+        and '"rotation",' in portrait
+        and "failed_final_reward_crown_visual" in reward_screen,
+        "The final reward is missing its crown or the crown does not fly off with the failure cross",
     )
     require(
         "if !last_result_is_win:" in reward_continue
@@ -2757,11 +2823,16 @@ def verify_profile_theme_and_settings_footer_ui() -> None:
         and 'Callable(self, "show_theme_select")' in portrait_themes
         and "154.0 + float(row) * 96.0" in portrait_themes
         and "_portrait_footer_round_button_rect(PORTRAIT_FOOTER_LEFT_ROUND_BUTTON_RECT)" not in portrait_themes
-        and "_portrait_footer_long_button_rect(PORTRAIT_THEME_DIFFICULTY_BASE_RECT)" in portrait_themes
         and "const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 646.0, 280.5, 70.4)" in portrait
-        and "difficulty_rect = PORTRAIT_TASKS_DIFFICULTY_RECT" in portrait_themes
+        and "var difficulty_rect: Rect2 = PORTRAIT_TASKS_DIFFICULTY_RECT" in portrait_themes
+        and "PORTRAIT_THEME_DIFFICULTY_BASE_RECT" not in portrait
         and "var difficulty_font_size: int = _portrait_footer_font_size(22)" in portrait_themes
-        and 'Callable(self, "_cycle_classic_difficulty").bind(true)' in portrait_themes,
+        and '"_cycle_classic_difficulty"\n\t).bind(with_main_navigation)' in portrait_themes
+        and 'Callable(self, "_cycle_classic_difficulty")' not in portrait_themes
+        and "func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:" in portrait_themes
+        and "_cycle_difficulty_mode()" in portrait_themes
+        and 'Callable(self, "_show_theme_select_screen").bind(true)' in portrait_themes
+        and "MainTab.TASKS,\n\t\t\ttrue" in portrait_themes,
         "Theme selection does not support both the Tasks-tab and standalone contexts",
     )
     require(
@@ -2894,6 +2965,18 @@ def verify_single_player_last_chance_flow() -> None:
         portrait.index("func _play_portrait_result_word_bounce_sequence(") :
         portrait.index("func _prepare_portrait_word_letter_bounce(")
     ]
+    extra_attempt_transition = portrait[
+        portrait.index("func _grant_single_player_extra_attempt() -> void:") :
+        portrait.index("func _stage_portrait_inline_result_word(")
+    ]
+    currency_bounce = portrait[
+        portrait.index("func _bounce_portrait_currency_counter() -> void:") :
+        portrait.index("func _apply_portrait_standard_text_outline(")
+    ]
+    reward_coin_flight = portrait[
+        portrait.index("func _play_single_player_reward_coin_collection(") :
+        portrait.index("func _single_player_reward_check_reveal_delay(")
+    ]
     retry_geometry = portrait[
         portrait.index("func _portrait_game_hint_y(") :
         portrait.index("func _stage_portrait_hint_buttons(")
@@ -2909,10 +2992,38 @@ def verify_single_player_last_chance_flow() -> None:
         "const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25" in main
         and "const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2" in main
         and "GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)" in purchase_flow
+        and "_grant_single_player_extra_attempt()" in purchase_flow
         and "GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)" in purchase_flow
         and "GameSession.resolve_deferred_loss()" in purchase_flow
         and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store")' in purchase_flow,
         "The extra attempt is not connected to currency, the shop fallback, and defeat resolution",
+    )
+    require(
+        "var hero_group: Control = _portrait_game_adaptive_group" in extra_attempt_transition
+        and "const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION: float = 0.05" in portrait
+        and "const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION: float = 0.08" in portrait
+        and "PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION" in extra_attempt_transition
+        and "await fade_out.finished" in extra_attempt_transition
+        and extra_attempt_transition.index("await fade_out.finished")
+        < extra_attempt_transition.index("_clear_hero_animation_overlay()")
+        < extra_attempt_transition.index("GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)")
+        and "PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION" in extra_attempt_transition
+        and "PORTRAIT_EXTRA_ATTEMPT_HERO_HIDDEN_HOLD_DURATION" not in portrait
+        and "force_immediate_hero_pose_load" not in extra_attempt_transition
+        and "await get_tree().process_frame" not in extra_attempt_transition
+        and "Tween.TRANS_QUAD" in extra_attempt_transition
+        and "Tween.EASE_IN" in extra_attempt_transition
+        and "Tween.EASE_OUT" in extra_attempt_transition,
+        "Purchased attempts no longer restore the previous hero state through a short fade",
+    )
+    require(
+        "const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = 1.22" in portrait
+        and "const PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = 1.06" in portrait
+        and 'counter_rest_scale * PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE'
+        in currency_bounce
+        and 'tween.tween_callback(Callable(self, "_bounce_portrait_currency_counter"))'
+        in reward_coin_flight,
+        "Reward crediting no longer pulses the full counter with a stronger coin-icon bounce",
     )
     require(
         "GameState.lose_heart()" in finish_flow
@@ -2986,11 +3097,20 @@ def verify_single_player_last_chance_flow() -> None:
     require(
         "const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70" in portrait
         and "_dim_portrait_keyboard_for_in_place_result()" in result_show
+        and "_portrait_game_entrance_active = false" in result_show
         and "button.modulate.a = PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA" in result_state
         and result_show.index("_dim_portrait_keyboard_for_in_place_result()")
         < result_show.index("_stage_in_place_result_word(animated)")
         < result_show.index("_peel_portrait_word_paper_for_in_place_result(animated)"),
         "The inactive keyboard is not dimmed to 70% before the red word and paper peel begin",
+    )
+    require(
+        "_finalize_portrait_hints_for_round_end()" in result_state
+        and "func _finalize_portrait_hint_for_round_end(hint_button: Control) -> void:" in portrait
+        and "hint_button.visible = false" in portrait
+        and 'Callable(self, "_finalize_portrait_hint_for_round_end").bind(hint_button)'
+        in portrait,
+        "The finished-round hint row can reappear underneath the Continue button",
     )
     require(
         "_hide_portrait_keyboard_for_round_end" not in result_state

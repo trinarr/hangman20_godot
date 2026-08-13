@@ -1411,6 +1411,9 @@ func _purchase_single_player_extra_attempt() -> void:
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST):
 		return
 	_remove_single_player_last_chance_popup()
+	_grant_single_player_extra_attempt()
+
+func _grant_single_player_extra_attempt() -> void:
 	# A reaction overlay from the previous wrong guess can still be playing under
 	# the modal. Remove it before the session signal refreshes the restored pose,
 	# otherwise the static hero remains hidden until that old animation finishes.
