@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 151,
+  "file_count": 153,
   "files": [
     {
       "path": "icon.png",
@@ -118,6 +118,21 @@
       "source_mode": "RGBA",
       "source_sha256": "360d4bf0971cbbd7760c5f4c0244201ce09a07b06c3a542246b764ef79e5d104",
       "target_sha256": "ebb4ea69d8bb474f380465695108210fa551a3aed41a0c35d3fd27355a3f00fb"
+    },
+    {
+      "path": "flash_assets/final_reward_rotating_glow.png",
+      "source_size": [
+        632,
+        632
+      ],
+      "target_size": [
+        632,
+        632
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "7c6db8331cbd63dbb051bf17af9f0d745723d3afd0ebcd6a54ecccd8ed5ab08a",
+      "target_sha256": "7c6db8331cbd63dbb051bf17af9f0d745723d3afd0ebcd6a54ecccd8ed5ab08a",
+      "native_2x": true
     },
     {
       "path": "flash_assets/fon_png.png",
@@ -650,6 +665,21 @@
       "source_mode": "RGBA",
       "source_sha256": "b6493844f5bf1d4e6f03a11ae1eb25f2b9d76d44a33a3ebe859376002f8137e8",
       "target_sha256": "afab32d9b4467fdf3edaa7faf59db5af0320d084968bf42d75b4fda2bdcdcd9c"
+    },
+    {
+      "path": "flash_assets/watch_ad_icon.png",
+      "source_size": [
+        384,
+        256
+      ],
+      "target_size": [
+        384,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "094e5f5a9cdb93dfada29d287350cfbac912baf161c5958eb687e9b0585e73c4",
+      "target_sha256": "094e5f5a9cdb93dfada29d287350cfbac912baf161c5958eb687e9b0585e73c4",
+      "native_2x": true
     },
     {
       "path": "flash_assets/word_paper_backside.png",

@@ -567,7 +567,8 @@ func mark_single_level_word_played(
 	word_count: int,
 	is_win: bool,
 	failure_affects_difficulty: bool = true,
-	difficulty: int = -1
+	difficulty: int = -1,
+	award_completion_bonus: bool = true
 ) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
@@ -592,7 +593,8 @@ func mark_single_level_word_played(
 		bucket["adaptive_difficulty"] = difficulty_after
 		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
 		completion_bonus = _single_player_level_completion_bonus(word_count)
-		add_soft_currency(completion_bonus, false)
+		if award_completion_bonus:
+			add_soft_currency(completion_bonus, false)
 	elif was_unplayed and !is_win:
 		if failure_affects_difficulty:
 			difficulty_after = clampf(

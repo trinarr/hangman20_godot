@@ -287,7 +287,7 @@ func discard_current_round() -> void:
 	word_hint_text = ""
 	GameState.reset_current_game()
 
-func finish_result(is_win: bool) -> Dictionary:
+func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 	var result := {
 		"title": Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT"),
 		"lines": []
@@ -296,7 +296,8 @@ func finish_result(is_win: bool) -> Dictionary:
 		return result
 
 	if is_win:
-		GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
+		if award_win_coins:
+			GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
 		var reward_text: String = tr("COINS_EARNED")
 		if reward_text == "COINS_EARNED":
 			reward_text = "Coins: +%d"

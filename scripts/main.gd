@@ -810,6 +810,8 @@ func _invalidate_single_player_level_cache() -> void:
 
 func _single_player_level_word_target(level_index: int) -> int:
 	var level_number: int = maxi(level_index + 1, 1)
+	if level_number == 1:
+		return 1
 	var word_count: int = 2
 	if level_number > 30:
 		word_count = 5
@@ -1041,7 +1043,8 @@ func _single_player_next_unplayed_word_slot(level_index: int) -> int:
 func _single_player_mark_current_word_finished(
 	data: Dictionary,
 	is_win: bool,
-	failure_affects_difficulty: bool = true
+	failure_affects_difficulty: bool = true,
+	defer_final_reward: bool = false
 ) -> Dictionary:
 	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
 		return data
@@ -1053,7 +1056,9 @@ func _single_player_mark_current_word_finished(
 		single_player_active_word_slot,
 		level_word_count,
 		is_win,
-		failure_affects_difficulty
+		failure_affects_difficulty,
+		-1,
+		!defer_final_reward
 	)
 	if !result.has("lines") or !(result["lines"] is Array):
 		result["lines"] = []
@@ -1067,9 +1072,16 @@ func _single_player_mark_current_word_finished(
 	result["single_player_chain_ended"] = bool(progress.get("chain_ended", false))
 	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
 	result["single_player_completion_bonus"] = int(progress.get("completion_bonus", 0))
+	var level_completed: bool = bool(progress.get("completed", false))
+	result["single_player_reward_deferred"] = defer_final_reward and level_completed
+	result["single_player_deferred_reward_amount"] = (
+		GameState.WORD_REWARD_COINS + int(progress.get("completion_bonus", 0))
+		if defer_final_reward and level_completed
+		else 0
+	)
 	result["single_player_difficulty_before"] = float(progress.get("difficulty_before", 0.0))
 	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
-	if bool(progress.get("completed", false)):
+	if level_completed:
 		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
 	elif bool(progress.get("failed", false)):
 		result["lines"].append(_single_player_chain_failed_label())
@@ -2137,11 +2149,31 @@ func _finish_round(is_win: bool) -> void:
 	# pose is reserved for the Single Player reward interstitial and should never
 	# replace the gameplay pose just because the word was solved.
 	hero_force_default_pose = false
-	last_result_data = GameSession.finish_result(is_win)
+	var defer_single_player_final_reward: bool = (
+		is_win
+		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and single_player_active_level_index >= 0
+		and single_player_active_word_slot
+			== _single_player_level_word_count(single_player_active_level_index) - 1
+	)
+	last_result_data = GameSession.finish_result(is_win, !defer_single_player_final_reward)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if !is_win:
 			GameState.lose_heart()
-		last_result_data = _single_player_mark_current_word_finished(last_result_data, is_win)
+		last_result_data = _single_player_mark_current_word_finished(
+			last_result_data,
+			is_win,
+			true,
+			defer_single_player_final_reward
+		)
+		# Sequential level play normally guarantees that the last word completes
+		# the chain. If imported/corrupt progress says otherwise, preserve the
+		# ordinary per-word reward instead of silently dropping it.
+		if (
+			defer_single_player_final_reward
+			and !bool(last_result_data.get("single_player_level_completed", false))
+		):
+			GameState.add_soft_currency(GameState.WORD_REWARD_COINS)
 	# All round results now use the same in-place presentation. In particular,
 	# Single Player victories follow Classic exactly instead of entering the old
 	# dedicated win transition after the final letter feedback delay.

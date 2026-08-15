@@ -126,6 +126,11 @@ var icon_gap_stage: float = 8.0:
 		icon_gap_stage = value
 		_sync_content_layout()
 
+var icon_before_text: bool = false:
+	set(value):
+		icon_before_text = value
+		_sync_content_layout()
+
 var _label: Label = null
 var _icon_rect: TextureRect = null
 var _use_normal_parts_when_disabled: bool = false
@@ -372,9 +377,19 @@ func _sync_content_layout() -> void:
 	var text_width: float = font.get_string_size(button_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, button_font_size).x
 	var group_width: float = text_width + actual_gap + actual_icon_size.x
 	var start_x: float = maxf((size.x - group_width) * 0.5, 0.0)
-	_label.position = Vector2(start_x, 0.0)
+	var label_x: float = (
+		start_x + actual_icon_size.x + actual_gap
+		if icon_before_text
+		else start_x
+	)
+	var icon_x: float = (
+		start_x
+		if icon_before_text
+		else start_x + text_width + actual_gap
+	)
+	_label.position = Vector2(label_x, 0.0)
 	_label.size = Vector2(text_width + 2.0, size.y)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_icon_rect.position = Vector2(start_x + text_width + actual_gap, (size.y - actual_icon_size.y) * 0.5)
+	_icon_rect.position = Vector2(icon_x, (size.y - actual_icon_size.y) * 0.5)
 	_icon_rect.size = actual_icon_size
 	_sync_visual_child_scales()
