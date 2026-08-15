@@ -1,6 +1,8 @@
 class_name StageLongButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
+const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
+
 const NORMAL_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_left.png")
 const NORMAL_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_center.png")
 const NORMAL_RIGHT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_right.png")
@@ -329,12 +331,12 @@ func _sync_label() -> void:
 		outline_color.b,
 		outline_color.a * 0.55
 	)
-	_label.add_theme_color_override("font_outline_color", text_effect_color)
-	_label.add_theme_constant_override("outline_size", 1 if outline_size > 0 else 0)
-	_label.add_theme_color_override("font_shadow_color", text_effect_color)
-	_label.add_theme_constant_override("shadow_offset_x", 2)
-	_label.add_theme_constant_override("shadow_offset_y", 2)
-	_label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(
+		_label,
+		text_effect_color,
+		text_effect_color,
+		3 if outline_size > 0 else 0
+	)
 	_sync_content_layout()
 
 func _sync_icon() -> void:

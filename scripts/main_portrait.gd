@@ -1595,12 +1595,7 @@ func _stage_main_nav_label(tab_x: float, tab_label: String) -> Label:
 		PORTRAIT_DARK_BLUE.b,
 		0.55
 	)
-	label.add_theme_color_override("font_outline_color", nav_label_effect_color)
-	label.add_theme_constant_override("outline_size", 1)
-	label.add_theme_color_override("font_shadow_color", nav_label_effect_color)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(label, nav_label_effect_color, nav_label_effect_color)
 	var bold_font := FontVariation.new()
 	bold_font.base_font = label.get_theme_font("font")
 	bold_font.variation_embolden = 0.75
@@ -2317,8 +2312,8 @@ func _stage_portrait_popup_button_price(button: Control, price: int) -> Label:
 	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	price_label.add_theme_font_size_override("font_size", _portrait_popup_font_size(18))
 	price_label.add_theme_color_override("font_color", _purchase_price_color(price))
-	price_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.55))
-	price_label.add_theme_constant_override("outline_size", 1)
+	var price_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(price_label, price_effect_color, price_effect_color)
 	price_label.z_index = 5
 	button.add_child(price_label)
 	return price_label
@@ -2505,12 +2500,7 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		var title_label := _stage_label(Rect2(x + 52.0, y + 41.0, 152.0, 38.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
 		var theme_effect_color := Color(0.42, 0.49, 0.82, 0.55)
-		title_label.add_theme_color_override("font_outline_color", theme_effect_color)
-		title_label.add_theme_constant_override("outline_size", 1)
-		title_label.add_theme_color_override("font_shadow_color", theme_effect_color)
-		title_label.add_theme_constant_override("shadow_offset_x", 2)
-		title_label.add_theme_constant_override("shadow_offset_y", 2)
-		title_label.add_theme_constant_override("shadow_outline_size", 0)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_effect_color, theme_effect_color)
 		if disabled:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
@@ -2578,9 +2568,17 @@ func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void
 	_show_single_player_level_popup(level_index, theme_index)
 
 func _show_single_player_last_chance_popup() -> void:
-	_remove_single_player_last_chance_popup()
 	if !GameSession.has_deferred_loss():
 		return
+	# The final wrong guess immediately updates GameSession, which starts the
+	# mechanical Attempts counter roll. Keep the gameplay screen visible until
+	# that subtraction animation has fully settled, then open the purchase popup.
+	var attempts_roll := _portrait_game_attempts_roll_tween
+	if attempts_roll != null and attempts_roll.is_valid():
+		await attempts_roll.finished
+		if !GameSession.has_deferred_loss():
+			return
+	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
@@ -2638,7 +2636,7 @@ func _show_single_player_last_chance_popup() -> void:
 		false,
 		false,
 		true,
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
 	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
@@ -2729,7 +2727,7 @@ func _show_heart_refill_popup(
 		false,
 		false,
 		false,
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
 	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
@@ -2741,8 +2739,8 @@ func _show_heart_refill_popup(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	price_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.55))
-	price_label.add_theme_constant_override("outline_size", 1)
+	var price_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(price_label, price_effect_color, price_effect_color)
 	price_label.z_index = 17
 	content = previous_content
 
@@ -3014,12 +3012,7 @@ func _stage_single_player_popup_theme_cards(
 				PORTRAIT_DARK_BLUE.b,
 				0.55
 			)
-			word_badge_label.add_theme_color_override("font_outline_color", badge_effect_color)
-			word_badge_label.add_theme_constant_override("outline_size", 1)
-			word_badge_label.add_theme_color_override("font_shadow_color", badge_effect_color)
-			word_badge_label.add_theme_constant_override("shadow_offset_x", 2)
-			word_badge_label.add_theme_constant_override("shadow_offset_y", 2)
-			word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+			BUTTON_TEXT_STYLE_SCRIPT.apply(word_badge_label, badge_effect_color, badge_effect_color)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 		var theme_name_height: float = 56.0
 		var theme_name_rect := Rect2(
@@ -3045,12 +3038,7 @@ func _stage_single_player_popup_theme_cards(
 			PORTRAIT_DARK_BLUE.b,
 			0.55
 		)
-		theme_label.add_theme_color_override("font_outline_color", popup_theme_effect_color)
-		theme_label.add_theme_constant_override("outline_size", 1)
-		theme_label.add_theme_color_override("font_shadow_color", popup_theme_effect_color)
-		theme_label.add_theme_constant_override("shadow_offset_x", 2)
-		theme_label.add_theme_constant_override("shadow_offset_y", 2)
-		theme_label.add_theme_constant_override("shadow_outline_size", 0)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(theme_label, popup_theme_effect_color, popup_theme_effect_color)
 		var theme_button := _stage_button(
 			card_rect,
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
@@ -3846,6 +3834,51 @@ func _show_exit_game_popup() -> void:
 		return
 	_remove_exit_game_popup()
 	var close_action := Callable(self, "_remove_exit_game_popup")
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		var two_player_previous_content := _portrait_popup_begin(
+			"ExitGamePopup",
+			"exit_game_popup",
+			140,
+			close_action,
+			205.0,
+			525.0
+		)
+		var two_player_rect := Rect2(28.0, 205.0, 424.0, 320.0)
+		_portrait_popup_shell(
+			two_player_rect,
+			_exit_game_title_text().to_upper(),
+			close_action,
+			27
+		)
+		var two_player_warning := _stage_label(
+			Rect2(58.0, 310.0, 364.0, 70.0),
+			_exit_game_warning_text(),
+			21,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		two_player_warning.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		two_player_warning.clip_text = false
+		_stage_portrait_popup_main_button(
+			Rect2(82.0, 442.0, 145.0, 52.0),
+			Callable(self, "_confirm_exit_game").bind(true),
+			tr("YES"),
+			20
+		)
+		_stage_portrait_popup_main_button(
+			Rect2(253.0, 442.0, 145.0, 52.0),
+			close_action,
+			tr("NO"),
+			20,
+			false,
+			0.32,
+			false,
+			false,
+			false,
+			LONG_BUTTON_COLOR_ORANGE
+		)
+		content = two_player_previous_content
+		return
 	var previous_content := _portrait_popup_begin(
 		"ExitGamePopup",
 		"exit_game_popup",
@@ -5236,18 +5269,19 @@ func _portrait_hint_local_label(
 	return label
 
 func _style_portrait_hint_counter_badge_label(label: Label) -> void:
-	var counter_effect_color := Color(
+	var counter_outline_color := Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.9
+	)
+	var counter_shadow_color := Color(
 		PORTRAIT_DARK_BLUE.r,
 		PORTRAIT_DARK_BLUE.g,
 		PORTRAIT_DARK_BLUE.b,
 		0.55
 	)
-	label.add_theme_color_override("font_outline_color", counter_effect_color)
-	label.add_theme_constant_override("outline_size", 1)
-	label.add_theme_color_override("font_shadow_color", counter_effect_color)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(label, counter_outline_color, counter_shadow_color)
 
 func _create_portrait_hint_counter_badge_label(parent: Control, text: String) -> Label:
 	var label := Label.new()
@@ -5283,7 +5317,7 @@ func _stage_portrait_hint_counter(button: Control, hint_key: String) -> void:
 	var badge := _portrait_hint_local_panel(
 		button,
 		badge_rect,
-		PORTRAIT_DARK_BLUE,
+		PORTRAIT_CURRENCY_ADD_BADGE_GREEN,
 		badge_size.x * 0.5
 	)
 	var holder := Control.new()
@@ -6846,79 +6880,158 @@ func _set_panel_fill_color(color: Color, panel: Panel) -> void:
 	style.bg_color = color
 	panel.add_theme_stylebox_override("panel", style)
 
-func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
-	# Render all marker passes into one offscreen canvas first, then tint/fade the
-	# composed result once. This keeps crossings from accumulating alpha and makes
-	# the red and green variants behave identically at stroke intersections.
-	var marker := CanvasGroup.new()
-	marker.name = "ResultWordMarker"
-	marker.self_modulate = Color(1.0, 1.0, 1.0, 0.0)
-	var marker_width: float = maxf(marker_size.x, 10.0)
-	var marker_height: float = maxf(marker_size.y, 10.0)
-	var stroke_specs := [
-		{
-			"y": marker_height * 0.18,
-			"left": -8.0,
-			"right": 10.0,
-			"jitter": [0.05, -0.04, 0.02, -0.03, 0.04, -0.02, 0.02, -0.03, 0.03],
-		},
-		{
-			"y": marker_height * 0.32,
-			"left": -18.0,
-			"right": 16.0,
-			"jitter": [-0.02, 0.03, -0.03, 0.03, -0.01, 0.02, -0.02, 0.03, -0.01],
-		},
-		{
-			"y": marker_height * 0.48,
-			"left": -34.0,
-			"right": 32.0,
-			"jitter": [0.02, -0.03, 0.04, -0.02, 0.03, -0.01, 0.02, -0.03, 0.02],
-		},
-		{
-			"y": marker_height * 0.64,
-			"left": -22.0,
-			"right": 20.0,
-			"jitter": [-0.03, 0.02, -0.02, 0.03, -0.02, 0.02, -0.01, 0.02, -0.02],
-		},
-		{
-			"y": marker_height * 0.80,
-			"left": -10.0,
-			"right": 8.0,
-			"jitter": [0.04, -0.02, 0.02, -0.03, 0.03, -0.03, 0.02, -0.02, 0.02],
-		},
-	]
+func _build_portrait_result_word_marker_layer(
+	layer_name: String,
+	layer_size: Vector2,
+	stroke_specs: Array,
+	stroke_width: float
+) -> CanvasGroup:
+	var layer := CanvasGroup.new()
+	layer.name = layer_name
+	layer.self_modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var marker_width: float = maxf(layer_size.x, 10.0)
+	var marker_height: float = maxf(layer_size.y, 10.0)
 	for index in range(stroke_specs.size()):
 		var spec: Dictionary = stroke_specs[index]
 		var jitter: Array = spec.get("jitter", [])
 		var start_x: float = float(spec.get("left", 0.0))
 		var end_x: float = marker_width + float(spec.get("right", 0.0))
+		var y_start: float = marker_height * float(spec.get("y_start", 0.5))
+		var y_end: float = marker_height * float(spec.get("y_end", 0.5))
 		var points := PackedVector2Array()
 		for point_index in range(jitter.size()):
 			var t: float = float(point_index) / maxf(float(jitter.size() - 1), 1.0)
+			var y_base: float = lerpf(y_start, y_end, t)
 			var y_offset: float = float(jitter[point_index]) * marker_height
-			points.append(Vector2(lerpf(start_x, end_x, t), float(spec.get("y", 0.0)) + y_offset))
+			points.append(Vector2(lerpf(start_x, end_x, t), y_base + y_offset))
 		var stroke := Line2D.new()
-		stroke.name = "Stroke%d" % index
+		stroke.name = "%sStroke%d" % [layer_name, index]
 		stroke.points = points
-		stroke.width = maxf(marker_height * 0.26, 14.0)
+		stroke.width = stroke_width
 		stroke.begin_cap_mode = Line2D.LINE_CAP_ROUND
 		stroke.end_cap_mode = Line2D.LINE_CAP_ROUND
 		stroke.joint_mode = Line2D.LINE_JOINT_ROUND
-		# Individual passes stay fully opaque inside the CanvasGroup. Opacity is
-		# applied only once to the finished composite in the color setter below.
 		stroke.default_color = Color.WHITE
 		stroke.antialiased = true
-		marker.add_child(stroke)
+		layer.add_child(stroke)
+	return layer
+
+func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
+	# Compose a broad base highlight plus a tighter darker pass on top.
+	# Each pass is rendered into its own CanvasGroup so opacity is applied once per
+	# layer instead of accumulating at stroke crossings.
+	var marker := Node2D.new()
+	marker.name = "ResultWordMarker"
+	var marker_width: float = maxf(marker_size.x, 10.0)
+	var marker_height: float = maxf(marker_size.y, 10.0)
+	var base_stroke_specs := [
+		{
+			"y_start": 0.18,
+			"y_end": 0.24,
+			"left": -10.0,
+			"right": 16.0,
+			"jitter": [0.04, -0.03, 0.03, -0.02, 0.04, -0.03, 0.02, -0.02, 0.03],
+		},
+		{
+			"y_start": 0.33,
+			"y_end": 0.27,
+			"left": -20.0,
+			"right": 14.0,
+			"jitter": [-0.02, 0.03, -0.03, 0.02, -0.01, 0.03, -0.02, 0.02, -0.02],
+		},
+		{
+			"y_start": 0.45,
+			"y_end": 0.56,
+			"left": -34.0,
+			"right": 30.0,
+			"jitter": [0.03, -0.03, 0.04, -0.02, 0.03, -0.02, 0.03, -0.03, 0.02],
+		},
+		{
+			"y_start": 0.66,
+			"y_end": 0.58,
+			"left": -24.0,
+			"right": 18.0,
+			"jitter": [-0.03, 0.02, -0.02, 0.03, -0.02, 0.02, -0.01, 0.02, -0.02],
+		},
+		{
+			"y_start": 0.80,
+			"y_end": 0.86,
+			"left": -8.0,
+			"right": 10.0,
+			"jitter": [0.03, -0.02, 0.02, -0.03, 0.03, -0.03, 0.02, -0.02, 0.01],
+		},
+	]
+	var base_layer := _build_portrait_result_word_marker_layer(
+		"BaseLayer",
+		Vector2(marker_width, marker_height),
+		base_stroke_specs,
+		maxf(marker_height * 0.24, 13.0)
+	)
+	marker.add_child(base_layer)
+	var detail_margin_x: float = 8.0
+	var detail_margin_y: float = 4.0
+	var detail_size := Vector2(
+		maxf(marker_width - detail_margin_x * 2.0, 10.0),
+		maxf(marker_height - detail_margin_y * 2.0, 10.0)
+	)
+	var detail_stroke_specs := [
+		{
+			"y_start": 0.22,
+			"y_end": 0.29,
+			"left": -6.0,
+			"right": 10.0,
+			"jitter": [0.03, -0.02, 0.02, -0.02, 0.03, -0.02, 0.02],
+		},
+		{
+			"y_start": 0.46,
+			"y_end": 0.40,
+			"left": -12.0,
+			"right": 12.0,
+			"jitter": [-0.02, 0.02, -0.03, 0.02, -0.01, 0.02, -0.02],
+		},
+		{
+			"y_start": 0.66,
+			"y_end": 0.74,
+			"left": -8.0,
+			"right": 8.0,
+			"jitter": [0.02, -0.02, 0.03, -0.02, 0.02, -0.01, 0.01],
+		},
+	]
+	var detail_layer := _build_portrait_result_word_marker_layer(
+		"DetailLayer",
+		detail_size,
+		detail_stroke_specs,
+		maxf(detail_size.y * 0.20, 10.0)
+	)
+	detail_layer.scale = Vector2(1.1, 1.1)
+	detail_layer.position = Vector2(detail_margin_x, detail_margin_y) - detail_size * 0.05
+	marker.add_child(detail_layer)
 	return marker
 
 func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: Color) -> void:
-	var marker := result_controls.get("word_marker") as CanvasGroup
+	var marker := result_controls.get("word_marker") as Node2D
 	if marker == null or !is_instance_valid(marker):
 		return
 	var marker_color := Color("86de8a")
 	if color == StageLetterButton.CROSSED_COLOR:
-		marker_color = Color("e87c7c")
-	marker.self_modulate = marker_color
+		marker_color = Color("ff99a2")
+	var base_layer := marker.get_node_or_null("BaseLayer") as CanvasGroup
+	if base_layer != null and is_instance_valid(base_layer):
+		base_layer.self_modulate = Color(
+			marker_color.r,
+			marker_color.g,
+			marker_color.b,
+			0.35
+		)
+	var detail_layer := marker.get_node_or_null("DetailLayer") as CanvasGroup
+	if detail_layer != null and is_instance_valid(detail_layer):
+		var darker := Color(
+			clampf(marker_color.r * 0.9, 0.0, 1.0),
+			clampf(marker_color.g * 0.9, 0.0, 1.0),
+			clampf(marker_color.b * 0.9, 0.0, 1.0),
+			0.7
+		)
+		detail_layer.self_modulate = darker
 
 func _ensure_final_reward_double_button_bonus_icon(button: Control) -> TextureRect:
 	if button == null or !is_instance_valid(button):

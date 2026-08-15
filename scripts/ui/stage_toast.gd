@@ -6,6 +6,7 @@ const TOAST_PARENT_GAP: float = 8.0
 const TOAST_HORIZONTAL_PADDING: float = 10.0
 const TOAST_ICON_TEXT_GAP: float = 5.0
 const TOAST_TEXT_FONT_SIZE: int = 18
+const TOAST_TEXT_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 const TOAST_ENTER_OFFSET: float = 8.0
 const TOAST_ENTER_DURATION: float = 0.16
 const TOAST_HOLD_DURATION: float = 1.65
@@ -101,6 +102,7 @@ func _ensure_content() -> void:
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_message_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	_message_label.clip_text = true
+	_message_label.add_theme_font_override("font", TOAST_TEXT_FONT)
 	_message_label.add_theme_font_size_override("font_size", TOAST_TEXT_FONT_SIZE)
 	_message_label.add_theme_color_override("font_color", Color.WHITE)
 	add_child(_message_label)

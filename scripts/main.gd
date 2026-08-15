@@ -39,6 +39,7 @@ const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
+const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const LONG_BUTTON_COLOR_ORANGE: int = 0
 const LONG_BUTTON_COLOR_GREEN: int = 1
@@ -596,12 +597,12 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
 	var text_effect_color := Color(0.02, 0.04, 0.16, 0.30) if show_text else Color.TRANSPARENT
-	button.add_theme_color_override("font_outline_color", text_effect_color)
-	button.add_theme_color_override("font_shadow_color", text_effect_color)
-	button.add_theme_constant_override("outline_size", 1 if show_text else 0)
-	button.add_theme_constant_override("shadow_offset_x", 2)
-	button.add_theme_constant_override("shadow_offset_y", 2)
-	button.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(
+		button,
+		text_effect_color,
+		text_effect_color,
+		3 if show_text else 0
+	)
 	button.add_theme_font_size_override("font_size", font_size)
 func _selected_character_id() -> int:
 	if GameState.settings.size() > 5:
@@ -1119,15 +1120,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		if challenge_level
 		else Color(0.48, 0.24, 0.08, 0.50)
 	)
-	title_label.add_theme_color_override("font_outline_color", title_effect_color)
-	title_label.add_theme_constant_override("outline_size", 1)
-	title_label.add_theme_color_override(
-		"font_shadow_color",
-		title_effect_color
-	)
-	title_label.add_theme_constant_override("shadow_offset_x", 2)
-	title_label.add_theme_constant_override("shadow_offset_y", 2)
-	title_label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, title_effect_color, title_effect_color)
 	button.add_child(title_label)
 
 	if challenge_level:
@@ -1147,12 +1140,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 			DIFFICULTY_HARD_OUTLINE_COLOR.b,
 			0.52
 		)
-		challenge_label.add_theme_color_override("font_outline_color", challenge_effect_color)
-		challenge_label.add_theme_constant_override("outline_size", 1)
-		challenge_label.add_theme_color_override("font_shadow_color", challenge_effect_color)
-		challenge_label.add_theme_constant_override("shadow_offset_x", 2)
-		challenge_label.add_theme_constant_override("shadow_offset_y", 2)
-		challenge_label.add_theme_constant_override("shadow_outline_size", 0)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(challenge_label, challenge_effect_color, challenge_effect_color)
 		button.add_child(challenge_label)
 
 func _remove_single_player_theme_popup() -> void:
@@ -1263,12 +1251,7 @@ func _stage_single_player_theme_card(
 		)
 		word_badge_label.z_index = 13
 		var badge_effect_color := Color(0.23, 0.26, 0.52, 0.55)
-		word_badge_label.add_theme_color_override("font_outline_color", badge_effect_color)
-		word_badge_label.add_theme_constant_override("outline_size", 1)
-		word_badge_label.add_theme_color_override("font_shadow_color", badge_effect_color)
-		word_badge_label.add_theme_constant_override("shadow_offset_x", 2)
-		word_badge_label.add_theme_constant_override("shadow_offset_y", 2)
-		word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(word_badge_label, badge_effect_color, badge_effect_color)
 
 	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 	var title_font_size: int = 20 if theme_name.length() > 15 else 26
@@ -1285,12 +1268,7 @@ func _stage_single_player_theme_card(
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	title_label.clip_text = false
 	var theme_title_effect_color := Color(0.42, 0.49, 0.82, 0.55)
-	title_label.add_theme_color_override("font_outline_color", theme_title_effect_color)
-	title_label.add_theme_constant_override("outline_size", 1)
-	title_label.add_theme_color_override("font_shadow_color", theme_title_effect_color)
-	title_label.add_theme_constant_override("shadow_offset_x", 2)
-	title_label.add_theme_constant_override("shadow_offset_y", 2)
-	title_label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_title_effect_color, theme_title_effect_color)
 
 	if selected:
 		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, Color(0.94, 0.58, 0.22, 1.0), 3.0)
