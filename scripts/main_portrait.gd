@@ -2384,19 +2384,33 @@ func _show_menu_screen() -> void:
 func show_settings() -> void:
 	_show_settings_popup()
 
+func _settings_popup_uses_compact_layout() -> bool:
+	if game_screen_visible and !game_finished:
+		return true
+	return (
+		_portrait_custom_word_input != null
+		and is_instance_valid(_portrait_custom_word_input)
+		and _portrait_custom_word_input.is_inside_tree()
+	)
+
 func _show_settings_popup() -> void:
 	_remove_settings_popup()
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
+	var compact_layout: bool = _settings_popup_uses_compact_layout()
+	var rect := (
+		Rect2(28.0, 250.0, 424.0, 300.0)
+		if compact_layout
+		else Rect2(28.0, 120.0, 424.0, 560.0)
+	)
 	var previous_content := _portrait_popup_begin(
 		"SettingsPopup",
 		"settings_popup",
 		130,
 		Callable(self, "_remove_settings_popup"),
-		120.0,
-		680.0
+		rect.position.y,
+		rect.end.y
 	)
-	var rect := Rect2(28.0, 120.0, 424.0, 560.0)
 	_portrait_popup_shell(
 		rect,
 		_profile_text("Настройки", "Settings").to_upper(),
@@ -2404,42 +2418,46 @@ func _show_settings_popup() -> void:
 		28
 	)
 
-	_stage_label(Rect2(56.0, 218.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 214.0, 102.0, 49.0), 3)
-	_stage_label(Rect2(56.0, 286.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 282.0, 102.0, 49.0), 4)
-	_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_label(Rect2(56.0, 374.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
-	_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
-	_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
+	var controls_y_offset: float = rect.position.y - 120.0
+	_stage_label(Rect2(56.0, 218.0 + controls_y_offset, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 214.0 + controls_y_offset, 102.0, 49.0), 3)
+	_stage_label(Rect2(56.0, 286.0 + controls_y_offset, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 282.0 + controls_y_offset, 102.0, 49.0), 4)
+
+	if !compact_layout:
+		_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
+		_stage_label(Rect2(56.0, 374.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
+		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
+		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
 
 	# Anchor the contact buttons and version to the shell bottom instead of
 	# leaving the footer floating beneath the settings controls.
 	var footer_bottom_y: float = rect.end.y
 	var social_buttons_y: float = footer_bottom_y - 122.0
 	var version_y: float = footer_bottom_y - 44.0
-	_stage_round_icon_button(
-		Rect2(174.0, social_buttons_y, 58.0, 58.0),
-		Callable(self, "_about_contact_action").bind("vk"),
-		ABOUT_VK_ICON,
-		ABOUT_VK_ICON_SIZE
-	)
-	_stage_round_icon_button(
-		Rect2(248.0, social_buttons_y, 58.0, 58.0),
-		Callable(self, "_about_contact_action").bind("mail"),
-		ABOUT_MAIL_ICON,
-		ABOUT_MAIL_ICON_SIZE
-	)
-	var version_label := _stage_label(
-		Rect2(40.0, version_y, 400.0, 28.0),
-		_about_version_text(),
-		14,
-		Color(0.78, 0.82, 0.96, 0.88),
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	version_label.clip_text = false
+	if !compact_layout:
+		_stage_round_icon_button(
+			Rect2(174.0, social_buttons_y, 58.0, 58.0),
+			Callable(self, "_about_contact_action").bind("vk"),
+			ABOUT_VK_ICON,
+			ABOUT_VK_ICON_SIZE
+		)
+		_stage_round_icon_button(
+			Rect2(248.0, social_buttons_y, 58.0, 58.0),
+			Callable(self, "_about_contact_action").bind("mail"),
+			ABOUT_MAIL_ICON,
+			ABOUT_MAIL_ICON_SIZE
+		)
+		var version_label := _stage_label(
+			Rect2(40.0, version_y, 400.0, 28.0),
+			_about_version_text(),
+			14,
+			Color(0.78, 0.82, 0.96, 0.88),
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		version_label.clip_text = false
 	content = previous_content
 
 func _remove_settings_popup() -> void:
