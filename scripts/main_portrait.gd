@@ -404,15 +404,26 @@ var _portrait_final_reward_claim_in_progress: bool = false
 var _portrait_final_reward_waiting_for_ad: bool = false
 var _portrait_final_reward_earned_ad_reward: bool = false
 var _portrait_final_reward_double_button: Control = null
+var _portrait_rewarded_action: StringName = &""
+var _portrait_rewarded_action_earned: bool = false
+var _portrait_rewarded_action_level_index: int = -1
 var _portrait_pending_home_reward_amount: int = 0
 var _portrait_hint_counter_animation_active: bool = false
 var _portrait_hint_counter_refresh_requested: bool = false
+const PORTRAIT_BUTTON_BADGE_STATE_COINS := "coins"
+const PORTRAIT_BUTTON_BADGE_STATE_AD := "ad"
+const PORTRAIT_BUTTON_BADGE_STATE_FREE := "free"
 var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
 var single_player_popup_refresh_button: Control = null
 var _single_player_popup_refresh_visuals: Array[CanvasItem] = []
+var _single_player_popup_refresh_badge_component: Dictionary = {}
+var _single_player_popup_refresh_price_badge: Control = null
+var _single_player_popup_refresh_badge_shadow: Control = null
+var _single_player_popup_refresh_price_coin: CanvasItem = null
+var _single_player_popup_refresh_ad_icon: CanvasItem = null
 var _single_player_popup_theme_card_visuals: Array = []
 var _single_player_theme_slot_animation_nodes: Array[Node] = []
 var _single_player_theme_slot_tweens: Array[Tween] = []
@@ -422,6 +433,7 @@ var _single_player_theme_slot_generation: int = 0
 var _single_player_theme_slot_final_selection: int = -1
 var _single_player_theme_reroll_level_index: int = -1
 var _single_player_theme_reroll_used: bool = false
+var _single_player_theme_ad_reroll_used: bool = false
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
@@ -2580,6 +2592,11 @@ func _remove_single_player_theme_popup() -> void:
 	super._remove_single_player_theme_popup()
 	single_player_popup_refresh_button = null
 	_single_player_popup_refresh_visuals.clear()
+	_single_player_popup_refresh_badge_component.clear()
+	_single_player_popup_refresh_price_badge = null
+	_single_player_popup_refresh_badge_shadow = null
+	_single_player_popup_refresh_price_coin = null
+	_single_player_popup_refresh_ad_icon = null
 	_single_player_popup_theme_card_visuals.clear()
 
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
@@ -2703,18 +2720,6 @@ func _show_heart_refill_popup(
 	heart_value.add_theme_constant_override("outline_size", 5)
 	heart_value.z_index = 12
 
-	var description_label := _stage_label(
-		Rect2(54.0, 380.0, 372.0, 54.0),
-		_single_player_text(
-			"Восстановите запас\nдо 5 жизней",
-			"Refill your balance\nto 5 lives"
-		),
-		21,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	description_label.clip_text = false
-
 	var recovery_text: String = _single_player_text(
 		"Жизни полностью восстановлены",
 		"Lives are fully restored"
@@ -2725,7 +2730,7 @@ func _show_heart_refill_popup(
 			"Next life in %s"
 		) % _heart_status_text(current_hearts, GameState.get_heart_recovery_seconds())
 	var recovery_label := _stage_label(
-		Rect2(54.0, 440.0, 372.0, 38.0),
+		Rect2(54.0, 405.0, 372.0, 38.0),
 		recovery_text,
 		17,
 		Color(0.82, 0.86, 1.0, 1.0),
@@ -2738,7 +2743,7 @@ func _show_heart_refill_popup(
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 510.0, 300.0, 56.0),
 		Callable(self, "_purchase_heart_refill"),
-		_single_player_text("Пополнить", "Refill"),
+		"",
 		18,
 		purchase_disabled,
 		0.32,
@@ -2747,19 +2752,56 @@ func _show_heart_refill_popup(
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
-	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
-	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
-	var price_label := _stage_label(
-		Rect2(324.0, 510.0, 58.0, 56.0),
-		str(HEART_REFILL_COST),
-		21,
-		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR,
-		HORIZONTAL_ALIGNMENT_CENTER
+	# Keep all custom button content inside the button itself. The previous
+	# top-level decorative labels sat above the hit target in the popup canvas and
+	# could steal GUI hit-testing on some viewport/layout combinations.
+	purchase_button.z_index = 16
+	purchase_button.mouse_filter = (
+		Control.MOUSE_FILTER_IGNORE if purchase_disabled else Control.MOUSE_FILTER_STOP
+	)
+	var refill_label := Label.new()
+	refill_label.name = "RefillText"
+	refill_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	refill_label.position = Vector2(22.5, 4.0)
+	refill_label.size = Vector2(174.0, 56.0)
+	refill_label.text = _single_player_text("ВОСПОЛНИТЬ", "REFILL")
+	refill_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	refill_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	refill_label.add_theme_font_size_override("font_size", 18)
+	refill_label.add_theme_color_override("font_color", Color.WHITE)
+	refill_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	var refill_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(refill_label, refill_effect_color, refill_effect_color)
+	refill_label.z_index = 2
+	purchase_button.add_child(refill_label)
+	var price_coin := TextureRect.new()
+	price_coin.name = "PriceCoin"
+	price_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_coin.texture = SOFT_CURRENCY_COIN_TEXTURE
+	price_coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	price_coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	price_coin.position = Vector2(200.5, 20.0)
+	price_coin.size = Vector2(24.0, 24.0)
+	price_coin.z_index = 2
+	purchase_button.add_child(price_coin)
+	var price_label := Label.new()
+	price_label.name = "Price"
+	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_label.position = Vector2(222.5, 4.0)
+	price_label.size = Vector2(50.0, 56.0)
+	price_label.text = str(HEART_REFILL_COST)
+	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	price_label.add_theme_font_size_override("font_size", 21)
+	price_label.add_theme_color_override(
+		"font_color",
+		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
 	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	var price_effect_color := Color(0.23, 0.26, 0.52, 0.55)
 	BUTTON_TEXT_STYLE_SCRIPT.apply(price_label, price_effect_color, price_effect_color)
-	price_label.z_index = 17
+	price_label.z_index = 2
+	purchase_button.add_child(price_label)
 	content = previous_content
 
 func _return_to_heart_refill_from_coin_store(
@@ -2787,6 +2829,7 @@ func _show_single_player_level_popup(
 	if _single_player_theme_reroll_level_index != level_index:
 		_single_player_theme_reroll_level_index = level_index
 		_single_player_theme_reroll_used = false
+		_single_player_theme_ad_reroll_used = false
 	# Theme options are deterministic from the persisted level seed. Only the
 	# first creation of that seed should play the generation reels; reopening an
 	# already generated level must show the same cards immediately.
@@ -2873,48 +2916,49 @@ func _show_single_player_level_popup(
 		)
 	refresh_button.z_index = 15
 	var refresh_price_badge_size := Vector2(44.0, 22.0)
-	var refresh_price_badge_rect: Rect2 = _portrait_top_right_coin_badge_rect(
-		refresh_button_rect,
+	var refresh_price_badge_rect := Rect2(
+		Vector2(
+			refresh_button.size.x - refresh_price_badge_size.x * 0.82,
+			-refresh_price_badge_size.y * 0.18
+		),
 		refresh_price_badge_size
 	)
-	var price_badge := _stage_panel(
-		refresh_price_badge_rect,
-		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_DARK_BLUE,
-		11.0,
-		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_RULE,
-		1.0
+	var refresh_ad_badge_size := Vector2(
+		PORTRAIT_GAME_HINT_COUNTER_SIZE,
+		PORTRAIT_GAME_HINT_COUNTER_SIZE
 	)
-	price_badge.z_index = 16
-	var price_coin := _stage_texture(
-		Rect2(
-			refresh_price_badge_rect.position + Vector2(3.0, 3.0),
-			Vector2(16.0, 16.0)
+	var refresh_ad_badge_rect := Rect2(
+		Vector2(
+			refresh_button.size.x - refresh_ad_badge_size.x * 0.82,
+			-refresh_ad_badge_size.y * 0.18
 		),
-		SOFT_CURRENCY_COIN_TEXTURE
+		refresh_ad_badge_size
 	)
-	price_coin.z_index = 17
-	single_player_popup_refresh_price_label = _stage_label(
-		Rect2(
-			Vector2(refresh_price_badge_rect.position.x + 18.0, refresh_price_badge_rect.position.y),
-			Vector2(refresh_price_badge_rect.size.x - 20.0, refresh_price_badge_rect.size.y)
-		),
-		str(SINGLE_PLAYER_THEME_REFRESH_COST),
-		13,
-		_purchase_price_color(SINGLE_PLAYER_THEME_REFRESH_COST),
-		HORIZONTAL_ALIGNMENT_CENTER
+	_single_player_popup_refresh_badge_component = _create_portrait_button_badge(
+		refresh_button,
+		{
+			"coin_rect": refresh_price_badge_rect,
+			"ad_rect": refresh_ad_badge_rect,
+			"free_rect": refresh_ad_badge_rect,
+			"price": SINGLE_PLAYER_THEME_REFRESH_COST,
+			"price_font_size": 13,
+			"ad_icon_scale": 1.4025,
+			"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+		}
 	)
-	single_player_popup_refresh_price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	single_player_popup_refresh_price_label.z_index = 17
+	_single_player_popup_refresh_badge_shadow = _single_player_popup_refresh_badge_component.get("shadow") as Control
+	_single_player_popup_refresh_price_badge = _single_player_popup_refresh_badge_component.get("badge") as Control
+	_single_player_popup_refresh_price_coin = _single_player_popup_refresh_badge_component.get("coin") as CanvasItem
+	_single_player_popup_refresh_ad_icon = _single_player_popup_refresh_badge_component.get("ad") as CanvasItem
+	single_player_popup_refresh_price_label = _single_player_popup_refresh_badge_component.get("label") as Label
 	_single_player_popup_refresh_visuals.clear()
 	for refresh_visual_variant: Variant in [
 		refresh_button,
-		price_badge,
-		price_coin,
-		single_player_popup_refresh_price_label,
 	]:
 		var refresh_visual := refresh_visual_variant as CanvasItem
 		if refresh_visual != null:
 			_single_player_popup_refresh_visuals.append(refresh_visual)
+	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
 	var word_count: int = _single_player_level_word_count(level_index)
 	_stage_single_player_popup_theme_cards(
@@ -3003,34 +3047,42 @@ func _stage_single_player_popup_theme_cards(
 				theme_icon_size
 			)
 			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
-			var word_badge_size := Vector2(48.0, 27.0)
+			var word_badge_text := "x%d" % word_count
+			var word_badge_text_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
+				word_badge_text,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				16
+			)
+			var word_badge_diameter: float = maxf(27.0, ceilf(word_badge_text_size.x + 10.0))
+			var word_badge_size := Vector2.ONE * word_badge_diameter
 			var word_badge_rect := Rect2(
 				theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
 				word_badge_size
 			)
 			word_badge = _stage_panel(
 				word_badge_rect,
-				PORTRAIT_ORANGE,
-				word_badge_size.y * 0.5,
 				Color.WHITE,
-				1.5
+				word_badge_size.y * 0.5,
+				Color(0.0, 0.0, 0.0, 0.0),
+				0.0
 			)
 			word_badge.z_index = 13
 			word_badge_label = _stage_label(
 				word_badge_rect,
-				"x%d" % word_count,
+				word_badge_text,
 				16,
-				Color.WHITE,
+				PORTRAIT_BLUE,
 				HORIZONTAL_ALIGNMENT_CENTER
 			)
 			word_badge_label.z_index = 14
-			var badge_effect_color := Color(
-				PORTRAIT_DARK_BLUE.r,
-				PORTRAIT_DARK_BLUE.g,
-				PORTRAIT_DARK_BLUE.b,
-				0.55
-			)
-			BUTTON_TEXT_STYLE_SCRIPT.apply(word_badge_label, badge_effect_color, badge_effect_color)
+			word_badge_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+			word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+			word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
+			word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
+			word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+			word_badge_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+			word_badge_label.add_theme_constant_override("outline_size", 0)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 		var theme_name_height: float = 56.0
 		var theme_name_rect := Rect2(
@@ -3077,11 +3129,11 @@ func _stage_single_player_popup_theme_cards(
 	content = previous_content
 
 func _refresh_single_player_theme_popup(level_index: int) -> void:
-	if (
-		level_index != single_player_popup_level_index
-		or _single_player_theme_slot_animating
-		or _single_player_theme_reroll_used
-	):
+	if level_index != single_player_popup_level_index or _single_player_theme_slot_animating:
+		return
+	if _single_player_theme_reroll_used:
+		if !_single_player_theme_ad_reroll_used:
+			_show_portrait_rewarded_action(&"theme_reroll", level_index)
 		return
 	if GameState.get_soft_currency() < SINGLE_PLAYER_THEME_REFRESH_COST:
 		_open_coin_store(
@@ -3094,7 +3146,11 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
 		return
 	_single_player_theme_reroll_used = true
+	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
+	_perform_single_player_theme_reroll(level_index)
+
+func _perform_single_player_theme_reroll(level_index: int) -> void:
 	var previous_options: Array = _single_player_level_theme_options(level_index).duplicate()
 	var next_options: Array = _reroll_single_player_theme_options(level_index, previous_options)
 	_update_single_player_refresh_price(GameState.get_soft_currency())
@@ -3116,12 +3172,37 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 		false
 	)
 
+func _update_single_player_theme_reroll_badge() -> void:
+	var show_price_badge: bool = !_single_player_theme_reroll_used
+	var show_ad_badge: bool = _single_player_theme_reroll_used and !_single_player_theme_ad_reroll_used
+	if _single_player_popup_refresh_badge_component.is_empty():
+		return
+	if show_price_badge:
+		_set_portrait_button_badge_state(
+			_single_player_popup_refresh_badge_component,
+			PORTRAIT_BUTTON_BADGE_STATE_COINS,
+			{"price": SINGLE_PLAYER_THEME_REFRESH_COST}
+		)
+	elif show_ad_badge:
+		_set_portrait_button_badge_state(
+			_single_player_popup_refresh_badge_component,
+			PORTRAIT_BUTTON_BADGE_STATE_AD
+		)
+	else:
+		_set_portrait_button_badge_visible(_single_player_popup_refresh_badge_component, false)
+
 func _update_single_player_theme_reroll_button_state() -> void:
 	if single_player_popup_refresh_button == null or !is_instance_valid(single_player_popup_refresh_button):
 		return
+	var waiting_for_this_ad: bool = (
+		_portrait_rewarded_action == &"theme_reroll"
+		and _portrait_rewarded_action_level_index == single_player_popup_level_index
+	)
 	single_player_popup_refresh_button.set(
 		"button_disabled",
-		_single_player_theme_slot_animating or _single_player_theme_reroll_used
+		_single_player_theme_slot_animating
+		or (_single_player_theme_reroll_used and _single_player_theme_ad_reroll_used)
+		or waiting_for_this_ad
 	)
 
 func _reroll_single_player_theme_options(level_index: int, previous_options: Array) -> Array:
@@ -3231,6 +3312,8 @@ func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:
 	for refresh_visual: CanvasItem in _single_player_popup_refresh_visuals:
 		if refresh_visual != null and is_instance_valid(refresh_visual):
 			refresh_visual.visible = is_visible
+	if is_visible:
+		_update_single_player_theme_reroll_badge()
 
 func _start_single_player_theme_slot_animation(
 	level_index: int,
@@ -3772,10 +3855,12 @@ func _update_single_player_refresh_price(balance: int) -> void:
 	):
 		return
 	var price_color: Color = (
-		Color.WHITE
+		PORTRAIT_BLUE
 		if balance >= SINGLE_PLAYER_THEME_REFRESH_COST
 		else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
+	if !_single_player_popup_refresh_badge_component.is_empty():
+		_single_player_popup_refresh_badge_component["price_color"] = price_color
 	single_player_popup_refresh_price_label.add_theme_color_override("font_color", price_color)
 
 func _select_single_player_popup_theme(level_index: int, theme_index: int) -> void:
@@ -3835,6 +3920,7 @@ func _start_single_player_popup_level(level_index: int) -> void:
 		return
 	_single_player_theme_reroll_level_index = -1
 	_single_player_theme_reroll_used = false
+	_single_player_theme_ad_reroll_used = false
 	super._start_single_player_popup_level(level_index)
 
 func _show_exit_game_popup() -> void:
@@ -4540,7 +4626,7 @@ func _refresh_portrait_game_keyboard() -> void:
 func _portrait_game_hint_state_signature() -> String:
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		return "two_player"
-	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
+	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
 		int(GameSession.is_active),
 		int(GameSession.open_hint_used),
 		int(GameSession.remove_wrong_hint_used),
@@ -4551,6 +4637,8 @@ func _portrait_game_hint_state_signature() -> String:
 		int(GameSession.can_use_open_letter_hint()),
 		int(GameSession.can_use_remove_wrong_hint()),
 		int(GameSession.can_unlock_comment_hint()),
+		int(GameSession.can_use_open_letter_hint_ad()),
+		int(GameSession.can_use_remove_wrong_hint_ad()),
 	]
 
 func _refresh_portrait_game_hints_if_needed() -> void:
@@ -5117,10 +5205,18 @@ func _stage_portrait_hint_buttons() -> void:
 	# children of the buttons, so keyboard + hints + badges translate together.
 	var open_hint_used: bool = GameSession.open_hint_used
 	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
+	var open_hint_ad_available: bool = GameSession.can_use_open_letter_hint_ad()
+	var remove_hint_ad_available: bool = GameSession.can_use_remove_wrong_hint_ad()
 	var comment_unlocked: bool = GameSession.comment_hint_unlocked
 	var round_inactive: bool = !GameSession.is_active
-	var open_hint_disabled: bool = round_inactive or open_hint_used or !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = round_inactive or remove_hint_used or !GameSession.can_use_remove_wrong_hint()
+	var open_hint_disabled: bool = (
+		round_inactive
+		or (!open_hint_ad_available if open_hint_used else !GameSession.can_use_open_letter_hint())
+	)
+	var remove_hint_disabled: bool = (
+		round_inactive
+		or (!remove_hint_ad_available if remove_hint_used else !GameSession.can_use_remove_wrong_hint())
+	)
 	var comment_disabled: bool = round_inactive or (!comment_unlocked and !GameSession.can_unlock_comment_hint())
 
 	# Place the hint row directly after the last keyboard row. Both controls live
@@ -5187,8 +5283,16 @@ func _stage_portrait_hint_buttons() -> void:
 	_portrait_game_hint_buttons.append(remove_button)
 	_portrait_game_hint_buttons.append(comment_button)
 
-	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_REVEAL_LETTER_ICON, open_hint_used)
-	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_REMOVE_WRONG_ICON, remove_hint_used)
+	_stage_portrait_hint_art(
+		open_button,
+		PORTRAIT_HINT_REVEAL_LETTER_ICON,
+		open_hint_used and !open_hint_ad_available
+	)
+	_stage_portrait_hint_art(
+		remove_button,
+		PORTRAIT_HINT_REMOVE_WRONG_ICON,
+		remove_hint_used and !remove_hint_ad_available
+	)
 	_stage_portrait_hint_art(
 		comment_button,
 		PORTRAIT_HINT_COMMENT_UNLOCK_ICON,
@@ -5199,9 +5303,13 @@ func _stage_portrait_hint_buttons() -> void:
 	# Prices and inventory badges only describe actions that still consume a hint.
 	# Used one-shot hints use the shared gray disabled state without a stale badge;
 	# the unlocked comment remains a regular free blue action.
-	if !open_hint_used:
+	if open_hint_ad_available:
+		_stage_portrait_hint_ad_counter(open_button)
+	elif !open_hint_used:
 		_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
-	if !remove_hint_used:
+	if remove_hint_ad_available:
+		_stage_portrait_hint_ad_counter(remove_button)
+	elif !remove_hint_used:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
 	if !comment_unlocked:
 		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
@@ -5266,6 +5374,31 @@ func _portrait_hint_local_panel(
 	button.add_child(panel)
 	return panel
 
+func _apply_portrait_panel_style(
+	panel: Panel,
+	fill_color: Color,
+	corner_radius: float,
+	border_color: Color = Color.TRANSPARENT,
+	border_width: float = 0.0
+) -> void:
+	if panel == null or !is_instance_valid(panel):
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	var radius: int = maxi(0, int(round(corner_radius)))
+	style.corner_radius_top_left = radius
+	style.corner_radius_top_right = radius
+	style.corner_radius_bottom_left = radius
+	style.corner_radius_bottom_right = radius
+	if border_width > 0.0:
+		var resolved_border_width: int = maxi(1, int(round(border_width)))
+		style.border_color = border_color
+		style.border_width_left = resolved_border_width
+		style.border_width_top = resolved_border_width
+		style.border_width_right = resolved_border_width
+		style.border_width_bottom = resolved_border_width
+	panel.add_theme_stylebox_override("panel", style)
+
 func _portrait_hint_local_label(
 	parent: Control,
 	text: String,
@@ -5285,6 +5418,215 @@ func _portrait_hint_local_label(
 	label.z_index = 1
 	parent.add_child(label)
 	return label
+
+func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> Dictionary:
+	if button == null or !is_instance_valid(button):
+		return {}
+	var shadow := Panel.new()
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.z_index = 7
+	button.add_child(shadow)
+	var badge := Panel.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 8
+	button.add_child(badge)
+	var holder := Control.new()
+	holder.name = "BadgeHolder"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.position = Vector2.ZERO
+	holder.clip_contents = true
+	badge.add_child(holder)
+	var coin_icon := TextureRect.new()
+	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coin_icon.z_index = 1
+	holder.add_child(coin_icon)
+	var ad_icon := TextureRect.new()
+	ad_icon.name = "HintAdIcon"
+	ad_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ad_icon.texture = WATCH_AD_ICON_TEXTURE
+	ad_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ad_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ad_icon.modulate = PORTRAIT_BLUE
+	ad_icon.z_index = 1
+	holder.add_child(ad_icon)
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	label.z_index = 1
+	holder.add_child(label)
+	var component := {
+		"shadow": shadow,
+		"badge": badge,
+		"holder": holder,
+		"coin": coin_icon,
+		"ad": ad_icon,
+		"label": label,
+		"coin_rect": config.get("coin_rect", Rect2()),
+		"ad_rect": config.get("ad_rect", Rect2()),
+		"free_rect": config.get("free_rect", config.get("ad_rect", Rect2())),
+		"price": int(config.get("price", 0)),
+		"count": int(config.get("count", 0)),
+		"price_font_size": int(config.get("price_font_size", 16)),
+		"free_font_size": int(config.get("free_font_size", 17)),
+		"ad_icon_scale": float(config.get("ad_icon_scale", 1.0)),
+		"price_color": config.get("price_color", PORTRAIT_BLUE),
+	}
+	_set_portrait_button_badge_state(
+		component,
+		String(config.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS))
+	)
+	return component
+
+func _set_portrait_button_badge_state(
+	component: Dictionary,
+	state: String,
+	update: Dictionary = {}
+) -> void:
+	if component.is_empty():
+		return
+	for key in update.keys():
+		component[key] = update[key]
+	var shadow := component.get("shadow") as Panel
+	var badge := component.get("badge") as Panel
+	var holder := component.get("holder") as Control
+	var coin_icon := component.get("coin") as TextureRect
+	var ad_icon := component.get("ad") as TextureRect
+	var label := component.get("label") as Label
+	if shadow == null or badge == null or holder == null or coin_icon == null or ad_icon == null or label == null:
+		return
+	var rect: Rect2 = component.get("coin_rect", Rect2())
+	match state:
+		PORTRAIT_BUTTON_BADGE_STATE_AD:
+			rect = component.get("ad_rect", rect)
+		PORTRAIT_BUTTON_BADGE_STATE_FREE:
+			rect = component.get("free_rect", rect)
+	shadow.position = rect.position + Vector2(2.0, 2.0)
+	shadow.size = rect.size
+	badge.position = rect.position
+	badge.size = rect.size
+	holder.position = Vector2.ZERO
+	holder.size = rect.size
+	var corner_radius := rect.size.y * 0.5
+	if state == PORTRAIT_BUTTON_BADGE_STATE_AD:
+		corner_radius = rect.size.x * 0.5
+	_apply_portrait_panel_style(
+		shadow,
+		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.28),
+		corner_radius,
+		Color(0.0, 0.0, 0.0, 0.0),
+		0.0
+	)
+	coin_icon.visible = false
+	ad_icon.visible = false
+	label.visible = false
+	match state:
+		PORTRAIT_BUTTON_BADGE_STATE_COINS:
+			_apply_portrait_panel_style(badge, Color.WHITE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
+			coin_icon.visible = true
+			label.visible = true
+			var coin_icon_diameter: float = minf(24.0, rect.size.y - 4.0)
+			var coin_icon_x: float = 2.0
+			var coin_icon_y: float = (rect.size.y - coin_icon_diameter) * 0.5
+			coin_icon.position = Vector2(coin_icon_x, coin_icon_y)
+			coin_icon.size = Vector2.ONE * coin_icon_diameter
+			var label_x: float = coin_icon_x + coin_icon_diameter - 1.0
+			label.position = Vector2(label_x, 0.0)
+			label.size = Vector2(maxf(0.0, rect.size.x - label_x - 2.0), rect.size.y)
+			label.text = str(maxi(int(component.get("price", 0)), 0))
+			label.add_theme_font_size_override("font_size", int(component.get("price_font_size", 16)))
+			label.add_theme_color_override("font_color", component.get("price_color", PORTRAIT_BLUE))
+			label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("shadow_offset_x", 0)
+			label.add_theme_constant_override("shadow_offset_y", 0)
+			label.add_theme_constant_override("shadow_outline_size", 0)
+			label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("outline_size", 0)
+		PORTRAIT_BUTTON_BADGE_STATE_AD:
+			_apply_portrait_panel_style(badge, Color.WHITE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
+			ad_icon.visible = true
+			ad_icon.modulate = PORTRAIT_BLUE
+			var ad_icon_size := Vector2(rect.size.x - 6.0, rect.size.y - 12.0) * float(component.get("ad_icon_scale", 1.0))
+			ad_icon.position = (rect.size - ad_icon_size) * 0.5
+			ad_icon.size = ad_icon_size
+		PORTRAIT_BUTTON_BADGE_STATE_FREE:
+			_apply_portrait_panel_style(badge, PORTRAIT_CURRENCY_ADD_BADGE_GREEN, rect.size.x * 0.5)
+			label.visible = true
+			label.position = Vector2.ZERO
+			label.size = rect.size
+			label.text = str(maxi(int(component.get("count", 0)), 0))
+			label.add_theme_font_size_override("font_size", int(component.get("free_font_size", 17)))
+			label.add_theme_color_override("font_color", Color.WHITE)
+			_style_portrait_hint_counter_badge_label(label)
+	shadow.visible = true
+	badge.visible = true
+
+func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) -> void:
+	if component.is_empty():
+		return
+	if visible:
+		return
+	for key in ["shadow", "badge", "coin", "ad", "label"]:
+		var node := component.get(key) as CanvasItem
+		if node != null and is_instance_valid(node):
+			node.visible = false
+
+func _portrait_button_badge_shadow(
+	button: Control,
+	local_rect: Rect2,
+	corner_radius: float
+) -> Panel:
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": local_rect,
+		"ad_rect": local_rect,
+		"free_rect": local_rect,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+	})
+	var shadow := component.get("shadow") as Panel
+	if shadow != null and is_instance_valid(shadow):
+		_apply_portrait_panel_style(
+			shadow,
+			Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.28),
+			corner_radius,
+			Color(0.0, 0.0, 0.0, 0.0),
+			0.0
+		)
+	var badge := component.get("badge") as CanvasItem
+	if badge != null and is_instance_valid(badge):
+		badge.queue_free()
+	return shadow
+
+func _create_portrait_button_ad_badge(
+	button: Control,
+	badge_rect: Rect2,
+	icon_scale_multiplier: float = 1.0
+) -> Dictionary:
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"ad_icon_scale": icon_scale_multiplier,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_AD,
+	})
+	component["icon"] = component.get("ad")
+	return component
+
+func _create_portrait_button_price_badge(
+	button: Control,
+	badge_rect: Rect2,
+	price: int
+) -> Dictionary:
+	return _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"price": price,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+	})
 
 func _style_portrait_hint_counter_badge_label(label: Label) -> void:
 	var counter_outline_color := Color(
@@ -5317,6 +5659,25 @@ func _create_portrait_hint_counter_badge_label(parent: Control, text: String) ->
 	_style_portrait_hint_counter_badge_label(label)
 	return label
 
+func _stage_portrait_hint_ad_counter(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var badge_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var badge_rect := Rect2(
+		Vector2(
+			button.size.x - badge_size.x * 0.82,
+			-badge_size.y * 0.18
+		),
+		badge_size
+	)
+	_create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"ad_icon_scale": 1.4025,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_AD,
+	})
+
 func _stage_portrait_hint_counter(button: Control, hint_key: String) -> void:
 	if button == null or !is_instance_valid(button):
 		return
@@ -5332,23 +5693,16 @@ func _stage_portrait_hint_counter(button: Control, hint_key: String) -> void:
 		),
 		badge_size
 	)
-	var badge := _portrait_hint_local_panel(
-		button,
-		badge_rect,
-		PORTRAIT_CURRENCY_ADD_BADGE_GREEN,
-		badge_size.x * 0.5
-	)
-	var holder := Control.new()
-	holder.name = "HintCounterHolder"
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.position = Vector2.ZERO
-	holder.size = badge.size
-	holder.clip_contents = true
-	badge.add_child(holder)
-	var counter_label := _create_portrait_hint_counter_badge_label(holder, str(maxi(count, 0)))
-	button.set_meta(&"portrait_hint_counter_badge", badge)
-	button.set_meta(&"portrait_hint_counter_holder", holder)
-	button.set_meta(&"portrait_hint_counter_label", counter_label)
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"count": count,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_FREE,
+	})
+	button.set_meta(&"portrait_hint_counter_badge", component.get("badge"))
+	button.set_meta(&"portrait_hint_counter_holder", component.get("holder"))
+	button.set_meta(&"portrait_hint_counter_label", component.get("label"))
 
 func _stage_portrait_hint_price(button: Control, price: int) -> void:
 	if button == null or !is_instance_valid(button):
@@ -5361,35 +5715,13 @@ func _stage_portrait_hint_price(button: Control, price: int) -> void:
 		),
 		badge_size
 	)
-	var badge := _portrait_hint_local_panel(
-		button,
-		badge_rect,
-		PORTRAIT_DARK_BLUE,
-		badge_size.y * 0.5,
-		Color(0.72, 0.77, 0.91, 1.0),
-		1.5
-	)
-	var coin_icon := TextureRect.new()
-	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
-	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	coin_icon.position = Vector2(2.0, 2.0)
-	coin_icon.size = Vector2(24.0, 24.0)
-	coin_icon.z_index = 1
-	badge.add_child(coin_icon)
-	var price_label := Label.new()
-	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	price_label.position = Vector2(25.0, 0.0)
-	price_label.size = Vector2(badge_size.x - 27.0, badge_size.y)
-	price_label.text = str(maxi(price, 0))
-	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	price_label.add_theme_font_size_override("font_size", 16)
-	price_label.add_theme_color_override("font_color", _purchase_price_color(price))
-	price_label.z_index = 1
-	badge.add_child(price_label)
+	_create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"price": price,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+	})
 
 func _create_hero_animation_overlay() -> FlashStageSymbol:
 	var overlay := FlashStageSymbol.new()
@@ -7385,8 +7717,115 @@ func _start_single_player_final_reward_transition_deferred(
 	await _play_final_reward_pack_bounce(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
+func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -> bool:
+	if action == &"" or _portrait_final_reward_waiting_for_ad or _portrait_rewarded_action != &"":
+		return false
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !ads_service.has_method("show_rewarded_video"):
+		return false
+	_connect_portrait_rewarded_action_signals(ads_service)
+	_portrait_rewarded_action = action
+	_portrait_rewarded_action_level_index = level_index
+	_portrait_rewarded_action_earned = false
+	_set_portrait_rewarded_action_control_enabled(action, level_index, false)
+	if !bool(ads_service.call("show_rewarded_video")):
+		_portrait_rewarded_action = &""
+		_portrait_rewarded_action_level_index = -1
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+		return false
+	return true
+
+func _connect_portrait_rewarded_action_signals(ads_service: Node) -> void:
+	var rewarded_callback := Callable(self, "_on_portrait_rewarded_action_rewarded")
+	if ads_service.has_signal(&"rewarded") and !ads_service.is_connected(
+		&"rewarded",
+		rewarded_callback
+	):
+		ads_service.connect(&"rewarded", rewarded_callback)
+	var closed_callback := Callable(self, "_on_portrait_rewarded_action_closed")
+	if ads_service.has_signal(&"rewarded_video_closed") and !ads_service.is_connected(
+		&"rewarded_video_closed",
+		closed_callback
+	):
+		ads_service.connect(&"rewarded_video_closed", closed_callback)
+	var failed_callback := Callable(self, "_on_portrait_rewarded_action_failed_to_show")
+	if ads_service.has_signal(&"rewarded_video_failed_to_show") and !ads_service.is_connected(
+		&"rewarded_video_failed_to_show",
+		failed_callback
+	):
+		ads_service.connect(&"rewarded_video_failed_to_show", failed_callback)
+
+func _set_portrait_rewarded_action_control_enabled(
+	action: StringName,
+	level_index: int,
+	enabled: bool
+) -> void:
+	match action:
+		&"hint_open":
+			var open_button: Control = _portrait_game_hint_button_for_key(GameState.HINT_OPEN_LETTER)
+			if open_button != null and is_instance_valid(open_button):
+				open_button.set("button_disabled", !enabled)
+		&"hint_remove":
+			var remove_button: Control = _portrait_game_hint_button_for_key(GameState.HINT_REMOVE_WRONG)
+			if remove_button != null and is_instance_valid(remove_button):
+				remove_button.set("button_disabled", !enabled)
+		&"theme_reroll":
+			if level_index == single_player_popup_level_index:
+				_update_single_player_theme_reroll_button_state()
+
+func _on_portrait_rewarded_action_rewarded(_currency: String, _amount: int) -> void:
+	if _portrait_rewarded_action != &"":
+		_portrait_rewarded_action_earned = true
+
+func _on_portrait_rewarded_action_closed() -> void:
+	if _portrait_rewarded_action == &"":
+		return
+	var action: StringName = _portrait_rewarded_action
+	var level_index: int = _portrait_rewarded_action_level_index
+	var earned_reward: bool = _portrait_rewarded_action_earned
+	_portrait_rewarded_action = &""
+	_portrait_rewarded_action_level_index = -1
+	_portrait_rewarded_action_earned = false
+	if !earned_reward:
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+		return
+	match action:
+		&"hint_open":
+			if GameSession.can_use_open_letter_hint_ad():
+				round_result_delay_requested = true
+				GameSession.use_open_letter_hint_ad()
+				round_result_delay_requested = false
+		&"hint_remove":
+			if GameSession.can_use_remove_wrong_hint_ad():
+				GameSession.use_remove_wrong_hint_ad()
+		&"theme_reroll":
+			if (
+				level_index == single_player_popup_level_index
+				and _single_player_theme_reroll_used
+				and !_single_player_theme_ad_reroll_used
+				and !_single_player_theme_slot_animating
+			):
+				_single_player_theme_ad_reroll_used = true
+				_update_single_player_theme_reroll_badge()
+				_update_single_player_theme_reroll_button_state()
+				_perform_single_player_theme_reroll(level_index)
+
+func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
+	if _portrait_rewarded_action == &"":
+		return
+	var action: StringName = _portrait_rewarded_action
+	var level_index: int = _portrait_rewarded_action_level_index
+	_portrait_rewarded_action = &""
+	_portrait_rewarded_action_level_index = -1
+	_portrait_rewarded_action_earned = false
+	_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+
 func _on_final_reward_double_pressed() -> void:
-	if _portrait_final_reward_claim_in_progress or _portrait_final_reward_waiting_for_ad:
+	if (
+		_portrait_final_reward_claim_in_progress
+		or _portrait_final_reward_waiting_for_ad
+		or _portrait_rewarded_action != &""
+	):
 		return
 	var ads_service: Node = _portrait_ads_service()
 	if ads_service == null or !ads_service.has_method("show_rewarded_video"):
@@ -8119,6 +8558,10 @@ func _continue_single_player_result() -> void:
 	_show_single_player_reward_chain_screen()
 
 func _use_open_hint() -> void:
+	if GameSession.open_hint_used:
+		if GameSession.can_use_open_letter_hint_ad():
+			_show_portrait_rewarded_action(&"hint_open")
+		return
 	var previous_count: int = GameState.get_hint_count(GameState.HINT_OPEN_LETTER)
 	if previous_count > 0:
 		_portrait_hint_counter_animation_active = true
@@ -8133,6 +8576,10 @@ func _use_open_hint() -> void:
 	)
 
 func _use_remove_hint() -> void:
+	if GameSession.remove_wrong_hint_used:
+		if GameSession.can_use_remove_wrong_hint_ad():
+			_show_portrait_rewarded_action(&"hint_remove")
+		return
 	var previous_count: int = GameState.get_hint_count(GameState.HINT_REMOVE_WRONG)
 	if previous_count > 0:
 		_portrait_hint_counter_animation_active = true
