@@ -291,6 +291,7 @@ const PORTRAIT_CHALLENGE_HUD_BORDER := Color("#E19AF4")
 const PORTRAIT_INSUFFICIENT_PRICE_COLOR := Color("#FF5C6D")
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
+const PORTRAIT_AD_BADGE_PURPLE := Color8(0xBB, 0x11, 0xE0, 0xFF)
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.874
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
@@ -5443,13 +5444,22 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	coin_icon.z_index = 1
 	holder.add_child(coin_icon)
+	var ad_shadow_icon := TextureRect.new()
+	ad_shadow_icon.name = "HintAdIconShadow"
+	ad_shadow_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ad_shadow_icon.texture = WATCH_AD_ICON_TEXTURE
+	ad_shadow_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ad_shadow_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ad_shadow_icon.modulate = Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.6)
+	ad_shadow_icon.z_index = 0
+	holder.add_child(ad_shadow_icon)
 	var ad_icon := TextureRect.new()
 	ad_icon.name = "HintAdIcon"
 	ad_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ad_icon.texture = WATCH_AD_ICON_TEXTURE
 	ad_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	ad_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	ad_icon.modulate = PORTRAIT_BLUE
+	ad_icon.modulate = Color.WHITE
 	ad_icon.z_index = 1
 	holder.add_child(ad_icon)
 	var label := Label.new()
@@ -5464,6 +5474,7 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 		"badge": badge,
 		"holder": holder,
 		"coin": coin_icon,
+		"ad_shadow": ad_shadow_icon,
 		"ad": ad_icon,
 		"label": label,
 		"coin_rect": config.get("coin_rect", Rect2()),
@@ -5495,9 +5506,10 @@ func _set_portrait_button_badge_state(
 	var badge := component.get("badge") as Panel
 	var holder := component.get("holder") as Control
 	var coin_icon := component.get("coin") as TextureRect
+	var ad_shadow_icon := component.get("ad_shadow") as TextureRect
 	var ad_icon := component.get("ad") as TextureRect
 	var label := component.get("label") as Label
-	if shadow == null or badge == null or holder == null or coin_icon == null or ad_icon == null or label == null:
+	if shadow == null or badge == null or holder == null or coin_icon == null or ad_shadow_icon == null or ad_icon == null or label == null:
 		return
 	var rect: Rect2 = component.get("coin_rect", Rect2())
 	match state:
@@ -5522,6 +5534,7 @@ func _set_portrait_button_badge_state(
 		0.0
 	)
 	coin_icon.visible = false
+	ad_shadow_icon.visible = false
 	ad_icon.visible = false
 	label.visible = false
 	match state:
@@ -5547,11 +5560,16 @@ func _set_portrait_button_badge_state(
 			label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
 			label.add_theme_constant_override("outline_size", 0)
 		PORTRAIT_BUTTON_BADGE_STATE_AD:
-			_apply_portrait_panel_style(badge, Color.WHITE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
+			_apply_portrait_panel_style(badge, PORTRAIT_AD_BADGE_PURPLE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
+			ad_shadow_icon.visible = true
 			ad_icon.visible = true
-			ad_icon.modulate = PORTRAIT_BLUE
+			ad_shadow_icon.modulate = Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.6)
+			ad_icon.modulate = Color.WHITE
 			var ad_icon_size := Vector2(rect.size.x - 6.0, rect.size.y - 12.0) * float(component.get("ad_icon_scale", 1.0))
-			ad_icon.position = (rect.size - ad_icon_size) * 0.5
+			var ad_icon_position := (rect.size - ad_icon_size) * 0.5
+			ad_shadow_icon.position = ad_icon_position + Vector2(1.0, 1.0)
+			ad_shadow_icon.size = ad_icon_size
+			ad_icon.position = ad_icon_position
 			ad_icon.size = ad_icon_size
 		PORTRAIT_BUTTON_BADGE_STATE_FREE:
 			_apply_portrait_panel_style(badge, PORTRAIT_CURRENCY_ADD_BADGE_GREEN, rect.size.x * 0.5)
@@ -5570,7 +5588,7 @@ func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) ->
 		return
 	if visible:
 		return
-	for key in ["shadow", "badge", "coin", "ad", "label"]:
+	for key in ["shadow", "badge", "coin", "ad_shadow", "ad", "label"]:
 		var node := component.get(key) as CanvasItem
 		if node != null and is_instance_valid(node):
 			node.visible = false

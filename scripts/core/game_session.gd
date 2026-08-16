@@ -229,7 +229,10 @@ func use_open_letter_hint() -> bool:
 	if payment == GameState.HintPayment.FAILED:
 		return false
 	open_hint_used = true
-	open_hint_ad_reuse_available = payment == GameState.HintPayment.SOFT_CURRENCY
+	# The first activation may come either from the player's free inventory or
+	# from coins. In both cases, allow exactly one additional activation via a
+	# rewarded ad for this round.
+	open_hint_ad_reuse_available = true
 	var index: int = candidates[randi() % candidates.size()]
 	var selected_letter: String = letters[index]
 	_reveal_letter(selected_letter)
@@ -278,7 +281,8 @@ func use_remove_wrong_hint() -> bool:
 	if payment == GameState.HintPayment.FAILED:
 		return false
 	remove_wrong_hint_used = true
-	remove_wrong_hint_ad_reuse_available = payment == GameState.HintPayment.SOFT_CURRENCY
+	# Free-counter and coin activations both unlock one rewarded-ad reuse.
+	remove_wrong_hint_ad_reuse_available = true
 	# Remove exactly three unavailable keyboard letters in every language. They
 	# are selected without replacement and never count as mistakes.
 	var remove_count: int = 3
