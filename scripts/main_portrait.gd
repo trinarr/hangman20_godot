@@ -11,19 +11,15 @@ const COIN_PACK_06_LARGE_TEXTURE: Texture2D = preload("res://flash_assets/coin_p
 const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_small.png")
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
+const WATCH_AD_ICON_TEXTURE: Texture2D = preload("res://flash_assets/watch_ad_icon.png")
+const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
+	"res://flash_assets/final_reward_rotating_glow.png"
+)
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 const PORTRAIT_HEADER_HEIGHT: float = 80.0
 const PORTRAIT_FOOTER_Y: float = 688.0
-const PORTRAIT_ADMOB_BANNER_HEIGHT: float = 50.0
-const PORTRAIT_ADMOB_BANNER_SIZE := Vector2(320.0, PORTRAIT_ADMOB_BANNER_HEIGHT)
-const PORTRAIT_ADMOB_BANNER_RECT := Rect2(
-	(PORTRAIT_STAGE_SIZE.x - PORTRAIT_ADMOB_BANNER_SIZE.x) * 0.5,
-	PORTRAIT_STAGE_SIZE.y - PORTRAIT_ADMOB_BANNER_HEIGHT,
-	PORTRAIT_ADMOB_BANNER_SIZE.x,
-	PORTRAIT_ADMOB_BANNER_SIZE.y
-)
-const PORTRAIT_GAME_KEYBOARD_BOTTOM_RESERVE: float = PORTRAIT_ADMOB_BANNER_HEIGHT
+const PORTRAIT_AD_BANNER_FALLBACK_HEIGHT: float = 50.0
 const PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT: float = 24.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
@@ -68,6 +64,7 @@ const PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION: float = 0.055
 const PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION: float = 0.085
 const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 20.0
 const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := Color("#35C759")
+const PORTRAIT_FREE_HINT_BADGE_GREEN := Color("#65c466")
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := Color("#167A34")
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
 const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
@@ -100,6 +97,7 @@ const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
 const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # Dense screens may grow moderately on tall phones, but gameplay is split into
 # independent upper and lower groups so the keyboard can stay width-safe while
@@ -130,12 +128,12 @@ const PORTRAIT_GAME_ENTRANCE_START_DELAY: float = 0.05
 const PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER: float = 1.30
 const PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION: float = 0.26
 const PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = 0.12
-# Reward-screen hero is deliberately only 30% larger than the in-round hero.
+# Reward-screen hero is deliberately only 17% larger than the in-round hero.
 # The X offset scales with the hero so the visible artwork (not the Flash origin)
 # stays centered on the 480 px portrait stage.
-const PORTRAIT_SINGLE_REWARD_HERO_SCALE_MULTIPLIER: float = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER * 1.30
+const PORTRAIT_SINGLE_REWARD_HERO_SCALE_MULTIPLIER: float = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER * 1.17
 const PORTRAIT_SINGLE_REWARD_HERO_POSITION := Vector2(
-	PORTRAIT_STAGE_SIZE.x * 0.5 - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X * 1.30,
+	PORTRAIT_STAGE_SIZE.x * 0.5 - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X * 1.17,
 	525.0
 )
 # Approximate visible bottom of the clean reward hero in authored stage space.
@@ -197,7 +195,7 @@ const PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT := Rect2(
 )
 const PORTRAIT_SINGLE_REWARD_TITLE_TOP_PADDING: float = 10.0
 const PORTRAIT_SINGLE_REWARD_TITLE_HEIGHT: float = 52.0
-const PORTRAIT_SINGLE_REWARD_SUBTITLE_TOP: float = 62.0
+const PORTRAIT_SINGLE_REWARD_SUBTITLE_TOP: float = 10.0
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_HEIGHT: float = 32.0
 const PORTRAIT_SINGLE_REWARD_TITLE_START_SCALE: float = 0.52
 const PORTRAIT_SINGLE_REWARD_TITLE_PEAK_SCALE: float = 1.14
@@ -205,6 +203,40 @@ const PORTRAIT_SINGLE_REWARD_TITLE_GROW_DURATION: float = 0.16
 const PORTRAIT_SINGLE_REWARD_TITLE_SETTLE_DURATION: float = 0.20
 const PORTRAIT_SINGLE_REWARD_TITLE_MOVE_DURATION: float = 0.28
 const PORTRAIT_SINGLE_REWARD_BODY_FADE_DURATION: float = 0.16
+const PORTRAIT_FINAL_REWARD_GLOW_SIZE := Vector2(316.0, 316.0)
+const PORTRAIT_FINAL_REWARD_COIN_SIZE := Vector2(172.8, 172.8)
+const PORTRAIT_FINAL_REWARD_CAPTION_SIZE := Vector2(340.0, 42.0)
+const PORTRAIT_FINAL_REWARD_CAPTION_GAP: float = 82.0
+const PORTRAIT_FINAL_REWARD_CAPTION_FONT_SIZE: int = 38
+const PORTRAIT_FINAL_REWARD_AMOUNT_SIZE := Vector2(300.0, 58.0)
+const PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE: int = 40
+const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT := Rect2(
+	90.0,
+	606.0 * PORTRAIT_GAME_ACTION_Y_SCALE,
+	300.0,
+	64.0
+)
+const PORTRAIT_FINAL_REWARD_COLLECT_RECT := Rect2(
+	90.0,
+	690.0 * PORTRAIT_GAME_ACTION_Y_SCALE,
+	300.0,
+	45.0
+)
+const PORTRAIT_FINAL_REWARD_CHAIN_HOLD_DURATION: float = 0.252
+const PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION: float = 0.162
+const PORTRAIT_FINAL_REWARD_REPLACE_DURATION: float = 0.414
+const PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION: float = 0.558
+const PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE: float = 1.18
+const PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION: float = 0.162
+const PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION: float = 0.27
+const PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION: float = 14.0
+const PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION: float = 0.162
+const PORTRAIT_FINAL_REWARD_COLLECT_DELAY: float = 0.9
+const PORTRAIT_FINAL_REWARD_GLOW_ALPHA: float = 0.7
+const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
+const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = 10.0
+const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_GAP: float = 6.0
+const PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = 1.36
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = 1.22
 const PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = 1.06
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION: float = 0.035
@@ -260,6 +292,7 @@ const PORTRAIT_CHALLENGE_HUD_BORDER := Color("#E19AF4")
 const PORTRAIT_INSUFFICIENT_PRICE_COLOR := Color("#FF5C6D")
 const PORTRAIT_ORANGE := Color(0.8157, 0.5647, 0.3412, 1.0)
 const PORTRAIT_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
+const PORTRAIT_AD_BADGE_PURPLE := Color8(0xBB, 0x11, 0xE0, 0xFF)
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.874
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
@@ -267,6 +300,8 @@ const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA: float = 0.46
 const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
 const PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS: int = 7
 const PORTRAIT_SINGLE_PLAYER_SLOT_SPINS_PER_REEL: int = 2
@@ -280,13 +315,13 @@ const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE := Vector2(1.38, 1.38)
 const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION: float = 0.08
 const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION: float = 0.14
 const PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION: float = 0.14
-const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2(120.0, 58.0)
+const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 32.0
+const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 40.0
 const PORTRAIT_GAME_HINT_Y: float = 650.0
-const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(42.0, PORTRAIT_GAME_HINT_Y, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(180.0, PORTRAIT_GAME_HINT_Y, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(318.0, PORTRAIT_GAME_HINT_Y, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(108.176, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(203.392, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(298.608, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
 const PORTRAIT_GAME_HINT_ART_RISE: float = -5.0
 const PORTRAIT_GAME_HINT_COMMENT_ART_Y_OFFSET: float = -4.0
@@ -296,6 +331,7 @@ const PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE := Vector2(1.24, 1.24)
 const PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = 0.18
 const PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = 0.24
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
+const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]
@@ -339,6 +375,7 @@ var _portrait_heart_icon_visual: Control = null
 var _portrait_round_end_bounce_started: bool = false
 var _portrait_inline_result_search_button: Control = null
 var _portrait_inline_result_word_holder: Control = null
+var _portrait_inline_result_marker_holder: Control = null
 var _portrait_inline_result_continue_button: Control = null
 var _portrait_in_place_result_active: bool = false
 var _portrait_in_place_result_is_win: bool = false
@@ -367,14 +404,30 @@ var _portrait_back_button_visible: bool = false
 var _portrait_previous_screen_had_back: bool = false
 var _portrait_last_animated_reward_claim_key: String = ""
 var _portrait_single_reward_resume_without_intro: bool = false
+var _portrait_final_reward_claim_in_progress: bool = false
+var _portrait_final_reward_waiting_for_ad: bool = false
+var _portrait_final_reward_earned_ad_reward: bool = false
+var _portrait_final_reward_double_button: Control = null
+var _portrait_rewarded_action: StringName = &""
+var _portrait_rewarded_action_earned: bool = false
+var _portrait_rewarded_action_level_index: int = -1
+var _portrait_pending_home_reward_amount: int = 0
 var _portrait_hint_counter_animation_active: bool = false
 var _portrait_hint_counter_refresh_requested: bool = false
+const PORTRAIT_BUTTON_BADGE_STATE_COINS := "coins"
+const PORTRAIT_BUTTON_BADGE_STATE_AD := "ad"
+const PORTRAIT_BUTTON_BADGE_STATE_FREE := "free"
 var _profile_name_edit: LineEdit = null
 var _profile_edit_character_id: int = 1
 var _profile_avatar_checks: Dictionary = {}
 var _profile_avatar_halos: Dictionary = {}
 var single_player_popup_refresh_button: Control = null
 var _single_player_popup_refresh_visuals: Array[CanvasItem] = []
+var _single_player_popup_refresh_badge_component: Dictionary = {}
+var _single_player_popup_refresh_price_badge: Control = null
+var _single_player_popup_refresh_badge_shadow: Control = null
+var _single_player_popup_refresh_price_coin: CanvasItem = null
+var _single_player_popup_refresh_ad_icon: CanvasItem = null
 var _single_player_popup_theme_card_visuals: Array = []
 var _single_player_theme_slot_animation_nodes: Array[Node] = []
 var _single_player_theme_slot_tweens: Array[Tween] = []
@@ -384,8 +437,42 @@ var _single_player_theme_slot_generation: int = 0
 var _single_player_theme_slot_final_selection: int = -1
 var _single_player_theme_reroll_level_index: int = -1
 var _single_player_theme_reroll_used: bool = false
+var _single_player_theme_ad_reroll_used: bool = false
+
+func _portrait_ads_service() -> Node:
+	return get_node_or_null("/root/YandexAdsService")
+
+func _portrait_ad_banner_height_stage() -> float:
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !ads_service.has_method("get_banner_dimension"):
+		return PORTRAIT_AD_BANNER_FALLBACK_HEIGHT
+	var banner_size_pixels: Vector2 = ads_service.call("get_banner_dimension")
+	var window_size: Vector2i = DisplayServer.window_get_size()
+	if banner_size_pixels.y <= 0.0 or window_size.x <= 0:
+		return PORTRAIT_AD_BANNER_FALLBACK_HEIGHT
+	# The portrait stage is fitted to the full physical window width. Convert the
+	# native Android banner height back into authored 480-wide stage coordinates.
+	return maxf(
+		PORTRAIT_AD_BANNER_FALLBACK_HEIGHT,
+		banner_size_pixels.y * PORTRAIT_STAGE_SIZE.x / float(window_size.x)
+	)
+
+func _portrait_ad_banner_rect() -> Rect2:
+	var banner_height: float = _portrait_ad_banner_height_stage()
+	return Rect2(
+		0.0,
+		PORTRAIT_STAGE_SIZE.y - banner_height,
+		PORTRAIT_STAGE_SIZE.x,
+		banner_height
+	)
+
+func _hide_portrait_ad_banner() -> void:
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service != null and ads_service.has_method("hide_banner"):
+		ads_service.call("hide_banner")
 
 func _clear() -> void:
+	_hide_portrait_ad_banner()
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
 	var preserved_swipe_content: Control = null
@@ -414,6 +501,7 @@ func _clear() -> void:
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
 	_portrait_game_back_button = null
+	_portrait_final_reward_double_button = null
 	_stop_portrait_attempts_attention_bounce(true)
 	_portrait_game_attempts_controls.clear()
 	_portrait_game_attempts_value_label = null
@@ -426,6 +514,9 @@ func _clear() -> void:
 	_portrait_game_attempts_displayed_value = -1
 	_portrait_currency_counter_visual = null
 	_portrait_currency_coin_icon_visual = null
+	_portrait_inline_result_search_button = null
+	_portrait_inline_result_word_holder = null
+	_portrait_inline_result_marker_holder = null
 	_portrait_game_runtime_ready = false
 	_portrait_hint_counter_animation_active = false
 	_portrait_hint_counter_refresh_requested = false
@@ -742,10 +833,17 @@ func _complete_portrait_main_tab_swipe(commit: bool) -> void:
 				navigation_parent.remove_child(target_navigation)
 			target_navigation.queue_free()
 		content = target_content
-		# The preview navigation is static and hidden during the drag. Rebuild it
-		# only after the page arrives so the old tab shrinks and the new tab grows
-		# with the original enter/leave animation in the fixed bottom bar.
-		_stage_main_navigation(target_tab, origin_tab)
+		# Home no longer owns the shared bottom navigation: its lower edge is
+		# reserved for the advertising banner. Profile and Classic keep their
+		# existing navigation implementation so they can be wired to new entry
+		# points later without rebuilding either screen.
+		if target_tab == MainTab.HOME:
+			_portrait_active_main_tab = -1
+		else:
+			# The preview navigation is static and hidden during the drag. Rebuild it
+			# only after the page arrives so the old tab shrinks and the new tab grows
+			# with the original enter/leave animation in the fixed bottom bar.
+			_stage_main_navigation(target_tab, origin_tab)
 		_play_ui_click_sound()
 		_clear_portrait_main_tab_swipe_transition()
 		return
@@ -1513,12 +1611,7 @@ func _stage_main_nav_label(tab_x: float, tab_label: String) -> Label:
 		PORTRAIT_DARK_BLUE.b,
 		0.55
 	)
-	label.add_theme_color_override("font_outline_color", nav_label_effect_color)
-	label.add_theme_constant_override("outline_size", 1)
-	label.add_theme_color_override("font_shadow_color", nav_label_effect_color)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(label, nav_label_effect_color, nav_label_effect_color)
 	var bold_font := FontVariation.new()
 	bold_font.base_font = label.get_theme_font("font")
 	bold_font.variation_embolden = 0.75
@@ -2235,8 +2328,8 @@ func _stage_portrait_popup_button_price(button: Control, price: int) -> Label:
 	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	price_label.add_theme_font_size_override("font_size", _portrait_popup_font_size(18))
 	price_label.add_theme_color_override("font_color", _purchase_price_color(price))
-	price_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.55))
-	price_label.add_theme_constant_override("outline_size", 1)
+	var price_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(price_label, price_effect_color, price_effect_color)
 	price_label.z_index = 5
 	button.add_child(price_label)
 	return price_label
@@ -2275,7 +2368,10 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
-	_show_main_tab_screen(Callable(self, "_show_menu_screen"), MainTab.HOME)
+	# Home is now a standalone landing screen. Profile and Classic remain intact,
+	# but their future entry points must be explicit instead of the removed bar or
+	# a hidden horizontal swipe from Home.
+	_show_menu_screen()
 
 func _show_menu_screen() -> void:
 	GameSession.discard_current_round()
@@ -2286,7 +2382,7 @@ func _show_menu_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
 
-	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
+	_portrait_screen(0.0)
 	_stage_currency_counter(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
@@ -2297,23 +2393,40 @@ func _show_menu_screen() -> void:
 	var button_x: float = 90.0
 	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
+	_stage_portrait_ad_banner()
+	if _portrait_pending_home_reward_amount > 0:
+		call_deferred("_play_pending_home_reward_animation")
 
 func show_settings() -> void:
 	_show_settings_popup()
+
+func _settings_popup_uses_compact_layout() -> bool:
+	if game_screen_visible and !game_finished:
+		return true
+	return (
+		_portrait_custom_word_input != null
+		and is_instance_valid(_portrait_custom_word_input)
+		and _portrait_custom_word_input.is_inside_tree()
+	)
 
 func _show_settings_popup() -> void:
 	_remove_settings_popup()
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
+	var compact_layout: bool = _settings_popup_uses_compact_layout()
+	var rect := (
+		Rect2(28.0, 250.0, 424.0, 300.0)
+		if compact_layout
+		else Rect2(28.0, 120.0, 424.0, 560.0)
+	)
 	var previous_content := _portrait_popup_begin(
 		"SettingsPopup",
 		"settings_popup",
 		130,
 		Callable(self, "_remove_settings_popup"),
-		120.0,
-		680.0
+		rect.position.y,
+		rect.end.y
 	)
-	var rect := Rect2(28.0, 120.0, 424.0, 560.0)
 	_portrait_popup_shell(
 		rect,
 		_profile_text("Настройки", "Settings").to_upper(),
@@ -2321,42 +2434,46 @@ func _show_settings_popup() -> void:
 		28
 	)
 
-	_stage_label(Rect2(56.0, 218.0, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 214.0, 102.0, 49.0), 3)
-	_stage_label(Rect2(56.0, 286.0, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_toggle_button(Rect2(330.0, 282.0, 102.0, 49.0), 4)
-	_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
-	_stage_label(Rect2(56.0, 374.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
-	_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
-	_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
+	var controls_y_offset: float = rect.position.y - 120.0
+	_stage_label(Rect2(56.0, 218.0 + controls_y_offset, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 214.0 + controls_y_offset, 102.0, 49.0), 3)
+	_stage_label(Rect2(56.0, 286.0 + controls_y_offset, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_settings_toggle_button(Rect2(330.0, 282.0 + controls_y_offset, 102.0, 49.0), 4)
+
+	if !compact_layout:
+		_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
+		_stage_label(Rect2(56.0, 374.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
+		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
+		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
 
 	# Anchor the contact buttons and version to the shell bottom instead of
 	# leaving the footer floating beneath the settings controls.
 	var footer_bottom_y: float = rect.end.y
 	var social_buttons_y: float = footer_bottom_y - 122.0
 	var version_y: float = footer_bottom_y - 44.0
-	_stage_round_icon_button(
-		Rect2(174.0, social_buttons_y, 58.0, 58.0),
-		Callable(self, "_about_contact_action").bind("vk"),
-		ABOUT_VK_ICON,
-		ABOUT_VK_ICON_SIZE
-	)
-	_stage_round_icon_button(
-		Rect2(248.0, social_buttons_y, 58.0, 58.0),
-		Callable(self, "_about_contact_action").bind("mail"),
-		ABOUT_MAIL_ICON,
-		ABOUT_MAIL_ICON_SIZE
-	)
-	var version_label := _stage_label(
-		Rect2(40.0, version_y, 400.0, 28.0),
-		_about_version_text(),
-		14,
-		Color(0.78, 0.82, 0.96, 0.88),
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	version_label.clip_text = false
+	if !compact_layout:
+		_stage_round_icon_button(
+			Rect2(174.0, social_buttons_y, 58.0, 58.0),
+			Callable(self, "_about_contact_action").bind("vk"),
+			ABOUT_VK_ICON,
+			ABOUT_VK_ICON_SIZE
+		)
+		_stage_round_icon_button(
+			Rect2(248.0, social_buttons_y, 58.0, 58.0),
+			Callable(self, "_about_contact_action").bind("mail"),
+			ABOUT_MAIL_ICON,
+			ABOUT_MAIL_ICON_SIZE
+		)
+		var version_label := _stage_label(
+			Rect2(40.0, version_y, 400.0, 28.0),
+			_about_version_text(),
+			14,
+			Color(0.78, 0.82, 0.96, 0.88),
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		version_label.clip_text = false
 	content = previous_content
 
 func _remove_settings_popup() -> void:
@@ -2417,12 +2534,7 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		var title_label := _stage_label(Rect2(x + 52.0, y + 41.0, 152.0, 38.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
 		var theme_effect_color := Color(0.42, 0.49, 0.82, 0.55)
-		title_label.add_theme_color_override("font_outline_color", theme_effect_color)
-		title_label.add_theme_constant_override("outline_size", 1)
-		title_label.add_theme_color_override("font_shadow_color", theme_effect_color)
-		title_label.add_theme_constant_override("shadow_offset_x", 2)
-		title_label.add_theme_constant_override("shadow_offset_y", 2)
-		title_label.add_theme_constant_override("shadow_outline_size", 0)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_effect_color, theme_effect_color)
 		if disabled:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
@@ -2435,8 +2547,8 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		theme_button.disabled = disabled
 		_bind_theme_card_press_state(theme_button, card)
 
-	# The standalone Classic screen also owns the AdMob footer. Keep its difficulty
-	# action in the same verified gap between the last theme card and that footer;
+	# The standalone Classic screen keeps its difficulty action in the verified
+	# gap between the last theme card and the advertising area;
 	# the previous y=725 placement was covered by the banner and stopped receiving input.
 	var difficulty_rect: Rect2 = PORTRAIT_TASKS_DIFFICULTY_RECT
 	# Always bind the context explicitly. The texture button emits a zero-argument
@@ -2484,15 +2596,28 @@ func _remove_single_player_theme_popup() -> void:
 	super._remove_single_player_theme_popup()
 	single_player_popup_refresh_button = null
 	_single_player_popup_refresh_visuals.clear()
+	_single_player_popup_refresh_badge_component.clear()
+	_single_player_popup_refresh_price_badge = null
+	_single_player_popup_refresh_badge_shadow = null
+	_single_player_popup_refresh_price_coin = null
+	_single_player_popup_refresh_ad_icon = null
 	_single_player_popup_theme_card_visuals.clear()
 
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
 	_show_single_player_level_popup(level_index, theme_index)
 
 func _show_single_player_last_chance_popup() -> void:
-	_remove_single_player_last_chance_popup()
 	if !GameSession.has_deferred_loss():
 		return
+	# The final wrong guess immediately updates GameSession, which starts the
+	# mechanical Attempts counter roll. Keep the gameplay screen visible until
+	# that subtraction animation has fully settled, then open the purchase popup.
+	var attempts_roll := _portrait_game_attempts_roll_tween
+	if attempts_roll != null and attempts_roll.is_valid():
+		await attempts_roll.finished
+		if !GameSession.has_deferred_loss():
+			return
+	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
@@ -2550,7 +2675,7 @@ func _show_single_player_last_chance_popup() -> void:
 		false,
 		false,
 		true,
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
 	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
@@ -2599,18 +2724,6 @@ func _show_heart_refill_popup(
 	heart_value.add_theme_constant_override("outline_size", 5)
 	heart_value.z_index = 12
 
-	var description_label := _stage_label(
-		Rect2(54.0, 380.0, 372.0, 54.0),
-		_single_player_text(
-			"Восстановите запас\nдо 5 жизней",
-			"Refill your balance\nto 5 lives"
-		),
-		21,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	description_label.clip_text = false
-
 	var recovery_text: String = _single_player_text(
 		"Жизни полностью восстановлены",
 		"Lives are fully restored"
@@ -2621,7 +2734,7 @@ func _show_heart_refill_popup(
 			"Next life in %s"
 		) % _heart_status_text(current_hearts, GameState.get_heart_recovery_seconds())
 	var recovery_label := _stage_label(
-		Rect2(54.0, 440.0, 372.0, 38.0),
+		Rect2(54.0, 405.0, 372.0, 38.0),
 		recovery_text,
 		17,
 		Color(0.82, 0.86, 1.0, 1.0),
@@ -2634,28 +2747,65 @@ func _show_heart_refill_popup(
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 510.0, 300.0, 56.0),
 		Callable(self, "_purchase_heart_refill"),
-		_single_player_text("Пополнить", "Refill"),
+		"",
 		18,
 		purchase_disabled,
 		0.32,
 		false,
 		false,
 		false,
-		LONG_BUTTON_COLOR_GREEN
+		LONG_BUTTON_COLOR_ORANGE
 	)
-	purchase_button.set("icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
-	purchase_button.set("icon_stage_size", Vector2(28.0, 28.0))
-	var price_label := _stage_label(
-		Rect2(324.0, 510.0, 58.0, 56.0),
-		str(HEART_REFILL_COST),
-		21,
-		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR,
-		HORIZONTAL_ALIGNMENT_CENTER
+	# Keep all custom button content inside the button itself. The previous
+	# top-level decorative labels sat above the hit target in the popup canvas and
+	# could steal GUI hit-testing on some viewport/layout combinations.
+	purchase_button.z_index = 16
+	purchase_button.mouse_filter = (
+		Control.MOUSE_FILTER_IGNORE if purchase_disabled else Control.MOUSE_FILTER_STOP
+	)
+	var refill_label := Label.new()
+	refill_label.name = "RefillText"
+	refill_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	refill_label.position = Vector2(22.5, 4.0)
+	refill_label.size = Vector2(174.0, 56.0)
+	refill_label.text = _single_player_text("ВОСПОЛНИТЬ", "REFILL")
+	refill_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	refill_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	refill_label.add_theme_font_size_override("font_size", 18)
+	refill_label.add_theme_color_override("font_color", Color.WHITE)
+	refill_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	var refill_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(refill_label, refill_effect_color, refill_effect_color)
+	refill_label.z_index = 2
+	purchase_button.add_child(refill_label)
+	var price_coin := TextureRect.new()
+	price_coin.name = "PriceCoin"
+	price_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_coin.texture = SOFT_CURRENCY_COIN_TEXTURE
+	price_coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	price_coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	price_coin.position = Vector2(200.5, 20.0)
+	price_coin.size = Vector2(24.0, 24.0)
+	price_coin.z_index = 2
+	purchase_button.add_child(price_coin)
+	var price_label := Label.new()
+	price_label.name = "Price"
+	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_label.position = Vector2(222.5, 4.0)
+	price_label.size = Vector2(50.0, 56.0)
+	price_label.text = str(HEART_REFILL_COST)
+	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	price_label.add_theme_font_size_override("font_size", 21)
+	price_label.add_theme_color_override(
+		"font_color",
+		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
 	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	price_label.add_theme_color_override("font_outline_color", Color(0.23, 0.26, 0.52, 0.55))
-	price_label.add_theme_constant_override("outline_size", 1)
-	price_label.z_index = 17
+	var price_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(price_label, price_effect_color, price_effect_color)
+	price_label.z_index = 2
+	purchase_button.add_child(price_label)
 	content = previous_content
 
 func _return_to_heart_refill_from_coin_store(
@@ -2680,9 +2830,17 @@ func _show_single_player_level_popup(
 	_remove_single_player_theme_popup()
 	single_player_retry_after_loss = retry_after_loss
 	level_index = _prepare_single_player_level_attempt(level_index)
-	if _single_player_theme_reroll_level_index != level_index:
-		_single_player_theme_reroll_level_index = level_index
-		_single_player_theme_reroll_used = false
+	_single_player_theme_reroll_level_index = level_index
+	var persisted_reroll_state: int = GameState.get_single_level_theme_reroll_state(
+		Database.current_language,
+		level_index
+	)
+	_single_player_theme_reroll_used = (
+		persisted_reroll_state >= GameState.SINGLE_LEVEL_THEME_REROLL_COIN_USED
+	)
+	_single_player_theme_ad_reroll_used = (
+		persisted_reroll_state >= GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED
+	)
 	# Theme options are deterministic from the persisted level seed. Only the
 	# first creation of that seed should play the generation reels; reopening an
 	# already generated level must show the same cards immediately.
@@ -2769,48 +2927,49 @@ func _show_single_player_level_popup(
 		)
 	refresh_button.z_index = 15
 	var refresh_price_badge_size := Vector2(44.0, 22.0)
-	var refresh_price_badge_rect: Rect2 = _portrait_top_right_coin_badge_rect(
-		refresh_button_rect,
+	var refresh_price_badge_rect := Rect2(
+		Vector2(
+			refresh_button.size.x - refresh_price_badge_size.x * 0.82,
+			-refresh_price_badge_size.y * 0.18
+		),
 		refresh_price_badge_size
 	)
-	var price_badge := _stage_panel(
-		refresh_price_badge_rect,
-		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_DARK_BLUE,
-		11.0,
-		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_RULE,
-		1.0
+	var refresh_ad_badge_size := Vector2(
+		PORTRAIT_GAME_HINT_COUNTER_SIZE,
+		PORTRAIT_GAME_HINT_COUNTER_SIZE
 	)
-	price_badge.z_index = 16
-	var price_coin := _stage_texture(
-		Rect2(
-			refresh_price_badge_rect.position + Vector2(3.0, 3.0),
-			Vector2(16.0, 16.0)
+	var refresh_ad_badge_rect := Rect2(
+		Vector2(
+			refresh_button.size.x - refresh_ad_badge_size.x * 0.82,
+			-refresh_ad_badge_size.y * 0.18
 		),
-		SOFT_CURRENCY_COIN_TEXTURE
+		refresh_ad_badge_size
 	)
-	price_coin.z_index = 17
-	single_player_popup_refresh_price_label = _stage_label(
-		Rect2(
-			Vector2(refresh_price_badge_rect.position.x + 18.0, refresh_price_badge_rect.position.y),
-			Vector2(refresh_price_badge_rect.size.x - 20.0, refresh_price_badge_rect.size.y)
-		),
-		str(SINGLE_PLAYER_THEME_REFRESH_COST),
-		13,
-		_purchase_price_color(SINGLE_PLAYER_THEME_REFRESH_COST),
-		HORIZONTAL_ALIGNMENT_CENTER
+	_single_player_popup_refresh_badge_component = _create_portrait_button_badge(
+		refresh_button,
+		{
+			"coin_rect": refresh_price_badge_rect,
+			"ad_rect": refresh_ad_badge_rect,
+			"free_rect": refresh_ad_badge_rect,
+			"price": SINGLE_PLAYER_THEME_REFRESH_COST,
+			"price_font_size": 13,
+			"ad_icon_scale": 1.4025,
+			"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+		}
 	)
-	single_player_popup_refresh_price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	single_player_popup_refresh_price_label.z_index = 17
+	_single_player_popup_refresh_badge_shadow = _single_player_popup_refresh_badge_component.get("shadow") as Control
+	_single_player_popup_refresh_price_badge = _single_player_popup_refresh_badge_component.get("badge") as Control
+	_single_player_popup_refresh_price_coin = _single_player_popup_refresh_badge_component.get("coin") as CanvasItem
+	_single_player_popup_refresh_ad_icon = _single_player_popup_refresh_badge_component.get("ad") as CanvasItem
+	single_player_popup_refresh_price_label = _single_player_popup_refresh_badge_component.get("label") as Label
 	_single_player_popup_refresh_visuals.clear()
 	for refresh_visual_variant: Variant in [
 		refresh_button,
-		price_badge,
-		price_coin,
-		single_player_popup_refresh_price_label,
 	]:
 		var refresh_visual := refresh_visual_variant as CanvasItem
 		if refresh_visual != null:
 			_single_player_popup_refresh_visuals.append(refresh_visual)
+	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
 	var word_count: int = _single_player_level_word_count(level_index)
 	_stage_single_player_popup_theme_cards(
@@ -2886,6 +3045,7 @@ func _stage_single_player_popup_theme_cards(
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		single_player_popup_theme_panels[theme_index] = card
 		var theme_icon: Control = null
+		var theme_glow: Control = null
 		var word_badge: Control = null
 		var word_badge_label: Label = null
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
@@ -2898,40 +3058,53 @@ func _stage_single_player_popup_theme_cards(
 				),
 				theme_icon_size
 			)
+			var theme_glow_size := theme_icon_size * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+			var theme_glow_rect := Rect2(
+				theme_icon_rect.get_center() - theme_glow_size * 0.5,
+				theme_glow_size
+			)
+			theme_glow = _stage_final_reward_glow(theme_glow_rect)
+			if theme_glow.get_parent() != null and theme_glow.get_parent() is CanvasItem:
+				(theme_glow.get_parent() as CanvasItem).z_index = 11
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
 			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
-			var word_badge_size := Vector2(48.0, 27.0)
+			theme_icon.z_index = 12
+			var word_badge_text := "x%d" % word_count
+			var word_badge_text_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
+				word_badge_text,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				16
+			)
+			var word_badge_diameter: float = maxf(27.0, ceilf(word_badge_text_size.x + 10.0))
+			var word_badge_size := Vector2.ONE * word_badge_diameter
 			var word_badge_rect := Rect2(
 				theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
 				word_badge_size
 			)
 			word_badge = _stage_panel(
 				word_badge_rect,
-				PORTRAIT_ORANGE,
-				word_badge_size.y * 0.5,
 				Color.WHITE,
-				1.5
+				word_badge_size.y * 0.5,
+				Color(0.0, 0.0, 0.0, 0.0),
+				0.0
 			)
 			word_badge.z_index = 13
 			word_badge_label = _stage_label(
 				word_badge_rect,
-				"x%d" % word_count,
+				word_badge_text,
 				16,
-				Color.WHITE,
+				PORTRAIT_BLUE,
 				HORIZONTAL_ALIGNMENT_CENTER
 			)
 			word_badge_label.z_index = 14
-			var badge_effect_color := Color(
-				PORTRAIT_DARK_BLUE.r,
-				PORTRAIT_DARK_BLUE.g,
-				PORTRAIT_DARK_BLUE.b,
-				0.55
-			)
-			word_badge_label.add_theme_color_override("font_outline_color", badge_effect_color)
-			word_badge_label.add_theme_constant_override("outline_size", 1)
-			word_badge_label.add_theme_color_override("font_shadow_color", badge_effect_color)
-			word_badge_label.add_theme_constant_override("shadow_offset_x", 2)
-			word_badge_label.add_theme_constant_override("shadow_offset_y", 2)
+			word_badge_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+			word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+			word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
+			word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
 			word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+			word_badge_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+			word_badge_label.add_theme_constant_override("outline_size", 0)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 		var theme_name_height: float = 56.0
 		var theme_name_rect := Rect2(
@@ -2957,12 +3130,7 @@ func _stage_single_player_popup_theme_cards(
 			PORTRAIT_DARK_BLUE.b,
 			0.55
 		)
-		theme_label.add_theme_color_override("font_outline_color", popup_theme_effect_color)
-		theme_label.add_theme_constant_override("outline_size", 1)
-		theme_label.add_theme_color_override("font_shadow_color", popup_theme_effect_color)
-		theme_label.add_theme_constant_override("shadow_offset_x", 2)
-		theme_label.add_theme_constant_override("shadow_offset_y", 2)
-		theme_label.add_theme_constant_override("shadow_outline_size", 0)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(theme_label, popup_theme_effect_color, popup_theme_effect_color)
 		var theme_button := _stage_button(
 			card_rect,
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
@@ -2972,6 +3140,7 @@ func _stage_single_player_popup_theme_cards(
 		_single_player_popup_theme_card_visuals.append({
 			"card_rect": card_rect,
 			"theme_index": theme_index,
+			"theme_glow": theme_glow,
 			"theme_icon": theme_icon,
 			"word_badge": word_badge,
 			"word_badge_label": word_badge_label,
@@ -2983,11 +3152,11 @@ func _stage_single_player_popup_theme_cards(
 	content = previous_content
 
 func _refresh_single_player_theme_popup(level_index: int) -> void:
-	if (
-		level_index != single_player_popup_level_index
-		or _single_player_theme_slot_animating
-		or _single_player_theme_reroll_used
-	):
+	if level_index != single_player_popup_level_index or _single_player_theme_slot_animating:
+		return
+	if _single_player_theme_reroll_used:
+		if !_single_player_theme_ad_reroll_used:
+			_show_portrait_rewarded_action(&"theme_reroll", level_index)
 		return
 	if GameState.get_soft_currency() < SINGLE_PLAYER_THEME_REFRESH_COST:
 		_open_coin_store(
@@ -3000,7 +3169,16 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
 		return
 	_single_player_theme_reroll_used = true
+	GameState.set_single_level_theme_reroll_state(
+		Database.current_language,
+		level_index,
+		GameState.SINGLE_LEVEL_THEME_REROLL_COIN_USED
+	)
+	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
+	_perform_single_player_theme_reroll(level_index)
+
+func _perform_single_player_theme_reroll(level_index: int) -> void:
 	var previous_options: Array = _single_player_level_theme_options(level_index).duplicate()
 	var next_options: Array = _reroll_single_player_theme_options(level_index, previous_options)
 	_update_single_player_refresh_price(GameState.get_soft_currency())
@@ -3022,12 +3200,37 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 		false
 	)
 
+func _update_single_player_theme_reroll_badge() -> void:
+	var show_price_badge: bool = !_single_player_theme_reroll_used
+	var show_ad_badge: bool = _single_player_theme_reroll_used and !_single_player_theme_ad_reroll_used
+	if _single_player_popup_refresh_badge_component.is_empty():
+		return
+	if show_price_badge:
+		_set_portrait_button_badge_state(
+			_single_player_popup_refresh_badge_component,
+			PORTRAIT_BUTTON_BADGE_STATE_COINS,
+			{"price": SINGLE_PLAYER_THEME_REFRESH_COST}
+		)
+	elif show_ad_badge:
+		_set_portrait_button_badge_state(
+			_single_player_popup_refresh_badge_component,
+			PORTRAIT_BUTTON_BADGE_STATE_AD
+		)
+	else:
+		_set_portrait_button_badge_visible(_single_player_popup_refresh_badge_component, false)
+
 func _update_single_player_theme_reroll_button_state() -> void:
 	if single_player_popup_refresh_button == null or !is_instance_valid(single_player_popup_refresh_button):
 		return
+	var waiting_for_this_ad: bool = (
+		_portrait_rewarded_action == &"theme_reroll"
+		and _portrait_rewarded_action_level_index == single_player_popup_level_index
+	)
 	single_player_popup_refresh_button.set(
 		"button_disabled",
-		_single_player_theme_slot_animating or _single_player_theme_reroll_used
+		_single_player_theme_slot_animating
+		or (_single_player_theme_reroll_used and _single_player_theme_ad_reroll_used)
+		or waiting_for_this_ad
 	)
 
 func _reroll_single_player_theme_options(level_index: int, previous_options: Array) -> Array:
@@ -3035,7 +3238,12 @@ func _reroll_single_player_theme_options(level_index: int, previous_options: Arr
 	var require_fully_new_options: bool = Database.get_theme_count() >= previous_options.size() * 2
 	var max_attempts: int = 16 if require_fully_new_options else 1
 	for _attempt_index in range(max_attempts):
-		GameState.reset_single_level_attempt(Database.current_language, level_index)
+		GameState.reset_single_level_attempt(
+			Database.current_language,
+			level_index,
+			true,
+			false
+		)
 		_invalidate_single_player_level_cache()
 		next_options = _single_player_level_theme_options(level_index)
 		if !require_fully_new_options or _single_player_theme_options_are_fully_new(
@@ -3137,6 +3345,8 @@ func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:
 	for refresh_visual: CanvasItem in _single_player_popup_refresh_visuals:
 		if refresh_visual != null and is_instance_valid(refresh_visual):
 			refresh_visual.visible = is_visible
+	if is_visible:
+		_update_single_player_theme_reroll_badge()
 
 func _start_single_player_theme_slot_animation(
 	level_index: int,
@@ -3348,7 +3558,7 @@ func _set_single_player_theme_static_visuals_visible(visible_value: bool) -> voi
 		if !(visual_variant is Dictionary):
 			continue
 		var visual: Dictionary = visual_variant
-		for key: String in ["theme_icon", "word_badge", "word_badge_label", "theme_label"]:
+		for key: String in ["theme_glow", "theme_icon", "word_badge", "word_badge_label", "theme_label"]:
 			var node := visual.get(key) as CanvasItem
 			if node != null and is_instance_valid(node):
 				node.visible = visible_value
@@ -3427,10 +3637,18 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		if !(visual_variant is Dictionary):
 			continue
 		var visual: Dictionary = visual_variant
+		var theme_glow := visual.get("theme_glow") as Control
 		var theme_icon := visual.get("theme_icon") as Control
 		var theme_label := visual.get("theme_label") as Control
 		var badge_panel := visual.get("word_badge") as Control
 		var badge_label := visual.get("word_badge_label") as Control
+
+		if theme_glow != null and is_instance_valid(theme_glow):
+			theme_glow.visible = true
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
+			if !theme_glow.has_meta(&"theme_card_glow_rotation_started"):
+				_start_final_reward_glow_rotation(theme_glow)
+				theme_glow.set_meta(&"theme_card_glow_rotation_started", true)
 
 		if theme_icon != null and is_instance_valid(theme_icon):
 			var icon_rest_position: Vector2 = theme_icon.position
@@ -3495,6 +3713,24 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		if reveal_delay > 0.0:
 			reveal_tween.tween_interval(reveal_delay)
+		# Keep the icon bounce tween byte-for-byte in the same sequential shape it
+		# had before the theme glow was added. Glow timing runs on its own tween so
+		# it cannot change the bounce delay, settle timing, or center compensation.
+		var theme_glow := reveal_visual.get("theme_glow") as Control
+		if theme_glow != null and is_instance_valid(theme_glow):
+			var glow_tween: Tween = theme_glow.create_tween()
+			glow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			if reveal_delay > 0.0:
+				glow_tween.tween_interval(reveal_delay)
+			var glow_fade: PropertyTweener = glow_tween.tween_property(
+				theme_glow,
+				"modulate:a",
+				PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA,
+				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION + PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
+			)
+			glow_fade.set_trans(Tween.TRANS_SINE)
+			glow_fade.set_ease(Tween.EASE_OUT)
+			_single_player_theme_slot_tweens.append(glow_tween)
 		var icon_grow: PropertyTweener = reveal_tween.tween_property(
 			theme_icon,
 			"scale",
@@ -3600,6 +3836,10 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			continue
 		var visual: Dictionary = visual_variant
 		_restore_single_player_theme_icon_bounce_transform(visual)
+		var theme_glow := visual.get("theme_glow") as Control
+		if theme_glow != null and is_instance_valid(theme_glow):
+			theme_glow.visible = true
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
 		var theme_label := visual.get("theme_label") as Control
 		if theme_label != null and is_instance_valid(theme_label):
 			theme_label.visible = true
@@ -3678,10 +3918,12 @@ func _update_single_player_refresh_price(balance: int) -> void:
 	):
 		return
 	var price_color: Color = (
-		Color.WHITE
+		PORTRAIT_BLUE
 		if balance >= SINGLE_PLAYER_THEME_REFRESH_COST
 		else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
+	if !_single_player_popup_refresh_badge_component.is_empty():
+		_single_player_popup_refresh_badge_component["price_color"] = price_color
 	single_player_popup_refresh_price_label.add_theme_color_override("font_color", price_color)
 
 func _select_single_player_popup_theme(level_index: int, theme_index: int) -> void:
@@ -3741,6 +3983,7 @@ func _start_single_player_popup_level(level_index: int) -> void:
 		return
 	_single_player_theme_reroll_level_index = -1
 	_single_player_theme_reroll_used = false
+	_single_player_theme_ad_reroll_used = false
 	super._start_single_player_popup_level(level_index)
 
 func _show_exit_game_popup() -> void:
@@ -3758,6 +4001,51 @@ func _show_exit_game_popup() -> void:
 		return
 	_remove_exit_game_popup()
 	var close_action := Callable(self, "_remove_exit_game_popup")
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		var two_player_previous_content := _portrait_popup_begin(
+			"ExitGamePopup",
+			"exit_game_popup",
+			140,
+			close_action,
+			205.0,
+			525.0
+		)
+		var two_player_rect := Rect2(28.0, 205.0, 424.0, 320.0)
+		_portrait_popup_shell(
+			two_player_rect,
+			_exit_game_title_text().to_upper(),
+			close_action,
+			27
+		)
+		var two_player_warning := _stage_label(
+			Rect2(58.0, 310.0, 364.0, 70.0),
+			_exit_game_warning_text(),
+			21,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		two_player_warning.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		two_player_warning.clip_text = false
+		_stage_portrait_popup_main_button(
+			Rect2(82.0, 442.0, 145.0, 52.0),
+			Callable(self, "_confirm_exit_game").bind(true),
+			tr("YES"),
+			20
+		)
+		_stage_portrait_popup_main_button(
+			Rect2(253.0, 442.0, 145.0, 52.0),
+			close_action,
+			tr("NO"),
+			20,
+			false,
+			0.32,
+			false,
+			false,
+			false,
+			LONG_BUTTON_COLOR_ORANGE
+		)
+		content = two_player_previous_content
+		return
 	var previous_content := _portrait_popup_begin(
 		"ExitGamePopup",
 		"exit_game_popup",
@@ -3799,16 +4087,15 @@ func show_custom_word() -> void:
 		Callable(self, "_return_to_custom_word_from_coin_store")
 	)
 
-	# Attach both actions to the footer and apply the same 85% width treatment
-	# as the Start Game button. This keeps their visual and touch sizes equal.
+	# Keep the complete action stack above the advertising reserve. The group is
+	# still bottom-attached, so it follows the physical bottom on tall screens.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
-	custom_word_check_button = _stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 22, false, 0.0)
-	_stage_main_button(_portrait_footer_long_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
-	_portrait_end_adaptive_group(custom_word_bottom_content)
+	custom_word_check_button = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 22, false, 0.0)
+	_stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
 
-	# Keep the primary action bottom-attached without drawing a blue footer.
+	# Keep the primary action above the banner without drawing a blue footer.
 	custom_word_start_button = _stage_main_button(
-		_portrait_footer_long_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
+		_portrait_custom_word_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
 		Callable(self, "start_custom_game"),
 		_custom_word_start_label(),
 		_portrait_footer_font_size(22),
@@ -3819,7 +4106,16 @@ func show_custom_word() -> void:
 		!custom_word_text.is_empty(),
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_custom_word_field()
+	_stage_portrait_ad_banner()
+
+func _portrait_custom_word_button_rect(source_rect: Rect2) -> Rect2:
+	# Resolve the original footer sizing first, then raise the result. This keeps
+	# every button's existing dimensions while moving the whole stack together.
+	var raised_rect: Rect2 = _portrait_footer_long_button_rect(source_rect)
+	raised_rect.position.y -= PORTRAIT_CUSTOM_WORD_BUTTON_RISE
+	return raised_rect
 
 func _return_to_custom_word_from_coin_store() -> void:
 	_preserve_custom_word_on_next_show = true
@@ -3876,12 +4172,14 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var marker_size := Vector2(44.0, 44.0) * keyboard_scale
 	var keyboard_rows: int = int(ceil(float(alphabet.size()) / float(columns)))
 	var keyboard_height: float = key_size.y + float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
-	var keyboard_start_y: float = (PORTRAIT_FOOTER_Y - PORTRAIT_GAME_KEYBOARD_BOTTOM_RESERVE) - 24.0 - keyboard_height
+	var keyboard_start_y: float = (
+		PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage()
+	) - 24.0 - keyboard_height
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		keyboard_start_y += PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET
 	else:
 		# Keyboard, word and hints share one bottom-attached block. Move the whole
-		# block down together so the hint row sits closer to the AdMob reserve.
+		# block down together so the hint row sits closer to the banner reserve.
 		keyboard_start_y += PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
 	return {
 		"columns": columns,
@@ -3991,6 +4289,8 @@ func _refresh_game_screen() -> void:
 	var keyboard_start_x: float = (PORTRAIT_STAGE_SIZE.x - keyboard_total_width) * 0.5
 	var keyboard_start_y: float = float(keyboard_metrics["start_y"])
 	var game_word_rect: Rect2 = keyboard_metrics["word_rect"]
+	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+		keyboard_start_y -= PORTRAIT_STAGE_SIZE.y * 0.01
 
 	# Word, keyboard and hints deliberately live in ONE bottom-attached group.
 	# This makes the entire input cluster translate as a single unit on tall
@@ -4007,7 +4307,9 @@ func _refresh_game_screen() -> void:
 	word_paper_mask.name = "PortraitGameWordPaperMask"
 	word_paper_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	word_paper_mask.clip_contents = true
-	word_paper_mask.z_index = 30
+	# The paper front must stay above the revealed answer, marker underlay and
+	# search button throughout the peel animation.
+	word_paper_mask.z_index = 40
 	content.add_child(word_paper_mask)
 	word_paper_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_portrait_game_word_paper_mask = word_paper_mask
@@ -4034,7 +4336,7 @@ func _refresh_game_screen() -> void:
 		PORTRAIT_GAME_WORD_PAPER_HEIGHT
 	)
 	var word_paper_backside := _stage_holder(backside_rect, Control.MOUSE_FILTER_IGNORE)
-	word_paper_backside.z_index = 31
+	word_paper_backside.z_index = 41
 	word_paper_backside.visible = false
 	_portrait_game_word_paper_backside = word_paper_backside
 
@@ -4122,7 +4424,7 @@ func _refresh_game_screen() -> void:
 			DIFFICULTY_HARD_SELECTED_TINT
 		)
 	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
-	_stage_portrait_admob_banner_placeholder()
+	_stage_portrait_ad_banner()
 	_portrait_game_runtime_ready = true
 	call_deferred("_sync_portrait_attempts_attention_bounce")
 	pending_letter_markers.clear()
@@ -4387,7 +4689,7 @@ func _refresh_portrait_game_keyboard() -> void:
 func _portrait_game_hint_state_signature() -> String:
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		return "two_player"
-	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
+	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
 		int(GameSession.is_active),
 		int(GameSession.open_hint_used),
 		int(GameSession.remove_wrong_hint_used),
@@ -4398,6 +4700,8 @@ func _portrait_game_hint_state_signature() -> String:
 		int(GameSession.can_use_open_letter_hint()),
 		int(GameSession.can_use_remove_wrong_hint()),
 		int(GameSession.can_unlock_comment_hint()),
+		int(GameSession.can_use_open_letter_hint_ad()),
+		int(GameSession.can_use_remove_wrong_hint_ad()),
 	]
 
 func _refresh_portrait_game_hints_if_needed() -> void:
@@ -4496,15 +4800,25 @@ func _play_portrait_hint_spend_animation_if_needed(
 			used_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_animate_portrait_hint_counter_roll(hint_key, previous_count, current_count)
 
-func _stage_portrait_admob_banner_placeholder() -> void:
-	# Reserve a real 320×50 mobile-banner slot at the physical bottom. The named
-	# holder can later be used as the anchor/registration point for the AdMob view.
-	var banner_slot := _stage_holder(PORTRAIT_ADMOB_BANNER_RECT, Control.MOUSE_FILTER_IGNORE)
-	banner_slot.name = "AdMobBannerSlot"
-	banner_slot.add_to_group(&"admob_banner_slot")
+func _stage_portrait_ad_banner() -> void:
+	# Yandex renders a native Android view above Godot. The Godot holder reserves
+	# the same physical-bottom area and remains visible as a preview in the editor.
+	var banner_rect: Rect2 = _portrait_ad_banner_rect()
+	var banner_slot := _stage_holder(banner_rect, Control.MOUSE_FILTER_IGNORE)
+	banner_slot.name = "YandexAdsBannerSlot"
+	banner_slot.add_to_group(&"ad_banner_slot")
 	banner_slot.z_index = 30
+	var ads_service: Node = _portrait_ads_service()
+	var native_ads_available: bool = false
+	if ads_service != null:
+		if ads_service.has_method("is_native_available"):
+			native_ads_available = bool(ads_service.call("is_native_available"))
+		if ads_service.has_method("show_banner"):
+			ads_service.call("show_banner")
+	if native_ads_available:
+		return
 	var banner_panel := _stage_panel(
-		PORTRAIT_ADMOB_BANNER_RECT,
+		banner_rect,
 		Color(0.97, 0.97, 0.98, 1.0),
 		0.0,
 		Color(0.72, 0.75, 0.82, 1.0),
@@ -4512,8 +4826,8 @@ func _stage_portrait_admob_banner_placeholder() -> void:
 	)
 	banner_panel.z_index = 30
 	var banner_label := _stage_label(
-		PORTRAIT_ADMOB_BANNER_RECT,
-		"ADMOB 320×50",
+		banner_rect,
+		"YANDEX ADS • ADAPTIVE STICKY",
 		12,
 		Color(0.43, 0.46, 0.54, 1.0),
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -4568,13 +4882,15 @@ func _stage_portrait_result_word_display(
 	var word_rect := Rect2(
 		Vector2(
 			(PORTRAIT_STAGE_SIZE.x - word_width) * 0.5,
-			rect.position.y + PORTRAIT_RESULT_WORD_Y_OFFSET
+			rect.position.y + PORTRAIT_RESULT_WORD_Y_OFFSET + PORTRAIT_STAGE_SIZE.y * 0.02
 		),
 		Vector2(word_width, rect.size.y - 10.0)
 	)
 	var word_text: String = "".join(GameSession.letters)
 	var word_holder := _stage_holder(word_rect, Control.MOUSE_FILTER_IGNORE)
-	word_holder.z_index = 20
+	# The solved word now lives outside the clipping mask. The front paper layer
+	# simply stays above it and reveals the text by moving away during the peel.
+	word_holder.z_index = 29
 	var word_label := RichTextLabel.new()
 	word_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	word_label.focus_mode = Control.FOCUS_NONE
@@ -4592,7 +4908,6 @@ func _stage_portrait_result_word_display(
 	result_font_variation.set("spacing_glyph", PORTRAIT_RESULT_LETTER_SPACING)
 	word_label.add_theme_font_override("normal_font", result_font_variation)
 	word_label.add_theme_color_override("default_color", PORTRAIT_BLUE)
-	word_holder.add_child(word_label)
 
 	var result_font: Font = result_font_variation
 	var result_font_size: int = 34
@@ -4614,6 +4929,8 @@ func _stage_portrait_result_word_display(
 			result_font_size
 		).x
 	word_label.add_theme_font_size_override("normal_font_size", result_font_size)
+	word_holder.add_child(word_label)
+	word_label.z_index = 1
 
 	var animated_letter_count: int = 0
 	for letter: String in GameSession.letters:
@@ -4660,6 +4977,29 @@ func _stage_portrait_result_word_display(
 	# button on that same rect so its vertical alignment follows the text layout
 	# automatically instead of relying on a device-specific optical offset.
 	var search_y: float = word_rect.get_center().y - PORTRAIT_RESULT_SEARCH_BUTTON_SIZE * 0.5
+	var marker_left: float = maxf(18.0, word_bounds.position.x - 6.0)
+	var marker_right: float = minf(
+		PORTRAIT_STAGE_SIZE.x - 18.0,
+		search_x + PORTRAIT_RESULT_SEARCH_BUTTON_SIZE + 5.0
+	)
+	var marker_top: float = word_rect.position.y - 4.0
+	var marker_height: float = maxf(
+		word_rect.size.y + 8.0,
+		PORTRAIT_RESULT_SEARCH_BUTTON_SIZE + 4.0
+	)
+	var marker_holder := _stage_holder(
+		Rect2(
+			marker_left,
+			marker_top,
+			marker_right - marker_left,
+			marker_height
+		),
+		Control.MOUSE_FILTER_IGNORE
+	)
+	marker_holder.name = "ResultWordMarkerHolder"
+	marker_holder.z_index = 29
+	var word_marker := _stage_portrait_result_word_marker(marker_holder.size)
+	marker_holder.add_child(word_marker)
 	var search_button := _stage_round_icon_button(
 		Rect2(
 			search_x,
@@ -4671,7 +5011,7 @@ func _stage_portrait_result_word_display(
 		RESULT_SEARCH_ICON,
 		PORTRAIT_RESULT_SEARCH_ICON_SIZE
 	)
-	search_button.z_index = 20
+	search_button.z_index = 29
 	search_button.set("press_scale_enabled", true)
 	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE)
 	search_button.visible = !animate_result
@@ -4685,6 +5025,8 @@ func _stage_portrait_result_word_display(
 		)
 	return {
 		"word_holder": word_holder,
+		"marker_holder": marker_holder,
+		"word_marker": word_marker,
 		"word_label": word_label,
 		"search_button": search_button,
 	}
@@ -4894,12 +5236,14 @@ func _portrait_game_hint_y() -> float:
 		+ float(maxi(keyboard_rows - 1, 0)) * float(keyboard_metrics["step_y"])
 		+ keyboard_key_size.y
 	)
-	return keyboard_bottom_y + PORTRAIT_GAME_HINT_KEYBOARD_GAP
+	var base_hint_y: float = keyboard_bottom_y + PORTRAIT_GAME_HINT_KEYBOARD_GAP
+	# Raise only the action row by exactly 5%. Keyboard metrics stay untouched.
+	return base_hint_y * PORTRAIT_GAME_ACTION_Y_SCALE
 
 func _portrait_in_place_result_button_rect() -> Rect2:
 	var button_y: float = minf(
 		_portrait_game_hint_y(),
-		PORTRAIT_ADMOB_BANNER_RECT.position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
+		_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
 	)
 	return Rect2(
 		Vector2(
@@ -4924,66 +5268,65 @@ func _stage_portrait_hint_buttons() -> void:
 	# children of the buttons, so keyboard + hints + badges translate together.
 	var open_hint_used: bool = GameSession.open_hint_used
 	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
+	var open_hint_ad_available: bool = GameSession.can_use_open_letter_hint_ad()
+	var remove_hint_ad_available: bool = GameSession.can_use_remove_wrong_hint_ad()
 	var comment_unlocked: bool = GameSession.comment_hint_unlocked
 	var round_inactive: bool = !GameSession.is_active
-	var open_hint_disabled: bool = round_inactive or open_hint_used or !GameSession.can_use_open_letter_hint()
-	var remove_hint_disabled: bool = round_inactive or remove_hint_used or !GameSession.can_use_remove_wrong_hint()
+	var open_hint_disabled: bool = (
+		round_inactive
+		or (!open_hint_ad_available if open_hint_used else !GameSession.can_use_open_letter_hint())
+	)
+	var remove_hint_disabled: bool = (
+		round_inactive
+		or (!remove_hint_ad_available if remove_hint_used else !GameSession.can_use_remove_wrong_hint())
+	)
 	var comment_disabled: bool = round_inactive or (!comment_unlocked and !GameSession.can_unlock_comment_hint())
 
 	# Place the hint row directly after the last keyboard row. Both controls live
 	# in bottom-attached coordinate space, so this gap stays stable on tall phones.
 	var hint_y: float = _portrait_game_hint_y()
+	var hint_button_y: float = hint_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
 	var open_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.position.x, hint_y),
+		Vector2(PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.position.x, hint_button_y),
 		PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.size
 	)
 	var remove_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.position.x, hint_y),
+		Vector2(PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.position.x, hint_button_y),
 		PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.size
 	)
 	var comment_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.position.x, hint_y),
+		Vector2(PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.position.x, hint_button_y),
 		PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.size
 	)
 
-	# The authored long-button component remains the clickable base. The larger
-	# doodle artwork is staged separately so it can rise above the button, like a
-	# physical hint item resting on the top edge.
-	var open_button := _stage_main_button(
+	# Use the standard round-button component for all hint actions. The doodle art
+	# remains a separate child so badges and state changes can be reused unchanged.
+	var open_button := _stage_round_button(
 		open_rect,
 		Callable(self, "_use_open_hint"),
 		"",
-		14,
 		open_hint_disabled,
+		false,
 		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_BLUE
 	)
-	var remove_button := _stage_main_button(
+	var remove_button := _stage_round_button(
 		remove_rect,
 		Callable(self, "_use_remove_hint"),
 		"",
-		14,
 		remove_hint_disabled,
+		false,
 		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_BLUE
 	)
-	var comment_button := _stage_main_button(
+	var comment_button := _stage_round_button(
 		comment_rect,
 		Callable(self, "_use_comment_hint"),
 		"",
-		13,
 		comment_disabled,
+		false,
 		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_ORANGE if comment_unlocked else LONG_BUTTON_COLOR_BLUE
 	)
 
 	_portrait_game_hint_buttons.clear()
@@ -4994,21 +5337,32 @@ func _stage_portrait_hint_buttons() -> void:
 	_portrait_game_hint_buttons.append(remove_button)
 	_portrait_game_hint_buttons.append(comment_button)
 
-	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_REVEAL_LETTER_ICON, open_hint_used)
-	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_REMOVE_WRONG_ICON, remove_hint_used)
+	_stage_portrait_hint_art(
+		open_button,
+		PORTRAIT_HINT_REVEAL_LETTER_ICON,
+		open_hint_used and !open_hint_ad_available
+	)
+	_stage_portrait_hint_art(
+		remove_button,
+		PORTRAIT_HINT_REMOVE_WRONG_ICON,
+		remove_hint_used and !remove_hint_ad_available
+	)
 	_stage_portrait_hint_art(
 		comment_button,
 		PORTRAIT_HINT_COMMENT_UNLOCK_ICON,
-		false,
-		PORTRAIT_GAME_HINT_COMMENT_ART_Y_OFFSET
+		false
 	)
 
 	# Prices and inventory badges only describe actions that still consume a hint.
 	# Used one-shot hints use the shared gray disabled state without a stale badge;
 	# the unlocked comment remains a regular free blue action.
-	if !open_hint_used:
+	if open_hint_ad_available:
+		_stage_portrait_hint_ad_counter(open_button)
+	elif !open_hint_used:
 		_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
-	if !remove_hint_used:
+	if remove_hint_ad_available:
+		_stage_portrait_hint_ad_counter(remove_button)
+	elif !remove_hint_used:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
 	if !comment_unlocked:
 		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
@@ -5022,6 +5376,28 @@ func _stage_portrait_hint_art(
 ) -> void:
 	if button == null:
 		return
+	var art_position := Vector2(
+		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
+		(button.size.y - PORTRAIT_GAME_HINT_ART_SIZE.y) * 0.5 + y_offset
+	)
+	var art_shadow := TextureRect.new()
+	art_shadow.name = "HintArtShadow"
+	art_shadow.texture = texture
+	art_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_shadow.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	art_shadow.size = PORTRAIT_GAME_HINT_ART_SIZE
+	art_shadow.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
+	art_shadow.position = art_position + Vector2(2.0, 2.0)
+	art_shadow.modulate = Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.62
+	)
+	art_shadow.z_index = 3
+	button.add_child(art_shadow)
 	var art := TextureRect.new()
 	art.name = "HintArt"
 	art.texture = texture
@@ -5031,10 +5407,7 @@ func _stage_portrait_hint_art(
 	art.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	art.size = PORTRAIT_GAME_HINT_ART_SIZE
 	art.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
-	art.position = Vector2(
-		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
-		-PORTRAIT_GAME_HINT_ART_RISE + y_offset
-	)
+	art.position = art_position
 	if grayscale:
 		var grayscale_material := ShaderMaterial.new()
 		grayscale_material.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
@@ -5073,6 +5446,31 @@ func _portrait_hint_local_panel(
 	button.add_child(panel)
 	return panel
 
+func _apply_portrait_panel_style(
+	panel: Panel,
+	fill_color: Color,
+	corner_radius: float,
+	border_color: Color = Color.TRANSPARENT,
+	border_width: float = 0.0
+) -> void:
+	if panel == null or !is_instance_valid(panel):
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	var radius: int = maxi(0, int(round(corner_radius)))
+	style.corner_radius_top_left = radius
+	style.corner_radius_top_right = radius
+	style.corner_radius_bottom_left = radius
+	style.corner_radius_bottom_right = radius
+	if border_width > 0.0:
+		var resolved_border_width: int = maxi(1, int(round(border_width)))
+		style.border_color = border_color
+		style.border_width_left = resolved_border_width
+		style.border_width_top = resolved_border_width
+		style.border_width_right = resolved_border_width
+		style.border_width_bottom = resolved_border_width
+	panel.add_theme_stylebox_override("panel", style)
+
 func _portrait_hint_local_label(
 	parent: Control,
 	text: String,
@@ -5093,19 +5491,251 @@ func _portrait_hint_local_label(
 	parent.add_child(label)
 	return label
 
+func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> Dictionary:
+	if button == null or !is_instance_valid(button):
+		return {}
+	var shadow := Panel.new()
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.z_index = 7
+	button.add_child(shadow)
+	var badge := Panel.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 8
+	button.add_child(badge)
+	var holder := Control.new()
+	holder.name = "BadgeHolder"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.position = Vector2.ZERO
+	holder.clip_contents = true
+	badge.add_child(holder)
+	var coin_icon := TextureRect.new()
+	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coin_icon.z_index = 1
+	holder.add_child(coin_icon)
+	var ad_shadow_icon := TextureRect.new()
+	ad_shadow_icon.name = "HintAdIconShadow"
+	ad_shadow_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ad_shadow_icon.texture = WATCH_AD_ICON_TEXTURE
+	ad_shadow_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ad_shadow_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ad_shadow_icon.modulate = Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.6)
+	ad_shadow_icon.z_index = 0
+	holder.add_child(ad_shadow_icon)
+	var ad_icon := TextureRect.new()
+	ad_icon.name = "HintAdIcon"
+	ad_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ad_icon.texture = WATCH_AD_ICON_TEXTURE
+	ad_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ad_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ad_icon.modulate = Color.WHITE
+	ad_icon.z_index = 1
+	holder.add_child(ad_icon)
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	label.z_index = 1
+	holder.add_child(label)
+	var component := {
+		"shadow": shadow,
+		"badge": badge,
+		"holder": holder,
+		"coin": coin_icon,
+		"ad_shadow": ad_shadow_icon,
+		"ad": ad_icon,
+		"label": label,
+		"coin_rect": config.get("coin_rect", Rect2()),
+		"ad_rect": config.get("ad_rect", Rect2()),
+		"free_rect": config.get("free_rect", config.get("ad_rect", Rect2())),
+		"price": int(config.get("price", 0)),
+		"count": int(config.get("count", 0)),
+		"price_font_size": int(config.get("price_font_size", 16)),
+		"free_font_size": int(config.get("free_font_size", 17)),
+		"ad_icon_scale": float(config.get("ad_icon_scale", 1.0)),
+		"price_color": config.get("price_color", PORTRAIT_BLUE),
+	}
+	_set_portrait_button_badge_state(
+		component,
+		String(config.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS))
+	)
+	return component
+
+func _set_portrait_button_badge_state(
+	component: Dictionary,
+	state: String,
+	update: Dictionary = {}
+) -> void:
+	if component.is_empty():
+		return
+	for key in update.keys():
+		component[key] = update[key]
+	var shadow := component.get("shadow") as Panel
+	var badge := component.get("badge") as Panel
+	var holder := component.get("holder") as Control
+	var coin_icon := component.get("coin") as TextureRect
+	var ad_shadow_icon := component.get("ad_shadow") as TextureRect
+	var ad_icon := component.get("ad") as TextureRect
+	var label := component.get("label") as Label
+	if shadow == null or badge == null or holder == null or coin_icon == null or ad_shadow_icon == null or ad_icon == null or label == null:
+		return
+	var rect: Rect2 = component.get("coin_rect", Rect2())
+	match state:
+		PORTRAIT_BUTTON_BADGE_STATE_AD:
+			rect = component.get("ad_rect", rect)
+		PORTRAIT_BUTTON_BADGE_STATE_FREE:
+			rect = component.get("free_rect", rect)
+	shadow.position = rect.position + Vector2(2.0, 2.0)
+	shadow.size = rect.size
+	badge.position = rect.position
+	badge.size = rect.size
+	holder.position = Vector2.ZERO
+	holder.size = rect.size
+	var corner_radius := rect.size.y * 0.5
+	if state == PORTRAIT_BUTTON_BADGE_STATE_AD:
+		corner_radius = rect.size.x * 0.5
+	_apply_portrait_panel_style(
+		shadow,
+		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.28),
+		corner_radius,
+		Color(0.0, 0.0, 0.0, 0.0),
+		0.0
+	)
+	coin_icon.visible = false
+	ad_shadow_icon.visible = false
+	ad_icon.visible = false
+	label.visible = false
+	match state:
+		PORTRAIT_BUTTON_BADGE_STATE_COINS:
+			_apply_portrait_panel_style(badge, Color.WHITE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
+			coin_icon.visible = true
+			label.visible = true
+			var coin_icon_diameter: float = minf(24.0, rect.size.y - 4.0)
+			var coin_icon_x: float = 2.0
+			var coin_icon_y: float = (rect.size.y - coin_icon_diameter) * 0.5
+			coin_icon.position = Vector2(coin_icon_x, coin_icon_y)
+			coin_icon.size = Vector2.ONE * coin_icon_diameter
+			var label_x: float = coin_icon_x + coin_icon_diameter - 1.0
+			label.position = Vector2(label_x, 0.0)
+			label.size = Vector2(maxf(0.0, rect.size.x - label_x - 2.0), rect.size.y)
+			label.text = str(maxi(int(component.get("price", 0)), 0))
+			label.add_theme_font_size_override("font_size", int(component.get("price_font_size", 16)))
+			label.add_theme_color_override("font_color", component.get("price_color", PORTRAIT_BLUE))
+			label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("shadow_offset_x", 0)
+			label.add_theme_constant_override("shadow_offset_y", 0)
+			label.add_theme_constant_override("shadow_outline_size", 0)
+			label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("outline_size", 0)
+		PORTRAIT_BUTTON_BADGE_STATE_AD:
+			_apply_portrait_panel_style(badge, PORTRAIT_AD_BADGE_PURPLE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
+			ad_shadow_icon.visible = true
+			ad_icon.visible = true
+			ad_shadow_icon.modulate = Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.6)
+			ad_icon.modulate = Color.WHITE
+			var ad_icon_size := Vector2(rect.size.x - 6.0, rect.size.y - 12.0) * float(component.get("ad_icon_scale", 1.0))
+			var ad_icon_position := (rect.size - ad_icon_size) * 0.5
+			ad_shadow_icon.position = ad_icon_position + Vector2(1.0, 1.0)
+			ad_shadow_icon.size = ad_icon_size
+			ad_icon.position = ad_icon_position
+			ad_icon.size = ad_icon_size
+		PORTRAIT_BUTTON_BADGE_STATE_FREE:
+			_apply_portrait_panel_style(badge, PORTRAIT_FREE_HINT_BADGE_GREEN, rect.size.x * 0.5)
+			label.visible = true
+			label.position = Vector2.ZERO
+			label.size = rect.size
+			label.text = str(maxi(int(component.get("count", 0)), 0))
+			label.add_theme_font_size_override("font_size", int(component.get("free_font_size", 17)))
+			label.add_theme_color_override("font_color", Color.WHITE)
+			label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("shadow_offset_x", 0)
+			label.add_theme_constant_override("shadow_offset_y", 0)
+			label.add_theme_constant_override("shadow_outline_size", 0)
+			label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("outline_size", 0)
+	shadow.visible = state != PORTRAIT_BUTTON_BADGE_STATE_FREE
+	badge.visible = true
+
+func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) -> void:
+	if component.is_empty():
+		return
+	if visible:
+		return
+	for key in ["shadow", "badge", "coin", "ad_shadow", "ad", "label"]:
+		var node := component.get(key) as CanvasItem
+		if node != null and is_instance_valid(node):
+			node.visible = false
+
+func _portrait_button_badge_shadow(
+	button: Control,
+	local_rect: Rect2,
+	corner_radius: float
+) -> Panel:
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": local_rect,
+		"ad_rect": local_rect,
+		"free_rect": local_rect,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+	})
+	var shadow := component.get("shadow") as Panel
+	if shadow != null and is_instance_valid(shadow):
+		_apply_portrait_panel_style(
+			shadow,
+			Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.28),
+			corner_radius,
+			Color(0.0, 0.0, 0.0, 0.0),
+			0.0
+		)
+	var badge := component.get("badge") as CanvasItem
+	if badge != null and is_instance_valid(badge):
+		badge.queue_free()
+	return shadow
+
+func _create_portrait_button_ad_badge(
+	button: Control,
+	badge_rect: Rect2,
+	icon_scale_multiplier: float = 1.0
+) -> Dictionary:
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"ad_icon_scale": icon_scale_multiplier,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_AD,
+	})
+	component["icon"] = component.get("ad")
+	return component
+
+func _create_portrait_button_price_badge(
+	button: Control,
+	badge_rect: Rect2,
+	price: int
+) -> Dictionary:
+	return _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"price": price,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+	})
+
 func _style_portrait_hint_counter_badge_label(label: Label) -> void:
-	var counter_effect_color := Color(
+	var counter_outline_color := Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.9
+	)
+	var counter_shadow_color := Color(
 		PORTRAIT_DARK_BLUE.r,
 		PORTRAIT_DARK_BLUE.g,
 		PORTRAIT_DARK_BLUE.b,
 		0.55
 	)
-	label.add_theme_color_override("font_outline_color", counter_effect_color)
-	label.add_theme_constant_override("outline_size", 1)
-	label.add_theme_color_override("font_shadow_color", counter_effect_color)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(label, counter_outline_color, counter_shadow_color)
 
 func _create_portrait_hint_counter_badge_label(parent: Control, text: String) -> Label:
 	var label := Label.new()
@@ -5123,6 +5753,25 @@ func _create_portrait_hint_counter_badge_label(parent: Control, text: String) ->
 	_style_portrait_hint_counter_badge_label(label)
 	return label
 
+func _stage_portrait_hint_ad_counter(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var badge_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var badge_rect := Rect2(
+		Vector2(
+			button.size.x - badge_size.x * 0.82,
+			-badge_size.y * 0.18
+		),
+		badge_size
+	)
+	_create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"ad_icon_scale": 1.4025,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_AD,
+	})
+
 func _stage_portrait_hint_counter(button: Control, hint_key: String) -> void:
 	if button == null or !is_instance_valid(button):
 		return
@@ -5138,23 +5787,16 @@ func _stage_portrait_hint_counter(button: Control, hint_key: String) -> void:
 		),
 		badge_size
 	)
-	var badge := _portrait_hint_local_panel(
-		button,
-		badge_rect,
-		PORTRAIT_DARK_BLUE,
-		badge_size.x * 0.5
-	)
-	var holder := Control.new()
-	holder.name = "HintCounterHolder"
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.position = Vector2.ZERO
-	holder.size = badge.size
-	holder.clip_contents = true
-	badge.add_child(holder)
-	var counter_label := _create_portrait_hint_counter_badge_label(holder, str(maxi(count, 0)))
-	button.set_meta(&"portrait_hint_counter_badge", badge)
-	button.set_meta(&"portrait_hint_counter_holder", holder)
-	button.set_meta(&"portrait_hint_counter_label", counter_label)
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"count": count,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_FREE,
+	})
+	button.set_meta(&"portrait_hint_counter_badge", component.get("badge"))
+	button.set_meta(&"portrait_hint_counter_holder", component.get("holder"))
+	button.set_meta(&"portrait_hint_counter_label", component.get("label"))
 
 func _stage_portrait_hint_price(button: Control, price: int) -> void:
 	if button == null or !is_instance_valid(button):
@@ -5167,35 +5809,13 @@ func _stage_portrait_hint_price(button: Control, price: int) -> void:
 		),
 		badge_size
 	)
-	var badge := _portrait_hint_local_panel(
-		button,
-		badge_rect,
-		PORTRAIT_DARK_BLUE,
-		badge_size.y * 0.5,
-		Color(0.72, 0.77, 0.91, 1.0),
-		1.5
-	)
-	var coin_icon := TextureRect.new()
-	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
-	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	coin_icon.position = Vector2(2.0, 2.0)
-	coin_icon.size = Vector2(24.0, 24.0)
-	coin_icon.z_index = 1
-	badge.add_child(coin_icon)
-	var price_label := Label.new()
-	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	price_label.position = Vector2(25.0, 0.0)
-	price_label.size = Vector2(badge_size.x - 27.0, badge_size.y)
-	price_label.text = str(maxi(price, 0))
-	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	price_label.add_theme_font_size_override("font_size", 16)
-	price_label.add_theme_color_override("font_color", _purchase_price_color(price))
-	price_label.z_index = 1
-	badge.add_child(price_label)
+	_create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"price": price,
+		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+	})
 
 func _create_hero_animation_overlay() -> FlashStageSymbol:
 	var overlay := FlashStageSymbol.new()
@@ -5606,16 +6226,18 @@ func _stage_portrait_inline_result_word(animate_result: bool = false) -> Diction
 	)
 	content = previous_content
 	_portrait_inline_result_word_holder = result_controls.get("word_holder") as Control
+	_portrait_inline_result_marker_holder = result_controls.get("marker_holder") as Control
 	return result_controls
 
 func _set_portrait_result_word_color(result_controls: Dictionary, color: Color) -> void:
 	var word_label := result_controls.get("word_label") as RichTextLabel
 	if word_label != null and is_instance_valid(word_label):
-		word_label.add_theme_color_override("default_color", color)
-		var outline_size: int = 4 if color == StageLetterButton.CIRCLED_COLOR else 3
-		_apply_portrait_standard_text_outline(word_label, 0.94, outline_size)
-		word_label.add_theme_constant_override("shadow_offset_x", 3)
-		word_label.add_theme_constant_override("shadow_offset_y", 3)
+		word_label.add_theme_color_override("default_color", Color.WHITE)
+		_apply_portrait_standard_text_outline(word_label, 0.9, 4)
+		word_label.add_theme_color_override("font_shadow_color", PORTRAIT_BLUE)
+		word_label.add_theme_constant_override("shadow_offset_x", 2)
+		word_label.add_theme_constant_override("shadow_offset_y", 2)
+	_set_portrait_result_word_marker_color(result_controls, color)
 
 func _in_place_result_word_color() -> Color:
 	return (
@@ -6420,7 +7042,8 @@ func _start_single_player_reward_intro_deferred(
 	check_visual: Control,
 	failure_cross_visual: Control,
 	failed_final_crown_visual: Control,
-	continue_button: Control
+	continue_button: Control,
+	completion_callback: Callable = Callable()
 ) -> void:
 	await get_tree().process_frame
 	if !is_inside_tree():
@@ -6515,7 +7138,9 @@ func _start_single_player_reward_intro_deferred(
 		)
 	await body_tween.finished
 
-	if animate_claim:
+	if completion_callback.is_valid():
+		completion_callback.call()
+	elif animate_claim:
 		_start_single_player_reward_claim_animation_deferred(
 			coin_visual,
 			count_visual,
@@ -6529,6 +7154,901 @@ func _start_single_player_reward_intro_deferred(
 				failed_final_crown_visual
 			)
 		_reveal_single_player_reward_continue_button(continue_button)
+
+func _stage_final_reward_glow(rect: Rect2) -> TextureRect:
+	# Rotate the ray texture inside a stage-mapped holder. Keeping the transform on
+	# the child prevents the authored center from drifting when the viewport has a
+	# non-unit fit scale or a safe-area offset.
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
+	holder.name = "FinalRewardGlowHolder"
+	holder.z_index = 10
+	var glow := TextureRect.new()
+	glow.name = "FinalRewardGlow"
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glow.pivot_offset = rect.size * 0.5
+	glow.modulate.a = 0.0
+	holder.add_child(glow)
+	return glow
+
+func _start_final_reward_glow_rotation(glow: Control) -> void:
+	if glow == null or !is_instance_valid(glow) or !glow.is_inside_tree():
+		return
+	glow.pivot_offset = glow.size * 0.5
+	var rotation_tween := glow.create_tween()
+	rotation_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	rotation_tween.set_loops()
+	rotation_tween.tween_property(
+		glow,
+		"rotation",
+		TAU,
+		PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION
+	).from(0.0)
+
+func _play_final_reward_pack_bounce(pack: Control) -> void:
+	if pack == null or !is_instance_valid(pack) or !pack.is_inside_tree():
+		return
+	# FlashStageTexture stores the viewport fit in Control.scale. Preserve that
+	# base transform and compensate for the new center pivot before the bounce.
+	var rest_position: Vector2 = pack.position
+	var rest_scale: Vector2 = pack.scale
+	pack.pivot_offset = pack.size * 0.5
+	pack.position = rest_position + (rest_scale - Vector2.ONE) * pack.pivot_offset
+	var bounce_tween := pack.create_tween()
+	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := bounce_tween.tween_property(
+		pack,
+		"scale",
+		rest_scale * PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE,
+		PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_QUAD)
+	grow.set_ease(Tween.EASE_OUT)
+	var settle := bounce_tween.tween_property(
+		pack,
+		"scale",
+		rest_scale,
+		PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	await bounce_tween.finished
+	if pack == null or !is_instance_valid(pack) or !pack.is_inside_tree():
+		return
+	pack.pivot_offset = Vector2.ZERO
+	pack.position = rest_position
+
+func _set_final_reward_collect_pressed(visual: Control, is_pressed: bool) -> void:
+	if visual == null or !is_instance_valid(visual) or !visual.is_inside_tree():
+		return
+	var previous_tween := visual.get_meta(&"final_reward_press_tween", null) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	var target_scale := Vector2.ONE * (0.93 if is_pressed else 1.0)
+	var target_modulate := Color(0.72, 0.77, 0.98, 1.0) if is_pressed else Color.WHITE
+	var press_tween := visual.create_tween()
+	press_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	press_tween.set_parallel(true)
+	press_tween.tween_property(visual, "scale", target_scale, 0.07)
+	press_tween.tween_property(visual, "modulate", target_modulate, 0.07)
+	visual.set_meta(&"final_reward_press_tween", press_tween)
+
+func _stage_final_reward_collect_text(rect: Rect2) -> Dictionary:
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
+	holder.name = "FinalRewardCollectText"
+	holder.z_index = 120
+	var visual := Control.new()
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual.position = Vector2.ZERO
+	visual.size = rect.size
+	visual.pivot_offset = rect.size * 0.5
+	holder.add_child(visual)
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	label.text = _single_player_text("НЕТ, СПАСИБО", "NO, THANKS")
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.8))
+	label.add_theme_constant_override("outline_size", 2)
+	visual.add_child(label)
+
+	var hit_button := _stage_button(
+		rect,
+		Callable(self, "_claim_single_player_final_reward"),
+		""
+	)
+	hit_button.name = "FinalRewardCollectButton"
+	hit_button.z_index = 121
+	hit_button.disabled = true
+	hit_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hit_button.button_down.connect(
+		Callable(self, "_set_final_reward_collect_pressed").bind(visual, true)
+	)
+	hit_button.button_up.connect(
+		Callable(self, "_set_final_reward_collect_pressed").bind(visual, false)
+	)
+	hit_button.mouse_exited.connect(
+		Callable(self, "_set_final_reward_collect_pressed").bind(visual, false)
+	)
+	holder.modulate.a = 0.0
+	return {
+		"holder": holder,
+		"visual": visual,
+		"button": hit_button,
+	}
+
+func _portrait_final_reward_center_rect(size: Vector2) -> Rect2:
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var logical_height: float = PORTRAIT_STAGE_LAYOUT.expanded_stage_height(viewport_size)
+	var safe_top: float = PORTRAIT_STAGE_LAYOUT.safe_top_stage(viewport_size)
+	var center_stage_y: float = logical_height * 0.5 - safe_top
+	return Rect2(
+		Vector2(
+			(PORTRAIT_STAGE_SIZE.x - size.x) * 0.5,
+			center_stage_y - size.y * 0.5
+		),
+		size
+	)
+
+func _portrait_final_reward_amount_rect(coin_rect: Rect2) -> Rect2:
+	return Rect2(
+		Vector2(
+			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_FINAL_REWARD_AMOUNT_SIZE.x) * 0.5,
+			coin_rect.end.y - 26.0
+		),
+		PORTRAIT_FINAL_REWARD_AMOUNT_SIZE
+	)
+
+func _portrait_final_reward_caption_rect(coin_rect: Rect2) -> Rect2:
+	return Rect2(
+		Vector2(
+			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_FINAL_REWARD_CAPTION_SIZE.x) * 0.5,
+			coin_rect.position.y - PORTRAIT_FINAL_REWARD_CAPTION_SIZE.y - PORTRAIT_FINAL_REWARD_CAPTION_GAP
+		),
+		PORTRAIT_FINAL_REWARD_CAPTION_SIZE
+	)
+
+func _set_panel_fill_color(color: Color, panel: Panel) -> void:
+	if panel == null or !is_instance_valid(panel):
+		return
+	var style := panel.get_theme_stylebox("panel") as StyleBoxFlat
+	if style == null:
+		return
+	style.bg_color = color
+	panel.add_theme_stylebox_override("panel", style)
+
+func _build_portrait_result_word_marker_layer(
+	layer_name: String,
+	layer_size: Vector2,
+	stroke_specs: Array,
+	stroke_width: float
+) -> CanvasGroup:
+	var layer := CanvasGroup.new()
+	layer.name = layer_name
+	layer.self_modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var marker_width: float = maxf(layer_size.x, 10.0)
+	var marker_height: float = maxf(layer_size.y, 10.0)
+	for index in range(stroke_specs.size()):
+		var spec: Dictionary = stroke_specs[index]
+		var jitter: Array = spec.get("jitter", [])
+		var start_x: float = float(spec.get("left", 0.0))
+		var end_x: float = marker_width + float(spec.get("right", 0.0))
+		var y_start: float = marker_height * float(spec.get("y_start", 0.5))
+		var y_end: float = marker_height * float(spec.get("y_end", 0.5))
+		var points := PackedVector2Array()
+		for point_index in range(jitter.size()):
+			var t: float = float(point_index) / maxf(float(jitter.size() - 1), 1.0)
+			var y_base: float = lerpf(y_start, y_end, t)
+			var y_offset: float = float(jitter[point_index]) * marker_height
+			points.append(Vector2(lerpf(start_x, end_x, t), y_base + y_offset))
+		var stroke := Line2D.new()
+		stroke.name = "%sStroke%d" % [layer_name, index]
+		stroke.points = points
+		stroke.width = stroke_width
+		stroke.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		stroke.end_cap_mode = Line2D.LINE_CAP_ROUND
+		stroke.joint_mode = Line2D.LINE_JOINT_ROUND
+		stroke.default_color = Color.WHITE
+		stroke.antialiased = true
+		layer.add_child(stroke)
+	return layer
+
+func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
+	# Compose a broad base highlight plus a tighter darker pass on top.
+	# Each pass is rendered into its own CanvasGroup so opacity is applied once per
+	# layer instead of accumulating at stroke crossings.
+	var marker := Node2D.new()
+	marker.name = "ResultWordMarker"
+	var marker_width: float = maxf(marker_size.x, 10.0)
+	var marker_height: float = maxf(marker_size.y, 10.0)
+	var base_stroke_specs := [
+		{
+			"y_start": 0.18,
+			"y_end": 0.24,
+			"left": -10.0,
+			"right": 16.0,
+			"jitter": [0.04, -0.03, 0.03, -0.02, 0.04, -0.03, 0.02, -0.02, 0.03],
+		},
+		{
+			"y_start": 0.33,
+			"y_end": 0.27,
+			"left": -20.0,
+			"right": 14.0,
+			"jitter": [-0.02, 0.03, -0.03, 0.02, -0.01, 0.03, -0.02, 0.02, -0.02],
+		},
+		{
+			"y_start": 0.45,
+			"y_end": 0.56,
+			"left": -34.0,
+			"right": 30.0,
+			"jitter": [0.03, -0.03, 0.04, -0.02, 0.03, -0.02, 0.03, -0.03, 0.02],
+		},
+		{
+			"y_start": 0.66,
+			"y_end": 0.58,
+			"left": -24.0,
+			"right": 18.0,
+			"jitter": [-0.03, 0.02, -0.02, 0.03, -0.02, 0.02, -0.01, 0.02, -0.02],
+		},
+		{
+			"y_start": 0.80,
+			"y_end": 0.86,
+			"left": -8.0,
+			"right": 10.0,
+			"jitter": [0.03, -0.02, 0.02, -0.03, 0.03, -0.03, 0.02, -0.02, 0.01],
+		},
+	]
+	var base_layer := _build_portrait_result_word_marker_layer(
+		"BaseLayer",
+		Vector2(marker_width, marker_height),
+		base_stroke_specs,
+		maxf(marker_height * 0.24, 13.0)
+	)
+	marker.add_child(base_layer)
+	var detail_margin_x: float = 8.0
+	var detail_margin_y: float = 4.0
+	var detail_size := Vector2(
+		maxf(marker_width - detail_margin_x * 2.0, 10.0),
+		maxf(marker_height - detail_margin_y * 2.0, 10.0)
+	)
+	var detail_stroke_specs := [
+		{
+			"y_start": 0.22,
+			"y_end": 0.29,
+			"left": -6.0,
+			"right": 10.0,
+			"jitter": [0.03, -0.02, 0.02, -0.02, 0.03, -0.02, 0.02],
+		},
+		{
+			"y_start": 0.46,
+			"y_end": 0.40,
+			"left": -12.0,
+			"right": 12.0,
+			"jitter": [-0.02, 0.02, -0.03, 0.02, -0.01, 0.02, -0.02],
+		},
+		{
+			"y_start": 0.66,
+			"y_end": 0.74,
+			"left": -8.0,
+			"right": 8.0,
+			"jitter": [0.02, -0.02, 0.03, -0.02, 0.02, -0.01, 0.01],
+		},
+	]
+	var detail_layer := _build_portrait_result_word_marker_layer(
+		"DetailLayer",
+		detail_size,
+		detail_stroke_specs,
+		maxf(detail_size.y * 0.20, 10.0)
+	)
+	detail_layer.scale = Vector2(1.1, 1.1)
+	detail_layer.position = Vector2(detail_margin_x, detail_margin_y) - detail_size * 0.05
+	marker.add_child(detail_layer)
+	return marker
+
+func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: Color) -> void:
+	var marker := result_controls.get("word_marker") as Node2D
+	if marker == null or !is_instance_valid(marker):
+		return
+	var marker_color := Color("86de8a")
+	if color == StageLetterButton.CROSSED_COLOR:
+		marker_color = Color("ff99a2")
+	var base_layer := marker.get_node_or_null("BaseLayer") as CanvasGroup
+	if base_layer != null and is_instance_valid(base_layer):
+		base_layer.self_modulate = Color(
+			marker_color.r,
+			marker_color.g,
+			marker_color.b,
+			0.35
+		)
+	var detail_layer := marker.get_node_or_null("DetailLayer") as CanvasGroup
+	if detail_layer != null and is_instance_valid(detail_layer):
+		var darker := Color(
+			clampf(marker_color.r * 0.9, 0.0, 1.0),
+			clampf(marker_color.g * 0.9, 0.0, 1.0),
+			clampf(marker_color.b * 0.9, 0.0, 1.0),
+			0.7
+		)
+		detail_layer.self_modulate = darker
+
+func _ensure_final_reward_double_button_bonus_icon(button: Control) -> TextureRect:
+	if button == null or !is_instance_valid(button):
+		return null
+	var existing := button.get_node_or_null("BonusCoinIcon") as TextureRect
+	if existing != null and is_instance_valid(existing):
+		return existing
+	var coin_icon := TextureRect.new()
+	coin_icon.name = "BonusCoinIcon"
+	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
+	button.add_child(coin_icon)
+	return coin_icon
+
+func _ensure_final_reward_double_button_icon_shadow(button: Control) -> TextureRect:
+	if button == null or !is_instance_valid(button):
+		return null
+	var existing := button.get_node_or_null("AdIconShadow") as TextureRect
+	if existing != null and is_instance_valid(existing):
+		return existing
+	var icon_shadow := TextureRect.new()
+	icon_shadow.name = "AdIconShadow"
+	icon_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon_shadow.modulate = Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.92
+	)
+	button.add_child(icon_shadow)
+	icon_shadow.z_index = 0
+	button.move_child(icon_shadow, 0)
+	return icon_shadow
+
+func _ensure_final_reward_double_button_icon(button: Control) -> TextureRect:
+	if button == null or !is_instance_valid(button):
+		return null
+	var existing := button.get_node_or_null("AdIcon") as TextureRect
+	if existing != null and is_instance_valid(existing):
+		return existing
+	var ad_icon := TextureRect.new()
+	ad_icon.name = "AdIcon"
+	ad_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ad_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ad_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ad_icon.texture = WATCH_AD_ICON_TEXTURE
+	button.add_child(ad_icon)
+	return ad_icon
+
+func _sync_final_reward_double_button_content(button: Control) -> void:
+	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
+		return
+	var label := button.get_node_or_null("Text") as Label
+	var built_in_icon := button.get_node_or_null("Icon") as TextureRect
+	var play_icon := button.get_node_or_null("AdIcon") as TextureRect
+	var play_icon_shadow := button.get_node_or_null("AdIconShadow") as TextureRect
+	var bonus_coin := button.get_node_or_null("BonusCoinIcon") as TextureRect
+	if label == null or play_icon == null:
+		return
+	if button.size.x <= 0.0 or button.size.y <= 0.0:
+		return
+	var play_size: Vector2 = button.get("icon_stage_size")
+	if play_size == Vector2.ZERO:
+		play_size = Vector2(28.0, 20.0)
+	if built_in_icon != null and is_instance_valid(built_in_icon):
+		built_in_icon.visible = false
+	label.position = Vector2.ZERO
+	label.size = button.size
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var font: Font = label.get_theme_font("font")
+	if font == null:
+		font = UI_PRIMARY_FONT
+	var font_size: int = label.get_theme_font_size("font_size")
+	if font_size <= 0:
+		font_size = 24
+	var text_width: float = font.get_string_size(
+		label.text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size
+	).x
+	var icon_gap: float = 12.0
+	play_icon.visible = true
+	play_icon.position = Vector2(
+		minf(
+			button.size.x - play_size.x - 4.0,
+			button.size.x * 0.5 + text_width * 0.5 + icon_gap - 24.0
+		),
+		floor((button.size.y - play_size.y) * 0.5)
+	)
+	play_icon.size = play_size
+	play_icon.z_index = 1
+	if play_icon_shadow != null and is_instance_valid(play_icon_shadow):
+		play_icon_shadow.visible = true
+		play_icon_shadow.texture = play_icon.texture
+		play_icon_shadow.position = play_icon.position + Vector2(2.0, 2.0)
+		play_icon_shadow.size = play_size
+		play_icon_shadow.z_index = 0
+	if bonus_coin != null and is_instance_valid(bonus_coin):
+		bonus_coin.visible = false
+
+func _configure_final_reward_double_button(button: Control, bonus_amount: int) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	button.set("icon_texture", null)
+	button.set("icon_stage_size", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE * 2.0)
+	button.set("icon_gap_stage", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP)
+	button.set("icon_before_text", false)
+	button.set("button_text", _single_player_text("Получить Х2", "Get X2"))
+	var label := button.get_node_or_null("Text") as Label
+	if label != null and is_instance_valid(label):
+		label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		label.add_theme_font_size_override("font_size", 24)
+		label.clip_text = false
+		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_ensure_final_reward_double_button_icon(button)
+	_ensure_final_reward_double_button_icon_shadow(button)
+	var bonus_coin := _ensure_final_reward_double_button_bonus_icon(button)
+	if bonus_coin != null and is_instance_valid(bonus_coin):
+		bonus_coin.visible = false
+	var resize_callable := Callable(self, "_sync_final_reward_double_button_content").bind(button)
+	if !button.resized.is_connected(resize_callable):
+		button.resized.connect(resize_callable)
+	call_deferred("_sync_final_reward_double_button_content", button)
+
+func _reveal_final_reward_collect_action(
+	collect_holder: Control,
+	collect_button: Button
+) -> void:
+	if collect_holder == null or !is_instance_valid(collect_holder) or !collect_holder.is_inside_tree():
+		return
+	if collect_button == null or !is_instance_valid(collect_button) or !collect_button.is_inside_tree():
+		return
+	collect_button.disabled = false
+	collect_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	var reveal_tween := collect_holder.create_tween()
+	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	reveal_tween.tween_property(
+		collect_holder,
+		"modulate:a",
+		1.0,
+		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+	)
+
+func _reveal_final_reward_actions(
+	double_button: Control,
+	collect_holder: Control,
+	collect_button: Button
+) -> void:
+	if double_button == null or !is_instance_valid(double_button) or !double_button.is_inside_tree():
+		return
+	double_button.set("button_disabled", false)
+	double_button.set("visual_scale", Vector2.ONE * 0.94)
+	var reveal_tween := double_button.create_tween()
+	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	reveal_tween.set_parallel(true)
+	reveal_tween.tween_property(
+		double_button,
+		"modulate:a",
+		1.0,
+		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+	)
+	var button_grow := reveal_tween.tween_property(
+		double_button,
+		"visual_scale",
+		Vector2.ONE,
+		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+	)
+	button_grow.set_trans(Tween.TRANS_BACK)
+	button_grow.set_ease(Tween.EASE_OUT)
+	if (
+		collect_holder != null
+		and is_instance_valid(collect_holder)
+		and collect_holder.is_inside_tree()
+		and collect_button != null
+		and is_instance_valid(collect_button)
+		and collect_button.is_inside_tree()
+	):
+		var collect_delay := collect_holder.create_tween()
+		collect_delay.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		collect_delay.tween_interval(
+			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+			+ PORTRAIT_FINAL_REWARD_COLLECT_DELAY
+		)
+		collect_delay.tween_callback(
+			Callable(self, "_reveal_final_reward_collect_action").bind(
+				collect_holder,
+				collect_button
+			)
+		)
+
+func _start_single_player_final_reward_transition_deferred(
+	chain_holder: Control,
+	_hero_mask: Control,
+	hero_texture: TextureRect,
+	source_coin: Control,
+	source_count: Label,
+	transition_pack: Control,
+	background_overlay: Control,
+	title_panel: Panel,
+	glow: Control,
+	caption_label: Label,
+	amount_label: Label,
+	target_coin_rect: Rect2,
+	double_button: Control,
+	collect_holder: Control,
+	collect_button: Button
+) -> void:
+	if transition_pack == null or !is_instance_valid(transition_pack) or !transition_pack.is_inside_tree():
+		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
+		return
+	var hold_tween := transition_pack.create_tween()
+	hold_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	hold_tween.tween_interval(PORTRAIT_FINAL_REWARD_CHAIN_HOLD_DURATION)
+	await hold_tween.finished
+	if (
+		chain_holder == null
+		or !is_instance_valid(chain_holder)
+		or !chain_holder.is_inside_tree()
+		or source_coin == null
+		or !is_instance_valid(source_coin)
+		or !source_coin.is_inside_tree()
+		or source_count == null
+		or !is_instance_valid(source_count)
+		or !source_count.is_inside_tree()
+	):
+		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
+		return
+
+	# The final tile stays visible long enough to read the completed chain. Its
+	# regular reward art then crossfades into the authored grand-prize coin pack.
+	var crossfade_tween := transition_pack.create_tween()
+	crossfade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	crossfade_tween.set_parallel(true)
+	crossfade_tween.tween_property(
+		source_coin,
+		"modulate:a",
+		0.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
+	)
+	crossfade_tween.tween_property(
+		source_count,
+		"modulate:a",
+		0.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
+	)
+	crossfade_tween.tween_property(
+		transition_pack,
+		"modulate:a",
+		1.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
+	)
+	await crossfade_tween.finished
+
+	# Grow and move the converted pack into the physical center while the chain
+	# fades out and the hero simply disappears through alpha instead of shrinking.
+	# Coins are still only credited after the player chooses the main-menu action;
+	# this phase is presentation-only.
+	if hero_texture != null and is_instance_valid(hero_texture):
+		hero_texture.pivot_offset = hero_texture.size * 0.5
+	var replace_tween := transition_pack.create_tween()
+	replace_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var move_pack := replace_tween.tween_property(
+		transition_pack,
+		"stage_rect",
+		target_coin_rect,
+		PORTRAIT_FINAL_REWARD_REPLACE_DURATION
+	)
+	move_pack.set_trans(Tween.TRANS_QUAD)
+	move_pack.set_ease(Tween.EASE_OUT)
+	replace_tween.parallel().tween_property(
+		chain_holder,
+		"modulate:a",
+		0.0,
+		PORTRAIT_FINAL_REWARD_REPLACE_DURATION * 0.72
+	)
+	if background_overlay != null and is_instance_valid(background_overlay):
+		var backdrop_fade := replace_tween.parallel().tween_property(
+			background_overlay,
+			"modulate:a",
+			1.0,
+			PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
+		)
+		backdrop_fade.set_trans(Tween.TRANS_SINE)
+		backdrop_fade.set_ease(Tween.EASE_IN_OUT)
+	if title_panel != null and is_instance_valid(title_panel):
+		replace_tween.parallel().tween_method(
+			Callable(self, "_set_panel_fill_color").bind(title_panel),
+			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR,
+			PORTRAIT_BLUE,
+			PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
+		)
+	if hero_texture != null and is_instance_valid(hero_texture):
+		var hero_fade := replace_tween.parallel().tween_property(
+			hero_texture,
+			"modulate:a",
+			0.0,
+			PORTRAIT_FINAL_REWARD_REPLACE_DURATION
+		)
+		hero_fade.set_trans(Tween.TRANS_QUAD)
+		hero_fade.set_ease(Tween.EASE_IN)
+	await replace_tween.finished
+
+	if glow != null and is_instance_valid(glow):
+		_start_final_reward_glow_rotation(glow)
+		var prize_reveal := glow.create_tween()
+		prize_reveal.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		prize_reveal.set_parallel(true)
+		prize_reveal.tween_property(
+			glow,
+			"modulate:a",
+			PORTRAIT_FINAL_REWARD_GLOW_ALPHA,
+			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+		)
+		if caption_label != null and is_instance_valid(caption_label):
+			prize_reveal.tween_property(
+				caption_label,
+				"modulate:a",
+				1.0,
+				PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+			)
+		if amount_label != null and is_instance_valid(amount_label):
+			prize_reveal.tween_property(
+				amount_label,
+				"modulate:a",
+				1.0,
+				PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+			)
+	await _play_final_reward_pack_bounce(transition_pack)
+	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
+
+func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -> bool:
+	if action == &"" or _portrait_final_reward_waiting_for_ad or _portrait_rewarded_action != &"":
+		return false
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !ads_service.has_method("show_rewarded_video"):
+		return false
+	_connect_portrait_rewarded_action_signals(ads_service)
+	_portrait_rewarded_action = action
+	_portrait_rewarded_action_level_index = level_index
+	_portrait_rewarded_action_earned = false
+	_set_portrait_rewarded_action_control_enabled(action, level_index, false)
+	if !bool(ads_service.call("show_rewarded_video")):
+		_portrait_rewarded_action = &""
+		_portrait_rewarded_action_level_index = -1
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+		return false
+	return true
+
+func _connect_portrait_rewarded_action_signals(ads_service: Node) -> void:
+	var rewarded_callback := Callable(self, "_on_portrait_rewarded_action_rewarded")
+	if ads_service.has_signal(&"rewarded") and !ads_service.is_connected(
+		&"rewarded",
+		rewarded_callback
+	):
+		ads_service.connect(&"rewarded", rewarded_callback)
+	var closed_callback := Callable(self, "_on_portrait_rewarded_action_closed")
+	if ads_service.has_signal(&"rewarded_video_closed") and !ads_service.is_connected(
+		&"rewarded_video_closed",
+		closed_callback
+	):
+		ads_service.connect(&"rewarded_video_closed", closed_callback)
+	var failed_callback := Callable(self, "_on_portrait_rewarded_action_failed_to_show")
+	if ads_service.has_signal(&"rewarded_video_failed_to_show") and !ads_service.is_connected(
+		&"rewarded_video_failed_to_show",
+		failed_callback
+	):
+		ads_service.connect(&"rewarded_video_failed_to_show", failed_callback)
+
+func _set_portrait_rewarded_action_control_enabled(
+	action: StringName,
+	level_index: int,
+	enabled: bool
+) -> void:
+	match action:
+		&"hint_open":
+			var open_button: Control = _portrait_game_hint_button_for_key(GameState.HINT_OPEN_LETTER)
+			if open_button != null and is_instance_valid(open_button):
+				open_button.set("button_disabled", !enabled)
+		&"hint_remove":
+			var remove_button: Control = _portrait_game_hint_button_for_key(GameState.HINT_REMOVE_WRONG)
+			if remove_button != null and is_instance_valid(remove_button):
+				remove_button.set("button_disabled", !enabled)
+		&"theme_reroll":
+			if level_index == single_player_popup_level_index:
+				_update_single_player_theme_reroll_button_state()
+
+func _on_portrait_rewarded_action_rewarded(_currency: String, _amount: int) -> void:
+	if _portrait_rewarded_action != &"":
+		_portrait_rewarded_action_earned = true
+
+func _on_portrait_rewarded_action_closed() -> void:
+	if _portrait_rewarded_action == &"":
+		return
+	var action: StringName = _portrait_rewarded_action
+	var level_index: int = _portrait_rewarded_action_level_index
+	var earned_reward: bool = _portrait_rewarded_action_earned
+	_portrait_rewarded_action = &""
+	_portrait_rewarded_action_level_index = -1
+	_portrait_rewarded_action_earned = false
+	if !earned_reward:
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+		return
+	match action:
+		&"hint_open":
+			if GameSession.can_use_open_letter_hint_ad():
+				round_result_delay_requested = true
+				GameSession.use_open_letter_hint_ad()
+				round_result_delay_requested = false
+		&"hint_remove":
+			if GameSession.can_use_remove_wrong_hint_ad():
+				GameSession.use_remove_wrong_hint_ad()
+		&"theme_reroll":
+			if (
+				level_index == single_player_popup_level_index
+				and _single_player_theme_reroll_used
+				and !_single_player_theme_ad_reroll_used
+				and !_single_player_theme_slot_animating
+			):
+				_single_player_theme_ad_reroll_used = true
+				GameState.set_single_level_theme_reroll_state(
+					Database.current_language,
+					level_index,
+					GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED
+				)
+				_update_single_player_theme_reroll_badge()
+				_update_single_player_theme_reroll_button_state()
+				_perform_single_player_theme_reroll(level_index)
+
+func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
+	if _portrait_rewarded_action == &"":
+		return
+	var action: StringName = _portrait_rewarded_action
+	var level_index: int = _portrait_rewarded_action_level_index
+	_portrait_rewarded_action = &""
+	_portrait_rewarded_action_level_index = -1
+	_portrait_rewarded_action_earned = false
+	_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+
+func _on_final_reward_double_pressed() -> void:
+	if (
+		_portrait_final_reward_claim_in_progress
+		or _portrait_final_reward_waiting_for_ad
+		or _portrait_rewarded_action != &""
+	):
+		return
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !ads_service.has_method("show_rewarded_video"):
+		return
+	_connect_final_reward_ad_signals(ads_service)
+	_portrait_final_reward_waiting_for_ad = true
+	_portrait_final_reward_earned_ad_reward = false
+	_set_final_reward_double_button_enabled(false)
+	if !bool(ads_service.call("show_rewarded_video")):
+		# The service starts a preload when an ad is not ready. Keep the reward
+		# unclaimed and let the player retry once the rewarded placement is loaded.
+		_portrait_final_reward_waiting_for_ad = false
+		_set_final_reward_double_button_enabled(true)
+
+func _connect_final_reward_ad_signals(ads_service: Node) -> void:
+	var rewarded_callback := Callable(self, "_on_final_reward_ad_rewarded")
+	if ads_service.has_signal(&"rewarded") and !ads_service.is_connected(
+		&"rewarded",
+		rewarded_callback
+	):
+		ads_service.connect(&"rewarded", rewarded_callback)
+	var closed_callback := Callable(self, "_on_final_reward_ad_closed")
+	if ads_service.has_signal(&"rewarded_video_closed") and !ads_service.is_connected(
+		&"rewarded_video_closed",
+		closed_callback
+	):
+		ads_service.connect(&"rewarded_video_closed", closed_callback)
+	var failed_callback := Callable(self, "_on_final_reward_ad_failed_to_show")
+	if ads_service.has_signal(&"rewarded_video_failed_to_show") and !ads_service.is_connected(
+		&"rewarded_video_failed_to_show",
+		failed_callback
+	):
+		ads_service.connect(&"rewarded_video_failed_to_show", failed_callback)
+
+func _set_final_reward_double_button_enabled(enabled: bool) -> void:
+	if (
+		_portrait_final_reward_double_button != null
+		and is_instance_valid(_portrait_final_reward_double_button)
+		and _portrait_final_reward_double_button.is_inside_tree()
+	):
+		_portrait_final_reward_double_button.set("button_disabled", !enabled)
+
+func _on_final_reward_ad_rewarded(_currency: String, _amount: int) -> void:
+	if _portrait_final_reward_waiting_for_ad:
+		_portrait_final_reward_earned_ad_reward = true
+
+func _on_final_reward_ad_closed() -> void:
+	if !_portrait_final_reward_waiting_for_ad:
+		return
+	_portrait_final_reward_waiting_for_ad = false
+	if _portrait_final_reward_earned_ad_reward:
+		_portrait_final_reward_earned_ad_reward = false
+		_complete_single_player_final_reward(2)
+	else:
+		_set_final_reward_double_button_enabled(true)
+
+func _on_final_reward_ad_failed_to_show(_message: String) -> void:
+	if !_portrait_final_reward_waiting_for_ad:
+		return
+	_portrait_final_reward_waiting_for_ad = false
+	_portrait_final_reward_earned_ad_reward = false
+	_set_final_reward_double_button_enabled(true)
+
+func _claim_single_player_final_reward() -> void:
+	_complete_single_player_final_reward(1)
+
+func _complete_single_player_final_reward(reward_multiplier: int) -> void:
+	if _portrait_final_reward_claim_in_progress:
+		return
+	_portrait_final_reward_claim_in_progress = true
+	_portrait_final_reward_waiting_for_ad = false
+	_portrait_final_reward_earned_ad_reward = false
+	if bool(last_result_data.get("single_player_reward_deferred", false)):
+		_portrait_pending_home_reward_amount += maxi(
+			int(last_result_data.get("single_player_deferred_reward_amount", 0))
+			* maxi(reward_multiplier, 1),
+			0
+		)
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
+	show_menu()
+
+func _set_home_reward_animated_balance(value: float) -> void:
+	var balance_text: String = _soft_currency_balance_text(int(round(value)))
+	for balance_node: Node in get_tree().get_nodes_in_group(&"soft_currency_balance_label"):
+		var balance_label := balance_node as Label
+		if balance_label != null and is_instance_valid(balance_label):
+			balance_label.text = balance_text
+
+func _play_pending_home_reward_animation() -> void:
+	var reward_amount: int = _portrait_pending_home_reward_amount
+	_portrait_pending_home_reward_amount = 0
+	if reward_amount <= 0:
+		return
+	await get_tree().process_frame
+	var previous_balance: int = GameState.get_soft_currency()
+	var final_balance: int = previous_balance + reward_amount
+	GameState.add_soft_currency(reward_amount)
+	if (
+		_portrait_currency_coin_icon_visual == null
+		or !is_instance_valid(_portrait_currency_coin_icon_visual)
+		or !_portrait_currency_coin_icon_visual.is_inside_tree()
+	):
+		return
+	_set_home_reward_animated_balance(float(previous_balance))
+	var source := _stage_holder(
+		Rect2(208.0, 470.0, 64.0, 64.0),
+		Control.MOUSE_FILTER_IGNORE
+	)
+	source.modulate.a = 0.0
+	_play_single_player_reward_coin_collection(source)
+	var count_tween := source.create_tween()
+	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var roll := count_tween.tween_method(
+		Callable(self, "_set_home_reward_animated_balance"),
+		float(previous_balance),
+		float(final_balance),
+		PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION
+	)
+	roll.set_trans(Tween.TRANS_QUAD)
+	roll.set_ease(Tween.EASE_OUT)
+	count_tween.tween_callback(Callable(source, "queue_free"))
 
 func _show_single_player_reward_chain_screen() -> void:
 	var level_index: int = int(last_result_data.get(
@@ -6555,6 +8075,15 @@ func _show_single_player_reward_chain_screen() -> void:
 		0,
 		word_count - 1
 	)
+	var is_final_reward: bool = (
+		last_result_is_win
+		and bool(last_result_data.get("single_player_level_completed", false))
+		and current_slot == word_count - 1
+	)
+	if is_final_reward:
+		_portrait_final_reward_claim_in_progress = false
+		_portrait_final_reward_waiting_for_ad = false
+		_portrait_final_reward_earned_ad_reward = false
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	var header_color: Color = PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE
 	var accent_color: Color = StageLetterButton.CIRCLED_COLOR
@@ -6591,20 +8120,34 @@ func _show_single_player_reward_chain_screen() -> void:
 		0.0
 	)
 	title_panel.z_index = 0
+	var level_title_text: String = _single_player_text(
+		"Уровень %d" % (level_index + 1),
+		"Level %d" % (level_index + 1)
+	)
+	var result_heading_text: String = (
+		_single_player_text("НЕ ПРОЙДЕН", "NOT COMPLETED")
+		if is_failure_reward
+		else (
+			_single_player_text("ПРОЙДЕН", "COMPLETED")
+			if is_final_reward
+			else _single_player_text("СЛОВО УГАДАНО", "WORD GUESSED")
+		)
+	)
 	var reward_title := Label.new()
 	reward_title.name = "RewardTitle"
 	reward_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reward_title.position = Vector2(0.0, PORTRAIT_SINGLE_REWARD_TITLE_TOP_PADDING)
+	reward_title.position = Vector2(0.0, 40.0)
 	reward_title.size = Vector2(title_visual.size.x, PORTRAIT_SINGLE_REWARD_TITLE_HEIGHT)
-	reward_title.text = (
-		_single_player_level_failed_label()
-		if is_failure_reward
-		else _single_player_text("ОТЛИЧНО!", "WELL DONE!")
-	)
+	reward_title.text = result_heading_text
+	var reward_title_font_size: int = PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE
+	if is_final_reward:
+		reward_title.position = Vector2(0.0, 40.0)
+		reward_title.size = Vector2(title_visual.size.x, PORTRAIT_SINGLE_REWARD_TITLE_HEIGHT)
+		reward_title_font_size = PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE
 	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_title.add_theme_font_override("font", UI_PRIMARY_FONT)
-	reward_title.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE)
+	reward_title.add_theme_font_size_override("font_size", reward_title_font_size)
 	reward_title.add_theme_color_override("font_color", result_title_color)
 	_apply_portrait_reward_header_text_effect(reward_title, 2)
 	reward_title.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -6613,8 +8156,8 @@ func _show_single_player_reward_chain_screen() -> void:
 		reward_title,
 		reward_title.text,
 		reward_title.size.x,
-		PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE,
-		28
+		reward_title_font_size,
+		20
 	)
 	reward_title.z_index = 1
 	title_visual.add_child(reward_title)
@@ -6623,23 +8166,24 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	reward_subtitle.position = Vector2(0.0, PORTRAIT_SINGLE_REWARD_SUBTITLE_TOP)
 	reward_subtitle.size = Vector2(title_visual.size.x, PORTRAIT_SINGLE_REWARD_SUBTITLE_HEIGHT)
-	reward_subtitle.text = (
-		_single_player_text("Награда не получена", "Reward not received")
-		if is_failure_reward
-		else _single_player_text("Слово отгадано", "Word guessed")
-	)
+	reward_subtitle.text = level_title_text
 	reward_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	reward_subtitle.add_theme_font_override("font", UI_HEADING_FONT)
 	reward_subtitle.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
 	reward_subtitle.add_theme_color_override("font_color", Color.WHITE)
-	_apply_portrait_reward_header_text_effect(reward_subtitle, 1)
+	reward_subtitle.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+	reward_subtitle.add_theme_constant_override("outline_size", 0)
+	reward_subtitle.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+	reward_subtitle.add_theme_constant_override("shadow_offset_x", 0)
+	reward_subtitle.add_theme_constant_override("shadow_offset_y", 0)
+	reward_subtitle.add_theme_constant_override("shadow_outline_size", 0)
 	reward_subtitle.autowrap_mode = TextServer.AUTOWRAP_OFF
 	reward_subtitle.clip_text = false
 	reward_subtitle.z_index = 1
 	title_visual.add_child(reward_subtitle)
 
-	_stage_portrait_admob_banner_placeholder()
+	_stage_portrait_ad_banner()
 
 	# Keep the persistent HUD and the celebratory title visible independently.
 	# Reward content itself is revealed only after the title finishes its first
@@ -6647,6 +8191,16 @@ func _show_single_player_reward_chain_screen() -> void:
 	# Render the hero into a transparent viewport and reveal only the portion below
 	# the moving title block. This is a real clip: no covering texture or color is
 	# drawn over the paper background.
+	var final_reward_background_overlay: Control = null
+	if is_final_reward:
+		final_reward_background_overlay = _stage_horizontal_fill(
+			PORTRAIT_HEADER_HEIGHT,
+			PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
+		)
+		final_reward_background_overlay.name = "FinalRewardBackgroundOverlay"
+		final_reward_background_overlay.modulate.a = 0.0
+		final_reward_background_overlay.z_index = -1
 	var masked_hero: Dictionary = _create_single_player_reward_masked_hero(
 		reward_screen_content,
 		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
@@ -6662,7 +8216,11 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_screen_content.add_child(reward_body)
 	content = reward_body
 	_stage_centered_coin_only_counter(
-		Callable(self, "_return_to_single_player_reward_from_coin_store"),
+		(
+			Callable()
+			if is_final_reward
+			else Callable(self, "_return_to_single_player_reward_from_coin_store")
+		),
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
 		challenge_level,
 		false
@@ -6683,6 +8241,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	]
 	var animate_current_claim: bool = (
 		!is_failure_reward
+		and !is_final_reward
 		and reward_claim_key != _portrait_last_animated_reward_claim_key
 	)
 	var chain_center_y: float = _single_player_reward_chain_center_y()
@@ -6755,6 +8314,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	var current_reward_coin_visual: Control = null
 	var current_reward_count_visual: Label = null
 	var current_reward_check_icon: Control = null
+	var current_reward_coin_stage_rect := Rect2()
 	var failure_reward_cross_visual: Control = null
 	var failed_final_reward_crown_visual: Control = null
 	for word_slot in range(word_count):
@@ -6809,7 +8369,12 @@ func _show_single_player_reward_chain_screen() -> void:
 		var coin_visual := _stage_single_player_reward_coin_pile(node_holder, coin_rect)
 		var is_claimed: bool = (
 			is_previous
-			or (is_current and !animate_current_claim and !is_failed_current)
+			or (
+				is_current
+				and !is_final_reward
+				and !animate_current_claim
+				and !is_failed_current
+			)
 		)
 		if is_failed_current:
 			failure_reward_cross_visual = _stage_single_player_reward_status_icon(
@@ -6820,7 +8385,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			)
 		elif is_claimed:
 			_stage_single_player_reward_status_icon(node_holder, local_node_rect)
-		elif is_current:
+		elif is_current and !is_final_reward:
 			current_reward_coin_visual = coin_visual
 			current_reward_check_icon = _stage_single_player_reward_status_icon(
 				node_holder,
@@ -6845,35 +8410,149 @@ func _show_single_player_reward_chain_screen() -> void:
 			coin_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
 			count_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
 		elif is_current:
+			current_reward_coin_visual = coin_visual
 			current_reward_count_visual = count_visual
+			current_reward_coin_stage_rect = Rect2(
+				node_rect.position + coin_rect.position,
+				coin_rect.size
+			)
 
-	# Put the reward CTA in the same bottom-attached coordinate space as the
-	# gameplay retry/continue CTA. _portrait_begin_bottom_attached_group() already
-	# switches `content` to the new group; keep its return value only for restore.
-	var reward_content: Control = _portrait_begin_bottom_attached_group()
-	var continue_button := _stage_main_button(
-		# Use the exact same authored rect as the gameplay result CTA. Both buttons
-		# now live in an identical bottom-attached group, so their physical Y is
-		# pixel-for-pixel the same on every portrait aspect ratio.
-		_portrait_in_place_result_button_rect(),
-		Callable(self, "_continue_from_single_player_reward_chain"),
-		(
-			_single_player_text("Начать заново", "Start over")
-			if is_failure_reward
-			else _result_continue_button_text()
-		),
-		22,
-		false,
-		0.32,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	continue_button.z_index = 120
-	continue_button.modulate.a = 0.0
-	continue_button.set("disabled", true)
-	content = reward_content
+	var continue_button: Control = null
+	var final_reward_completion := Callable()
+	if is_final_reward:
+		var reward_amount: int = int(last_result_data.get(
+			"single_player_deferred_reward_amount",
+			_single_player_reward_for_slot(current_slot, word_count)
+		))
+		if reward_amount <= 0:
+			reward_amount = _single_player_reward_for_slot(current_slot, word_count)
+		var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
+			PORTRAIT_FINAL_REWARD_COIN_SIZE
+		)
+		var target_glow_rect: Rect2 = Rect2(
+			target_coin_rect.get_center() - PORTRAIT_FINAL_REWARD_GLOW_SIZE * 0.5,
+			PORTRAIT_FINAL_REWARD_GLOW_SIZE
+		)
+		var glow := _stage_final_reward_glow(target_glow_rect)
+		var transition_pack := _stage_texture(
+			current_reward_coin_stage_rect,
+			COIN_PACK_04_TEXTURE
+		)
+		transition_pack.name = "FinalRewardCoinPack"
+		transition_pack.modulate.a = 0.0
+		transition_pack.z_index = 20
+		var caption_label := _stage_heading_label(
+			_portrait_final_reward_caption_rect(target_coin_rect),
+			"",
+			PORTRAIT_FINAL_REWARD_CAPTION_FONT_SIZE,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		caption_label.name = "FinalRewardCaption"
+		caption_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		caption_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		caption_label.clip_text = false
+		_apply_portrait_reward_header_text_effect(caption_label, 2)
+		_fit_single_line_label_to_width(
+			caption_label,
+			caption_label.text,
+			PORTRAIT_FINAL_REWARD_CAPTION_SIZE.x,
+			PORTRAIT_FINAL_REWARD_CAPTION_FONT_SIZE,
+			18
+		)
+		caption_label.visible = false
+		caption_label.modulate.a = 0.0
+		caption_label.z_index = 21
+		var amount_label := _stage_label(
+			_portrait_final_reward_amount_rect(target_coin_rect),
+			_single_player_reward_chain_count_text(reward_amount),
+			PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		amount_label.name = "FinalRewardAmount"
+		amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		amount_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		amount_label.clip_text = false
+		_apply_portrait_reward_header_text_effect(amount_label, 4)
+		amount_label.add_theme_constant_override("shadow_offset_x", 3)
+		amount_label.add_theme_constant_override("shadow_offset_y", 3)
+		_fit_single_line_label_to_width(
+			amount_label,
+			amount_label.text,
+			PORTRAIT_FINAL_REWARD_AMOUNT_SIZE.x,
+			PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE,
+			28
+		)
+		amount_label.modulate.a = 0.0
+		amount_label.z_index = 21
+
+		var final_reward_content: Control = _portrait_begin_bottom_attached_group()
+		var double_button := _stage_main_button(
+			PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
+			Callable(self, "_on_final_reward_double_pressed"),
+			_single_player_text("Удвоить награду", "Double reward"),
+			22,
+			true,
+			0.32,
+			false,
+			false,
+			false,
+			LONG_BUTTON_COLOR_ORANGE
+		)
+		double_button.name = "FinalRewardDoubleButton"
+		_configure_final_reward_double_button(double_button, reward_amount)
+		double_button.modulate.a = 0.0
+		double_button.z_index = 120
+		_portrait_final_reward_double_button = double_button
+		var collect_controls: Dictionary = _stage_final_reward_collect_text(
+			PORTRAIT_FINAL_REWARD_COLLECT_RECT
+		)
+		content = final_reward_content
+		final_reward_completion = Callable(
+			self,
+			"_start_single_player_final_reward_transition_deferred"
+		).bind(
+			chain_holder,
+			hero_mask,
+			hero_texture,
+			current_reward_coin_visual,
+			current_reward_count_visual,
+			transition_pack,
+			final_reward_background_overlay,
+			title_panel,
+			glow,
+			caption_label,
+			amount_label,
+			target_coin_rect,
+			double_button,
+			collect_controls.get("holder") as Control,
+			collect_controls.get("button") as Button
+		)
+	else:
+		# Put the reward CTA in the same bottom-attached coordinate space as the
+		# gameplay retry/continue CTA.
+		var reward_content: Control = _portrait_begin_bottom_attached_group()
+		continue_button = _stage_main_button(
+			_portrait_in_place_result_button_rect(),
+			Callable(self, "_continue_from_single_player_reward_chain"),
+			(
+				_single_player_text("Начать заново", "Start over")
+				if is_failure_reward
+				else _result_continue_button_text()
+			),
+			22,
+			false,
+			0.32,
+			false,
+			false,
+			false,
+			LONG_BUTTON_COLOR_ORANGE
+		)
+		continue_button.z_index = 120
+		continue_button.modulate.a = 0.0
+		continue_button.set("disabled", true)
+		content = reward_content
 	content = reward_screen_content
 	var failure_back_button: Control = null
 	if is_failure_reward:
@@ -6891,7 +8570,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		failure_back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		continue_button.set_meta(&"paired_failure_back_button", failure_back_button)
 	var reward_hud_content: Control = _portrait_top_bar_content
-	if resume_without_intro:
+	if resume_without_intro and !is_final_reward:
 		title_block.set("stage_rect", PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT)
 		title_block.modulate.a = 1.0
 		title_visual.scale = Vector2.ONE
@@ -6943,7 +8622,8 @@ func _show_single_player_reward_chain_screen() -> void:
 		current_reward_check_icon,
 		failure_reward_cross_visual,
 		failed_final_reward_crown_visual,
-		continue_button
+		continue_button,
+		final_reward_completion
 	)
 
 func _continue_from_single_player_reward_chain() -> void:
@@ -6977,6 +8657,10 @@ func _continue_single_player_result() -> void:
 	_show_single_player_reward_chain_screen()
 
 func _use_open_hint() -> void:
+	if GameSession.open_hint_used:
+		if GameSession.can_use_open_letter_hint_ad():
+			_show_portrait_rewarded_action(&"hint_open")
+		return
 	var previous_count: int = GameState.get_hint_count(GameState.HINT_OPEN_LETTER)
 	if previous_count > 0:
 		_portrait_hint_counter_animation_active = true
@@ -6991,6 +8675,10 @@ func _use_open_hint() -> void:
 	)
 
 func _use_remove_hint() -> void:
+	if GameSession.remove_wrong_hint_used:
+		if GameSession.can_use_remove_wrong_hint_ad():
+			_show_portrait_rewarded_action(&"hint_remove")
+		return
 	var previous_count: int = GameState.get_hint_count(GameState.HINT_REMOVE_WRONG)
 	if previous_count > 0:
 		_portrait_hint_counter_animation_active = true
@@ -7192,6 +8880,16 @@ func _replace_portrait_inline_result_word_with_bounce(
 	):
 		_portrait_inline_result_word_holder.visible = false
 		_portrait_inline_result_word_holder.queue_free()
+	# The marker sits outside the moving paper mask so its opacity never changes
+	# with the peel. Remove the old instance before rebuilding the bouncing word;
+	# otherwise two translucent marker layers briefly overlap and look like an
+	# opacity animation halfway through the page turn.
+	if (
+		_portrait_inline_result_marker_holder != null
+		and is_instance_valid(_portrait_inline_result_marker_holder)
+	):
+		_portrait_inline_result_marker_holder.visible = false
+		_portrait_inline_result_marker_holder.queue_free()
 	if (
 		_portrait_inline_result_search_button != null
 		and is_instance_valid(_portrait_inline_result_search_button)
@@ -7199,6 +8897,7 @@ func _replace_portrait_inline_result_word_with_bounce(
 		_portrait_inline_result_search_button.visible = false
 		_portrait_inline_result_search_button.queue_free()
 	_portrait_inline_result_word_holder = null
+	_portrait_inline_result_marker_holder = null
 	_portrait_inline_result_search_button = null
 	var bounced_controls: Dictionary = _stage_portrait_inline_result_word(true)
 	_set_portrait_result_word_color(bounced_controls, word_color)

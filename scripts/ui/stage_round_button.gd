@@ -1,6 +1,8 @@
 class_name StageRoundButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
+const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
+
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ICON_VISUAL_SCALE: float = 0.82
@@ -296,12 +298,12 @@ func _sync_visuals() -> void:
 	_icon_label.text = icon_text
 	_icon_label.add_theme_font_size_override("font_size", icon_font_size)
 	_icon_label.add_theme_color_override("font_color", current_icon_color)
-	_icon_label.add_theme_color_override("font_outline_color", current_effect_color)
-	_icon_label.add_theme_constant_override("outline_size", 1 if icon_outline_size > 0 else 0)
-	_icon_label.add_theme_color_override("font_shadow_color", current_effect_color)
-	_icon_label.add_theme_constant_override("shadow_offset_x", 2)
-	_icon_label.add_theme_constant_override("shadow_offset_y", 2)
-	_icon_label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(
+		_icon_label,
+		current_effect_color,
+		current_effect_color,
+		3 if icon_outline_size > 0 else 0
+	)
 
 func _sync_icon_layout() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):

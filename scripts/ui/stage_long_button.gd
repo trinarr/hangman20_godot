@@ -1,6 +1,8 @@
 class_name StageLongButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
+const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
+
 const NORMAL_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_left.png")
 const NORMAL_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_center.png")
 const NORMAL_RIGHT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_right.png")
@@ -124,6 +126,11 @@ var icon_stage_size: Vector2 = Vector2(29.0, 24.0):
 var icon_gap_stage: float = 8.0:
 	set(value):
 		icon_gap_stage = value
+		_sync_content_layout()
+
+var icon_before_text: bool = false:
+	set(value):
+		icon_before_text = value
 		_sync_content_layout()
 
 var _label: Label = null
@@ -324,12 +331,12 @@ func _sync_label() -> void:
 		outline_color.b,
 		outline_color.a * 0.55
 	)
-	_label.add_theme_color_override("font_outline_color", text_effect_color)
-	_label.add_theme_constant_override("outline_size", 1 if outline_size > 0 else 0)
-	_label.add_theme_color_override("font_shadow_color", text_effect_color)
-	_label.add_theme_constant_override("shadow_offset_x", 2)
-	_label.add_theme_constant_override("shadow_offset_y", 2)
-	_label.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(
+		_label,
+		text_effect_color,
+		text_effect_color,
+		3 if outline_size > 0 else 0
+	)
 	_sync_content_layout()
 
 func _sync_icon() -> void:
@@ -372,9 +379,19 @@ func _sync_content_layout() -> void:
 	var text_width: float = font.get_string_size(button_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, button_font_size).x
 	var group_width: float = text_width + actual_gap + actual_icon_size.x
 	var start_x: float = maxf((size.x - group_width) * 0.5, 0.0)
-	_label.position = Vector2(start_x, 0.0)
+	var label_x: float = (
+		start_x + actual_icon_size.x + actual_gap
+		if icon_before_text
+		else start_x
+	)
+	var icon_x: float = (
+		start_x
+		if icon_before_text
+		else start_x + text_width + actual_gap
+	)
+	_label.position = Vector2(label_x, 0.0)
 	_label.size = Vector2(text_width + 2.0, size.y)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_icon_rect.position = Vector2(start_x + text_width + actual_gap, (size.y - actual_icon_size.y) * 0.5)
+	_icon_rect.position = Vector2(icon_x, (size.y - actual_icon_size.y) * 0.5)
 	_icon_rect.size = actual_icon_size
 	_sync_visual_child_scales()

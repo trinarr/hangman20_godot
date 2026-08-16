@@ -809,7 +809,7 @@ def verify_hint_button_migration() -> None:
     )
     free_hint_spend = portrait[
         portrait.index("func _play_portrait_hint_spend_animation_if_needed(") :
-        portrait.index("func _stage_portrait_admob_banner_placeholder(")
+        portrait.index("func _stage_portrait_ad_banner(")
     ]
     require(
         "_portrait_hint_counter_refresh_requested = true" in free_hint_spend
@@ -1559,7 +1559,6 @@ def verify_main_tab_navigation() -> None:
         and "icon.queue_free()" in navigation
         and 'Callable(self, "_finish_main_nav_tab_leave").bind(' in navigation
         and 'Callable(self, "_show_profile_screen"), MainTab.PROFILE' in portrait
-        and 'Callable(self, "_show_menu_screen"), MainTab.HOME' in portrait
         and 'Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS' in portrait
         and "_stage_menu_settings_button()" in portrait,
         "The shared tab layer does not animate both sides or bounce the newly active icon once",
@@ -1599,8 +1598,10 @@ def verify_main_tab_navigation() -> None:
     require(
         "departing_navigation.visible = false" in swipe_completion
         and "navigation_parent.remove_child(target_navigation)" in swipe_completion
+        and "if target_tab == MainTab.HOME:" in swipe_completion
+        and "_portrait_active_main_tab = -1" in swipe_completion
         and "_stage_main_navigation(target_tab, origin_tab)" in swipe_completion,
-        "Completing an interactive swipe does not restart the bottom-tab enter/leave animation",
+        "A swipe can restore the removed Home navigation or break the remaining tab transition",
     )
     tasks_screen = portrait[
         portrait.index("func show_tasks()") :
@@ -1619,14 +1620,20 @@ def verify_main_tab_navigation() -> None:
     require(
         "_stage_main_menu_character_button" not in portrait
         and "PORTRAIT_CLOSE_BUTTON_RECT" not in portrait
+        and 'func show_menu() -> void:\n\t# Home is now a standalone landing screen.' in menu_screen
+        and "\t_show_menu_screen()" in menu_screen
+        and '_show_main_tab_screen(Callable(self, "_show_menu_screen"), MainTab.HOME)' not in portrait
+        and "_portrait_screen(0.0)" in menu_screen
+        and "_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)" not in menu_screen
         and 'Database.tr_text(1, "Classic")' not in menu_screen
         and 'Callable(self, "show_theme_select")' not in menu_screen
         and "Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x" in menu_screen
         and "Rect2(67.5, 632.0, 345.0, 73.6)" in menu_screen
+        and "_stage_portrait_ad_banner()" in menu_screen
         and math.isclose(632.0 - (554.0 + 64.0), 14.0)
-        and 632.0 + 73.6 < 708.0
-        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 3,
-        "The Classic button remains on Home or main-menu actions overlap the compact navigation",
+        and 632.0 + 73.6 < 750.0
+        and portrait.count("_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)") == 2,
+        "Home still exposes the old navigation or overlaps its advertising reserve",
     )
 
 
@@ -2040,7 +2047,7 @@ def verify_single_player_forfeit_reward() -> None:
         and "PORTRAIT_BACK_ARROW_ICON" not in reward_screen
         and "failure_back_button.z_index = 200" in reward_screen
         and reward_screen.index("failure_back_button = _stage_round_button(")
-        > reward_screen.index("var continue_button := _stage_main_button(")
+        > reward_screen.index("continue_button = _stage_main_button(")
         and '_single_player_text("Начать заново", "Start over")' in reward_screen
         and "if is_failure_reward" in reward_screen,
         "The failed reward screen is missing its interactive Back button or Start-over action",
@@ -3141,6 +3148,153 @@ def verify_single_player_last_chance_flow() -> None:
     )
 
 
+def verify_single_player_final_reward_state() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    main_script = read("scripts/main.gd")
+    game_state = read("scripts/core/game_state.gd")
+    game_session = read("scripts/core/game_session.gd")
+    final_state = portrait[
+        portrait.index("func _stage_final_reward_glow(") :
+        portrait.index("func _show_single_player_reward_chain_screen()")
+    ]
+    transition_state = portrait[
+        portrait.index("func _start_single_player_final_reward_transition_deferred(") :
+        portrait.index("func _on_final_reward_double_pressed()")
+    ]
+    chain_entry = portrait[
+        portrait.index("func _show_single_player_reward_chain_screen()") :
+        portrait.index("func _continue_from_single_player_reward_chain()")
+    ]
+    ad_icon_path = ROOT / "flash_assets" / "watch_ad_icon.png"
+    glow_path = ROOT / "flash_assets" / "final_reward_rotating_glow.png"
+    require(ad_icon_path.is_file(), "The generated watch-ad icon is missing")
+    with Image.open(ad_icon_path) as image:
+        rgba = image.convert("RGBA")
+        require(
+            rgba.size == (384, 256)
+            and rgba.getchannel("A").getextrema()[0] == 0
+            and rgba.getchannel("A").getbbox() is not None,
+            "The watch-ad icon lost its authored size or transparent background",
+        )
+    require(glow_path.is_file(), "The rotating final-reward glow texture is missing")
+    with Image.open(glow_path) as image:
+        rgba = image.convert("RGBA")
+        alpha = rgba.getchannel("A")
+        require(
+            rgba.size == (632, 632)
+            and alpha.getextrema()[0] == 0
+            and 0 < alpha.getextrema()[1] < 255
+            and all(
+                rgba.getpixel(point)[3] == 0
+                for point in ((0, 0), (631, 0), (0, 631), (631, 631))
+            ),
+            "The final-reward glow is not a semi-transparent centered RGBA texture",
+        )
+    require(
+        'preload("res://flash_assets/watch_ad_icon.png")' in portrait
+        and 'preload(\n\t"res://flash_assets/final_reward_rotating_glow.png"' in portrait
+        and '_single_player_text("БРАВО!", "BRAVO!")'
+        in chain_entry
+        and '_single_player_text("Уровень пройден", "Level complete")'
+        in chain_entry
+        and "var is_final_reward: bool" in chain_entry
+        and "final_reward_completion" in chain_entry
+        and '"_start_single_player_reward_intro_deferred"' in chain_entry
+        and "completion_callback.call()" in portrait
+        and "COIN_PACK_04_TEXTURE" in chain_entry
+        and "_stage_final_reward_glow(target_glow_rect)" in chain_entry
+        and "_start_final_reward_glow_rotation(glow)" in transition_state
+        and '"rotation",\n\t\tTAU' in final_state
+        and "_portrait_final_reward_center_rect(" in final_state,
+        "The final reward no longer reuses the ordinary reward title/chain intro",
+    )
+    require(
+        '_single_player_text("Удвоить награду", "Double reward")' in chain_entry
+        and "WATCH_AD_ICON_TEXTURE" in chain_entry
+        and 'double_button.set("icon_before_text", true)' in chain_entry
+        and "LONG_BUTTON_COLOR_ORANGE" in chain_entry
+        and '_single_player_text("В главное меню", "Main menu")' in final_state
+        and 'double_button.set("button_disabled", false)' in final_state
+        and "await replace_tween.finished" in transition_state
+        and "await _play_final_reward_pack_bounce(transition_pack)" in transition_state
+        and "_reveal_final_reward_actions(" in transition_state
+        and "PORTRAIT_FINAL_REWARD_COLLECT_DELAY: float = 2.0" in portrait
+        and "PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION\n\t\t\t+ PORTRAIT_FINAL_REWARD_COLLECT_DELAY"
+        in final_state
+        and 'Callable(self, "_claim_single_player_final_reward")' in final_state
+        and "712.0 * PORTRAIT_GAME_ACTION_Y_SCALE" in portrait,
+        "The final actions are not delayed and spaced below the centered prize animation",
+    )
+    require(
+        "const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95" in portrait
+        and "base_hint_y * PORTRAIT_GAME_ACTION_Y_SCALE" in portrait
+        and "PORTRAIT_GAME_ACTION_Y_SCALE" not in portrait[
+            portrait.index("func _portrait_game_keyboard_metrics(") :
+            portrait.index("func _refresh_game_screen(")
+        ]
+        and "_portrait_in_place_result_button_rect()" in chain_entry
+        and "606.0 * PORTRAIT_GAME_ACTION_Y_SCALE" in portrait
+        and "712.0 * PORTRAIT_GAME_ACTION_Y_SCALE" in portrait,
+        "Gameplay and reward actions are not raised 5% independently of the keyboard",
+    )
+    require(
+        "PORTRAIT_GAME_HERO_SCALE_MULTIPLIER * 1.17" in portrait
+        and "PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X * 1.17" in portrait
+        and "const PORTRAIT_FINAL_REWARD_COIN_SIZE := Vector2(172.8, 172.8)" in portrait
+        and "_single_player_reward_chain_count_text(reward_amount)" in chain_entry
+        and "PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE" in chain_entry
+        and "Color.WHITE" in chain_entry
+        and "_apply_portrait_reward_header_text_effect(amount_label, 4)" in chain_entry,
+        "The final hero, coin pack, or enlarged xN counter does not match the revised reward layout",
+    )
+    require(
+        "PORTRAIT_FINAL_REWARD_CHAIN_HOLD_DURATION" in transition_state
+        and 'tween_property(\n\t\tsource_coin,\n\t\t"modulate:a"' in transition_state
+        and 'tween_property(\n\t\ttransition_pack,\n\t\t"modulate:a"' in transition_state
+        and '"stage_rect",\n\t\ttarget_coin_rect' in transition_state
+        and 'chain_holder,\n\t\t"modulate:a"' in transition_state
+        and 'hero_mask,\n\t\t\t"modulate:a"' in transition_state
+        and 'hero_texture,\n\t\t\t"scale"' in transition_state
+        and "move_pack.set_trans(Tween.TRANS_QUAD)" in transition_state
+        and "rest_scale * PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE" in final_state
+        and "settle.set_trans(Tween.TRANS_BOUNCE)" in final_state
+        and "coin_rect.end.y - 10.0" in final_state
+        and "_play_single_player_reward_coin_collection(" not in transition_state,
+        "The chain icon does not crossfade into coin_pack_04 and scale over the hero cleanly",
+    )
+    require(
+        'last_result_data.get("single_player_level_completed", false)' in chain_entry
+        and "current_slot == word_count - 1" in chain_entry
+        and "!is_final_reward" in chain_entry
+        and "_show_single_player_final_reward_screen" not in portrait,
+        "The last chain reward still bypasses the shared ordinary reward state",
+    )
+    require(
+        'ads_service.call("show_rewarded_video")' in final_state
+        and 'ads_service.has_signal(&"rewarded")' in final_state
+        and 'ads_service.has_signal(&"rewarded_video_closed")' in final_state
+        and 'ads_service.has_signal(&"rewarded_video_failed_to_show")' in final_state
+        and "_portrait_final_reward_earned_ad_reward = true" in final_state
+        and "_complete_single_player_final_reward(2)" in final_state
+        and "_complete_single_player_final_reward(1)" in final_state
+        and "* maxi(reward_multiplier, 1)" in final_state,
+        "Rewarded completion does not grant exactly double before returning home",
+    )
+    require(
+        "award_win_coins: bool = true" in game_session
+        and "if award_win_coins:" in game_session
+        and "award_completion_bonus: bool = true" in game_state
+        and "if award_completion_bonus:" in game_state
+        and 'result["single_player_reward_deferred"]' in main_script
+        and 'result["single_player_deferred_reward_amount"]' in main_script
+        and "_portrait_pending_home_reward_amount" in final_state
+        and "GameState.add_soft_currency(reward_amount)" in final_state
+        and "_play_single_player_reward_coin_collection(source)" in final_state
+        and 'Callable(self, "_set_home_reward_animated_balance")' in final_state,
+        "The final coins are not deferred and visibly credited after returning home",
+    )
+
+
 def main() -> None:
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     subprocess.run(["python3", "tools/rebalance_hint_difficulty.py", "--check"], cwd=ROOT, check=True)
@@ -3174,6 +3328,7 @@ def main() -> None:
     verify_android_network_and_result_search()
     verify_game_exit_confirmation_popup()
     verify_single_player_forfeit_reward()
+    verify_single_player_final_reward_state()
     verify_low_attempts_attention_bounce()
     verify_long_button_attention_bounce()
     verify_single_player_popup_stays_interactive()

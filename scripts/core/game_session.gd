@@ -22,6 +22,8 @@ var loss_deferred: bool = false
 var mode: int = GameState.GameMode.CLASSIC
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
+var open_hint_ad_reuse_available: bool = false
+var remove_wrong_hint_ad_reuse_available: bool = false
 var comment_hint_unlocked: bool = false
 var word_hint_text: String = ""
 
@@ -44,6 +46,8 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) ->
 	loss_deferred = false
 	open_hint_used = false
 	remove_wrong_hint_used = false
+	open_hint_ad_reuse_available = false
+	remove_wrong_hint_ad_reuse_available = false
 	comment_hint_unlocked = false
 	word_hint_text = _resolve_word_hint()
 	is_active = word.text.length() > 0
@@ -162,6 +166,24 @@ func can_use_remove_wrong_hint() -> bool:
 		and _hints_allowed()
 	)
 
+func can_use_open_letter_hint_ad() -> bool:
+	return (
+		is_active
+		and open_hint_used
+		and open_hint_ad_reuse_available
+		and _has_hidden_letter()
+		and _hints_allowed()
+	)
+
+func can_use_remove_wrong_hint_ad() -> bool:
+	return (
+		is_active
+		and remove_wrong_hint_used
+		and remove_wrong_hint_ad_reuse_available
+		and _has_removable_wrong_letter()
+		and _hints_allowed()
+	)
+
 func has_word_hint() -> bool:
 	return word_hint_text.strip_edges() != ""
 
@@ -203,9 +225,36 @@ func use_open_letter_hint() -> bool:
 			candidates.append(i)
 	if candidates.is_empty():
 		return false
-	if GameState.pay_for_hint(GameState.HINT_OPEN_LETTER) == GameState.HintPayment.FAILED:
+	var payment: int = GameState.pay_for_hint(GameState.HINT_OPEN_LETTER)
+	if payment == GameState.HintPayment.FAILED:
 		return false
 	open_hint_used = true
+	# The first activation may come either from the player's free inventory or
+	# from coins. In both cases, allow exactly one additional activation via a
+	# rewarded ad for this round.
+	open_hint_ad_reuse_available = true
+	var index: int = candidates[randi() % candidates.size()]
+	var selected_letter: String = letters[index]
+	_reveal_letter(selected_letter)
+	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
+	if is_word_completed():
+		is_active = false
+		emit_signal("changed")
+		emit_signal("round_won")
+	else:
+		emit_signal("changed")
+	return true
+
+func use_open_letter_hint_ad() -> bool:
+	if !can_use_open_letter_hint_ad():
+		return false
+	var candidates: Array = []
+	for i in range(letters.size()):
+		if !bool(revealed[i]) and !_is_separator(letters[i]):
+			candidates.append(i)
+	if candidates.is_empty():
+		return false
+	open_hint_ad_reuse_available = false
 	var index: int = candidates[randi() % candidates.size()]
 	var selected_letter: String = letters[index]
 	_reveal_letter(selected_letter)
@@ -228,11 +277,37 @@ func use_remove_wrong_hint() -> bool:
 			candidates.append(letter)
 	if candidates.is_empty():
 		return false
-	if GameState.pay_for_hint(GameState.HINT_REMOVE_WRONG) == GameState.HintPayment.FAILED:
+	var payment: int = GameState.pay_for_hint(GameState.HINT_REMOVE_WRONG)
+	if payment == GameState.HintPayment.FAILED:
 		return false
 	remove_wrong_hint_used = true
+	# Free-counter and coin activations both unlock one rewarded-ad reuse.
+	remove_wrong_hint_ad_reuse_available = true
 	# Remove exactly three unavailable keyboard letters in every language. They
 	# are selected without replacement and never count as mistakes.
+	var remove_count: int = 3
+	var selected_letters := PackedStringArray()
+	for _index in range(mini(remove_count, candidates.size())):
+		var candidate_index: int = randi() % candidates.size()
+		var selected_letter: String = str(candidates[candidate_index])
+		removed_wrong_letters.append(selected_letter)
+		selected_letters.append(selected_letter)
+		candidates.remove_at(candidate_index)
+	emit_signal("hint_letters_selected", selected_letters, false)
+	emit_signal("changed")
+	return true
+
+func use_remove_wrong_hint_ad() -> bool:
+	if !can_use_remove_wrong_hint_ad():
+		return false
+	var alphabet := Database.get_alphabet()
+	var candidates: Array = []
+	for letter in alphabet:
+		if !letters.has(letter) and !wrong_letters.has(letter) and !removed_wrong_letters.has(letter):
+			candidates.append(letter)
+	if candidates.is_empty():
+		return false
+	remove_wrong_hint_ad_reuse_available = false
 	var remove_count: int = 3
 	var selected_letters := PackedStringArray()
 	for _index in range(mini(remove_count, candidates.size())):
@@ -283,11 +358,13 @@ func discard_current_round() -> void:
 	mode = GameState.GameMode.CLASSIC
 	open_hint_used = false
 	remove_wrong_hint_used = false
+	open_hint_ad_reuse_available = false
+	remove_wrong_hint_ad_reuse_available = false
 	comment_hint_unlocked = false
 	word_hint_text = ""
 	GameState.reset_current_game()
 
-func finish_result(is_win: bool) -> Dictionary:
+func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 	var result := {
 		"title": Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT"),
 		"lines": []
@@ -296,7 +373,8 @@ func finish_result(is_win: bool) -> Dictionary:
 		return result
 
 	if is_win:
-		GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
+		if award_win_coins:
+			GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
 		var reward_text: String = tr("COINS_EARNED")
 		if reward_text == "COINS_EARNED":
 			reward_text = "Coins: +%d"

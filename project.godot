@@ -24,6 +24,7 @@ Database="*uid://b7r1r3q4v2uv8"
 WordManager="*uid://b354mil1wdgmk"
 GameState="*uid://corukvt7gsejg"
 GameSession="*uid://dct6g2n5b3fkn"
+YandexAdsService="*res://addons/GodotAndroidYandexAds/yandex_ads.gd"
 
 [display]
 
@@ -32,6 +33,10 @@ window/size/viewport_height=1600
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/GodotAndroidYandexAds/plugin.cfg")
 
 [gui]
 
@@ -50,3 +55,11 @@ locale/translations=PackedStringArray("res://localization/translations.ru.transl
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+
+[yandex_ads]
+
+banner_id="demo-banner-yandex"
+interstitial_id="demo-interstitial-yandex"
+rewarded_id="demo-rewarded-yandex"
+age_restricted_user=false
+user_consent=false
