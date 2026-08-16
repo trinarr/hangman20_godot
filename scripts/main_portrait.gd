@@ -313,13 +313,13 @@ const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE := Vector2(1.38, 1.38)
 const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION: float = 0.08
 const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION: float = 0.14
 const PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION: float = 0.14
-const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2(120.0, 58.0)
+const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 32.0
 const PORTRAIT_GAME_HINT_Y: float = 650.0
-const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(42.0, PORTRAIT_GAME_HINT_Y, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(180.0, PORTRAIT_GAME_HINT_Y, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(318.0, PORTRAIT_GAME_HINT_Y, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(108.176, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(203.392, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(298.608, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
 const PORTRAIT_GAME_HINT_ART_RISE: float = -5.0
 const PORTRAIT_GAME_HINT_COMMENT_ART_Y_OFFSET: float = -4.0
@@ -5224,57 +5224,48 @@ func _stage_portrait_hint_buttons() -> void:
 	# Place the hint row directly after the last keyboard row. Both controls live
 	# in bottom-attached coordinate space, so this gap stays stable on tall phones.
 	var hint_y: float = _portrait_game_hint_y()
+	var hint_button_y: float = hint_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
 	var open_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.position.x, hint_y),
+		Vector2(PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.position.x, hint_button_y),
 		PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.size
 	)
 	var remove_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.position.x, hint_y),
+		Vector2(PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.position.x, hint_button_y),
 		PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.size
 	)
 	var comment_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.position.x, hint_y),
+		Vector2(PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.position.x, hint_button_y),
 		PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.size
 	)
 
-	# The authored long-button component remains the clickable base. The larger
-	# doodle artwork is staged separately so it can rise above the button, like a
-	# physical hint item resting on the top edge.
-	var open_button := _stage_main_button(
+	# Use the standard round-button component for all hint actions. The doodle art
+	# remains a separate child so badges and state changes can be reused unchanged.
+	var open_button := _stage_round_button(
 		open_rect,
 		Callable(self, "_use_open_hint"),
 		"",
-		14,
 		open_hint_disabled,
+		false,
 		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_BLUE
 	)
-	var remove_button := _stage_main_button(
+	var remove_button := _stage_round_button(
 		remove_rect,
 		Callable(self, "_use_remove_hint"),
 		"",
-		14,
 		remove_hint_disabled,
+		false,
 		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_BLUE
 	)
-	var comment_button := _stage_main_button(
+	var comment_button := _stage_round_button(
 		comment_rect,
 		Callable(self, "_use_comment_hint"),
 		"",
-		13,
 		comment_disabled,
+		false,
 		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_ORANGE if comment_unlocked else LONG_BUTTON_COLOR_BLUE
 	)
 
 	_portrait_game_hint_buttons.clear()
@@ -5298,8 +5289,7 @@ func _stage_portrait_hint_buttons() -> void:
 	_stage_portrait_hint_art(
 		comment_button,
 		PORTRAIT_HINT_COMMENT_UNLOCK_ICON,
-		false,
-		PORTRAIT_GAME_HINT_COMMENT_ART_Y_OFFSET
+		false
 	)
 
 	# Prices and inventory badges only describe actions that still consume a hint.
@@ -5325,6 +5315,28 @@ func _stage_portrait_hint_art(
 ) -> void:
 	if button == null:
 		return
+	var art_position := Vector2(
+		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
+		(button.size.y - PORTRAIT_GAME_HINT_ART_SIZE.y) * 0.5 + y_offset
+	)
+	var art_shadow := TextureRect.new()
+	art_shadow.name = "HintArtShadow"
+	art_shadow.texture = texture
+	art_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_shadow.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	art_shadow.size = PORTRAIT_GAME_HINT_ART_SIZE
+	art_shadow.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
+	art_shadow.position = art_position + Vector2(2.0, 2.0)
+	art_shadow.modulate = Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		0.62
+	)
+	art_shadow.z_index = 3
+	button.add_child(art_shadow)
 	var art := TextureRect.new()
 	art.name = "HintArt"
 	art.texture = texture
@@ -5334,10 +5346,7 @@ func _stage_portrait_hint_art(
 	art.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	art.size = PORTRAIT_GAME_HINT_ART_SIZE
 	art.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
-	art.position = Vector2(
-		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
-		-PORTRAIT_GAME_HINT_ART_RISE + y_offset
-	)
+	art.position = art_position
 	if grayscale:
 		var grayscale_material := ShaderMaterial.new()
 		grayscale_material.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
