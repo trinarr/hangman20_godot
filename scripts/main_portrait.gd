@@ -13,6 +13,7 @@ const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 const WATCH_AD_ICON_TEXTURE: Texture2D = preload("res://flash_assets/watch_ad_icon.png")
+const MAIN_MENU_LOGO_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_logo_hangman_20.png")
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
 )
@@ -2459,9 +2460,13 @@ func _show_menu_screen() -> void:
 	_portrait_screen(0.0)
 	_stage_currency_counter(Callable(self, "show_menu"))
 
-	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 230.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
-	var title_label := _stage_heading_label(Rect2(40.0, 160.0, 400.0, 88.0), Database.tr_text(0, "HANGMAN").to_upper(), 50, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_CENTER)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 235.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
+	# Keep the logo centered on the same authored pivot, but render it 20% smaller.
+	var main_menu_logo := _stage_texture(Rect2(80.0, 139.0, 320.0, 192.0), MAIN_MENU_LOGO_TEXTURE)
+	# The source asset already contains its final sRGB colors. Do not apply any
+	# additional CanvasItem tint to it.
+	main_menu_logo.modulate = Color.WHITE
+	main_menu_logo.self_modulate = Color.WHITE
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
