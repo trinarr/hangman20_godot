@@ -300,6 +300,8 @@ const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA: float = 0.46
 const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
 const PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS: int = 7
 const PORTRAIT_SINGLE_PLAYER_SLOT_SPINS_PER_REEL: int = 2
@@ -315,7 +317,7 @@ const PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION: float = 0.14
 const PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION: float = 0.14
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 32.0
+const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 40.0
 const PORTRAIT_GAME_HINT_Y: float = 650.0
 const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(108.176, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(203.392, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
@@ -2828,10 +2830,17 @@ func _show_single_player_level_popup(
 	_remove_single_player_theme_popup()
 	single_player_retry_after_loss = retry_after_loss
 	level_index = _prepare_single_player_level_attempt(level_index)
-	if _single_player_theme_reroll_level_index != level_index:
-		_single_player_theme_reroll_level_index = level_index
-		_single_player_theme_reroll_used = false
-		_single_player_theme_ad_reroll_used = false
+	_single_player_theme_reroll_level_index = level_index
+	var persisted_reroll_state: int = GameState.get_single_level_theme_reroll_state(
+		Database.current_language,
+		level_index
+	)
+	_single_player_theme_reroll_used = (
+		persisted_reroll_state >= GameState.SINGLE_LEVEL_THEME_REROLL_COIN_USED
+	)
+	_single_player_theme_ad_reroll_used = (
+		persisted_reroll_state >= GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED
+	)
 	# Theme options are deterministic from the persisted level seed. Only the
 	# first creation of that seed should play the generation reels; reopening an
 	# already generated level must show the same cards immediately.
@@ -3036,6 +3045,7 @@ func _stage_single_player_popup_theme_cards(
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		single_player_popup_theme_panels[theme_index] = card
 		var theme_icon: Control = null
+		var theme_glow: Control = null
 		var word_badge: Control = null
 		var word_badge_label: Label = null
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
@@ -3048,7 +3058,17 @@ func _stage_single_player_popup_theme_cards(
 				),
 				theme_icon_size
 			)
+			var theme_glow_size := theme_icon_size * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+			var theme_glow_rect := Rect2(
+				theme_icon_rect.get_center() - theme_glow_size * 0.5,
+				theme_glow_size
+			)
+			theme_glow = _stage_final_reward_glow(theme_glow_rect)
+			if theme_glow.get_parent() != null and theme_glow.get_parent() is CanvasItem:
+				(theme_glow.get_parent() as CanvasItem).z_index = 11
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
 			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
+			theme_icon.z_index = 12
 			var word_badge_text := "x%d" % word_count
 			var word_badge_text_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
 				word_badge_text,
@@ -3120,6 +3140,7 @@ func _stage_single_player_popup_theme_cards(
 		_single_player_popup_theme_card_visuals.append({
 			"card_rect": card_rect,
 			"theme_index": theme_index,
+			"theme_glow": theme_glow,
 			"theme_icon": theme_icon,
 			"word_badge": word_badge,
 			"word_badge_label": word_badge_label,
@@ -3148,6 +3169,11 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
 		return
 	_single_player_theme_reroll_used = true
+	GameState.set_single_level_theme_reroll_state(
+		Database.current_language,
+		level_index,
+		GameState.SINGLE_LEVEL_THEME_REROLL_COIN_USED
+	)
 	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
 	_perform_single_player_theme_reroll(level_index)
@@ -3212,7 +3238,12 @@ func _reroll_single_player_theme_options(level_index: int, previous_options: Arr
 	var require_fully_new_options: bool = Database.get_theme_count() >= previous_options.size() * 2
 	var max_attempts: int = 16 if require_fully_new_options else 1
 	for _attempt_index in range(max_attempts):
-		GameState.reset_single_level_attempt(Database.current_language, level_index)
+		GameState.reset_single_level_attempt(
+			Database.current_language,
+			level_index,
+			true,
+			false
+		)
 		_invalidate_single_player_level_cache()
 		next_options = _single_player_level_theme_options(level_index)
 		if !require_fully_new_options or _single_player_theme_options_are_fully_new(
@@ -3527,7 +3558,7 @@ func _set_single_player_theme_static_visuals_visible(visible_value: bool) -> voi
 		if !(visual_variant is Dictionary):
 			continue
 		var visual: Dictionary = visual_variant
-		for key: String in ["theme_icon", "word_badge", "word_badge_label", "theme_label"]:
+		for key: String in ["theme_glow", "theme_icon", "word_badge", "word_badge_label", "theme_label"]:
 			var node := visual.get(key) as CanvasItem
 			if node != null and is_instance_valid(node):
 				node.visible = visible_value
@@ -3606,10 +3637,18 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		if !(visual_variant is Dictionary):
 			continue
 		var visual: Dictionary = visual_variant
+		var theme_glow := visual.get("theme_glow") as Control
 		var theme_icon := visual.get("theme_icon") as Control
 		var theme_label := visual.get("theme_label") as Control
 		var badge_panel := visual.get("word_badge") as Control
 		var badge_label := visual.get("word_badge_label") as Control
+
+		if theme_glow != null and is_instance_valid(theme_glow):
+			theme_glow.visible = true
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
+			if !theme_glow.has_meta(&"theme_card_glow_rotation_started"):
+				_start_final_reward_glow_rotation(theme_glow)
+				theme_glow.set_meta(&"theme_card_glow_rotation_started", true)
 
 		if theme_icon != null and is_instance_valid(theme_icon):
 			var icon_rest_position: Vector2 = theme_icon.position
@@ -3674,6 +3713,24 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		if reveal_delay > 0.0:
 			reveal_tween.tween_interval(reveal_delay)
+		# Keep the icon bounce tween byte-for-byte in the same sequential shape it
+		# had before the theme glow was added. Glow timing runs on its own tween so
+		# it cannot change the bounce delay, settle timing, or center compensation.
+		var theme_glow := reveal_visual.get("theme_glow") as Control
+		if theme_glow != null and is_instance_valid(theme_glow):
+			var glow_tween: Tween = theme_glow.create_tween()
+			glow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			if reveal_delay > 0.0:
+				glow_tween.tween_interval(reveal_delay)
+			var glow_fade: PropertyTweener = glow_tween.tween_property(
+				theme_glow,
+				"modulate:a",
+				PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA,
+				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION + PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
+			)
+			glow_fade.set_trans(Tween.TRANS_SINE)
+			glow_fade.set_ease(Tween.EASE_OUT)
+			_single_player_theme_slot_tweens.append(glow_tween)
 		var icon_grow: PropertyTweener = reveal_tween.tween_property(
 			theme_icon,
 			"scale",
@@ -3779,6 +3836,10 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			continue
 		var visual: Dictionary = visual_variant
 		_restore_single_player_theme_icon_bounce_transform(visual)
+		var theme_glow := visual.get("theme_glow") as Control
+		if theme_glow != null and is_instance_valid(theme_glow):
+			theme_glow.visible = true
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
 		var theme_label := visual.get("theme_label") as Control
 		if theme_label != null and is_instance_valid(theme_label):
 			theme_label.visible = true
@@ -7839,6 +7900,11 @@ func _on_portrait_rewarded_action_closed() -> void:
 				and !_single_player_theme_slot_animating
 			):
 				_single_player_theme_ad_reroll_used = true
+				GameState.set_single_level_theme_reroll_state(
+					Database.current_language,
+					level_index,
+					GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED
+				)
 				_update_single_player_theme_reroll_badge()
 				_update_single_player_theme_reroll_button_state()
 				_perform_single_player_theme_reroll(level_index)

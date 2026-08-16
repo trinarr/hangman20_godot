@@ -20,6 +20,9 @@ const SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP: float = 0.02
 const SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP: float = 0.04
 const SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = 10
 const SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS: int = 5
+const SINGLE_LEVEL_THEME_REROLL_AVAILABLE: int = 0
+const SINGLE_LEVEL_THEME_REROLL_COIN_USED: int = 1
+const SINGLE_LEVEL_THEME_REROLL_AD_USED: int = 2
 const HINT_COSTS: Dictionary = {
 	HINT_OPEN_LETTER: 20,
 	HINT_REMOVE_WRONG: 15,
@@ -357,6 +360,7 @@ func _new_single_player_bucket() -> Dictionary:
 		"levels": {},
 		"selected_themes": {},
 		"level_seeds": {},
+		"theme_reroll_states": {},
 		"word_stats": {},
 	}
 
@@ -365,7 +369,7 @@ func _single_player_bucket(lang: String) -> Dictionary:
 	if !single_player.has(lang_key) or !(single_player[lang_key] is Dictionary):
 		single_player[lang_key] = _new_single_player_bucket()
 	var bucket: Dictionary = single_player[lang_key]
-	for dictionary_key in ["levels", "selected_themes", "level_seeds", "word_stats"]:
+	for dictionary_key in ["levels", "selected_themes", "level_seeds", "theme_reroll_states", "word_stats"]:
 		if !bucket.has(dictionary_key) or !(bucket[dictionary_key] is Dictionary):
 			bucket[dictionary_key] = {}
 	if !bucket.has("unlocked_level"):
@@ -461,6 +465,37 @@ func get_single_level_selected_theme(lang: String, level_index: int, difficulty:
 	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
 	var selected_themes: Dictionary = progress_bucket["selected_themes"]
 	return int(selected_themes.get(str(level_index), -1))
+
+func get_single_level_theme_reroll_state(lang: String, level_index: int) -> int:
+	if level_index < 0:
+		return SINGLE_LEVEL_THEME_REROLL_AVAILABLE
+	var bucket := _single_player_bucket(lang)
+	var reroll_states: Dictionary = bucket["theme_reroll_states"]
+	return clampi(
+		int(reroll_states.get(str(level_index), SINGLE_LEVEL_THEME_REROLL_AVAILABLE)),
+		SINGLE_LEVEL_THEME_REROLL_AVAILABLE,
+		SINGLE_LEVEL_THEME_REROLL_AD_USED
+	)
+
+func set_single_level_theme_reroll_state(lang: String, level_index: int, state: int) -> void:
+	if level_index < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var reroll_states: Dictionary = bucket["theme_reroll_states"]
+	var level_key := str(level_index)
+	var resolved_state := clampi(
+		state,
+		SINGLE_LEVEL_THEME_REROLL_AVAILABLE,
+		SINGLE_LEVEL_THEME_REROLL_AD_USED
+	)
+	if resolved_state == SINGLE_LEVEL_THEME_REROLL_AVAILABLE:
+		reroll_states.erase(level_key)
+	else:
+		reroll_states[level_key] = resolved_state
+	bucket["theme_reroll_states"] = reroll_states
+	single_player[lang_key] = bucket
+	save_game()
 
 func select_single_level_theme(lang: String, level_index: int, theme_index: int, word_count: int, _difficulty: int = -1) -> void:
 	if level_index < 0 or theme_index < 0:
@@ -632,7 +667,12 @@ func record_single_player_forfeit(lang: String) -> void:
 	single_player[lang_key] = bucket
 	save_game()
 
-func reset_single_level_attempt(lang: String, level_index: int, reroll_seed: bool = true) -> void:
+func reset_single_level_attempt(
+	lang: String,
+	level_index: int,
+	reroll_seed: bool = true,
+	clear_theme_reroll_state: bool = true
+) -> void:
 	if level_index < 0:
 		return
 	var lang_key := _normalize_language(lang)
@@ -641,12 +681,16 @@ func reset_single_level_attempt(lang: String, level_index: int, reroll_seed: boo
 	var levels: Dictionary = bucket["levels"]
 	var selected_themes: Dictionary = bucket["selected_themes"]
 	var level_seeds: Dictionary = bucket["level_seeds"]
+	var theme_reroll_states: Dictionary = bucket["theme_reroll_states"]
 	levels.erase(level_key)
 	selected_themes.erase(level_key)
 	if reroll_seed:
 		level_seeds.erase(level_key)
+	if clear_theme_reroll_state:
+		theme_reroll_states.erase(level_key)
 	bucket["levels"] = levels
 	bucket["selected_themes"] = selected_themes
 	bucket["level_seeds"] = level_seeds
+	bucket["theme_reroll_states"] = theme_reroll_states
 	single_player[lang_key] = bucket
 	save_game()
