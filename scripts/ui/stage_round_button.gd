@@ -2,6 +2,7 @@ class_name StageRoundButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
@@ -22,19 +23,19 @@ enum ColorPreset {
 # authored orange visual language while allowing the same component to be
 # recolored without producing additional textures. Pressed orange matches the
 # long button; selected remains a separate blue state.
-const ORANGE_NORMAL_TINT := Color(0.995215, 0.688995, 0.416268, 1.0)
-const ORANGE_PRESSED_TINT := Color(0.862745, 0.517647, 0.274510, 1.0)
-const ORANGE_SELECTED_TINT := Color(0.550420, 0.630252, 1.0, 1.0)
-const DISABLED_TINT := Color(0.60, 0.60, 0.60, 1.0)
-const DISABLED_OPACITY: float = 0.85
-const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
-const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
-const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
-const BLUE_NORMAL_TINT := Color("#728EFF")
-const BLUE_PRESSED_TINT := Color("#5B74E0")
-const BLUE_SELECTED_TINT := Color("#4B61C7")
-const BLUE_ICON_OUTLINE_COLOR := Color("#2F438C")
-const DEFAULT_ICON_OUTLINE_COLOR := Color(0.27, 0.31, 0.61, 1.0)
+const ORANGE_NORMAL_TINT := UI_PALETTE.BUTTON_ORANGE
+const ORANGE_PRESSED_TINT := UI_PALETTE.BUTTON_ORANGE_PRESSED
+const ORANGE_SELECTED_TINT := UI_PALETTE.BUTTON_SELECTED_ACCENT
+const DISABLED_TINT := UI_PALETTE.DISABLED
+const DISABLED_OPACITY: float = UI_PALETTE.DISABLED_OPACITY
+const GREEN_NORMAL_TINT := UI_PALETTE.SUCCESS
+const GREEN_PRESSED_TINT := UI_PALETTE.SUCCESS_PRESSED
+const GREEN_SELECTED_TINT := UI_PALETTE.SUCCESS_SELECTED
+const BLUE_NORMAL_TINT := UI_PALETTE.BUTTON_BLUE
+const BLUE_PRESSED_TINT := UI_PALETTE.BUTTON_BLUE_PRESSED
+const BLUE_SELECTED_TINT := UI_PALETTE.BUTTON_BLUE_SELECTED
+const BLUE_ICON_OUTLINE_COLOR := UI_PALETTE.BUTTON_BLUE_OUTLINE
+const DEFAULT_ICON_OUTLINE_COLOR := UI_PALETTE.UI_BLUE
 
 var attention_bounce_enabled: bool = false:
 	set(value):

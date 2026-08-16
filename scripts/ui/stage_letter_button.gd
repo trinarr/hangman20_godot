@@ -1,6 +1,8 @@
 class_name StageLetterButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+
 enum LetterState {
 	NORMAL,
 	CROSSED,
@@ -16,9 +18,9 @@ const LETTER_MARK_BOUNCE_SCALE := Vector2(1.32, 1.32)
 const LETTER_MARK_BOUNCE_GROW_DURATION: float = 0.18
 const LETTER_MARK_BOUNCE_SETTLE_DURATION: float = 0.25
 
-const NORMAL_COLOR := Color(0.2706, 0.3098, 0.6078, 1.0)
-const CROSSED_COLOR := Color(0.98, 0.20, 0.22, 1.0)
-const CIRCLED_COLOR := Color(0.13, 0.83, 0.29, 1.0)
+const NORMAL_COLOR := UI_PALETTE.UI_BLUE
+const CROSSED_COLOR := UI_PALETTE.ERROR
+const CIRCLED_COLOR := UI_PALETTE.SUCCESS
 
 var letter_text: String = ""
 var letter_state: int = LetterState.NORMAL

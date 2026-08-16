@@ -4,6 +4,7 @@ extends "res://scripts/ui/flash_stage_control.gd"
 signal input_submitted(value: String)
 
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const WORD_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 
 const STAGE_SIZE := Vector2(480.0, 800.0)
@@ -31,11 +32,11 @@ var avoid_virtual_keyboard: bool = false:
 	set(value):
 		avoid_virtual_keyboard = value
 		set_process(avoid_virtual_keyboard and _has_input_focus)
-var text_color: Color = Color(0.2706, 0.3098, 0.6078, 1.0):
+var text_color: Color = UI_PALETTE.UI_BLUE:
 	set(value):
 		text_color = value
 		_rebuild_visuals()
-var underline_color: Color = Color(0.8157, 0.5647, 0.3412, 1.0):
+var underline_color: Color = UI_PALETTE.ACCENT_ORANGE:
 	set(value):
 		underline_color = value
 		_rebuild_visuals()

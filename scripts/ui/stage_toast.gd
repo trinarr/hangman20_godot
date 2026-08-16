@@ -1,6 +1,8 @@
 class_name StageToast
 extends Panel
 
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+
 const TOAST_HEIGHT: float = 40.0
 const TOAST_PARENT_GAP: float = 8.0
 const TOAST_HORIZONTAL_PADDING: float = 10.0
@@ -11,7 +13,7 @@ const TOAST_ENTER_OFFSET: float = 8.0
 const TOAST_ENTER_DURATION: float = 0.16
 const TOAST_HOLD_DURATION: float = 1.65
 const TOAST_EXIT_DURATION: float = 0.22
-const TOAST_BACKGROUND := Color(0.2314, 0.2627, 0.5176, 0.96)
+const TOAST_BACKGROUND := UI_PALETTE.TOAST_BACKGROUND
 const STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 
 var _available_width: float = 0.0

@@ -2,6 +2,7 @@ class_name StageLongButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 
 const NORMAL_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_left.png")
 const NORMAL_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_center.png")
@@ -25,20 +26,20 @@ enum ColorPreset {
 # The PNGs are neutral grayscale masks. These tints restore the original
 # orange/blue visual language while allowing other palettes to reuse the same
 # button slices without recoloring the source assets.
-const ORANGE_NORMAL_TINT := Color(0.996078, 0.690196, 0.415686, 1.0)
-const ORANGE_PRESSED_TINT := Color(0.862745, 0.517647, 0.274510, 1.0)
-const ORANGE_SELECTED_TINT := Color(0.552941, 0.631373, 1.0, 1.0)
+const ORANGE_NORMAL_TINT := UI_PALETTE.BUTTON_ORANGE
+const ORANGE_PRESSED_TINT := UI_PALETTE.BUTTON_ORANGE_PRESSED
+const ORANGE_SELECTED_TINT := UI_PALETTE.BUTTON_SELECTED_ACCENT
 # Match the bright green used for a correctly guessed letter.
-const GREEN_NORMAL_TINT := Color(0.13, 0.83, 0.29, 1.0)
-const GREEN_PRESSED_TINT := Color(0.10, 0.64, 0.22, 1.0)
-const GREEN_SELECTED_TINT := Color(0.115, 0.735, 0.255, 1.0)
-const BLUE_NORMAL_TINT := Color("#728EFF")
-const BLUE_PRESSED_TINT := Color("#5B74E0")
-const BLUE_SELECTED_TINT := Color("#4B61C7")
-const BLUE_OUTLINE_COLOR := Color("#2F438C")
-const DEFAULT_OUTLINE_COLOR := Color(0.23, 0.26, 0.52, 1.0)
-const DISABLED_TINT := Color(0.60, 0.60, 0.60, 1.0)
-const DISABLED_OPACITY: float = 0.85
+const GREEN_NORMAL_TINT := UI_PALETTE.SUCCESS
+const GREEN_PRESSED_TINT := UI_PALETTE.SUCCESS_PRESSED
+const GREEN_SELECTED_TINT := UI_PALETTE.SUCCESS_SELECTED
+const BLUE_NORMAL_TINT := UI_PALETTE.BUTTON_BLUE
+const BLUE_PRESSED_TINT := UI_PALETTE.BUTTON_BLUE_PRESSED
+const BLUE_SELECTED_TINT := UI_PALETTE.BUTTON_BLUE_SELECTED
+const BLUE_OUTLINE_COLOR := UI_PALETTE.BUTTON_BLUE_OUTLINE
+const DEFAULT_OUTLINE_COLOR := UI_PALETTE.UI_BLUE_DARK
+const DISABLED_TINT := UI_PALETTE.DISABLED
+const DISABLED_OPACITY: float = UI_PALETTE.DISABLED_OPACITY
 
 var attention_bounce_enabled: bool = false:
 	set(value):
@@ -133,7 +134,23 @@ var icon_before_text: bool = false:
 		icon_before_text = value
 		_sync_content_layout()
 
+var icon_shadow_enabled: bool = false:
+	set(value):
+		icon_shadow_enabled = value
+		_sync_icon()
+
+var icon_shadow_offset_stage: Vector2 = Vector2(2.0, 2.0):
+	set(value):
+		icon_shadow_offset_stage = value
+		_sync_content_layout()
+
+var icon_shadow_color: Color = UI_PALETTE.AD_ICON_SHADOW:
+	set(value):
+		icon_shadow_color = value
+		_sync_icon()
+
 var _label: Label = null
+var _icon_shadow_rect: TextureRect = null
 var _icon_rect: TextureRect = null
 var _use_normal_parts_when_disabled: bool = false
 var _attention_bounce_tween: Tween = null
@@ -141,6 +158,7 @@ var _attention_bounce_tween: Tween = null
 func _ready() -> void:
 	press_scale_enabled = true
 	_ensure_label()
+	_ensure_icon_shadow()
 	_ensure_icon()
 	if !resized.is_connected(_sync_content_layout):
 		resized.connect(_sync_content_layout)
@@ -304,7 +322,20 @@ func _ensure_label() -> void:
 	_label.clip_text = true
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_label.z_index = 2
 	add_child(_label)
+
+func _ensure_icon_shadow() -> void:
+	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+		return
+	_icon_shadow_rect = TextureRect.new()
+	_icon_shadow_rect.name = "IconShadow"
+	_icon_shadow_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_icon_shadow_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_icon_shadow_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_icon_shadow_rect.z_index = 0
+	add_child(_icon_shadow_rect)
+	move_child(_icon_shadow_rect, 0)
 
 func _ensure_icon() -> void:
 	if _icon_rect != null and is_instance_valid(_icon_rect):
@@ -314,6 +345,7 @@ func _ensure_icon() -> void:
 	_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_icon_rect.z_index = 1
 	add_child(_icon_rect)
 
 func _sync_label() -> void:
@@ -345,6 +377,21 @@ func _sync_icon() -> void:
 	_icon_rect.texture = icon_texture
 	_icon_rect.visible = icon_texture != null
 	_icon_rect.modulate = Color(1.0, 1.0, 1.0, DISABLED_OPACITY if button_disabled else 1.0)
+	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+		_icon_shadow_rect.texture = icon_texture
+		_icon_shadow_rect.visible = icon_shadow_enabled and icon_texture != null
+		var shadow_alpha: float = icon_shadow_color.a * (DISABLED_OPACITY if button_disabled else 1.0)
+		_icon_shadow_rect.modulate = Color(
+			icon_shadow_color.r,
+			icon_shadow_color.g,
+			icon_shadow_color.b,
+			shadow_alpha
+		)
+		_icon_shadow_rect.z_index = 0
+	if _icon_rect != null and is_instance_valid(_icon_rect):
+		_icon_rect.z_index = 1
+	if _label != null and is_instance_valid(_label):
+		_label.z_index = 2
 	_sync_content_layout()
 
 func _sync_content_layout() -> void:
@@ -359,10 +406,14 @@ func _sync_content_layout() -> void:
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		if _icon_rect != null and is_instance_valid(_icon_rect):
 			_icon_rect.visible = false
+		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+			_icon_shadow_rect.visible = false
 		_sync_visual_child_scales()
 		return
 
 	_icon_rect.visible = true
+	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+		_icon_shadow_rect.visible = icon_shadow_enabled
 	var scale_to_view := Vector2(size.x / stage_rect.size.x, size.y / stage_rect.size.y)
 	var actual_icon_size: Vector2 = icon_stage_size * scale_to_view
 	if button_text.is_empty():
@@ -371,6 +422,9 @@ func _sync_content_layout() -> void:
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_icon_rect.position = (size - actual_icon_size) * 0.5
 		_icon_rect.size = actual_icon_size
+		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+			_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
+			_icon_shadow_rect.size = actual_icon_size
 		_sync_visual_child_scales()
 		return
 
@@ -394,4 +448,7 @@ func _sync_content_layout() -> void:
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_icon_rect.position = Vector2(icon_x, (size.y - actual_icon_size.y) * 0.5)
 	_icon_rect.size = actual_icon_size
+	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+		_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
+		_icon_shadow_rect.size = actual_icon_size
 	_sync_visual_child_scales()

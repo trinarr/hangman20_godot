@@ -1,8 +1,10 @@
 class_name StageStatusIcon
 extends Control
 
-const SUCCESS_COLOR := Color(0.24, 0.82, 0.43, 1.0)
-const FAILURE_COLOR := Color(0.96, 0.28, 0.30, 1.0)
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+
+const SUCCESS_COLOR := UI_PALETTE.SUCCESS
+const FAILURE_COLOR := UI_PALETTE.ERROR
 
 var is_success: bool = true:
 	set(value):

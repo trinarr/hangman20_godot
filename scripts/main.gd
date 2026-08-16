@@ -14,10 +14,11 @@ const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
 const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
 const CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = 35
 const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
+const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = 0.4
-const CUSTOM_WORD_INPUT_DEFAULT_COLOR := Color(0.23, 0.26, 0.52, 1.0)
+const CUSTOM_WORD_INPUT_DEFAULT_COLOR := UI_PALETTE.UI_BLUE_DARK
 const SOUND_SETTING_INDEX: int = 3
-const THEME_CARD_PRESSED_MODULATE := Color(0.72, 0.72, 0.72, 1.0)
+const THEME_CARD_PRESSED_MODULATE := UI_PALETTE.THEME_CARD_PRESSED
 const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
 const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
@@ -31,10 +32,10 @@ const SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = 0.12
 const SINGLE_PLAYER_WORD_PICK_JITTER: float = 0.012
 const DIFFICULTY_MODE_HARD: int = 1
 const DIFFICULTY_MODE_NORMAL: int = 2
-const DIFFICULTY_HARD_NORMAL_TINT := Color("#D866FE")
-const DIFFICULTY_HARD_PRESSED_TINT := Color("#B44AD9")
-const DIFFICULTY_HARD_SELECTED_TINT := Color("#9638B9")
-const DIFFICULTY_HARD_OUTLINE_COLOR := Color("#68267A")
+const DIFFICULTY_HARD_NORMAL_TINT := UI_PALETTE.CHALLENGE_NORMAL
+const DIFFICULTY_HARD_PRESSED_TINT := UI_PALETTE.CHALLENGE_PRESSED
+const DIFFICULTY_HARD_SELECTED_TINT := UI_PALETTE.CHALLENGE_SELECTED
+const DIFFICULTY_HARD_OUTLINE_COLOR := UI_PALETTE.CHALLENGE_OUTLINE
 const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
@@ -576,8 +577,8 @@ func _stage_line_edit(rect: Rect2, placeholder: String = "") -> LineEdit:
 	edit.max_length = 35
 	edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	edit.add_theme_font_size_override("font_size", 26)
-	edit.add_theme_color_override("font_color", Color(0.23, 0.26, 0.52))
-	edit.add_theme_color_override("caret_color", Color(0.23, 0.26, 0.52))
+	edit.add_theme_color_override("font_color", UI_PALETTE.UI_BLUE_DARK)
+	edit.add_theme_color_override("caret_color", UI_PALETTE.UI_BLUE_DARK)
 	var empty_style := StyleBoxEmpty.new()
 	edit.add_theme_stylebox_override("normal", empty_style)
 	edit.add_theme_stylebox_override("focus", empty_style)
@@ -591,12 +592,12 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_stylebox_override("pressed", empty_style)
 	button.add_theme_stylebox_override("focus", empty_style)
 	button.add_theme_stylebox_override("disabled", empty_style)
-	var font_color := Color(0.07, 0.10, 0.32, 1.0) if show_text else Color(1.0, 1.0, 1.0, 0.0)
+	var font_color: Color = UI_PALETTE.TEXT_DARK if show_text else Color(1.0, 1.0, 1.0, 0.0)
 	button.add_theme_color_override("font_color", font_color)
 	button.add_theme_color_override("font_hover_color", font_color)
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
-	var text_effect_color := Color(0.02, 0.04, 0.16, 0.30) if show_text else Color.TRANSPARENT
+	var text_effect_color: Color = UI_PALETTE.TEXT_SHADOW_DARK if show_text else Color.TRANSPARENT
 	BUTTON_TEXT_STYLE_SCRIPT.apply(
 		button,
 		text_effect_color,
@@ -1115,10 +1116,10 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if challenge_level else VERTICAL_ALIGNMENT_CENTER
 	title_label.add_theme_font_size_override("font_size", 28)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
-	var title_effect_color := (
+	var title_effect_color: Color = (
 		Color(DIFFICULTY_HARD_OUTLINE_COLOR.r, DIFFICULTY_HARD_OUTLINE_COLOR.g, DIFFICULTY_HARD_OUTLINE_COLOR.b, 0.55)
 		if challenge_level
-		else Color(0.48, 0.24, 0.08, 0.50)
+		else UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
 	)
 	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, title_effect_color, title_effect_color)
 	button.add_child(title_label)
@@ -1133,7 +1134,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		challenge_label.add_theme_font_size_override("font_size", 15)
-		challenge_label.add_theme_color_override("font_color", Color(0.98, 0.91, 1.0, 1.0))
+		challenge_label.add_theme_color_override("font_color", UI_PALETTE.CHALLENGE_TEXT)
 		var challenge_effect_color := Color(
 			DIFFICULTY_HARD_OUTLINE_COLOR.r,
 			DIFFICULTY_HARD_OUTLINE_COLOR.g,
@@ -1236,7 +1237,7 @@ func _stage_single_player_theme_card(
 		)
 		word_badge = _stage_panel(
 			word_badge_rect,
-			Color(0.94, 0.58, 0.22, 1.0),
+			UI_PALETTE.ACCENT_ORANGE,
 			word_badge_size.y * 0.5,
 			Color.WHITE,
 			1.5
@@ -1250,7 +1251,7 @@ func _stage_single_player_theme_card(
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
 		word_badge_label.z_index = 13
-		var badge_effect_color := Color(0.23, 0.26, 0.52, 0.55)
+		var badge_effect_color: Color = UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
 		BUTTON_TEXT_STYLE_SCRIPT.apply(word_badge_label, badge_effect_color, badge_effect_color)
 
 	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
@@ -1267,11 +1268,11 @@ func _stage_single_player_theme_card(
 	)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	title_label.clip_text = false
-	var theme_title_effect_color := Color(0.42, 0.49, 0.82, 0.55)
+	var theme_title_effect_color: Color = UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_EFFECT, 0.55)
 	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_title_effect_color, theme_title_effect_color)
 
 	if selected:
-		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, Color(0.94, 0.58, 0.22, 1.0), 3.0)
+		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, UI_PALETTE.ACCENT_ORANGE, 3.0)
 	if disabled:
 		for item in [card, theme_icon, word_badge, word_badge_label, title_label]:
 			if item != null:
@@ -1286,7 +1287,7 @@ func show_single_player_level(level_index: int) -> void:
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = -1
 	_clear()
-	var screen_blue := Color(0.2706, 0.3098, 0.6078, 1.0)
+	var screen_blue: Color = UI_PALETTE.UI_BLUE
 	_stage_texture_fill(0.0, 800.0, MENU_PAPER_COVER)
 	_stage_single_player_level_header(level_index)
 	var selected_theme: int = _single_player_level_selected_theme(level_index)
@@ -1695,7 +1696,7 @@ func _check_custom_word_now() -> void:
 	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
-		_set_temporary_custom_word_input_color(Color(0.62, 0.25, 0.42, 1.0))
+		_set_temporary_custom_word_input_color(UI_PALETTE.ERROR_SOFT)
 		custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
 		_vibrate_custom_word_not_found()
@@ -1749,7 +1750,7 @@ func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
 		_reset_custom_word_input_color()
 	elif custom_word_edit != null:
 		_set_temporary_custom_word_input_color(
-			Color(0.22, 0.55, 0.41, 1.0) if found else Color(0.62, 0.25, 0.42, 1.0)
+			UI_PALETTE.SUCCESS_SOFT if found else UI_PALETTE.ERROR_SOFT
 		)
 	if !found and !network_error:
 		_vibrate_custom_word_not_found()
@@ -1850,7 +1851,7 @@ func start_custom_game() -> void:
 	var word := WordManager.normalize_word(source_text)
 	if !_is_valid_custom_word(word):
 		if custom_word_edit != null:
-			_set_custom_word_input_color(Color(0.62, 0.25, 0.42, 1.0))
+			_set_custom_word_input_color(UI_PALETTE.ERROR_SOFT)
 			custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		return
 	custom_word_text = word
