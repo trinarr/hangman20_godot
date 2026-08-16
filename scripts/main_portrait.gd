@@ -64,6 +64,7 @@ const PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION: float = 0.055
 const PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION: float = 0.085
 const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 20.0
 const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := Color("#35C759")
+const PORTRAIT_FREE_HINT_BADGE_GREEN := Color("#65c466")
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := Color("#167A34")
 const PORTRAIT_MAIN_NAV_Y: float = 725.0
 const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
@@ -5572,15 +5573,20 @@ func _set_portrait_button_badge_state(
 			ad_icon.position = ad_icon_position
 			ad_icon.size = ad_icon_size
 		PORTRAIT_BUTTON_BADGE_STATE_FREE:
-			_apply_portrait_panel_style(badge, PORTRAIT_CURRENCY_ADD_BADGE_GREEN, rect.size.x * 0.5)
+			_apply_portrait_panel_style(badge, PORTRAIT_FREE_HINT_BADGE_GREEN, rect.size.x * 0.5)
 			label.visible = true
 			label.position = Vector2.ZERO
 			label.size = rect.size
 			label.text = str(maxi(int(component.get("count", 0)), 0))
 			label.add_theme_font_size_override("font_size", int(component.get("free_font_size", 17)))
 			label.add_theme_color_override("font_color", Color.WHITE)
-			_style_portrait_hint_counter_badge_label(label)
-	shadow.visible = true
+			label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("shadow_offset_x", 0)
+			label.add_theme_constant_override("shadow_offset_y", 0)
+			label.add_theme_constant_override("shadow_outline_size", 0)
+			label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+			label.add_theme_constant_override("outline_size", 0)
+	shadow.visible = state != PORTRAIT_BUTTON_BADGE_STATE_FREE
 	badge.visible = true
 
 func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) -> void:
