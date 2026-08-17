@@ -350,6 +350,7 @@ enum MainTab {
 	PROFILE,
 }
 
+var _main_menu_logo_runtime_texture: Texture2D = null
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
@@ -873,6 +874,23 @@ func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: fl
 
 func _portrait_end_adaptive_group(previous_content: Control) -> void:
 	content = previous_content
+
+func _fit_stage_rect_keep_aspect(bounds: Rect2, source_size: Vector2) -> Rect2:
+	if source_size.x <= 0.0 or source_size.y <= 0.0:
+		return bounds
+	var fit_scale: float = min(bounds.size.x / source_size.x, bounds.size.y / source_size.y)
+	var fitted_size: Vector2 = source_size * fit_scale
+	return Rect2(bounds.get_center() - fitted_size * 0.5, fitted_size)
+
+func _get_main_menu_logo_texture() -> Texture2D:
+	if _main_menu_logo_runtime_texture != null:
+		return _main_menu_logo_runtime_texture
+	var image: Image = Image.new()
+	var load_error: int = image.load("res://flash_assets/main_menu_logo_hangman_20.png")
+	if load_error == OK and !image.is_empty():
+		_main_menu_logo_runtime_texture = ImageTexture.create_from_image(image)
+		return _main_menu_logo_runtime_texture
+	return MAIN_MENU_LOGO_TEXTURE
 
 func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:
 	var shortened_width: float = rect.size.x * PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE
@@ -2461,10 +2479,15 @@ func _show_menu_screen() -> void:
 	_stage_currency_counter(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 235.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
-	# Keep the logo centered on the same authored pivot, but render it 20% smaller.
-	var main_menu_logo := _stage_texture(Rect2(80.0, 139.0, 320.0, 192.0), MAIN_MENU_LOGO_TEXTURE)
-	# The source asset already contains its final sRGB colors. Do not apply any
-	# additional CanvasItem tint to it.
+	# Preserve the logo aspect ratio inside the same 20%-smaller title slot so
+	# the square handwritten asset is not stretched horizontally. The texture is
+	# loaded from the raw PNG at runtime specifically for this logo, which avoids
+	# device-side import/compression color shifts and keeps the authored palette.
+	var main_menu_logo_texture: Texture2D = _get_main_menu_logo_texture()
+	# Make the logo 20% larger while keeping the same authored center point.
+	var main_menu_logo_bounds := Rect2(48.0, 119.8, 384.0, 230.4)
+	var main_menu_logo_rect: Rect2 = _fit_stage_rect_keep_aspect(main_menu_logo_bounds, main_menu_logo_texture.get_size())
+	var main_menu_logo := _stage_texture(main_menu_logo_rect, main_menu_logo_texture)
 	main_menu_logo.modulate = Color.WHITE
 	main_menu_logo.self_modulate = Color.WHITE
 	_portrait_end_adaptive_group(menu_title_content)
