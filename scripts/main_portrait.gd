@@ -2484,12 +2484,51 @@ func _show_menu_screen() -> void:
 	# loaded from the raw PNG at runtime specifically for this logo, which avoids
 	# device-side import/compression color shifts and keeps the authored palette.
 	var main_menu_logo_texture: Texture2D = _get_main_menu_logo_texture()
-	# Make the logo 20% larger while keeping the same authored center point.
-	var main_menu_logo_bounds := Rect2(48.0, 119.8, 384.0, 230.4)
+	# Make the logo 15% larger in UI while keeping the same authored center point.
+	var main_menu_logo_bounds := Rect2(19.2, 102.52, 441.6, 264.96)
 	var main_menu_logo_rect: Rect2 = _fit_stage_rect_keep_aspect(main_menu_logo_bounds, main_menu_logo_texture.get_size())
 	var main_menu_logo := _stage_texture(main_menu_logo_rect, main_menu_logo_texture)
 	main_menu_logo.modulate = Color.WHITE
 	main_menu_logo.self_modulate = Color.WHITE
+
+	# Play one soft diagonal highlight sweep every time the Home screen is entered.
+	# The shader keeps the source alpha intact, so the highlight is visible only
+	# on the painted logo pixels and never on its transparent background.
+	var logo_shine_shader := Shader.new()
+	logo_shine_shader.code = """
+shader_type canvas_item;
+
+uniform float shine_progress = -0.30;
+uniform float shine_width = 0.12;
+uniform float shine_strength = 0.46;
+
+void fragment() {
+	vec4 base = texture(TEXTURE, UV);
+	float diagonal = UV.x + UV.y * 0.28;
+	float distance_to_shine = abs(diagonal - shine_progress);
+	float band = 1.0 - smoothstep(0.0, shine_width, distance_to_shine);
+	float shine = band * shine_strength * base.a;
+	COLOR = vec4(mix(base.rgb, vec3(1.0), shine), base.a);
+}
+"""
+	var logo_shine_material := ShaderMaterial.new()
+	logo_shine_material.shader = logo_shine_shader
+	main_menu_logo.material = logo_shine_material
+	var logo_shine_tween := create_tween()
+	logo_shine_tween.bind_node(main_menu_logo)
+	logo_shine_tween.tween_interval(0.28)
+	var set_logo_shine_progress := func(progress: float) -> void:
+		if is_instance_valid(logo_shine_material):
+			logo_shine_material.set_shader_parameter("shine_progress", progress)
+	var logo_shine_motion = logo_shine_tween.tween_method(
+		set_logo_shine_progress,
+		-0.30,
+		1.55,
+		0.72
+	)
+	if logo_shine_motion != null:
+		logo_shine_motion.set_trans(Tween.TRANS_SINE)
+		logo_shine_motion.set_ease(Tween.EASE_IN_OUT)
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
