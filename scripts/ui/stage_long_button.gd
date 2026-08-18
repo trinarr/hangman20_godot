@@ -71,6 +71,7 @@ var button_disabled: bool = false:
 			_start_attention_bounce()
 		_sync_label()
 		_sync_icon()
+		_sync_trailing_icon()
 
 var selected: bool = false:
 	set(value):
@@ -134,6 +135,21 @@ var icon_before_text: bool = false:
 		icon_before_text = value
 		_sync_content_layout()
 
+var trailing_icon_texture: Texture2D = null:
+	set(value):
+		trailing_icon_texture = value
+		_sync_trailing_icon()
+
+var trailing_icon_stage_size: Vector2 = Vector2(29.0, 24.0):
+	set(value):
+		trailing_icon_stage_size = value
+		_sync_content_layout()
+
+var trailing_icon_gap_stage: float = 8.0:
+	set(value):
+		trailing_icon_gap_stage = value
+		_sync_content_layout()
+
 var icon_shadow_enabled: bool = false:
 	set(value):
 		icon_shadow_enabled = value
@@ -152,6 +168,7 @@ var icon_shadow_color: Color = UI_PALETTE.AD_ICON_SHADOW:
 var _label: Label = null
 var _icon_shadow_rect: TextureRect = null
 var _icon_rect: TextureRect = null
+var _trailing_icon_rect: TextureRect = null
 var _use_normal_parts_when_disabled: bool = false
 var _attention_bounce_tween: Tween = null
 
@@ -160,11 +177,13 @@ func _ready() -> void:
 	_ensure_label()
 	_ensure_icon_shadow()
 	_ensure_icon()
+	_ensure_trailing_icon()
 	if !resized.is_connected(_sync_content_layout):
 		resized.connect(_sync_content_layout)
 	super._ready()
 	_sync_label()
 	_sync_icon()
+	_sync_trailing_icon()
 	_sync_content_layout()
 	_start_attention_bounce()
 
@@ -301,6 +320,7 @@ func _apply_color_palette(normal_color: Color, pressed_color: Color, selected_co
 
 func configure(text_value: String, font_size_value: int = 20, disabled_value: bool = false, disabled_overlay_alpha_value: float = 0.32, use_normal_texture_when_disabled: bool = false, selected_value: bool = false) -> void:
 	icon_texture = null
+	trailing_icon_texture = null
 	button_text = text_value
 	button_font_size = font_size_value
 	disabled_overlay_alpha = disabled_overlay_alpha_value
@@ -309,8 +329,10 @@ func configure(text_value: String, font_size_value: int = 20, disabled_value: bo
 	button_disabled = disabled_value
 	_ensure_label()
 	_ensure_icon()
+	_ensure_trailing_icon()
 	_sync_label()
 	_sync_icon()
+	_sync_trailing_icon()
 	_sync_content_layout()
 
 func _ensure_label() -> void:
@@ -347,6 +369,17 @@ func _ensure_icon() -> void:
 	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_icon_rect.z_index = 1
 	add_child(_icon_rect)
+
+func _ensure_trailing_icon() -> void:
+	if _trailing_icon_rect != null and is_instance_valid(_trailing_icon_rect):
+		return
+	_trailing_icon_rect = TextureRect.new()
+	_trailing_icon_rect.name = "TrailingIcon"
+	_trailing_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_trailing_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_trailing_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_trailing_icon_rect.z_index = 1
+	add_child(_trailing_icon_rect)
 
 func _sync_label() -> void:
 	if _label == null or !is_instance_valid(_label):
@@ -394,13 +427,32 @@ func _sync_icon() -> void:
 		_label.z_index = 2
 	_sync_content_layout()
 
+func _sync_trailing_icon() -> void:
+	if _trailing_icon_rect == null or !is_instance_valid(_trailing_icon_rect):
+		return
+	_trailing_icon_rect.texture = trailing_icon_texture
+	_trailing_icon_rect.visible = trailing_icon_texture != null
+	_trailing_icon_rect.modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		DISABLED_OPACITY if button_disabled else 1.0
+	)
+	_trailing_icon_rect.z_index = 1
+	_sync_content_layout()
+
 func _sync_content_layout() -> void:
 	if _label == null or !is_instance_valid(_label):
 		return
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
 	var has_icon: bool = _icon_rect != null and is_instance_valid(_icon_rect) and icon_texture != null
-	if !has_icon or stage_rect.size.x <= 0.0 or stage_rect.size.y <= 0.0:
+	var has_trailing_icon: bool = (
+		_trailing_icon_rect != null
+		and is_instance_valid(_trailing_icon_rect)
+		and trailing_icon_texture != null
+	)
+	if (!has_icon and !has_trailing_icon) or stage_rect.size.x <= 0.0 or stage_rect.size.y <= 0.0:
 		_label.position = Vector2.ZERO
 		_label.size = size
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -408,47 +460,92 @@ func _sync_content_layout() -> void:
 			_icon_rect.visible = false
 		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
 			_icon_shadow_rect.visible = false
+		if _trailing_icon_rect != null and is_instance_valid(_trailing_icon_rect):
+			_trailing_icon_rect.visible = false
 		_sync_visual_child_scales()
 		return
 
-	_icon_rect.visible = true
-	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-		_icon_shadow_rect.visible = icon_shadow_enabled
 	var scale_to_view := Vector2(size.x / stage_rect.size.x, size.y / stage_rect.size.y)
 	var actual_icon_size: Vector2 = icon_stage_size * scale_to_view
+	var actual_trailing_icon_size: Vector2 = trailing_icon_stage_size * scale_to_view
+	var actual_gap: float = icon_gap_stage * scale_to_view.x
+	var actual_trailing_gap: float = trailing_icon_gap_stage * scale_to_view.x
+	if _icon_rect != null and is_instance_valid(_icon_rect):
+		_icon_rect.visible = has_icon
+	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+		_icon_shadow_rect.visible = icon_shadow_enabled and has_icon
+	if _trailing_icon_rect != null and is_instance_valid(_trailing_icon_rect):
+		_trailing_icon_rect.visible = has_trailing_icon
+
 	if button_text.is_empty():
 		_label.position = Vector2.ZERO
 		_label.size = size
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_icon_rect.position = (size - actual_icon_size) * 0.5
+		var icon_group_width: float = 0.0
+		if has_icon:
+			icon_group_width += actual_icon_size.x
+		if has_icon and has_trailing_icon:
+			icon_group_width += actual_trailing_gap
+		if has_trailing_icon:
+			icon_group_width += actual_trailing_icon_size.x
+		var icon_cursor_x: float = maxf((size.x - icon_group_width) * 0.5, 0.0)
+		if has_icon:
+			_icon_rect.position = Vector2(icon_cursor_x, (size.y - actual_icon_size.y) * 0.5)
+			_icon_rect.size = actual_icon_size
+			if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+				_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
+				_icon_shadow_rect.size = actual_icon_size
+			icon_cursor_x += actual_icon_size.x + (actual_trailing_gap if has_trailing_icon else 0.0)
+		if has_trailing_icon:
+			_trailing_icon_rect.position = Vector2(
+				icon_cursor_x,
+				(size.y - actual_trailing_icon_size.y) * 0.5
+			)
+			_trailing_icon_rect.size = actual_trailing_icon_size
+		_sync_visual_child_scales()
+		return
+
+	var font: Font = _label.get_theme_font("font")
+	var text_width: float = font.get_string_size(
+		button_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		button_font_size
+	).x
+	var group_width: float = text_width
+	if has_icon:
+		group_width += actual_icon_size.x + actual_gap
+	if has_trailing_icon:
+		group_width += actual_trailing_gap + actual_trailing_icon_size.x
+	var cursor_x: float = maxf((size.x - group_width) * 0.5, 0.0)
+
+	if has_icon and icon_before_text:
+		_icon_rect.position = Vector2(cursor_x, (size.y - actual_icon_size.y) * 0.5)
 		_icon_rect.size = actual_icon_size
 		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
 			_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
 			_icon_shadow_rect.size = actual_icon_size
-		_sync_visual_child_scales()
-		return
+		cursor_x += actual_icon_size.x + actual_gap
 
-	var actual_gap: float = icon_gap_stage * scale_to_view.x
-	var font: Font = _label.get_theme_font("font")
-	var text_width: float = font.get_string_size(button_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, button_font_size).x
-	var group_width: float = text_width + actual_gap + actual_icon_size.x
-	var start_x: float = maxf((size.x - group_width) * 0.5, 0.0)
-	var label_x: float = (
-		start_x + actual_icon_size.x + actual_gap
-		if icon_before_text
-		else start_x
-	)
-	var icon_x: float = (
-		start_x
-		if icon_before_text
-		else start_x + text_width + actual_gap
-	)
-	_label.position = Vector2(label_x, 0.0)
+	_label.position = Vector2(cursor_x, 0.0)
 	_label.size = Vector2(text_width + 2.0, size.y)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_icon_rect.position = Vector2(icon_x, (size.y - actual_icon_size.y) * 0.5)
-	_icon_rect.size = actual_icon_size
-	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-		_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
-		_icon_shadow_rect.size = actual_icon_size
+	cursor_x += text_width
+
+	if has_icon and !icon_before_text:
+		cursor_x += actual_gap
+		_icon_rect.position = Vector2(cursor_x, (size.y - actual_icon_size.y) * 0.5)
+		_icon_rect.size = actual_icon_size
+		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+			_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
+			_icon_shadow_rect.size = actual_icon_size
+		cursor_x += actual_icon_size.x
+
+	if has_trailing_icon:
+		cursor_x += actual_trailing_gap
+		_trailing_icon_rect.position = Vector2(
+			cursor_x,
+			(size.y - actual_trailing_icon_size.y) * 0.5
+		)
+		_trailing_icon_rect.size = actual_trailing_icon_size
 	_sync_visual_child_scales()

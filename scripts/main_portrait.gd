@@ -2888,8 +2888,47 @@ func _show_heart_refill_popup(
 
 	var purchase_disabled: bool = current_hearts >= GameState.MAX_HEARTS
 	var has_enough_coins: bool = GameState.get_soft_currency() >= HEART_REFILL_COST
+	var rewarded_heart_button := _stage_portrait_popup_main_button(
+		Rect2(90.0, 446.0, 300.0, 56.0),
+		Callable(self, "_on_heart_refill_ad_pressed"),
+		_single_player_text("ПОЛУЧИТЬ 1", "GET 1"),
+		18,
+		purchase_disabled,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_BLUE
+	)
+	rewarded_heart_button.add_to_group(&"heart_refill_ad_button")
+	rewarded_heart_button.z_index = 16
+	# Use StageLongButton for the complete rewarded row: leading ad icon, native
+	# caption and trailing heart are measured together and centered as one block.
+	# Crop the authored transparent margins from the ad texture so its visible
+	# glyph has the same visual height as the heart icon.
+	var rewarded_ad_icon_texture := AtlasTexture.new()
+	rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
+	rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
+	rewarded_heart_button.set("icon_texture", rewarded_ad_icon_texture)
+	rewarded_heart_button.set("icon_stage_size", Vector2(34.0, 28.0))
+	rewarded_heart_button.set("icon_gap_stage", 8.0)
+	rewarded_heart_button.set("icon_before_text", true)
+	rewarded_heart_button.set("icon_shadow_enabled", true)
+	rewarded_heart_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
+	rewarded_heart_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
+	rewarded_heart_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
+	rewarded_heart_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
+	rewarded_heart_button.set("trailing_icon_gap_stage", 8.0)
+	if rewarded_heart_button.has_method("set_color_palette"):
+		rewarded_heart_button.call(
+			"set_color_palette",
+			PORTRAIT_AD_BADGE_PURPLE,
+			PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
+			PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
+		)
+
 	var purchase_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 510.0, 300.0, 56.0),
+		Rect2(90.0, 522.0, 300.0, 56.0),
 		Callable(self, "_purchase_heart_refill"),
 		"",
 		18,
@@ -2913,6 +2952,11 @@ func _show_heart_refill_popup(
 		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
 	content = previous_content
+
+func _on_heart_refill_ad_pressed() -> void:
+	if GameState.get_hearts() >= GameState.MAX_HEARTS:
+		return
+	_show_portrait_rewarded_action(&"heart_refill")
 
 func _return_to_heart_refill_from_coin_store(
 	continue_action: Callable,
@@ -7644,7 +7688,7 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 	button.set("icon_texture", WATCH_AD_ICON_TEXTURE)
 	button.set("icon_stage_size", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE * 2.0)
 	button.set("icon_gap_stage", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP)
-	button.set("icon_before_text", false)
+	button.set("icon_before_text", true)
 	button.set("icon_shadow_enabled", true)
 	button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
 	button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
@@ -7940,6 +7984,12 @@ func _set_portrait_rewarded_action_control_enabled(
 		&"theme_reroll":
 			if level_index == single_player_popup_level_index:
 				_update_single_player_theme_reroll_button_state()
+		&"heart_refill":
+			var can_use_rewarded_refill: bool = enabled and GameState.get_hearts() < GameState.MAX_HEARTS
+			for node: Node in get_tree().get_nodes_in_group(&"heart_refill_ad_button"):
+				var refill_ad_button := node as Control
+				if refill_ad_button != null and is_instance_valid(refill_ad_button):
+					refill_ad_button.set("button_disabled", !can_use_rewarded_refill)
 
 func _on_portrait_rewarded_action_rewarded(_currency: String, _amount: int) -> void:
 	if _portrait_rewarded_action != &"":
@@ -7982,6 +8032,14 @@ func _on_portrait_rewarded_action_closed() -> void:
 				_update_single_player_theme_reroll_badge()
 				_update_single_player_theme_reroll_button_state()
 				_perform_single_player_theme_reroll(level_index)
+		&"heart_refill":
+			if GameState.get_hearts() < GameState.MAX_HEARTS:
+				GameState.add_hearts(1)
+			var popup_nodes: Array = get_tree().get_nodes_in_group(&"heart_refill_popup")
+			if !popup_nodes.is_empty():
+				var continue_action: Callable = heart_refill_continue_action
+				var restore_action: Callable = heart_refill_store_return_action
+				_show_heart_refill_popup(continue_action, restore_action)
 
 func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	if _portrait_rewarded_action == &"":

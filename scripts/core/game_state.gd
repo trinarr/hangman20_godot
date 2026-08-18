@@ -9,7 +9,7 @@ const HINT_OPEN_LETTER: String = "open_letter"
 const HINT_REMOVE_WRONG: String = "remove_wrong"
 const HINT_COMMENT: String = "comment"
 const DEFAULT_HINT_COUNT: int = 3
-const DEFAULT_SOFT_CURRENCY: int = 0
+const DEFAULT_SOFT_CURRENCY: int = 100
 const MAX_HEARTS: int = 5
 const HEART_RECOVERY_SECONDS: int = 5 * 60
 const WORD_REWARD_COINS: int = 10
@@ -216,6 +216,23 @@ func refill_hearts(persist: bool = true) -> int:
 	# countdown that could grant an extra life after the next one is spent.
 	hearts = MAX_HEARTS
 	heart_recovery_at = 0
+	if persist:
+		save_game()
+	_emit_heart_status_if_changed(true)
+	return hearts
+
+func add_hearts(amount: int = 1, persist: bool = true) -> int:
+	# Rewarded lives add to the current inventory instead of filling it outright.
+	# Preserve an active recovery countdown unless the inventory becomes full.
+	_apply_elapsed_heart_recovery(false)
+	if amount <= 0 or hearts >= MAX_HEARTS:
+		_emit_heart_status_if_changed(true)
+		return clampi(hearts, 0, MAX_HEARTS)
+	hearts = mini(hearts + amount, MAX_HEARTS)
+	if hearts >= MAX_HEARTS:
+		heart_recovery_at = 0
+	elif heart_recovery_at <= 0:
+		heart_recovery_at = _heart_now() + HEART_RECOVERY_SECONDS
 	if persist:
 		save_game()
 	_emit_heart_status_if_changed(true)
