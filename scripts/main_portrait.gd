@@ -299,8 +299,14 @@ const PORTRAIT_AD_BADGE_PURPLE := PORTRAIT_UI_PALETTE.AD_PURPLE
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.874
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
+const PORTRAIT_POPUP_CORNER_RADIUS: float = 26.0
+const PORTRAIT_POPUP_TOP_TRIM: float = 54.0
+const PORTRAIT_POPUP_TITLE_SCALE: float = 1.22
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
+const PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH: float = 280.0
+const PORTRAIT_POPUP_LONG_BUTTON_WIDTH: float = 313.6
+const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 18.0
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
@@ -1577,11 +1583,11 @@ func _portrait_main_tab_action(tab_index: int) -> Callable:
 func _portrait_main_tab_label(tab_index: int) -> String:
 	match tab_index:
 		MainTab.HOME:
-			return _profile_text("Главная", "Home").to_upper()
+			return tr("NAV_HOME").to_upper()
 		MainTab.TASKS:
-			return _profile_text("Задания", "Tasks").to_upper()
+			return tr("NAV_TASKS").to_upper()
 		MainTab.PROFILE:
-			return _profile_text("Профиль", "Profile").to_upper()
+			return tr("NAV_PROFILE").to_upper()
 	return ""
 
 func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
@@ -2064,7 +2070,7 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	var attempts_value_rect := PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT
 	attempts_value_rect.position.y = group_top + 18.0
 
-	var attempts_title_text: String = _single_player_text("Попытки", "Attempts")
+	var attempts_title_text: String = tr("ATTEMPTS_LABEL")
 	var attempts_title := _stage_label(
 		attempts_title_rect,
 		attempts_title_text,
@@ -2111,7 +2117,7 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	var theme_line_rect := PORTRAIT_GAME_INFO_THEME_LINE_RECT
 	theme_line_rect.position.y = theme_title_rect.position.y + 16.0
 
-	var theme_caption_text: String = _single_player_text("Тема", "Theme")
+	var theme_caption_text: String = tr("THEME_LABEL")
 	var theme_caption := _stage_label(
 		theme_title_rect,
 		theme_caption_text,
@@ -2228,31 +2234,55 @@ func _portrait_popup_shell(
 ) -> void:
 	# PopupStageCenter centers the authored body bounds and scales the complete
 	# modal composition around that center on every supported aspect ratio.
-	var header_rect := Rect2(rect.position, Vector2(rect.size.x, 80.0))
-	var body_rect := Rect2(rect.position + Vector2(0.0, 80.0), Vector2(rect.size.x, rect.size.y - 80.0))
-	var header := _stage_panel(header_rect, header_color)
-	header.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := _stage_panel(body_rect, body_color)
-	body.mouse_filter = Control.MOUSE_FILTER_STOP
-	var separator := _stage_panel(Rect2(rect.position.x, rect.position.y + 79.0, rect.size.x, 2.0), separator_color)
-	separator.mouse_filter = Control.MOUSE_FILTER_STOP
+	# The popup body starts lower now that the title sits on the outer top edge.
+	# This removes the old unused title/header space without moving the authored
+	# popup content or the bottom edge.
+	var popup_rect := Rect2(
+		rect.position + Vector2(0.0, PORTRAIT_POPUP_TOP_TRIM),
+		Vector2(rect.size.x, rect.size.y - PORTRAIT_POPUP_TOP_TRIM)
+	)
+	# Use the same light-blue outline as the resource counters in the top HUD.
+	# The popup background is solid again; the experimental gradient is disabled.
+	var popup_panel := _stage_panel(
+		popup_rect,
+		body_color,
+		PORTRAIT_POPUP_CORNER_RADIUS,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		3.0
+	)
+	popup_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var resolved_title_font_size: int = maxi(1, int(round(float(title_font_size) * PORTRAIT_POPUP_TITLE_SCALE)))
+	var title_height: float = 66.0 if subtitle.is_empty() else 54.0
 	var title_rect := Rect2(
-		rect.position.x + 20.0,
-		rect.position.y + (3.0 if !subtitle.is_empty() else 10.0),
-		rect.size.x - 40.0,
-		56.0 if subtitle.is_empty() else 42.0
+		popup_rect.position.x + 16.0,
+		popup_rect.position.y - title_height * 0.5 + (-2.0 if !subtitle.is_empty() else 0.0),
+		popup_rect.size.x - 32.0,
+		title_height
 	)
 	var title_label := _stage_heading_label(
 		title_rect,
-		title,
-		title_font_size,
+		title.to_upper(),
+		resolved_title_font_size,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	# Title treatment is intentionally darker than the popup background so the
+	# floating title remains legible while crossing the popup edge.
+	var title_effect_color: Color = body_color.darkened(0.40)
+	title_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	title_label.add_theme_color_override("font_outline_color", title_effect_color)
+	title_label.add_theme_constant_override("outline_size", 5)
+	title_label.add_theme_color_override(
+		"font_shadow_color",
+		Color(title_effect_color.r, title_effect_color.g, title_effect_color.b, 0.90)
+	)
+	title_label.add_theme_constant_override("shadow_offset_x", 3)
+	title_label.add_theme_constant_override("shadow_offset_y", 4)
+	title_label.add_theme_constant_override("shadow_outline_size", 2)
 	title_label.clip_text = false
 	if !subtitle.is_empty():
 		var subtitle_label := _stage_label(
-			Rect2(rect.position.x + 20.0, rect.position.y + 43.0, rect.size.x - 40.0, 28.0),
+			Rect2(popup_rect.position.x + 20.0, popup_rect.position.y + 28.0, popup_rect.size.x - 40.0, 28.0),
 			subtitle,
 			16,
 			Color.WHITE,
@@ -2302,12 +2332,20 @@ func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
 	return holder
 
 func _portrait_popup_button_rect(rect: Rect2) -> Rect2:
-	# Popup action buttons first receive a uniform 15% scale-up. Their horizontal
-	# length is then reduced by 15%, preserving the larger height and touch target
-	# without making two-button rows wider than their authored popup layout.
+	# Popup buttons keep the existing 15% height scale. Full-length popup CTAs
+	# share one near-edge-to-edge width, while compact/two-column controls retain
+	# their authored row width treatment.
 	var scaled_size: Vector2 = rect.size * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
-	scaled_size.x *= PORTRAIT_POPUP_BUTTON_LENGTH_SCALE
+	if rect.size.x >= PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH:
+		scaled_size.x = PORTRAIT_POPUP_LONG_BUTTON_WIDTH
+	else:
+		scaled_size.x *= PORTRAIT_POPUP_BUTTON_LENGTH_SCALE
 	return Rect2(rect.get_center() - scaled_size * 0.5, scaled_size)
+
+func _portrait_popup_bottom_button_y(popup_bottom: float, source_height: float) -> float:
+	# Align the visible bottom edge after the popup button's 15% scale-up.
+	var scaled_height: float = source_height * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
+	return popup_bottom - PORTRAIT_POPUP_BOTTOM_BUTTON_GAP - (source_height + scaled_height) * 0.5
 
 func _portrait_popup_font_size(font_size: int) -> int:
 	return int(round(float(font_size) * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE))
@@ -2324,7 +2362,9 @@ func _stage_portrait_popup_main_button(
 	attention_bounce: bool = false,
 	color_preset: int = LONG_BUTTON_COLOR_BLUE
 ) -> Control:
-	return _stage_main_button(
+	# Popup CTAs never use the long-button repeating attention bounce. Opening
+	# animation and normal press feedback remain unchanged.
+	var button := _stage_main_button(
 		_portrait_popup_button_rect(rect),
 		callable,
 		text,
@@ -2333,9 +2373,11 @@ func _stage_portrait_popup_main_button(
 		disabled_overlay_alpha,
 		use_normal_texture_when_disabled,
 		selected,
-		attention_bounce,
+		false,
 		color_preset
 	)
+	button.set("attention_bounce_enabled", false)
+	return button
 
 func _stage_portrait_popup_coin_purchase_content(
 	button: Control,
@@ -2571,7 +2613,7 @@ func _show_settings_popup() -> void:
 	)
 	_portrait_popup_shell(
 		rect,
-		_profile_text("Настройки", "Settings").to_upper(),
+		tr("SETTINGS_TITLE").to_upper(),
 		Callable(self, "_remove_settings_popup"),
 		28
 	)
@@ -2639,7 +2681,7 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 	var theme_title: String = (
 		_portrait_main_tab_label(MainTab.TASKS)
 		if with_main_navigation
-		else _single_player_text("ИСПЫТАНИЯ", "CHALLENGES")
+		else tr("CHALLENGES_TITLE")
 	)
 	if with_main_navigation:
 		_stage_currency_counter(Callable(self, "show_tasks"))
@@ -2773,7 +2815,7 @@ func _show_single_player_last_chance_popup() -> void:
 	var rect := Rect2(28.0, 170.0, 424.0, 400.0)
 	_portrait_popup_shell(
 		rect,
-		_single_player_text("ЕЩЁ ДВЕ ПОПЫТКИ?", "TWO MORE TRIES?"),
+		tr("EXTRA_ATTEMPTS_TITLE"),
 		close_action,
 		27
 	)
@@ -2798,17 +2840,14 @@ func _show_single_player_last_chance_popup() -> void:
 	attempt_label.z_index = 12
 	var description_label := _stage_label(
 		Rect2(58.0, 402.0, 364.0, 68.0),
-		_single_player_text(
-			"Добавьте 2 попытки,\nчтобы продолжить игру",
-			"Add 2 tries\nto continue the game"
-		),
+		tr("EXTRA_ATTEMPTS_DESCRIPTION"),
 		21,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	description_label.clip_text = false
 	var purchase_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 492.0, 300.0, 56.0),
+		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
 		Callable(self, "_purchase_single_player_extra_attempt"),
 		"",
 		18,
@@ -2821,7 +2860,7 @@ func _show_single_player_last_chance_popup() -> void:
 	)
 	_stage_portrait_popup_coin_purchase_content(
 		purchase_button,
-		_single_player_text("Продолжить", "Continue"),
+		tr("COMMON_CONTINUE"),
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COST,
 		_purchase_price_color(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
 	)
@@ -2895,13 +2934,13 @@ func _show_heart_refill_popup(
 		150,
 		close_action,
 		145.0,
-		605.0,
+		582.0,
 		true
 	)
-	var rect := Rect2(28.0, 145.0, 424.0, 460.0)
+	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
 	_portrait_popup_shell(
 		rect,
-		_single_player_text("БОЛЬШЕ ЖИЗНЕЙ!", "MORE LIVES!"),
+		tr("HEART_REFILL_TITLE"),
 		close_action,
 		28
 	)
@@ -2911,32 +2950,45 @@ func _show_heart_refill_popup(
 	)
 
 	var current_hearts: int = GameState.get_hearts()
-	# Move the hero heart closer to the popup header and reduce it by another 10%.
-	var original_heart_rect := Rect2(171.0, 227.0, 138.0, 125.0)
+	# Group the heart and recovery copy on the same light-blue surface used by
+	# the theme-card treatment, keeping the block visually separate from the popup.
+	var heart_status_rect := Rect2(56.0, 236.0, 368.0, 151.0)
+	var heart_status_panel := _stage_panel(
+		heart_status_rect,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		22.0
+	)
+	heart_status_panel.z_index = 8
+	# Present the life state as one horizontal row: the large heart stays on the
+	# left, while the recovery caption and timer sit to its right. Center both the
+	# heart/glow and the two-line text block vertically within the blue panel.
+	var original_heart_rect := Rect2(79.0, 246.0, 138.0, 125.0)
 	var heart_size: Vector2 = original_heart_rect.size * 0.85 * 0.90 * 0.90
 	var heart_rect := Rect2(
-		original_heart_rect.get_center() - heart_size * 0.5,
+		Vector2(
+			original_heart_rect.position.x,
+			heart_status_rect.get_center().y - heart_size.y * 0.5
+		),
 		heart_size
 	)
-	# Clip the static rays to the popup body so they can never bleed into the
-	# header/title strip. Keep the same glow artwork, but make it 20% more
-	# transparent than the current popup value.
+	# Clip the static rays to the blue panel so they stop cleanly at the rounded
+	# backing block rather than at the overall popup body.
 	var heart_glow_size := Vector2.ONE * maxf(heart_size.x, heart_size.y) * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
 	var heart_glow_rect := Rect2(
 		heart_rect.get_center() - heart_glow_size * 0.5,
 		heart_glow_size
 	)
-	var glow_clip := _stage_holder(body_rect, Control.MOUSE_FILTER_IGNORE)
+	var glow_clip := _stage_holder(heart_status_rect, Control.MOUSE_FILTER_IGNORE)
 	glow_clip.name = "HeartRefillGlowClip"
 	glow_clip.clip_contents = true
-	glow_clip.z_index = 10
+	glow_clip.z_index = 9
 	var heart_glow := TextureRect.new()
 	heart_glow.name = "HeartRefillGlow"
 	heart_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heart_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
 	heart_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	heart_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	heart_glow.position = heart_glow_rect.position - body_rect.position
+	heart_glow.position = heart_glow_rect.position - heart_status_rect.position
 	heart_glow.size = heart_glow_rect.size
 	heart_glow.modulate = Color(
 		1.0,
@@ -2960,19 +3012,39 @@ func _show_heart_refill_popup(
 	heart_value.add_theme_constant_override("outline_size", 5)
 	heart_value.z_index = 12
 
+	var recovery_text_block_rect := Rect2(188.0, 0.0, 224.0, 88.0)
+	recovery_text_block_rect.position.y = heart_status_rect.get_center().y - recovery_text_block_rect.size.y * 0.5
+	var recovery_text_rect := Rect2(
+		recovery_text_block_rect.position.x,
+		recovery_text_block_rect.position.y,
+		recovery_text_block_rect.size.x,
+		30.0
+	)
 	var recovery_label := _stage_label(
-		Rect2(54.0, 338.0, 372.0, 36.0),
-		_single_player_text("Время до следующей жизни:", "Time until next life:"),
-		21,
+		recovery_text_rect,
+		tr("HEART_NEXT_LIFE"),
+		20,
 		PORTRAIT_UI_PALETTE.TEXT_SECONDARY,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	recovery_label.clip_text = false
+	recovery_label.z_index = 12
 
-	var recovery_timer_label: Label = _stage_heart_recovery_timer_counter(
-		Rect2(164.0, 376.0, 152.0, 40.0),
-		current_hearts
+	var recovery_timer_label := _stage_label(
+		Rect2(
+			recovery_text_block_rect.position.x,
+			recovery_text_block_rect.position.y + 36.0,
+			recovery_text_block_rect.size.x,
+			52.0
+		),
+		_heart_status_text(current_hearts, GameState.get_heart_recovery_seconds()),
+		36,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	recovery_timer_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	recovery_timer_label.clip_text = false
+	recovery_timer_label.z_index = 12
 	# Keep the popup copy live without replacing the global top-bar label refs.
 	# That way closing the popup does not break the underlying HUD countdown.
 	var popup_heart_tick := Timer.new()
@@ -2994,9 +3066,9 @@ func _show_heart_refill_popup(
 	var purchase_disabled: bool = current_hearts >= GameState.MAX_HEARTS
 	var has_enough_coins: bool = GameState.get_soft_currency() >= HEART_REFILL_COST
 	var rewarded_heart_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 448.0, 300.0, 56.0),
+		Rect2(90.0, 425.0, 300.0, 56.0),
 		Callable(self, "_on_heart_refill_ad_pressed"),
-		_single_player_text("ПОЛУЧИТЬ 1", "GET 1"),
+		tr("HEART_GET_ONE"),
 		18,
 		purchase_disabled,
 		0.32,
@@ -3033,7 +3105,7 @@ func _show_heart_refill_popup(
 		)
 
 	var purchase_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 520.0, 300.0, 56.0),
+		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
 		Callable(self, "_purchase_heart_refill"),
 		"",
 		18,
@@ -3052,7 +3124,7 @@ func _show_heart_refill_popup(
 	)
 	_stage_portrait_popup_coin_purchase_content(
 		purchase_button,
-		_single_player_text("ВОСПОЛНИТЬ", "REFILL"),
+		tr("HEART_REFILL"),
 		HEART_REFILL_COST,
 		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
@@ -3129,11 +3201,11 @@ func _show_single_player_level_popup(
 		135,
 		close_action,
 		118.0,
-		578.0,
+		588.0,
 		true
 	)
 	single_player_popup_stage_content = content
-	var rect := Rect2(24.0, 118.0, 432.0, 460.0)
+	var rect := Rect2(24.0, 118.0, 432.0, 470.0)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	_portrait_popup_shell(
 		rect,
@@ -3148,13 +3220,14 @@ func _show_single_player_level_popup(
 	var instruction_y: float = 210.0
 	var instruction_label := _stage_label(
 		Rect2(48.0, instruction_y, 384.0, 38.0),
-		_single_player_choose_theme_label(),
+		_single_player_choose_theme_label().to_upper(),
 		21,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	instruction_label.add_theme_font_override("font", UI_HEADING_FONT)
 	instruction_label.clip_text = false
-	var card_y: float = 270.0
+	var card_y: float = 280.0
 	# Center the complete reroll button in the free vertical strip between the
 	# popup header separator and the top edge of the theme cards. Its price badge
 	# then remains clear of both neighboring elements as well.
@@ -3235,7 +3308,7 @@ func _show_single_player_level_popup(
 	)
 
 	single_player_popup_play_button = _stage_portrait_popup_main_button(
-		Rect2(90.0, 500.0, 300.0, 56.0),
+		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
 		Callable(self, "_start_single_player_popup_level").bind(level_index),
 		_single_player_theme_start_label(),
 		18,
@@ -3275,7 +3348,8 @@ func _stage_single_player_popup_theme_cards(
 	var previous_content: Control = content
 	content = single_player_popup_stage_content
 	var first_card_node_index: int = content.get_child_count()
-	var card_size := Vector2(128.0, 202.0)
+	var authored_card_size := Vector2(128.0, 202.0)
+	var card_size := Vector2(authored_card_size.x, authored_card_size.y * 0.9975)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	var card_fill: Color = (
 		PORTRAIT_UI_PALETTE.THEME_CARD_BASE_CHALLENGE
@@ -3289,7 +3363,12 @@ func _stage_single_player_popup_theme_cards(
 	)
 	for option_index in range(options.size()):
 		var theme_index: int = int(options[option_index])
-		var card_rect := Rect2(39.0 + float(option_index) * 137.0, card_y, card_size.x, card_size.y)
+		var card_rect := Rect2(
+			39.0 + float(option_index) * 137.0,
+			card_y + (authored_card_size.y - card_size.y) * 0.5,
+			card_size.x,
+			card_size.y
+		)
 		var card := _stage_panel(
 			card_rect,
 			card_fill,
@@ -3368,7 +3447,7 @@ func _stage_single_player_popup_theme_cards(
 		var theme_name_rect := Rect2(
 			Vector2(
 				card_rect.position.x + 6.0,
-				card_rect.end.y - theme_name_height - 24.0
+				card_rect.end.y - theme_name_height - 18.0
 			),
 			Vector2(card_rect.size.x - 12.0, theme_name_height)
 		)
@@ -3379,6 +3458,7 @@ func _stage_single_player_popup_theme_cards(
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
+		theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		theme_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		theme_label.clip_text = false
@@ -7507,7 +7587,7 @@ func _stage_final_reward_collect_text(rect: Rect2) -> Dictionary:
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	label.text = _single_player_text("НЕТ, СПАСИБО", "NO, THANKS")
+	label.text = tr("NO_THANKS")
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", UI_PRIMARY_FONT)
@@ -7792,7 +7872,7 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 		return
 	# Use StageLongButton's native text+icon layout. It measures the caption and
 	# icon as one row and centers that complete row inside the authored button.
-	button.set("button_text", _single_player_text("Получить Х2", "Get X2"))
+	button.set("button_text", tr("REWARD_GET_X2"))
 	button.set("icon_texture", WATCH_AD_ICON_TEXTURE)
 	button.set("icon_stage_size", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE * 2.0)
 	button.set("icon_gap_stage", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP)
@@ -8360,17 +8440,14 @@ func _show_single_player_reward_chain_screen() -> void:
 		0.0
 	)
 	title_panel.z_index = 0
-	var level_title_text: String = _single_player_text(
-		"Уровень %d" % (level_index + 1),
-		"Level %d" % (level_index + 1)
-	)
+	var level_title_text: String = tr("LEVEL_NUMBER") % (level_index + 1)
 	var result_heading_text: String = (
-		_single_player_text("НЕ ПРОЙДЕН", "NOT COMPLETED")
+		tr("REWARD_NOT_COMPLETED")
 		if is_failure_reward
 		else (
-			_single_player_text("ПРОЙДЕН", "COMPLETED")
+			tr("REWARD_COMPLETED")
 			if is_final_reward
-			else _single_player_text("СЛОВО УГАДАНО", "WORD GUESSED")
+			else tr("REWARD_WORD_GUESSED")
 		)
 	)
 	var reward_title := Label.new()
@@ -8731,7 +8808,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		var double_button := _stage_main_button(
 			PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
 			Callable(self, "_on_final_reward_double_pressed"),
-			_single_player_text("Удвоить награду", "Double reward"),
+			tr("REWARD_DOUBLE"),
 			22,
 			true,
 			0.32,
@@ -8777,7 +8854,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			_portrait_in_place_result_button_rect(),
 			Callable(self, "_continue_from_single_player_reward_chain"),
 			(
-				_single_player_text("Начать заново", "Start over")
+				tr("REWARD_START_OVER")
 				if is_failure_reward
 				else _result_continue_button_text()
 			),
@@ -9192,7 +9269,7 @@ func _show_profile_screen() -> void:
 
 	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)
 	_stage_profile_header_card()
-	_stage_label(Rect2(26.0, 310.0, 428.0, 40.0), _profile_text("СТАТИСТИКА", "STATISTICS"), 27, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(26.0, 310.0, 428.0, 40.0), tr("RECORDS_TITLE").to_upper(), 27, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
 	_portrait_profile_stat_row(392.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), int(GameState.records[0][2]), tr("RECORD_HARD_STREAK"), int(GameState.records[0][3]))
 	_portrait_end_adaptive_group(profile_root_content)
 
@@ -9207,7 +9284,7 @@ func _stage_profile_header_card() -> void:
 		_stage_texture(Rect2(69.0, 181.0, 54.0, 58.0), HERO_AVATAR_LAKI_TEXTURE)
 	var name_label := _stage_label(Rect2(170.0, 166.0, 250.0, 48.0), _profile_display_name(), 31, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	name_label.clip_text = true
-	var edit_label := _stage_label(Rect2(170.0, 214.0, 250.0, 36.0), _profile_text("Нажмите, чтобы изменить", "Tap to edit"), 18, PORTRAIT_UI_PALETTE.TEXT_SECONDARY, HORIZONTAL_ALIGNMENT_LEFT)
+	var edit_label := _stage_label(Rect2(170.0, 214.0, 250.0, 36.0), tr("PROFILE_TAP_TO_EDIT"), 18, PORTRAIT_UI_PALETTE.TEXT_SECONDARY, HORIZONTAL_ALIGNMENT_LEFT)
 	edit_label.clip_text = false
 	_stage_label(Rect2(414.0, 188.0, 26.0, 42.0), "›", 30, Color.WHITE)
 	_stage_button(card_rect, Callable(self, "_show_profile_edit_popup"), "")
@@ -9228,20 +9305,20 @@ func _show_profile_edit_popup() -> void:
 	_profile_avatar_halos.clear()
 	var previous_content := _portrait_popup_begin("ProfileEditPopup", "profile_edit_popup", 130, Callable(self, "_remove_profile_edit_popup"), 120.0, 680.0)
 	var rect := Rect2(28.0, 120.0, 424.0, 560.0)
-	_portrait_popup_shell(rect, _profile_text("Редактировать профиль", "Edit profile"), Callable(self, "_remove_profile_edit_popup"), 25)
+	_portrait_popup_shell(rect, tr("PROFILE_EDIT_TITLE"), Callable(self, "_remove_profile_edit_popup"), 25)
 
-	_stage_label(Rect2(56.0, 226.0, 368.0, 34.0), _profile_text("Имя игрока", "Player name"), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(56.0, 226.0, 368.0, 34.0), tr("PROFILE_PLAYER_NAME"), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_panel(Rect2(56.0, 266.0, 368.0, 58.0), Color.WHITE, 22.0, PORTRAIT_UI_PALETTE.NEUTRAL_BORDER, 2.0)
 	_profile_name_edit = _stage_line_edit(Rect2(72.0, 270.0, 336.0, 50.0), _profile_default_name())
 	_profile_name_edit.text = _profile_display_name()
 	_profile_name_edit.max_length = 18
 	_profile_name_edit.add_theme_font_size_override("font_size", 23)
 
-	_stage_label(Rect2(56.0, 346.0, 368.0, 34.0), _profile_text("Аватар", "Avatar"), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	_stage_label(Rect2(56.0, 346.0, 368.0, 34.0), tr("PROFILE_AVATAR"), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_stage_profile_avatar_choice(1, Rect2(78.0, 404.0, 112.0, 112.0), Rect2(108.0, 431.0, 54.0, 58.0))
 	_stage_profile_avatar_choice(2, Rect2(290.0, 404.0, 112.0, 112.0), Rect2(306.0, 437.0, 80.0, 70.0))
 
-	_stage_portrait_popup_main_button(Rect2(90.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_save_profile_edits"), _profile_text("Сохранить", "Save"), 20)
+	_stage_portrait_popup_main_button(Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, PORTRAIT_LONG_BUTTON_SIZE.y), PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_save_profile_edits"), tr("PROFILE_SAVE"), 20)
 	content = previous_content
 
 func _stage_profile_avatar_choice(character_id: int, circle_rect: Rect2, avatar_rect: Rect2) -> void:
@@ -9292,10 +9369,8 @@ func _profile_display_name() -> String:
 	return saved_name if saved_name != "" else _profile_default_name()
 
 func _profile_default_name() -> String:
-	return _profile_text("Игрок", "Player")
+	return tr("PROFILE_DEFAULT_PLAYER")
 
-func _profile_text(russian_text: String, english_text: String) -> String:
-	return russian_text if GameState.interface_language == "ru" else english_text
 
 func _show_word_comment_popup() -> void:
 	if !GameSession.can_view_comment_hint():

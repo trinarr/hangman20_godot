@@ -96,3 +96,48 @@ CONTINUE_TWO_PLAYER,"Доиграть в режиме
 Two Player mode"
 COIN_STORE_TITLE,МОНЕТЫ,COINS
 COINS_EARNED,Монеты: +%d,Coins: +%d
+DIFFICULTY_HARD_MODE,Сложный режим,Hard mode
+DIFFICULTY_NORMAL_MODE,Обычный режим,Normal mode
+LEVEL_LABEL,Уровень,Level
+CHALLENGE_LEVEL_LABEL,Сложный уровень,Challenge level
+LEVEL_FAILURE,НЕУДАЧА,FAILURE
+LEVEL_COMPLETED_BONUS,Уровень пройден! Бонус: +%d,Level completed! Bonus: +%d
+CHAIN_TRY_BETTER,Вы можете лучше,You can do better
+CHOOSE_THEME,Выберите тему,Choose a category
+PLAY_GAME,Играть,Play
+CONTINUE_SELECTED_THEME,Продолжите выбранную тему,Continue the selected category
+CHALLENGE_LEVEL_PLUS_TWO_WORDS,УСЛОЖНЁННЫЙ УРОВЕНЬ • +2 СЛОВА,CHALLENGE LEVEL • +2 WORDS
+NO_THEMES_AVAILABLE,Нет доступных тем,No categories available
+EXIT_LEVEL_HEART_WARNING,Вы потеряете одну жизнь!,You will lose one life!
+EXIT_PROGRESS_WARNING,Вы потеряете свой прогресс,You will lose your progress
+EXIT_LEVEL_CONFIRM,Хотите выйти?,Exit level?
+ATTEMPTS_LABEL,Попытки,Attempts
+THEME_LABEL,Тема,Theme
+CHALLENGES_TITLE,ИСПЫТАНИЯ,CHALLENGES
+EXTRA_ATTEMPTS_TITLE,Продолжить?,Continue?
+EXTRA_ATTEMPTS_DESCRIPTION,"Добавьте 2 попытки,
+чтобы продолжить игру","Add 2 tries
+to continue the game"
+HEART_REFILL_TITLE,БОЛЬШЕ ЖИЗНЕЙ!,MORE LIVES!
+HEART_NEXT_LIFE,Следующая жизнь:,Next life:
+HEART_GET_ONE,ПОЛУЧИТЬ 1,GET 1
+HEART_REFILL,ВОСПОЛНИТЬ,REFILL
+NO_THANKS,"НЕТ, СПАСИБО","NO, THANKS"
+REWARD_GET_X2,Получить Х2,Get X2
+REWARD_NOT_COMPLETED,НЕ ПРОЙДЕН,NOT COMPLETED
+REWARD_COMPLETED,ПРОЙДЕН,COMPLETED
+REWARD_WORD_GUESSED,СЛОВО УГАДАНО,WORD GUESSED
+REWARD_DOUBLE,Удвоить награду,Double reward
+REWARD_START_OVER,Начать заново,Start over
+LEVEL_NUMBER,Уровень %d,Level %d
+NAV_HOME,Главная,Home
+NAV_TASKS,Задания,Tasks
+NAV_PROFILE,Профиль,Profile
+PROFILE_TAP_TO_EDIT,"Нажмите, чтобы изменить",Tap to edit
+PROFILE_EDIT_TITLE,Редактировать профиль,Edit profile
+PROFILE_PLAYER_NAME,Имя игрока,Player name
+PROFILE_AVATAR,Аватар,Avatar
+PROFILE_SAVE,Сохранить,Save
+PROFILE_DEFAULT_PLAYER,Игрок,Player
+COMMON_MAX,Макс,Max
+COMPACT_THOUSANDS_SUFFIX,к,k

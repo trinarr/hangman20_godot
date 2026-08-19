@@ -241,7 +241,7 @@ func _soft_currency_balance_text(balance: int) -> String:
 	var compact_text: String = _grouped_counter_text(whole_thousands)
 	if decimal_digit > 0:
 		compact_text += ".%d" % decimal_digit
-	return compact_text + ("к" if GameState.interface_language == "ru" else "k")
+	return compact_text + tr("COMPACT_THOUSANDS_SUFFIX")
 
 func _on_soft_currency_changed(balance: int) -> void:
 	var balance_text: String = _soft_currency_balance_text(balance)
@@ -279,7 +279,7 @@ func _on_timer_heart_recovered() -> void:
 
 func _heart_status_text(heart_count: int, recovery_seconds: int) -> String:
 	if heart_count >= GameState.MAX_HEARTS:
-		return "Макс" if GameState.interface_language == "ru" else "Max"
+		return tr("COMMON_MAX")
 	var resolved_seconds: int = maxi(recovery_seconds, 0)
 	return "%d:%02d" % [int(resolved_seconds / 60), resolved_seconds % 60]
 
@@ -724,8 +724,8 @@ func _difficulty_mode_value() -> int:
 func _difficulty_mode_label(value: int = -1) -> String:
 	var resolved: int = _difficulty_mode_value() if value < 0 else value
 	if resolved == DIFFICULTY_MODE_HARD:
-		return _single_player_text("Сложный режим", "Hard mode")
-	return _single_player_text("Обычный режим", "Normal mode")
+		return tr("DIFFICULTY_HARD_MODE")
+	return tr("DIFFICULTY_NORMAL_MODE")
 
 func _style_hard_button(button: Control) -> Control:
 	if button == null:
@@ -769,32 +769,26 @@ func _theme_icon_texture(theme_index: int) -> Texture2D:
 		return null
 	return THEME_ICON_TEXTURES[theme_index]
 
-func _single_player_text(ru_text: String, en_text: String) -> String:
-	return ru_text if GameState.interface_language == "ru" else en_text
-
 func _single_player_level_label() -> String:
-	return _single_player_text("Уровень", "Level")
+	return tr("LEVEL_LABEL")
 
 func _single_player_challenge_level_label() -> String:
-	return _single_player_text("Сложный уровень", "Challenge level")
+	return tr("CHALLENGE_LEVEL_LABEL")
 
 func _single_player_level_failed_label() -> String:
-	return _single_player_text("НЕУДАЧА", "FAILURE")
+	return tr("LEVEL_FAILURE")
 
 func _single_player_level_completed_reward_label(bonus_coins: int) -> String:
-	return _single_player_text(
-		"Уровень пройден! Бонус: +%d",
-		"Level completed! Bonus: +%d"
-	) % maxi(bonus_coins, 0)
+	return tr("LEVEL_COMPLETED_BONUS") % maxi(bonus_coins, 0)
 
 func _single_player_chain_failed_label() -> String:
-	return _single_player_text("Вы можете лучше", "You can do better")
+	return tr("CHAIN_TRY_BETTER")
 
 func _single_player_choose_theme_label() -> String:
-	return _single_player_text("Выберите тему", "Choose a category")
+	return tr("CHOOSE_THEME")
 
 func _single_player_theme_start_label() -> String:
-	return _single_player_text("Играть", "Play")
+	return tr("PLAY_GAME")
 
 func _single_player_next_level_index() -> int:
 	return maxi(GameState.get_single_player_unlocked_level(Database.current_language), 0)
@@ -1293,12 +1287,9 @@ func show_single_player_level(level_index: int) -> void:
 	var selected_theme: int = _single_player_level_selected_theme(level_index)
 	var instruction_text: String = _single_player_choose_theme_label()
 	if selected_theme >= 0:
-		instruction_text = _single_player_text("Продолжите выбранную тему", "Continue the selected category")
+		instruction_text = tr("CONTINUE_SELECTED_THEME")
 	if _single_player_is_bonus_level(level_index):
-		instruction_text += "\n" + _single_player_text(
-			"УСЛОЖНЁННЫЙ УРОВЕНЬ • +2 СЛОВА",
-			"CHALLENGE LEVEL • +2 WORDS"
-		)
+		instruction_text += "\n" + tr("CHALLENGE_LEVEL_PLUS_TWO_WORDS")
 	var instruction_label := _stage_label(
 		Rect2(36.0, 114.0, 408.0, 50.0),
 		instruction_text,
@@ -1314,7 +1305,7 @@ func show_single_player_level(level_index: int) -> void:
 	if theme_options.is_empty():
 		var unavailable_label := _stage_label(
 			Rect2(42.0, 260.0, 396.0, 100.0),
-			_single_player_text("Нет доступных тем", "No categories available"),
+			tr("NO_THEMES_AVAILABLE"),
 			24,
 			screen_blue,
 			HORIZONTAL_ALIGNMENT_CENTER
@@ -1497,12 +1488,12 @@ func start_classic_game(theme_index: int) -> void:
 
 func _exit_game_warning_text() -> String:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return _single_player_text("Вы потеряете одну жизнь!", "You will lose one life!")
-	return _single_player_text("Вы потеряете свой прогресс", "You will lose your progress")
+		return tr("EXIT_LEVEL_HEART_WARNING")
+	return tr("EXIT_PROGRESS_WARNING")
 
 func _exit_game_title_text() -> String:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return _single_player_text("Покинуть уровень?", "Leave level?")
+		return tr("EXIT_LEVEL_CONFIRM")
 	return tr("EXIT_GAME_CONFIRM")
 
 func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
@@ -1597,7 +1588,7 @@ func _remove_exit_game_popup() -> void:
 			node.get_parent().remove_child(node)
 			node.queue_free()
 func _custom_word_random_label() -> String:
-	return "Случайное" if Database.interface_language == "ru" else "Random"
+	return tr("RANDOM_WORD")
 
 func _custom_word_start_label() -> String:
 	return Database.tr_text(77, "Start game")
