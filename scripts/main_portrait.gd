@@ -13,6 +13,7 @@ const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 const WATCH_AD_ICON_TEXTURE: Texture2D = preload("res://flash_assets/watch_ad_icon.png")
+const HEART_RECOVERY_CLOCK_TEXTURE: Texture2D = preload("res://flash_assets/heart_recovery_clock.png")
 const MAIN_MENU_LOGO_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_logo_hangman_20.png")
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
@@ -2826,6 +2827,59 @@ func _show_single_player_last_chance_popup() -> void:
 	)
 	content = previous_content
 
+func _stage_heart_recovery_timer_counter(counter_rect: Rect2, heart_count: int) -> Label:
+	var counter_scale: float = counter_rect.size.y / 48.0
+	var panel := _stage_panel(
+		counter_rect,
+		PORTRAIT_DARK_BLUE,
+		counter_rect.size.y * 0.5,
+		PORTRAIT_UI_PALETTE.UI_BLUE_LIGHT_BORDER,
+		2.0 * counter_scale
+	)
+	panel.z_index = 13
+
+	# Fill the full counter height with the dimensional PNG clock, matching the
+	# visual weight of the heart and coin resource icons.
+	var clock_size: float = counter_rect.size.y
+	var clock_rect := Rect2(
+		Vector2(counter_rect.position.x, counter_rect.position.y),
+		Vector2.ONE * clock_size
+	)
+	var clock_icon := _stage_texture(clock_rect, HEART_RECOVERY_CLOCK_TEXTURE)
+	clock_icon.z_index = 14
+
+	var timer_rect := Rect2(
+		Vector2(
+			counter_rect.position.x + counter_rect.size.y + 2.0 * counter_scale,
+			counter_rect.position.y
+		),
+		Vector2(
+			counter_rect.size.x - counter_rect.size.y - 6.0 * counter_scale,
+			counter_rect.size.y
+		)
+	)
+	var timer_text: String = _heart_status_text(
+		heart_count,
+		GameState.get_heart_recovery_seconds()
+	)
+	var timer_label := _stage_label(
+		timer_rect,
+		timer_text,
+		maxi(1, int(round(25.0 * counter_scale))),
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	timer_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	timer_label.z_index = 14
+	_fit_single_line_label_to_width(
+		timer_label,
+		timer_text,
+		timer_rect.size.x,
+		maxi(1, int(round(25.0 * counter_scale))),
+		maxi(1, int(round(16.0 * counter_scale)))
+	)
+	return timer_label
+
 func _show_heart_refill_popup(
 	continue_action: Callable = Callable(),
 	store_return_action: Callable = Callable()
@@ -2851,15 +2905,53 @@ func _show_heart_refill_popup(
 		close_action,
 		28
 	)
+	var body_rect := Rect2(
+		rect.position + Vector2(0.0, 80.0),
+		Vector2(rect.size.x, rect.size.y - 80.0)
+	)
 
 	var current_hearts: int = GameState.get_hearts()
-	var heart_rect := Rect2(171.0, 245.0, 138.0, 125.0)
+	# Move the hero heart closer to the popup header and reduce it by another 10%.
+	var original_heart_rect := Rect2(171.0, 227.0, 138.0, 125.0)
+	var heart_size: Vector2 = original_heart_rect.size * 0.85 * 0.90 * 0.90
+	var heart_rect := Rect2(
+		original_heart_rect.get_center() - heart_size * 0.5,
+		heart_size
+	)
+	# Clip the static rays to the popup body so they can never bleed into the
+	# header/title strip. Keep the same glow artwork, but make it 20% more
+	# transparent than the current popup value.
+	var heart_glow_size := Vector2.ONE * maxf(heart_size.x, heart_size.y) * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+	var heart_glow_rect := Rect2(
+		heart_rect.get_center() - heart_glow_size * 0.5,
+		heart_glow_size
+	)
+	var glow_clip := _stage_holder(body_rect, Control.MOUSE_FILTER_IGNORE)
+	glow_clip.name = "HeartRefillGlowClip"
+	glow_clip.clip_contents = true
+	glow_clip.z_index = 10
+	var heart_glow := TextureRect.new()
+	heart_glow.name = "HeartRefillGlow"
+	heart_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	heart_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	heart_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	heart_glow.position = heart_glow_rect.position - body_rect.position
+	heart_glow.size = heart_glow_rect.size
+	heart_glow.modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.64
+	)
+	heart_glow.z_index = 0
+	glow_clip.add_child(heart_glow)
 	var heart_icon := _stage_texture(heart_rect, LIFE_HEART_ICON_TEXTURE)
 	heart_icon.z_index = 11
 	var heart_value := _stage_label(
 		heart_rect,
 		str(current_hearts),
-		48,
+		40,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -2868,28 +2960,41 @@ func _show_heart_refill_popup(
 	heart_value.add_theme_constant_override("outline_size", 5)
 	heart_value.z_index = 12
 
-	var recovery_text: String = _single_player_text(
-		"Жизни полностью восстановлены",
-		"Lives are fully restored"
-	)
-	if current_hearts < GameState.MAX_HEARTS:
-		recovery_text = _single_player_text(
-			"Следующая жизнь через %s",
-			"Next life in %s"
-		) % _heart_status_text(current_hearts, GameState.get_heart_recovery_seconds())
 	var recovery_label := _stage_label(
-		Rect2(54.0, 405.0, 372.0, 38.0),
-		recovery_text,
-		17,
+		Rect2(54.0, 338.0, 372.0, 36.0),
+		_single_player_text("Время до следующей жизни:", "Time until next life:"),
+		21,
 		PORTRAIT_UI_PALETTE.TEXT_SECONDARY,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	recovery_label.clip_text = false
 
+	var recovery_timer_label: Label = _stage_heart_recovery_timer_counter(
+		Rect2(164.0, 376.0, 152.0, 40.0),
+		current_hearts
+	)
+	# Keep the popup copy live without replacing the global top-bar label refs.
+	# That way closing the popup does not break the underlying HUD countdown.
+	var popup_heart_tick := Timer.new()
+	popup_heart_tick.wait_time = 1.0
+	popup_heart_tick.one_shot = false
+	popup_heart_tick.timeout.connect(func() -> void:
+		var live_hearts: int = GameState.get_hearts()
+		if is_instance_valid(heart_value):
+			heart_value.text = str(live_hearts)
+		if is_instance_valid(recovery_timer_label):
+			recovery_timer_label.text = _heart_status_text(
+				live_hearts,
+				GameState.get_heart_recovery_seconds()
+			)
+	)
+	heart_glow.add_child(popup_heart_tick)
+	popup_heart_tick.start()
+
 	var purchase_disabled: bool = current_hearts >= GameState.MAX_HEARTS
 	var has_enough_coins: bool = GameState.get_soft_currency() >= HEART_REFILL_COST
 	var rewarded_heart_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 446.0, 300.0, 56.0),
+		Rect2(90.0, 448.0, 300.0, 56.0),
 		Callable(self, "_on_heart_refill_ad_pressed"),
 		_single_player_text("ПОЛУЧИТЬ 1", "GET 1"),
 		18,
@@ -2928,7 +3033,7 @@ func _show_heart_refill_popup(
 		)
 
 	var purchase_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 522.0, 300.0, 56.0),
+		Rect2(90.0, 520.0, 300.0, 56.0),
 		Callable(self, "_purchase_heart_refill"),
 		"",
 		18,
@@ -3219,42 +3324,45 @@ func _stage_single_player_popup_theme_cards(
 			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
 			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
 			theme_icon.z_index = 12
-			var word_badge_text := "x%d" % word_count
-			var word_badge_text_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
-				word_badge_text,
-				HORIZONTAL_ALIGNMENT_LEFT,
-				-1.0,
-				16
-			)
-			var word_badge_diameter: float = maxf(27.0, ceilf(word_badge_text_size.x + 10.0))
-			var word_badge_size := Vector2.ONE * word_badge_diameter
-			var word_badge_rect := Rect2(
-				theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
-				word_badge_size
-			)
-			word_badge = _stage_panel(
-				word_badge_rect,
-				Color.WHITE,
-				word_badge_size.y * 0.5,
-				Color(0.0, 0.0, 0.0, 0.0),
-				0.0
-			)
-			word_badge.z_index = 13
-			word_badge_label = _stage_label(
-				word_badge_rect,
-				word_badge_text,
-				16,
-				PORTRAIT_BLUE,
-				HORIZONTAL_ALIGNMENT_CENTER
-			)
-			word_badge_label.z_index = 14
-			word_badge_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-			word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
-			word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
-			word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
-			word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
-			word_badge_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
-			word_badge_label.add_theme_constant_override("outline_size", 0)
+			# A single word is the default/minimal case, so do not clutter the theme
+			# card with a redundant x1 badge. Keep counters only for multi-word levels.
+			if word_count > 1:
+				var word_badge_text := "x%d" % word_count
+				var word_badge_text_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
+					word_badge_text,
+					HORIZONTAL_ALIGNMENT_LEFT,
+					-1.0,
+					16
+				)
+				var word_badge_diameter: float = maxf(27.0, ceilf(word_badge_text_size.x + 10.0))
+				var word_badge_size := Vector2.ONE * word_badge_diameter
+				var word_badge_rect := Rect2(
+					theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
+					word_badge_size
+				)
+				word_badge = _stage_panel(
+					word_badge_rect,
+					Color.WHITE,
+					word_badge_size.y * 0.5,
+					Color(0.0, 0.0, 0.0, 0.0),
+					0.0
+				)
+				word_badge.z_index = 13
+				word_badge_label = _stage_label(
+					word_badge_rect,
+					word_badge_text,
+					16,
+					PORTRAIT_BLUE,
+					HORIZONTAL_ALIGNMENT_CENTER
+				)
+				word_badge_label.z_index = 14
+				word_badge_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+				word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+				word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
+				word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
+				word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+				word_badge_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+				word_badge_label.add_theme_constant_override("outline_size", 0)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 		var theme_name_height: float = 56.0
 		var theme_name_rect := Rect2(
