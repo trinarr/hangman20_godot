@@ -78,18 +78,40 @@ const THEME_ICON_SCIENCE_TEXTURE: Texture2D = preload("res://flash_assets/theme_
 const THEME_ICON_HISTORY_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_history.png")
 const THEME_ICON_GENERAL_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_general.png")
 const THEME_ICON_FILM_MUSIC_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_film_music.png")
-const THEME_ICON_TEXTURES: Array[Texture2D] = [
-	THEME_ICON_SPORT_TEXTURE,
-	THEME_ICON_GEOGRAPHY_TEXTURE,
-	THEME_ICON_NATURE_TEXTURE,
-	THEME_ICON_TECHNICS_TEXTURE,
-	THEME_ICON_PEOPLE_TEXTURE,
-	THEME_ICON_FOOD_TEXTURE,
-	THEME_ICON_SCIENCE_TEXTURE,
-	THEME_ICON_HISTORY_TEXTURE,
-	THEME_ICON_GENERAL_TEXTURE,
-	THEME_ICON_FILM_MUSIC_TEXTURE,
-]
+const THEME_ICON_SPORT_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_sport_white.png")
+const THEME_ICON_GEOGRAPHY_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_geography_white.png")
+const THEME_ICON_NATURE_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_nature_white.png")
+const THEME_ICON_TECHNICS_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_technics_white.png")
+const THEME_ICON_PEOPLE_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_people_white.png")
+const THEME_ICON_FOOD_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_food_white.png")
+const THEME_ICON_SCIENCE_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_science_white.png")
+const THEME_ICON_HISTORY_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_history_white.png")
+const THEME_ICON_GENERAL_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_general_white.png")
+const THEME_ICON_FILM_MUSIC_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_film_music_white.png")
+const THEME_ICON_TEXTURES := {
+	"sport": THEME_ICON_SPORT_TEXTURE,
+	"geography": THEME_ICON_GEOGRAPHY_TEXTURE,
+	"nature": THEME_ICON_NATURE_TEXTURE,
+	"technics": THEME_ICON_TECHNICS_TEXTURE,
+	"people": THEME_ICON_PEOPLE_TEXTURE,
+	"food": THEME_ICON_FOOD_TEXTURE,
+	"science": THEME_ICON_SCIENCE_TEXTURE,
+	"history": THEME_ICON_HISTORY_TEXTURE,
+	"general": THEME_ICON_GENERAL_TEXTURE,
+	"film_music": THEME_ICON_FILM_MUSIC_TEXTURE,
+}
+const THEME_ICON_MONO_TEXTURES := {
+	"sport": THEME_ICON_SPORT_MONO_TEXTURE,
+	"geography": THEME_ICON_GEOGRAPHY_MONO_TEXTURE,
+	"nature": THEME_ICON_NATURE_MONO_TEXTURE,
+	"technics": THEME_ICON_TECHNICS_MONO_TEXTURE,
+	"people": THEME_ICON_PEOPLE_MONO_TEXTURE,
+	"food": THEME_ICON_FOOD_MONO_TEXTURE,
+	"science": THEME_ICON_SCIENCE_MONO_TEXTURE,
+	"history": THEME_ICON_HISTORY_MONO_TEXTURE,
+	"general": THEME_ICON_GENERAL_MONO_TEXTURE,
+	"film_music": THEME_ICON_FILM_MUSIC_MONO_TEXTURE,
+}
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
@@ -765,9 +787,16 @@ func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:
 		show_theme_select()
 
 func _theme_icon_texture(theme_index: int) -> Texture2D:
-	if theme_index < 0 or theme_index >= THEME_ICON_TEXTURES.size():
+	var theme_id: String = Database.get_theme_id(theme_index)
+	if theme_id.is_empty():
 		return null
-	return THEME_ICON_TEXTURES[theme_index]
+	return THEME_ICON_TEXTURES.get(theme_id, null) as Texture2D
+
+func _theme_icon_mono_texture(theme_index: int) -> Texture2D:
+	var theme_id: String = Database.get_theme_id(theme_index)
+	if theme_id.is_empty():
+		return null
+	return THEME_ICON_MONO_TEXTURES.get(theme_id, null) as Texture2D
 
 func _single_player_level_label() -> String:
 	return tr("LEVEL_LABEL")

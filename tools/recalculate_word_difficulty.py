@@ -87,10 +87,12 @@ def write_json(path: Path, data: dict[str, Any], has_bom: bool) -> None:
     path.write_bytes(payload)
 
 
-def theme_words(data: dict[str, Any], language: str) -> list[tuple[str, list[str]]]:
-    if language == "ru":
-        return [(str(name), list(words)) for name, words in data["words"].items()]
-    return [(str(item["type"]), list(item["words"])) for item in data["themes"]]
+def theme_words(data: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """Return word lists keyed by stable, language-independent theme IDs."""
+    words = data.get("words")
+    if not isinstance(words, dict):
+        raise TypeError("words must be an ID-keyed object")
+    return [(str(theme_id), list(items)) for theme_id, items in words.items()]
 
 
 def original_class(values: Any, index: int) -> int:
@@ -184,16 +186,16 @@ def recalculate_file(path: Path, language: str, check_only: bool) -> dict[str, A
 
     calculated: dict[str, list[float]] = {}
     class_counts = [0, 0]
-    for theme, words in theme_words(data, language):
-        source_values = difficulty.get(theme)
+    for theme_id, words in theme_words(data):
+        source_values = difficulty.get(theme_id)
         if not isinstance(source_values, (str, list)) or len(source_values) != len(words):
-            raise ValueError(f"{path.name}: difficulty length mismatch in {theme}")
+            raise ValueError(f"{path.name}: difficulty length mismatch in {theme_id}")
         scores: list[float] = []
         for index, word in enumerate(words):
             difficulty_class = original_class(source_values, index)
             class_counts[difficulty_class] += 1
             scores.append(calculate_score(word, language, difficulty_class))
-        calculated[theme] = scores
+        calculated[theme_id] = scores
 
     if check_only:
         if difficulty != calculated:

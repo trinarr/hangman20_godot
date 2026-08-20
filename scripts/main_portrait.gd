@@ -240,6 +240,13 @@ const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_GAP: float = 6.0
 const PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = 1.36
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE: float = 102.4
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING: float = 324.0
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA: float = 0.12
+# The larger repeat cell travels farther. This duration preserves the previous
+# slow screen-space speed while the staggered lattice advances by one exact
+# repeat vector, so the loop can wrap without a visible jump.
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION: float = 42.7
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = 1.22
 const PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = 1.06
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION: float = 0.035
@@ -302,7 +309,7 @@ const PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE: int = 39
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_POPUP_CORNER_RADIUS: float = 26.0
 const PORTRAIT_POPUP_TOP_TRIM: float = 51.3
-const PORTRAIT_POPUP_TITLE_SCALE: float = 1.22
+const PORTRAIT_POPUP_TITLE_SCALE: float = 1.098
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH: float = 280.0
@@ -2292,12 +2299,13 @@ func _portrait_popup_shell(
 	title_label.clip_text = false
 	if !subtitle.is_empty():
 		var subtitle_label := _stage_label(
-			Rect2(popup_rect.position.x + 20.0, popup_rect.position.y + 28.0, popup_rect.size.x - 40.0, 28.0),
+			Rect2(popup_rect.position.x + 20.0, popup_rect.position.y + 28.0, popup_rect.size.x - 40.0, 32.0),
 			subtitle,
-			16,
+			21,
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
+		subtitle_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 		subtitle_label.clip_text = false
 
 	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
@@ -3211,11 +3219,11 @@ func _show_single_player_level_popup(
 		135,
 		close_action,
 		118.0,
-		588.0,
+		568.0,
 		true
 	)
 	single_player_popup_stage_content = content
-	var rect := Rect2(24.0, 118.0, 432.0, 470.0)
+	var rect := Rect2(24.0, 118.0, 432.0, 450.0)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	_portrait_popup_shell(
 		rect,
@@ -3227,26 +3235,36 @@ func _show_single_player_level_popup(
 		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_ORANGE,
 		_single_player_challenge_level_label() if challenge_level else ""
 	)
-	var instruction_y: float = 210.0
+	var instruction_y: float = 208.0
 	var instruction_label := _stage_label(
-		Rect2(48.0, instruction_y, 384.0, 38.0),
+		Rect2(44.0, instruction_y, 392.0, 38.0),
 		_single_player_choose_theme_label().to_upper(),
 		21,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	instruction_label.add_theme_font_override("font", UI_HEADING_FONT)
+	instruction_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	instruction_label.clip_text = false
-	var card_y: float = 280.0
-	# Center the complete reroll button in the free vertical strip between the
-	# popup header separator and the top edge of the theme cards. Its price badge
-	# then remains clear of both neighboring elements as well.
-	var header_bottom_y: float = rect.position.y + 81.0
-	var refresh_button_size := Vector2(48.0, 48.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE
-	var refresh_center := Vector2(394.0, (header_bottom_y + card_y) * 0.5)
+	var card_y: float = 256.0
+	# Place the reroll/ad control in the same bottom CTA row as the orange Play
+	# button. The row spans the popup's full content width. The round control uses
+	# exactly the same visible height as the orange button.
+	var bottom_button_height: float = 56.0 * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
+	var bottom_button_y: float = rect.end.y - PORTRAIT_POPUP_BOTTOM_BUTTON_GAP - bottom_button_height
+	var bottom_row_left: float = rect.position.x + 20.0
+	var bottom_row_right: float = rect.end.x - 20.0
+	var bottom_row_gap: float = 10.0
+	var refresh_button_size := Vector2.ONE * bottom_button_height
 	var refresh_button_rect := Rect2(
-		refresh_center - refresh_button_size * 0.5,
+		Vector2(bottom_row_right - refresh_button_size.x, bottom_button_y),
 		refresh_button_size
+	)
+	var play_button_rect := Rect2(
+		Vector2(bottom_row_left, bottom_button_y),
+		Vector2(
+			refresh_button_rect.position.x - bottom_row_gap - bottom_row_left,
+			bottom_button_height
+		)
 	)
 	var refresh_button := _stage_round_icon_button(
 		refresh_button_rect,
@@ -3317,18 +3335,19 @@ func _show_single_player_level_popup(
 		word_count
 	)
 
-	single_player_popup_play_button = _stage_portrait_popup_main_button(
-		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
+	single_player_popup_play_button = _stage_main_button(
+		play_button_rect,
 		Callable(self, "_start_single_player_popup_level").bind(level_index),
 		_single_player_theme_start_label(),
-		18,
+		_portrait_popup_font_size(18),
 		selected_theme < 0,
 		0.32,
 		false,
 		false,
-		true,
+		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	single_player_popup_play_button.set("attention_bounce_enabled", false)
 	if selected_theme >= 0:
 		_select_single_player_popup_theme(level_index, selected_theme)
 	# A freshly generated set arrives through the same reel animation as a paid
@@ -3359,7 +3378,12 @@ func _stage_single_player_popup_theme_cards(
 	content = single_player_popup_stage_content
 	var first_card_node_index: int = content.get_child_count()
 	var authored_card_size := Vector2(128.0, 202.0)
-	var card_size := Vector2(authored_card_size.x, authored_card_size.y * 0.9975)
+	var card_gap: float = 12.0
+	var card_row_left: float = 44.0
+	var card_row_right: float = 436.0
+	var target_card_width: float = (card_row_right - card_row_left - card_gap * 2.0) / 3.0
+	var card_scale: float = target_card_width / authored_card_size.x
+	var card_size := Vector2(target_card_width, authored_card_size.y * 0.9975 * card_scale)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	var card_fill: Color = (
 		PORTRAIT_UI_PALETTE.THEME_CARD_BASE_CHALLENGE
@@ -3374,7 +3398,7 @@ func _stage_single_player_popup_theme_cards(
 	for option_index in range(options.size()):
 		var theme_index: int = int(options[option_index])
 		var card_rect := Rect2(
-			39.0 + float(option_index) * 137.0,
+			card_row_left + float(option_index) * (card_size.x + card_gap),
 			card_y + (authored_card_size.y - card_size.y) * 0.5,
 			card_size.x,
 			card_size.y
@@ -4287,7 +4311,7 @@ func _update_single_player_theme_popup(level_index: int) -> void:
 	_stage_single_player_popup_theme_cards(
 		level_index,
 		options,
-		270.0,
+		256.0,
 		_single_player_level_word_count(level_index)
 	)
 	_select_single_player_popup_theme(level_index, selected_theme)
@@ -8176,6 +8200,101 @@ func _start_single_player_final_reward_transition_deferred(
 	await _play_final_reward_pack_bounce(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
+func _layout_final_reward_theme_pattern(clip_root: Control, motion: Control, mono_texture: Texture2D) -> void:
+	if clip_root == null or !is_instance_valid(clip_root):
+		return
+	if motion == null or !is_instance_valid(motion):
+		return
+	if mono_texture == null:
+		return
+	var existing_tween: Tween = motion.get_meta("pattern_move_tween", null) as Tween
+	if existing_tween != null and is_instance_valid(existing_tween):
+		existing_tween.kill()
+	var layout_generation: int = int(motion.get_meta("pattern_layout_generation", 0)) + 1
+	motion.set_meta("pattern_layout_generation", layout_generation)
+	for child in motion.get_children():
+		child.queue_free()
+	await get_tree().process_frame
+	if (
+		clip_root == null
+		or !is_instance_valid(clip_root)
+		or motion == null
+		or !is_instance_valid(motion)
+		or int(motion.get_meta("pattern_layout_generation", 0)) != layout_generation
+	):
+		return
+	var clip_size: Vector2 = clip_root.size
+	if clip_size.x <= 0.0 or clip_size.y <= 0.0:
+		return
+	var spacing: float = PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING
+	var overscan: float = spacing * 2.0
+	motion.position = Vector2.ZERO
+	motion.size = clip_size + Vector2.ONE * overscan * 2.0
+	var cols: int = int(ceil((clip_size.x + overscan * 2.0) / spacing)) + 2
+	var rows: int = int(ceil((clip_size.y + overscan * 2.0) / spacing)) + 2
+	for row in range(rows):
+		for col in range(cols):
+			var icon := TextureRect.new()
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			icon.texture = mono_texture
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.size = Vector2.ONE * PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE
+			icon.position = Vector2(
+				-overscan
+				+ float(col) * spacing
+				+ (
+					spacing * 0.5
+					if row % 2 == 0
+					else 0.0
+				),
+				-overscan + float(row) * spacing
+			)
+			icon.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA)
+			icon.rotation_degrees = -18.0
+			motion.add_child(icon)
+	var move_tween := motion.create_tween()
+	move_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	move_tween.set_loops()
+	# With alternating half-row offsets, (-0.5 cell, -1 cell) is an exact
+	# lattice vector: the final frame is visually identical to the first one.
+	# Tween can therefore wrap directly without the old reset callback/jolt.
+	var repeat_offset := Vector2(-spacing * 0.5, -spacing)
+	var move := move_tween.tween_property(
+		motion,
+		"position",
+		repeat_offset,
+		PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION
+	)
+	move.from(Vector2.ZERO)
+	move.set_trans(Tween.TRANS_LINEAR)
+	motion.set_meta("pattern_move_tween", move_tween)
+
+func _add_final_reward_theme_pattern(background_overlay: Control, theme_index: int) -> void:
+	if background_overlay == null or !is_instance_valid(background_overlay):
+		return
+	var mono_texture: Texture2D = _theme_icon_mono_texture(theme_index)
+	if mono_texture == null:
+		return
+	var clip_root := Control.new()
+	clip_root.name = "FinalRewardThemePattern"
+	clip_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_root.clip_contents = true
+	clip_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip_root.offset_left = 0.0
+	clip_root.offset_top = 0.0
+	clip_root.offset_right = 0.0
+	clip_root.offset_bottom = 0.0
+	background_overlay.add_child(clip_root)
+
+	var motion := Control.new()
+	motion.name = "PatternMotion"
+	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	motion.position = Vector2.ZERO
+	clip_root.add_child(motion)
+	clip_root.resized.connect(Callable(self, "_layout_final_reward_theme_pattern").bind(clip_root, motion, mono_texture))
+	call_deferred("_layout_final_reward_theme_pattern", clip_root, motion, mono_texture)
+
 func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -> bool:
 	if action == &"" or _portrait_final_reward_waiting_for_ad or _portrait_rewarded_action != &"":
 		return false
@@ -8499,7 +8618,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		0.0
 	)
 	title_panel.z_index = 0
-	var level_title_text: String = tr("LEVEL_NUMBER") % (level_index + 1)
+	var level_title_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
 	var result_heading_text: String = (
 		tr("REWARD_NOT_COMPLETED")
 		if is_failure_reward
@@ -8577,6 +8696,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		final_reward_background_overlay.name = "FinalRewardBackgroundOverlay"
 		final_reward_background_overlay.modulate.a = 0.0
 		final_reward_background_overlay.z_index = -1
+		_add_final_reward_theme_pattern(final_reward_background_overlay, GameSession.theme_id)
 	var masked_hero: Dictionary = _create_single_player_reward_masked_hero(
 		reward_screen_content,
 		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
@@ -9476,11 +9596,21 @@ func _show_word_comment_popup() -> void:
 			comment_theme_icon_grayscale.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
 			comment_theme_icon.material = comment_theme_icon_grayscale
 			comment_theme_icon.z_index = -1
-	_portrait_popup_shell(rect, Database.tr_text(41, "Comment").to_upper(), Callable(self, "_remove_word_comment_popup"), 30)
-	var theme_text: String = _current_word_source_label()
-	var theme_label := _stage_label(Rect2(56.0, 238.0, 368.0, 28.0), theme_text, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	theme_label.clip_text = false
-	_fit_single_line_label_to_width(theme_label, theme_text, 368.0, 22, 17)
+	var comment_popup_title: String = (
+		Database.get_theme_name(GameSession.theme_id)
+		if GameState.current_mode != GameState.GameMode.TWO_PLAYER and GameSession.theme_id >= 0
+		else Database.tr_text(40, "Word from player")
+	)
+	_portrait_popup_shell(
+		rect,
+		comment_popup_title,
+		Callable(self, "_remove_word_comment_popup"),
+		30,
+		PORTRAIT_BLUE,
+		PORTRAIT_DARK_BLUE,
+		PORTRAIT_ORANGE,
+		tr("COMMENT").to_upper()
+	)
 	var comment_panel_rect := Rect2(48.0, 286.0, 384.0, 238.0)
 	var comment_panel := _stage_panel(
 		comment_panel_rect,

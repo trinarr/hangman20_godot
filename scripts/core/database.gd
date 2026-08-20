@@ -1,7 +1,7 @@
 extends Node
 
 var data: Dictionary = {}
-var hints: Array = []
+var hints: Dictionary = {}
 # `current_language` is kept as the word-database language because progress is
 # keyed by it throughout the original game logic.
 var current_language: String = "ru"
@@ -20,6 +20,34 @@ var _json_cache: Dictionary = {}
 var _loaded_word_language: String = ""
 
 const DIFFICULTY_SPLIT: float = 0.5
+
+# Stable theme IDs are the only identifiers used by data, icons, and runtime
+# lookup. Human-readable names live exclusively in translations.csv, so a copy
+# change can never disconnect words from their difficulty or hints again.
+const THEME_IDS: Array[String] = [
+	"sport",
+	"geography",
+	"nature",
+	"technics",
+	"people",
+	"food",
+	"science",
+	"history",
+	"general",
+	"film_music",
+]
+const THEME_TRANSLATION_KEYS := {
+	"sport": &"THEME_SPORT",
+	"geography": &"THEME_GEOGRAPHY",
+	"nature": &"THEME_NATURE",
+	"technics": &"THEME_TECHNICS",
+	"people": &"THEME_PEOPLE",
+	"food": &"THEME_FOOD",
+	"science": &"THEME_SCIENCE",
+	"history": &"THEME_HISTORY",
+	"general": &"THEME_GENERAL",
+	"film_music": &"THEME_FILM_MUSIC",
+}
 
 const WORD_FILES := {
 	"ru": "res://data/words_ru.json",
@@ -167,6 +195,7 @@ func _load_words() -> void:
 	var result = _load_json(WORD_FILES[current_language])
 	if result is Dictionary:
 		data = result
+		_validate_theme_data()
 	else:
 		data = {}
 
@@ -177,12 +206,58 @@ func _invalidate_word_runtime_cache() -> void:
 	_alphabet_cache.clear()
 
 func _load_hints() -> void:
-	# Do not clear the previous array in place: it may be the array retained by
+	# Do not clear the previous dictionary in place: it may be retained by
 	# the parsed JSON cache for another language.
-	hints = []
+	hints = {}
 	var result = _load_json(HINT_FILES[current_language])
-	if result is Dictionary and result.has("themes") and result["themes"] is Array:
-		hints = result["themes"]
+	if result is Dictionary and result.has("hints") and result["hints"] is Dictionary:
+		hints = result["hints"]
+	_validate_hint_data()
+
+func _validate_theme_data() -> void:
+	var words_data: Variant = data.get("words", {})
+	var difficulty_data: Variant = data.get("difficulty", {})
+	if !(words_data is Dictionary) or !(difficulty_data is Dictionary):
+		push_error("Theme data must contain ID-keyed 'words' and 'difficulty' objects")
+		return
+	for theme_id in THEME_IDS:
+		if !words_data.has(theme_id):
+			push_error("Missing words for theme ID: " + theme_id)
+			continue
+		if !difficulty_data.has(theme_id):
+			push_error("Missing difficulty for theme ID: " + theme_id)
+			continue
+		var theme_words: Variant = words_data[theme_id]
+		var theme_difficulty: Variant = difficulty_data[theme_id]
+		if !(theme_words is Array) or !(theme_difficulty is Array):
+			push_error("Theme words and difficulty must be arrays for ID: " + theme_id)
+			continue
+		if theme_words.size() != theme_difficulty.size():
+			push_error("Word/difficulty count mismatch for theme ID: " + theme_id)
+	for raw_theme_id in words_data.keys():
+		if !THEME_IDS.has(str(raw_theme_id)):
+			push_error("Unknown theme ID in words: " + str(raw_theme_id))
+	for raw_theme_id in difficulty_data.keys():
+		if !THEME_IDS.has(str(raw_theme_id)):
+			push_error("Unknown theme ID in difficulty: " + str(raw_theme_id))
+
+func _validate_hint_data() -> void:
+	var words_data: Variant = data.get("words", {})
+	for theme_id in THEME_IDS:
+		if !hints.has(theme_id):
+			push_error("Missing hints for theme ID: " + theme_id)
+			continue
+		var theme_hints: Variant = hints[theme_id]
+		if !(theme_hints is Array):
+			push_error("Hints must be an array for theme ID: " + theme_id)
+			continue
+		if words_data is Dictionary and words_data.has(theme_id):
+			var theme_words: Variant = words_data[theme_id]
+			if theme_words is Array and theme_words.size() != theme_hints.size():
+				push_error("Word/hint count mismatch for theme ID: " + theme_id)
+	for raw_theme_id in hints.keys():
+		if !THEME_IDS.has(str(raw_theme_id)):
+			push_error("Unknown theme ID in hints: " + str(raw_theme_id))
 
 func tr_text(index: int, fallback: String = "") -> String:
 	if index < 0 or index >= TRANSLATION_KEYS.size():
@@ -207,32 +282,31 @@ func get_theme_count() -> int:
 func get_themes() -> Array:
 	if _themes_cache_ready:
 		return _themes_cache
-
-	var result: Array = []
-
-	# Russian file shape: { "words": { "THEME": [ ... ] } }
-	if data.has("words") and data["words"] is Dictionary:
-		for theme_name in data["words"].keys():
-			result.append(str(theme_name))
-	# English file shape: { "themes": [ { "type": "SPORT", "words": [...] } ] }
-	elif data.has("themes") and data["themes"] is Array:
-		for item in data["themes"]:
-			if item is Dictionary:
-				result.append(str(item.get("type", "Theme " + str(result.size() + 1))))
-	# Legacy/old shape support: { "themes": { "THEME": { "words": [...] } } }
-	elif data.has("themes") and data["themes"] is Dictionary:
-		for theme_name in data["themes"].keys():
-			result.append(str(theme_name))
-
-	_themes_cache = result
+	_themes_cache = THEME_IDS.duplicate()
 	_themes_cache_ready = true
 	return _themes_cache
 
+func get_theme_id(theme_index: int) -> String:
+	if theme_index >= 0 and theme_index < THEME_IDS.size():
+		return THEME_IDS[theme_index]
+	return ""
+
+func get_theme_index(theme_id: String) -> int:
+	return THEME_IDS.find(theme_id.strip_edges().to_lower())
+
 func get_theme_name(theme_index: int) -> String:
-	var themes := get_themes()
-	if theme_index >= 0 and theme_index < themes.size():
-		return str(themes[theme_index])
-	return tr_text(40, "No category")
+	var theme_id: String = get_theme_id(theme_index)
+	if theme_id.is_empty():
+		return tr_text(40, "No category")
+	var translation_key: StringName = THEME_TRANSLATION_KEYS.get(theme_id, &"")
+	if translation_key == &"":
+		push_error("Missing translation key for theme ID: " + theme_id)
+		return theme_id.replace("_", " ").capitalize()
+	var translated: String = str(TranslationServer.translate(translation_key))
+	if translated.is_empty() or translated == str(translation_key):
+		push_error("Missing localized name for theme ID: " + theme_id)
+		return theme_id.replace("_", " ").capitalize()
+	return translated
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	var cache_key := "%d:%d" % [theme_index, difficulty_filter]
@@ -240,19 +314,10 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	if cached_words is Array:
 		return cached_words
 
-	var theme_name := get_theme_name(theme_index)
+	var theme_id: String = get_theme_id(theme_index)
 	var words: Array = []
-
-	if data.has("words") and data["words"] is Dictionary:
-		words = Array(data["words"].get(theme_name, []))
-	elif data.has("themes") and data["themes"] is Array:
-		var themes: Array = data["themes"]
-		if theme_index >= 0 and theme_index < themes.size() and themes[theme_index] is Dictionary:
-			words = Array(themes[theme_index].get("words", []))
-	elif data.has("themes") and data["themes"] is Dictionary:
-		var theme_data = data["themes"].get(theme_name, {})
-		if theme_data is Dictionary:
-			words = Array(theme_data.get("words", []))
+	if !theme_id.is_empty() and data.has("words") and data["words"] is Dictionary:
+		words = Array(data["words"].get(theme_id, []))
 
 	var filtered: Array = []
 	for i in range(words.size()):
@@ -278,13 +343,11 @@ func normalize_loaded_word(word: String) -> String:
 	return result
 
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
-	var theme_name := get_theme_name(theme_index)
+	var theme_id: String = get_theme_id(theme_index)
 	var difficulty_data = data.get("difficulty", {})
 	var theme_difficulty: Variant = null
 	if difficulty_data is Dictionary:
-		theme_difficulty = difficulty_data.get(theme_name, [])
-	elif difficulty_data is Array and theme_index >= 0 and theme_index < difficulty_data.size():
-		theme_difficulty = difficulty_data[theme_index]
+		theme_difficulty = difficulty_data.get(theme_id, [])
 
 	if theme_difficulty == null:
 		return 0.0
@@ -302,9 +365,10 @@ func get_word_difficulty(theme_index: int, word_index: int) -> float:
 func get_hint(theme_index: int, word_index: int) -> String:
 	if theme_index < 0 or word_index < 0:
 		return ""
-	if theme_index >= hints.size() or !(hints[theme_index] is Array):
+	var theme_id: String = get_theme_id(theme_index)
+	if theme_id.is_empty() or !hints.has(theme_id) or !(hints[theme_id] is Array):
 		return ""
-	var theme_hints: Array = hints[theme_index]
+	var theme_hints: Array = hints[theme_id]
 	if word_index >= 0 and word_index < theme_hints.size():
 		return str(theme_hints[word_index]).strip_edges()
 	return ""

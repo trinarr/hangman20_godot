@@ -3296,6 +3296,7 @@ def verify_single_player_final_reward_state() -> None:
 
 
 def main() -> None:
+    subprocess.run(["python3", "tools/verify_theme_catalog.py"], cwd=ROOT, check=True)
     subprocess.run(["python3", "tools/upscale_art_2x.py", "--verify"], cwd=ROOT, check=True)
     subprocess.run(["python3", "tools/rebalance_hint_difficulty.py", "--check"], cwd=ROOT, check=True)
     verify_resolution()

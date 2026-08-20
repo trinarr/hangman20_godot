@@ -575,29 +575,32 @@ def load_rows(language: str) -> tuple[dict, dict, list[tuple[str, int, str, floa
     hints_path = ROOT / "data" / f"hints_{language}.json"
     words_data = json.loads(words_path.read_text(encoding="utf-8-sig"))
     hints_data = json.loads(hints_path.read_text(encoding="utf-8-sig"))
-    hint_themes = hints_data.get("themes", [])
+    words_by_theme = words_data.get("words", {})
+    difficulty_by_theme = words_data.get("difficulty", {})
+    hints_by_theme = hints_data.get("hints", {})
     rows: list[tuple[str, int, str, float]] = []
 
-    if language == "ru":
-        theme_items = list(words_data["words"].items())
-    else:
-        theme_items = [(theme["type"], theme["words"]) for theme in words_data["themes"]]
-
-    if len(theme_items) != len(hint_themes):
-        raise ValueError(f"{language}: word and hint theme counts differ")
-    for theme_index, (theme_name, words) in enumerate(theme_items):
-        difficulties = words_data["difficulty"][theme_name]
-        hints = hint_themes[theme_index]
+    if not isinstance(words_by_theme, dict):
+        raise ValueError(f"{language}: words must be keyed by stable theme IDs")
+    if not isinstance(difficulty_by_theme, dict):
+        raise ValueError(f"{language}: difficulty must be keyed by stable theme IDs")
+    if not isinstance(hints_by_theme, dict):
+        raise ValueError(f"{language}: hints must be keyed by stable theme IDs")
+    if list(words_by_theme) != list(difficulty_by_theme) or list(words_by_theme) != list(hints_by_theme):
+        raise ValueError(f"{language}: word, difficulty, and hint theme IDs/order differ")
+    for theme_id, words in words_by_theme.items():
+        difficulties = difficulty_by_theme[theme_id]
+        hints = hints_by_theme[theme_id]
         if len(words) != len(difficulties) or len(words) != len(hints):
-            raise ValueError(f"{language}/{theme_name}: word, difficulty, and hint counts differ")
+            raise ValueError(f"{language}/{theme_id}: word, difficulty, and hint counts differ")
         for word_index, (word, difficulty) in enumerate(zip(words, difficulties)):
-            rows.append((theme_name, word_index, word, float(difficulty)))
+            rows.append((theme_id, word_index, word, float(difficulty)))
     return words_data, hints_data, rows
 
 
 def rebalance_language(language: str, apply_changes: bool) -> tuple[int, int]:
     _, hints_data, rows = load_rows(language)
-    hints = hints_data["themes"]
+    hints = hints_data["hints"]
     manual = {
         **MANUAL_HINTS[language],
         **PLAIN_HINTS[language],
@@ -607,14 +610,8 @@ def rebalance_language(language: str, apply_changes: bool) -> tuple[int, int]:
     seen_manual: set[str] = set()
     changed = 0
 
-    theme_index_by_name: dict[str, int] = {}
-    for theme_name, _, _, _ in rows:
-        if theme_name not in theme_index_by_name:
-            theme_index_by_name[theme_name] = len(theme_index_by_name)
-
-    for theme_name, word_index, word, difficulty in rows:
-        theme_index = theme_index_by_name[theme_name]
-        hint = str(hints[theme_index][word_index]).strip()
+    for theme_id, word_index, word, difficulty in rows:
+        hint = str(hints[theme_id][word_index]).strip()
         manual_key = word.upper()
         replacement = manual.get(manual_key)
         if replacement is not None:
@@ -626,7 +623,7 @@ def rebalance_language(language: str, apply_changes: bool) -> tuple[int, int]:
         if hint != expected:
             changed += 1
             if apply_changes:
-                hints[theme_index][word_index] = expected
+                hints[theme_id][word_index] = expected
 
     missing_manual = set(manual) - seen_manual
     if missing_manual:
@@ -639,23 +636,19 @@ def rebalance_language(language: str, apply_changes: bool) -> tuple[int, int]:
 
     # Reload current data for validation after applying changes.
     _, current_hints_data, current_rows = load_rows(language)
-    current_hints = current_hints_data["themes"]
-    theme_index_by_name.clear()
-    for theme_name, _, _, _ in current_rows:
-        if theme_name not in theme_index_by_name:
-            theme_index_by_name[theme_name] = len(theme_index_by_name)
+    current_hints = current_hints_data["hints"]
 
     hard_answer_leaks = 0
     hard_component_leaks = 0
     weak_easy_hints = 0
     mechanical_hint_leaks = 0
     very_easy_readability_issues = 0
-    for theme_name, word_index, word, difficulty in current_rows:
-        hint = str(current_hints[theme_index_by_name[theme_name]][word_index]).strip()
+    for theme_id, word_index, word, difficulty in current_rows:
+        hint = str(current_hints[theme_id][word_index]).strip()
         if not hint:
-            raise ValueError(f"{language}/{theme_name}/{word}: empty hint")
+            raise ValueError(f"{language}/{theme_id}/{word}: empty hint")
         if not 0.0 <= difficulty <= 1.0:
-            raise ValueError(f"{language}/{theme_name}/{word}: difficulty is outside [0, 1]")
+            raise ValueError(f"{language}/{theme_id}/{word}: difficulty is outside [0, 1]")
         if difficulty <= EASY_MAX_DIFFICULTY and len(tokens(hint)) < MIN_EASY_HINT_TOKENS:
             weak_easy_hints += 1
         if (

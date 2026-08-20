@@ -1,6 +1,6 @@
 ﻿{
-  "themes": [
-    [
+  "hints": {
+    "sport": [
       "An alpine skiing and alpine snowboarding discipline",
       "A framed tool with strings used in tennis, badminton, and squash",
       "A female athlete trained to compete at a high level",
@@ -264,7 +264,7 @@
       "This sand-filled area receives a jumper after takeoff.",
       "This flat round implement is spun and thrown for distance."
     ],
-    [
+    "geography": [
       "A landlocked country of southwest-central Asia",
       "Flames fed by natural gas have shaped the imagery of this Caspian country",
       "A country of southeast Asia on the Gulf of Thailand",
@@ -527,7 +527,7 @@
       "This compact granular snow is an intermediate stage toward glacial ice.",
       "This raised step records an older shoreline."
     ],
-    [
+    "nature": [
       "A lizard-like amphibian with a long body and tail",
       "A tree-dwelling lizard",
       "A bird that drills tree bark with its strong beak",
@@ -796,7 +796,7 @@
       "This is programmed and controlled cell death.",
       "This tiny leaf pore controls gas exchange and water loss."
     ],
-    [
+    "technics": [
       "A communication tool",
       "The central body of an aircraft",
       "The main circuit panel that connects a computer's processor, memory, and devices",
@@ -1060,7 +1060,7 @@
       "This road vehicle carries a powered lifting boom.",
       "This vehicle lifts pallets using two metal forks."
     ],
-    [
+    "people": [
       "A Greek mathematician, physicist, engineer, inventor",
       "The scientist known for relativity and the famous E=mc² formula",
       "A Norwegian explorer of polar regions",
@@ -1325,7 +1325,7 @@
       "This professional turns business needs into solution requirements.",
       "This professional maintains the coat and appearance of animals."
     ],
-    [
+    "food": [
       "A small salty fish used in sauces, salads, and toppings",
       "A typical summer vegetable",
       "One of the oldest spices and one of the most widely used",
@@ -1597,7 +1597,7 @@
       "This device signals when a chosen cooking time ends.",
       "This flat slicer cuts vegetables into very thin pieces."
     ],
-    [
+    "science": [
       "A measure of how strongly a solution can neutralize acids",
       "A chemical used to kill unwanted plants",
       "A gray-white or silvery brittle metallic element",
@@ -1856,7 +1856,7 @@
       "This device keeps samples at a selected temperature.",
       "This device separates components through rapid spinning."
     ],
-    [
+    "history": [
       "A succession of rulers from the same family or line",
       "A long-term shift of people and jobs away from large cities",
       "The term describes refusing to accept established customs, beliefs, or authority",
@@ -2096,7 +2096,7 @@
       "This pole weapon mounts a curved cutting blade upright.",
       "This weapon extends a flexible projectile launcher with a long wooden shaft"
     ],
-    [
+    "general": [
       "Knowledge resulting from study and research",
       "A particular type of connection existing between people",
       "Lines or limits that mark where something ends",
@@ -2362,7 +2362,7 @@
       "This image replaces the real room during a video call.",
       "This recorded speech is sent through a chat instead of text."
     ],
-    [
+    "film_music": [
       "A story shown on a cinema screen or at home",
       "In film and theatre, this performer plays another person's role",
       "The person who guides how a film is made",
@@ -2633,5 +2633,5 @@
       "A crime film about a police officer chasing a skilled robber",
       "This thriller follows a writer accused of stealing another story."
     ]
-  ]
+  }
 }

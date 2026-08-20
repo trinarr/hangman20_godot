@@ -41,6 +41,16 @@ INPUT_WORD,Введите слово,Input the word
 VICTORIES,Побед,Victories
 DEFEATS,Поражений,Defeats
 NO_CATEGORY,Без темы,No category
+THEME_SPORT,СПОРТ,SPORT
+THEME_GEOGRAPHY,ГЕОГРАФИЯ,GEOGRAPHY
+THEME_NATURE,ПРИРОДА,NATURE
+THEME_TECHNICS,ТЕХНИКА,TECHNICS
+THEME_PEOPLE,ЛЮДИ,PEOPLE
+THEME_FOOD,ЕДА,FOOD
+THEME_SCIENCE,НАУКА,SCIENCE
+THEME_HISTORY,ИСТОРИЯ,HISTORY
+THEME_GENERAL,ОБЩЕЕ,GENERAL
+THEME_FILM_MUSIC,КИНО И МУЗЫКА,FILM AND MUSIC
 COMMENT,Комментарий,Comment
 CATEGORY_LABEL,Тема:,Category:
 WIN_MESSAGE,Не останавливайтесь!,Don't stop!
