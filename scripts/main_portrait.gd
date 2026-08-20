@@ -297,10 +297,11 @@ const PORTRAIT_ORANGE := PORTRAIT_UI_PALETTE.ACCENT_ORANGE
 const PORTRAIT_RULE := PORTRAIT_UI_PALETTE.UI_BLUE_RULE
 const PORTRAIT_AD_BADGE_PURPLE := PORTRAIT_UI_PALETTE.AD_PURPLE
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.874
-const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE
+const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * 1.20
+const PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE: int = 39
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_POPUP_CORNER_RADIUS: float = 26.0
-const PORTRAIT_POPUP_TOP_TRIM: float = 54.0
+const PORTRAIT_POPUP_TOP_TRIM: float = 51.3
 const PORTRAIT_POPUP_TITLE_SCALE: float = 1.22
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
@@ -2222,6 +2223,15 @@ func _stage_popup_coin_balance_above_dimmer(popup_root: Control) -> void:
 	content = previous_content
 	_portrait_top_bar_content = previous_top_bar
 
+func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Control:
+	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.call("configure_text", "×", false, false, PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE, 0.32)
+	button.call("set_color_preset", ROUND_BUTTON_COLOR_BLUE)
+	_connect_stage_button_action(button, callable)
+	content.add_child(button)
+	button.stage_rect = rect
+	return button
+
 func _portrait_popup_shell(
 	rect: Rect2,
 	title: String,
@@ -2292,7 +2302,7 @@ func _portrait_popup_shell(
 
 	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
 	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
-	_stage_round_button(Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE), close_callable, "×")
+	_stage_portrait_popup_close_button(Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE), close_callable)
 
 func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
 	# Reuse the same life art as the refill popup and draw a bold zig-zag split on
@@ -2952,7 +2962,7 @@ func _show_heart_refill_popup(
 	var current_hearts: int = GameState.get_hearts()
 	# Group the heart and recovery copy on the same light-blue surface used by
 	# the theme-card treatment, keeping the block visually separate from the popup.
-	var heart_status_rect := Rect2(56.0, 236.0, 368.0, 151.0)
+	var heart_status_rect := Rect2(48.0, 236.0, 384.0, 151.0)
 	var heart_status_panel := _stage_panel(
 		heart_status_rect,
 		PORTRAIT_UI_PALETTE.THEME_CARD,
@@ -3383,9 +3393,10 @@ func _stage_single_player_popup_theme_cards(
 		var word_badge: Control = null
 		var word_badge_label: Label = null
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+		var theme_icon_rect := Rect2()
 		if theme_icon_texture != null:
 			var theme_icon_size := Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
-			var theme_icon_rect := Rect2(
+			theme_icon_rect = Rect2(
 				card_rect.position + Vector2(
 					(card_rect.size.x - theme_icon_size.x) * 0.5,
 					35.0
@@ -3397,7 +3408,7 @@ func _stage_single_player_popup_theme_cards(
 				theme_icon_rect.get_center() - theme_glow_size * 0.5,
 				theme_glow_size
 			)
-			theme_glow = _stage_final_reward_glow(theme_glow_rect)
+			theme_glow = _stage_final_reward_glow(theme_glow_rect, Color.WHITE)
 			if theme_glow.get_parent() != null and theme_glow.get_parent() is CanvasItem:
 				(theme_glow.get_parent() as CanvasItem).z_index = 11
 			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
@@ -3477,6 +3488,7 @@ func _stage_single_player_popup_theme_cards(
 		theme_button.disabled = false
 		_single_player_popup_theme_card_visuals.append({
 			"card_rect": card_rect,
+			"theme_icon_rect": theme_icon_rect,
 			"theme_index": theme_index,
 			"theme_glow": theme_glow,
 			"theme_icon": theme_icon,
@@ -3854,12 +3866,25 @@ func _stage_single_player_theme_slot_reel(
 	track.size = reel_rect.size
 	reel_view.add_child(track)
 
-	var icon_size := Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
+	var static_icon_rect: Rect2 = visual.get("theme_icon_rect", Rect2())
+	var icon_size := (
+		static_icon_rect.size
+		if static_icon_rect.size.x > 0.0 and static_icon_rect.size.y > 0.0
+		else Vector2.ONE * PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE
+	)
 	var icon_step: float = icon_size.y + PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP
-	var icon_x: float = (reel_rect.size.x - icon_size.x) * 0.5
-	# Match the authored resting position of the normal card icon so swapping
-	# the reel for the final static icon is visually seamless.
-	var icon_y: float = 35.0
+	# Derive the reel landing point from the same static icon rect used by the
+	# card. That keeps reel, mask and reveal perfectly aligned after card resizes.
+	var icon_x: float = (
+		static_icon_rect.position.x - reel_rect.position.x
+		if static_icon_rect.size.x > 0.0
+		else (reel_rect.size.x - icon_size.x) * 0.5
+	)
+	var icon_y: float = (
+		static_icon_rect.position.y - reel_rect.position.y
+		if static_icon_rect.size.y > 0.0
+		else 35.0
+	)
 	var icon_below_final: CanvasItem = null
 	for sequence_index in range(sequence.size()):
 		var theme_index: int = int(sequence[sequence_index])
@@ -3995,14 +4020,11 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			theme_icon.modulate = Color.WHITE
 			theme_icon.set_meta(&"slot_reveal_rest_position", icon_rest_position)
 			theme_icon.set_meta(&"slot_reveal_rest_scale", icon_rest_scale)
-			# FlashStageTexture already carries the viewport fit scale. Moving the
-			# pivot without compensating its position makes scaling pull the icon
-			# toward a corner. This keeps the visual center fixed during bounce.
-			theme_icon.pivot_offset = theme_icon.size * 0.5
-			theme_icon.position = (
-				icon_rest_position
-				+ (icon_rest_scale - Vector2.ONE) * theme_icon.pivot_offset
-			)
+			# Keep the pivot at zero and animate position together with scale below.
+			# This preserves the exact viewport-space center at any fit scale and is
+			# independent of the current card height.
+			theme_icon.pivot_offset = Vector2.ZERO
+			theme_icon.position = icon_rest_position
 			theme_icon.scale = icon_rest_scale
 			reveal_visuals.append(visual)
 
@@ -4069,14 +4091,35 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			glow_fade.set_trans(Tween.TRANS_SINE)
 			glow_fade.set_ease(Tween.EASE_OUT)
 			_single_player_theme_slot_tweens.append(glow_tween)
+		var icon_rest_position: Vector2 = theme_icon.get_meta(
+			&"slot_reveal_rest_position",
+			theme_icon.position
+		)
+		var icon_rest_center: Vector2 = (
+			icon_rest_position + theme_icon.size * icon_rest_scale * 0.5
+		)
+		var icon_peak_scale: Vector2 = (
+			icon_rest_scale * PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE
+		)
+		var icon_peak_position: Vector2 = (
+			icon_rest_center - theme_icon.size * icon_peak_scale * 0.5
+		)
 		var icon_grow: PropertyTweener = reveal_tween.tween_property(
 			theme_icon,
 			"scale",
-			icon_rest_scale * PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE,
+			icon_peak_scale,
 			PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION
 		)
 		icon_grow.set_trans(Tween.TRANS_QUAD)
 		icon_grow.set_ease(Tween.EASE_OUT)
+		var icon_grow_position: PropertyTweener = reveal_tween.parallel().tween_property(
+			theme_icon,
+			"position",
+			icon_peak_position,
+			PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION
+		)
+		icon_grow_position.set_trans(Tween.TRANS_QUAD)
+		icon_grow_position.set_ease(Tween.EASE_OUT)
 		var icon_settle: PropertyTweener = reveal_tween.tween_property(
 			theme_icon,
 			"scale",
@@ -4085,6 +4128,14 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		)
 		icon_settle.set_trans(Tween.TRANS_BOUNCE)
 		icon_settle.set_ease(Tween.EASE_OUT)
+		var icon_settle_position: PropertyTweener = reveal_tween.parallel().tween_property(
+			theme_icon,
+			"position",
+			icon_rest_position,
+			PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
+		)
+		icon_settle_position.set_trans(Tween.TRANS_BOUNCE)
+		icon_settle_position.set_ease(Tween.EASE_OUT)
 		_single_player_theme_slot_tweens.append(reveal_tween)
 
 	# Start the text and counter fade exactly when the icons reach their maximum
@@ -7493,10 +7544,10 @@ func _start_single_player_reward_intro_deferred(
 			)
 		_reveal_single_player_reward_continue_button(continue_button)
 
-func _stage_final_reward_glow(rect: Rect2) -> TextureRect:
-	# Rotate the ray texture inside a stage-mapped holder. Keeping the transform on
-	# the child prevents the authored center from drifting when the viewport has a
-	# non-unit fit scale or a safe-area offset.
+func _stage_final_reward_glow(rect: Rect2, tint_color: Color = Color.WHITE) -> TextureRect:
+	# The source glow texture is authored in grayscale, like the long-button
+	# textures. White is therefore the neutral/default appearance, while modulate
+	# can tint the same asset to any UI color without extra shaders.
 	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
 	holder.name = "FinalRewardGlowHolder"
 	holder.z_index = 10
@@ -7508,9 +7559,17 @@ func _stage_final_reward_glow(rect: Rect2) -> TextureRect:
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	glow.pivot_offset = rect.size * 0.5
-	glow.modulate.a = 0.0
+	glow.modulate = Color(tint_color.r, tint_color.g, tint_color.b, 0.0)
+	glow.set_meta(&"glow_tint_color", tint_color)
 	holder.add_child(glow)
 	return glow
+
+func _set_final_reward_glow_color(glow: CanvasItem, tint_color: Color) -> void:
+	if glow == null or !is_instance_valid(glow):
+		return
+	var current_alpha: float = glow.modulate.a
+	glow.modulate = Color(tint_color.r, tint_color.g, tint_color.b, current_alpha)
+	glow.set_meta(&"glow_tint_color", tint_color)
 
 func _start_final_reward_glow_rotation(glow: Control) -> void:
 	if glow == null or !is_instance_valid(glow) or !glow.is_inside_tree():
@@ -9379,16 +9438,70 @@ func _show_word_comment_popup() -> void:
 	if hint == "":
 		return
 	_remove_word_comment_popup()
-	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 612.0)
-	var rect := Rect2(28.0, 160.0, 424.0, 452.0)
+	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 544.0)
+	var rect := Rect2(28.0, 160.0, 424.0, 384.0)
+	# Lift the centered popup composition above the fullscreen dimmer. The theme
+	# icon/glow keep negative local z-indices, so they stay behind the popup shell
+	# while remaining above the dimmed screen.
+	content.z_index = 10
+	# Put the current theme icon behind the floating title and popup body. Since it
+	# is staged before the shell, the shell naturally masks the icon's lower half.
+	if GameSession.theme_id >= 0:
+		var comment_theme_icon_texture: Texture2D = _theme_icon_texture(GameSession.theme_id)
+		if comment_theme_icon_texture != null:
+			# Decorative theme icon above the comment popup: a little smaller and
+			# neutral/grayscale so it does not compete with the popup content.
+			var comment_theme_icon_size := Vector2.ONE * (166.4 * 0.85)
+			var popup_visual_top: float = rect.position.y + PORTRAIT_POPUP_TOP_TRIM
+			var comment_theme_icon_rect := Rect2(
+				Vector2(
+					rect.get_center().x - comment_theme_icon_size.x * 0.5,
+					popup_visual_top - comment_theme_icon_size.y * 0.5 - comment_theme_icon_size.y * 0.10
+				),
+				comment_theme_icon_size
+			)
+			var comment_theme_glow_size := comment_theme_icon_size * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+			var comment_theme_glow_rect := Rect2(
+				comment_theme_icon_rect.get_center() - comment_theme_glow_size * 0.5,
+				comment_theme_glow_size
+			)
+			var comment_theme_glow := _stage_final_reward_glow(comment_theme_glow_rect, Color.WHITE)
+			if comment_theme_glow.get_parent() != null and comment_theme_glow.get_parent() is CanvasItem:
+				# Keep the decorative theme art behind the popup shell. The glow helper
+				# normally uses a high z-index for reward screens, so override it here.
+				(comment_theme_glow.get_parent() as CanvasItem).z_index = -2
+			comment_theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.50)
+			var comment_theme_icon := _stage_texture(comment_theme_icon_rect, comment_theme_icon_texture)
+			var comment_theme_icon_grayscale := ShaderMaterial.new()
+			comment_theme_icon_grayscale.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
+			comment_theme_icon.material = comment_theme_icon_grayscale
+			comment_theme_icon.z_index = -1
 	_portrait_popup_shell(rect, Database.tr_text(41, "Comment").to_upper(), Callable(self, "_remove_word_comment_popup"), 30)
-	var hint_label := _stage_label(Rect2(56.0, 270.0, 368.0, 220.0), hint, 25, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var theme_text: String = _current_word_source_label()
+	var theme_label := _stage_label(Rect2(56.0, 238.0, 368.0, 28.0), theme_text, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	theme_label.clip_text = false
+	_fit_single_line_label_to_width(theme_label, theme_text, 368.0, 22, 17)
+	var comment_panel_rect := Rect2(48.0, 286.0, 384.0, 238.0)
+	var comment_panel := _stage_panel(
+		comment_panel_rect,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		22.0
+	)
+	comment_panel.z_index = 8
+	var hint_label := _stage_label(
+		Rect2(
+			comment_panel_rect.position.x + 18.0,
+			comment_panel_rect.position.y + 18.0,
+			comment_panel_rect.size.x - 36.0,
+			comment_panel_rect.size.y - 36.0
+		),
+		hint,
+		25,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
 	hint_label.add_theme_font_override("font", UI_HEADING_FONT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false
-	_stage_panel(Rect2(56.0, 506.0, 368.0, 2.0), PORTRAIT_UI_PALETTE.PROFILE_DIVIDER)
-	var theme_text: String = _current_word_source_label()
-	var theme_label := _stage_label(Rect2(56.0, 526.0, 368.0, 60.0), theme_text, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	theme_label.clip_text = false
-	_fit_single_line_label_to_width(theme_label, theme_text, 368.0, 22, 17)
+	hint_label.z_index = 9
 	content = previous_content
