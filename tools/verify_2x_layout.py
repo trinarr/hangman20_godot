@@ -2193,10 +2193,13 @@ def verify_long_button_attention_bounce() -> None:
         and 'action_button.set("attention_bounce_enabled", true)' in result
         and "var custom_word_start_button: Control = null" in main
         and "func _sync_custom_word_start_bounce() -> void:" in main
+        and "var should_disable: bool = !has_word" in main
+        and 'if bool(custom_word_start_button.get("button_disabled")) != should_disable:' in main
+        and 'custom_word_start_button.set("button_disabled", should_disable)' in main
+        and 'if bool(custom_word_start_button.get("attention_bounce_enabled")) != has_word:' in main
         and 'custom_word_start_button.set("attention_bounce_enabled", has_word)' in main
-        and 'custom_word_start_button.set("button_disabled", !has_word)' in main
         and portrait.count("!custom_word_text.is_empty(),") == 1,
-        "Active portrait CTAs are missing their continuous or one-shot bounce feedback",
+        "Active portrait CTAs are missing feedback or restart it without a state change",
     )
     require(
         'bool(single_player_popup_play_button.get("button_disabled"))' in theme_selection
@@ -3148,6 +3151,17 @@ def verify_single_player_last_chance_flow() -> None:
     )
 
 
+def verify_word_comment_popup_theme_icon() -> None:
+    portrait = read("scripts/main_portrait.gd")
+    popup = portrait[portrait.index("func _show_word_comment_popup() -> void:") :]
+    require(
+        "_theme_icon_texture(GameSession.theme_id)" in popup
+        and "comment_theme_icon_grayscale" in popup
+        and "PORTRAIT_HINT_USED_GRAYSCALE_SHADER" in popup,
+        "The comment popup does not grayscale the authored icon for its current theme",
+    )
+
+
 def verify_single_player_final_reward_state() -> None:
     portrait = read("scripts/main_portrait.gd")
     main_script = read("scripts/main.gd")
@@ -3222,8 +3236,9 @@ def verify_single_player_final_reward_state() -> None:
         and "PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION\n\t\t\t+ PORTRAIT_FINAL_REWARD_COLLECT_DELAY"
         in final_state
         and 'Callable(self, "_claim_single_player_final_reward")' in final_state
+        and "_apply_portrait_reward_header_text_effect(label, 3)" in final_state
         and "712.0 * PORTRAIT_GAME_ACTION_Y_SCALE" in portrait,
-        "The final actions are not delayed and spaced below the centered prize animation",
+        "The final actions are not delayed, styled, and spaced below the centered prize animation",
     )
     require(
         "const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95" in portrait
@@ -3329,6 +3344,7 @@ def main() -> None:
     verify_android_network_and_result_search()
     verify_game_exit_confirmation_popup()
     verify_single_player_forfeit_reward()
+    verify_word_comment_popup_theme_icon()
     verify_single_player_final_reward_state()
     verify_low_attempts_attention_bounce()
     verify_long_button_attention_bounce()

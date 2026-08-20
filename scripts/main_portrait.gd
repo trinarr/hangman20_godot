@@ -240,13 +240,12 @@ const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_GAP: float = 6.0
 const PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = 1.36
-const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE: float = 102.4
-const PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING: float = 324.0
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE: float = 133.12
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING: float = 218.7
 const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA: float = 0.12
-# The larger repeat cell travels farther. This duration preserves the previous
-# slow screen-space speed while the staggered lattice advances by one exact
-# repeat vector, so the loop can wrap without a visible jump.
-const PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION: float = 42.7
+# A half-cell right plus one cell up is a seamless staggered-lattice vector.
+# This duration preserves the current screen-space speed for diagonal motion.
+const PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION: float = 22.17
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = 1.22
 const PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = 1.06
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION: float = 0.035
@@ -7676,8 +7675,7 @@ func _stage_final_reward_collect_text(rect: Rect2) -> Dictionary:
 	label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_outline_color", Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.8))
-	label.add_theme_constant_override("outline_size", 2)
+	_apply_portrait_reward_header_text_effect(label, 3)
 	visual.add_child(label)
 
 	var hit_button := _stage_button(
@@ -8256,10 +8254,9 @@ func _layout_final_reward_theme_pattern(clip_root: Control, motion: Control, mon
 	var move_tween := motion.create_tween()
 	move_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	move_tween.set_loops()
-	# With alternating half-row offsets, (-0.5 cell, -1 cell) is an exact
-	# lattice vector: the final frame is visually identical to the first one.
-	# Tween can therefore wrap directly without the old reset callback/jolt.
-	var repeat_offset := Vector2(-spacing * 0.5, -spacing)
+	# Half a cell right plus one cell up is an exact vector of the staggered
+	# lattice, so the final frame matches the first one and wraps without a jolt.
+	var repeat_offset := Vector2(spacing * 0.5, -spacing)
 	var move := move_tween.tween_property(
 		motion,
 		"position",
@@ -9569,8 +9566,8 @@ func _show_word_comment_popup() -> void:
 	if GameSession.theme_id >= 0:
 		var comment_theme_icon_texture: Texture2D = _theme_icon_texture(GameSession.theme_id)
 		if comment_theme_icon_texture != null:
-			# Decorative theme icon above the comment popup: a little smaller and
-			# neutral/grayscale so it does not compete with the popup content.
+			# Keep the colored source art neutral behind the popup while retaining its
+			# richer authored silhouette and internal details.
 			var comment_theme_icon_size := Vector2.ONE * (166.4 * 0.85)
 			var popup_visual_top: float = rect.position.y + PORTRAIT_POPUP_TOP_TRIM
 			var comment_theme_icon_rect := Rect2(

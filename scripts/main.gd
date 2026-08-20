@@ -1674,8 +1674,14 @@ func _sync_custom_word_start_bounce() -> void:
 	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
 		return
 	var has_word: bool = !custom_word_text.is_empty()
-	custom_word_start_button.set("button_disabled", !has_word)
-	custom_word_start_button.set("attention_bounce_enabled", has_word)
+	var should_disable: bool = !has_word
+	# A random-word roll keeps the CTA enabled. Avoid assigning the same state:
+	# StageLongButton would otherwise recreate its looping attention tween and
+	# visibly restart the cycle on every roll.
+	if bool(custom_word_start_button.get("button_disabled")) != should_disable:
+		custom_word_start_button.set("button_disabled", should_disable)
+	if bool(custom_word_start_button.get("attention_bounce_enabled")) != has_word:
+		custom_word_start_button.set("attention_bounce_enabled", has_word)
 
 func _set_random_custom_word() -> void:
 	var theme_count: int = Database.get_theme_count()
