@@ -1513,7 +1513,13 @@ def verify_soft_currency_economy() -> None:
     require(
         "func _stage_portrait_hint_price(button: Control, price: int) -> void:" in portrait
         and "_stage_portrait_hint_price(button, GameState.get_hint_cost(hint_key))" in portrait
-        and "SOFT_CURRENCY_COIN_TEXTURE" in portrait,
+        and "SOFT_CURRENCY_COIN_TEXTURE" in portrait
+        and 'var badge_price: int = maxi(int(component.get("price", 0)), 0)' in portrait
+        and "GameState.get_soft_currency() >= badge_price" in portrait
+        and "else PORTRAIT_INSUFFICIENT_PRICE_COLOR" in portrait
+        and 'label.add_to_group(&"portrait_coin_price_badge_label")' in portrait
+        and 'get_nodes_in_group(&"portrait_coin_price_badge_label")' in portrait
+        and 'label.add_theme_color_override("font_color", price_color)' in portrait,
         "Exhausted hint counters do not switch to their distinct coin prices",
     )
     require(

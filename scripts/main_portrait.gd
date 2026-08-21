@@ -4461,19 +4461,27 @@ func _purchase_price_color(price: int) -> Color:
 	)
 
 func _update_single_player_refresh_price(balance: int) -> void:
-	if (
-		single_player_popup_refresh_price_label == null
-		or !is_instance_valid(single_player_popup_refresh_price_label)
-	):
-		return
-	var price_color: Color = (
-		PORTRAIT_BLUE
-		if balance >= SINGLE_PLAYER_THEME_REFRESH_COST
-		else PORTRAIT_INSUFFICIENT_PRICE_COLOR
-	)
-	if !_single_player_popup_refresh_badge_component.is_empty():
-		_single_player_popup_refresh_badge_component["price_color"] = price_color
-	single_player_popup_refresh_price_label.add_theme_color_override("font_color", price_color)
+	# Every price badge registers its price and normal color on the label. Updating
+	# the shared group keeps all visible button counters in sync when the balance
+	# changes, not only the theme-reroll counter.
+	for price_node: Node in get_tree().get_nodes_in_group(&"portrait_coin_price_badge_label"):
+		var price_label := price_node as Label
+		if price_label == null or !is_instance_valid(price_label):
+			continue
+		var badge_price: int = maxi(
+			int(price_label.get_meta(&"portrait_coin_price", 0)),
+			0
+		)
+		var sufficient_color: Color = price_label.get_meta(
+			&"portrait_coin_price_sufficient_color",
+			PORTRAIT_BLUE
+		)
+		var price_color: Color = (
+			sufficient_color
+			if balance >= badge_price
+			else PORTRAIT_INSUFFICIENT_PRICE_COLOR
+		)
+		price_label.add_theme_color_override("font_color", price_color)
 
 func _select_single_player_popup_theme(level_index: int, theme_index: int) -> void:
 	if level_index != single_player_popup_level_index:
@@ -6219,6 +6227,18 @@ func _set_portrait_button_badge_state(
 			_apply_portrait_panel_style(badge, Color.WHITE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
 			coin_icon.visible = true
 			label.visible = true
+			var badge_price: int = maxi(int(component.get("price", 0)), 0)
+			var price_color: Color = (
+				component.get("price_color", PORTRAIT_BLUE)
+				if GameState.get_soft_currency() >= badge_price
+				else PORTRAIT_INSUFFICIENT_PRICE_COLOR
+			)
+			label.set_meta(&"portrait_coin_price", badge_price)
+			label.set_meta(
+				&"portrait_coin_price_sufficient_color",
+				component.get("price_color", PORTRAIT_BLUE)
+			)
+			label.add_to_group(&"portrait_coin_price_badge_label")
 			var coin_icon_diameter: float = minf(24.0, rect.size.y - 4.0)
 			var coin_icon_x: float = 2.0
 			var coin_icon_y: float = (rect.size.y - coin_icon_diameter) * 0.5
@@ -6227,9 +6247,9 @@ func _set_portrait_button_badge_state(
 			var label_x: float = coin_icon_x + coin_icon_diameter - 1.0
 			label.position = Vector2(label_x, 0.0)
 			label.size = Vector2(maxf(0.0, rect.size.x - label_x - 2.0), rect.size.y)
-			label.text = str(maxi(int(component.get("price", 0)), 0))
+			label.text = str(badge_price)
 			label.add_theme_font_size_override("font_size", int(component.get("price_font_size", 16)))
-			label.add_theme_color_override("font_color", component.get("price_color", PORTRAIT_BLUE))
+			label.add_theme_color_override("font_color", price_color)
 			label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
 			label.add_theme_constant_override("shadow_offset_x", 0)
 			label.add_theme_constant_override("shadow_offset_y", 0)

@@ -481,11 +481,15 @@ func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.5
 	dimmer.name = "ModalDimmer"
 	dimmer.color = Color(0.0, 0.0, 0.0, alpha)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
-	dimmer.gui_input.connect(_on_modal_dimmer_input.bind(close_callable))
+	dimmer.gui_input.connect(_on_modal_dimmer_input.bind(dimmer, close_callable))
 	content.add_child(dimmer)
 	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-func _on_modal_dimmer_input(event: InputEvent, close_callable: Callable) -> void:
+func _on_modal_dimmer_input(
+	event: InputEvent,
+	dimmer: Control,
+	close_callable: Callable
+) -> void:
 	var should_close: bool = false
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
@@ -496,8 +500,18 @@ func _on_modal_dimmer_input(event: InputEvent, close_callable: Callable) -> void
 
 	if should_close:
 		get_viewport().set_input_as_handled()
+		if (
+			dimmer == null
+			or !is_instance_valid(dimmer)
+			or dimmer.get_meta(&"modal_close_pending", false)
+		):
+			return
+		dimmer.set_meta(&"modal_close_pending", true)
 		if close_callable.is_valid():
-			close_callable.call()
+			# Keep the upper dimmer alive until the current input dispatch finishes.
+			# Otherwise a popup restored by this close can receive the same tap and
+			# immediately close as well.
+			close_callable.call_deferred()
 
 func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: float) -> Control:
 	var centered_content: Control = POPUP_STAGE_CENTER_SCRIPT.new() as Control
