@@ -14,6 +14,12 @@ import json
 import re
 from pathlib import Path
 
+from curate_word_database import (
+    CURATED_HINTS,
+    SPECIALIST_REPLACEMENTS_RU,
+    WORD_REPLACEMENTS_RU,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EASY_MAX_DIFFICULTY = 0.5
@@ -606,7 +612,17 @@ def rebalance_language(language: str, apply_changes: bool) -> tuple[int, int]:
         **PLAIN_HINTS[language],
         **VERY_PLAIN_HINTS[language],
         **EVERYDAY_HINTS[language],
+        **CURATED_HINTS[language],
     }
+    if language == "ru":
+        manual.update({
+            replacement[1]: replacement[2]
+            for replacement in WORD_REPLACEMENTS_RU.values()
+        })
+        manual.update({
+            replacement[1]: replacement[2]
+            for replacement in SPECIALIST_REPLACEMENTS_RU.values()
+        })
     seen_manual: set[str] = set()
     changed = 0
 
