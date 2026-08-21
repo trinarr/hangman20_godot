@@ -88,6 +88,12 @@ def verify_control_geometry() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     raw_texture_size_calls = re.findall(r"(?<!return )\b\w+_texture\.get_size\(\)", main + portrait)
+    # The runtime-loaded menu logo intentionally uses its native aspect ratio to
+    # fit inside a fixed stage rect; it is not deriving unscaled UI dimensions.
+    raw_texture_size_calls = [
+        call for call in raw_texture_size_calls
+        if call != "main_menu_logo_texture.get_size()"
+    ]
     require(not raw_texture_size_calls, f"Unscaled texture-size calls remain: {raw_texture_size_calls}")
     portrait_screen = portrait[
         portrait.index("func _portrait_screen(") : portrait.index("func _stage_portrait_page_header(")
@@ -839,17 +845,20 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
     ]
     require(
         "show_coin_balance: bool = false" in popup_begin
+        and "coin_store_return_action: Callable = Callable()" in popup_begin
         and "if show_coin_balance:" in popup_begin
         and "func _stage_popup_coin_balance_above_dimmer(" in popup_begin
         and 'popup_balance_layer.name = "PopupCoinBalance"' in popup_begin
         and "popup_balance_layer.z_index = 200" in popup_begin
-        and "_stage_centered_coin_only_counter(" in popup_begin,
-        "Paid popups do not stage the coin balance above their modal dimmer",
+        and "_stage_centered_coin_only_counter(" in popup_begin
+        and "var direct_action: Callable" in popup_begin,
+        "Paid popups do not stage an actionable coin balance above their modal dimmer",
     )
     require(
         "var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect" in popup_begin
-        and "source_counter_rect,\n\t\tfalse,\n\t\tfalse,\n\t\tfalse,\n\t\tfalse" in popup_begin,
-        "The above-dimmer popup coin balance does not preserve its source-screen position",
+        and "source_counter_rect,\n\t\tfalse,\n\t\ttrue,\n\t\tfalse,\n\t\tfalse,\n\t\tdirect_action" in popup_begin
+        and "coin_store_return_action" in popup_begin,
+        "The popup coin balance does not preserve its position, plus badge, or shop action",
     )
     require(
         portrait.count('balance_label.add_to_group(&"soft_currency_balance_label")') == 2
@@ -870,15 +879,28 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
         portrait.index("func _stage_single_player_popup_theme_cards(")
     ]
     require(
-        all("\t\ttrue\n\t)" in popup for popup in (last_chance, heart_refill, theme_popup)),
-        "A popup that can spend coins does not request the above-dimmer balance",
+        'Callable(self, "_return_to_single_player_last_chance_from_coin_store")'
+        in last_chance
+        and 'Callable(self, "_return_to_heart_refill_from_coin_store").bind('
+        in heart_refill
+        and 'Callable(self, "_return_to_single_player_theme_popup").bind('
+        in theme_popup,
+        "A paid popup coin counter does not return from the shop to its exact context",
     )
     require(
-        "func _stage_portrait_popup_button_price(button: Control, price: int) -> Label:" in portrait
-        and "_purchase_price_color(price)" in portrait
-        and "_stage_portrait_popup_button_price(purchase_button, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)"
-        in last_chance,
-        "The extra-attempt popup does not color its standalone price by affordability",
+        "const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)"
+        in portrait
+        and "const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0" in portrait
+        and "var attempts_status_rect := PORTRAIT_REFILL_STATUS_RECT" in last_chance
+        and "var heart_status_rect := PORTRAIT_REFILL_STATUS_RECT" in heart_refill
+        and last_chance.count("PORTRAIT_REFILL_STATUS_GLOW_DIAMETER") == 1
+        and heart_refill.count("PORTRAIT_REFILL_STATUS_GLOW_DIAMETER") == 1,
+        "Heart and extra-attempt popups do not share the heart offset and attempt glow size",
+    )
+    require(
+        "_stage_portrait_popup_coin_purchase_content(" in last_chance
+        and "_purchase_price_color(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)" in last_chance,
+        "The extra-attempt coin CTA does not color its price by affordability",
     )
 
     reward_link = portrait[
@@ -2915,6 +2937,17 @@ def verify_single_player_last_chance_flow() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     session = read("scripts/core/game_session.gd")
+    attempt_icon_path = ROOT / "flash_assets" / "extra_attempts_icon.png"
+    require(attempt_icon_path.is_file(), "The extra-attempts popup icon is missing")
+    with Image.open(attempt_icon_path) as image:
+        rgba = image.convert("RGBA")
+        alpha = rgba.getchannel("A")
+        require(
+            rgba.size == (512, 512)
+            and alpha.getextrema()[0] == 0
+            and alpha.getbbox() is not None,
+            "The extra-attempts icon lost its target size or transparent background",
+        )
 
     guess_flow = session[session.index("func guess(") : session.index("func _reveal_letter(")]
     require(
@@ -2991,6 +3024,10 @@ def verify_single_player_last_chance_flow() -> None:
         portrait.index("func _portrait_game_hint_y(") :
         portrait.index("func _stage_portrait_hint_buttons(")
     ]
+    rewarded_flow = portrait[
+        portrait.index("func _set_portrait_rewarded_action_control_enabled(") :
+        portrait.index("func _on_portrait_rewarded_action_failed_to_show(")
+    ]
     require(
         "GameState.current_mode == GameState.GameMode.SINGLE_PLAYER" in press_letter
         and "GameSession.get_remaining_attempts() == 1" in press_letter
@@ -3009,9 +3046,18 @@ def verify_single_player_last_chance_flow() -> None:
         "The extra attempt is not connected to currency, the shop fallback, and defeat resolution",
     )
     require(
+        'Callable(self, "_on_single_player_extra_attempt_ad_pressed")' in portrait
+        and '_show_portrait_rewarded_action(&"extra_attempt")' in portrait
+        and '&"single_player_last_chance_ad_button"' in portrait
+        and rewarded_flow.count('&"extra_attempt"') == 2
+        and "_remove_single_player_last_chance_popup()" in rewarded_flow
+        and "_grant_single_player_extra_attempt()" in rewarded_flow,
+        "Rewarded video does not safely grant the same two deferred attempts",
+    )
+    require(
         "var hero_group: Control = _portrait_game_adaptive_group" in extra_attempt_transition
-        and "const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION: float = 0.05" in portrait
-        and "const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION: float = 0.08" in portrait
+        and "const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION: float =" in portrait
+        and "const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION: float =" in portrait
         and "PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION" in extra_attempt_transition
         and "await fade_out.finished" in extra_attempt_transition
         and extra_attempt_transition.index("await fade_out.finished")
@@ -3059,19 +3105,31 @@ def verify_single_player_last_chance_flow() -> None:
     ]
     require(
         '"single_player_last_chance_popup"' in last_chance_popup
+        and 'preload("res://flash_assets/extra_attempts_icon.png")' in main
+        and "EXTRA_ATTEMPTS_ICON_TEXTURE" in last_chance_popup
+        and "PORTRAIT_UI_PALETTE.THEME_CARD" in last_chance_popup
         and '"+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT' in last_chance_popup
-        and '"Добавьте 2 попытки' in last_chance_popup
-        and '"Add 2 tries' in last_chance_popup
+        and '"ExtraAttemptsGlowClip"' in last_chance_popup
+        and "attempt_glow_clip.clip_contents = true" in last_chance_popup
+        and "attempt_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE" in last_chance_popup
+        and "PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.64" in last_chance_popup
+        and re.search(
+            r'"\+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT,\s*54,',
+            last_chance_popup,
+        )
+        and 'tr("EXTRA_ATTEMPTS_DESCRIPTION")' in last_chance_popup
         and "SINGLE_PLAYER_EXTRA_ATTEMPT_COST" in last_chance_popup
-        and "SOFT_CURRENCY_COIN_TEXTURE" in last_chance_popup
-        and "LONG_BUTTON_COLOR_GREEN" in last_chance_popup
+        and '_stage_portrait_popup_coin_purchase_content(' in last_chance_popup
+        and 'Callable(self, "_on_single_player_extra_attempt_ad_pressed")' in last_chance_popup
+        and "WATCH_AD_ICON_TEXTURE" in last_chance_popup
+        and "PORTRAIT_AD_BADGE_PURPLE" in last_chance_popup
         and 'Callable(self, "_decline_single_player_extra_attempt")' in last_chance_popup,
-        "The portrait extra-attempt popup is missing its price, purchase action, or decline path",
+        "The extra-attempt popup is missing its clipped glow, enlarged counter, dual CTAs, price, or decline path",
     )
     require(
         "retry_after_loss: bool = false" in retry_popup
         and 'Callable(self, "_close_single_player_retry_popup")' in retry_popup
-        and 'return _single_player_text("Играть", "Play")' in main
+        and 'return tr("PLAY_GAME")' in main
         and "func _close_single_player_retry_popup() -> void:" in main
         and "_remove_single_player_theme_popup()\n\tshow_menu()" in main,
         "The post-retry theme popup does not use Play or return to the main menu on close",

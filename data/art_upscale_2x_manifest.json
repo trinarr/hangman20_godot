@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 153,
+  "file_count": 166,
   "files": [
     {
       "path": "icon.png",
@@ -120,6 +120,21 @@
       "target_sha256": "ebb4ea69d8bb474f380465695108210fa551a3aed41a0c35d3fd27355a3f00fb"
     },
     {
+      "path": "flash_assets/extra_attempts_icon.png",
+      "source_size": [
+        512,
+        512
+      ],
+      "target_size": [
+        512,
+        512
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "49f0cedda04d21c1091ab2d05dfab7ed4530c3d22a613126dcdb638dfc9febbf",
+      "target_sha256": "49f0cedda04d21c1091ab2d05dfab7ed4530c3d22a613126dcdb638dfc9febbf",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/final_reward_rotating_glow.png",
       "source_size": [
         632,
@@ -131,7 +146,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "7c6db8331cbd63dbb051bf17af9f0d745723d3afd0ebcd6a54ecccd8ed5ab08a",
-      "target_sha256": "7c6db8331cbd63dbb051bf17af9f0d745723d3afd0ebcd6a54ecccd8ed5ab08a",
+      "target_sha256": "28baaa121fe5b4e2e0bb33132fb66fda58db1ca6159e5cf1b30e2892f5ab044a",
       "native_2x": true
     },
     {
@@ -149,6 +164,21 @@
       "target_sha256": "1057439f2e0925f2a6a274d5e1fd30fa6fbb3574fb5580a2881cd352a79b387a"
     },
     {
+      "path": "flash_assets/heart_recovery_clock.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "c2f04124fa9f334cc37560b5c02fe274b8e39570bc6f0e5c26da3ed3d6bac669",
+      "target_sha256": "c2f04124fa9f334cc37560b5c02fe274b8e39570bc6f0e5c26da3ed3d6bac669",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/hint_comment_unlock_doodle.png",
       "source_size": [
         256,
@@ -160,7 +190,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "4d2a1708518b25b27de10984b38b99843aff2501fd4f7fc8a44226e689e81350",
-      "target_sha256": "033ecfc98afc448c9fd335297174b69cfe9890f868d0e0e07aaee164f53bf5c8",
+      "target_sha256": "23734d5b1e01adea9a8d7c30ac47b1fb8d6aa02afd7c5d588cd754f3ced1c7bc",
       "native_2x": true
     },
     {
@@ -175,7 +205,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "1844689223f93d5bd9b63d4bb68c00ec2c3bf8100dbc464955ea64439a093b40",
-      "target_sha256": "620fc5400303ad54a5a2d9331892ca1d5c248c5d3b23cb7af0337ae71e268d80",
+      "target_sha256": "c2b2155db886ffde4061808c9000642a81ed0381cb12b33db5c2d86e1df6e377",
       "native_2x": true
     },
     {
@@ -190,7 +220,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "b68eb3e46d34e307fab2774a543ee84127321d274c72e0d3c58e3f341d301f6c",
-      "target_sha256": "6a3069893802d57b89863b23d8d6ff453a36b1727e79c542d8b97a2ba31caac2",
+      "target_sha256": "6fc98db4204e344c5e02e5833e69d8918c1698a4a9b3d2730a7529c20a9c47f5",
       "native_2x": true
     },
     {
@@ -207,6 +237,21 @@
       "source_sha256": "60e07c50969e4cc6fc4ac246857c5174fd39f0919e907059f28f453695a847d6",
       "target_sha256": "8e3f4ad6ee1a35704fe7368cd26871916a07872c403e1984b099ad2487e66d85",
       "native_target_scale": true
+    },
+    {
+      "path": "flash_assets/main_menu_logo_hangman_20.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "target_size": [
+        1254,
+        1254
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "bbe12355d67e4ec76cff36945c4af2f0594e1e5332f219ba4e583fb192666a62",
+      "target_sha256": "bbe12355d67e4ec76cff36945c4af2f0594e1e5332f219ba4e583fb192666a62",
+      "native_2x": true
     },
     {
       "path": "flash_assets/nav_home_icon.png",
@@ -532,6 +577,156 @@
       "source_mode": "RGBA",
       "source_sha256": "7e9829a030e9398960fc34ec045dfe91cec437fe68b415e9c56a1e100b65682e",
       "target_sha256": "7e9829a030e9398960fc34ec045dfe91cec437fe68b415e9c56a1e100b65682e",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_film_music_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "7adf79a6a3d4d653e7298a5a1439b8b0103b580f6b0646a4d3e805a115d1577d",
+      "target_sha256": "7adf79a6a3d4d653e7298a5a1439b8b0103b580f6b0646a4d3e805a115d1577d",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_food_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "26c63cfd328260d8f748a600109d6b36ddbec900f3efa3ea11c7d5c1ba6a51ec",
+      "target_sha256": "26c63cfd328260d8f748a600109d6b36ddbec900f3efa3ea11c7d5c1ba6a51ec",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_general_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "459aad50e002e12868e4e25b4d300b53ad68cddce50638cddb4733f99bc5239e",
+      "target_sha256": "459aad50e002e12868e4e25b4d300b53ad68cddce50638cddb4733f99bc5239e",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_geography_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "abe6b0f7ac4af1e4d8493ef473420a01d636d8b55dbcda796ed1b949c489973e",
+      "target_sha256": "abe6b0f7ac4af1e4d8493ef473420a01d636d8b55dbcda796ed1b949c489973e",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_history_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "05f1f22958d43d32911eac89232a18df511bb98a0d37fb1b20e816234916353d",
+      "target_sha256": "05f1f22958d43d32911eac89232a18df511bb98a0d37fb1b20e816234916353d",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_nature_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "6936eb34afc001cf423a9b111426d69673d219a1f1019f5707779ec42afc0d2d",
+      "target_sha256": "6936eb34afc001cf423a9b111426d69673d219a1f1019f5707779ec42afc0d2d",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_people_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "97993993f2d4ad6df66abc0f861691c0d7dfc92487c8e70ad25368d9b1f532fc",
+      "target_sha256": "97993993f2d4ad6df66abc0f861691c0d7dfc92487c8e70ad25368d9b1f532fc",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_science_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "876d07c1457c0256ab2dce39d3be2ec70b5e57ba16ae5f3abfabc1d204a954f8",
+      "target_sha256": "876d07c1457c0256ab2dce39d3be2ec70b5e57ba16ae5f3abfabc1d204a954f8",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_sport_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "323590eaf3dab1fd33795e68d96755b66e1455874a06ed18023666da01fe97eb",
+      "target_sha256": "323590eaf3dab1fd33795e68d96755b66e1455874a06ed18023666da01fe97eb",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/theme_icons_mono/theme_icon_technics_white.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "LA",
+      "source_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
+      "target_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
       "native_2x": true
     },
     {

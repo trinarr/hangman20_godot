@@ -113,6 +113,7 @@ const THEME_ICON_MONO_TEXTURES := {
 	"film_music": THEME_ICON_FILM_MUSIC_MONO_TEXTURE,
 }
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
+const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
 const WRONG_LETTER_SOUND: AudioStream = preload("res://audio/No_New.wav")
@@ -1407,9 +1408,13 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	_invalidate_single_player_level_cache()
 	_update_single_player_theme_popup(level_index)
 
-func _return_to_single_player_theme_popup(level_index: int, retry_after_loss: bool = false) -> void:
+func _return_to_single_player_theme_popup(
+	level_index: int,
+	retry_after_loss: bool = false,
+	selected_theme: int = -1
+) -> void:
 	show_menu()
-	_show_single_player_level_popup(level_index, -1, retry_after_loss)
+	_show_single_player_level_popup(level_index, selected_theme, retry_after_loss)
 
 func _purchase_single_player_extra_attempt() -> void:
 	if !GameSession.has_deferred_loss():

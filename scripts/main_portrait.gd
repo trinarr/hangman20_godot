@@ -314,6 +314,8 @@ const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH: float = 280.0
 const PORTRAIT_POPUP_LONG_BUTTON_WIDTH: float = 313.6
 const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 18.0
+const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)
+const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
@@ -1149,7 +1151,8 @@ func _stage_centered_coin_only_counter(
 	challenge_colors: bool = false,
 	interactive: bool = true,
 	center_horizontally: bool = true,
-	track_as_active_counter: bool = true
+	track_as_active_counter: bool = true,
+	direct_action: Callable = Callable()
 ) -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
@@ -1199,7 +1202,7 @@ func _stage_centered_coin_only_counter(
 	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
 	coin_icon.z_index = 21
 	_portrait_currency_coin_icon_visual = coin_icon
-	if counter_is_interactive and !_portrait_coin_store_active:
+	if counter_is_interactive and (!_portrait_coin_store_active or direct_action.is_valid()):
 		_stage_resource_add_badge(icon_rect, counter_scale)
 	var balance_rect := Rect2(
 		Vector2(counter_rect.position.x + 43.0 * counter_scale, counter_rect.position.y),
@@ -1222,7 +1225,12 @@ func _stage_centered_coin_only_counter(
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
 	content = counter_parent_content
 	if counter_is_interactive:
-		_stage_resource_counter_button(counter_rect, counter_visual, return_action)
+		_stage_resource_counter_button(
+			counter_rect,
+			counter_visual,
+			return_action,
+			direct_action
+		)
 	content = screen_content
 
 func _stage_heart_counter(
@@ -2180,6 +2188,7 @@ func _portrait_popup_begin(
 	popup_top: float,
 	popup_bottom: float,
 	show_coin_balance: bool = false,
+	coin_store_return_action: Callable = Callable(),
 	alpha: float = PORTRAIT_POPUP_DIM_ALPHA
 ) -> Control:
 	_play_popup_open_sound()
@@ -2201,11 +2210,19 @@ func _portrait_popup_begin(
 	content = popup_root
 	_add_fullscreen_modal_backdrop(close_callable, alpha)
 	if show_coin_balance:
-		_stage_popup_coin_balance_above_dimmer(popup_root)
+		_stage_popup_coin_balance_above_dimmer(
+			popup_root,
+			close_callable,
+			coin_store_return_action
+		)
 	content = _center_popup_content(popup_root, popup_top, popup_bottom)
 	return previous_content
 
-func _stage_popup_coin_balance_above_dimmer(popup_root: Control) -> void:
+func _stage_popup_coin_balance_above_dimmer(
+	popup_root: Control,
+	close_callable: Callable,
+	coin_store_return_action: Callable
+) -> void:
 	var popup_balance_layer := Control.new()
 	popup_balance_layer.name = "PopupCoinBalance"
 	popup_balance_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -2218,13 +2235,22 @@ func _stage_popup_coin_balance_above_dimmer(popup_root: Control) -> void:
 	var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect
 	_portrait_top_bar_content = null
 	content = popup_balance_layer
+	# If the popup is already above the shop, pressing its counter simply closes
+	# the modal and reveals that shop. Otherwise the shop returns to the exact
+	# popup context supplied by its caller.
+	var direct_action: Callable = (
+		close_callable
+		if _portrait_coin_store_active and close_callable.is_valid()
+		else Callable()
+	)
 	_stage_centered_coin_only_counter(
-		Callable(),
+		coin_store_return_action,
 		source_counter_rect,
 		false,
+		true,
 		false,
 		false,
-		false
+		direct_action
 	)
 	content = previous_content
 	_portrait_top_bar_content = previous_top_bar
@@ -2825,44 +2851,131 @@ func _show_single_player_last_chance_popup() -> void:
 		"single_player_last_chance_popup",
 		140,
 		close_action,
-		170.0,
-		570.0,
-		true
+		145.0,
+		582.0,
+		true,
+		Callable(self, "_return_to_single_player_last_chance_from_coin_store")
 	)
-	var rect := Rect2(28.0, 170.0, 424.0, 400.0)
+	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
 	_portrait_popup_shell(
 		rect,
 		tr("EXTRA_ATTEMPTS_TITLE"),
 		close_action,
-		27
+		28
 	)
-	var attempt_badge_rect := Rect2(176.0, 270.0, 128.0, 128.0)
-	var attempt_badge := _stage_panel(
-		attempt_badge_rect,
-		PORTRAIT_ORANGE,
-		attempt_badge_rect.size.x * 0.5,
-		Color.WHITE,
-		3.0
+	# Match the life-refill popup: keep the reward art and explanatory copy on a
+	# single light-blue status surface, then present ad and coin choices below it.
+	var attempts_status_rect := PORTRAIT_REFILL_STATUS_RECT
+	var attempts_status_panel := _stage_panel(
+		attempts_status_rect,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		22.0
 	)
-	attempt_badge.z_index = 11
+	attempts_status_panel.z_index = 8
+	var attempt_icon_rect := Rect2(68.0, 240.0, 144.0, 144.0)
+	# Match the large-heart treatment with static rays behind the attempt icon.
+	# The holder is clipped to the blue status block, so the glow cannot bleed
+	# into the popup body outside that backing surface.
+	var attempt_glow_size := (
+		Vector2.ONE
+		* PORTRAIT_REFILL_STATUS_GLOW_DIAMETER
+		* PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+	)
+	var attempt_glow_rect := Rect2(
+		attempt_icon_rect.get_center() - attempt_glow_size * 0.5,
+		attempt_glow_size
+	)
+	var attempt_glow_clip := _stage_holder(
+		attempts_status_rect,
+		Control.MOUSE_FILTER_IGNORE
+	)
+	attempt_glow_clip.name = "ExtraAttemptsGlowClip"
+	attempt_glow_clip.clip_contents = true
+	attempt_glow_clip.z_index = 9
+	var attempt_glow := TextureRect.new()
+	attempt_glow.name = "ExtraAttemptsGlow"
+	attempt_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	attempt_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	attempt_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	attempt_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	attempt_glow.position = attempt_glow_rect.position - attempts_status_rect.position
+	attempt_glow.size = attempt_glow_rect.size
+	attempt_glow.modulate = Color(
+		1.0,
+		1.0,
+		1.0,
+		PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.64
+	)
+	attempt_glow.z_index = 0
+	attempt_glow_clip.add_child(attempt_glow)
+	var attempt_icon := _stage_texture(
+		attempt_icon_rect,
+		EXTRA_ATTEMPTS_ICON_TEXTURE
+	)
+	attempt_icon.z_index = 11
 	var attempt_label := _stage_label(
-		attempt_badge_rect,
+		attempt_icon_rect,
 		"+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT,
 		54,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	attempt_label.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.UI_BLUE_DARK, 0.9))
-	attempt_label.add_theme_constant_override("outline_size", 4)
+	attempt_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	attempt_label.add_theme_color_override(
+		"font_outline_color",
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.UI_BLUE_DARK, 0.96)
+	)
+	attempt_label.add_theme_constant_override("outline_size", 5)
+	attempt_label.add_theme_color_override(
+		"font_shadow_color",
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.TEXT_SHADOW_DARK, 0.82)
+	)
+	attempt_label.add_theme_constant_override("shadow_offset_x", 2)
+	attempt_label.add_theme_constant_override("shadow_offset_y", 3)
 	attempt_label.z_index = 12
 	var description_label := _stage_label(
-		Rect2(58.0, 402.0, 364.0, 68.0),
+		Rect2(204.0, 246.0, 208.0, 126.0),
 		tr("EXTRA_ATTEMPTS_DESCRIPTION"),
-		21,
+		20,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	description_label.add_theme_font_override("font", UI_HEADING_FONT)
 	description_label.clip_text = false
+	description_label.z_index = 11
+
+	var rewarded_attempt_button := _stage_portrait_popup_main_button(
+		Rect2(90.0, 425.0, 300.0, 56.0),
+		Callable(self, "_on_single_player_extra_attempt_ad_pressed"),
+		tr("COMMON_CONTINUE"),
+		18,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_BLUE
+	)
+	rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
+	rewarded_attempt_button.z_index = 16
+	var rewarded_ad_icon_texture := AtlasTexture.new()
+	rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
+	rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
+	rewarded_attempt_button.set("icon_texture", rewarded_ad_icon_texture)
+	rewarded_attempt_button.set("icon_stage_size", Vector2(34.0, 28.0))
+	rewarded_attempt_button.set("icon_gap_stage", 9.0)
+	rewarded_attempt_button.set("icon_before_text", true)
+	rewarded_attempt_button.set("icon_shadow_enabled", true)
+	rewarded_attempt_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
+	rewarded_attempt_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
+	if rewarded_attempt_button.has_method("set_color_palette"):
+		rewarded_attempt_button.call(
+			"set_color_palette",
+			PORTRAIT_AD_BADGE_PURPLE,
+			PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
+			PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
+		)
+
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
 		Callable(self, "_purchase_single_player_extra_attempt"),
@@ -2872,9 +2985,10 @@ func _show_single_player_last_chance_popup() -> void:
 		0.32,
 		false,
 		false,
-		true,
+		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	purchase_button.z_index = 16
 	_stage_portrait_popup_coin_purchase_content(
 		purchase_button,
 		tr("COMMON_CONTINUE"),
@@ -2882,6 +2996,11 @@ func _show_single_player_last_chance_popup() -> void:
 		_purchase_price_color(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
 	)
 	content = previous_content
+
+func _on_single_player_extra_attempt_ad_pressed() -> void:
+	if !GameSession.has_deferred_loss():
+		return
+	_show_portrait_rewarded_action(&"extra_attempt")
 
 func _stage_heart_recovery_timer_counter(counter_rect: Rect2, heart_count: int) -> Label:
 	var counter_scale: float = counter_rect.size.y / 48.0
@@ -2952,7 +3071,11 @@ func _show_heart_refill_popup(
 		close_action,
 		145.0,
 		582.0,
-		true
+		true,
+		Callable(self, "_return_to_heart_refill_from_coin_store").bind(
+			continue_action,
+			store_return_action
+		)
 	)
 	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
 	_portrait_popup_shell(
@@ -2969,7 +3092,7 @@ func _show_heart_refill_popup(
 	var current_hearts: int = GameState.get_hearts()
 	# Group the heart and recovery copy on the same light-blue surface used by
 	# the theme-card treatment, keeping the block visually separate from the popup.
-	var heart_status_rect := Rect2(48.0, 236.0, 384.0, 151.0)
+	var heart_status_rect := PORTRAIT_REFILL_STATUS_RECT
 	var heart_status_panel := _stage_panel(
 		heart_status_rect,
 		PORTRAIT_UI_PALETTE.THEME_CARD,
@@ -2990,7 +3113,11 @@ func _show_heart_refill_popup(
 	)
 	# Clip the static rays to the blue panel so they stop cleanly at the rounded
 	# backing block rather than at the overall popup body.
-	var heart_glow_size := Vector2.ONE * maxf(heart_size.x, heart_size.y) * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+	var heart_glow_size := (
+		Vector2.ONE
+		* PORTRAIT_REFILL_STATUS_GLOW_DIAMETER
+		* PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+	)
 	var heart_glow_rect := Rect2(
 		heart_rect.get_center() - heart_glow_size * 0.5,
 		heart_glow_size
@@ -3219,7 +3346,12 @@ func _show_single_player_level_popup(
 		close_action,
 		118.0,
 		568.0,
-		true
+		true,
+		Callable(self, "_return_to_single_player_theme_popup").bind(
+			level_index,
+			retry_after_loss,
+			selected_theme
+		)
 	)
 	single_player_popup_stage_content = content
 	var rect := Rect2(24.0, 118.0, 432.0, 450.0)
@@ -8353,6 +8485,12 @@ func _set_portrait_rewarded_action_control_enabled(
 				var refill_ad_button := node as Control
 				if refill_ad_button != null and is_instance_valid(refill_ad_button):
 					refill_ad_button.set("button_disabled", !can_use_rewarded_refill)
+		&"extra_attempt":
+			var can_use_rewarded_attempt: bool = enabled and GameSession.has_deferred_loss()
+			for node: Node in get_tree().get_nodes_in_group(&"single_player_last_chance_ad_button"):
+				var attempt_ad_button := node as Control
+				if attempt_ad_button != null and is_instance_valid(attempt_ad_button):
+					attempt_ad_button.set("button_disabled", !can_use_rewarded_attempt)
 
 func _on_portrait_rewarded_action_rewarded(_currency: String, _amount: int) -> void:
 	if _portrait_rewarded_action != &"":
@@ -8403,6 +8541,10 @@ func _on_portrait_rewarded_action_closed() -> void:
 				var continue_action: Callable = heart_refill_continue_action
 				var restore_action: Callable = heart_refill_store_return_action
 				_show_heart_refill_popup(continue_action, restore_action)
+		&"extra_attempt":
+			if GameSession.has_deferred_loss():
+				_remove_single_player_last_chance_popup()
+				_grant_single_player_extra_attempt()
 
 func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	if _portrait_rewarded_action == &"":
