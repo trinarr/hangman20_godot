@@ -857,14 +857,18 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
         and 'popup_balance_layer.name = "PopupCoinBalance"' in popup_begin
         and "popup_balance_layer.z_index = 200" in popup_begin
         and "_stage_centered_coin_only_counter(" in popup_begin
-        and "var direct_action: Callable" in popup_begin,
+        and "var counter_is_interactive: bool = !_portrait_coin_store_active"
+        in popup_begin,
         "Paid popups do not stage an actionable coin balance above their modal dimmer",
     )
     require(
         "var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect" in popup_begin
-        and "source_counter_rect,\n\t\tfalse,\n\t\ttrue,\n\t\tfalse,\n\t\tfalse,\n\t\tdirect_action" in popup_begin
+        and "source_counter_rect,\n\t\tfalse,\n\t\tcounter_is_interactive,\n\t\tfalse,\n\t\tfalse,\n\t\tCallable()"
+        in popup_begin
+        and "if counter_is_interactive and (!_portrait_coin_store_active or direct_action.is_valid())"
+        in portrait
         and "coin_store_return_action" in popup_begin,
-        "The popup coin balance does not preserve its position, plus badge, or shop action",
+        "Popup coin counters do not separate refill display-only and paid-popup actions",
     )
     require(
         portrait.count('balance_label.add_to_group(&"soft_currency_balance_label")') == 2

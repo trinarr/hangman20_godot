@@ -2282,7 +2282,7 @@ func _stage_refill_status_glow(
 
 func _stage_popup_coin_balance_above_dimmer(
 	popup_root: Control,
-	close_callable: Callable,
+	_close_callable: Callable,
 	coin_store_return_action: Callable
 ) -> void:
 	var popup_balance_layer := Control.new()
@@ -2297,22 +2297,18 @@ func _stage_popup_coin_balance_above_dimmer(
 	var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect
 	_portrait_top_bar_content = null
 	content = popup_balance_layer
-	# If the popup is already above the shop, pressing its counter simply closes
-	# the modal and reveals that shop. Otherwise the shop returns to the exact
-	# popup context supplied by its caller.
-	var direct_action: Callable = (
-		close_callable
-		if _portrait_coin_store_active and close_callable.is_valid()
-		else Callable()
-	)
+	# The coin-refill popup already is the destination of this counter, so its
+	# balance is display-only and must not show another plus badge. Paid popups
+	# retain the usual clickable counter that opens coin refill.
+	var counter_is_interactive: bool = !_portrait_coin_store_active
 	_stage_centered_coin_only_counter(
 		coin_store_return_action,
 		source_counter_rect,
 		false,
-		true,
+		counter_is_interactive,
 		false,
 		false,
-		direct_action
+		Callable()
 	)
 	content = previous_content
 	_portrait_top_bar_content = previous_top_bar
