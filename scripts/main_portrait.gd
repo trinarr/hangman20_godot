@@ -239,6 +239,10 @@ const PORTRAIT_FINAL_REWARD_GLOW_ALPHA: float = 0.7
 const PORTRAIT_COIN_REFILL_REWARDED_AMOUNT: int = 50
 const PORTRAIT_COIN_REFILL_GLOW_SIZE := PORTRAIT_FINAL_REWARD_GLOW_SIZE * 0.80
 const PORTRAIT_COIN_REFILL_ICON_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 0.80
+const PORTRAIT_COIN_REFILL_GLOW_ALPHA: float = PORTRAIT_FINAL_REWARD_GLOW_ALPHA * 0.80
+const PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION: float = (
+	PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION / 0.70
+)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_GAP: float = 6.0
@@ -1961,8 +1965,11 @@ func _show_coin_refill_popup() -> void:
 	)
 	var glow := _stage_final_reward_glow(glow_rect)
 	glow.name = "CoinRefillGlow"
-	glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_GLOW_ALPHA)
-	_start_final_reward_glow_rotation(glow)
+	glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_COIN_REFILL_GLOW_ALPHA)
+	_start_final_reward_glow_rotation(
+		glow,
+		PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION
+	)
 
 	var coin_icon := _stage_texture(coin_rect, COIN_PACK_04_TEXTURE)
 	coin_icon.name = "CoinRefillIcon"
@@ -7786,7 +7793,10 @@ func _set_final_reward_glow_color(glow: CanvasItem, tint_color: Color) -> void:
 	glow.modulate = Color(tint_color.r, tint_color.g, tint_color.b, current_alpha)
 	glow.set_meta(&"glow_tint_color", tint_color)
 
-func _start_final_reward_glow_rotation(glow: Control) -> void:
+func _start_final_reward_glow_rotation(
+	glow: Control,
+	duration: float = PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION
+) -> void:
 	if glow == null or !is_instance_valid(glow) or !glow.is_inside_tree():
 		return
 	glow.pivot_offset = glow.size * 0.5
@@ -7797,7 +7807,7 @@ func _start_final_reward_glow_rotation(glow: Control) -> void:
 		glow,
 		"rotation",
 		TAU,
-		PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION
+		duration
 	).from(0.0)
 
 func _play_final_reward_pack_bounce(pack: Control) -> void:

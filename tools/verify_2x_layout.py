@@ -1097,8 +1097,15 @@ def verify_coin_refill_popup() -> None:
         in portrait
         and "PORTRAIT_COIN_REFILL_ICON_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 0.80"
         in portrait
+        and "PORTRAIT_COIN_REFILL_GLOW_ALPHA: float = PORTRAIT_FINAL_REWARD_GLOW_ALPHA * 0.80"
+        in portrait
+        and "glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_COIN_REFILL_GLOW_ALPHA)"
+        in popup
+        and "PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION / 0.70" in portrait
         and "_stage_final_reward_glow(glow_rect)" in popup
-        and "_start_final_reward_glow_rotation(glow)" in popup
+        and "_start_final_reward_glow_rotation(\n\t\tglow,\n\t\tPORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION"
+        in popup
+        and "duration: float = PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION" in portrait
         and "_stage_texture(coin_rect, COIN_PACK_04_TEXTURE)" in popup
         and "_single_player_reward_chain_count_text(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT)"
         in popup
