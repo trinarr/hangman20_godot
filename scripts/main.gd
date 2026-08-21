@@ -230,6 +230,7 @@ func _stage_single_player_level_header(_level_index: int) -> void:
 	pass
 
 func _open_coin_store(return_action: Callable = Callable()) -> void:
+	_remove_coin_refill_popup()
 	coin_store_return_action = return_action
 	if !coin_store_return_action.is_valid():
 		coin_store_return_action = Callable(self, "show_menu")
@@ -238,6 +239,7 @@ func _open_coin_store(return_action: Callable = Callable()) -> void:
 func _close_coin_store() -> void:
 	var return_action: Callable = coin_store_return_action
 	coin_store_return_action = Callable()
+	_remove_coin_refill_popup()
 	if return_action.is_valid():
 		return_action.call()
 	else:
@@ -394,6 +396,7 @@ func _clear() -> void:
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 	_remove_exit_game_popup()
+	_remove_coin_refill_popup()
 	_remove_heart_refill_popup()
 	_remove_single_player_last_chance_popup()
 	_remove_single_player_theme_popup()
@@ -1198,6 +1201,13 @@ func _remove_heart_refill_popup() -> void:
 	heart_refill_continue_action = Callable()
 	heart_refill_store_return_action = Callable()
 	heart_refill_store_is_open = false
+
+func _remove_coin_refill_popup() -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group("coin_refill_popup")
+	for node: Node in popup_nodes:
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
 
 func _purchase_heart_refill() -> void:
 	if GameState.get_hearts() >= GameState.MAX_HEARTS:

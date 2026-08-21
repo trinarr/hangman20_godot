@@ -8,10 +8,7 @@ const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/res
 const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
 	"res://scripts/ui/rounded_rect_texture_mask.gdshader"
 )
-const COIN_PACK_02_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin_pile.png")
 const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
-const COIN_PACK_05_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_05.png")
-const COIN_PACK_06_LARGE_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_06_large.png")
 const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_small.png")
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
@@ -239,6 +236,9 @@ const PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION: float = 14.0
 const PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION: float = 0.162
 const PORTRAIT_FINAL_REWARD_COLLECT_DELAY: float = 0.9
 const PORTRAIT_FINAL_REWARD_GLOW_ALPHA: float = 0.7
+const PORTRAIT_COIN_REFILL_REWARDED_AMOUNT: int = 50
+const PORTRAIT_COIN_REFILL_GLOW_SIZE := PORTRAIT_FINAL_REWARD_GLOW_SIZE * 0.80
+const PORTRAIT_COIN_REFILL_ICON_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 0.80
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_GAP: float = 6.0
@@ -320,6 +320,7 @@ const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 18.0
 const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)
 const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0
 const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0
+const PORTRAIT_REFILL_HEART_ICON_SIZE := Vector2(138.0, 125.0) * 0.6885
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
@@ -357,14 +358,6 @@ const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]
-const PORTRAIT_COIN_STORE_CARD_SIZE := Vector2(132.0, 220.0)
-const PORTRAIT_COIN_STORE_GRID_ORIGIN := Vector2(26.0, 174.0)
-const PORTRAIT_COIN_STORE_COLUMN_GAP: float = 16.0
-const PORTRAIT_COIN_STORE_ROW_GAP: float = 22.0
-const PORTRAIT_COIN_STORE_ICON_SIZE := Vector2(112.0, 112.0)
-const PORTRAIT_COIN_STORE_AMOUNT_RECT := Rect2(8.0, 156.0, 116.0, 54.0)
-
 enum MainTab {
 	TASKS,
 	HOME,
@@ -1917,7 +1910,7 @@ func _show_main_tab_screen(
 	_stage_main_navigation(active_tab, previous_tab)
 
 func show_coin_store() -> void:
-	_show_coin_store_screen()
+	_show_coin_refill_popup()
 
 func _open_coin_store(return_action: Callable = Callable()) -> void:
 	# Any shop opened from active gameplay must return without scheduling the
@@ -1932,115 +1925,114 @@ func _open_coin_store(return_action: Callable = Callable()) -> void:
 		resolved_return_action = Callable(self, "_return_to_game_from_coin_store")
 	super._open_coin_store(resolved_return_action)
 
-func _show_coin_store_screen() -> void:
-	_clear()
+func _close_coin_store() -> void:
+	_portrait_coin_store_active = false
+	super._close_coin_store()
+
+func _show_coin_refill_popup() -> void:
+	_remove_coin_refill_popup()
 	_portrait_coin_store_active = true
-	_portrait_screen(0.0)
-	_stage_portrait_page_header(
-		tr("COIN_STORE_TITLE"),
-		Callable(self, "_close_coin_store"),
-		Callable(self, "show_coin_store"),
-		false
+	var close_action := Callable(self, "_close_coin_store")
+	var previous_content := _portrait_popup_begin(
+		"CoinRefillPopup",
+		"coin_refill_popup",
+		170,
+		close_action,
+		145.0,
+		560.0,
+		true,
+		coin_store_return_action
 	)
-	for pack_index in range(PORTRAIT_COIN_STORE_PACK_AMOUNTS.size()):
-		_stage_coin_store_pack_card(
-			pack_index,
-			PORTRAIT_COIN_STORE_PACK_AMOUNTS[pack_index]
-		)
+	var rect := Rect2(28.0, 145.0, 424.0, 415.0)
+	_portrait_popup_shell(rect, tr("COIN_STORE_TITLE"), close_action, 28)
 
-func _coin_store_pack_texture(pack_index: int) -> Texture2D:
-	match pack_index:
-		0:
-			return COIN_PACK_02_TEXTURE
-		1:
-			return COIN_PACK_04_TEXTURE
-		2, 3:
-			return COIN_PACK_05_TEXTURE
-		4, 5:
-			return COIN_PACK_06_LARGE_TEXTURE
-	return COIN_PACK_02_TEXTURE
-
-func _stage_coin_store_pack_card(pack_index: int, amount: int) -> void:
-	var column: int = pack_index % 3
-	var row: int = int(pack_index / 3)
-	var card_rect := Rect2(
-		PORTRAIT_COIN_STORE_GRID_ORIGIN + Vector2(
-			float(column) * (PORTRAIT_COIN_STORE_CARD_SIZE.x + PORTRAIT_COIN_STORE_COLUMN_GAP),
-			float(row) * (PORTRAIT_COIN_STORE_CARD_SIZE.y + PORTRAIT_COIN_STORE_ROW_GAP)
+	# Reuse the main-prize composition without the refill popups' blue status card:
+	# one large coin pack, the rotating glow and the x50 counter form the focal point.
+	var coin_rect := Rect2(
+		Vector2(
+			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_COIN_REFILL_ICON_SIZE.x) * 0.5,
+			268.0
 		),
-		PORTRAIT_COIN_STORE_CARD_SIZE
+		PORTRAIT_COIN_REFILL_ICON_SIZE
 	)
-	# Reuse the rounded navy cards from the category-selection popup. Keeping all
-	# art below one holder also gives the complete pack the existing pressed tint.
-	var card_visual := _stage_holder(card_rect, Control.MOUSE_FILTER_IGNORE)
-	card_visual.name = "CoinPackCard%d" % pack_index
-	card_visual.z_index = 8
-	var card := _portrait_hint_local_panel(
-		card_visual,
-		Rect2(Vector2.ZERO, card_rect.size),
-		PORTRAIT_UI_PALETTE.THEME_CARD_BASE,
-		18.0,
-		PORTRAIT_RULE,
-		2.0
+	var glow_rect := Rect2(
+		coin_rect.get_center() - PORTRAIT_COIN_REFILL_GLOW_SIZE * 0.5,
+		PORTRAIT_COIN_REFILL_GLOW_SIZE
 	)
-	card.z_index = 0
-	var art_panel := _portrait_hint_local_panel(
-		card_visual,
-		Rect2(8.0, 8.0, card_rect.size.x - 16.0, 140.0),
-		PORTRAIT_UI_PALETTE.TEXT_WARM,
-		14.0,
-		Color(1.0, 1.0, 1.0, 0.78),
-		2.0
-	)
-	art_panel.z_index = 1
+	var glow := _stage_final_reward_glow(glow_rect)
+	glow.name = "CoinRefillGlow"
+	glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_GLOW_ALPHA)
+	_start_final_reward_glow_rotation(glow)
 
-	var pack_icon := TextureRect.new()
-	pack_icon.name = "CoinPackArt"
-	pack_icon.texture = _coin_store_pack_texture(pack_index)
-	pack_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pack_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pack_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pack_icon.position = Vector2(
-		(card_rect.size.x - PORTRAIT_COIN_STORE_ICON_SIZE.x) * 0.5,
-		18.0
-	)
-	pack_icon.size = PORTRAIT_COIN_STORE_ICON_SIZE
-	pack_icon.z_index = 2
-	card_visual.add_child(pack_icon)
+	var coin_icon := _stage_texture(coin_rect, COIN_PACK_04_TEXTURE)
+	coin_icon.name = "CoinRefillIcon"
+	coin_icon.z_index = 20
+	call_deferred("_play_final_reward_pack_bounce", coin_icon)
 
-	var amount_panel := _portrait_hint_local_panel(
-		card_visual,
-		PORTRAIT_COIN_STORE_AMOUNT_RECT,
-		PORTRAIT_ORANGE,
-		14.0,
+	var amount_label := _stage_label(
+		_portrait_final_reward_amount_rect(coin_rect),
+		_single_player_reward_chain_count_text(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT),
+		PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE,
 		Color.WHITE,
-		2.0
+		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	amount_panel.z_index = 3
-	var amount_label := _portrait_hint_local_label(
-		amount_panel,
-		"+%d" % amount,
-		28,
-		Color.WHITE
+	amount_label.name = "CoinRefillAmount"
+	amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	amount_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	amount_label.clip_text = false
+	_apply_portrait_reward_header_text_effect(amount_label, 4)
+	amount_label.add_theme_constant_override("shadow_offset_x", 3)
+	amount_label.add_theme_constant_override("shadow_offset_y", 3)
+	_fit_single_line_label_to_width(
+		amount_label,
+		amount_label.text,
+		PORTRAIT_FINAL_REWARD_AMOUNT_SIZE.x,
+		PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE,
+		28
 	)
-	amount_label.add_theme_color_override("font_outline_color", PORTRAIT_DARK_BLUE)
-	amount_label.add_theme_constant_override("outline_size", 3)
-	amount_label.z_index = 1
+	amount_label.z_index = 21
 
-	var pack_button := _stage_button(
-		card_rect,
-		Callable(self, "_purchase_coin_pack").bind(amount),
-		""
+	var rewarded_coin_button := _stage_portrait_popup_main_button(
+		Rect2(
+			90.0,
+			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
+			300.0,
+			56.0
+		),
+		Callable(self, "_on_coin_refill_ad_pressed"),
+		tr("COMMON_FREE"),
+		18,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_BLUE
 	)
-	pack_button.z_index = 20
-	_bind_theme_card_press_state(pack_button, card_visual)
+	rewarded_coin_button.name = "CoinRefillAdButton"
+	rewarded_coin_button.add_to_group(&"coin_refill_ad_button")
+	rewarded_coin_button.z_index = 22
+	var rewarded_ad_icon_texture := AtlasTexture.new()
+	rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
+	rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
+	rewarded_coin_button.set("icon_texture", rewarded_ad_icon_texture)
+	rewarded_coin_button.set("icon_stage_size", Vector2(34.0, 28.0))
+	rewarded_coin_button.set("icon_gap_stage", 9.0)
+	rewarded_coin_button.set("icon_before_text", true)
+	rewarded_coin_button.set("icon_shadow_enabled", true)
+	rewarded_coin_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
+	rewarded_coin_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
+	if rewarded_coin_button.has_method("set_color_palette"):
+		rewarded_coin_button.call(
+			"set_color_palette",
+			PORTRAIT_AD_BADGE_PURPLE,
+			PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
+			PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
+		)
+	content = previous_content
 
-func _purchase_coin_pack(amount: int) -> void:
-	# The project currently has a local prototype purchase flow rather than IAP.
-	# Preserve it while exposing the six requested pack sizes through real cards.
-	if !PORTRAIT_COIN_STORE_PACK_AMOUNTS.has(amount):
-		return
-	GameState.add_soft_currency(amount)
+func _on_coin_refill_ad_pressed() -> void:
+	_show_portrait_rewarded_action(&"coin_refill")
 
 func show_tasks() -> void:
 	coin_store_return_action = Callable()
@@ -3137,11 +3129,10 @@ func _show_heart_refill_popup(
 	# Present the life state as one horizontal row: the large heart stays on the
 	# left, while the recovery caption and timer sit to its right. Center both the
 	# heart/glow and the two-line text block vertically within the blue panel.
-	var original_heart_rect := Rect2(79.0, 246.0, 138.0, 125.0)
-	var heart_size: Vector2 = original_heart_rect.size * 0.6885
+	var heart_size: Vector2 = PORTRAIT_REFILL_HEART_ICON_SIZE
 	var heart_rect := Rect2(
 		Vector2(
-			original_heart_rect.position.x,
+			79.0,
 			heart_status_rect.get_center().y - heart_size.y * 0.5
 		),
 		heart_size
@@ -4621,7 +4612,14 @@ func _show_exit_game_popup() -> void:
 	)
 	exit_status_panel.name = "ExitLifeStatus"
 	exit_status_panel.z_index = 8
-	var exit_heart_rect := Rect2(70.0, 248.0, 124.0, 112.0)
+	var exit_heart_size: Vector2 = PORTRAIT_REFILL_HEART_ICON_SIZE
+	var exit_heart_rect := Rect2(
+		Vector2(
+			79.0,
+			exit_status_rect.get_center().y - exit_heart_size.y * 0.5
+		),
+		exit_heart_size
+	)
 	_stage_refill_status_glow(
 		exit_status_panel,
 		exit_status_rect,
@@ -8547,6 +8545,11 @@ func _set_portrait_rewarded_action_control_enabled(
 				var refill_ad_button := node as Control
 				if refill_ad_button != null and is_instance_valid(refill_ad_button):
 					refill_ad_button.set("button_disabled", !can_use_rewarded_refill)
+		&"coin_refill":
+			for node: Node in get_tree().get_nodes_in_group(&"coin_refill_ad_button"):
+				var coin_refill_button := node as Control
+				if coin_refill_button != null and is_instance_valid(coin_refill_button):
+					coin_refill_button.set("button_disabled", !enabled)
 		&"extra_attempt":
 			var can_use_rewarded_attempt: bool = enabled and GameSession.has_deferred_loss()
 			for node: Node in get_tree().get_nodes_in_group(&"single_player_last_chance_ad_button"):
@@ -8603,6 +8606,9 @@ func _on_portrait_rewarded_action_closed() -> void:
 				var continue_action: Callable = heart_refill_continue_action
 				var restore_action: Callable = heart_refill_store_return_action
 				_show_heart_refill_popup(continue_action, restore_action)
+		&"coin_refill":
+			GameState.add_soft_currency(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT)
+			_close_coin_store()
 		&"extra_attempt":
 			if GameSession.has_deferred_loss():
 				_remove_single_player_last_chance_popup()

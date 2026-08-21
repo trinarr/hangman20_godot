@@ -907,7 +907,7 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
         in portrait
         and "const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0" in portrait
         and "const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0" in portrait
-        and "PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA\n\t* 0.64\n\t* 0.80"
+        and "PORTRAIT_REFILL_STATUS_GLOW_ALPHA: float = PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.55"
         in portrait
         and "var attempts_status_rect := PORTRAIT_REFILL_STATUS_RECT" in last_chance
         and "var heart_status_rect := PORTRAIT_REFILL_STATUS_RECT" in heart_refill
@@ -1061,51 +1061,73 @@ def verify_reward_status_icons() -> None:
             require(navy_pixels > 2500, f"Reward status icon lost its navy outline: {filename}")
 
 
-def verify_coin_store_pack_grid() -> None:
+def verify_coin_refill_popup() -> None:
+    main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
-    page_header = portrait[
-        portrait.index("func _stage_portrait_page_header(") :
-        portrait.index("func _stage_menu_settings_button(")
-    ]
-    store_screen = portrait[
-        portrait.index("func _show_coin_store_screen(") :
+    database = read("scripts/core/database.gd")
+    translations = read("localization/translations.csv")
+    popup = portrait[
+        portrait.index("func show_coin_store()") :
         portrait.index("func show_tasks()")
     ]
     require(
-        "show_heart_counter: bool = true" in page_header
-        and "if show_heart_counter:" in page_header
-        and "_stage_centered_coin_only_counter(resolved_return_action)" in page_header
-        and "_stage_menu_settings_button()" in page_header
-        and 'Callable(self, "show_coin_store"),\n\t\tfalse' in store_screen,
-        "The store header still stages the heart counter or drops its centered coin/settings controls",
+        "func _remove_coin_refill_popup() -> void:" in main
+        and 'get_tree().get_nodes_in_group("coin_refill_popup")' in main
+        and "func _open_coin_store(return_action: Callable = Callable()) -> void:\n\t_remove_coin_refill_popup()"
+        in main
+        and "coin_store_return_action = Callable()\n\t_remove_coin_refill_popup()" in main
+        and "_remove_exit_game_popup()\n\t_remove_coin_refill_popup()" in main,
+        "The coin-refill popup is not removed symmetrically when it opens, closes, or the screen clears",
     )
     require(
-        "const PORTRAIT_COIN_STORE_PACK_AMOUNTS: Array[int] = [25, 60, 100, 150, 300, 500]"
+        "func show_coin_store() -> void:\n\t_show_coin_refill_popup()" in popup
+        and "func _show_coin_refill_popup() -> void:" in popup
+        and '"CoinRefillPopup"' in popup
+        and '"coin_refill_popup"' in popup
+        and 'tr("COIN_STORE_TITLE")' in popup
+        and "145.0,\n\t\t560.0," in popup
+        and "var rect := Rect2(28.0, 145.0, 424.0, 415.0)" in popup
+        and "true,\n\t\tcoin_store_return_action" in popup
+        and "func _show_coin_store_screen(" not in portrait,
+        "Coin-counter and insufficient-funds actions do not open the modal refill popup",
+    )
+    require(
+        "const PORTRAIT_COIN_REFILL_REWARDED_AMOUNT: int = 50" in portrait
+        and "PORTRAIT_COIN_REFILL_GLOW_SIZE := PORTRAIT_FINAL_REWARD_GLOW_SIZE * 0.80"
         in portrait
-        and "var column: int = pack_index % 3" in store_screen
-        and "var row: int = int(pack_index / 3)" in store_screen
-        and "PORTRAIT_COIN_STORE_PACK_AMOUNTS.size()" in store_screen,
-        "The coin store is not a six-pack 3x2 grid with the requested amounts",
+        and "PORTRAIT_COIN_REFILL_ICON_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 0.80"
+        in portrait
+        and "_stage_final_reward_glow(glow_rect)" in popup
+        and "_start_final_reward_glow_rotation(glow)" in popup
+        and "_stage_texture(coin_rect, COIN_PACK_04_TEXTURE)" in popup
+        and "_single_player_reward_chain_count_text(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT)"
+        in popup
+        and "PORTRAIT_REFILL_STATUS_RECT" not in popup,
+        "The coin popup does not reuse the large prize icon, glow, and x50 counter without a blue card",
     )
     require(
-        'preload("res://flash_assets/soft_currency_coin_pile.png")' in portrait
-        and 'preload("res://flash_assets/coin_pack_04.png")' in portrait
-        and 'preload("res://flash_assets/coin_pack_05.png")' in portrait
-        and 'preload("res://flash_assets/coin_pack_06_large.png")' in portrait
-        and (ROOT / "flash_assets" / "coin_pack_04.png").exists()
-        and (ROOT / "flash_assets" / "coin_pack_05.png").exists()
-        and (ROOT / "flash_assets" / "coin_pack_06_large.png").exists(),
-        "One or more requested coin-pack textures are missing from the store",
+        'tr("COMMON_FREE")' in popup
+        and 'Callable(self, "_on_coin_refill_ad_pressed")' in popup
+        and '&"coin_refill_ad_button"' in popup
+        and "PORTRAIT_AD_BADGE_PURPLE" in popup
+        and '_show_portrait_rewarded_action(&"coin_refill")' in popup
+        and '&"coin_refill":' in portrait
+        and "GameState.add_soft_currency(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT)" in portrait
+        and "_close_coin_store()" in portrait[
+            portrait.index('GameState.add_soft_currency(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT)') :
+            portrait.index('GameState.add_soft_currency(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT)') + 140
+        ]
+        and "COMMON_FREE,Бесплатно,Free" in translations
+        and '"COMMON_FREE"' in database,
+        "The purple rewarded button does not grant and persist exactly 50 localized free coins",
     )
     require(
-        "2, 3:\n\t\t\treturn COIN_PACK_05_TEXTURE" in store_screen
-        and "4, 5:\n\t\t\treturn COIN_PACK_06_LARGE_TEXTURE" in store_screen
-        and "_portrait_hint_local_panel(" in store_screen
-        and "_bind_theme_card_press_state(pack_button, card_visual)" in store_screen
-        and 'Callable(self, "_purchase_coin_pack").bind(amount)' in store_screen
-        and "GameState.add_soft_currency(amount)" in store_screen
-        and "_grant_test_coins" not in portrait,
-        "Coin packs do not use the requested art, existing card treatment, or purchase action",
+        "PORTRAIT_COIN_STORE_PACK_AMOUNTS" not in portrait
+        and "func _purchase_coin_pack(" not in portrait
+        and 'preload("res://flash_assets/soft_currency_coin_pile.png")' not in portrait
+        and 'preload("res://flash_assets/coin_pack_05.png")' not in portrait
+        and 'preload("res://flash_assets/coin_pack_06_large.png")' not in portrait,
+        "The obsolete standalone IAP-style pack grid is still reachable or loaded",
     )
 
 
@@ -1463,23 +1485,19 @@ def verify_soft_currency_economy() -> None:
         and portrait.count("_stage_centered_coin_only_counter(") >= 3,
         "One or more title areas do not expose the shared resource counters",
     )
-    standalone_store_entry = portrait[
-        portrait.index("func show_coin_store()") :
-        portrait.index("func _show_coin_store_screen(")
-    ]
-    store_screen = portrait[
-        portrait.index("func _show_coin_store_screen(") :
-        portrait.index("func show_tasks()")
+    coin_refill = portrait[
+        portrait.index("func show_coin_store()") : portrait.index("func show_tasks()")
     ]
     require(
-        "_show_coin_store_screen()" in standalone_store_entry
-        and "_clear()" in store_screen
-        and "_portrait_screen(0.0)" in store_screen
-        and 'tr("COIN_STORE_TITLE")' in store_screen
-        and 'Callable(self, "_close_coin_store")' in store_screen
+        "_show_coin_refill_popup()" in coin_refill
+        and 'tr("COIN_STORE_TITLE")' in coin_refill
+        and 'Callable(self, "_close_coin_store")' in coin_refill
+        and 'Callable(self, "_on_coin_refill_ad_pressed")' in coin_refill
+        and "PORTRAIT_COIN_REFILL_REWARDED_AMOUNT: int = 50" in portrait
+        and "func _show_coin_store_screen(" not in portrait
         and "MainTab.SHOP" not in portrait
         and "_show_coin_store_tab" not in portrait,
-        "The store is not restricted to the standalone top-counter entry",
+        "Soft-currency entry points do not use the rewarded coin-refill popup",
     )
     require(
         "func _stage_portrait_hint_price(button: Control, price: int) -> void:" in portrait
@@ -1489,6 +1507,7 @@ def verify_soft_currency_economy() -> None:
     )
     require(
         "COIN_STORE_TITLE,МОНЕТЫ,COINS" in translations
+        and "COMMON_FREE,Бесплатно,Free" in translations
         and "COINS_EARNED,Монеты: +%d,Coins: +%d" in translations,
         "Soft-currency screen and reward copy are not localized",
     )
@@ -2008,6 +2027,11 @@ def verify_game_exit_confirmation_popup() -> None:
         '_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)'
         in portrait_popup
         and "var exit_status_rect := PORTRAIT_REFILL_STATUS_RECT" in portrait_popup
+        and "const PORTRAIT_REFILL_HEART_ICON_SIZE := Vector2(138.0, 125.0) * 0.6885"
+        in portrait
+        and "var heart_size: Vector2 = PORTRAIT_REFILL_HEART_ICON_SIZE" in portrait
+        and "var exit_heart_size: Vector2 = PORTRAIT_REFILL_HEART_ICON_SIZE"
+        in portrait_popup
         and "PORTRAIT_UI_PALETTE.THEME_CARD" in portrait_popup
         and 'exit_status_panel.name = "ExitLifeStatus"' in portrait_popup
         and '&"ExitLifeGlow"' in portrait_popup
@@ -3455,7 +3479,7 @@ def main() -> None:
     verify_hint_button_migration()
     verify_paid_popup_coin_balance_and_reward_links()
     verify_reward_status_icons()
-    verify_coin_store_pack_grid()
+    verify_coin_refill_popup()
     verify_footer_buttons_and_hero_scale()
     verify_lives_counter()
     verify_hint_letter_animations()

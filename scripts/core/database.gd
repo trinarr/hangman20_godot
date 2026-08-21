@@ -134,6 +134,7 @@ const TRANSLATION_KEYS := [
 	"RANDOM_WORD",
 	"START_GAME",
 	"OK",
+	"COMMON_FREE",
 ]
 
 const HINT_FILES := {
