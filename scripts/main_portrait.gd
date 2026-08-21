@@ -5,6 +5,9 @@ const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portr
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
+const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
+	"res://scripts/ui/rounded_rect_texture_mask.gdshader"
+)
 const COIN_PACK_02_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin_pile.png")
 const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
 const COIN_PACK_05_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_05.png")
@@ -315,11 +318,13 @@ const PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH: float = 280.0
 const PORTRAIT_POPUP_LONG_BUTTON_WIDTH: float = 313.6
 const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 18.0
 const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)
+const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0
 const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA: float = 0.46
+const PORTRAIT_REFILL_STATUS_GLOW_ALPHA: float = PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.55
 const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
 const PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS: int = 7
 const PORTRAIT_SINGLE_PLAYER_SLOT_SPINS_PER_REEL: int = 2
@@ -423,6 +428,7 @@ var _portrait_back_button_visible: bool = false
 var _portrait_previous_screen_had_back: bool = false
 var _portrait_last_animated_reward_claim_key: String = ""
 var _portrait_single_reward_resume_without_intro: bool = false
+var _portrait_popup_resume_without_intro: bool = false
 var _portrait_final_reward_claim_in_progress: bool = false
 var _portrait_final_reward_waiting_for_ad: bool = false
 var _portrait_final_reward_earned_ad_reward: bool = false
@@ -2189,9 +2195,13 @@ func _portrait_popup_begin(
 	popup_bottom: float,
 	show_coin_balance: bool = false,
 	coin_store_return_action: Callable = Callable(),
+	close_on_dimmer: bool = true,
 	alpha: float = PORTRAIT_POPUP_DIM_ALPHA
 ) -> Control:
-	_play_popup_open_sound()
+	var resume_without_intro: bool = _portrait_popup_resume_without_intro
+	_portrait_popup_resume_without_intro = false
+	if !resume_without_intro:
+		_play_popup_open_sound()
 	_reset_portrait_main_tab_swipe()
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
@@ -2208,7 +2218,8 @@ func _portrait_popup_begin(
 	popup_root.theme = ui.theme
 	popup_layer.add_child(popup_root)
 	content = popup_root
-	_add_fullscreen_modal_backdrop(close_callable, alpha)
+	var dimmer_close_callable: Callable = close_callable if close_on_dimmer else Callable()
+	_add_fullscreen_modal_backdrop(dimmer_close_callable, alpha)
 	if show_coin_balance:
 		_stage_popup_coin_balance_above_dimmer(
 			popup_root,
@@ -2216,7 +2227,59 @@ func _portrait_popup_begin(
 			coin_store_return_action
 		)
 	content = _center_popup_content(popup_root, popup_top, popup_bottom)
+	if resume_without_intro and content.has_method(&"settle_without_open_bounce"):
+		content.call(&"settle_without_open_bounce")
 	return previous_content
+
+func _stage_refill_status_glow(
+	status_panel: Control,
+	status_rect: Rect2,
+	icon_rect: Rect2,
+	glow_name: StringName
+) -> TextureRect:
+	var glow_size := (
+		Vector2.ONE
+		* PORTRAIT_REFILL_STATUS_GLOW_DIAMETER
+		* PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+	)
+	var glow_rect := Rect2(
+		icon_rect.get_center() - glow_size * 0.5,
+		glow_size
+	)
+	var glow := TextureRect.new()
+	glow.name = glow_name
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glow.position = glow_rect.position - status_rect.position
+	glow.size = glow_rect.size
+	glow.modulate = Color.WHITE
+	# FlashStagePanel is custom-drawn, so CanvasItem.clip_children does not expose
+	# its rounded StyleBox as a reliable child mask. Mask the glow explicitly in
+	# its own local coordinates instead.
+	var mask_rect := Rect2(status_rect.position - glow_rect.position, status_rect.size)
+	var mask_material := ShaderMaterial.new()
+	mask_material.shader = ROUNDED_RECT_TEXTURE_MASK_SHADER
+	mask_material.set_shader_parameter(&"source_size", glow_rect.size)
+	mask_material.set_shader_parameter(
+		&"mask_rect",
+		Vector4(
+			mask_rect.position.x,
+			mask_rect.position.y,
+			mask_rect.size.x,
+			mask_rect.size.y
+		)
+	)
+	mask_material.set_shader_parameter(
+		&"corner_radius",
+		PORTRAIT_REFILL_STATUS_CORNER_RADIUS
+	)
+	mask_material.set_shader_parameter(&"opacity", PORTRAIT_REFILL_STATUS_GLOW_ALPHA)
+	glow.material = mask_material
+	glow.z_index = 1
+	status_panel.add_child(glow)
+	return glow
 
 func _stage_popup_coin_balance_above_dimmer(
 	popup_root: Control,
@@ -2854,7 +2917,8 @@ func _show_single_player_last_chance_popup() -> void:
 		145.0,
 		582.0,
 		true,
-		Callable(self, "_return_to_single_player_last_chance_from_coin_store")
+		Callable(self, "_return_to_single_player_last_chance_from_coin_store"),
+		false
 	)
 	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
 	_portrait_popup_shell(
@@ -2869,45 +2933,16 @@ func _show_single_player_last_chance_popup() -> void:
 	var attempts_status_panel := _stage_panel(
 		attempts_status_rect,
 		PORTRAIT_UI_PALETTE.THEME_CARD,
-		22.0
+		PORTRAIT_REFILL_STATUS_CORNER_RADIUS
 	)
 	attempts_status_panel.z_index = 8
 	var attempt_icon_rect := Rect2(68.0, 240.0, 144.0, 144.0)
-	# Match the large-heart treatment with static rays behind the attempt icon.
-	# The holder is clipped to the blue status block, so the glow cannot bleed
-	# into the popup body outside that backing surface.
-	var attempt_glow_size := (
-		Vector2.ONE
-		* PORTRAIT_REFILL_STATUS_GLOW_DIAMETER
-		* PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
-	)
-	var attempt_glow_rect := Rect2(
-		attempt_icon_rect.get_center() - attempt_glow_size * 0.5,
-		attempt_glow_size
-	)
-	var attempt_glow_clip := _stage_holder(
+	_stage_refill_status_glow(
+		attempts_status_panel,
 		attempts_status_rect,
-		Control.MOUSE_FILTER_IGNORE
+		attempt_icon_rect,
+		&"ExtraAttemptsGlow"
 	)
-	attempt_glow_clip.name = "ExtraAttemptsGlowClip"
-	attempt_glow_clip.clip_contents = true
-	attempt_glow_clip.z_index = 9
-	var attempt_glow := TextureRect.new()
-	attempt_glow.name = "ExtraAttemptsGlow"
-	attempt_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	attempt_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
-	attempt_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	attempt_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	attempt_glow.position = attempt_glow_rect.position - attempts_status_rect.position
-	attempt_glow.size = attempt_glow_rect.size
-	attempt_glow.modulate = Color(
-		1.0,
-		1.0,
-		1.0,
-		PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.64
-	)
-	attempt_glow.z_index = 0
-	attempt_glow_clip.add_child(attempt_glow)
 	var attempt_icon := _stage_texture(
 		attempt_icon_rect,
 		EXTRA_ATTEMPTS_ICON_TEXTURE
@@ -3096,14 +3131,14 @@ func _show_heart_refill_popup(
 	var heart_status_panel := _stage_panel(
 		heart_status_rect,
 		PORTRAIT_UI_PALETTE.THEME_CARD,
-		22.0
+		PORTRAIT_REFILL_STATUS_CORNER_RADIUS
 	)
 	heart_status_panel.z_index = 8
 	# Present the life state as one horizontal row: the large heart stays on the
 	# left, while the recovery caption and timer sit to its right. Center both the
 	# heart/glow and the two-line text block vertically within the blue panel.
 	var original_heart_rect := Rect2(79.0, 246.0, 138.0, 125.0)
-	var heart_size: Vector2 = original_heart_rect.size * 0.85 * 0.90 * 0.90
+	var heart_size: Vector2 = original_heart_rect.size * 0.6885
 	var heart_rect := Rect2(
 		Vector2(
 			original_heart_rect.position.x,
@@ -3111,37 +3146,12 @@ func _show_heart_refill_popup(
 		),
 		heart_size
 	)
-	# Clip the static rays to the blue panel so they stop cleanly at the rounded
-	# backing block rather than at the overall popup body.
-	var heart_glow_size := (
-		Vector2.ONE
-		* PORTRAIT_REFILL_STATUS_GLOW_DIAMETER
-		* PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
+	var heart_glow := _stage_refill_status_glow(
+		heart_status_panel,
+		heart_status_rect,
+		heart_rect,
+		&"HeartRefillGlow"
 	)
-	var heart_glow_rect := Rect2(
-		heart_rect.get_center() - heart_glow_size * 0.5,
-		heart_glow_size
-	)
-	var glow_clip := _stage_holder(heart_status_rect, Control.MOUSE_FILTER_IGNORE)
-	glow_clip.name = "HeartRefillGlowClip"
-	glow_clip.clip_contents = true
-	glow_clip.z_index = 9
-	var heart_glow := TextureRect.new()
-	heart_glow.name = "HeartRefillGlow"
-	heart_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	heart_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
-	heart_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	heart_glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	heart_glow.position = heart_glow_rect.position - heart_status_rect.position
-	heart_glow.size = heart_glow_rect.size
-	heart_glow.modulate = Color(
-		1.0,
-		1.0,
-		1.0,
-		PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.64
-	)
-	heart_glow.z_index = 0
-	glow_clip.add_child(heart_glow)
 	var heart_icon := _stage_texture(heart_rect, LIFE_HEART_ICON_TEXTURE)
 	heart_icon.z_index = 11
 	var heart_value := _stage_label(
@@ -3287,6 +3297,7 @@ func _return_to_heart_refill_from_coin_store(
 		restore_action.call()
 	else:
 		show_menu()
+	_portrait_popup_resume_without_intro = true
 	_show_heart_refill_popup(continue_action, restore_action)
 
 func _restore_single_player_heart_refill_context(level_index: int, theme_index: int) -> void:
@@ -4595,22 +4606,72 @@ func _show_exit_game_popup() -> void:
 		"exit_game_popup",
 		140,
 		close_action,
-		170.0,
-		570.0
+		145.0,
+		582.0
 	)
-	var rect := Rect2(28.0, 170.0, 424.0, 400.0)
+	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
 	_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)
-	_stage_portrait_broken_heart_icon(Rect2(176.0, 266.0, 128.0, 116.0))
-	var warning_label := _stage_label(Rect2(58.0, 394.0, 364.0, 54.0), _exit_game_warning_text(), 21, Color.WHITE)
+	# Match the refill popups: keep the warning art and copy together on one
+	# light-blue status card, with the broken heart on the left and text on the right.
+	var exit_status_rect := PORTRAIT_REFILL_STATUS_RECT
+	var exit_status_panel := _stage_panel(
+		exit_status_rect,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		PORTRAIT_REFILL_STATUS_CORNER_RADIUS
+	)
+	exit_status_panel.name = "ExitLifeStatus"
+	exit_status_panel.z_index = 8
+	var exit_heart_rect := Rect2(70.0, 248.0, 124.0, 112.0)
+	_stage_refill_status_glow(
+		exit_status_panel,
+		exit_status_rect,
+		exit_heart_rect,
+		&"ExitLifeGlow"
+	)
+	var exit_heart := _stage_portrait_broken_heart_icon(exit_heart_rect)
+	exit_heart.z_index = 11
+	var warning_label := _stage_label(
+		Rect2(204.0, 248.0, 208.0, 112.0),
+		_exit_game_warning_text(),
+		21,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
 	warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	warning_label.clip_text = false
+	warning_label.z_index = 11
 	_stage_portrait_popup_main_button(
-		Rect2(82.0, 492.0, 145.0, 52.0),
-		Callable(self, "_confirm_exit_game").bind(true),
-		tr("YES"),
-		20
+		Rect2(90.0, 425.0, 300.0, 56.0),
+		close_action,
+		tr("COMMON_CONTINUE"),
+		18,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
 	)
-	_stage_portrait_popup_main_button(Rect2(253.0, 492.0, 145.0, 52.0), close_action, tr("NO"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
+	var exit_button := _stage_portrait_popup_main_button(
+		Rect2(
+			90.0,
+			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
+			300.0,
+			56.0
+		),
+		Callable(self, "_confirm_exit_game").bind(true),
+		"%s  −1" % tr("COMMON_EXIT"),
+		18,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_BLUE
+	)
+	exit_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
+	exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
+	exit_button.set("trailing_icon_gap_stage", 8.0)
 	content = previous_content
 
 func show_custom_word() -> void:
@@ -6714,6 +6775,7 @@ func _show_single_player_forfeit_reward_screen() -> void:
 func _return_to_single_player_last_chance_from_coin_store() -> void:
 	_portrait_game_entrance_pending = false
 	super.show_game_screen()
+	_portrait_popup_resume_without_intro = true
 	call_deferred("_show_single_player_last_chance_popup")
 
 func _grant_single_player_extra_attempt() -> void:

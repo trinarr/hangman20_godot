@@ -23,6 +23,7 @@ var popup_bottom: float = 0.0:
 
 var _open_tween: Tween = null
 var _rest_scale: float = 1.0
+var _skip_open_bounce: bool = false
 var open_bounce_complete: bool = false
 
 func _ready() -> void:
@@ -43,6 +44,10 @@ func _exit_tree() -> void:
 func _play_open_bounce() -> void:
 	if !is_inside_tree():
 		return
+	if _skip_open_bounce:
+		scale = Vector2.ONE * _rest_scale
+		open_bounce_complete = true
+		return
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
 
@@ -57,6 +62,13 @@ func _play_open_bounce() -> void:
 	settle_tweener.set_trans(Tween.TRANS_QUAD)
 	settle_tweener.set_ease(Tween.EASE_IN_OUT)
 	_open_tween.finished.connect(_finish_open_bounce, CONNECT_ONE_SHOT)
+
+func settle_without_open_bounce() -> void:
+	_skip_open_bounce = true
+	if _open_tween != null and _open_tween.is_valid():
+		_open_tween.kill()
+	open_bounce_complete = true
+	scale = Vector2.ONE * _rest_scale
 
 func _finish_open_bounce() -> void:
 	if !is_inside_tree():

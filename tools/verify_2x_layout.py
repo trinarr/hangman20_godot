@@ -839,6 +839,8 @@ def verify_hint_button_migration() -> None:
 def verify_paid_popup_coin_balance_and_reward_links() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
+    popup_center = read("scripts/ui/popup_stage_center.gd")
+    rounded_mask_shader = read("scripts/ui/rounded_rect_texture_mask.gdshader")
     popup_begin = portrait[
         portrait.index("func _portrait_popup_begin(") :
         portrait.index("func _portrait_popup_shell(")
@@ -846,6 +848,10 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
     require(
         "show_coin_balance: bool = false" in popup_begin
         and "coin_store_return_action: Callable = Callable()" in popup_begin
+        and "close_on_dimmer: bool = true" in popup_begin
+        and "var dimmer_close_callable: Callable = close_callable if close_on_dimmer else Callable()"
+        in popup_begin
+        and "_add_fullscreen_modal_backdrop(dimmer_close_callable, alpha)" in popup_begin
         and "if show_coin_balance:" in popup_begin
         and "func _stage_popup_coin_balance_above_dimmer(" in popup_begin
         and 'popup_balance_layer.name = "PopupCoinBalance"' in popup_begin
@@ -874,10 +880,19 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
         portrait.index("func _show_heart_refill_popup(") :
         portrait.index("func _show_single_player_level_popup(")
     ]
+    last_chance_return = portrait[
+        portrait.index("func _return_to_single_player_last_chance_from_coin_store() -> void:") :
+        portrait.index("func _grant_single_player_extra_attempt() -> void:")
+    ]
     theme_popup = portrait[
         portrait.index("func _show_single_player_level_popup(") :
         portrait.index("func _stage_single_player_popup_theme_cards(")
     ]
+    require(
+        'Callable(self, "_return_to_single_player_last_chance_from_coin_store"),\n\t\tfalse'
+        in last_chance,
+        "The extra-attempt popup can still be closed by tapping its dimmer",
+    )
     require(
         'Callable(self, "_return_to_single_player_last_chance_from_coin_store")'
         in last_chance
@@ -890,12 +905,47 @@ def verify_paid_popup_coin_balance_and_reward_links() -> None:
     require(
         "const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)"
         in portrait
+        and "const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0" in portrait
         and "const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0" in portrait
+        and "PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA\n\t* 0.64\n\t* 0.80"
+        in portrait
         and "var attempts_status_rect := PORTRAIT_REFILL_STATUS_RECT" in last_chance
         and "var heart_status_rect := PORTRAIT_REFILL_STATUS_RECT" in heart_refill
-        and last_chance.count("PORTRAIT_REFILL_STATUS_GLOW_DIAMETER") == 1
-        and heart_refill.count("PORTRAIT_REFILL_STATUS_GLOW_DIAMETER") == 1,
-        "Heart and extra-attempt popups do not share the heart offset and attempt glow size",
+        and 'func _stage_refill_status_glow(' in popup_begin
+        and "ROUNDED_RECT_TEXTURE_MASK_SHADER" in popup_begin
+        and 'mask_material.set_shader_parameter(&"source_size", glow_rect.size)' in popup_begin
+        and 'mask_material.set_shader_parameter(' in popup_begin
+        and '&"mask_rect"' in popup_begin
+        and '&"corner_radius"' in popup_begin
+        and 'mask_material.set_shader_parameter(&"opacity", PORTRAIT_REFILL_STATUS_GLOW_ALPHA)'
+        in popup_begin
+        and "PORTRAIT_REFILL_STATUS_CORNER_RADIUS" in popup_begin
+        and "PORTRAIT_REFILL_STATUS_GLOW_ALPHA" in popup_begin
+        and 'status_panel.add_child(glow)' in popup_begin
+        and last_chance.count("_stage_refill_status_glow(") == 1
+        and heart_refill.count("_stage_refill_status_glow(") == 1
+        and '"ExtraAttemptsGlowClip"' not in last_chance
+        and '"HeartRefillGlowClip"' not in heart_refill,
+        "Heart and extra-attempt glows do not share one rounded-mask component",
+    )
+    require(
+        "shader_type canvas_item;" in rounded_mask_shader
+        and "uniform vec4 mask_rect" in rounded_mask_shader
+        and "uniform float corner_radius" in rounded_mask_shader
+        and "uniform float opacity" in rounded_mask_shader
+        and "float signed_distance" in rounded_mask_shader
+        and "texture_color.a *= mask_alpha * opacity;" in rounded_mask_shader,
+        "The refill glow shader no longer clips alpha to the rounded status panel",
+    )
+    require(
+        "var resume_without_intro: bool = _portrait_popup_resume_without_intro" in popup_begin
+        and "if !resume_without_intro:" in popup_begin
+        and 'content.call(&"settle_without_open_bounce")' in popup_begin
+        and "func settle_without_open_bounce() -> void:" in popup_center
+        and "if _skip_open_bounce:" in popup_center
+        and "_portrait_popup_resume_without_intro = true" in heart_refill
+        and "_portrait_popup_resume_without_intro = true" in last_chance_return,
+        "Store return replays a refill popup's sound or opening bounce",
     )
     require(
         "_stage_portrait_popup_coin_purchase_content(" in last_chance
@@ -1950,18 +2000,36 @@ def verify_game_exit_confirmation_popup() -> None:
         '_exit_game_title_text().to_upper()' in portrait_popup
         and '_exit_game_warning_text()' in portrait_popup
         and 'Callable(self, "_confirm_exit_game").bind(true)' in portrait_popup
-        and 'close_action, tr("NO")' in portrait_popup,
-        "The exit popup is missing its title, warning, or unchanged Yes/No actions",
+        and 'tr("COMMON_CONTINUE")' in portrait_popup
+        and '"%s  −1" % tr("COMMON_EXIT")' in portrait_popup,
+        "The exit popup is missing its title, warning, or Continue/Exit actions",
     )
     require(
         '_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)'
         in portrait_popup
+        and "var exit_status_rect := PORTRAIT_REFILL_STATUS_RECT" in portrait_popup
+        and "PORTRAIT_UI_PALETTE.THEME_CARD" in portrait_popup
+        and 'exit_status_panel.name = "ExitLifeStatus"' in portrait_popup
+        and '&"ExitLifeGlow"' in portrait_popup
+        and "_stage_refill_status_glow(" in portrait_popup
         and "func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:" in broken_heart
         and "heart_icon.texture = LIFE_HEART_ICON_TEXTURE" in broken_heart
         and "var crack_outline := Line2D.new()" in broken_heart
         and "var crack_fill := Line2D.new()" in broken_heart
         and "_stage_portrait_broken_heart_icon(" in portrait_popup,
-        "The level-exit popup is missing its shared shell or broken-heart warning art",
+        "The level-exit popup is missing its blue status card or broken-heart warning art",
+    )
+    require(
+        'Rect2(90.0, 425.0, 300.0, 56.0)' in portrait_popup
+        and "_portrait_popup_bottom_button_y(rect.end.y, 56.0)" in portrait_popup
+        and portrait_popup.index('tr("COMMON_CONTINUE")')
+        < portrait_popup.index('"%s  −1" % tr("COMMON_EXIT")')
+        and "LONG_BUTTON_COLOR_ORANGE" in portrait_popup
+        and "LONG_BUTTON_COLOR_BLUE" in portrait_popup
+        and 'exit_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)' in portrait_popup
+        and 'exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))'
+        in portrait_popup,
+        "The level-exit popup does not use stacked orange Continue and blue life-cost Exit buttons",
     )
     require(
         "_remove_exit_game_popup()" in confirm_exit
@@ -1974,11 +2042,12 @@ def verify_game_exit_confirmation_popup() -> None:
         "Confirming exit does not return each mode to its preceding screen",
     )
     require(
-        'return _single_player_text("Покинуть уровень?", "Leave level?")' in main
-        and 'return _single_player_text("Вы потеряете одну жизнь!", "You will lose one life!")' in main
-        and "EXIT_LEVEL_CONFIRM" not in translations
-        and "EXIT_LEVEL_HEART_WARNING" not in translations,
-        "The single-player exit title or life-loss warning does not use the reliable RU/EN selector",
+        'return tr("EXIT_LEVEL_CONFIRM")' in main
+        and 'return tr("EXIT_LEVEL_HEART_WARNING")' in main
+        and "EXIT_LEVEL_CONFIRM,Хотите выйти?,Exit level?" in translations
+        and "EXIT_LEVEL_HEART_WARNING,Вы потеряете одну жизнь!,You will lose one life!" in translations
+        and "COMMON_EXIT,Выйти,Exit" in translations,
+        "The single-player exit copy is missing from localization",
     )
 
 
@@ -3109,10 +3178,8 @@ def verify_single_player_last_chance_flow() -> None:
         and "EXTRA_ATTEMPTS_ICON_TEXTURE" in last_chance_popup
         and "PORTRAIT_UI_PALETTE.THEME_CARD" in last_chance_popup
         and '"+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT' in last_chance_popup
-        and '"ExtraAttemptsGlowClip"' in last_chance_popup
-        and "attempt_glow_clip.clip_contents = true" in last_chance_popup
-        and "attempt_glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE" in last_chance_popup
-        and "PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.64" in last_chance_popup
+        and '"ExtraAttemptsGlow"' in last_chance_popup
+        and "_stage_refill_status_glow(" in last_chance_popup
         and re.search(
             r'"\+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT,\s*54,',
             last_chance_popup,
