@@ -288,6 +288,8 @@ const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
 const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
+const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
+const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
 const PORTRAIT_NAV_PROFILE_ICON: Texture2D = preload("res://flash_assets/nav_profile_icon.png")
 const PORTRAIT_NAV_HOME_ICON: Texture2D = preload("res://flash_assets/nav_home_icon.png")
@@ -362,6 +364,19 @@ const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+
+# Quiz mode reuses the standard portrait paper, top resource bar, category cards
+# and the game's blue button language. The complete answer/hint block is bottom
+# attached so it remains clear of adaptive banners on tall devices.
+const PORTRAIT_QUIZ_MENU_BUTTON_RECT := Rect2(90.0, 476.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_QUIZ_THEME_TITLE_RECT := Rect2(34.0, 104.0, 412.0, 32.0)
+const PORTRAIT_QUIZ_QUESTION_PANEL_RECT := Rect2(22.0, 120.0, 436.0, 260.0)
+const PORTRAIT_QUIZ_QUESTION_RECT := Rect2(40.0, 138.0, 400.0, 224.0)
+const PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE := Vector2(412.0, 68.0)
+const PORTRAIT_QUIZ_ANSWER_BUTTON_X: float = 34.0
+const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 88.0
+const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 40.0
+const PORTRAIT_QUIZ_HINT_GAP: float = 22.0
 enum MainTab {
 	TASKS,
 	HOME,
@@ -461,6 +476,12 @@ var _single_player_theme_reroll_level_index: int = -1
 var _single_player_theme_reroll_used: bool = false
 var _single_player_theme_ad_reroll_used: bool = false
 
+var _quiz_mode_active: bool = false
+var _quiz_screen_active: bool = false
+var _quiz_selected_theme_index: int = -1
+var _quiz_current_question: Dictionary = {}
+var _quiz_answer_buttons: Array[Control] = []
+
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
 
@@ -495,6 +516,8 @@ func _hide_portrait_ad_banner() -> void:
 
 func _clear() -> void:
 	_hide_portrait_ad_banner()
+	_quiz_screen_active = false
+	_quiz_answer_buttons.clear()
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
 	var preserved_swipe_content: Control = null
@@ -2608,6 +2631,11 @@ func show_menu() -> void:
 	# Home is now a standalone landing screen. Profile and Classic remain intact,
 	# but their future entry points must be explicit instead of the removed bar or
 	# a hidden horizontal swipe from Home.
+	_quiz_mode_active = false
+	_quiz_screen_active = false
+	_quiz_selected_theme_index = -1
+	_quiz_current_question.clear()
+	_quiz_answer_buttons.clear()
 	_show_menu_screen()
 
 func _show_menu_screen() -> void:
@@ -2676,6 +2704,18 @@ void fragment() {
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
+	_stage_main_button(
+		PORTRAIT_QUIZ_MENU_BUTTON_RECT,
+		Callable(self, "show_quiz_theme_select"),
+		_quiz_menu_label(),
+		22,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_BLUE
+	)
 	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
 	_stage_portrait_ad_banner()
@@ -2686,6 +2726,8 @@ func show_settings() -> void:
 	_show_settings_popup()
 
 func _settings_popup_uses_compact_layout() -> bool:
+	if _quiz_screen_active:
+		return true
 	if game_screen_visible and !game_finished:
 		return true
 	return (
@@ -2769,6 +2811,427 @@ func _remove_settings_popup() -> void:
 			node.queue_free()
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
+
+func _quiz_menu_label() -> String:
+	return "ВИКТОРИНА" if Database.interface_language == "ru" else "QUIZ"
+
+func _quiz_theme_select_title() -> String:
+	return "ВЫБЕРИТЕ ТЕМУ" if Database.interface_language == "ru" else "CHOOSE A TOPIC"
+
+func _quiz_question_count_text(question_count: int) -> String:
+	if Database.interface_language != "ru":
+		return "%d QUESTIONS" % question_count
+	var remainder_100: int = question_count % 100
+	var remainder_10: int = question_count % 10
+	var noun: String = "ВОПРОСОВ"
+	if remainder_100 < 11 or remainder_100 > 14:
+		if remainder_10 == 1:
+			noun = "ВОПРОС"
+		elif remainder_10 >= 2 and remainder_10 <= 4:
+			noun = "ВОПРОСА"
+	return "%d %s" % [question_count, noun]
+
+func show_quiz_theme_select() -> void:
+	_quiz_mode_active = true
+	_quiz_screen_active = false
+	_show_quiz_theme_select_screen()
+
+func _show_quiz_theme_select_screen() -> void:
+	_clear()
+	_quiz_mode_active = true
+	_portrait_screen(0.0)
+	_stage_portrait_page_header(
+		_quiz_theme_select_title(),
+		Callable(self, "show_menu"),
+		Callable(self, "show_quiz_theme_select")
+	)
+
+	for theme_index in range(Database.get_theme_count()):
+		var col: int = theme_index % 2
+		var row: int = int(theme_index / 2)
+		var x: float = 18.0 + float(col) * 230.0
+		var y: float = 154.0 + float(row) * 96.0
+		var question_count: int = Database.get_quiz_question_count_by_theme_index(theme_index)
+		var disabled: bool = question_count <= 0
+		var card := _stage_texture(Rect2(x, y, 214.0, 88.0), THEME_CARD_TEXTURE)
+		var progress_back := _stage_texture(Rect2(x, y, 214.0, 63.0), THEME_CARD_PROGRESS_TEXTURE)
+		var progress_label := _stage_label(
+			Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0),
+			_quiz_question_count_text(question_count),
+			16,
+			PORTRAIT_UI_PALETTE.THEME_PROGRESS_TEXT
+		)
+		progress_label.clip_text = false
+
+		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
+		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+		var theme_icon: Control = null
+		if theme_icon_texture != null:
+			theme_icon = _stage_texture(Rect2(x + 12.0, y + 42.0, 34.0, 34.0), theme_icon_texture)
+			theme_icon.z_index = 11
+		var title_font_size: int = 17 if theme_name.length() > 12 else 21
+		var title_label := _stage_label(
+			Rect2(x + 52.0, y + 41.0, 152.0, 38.0),
+			theme_name,
+			title_font_size,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT
+		)
+		title_label.clip_text = false
+		var theme_effect_color: Color = PORTRAIT_UI_PALETTE.with_alpha(
+			PORTRAIT_UI_PALETTE.UI_BLUE_EFFECT,
+			0.55
+		)
+		BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_effect_color, theme_effect_color)
+
+		if disabled:
+			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			if theme_icon != null:
+				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
+			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
+
+		var theme_button := _stage_button(
+			Rect2(x, y, 214.0, 88.0),
+			Callable(self, "_start_quiz_theme").bind(theme_index),
+			""
+		)
+		theme_button.disabled = disabled
+		_bind_theme_card_press_state(theme_button, card)
+
+func _start_quiz_theme(theme_index: int) -> void:
+	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
+	if questions.is_empty():
+		show_quiz_theme_select()
+		return
+	_quiz_mode_active = true
+	_quiz_selected_theme_index = theme_index
+	var selected_question: Dictionary = questions[randi_range(0, questions.size() - 1)]
+	_quiz_current_question = selected_question.duplicate(true)
+	_show_quiz_game_screen()
+
+func _quiz_question_font_size(question_text: String) -> int:
+	# Match the comment popup typography for quiz questions. The larger question
+	# card gives enough room for the same 25 px heading style in this mode.
+	return 25
+
+func _quiz_answer_font_size(_answer_text: String) -> int:
+	# Keep quiz answers consistently readable. Long answers are allowed to wrap
+	# onto a second line instead of shrinking the font to fit a single line.
+	return 20
+
+func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> Button:
+	# Quiz answers intentionally use a plain Godot Button instead of the shared
+	# long-button component. Match their shadow treatment to the question panel:
+	# a separate flat dark rounded shape, shifted down-right with no blur.
+	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_PASS)
+	var answer_corner_radius: int = int(round(PORTRAIT_LONG_BUTTON_SIZE.y * 0.5))
+
+	var shadow_panel := Panel.new()
+	shadow_panel.name = "QuizAnswerShadow"
+	shadow_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shadow_panel.offset_top = 6.0
+	shadow_panel.offset_bottom = 6.0
+	var shadow_style := StyleBoxFlat.new()
+	shadow_style.bg_color = Color(0.07, 0.12, 0.24, 0.22)
+	shadow_style.corner_radius_top_left = answer_corner_radius
+	shadow_style.corner_radius_top_right = answer_corner_radius
+	shadow_style.corner_radius_bottom_left = answer_corner_radius
+	shadow_style.corner_radius_bottom_right = answer_corner_radius
+	shadow_panel.add_theme_stylebox_override("panel", shadow_style)
+	holder.add_child(shadow_panel)
+
+	var button := Button.new()
+	button.name = "QuizAnswerButton"
+	button.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.text = text
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.clip_text = true
+	button.add_theme_font_override("font", UI_HEADING_FONT)
+	button.add_theme_font_size_override("font_size", font_size)
+	button.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+	button.add_theme_color_override("font_hover_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+	button.add_theme_color_override("font_pressed_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+	button.add_theme_color_override("font_focus_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+	button.add_theme_color_override("font_disabled_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+
+	var normal_style := StyleBoxFlat.new()
+	normal_style.bg_color = Color.WHITE
+	normal_style.corner_radius_top_left = answer_corner_radius
+	normal_style.corner_radius_top_right = answer_corner_radius
+	normal_style.corner_radius_bottom_left = answer_corner_radius
+	normal_style.corner_radius_bottom_right = answer_corner_radius
+	normal_style.content_margin_left = 18.0
+	normal_style.content_margin_right = 18.0
+	normal_style.content_margin_top = 8.0
+	normal_style.content_margin_bottom = 8.0
+
+	# Keep every interactive visual state white. The only press feedback is the
+	# same 0.94 scale depression used by the standard long-button component.
+	var hover_style := normal_style.duplicate() as StyleBoxFlat
+	var pressed_style := normal_style.duplicate() as StyleBoxFlat
+	var disabled_style := normal_style.duplicate() as StyleBoxFlat
+	disabled_style.bg_color = Color("#F4F5F8")
+
+	button.add_theme_stylebox_override("normal", normal_style)
+	button.add_theme_stylebox_override("hover", hover_style)
+	button.add_theme_stylebox_override("pressed", pressed_style)
+	button.add_theme_stylebox_override("focus", normal_style)
+	button.add_theme_stylebox_override("disabled", disabled_style)
+	holder.add_child(button)
+
+	# Match FlashStageTextureButton's standard long-button press motion while
+	# keeping the native Button as the hit target. Scale the white face and its
+	# shadow together around the same visual center.
+	button.pivot_offset = holder.size * 0.5
+	shadow_panel.pivot_offset = holder.size * 0.5 - shadow_panel.position
+	button.button_down.connect(
+		Callable(self, "_set_quiz_answer_press_scale").bind(button, shadow_panel, true)
+	)
+	button.button_up.connect(
+		Callable(self, "_set_quiz_answer_press_scale").bind(button, shadow_panel, false)
+	)
+	button.mouse_exited.connect(
+		Callable(self, "_set_quiz_answer_press_scale").bind(button, shadow_panel, false)
+	)
+	return button
+
+func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_pressed: bool) -> void:
+	if button == null or !is_instance_valid(button) or shadow_panel == null or !is_instance_valid(shadow_panel):
+		return
+	# A depressed quiz answer sits flush against the surface, just like the
+	# standard long buttons: hide its drop shadow for the duration of the press.
+	# Restore it as soon as the button is released and the face starts returning.
+	shadow_panel.visible = !is_pressed
+	var previous_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	if previous_tween_variant is Tween:
+		var previous_tween := previous_tween_variant as Tween
+		if previous_tween.is_valid():
+			previous_tween.kill()
+	var target_scale := Vector2.ONE * (0.94 if is_pressed else 1.0)
+	var duration: float = 0.055 if is_pressed else 0.085
+	var tween := button.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_parallel(true)
+	var button_scale_tweener := tween.tween_property(button, "scale", target_scale, duration)
+	button_scale_tweener.set_trans(Tween.TRANS_QUAD)
+	button_scale_tweener.set_ease(Tween.EASE_OUT)
+	var shadow_scale_tweener := tween.tween_property(shadow_panel, "scale", target_scale, duration)
+	shadow_scale_tweener.set_trans(Tween.TRANS_QUAD)
+	shadow_scale_tweener.set_ease(Tween.EASE_OUT)
+	button.set_meta(&"quiz_press_scale_tween", tween)
+
+func _portrait_quiz_answer_start_y(answer_count: int) -> float:
+	# Keep the whole answer stack tied to the hint row. Because answers and hints
+	# are rendered in the same bottom-attached group, this remains a true 40 px
+	# stage gap on tall screens instead of growing with the extra screen height.
+	var visible_answer_count: int = clampi(answer_count, 0, 4)
+	if visible_answer_count <= 0:
+		return _portrait_quiz_hint_button_y()
+	var answer_block_height: float = (
+		PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE.y
+		+ float(visible_answer_count - 1) * PORTRAIT_QUIZ_ANSWER_STEP_Y
+	)
+	return (
+		_portrait_quiz_hint_button_y()
+		- PORTRAIT_QUIZ_ANSWER_HINT_GAP
+		- answer_block_height
+	)
+
+func _portrait_quiz_hint_button_y() -> float:
+	# Quiz has no keyboard, but its hint row should sit at exactly the same stage
+	# position as the hint row in the normal single-player guessing screen. Keep
+	# this independent of GameState.current_mode so visiting Two Player first does
+	# not move the quiz controls down.
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
+		viewport_size,
+		PORTRAIT_GAME_KEYBOARD_MAX_SCALE
+	)
+	var columns: int = 6
+	var alphabet_count: int = Database.get_alphabet().size()
+	var keyboard_rows: int = int(ceil(float(alphabet_count) / float(columns)))
+	var keyboard_step_y: float = 48.0 * keyboard_scale
+	var keyboard_key_height: float = 46.0 * keyboard_scale
+	var keyboard_height: float = (
+		keyboard_key_height
+		+ float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
+	)
+	var keyboard_start_y: float = (
+		PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage()
+	) - 24.0 - keyboard_height + PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
+	var keyboard_bottom_y: float = keyboard_start_y + keyboard_height
+	var hint_center_y: float = (
+		keyboard_bottom_y + PORTRAIT_GAME_HINT_KEYBOARD_GAP
+	) * PORTRAIT_GAME_ACTION_Y_SCALE
+	return hint_center_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
+
+func _stage_portrait_quiz_hint_buttons() -> void:
+	# Keep the two non-comment hint controls visible as requested. Their quiz
+	# semantics are intentionally left untouched for the next iteration; no hint
+	# inventory is consumed by these placeholder buttons yet.
+	var button_width: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.x
+	var total_width: float = button_width * 2.0 + PORTRAIT_QUIZ_HINT_GAP
+	var first_x: float = (PORTRAIT_STAGE_SIZE.x - total_width) * 0.5
+	var hint_button_y: float = _portrait_quiz_hint_button_y()
+	var open_button := _stage_round_button(
+		Rect2(first_x, hint_button_y, button_width, PORTRAIT_GAME_HINT_BUTTON_SIZE.y),
+		Callable(),
+		"",
+		false,
+		false,
+		0.0,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	var remove_button := _stage_round_button(
+		Rect2(
+			first_x + button_width + PORTRAIT_QUIZ_HINT_GAP,
+			hint_button_y,
+			button_width,
+			PORTRAIT_GAME_HINT_BUTTON_SIZE.y
+		),
+		Callable(),
+		"",
+		false,
+		false,
+		0.0,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
+	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
+	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
+	_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
+	_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
+
+func _show_quiz_game_screen() -> void:
+	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
+		show_quiz_theme_select()
+		return
+	_clear()
+	_quiz_mode_active = true
+	_quiz_screen_active = true
+	_portrait_screen(0.0)
+
+	# Quiz levels use a solid dark-blue playfield instead of the standard
+	# graph-paper texture, but now also reuse the animated theme pattern from
+	# the main-reward screen so each quiz topic gets its own moving backdrop.
+	var quiz_background := _stage_horizontal_fill(
+		PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
+	)
+	quiz_background.z_index = -1
+	_add_final_reward_theme_pattern(quiz_background, _quiz_selected_theme_index)
+
+	# Keep the normal gameplay resource/header treatment, but omit the character,
+	# attempts counter and theme title entirely.
+	_stage_centered_coin_only_counter(
+		Callable(self, "_show_quiz_game_screen"),
+		PORTRAIT_GAME_CURRENCY_COUNTER_RECT
+	)
+	_stage_menu_settings_button()
+	var back_button := _stage_round_icon_button(
+		PORTRAIT_PAGE_BACK_BUTTON_RECT,
+		Callable(self, "show_quiz_theme_select"),
+		PORTRAIT_BACK_ARROW_ICON,
+		PORTRAIT_PAGE_BACK_ICON_SIZE
+	)
+	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
+
+	var theme_name: String = Database.get_theme_name(_quiz_selected_theme_index)
+	var theme_label := _stage_heading_label(
+		PORTRAIT_QUIZ_THEME_TITLE_RECT,
+		theme_name,
+		24,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	# Match the floating theme title treatment from the comment popup: the top
+	# edge of the question card passes through the vertical center of the text,
+	# with the same dark outline and drop shadow for readability.
+	var quiz_theme_title_effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.40)
+	theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	theme_label.add_theme_color_override("font_outline_color", quiz_theme_title_effect_color)
+	theme_label.add_theme_constant_override("outline_size", 5)
+	theme_label.add_theme_color_override(
+		"font_shadow_color",
+		Color(
+			quiz_theme_title_effect_color.r,
+			quiz_theme_title_effect_color.g,
+			quiz_theme_title_effect_color.b,
+			0.90
+		)
+	)
+	theme_label.add_theme_constant_override("shadow_offset_x", 3)
+	theme_label.add_theme_constant_override("shadow_offset_y", 4)
+	theme_label.add_theme_constant_override("shadow_outline_size", 2)
+	theme_label.clip_text = false
+	theme_label.z_index = 3
+
+	# Reuse the answer-button shadow treatment under the question card as well,
+	# then draw the bordered light-blue surface on top.
+	var question_shadow_rect := PORTRAIT_QUIZ_QUESTION_PANEL_RECT
+	question_shadow_rect.position += Vector2(0.0, 6.0)
+	var question_shadow := _stage_panel(
+		question_shadow_rect,
+		Color(0.07, 0.12, 0.24, 0.22),
+		22.0
+	)
+	question_shadow.z_index = 0
+	var question_panel := _stage_panel(
+		PORTRAIT_QUIZ_QUESTION_PANEL_RECT,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		22.0,
+		PORTRAIT_UI_PALETTE.UI_BLUE_LIGHT_BORDER,
+		3.0
+	)
+	question_panel.z_index = 1
+
+	var question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
+	var question_label := _stage_label(
+		PORTRAIT_QUIZ_QUESTION_RECT,
+		question_text,
+		_quiz_question_font_size(question_text),
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	question_label.add_theme_font_override("font", UI_HEADING_FONT)
+	question_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	question_label.clip_text = false
+	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	question_label.z_index = 2
+
+	var answers_variant: Variant = _quiz_current_question.get("answers", [])
+	var answers: Array = Array(answers_variant) if answers_variant is Array else []
+	var visible_answer_count: int = mini(4, answers.size())
+	# Answers and hints share one bottom-attached group again, but the answer stack
+	# is now positioned from the hint row instead of from a hard-coded Y. This
+	# guarantees the requested 40 px gap on tall screens without overlap.
+	var answer_hint_group_content: Control = _portrait_begin_bottom_attached_group()
+	var answer_start_y: float = _portrait_quiz_answer_start_y(visible_answer_count)
+	_quiz_answer_buttons.clear()
+	for answer_index in range(visible_answer_count):
+		var answer_text: String = str(answers[answer_index]).strip_edges()
+		var answer_button := _stage_quiz_answer_button(
+			Rect2(
+				PORTRAIT_QUIZ_ANSWER_BUTTON_X,
+				answer_start_y + float(answer_index) * PORTRAIT_QUIZ_ANSWER_STEP_Y,
+				PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE.x,
+				PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE.y
+			),
+			answer_text,
+			_quiz_answer_font_size(answer_text)
+		)
+		answer_button.set_meta(&"quiz_answer_index", answer_index)
+		_quiz_answer_buttons.append(answer_button)
+
+	_stage_portrait_quiz_hint_buttons()
+	_portrait_end_adaptive_group(answer_hint_group_content)
+	_stage_portrait_ad_banner()
 
 func show_theme_select() -> void:
 	_show_theme_select_screen(false)
@@ -5928,7 +6391,7 @@ func _stage_portrait_hint_buttons() -> void:
 		open_hint_disabled,
 		false,
 		0.0,
-		LONG_BUTTON_COLOR_BLUE
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	var remove_button := _stage_round_button(
 		remove_rect,
@@ -5937,7 +6400,7 @@ func _stage_portrait_hint_buttons() -> void:
 		remove_hint_disabled,
 		false,
 		0.0,
-		LONG_BUTTON_COLOR_BLUE
+		LONG_BUTTON_COLOR_ORANGE
 	)
 	var comment_button := _stage_round_button(
 		comment_rect,
@@ -5946,7 +6409,7 @@ func _stage_portrait_hint_buttons() -> void:
 		comment_disabled,
 		false,
 		0.0,
-		LONG_BUTTON_COLOR_ORANGE if comment_unlocked else LONG_BUTTON_COLOR_BLUE
+		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
 	)
 
 	_portrait_game_hint_buttons.clear()
@@ -5975,7 +6438,7 @@ func _stage_portrait_hint_buttons() -> void:
 
 	# Prices and inventory badges only describe actions that still consume a hint.
 	# Used one-shot hints use the shared gray disabled state without a stale badge;
-	# the unlocked comment remains a regular free blue action.
+	# the unlocked/used comment switches to the blue state.
 	if open_hint_ad_available:
 		_stage_portrait_hint_ad_counter(open_button)
 	elif !open_hint_used:

@@ -142,6 +142,16 @@ const HINT_FILES := {
 	"en": "res://data/hints_en.json"
 }
 
+# The quiz mode currently ships with a Russian question base. Theme IDs are the
+# same stable 1..10 IDs used by words, icons and localization, so the mode can
+# reuse the existing category presentation without a second mapping table.
+const QUIZ_FILES := {
+	"ru": "res://data/quiz_questions_ru.json"
+}
+
+var _quiz_questions_by_theme_cache: Dictionary = {}
+var _quiz_data_loaded: bool = false
+
 func load_languages(interface_lang: String, word_lang: String) -> void:
 	interface_language = _normalize_language(interface_lang)
 	current_language = _normalize_language(word_lang)
@@ -323,6 +333,64 @@ func get_theme_name(theme_index: int) -> String:
 		push_error("Missing localized name for theme ID: " + str(theme_id))
 		return get_theme_key(theme_id).replace("_", " ").capitalize()
 	return translated
+
+func _ensure_quiz_data_loaded() -> void:
+	if _quiz_data_loaded:
+		return
+	_quiz_data_loaded = true
+	_quiz_questions_by_theme_cache.clear()
+
+	var quiz_path: String = str(QUIZ_FILES.get("ru", ""))
+	if quiz_path.is_empty():
+		return
+	var parsed: Variant = _load_json(quiz_path)
+	if !(parsed is Dictionary):
+		push_error("Quiz data must be a dictionary: " + quiz_path)
+		return
+	var questions_variant: Variant = parsed.get("questions", [])
+	if !(questions_variant is Array):
+		push_error("Quiz data must contain a 'questions' array: " + quiz_path)
+		return
+
+	for question_variant in questions_variant:
+		if !(question_variant is Dictionary):
+			continue
+		var question: Dictionary = question_variant
+		var theme_id: int = int(question.get("theme_id", 0))
+		if !THEME_IDS.has(theme_id):
+			continue
+		var question_text: String = str(question.get("question", "")).strip_edges()
+		var answers_variant: Variant = question.get("answers", [])
+		if question_text.is_empty() or !(answers_variant is Array):
+			continue
+		var answers: Array = answers_variant
+		if answers.size() != 4:
+			continue
+		var correct_index: int = int(question.get("correct_index", -1))
+		if correct_index < 0 or correct_index >= answers.size():
+			continue
+		if !_quiz_questions_by_theme_cache.has(theme_id):
+			_quiz_questions_by_theme_cache[theme_id] = []
+		var theme_questions: Array = _quiz_questions_by_theme_cache[theme_id]
+		theme_questions.append(question.duplicate(true))
+
+func get_quiz_questions_by_theme_index(theme_index: int) -> Array:
+	_ensure_quiz_data_loaded()
+	var theme_id: int = get_theme_id(theme_index)
+	if theme_id <= 0:
+		return []
+	var cached: Variant = _quiz_questions_by_theme_cache.get(theme_id, [])
+	if !(cached is Array):
+		return []
+	return Array(cached).duplicate(true)
+
+func get_quiz_question_count_by_theme_index(theme_index: int) -> int:
+	_ensure_quiz_data_loaded()
+	var theme_id: int = get_theme_id(theme_index)
+	if theme_id <= 0:
+		return 0
+	var cached: Variant = _quiz_questions_by_theme_cache.get(theme_id, [])
+	return Array(cached).size() if cached is Array else 0
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	var cache_key := "%d:%d" % [theme_index, difficulty_filter]
