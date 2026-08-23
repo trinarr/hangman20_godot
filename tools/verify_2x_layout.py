@@ -2527,7 +2527,8 @@ def verify_native_custom_word_input() -> None:
     )
     require(
         "const BASE_SLOT_WIDTH: float = 38.0" in word_input
-        and "const BASE_SPACE_WIDTH: float = 18.0" in word_input
+        and "const BASE_SPACE_WIDTH: float = 20.7" in word_input
+        and "var base_space_width: float = 20.7" in portrait
         and "const BASE_SLOT_GAP: float = 10.0" in word_input
         and "const BASE_UNDERLINE_WIDTH: float = 30.0" in word_input,
         "Custom word slots no longer match gameplay word spacing",
@@ -3047,6 +3048,7 @@ def verify_single_player_last_chance_flow() -> None:
     main = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     session = read("scripts/core/game_session.gd")
+    translations = read("localization/translations.csv")
     attempt_icon_path = ROOT / "flash_assets" / "extra_attempts_icon.png"
     require(attempt_icon_path.is_file(), "The extra-attempts popup icon is missing")
     with Image.open(attempt_icon_path) as image:
@@ -3147,10 +3149,22 @@ def verify_single_player_last_chance_flow() -> None:
     )
     require(
         "const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25" in main
+        and "const SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP: int = 5" in main
         and "const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2" in main
-        and "GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)" in purchase_flow
+        and "const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP: int = 1" in main
+        and "const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL: int = 2" in main
+        and "_advance_single_player_extra_attempt_offer()" in portrait
+        and "GameState.spend_soft_currency(purchase_cost)" in purchase_flow
+        and "single_player_extra_attempt_offer_count * SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP" in purchase_flow
+        and "float(single_player_extra_attempt_offer_count)" in purchase_flow
+        and "/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)" in purchase_flow
+        and ") * SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP" in purchase_flow
+        and "GameSession.MAX_MISTAKES" in purchase_flow
+        and main.count("_reset_single_player_extra_attempt_offers()") >= 2
+        and "single_player_extra_attempt_current_count = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT" in purchase_flow
+        and 'call_deferred("_show_single_player_last_chance_popup", false)' in purchase_flow
         and "_grant_single_player_extra_attempt()" in purchase_flow
-        and "GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)" in purchase_flow
+        and "GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())" in purchase_flow
         and "GameSession.resolve_deferred_loss()" in purchase_flow
         and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store")' in purchase_flow,
         "The extra attempt is not connected to currency, the shop fallback, and defeat resolution",
@@ -3162,7 +3176,7 @@ def verify_single_player_last_chance_flow() -> None:
         and rewarded_flow.count('&"extra_attempt"') == 2
         and "_remove_single_player_last_chance_popup()" in rewarded_flow
         and "_grant_single_player_extra_attempt()" in rewarded_flow,
-        "Rewarded video does not safely grant the same two deferred attempts",
+        "Rewarded video does not safely grant the current deferred-attempt refill",
     )
     require(
         "var hero_group: Control = _portrait_game_adaptive_group" in extra_attempt_transition
@@ -3172,7 +3186,7 @@ def verify_single_player_last_chance_flow() -> None:
         and "await fade_out.finished" in extra_attempt_transition
         and extra_attempt_transition.index("await fade_out.finished")
         < extra_attempt_transition.index("_clear_hero_animation_overlay()")
-        < extra_attempt_transition.index("GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)")
+        < extra_attempt_transition.index("GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())")
         and "PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION" in extra_attempt_transition
         and "PORTRAIT_EXTRA_ATTEMPT_HERO_HIDDEN_HOLD_DURATION" not in portrait
         and "force_immediate_hero_pose_load" not in extra_attempt_transition
@@ -3218,15 +3232,18 @@ def verify_single_player_last_chance_flow() -> None:
         and 'preload("res://flash_assets/extra_attempts_icon.png")' in main
         and "EXTRA_ATTEMPTS_ICON_TEXTURE" in last_chance_popup
         and "PORTRAIT_UI_PALETTE.THEME_CARD" in last_chance_popup
-        and '"+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT' in last_chance_popup
+        and '"+%d" % attempt_count' in last_chance_popup
         and '"ExtraAttemptsGlow"' in last_chance_popup
         and "_stage_refill_status_glow(" in last_chance_popup
         and re.search(
-            r'"\+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT,\s*54,',
+            r'"\+%d" % attempt_count,\s*54,',
             last_chance_popup,
         )
-        and 'tr("EXTRA_ATTEMPTS_DESCRIPTION")' in last_chance_popup
-        and "SINGLE_PLAYER_EXTRA_ATTEMPT_COST" in last_chance_popup
+        and "_single_player_extra_attempt_description(attempt_count)" in last_chance_popup
+        and 'EXTRA_ATTEMPTS_DESCRIPTION,"Добавьте %d попытки,' in translations
+        and 'EXTRA_ATTEMPTS_DESCRIPTION_MANY,"Добавьте %d попыток,' in translations
+        and translations.count('"Add %d attempts\nto continue the game"') == 2
+        and "purchase_cost" in last_chance_popup
         and '_stage_portrait_popup_coin_purchase_content(' in last_chance_popup
         and 'Callable(self, "_on_single_player_extra_attempt_ad_pressed")' in last_chance_popup
         and "WATCH_AD_ICON_TEXTURE" in last_chance_popup
@@ -3452,6 +3469,10 @@ def verify_single_player_final_reward_state() -> None:
     )
     require(
         'ads_service.call("show_rewarded_video")' in final_state
+        and 'ads_service.has_signal(&"rewarded_video_loaded")' in final_state
+        and 'ads_service.has_signal(&"rewarded_video_failed_to_load")' in final_state
+        and "func _on_final_reward_ad_loaded() -> void:" in final_state
+        and "func _on_final_reward_ad_failed_to_load(_error_code: int) -> void:" in final_state
         and 'ads_service.has_signal(&"rewarded")' in final_state
         and 'ads_service.has_signal(&"rewarded_video_closed")' in final_state
         and 'ads_service.has_signal(&"rewarded_video_failed_to_show")' in final_state

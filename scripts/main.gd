@@ -24,7 +24,10 @@ const APP_VERSION_FALLBACK: String = "3.0.0"
 const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
 const SINGLE_PLAYER_THEME_REFRESH_COST: int = 25
 const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP: int = 5
 const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP: int = 1
+const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL: int = 2
 const HEART_REFILL_COST: int = 100
 const SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = 0.06
 const SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = 0.05
@@ -147,6 +150,9 @@ var single_player_popup_theme_card_nodes: Array[Node] = []
 var single_player_popup_play_button: Control = null
 var single_player_popup_refresh_price_label: Label = null
 var single_player_retry_after_loss: bool = false
+var single_player_extra_attempt_offer_count: int = 0
+var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
+var single_player_extra_attempt_current_count: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
 var custom_word_text: String = ""
@@ -324,7 +330,7 @@ func _show_single_player_level_popup(
 ) -> void:
 	pass
 
-func _show_single_player_last_chance_popup() -> void:
+func _show_single_player_last_chance_popup(_advance_offer_cost: bool = true) -> void:
 	pass
 
 func _show_heart_refill_popup(
@@ -1444,21 +1450,55 @@ func _purchase_single_player_extra_attempt() -> void:
 	if !GameSession.has_deferred_loss():
 		_remove_single_player_last_chance_popup()
 		return
-	if GameState.get_soft_currency() < SINGLE_PLAYER_EXTRA_ATTEMPT_COST:
+	var purchase_cost: int = _single_player_extra_attempt_cost()
+	if GameState.get_soft_currency() < purchase_cost:
 		_remove_single_player_last_chance_popup()
 		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
 		return
-	if !GameState.spend_soft_currency(SINGLE_PLAYER_EXTRA_ATTEMPT_COST):
+	if !GameState.spend_soft_currency(purchase_cost):
 		return
 	_remove_single_player_last_chance_popup()
 	_grant_single_player_extra_attempt()
+
+func _single_player_extra_attempt_cost() -> int:
+	return maxi(single_player_extra_attempt_current_cost, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
+
+func _single_player_extra_attempt_count() -> int:
+	return maxi(single_player_extra_attempt_current_count, SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
+
+func _single_player_extra_attempt_description(attempt_count: int) -> String:
+	var description_key: StringName = &"EXTRA_ATTEMPTS_DESCRIPTION"
+	if attempt_count >= 5:
+		description_key = &"EXTRA_ATTEMPTS_DESCRIPTION_MANY"
+	return tr(description_key) % attempt_count
+
+func _advance_single_player_extra_attempt_offer() -> int:
+	single_player_extra_attempt_current_cost = (
+		SINGLE_PLAYER_EXTRA_ATTEMPT_COST
+		+ single_player_extra_attempt_offer_count * SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP
+	)
+	single_player_extra_attempt_current_count = mini(
+		SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
+		+ floori(
+			float(single_player_extra_attempt_offer_count)
+			/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)
+		) * SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP,
+		GameSession.MAX_MISTAKES
+	)
+	single_player_extra_attempt_offer_count += 1
+	return single_player_extra_attempt_current_cost
+
+func _reset_single_player_extra_attempt_offers() -> void:
+	single_player_extra_attempt_offer_count = 0
+	single_player_extra_attempt_current_cost = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
+	single_player_extra_attempt_current_count = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
 
 func _grant_single_player_extra_attempt() -> void:
 	# A reaction overlay from the previous wrong guess can still be playing under
 	# the modal. Remove it before the session signal refreshes the restored pose,
 	# otherwise the static hero remains hidden until that old animation finishes.
 	_clear_hero_animation_overlay()
-	GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
+	GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())
 
 func _decline_single_player_extra_attempt() -> void:
 	_remove_single_player_last_chance_popup()
@@ -1466,7 +1506,7 @@ func _decline_single_player_extra_attempt() -> void:
 
 func _return_to_single_player_last_chance_from_coin_store() -> void:
 	show_game_screen()
-	call_deferred("_show_single_player_last_chance_popup")
+	call_deferred("_show_single_player_last_chance_popup", false)
 
 func _close_single_player_retry_popup() -> void:
 	single_player_retry_after_loss = false
@@ -1492,6 +1532,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	var word_info: Dictionary = words[word_slot]
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = word_slot
+	_reset_single_player_extra_attempt_offers()
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER

@@ -2891,7 +2891,7 @@ func _remove_single_player_theme_popup() -> void:
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
 	_show_single_player_level_popup(level_index, theme_index)
 
-func _show_single_player_last_chance_popup() -> void:
+func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> void:
 	if !GameSession.has_deferred_loss():
 		return
 	# The final wrong guess immediately updates GameSession, which starts the
@@ -2902,6 +2902,12 @@ func _show_single_player_last_chance_popup() -> void:
 		await attempts_roll.finished
 		if !GameSession.has_deferred_loss():
 			return
+	var purchase_cost: int = (
+		_advance_single_player_extra_attempt_offer()
+		if advance_offer_cost
+		else _single_player_extra_attempt_cost()
+	)
+	var attempt_count: int = _single_player_extra_attempt_count()
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
 	var previous_content := _portrait_popup_begin(
@@ -2945,7 +2951,7 @@ func _show_single_player_last_chance_popup() -> void:
 	attempt_icon.z_index = 11
 	var attempt_label := _stage_label(
 		attempt_icon_rect,
-		"+%d" % SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT,
+		"+%d" % attempt_count,
 		54,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -2965,7 +2971,7 @@ func _show_single_player_last_chance_popup() -> void:
 	attempt_label.z_index = 12
 	var description_label := _stage_label(
 		Rect2(204.0, 246.0, 208.0, 126.0),
-		tr("EXTRA_ATTEMPTS_DESCRIPTION"),
+		_single_player_extra_attempt_description(attempt_count),
 		20,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -3022,8 +3028,8 @@ func _show_single_player_last_chance_popup() -> void:
 	_stage_portrait_popup_coin_purchase_content(
 		purchase_button,
 		tr("COMMON_CONTINUE"),
-		SINGLE_PLAYER_EXTRA_ATTEMPT_COST,
-		_purchase_price_color(SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
+		purchase_cost,
+		_purchase_price_color(purchase_cost)
 	)
 	content = previous_content
 
@@ -5663,7 +5669,7 @@ func _stage_portrait_word_slots(
 	var layout: Array = []
 	var total_width: float = 0.0
 	var base_slot_width: float = 38.0
-	var base_space_width: float = 18.0
+	var base_space_width: float = 20.7
 	var base_gap: float = 10.0
 	for i in range(GameSession.letters.size()):
 		var letter: String = GameSession.letters[i]
@@ -6797,7 +6803,7 @@ func _return_to_single_player_last_chance_from_coin_store() -> void:
 	_portrait_game_entrance_pending = false
 	super.show_game_screen()
 	_portrait_popup_resume_without_intro = true
-	call_deferred("_show_single_player_last_chance_popup")
+	call_deferred("_show_single_player_last_chance_popup", false)
 
 func _grant_single_player_extra_attempt() -> void:
 	var hero_group: Control = _portrait_game_adaptive_group
@@ -6821,7 +6827,7 @@ func _grant_single_player_extra_attempt() -> void:
 	await fade_out.finished
 
 	_clear_hero_animation_overlay()
-	GameSession.grant_deferred_attempt(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
+	GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())
 	if !is_instance_valid(hero_group) or !hero_group.is_inside_tree():
 		return
 	hero_group.modulate.a = 0.0
@@ -8665,12 +8671,23 @@ func _on_final_reward_double_pressed() -> void:
 	_portrait_final_reward_earned_ad_reward = false
 	_set_final_reward_double_button_enabled(false)
 	if !bool(ads_service.call("show_rewarded_video")):
-		# The service starts a preload when an ad is not ready. Keep the reward
-		# unclaimed and let the player retry once the rewarded placement is loaded.
-		_portrait_final_reward_waiting_for_ad = false
-		_set_final_reward_double_button_enabled(true)
+		# The service starts a preload when an ad is not ready. Keep this request
+		# pending: the loaded callback below opens that same ad automatically.
+		return
 
 func _connect_final_reward_ad_signals(ads_service: Node) -> void:
+	var loaded_callback := Callable(self, "_on_final_reward_ad_loaded")
+	if ads_service.has_signal(&"rewarded_video_loaded") and !ads_service.is_connected(
+		&"rewarded_video_loaded",
+		loaded_callback
+	):
+		ads_service.connect(&"rewarded_video_loaded", loaded_callback)
+	var load_failed_callback := Callable(self, "_on_final_reward_ad_failed_to_load")
+	if ads_service.has_signal(&"rewarded_video_failed_to_load") and !ads_service.is_connected(
+		&"rewarded_video_failed_to_load",
+		load_failed_callback
+	):
+		ads_service.connect(&"rewarded_video_failed_to_load", load_failed_callback)
 	var rewarded_callback := Callable(self, "_on_final_reward_ad_rewarded")
 	if ads_service.has_signal(&"rewarded") and !ads_service.is_connected(
 		&"rewarded",
@@ -8697,6 +8714,26 @@ func _set_final_reward_double_button_enabled(enabled: bool) -> void:
 		and _portrait_final_reward_double_button.is_inside_tree()
 	):
 		_portrait_final_reward_double_button.set("button_disabled", !enabled)
+
+func _on_final_reward_ad_loaded() -> void:
+	if !_portrait_final_reward_waiting_for_ad or _portrait_final_reward_claim_in_progress:
+		return
+	var ads_service: Node = _portrait_ads_service()
+	if (
+		ads_service == null
+		or !ads_service.has_method("show_rewarded_video")
+		or !bool(ads_service.call("show_rewarded_video"))
+	):
+		_portrait_final_reward_waiting_for_ad = false
+		_portrait_final_reward_earned_ad_reward = false
+		_set_final_reward_double_button_enabled(true)
+
+func _on_final_reward_ad_failed_to_load(_error_code: int) -> void:
+	if !_portrait_final_reward_waiting_for_ad:
+		return
+	_portrait_final_reward_waiting_for_ad = false
+	_portrait_final_reward_earned_ad_reward = false
+	_set_final_reward_double_button_enabled(true)
 
 func _on_final_reward_ad_rewarded(_currency: String, _amount: int) -> void:
 	if _portrait_final_reward_waiting_for_ad:

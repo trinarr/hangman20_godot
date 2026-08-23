@@ -126,8 +126,11 @@ ATTEMPTS_LABEL,Попытки,Attempts
 THEME_LABEL,Тема,Theme
 CHALLENGES_TITLE,ИСПЫТАНИЯ,CHALLENGES
 EXTRA_ATTEMPTS_TITLE,Продолжить?,Continue?
-EXTRA_ATTEMPTS_DESCRIPTION,"Добавьте 2 попытки,
-чтобы продолжить игру","Add 2 tries
+EXTRA_ATTEMPTS_DESCRIPTION,"Добавьте %d попытки,
+чтобы продолжить игру","Add %d attempts
+to continue the game"
+EXTRA_ATTEMPTS_DESCRIPTION_MANY,"Добавьте %d попыток,
+чтобы продолжить игру","Add %d attempts
 to continue the game"
 HEART_REFILL_TITLE,БОЛЬШЕ ЖИЗНЕЙ!,MORE LIVES!
 HEART_NEXT_LIFE,Следующая жизнь:,Next life:

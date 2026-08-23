@@ -124,8 +124,8 @@ func grant_deferred_attempt(attempt_count: int = 1) -> bool:
 	var granted_attempts: int = maxi(attempt_count, 1)
 	loss_deferred = false
 	# The deferred final mistake was never committed. Clearing the deferred flag
-	# already restores one attempt; roll back additional mistakes so a +2 purchase
-	# leaves two real guesses available on the gameplay counter.
+	# already restores one attempt; roll back additional mistakes so the refill
+	# leaves the requested number of real guesses on the gameplay counter.
 	mistakes = maxi(mistakes - (granted_attempts - 1), 0)
 	emit_signal("changed")
 	return true
