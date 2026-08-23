@@ -25,6 +25,8 @@ from curate_word_database import (
     clamp,
     concept_difficulty,
     curated_difficulty,
+    normalize_theme_keys,
+    numeric_theme_ids_for_json,
 )
 
 try:
@@ -41,11 +43,13 @@ LANGUAGE_FILES = {
 def load_json(path: Path) -> tuple[dict[str, Any], bool]:
     raw = path.read_bytes()
     has_bom = raw.startswith(b"\xef\xbb\xbf")
-    return json.loads(raw.decode("utf-8-sig")), has_bom
+    data = json.loads(raw.decode("utf-8-sig"))
+    return normalize_theme_keys(data, require_numeric_ids=True), has_bom
 
 
 def write_json(path: Path, data: dict[str, Any], has_bom: bool) -> None:
-    payload = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    serialized = numeric_theme_ids_for_json(data)
+    payload = (json.dumps(serialized, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if has_bom:
         payload = b"\xef\xbb\xbf" + payload
     path.write_bytes(payload)

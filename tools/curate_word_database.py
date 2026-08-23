@@ -22,6 +22,21 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ("ru", "en")
+THEME_KEYS = (
+    "sport",
+    "geography",
+    "nature",
+    "technics",
+    "people",
+    "food",
+    "science",
+    "history",
+    "general",
+    "film_music",
+)
+THEME_ID_BY_KEY = {key: str(index) for index, key in enumerate(THEME_KEYS, 1)}
+THEME_KEY_BY_ID = {theme_id: key for key, theme_id in THEME_ID_BY_KEY.items()}
+THEME_DATA_FIELDS = ("words", "difficulty", "hints")
 MIN_ANSWER_LENGTH = 4
 MAX_ANSWER_LENGTH = 20
 CHEMISTRY_DIFFICULTY_FLOOR = 0.62
@@ -84,6 +99,35 @@ INTERMEDIATE_ADDITION_START: dict[str, dict[str, int]] = {
         "history": 268,
         "general": 294,
         "film_music": 299,
+    },
+}
+HARD_ADDITION_COUNT = 20
+HARD_DIFFICULTY_FLOOR = 0.70
+HARD_CONCEPT_DIFFICULTY = 1.0
+HARD_ADDITION_START: dict[str, dict[str, int]] = {
+    "ru": {
+        "sport": 395,
+        "geography": 375,
+        "nature": 391,
+        "technics": 374,
+        "people": 372,
+        "food": 392,
+        "science": 366,
+        "history": 358,
+        "general": 375,
+        "film_music": 325,
+    },
+    "en": {
+        "sport": 342,
+        "geography": 341,
+        "nature": 347,
+        "technics": 342,
+        "people": 343,
+        "food": 350,
+        "science": 337,
+        "history": 318,
+        "general": 344,
+        "film_music": 349,
     },
 }
 ANSWER_CONJUNCTIONS = {
@@ -1095,6 +1139,8 @@ CHEMISTRY_EXTRA_WORDS: dict[str, frozenset[str]] = {
         "АЭРОГЕЛЬ", "МЕТАМАТЕРИАЛ", "СВЕРХПРОВОДНИК", "ТЕРМОЯДЕРНЫЙ СИНТЕЗ",
         "ХРОМАТОГРАФИЯ", "УГЛЕРОДНЫЙ СЛЕД", "ЗЕЛЕНЫЙ ВОДОРОД",
         "УГЛЕРОДНЫЙ ЗАХВАТ",
+        "ЭНТАЛЬПИЯ СМЕШЕНИЯ", "АЛЛОТРОПИЯ", "СТЕХИОМЕТРИЯ",
+        "ГИБРИДИЗАЦИЯ", "ЭЛЕКТРОФИЛ", "НУКЛЕОФИЛ",
     }),
     "en": frozenset({
         "ALKALINITY", "HERBICIDE", "MANGANESE", "RUTHERFORDIUM",
@@ -1104,6 +1150,8 @@ CHEMISTRY_EXTRA_WORDS: dict[str, frozenset[str]] = {
         "DIFFUSION", "CRYSTALLOGRAPHY", "MICROPLASTICS", "QUANTUM DOT",
         "CARBON CAPTURE", "GREEN HYDROGEN", "PEROVSKITE", "GRAPHENE",
         "METAMATERIAL", "NANOPARTICLE",
+        "MIXING ENTHALPY", "ALLOTROPY", "CHEMICAL POTENTIAL",
+        "HYBRIDIZATION", "ELECTROPHILE", "NUCLEOPHILE",
     }),
 }
 
@@ -1190,6 +1238,16 @@ def intermediate_concept_difficulty(
     )
 
 
+def hard_concept_difficulty(
+    language: str,
+    theme_id: str,
+    word: str,
+) -> float:
+    """Score terms that normally require specialist or niche-domain knowledge."""
+    del language, theme_id, word
+    return HARD_CONCEPT_DIFFICULTY
+
+
 def is_chemistry_term(language: str, theme_id: str, index: int, word: str) -> bool:
     if theme_id != "science":
         return False
@@ -1230,13 +1288,59 @@ def reviewed_difficulty(
     return curated_difficulty(language, theme_id, index, word, aggregate)
 
 
+def normalize_theme_keys(
+    data: dict[str, Any],
+    *,
+    require_numeric_ids: bool = False,
+) -> dict[str, Any]:
+    """Expose semantic keys to editor rules while files keep numeric IDs."""
+    normalized = dict(data)
+    for field in THEME_DATA_FIELDS:
+        values = data.get(field)
+        if not isinstance(values, dict):
+            continue
+        raw_ids = [str(theme_id) for theme_id in values]
+        if require_numeric_ids and raw_ids != list(THEME_KEY_BY_ID):
+            raise ValueError(
+                f"{field}: expected numeric theme IDs {list(THEME_KEY_BY_ID)}, "
+                f"found {raw_ids}"
+            )
+        unknown_ids = set(raw_ids) - set(THEME_KEY_BY_ID)
+        if unknown_ids:
+            raise ValueError(f"{field}: unknown numeric theme IDs {sorted(unknown_ids)}")
+        normalized[field] = {
+            THEME_KEY_BY_ID[str(theme_id)]: value
+            for theme_id, value in values.items()
+        }
+    return normalized
+
+
+def numeric_theme_ids_for_json(data: dict[str, Any]) -> dict[str, Any]:
+    """Convert editor-only semantic keys back to the persisted ID schema."""
+    serialized = dict(data)
+    for field in THEME_DATA_FIELDS:
+        values = data.get(field)
+        if not isinstance(values, dict):
+            continue
+        unknown_keys = set(map(str, values)) - set(THEME_ID_BY_KEY)
+        if unknown_keys:
+            raise ValueError(f"{field}: unknown semantic theme keys {sorted(unknown_keys)}")
+        serialized[field] = {
+            THEME_ID_BY_KEY[str(theme_key)]: value
+            for theme_key, value in values.items()
+        }
+    return serialized
+
+
 def load_json(path: Path) -> tuple[dict[str, Any], bool]:
     raw = path.read_bytes()
-    return json.loads(raw.decode("utf-8-sig")), raw.startswith(b"\xef\xbb\xbf")
+    data = json.loads(raw.decode("utf-8-sig"))
+    return normalize_theme_keys(data, require_numeric_ids=True), raw.startswith(b"\xef\xbb\xbf")
 
 
 def write_json(path: Path, data: dict[str, Any], has_bom: bool) -> None:
-    payload = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    serialized = numeric_theme_ids_for_json(data)
+    payload = (json.dumps(serialized, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     path.write_bytes((b"\xef\xbb\xbf" if has_bom else b"") + payload)
 
 
@@ -1598,6 +1702,51 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
             f"{language}: intermediate concept overrides are not additions: "
             f"{sorted(unknown_intermediate_overrides)}"
         )
+
+    # Validate the hard additions. They use concepts normally outside broad
+    # everyday knowledge, while the final value still includes the spelling
+    # mechanics of each answer. Chemistry is allowed here, but its clues must
+    # remain short and accessible under the global chemistry checks below.
+    for theme_id, start in HARD_ADDITION_START[language].items():
+        end = start + HARD_ADDITION_COUNT
+        if len(words_by_theme[theme_id]) < end:
+            raise ValueError(
+                f"{language}/{theme_id}: expected {HARD_ADDITION_COUNT} "
+                f"hard additions at index {start}"
+            )
+        for index in range(start, end):
+            word = str(words_by_theme[theme_id][index])
+            hint = str(hints_by_theme[theme_id][index])
+            answer_tokens = set(re.findall(r"[A-ZА-ЯЁ]+", word.upper()))
+            conjunctions = answer_tokens & ANSWER_CONJUNCTIONS[language]
+            if conjunctions:
+                raise ValueError(
+                    f"{language}/{theme_id}/{word}: answer contains "
+                    f"conjunctions {sorted(conjunctions)}"
+                )
+            concept_score = hard_concept_difficulty(language, theme_id, word)
+            expected = aggregate_difficulty(word, language, concept_score)
+            current = float(difficulty_by_theme[theme_id][index])
+            if current != expected:
+                raise ValueError(
+                    f"{language}/{theme_id}/{word}: hard difficulty "
+                    f"{current} does not match aggregate {expected}"
+                )
+            if current <= HARD_DIFFICULTY_FLOOR:
+                raise ValueError(
+                    f"{language}/{theme_id}/{word}: hard difficulty "
+                    f"{current} must be greater than {HARD_DIFFICULTY_FLOOR}"
+                )
+            root_leaks = (
+                russian_hint_root_leaks(word, hint)
+                if language == "ru"
+                else english_hint_root_leaks(word, hint)
+            )
+            if root_leaks:
+                raise ValueError(
+                    f"{language}/{theme_id}/{word}: hard hint repeats "
+                    f"answer roots {sorted(root_leaks)}"
+                )
 
     # Validate paired arrays, uniqueness, direct answer leakage, and chemistry.
     all_words: list[str] = []

@@ -18,6 +18,8 @@ from curate_word_database import (
     CURATED_HINTS,
     SPECIALIST_REPLACEMENTS_RU,
     WORD_REPLACEMENTS_RU,
+    normalize_theme_keys,
+    numeric_theme_ids_for_json,
 )
 
 
@@ -579,8 +581,14 @@ def normalized(text: str) -> str:
 def load_rows(language: str) -> tuple[dict, dict, list[tuple[str, int, str, float]]]:
     words_path = ROOT / "data" / f"words_{language}.json"
     hints_path = ROOT / "data" / f"hints_{language}.json"
-    words_data = json.loads(words_path.read_text(encoding="utf-8-sig"))
-    hints_data = json.loads(hints_path.read_text(encoding="utf-8-sig"))
+    words_data = normalize_theme_keys(
+        json.loads(words_path.read_text(encoding="utf-8-sig")),
+        require_numeric_ids=True,
+    )
+    hints_data = normalize_theme_keys(
+        json.loads(hints_path.read_text(encoding="utf-8-sig")),
+        require_numeric_ids=True,
+    )
     words_by_theme = words_data.get("words", {})
     difficulty_by_theme = words_data.get("difficulty", {})
     hints_by_theme = hints_data.get("hints", {})
@@ -647,7 +655,8 @@ def rebalance_language(language: str, apply_changes: bool) -> tuple[int, int]:
 
     if apply_changes and changed:
         hints_path = ROOT / "data" / f"hints_{language}.json"
-        text = "\ufeff" + json.dumps(hints_data, ensure_ascii=False, indent=2) + "\n"
+        serialized = numeric_theme_ids_for_json(hints_data)
+        text = "\ufeff" + json.dumps(serialized, ensure_ascii=False, indent=2) + "\n"
         hints_path.write_text(text, encoding="utf-8")
 
     # Reload current data for validation after applying changes.
