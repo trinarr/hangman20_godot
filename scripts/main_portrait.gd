@@ -369,7 +369,7 @@ const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTO
 # and the game's blue button language. The complete answer/hint block is bottom
 # attached so it remains clear of adaptive banners on tall devices.
 const PORTRAIT_QUIZ_MENU_BUTTON_RECT := Rect2(90.0, 476.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_QUIZ_THEME_TITLE_RECT := Rect2(34.0, 104.0, 412.0, 32.0)
+const PORTRAIT_QUIZ_THEME_TITLE_RECT := Rect2(34.0, 98.0, 412.0, 44.0)
 const PORTRAIT_QUIZ_QUESTION_PANEL_RECT := Rect2(22.0, 120.0, 436.0, 260.0)
 const PORTRAIT_QUIZ_QUESTION_RECT := Rect2(40.0, 138.0, 400.0, 224.0)
 const PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE := Vector2(412.0, 68.0)
@@ -377,6 +377,8 @@ const PORTRAIT_QUIZ_ANSWER_BUTTON_X: float = 34.0
 const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 88.0
 const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 40.0
 const PORTRAIT_QUIZ_HINT_GAP: float = 22.0
+const PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
+const PORTRAIT_QUIZ_ANSWER_WRONG_COLOR := PORTRAIT_UI_PALETTE.ERROR_SOFT
 enum MainTab {
 	TASKS,
 	HOME,
@@ -481,6 +483,15 @@ var _quiz_screen_active: bool = false
 var _quiz_selected_theme_index: int = -1
 var _quiz_current_question: Dictionary = {}
 var _quiz_answer_buttons: Array[Control] = []
+var _quiz_hint_buttons: Array[Control] = []
+var _quiz_continue_button: Control = null
+var _quiz_answer_locked: bool = false
+var _quiz_selected_answer_index: int = -1
+var _quiz_fifty_fifty_used: bool = false
+var _quiz_fifty_fifty_hidden_indices: Array = []
+var _quiz_replace_question_used: bool = false
+var _quiz_question_replacing: bool = false
+var _quiz_question_label: Label = null
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
@@ -2909,6 +2920,12 @@ func _start_quiz_theme(theme_index: int) -> void:
 	_quiz_selected_theme_index = theme_index
 	var selected_question: Dictionary = questions[randi_range(0, questions.size() - 1)]
 	_quiz_current_question = selected_question.duplicate(true)
+	_quiz_answer_locked = false
+	_quiz_selected_answer_index = -1
+	_quiz_fifty_fifty_used = false
+	_quiz_fifty_fifty_hidden_indices.clear()
+	_quiz_replace_question_used = false
+	_quiz_question_replacing = false
 	_show_quiz_game_screen()
 
 func _quiz_question_font_size(question_text: String) -> int:
@@ -2922,9 +2939,9 @@ func _quiz_answer_font_size(_answer_text: String) -> int:
 	return 20
 
 func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> Button:
-	# Quiz answers intentionally use a plain Godot Button instead of the shared
-	# long-button component. Match their shadow treatment to the question panel:
-	# a separate flat dark rounded shape, shifted down-right with no blur.
+	# Quiz answers use a native Button for the white/card face and a separate
+	# Label child for the copy. Keeping the text separate lets a wrong answer
+	# shake horizontally without moving the button itself.
 	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_PASS)
 	var answer_corner_radius: int = int(round(PORTRAIT_LONG_BUTTON_SIZE.y * 0.5))
 
@@ -2947,17 +2964,8 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	button.name = "QuizAnswerButton"
 	button.set_anchors_preset(Control.PRESET_FULL_RECT)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.text = text
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	button.clip_text = true
-	button.add_theme_font_override("font", UI_HEADING_FONT)
-	button.add_theme_font_size_override("font_size", font_size)
-	button.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
-	button.add_theme_color_override("font_hover_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
-	button.add_theme_color_override("font_pressed_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
-	button.add_theme_color_override("font_focus_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
-	button.add_theme_color_override("font_disabled_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+	button.text = ""
+	button.focus_mode = Control.FOCUS_NONE
 
 	var normal_style := StyleBoxFlat.new()
 	normal_style.bg_color = Color.WHITE
@@ -2975,14 +2983,34 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	var hover_style := normal_style.duplicate() as StyleBoxFlat
 	var pressed_style := normal_style.duplicate() as StyleBoxFlat
 	var disabled_style := normal_style.duplicate() as StyleBoxFlat
-	disabled_style.bg_color = Color("#F4F5F8")
-
 	button.add_theme_stylebox_override("normal", normal_style)
 	button.add_theme_stylebox_override("hover", hover_style)
 	button.add_theme_stylebox_override("pressed", pressed_style)
 	button.add_theme_stylebox_override("focus", normal_style)
 	button.add_theme_stylebox_override("disabled", disabled_style)
 	holder.add_child(button)
+	button.set_meta(&"quiz_answer_holder", holder)
+	button.set_meta(&"quiz_answer_shadow", shadow_panel)
+	button.set_meta(&"quiz_answer_keep_shadow_hidden", false)
+
+	var answer_label := Label.new()
+	answer_label.name = "QuizAnswerText"
+	answer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	answer_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	answer_label.offset_left = 18.0
+	answer_label.offset_top = 8.0
+	answer_label.offset_right = -18.0
+	answer_label.offset_bottom = -8.0
+	answer_label.text = text
+	answer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	answer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	answer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	answer_label.clip_text = true
+	answer_label.add_theme_font_override("font", UI_HEADING_FONT)
+	answer_label.add_theme_font_size_override("font_size", font_size)
+	answer_label.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
+	button.add_child(answer_label)
+	button.set_meta(&"quiz_answer_label", answer_label)
 
 	# Match FlashStageTextureButton's standard long-button press motion while
 	# keeping the native Button as the hit target. Scale the white face and its
@@ -3005,8 +3033,12 @@ func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_presse
 		return
 	# A depressed quiz answer sits flush against the surface, just like the
 	# standard long buttons: hide its drop shadow for the duration of the press.
-	# Restore it as soon as the button is released and the face starts returning.
-	shadow_panel.visible = !is_pressed
+	# Once an answer has been selected, keep that answer's shadow hidden even if
+	# a late button-up / mouse-exit signal arrives after the result was applied.
+	var keep_shadow_hidden: bool = bool(
+		button.get_meta(&"quiz_answer_keep_shadow_hidden", false)
+	)
+	shadow_panel.visible = !is_pressed and !keep_shadow_hidden
 	var previous_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
@@ -3024,6 +3056,296 @@ func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_presse
 	shadow_scale_tweener.set_trans(Tween.TRANS_QUAD)
 	shadow_scale_tweener.set_ease(Tween.EASE_OUT)
 	button.set_meta(&"quiz_press_scale_tween", tween)
+
+
+func _quiz_answer_holder(button: Button) -> Control:
+	if button == null or !is_instance_valid(button):
+		return null
+	var holder_variant: Variant = button.get_meta(&"quiz_answer_holder", null)
+	return holder_variant as Control if holder_variant is Control else null
+
+func _quiz_answer_shadow(button: Button) -> Panel:
+	if button == null or !is_instance_valid(button):
+		return null
+	var shadow_variant: Variant = button.get_meta(&"quiz_answer_shadow", null)
+	return shadow_variant as Panel if shadow_variant is Panel else null
+
+func _set_quiz_answer_shadow_hidden(button: Button, hidden: bool) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	button.set_meta(&"quiz_answer_keep_shadow_hidden", hidden)
+	var shadow_panel := _quiz_answer_shadow(button)
+	if shadow_panel != null and is_instance_valid(shadow_panel):
+		shadow_panel.visible = !hidden
+
+
+func _quiz_answer_label(button: Button) -> Label:
+	if button == null or !is_instance_valid(button):
+		return null
+	var label_variant: Variant = button.get_meta(&"quiz_answer_label", null)
+	return label_variant as Label if label_variant is Label else null
+
+func _set_quiz_answer_fill(button: Button, fill_color: Color) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var base_style := button.get_theme_stylebox("normal") as StyleBoxFlat
+	if base_style == null:
+		return
+	for state_name: StringName in [&"normal", &"hover", &"pressed", &"focus", &"disabled"]:
+		var state_style := base_style.duplicate() as StyleBoxFlat
+		state_style.bg_color = fill_color
+		button.add_theme_stylebox_override(state_name, state_style)
+
+func _disable_quiz_answer_buttons() -> void:
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button != null and is_instance_valid(answer_button):
+			answer_button.disabled = true
+
+func _hide_quiz_hint_buttons() -> void:
+	for hint_button: Control in _quiz_hint_buttons:
+		if hint_button != null and is_instance_valid(hint_button):
+			hint_button.visible = false
+
+func _show_quiz_continue_button(animated: bool) -> void:
+	_hide_quiz_hint_buttons()
+	if _quiz_continue_button == null or !is_instance_valid(_quiz_continue_button):
+		return
+	_quiz_continue_button.visible = true
+	_quiz_continue_button.set("attention_bounce_enabled", false)
+	if !animated:
+		_quiz_continue_button.modulate.a = 1.0
+		_quiz_continue_button.set("attention_bounce_enabled", true)
+		return
+	_quiz_continue_button.modulate.a = 0.0
+	var fade_tween := _quiz_continue_button.create_tween()
+	fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	fade_tween.tween_property(
+		_quiz_continue_button,
+		"modulate:a",
+		1.0,
+		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
+	)
+	fade_tween.finished.connect(
+		Callable(self, "_enable_quiz_continue_attention"),
+		CONNECT_ONE_SHOT
+	)
+
+func _enable_quiz_continue_attention() -> void:
+	if _quiz_continue_button == null or !is_instance_valid(_quiz_continue_button):
+		return
+	_quiz_continue_button.set("attention_bounce_enabled", true)
+
+func _finish_quiz_correct_answer_bounce(
+	button: Button,
+	shadow_panel: Panel,
+	finished_callback: Callable
+) -> void:
+	if button != null and is_instance_valid(button):
+		button.scale = Vector2.ONE
+	if shadow_panel != null and is_instance_valid(shadow_panel):
+		shadow_panel.scale = Vector2.ONE
+		shadow_panel.visible = true
+	if finished_callback.is_valid():
+		finished_callback.call()
+
+func _play_quiz_correct_answer_bounce(
+	button: Button,
+	finished_callback: Callable = Callable()
+) -> void:
+	if button == null or !is_instance_valid(button):
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
+
+	# Never scale the FlashStageControl holder itself: its scale already contains
+	# the viewport fit factor, so resetting it to Vector2.ONE shrinks the answer
+	# and makes the bounce appear left-aligned on tall devices. Bounce the local
+	# button face (and its shadow when visible) around their own centers instead.
+	var press_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	if press_tween_variant is Tween:
+		var press_tween := press_tween_variant as Tween
+		if press_tween.is_valid():
+			press_tween.kill()
+
+	var previous_tween_variant: Variant = button.get_meta(&"quiz_result_bounce_tween", null)
+	if previous_tween_variant is Tween:
+		var previous_tween := previous_tween_variant as Tween
+		if previous_tween.is_valid():
+			previous_tween.kill()
+
+	button.scale = Vector2.ONE
+	button.pivot_offset = button.size * 0.5
+	var shadow_panel := _quiz_answer_shadow(button)
+	if shadow_panel != null and is_instance_valid(shadow_panel):
+		shadow_panel.scale = Vector2.ONE
+		shadow_panel.pivot_offset = shadow_panel.size * 0.5
+		# Result bounces are cleaner without the offset shadow moving underneath
+		# the scaled button. Restore it only after the button fully settles.
+		shadow_panel.visible = false
+
+	var bounce_tween := button.create_tween()
+	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := bounce_tween.tween_property(button, "scale", Vector2.ONE * 1.10, 0.17)
+	grow.set_trans(Tween.TRANS_BACK)
+	grow.set_ease(Tween.EASE_OUT)
+
+	var settle := bounce_tween.tween_property(button, "scale", Vector2.ONE, 0.34)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	bounce_tween.finished.connect(
+		Callable(self, "_finish_quiz_correct_answer_bounce").bind(
+			button,
+			shadow_panel,
+			finished_callback
+		),
+		CONNECT_ONE_SHOT
+	)
+	button.set_meta(&"quiz_result_bounce_tween", bounce_tween)
+
+func _run_quiz_feedback_after_press_return(button: Button, callback: Callable) -> void:
+	if button == null or !is_instance_valid(button):
+		if callback.is_valid():
+			callback.call()
+		return
+	# The answer's pressed signal can arrive while the release-scale tween is still
+	# bringing the face back from 0.94 to 1.0. Wait for that exact tween instead
+	# of starting result feedback on top of the press animation.
+	if button.button_pressed:
+		button.button_up.connect(
+			Callable(self, "_run_quiz_feedback_after_press_return").bind(button, callback),
+			CONNECT_ONE_SHOT
+		)
+		return
+	var press_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	if press_tween_variant is Tween:
+		var press_tween := press_tween_variant as Tween
+		if press_tween.is_valid() and press_tween.is_running():
+			press_tween.finished.connect(callback, CONNECT_ONE_SHOT)
+			return
+	if callback.is_valid():
+		callback.call()
+
+func _finish_quiz_answer_text_shake(
+	answer_label: Label,
+	rest_position: Vector2,
+	finished_callback: Callable
+) -> void:
+	if answer_label != null and is_instance_valid(answer_label):
+		answer_label.position = rest_position
+	if finished_callback.is_valid():
+		finished_callback.call()
+
+func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = Callable()) -> void:
+	var answer_label := _quiz_answer_label(button)
+	if answer_label == null or !is_instance_valid(answer_label):
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
+	var previous_tween_variant: Variant = answer_label.get_meta(&"quiz_text_shake_tween", null)
+	if previous_tween_variant is Tween:
+		var previous_tween := previous_tween_variant as Tween
+		if previous_tween.is_valid():
+			previous_tween.kill()
+	var rest_position: Vector2 = answer_label.position
+	var shake_tween := answer_label.create_tween()
+	shake_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	# Keep the error cue readable but restrained: smaller travel and a slower
+	# left/right cadence than the first implementation.
+	for offset_x: float in [-5.0, 5.0, -4.0, 4.0, -2.0, 2.0, 0.0]:
+		var shake_step := shake_tween.tween_property(
+			answer_label,
+			"position:x",
+			rest_position.x + offset_x,
+			0.065
+		)
+		shake_step.set_trans(Tween.TRANS_QUAD)
+		shake_step.set_ease(Tween.EASE_IN_OUT)
+	shake_tween.finished.connect(
+		Callable(self, "_finish_quiz_answer_text_shake").bind(
+			answer_label,
+			rest_position,
+			finished_callback
+		),
+		CONNECT_ONE_SHOT
+	)
+	answer_label.set_meta(&"quiz_text_shake_tween", shake_tween)
+
+func _quiz_correct_answer_index() -> int:
+	return int(_quiz_current_question.get("correct_index", -1))
+
+func _reveal_quiz_correct_answer(correct_index: int) -> void:
+	if !_quiz_screen_active or correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
+		return
+	var correct_button := _quiz_answer_buttons[correct_index] as Button
+	if correct_button == null or !is_instance_valid(correct_button):
+		return
+	_set_quiz_answer_fill(correct_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
+	_play_quiz_correct_answer_bounce(
+		correct_button,
+		Callable(self, "_show_quiz_continue_button").bind(true)
+	)
+
+func _on_quiz_answer_selected(answer_index: int) -> void:
+	if _quiz_answer_locked or !_quiz_screen_active:
+		return
+	var correct_index: int = _quiz_correct_answer_index()
+	if (
+		answer_index < 0
+		or answer_index >= _quiz_answer_buttons.size()
+		or correct_index < 0
+		or correct_index >= _quiz_answer_buttons.size()
+	):
+		return
+	_quiz_answer_locked = true
+	_quiz_selected_answer_index = answer_index
+	_disable_quiz_answer_buttons()
+	_hide_quiz_hint_buttons()
+
+	var selected_button := _quiz_answer_buttons[answer_index] as Button
+	if selected_button == null or !is_instance_valid(selected_button):
+		return
+	if answer_index == correct_index:
+		_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
+		_play_quiz_correct_answer_bounce(
+			selected_button,
+			Callable(self, "_show_quiz_continue_button").bind(true)
+		)
+		return
+
+	_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
+	_run_quiz_feedback_after_press_return(
+		selected_button,
+		Callable(self, "_play_quiz_answer_text_shake").bind(
+			selected_button,
+			Callable(self, "_reveal_quiz_correct_answer").bind(correct_index)
+		)
+	)
+
+func _restore_quiz_answer_result_state() -> void:
+	if !_quiz_answer_locked:
+		return
+	var correct_index: int = _quiz_correct_answer_index()
+	if correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
+		return
+	_disable_quiz_answer_buttons()
+	if (
+		_quiz_selected_answer_index >= 0
+		and _quiz_selected_answer_index < _quiz_answer_buttons.size()
+	):
+		var selected_button := _quiz_answer_buttons[_quiz_selected_answer_index] as Button
+		if selected_button != null and is_instance_valid(selected_button):
+			_set_quiz_answer_fill(
+				selected_button,
+				PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR
+				if _quiz_selected_answer_index == correct_index
+				else PORTRAIT_QUIZ_ANSWER_WRONG_COLOR
+			)
+	if _quiz_selected_answer_index != correct_index:
+		var correct_button := _quiz_answer_buttons[correct_index] as Button
+		if correct_button != null and is_instance_valid(correct_button):
+			_set_quiz_answer_fill(correct_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
+	_show_quiz_continue_button(false)
 
 func _portrait_quiz_answer_start_y(answer_count: int) -> float:
 	# Keep the whole answer stack tied to the hint row. Because answers and hints
@@ -3070,17 +3392,364 @@ func _portrait_quiz_hint_button_y() -> float:
 	) * PORTRAIT_GAME_ACTION_Y_SCALE
 	return hint_center_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
 
+func _on_quiz_continue_pressed() -> void:
+	if !_quiz_screen_active or _quiz_selected_theme_index < 0:
+		return
+	var questions: Array = Database.get_quiz_questions_by_theme_index(_quiz_selected_theme_index)
+	if questions.is_empty():
+		return
+
+	# Prefer a different question from the current theme. Only fall back to the
+	# current one when the theme contains a single available question.
+	var current_id: int = int(_quiz_current_question.get("id", -1))
+	var current_text: String = str(_quiz_current_question.get("question", ""))
+	var candidates: Array = []
+	for question_variant: Variant in questions:
+		if !(question_variant is Dictionary):
+			continue
+		var question: Dictionary = question_variant
+		var same_question: bool = (
+			(current_id >= 0 and int(question.get("id", -2)) == current_id)
+			or (current_id < 0 and str(question.get("question", "")) == current_text)
+		)
+		if !same_question:
+			candidates.append(question)
+
+	var next_question: Dictionary
+	if !candidates.is_empty():
+		next_question = candidates[randi_range(0, candidates.size() - 1)]
+	else:
+		next_question = questions[randi_range(0, questions.size() - 1)]
+
+	_quiz_current_question = next_question.duplicate(true)
+	_quiz_answer_locked = false
+	_quiz_selected_answer_index = -1
+	_quiz_fifty_fifty_used = false
+	_quiz_fifty_fifty_hidden_indices.clear()
+	_quiz_replace_question_used = false
+	_quiz_question_replacing = false
+	_show_quiz_game_screen()
+
+func _finish_quiz_fifty_fifty_removal(button: Button, shadow_panel: Panel) -> void:
+	if button != null and is_instance_valid(button):
+		button.scale = Vector2.ONE
+		button.visible = false
+		button.modulate.a = 1.0
+	if shadow_panel != null and is_instance_valid(shadow_panel):
+		shadow_panel.scale = Vector2.ONE
+		shadow_panel.visible = false
+		shadow_panel.modulate.a = 1.0
+
+func _play_quiz_fifty_fifty_removal(button: Button) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	button.disabled = true
+	button.modulate.a = 1.0
+	button.pivot_offset = button.size * 0.5
+	var shadow_panel := _quiz_answer_shadow(button)
+	if shadow_panel != null and is_instance_valid(shadow_panel):
+		shadow_panel.modulate.a = 1.0
+		shadow_panel.scale = Vector2.ONE
+		shadow_panel.pivot_offset = shadow_panel.size * 0.5
+		# 50/50 removal also runs without a shadow for the full bounce/fade.
+		shadow_panel.visible = false
+
+	var previous_tween_variant: Variant = button.get_meta(&"quiz_fifty_fifty_tween", null)
+	if previous_tween_variant is Tween:
+		var previous_tween := previous_tween_variant as Tween
+		if previous_tween.is_valid():
+			previous_tween.kill()
+
+	# Both eliminated answers run this animation in the same frame. Keep the
+	# bounce restrained and slower than before, while fading both the face and
+	# shadow out through alpha during the collapse.
+	var tween := button.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := tween.tween_property(button, "scale", Vector2.ONE * 1.10, 0.14)
+	grow.set_trans(Tween.TRANS_BACK)
+	grow.set_ease(Tween.EASE_OUT)
+
+	var vanish := tween.tween_property(button, "scale", Vector2.ONE * 0.90, 0.23)
+	vanish.set_trans(Tween.TRANS_QUAD)
+	vanish.set_ease(Tween.EASE_IN)
+	var face_fade := tween.parallel().tween_property(button, "modulate:a", 0.0, 0.23)
+	face_fade.set_trans(Tween.TRANS_SINE)
+	face_fade.set_ease(Tween.EASE_IN)
+	tween.finished.connect(
+		Callable(self, "_finish_quiz_fifty_fifty_removal").bind(button, shadow_panel),
+		CONNECT_ONE_SHOT
+	)
+	button.set_meta(&"quiz_fifty_fifty_tween", tween)
+
+func _apply_quiz_fifty_fifty_hidden_state() -> void:
+	for hidden_index: int in _quiz_fifty_fifty_hidden_indices:
+		if hidden_index < 0 or hidden_index >= _quiz_answer_buttons.size():
+			continue
+		var answer_button := _quiz_answer_buttons[hidden_index] as Button
+		if answer_button == null or !is_instance_valid(answer_button):
+			continue
+		answer_button.disabled = true
+		answer_button.visible = false
+		var shadow_panel := _quiz_answer_shadow(answer_button)
+		if shadow_panel != null and is_instance_valid(shadow_panel):
+			shadow_panel.visible = false
+
+func _on_quiz_fifty_fifty_pressed() -> void:
+	if _quiz_answer_locked or _quiz_fifty_fifty_used or !_quiz_screen_active:
+		return
+	var correct_index: int = _quiz_correct_answer_index()
+	if correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
+		return
+
+	var wrong_indices: Array = []
+	for answer_index: int in range(_quiz_answer_buttons.size()):
+		if answer_index != correct_index:
+			wrong_indices.append(answer_index)
+	if wrong_indices.size() < 2:
+		return
+	wrong_indices.shuffle()
+
+	_quiz_fifty_fifty_used = true
+	_quiz_fifty_fifty_hidden_indices = [wrong_indices[0], wrong_indices[1]]
+	if !_quiz_hint_buttons.is_empty():
+		var fifty_button: Control = _quiz_hint_buttons[0]
+		if fifty_button != null and is_instance_valid(fifty_button):
+			fifty_button.set("button_disabled", true)
+
+	# Launch both removal tweens in the same frame so the two wrong answers
+	# bounce out simultaneously.
+	for hidden_index: int in _quiz_fifty_fifty_hidden_indices:
+		var answer_button := _quiz_answer_buttons[hidden_index] as Button
+		if answer_button != null and is_instance_valid(answer_button):
+			_play_quiz_fifty_fifty_removal(answer_button)
+
+func _quiz_replacement_question() -> Dictionary:
+	var questions: Array = Database.get_quiz_questions_by_theme_index(_quiz_selected_theme_index)
+	if questions.size() <= 1:
+		return {}
+	var current_id: int = int(_quiz_current_question.get("id", -1))
+	var current_text: String = str(_quiz_current_question.get("question", ""))
+	var current_difficulty: float = float(_quiz_current_question.get("difficulty", 0.5))
+	var nearest_distance: float = 999.0
+	var candidates: Array = []
+	for question_variant: Variant in questions:
+		if !(question_variant is Dictionary):
+			continue
+		var question: Dictionary = question_variant
+		var same_question: bool = (
+			(current_id >= 0 and int(question.get("id", -2)) == current_id)
+			or (current_id < 0 and str(question.get("question", "")) == current_text)
+		)
+		if same_question:
+			continue
+		var distance: float = absf(float(question.get("difficulty", 0.5)) - current_difficulty)
+		nearest_distance = minf(nearest_distance, distance)
+		candidates.append(question)
+	if candidates.is_empty():
+		return {}
+
+	# Pick randomly among the closest difficulty band instead of always taking the
+	# mathematically nearest item, so repeated replacements still feel varied.
+	var close_candidates: Array = []
+	var allowed_distance: float = nearest_distance + 0.08
+	for question_variant: Variant in candidates:
+		var question: Dictionary = question_variant
+		var distance: float = absf(float(question.get("difficulty", 0.5)) - current_difficulty)
+		if distance <= allowed_distance:
+			close_candidates.append(question)
+	var pool: Array = close_candidates if !close_candidates.is_empty() else candidates
+	return (pool[randi_range(0, pool.size() - 1)] as Dictionary).duplicate(true)
+
+func _set_quiz_hint_buttons_temporarily_disabled(disabled: bool) -> void:
+	for hint_index: int in range(_quiz_hint_buttons.size()):
+		var hint_button: Control = _quiz_hint_buttons[hint_index]
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		var should_disable: bool = disabled
+		if !disabled:
+			should_disable = (
+				(hint_index == 0 and _quiz_fifty_fifty_used)
+				or (hint_index == 1 and _quiz_replace_question_used)
+			)
+		hint_button.set("button_disabled", should_disable)
+
+func _prepare_quiz_answer_for_replacement(
+	button: Button,
+	answer_text: String,
+	right_offset: float
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var press_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	if press_tween_variant is Tween:
+		var press_tween := press_tween_variant as Tween
+		if press_tween.is_valid():
+			press_tween.kill()
+	var fifty_tween_variant: Variant = button.get_meta(&"quiz_fifty_fifty_tween", null)
+	if fifty_tween_variant is Tween:
+		var fifty_tween := fifty_tween_variant as Tween
+		if fifty_tween.is_valid():
+			fifty_tween.kill()
+
+	button.visible = true
+	button.disabled = true
+	button.scale = Vector2.ONE
+	button.modulate = Color.WHITE
+	button.position.x = right_offset
+	button.set_meta(&"quiz_answer_keep_shadow_hidden", false)
+	_set_quiz_answer_fill(button, Color.WHITE)
+	var answer_label := _quiz_answer_label(button)
+	if answer_label != null and is_instance_valid(answer_label):
+		answer_label.text = answer_text
+		answer_label.position.x = 18.0
+		answer_label.modulate = Color.WHITE
+
+	var shadow_panel := _quiz_answer_shadow(button)
+	if shadow_panel != null and is_instance_valid(shadow_panel):
+		shadow_panel.visible = true
+		shadow_panel.scale = Vector2.ONE
+		shadow_panel.modulate = Color.WHITE
+		shadow_panel.position.x = right_offset
+
+func _on_quiz_replace_question_pressed() -> void:
+	if (
+		!_quiz_screen_active
+		or _quiz_answer_locked
+		or _quiz_replace_question_used
+		or _quiz_question_replacing
+	):
+		return
+	var next_question: Dictionary = _quiz_replacement_question()
+	if next_question.is_empty():
+		return
+	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
+		return
+
+	_quiz_replace_question_used = true
+	_quiz_question_replacing = true
+	_set_quiz_hint_buttons_temporarily_disabled(true)
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button != null and is_instance_valid(answer_button):
+			answer_button.disabled = true
+
+	# Fade the old question out while the current answers travel off-screen to
+	# the left. Hidden 50/50 answers simply stay hidden until the new set arrives.
+	var slide_distance: float = maxf(get_viewport_rect().size.x, 480.0)
+	var outgoing := create_tween()
+	outgoing.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	outgoing.set_parallel(true)
+	var question_fade_out := outgoing.tween_property(
+		_quiz_question_label,
+		"modulate:a",
+		0.0,
+		0.20
+	)
+	question_fade_out.set_trans(Tween.TRANS_SINE)
+	question_fade_out.set_ease(Tween.EASE_IN)
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
+			continue
+		var answer_out := outgoing.tween_property(
+			answer_button,
+			"position:x",
+			-slide_distance,
+			0.26
+		)
+		answer_out.set_trans(Tween.TRANS_QUAD)
+		answer_out.set_ease(Tween.EASE_IN)
+		var shadow_panel := _quiz_answer_shadow(answer_button)
+		if shadow_panel != null and is_instance_valid(shadow_panel) and shadow_panel.visible:
+			var shadow_out := outgoing.tween_property(
+				shadow_panel,
+				"position:x",
+				-slide_distance,
+				0.26
+			)
+			shadow_out.set_trans(Tween.TRANS_QUAD)
+			shadow_out.set_ease(Tween.EASE_IN)
+	await outgoing.finished
+	if !_quiz_screen_active or _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
+		_quiz_question_replacing = false
+		return
+
+	_quiz_current_question = next_question
+	_quiz_answer_locked = false
+	_quiz_selected_answer_index = -1
+	_quiz_fifty_fifty_used = false
+	_quiz_fifty_fifty_hidden_indices.clear()
+
+	var new_question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
+	_quiz_question_label.text = new_question_text
+	_quiz_question_label.add_theme_font_size_override(
+		"font_size",
+		_quiz_question_font_size(new_question_text)
+	)
+	_quiz_question_label.modulate.a = 0.0
+
+	var answers_variant: Variant = _quiz_current_question.get("answers", [])
+	var answers: Array = Array(answers_variant) if answers_variant is Array else []
+	for answer_index: int in range(_quiz_answer_buttons.size()):
+		var answer_button := _quiz_answer_buttons[answer_index] as Button
+		if answer_button == null or !is_instance_valid(answer_button):
+			continue
+		if answer_index >= answers.size():
+			answer_button.visible = false
+			continue
+		_prepare_quiz_answer_for_replacement(
+			answer_button,
+			str(answers[answer_index]).strip_edges(),
+			slide_distance
+		)
+
+	# Bring the new answers in from the right while the replacement question fades
+	# back in. The panel itself stays fixed so the transition reads as content swap.
+	var incoming := create_tween()
+	incoming.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	incoming.set_parallel(true)
+	var question_fade_in := incoming.tween_property(
+		_quiz_question_label,
+		"modulate:a",
+		1.0,
+		0.24
+	)
+	question_fade_in.set_trans(Tween.TRANS_SINE)
+	question_fade_in.set_ease(Tween.EASE_OUT)
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
+			continue
+		var answer_in := incoming.tween_property(answer_button, "position:x", 0.0, 0.34)
+		answer_in.set_trans(Tween.TRANS_CUBIC)
+		answer_in.set_ease(Tween.EASE_OUT)
+		var shadow_panel := _quiz_answer_shadow(answer_button)
+		if shadow_panel != null and is_instance_valid(shadow_panel):
+			var shadow_in := incoming.tween_property(shadow_panel, "position:x", 0.0, 0.34)
+			shadow_in.set_trans(Tween.TRANS_CUBIC)
+			shadow_in.set_ease(Tween.EASE_OUT)
+	await incoming.finished
+	if !_quiz_screen_active:
+		_quiz_question_replacing = false
+		return
+
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button != null and is_instance_valid(answer_button) and answer_button.visible:
+			answer_button.disabled = false
+	_quiz_question_replacing = false
+	_set_quiz_hint_buttons_temporarily_disabled(false)
+
 func _stage_portrait_quiz_hint_buttons() -> void:
-	# Keep the two non-comment hint controls visible as requested. Their quiz
-	# semantics are intentionally left untouched for the next iteration; no hint
-	# inventory is consumed by these placeholder buttons yet.
+	# Quiz uses dedicated 50/50 and question-replacement controls. Both are wired
+	# directly in this screen and keep independent per-question used states.
 	var button_width: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.x
 	var total_width: float = button_width * 2.0 + PORTRAIT_QUIZ_HINT_GAP
 	var first_x: float = (PORTRAIT_STAGE_SIZE.x - total_width) * 0.5
 	var hint_button_y: float = _portrait_quiz_hint_button_y()
 	var open_button := _stage_round_button(
 		Rect2(first_x, hint_button_y, button_width, PORTRAIT_GAME_HINT_BUTTON_SIZE.y),
-		Callable(),
+		Callable(self, "_on_quiz_fifty_fifty_pressed"),
 		"",
 		false,
 		false,
@@ -3094,7 +3763,7 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 			button_width,
 			PORTRAIT_GAME_HINT_BUTTON_SIZE.y
 		),
-		Callable(),
+		Callable(self, "_on_quiz_replace_question_pressed"),
 		"",
 		false,
 		false,
@@ -3106,6 +3775,31 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
 	_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
 	_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
+	_quiz_hint_buttons = [open_button, remove_button]
+	if _quiz_fifty_fifty_used:
+		open_button.set("button_disabled", true)
+	if _quiz_replace_question_used or _quiz_question_replacing:
+		remove_button.set("button_disabled", true)
+
+func _stage_portrait_quiz_continue_button() -> Control:
+	# Use the exact same long orange action component and authored action-row rect
+	# as the in-place result screen from the normal word-guessing mode.
+	var continue_button := _stage_main_button(
+		_portrait_in_place_result_button_rect(),
+		Callable(self, "_on_quiz_continue_pressed"),
+		tr("COMMON_CONTINUE"),
+		22,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	continue_button.z_index = 50
+	continue_button.visible = false
+	continue_button.set("attention_bounce_enabled", false)
+	return continue_button
 
 func _show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
@@ -3146,7 +3840,7 @@ func _show_quiz_game_screen() -> void:
 	var theme_label := _stage_heading_label(
 		PORTRAIT_QUIZ_THEME_TITLE_RECT,
 		theme_name,
-		24,
+		26,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -3204,6 +3898,7 @@ func _show_quiz_game_screen() -> void:
 	question_label.clip_text = false
 	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	question_label.z_index = 2
+	_quiz_question_label = question_label
 
 	var answers_variant: Variant = _quiz_current_question.get("answers", [])
 	var answers: Array = Array(answers_variant) if answers_variant is Array else []
@@ -3214,6 +3909,8 @@ func _show_quiz_game_screen() -> void:
 	var answer_hint_group_content: Control = _portrait_begin_bottom_attached_group()
 	var answer_start_y: float = _portrait_quiz_answer_start_y(visible_answer_count)
 	_quiz_answer_buttons.clear()
+	_quiz_hint_buttons.clear()
+	_quiz_continue_button = null
 	for answer_index in range(visible_answer_count):
 		var answer_text: String = str(answers[answer_index]).strip_edges()
 		var answer_button := _stage_quiz_answer_button(
@@ -3227,10 +3924,17 @@ func _show_quiz_game_screen() -> void:
 			_quiz_answer_font_size(answer_text)
 		)
 		answer_button.set_meta(&"quiz_answer_index", answer_index)
+		answer_button.pressed.connect(Callable(self, "_play_ui_click_sound"))
+		answer_button.pressed.connect(
+			Callable(self, "_on_quiz_answer_selected").bind(answer_index)
+		)
 		_quiz_answer_buttons.append(answer_button)
 
+	_apply_quiz_fifty_fifty_hidden_state()
 	_stage_portrait_quiz_hint_buttons()
+	_quiz_continue_button = _stage_portrait_quiz_continue_button()
 	_portrait_end_adaptive_group(answer_hint_group_content)
+	_restore_quiz_answer_result_state()
 	_stage_portrait_ad_banner()
 
 func show_theme_select() -> void:
