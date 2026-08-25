@@ -379,6 +379,9 @@ func _new_single_player_bucket() -> Dictionary:
 		"level_seeds": {},
 		"theme_reroll_states": {},
 		"word_stats": {},
+		"level_question_slots": {},
+		"level_question_ids": {},
+		"question_stats": {},
 	}
 
 func _single_player_bucket(lang: String) -> Dictionary:
@@ -386,7 +389,16 @@ func _single_player_bucket(lang: String) -> Dictionary:
 	if !single_player.has(lang_key) or !(single_player[lang_key] is Dictionary):
 		single_player[lang_key] = _new_single_player_bucket()
 	var bucket: Dictionary = single_player[lang_key]
-	for dictionary_key in ["levels", "selected_themes", "level_seeds", "theme_reroll_states", "word_stats"]:
+	for dictionary_key in [
+		"levels",
+		"selected_themes",
+		"level_seeds",
+		"theme_reroll_states",
+		"word_stats",
+		"level_question_slots",
+		"level_question_ids",
+		"question_stats",
+	]:
 		if !bucket.has(dictionary_key) or !(bucket[dictionary_key] is Dictionary):
 			bucket[dictionary_key] = {}
 	if !bucket.has("unlocked_level"):
@@ -439,6 +451,82 @@ func mark_single_player_word_guessed(lang: String, theme_index: int, word_index:
 	if word_index >= item["guessed"].size():
 		return
 	item["guessed"][word_index] = true
+	save_game()
+
+func get_single_level_question_slot(lang: String, level_index: int) -> int:
+	if level_index < 0:
+		return -1
+	var bucket := _single_player_bucket(lang)
+	var slots: Dictionary = bucket["level_question_slots"]
+	return int(slots.get(str(level_index), -1))
+
+func set_single_level_question_slot(lang: String, level_index: int, question_slot: int) -> void:
+	if level_index < 0 or question_slot < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var slots: Dictionary = bucket["level_question_slots"]
+	slots[str(level_index)] = question_slot
+	bucket["level_question_slots"] = slots
+	single_player[lang_key] = bucket
+	save_game()
+
+func get_single_level_question_id(lang: String, level_index: int) -> int:
+	if level_index < 0:
+		return -1
+	var bucket := _single_player_bucket(lang)
+	var question_ids: Dictionary = bucket["level_question_ids"]
+	return int(question_ids.get(str(level_index), -1))
+
+func set_single_level_question_id(lang: String, level_index: int, question_id: int) -> void:
+	if level_index < 0 or question_id < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var question_ids: Dictionary = bucket["level_question_ids"]
+	question_ids[str(level_index)] = question_id
+	bucket["level_question_ids"] = question_ids
+	single_player[lang_key] = bucket
+	save_game()
+
+func _single_player_question_theme_stats(lang: String, theme_index: int) -> Dictionary:
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var question_stats: Dictionary = bucket["question_stats"]
+	var theme_key := str(theme_index)
+	if !question_stats.has(theme_key) or !(question_stats[theme_key] is Dictionary):
+		question_stats[theme_key] = {"seen": {}}
+	var theme_stats: Dictionary = question_stats[theme_key]
+	if !theme_stats.has("seen") or !(theme_stats["seen"] is Dictionary):
+		theme_stats["seen"] = {}
+	question_stats[theme_key] = theme_stats
+	bucket["question_stats"] = question_stats
+	single_player[lang_key] = bucket
+	return theme_stats
+
+func has_single_player_question_been_seen(lang: String, theme_index: int, question_id: int) -> bool:
+	if theme_index < 0 or question_id < 0:
+		return false
+	var theme_stats := _single_player_question_theme_stats(lang, theme_index)
+	var seen: Dictionary = theme_stats["seen"]
+	return bool(seen.get(str(question_id), false))
+
+func mark_single_player_question_seen(lang: String, theme_index: int, question_id: int) -> void:
+	if theme_index < 0 or question_id < 0:
+		return
+	var lang_key := _normalize_language(lang)
+	var theme_key := str(theme_index)
+	var theme_stats: Dictionary = _single_player_question_theme_stats(lang_key, theme_index)
+	var seen: Dictionary = theme_stats["seen"]
+	if bool(seen.get(str(question_id), false)):
+		return
+	seen[str(question_id)] = true
+	theme_stats["seen"] = seen
+	var bucket := _single_player_bucket(lang_key)
+	var question_stats: Dictionary = bucket["question_stats"]
+	question_stats[theme_key] = theme_stats
+	bucket["question_stats"] = question_stats
+	single_player[lang_key] = bucket
 	save_game()
 
 func _single_level_status(value: Variant) -> int:
@@ -699,8 +787,12 @@ func reset_single_level_attempt(
 	var selected_themes: Dictionary = bucket["selected_themes"]
 	var level_seeds: Dictionary = bucket["level_seeds"]
 	var theme_reroll_states: Dictionary = bucket["theme_reroll_states"]
+	var level_question_slots: Dictionary = bucket["level_question_slots"]
+	var level_question_ids: Dictionary = bucket["level_question_ids"]
 	levels.erase(level_key)
 	selected_themes.erase(level_key)
+	level_question_slots.erase(level_key)
+	level_question_ids.erase(level_key)
 	if reroll_seed:
 		level_seeds.erase(level_key)
 	if clear_theme_reroll_state:
@@ -709,5 +801,7 @@ func reset_single_level_attempt(
 	bucket["selected_themes"] = selected_themes
 	bucket["level_seeds"] = level_seeds
 	bucket["theme_reroll_states"] = theme_reroll_states
+	bucket["level_question_slots"] = level_question_slots
+	bucket["level_question_ids"] = level_question_ids
 	single_player[lang_key] = bucket
 	save_game()

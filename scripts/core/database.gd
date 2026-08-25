@@ -392,6 +392,17 @@ func get_quiz_question_count_by_theme_index(theme_index: int) -> int:
 	var cached: Variant = _quiz_questions_by_theme_cache.get(theme_id, [])
 	return Array(cached).size() if cached is Array else 0
 
+func get_quiz_question_by_id(theme_index: int, question_id: int) -> Dictionary:
+	if question_id < 0:
+		return {}
+	for question_variant: Variant in get_quiz_questions_by_theme_index(theme_index):
+		if !(question_variant is Dictionary):
+			continue
+		var question: Dictionary = question_variant
+		if int(question.get("id", -1)) == question_id:
+			return question.duplicate(true)
+	return {}
+
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	var cache_key := "%d:%d" % [theme_index, difficulty_filter]
 	var cached_words: Variant = _words_by_index_cache.get(cache_key)

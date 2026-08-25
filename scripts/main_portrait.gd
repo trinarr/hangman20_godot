@@ -492,6 +492,8 @@ var _quiz_fifty_fifty_hidden_indices: Array = []
 var _quiz_replace_question_used: bool = false
 var _quiz_question_replacing: bool = false
 var _quiz_question_label: Label = null
+var _quiz_single_player_embedded: bool = false
+var _quiz_single_player_target_difficulty: float = 0.5
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
@@ -2647,6 +2649,8 @@ func show_menu() -> void:
 	_quiz_selected_theme_index = -1
 	_quiz_current_question.clear()
 	_quiz_answer_buttons.clear()
+	_quiz_single_player_embedded = false
+	_quiz_single_player_target_difficulty = 0.5
 	_show_menu_screen()
 
 func _show_menu_screen() -> void:
@@ -2845,6 +2849,8 @@ func _quiz_question_count_text(question_count: int) -> String:
 func show_quiz_theme_select() -> void:
 	_quiz_mode_active = true
 	_quiz_screen_active = false
+	_quiz_single_player_embedded = false
+	_quiz_single_player_target_difficulty = 0.5
 	_show_quiz_theme_select_screen()
 
 func _show_quiz_theme_select_screen() -> void:
@@ -2917,6 +2923,8 @@ func _start_quiz_theme(theme_index: int) -> void:
 		show_quiz_theme_select()
 		return
 	_quiz_mode_active = true
+	_quiz_single_player_embedded = false
+	_quiz_single_player_target_difficulty = 0.5
 	_quiz_selected_theme_index = theme_index
 	var selected_question: Dictionary = questions[randi_range(0, questions.size() - 1)]
 	_quiz_current_question = selected_question.duplicate(true)
@@ -2927,6 +2935,65 @@ func _start_quiz_theme(theme_index: int) -> void:
 	_quiz_replace_question_used = false
 	_quiz_question_replacing = false
 	_show_quiz_game_screen()
+
+func _single_player_embedded_question_active() -> bool:
+	return _quiz_single_player_embedded and _quiz_screen_active and !game_finished
+
+func _start_single_player_question(level_index: int, word_slot: int) -> void:
+	if _single_player_level_word_status(level_index, word_slot) != 0:
+		return
+	var level_question_slot: int = _single_player_level_question_slot_index(level_index)
+	var question: Dictionary = _single_player_level_question(level_index)
+	var theme_index: int = _single_player_level_selected_theme(level_index)
+	if word_slot != level_question_slot or question.is_empty() or theme_index < 0:
+		super._start_single_player_question(level_index, word_slot)
+		return
+
+	GameSession.discard_current_round()
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = word_slot
+	_reset_single_player_extra_attempt_offers()
+	game_finished = false
+	last_result_data = {}
+	last_result_is_win = false
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	_quiz_mode_active = true
+	_quiz_single_player_embedded = true
+	_quiz_single_player_target_difficulty = _single_player_level_question_target_difficulty(level_index)
+	_quiz_selected_theme_index = theme_index
+	_quiz_current_question = question.duplicate(true)
+	_quiz_answer_locked = false
+	_quiz_selected_answer_index = -1
+	_quiz_fifty_fifty_used = false
+	_quiz_fifty_fifty_hidden_indices.clear()
+	_quiz_replace_question_used = false
+	_quiz_question_replacing = false
+	var question_id: int = int(_quiz_current_question.get("id", -1))
+	if question_id >= 0:
+		GameState.mark_single_player_question_seen(
+			Database.current_language,
+			theme_index,
+			question_id
+		)
+	_show_quiz_game_screen()
+
+func _record_single_player_quiz_result(is_win: bool) -> void:
+	if !_quiz_single_player_embedded or game_finished:
+		return
+	game_finished = true
+	last_result_is_win = is_win
+	hero_force_default_pose = false
+	var result: Dictionary = {"lines": []}
+	if is_win:
+		GameState.add_soft_currency(GameState.WORD_REWARD_COINS)
+	else:
+		GameState.lose_heart()
+	last_result_data = _single_player_mark_current_word_finished(
+		result,
+		is_win,
+		true,
+		false
+	)
 
 func _quiz_question_font_size(question_text: String) -> int:
 	# Match the comment popup typography for quiz questions. The larger question
@@ -3299,6 +3366,8 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		return
 	_quiz_answer_locked = true
 	_quiz_selected_answer_index = answer_index
+	if _quiz_single_player_embedded:
+		_record_single_player_quiz_result(answer_index == correct_index)
 	_disable_quiz_answer_buttons()
 	_hide_quiz_hint_buttons()
 
@@ -3394,6 +3463,14 @@ func _portrait_quiz_hint_button_y() -> float:
 
 func _on_quiz_continue_pressed() -> void:
 	if !_quiz_screen_active or _quiz_selected_theme_index < 0:
+		return
+	if _quiz_single_player_embedded:
+		if !game_finished:
+			return
+		_quiz_single_player_embedded = false
+		_quiz_mode_active = false
+		_quiz_screen_active = false
+		_show_single_player_reward_chain_screen()
 		return
 	var questions: Array = Database.get_quiz_questions_by_theme_index(_quiz_selected_theme_index)
 	if questions.is_empty():
@@ -3529,32 +3606,52 @@ func _quiz_replacement_question() -> Dictionary:
 		return {}
 	var current_id: int = int(_quiz_current_question.get("id", -1))
 	var current_text: String = str(_quiz_current_question.get("question", ""))
-	var current_difficulty: float = float(_quiz_current_question.get("difficulty", 0.5))
-	var nearest_distance: float = 999.0
-	var candidates: Array = []
+	var target_difficulty: float = (
+		_quiz_single_player_target_difficulty
+		if _quiz_single_player_embedded
+		else float(_quiz_current_question.get("difficulty", 0.5))
+	)
+	var unseen_candidates: Array = []
+	var fallback_candidates: Array = []
 	for question_variant: Variant in questions:
 		if !(question_variant is Dictionary):
 			continue
 		var question: Dictionary = question_variant
+		var question_id: int = int(question.get("id", -1))
 		var same_question: bool = (
-			(current_id >= 0 and int(question.get("id", -2)) == current_id)
+			(current_id >= 0 and question_id == current_id)
 			or (current_id < 0 and str(question.get("question", "")) == current_text)
 		)
 		if same_question:
 			continue
-		var distance: float = absf(float(question.get("difficulty", 0.5)) - current_difficulty)
-		nearest_distance = minf(nearest_distance, distance)
-		candidates.append(question)
+		fallback_candidates.append(question)
+		if (
+			!_quiz_single_player_embedded
+			or !GameState.has_single_player_question_been_seen(
+				Database.current_language,
+				_quiz_selected_theme_index,
+				question_id
+			)
+		):
+			unseen_candidates.append(question)
+	var candidates: Array = unseen_candidates
+	if candidates.is_empty():
+		candidates = fallback_candidates
 	if candidates.is_empty():
 		return {}
 
-	# Pick randomly among the closest difficulty band instead of always taking the
-	# mathematically nearest item, so repeated replacements still feel varied.
+	var nearest_distance: float = INF
+	for question_variant: Variant in candidates:
+		var question: Dictionary = question_variant
+		nearest_distance = minf(
+			nearest_distance,
+			absf(float(question.get("difficulty", 0.5)) - target_difficulty)
+		)
 	var close_candidates: Array = []
 	var allowed_distance: float = nearest_distance + 0.08
 	for question_variant: Variant in candidates:
 		var question: Dictionary = question_variant
-		var distance: float = absf(float(question.get("difficulty", 0.5)) - current_difficulty)
+		var distance: float = absf(float(question.get("difficulty", 0.5)) - target_difficulty)
 		if distance <= allowed_distance:
 			close_candidates.append(question)
 	var pool: Array = close_candidates if !close_candidates.is_empty() else candidates
@@ -3675,6 +3772,20 @@ func _on_quiz_replace_question_pressed() -> void:
 		return
 
 	_quiz_current_question = next_question
+	if _quiz_single_player_embedded:
+		var replacement_id: int = int(_quiz_current_question.get("id", -1))
+		if replacement_id >= 0:
+			GameState.set_single_level_question_id(
+				Database.current_language,
+				single_player_active_level_index,
+				replacement_id
+			)
+			GameState.mark_single_player_question_seen(
+				Database.current_language,
+				_quiz_selected_theme_index,
+				replacement_id
+			)
+			_invalidate_single_player_level_cache()
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
@@ -3828,9 +3939,14 @@ func _show_quiz_game_screen() -> void:
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT
 	)
 	_stage_menu_settings_button()
+	var quiz_back_action: Callable = (
+		Callable(self, "_show_exit_game_popup")
+		if _quiz_single_player_embedded
+		else Callable(self, "show_quiz_theme_select")
+	)
 	var back_button := _stage_round_icon_button(
 		PORTRAIT_PAGE_BACK_BUTTON_RECT,
-		Callable(self, "show_quiz_theme_select"),
+		quiz_back_action,
 		PORTRAIT_BACK_ARROW_ICON,
 		PORTRAIT_PAGE_BACK_ICON_SIZE
 	)
@@ -4476,6 +4592,8 @@ func _show_single_player_level_popup(
 	selected_theme: int = -1,
 	retry_after_loss: bool = false
 ) -> void:
+	_quiz_single_player_embedded = false
+	_quiz_single_player_target_difficulty = 0.5
 	_remove_single_player_theme_popup()
 	single_player_retry_after_loss = retry_after_loss
 	level_index = _prepare_single_player_level_attempt(level_index)

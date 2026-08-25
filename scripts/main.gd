@@ -33,6 +33,7 @@ const SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = 0.06
 const SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = 0.05
 const SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = 0.12
 const SINGLE_PLAYER_WORD_PICK_JITTER: float = 0.012
+const SINGLE_PLAYER_QUESTION_PICK_JITTER: float = 0.008
 const DIFFICULTY_MODE_HARD: int = 1
 const DIFFICULTY_MODE_NORMAL: int = 2
 const DIFFICULTY_HARD_NORMAL_TINT := UI_PALETTE.CHALLENGE_NORMAL
@@ -995,6 +996,101 @@ func _single_player_words_for_theme(
 		})
 	return words
 
+func _single_player_level_question_slot(level_index: int, level_seed: int, word_count: int) -> int:
+	if word_count < 3:
+		return -1
+	var saved_slot: int = GameState.get_single_level_question_slot(
+		Database.current_language,
+		level_index
+	)
+	var first_slot: int = int(floor(float(word_count) * 0.5))
+	var last_slot: int = word_count - 2
+	if saved_slot >= first_slot and saved_slot <= last_slot:
+		return saved_slot
+	if first_slot > last_slot:
+		first_slot = last_slot
+	var available_slots: Array[int] = []
+	for slot_index: int in range(first_slot, last_slot + 1):
+		if GameState.get_single_level_word_status(
+			Database.current_language,
+			level_index,
+			slot_index,
+			word_count
+		) == 0:
+			available_slots.append(slot_index)
+	if available_slots.is_empty():
+		return -1
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _single_player_seed(level_index, level_seed, 503)
+	var question_slot: int = available_slots[rng.randi_range(0, available_slots.size() - 1)]
+	GameState.set_single_level_question_slot(
+		Database.current_language,
+		level_index,
+		question_slot
+	)
+	return question_slot
+
+func _single_player_pick_level_question(
+	level_index: int,
+	level_seed: int,
+	theme_index: int,
+	target_difficulty: float
+) -> Dictionary:
+	var saved_question_id: int = GameState.get_single_level_question_id(
+		Database.current_language,
+		level_index
+	)
+	if saved_question_id >= 0:
+		var saved_question := Database.get_quiz_question_by_id(theme_index, saved_question_id)
+		if !saved_question.is_empty():
+			return saved_question
+
+	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
+	if questions.is_empty():
+		return {}
+	var unseen_questions: Array = []
+	for question_variant: Variant in questions:
+		if !(question_variant is Dictionary):
+			continue
+		var question: Dictionary = question_variant
+		var question_id: int = int(question.get("id", -1))
+		if !GameState.has_single_player_question_been_seen(
+			Database.current_language,
+			theme_index,
+			question_id
+		):
+			unseen_questions.append(question)
+	# An endless campaign can eventually exhaust a finite theme pool. Avoid every
+	# repeat while unseen questions remain; only after the full theme was seen do
+	# we allow a new cycle rather than leaving the level without a question.
+	var pool: Array = unseen_questions if !unseen_questions.is_empty() else questions
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 809)
+	var best_question: Dictionary = {}
+	var best_score: float = INF
+	for question_variant: Variant in pool:
+		if !(question_variant is Dictionary):
+			continue
+		var question: Dictionary = question_variant
+		var score: float = (
+			absf(float(question.get("difficulty", 0.5)) - target_difficulty)
+			+ rng.randf_range(0.0, SINGLE_PLAYER_QUESTION_PICK_JITTER)
+		)
+		if score < best_score:
+			best_score = score
+			best_question = question
+	if best_question.is_empty():
+		return {}
+	var picked_question: Dictionary = best_question.duplicate(true)
+	var picked_id: int = int(picked_question.get("id", -1))
+	if picked_id >= 0:
+		GameState.set_single_level_question_id(
+			Database.current_language,
+			level_index,
+			picked_id
+		)
+	return picked_question
+
 func _single_player_level_data(level_index: int) -> Dictionary:
 	if level_index < 0:
 		return {}
@@ -1044,12 +1140,31 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			word_count,
 			target_difficulty
 		)
+	var question_slot: int = -1
+	var question: Dictionary = {}
+	var question_target_difficulty: float = target_difficulty
+	if selected_theme >= 0 and word_count >= 3 and words.size() >= word_count:
+		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
+		if question_slot >= 0 and question_slot < words.size():
+			var replaced_word: Dictionary = words[question_slot]
+			question_target_difficulty = float(replaced_word.get("difficulty", target_difficulty))
+			question = _single_player_pick_level_question(
+				level_index,
+				level_seed,
+				selected_theme,
+				question_target_difficulty
+			)
+		if question.is_empty():
+			question_slot = -1
 	var level_data := {
 		"index": level_index,
 		"theme_options": options,
 		"selected_theme_index": selected_theme,
 		"word_count": word_count,
 		"words": words,
+		"question_slot": question_slot,
+		"question": question,
+		"question_target_difficulty": question_target_difficulty,
 		"target_difficulty": target_difficulty,
 		"is_bonus_level": _single_player_is_bonus_level(level_index),
 	}
@@ -1064,6 +1179,22 @@ func _single_player_level_selected_theme(level_index: int) -> int:
 
 func _single_player_level_words(level_index: int) -> Array:
 	return Array(_single_player_level_data(level_index).get("words", []))
+
+func _single_player_level_question_slot_index(level_index: int) -> int:
+	return int(_single_player_level_data(level_index).get("question_slot", -1))
+
+func _single_player_level_question(level_index: int) -> Dictionary:
+	var question_variant: Variant = _single_player_level_data(level_index).get("question", {})
+	if question_variant is Dictionary:
+		var question: Dictionary = question_variant
+		return question.duplicate(true)
+	return {}
+
+func _single_player_level_question_target_difficulty(level_index: int) -> float:
+	return float(_single_player_level_data(level_index).get(
+		"question_target_difficulty",
+		GameState.get_single_player_adaptive_difficulty(Database.current_language)
+	))
 
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
@@ -1513,6 +1644,14 @@ func _close_single_player_retry_popup() -> void:
 	_remove_single_player_theme_popup()
 	show_menu()
 
+func _single_player_embedded_question_active() -> bool:
+	return false
+
+func _start_single_player_question(level_index: int, word_slot: int) -> void:
+	# Landscape/base implementations that do not provide the quiz UI can still
+	# play the replaced word instead of getting stuck on the level slot.
+	_start_single_player_word(level_index, word_slot)
+
 func _start_next_single_player_word(level_index: int) -> void:
 	if _single_player_level_selected_theme(level_index) < 0:
 		_show_single_player_level_popup(level_index)
@@ -1521,7 +1660,10 @@ func _start_next_single_player_word(level_index: int) -> void:
 	if next_slot < 0:
 		_open_next_single_player_level()
 		return
-	_start_single_player_word(level_index, next_slot)
+	if next_slot == _single_player_level_question_slot_index(level_index):
+		_start_single_player_question(level_index, next_slot)
+	else:
+		_start_single_player_word(level_index, next_slot)
 
 func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	var words: Array = _single_player_level_words(level_index)
@@ -1648,7 +1790,12 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 	result_transition_generation += 1
 	round_result_delay_requested = false
 	var should_lose_heart: bool = false
-	if !game_finished and GameSession.is_active and level_index >= 0 and single_player_active_word_slot >= 0:
+	if (
+		!game_finished
+		and (GameSession.is_active or _single_player_embedded_question_active())
+		and level_index >= 0
+		and single_player_active_word_slot >= 0
+	):
 		game_finished = true
 		forfeit_result = _single_player_mark_current_word_finished({}, false, false)
 		chain_failed = true
