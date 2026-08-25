@@ -10622,14 +10622,24 @@ func _show_single_player_reward_chain_screen() -> void:
 	# drawn over the paper background.
 	var final_reward_background_overlay: Control = null
 	if is_final_reward:
+		# The animated theme pattern belongs only to the main reward body. Keep it
+		# below the top currency bar and below the dark reward header strip, so it
+		# does not bleed into the upper bar area.
+		var final_reward_pattern_top: float = (
+			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT.position.y
+			+ PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT.size.y
+		)
 		final_reward_background_overlay = _stage_horizontal_fill(
-			PORTRAIT_HEADER_HEIGHT,
-			PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+			final_reward_pattern_top,
+			PORTRAIT_STAGE_SIZE.y - final_reward_pattern_top,
 			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 		)
 		final_reward_background_overlay.name = "FinalRewardBackgroundOverlay"
 		final_reward_background_overlay.modulate.a = 0.0
-		final_reward_background_overlay.z_index = -1
+		# Keep the themed backdrop above the screen base background so the
+		# animated pattern remains visible, but still behind the reward content
+		# that is added afterwards.
+		final_reward_background_overlay.z_index = 0
 		_add_final_reward_theme_pattern(final_reward_background_overlay, GameSession.theme_id)
 	var masked_hero: Dictionary = _create_single_player_reward_masked_hero(
 		reward_screen_content,
