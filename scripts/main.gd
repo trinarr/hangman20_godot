@@ -863,15 +863,24 @@ func _single_player_level_word_target(level_index: int) -> int:
 	if level_number == 1:
 		return 1
 	var word_count: int = 2
-	if level_number > 30:
+	if level_number > 18:
 		word_count = 5
-	elif level_number > 10:
+	elif level_number >= 8:
 		word_count = 4
-	elif level_number > 5:
+	elif level_number >= 5:
 		word_count = 3
 	if _single_player_is_bonus_level(level_index):
 		word_count += 2
 	return word_count
+
+func _single_player_level_uses_question(level_index: int, word_count: int) -> bool:
+	# Levels 2-4 are intentionally two-part onboarding levels: one word followed
+	# by one quiz question. From level 5 onward the normal question-slot rules
+	# apply to every level with at least three parts.
+	var level_number: int = maxi(level_index + 1, 1)
+	if level_number >= 2 and level_number <= 4:
+		return word_count >= 2
+	return word_count >= 3
 
 func _single_player_is_bonus_level(level_index: int) -> bool:
 	var level_number: int = level_index + 1
@@ -997,14 +1006,21 @@ func _single_player_words_for_theme(
 	return words
 
 func _single_player_level_question_slot(level_index: int, level_seed: int, word_count: int) -> int:
-	if word_count < 3:
+	if !_single_player_level_uses_question(level_index, word_count):
 		return -1
 	var saved_slot: int = GameState.get_single_level_question_slot(
 		Database.current_language,
 		level_index
 	)
+	var level_number: int = maxi(level_index + 1, 1)
 	var first_slot: int = int(floor(float(word_count) * 0.5))
 	var last_slot: int = word_count - 2
+	# The second, third and fourth levels are always "word -> quiz". Their quiz
+	# therefore occupies the second/final slot instead of using the later-half
+	# placement rule used by normal 3+ part levels.
+	if level_number >= 2 and level_number <= 4 and word_count == 2:
+		first_slot = 1
+		last_slot = 1
 	if saved_slot >= first_slot and saved_slot <= last_slot:
 		return saved_slot
 	if first_slot > last_slot:
@@ -1143,7 +1159,11 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var question_slot: int = -1
 	var question: Dictionary = {}
 	var question_target_difficulty: float = target_difficulty
-	if selected_theme >= 0 and word_count >= 3 and words.size() >= word_count:
+	if (
+		selected_theme >= 0
+		and _single_player_level_uses_question(level_index, word_count)
+		and words.size() >= word_count
+	):
 		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
 		if question_slot >= 0 and question_slot < words.size():
 			var replaced_word: Dictionary = words[question_slot]

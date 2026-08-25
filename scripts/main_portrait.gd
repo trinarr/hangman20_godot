@@ -3530,14 +3530,33 @@ func _refresh_portrait_quiz_hint_counter(button: Control, hint_key: String) -> v
 
 func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
 	if !GameState.can_pay_for_hint(hint_key):
-		_open_coin_store(Callable(self, "_show_quiz_game_screen"))
+		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
 	var payment: int = GameState.pay_for_hint(hint_key)
 	if payment == GameState.HintPayment.FAILED:
-		_open_coin_store(Callable(self, "_show_quiz_game_screen"))
+		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
 	_refresh_portrait_quiz_hint_counter(button, hint_key)
 	return true
+
+func _return_to_quiz_from_coin_store() -> void:
+	# The coin store is a modal overlay, so closing it must not rebuild the quiz
+	# screen or replay its entrance choreography. Refresh only the UI values that
+	# may have changed while the popup was open and leave every quiz node in place.
+	if !_quiz_screen_active:
+		return
+	var balance_text: String = _soft_currency_balance_text(GameState.get_soft_currency())
+	for balance_node: Node in get_tree().get_nodes_in_group(&"soft_currency_balance_label"):
+		var balance_label := balance_node as Label
+		if balance_label != null and is_instance_valid(balance_label):
+			balance_label.text = balance_text
+	for hint_button: Control in _quiz_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		var hint_key_variant: Variant = hint_button.get_meta(&"quiz_hint_key", "")
+		var hint_key: String = str(hint_key_variant)
+		if !hint_key.is_empty():
+			_refresh_portrait_quiz_hint_counter(hint_button, hint_key)
 
 func _on_quiz_continue_pressed() -> void:
 	if !_quiz_screen_active or _quiz_selected_theme_index < 0:
@@ -3833,16 +3852,19 @@ func _on_quiz_replace_question_pressed() -> void:
 	)
 	question_fade_out.set_trans(Tween.TRANS_SINE)
 	question_fade_out.set_ease(Tween.EASE_IN)
+	var outgoing_answer_order: int = 0
 	for answer_control: Control in _quiz_answer_buttons:
 		var answer_button := answer_control as Button
 		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
 			continue
+		var answer_delay: float = float(outgoing_answer_order) * PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER
 		var answer_out := outgoing.tween_property(
 			answer_button,
 			"position:x",
 			-slide_distance,
 			0.26
 		)
+		answer_out.set_delay(answer_delay)
 		answer_out.set_trans(Tween.TRANS_QUAD)
 		answer_out.set_ease(Tween.EASE_IN)
 		var shadow_panel := _quiz_answer_shadow(answer_button)
@@ -3853,8 +3875,10 @@ func _on_quiz_replace_question_pressed() -> void:
 				-slide_distance,
 				0.26
 			)
+			shadow_out.set_delay(answer_delay)
 			shadow_out.set_trans(Tween.TRANS_QUAD)
 			shadow_out.set_ease(Tween.EASE_IN)
+		outgoing_answer_order += 1
 	await outgoing.finished
 	if !_quiz_screen_active or _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
 		_quiz_question_replacing = false
@@ -3916,18 +3940,23 @@ func _on_quiz_replace_question_pressed() -> void:
 	)
 	question_fade_in.set_trans(Tween.TRANS_SINE)
 	question_fade_in.set_ease(Tween.EASE_OUT)
+	var incoming_answer_order: int = 0
 	for answer_control: Control in _quiz_answer_buttons:
 		var answer_button := answer_control as Button
 		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
 			continue
+		var answer_delay: float = float(incoming_answer_order) * PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER
 		var answer_in := incoming.tween_property(answer_button, "position:x", 0.0, 0.34)
+		answer_in.set_delay(answer_delay)
 		answer_in.set_trans(Tween.TRANS_CUBIC)
 		answer_in.set_ease(Tween.EASE_OUT)
 		var shadow_panel := _quiz_answer_shadow(answer_button)
 		if shadow_panel != null and is_instance_valid(shadow_panel):
 			var shadow_in := incoming.tween_property(shadow_panel, "position:x", 0.0, 0.34)
+			shadow_in.set_delay(answer_delay)
 			shadow_in.set_trans(Tween.TRANS_CUBIC)
 			shadow_in.set_ease(Tween.EASE_OUT)
+		incoming_answer_order += 1
 	await incoming.finished
 	if !_quiz_screen_active:
 		_quiz_question_replacing = false
@@ -4263,7 +4292,7 @@ func _show_quiz_game_screen() -> void:
 	# Keep the normal gameplay resource/header treatment, but omit the character,
 	# attempts counter and theme title entirely.
 	_stage_centered_coin_only_counter(
-		Callable(self, "_show_quiz_game_screen"),
+		Callable(self, "_return_to_quiz_from_coin_store"),
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT
 	)
 	_stage_menu_settings_button()
@@ -4272,11 +4301,12 @@ func _show_quiz_game_screen() -> void:
 		if _quiz_single_player_embedded
 		else Callable(self, "show_quiz_theme_select")
 	)
-	var back_button := _stage_round_icon_button(
+	# Match the normal word-guessing screen: gameplay exits use the round X button
+	# rather than the page-navigation arrow.
+	var back_button := _stage_round_button(
 		PORTRAIT_PAGE_BACK_BUTTON_RECT,
 		quiz_back_action,
-		PORTRAIT_BACK_ARROW_ICON,
-		PORTRAIT_PAGE_BACK_ICON_SIZE
+		"×"
 	)
 	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 
