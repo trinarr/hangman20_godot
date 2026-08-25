@@ -8,6 +8,8 @@ const SAVE_FORMAT_VERSION: int = 1
 const HINT_OPEN_LETTER: String = "open_letter"
 const HINT_REMOVE_WRONG: String = "remove_wrong"
 const HINT_COMMENT: String = "comment"
+const HINT_QUIZ_FIFTY_FIFTY: String = "quiz_fifty_fifty"
+const HINT_QUIZ_REPLACE_QUESTION: String = "quiz_replace_question"
 const DEFAULT_HINT_COUNT: int = 3
 const DEFAULT_SOFT_CURRENCY: int = 100
 const MAX_HEARTS: int = 5
@@ -27,6 +29,8 @@ const HINT_COSTS: Dictionary = {
 	HINT_OPEN_LETTER: 20,
 	HINT_REMOVE_WRONG: 15,
 	HINT_COMMENT: 10,
+	HINT_QUIZ_FIFTY_FIFTY: 20,
+	HINT_QUIZ_REPLACE_QUESTION: 20,
 }
 
 enum GameMode {
@@ -71,6 +75,8 @@ var hint_counts: Dictionary = {
 	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
 	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
 	HINT_COMMENT: DEFAULT_HINT_COUNT,
+	HINT_QUIZ_FIFTY_FIFTY: DEFAULT_HINT_COUNT,
+	HINT_QUIZ_REPLACE_QUESTION: DEFAULT_HINT_COUNT,
 }
 var current_mode: int = GameMode.CLASSIC
 

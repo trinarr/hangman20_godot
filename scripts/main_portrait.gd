@@ -379,6 +379,16 @@ const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 40.0
 const PORTRAIT_QUIZ_HINT_GAP: float = 22.0
 const PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_QUIZ_ANSWER_WRONG_COLOR := PORTRAIT_UI_PALETTE.ERROR_SOFT
+const PORTRAIT_QUIZ_ENTRANCE_PANEL_OFFSET: float = 32.0
+const PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION: float = 0.34
+const PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION: float = 0.34
+const PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION: float = PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION * 0.80
+const PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER: float = 0.045
+const PORTRAIT_QUIZ_ENTRANCE_THEME_START_SCALE: float = 0.78
+const PORTRAIT_QUIZ_ENTRANCE_THEME_PEAK_SCALE: float = 1.13
+const PORTRAIT_QUIZ_ENTRANCE_THEME_GROW_DURATION: float = 0.11
+const PORTRAIT_QUIZ_ENTRANCE_THEME_SETTLE_DURATION: float = 0.13
+const PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION: float = 0.112
 enum MainTab {
 	TASKS,
 	HOME,
@@ -494,6 +504,7 @@ var _quiz_question_replacing: bool = false
 var _quiz_question_label: Label = null
 var _quiz_single_player_embedded: bool = false
 var _quiz_single_player_target_difficulty: float = 0.5
+var _quiz_entrance_generation: int = 0
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
@@ -3461,6 +3472,73 @@ func _portrait_quiz_hint_button_y() -> float:
 	) * PORTRAIT_GAME_ACTION_Y_SCALE
 	return hint_center_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
 
+func _stage_portrait_quiz_hint_counter(button: Control, hint_key: String) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var free_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var free_rect := Rect2(
+		Vector2(
+			button.size.x - free_size.x * 0.82,
+			-free_size.y * 0.18
+		),
+		free_size
+	)
+	var price_size := Vector2(58.0, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var price_rect := Rect2(
+		Vector2(
+			button.size.x - price_size.x * 0.82 + 6.0,
+			-price_size.y * 0.18
+		),
+		price_size
+	)
+	var count: int = GameState.get_hint_count(hint_key)
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": price_rect,
+		"ad_rect": free_rect,
+		"free_rect": free_rect,
+		"price": GameState.get_hint_cost(hint_key),
+		"count": count,
+		"state": (
+			PORTRAIT_BUTTON_BADGE_STATE_FREE
+			if count > 0
+			else PORTRAIT_BUTTON_BADGE_STATE_COINS
+		),
+	})
+	button.set_meta(&"quiz_hint_key", hint_key)
+	button.set_meta(&"quiz_hint_badge_component", component)
+
+func _refresh_portrait_quiz_hint_counter(button: Control, hint_key: String) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var component_variant: Variant = button.get_meta(&"quiz_hint_badge_component", {})
+	if !(component_variant is Dictionary):
+		return
+	var component: Dictionary = component_variant
+	var count: int = GameState.get_hint_count(hint_key)
+	_set_portrait_button_badge_state(
+		component,
+		(
+			PORTRAIT_BUTTON_BADGE_STATE_FREE
+			if count > 0
+			else PORTRAIT_BUTTON_BADGE_STATE_COINS
+		),
+		{
+			"count": count,
+			"price": GameState.get_hint_cost(hint_key),
+		}
+	)
+
+func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
+	if !GameState.can_pay_for_hint(hint_key):
+		_open_coin_store(Callable(self, "_show_quiz_game_screen"))
+		return false
+	var payment: int = GameState.pay_for_hint(hint_key)
+	if payment == GameState.HintPayment.FAILED:
+		_open_coin_store(Callable(self, "_show_quiz_game_screen"))
+		return false
+	_refresh_portrait_quiz_hint_counter(button, hint_key)
+	return true
+
 func _on_quiz_continue_pressed() -> void:
 	if !_quiz_screen_active or _quiz_selected_theme_index < 0:
 		return
@@ -3585,6 +3663,12 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 	if wrong_indices.size() < 2:
 		return
 	wrong_indices.shuffle()
+
+	var fifty_hint_button: Control = null
+	if !_quiz_hint_buttons.is_empty():
+		fifty_hint_button = _quiz_hint_buttons[0]
+	if !_pay_for_quiz_hint(GameState.HINT_QUIZ_FIFTY_FIFTY, fifty_hint_button):
+		return
 
 	_quiz_fifty_fifty_used = true
 	_quiz_fifty_fifty_hidden_indices = [wrong_indices[0], wrong_indices[1]]
@@ -3720,6 +3804,11 @@ func _on_quiz_replace_question_pressed() -> void:
 	if next_question.is_empty():
 		return
 	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
+		return
+	var replace_hint_button: Control = null
+	if _quiz_hint_buttons.size() > 1:
+		replace_hint_button = _quiz_hint_buttons[1]
+	if !_pay_for_quiz_hint(GameState.HINT_QUIZ_REPLACE_QUESTION, replace_hint_button):
 		return
 
 	_quiz_replace_question_used = true
@@ -3884,8 +3973,8 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
 	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
 	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
-	_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
-	_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
+	_stage_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
+	_stage_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
 	_quiz_hint_buttons = [open_button, remove_button]
 	if _quiz_fifty_fifty_used:
 		open_button.set("button_disabled", true)
@@ -3911,6 +4000,245 @@ func _stage_portrait_quiz_continue_button() -> Control:
 	continue_button.visible = false
 	continue_button.set("attention_bounce_enabled", false)
 	return continue_button
+
+func _quiz_entrance_is_current(generation: int) -> bool:
+	return generation == _quiz_entrance_generation and _quiz_screen_active
+
+func _prepare_quiz_screen_entrance(
+	quiz_background: Control,
+	question_shadow: Control,
+	question_panel: Control,
+	question_label: Label
+) -> void:
+	_quiz_entrance_generation += 1
+	var generation: int = _quiz_entrance_generation
+	if quiz_background == null or !is_instance_valid(quiz_background):
+		return
+	var viewport_size: Vector2 = get_viewport_rect().size
+	var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
+	var panel_offset: float = PORTRAIT_QUIZ_ENTRANCE_PANEL_OFFSET * fit_scale
+	var slide_distance: float = maxf(viewport_size.x, PORTRAIT_STAGE_SIZE.x)
+
+	quiz_background.modulate.a = 0.0
+	if question_shadow != null and is_instance_valid(question_shadow):
+		question_shadow.set_meta(&"quiz_entrance_rest_y", question_shadow.position.y)
+		question_shadow.position.y -= panel_offset
+		question_shadow.modulate.a = 0.0
+	if question_panel != null and is_instance_valid(question_panel):
+		question_panel.set_meta(&"quiz_entrance_rest_y", question_panel.position.y)
+		question_panel.position.y -= panel_offset
+		question_panel.modulate.a = 0.0
+	if question_label != null and is_instance_valid(question_label):
+		question_label.modulate.a = 0.0
+
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
+			continue
+		answer_button.set_meta(&"quiz_entrance_rest_mouse_filter", answer_button.mouse_filter)
+		answer_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		answer_button.position.x = slide_distance
+		var shadow_panel := _quiz_answer_shadow(answer_button)
+		if shadow_panel != null and is_instance_valid(shadow_panel) and shadow_panel.visible:
+			shadow_panel.position.x = slide_distance
+
+	for hint_button: Control in _quiz_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		var rest_scale: Vector2 = hint_button.get("visual_scale")
+		hint_button.set_meta(&"quiz_entrance_rest_visual_scale", rest_scale)
+		hint_button.set_meta(&"quiz_entrance_rest_mouse_filter", hint_button.mouse_filter)
+		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint_button.modulate.a = 0.0
+		hint_button.set(
+			"visual_scale",
+			rest_scale * PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE
+		)
+
+	call_deferred(
+		"_play_quiz_screen_entrance",
+		generation,
+		quiz_background,
+		question_shadow,
+		question_panel,
+		question_label
+	)
+
+func _play_quiz_screen_entrance(
+	generation: int,
+	quiz_background: Control,
+	question_shadow: Control,
+	question_panel: Control,
+	question_label: Label
+) -> void:
+	if !_quiz_entrance_is_current(generation):
+		return
+	if quiz_background == null or !is_instance_valid(quiz_background):
+		return
+
+	# Match the grand-prize reveal: the blue patterned backdrop fades in as one
+	# complete layer before any quiz content is introduced.
+	var background_tween := quiz_background.create_tween()
+	background_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var backdrop_fade := background_tween.tween_property(
+		quiz_background,
+		"modulate:a",
+		1.0,
+		PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION
+	)
+	backdrop_fade.set_trans(Tween.TRANS_SINE)
+	backdrop_fade.set_ease(Tween.EASE_IN_OUT)
+	await background_tween.finished
+	if !_quiz_entrance_is_current(generation):
+		return
+
+	# The question card descends from above while fading in. Answers enter as a
+	# short cascade from right to left: the top answer starts immediately and
+	# every lower answer follows a little later.
+	var content_tween := create_tween()
+	content_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	content_tween.set_parallel(true)
+	if question_shadow != null and is_instance_valid(question_shadow):
+		content_tween.tween_property(
+			question_shadow,
+			"position:y",
+			float(question_shadow.get_meta(&"quiz_entrance_rest_y", question_shadow.position.y)),
+			PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION
+		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		content_tween.tween_property(
+			question_shadow,
+			"modulate:a",
+			1.0,
+			PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if question_panel != null and is_instance_valid(question_panel):
+		content_tween.tween_property(
+			question_panel,
+			"position:y",
+			float(question_panel.get_meta(&"quiz_entrance_rest_y", question_panel.position.y)),
+			PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION
+		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		content_tween.tween_property(
+			question_panel,
+			"modulate:a",
+			1.0,
+			PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	var visible_answer_order: int = 0
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
+			continue
+		var answer_delay: float = float(visible_answer_order) * PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER
+		var answer_slide := content_tween.tween_property(
+			answer_button,
+			"position:x",
+			0.0,
+			PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION
+		)
+		answer_slide.set_delay(answer_delay)
+		answer_slide.set_trans(Tween.TRANS_CUBIC)
+		answer_slide.set_ease(Tween.EASE_OUT)
+		var shadow_panel := _quiz_answer_shadow(answer_button)
+		if shadow_panel != null and is_instance_valid(shadow_panel) and shadow_panel.visible:
+			var shadow_slide := content_tween.tween_property(
+				shadow_panel,
+				"position:x",
+				0.0,
+				PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION
+			)
+			shadow_slide.set_delay(answer_delay)
+			shadow_slide.set_trans(Tween.TRANS_CUBIC)
+			shadow_slide.set_ease(Tween.EASE_OUT)
+		visible_answer_order += 1
+	# Do not wait for the staggered answer cascade to finish here. The theme
+	# bounce should begin the instant the question card itself reaches its final
+	# position; lower answers can keep sliding in underneath that animation.
+	var question_card_wait := create_tween()
+	question_card_wait.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	question_card_wait.tween_interval(PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION)
+	await question_card_wait.finished
+	if !_quiz_entrance_is_current(generation):
+		return
+
+	# The theme title has already arrived together with the question card. Once
+	# that shared slide is complete, reveal only the question text through alpha.
+	if question_label != null and is_instance_valid(question_label):
+		var question_tween := question_label.create_tween()
+		question_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var question_fade := question_tween.tween_property(
+			question_label,
+			"modulate:a",
+			1.0,
+			PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION
+		)
+		question_fade.set_trans(Tween.TRANS_SINE)
+		question_fade.set_ease(Tween.EASE_OUT)
+		await question_tween.finished
+	if !_quiz_entrance_is_current(generation):
+		return
+
+	# Finish with the same short hint-button bounce used by the word-guessing
+	# entrance. Both quiz hints appear simultaneously.
+	for hint_button: Control in _quiz_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		var rest_scale: Vector2 = hint_button.get_meta(
+			&"quiz_entrance_rest_visual_scale",
+			Vector2.ONE
+		)
+		var alpha_tween := hint_button.create_tween()
+		alpha_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		alpha_tween.tween_property(
+			hint_button,
+			"modulate:a",
+			1.0,
+			PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+		)
+		var bounce_tween := hint_button.create_tween()
+		bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var grow := bounce_tween.tween_property(
+			hint_button,
+			"visual_scale",
+			rest_scale * PORTRAIT_GAME_HINT_ENTRANCE_PEAK_SCALE,
+			PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+		)
+		grow.set_trans(Tween.TRANS_BACK)
+		grow.set_ease(Tween.EASE_OUT)
+		var settle := bounce_tween.tween_property(
+			hint_button,
+			"visual_scale",
+			rest_scale,
+			PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+		)
+		settle.set_trans(Tween.TRANS_BOUNCE)
+		settle.set_ease(Tween.EASE_OUT)
+
+	var hint_wait := create_tween()
+	hint_wait.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	hint_wait.tween_interval(
+		PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+		+ PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+	)
+	await hint_wait.finished
+	if !_quiz_entrance_is_current(generation):
+		return
+
+	for answer_control: Control in _quiz_answer_buttons:
+		var answer_button := answer_control as Button
+		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
+			continue
+		answer_button.mouse_filter = int(answer_button.get_meta(
+			&"quiz_entrance_rest_mouse_filter",
+			Control.MOUSE_FILTER_STOP
+		))
+	for hint_button: Control in _quiz_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		hint_button.mouse_filter = int(hint_button.get_meta(
+			&"quiz_entrance_rest_mouse_filter",
+			Control.MOUSE_FILTER_STOP
+		))
 
 func _show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
@@ -3952,36 +4280,6 @@ func _show_quiz_game_screen() -> void:
 	)
 	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 
-	var theme_name: String = Database.get_theme_name(_quiz_selected_theme_index)
-	var theme_label := _stage_heading_label(
-		PORTRAIT_QUIZ_THEME_TITLE_RECT,
-		theme_name,
-		26,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	# Match the floating theme title treatment from the comment popup: the top
-	# edge of the question card passes through the vertical center of the text,
-	# with the same dark outline and drop shadow for readability.
-	var quiz_theme_title_effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.40)
-	theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	theme_label.add_theme_color_override("font_outline_color", quiz_theme_title_effect_color)
-	theme_label.add_theme_constant_override("outline_size", 5)
-	theme_label.add_theme_color_override(
-		"font_shadow_color",
-		Color(
-			quiz_theme_title_effect_color.r,
-			quiz_theme_title_effect_color.g,
-			quiz_theme_title_effect_color.b,
-			0.90
-		)
-	)
-	theme_label.add_theme_constant_override("shadow_offset_x", 3)
-	theme_label.add_theme_constant_override("shadow_offset_y", 4)
-	theme_label.add_theme_constant_override("shadow_outline_size", 2)
-	theme_label.clip_text = false
-	theme_label.z_index = 3
-
 	# Reuse the answer-button shadow treatment under the question card as well,
 	# then draw the bordered light-blue surface on top.
 	var question_shadow_rect := PORTRAIT_QUIZ_QUESTION_PANEL_RECT
@@ -4000,6 +4298,42 @@ func _show_quiz_game_screen() -> void:
 		3.0
 	)
 	question_panel.z_index = 1
+
+	# Attach the theme title directly to the question panel. It has no entrance
+	# tween of its own: panel motion/alpha automatically carries the title with it.
+	var theme_name: String = Database.get_theme_name(_quiz_selected_theme_index)
+	var theme_label := Label.new()
+	theme_label.name = "QuizThemeTitle"
+	theme_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	theme_label.position = (
+		PORTRAIT_QUIZ_THEME_TITLE_RECT.position
+		- PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
+	)
+	theme_label.size = PORTRAIT_QUIZ_THEME_TITLE_RECT.size
+	theme_label.text = theme_name
+	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	theme_label.add_theme_font_size_override("font_size", _heading_font_size(26))
+	var quiz_theme_title_effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.40)
+	theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	theme_label.add_theme_color_override("font_color", Color.WHITE)
+	theme_label.add_theme_color_override("font_outline_color", quiz_theme_title_effect_color)
+	theme_label.add_theme_constant_override("outline_size", 5)
+	theme_label.add_theme_color_override(
+		"font_shadow_color",
+		Color(
+			quiz_theme_title_effect_color.r,
+			quiz_theme_title_effect_color.g,
+			quiz_theme_title_effect_color.b,
+			0.90
+		)
+	)
+	theme_label.add_theme_constant_override("shadow_offset_x", 3)
+	theme_label.add_theme_constant_override("shadow_offset_y", 4)
+	theme_label.add_theme_constant_override("shadow_outline_size", 2)
+	theme_label.clip_text = false
+	theme_label.z_index = 3
+	question_panel.add_child(theme_label)
 
 	var question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
 	var question_label := _stage_label(
@@ -4050,6 +4384,21 @@ func _show_quiz_game_screen() -> void:
 	_stage_portrait_quiz_hint_buttons()
 	_quiz_continue_button = _stage_portrait_quiz_continue_button()
 	_portrait_end_adaptive_group(answer_hint_group_content)
+	var should_animate_quiz_intro: bool = (
+		!_quiz_answer_locked
+		and !_quiz_fifty_fifty_used
+		and !_quiz_replace_question_used
+		and !_quiz_question_replacing
+	)
+	if should_animate_quiz_intro:
+		_prepare_quiz_screen_entrance(
+			quiz_background,
+			question_shadow,
+			question_panel,
+			question_label
+		)
+	else:
+		_quiz_entrance_generation += 1
 	_restore_quiz_answer_result_state()
 	_stage_portrait_ad_banner()
 
