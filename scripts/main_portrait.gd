@@ -4735,12 +4735,20 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		await attempts_roll.finished
 		if !GameSession.has_deferred_loss():
 			return
+	# Preserve the amount shown by the previous offer. Every second popup can
+	# increase the purchased-attempt bundle; when that happens the modal should
+	# visibly transform from the previous amount into the new one instead of
+	# appearing with the larger value already applied.
+	var previous_attempt_count: int = _single_player_extra_attempt_count()
 	var purchase_cost: int = (
 		_advance_single_player_extra_attempt_offer()
 		if advance_offer_cost
 		else _single_player_extra_attempt_cost()
 	)
 	var attempt_count: int = _single_player_extra_attempt_count()
+	var animate_attempt_count_increase: bool = (
+		advance_offer_cost and attempt_count > previous_attempt_count
+	)
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
 	var previous_content := _portrait_popup_begin(
@@ -4777,14 +4785,28 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		attempt_icon_rect,
 		&"ExtraAttemptsGlow"
 	)
+	# Keep the stage-mapped outer node completely static. FlashStageTexture already
+	# carries the viewport fit scale, so changing its pivot would visually offset it.
+	# Draw the authored arrows in a local 1x-scale child and rotate only that child.
 	var attempt_icon := _stage_texture(
 		attempt_icon_rect,
-		EXTRA_ATTEMPTS_ICON_TEXTURE
+		null
 	)
 	attempt_icon.z_index = 11
+	var attempt_icon_spin_visual := TextureRect.new()
+	attempt_icon_spin_visual.name = "ExtraAttemptsSpinVisual"
+	attempt_icon_spin_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	attempt_icon_spin_visual.texture = EXTRA_ATTEMPTS_ICON_TEXTURE
+	attempt_icon_spin_visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	attempt_icon_spin_visual.stretch_mode = TextureRect.STRETCH_SCALE
+	attempt_icon_spin_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	attempt_icon.add_child(attempt_icon_spin_visual)
+	var displayed_attempt_count: int = (
+		previous_attempt_count if animate_attempt_count_increase else attempt_count
+	)
 	var attempt_label := _stage_label(
 		attempt_icon_rect,
-		"+%d" % attempt_count,
+		"+%d" % displayed_attempt_count,
 		54,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -4804,7 +4826,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	attempt_label.z_index = 12
 	var description_label := _stage_label(
 		Rect2(204.0, 246.0, 208.0, 126.0),
-		_single_player_extra_attempt_description(attempt_count),
+		_single_player_extra_attempt_description(displayed_attempt_count),
 		20,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -4865,6 +4887,166 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		_purchase_price_color(purchase_cost)
 	)
 	content = previous_content
+	if animate_attempt_count_increase:
+		# Keep both purchase choices fully interactive while the offer value animates.
+		# All tweens below are bound to popup-owned nodes, so closing/replacing the
+		# popup simply invalidates that animation without touching the new UI.
+		call_deferred(
+			"_play_single_player_extra_attempt_offer_increase",
+			attempt_icon_spin_visual,
+			attempt_label,
+			description_label,
+			previous_attempt_count,
+			attempt_count
+		)
+
+func _play_single_player_extra_attempt_offer_increase(
+	attempt_icon: Control,
+	attempt_label: Label,
+	description_label: Label,
+	previous_attempt_count: int,
+	new_attempt_count: int
+) -> void:
+	if (
+		attempt_icon == null
+		or !is_instance_valid(attempt_icon)
+		or !attempt_icon.is_inside_tree()
+		or attempt_label == null
+		or !is_instance_valid(attempt_label)
+		or !attempt_label.is_inside_tree()
+		or description_label == null
+		or !is_instance_valid(description_label)
+		or !description_label.is_inside_tree()
+	):
+		return
+	if new_attempt_count <= previous_attempt_count:
+		return
+
+	var attempt_icon_origin_position: Vector2 = attempt_icon.position
+	var attempt_icon_origin_scale: Vector2 = attempt_icon.scale
+	attempt_icon.pivot_offset = attempt_icon.size * 0.5
+	attempt_icon.position = attempt_icon_origin_position
+	attempt_icon.scale = attempt_icon_origin_scale
+	attempt_icon.rotation = 0.0
+	attempt_label.pivot_offset = attempt_label.size * 0.5
+	attempt_label.scale = Vector2.ONE
+	description_label.modulate.a = 1.0
+
+	# First give the player enough time to read the amount currently on offer.
+	var hold_tween := attempt_label.create_tween()
+	hold_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	hold_tween.tween_interval(0.32)
+	await hold_tween.finished
+	if !is_instance_valid(attempt_label) or !attempt_label.is_inside_tree():
+		return
+
+	# Bounce the old counter away: a short overshoot makes the disappearance feel
+	# like the same family of bounce used elsewhere in the portrait UI.
+	var counter_out := attempt_label.create_tween()
+	counter_out.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var counter_grow := counter_out.tween_property(
+		attempt_label,
+		"scale",
+		Vector2.ONE * 1.12,
+		0.09
+	)
+	counter_grow.set_trans(Tween.TRANS_QUAD)
+	counter_grow.set_ease(Tween.EASE_OUT)
+	var counter_hide := counter_out.tween_property(
+		attempt_label,
+		"scale",
+		Vector2.ZERO,
+		0.15
+	)
+	counter_hide.set_trans(Tween.TRANS_BACK)
+	counter_hide.set_ease(Tween.EASE_IN)
+	await counter_out.finished
+	if !is_instance_valid(attempt_icon) or !attempt_icon.is_inside_tree():
+		return
+
+	# With the number gone, make the authored double-arrow icon perform exactly
+	# one full turn. Fade the old explanatory copy near the end of that turn so
+	# the replacement can arrive together with the new counter.
+	var spin_tween := attempt_icon.create_tween()
+	spin_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	spin_tween.set_parallel(true)
+	var spin := spin_tween.tween_property(
+		attempt_icon,
+		"rotation",
+		TAU,
+		0.46
+	)
+	spin.set_trans(Tween.TRANS_QUAD)
+	spin.set_ease(Tween.EASE_IN_OUT)
+	var copy_fade := spin_tween.tween_property(
+		description_label,
+		"modulate:a",
+		0.0,
+		0.16
+	)
+	copy_fade.set_delay(0.30)
+	copy_fade.set_trans(Tween.TRANS_SINE)
+	copy_fade.set_ease(Tween.EASE_IN_OUT)
+	await spin_tween.finished
+	if (
+		!is_instance_valid(attempt_label)
+		or !attempt_label.is_inside_tree()
+		or !is_instance_valid(description_label)
+		or !description_label.is_inside_tree()
+	):
+		return
+	attempt_icon.rotation = 0.0
+	attempt_icon.position = attempt_icon_origin_position
+	attempt_icon.scale = attempt_icon_origin_scale
+	attempt_label.text = "+%d" % new_attempt_count
+	attempt_label.scale = Vector2.ZERO
+	description_label.text = _single_player_extra_attempt_description(new_attempt_count)
+	description_label.modulate.a = 0.0
+
+	# Reveal the new number with a bounce. The refreshed explanatory text fades in
+	# at the same time, so the two pieces read as one offer upgrade.
+	var reveal_tween := attempt_label.create_tween()
+	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	reveal_tween.set_parallel(true)
+	var counter_in := reveal_tween.tween_property(
+		attempt_label,
+		"scale",
+		Vector2.ONE * 1.14,
+		0.14
+	)
+	counter_in.set_trans(Tween.TRANS_BACK)
+	counter_in.set_ease(Tween.EASE_OUT)
+	var description_in := reveal_tween.tween_property(
+		description_label,
+		"modulate:a",
+		1.0,
+		0.20
+	)
+	description_in.set_trans(Tween.TRANS_SINE)
+	description_in.set_ease(Tween.EASE_OUT)
+	var settle_tween := attempt_label.create_tween()
+	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	settle_tween.tween_interval(0.14)
+	var counter_settle := settle_tween.tween_property(
+		attempt_label,
+		"scale",
+		Vector2.ONE,
+		0.13
+	)
+	counter_settle.set_trans(Tween.TRANS_QUAD)
+	counter_settle.set_ease(Tween.EASE_IN_OUT)
+	# Do not await the final settle: there is no input state to restore anymore.
+	# If the player acts while it is running, the popup is free to close/rebuild
+	# and the node-bound tween disappears with the old popup.
+
+func _purchase_single_player_extra_attempt() -> void:
+	# The buttons stay live during the value animation. Once the rewarded-ad path
+	# has actually been chosen, ignore a second purchase-path click during the tiny
+	# hand-off window before the native ad covers the game; this prevents a double
+	# grant without locking either button merely because the visual animation runs.
+	if _portrait_rewarded_action == &"extra_attempt":
+		return
+	super._purchase_single_player_extra_attempt()
 
 func _on_single_player_extra_attempt_ad_pressed() -> void:
 	if !GameSession.has_deferred_loss():
