@@ -15,6 +15,8 @@ const DEFAULT_SOFT_CURRENCY: int = 100
 const MAX_HEARTS: int = 5
 const HEART_RECOVERY_SECONDS: int = 5 * 60
 const WORD_REWARD_COINS: int = 10
+const COIN_REFILL_AD_MAX_VIEWS: int = 5
+const COIN_REFILL_AD_COOLDOWN_SECONDS: int = 5 * 60 * 60
 const SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = 0.18
 const SINGLE_PLAYER_DIFFICULTY_MIN: float = 0.08
 const SINGLE_PLAYER_DIFFICULTY_MAX: float = 0.92
@@ -51,6 +53,8 @@ var player_name: String = ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
 var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
+var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
+var coin_refill_ad_cooldown_until: int = 0
 var _heart_tick_timer: Timer = null
 var _last_emitted_hearts: int = -1
 var _last_emitted_heart_seconds: int = -1
@@ -116,6 +120,7 @@ func load_game() -> void:
 	# in-memory 3/3/3 defaults and grant the free hints again.
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
+	_load_coin_refill_ad_state_from_save(parsed)
 
 	if (
 		!(parsed.get("settings") is Array)
@@ -154,6 +159,18 @@ func _load_hearts_from_save(parsed: Dictionary) -> void:
 	heart_recovery_at = maxi(int(parsed.get("heart_recovery_at", 0)), 0)
 	_apply_elapsed_heart_recovery(false)
 
+func _load_coin_refill_ad_state_from_save(parsed: Dictionary) -> void:
+	coin_refill_ad_views_remaining = clampi(
+		int(parsed.get("coin_refill_ad_views_remaining", COIN_REFILL_AD_MAX_VIEWS)),
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
+	coin_refill_ad_cooldown_until = maxi(
+		int(parsed.get("coin_refill_ad_cooldown_until", 0)),
+		0
+	)
+	_refresh_coin_refill_ad_cooldown(false)
+
 func _set_interface_language_from_locale() -> void:
 	# The interface follows the device on every launch: Russian only for a
 	# Russian locale, English for Ukrainian and every other locale.
@@ -181,12 +198,71 @@ func save_game() -> void:
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
 		"hearts": hearts,
-		"heart_recovery_at": heart_recovery_at
+		"heart_recovery_at": heart_recovery_at,
+		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
+		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until
 	}))
 	file.close()
 
 func get_hint_count(hint_key: String) -> int:
 	return maxi(int(hint_counts.get(hint_key, 0)), 0)
+
+func get_coin_refill_ad_views_remaining() -> int:
+	_refresh_coin_refill_ad_cooldown(true)
+	return clampi(coin_refill_ad_views_remaining, 0, COIN_REFILL_AD_MAX_VIEWS)
+
+func get_coin_refill_ad_cooldown_seconds() -> int:
+	_refresh_coin_refill_ad_cooldown(true)
+	if coin_refill_ad_views_remaining > 0 or coin_refill_ad_cooldown_until <= 0:
+		return 0
+	return maxi(coin_refill_ad_cooldown_until - _coin_refill_ad_now(), 0)
+
+func can_watch_coin_refill_ad() -> bool:
+	_refresh_coin_refill_ad_cooldown(true)
+	return coin_refill_ad_views_remaining > 0
+
+func consume_coin_refill_ad_view(persist: bool = true) -> int:
+	_refresh_coin_refill_ad_cooldown(false)
+	if coin_refill_ad_views_remaining <= 0:
+		return 0
+	coin_refill_ad_views_remaining -= 1
+	if coin_refill_ad_views_remaining <= 0:
+		coin_refill_ad_views_remaining = 0
+		coin_refill_ad_cooldown_until = (
+			_coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		)
+	if persist:
+		save_game()
+	return coin_refill_ad_views_remaining
+
+func _coin_refill_ad_now() -> int:
+	return int(floor(Time.get_unix_time_from_system()))
+
+func _refresh_coin_refill_ad_cooldown(persist: bool) -> bool:
+	coin_refill_ad_views_remaining = clampi(
+		coin_refill_ad_views_remaining,
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
+	if coin_refill_ad_views_remaining > 0:
+		if coin_refill_ad_cooldown_until != 0:
+			coin_refill_ad_cooldown_until = 0
+			if persist:
+				save_game()
+			return true
+		return false
+	if coin_refill_ad_cooldown_until <= 0:
+		coin_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		if persist:
+			save_game()
+		return true
+	if _coin_refill_ad_now() < coin_refill_ad_cooldown_until:
+		return false
+	coin_refill_ad_views_remaining = COIN_REFILL_AD_MAX_VIEWS
+	coin_refill_ad_cooldown_until = 0
+	if persist:
+		save_game()
+	return true
 
 func get_soft_currency() -> int:
 	soft_currency = maxi(soft_currency, 0)
