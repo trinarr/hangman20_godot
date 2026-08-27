@@ -427,6 +427,9 @@ func get_theme_id(theme_index: int) -> int:
 		return THEME_IDS[theme_index]
 	return 0
 
+func get_theme_index_by_id(theme_id: int) -> int:
+	return THEME_IDS.find(theme_id)
+
 func get_theme_key(theme_id: int) -> String:
 	return str(THEME_KEYS.get(theme_id, ""))
 
@@ -549,6 +552,50 @@ func normalize_loaded_word(word: String) -> String:
 	result = result.replace("Ё", "Е")
 	return result
 
+func get_word_progress_key(theme_index: int, word_index: int) -> String:
+	if theme_index < 0 or word_index < 0:
+		return ""
+	var keys: Array[String] = get_word_progress_keys(theme_index)
+	if word_index < keys.size():
+		return keys[word_index]
+	return ""
+
+func get_word_progress_keys(theme_index: int) -> Array[String]:
+	var keys: Array[String] = []
+	var words: Array = get_words_by_index(theme_index, 0)
+	var max_index: int = -1
+	var totals: Dictionary = {}
+	for item_variant: Variant in words:
+		if item_variant is Dictionary:
+			max_index = maxi(max_index, int((item_variant as Dictionary).get("index", -1)))
+			var base: String = word_progress_key_from_text(
+				str((item_variant as Dictionary).get("text", ""))
+			)
+			totals[base] = int(totals.get(base, 0)) + 1
+	keys.resize(max_index + 1)
+	var occurrences: Dictionary = {}
+	for item_variant: Variant in words:
+		if !(item_variant is Dictionary):
+			continue
+		var item: Dictionary = item_variant
+		var word_index: int = int(item.get("index", -1))
+		if word_index >= 0 and word_index < keys.size():
+			var base: String = word_progress_key_from_text(str(item.get("text", "")))
+			var occurrence: int = int(occurrences.get(base, 0)) + 1
+			occurrences[base] = occurrence
+			keys[word_index] = (
+				"%s::%d" % [base, occurrence]
+				if int(totals.get(base, 0)) > 1
+				else base
+			)
+	return keys
+
+func word_progress_key_from_text(word: String) -> String:
+	# The normalized word itself is the stable content identity. Reordering the
+	# database no longer moves progress to a different entry; editing/removing one
+	# word only retires that word's key instead of shifting every later flag.
+	return normalize_loaded_word(word)
+
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	_ensure_word_language_loaded()
 	var theme_id: int = get_theme_id(theme_index)
@@ -599,11 +646,17 @@ func get_number_of_guessed_words(theme_index: int = -1, difficulty_is_enabled: b
 		for i in range(get_theme_count()):
 			count += get_number_of_guessed_words(i, difficulty_is_enabled)
 		return count
-	var total := get_words_by_index(theme_index, 0).size()
-	var progress := GameState.ensure_theme_progress(current_language, theme_index, total)
+	var progress := GameState.ensure_theme_progress(
+		current_language,
+		theme_index,
+		get_words_by_index(theme_index, 0).size()
+	)
+	var guessed_keys: Dictionary = progress.get("guessed", {})
+	var word_keys: Array[String] = get_word_progress_keys(theme_index)
 	var difficulty_filter: int = int(GameState.settings[2]) if difficulty_is_enabled else 0
 	for item in get_words_by_index(theme_index, difficulty_filter):
-		var index := int(item["index"])
-		if index >= 0 and index < progress["guessed"].size() and bool(progress["guessed"][index]):
+		var index: int = int(item.get("index", -1))
+		var word_key: String = word_keys[index] if index >= 0 and index < word_keys.size() else ""
+		if bool(guessed_keys.get(word_key, false)):
 			count += 1
 	return count

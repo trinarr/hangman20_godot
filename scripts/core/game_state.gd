@@ -4,7 +4,11 @@ signal soft_currency_changed(balance: int)
 signal hearts_changed(hearts: int, recovery_seconds: int)
 
 const SAVE_PATH := "user://save_hangman.json"
-const SAVE_FORMAT_VERSION: int = 1
+const SAVE_TMP_PATH := "user://save_hangman.tmp"
+const SAVE_BACKUP_PATH := "user://save_hangman.bak"
+const SAVE_FORMAT_VERSION: int = 2
+const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
+const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
 const HINT_OPEN_LETTER: String = "open_letter"
 const HINT_REMOVE_WRONG: String = "remove_wrong"
 const HINT_COMMENT: String = "comment"
@@ -75,6 +79,8 @@ var records: Array = [[0, 0, 0, 0], [0, 0]]
 
 var progress: Dictionary = {}
 var single_player: Dictionary = {}
+var active_single_player_session: Dictionary = {}
+var pending_single_player_reward: Dictionary = {}
 var hint_counts: Dictionary = {
 	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
 	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
@@ -83,6 +89,8 @@ var hint_counts: Dictionary = {
 	HINT_QUIZ_REPLACE_QUESTION: DEFAULT_HINT_COUNT,
 }
 var current_mode: int = GameMode.CLASSIC
+var _save_write_in_progress: bool = false
+var _save_blocked_by_future_version: bool = false
 
 func _ready() -> void:
 	load_game()
@@ -102,41 +110,191 @@ func _on_heart_tick() -> void:
 func load_game() -> void:
 	_set_interface_language_from_locale()
 	word_language = interface_language
-	if !FileAccess.file_exists(SAVE_PATH):
-		return
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if file == null:
-		return
-	var text := file.get_as_text()
-	file.close()
-	var parsed = JSON.parse_string(text)
-	if !(parsed is Dictionary):
-		return
-	if int(parsed.get("save_version", -1)) != SAVE_FORMAT_VERSION:
+	var parsed: Dictionary = _read_save_dictionary(SAVE_PATH)
+	var loaded_from_backup: bool = false
+	if parsed.is_empty() and FileAccess.file_exists(SAVE_PATH):
+		parsed = _read_save_dictionary(SAVE_BACKUP_PATH)
+		loaded_from_backup = !parsed.is_empty()
+	elif parsed.is_empty():
+		parsed = _read_save_dictionary(SAVE_BACKUP_PATH)
+		loaded_from_backup = !parsed.is_empty()
+	if parsed.is_empty():
 		return
 
-	# Load the hint inventory independently from the rest of the profile. Older or
-	# partially written saves can miss another section; that must not leave the
-	# in-memory 3/3/3 defaults and grant the free hints again.
-	_load_hint_counts_from_save(parsed)
-	_load_hearts_from_save(parsed)
-	_load_coin_refill_ad_state_from_save(parsed)
-
-	if (
-		!(parsed.get("settings") is Array)
-		or !(parsed.get("records") is Array)
-		or !(parsed.get("progress") is Dictionary)
-		or !(parsed.get("single_player") is Dictionary)
-	):
+	var stored_version: int = int(parsed.get("save_version", 0))
+	if stored_version > SAVE_FORMAT_VERSION:
+		# Never overwrite a save produced by a newer build after an app downgrade.
+		_save_blocked_by_future_version = true
+		push_error("Save format is newer than this build: %d" % stored_version)
 		return
 
 	word_language = _normalize_language(str(parsed.get("word_language", word_language)))
-	player_name = str(parsed.get("player_name", "")).strip_edges()
-	soft_currency = maxi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0)
-	settings = Array(parsed["settings"]).duplicate(true)
-	records = Array(parsed["records"]).duplicate(true)
-	progress = Dictionary(parsed["progress"]).duplicate(true)
-	single_player = Dictionary(parsed["single_player"]).duplicate(true)
+	var migrated: bool = stored_version < SAVE_FORMAT_VERSION
+	if migrated:
+		parsed = _migrate_save_payload(parsed, stored_version)
+
+	# Every section is normalized independently. One malformed optional field must
+	# never discard an otherwise valid profile or restore economy defaults.
+	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
+	soft_currency = clampi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0, 2_000_000_000)
+	settings = _normalize_settings(parsed.get("settings", settings))
+	records = _normalize_records(parsed.get("records", records))
+	progress = (
+		Dictionary(parsed.get("progress", {})).duplicate(true)
+		if parsed.get("progress", {}) is Dictionary
+		else {}
+	)
+	single_player = (
+		Dictionary(parsed.get("single_player", {})).duplicate(true)
+		if parsed.get("single_player", {}) is Dictionary
+		else {}
+	)
+	active_single_player_session = _normalize_active_single_player_session(
+		parsed.get("active_single_player_session", {})
+	)
+	pending_single_player_reward = _normalize_pending_single_player_reward(
+		parsed.get("pending_single_player_reward", {})
+	)
+	_load_hint_counts_from_save(parsed)
+	_load_hearts_from_save(parsed)
+	_load_coin_refill_ad_state_from_save(parsed)
+	_normalize_single_player_buckets()
+
+	if migrated or loaded_from_backup:
+		save_game()
+
+func _read_save_dictionary(path: String) -> Dictionary:
+	if !FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var text: String = file.get_as_text()
+	file.close()
+	var parsed: Variant = JSON.parse_string(text)
+	if !(parsed is Dictionary):
+		return {}
+	return Dictionary(parsed).duplicate(true)
+
+func _migrate_save_payload(source: Dictionary, source_version: int) -> Dictionary:
+	var migrated: Dictionary = source.duplicate(true)
+	if source_version <= 1:
+		_migrate_v1_content_keys(migrated)
+	migrated["save_version"] = SAVE_FORMAT_VERSION
+	return migrated
+
+func _migrate_v1_content_keys(payload: Dictionary) -> void:
+	var previous_language: String = Database.current_language
+	var progress_root: Variant = payload.get("progress", {})
+	if progress_root is Dictionary:
+		var migrated_progress: Dictionary = {}
+		for language_variant: Variant in (progress_root as Dictionary).keys():
+			var language: String = _normalize_language(str(language_variant))
+			Database.load_word_language(language)
+			migrated_progress[language] = _migrate_v1_theme_progress(
+				(progress_root as Dictionary).get(language_variant, {})
+			)
+		payload["progress"] = migrated_progress
+
+	var single_root: Variant = payload.get("single_player", {})
+	if single_root is Dictionary:
+		var migrated_single: Dictionary = {}
+		for language_variant: Variant in (single_root as Dictionary).keys():
+			var language: String = _normalize_language(str(language_variant))
+			Database.load_word_language(language)
+			var bucket_variant: Variant = (single_root as Dictionary).get(language_variant, {})
+			if !(bucket_variant is Dictionary):
+				continue
+			var bucket: Dictionary = Dictionary(bucket_variant).duplicate(true)
+			bucket["word_stats"] = _migrate_v1_theme_progress(bucket.get("word_stats", {}))
+			bucket["selected_themes"] = _migrate_v1_selected_themes(bucket.get("selected_themes", {}))
+			bucket["question_stats"] = _migrate_v1_theme_dictionary(bucket.get("question_stats", {}))
+			migrated_single[language] = bucket
+		payload["single_player"] = migrated_single
+	Database.load_word_language(_normalize_language(previous_language))
+
+func _migrate_v1_theme_progress(source: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if !(source is Dictionary):
+		return result
+	for old_key_variant: Variant in (source as Dictionary).keys():
+		var old_key: String = str(old_key_variant)
+		if !old_key.is_valid_int():
+			continue
+		var theme_index: int = int(old_key)
+		var theme_id: int = Database.get_theme_id(theme_index)
+		if theme_id <= 0:
+			continue
+		var item_variant: Variant = (source as Dictionary).get(old_key_variant, {})
+		result[str(theme_id)] = _migrate_v1_word_progress_item(item_variant, theme_index)
+	return result
+
+func _migrate_v1_word_progress_item(source: Variant, theme_index: int) -> Dictionary:
+	var result := {"played": {}, "guessed": {}}
+	if !(source is Dictionary):
+		return result
+	var word_keys: Array[String] = Database.get_word_progress_keys(theme_index)
+	for field_name: String in ["played", "guessed"]:
+		var flags_variant: Variant = (source as Dictionary).get(field_name, {})
+		var migrated_flags: Dictionary = {}
+		if flags_variant is Array:
+			var flags: Array = flags_variant
+			for word_index: int in range(mini(flags.size(), word_keys.size())):
+				if bool(flags[word_index]) and !word_keys[word_index].is_empty():
+					migrated_flags[word_keys[word_index]] = true
+		elif flags_variant is Dictionary:
+			for word_key_variant: Variant in (flags_variant as Dictionary).keys():
+				if bool((flags_variant as Dictionary).get(word_key_variant, false)):
+					migrated_flags[str(word_key_variant)] = true
+		result[field_name] = migrated_flags
+	return result
+
+func _migrate_v1_theme_dictionary(source: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if !(source is Dictionary):
+		return result
+	for old_key_variant: Variant in (source as Dictionary).keys():
+		var old_key: String = str(old_key_variant)
+		if !old_key.is_valid_int():
+			continue
+		var theme_id: int = Database.get_theme_id(int(old_key))
+		if theme_id > 0:
+			result[str(theme_id)] = (source as Dictionary).get(old_key_variant)
+	return result
+
+func _migrate_v1_selected_themes(source: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if !(source is Dictionary):
+		return result
+	for level_key_variant: Variant in (source as Dictionary).keys():
+		var theme_id: int = Database.get_theme_id(
+			int((source as Dictionary).get(level_key_variant, -1))
+		)
+		if theme_id > 0:
+			result[str(level_key_variant)] = theme_id
+	return result
+
+func _normalize_settings(source: Variant) -> Array:
+	var result: Array = [1, 1, 2, 2, 2, 1]
+	if source is Array:
+		for index: int in range(mini((source as Array).size(), result.size())):
+			var value: int = int((source as Array)[index])
+			result[index] = value if value == 1 or value == 2 else result[index]
+	return result
+
+func _normalize_records(source: Variant) -> Array:
+	var result: Array = [[0, 0, 0, 0], [0, 0]]
+	if !(source is Array):
+		return result
+	for group_index: int in range(result.size()):
+		if group_index >= (source as Array).size() or !((source as Array)[group_index] is Array):
+			continue
+		var source_group: Array = (source as Array)[group_index]
+		var target_group: Array = result[group_index]
+		for value_index: int in range(mini(source_group.size(), target_group.size())):
+			target_group[value_index] = maxi(int(source_group[value_index]), 0)
+		result[group_index] = target_group
+	return result
 
 func _load_hint_counts_from_save(parsed: Dictionary) -> void:
 	var stored_counts = parsed.get("hint_counts")
@@ -180,14 +338,12 @@ func _set_interface_language_from_locale() -> void:
 func _normalize_language(lang: String) -> String:
 	return "ru" if lang.to_lower().begins_with("ru") else "en"
 
-func save_game() -> void:
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file == null:
-		push_error("Can not write save: " + SAVE_PATH)
-		return
-	# Saves are written frequently after progress and economy actions. Compact JSON
-	# avoids formatting thousands of progress flags and reduces synchronous I/O.
-	file.store_string(JSON.stringify({
+func save_game() -> bool:
+	if _save_blocked_by_future_version or _save_write_in_progress:
+		return false
+	_save_write_in_progress = true
+	_compact_single_player_history()
+	var payload: Dictionary = {
 		"save_version": SAVE_FORMAT_VERSION,
 		"word_language": word_language,
 		"player_name": player_name,
@@ -195,14 +351,208 @@ func save_game() -> void:
 		"records": records,
 		"progress": progress,
 		"single_player": single_player,
+		"active_single_player_session": active_single_player_session,
+		"pending_single_player_reward": pending_single_player_reward,
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
 		"hearts": hearts,
 		"heart_recovery_at": heart_recovery_at,
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
-		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until
-	}))
+		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until,
+	}
+	var file := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
+	if file == null:
+		_save_write_in_progress = false
+		push_error("Can not write temporary save: " + SAVE_TMP_PATH)
+		return false
+	file.store_string(JSON.stringify(payload))
+	file.flush()
+	var write_error: Error = file.get_error()
 	file.close()
+	if write_error != OK or _read_save_dictionary(SAVE_TMP_PATH).is_empty():
+		_save_write_in_progress = false
+		push_error("Temporary save validation failed")
+		return false
+
+	var save_absolute: String = ProjectSettings.globalize_path(SAVE_PATH)
+	var temp_absolute: String = ProjectSettings.globalize_path(SAVE_TMP_PATH)
+	var backup_absolute: String = ProjectSettings.globalize_path(SAVE_BACKUP_PATH)
+	if !_read_save_dictionary(SAVE_PATH).is_empty():
+		var backup_error: Error = DirAccess.copy_absolute(save_absolute, backup_absolute)
+		if backup_error != OK:
+			_save_write_in_progress = false
+			push_error("Can not create save backup")
+			return false
+
+	var replace_error: Error = DirAccess.rename_absolute(temp_absolute, save_absolute)
+	if replace_error != OK and FileAccess.file_exists(SAVE_PATH):
+		# Some platforms do not replace an existing destination during rename. The
+		# validated backup is already durable, so remove only the old primary and retry.
+		var remove_error: Error = DirAccess.remove_absolute(save_absolute)
+		if remove_error == OK:
+			replace_error = DirAccess.rename_absolute(temp_absolute, save_absolute)
+	if replace_error != OK:
+		if !FileAccess.file_exists(SAVE_PATH) and FileAccess.file_exists(SAVE_BACKUP_PATH):
+			DirAccess.copy_absolute(backup_absolute, save_absolute)
+		_save_write_in_progress = false
+		push_error("Can not replace primary save")
+		return false
+
+	_save_write_in_progress = false
+	return true
+
+func _normalize_active_single_player_session(source: Variant) -> Dictionary:
+	if !(source is Dictionary):
+		return {}
+	var session: Dictionary = Dictionary(source).duplicate(true)
+	var kind: String = str(session.get("kind", ""))
+	var level_index: int = int(session.get("level_index", -1))
+	var word_slot: int = int(session.get("word_slot", -1))
+	if !["word", "quiz", "next"].has(kind) or level_index < 0 or word_slot < 0:
+		return {}
+	session["kind"] = kind
+	session["language"] = _normalize_language(str(session.get("language", word_language)))
+	session["level_index"] = level_index
+	session["word_slot"] = word_slot
+	session["theme_id"] = maxi(int(session.get("theme_id", 0)), 0)
+	if !(session.get("data", {}) is Dictionary):
+		session["data"] = {}
+	return session
+
+func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
+	if !(source is Dictionary):
+		return {}
+	var pending: Dictionary = Dictionary(source).duplicate(true)
+	var level_index: int = int(pending.get("level_index", -1))
+	var word_count: int = int(pending.get("word_count", 0))
+	var word_slot: int = int(pending.get("word_slot", word_count - 1))
+	var amount: int = clampi(int(pending.get("amount", 0)), 0, 1_000_000_000)
+	if level_index < 0 or word_count <= 0 or word_slot < 0 or amount <= 0:
+		return {}
+	return {
+		"claim_id": str(pending.get("claim_id", "%s:%d" % [word_language, level_index])),
+		"language": _normalize_language(str(pending.get("language", word_language))),
+		"level_index": level_index,
+		"word_count": word_count,
+		"word_slot": clampi(word_slot, 0, word_count - 1),
+		"theme_id": maxi(int(pending.get("theme_id", 0)), 0),
+		"amount": amount,
+	}
+
+func set_active_single_player_session(session: Dictionary, persist: bool = true) -> bool:
+	var normalized: Dictionary = _normalize_active_single_player_session(session)
+	if normalized.is_empty():
+		return false
+	active_single_player_session = normalized
+	if persist:
+		save_game()
+	return true
+
+func clear_active_single_player_session(persist: bool = true) -> void:
+	if active_single_player_session.is_empty():
+		return
+	active_single_player_session = {}
+	if persist:
+		save_game()
+
+func get_active_single_player_session() -> Dictionary:
+	return active_single_player_session.duplicate(true)
+
+func get_pending_single_player_reward() -> Dictionary:
+	return pending_single_player_reward.duplicate(true)
+
+func has_resumable_single_player_level() -> bool:
+	return !pending_single_player_reward.is_empty() or !active_single_player_session.is_empty()
+
+func get_resumable_single_player_level_index() -> int:
+	if !pending_single_player_reward.is_empty():
+		return int(pending_single_player_reward.get("level_index", -1))
+	return int(active_single_player_session.get("level_index", -1))
+
+func _create_pending_single_player_reward(
+	lang: String,
+	level_index: int,
+	word_slot: int,
+	word_count: int,
+	theme_id: int,
+	amount: int
+) -> void:
+	if level_index < 0 or word_count <= 0 or amount <= 0:
+		return
+	pending_single_player_reward = {
+		"claim_id": "%s:%d:%d" % [_normalize_language(lang), level_index, word_slot],
+		"language": _normalize_language(lang),
+		"level_index": level_index,
+		"word_slot": clampi(word_slot, 0, word_count - 1),
+		"word_count": word_count,
+		"theme_id": maxi(theme_id, 0),
+		"amount": amount,
+	}
+	active_single_player_session = {}
+
+func claim_pending_single_player_reward(multiplier: int = 1) -> int:
+	if pending_single_player_reward.is_empty():
+		return 0
+	var credited_amount: int = maxi(
+		int(pending_single_player_reward.get("amount", 0)) * clampi(multiplier, 1, 2),
+		0
+	)
+	if credited_amount <= 0:
+		return 0
+	pending_single_player_reward = {}
+	soft_currency = clampi(soft_currency + credited_amount, 0, 2_000_000_000)
+	soft_currency_changed.emit(soft_currency)
+	save_game()
+	return credited_amount
+
+func _normalize_single_player_buckets() -> void:
+	if !(single_player is Dictionary):
+		single_player = {}
+		return
+	for language_variant: Variant in single_player.keys():
+		var language: String = _normalize_language(str(language_variant))
+		var source_bucket: Variant = single_player.get(language_variant, {})
+		if language_variant != language:
+			single_player.erase(language_variant)
+		if source_bucket is Dictionary:
+			single_player[language] = Dictionary(source_bucket).duplicate(true)
+		else:
+			single_player[language] = {}
+		_single_player_bucket(language)
+
+func _compact_single_player_history() -> void:
+	for language_variant: Variant in single_player.keys():
+		if !(single_player.get(language_variant) is Dictionary):
+			continue
+		var bucket: Dictionary = single_player[language_variant]
+		var unlocked_level: int = maxi(int(bucket.get("unlocked_level", 0)), 0)
+		var oldest_kept_level: int = maxi(unlocked_level - SINGLE_PLAYER_LEVEL_HISTORY_LIMIT, 0)
+		for field_name: String in [
+			"levels",
+			"selected_themes",
+			"level_seeds",
+			"theme_reroll_states",
+			"level_question_slots",
+			"level_question_ids",
+		]:
+			var values_variant: Variant = bucket.get(field_name, {})
+			if !(values_variant is Dictionary):
+				continue
+			var values: Dictionary = values_variant
+			for level_key_variant: Variant in values.keys():
+				var level_key: String = str(level_key_variant)
+				if (
+					!level_key.is_valid_int()
+					or int(level_key) < oldest_kept_level
+					or int(level_key) > unlocked_level + 1
+				):
+					values.erase(level_key_variant)
+				elif field_name == "levels" and values[level_key_variant] is Array:
+					var statuses: Array = values[level_key_variant]
+					if statuses.size() > SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS:
+						statuses.resize(SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS)
+			bucket[field_name] = values
+		single_player[language_variant] = bucket
 
 func get_hint_count(hint_key: String) -> int:
 	return maxi(int(hint_counts.get(hint_key, 0)), 0)
@@ -386,15 +736,16 @@ func can_pay_for_hint(hint_key: String) -> bool:
 	var cost: int = get_hint_cost(hint_key)
 	return cost > 0 and get_soft_currency() >= cost
 
-func pay_for_hint(hint_key: String) -> int:
+func pay_for_hint(hint_key: String, persist: bool = true) -> int:
 	var free_count: int = get_hint_count(hint_key)
 	if free_count > 0:
 		hint_counts[hint_key] = free_count - 1
-		save_game()
+		if persist:
+			save_game()
 		return HintPayment.FREE_HINT
 
 	var cost: int = get_hint_cost(hint_key)
-	if cost <= 0 or !spend_soft_currency(cost):
+	if cost <= 0 or !spend_soft_currency(cost, persist):
 		return HintPayment.FAILED
 	return HintPayment.SOFT_CURRENCY
 
@@ -405,48 +756,84 @@ func set_word_language(lang: String) -> void:
 	word_language = _normalize_language(lang)
 	save_game()
 
-func ensure_theme_progress(lang: String, theme_index: int, word_count: int) -> Dictionary:
-	var lang_key := lang.to_lower()
+func _theme_progress_key(theme_index: int) -> String:
+	var theme_id: int = Database.get_theme_id(theme_index)
+	return str(theme_id) if theme_id > 0 else ""
+
+func _word_progress_key(theme_index: int, word_index: int, word_text: String = "") -> String:
+	var database_key: String = Database.get_word_progress_key(theme_index, word_index)
+	if !database_key.is_empty():
+		return database_key
+	return Database.word_progress_key_from_text(word_text)
+
+func _normalize_word_flag_dictionary(source: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if source is Dictionary:
+		for key_variant: Variant in (source as Dictionary).keys():
+			if bool((source as Dictionary).get(key_variant, false)):
+				var key: String = str(key_variant).strip_edges()
+				if !key.is_empty():
+					result[key] = true
+	return result
+
+func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionary:
+	var normalized := _normalize_word_flag_dictionary(source)
+	var allowed_keys: Dictionary = {}
+	for key: String in Database.get_word_progress_keys(theme_index):
+		if !key.is_empty():
+			allowed_keys[key] = true
+	for key_variant: Variant in normalized.keys():
+		if !allowed_keys.has(str(key_variant)):
+			normalized.erase(key_variant)
+	return normalized
+
+func ensure_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
+	var lang_key := _normalize_language(lang)
 	if !progress.has(lang_key) or !(progress[lang_key] is Dictionary):
 		progress[lang_key] = {}
-	var theme_key := str(theme_index)
+	var theme_key := _theme_progress_key(theme_index)
+	if theme_key.is_empty():
+		return {"played": {}, "guessed": {}}
 	if !progress[lang_key].has(theme_key) or !(progress[lang_key][theme_key] is Dictionary):
-		progress[lang_key][theme_key] = {"played": [], "guessed": []}
+		progress[lang_key][theme_key] = {"played": {}, "guessed": {}}
 	var item: Dictionary = progress[lang_key][theme_key]
-	if !item.has("played") or !(item["played"] is Array):
-		item["played"] = []
-	if !item.has("guessed") or !(item["guessed"] is Array):
-		item["guessed"] = []
-	_resize_bool_array(item["played"], word_count)
-	_resize_bool_array(item["guessed"], word_count)
+	item["played"] = _prune_word_flag_dictionary(item.get("played", {}), theme_index)
+	item["guessed"] = _prune_word_flag_dictionary(item.get("guessed", {}), theme_index)
 	progress[lang_key][theme_key] = item
 	return item
 
-func _resize_bool_array(arr: Array, size: int) -> void:
-	while arr.size() < size:
-		arr.append(false)
-	if arr.size() > size:
-		arr.resize(size)
+func reset_theme_played_flags(lang: String, theme_index: int, persist: bool = true) -> void:
+	var item := ensure_theme_progress(lang, theme_index, 0)
+	item["played"] = {}
+	if persist:
+		save_game()
 
-func mark_played(lang: String, theme_index: int, word_index: int, word_count: int) -> void:
+func mark_played(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
 	if theme_index < 0 or word_index < 0:
 		return
-	var item := ensure_theme_progress(lang, theme_index, word_count)
-	item["played"][word_index] = true
-	save_game()
-
-func mark_guessed(lang: String, theme_index: int, word_index: int, word_count: int) -> void:
-	if theme_index < 0 or word_index < 0:
+	var key := _word_progress_key(theme_index, word_index, word_text)
+	if key.is_empty():
 		return
 	var item := ensure_theme_progress(lang, theme_index, word_count)
-	item["guessed"][word_index] = true
-	save_game()
+	(item["played"] as Dictionary)[key] = true
+	if persist:
+		save_game()
+
+func mark_guessed(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
+	if theme_index < 0 or word_index < 0:
+		return
+	var key := _word_progress_key(theme_index, word_index, word_text)
+	if key.is_empty():
+		return
+	var item := ensure_theme_progress(lang, theme_index, word_count)
+	(item["guessed"] as Dictionary)[key] = true
+	if persist:
+		save_game()
 
 func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
 	var item := ensure_theme_progress(lang, theme_index, word_count)
-	for i in range(item["played"].size()):
-		item["played"][i] = false
-		item["guessed"][i] = false
+	item["played"] = {}
+	item["guessed"] = {}
 	save_game()
 
 func _new_single_player_bucket() -> Dictionary:
@@ -498,42 +885,44 @@ func _single_player_bucket(lang: String) -> Dictionary:
 func _single_player_progress_bucket(lang: String, _difficulty: int = -1) -> Dictionary:
 	return _single_player_bucket(lang)
 
-func ensure_single_player_theme_progress(lang: String, theme_index: int, word_count: int) -> Dictionary:
+func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var word_stats: Dictionary = bucket["word_stats"]
-	var theme_key := str(theme_index)
+	var theme_key := _theme_progress_key(theme_index)
+	if theme_key.is_empty():
+		return {"played": {}, "guessed": {}}
 	if !word_stats.has(theme_key) or !(word_stats[theme_key] is Dictionary):
-		word_stats[theme_key] = {"played": [], "guessed": []}
+		word_stats[theme_key] = {"played": {}, "guessed": {}}
 	var item: Dictionary = word_stats[theme_key]
-	if !item.has("played") or !(item["played"] is Array):
-		item["played"] = []
-	if !item.has("guessed") or !(item["guessed"] is Array):
-		item["guessed"] = []
-	_resize_bool_array(item["played"], word_count)
-	_resize_bool_array(item["guessed"], word_count)
+	item["played"] = _prune_word_flag_dictionary(item.get("played", {}), theme_index)
+	item["guessed"] = _prune_word_flag_dictionary(item.get("guessed", {}), theme_index)
 	word_stats[theme_key] = item
 	bucket["word_stats"] = word_stats
 	single_player[lang_key] = bucket
 	return item
 
-func mark_single_player_word_shown(lang: String, theme_index: int, word_index: int, word_count: int) -> void:
+func mark_single_player_word_shown(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
 	if theme_index < 0 or word_index < 0:
 		return
-	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
-	if word_index >= item["played"].size():
+	var key := _word_progress_key(theme_index, word_index, word_text)
+	if key.is_empty():
 		return
-	item["played"][word_index] = true
-	save_game()
+	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
+	(item["played"] as Dictionary)[key] = true
+	if persist:
+		save_game()
 
-func mark_single_player_word_guessed(lang: String, theme_index: int, word_index: int, word_count: int) -> void:
+func mark_single_player_word_guessed(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
 	if theme_index < 0 or word_index < 0:
 		return
-	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
-	if word_index >= item["guessed"].size():
+	var key := _word_progress_key(theme_index, word_index, word_text)
+	if key.is_empty():
 		return
-	item["guessed"][word_index] = true
-	save_game()
+	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
+	(item["guessed"] as Dictionary)[key] = true
+	if persist:
+		save_game()
 
 func get_single_level_question_slot(lang: String, level_index: int) -> int:
 	if level_index < 0:
@@ -542,7 +931,7 @@ func get_single_level_question_slot(lang: String, level_index: int) -> int:
 	var slots: Dictionary = bucket["level_question_slots"]
 	return int(slots.get(str(level_index), -1))
 
-func set_single_level_question_slot(lang: String, level_index: int, question_slot: int) -> void:
+func set_single_level_question_slot(lang: String, level_index: int, question_slot: int, persist: bool = true) -> void:
 	if level_index < 0 or question_slot < 0:
 		return
 	var lang_key := _normalize_language(lang)
@@ -551,7 +940,8 @@ func set_single_level_question_slot(lang: String, level_index: int, question_slo
 	slots[str(level_index)] = question_slot
 	bucket["level_question_slots"] = slots
 	single_player[lang_key] = bucket
-	save_game()
+	if persist:
+		save_game()
 
 func get_single_level_question_id(lang: String, level_index: int) -> int:
 	if level_index < 0:
@@ -560,7 +950,7 @@ func get_single_level_question_id(lang: String, level_index: int) -> int:
 	var question_ids: Dictionary = bucket["level_question_ids"]
 	return int(question_ids.get(str(level_index), -1))
 
-func set_single_level_question_id(lang: String, level_index: int, question_id: int) -> void:
+func set_single_level_question_id(lang: String, level_index: int, question_id: int, persist: bool = true) -> void:
 	if level_index < 0 or question_id < 0:
 		return
 	var lang_key := _normalize_language(lang)
@@ -569,13 +959,14 @@ func set_single_level_question_id(lang: String, level_index: int, question_id: i
 	question_ids[str(level_index)] = question_id
 	bucket["level_question_ids"] = question_ids
 	single_player[lang_key] = bucket
-	save_game()
+	if persist:
+		save_game()
 
 func _single_player_question_theme_stats(lang: String, theme_index: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var question_stats: Dictionary = bucket["question_stats"]
-	var theme_key := str(theme_index)
+	var theme_key := _theme_progress_key(theme_index)
 	if !question_stats.has(theme_key) or !(question_stats[theme_key] is Dictionary):
 		question_stats[theme_key] = {"seen": {}}
 	var theme_stats: Dictionary = question_stats[theme_key]
@@ -593,11 +984,11 @@ func has_single_player_question_been_seen(lang: String, theme_index: int, questi
 	var seen: Dictionary = theme_stats["seen"]
 	return bool(seen.get(str(question_id), false))
 
-func mark_single_player_question_seen(lang: String, theme_index: int, question_id: int) -> void:
+func mark_single_player_question_seen(lang: String, theme_index: int, question_id: int, persist: bool = true) -> void:
 	if theme_index < 0 or question_id < 0:
 		return
 	var lang_key := _normalize_language(lang)
-	var theme_key := str(theme_index)
+	var theme_key := _theme_progress_key(theme_index)
 	var theme_stats: Dictionary = _single_player_question_theme_stats(lang_key, theme_index)
 	var seen: Dictionary = theme_stats["seen"]
 	if bool(seen.get(str(question_id), false)):
@@ -609,7 +1000,8 @@ func mark_single_player_question_seen(lang: String, theme_index: int, question_i
 	question_stats[theme_key] = theme_stats
 	bucket["question_stats"] = question_stats
 	single_player[lang_key] = bucket
-	save_game()
+	if persist:
+		save_game()
 
 func _single_level_status(value: Variant) -> int:
 	return clampi(int(value), 0, 2)
@@ -651,7 +1043,7 @@ func get_single_level_selected_theme(lang: String, level_index: int, difficulty:
 		return -1
 	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
 	var selected_themes: Dictionary = progress_bucket["selected_themes"]
-	return int(selected_themes.get(str(level_index), -1))
+	return Database.get_theme_index_by_id(int(selected_themes.get(str(level_index), -1)))
 
 func get_single_level_theme_reroll_state(lang: String, level_index: int) -> int:
 	if level_index < 0:
@@ -664,7 +1056,7 @@ func get_single_level_theme_reroll_state(lang: String, level_index: int) -> int:
 		SINGLE_LEVEL_THEME_REROLL_AD_USED
 	)
 
-func set_single_level_theme_reroll_state(lang: String, level_index: int, state: int) -> void:
+func set_single_level_theme_reroll_state(lang: String, level_index: int, state: int, persist: bool = true) -> void:
 	if level_index < 0:
 		return
 	var lang_key := _normalize_language(lang)
@@ -682,7 +1074,8 @@ func set_single_level_theme_reroll_state(lang: String, level_index: int, state: 
 		reroll_states[level_key] = resolved_state
 	bucket["theme_reroll_states"] = reroll_states
 	single_player[lang_key] = bucket
-	save_game()
+	if persist:
+		save_game()
 
 func select_single_level_theme(lang: String, level_index: int, theme_index: int, word_count: int, _difficulty: int = -1) -> void:
 	if level_index < 0 or theme_index < 0:
@@ -691,9 +1084,9 @@ func select_single_level_theme(lang: String, level_index: int, theme_index: int,
 	var bucket := _single_player_bucket(lang_key)
 	var level_key := str(level_index)
 	var selected_themes: Dictionary = bucket["selected_themes"]
-	if int(selected_themes.get(level_key, -1)) >= 0:
+	if Database.get_theme_index_by_id(int(selected_themes.get(level_key, -1))) >= 0:
 		return
-	selected_themes[level_key] = theme_index
+	selected_themes[level_key] = Database.get_theme_id(theme_index)
 	bucket["selected_themes"] = selected_themes
 	var levels: Dictionary = bucket["levels"]
 	var statuses: Array = []
@@ -790,7 +1183,8 @@ func mark_single_level_word_played(
 	is_win: bool,
 	failure_affects_difficulty: bool = true,
 	difficulty: int = -1,
-	award_completion_bonus: bool = true
+	award_completion_bonus: bool = true,
+	persist: bool = true
 ) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
@@ -832,7 +1226,20 @@ func mark_single_level_word_played(
 		bucket["unlocked_level"] = level_index + 1
 		unlocked_next = true
 	single_player[lang_key] = bucket
-	save_game()
+	if was_unplayed and is_win and completed and !award_completion_bonus:
+		var selected_theme_id: int = int(
+			(bucket["selected_themes"] as Dictionary).get(str(level_index), 0)
+		)
+		_create_pending_single_player_reward(
+			lang_key,
+			level_index,
+			word_slot,
+			word_count,
+			selected_theme_id,
+			WORD_REWARD_COINS + completion_bonus
+		)
+	if persist:
+		save_game()
 	return {
 		"completed": completed,
 		"perfect": perfect,
@@ -847,18 +1254,20 @@ func mark_single_level_word_played(
 		"difficulty_after": difficulty_after,
 	}
 
-func record_single_player_forfeit(lang: String) -> void:
+func record_single_player_forfeit(lang: String, persist: bool = true) -> void:
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
 	single_player[lang_key] = bucket
-	save_game()
+	if persist:
+		save_game()
 
 func reset_single_level_attempt(
 	lang: String,
 	level_index: int,
 	reroll_seed: bool = true,
-	clear_theme_reroll_state: bool = true
+	clear_theme_reroll_state: bool = true,
+	persist: bool = true
 ) -> void:
 	if level_index < 0:
 		return
@@ -886,4 +1295,10 @@ func reset_single_level_attempt(
 	bucket["level_question_slots"] = level_question_slots
 	bucket["level_question_ids"] = level_question_ids
 	single_player[lang_key] = bucket
-	save_game()
+	if (
+		_normalize_language(str(active_single_player_session.get("language", lang_key))) == lang_key
+		and int(active_single_player_session.get("level_index", -1)) == level_index
+	):
+		active_single_player_session = {}
+	if persist:
+		save_game()

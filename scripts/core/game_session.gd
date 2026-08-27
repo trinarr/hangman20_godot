@@ -78,6 +78,83 @@ func _split_letters(text: String) -> PackedStringArray:
 		result.append(text.substr(i, 1))
 	return result
 
+func to_save_data() -> Dictionary:
+	if word_data == null or mode != GameState.GameMode.SINGLE_PLAYER:
+		return {}
+	return {
+		"word": word_data.text,
+		"difficulty": word_data.difficulty,
+		"theme_id": Database.get_theme_id(theme_id),
+		"word_index": word_index,
+		"custom_comment": word_data.custom_comment,
+		"revealed": revealed.duplicate(),
+		"correct_letters": Array(correct_letters),
+		"wrong_letters": Array(wrong_letters),
+		"removed_wrong_letters": Array(removed_wrong_letters),
+		"mistakes": clampi(mistakes, 0, MAX_MISTAKES),
+		"loss_deferred": loss_deferred,
+		"open_hint_used": open_hint_used,
+		"remove_wrong_hint_used": remove_wrong_hint_used,
+		"open_hint_ad_reuse_available": open_hint_ad_reuse_available,
+		"remove_wrong_hint_ad_reuse_available": remove_wrong_hint_ad_reuse_available,
+		"comment_hint_unlocked": comment_hint_unlocked,
+		"word_hint_text": word_hint_text,
+	}
+
+func _packed_string_array_from_save(source: Variant) -> PackedStringArray:
+	var result := PackedStringArray()
+	if source is Array:
+		for value: Variant in source:
+			var letter: String = str(value)
+			if letter.length() == 1 and !result.has(letter):
+				result.append(letter)
+	return result
+
+func restore_from_save_data(source: Dictionary) -> bool:
+	var text: String = WordManager.normalize_word(str(source.get("word", "")))
+	var restored_theme_index: int = Database.get_theme_index_by_id(
+		int(source.get("theme_id", -1))
+	)
+	var restored_word_index: int = int(source.get("word_index", -1))
+	if text.is_empty() or restored_theme_index < 0 or restored_word_index < 0:
+		return false
+	var restored_letters: PackedStringArray = _split_letters(text)
+	var restored_revealed_variant: Variant = source.get("revealed", [])
+	if !(restored_revealed_variant is Array):
+		return false
+	var restored_revealed: Array = Array(restored_revealed_variant)
+	if restored_revealed.size() != restored_letters.size():
+		return false
+	for index: int in range(restored_revealed.size()):
+		restored_revealed[index] = bool(restored_revealed[index]) or _is_separator(restored_letters[index])
+
+	word_data = WordData.new(
+		text,
+		clampf(float(source.get("difficulty", 0.0)), 0.0, 1.0),
+		restored_theme_index,
+		restored_word_index,
+		str(source.get("custom_comment", ""))
+	)
+	word_index = restored_word_index
+	theme_id = restored_theme_index
+	mode = GameState.GameMode.SINGLE_PLAYER
+	letters = restored_letters
+	revealed = restored_revealed.duplicate()
+	correct_letters = _packed_string_array_from_save(source.get("correct_letters", []))
+	wrong_letters = _packed_string_array_from_save(source.get("wrong_letters", []))
+	removed_wrong_letters = _packed_string_array_from_save(source.get("removed_wrong_letters", []))
+	mistakes = clampi(int(source.get("mistakes", 0)), 0, MAX_MISTAKES - 1)
+	loss_deferred = bool(source.get("loss_deferred", false))
+	open_hint_used = bool(source.get("open_hint_used", false))
+	remove_wrong_hint_used = bool(source.get("remove_wrong_hint_used", false))
+	open_hint_ad_reuse_available = bool(source.get("open_hint_ad_reuse_available", false))
+	remove_wrong_hint_ad_reuse_available = bool(source.get("remove_wrong_hint_ad_reuse_available", false))
+	comment_hint_unlocked = bool(source.get("comment_hint_unlocked", false))
+	word_hint_text = str(source.get("word_hint_text", _resolve_word_hint()))
+	is_active = true
+	emit_signal("changed")
+	return true
+
 func _is_separator(letter: String) -> bool:
 	return letter == " " or letter == "-" or letter == "—"
 
@@ -225,7 +302,10 @@ func use_open_letter_hint() -> bool:
 			candidates.append(i)
 	if candidates.is_empty():
 		return false
-	var payment: int = GameState.pay_for_hint(GameState.HINT_OPEN_LETTER)
+	var payment: int = GameState.pay_for_hint(
+		GameState.HINT_OPEN_LETTER,
+		false
+	)
 	if payment == GameState.HintPayment.FAILED:
 		return false
 	open_hint_used = true
@@ -236,6 +316,8 @@ func use_open_letter_hint() -> bool:
 	var index: int = candidates[randi() % candidates.size()]
 	var selected_letter: String = letters[index]
 	_reveal_letter(selected_letter)
+	if mode != GameState.GameMode.SINGLE_PLAYER:
+		GameState.save_game()
 	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
 	if is_word_completed():
 		is_active = false
@@ -277,7 +359,10 @@ func use_remove_wrong_hint() -> bool:
 			candidates.append(letter)
 	if candidates.is_empty():
 		return false
-	var payment: int = GameState.pay_for_hint(GameState.HINT_REMOVE_WRONG)
+	var payment: int = GameState.pay_for_hint(
+		GameState.HINT_REMOVE_WRONG,
+		false
+	)
 	if payment == GameState.HintPayment.FAILED:
 		return false
 	remove_wrong_hint_used = true
@@ -293,6 +378,8 @@ func use_remove_wrong_hint() -> bool:
 		removed_wrong_letters.append(selected_letter)
 		selected_letters.append(selected_letter)
 		candidates.remove_at(candidate_index)
+	if mode != GameState.GameMode.SINGLE_PLAYER:
+		GameState.save_game()
 	emit_signal("hint_letters_selected", selected_letters, false)
 	emit_signal("changed")
 	return true
@@ -325,9 +412,14 @@ func unlock_comment_hint() -> bool:
 		return can_view_comment_hint()
 	if !can_unlock_comment_hint():
 		return false
-	if GameState.pay_for_hint(GameState.HINT_COMMENT) == GameState.HintPayment.FAILED:
+	if GameState.pay_for_hint(
+		GameState.HINT_COMMENT,
+		false
+	) == GameState.HintPayment.FAILED:
 		return false
 	comment_hint_unlocked = true
+	if mode != GameState.GameMode.SINGLE_PLAYER:
+		GameState.save_game()
 	emit_signal("changed")
 	return true
 
@@ -394,7 +486,14 @@ func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 
 	if mode == GameState.GameMode.CLASSIC:
 		if is_win and theme_id >= 0:
-			GameState.mark_guessed(Database.current_language, theme_id, word_index, Database.get_words_by_index(theme_id, 0).size())
+			GameState.mark_guessed(
+				Database.current_language,
+				theme_id,
+				word_index,
+				Database.get_words_by_index(theme_id, 0).size(),
+				word_data.text,
+				false
+			)
 			if _is_theme_completed(theme_id):
 				result["lines"].append(Database.tr_text(57, "Category is completed!"))
 	elif mode == GameState.GameMode.SINGLE_PLAYER:
@@ -403,7 +502,9 @@ func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 				Database.current_language,
 				theme_id,
 				word_index,
-				Database.get_words_by_index(theme_id, 0).size()
+				Database.get_words_by_index(theme_id, 0).size(),
+				word_data.text,
+				false
 			)
 	elif mode == GameState.GameMode.TWO_PLAYER:
 		if is_win:
@@ -411,7 +512,10 @@ func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 		else:
 			GameState.records[1][1] = int(GameState.records[1][1]) + 1
 
-	GameState.save_game()
+	# Single-player level status, economy and a possible final pending reward are
+	# committed together by Main after this method returns.
+	if mode != GameState.GameMode.SINGLE_PLAYER:
+		GameState.save_game()
 	return result
 
 func _is_theme_completed(theme_index: int) -> bool:

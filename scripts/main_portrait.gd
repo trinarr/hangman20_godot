@@ -233,8 +233,6 @@ const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = 1.22
 const PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = 1.06
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION: float = 0.035
 const PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION: float = 0.050
-const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION: float = 0.3
-const PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION: float = 0.28
 const PORTRAIT_HINT_COUNTER_ROLL_DURATION: float = 0.18
 const PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE: float = 0.72
 const PORTRAIT_GAME_HINT_ENTRANCE_PEAK_SCALE: float = 1.12
@@ -2127,6 +2125,11 @@ func _show_menu_screen() -> void:
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
+	if GameState.has_resumable_single_player_level():
+		_stage_resume_level_button(
+			Rect2(button_x, 398.0, PORTRAIT_LONG_BUTTON_SIZE.x, 64.0),
+			GameState.get_resumable_single_player_level_index()
+		)
 	_stage_main_button(
 		PORTRAIT_QUIZ_MENU_BUTTON_RECT,
 		Callable(self, "show_quiz_theme_select"),
@@ -2144,6 +2147,153 @@ func _show_menu_screen() -> void:
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation")
+
+func _stage_resume_level_button(rect: Rect2, level_index: int) -> void:
+	var button := _stage_main_button(
+		rect,
+		Callable(self, "_resume_saved_single_player_level"),
+		"",
+		22,
+		false,
+		0.32,
+		false,
+		false,
+		true,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	var title := Label.new()
+	title.name = "ResumeTitle"
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.position = Vector2(0.0, 3.0)
+	title.size = Vector2(rect.size.x, 36.0)
+	title.text = Database.tr_text(3, "Continue").to_upper()
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(title, UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55), UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55))
+	button.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.name = "ResumeLevel"
+	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	subtitle.position = Vector2(0.0, 34.0)
+	subtitle.size = Vector2(rect.size.x, 24.0)
+	subtitle.text = (tr("LEVEL_NUMBER") % (maxi(level_index, 0) + 1)).to_upper()
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	subtitle.add_theme_font_size_override("font_size", 14)
+	subtitle.add_theme_color_override("font_color", Color.WHITE)
+	BUTTON_TEXT_STYLE_SCRIPT.apply(subtitle, UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.45), UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.45))
+	button.add_child(subtitle)
+
+func _restore_single_player_language(language: String) -> void:
+	var normalized_language: String = "ru" if language.to_lower().begins_with("ru") else "en"
+	if Database.current_language != normalized_language:
+		GameState.word_language = normalized_language
+		Database.load_word_language(normalized_language)
+		_invalidate_single_player_level_cache()
+
+func _resume_saved_single_player_level() -> void:
+	var pending: Dictionary = GameState.get_pending_single_player_reward()
+	if !pending.is_empty():
+		_restore_single_player_language(str(pending.get("language", Database.current_language)))
+		var level_index: int = int(pending.get("level_index", -1))
+		var word_count: int = maxi(int(pending.get("word_count", 1)), 1)
+		var word_slot: int = clampi(int(pending.get("word_slot", word_count - 1)), 0, word_count - 1)
+		var reward_amount: int = maxi(int(pending.get("amount", 0)), 0)
+		if level_index < 0 or reward_amount <= 0:
+			GameState.clear_active_single_player_session(true)
+			show_menu()
+			return
+		GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+		single_player_active_level_index = level_index
+		single_player_active_word_slot = word_slot
+		game_finished = true
+		last_result_is_win = true
+		last_result_data = {
+			"lines": [],
+			"single_player_level_index": level_index,
+			"single_player_word_slot": word_slot,
+			"single_player_played_count": word_count,
+			"single_player_total_count": word_count,
+			"single_player_level_completed": true,
+			"single_player_level_perfect": true,
+			"single_player_chain_failed": false,
+			"single_player_chain_ended": true,
+			"single_player_completion_bonus": maxi(reward_amount - GameState.WORD_REWARD_COINS, 0),
+			"single_player_reward_deferred": true,
+			"single_player_deferred_reward_amount": reward_amount,
+		}
+		_show_single_player_reward_chain_screen()
+		return
+
+	var session: Dictionary = GameState.get_active_single_player_session()
+	if session.is_empty():
+		show_menu()
+		return
+	_restore_single_player_language(str(session.get("language", Database.current_language)))
+	var level_index: int = int(session.get("level_index", -1))
+	var word_slot: int = int(session.get("word_slot", -1))
+	var kind: String = str(session.get("kind", ""))
+	if level_index < 0 or word_slot < 0:
+		GameState.clear_active_single_player_session(true)
+		show_menu()
+		return
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	single_player_active_level_index = level_index
+	single_player_active_word_slot = word_slot
+	game_finished = false
+	last_result_data = {}
+	last_result_is_win = false
+	match kind:
+		"word":
+			var word_data_variant: Variant = session.get("data", {})
+			if (
+				word_data_variant is Dictionary
+				and GameSession.restore_from_save_data(Dictionary(word_data_variant))
+			):
+				show_game_screen()
+				if GameSession.has_deferred_loss():
+					call_deferred("_show_single_player_last_chance_popup", false)
+				return
+		"quiz":
+			var quiz_data_variant: Variant = session.get("data", {})
+			if quiz_data_variant is Dictionary:
+				var data: Dictionary = Dictionary(quiz_data_variant)
+				var question_variant: Variant = data.get("question", {})
+				var theme_index: int = Database.get_theme_index_by_id(int(session.get("theme_id", -1)))
+				var question: Dictionary = (
+					Dictionary(question_variant)
+					if question_variant is Dictionary
+					else {}
+				)
+				if !question.is_empty() and theme_index >= 0:
+					GameSession.discard_current_round()
+					GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+					_quiz_mode_active = true
+					_quiz_single_player_embedded = true
+					_quiz_selected_theme_index = theme_index
+					_quiz_current_question = question.duplicate(true)
+					_quiz_single_player_target_difficulty = clampf(float(data.get("target_difficulty", 0.5)), 0.0, 1.0)
+					_quiz_answer_locked = false
+					_quiz_selected_answer_index = -1
+					_quiz_fifty_fifty_used = bool(data.get("fifty_fifty_used", false))
+					var hidden_variant: Variant = data.get("hidden_indices", [])
+					_quiz_fifty_fifty_hidden_indices = (
+						Array(hidden_variant).duplicate()
+						if hidden_variant is Array
+						else []
+					)
+					_quiz_replace_question_used = bool(data.get("replace_question_used", false))
+					_quiz_question_replacing = false
+					_show_quiz_game_screen()
+					return
+		"next":
+			_start_next_single_player_word(level_index)
+			return
+	GameState.clear_active_single_player_session(true)
+	_open_next_single_player_level()
 
 func show_settings() -> void:
 	_show_settings_popup()
@@ -2347,6 +2497,31 @@ func _start_quiz_theme(theme_index: int) -> void:
 func _single_player_embedded_question_active() -> bool:
 	return _quiz_single_player_embedded and _quiz_screen_active and !game_finished
 
+func _persist_active_single_player_quiz_session() -> void:
+	if (
+		!_quiz_single_player_embedded
+		or game_finished
+		or single_player_active_level_index < 0
+		or single_player_active_word_slot < 0
+		or _quiz_selected_theme_index < 0
+		or _quiz_current_question.is_empty()
+	):
+		return
+	GameState.set_active_single_player_session({
+		"kind": "quiz",
+		"language": Database.current_language,
+		"level_index": single_player_active_level_index,
+		"word_slot": single_player_active_word_slot,
+		"theme_id": Database.get_theme_id(_quiz_selected_theme_index),
+		"data": {
+			"question": _quiz_current_question.duplicate(true),
+			"target_difficulty": _quiz_single_player_target_difficulty,
+			"fifty_fifty_used": _quiz_fifty_fifty_used,
+			"hidden_indices": _quiz_fifty_fifty_hidden_indices.duplicate(),
+			"replace_question_used": _quiz_replace_question_used,
+		},
+	})
+
 func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	if _single_player_level_word_status(level_index, word_slot) != 0:
 		return
@@ -2381,8 +2556,10 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 		GameState.mark_single_player_question_seen(
 			Database.current_language,
 			theme_index,
-			question_id
+			question_id,
+			false
 		)
+	_persist_active_single_player_quiz_session()
 	_show_quiz_game_screen()
 
 func _record_single_player_quiz_result(is_win: bool) -> void:
@@ -2392,15 +2569,20 @@ func _record_single_player_quiz_result(is_win: bool) -> void:
 	last_result_is_win = is_win
 	hero_force_default_pose = false
 	var result: Dictionary = {"lines": []}
-	if is_win:
-		GameState.add_soft_currency(GameState.WORD_REWARD_COINS)
-	else:
-		GameState.lose_heart()
+	var word_count: int = _single_player_level_word_count(single_player_active_level_index)
+	var defer_final_reward: bool = (
+		is_win
+		and single_player_active_word_slot == word_count - 1
+	)
+	if is_win and !defer_final_reward:
+		GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
+	elif !is_win:
+		GameState.lose_heart(false)
 	last_result_data = _single_player_mark_current_word_finished(
 		result,
 		is_win,
 		true,
-		false
+		defer_final_reward
 	)
 
 func _quiz_question_font_size(question_text: String) -> int:
@@ -2914,7 +3096,10 @@ func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
 	if !GameState.can_pay_for_hint(hint_key):
 		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
-	var payment: int = GameState.pay_for_hint(hint_key)
+	var payment: int = GameState.pay_for_hint(
+		hint_key,
+		false
+	)
 	if payment == GameState.HintPayment.FAILED:
 		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
@@ -3126,6 +3311,10 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 
 	_quiz_fifty_fifty_used = true
 	_quiz_fifty_fifty_hidden_indices = [wrong_indices[0], wrong_indices[1]]
+	if _quiz_single_player_embedded:
+		_persist_active_single_player_quiz_session()
+	else:
+		GameState.save_game()
 	if !_quiz_hint_buttons.is_empty():
 		var fifty_button: Control = _quiz_hint_buttons[0]
 		if fifty_button != null and is_instance_valid(fifty_button):
@@ -3277,6 +3466,26 @@ func _on_quiz_replace_question_pressed() -> void:
 
 	_quiz_replace_question_used = true
 	_quiz_question_replacing = true
+	_quiz_current_question = next_question
+	if _quiz_single_player_embedded:
+		var replacement_id: int = int(_quiz_current_question.get("id", -1))
+		if replacement_id >= 0:
+			GameState.set_single_level_question_id(
+				Database.current_language,
+				single_player_active_level_index,
+				replacement_id,
+				false
+			)
+			GameState.mark_single_player_question_seen(
+				Database.current_language,
+				_quiz_selected_theme_index,
+				replacement_id,
+				false
+			)
+			_invalidate_single_player_level_cache()
+		_persist_active_single_player_quiz_session()
+	else:
+		GameState.save_game()
 	_set_quiz_hint_buttons_temporarily_disabled(true)
 	for answer_control: Control in _quiz_answer_buttons:
 		var answer_button := answer_control as Button
@@ -3329,25 +3538,11 @@ func _on_quiz_replace_question_pressed() -> void:
 		_quiz_question_replacing = false
 		return
 
-	_quiz_current_question = next_question
-	if _quiz_single_player_embedded:
-		var replacement_id: int = int(_quiz_current_question.get("id", -1))
-		if replacement_id >= 0:
-			GameState.set_single_level_question_id(
-				Database.current_language,
-				single_player_active_level_index,
-				replacement_id
-			)
-			GameState.mark_single_player_question_seen(
-				Database.current_language,
-				_quiz_selected_theme_index,
-				replacement_id
-			)
-			_invalidate_single_player_level_cache()
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
 	_quiz_fifty_fifty_hidden_indices.clear()
+	_persist_active_single_player_quiz_session()
 
 	var new_question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
 	_quiz_question_label.text = new_question_text
@@ -4895,13 +5090,14 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 			)
 		)
 		return
-	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST, false):
 		return
 	_single_player_theme_reroll_used = true
 	GameState.set_single_level_theme_reroll_state(
 		Database.current_language,
 		level_index,
-		GameState.SINGLE_LEVEL_THEME_REROLL_COIN_USED
+		GameState.SINGLE_LEVEL_THEME_REROLL_COIN_USED,
+		false
 	)
 	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
@@ -7946,41 +8142,12 @@ func _return_to_single_player_last_chance_from_coin_store() -> void:
 	call_deferred("_show_single_player_last_chance_popup", false)
 
 func _grant_single_player_extra_attempt() -> void:
-	var hero_group: Control = _portrait_game_adaptive_group
-	if hero_group == null or !is_instance_valid(hero_group) or !hero_group.is_inside_tree():
-		super._grant_single_player_extra_attempt()
-		return
-
-	# Fade the complete hero layer, including a reaction overlay that may still be
-	# visible below the popup. Update the recovered pose while the layer is hidden,
-	# then bring that previous state back without the old abrupt frame swap.
-	var fade_out := hero_group.create_tween()
-	fade_out.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var fade_out_tweener := fade_out.tween_property(
-		hero_group,
-		"modulate:a",
-		0.0,
-		PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_OUT_DURATION
-	)
-	fade_out_tweener.set_trans(Tween.TRANS_QUAD)
-	fade_out_tweener.set_ease(Tween.EASE_IN)
-	await fade_out.finished
-
+	# Apply and persist the attempt before any presentation work. A native ad can
+	# return through an Android lifecycle transition where the process is killed
+	# before an awaited tween completes.
 	_clear_hero_animation_overlay()
 	GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())
-	if !is_instance_valid(hero_group) or !hero_group.is_inside_tree():
-		return
-	hero_group.modulate.a = 0.0
-	var fade_in := hero_group.create_tween()
-	fade_in.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var fade_in_tweener := fade_in.tween_property(
-		hero_group,
-		"modulate:a",
-		1.0,
-		PORTRAIT_EXTRA_ATTEMPT_HERO_FADE_IN_DURATION
-	)
-	fade_in_tweener.set_trans(Tween.TRANS_QUAD)
-	fade_in_tweener.set_ease(Tween.EASE_OUT)
+	single_player_extra_attempt_claim_in_progress = false
 
 func _stage_portrait_inline_result_word(animate_result: bool = false) -> Dictionary:
 	if (
@@ -9663,22 +9830,7 @@ func _set_portrait_rewarded_action_control_enabled(
 				if attempt_ad_button != null and is_instance_valid(attempt_ad_button):
 					attempt_ad_button.set("button_disabled", !can_use_rewarded_attempt)
 
-func _on_portrait_rewarded_action_rewarded(_currency: String, _amount: int) -> void:
-	if _portrait_rewarded_action != &"":
-		_portrait_rewarded_action_earned = true
-
-func _on_portrait_rewarded_action_closed() -> void:
-	if _portrait_rewarded_action == &"":
-		return
-	var action: StringName = _portrait_rewarded_action
-	var level_index: int = _portrait_rewarded_action_level_index
-	var earned_reward: bool = _portrait_rewarded_action_earned
-	_portrait_rewarded_action = &""
-	_portrait_rewarded_action_level_index = -1
-	_portrait_rewarded_action_earned = false
-	if !earned_reward:
-		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
-		return
+func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> void:
 	match action:
 		&"hint_open":
 			if GameSession.can_use_open_letter_hint_ad():
@@ -9699,7 +9851,8 @@ func _on_portrait_rewarded_action_closed() -> void:
 				GameState.set_single_level_theme_reroll_state(
 					Database.current_language,
 					level_index,
-					GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED
+					GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED,
+					false
 				)
 				_update_single_player_theme_reroll_badge()
 				_update_single_player_theme_reroll_button_state()
@@ -9725,6 +9878,29 @@ func _on_portrait_rewarded_action_closed() -> void:
 			if GameSession.has_deferred_loss():
 				_remove_single_player_last_chance_popup()
 				_grant_single_player_extra_attempt()
+
+func _on_portrait_rewarded_action_rewarded(_currency: String, _amount: int) -> void:
+	if _portrait_rewarded_action == &"" or _portrait_rewarded_action_earned:
+		return
+	_portrait_rewarded_action_earned = true
+	# Persist the earned benefit on the SDK's reward callback. Android may kill
+	# the process before the later dismiss callback is delivered.
+	_grant_portrait_rewarded_action(
+		_portrait_rewarded_action,
+		_portrait_rewarded_action_level_index
+	)
+
+func _on_portrait_rewarded_action_closed() -> void:
+	if _portrait_rewarded_action == &"":
+		return
+	var action: StringName = _portrait_rewarded_action
+	var level_index: int = _portrait_rewarded_action_level_index
+	var earned_reward: bool = _portrait_rewarded_action_earned
+	_portrait_rewarded_action = &""
+	_portrait_rewarded_action_level_index = -1
+	_portrait_rewarded_action_earned = false
+	if !earned_reward:
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 
 func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	if _portrait_rewarded_action == &"":
@@ -9822,14 +9998,12 @@ func _on_final_reward_ad_rewarded(_currency: String, _amount: int) -> void:
 	if !_portrait_final_reward_waiting_for_ad:
 		return
 	_portrait_final_reward_earned_ad_reward = true
-	# Some Android/ad-SDK lifecycle paths can deliver the dismiss callback before
-	# the reward callback reaches GDScript. If close is already waiting for that
-	# callback, finish immediately instead of dropping a valid x2 reward.
-	if _portrait_final_reward_ad_close_pending:
-		_portrait_final_reward_ad_close_pending = false
-		_portrait_final_reward_waiting_for_ad = false
-		_portrait_final_reward_earned_ad_reward = false
-		_complete_single_player_final_reward(2)
+	_portrait_final_reward_ad_close_pending = false
+	_portrait_final_reward_waiting_for_ad = false
+	_portrait_final_reward_earned_ad_reward = false
+	# Claim on the reward callback itself; waiting for ad close made this reward
+	# vulnerable to a process kill while the native activity was being dismissed.
+	_complete_single_player_final_reward(2)
 
 func _resolve_final_reward_ad_close_without_reward() -> void:
 	# Give a late `rewarded` signal a short grace window after Android restores
@@ -9879,19 +10053,11 @@ func _complete_single_player_final_reward(reward_multiplier: int) -> void:
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
-	if bool(last_result_data.get("single_player_reward_deferred", false)):
-		var deferred_reward_amount: int = maxi(
-			int(last_result_data.get("single_player_deferred_reward_amount", 0))
-			* maxi(reward_multiplier, 1),
-			0
-		)
-		if deferred_reward_amount > 0:
-			# Economy must not depend on the Home-screen animation successfully
-			# starting. Credit and persist the prize immediately; the pending value
-			# below is presentation-only and is used to roll the Home counter from
-			# the pre-reward balance to the already-saved final balance.
-			GameState.add_soft_currency(deferred_reward_amount)
-			_portrait_pending_home_reward_amount += deferred_reward_amount
+	var credited_reward_amount: int = GameState.claim_pending_single_player_reward(
+		maxi(reward_multiplier, 1)
+	)
+	if credited_reward_amount > 0:
+		_portrait_pending_home_reward_amount += credited_reward_amount
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}

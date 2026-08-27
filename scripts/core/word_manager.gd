@@ -15,23 +15,31 @@ func select_new_word(theme_index: int) -> WordData:
 	if words.is_empty():
 		return WordData.new("")
 
-	var progress := GameState.ensure_theme_progress(Database.current_language, selected_theme, _real_word_count(selected_theme))
+	var progress := GameState.ensure_theme_progress(
+		Database.current_language,
+		selected_theme,
+		_real_word_count(selected_theme)
+	)
+	var guessed_keys: Dictionary = progress.get("guessed", {})
+	var played_keys: Dictionary = progress.get("played", {})
+	var word_keys: Array[String] = Database.get_word_progress_keys(selected_theme)
 	var available: Array = []
 	for item in words:
-		var index := int(item["index"])
-		var already_guessed := bool(progress["guessed"][index]) if index < progress["guessed"].size() else false
-		var already_played := bool(progress["played"][index]) if index < progress["played"].size() else false
+		var index: int = int(item.get("index", -1))
+		var word_key: String = word_keys[index] if index >= 0 and index < word_keys.size() else ""
+		var already_guessed := bool(guessed_keys.get(word_key, false))
+		var already_played := bool(played_keys.get(word_key, false))
 		# Prefer words that have not been guessed or played recently.
 		if !already_guessed and !already_played:
 			available.append(item)
 
 	if available.is_empty():
 		# Reset the recently-played flags when all eligible words were exhausted.
+		GameState.reset_theme_played_flags(Database.current_language, selected_theme, false)
 		for item in words:
-			var index := int(item["index"])
-			if index >= 0 and index < progress["played"].size():
-				progress["played"][index] = false
-			var already_guessed := bool(progress["guessed"][index]) if index < progress["guessed"].size() else false
+			var index: int = int(item.get("index", -1))
+			var word_key: String = word_keys[index] if index >= 0 and index < word_keys.size() else ""
+			var already_guessed := bool(guessed_keys.get(word_key, false))
 			if !already_guessed:
 				available.append(item)
 
@@ -41,7 +49,13 @@ func select_new_word(theme_index: int) -> WordData:
 
 	var picked: Dictionary = available[randi() % available.size()]
 	var selected_word := WordData.new(str(picked["text"]), float(picked["difficulty"]), selected_theme, int(picked["index"]))
-	GameState.mark_played(Database.current_language, selected_theme, selected_word.index, _real_word_count(selected_theme))
+	GameState.mark_played(
+		Database.current_language,
+		selected_theme,
+		selected_word.index,
+		_real_word_count(selected_theme),
+		selected_word.text
+	)
 	return selected_word
 
 func set_custom_word(text: String, comment: String = "") -> WordData:

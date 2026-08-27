@@ -110,6 +110,7 @@ var single_player_retry_after_loss: bool = false
 var single_player_extra_attempt_offer_count: int = 0
 var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 var single_player_extra_attempt_current_count: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
+var single_player_extra_attempt_claim_in_progress: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
 var custom_word_text: String = ""
@@ -155,6 +156,7 @@ func _ready() -> void:
 	Database.load_languages(GameState.interface_language, GameState.word_language)
 	_build_root()
 	GameSession.hint_letters_selected.connect(_on_hint_letters_selected)
+	GameSession.changed.connect(_persist_active_single_player_word_session)
 	GameSession.changed.connect(_refresh_game_screen)
 	GameSession.round_won.connect(_on_round_won)
 	GameSession.round_lost.connect(_on_round_lost)
@@ -165,6 +167,25 @@ func _ready() -> void:
 	_last_heart_count_for_animation = GameState.get_hearts()
 	show_menu()
 	_prewarm_runtime_assets()
+
+func _persist_active_single_player_word_session() -> void:
+	if (
+		GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
+		or GameSession.mode != GameState.GameMode.SINGLE_PLAYER
+		or !GameSession.is_active
+		or single_player_active_level_index < 0
+		or single_player_active_word_slot < 0
+		or GameSession.word_data == null
+	):
+		return
+	GameState.set_active_single_player_session({
+		"kind": "word",
+		"language": Database.current_language,
+		"level_index": single_player_active_level_index,
+		"word_slot": single_player_active_word_slot,
+		"theme_id": Database.get_theme_id(GameSession.theme_id),
+		"data": GameSession.to_save_data(),
+	})
 
 func _prewarm_runtime_assets() -> void:
 	THEME_ASSET_CACHE.prewarm()
@@ -930,8 +951,9 @@ func _single_player_words_for_theme(
 		theme_index,
 		candidates.size()
 	)
-	var played_words: Array = Array(theme_progress.get("played", []))
-	var guessed_words: Array = Array(theme_progress.get("guessed", []))
+	var played_keys: Dictionary = theme_progress.get("played", {})
+	var guessed_keys: Dictionary = theme_progress.get("guessed", {})
+	var progress_word_keys: Array[String] = Database.get_word_progress_keys(theme_index)
 	var words: Array = []
 	for word_slot in range(mini(word_count, candidates.size())):
 		var slot_target: float = _single_player_slot_difficulty(target_difficulty, word_slot, word_count)
@@ -941,9 +963,14 @@ func _single_player_words_for_theme(
 			var candidate: Dictionary = candidates[pool_index]
 			var candidate_word_index: int = int(candidate.get("index", -1))
 			var repeat_penalty: float = 0.0
-			if candidate_word_index >= 0 and candidate_word_index < played_words.size() and bool(played_words[candidate_word_index]):
+			var candidate_key: String = (
+				progress_word_keys[candidate_word_index]
+				if candidate_word_index >= 0 and candidate_word_index < progress_word_keys.size()
+				else ""
+			)
+			if bool(played_keys.get(candidate_key, false)):
 				repeat_penalty += SINGLE_PLAYER_PLAYED_WORD_PENALTY
-			if candidate_word_index >= 0 and candidate_word_index < guessed_words.size() and bool(guessed_words[candidate_word_index]):
+			if bool(guessed_keys.get(candidate_key, false)):
 				repeat_penalty += SINGLE_PLAYER_GUESSED_WORD_PENALTY
 			var score: float = (
 				absf(float(candidate.get("difficulty", 0.0)) - slot_target)
@@ -1205,7 +1232,8 @@ func _single_player_mark_current_word_finished(
 	data: Dictionary,
 	is_win: bool,
 	failure_affects_difficulty: bool = true,
-	defer_final_reward: bool = false
+	defer_final_reward: bool = false,
+	persist: bool = true
 ) -> Dictionary:
 	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
 		return data
@@ -1219,7 +1247,8 @@ func _single_player_mark_current_word_finished(
 		is_win,
 		failure_affects_difficulty,
 		-1,
-		!defer_final_reward
+		!defer_final_reward,
+		false
 	)
 	if !result.has("lines") or !(result["lines"] is Array):
 		result["lines"] = []
@@ -1246,6 +1275,25 @@ func _single_player_mark_current_word_finished(
 		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
 	elif bool(progress.get("failed", false)):
 		result["lines"].append(_single_player_chain_failed_label())
+	if level_completed:
+		# mark_single_level_word_played() has already replaced the active snapshot
+		# with a durable pending reward when this is the deferred final result.
+		GameState.clear_active_single_player_session(false)
+	elif is_win:
+		GameState.set_active_single_player_session({
+			"kind": "next",
+			"language": Database.current_language,
+			"level_index": single_player_active_level_index,
+			"word_slot": single_player_active_word_slot,
+			"theme_id": Database.get_theme_id(
+				_single_player_level_selected_theme(single_player_active_level_index)
+			),
+			"data": {},
+		}, false)
+	else:
+		GameState.clear_active_single_player_session(false)
+	if persist:
+		GameState.save_game()
 	return result
 
 func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
@@ -1544,7 +1592,7 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 			)
 		)
 		return
-	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST):
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST, false):
 		return
 	GameState.reset_single_level_attempt(Database.current_language, level_index)
 	_invalidate_single_player_level_cache()
@@ -1559,6 +1607,8 @@ func _return_to_single_player_theme_popup(
 	_show_single_player_level_popup(level_index, selected_theme, retry_after_loss)
 
 func _purchase_single_player_extra_attempt() -> void:
+	if single_player_extra_attempt_claim_in_progress:
+		return
 	if !GameSession.has_deferred_loss():
 		_remove_single_player_last_chance_popup()
 		return
@@ -1567,7 +1617,9 @@ func _purchase_single_player_extra_attempt() -> void:
 		_remove_single_player_last_chance_popup()
 		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
 		return
-	if !GameState.spend_soft_currency(purchase_cost):
+	single_player_extra_attempt_claim_in_progress = true
+	if !GameState.spend_soft_currency(purchase_cost, false):
+		single_player_extra_attempt_claim_in_progress = false
 		return
 	_remove_single_player_last_chance_popup()
 	_grant_single_player_extra_attempt()
@@ -1611,6 +1663,7 @@ func _grant_single_player_extra_attempt() -> void:
 	# otherwise the static hero remains hidden until that old animation finishes.
 	_clear_hero_animation_overlay()
 	GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())
+	single_player_extra_attempt_claim_in_progress = false
 
 func _decline_single_player_extra_attempt() -> void:
 	_remove_single_player_last_chance_popup()
@@ -1669,7 +1722,9 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		Database.current_language,
 		word.theme_index,
 		word.index,
-		Database.get_words_by_index(word.theme_index, 0).size()
+		Database.get_words_by_index(word.theme_index, 0).size(),
+		word.text,
+		false
 	)
 	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
 	show_game_screen()
@@ -1778,30 +1833,39 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 		and single_player_active_word_slot >= 0
 	):
 		game_finished = true
-		forfeit_result = _single_player_mark_current_word_finished({}, false, false)
+		forfeit_result = _single_player_mark_current_word_finished({}, false, false, false, false)
 		chain_failed = true
 		should_lose_heart = true
 	elif game_finished and level_index >= 0 and !level_completed and !chain_failed:
 		# Leaving after a successfully guessed word still forfeits the unfinished
 		# chain, but intentionally leaves adaptive difficulty unchanged.
-		GameState.record_single_player_forfeit(Database.current_language)
+		GameState.record_single_player_forfeit(Database.current_language, false)
 		should_lose_heart = true
 	if should_lose_heart:
-		GameState.lose_heart()
+		GameState.lose_heart(false)
 	if level_index >= 0 and !level_completed:
-		GameState.reset_single_level_attempt(Database.current_language, level_index)
+		GameState.reset_single_level_attempt(
+			Database.current_language,
+			level_index,
+			true,
+			true,
+			false
+		)
 		_invalidate_single_player_level_cache()
 	if show_failure_reward and should_lose_heart and level_index >= 0 and !level_completed:
 		# A successfully guessed word has already credited its regular reward before
 		# the result Back button can open the confirmation popup. Revoke that credit
 		# so a confirmed forfeit has the same zero-reward outcome as leaving mid-word.
 		if reward_was_granted:
-			GameState.spend_soft_currency(GameState.WORD_REWARD_COINS)
+			GameState.spend_soft_currency(GameState.WORD_REWARD_COINS, false)
+		GameState.save_game()
 		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
 		last_result_is_win = false
 		hero_force_default_pose = false
 		_show_single_player_forfeit_reward_screen()
 		return
+	if should_lose_heart or (level_index >= 0 and !level_completed):
+		GameState.save_game()
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
@@ -2362,7 +2426,7 @@ func _finish_round(is_win: bool) -> void:
 	last_result_data = GameSession.finish_result(is_win, !defer_single_player_final_reward)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if !is_win:
-			GameState.lose_heart()
+			GameState.lose_heart(false)
 		last_result_data = _single_player_mark_current_word_finished(
 			last_result_data,
 			is_win,
