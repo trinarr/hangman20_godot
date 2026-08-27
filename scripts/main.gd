@@ -1297,8 +1297,14 @@ func _single_player_mark_current_word_finished(
 	return result
 
 func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
-	var level_index: int = _single_player_next_level_index()
+	var resume_available: bool = GameState.has_resumable_single_player_level()
+	var level_index: int = (
+		GameState.get_resumable_single_player_level_index()
+		if resume_available
+		else _single_player_next_level_index()
+	)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var use_subtitle: bool = resume_available or challenge_level
 	var button := _stage_main_button(
 		rect,
 		callable,
@@ -1316,11 +1322,15 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	var title_label := Label.new()
 	title_label.name = "LevelTitle"
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_label.position = Vector2(0.0, 0.0 if challenge_level else 3.0)
-	title_label.size = Vector2(rect.size.x, rect.size.y * (0.60 if challenge_level else 0.92))
-	title_label.text = ("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()
+	title_label.position = Vector2(0.0, 0.0 if use_subtitle else 3.0)
+	title_label.size = Vector2(rect.size.x, rect.size.y * (0.60 if use_subtitle else 0.92))
+	title_label.text = (
+		Database.tr_text(3, "Continue").to_upper()
+		if resume_available
+		else ("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()
+	)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if challenge_level else VERTICAL_ALIGNMENT_CENTER
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if use_subtitle else VERTICAL_ALIGNMENT_CENTER
 	title_label.add_theme_font_size_override("font_size", 28)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	var title_effect_color: Color = (
@@ -1331,17 +1341,24 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, title_effect_color, title_effect_color)
 	button.add_child(title_label)
 
-	if challenge_level:
+	if use_subtitle:
 		var challenge_label := Label.new()
-		challenge_label.name = "ChallengeSubtitle"
+		challenge_label.name = "ResumeLevel" if resume_available else "ChallengeSubtitle"
 		challenge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		challenge_label.position = Vector2(0.0, rect.size.y * 0.57)
 		challenge_label.size = Vector2(rect.size.x, rect.size.y * 0.30)
-		challenge_label.text = _single_player_challenge_level_label().to_upper()
+		challenge_label.text = (
+			(tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
+			if resume_available
+			else _single_player_challenge_level_label().to_upper()
+		)
 		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		challenge_label.add_theme_font_size_override("font_size", 15)
-		challenge_label.add_theme_color_override("font_color", UI_PALETTE.CHALLENGE_TEXT)
+		challenge_label.add_theme_color_override(
+			"font_color",
+			Color.WHITE if resume_available else UI_PALETTE.CHALLENGE_TEXT
+		)
 		var challenge_effect_color := Color(
 			DIFFICULTY_HARD_OUTLINE_COLOR.r,
 			DIFFICULTY_HARD_OUTLINE_COLOR.g,

@@ -146,15 +146,16 @@ const HINT_FILES := {
 	"en": "res://data/hints_en.json"
 }
 
-# The quiz mode currently ships with a Russian question base. Theme IDs are the
-# same stable 1..10 IDs used by words, icons and localization, so the mode can
-# reuse the existing category presentation without a second mapping table.
+# Quiz content follows the same language selected for the Hangman word database.
+# Theme and question IDs stay stable across locales so saved progress can use the
+# existing per-language buckets without a second mapping table.
 const QUIZ_FILES := {
-	"ru": "res://data/quiz_questions_ru.json"
+	"ru": "res://data/quiz_questions_ru.json",
+	"en": "res://data/quiz_questions_en.json",
 }
 
 var _quiz_questions_by_theme_cache: Dictionary = {}
-var _quiz_data_loaded: bool = false
+var _loaded_quiz_language: String = ""
 
 func _ready() -> void:
 	set_process(false)
@@ -448,22 +449,28 @@ func get_theme_name(theme_index: int) -> String:
 	return translated
 
 func _ensure_quiz_data_loaded() -> void:
-	if _quiz_data_loaded:
+	var quiz_language: String = _normalize_language(current_language)
+	if _loaded_quiz_language == quiz_language:
 		return
-	_quiz_data_loaded = true
 	_quiz_questions_by_theme_cache.clear()
 
-	var quiz_path: String = str(QUIZ_FILES.get("ru", ""))
+	var quiz_path: String = str(QUIZ_FILES.get(quiz_language, ""))
 	if quiz_path.is_empty():
+		push_error("Missing quiz file for language: " + quiz_language)
 		return
 	var parsed: Variant = _load_json(quiz_path)
 	if !(parsed is Dictionary):
 		push_error("Quiz data must be a dictionary: " + quiz_path)
 		return
+	var declared_language: String = str(parsed.get("language", "")).to_lower()
+	if declared_language != quiz_language:
+		push_error("Quiz language does not match its file: " + quiz_path)
+		return
 	var questions_variant: Variant = parsed.get("questions", [])
 	if !(questions_variant is Array):
 		push_error("Quiz data must contain a 'questions' array: " + quiz_path)
 		return
+	_loaded_quiz_language = quiz_language
 
 	for question_variant in questions_variant:
 		if !(question_variant is Dictionary):

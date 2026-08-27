@@ -37,7 +37,15 @@ def verify_word_keys() -> None:
         payload = json.loads(
             (ROOT / f"data/words_{language}.json").read_text(encoding="utf-8-sig")
         )
+        hints = json.loads(
+            (ROOT / f"data/hints_{language}.json").read_text(encoding="utf-8-sig")
+        )["hints"]
+        global_words: dict[str, tuple[str, int]] = {}
         for theme_id, words in payload["words"].items():
+            require(
+                len(words) == len(payload["difficulty"][theme_id]) == len(hints[theme_id]),
+                f"{language}/{theme_id}: words, difficulty, and hints are misaligned",
+            )
             bases = [normalized_word(str(word)) for word in words]
             totals = Counter(bases)
             occurrences: defaultdict[str, int] = defaultdict(int)
@@ -52,6 +60,13 @@ def verify_word_keys() -> None:
                 len(keys) == len(set(keys)),
                 f"{language}/{theme_id}: duplicate stable word keys",
             )
+            for index, base in enumerate(bases):
+                require(
+                    base not in global_words,
+                    f"{language}: duplicate word {base!r} at "
+                    f"{global_words.get(base)} and {(theme_id, index)}",
+                )
+                global_words[base] = (theme_id, index)
 
 
 def main() -> None:
@@ -69,11 +84,20 @@ def main() -> None:
         "file.flush()",
         "_read_save_dictionary(SAVE_TMP_PATH)",
         "DirAccess.rename_absolute",
-        "_migrate_v1_content_keys",
         "_normalize_settings",
         "_normalize_records",
     ):
-        require(token in game_state, f"Save v2 invariant missing: {token}")
+        require(token in game_state, f"Launch-save invariant missing: {token}")
+
+    for obsolete_migration_token in (
+        "SAVE_V1_REMOVED_WORD_KEYS",
+        "func _migrate_save_payload",
+        "func _migrate_v1_",
+    ):
+        require(
+            obsolete_migration_token not in game_state,
+            f"Pre-launch migration code is still present: {obsolete_migration_token}",
+        )
 
     require("word_progress_key_from_text" in database, "Stable word identity is missing")
     require('"%s::%d"' in database, "Duplicate words do not receive stable occurrence keys")
@@ -102,13 +126,17 @@ def main() -> None:
         "Embedded quiz changes are not persisted",
     )
 
-    resume_body = function_body(portrait, "_stage_resume_level_button")
-    require('"_resume_saved_single_player_level"' in resume_body, "Resume action is not connected")
+    resume_body = function_body(main_source, "_stage_single_player_menu_button")
+    require("resume_available" in resume_body, "Single-player button does not switch to Resume")
     require('Database.tr_text(3, "Continue")' in resume_body, "Large Continue label is missing")
     require('tr("LEVEL_NUMBER")' in resume_body, "Small Level N label is missing")
     require(
-        "GameState.has_resumable_single_player_level()" in portrait,
+        'single_player_action = Callable(self, "_resume_saved_single_player_level")' in portrait,
         "Home does not conditionally show Resume",
+    )
+    require(
+        "func _stage_resume_level_button" not in portrait,
+        "Resume must reuse the existing single-player button",
     )
 
     quiz_result = function_body(portrait, "_record_single_player_quiz_result")
@@ -128,14 +156,29 @@ def main() -> None:
     require("_grant_portrait_rewarded_action" not in rewarded_close, "Reward still waits for ad close")
     final_rewarded = function_body(portrait, "_on_final_reward_ad_rewarded")
     require(
-        "_complete_single_player_final_reward(2)" in final_rewarded,
+        "_complete_single_player_final_reward(2, false)" in final_rewarded,
         "Final x2 reward is not claimed on rewarded callback",
+    )
+    require(
+        "show_menu()" not in final_rewarded,
+        "Home is still opened while the native rewarded ad is visible",
+    )
+    final_reward_closed = function_body(portrait, "_on_final_reward_ad_closed")
+    require(
+        "_finish_single_player_final_reward_claim()" in final_reward_closed,
+        "Final reward presentation does not wait for the ad close callback",
+    )
+    final_reward_finish = function_body(portrait, "_finish_single_player_final_reward_claim")
+    require("show_menu()" in final_reward_finish, "Claimed reward never returns to Home")
+    require(
+        'call_deferred("_play_pending_home_reward_animation")' in portrait,
+        "Home does not schedule the animated coin delivery",
     )
 
     require('package/unique_name="com.trinarr.Hangman20"' in export, "Android package identity changed")
     require("user_data_backup/allow=false" in export, "Cloud/Android backup must remain disabled")
     verify_word_keys()
-    print("Save integrity verified: v2 migration, atomic local writes, durable rewards, and level resume.")
+    print("Save integrity verified: launch schema, atomic local writes, durable rewards, ad-close animation, and level resume.")
 
 
 if __name__ == "__main__":

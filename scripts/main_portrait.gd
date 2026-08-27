@@ -2125,11 +2125,6 @@ func _show_menu_screen() -> void:
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
-	if GameState.has_resumable_single_player_level():
-		_stage_resume_level_button(
-			Rect2(button_x, 398.0, PORTRAIT_LONG_BUTTON_SIZE.x, 64.0),
-			GameState.get_resumable_single_player_level_index()
-		)
 	_stage_main_button(
 		PORTRAIT_QUIZ_MENU_BUTTON_RECT,
 		Callable(self, "show_quiz_theme_select"),
@@ -2143,49 +2138,16 @@ func _show_menu_screen() -> void:
 		LONG_BUTTON_COLOR_BLUE
 	)
 	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
-	_stage_single_player_menu_button(Rect2(67.5, 632.0, 345.0, 73.6), Callable(self, "_open_next_single_player_level"))
+	var single_player_action := Callable(self, "_open_next_single_player_level")
+	if GameState.has_resumable_single_player_level():
+		single_player_action = Callable(self, "_resume_saved_single_player_level")
+	_stage_single_player_menu_button(
+		Rect2(67.5, 632.0, 345.0, 73.6),
+		single_player_action
+	)
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation")
-
-func _stage_resume_level_button(rect: Rect2, level_index: int) -> void:
-	var button := _stage_main_button(
-		rect,
-		Callable(self, "_resume_saved_single_player_level"),
-		"",
-		22,
-		false,
-		0.32,
-		false,
-		false,
-		true,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	var title := Label.new()
-	title.name = "ResumeTitle"
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.position = Vector2(0.0, 3.0)
-	title.size = Vector2(rect.size.x, 36.0)
-	title.text = Database.tr_text(3, "Continue").to_upper()
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(title, UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55), UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55))
-	button.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.name = "ResumeLevel"
-	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	subtitle.position = Vector2(0.0, 34.0)
-	subtitle.size = Vector2(rect.size.x, 24.0)
-	subtitle.text = (tr("LEVEL_NUMBER") % (maxi(level_index, 0) + 1)).to_upper()
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	subtitle.add_theme_font_size_override("font_size", 14)
-	subtitle.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(subtitle, UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.45), UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.45))
-	button.add_child(subtitle)
 
 func _restore_single_player_language(language: String) -> void:
 	var normalized_language: String = "ru" if language.to_lower().begins_with("ru") else "en"
@@ -9995,15 +9957,19 @@ func _on_final_reward_ad_failed_to_load(_error_code: int) -> void:
 	_set_final_reward_double_button_enabled(true)
 
 func _on_final_reward_ad_rewarded(_currency: String, _amount: int) -> void:
-	if !_portrait_final_reward_waiting_for_ad:
+	if (
+		!_portrait_final_reward_waiting_for_ad
+		or _portrait_final_reward_earned_ad_reward
+	):
 		return
 	_portrait_final_reward_earned_ad_reward = true
-	_portrait_final_reward_ad_close_pending = false
-	_portrait_final_reward_waiting_for_ad = false
-	_portrait_final_reward_earned_ad_reward = false
-	# Claim on the reward callback itself; waiting for ad close made this reward
-	# vulnerable to a process kill while the native activity was being dismissed.
-	_complete_single_player_final_reward(2)
+	var ad_already_closed: bool = _portrait_final_reward_ad_close_pending
+	# Persist the x2 grant on the SDK reward callback so a process kill cannot
+	# lose it. Keep the reward screen alive behind the native ad: Home and its coin
+	# animation are presented only after the close callback restores the game.
+	_complete_single_player_final_reward(2, false)
+	if ad_already_closed:
+		_finish_single_player_final_reward_claim()
 
 func _resolve_final_reward_ad_close_without_reward() -> void:
 	# Give a late `rewarded` signal a short grace window after Android restores
@@ -10016,21 +9982,17 @@ func _resolve_final_reward_ad_close_without_reward() -> void:
 	):
 		return
 	_portrait_final_reward_ad_close_pending = false
-	_portrait_final_reward_waiting_for_ad = false
 	if _portrait_final_reward_earned_ad_reward:
-		_portrait_final_reward_earned_ad_reward = false
-		_complete_single_player_final_reward(2)
+		_finish_single_player_final_reward_claim()
 	else:
+		_portrait_final_reward_waiting_for_ad = false
 		_set_final_reward_double_button_enabled(true)
 
 func _on_final_reward_ad_closed() -> void:
 	if !_portrait_final_reward_waiting_for_ad:
 		return
 	if _portrait_final_reward_earned_ad_reward:
-		_portrait_final_reward_waiting_for_ad = false
-		_portrait_final_reward_earned_ad_reward = false
-		_portrait_final_reward_ad_close_pending = false
-		_complete_single_player_final_reward(2)
+		_finish_single_player_final_reward_claim()
 		return
 	_portrait_final_reward_ad_close_pending = true
 	call_deferred("_resolve_final_reward_ad_close_without_reward")
@@ -10046,18 +10008,25 @@ func _on_final_reward_ad_failed_to_show(_message: String) -> void:
 func _claim_single_player_final_reward() -> void:
 	_complete_single_player_final_reward(1)
 
-func _complete_single_player_final_reward(reward_multiplier: int) -> void:
+func _complete_single_player_final_reward(
+	reward_multiplier: int,
+	present_immediately: bool = true
+) -> void:
 	if _portrait_final_reward_claim_in_progress:
 		return
 	_portrait_final_reward_claim_in_progress = true
-	_portrait_final_reward_waiting_for_ad = false
-	_portrait_final_reward_earned_ad_reward = false
-	_portrait_final_reward_ad_close_pending = false
 	var credited_reward_amount: int = GameState.claim_pending_single_player_reward(
 		maxi(reward_multiplier, 1)
 	)
 	if credited_reward_amount > 0:
 		_portrait_pending_home_reward_amount += credited_reward_amount
+	if present_immediately:
+		_finish_single_player_final_reward_claim()
+
+func _finish_single_player_final_reward_claim() -> void:
+	_portrait_final_reward_waiting_for_ad = false
+	_portrait_final_reward_earned_ad_reward = false
+	_portrait_final_reward_ad_close_pending = false
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}

@@ -33,6 +33,11 @@ def main() -> None:
     require('path="res://scripts/main_portrait.gd"' in scene, "Portrait runtime is not connected")
     require("Thread.new()" in database and "_read_word_bundle_background" in database, "Background word loading is missing")
     require("while _word_load_thread != null:" in database, "Queued word loads are not synchronized")
+    require(
+        '"en": "res://data/quiz_questions_en.json"' in database
+        and "_loaded_quiz_language == quiz_language" in database,
+        "Quiz data does not follow the selected word language",
+    )
     require("THEME_ASSET_CACHE.prewarm()" in main_source, "Theme prewarm is missing")
     require("const COLOR_ICON_PATHS := {" in cache and "const MONO_ICON_PATHS := {" in cache, "Lazy theme catalogs are missing")
     require("_refresh_quiz_question_in_place()" in portrait, "Quiz question reuse is missing")
@@ -54,9 +59,54 @@ def main() -> None:
         require((ROOT / resource_path.removeprefix("res://")).is_file(), f"Missing El Tigre scene: {resource_path}")
     require("HeroType.EL_TIGRE" in symbol and "prewarm_hero_type" in symbol, "El Tigre runtime/prewarm is missing")
 
-    quiz = json.loads((ROOT / "data/quiz_questions_ru.json").read_text(encoding="utf-8-sig"))
-    questions = quiz.get("questions", [])
-    require(len(questions) == 400, f"Expected 400 quiz questions, got {len(questions)}")
+    quiz_by_language = {}
+    for language in ("ru", "en"):
+        quiz = json.loads(
+            (ROOT / f"data/quiz_questions_{language}.json").read_text(encoding="utf-8-sig")
+        )
+        require(quiz.get("language") == language, f"Quiz language marker differs: {language}")
+        questions = quiz.get("questions", [])
+        require(
+            len(questions) == 400,
+            f"Expected 400 {language} quiz questions, got {len(questions)}",
+        )
+        counts = {theme_id: 0 for theme_id in range(1, 11)}
+        for question in questions:
+            theme_id = int(question.get("theme_id", 0))
+            require(theme_id in counts, f"Invalid {language} quiz theme: {theme_id}")
+            counts[theme_id] += 1
+            answers = question.get("answers", [])
+            require(len(answers) == 4, f"Quiz question {question.get('id')} needs four answers")
+            require(
+                0 <= int(question.get("correct_index", -1)) < 4,
+                f"Quiz question {question.get('id')} has an invalid correct answer",
+            )
+        require(
+            all(count == 40 for count in counts.values()),
+            f"Quiz theme distribution differs for {language}: {counts}",
+        )
+        quiz_by_language[language] = {int(question["id"]): question for question in questions}
+
+    require(
+        set(quiz_by_language["ru"]) == set(quiz_by_language["en"]),
+        "Russian and English quiz IDs differ",
+    )
+    for question_id, english_question in quiz_by_language["en"].items():
+        russian_question = quiz_by_language["ru"][question_id]
+        for field in ("theme_id", "difficulty", "correct_index"):
+            require(
+                english_question[field] == russian_question[field],
+                f"Quiz metadata differs for ID {question_id}: {field}",
+            )
+        english_strings = [english_question["question"], *english_question["answers"]]
+        require(
+            not any(re.search(r"[А-Яа-яЁё]", value) for value in english_strings),
+            f"Cyrillic text remains in English quiz question {question_id}",
+        )
+        require(
+            max(len(answer) for answer in english_question["answers"]) <= 35,
+            f"English answer is too long for question {question_id}",
+        )
 
     missing = []
     resource_pattern = re.compile(r'res://[A-Za-z0-9_./\-]+')

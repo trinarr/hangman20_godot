@@ -122,16 +122,15 @@ func load_game() -> void:
 		return
 
 	var stored_version: int = int(parsed.get("save_version", 0))
-	if stored_version > SAVE_FORMAT_VERSION:
-		# Never overwrite a save produced by a newer build after an app downgrade.
-		_save_blocked_by_future_version = true
-		push_error("Save format is newer than this build: %d" % stored_version)
+	if stored_version != SAVE_FORMAT_VERSION:
+		# This is the launch save format. Development saves from another schema are
+		# intentionally ignored instead of carrying release-only migration code.
+		if stored_version > SAVE_FORMAT_VERSION:
+			_save_blocked_by_future_version = true
+		push_warning("Ignoring incompatible save format: %d" % stored_version)
 		return
 
 	word_language = _normalize_language(str(parsed.get("word_language", word_language)))
-	var migrated: bool = stored_version < SAVE_FORMAT_VERSION
-	if migrated:
-		parsed = _migrate_save_payload(parsed, stored_version)
 
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
@@ -160,7 +159,7 @@ func load_game() -> void:
 	_load_coin_refill_ad_state_from_save(parsed)
 	_normalize_single_player_buckets()
 
-	if migrated or loaded_from_backup:
+	if loaded_from_backup:
 		save_game()
 
 func _read_save_dictionary(path: String) -> Dictionary:
@@ -175,104 +174,6 @@ func _read_save_dictionary(path: String) -> Dictionary:
 	if !(parsed is Dictionary):
 		return {}
 	return Dictionary(parsed).duplicate(true)
-
-func _migrate_save_payload(source: Dictionary, source_version: int) -> Dictionary:
-	var migrated: Dictionary = source.duplicate(true)
-	if source_version <= 1:
-		_migrate_v1_content_keys(migrated)
-	migrated["save_version"] = SAVE_FORMAT_VERSION
-	return migrated
-
-func _migrate_v1_content_keys(payload: Dictionary) -> void:
-	var previous_language: String = Database.current_language
-	var progress_root: Variant = payload.get("progress", {})
-	if progress_root is Dictionary:
-		var migrated_progress: Dictionary = {}
-		for language_variant: Variant in (progress_root as Dictionary).keys():
-			var language: String = _normalize_language(str(language_variant))
-			Database.load_word_language(language)
-			migrated_progress[language] = _migrate_v1_theme_progress(
-				(progress_root as Dictionary).get(language_variant, {})
-			)
-		payload["progress"] = migrated_progress
-
-	var single_root: Variant = payload.get("single_player", {})
-	if single_root is Dictionary:
-		var migrated_single: Dictionary = {}
-		for language_variant: Variant in (single_root as Dictionary).keys():
-			var language: String = _normalize_language(str(language_variant))
-			Database.load_word_language(language)
-			var bucket_variant: Variant = (single_root as Dictionary).get(language_variant, {})
-			if !(bucket_variant is Dictionary):
-				continue
-			var bucket: Dictionary = Dictionary(bucket_variant).duplicate(true)
-			bucket["word_stats"] = _migrate_v1_theme_progress(bucket.get("word_stats", {}))
-			bucket["selected_themes"] = _migrate_v1_selected_themes(bucket.get("selected_themes", {}))
-			bucket["question_stats"] = _migrate_v1_theme_dictionary(bucket.get("question_stats", {}))
-			migrated_single[language] = bucket
-		payload["single_player"] = migrated_single
-	Database.load_word_language(_normalize_language(previous_language))
-
-func _migrate_v1_theme_progress(source: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	if !(source is Dictionary):
-		return result
-	for old_key_variant: Variant in (source as Dictionary).keys():
-		var old_key: String = str(old_key_variant)
-		if !old_key.is_valid_int():
-			continue
-		var theme_index: int = int(old_key)
-		var theme_id: int = Database.get_theme_id(theme_index)
-		if theme_id <= 0:
-			continue
-		var item_variant: Variant = (source as Dictionary).get(old_key_variant, {})
-		result[str(theme_id)] = _migrate_v1_word_progress_item(item_variant, theme_index)
-	return result
-
-func _migrate_v1_word_progress_item(source: Variant, theme_index: int) -> Dictionary:
-	var result := {"played": {}, "guessed": {}}
-	if !(source is Dictionary):
-		return result
-	var word_keys: Array[String] = Database.get_word_progress_keys(theme_index)
-	for field_name: String in ["played", "guessed"]:
-		var flags_variant: Variant = (source as Dictionary).get(field_name, {})
-		var migrated_flags: Dictionary = {}
-		if flags_variant is Array:
-			var flags: Array = flags_variant
-			for word_index: int in range(mini(flags.size(), word_keys.size())):
-				if bool(flags[word_index]) and !word_keys[word_index].is_empty():
-					migrated_flags[word_keys[word_index]] = true
-		elif flags_variant is Dictionary:
-			for word_key_variant: Variant in (flags_variant as Dictionary).keys():
-				if bool((flags_variant as Dictionary).get(word_key_variant, false)):
-					migrated_flags[str(word_key_variant)] = true
-		result[field_name] = migrated_flags
-	return result
-
-func _migrate_v1_theme_dictionary(source: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	if !(source is Dictionary):
-		return result
-	for old_key_variant: Variant in (source as Dictionary).keys():
-		var old_key: String = str(old_key_variant)
-		if !old_key.is_valid_int():
-			continue
-		var theme_id: int = Database.get_theme_id(int(old_key))
-		if theme_id > 0:
-			result[str(theme_id)] = (source as Dictionary).get(old_key_variant)
-	return result
-
-func _migrate_v1_selected_themes(source: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	if !(source is Dictionary):
-		return result
-	for level_key_variant: Variant in (source as Dictionary).keys():
-		var theme_id: int = Database.get_theme_id(
-			int((source as Dictionary).get(level_key_variant, -1))
-		)
-		if theme_id > 0:
-			result[str(level_key_variant)] = theme_id
-	return result
 
 func _normalize_settings(source: Variant) -> Array:
 	var result: Array = [1, 1, 2, 2, 2, 1]
@@ -299,9 +200,8 @@ func _normalize_records(source: Variant) -> Array:
 func _load_hint_counts_from_save(parsed: Dictionary) -> void:
 	var stored_counts = parsed.get("hint_counts")
 	if !(stored_counts is Dictionary):
-		# The save already exists, so missing inventory data must not be treated as
-		# a new player bonus. A genuinely new player still keeps DEFAULT_HINT_COUNT
-		# because load_game() returns earlier when no save file exists.
+		# A malformed save must not refill a spent inventory. A genuinely new player
+		# keeps DEFAULT_HINT_COUNT because load_game() returns when no save exists.
 		for hint_key in HINT_COSTS.keys():
 			hint_counts[hint_key] = 0
 		return
@@ -310,9 +210,8 @@ func _load_hint_counts_from_save(parsed: Dictionary) -> void:
 		hint_counts[hint_key] = maxi(int(stored_counts.get(hint_key, 0)), 0)
 
 func _load_hearts_from_save(parsed: Dictionary) -> void:
-	# Existing saves predate the global-heart system and start full. Once the
-	# fields exist, both the inventory and the absolute recovery deadline are
-	# restored so regeneration continues while the app is closed.
+	# Restore the absolute recovery deadline so regeneration continues while the
+	# app is closed.
 	hearts = clampi(int(parsed.get("hearts", MAX_HEARTS)), 0, MAX_HEARTS)
 	heart_recovery_at = maxi(int(parsed.get("heart_recovery_at", 0)), 0)
 	_apply_elapsed_heart_recovery(false)
@@ -762,9 +661,19 @@ func _theme_progress_key(theme_index: int) -> String:
 
 func _word_progress_key(theme_index: int, word_index: int, word_text: String = "") -> String:
 	var database_key: String = Database.get_word_progress_key(theme_index, word_index)
-	if !database_key.is_empty():
+	var text_key: String = Database.word_progress_key_from_text(word_text)
+	if (
+		!database_key.is_empty()
+		and (
+			text_key.is_empty()
+			or database_key == text_key
+			or database_key.begins_with(text_key + "::")
+		)
+	):
 		return database_key
-	return Database.word_progress_key_from_text(word_text)
+	# A resumable round may refer to an index from the previous database revision.
+	# Prefer its saved word text when cleanup/removal shifted later array entries.
+	return text_key
 
 func _normalize_word_flag_dictionary(source: Variant) -> Dictionary:
 	var result: Dictionary = {}
