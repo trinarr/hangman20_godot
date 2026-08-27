@@ -55,6 +55,31 @@ const HERO_TYPE_2_OFFSETS: Array[Vector2] = [
 static var _hero_pose_cache: Dictionary = {}
 static var _hero_pose_requests: Dictionary = {}
 
+static func prewarm_hero_type(hero_type_value: int) -> void:
+	var states: Array[String] = (
+		HERO_TYPE_2_STATES
+		if hero_type_value == HeroType.EL_TIGRE
+		else HERO_TYPE_1_STATES
+	)
+	if states.is_empty():
+		return
+	_request_hero_path(states[0])
+	if states.size() > 1:
+		_request_hero_path(states[states.size() - 1])
+
+static func _request_hero_path(resource_path: String) -> void:
+	if _hero_pose_cache.has(resource_path) or _hero_pose_requests.has(resource_path):
+		return
+	if !ResourceLoader.exists(resource_path):
+		return
+	var request_error: int = ResourceLoader.load_threaded_request(
+		resource_path,
+		"PackedScene",
+		false
+	)
+	if request_error == OK:
+		_hero_pose_requests[resource_path] = true
+
 var force_immediate_hero_pose_load: bool = false
 
 var stage_position: Vector2 = Vector2.ZERO:
@@ -222,16 +247,7 @@ func _load_hero_scene_immediately(resource_path: String) -> PackedScene:
 	return _load_initial_hero_scene(resource_path)
 
 func _request_hero_scene(resource_path: String) -> void:
-	if _hero_pose_cache.has(resource_path) or _hero_pose_requests.has(resource_path):
-		return
-	if !ResourceLoader.exists(resource_path):
-		push_warning("Hero pose is missing: " + resource_path)
-		return
-	var request_error: int = ResourceLoader.load_threaded_request(resource_path, "PackedScene", false)
-	if request_error == OK:
-		_hero_pose_requests[resource_path] = true
-	else:
-		push_warning("Could not preload hero pose %s (error %d)" % [resource_path, request_error])
+	_request_hero_path(resource_path)
 
 func _cached_hero_scene(resource_path: String) -> PackedScene:
 	var cached_resource: Variant = _hero_pose_cache.get(resource_path)

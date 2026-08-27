@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 166,
+  "file_count": 162,
   "files": [
     {
       "path": "icon.png",
@@ -76,36 +76,6 @@
       "native_2x": true
     },
     {
-      "path": "flash_assets/coin_pack_05.png",
-      "source_size": [
-        512,
-        512
-      ],
-      "target_size": [
-        512,
-        512
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "db2a80f1339ca07324f0bdc8a5967bea2e01cbd1a6df74a8127352b98d7b593f",
-      "target_sha256": "db2a80f1339ca07324f0bdc8a5967bea2e01cbd1a6df74a8127352b98d7b593f",
-      "native_2x": true
-    },
-    {
-      "path": "flash_assets/coin_pack_06_large.png",
-      "source_size": [
-        512,
-        512
-      ],
-      "target_size": [
-        512,
-        512
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "29d292679ee0b683967ca8cf13619936e0d64451dc71e1354ac028c495051e4e",
-      "target_sha256": "29d292679ee0b683967ca8cf13619936e0d64451dc71e1354ac028c495051e4e",
-      "native_2x": true
-    },
-    {
       "path": "flash_assets/custom_word_refresh_icon_341.png",
       "source_size": [
         21,
@@ -164,21 +134,6 @@
       "target_sha256": "1057439f2e0925f2a6a274d5e1fd30fa6fbb3574fb5580a2881cd352a79b387a"
     },
     {
-      "path": "flash_assets/heart_recovery_clock.png",
-      "source_size": [
-        256,
-        256
-      ],
-      "target_size": [
-        256,
-        256
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "c2f04124fa9f334cc37560b5c02fe274b8e39570bc6f0e5c26da3ed3d6bac669",
-      "target_sha256": "c2f04124fa9f334cc37560b5c02fe274b8e39570bc6f0e5c26da3ed3d6bac669",
-      "native_2x": true
-    },
-    {
       "path": "flash_assets/hint_comment_unlock_doodle.png",
       "source_size": [
         256,
@@ -194,6 +149,36 @@
       "native_2x": true
     },
     {
+      "path": "flash_assets/hint_quiz_fifty_fifty_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "293f5a67fa4c02e3b54a1220d5df1f95b3ade607fa0bf446b6c803a94054bb88",
+      "target_sha256": "293f5a67fa4c02e3b54a1220d5df1f95b3ade607fa0bf446b6c803a94054bb88",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/hint_quiz_replace_question_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "8439f33b7abb4677410d20a220a000259776bf65af0a3b4367d614a684eaa6e0",
+      "target_sha256": "8439f33b7abb4677410d20a220a000259776bf65af0a3b4367d614a684eaa6e0",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/hint_remove_wrong_doodle.png",
       "source_size": [
         256,
@@ -205,7 +190,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "1844689223f93d5bd9b63d4bb68c00ec2c3bf8100dbc464955ea64439a093b40",
-      "target_sha256": "c2b2155db886ffde4061808c9000642a81ed0381cb12b33db5c2d86e1df6e377",
+      "target_sha256": "e8a0e3f8c15bef322e693ba8dd7094d50283b9c448ff5db6e91b1be099bcfdb6",
       "native_2x": true
     },
     {
@@ -251,51 +236,6 @@
       "source_mode": "RGBA",
       "source_sha256": "bbe12355d67e4ec76cff36945c4af2f0594e1e5332f219ba4e583fb192666a62",
       "target_sha256": "bbe12355d67e4ec76cff36945c4af2f0594e1e5332f219ba4e583fb192666a62",
-      "native_2x": true
-    },
-    {
-      "path": "flash_assets/nav_home_icon.png",
-      "source_size": [
-        160,
-        160
-      ],
-      "target_size": [
-        160,
-        160
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "6092b7a3a0a94d4de26dcfb154d5b450782a4fc91bbdd2de395486dbd59180bc",
-      "target_sha256": "fe54c5355a97fc96045f3a231aa93c2749ab6d1b1ed5573b8bcf339c810b5479",
-      "native_2x": true
-    },
-    {
-      "path": "flash_assets/nav_profile_icon.png",
-      "source_size": [
-        160,
-        160
-      ],
-      "target_size": [
-        160,
-        160
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "9eaa78f0d27680e7709cd7a1dc18800aad682af3face99b5192ed4057272d813",
-      "target_sha256": "2a78fd1dc99254f98f950c4e90ff32c122df332ba8aa562c0b264e7932f1b3e0",
-      "native_2x": true
-    },
-    {
-      "path": "flash_assets/nav_tasks_icon.png",
-      "source_size": [
-        160,
-        160
-      ],
-      "target_size": [
-        160,
-        160
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "6d11cb2a98a748283ccc7fa5d375b87b5ac2683962d190d38eb655cd9d74b92f",
-      "target_sha256": "2831950d3c4eda1389a6db9a282b0c7a950fdcb7ebbdea5fedf825759cd6707b",
       "native_2x": true
     },
     {

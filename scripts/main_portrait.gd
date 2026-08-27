@@ -13,10 +13,12 @@ const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 const WATCH_AD_ICON_TEXTURE: Texture2D = preload("res://flash_assets/watch_ad_icon.png")
-const HEART_RECOVERY_CLOCK_TEXTURE: Texture2D = preload("res://flash_assets/heart_recovery_clock.png")
 const MAIN_MENU_LOGO_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_logo_hangman_20.png")
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
+)
+const MAIN_MENU_LOGO_SHINE_SHADER: Shader = preload(
+	"res://shaders/main_menu_logo_shine.gdshader"
 )
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
@@ -69,31 +71,7 @@ const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 20.0
 const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS
 const PORTRAIT_FREE_HINT_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
-const PORTRAIT_MAIN_NAV_Y: float = 725.0
-const PORTRAIT_MAIN_NAV_HEIGHT: float = 75.0
-const PORTRAIT_MAIN_NAV_TAB_COUNT: int = 3
-const PORTRAIT_MAIN_NAV_ITEM_WIDTH: float = 160.0
-const PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE := Vector2(156.0, 92.0)
-const PORTRAIT_MAIN_NAV_ACTIVE_Y: float = 708.0
-const PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE: float = 52.0
-const PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE: float = 1.15
-const PORTRAIT_MAIN_NAV_ICON_SIZE: float = PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE * PORTRAIT_MAIN_NAV_ACTIVE_ICON_SCALE
-const PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y: float = 709.0
-const PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y: float = 735.0
-const PORTRAIT_MAIN_NAV_LABEL_Y: float = 770.0
-const PORTRAIT_MAIN_NAV_LABEL_HEIGHT: float = 28.0
-const PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE: int = 18
-const PORTRAIT_MAIN_NAV_TRANSITION_DURATION: float = 0.16
-const PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE: float = 0.82
-const PORTRAIT_MAIN_NAV_BOUNCE_SCALE: float = 1.10
-const PORTRAIT_MAIN_NAV_BOUNCE_GROW_DURATION: float = 0.08
-const PORTRAIT_MAIN_NAV_BOUNCE_SETTLE_DURATION: float = 0.12
 const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
-const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE: float = 64.0
-const PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO: float = 0.14
-const PORTRAIT_MAIN_TAB_SWIPE_HORIZONTAL_BIAS: float = 1.35
-const PORTRAIT_MAIN_TAB_SWIPE_ACTIVATION_RATIO: float = 0.018
-const PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION: float = 0.22
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 646.0, 280.5, 70.4)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
@@ -196,7 +174,6 @@ const PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT := Rect2(
 	PORTRAIT_STAGE_SIZE.x,
 	PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_HEIGHT
 )
-const PORTRAIT_SINGLE_REWARD_TITLE_TOP_PADDING: float = 10.0
 const PORTRAIT_SINGLE_REWARD_TITLE_HEIGHT: float = 52.0
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_TOP: float = 10.0
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_HEIGHT: float = 32.0
@@ -245,7 +222,6 @@ const PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION: float = (
 )
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
-const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_GAP: float = 6.0
 const PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = 1.36
 const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE: float = 133.12
 const PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING: float = 218.7
@@ -291,9 +267,6 @@ const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
-const PORTRAIT_NAV_PROFILE_ICON: Texture2D = preload("res://flash_assets/nav_profile_icon.png")
-const PORTRAIT_NAV_HOME_ICON: Texture2D = preload("res://flash_assets/nav_home_icon.png")
-const PORTRAIT_NAV_TASKS_ICON: Texture2D = preload("res://flash_assets/nav_tasks_icon.png")
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
 const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
@@ -353,8 +326,6 @@ const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(108.176, PORTRAIT_GAME_HINT_Y
 const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(203.392, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(298.608, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
-const PORTRAIT_GAME_HINT_ART_RISE: float = -5.0
-const PORTRAIT_GAME_HINT_COMMENT_ART_Y_OFFSET: float = -4.0
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 const PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE := Vector2(0.58, 0.58)
 const PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE := Vector2(1.24, 1.24)
@@ -384,18 +355,7 @@ const PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION: float = 0.34
 const PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION: float = 0.34
 const PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION: float = PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION * 0.80
 const PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER: float = 0.045
-const PORTRAIT_QUIZ_ENTRANCE_THEME_START_SCALE: float = 0.78
-const PORTRAIT_QUIZ_ENTRANCE_THEME_PEAK_SCALE: float = 1.13
-const PORTRAIT_QUIZ_ENTRANCE_THEME_GROW_DURATION: float = 0.11
-const PORTRAIT_QUIZ_ENTRANCE_THEME_SETTLE_DURATION: float = 0.13
 const PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION: float = 0.112
-enum MainTab {
-	TASKS,
-	HOME,
-	PROFILE,
-}
-
-var _main_menu_logo_runtime_texture: Texture2D = null
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
@@ -429,22 +389,6 @@ var _portrait_in_place_result_active: bool = false
 var _portrait_in_place_result_is_win: bool = false
 var _portrait_game_entrance_pending: bool = false
 var _portrait_game_entrance_active: bool = false
-var _portrait_active_main_tab: int = -1
-var _portrait_main_tab_swipe_touch_index: int = -1
-var _portrait_main_tab_swipe_start_position := Vector2.ZERO
-var _portrait_main_tab_swipe_last_position := Vector2.ZERO
-var _portrait_main_tab_swipe_origin_tab: int = -1
-var _portrait_main_tab_swipe_target_tab: int = -1
-var _portrait_main_tab_swipe_tab_step: int = 0
-var _portrait_main_tab_swipe_departing_content: Control = null
-var _portrait_main_tab_swipe_target_content: Control = null
-var _portrait_main_tab_swipe_departing_navigation: Control = null
-var _portrait_main_tab_swipe_target_navigation: Control = null
-var _portrait_main_tab_swipe_departing_top_bar: Control = null
-var _portrait_main_tab_swipe_target_top_bar: Control = null
-var _portrait_main_tab_swipe_origin_references: Dictionary = {}
-var _portrait_main_tab_swipe_building_target: bool = false
-var _portrait_main_tab_swipe_animating: bool = false
 var _portrait_top_bar_content: Control = null
 var _portrait_active_currency_counter_rect: Rect2 = PORTRAIT_CURRENCY_COUNTER_RECT
 var _portrait_coin_store_active: bool = false
@@ -546,15 +490,6 @@ func _clear() -> void:
 	_quiz_answer_buttons.clear()
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
-	var preserved_swipe_content: Control = null
-	if (
-		_portrait_main_tab_swipe_building_target
-		and content != null
-		and is_instance_valid(content)
-		and content.get_parent() == ui
-	):
-		preserved_swipe_content = content
-		ui.remove_child(preserved_swipe_content)
 	_remove_settings_popup()
 	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
@@ -593,341 +528,7 @@ func _clear() -> void:
 	_portrait_hint_counter_refresh_requested = false
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
-	if !_portrait_main_tab_swipe_building_target:
-		_portrait_active_main_tab = -1
-		_reset_portrait_main_tab_swipe()
-		_clear_portrait_main_tab_swipe_transition()
 	super._clear()
-	if preserved_swipe_content != null and is_instance_valid(preserved_swipe_content):
-		ui.add_child(preserved_swipe_content)
-		ui.move_child(preserved_swipe_content, ui.get_child_count() - 1)
-
-func _input(event: InputEvent) -> void:
-	if !_portrait_main_tab_swipe_is_available():
-		_reset_portrait_main_tab_swipe()
-		return
-
-	if event is InputEventScreenTouch:
-		var touch_event := event as InputEventScreenTouch
-		if touch_event.pressed:
-			if _portrait_main_tab_swipe_touch_index < 0:
-				_portrait_main_tab_swipe_touch_index = touch_event.index
-				_portrait_main_tab_swipe_start_position = touch_event.position
-				_portrait_main_tab_swipe_last_position = touch_event.position
-				_portrait_main_tab_swipe_origin_tab = _portrait_active_main_tab
-			return
-		if touch_event.index != _portrait_main_tab_swipe_touch_index:
-			return
-		var touch_was_canceled: bool = touch_event.canceled
-		var has_interactive_target: bool = (
-			_portrait_main_tab_swipe_target_content != null
-			and is_instance_valid(_portrait_main_tab_swipe_target_content)
-		)
-		var should_commit: bool = false
-		if has_interactive_target:
-			var viewport_width: float = get_viewport().get_visible_rect().size.x
-			var minimum_distance: float = maxf(
-				PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE,
-				viewport_width * PORTRAIT_MAIN_TAB_SWIPE_MIN_DISTANCE_RATIO
-			)
-			should_commit = (
-				!touch_was_canceled
-				and absf(_portrait_main_tab_swipe_departing_content.position.x) >= minimum_distance
-			)
-		_reset_portrait_main_tab_swipe()
-		if has_interactive_target:
-			_animate_portrait_main_tab_swipe(should_commit)
-			get_viewport().set_input_as_handled()
-	elif event is InputEventScreenDrag:
-		var drag_event := event as InputEventScreenDrag
-		if drag_event.index == _portrait_main_tab_swipe_touch_index:
-			_portrait_main_tab_swipe_last_position = drag_event.position
-			if _update_portrait_main_tab_swipe(drag_event.position):
-				get_viewport().set_input_as_handled()
-
-func _portrait_main_tab_swipe_is_available() -> bool:
-	return (
-		_portrait_active_main_tab >= MainTab.TASKS
-		and _portrait_active_main_tab <= MainTab.PROFILE
-		and !_portrait_main_tab_swipe_building_target
-		and !_portrait_main_tab_swipe_animating
-		and get_tree().get_first_node_in_group(PORTRAIT_MODAL_POPUP_GROUP) == null
-	)
-
-func _reset_portrait_main_tab_swipe() -> void:
-	_portrait_main_tab_swipe_touch_index = -1
-	_portrait_main_tab_swipe_start_position = Vector2.ZERO
-	_portrait_main_tab_swipe_last_position = Vector2.ZERO
-
-func _clear_portrait_main_tab_swipe_transition() -> void:
-	_portrait_main_tab_swipe_origin_tab = -1
-	_portrait_main_tab_swipe_target_tab = -1
-	_portrait_main_tab_swipe_tab_step = 0
-	_portrait_main_tab_swipe_departing_content = null
-	_portrait_main_tab_swipe_target_content = null
-	_portrait_main_tab_swipe_departing_navigation = null
-	_portrait_main_tab_swipe_target_navigation = null
-	_portrait_main_tab_swipe_departing_top_bar = null
-	_portrait_main_tab_swipe_target_top_bar = null
-	_portrait_main_tab_swipe_origin_references.clear()
-	_portrait_main_tab_swipe_building_target = false
-	_portrait_main_tab_swipe_animating = false
-
-func _capture_portrait_main_tab_swipe_origin_references() -> void:
-	_portrait_main_tab_swipe_origin_references = {
-		"top_bar": _portrait_top_bar_content,
-		"currency_counter_visual": _portrait_currency_counter_visual,
-		"currency_coin_icon_visual": _portrait_currency_coin_icon_visual,
-		"heart_icon_visual": _portrait_heart_icon_visual,
-		"currency_counter_rect": _portrait_active_currency_counter_rect,
-		"currency_balance_label": currency_balance_label,
-		"heart_count_label": heart_count_label,
-		"heart_status_label": heart_status_label,
-		"heart_add_badge_visual": heart_add_badge_visual,
-		"heart_counter_button": heart_counter_button,
-		"coin_store_return_action": coin_store_return_action,
-	}
-
-func _restore_portrait_main_tab_swipe_origin_references() -> void:
-	if _portrait_main_tab_swipe_origin_references.is_empty():
-		return
-	_portrait_top_bar_content = _portrait_main_tab_swipe_origin_references.get("top_bar") as Control
-	_portrait_currency_counter_visual = _portrait_main_tab_swipe_origin_references.get(
-		"currency_counter_visual"
-	) as Control
-	_portrait_currency_coin_icon_visual = _portrait_main_tab_swipe_origin_references.get(
-		"currency_coin_icon_visual"
-	) as Control
-	_portrait_heart_icon_visual = _portrait_main_tab_swipe_origin_references.get(
-		"heart_icon_visual"
-	) as Control
-	_portrait_active_currency_counter_rect = _portrait_main_tab_swipe_origin_references.get(
-		"currency_counter_rect",
-		PORTRAIT_CURRENCY_COUNTER_RECT
-	)
-	currency_balance_label = _portrait_main_tab_swipe_origin_references.get(
-		"currency_balance_label"
-	) as Label
-	heart_count_label = _portrait_main_tab_swipe_origin_references.get("heart_count_label") as Label
-	heart_status_label = _portrait_main_tab_swipe_origin_references.get("heart_status_label") as Label
-	heart_add_badge_visual = _portrait_main_tab_swipe_origin_references.get(
-		"heart_add_badge_visual"
-	) as Control
-	heart_counter_button = _portrait_main_tab_swipe_origin_references.get(
-		"heart_counter_button"
-	) as Control
-	var saved_return_action: Variant = _portrait_main_tab_swipe_origin_references.get(
-		"coin_store_return_action",
-		Callable()
-	)
-	coin_store_return_action = Callable()
-	if saved_return_action is Callable:
-		coin_store_return_action = saved_return_action
-
-func _update_portrait_main_tab_swipe(pointer_position: Vector2) -> bool:
-	var swipe_delta: Vector2 = pointer_position - _portrait_main_tab_swipe_start_position
-	var horizontal_distance: float = absf(swipe_delta.x)
-	var vertical_distance: float = absf(swipe_delta.y)
-	var viewport_width: float = get_viewport().get_visible_rect().size.x
-	if _portrait_main_tab_swipe_target_content == null:
-		var activation_distance: float = maxf(
-			12.0,
-			viewport_width * PORTRAIT_MAIN_TAB_SWIPE_ACTIVATION_RATIO
-		)
-		if horizontal_distance < activation_distance:
-			return false
-		if horizontal_distance < vertical_distance * PORTRAIT_MAIN_TAB_SWIPE_HORIZONTAL_BIAS:
-			return false
-		var tab_step: int = 1 if swipe_delta.x < 0.0 else -1
-		if !_prepare_portrait_main_tab_swipe_target(tab_step):
-			return false
-
-	var drag_x: float = (
-		clampf(swipe_delta.x, -viewport_width, 0.0)
-		if _portrait_main_tab_swipe_tab_step > 0
-		else clampf(swipe_delta.x, 0.0, viewport_width)
-	)
-	_set_portrait_main_tab_swipe_positions(drag_x, viewport_width)
-	return true
-
-func _prepare_portrait_main_tab_swipe_target(tab_step: int) -> bool:
-	var target_tab: int = clampi(
-		_portrait_active_main_tab + tab_step,
-		MainTab.TASKS,
-		MainTab.PROFILE
-	)
-	if target_tab == _portrait_active_main_tab:
-		return false
-	var tab_action: Callable = _portrait_main_tab_action(target_tab)
-	if !tab_action.is_valid() or content == null or !is_instance_valid(content):
-		return false
-
-	_portrait_main_tab_swipe_origin_tab = _portrait_active_main_tab
-	_portrait_main_tab_swipe_target_tab = target_tab
-	_portrait_main_tab_swipe_tab_step = tab_step
-	_portrait_main_tab_swipe_departing_content = content
-	_portrait_main_tab_swipe_departing_navigation = content.find_child(
-		"PortraitMainNavigation",
-		true,
-		false
-	) as Control
-	_portrait_main_tab_swipe_departing_top_bar = content.find_child(
-		"PortraitTopBar",
-		true,
-		false
-	) as Control
-	_portrait_main_tab_swipe_departing_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_capture_portrait_main_tab_swipe_origin_references()
-	_portrait_main_tab_swipe_building_target = true
-	tab_action.call()
-	_portrait_main_tab_swipe_building_target = false
-
-	_portrait_main_tab_swipe_target_content = content
-	if (
-		_portrait_main_tab_swipe_target_content == null
-		or !is_instance_valid(_portrait_main_tab_swipe_target_content)
-		or _portrait_main_tab_swipe_target_content == _portrait_main_tab_swipe_departing_content
-	):
-		_restore_portrait_main_tab_swipe_origin_references()
-		_clear_portrait_main_tab_swipe_transition()
-		return false
-	_portrait_main_tab_swipe_target_navigation = content.find_child(
-		"PortraitMainNavigation",
-		true,
-		false
-	) as Control
-	_portrait_main_tab_swipe_target_top_bar = content.find_child(
-		"PortraitTopBar",
-		true,
-		false
-	) as Control
-	if _portrait_main_tab_swipe_target_navigation != null:
-		_portrait_main_tab_swipe_target_navigation.visible = false
-	if _portrait_main_tab_swipe_target_top_bar != null:
-		_portrait_main_tab_swipe_target_top_bar.visible = false
-	return true
-
-func _set_portrait_main_tab_swipe_positions(drag_x: float, viewport_width: float) -> void:
-	if (
-		_portrait_main_tab_swipe_departing_content == null
-		or _portrait_main_tab_swipe_target_content == null
-	):
-		return
-	_portrait_main_tab_swipe_departing_content.position.x = drag_x
-	_portrait_main_tab_swipe_target_content.position.x = (
-		drag_x + float(_portrait_main_tab_swipe_tab_step) * viewport_width
-	)
-	if _portrait_main_tab_swipe_departing_navigation != null:
-		_portrait_main_tab_swipe_departing_navigation.position.x = -drag_x
-	if _portrait_main_tab_swipe_departing_top_bar != null:
-		_portrait_main_tab_swipe_departing_top_bar.position.x = -drag_x
-
-func _animate_portrait_main_tab_swipe(commit: bool) -> void:
-	if (
-		_portrait_main_tab_swipe_departing_content == null
-		or _portrait_main_tab_swipe_target_content == null
-	):
-		_clear_portrait_main_tab_swipe_transition()
-		return
-	_portrait_main_tab_swipe_animating = true
-	var viewport_width: float = get_viewport().get_visible_rect().size.x
-	var departing_end_x: float = (
-		-float(_portrait_main_tab_swipe_tab_step) * viewport_width
-		if commit
-		else 0.0
-	)
-	var target_end_x: float = (
-		0.0
-		if commit
-		else float(_portrait_main_tab_swipe_tab_step) * viewport_width
-	)
-	var tween: Tween = _portrait_main_tab_swipe_departing_content.create_tween()
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.set_parallel(true)
-	tween.set_trans(Tween.TRANS_QUAD)
-	tween.set_ease(Tween.EASE_OUT)
-	tween.tween_property(
-		_portrait_main_tab_swipe_departing_content,
-		"position:x",
-		departing_end_x,
-		PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
-	)
-	tween.tween_property(
-		_portrait_main_tab_swipe_target_content,
-		"position:x",
-		target_end_x,
-		PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
-	)
-	if _portrait_main_tab_swipe_departing_navigation != null:
-		tween.tween_property(
-			_portrait_main_tab_swipe_departing_navigation,
-			"position:x",
-			-departing_end_x,
-			PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
-		)
-	if _portrait_main_tab_swipe_departing_top_bar != null:
-		tween.tween_property(
-			_portrait_main_tab_swipe_departing_top_bar,
-			"position:x",
-			-departing_end_x,
-			PORTRAIT_MAIN_TAB_SWIPE_RELEASE_DURATION
-		)
-	tween.finished.connect(
-		Callable(self, "_complete_portrait_main_tab_swipe").bind(commit),
-		CONNECT_ONE_SHOT
-	)
-
-func _complete_portrait_main_tab_swipe(commit: bool) -> void:
-	var origin_tab: int = _portrait_main_tab_swipe_origin_tab
-	var target_tab: int = _portrait_main_tab_swipe_target_tab
-	var departing_content: Control = _portrait_main_tab_swipe_departing_content
-	var target_content: Control = _portrait_main_tab_swipe_target_content
-	var departing_navigation: Control = _portrait_main_tab_swipe_departing_navigation
-	var target_navigation: Control = _portrait_main_tab_swipe_target_navigation
-	var departing_top_bar: Control = _portrait_main_tab_swipe_departing_top_bar
-	var target_top_bar: Control = _portrait_main_tab_swipe_target_top_bar
-	if commit and target_content != null and is_instance_valid(target_content):
-		if departing_navigation != null and is_instance_valid(departing_navigation):
-			departing_navigation.visible = false
-		if departing_top_bar != null and is_instance_valid(departing_top_bar):
-			departing_top_bar.visible = false
-		if target_top_bar != null and is_instance_valid(target_top_bar):
-			target_top_bar.position.x = 0.0
-			target_top_bar.visible = true
-		if departing_content != null and is_instance_valid(departing_content):
-			departing_content.queue_free()
-		target_content.position.x = 0.0
-		target_content.mouse_filter = Control.MOUSE_FILTER_PASS
-		if target_navigation != null and is_instance_valid(target_navigation):
-			var navigation_parent: Node = target_navigation.get_parent()
-			if navigation_parent != null:
-				navigation_parent.remove_child(target_navigation)
-			target_navigation.queue_free()
-		content = target_content
-		# Home no longer owns the shared bottom navigation: its lower edge is
-		# reserved for the advertising banner. Profile and Classic keep their
-		# existing navigation implementation so they can be wired to new entry
-		# points later without rebuilding either screen.
-		if target_tab == MainTab.HOME:
-			_portrait_active_main_tab = -1
-		else:
-			# The preview navigation is static and hidden during the drag. Rebuild it
-			# only after the page arrives so the old tab shrinks and the new tab grows
-			# with the original enter/leave animation in the fixed bottom bar.
-			_stage_main_navigation(target_tab, origin_tab)
-		_play_ui_click_sound()
-		_clear_portrait_main_tab_swipe_transition()
-		return
-
-	if target_content != null and is_instance_valid(target_content):
-		target_content.queue_free()
-	if departing_content != null and is_instance_valid(departing_content):
-		departing_content.position.x = 0.0
-		departing_content.mouse_filter = Control.MOUSE_FILTER_PASS
-		content = departing_content
-	_restore_portrait_main_tab_swipe_origin_references()
-	_portrait_active_main_tab = origin_tab
-	_clear_portrait_main_tab_swipe_transition()
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -949,16 +550,6 @@ func _fit_stage_rect_keep_aspect(bounds: Rect2, source_size: Vector2) -> Rect2:
 	var fit_scale: float = min(bounds.size.x / source_size.x, bounds.size.y / source_size.y)
 	var fitted_size: Vector2 = source_size * fit_scale
 	return Rect2(bounds.get_center() - fitted_size * 0.5, fitted_size)
-
-func _get_main_menu_logo_texture() -> Texture2D:
-	if _main_menu_logo_runtime_texture != null:
-		return _main_menu_logo_runtime_texture
-	var image: Image = Image.new()
-	var load_error: int = image.load("res://flash_assets/main_menu_logo_hangman_20.png")
-	if load_error == OK and !image.is_empty():
-		_main_menu_logo_runtime_texture = ImageTexture.create_from_image(image)
-		return _main_menu_logo_runtime_texture
-	return MAIN_MENU_LOGO_TEXTURE
 
 func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:
 	var shortened_width: float = rect.size.x * PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE
@@ -1012,16 +603,6 @@ func _portrait_screen(
 	var screen_content: Control = content
 	content = _portrait_create_top_bar_group()
 	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
-	content = screen_content
-	if footer_y >= 0.0:
-		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
-
-func _portrait_screen_without_header(footer_y: float = -1.0) -> void:
-	var paper_background := _stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
-	paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)
-	paper_background.z_index = -2
-	var screen_content: Control = content
-	content = _portrait_create_top_bar_group()
 	content = screen_content
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
@@ -1637,331 +1218,6 @@ func _apply_portrait_reward_header_text_effect(target: Control, outline_size: in
 	target.add_theme_constant_override("shadow_offset_y", 2)
 	target.add_theme_constant_override("shadow_outline_size", 0)
 
-func _portrait_main_tab_action(tab_index: int) -> Callable:
-	match tab_index:
-		MainTab.HOME:
-			return Callable(self, "show_menu")
-		MainTab.TASKS:
-			return Callable(self, "show_tasks")
-		MainTab.PROFILE:
-			return Callable(self, "show_profile")
-	return Callable()
-
-func _portrait_main_tab_label(tab_index: int) -> String:
-	match tab_index:
-		MainTab.HOME:
-			return tr("NAV_HOME").to_upper()
-		MainTab.TASKS:
-			return tr("NAV_TASKS").to_upper()
-		MainTab.PROFILE:
-			return tr("NAV_PROFILE").to_upper()
-	return ""
-
-func _portrait_main_nav_icon_rect(tab_x: float, is_active: bool) -> Rect2:
-	var icon_size: float = PORTRAIT_MAIN_NAV_ICON_SIZE if is_active else PORTRAIT_MAIN_NAV_INACTIVE_ICON_SIZE
-	var icon_y: float = PORTRAIT_MAIN_NAV_ACTIVE_ICON_Y if is_active else PORTRAIT_MAIN_NAV_INACTIVE_ICON_Y
-	var icon_center_x: float = tab_x + PORTRAIT_MAIN_NAV_ITEM_WIDTH * 0.5
-	if is_active:
-		icon_center_x = _portrait_main_nav_active_x(tab_x) + PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x * 0.5
-	return Rect2(
-		icon_center_x - icon_size * 0.5,
-		icon_y,
-		icon_size,
-		icon_size
-	)
-
-func _portrait_main_nav_active_x(tab_x: float) -> float:
-	var centered_x: float = tab_x + (
-		PORTRAIT_MAIN_NAV_ITEM_WIDTH - PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x
-	) * 0.5
-	return clampf(
-		centered_x,
-		0.0,
-		PORTRAIT_STAGE_SIZE.x - PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x
-	)
-
-func _portrait_main_nav_label_rect(tab_x: float) -> Rect2:
-	return Rect2(
-		_portrait_main_nav_active_x(tab_x),
-		PORTRAIT_MAIN_NAV_LABEL_Y,
-		PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x,
-		PORTRAIT_MAIN_NAV_LABEL_HEIGHT
-	)
-
-func _stage_main_nav_label(tab_x: float, tab_label: String) -> Label:
-	var label_rect: Rect2 = _portrait_main_nav_label_rect(tab_x)
-	var label := _stage_label(
-		label_rect,
-		tab_label,
-		PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	label.z_index = 44
-	label.clip_text = false
-	var nav_label_effect_color := Color(
-		PORTRAIT_DARK_BLUE.r,
-		PORTRAIT_DARK_BLUE.g,
-		PORTRAIT_DARK_BLUE.b,
-		0.55
-	)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(label, nav_label_effect_color, nav_label_effect_color)
-	var bold_font := FontVariation.new()
-	bold_font.base_font = label.get_theme_font("font")
-	bold_font.variation_embolden = 0.75
-	label.add_theme_font_override("font", bold_font)
-	_fit_single_line_label_to_width(
-		label,
-		tab_label,
-		label_rect.size.x,
-		PORTRAIT_MAIN_NAV_LABEL_FONT_SIZE,
-		12
-	)
-	label.pivot_offset = label_rect.size * 0.5
-	return label
-
-func _animate_main_nav_tab_enter(icon: Control, label: Label, final_icon_rect: Rect2) -> void:
-	icon.modulate = PORTRAIT_UI_PALETTE.UI_ICON_SOFT
-	label.scale = Vector2.ONE * PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE
-	label.modulate = Color(1.0, 1.0, 1.0, 0.0)
-	var tween: Tween = icon.create_tween()
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.set_parallel(true)
-	var icon_size_tweener: PropertyTweener = tween.tween_property(
-		icon,
-		"stage_rect",
-		final_icon_rect,
-		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
-	)
-	icon_size_tweener.set_trans(Tween.TRANS_QUAD)
-	icon_size_tweener.set_ease(Tween.EASE_OUT)
-	tween.tween_property(icon, "modulate", Color.WHITE, PORTRAIT_MAIN_NAV_TRANSITION_DURATION)
-	var label_scale_tweener: PropertyTweener = tween.tween_property(
-		label,
-		"scale",
-		Vector2.ONE,
-		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
-	)
-	label_scale_tweener.set_trans(Tween.TRANS_QUAD)
-	label_scale_tweener.set_ease(Tween.EASE_OUT)
-	tween.tween_property(label, "modulate", Color.WHITE, PORTRAIT_MAIN_NAV_TRANSITION_DURATION)
-	tween.finished.connect(
-		Callable(self, "_play_main_nav_icon_bounce").bind(icon),
-		CONNECT_ONE_SHOT
-	)
-
-func _play_main_nav_icon_bounce(icon: Control) -> void:
-	if icon == null or !is_instance_valid(icon) or !icon.is_inside_tree():
-		return
-	# Transform around the texture's local center. Animating stage_rect also
-	# remaps its authored position every frame and can drift sideways inside the
-	# bottom-attached coordinate group on tall screens.
-	var rest_position: Vector2 = icon.position
-	var rest_scale: Vector2 = icon.scale
-	icon.pivot_offset = icon.size * 0.5
-	icon.position = rest_position + (rest_scale - Vector2.ONE) * icon.pivot_offset
-	var tween: Tween = icon.create_tween()
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow_tweener: PropertyTweener = tween.tween_property(
-		icon,
-		"scale",
-		rest_scale * PORTRAIT_MAIN_NAV_BOUNCE_SCALE,
-		PORTRAIT_MAIN_NAV_BOUNCE_GROW_DURATION
-	)
-	grow_tweener.set_trans(Tween.TRANS_QUAD)
-	grow_tweener.set_ease(Tween.EASE_OUT)
-	var settle_tweener: PropertyTweener = tween.tween_property(
-		icon,
-		"scale",
-		rest_scale,
-		PORTRAIT_MAIN_NAV_BOUNCE_SETTLE_DURATION
-	)
-	settle_tweener.set_trans(Tween.TRANS_BOUNCE)
-	settle_tweener.set_ease(Tween.EASE_OUT)
-	tween.finished.connect(
-		Callable(self, "_finish_main_nav_icon_bounce").bind(icon, rest_position),
-		CONNECT_ONE_SHOT
-	)
-
-func _finish_main_nav_icon_bounce(icon: Control, rest_position: Vector2) -> void:
-	if icon == null or !is_instance_valid(icon) or !icon.is_inside_tree():
-		return
-	icon.pivot_offset = Vector2.ZERO
-	icon.position = rest_position
-
-func _animate_main_nav_tab_leave(icon: Control, label: Label, final_icon_rect: Rect2) -> void:
-	var label_holder: Control = label.get_parent() as Control
-	var tween: Tween = icon.create_tween()
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.set_parallel(true)
-	var icon_size_tweener: PropertyTweener = tween.tween_property(
-		icon,
-		"stage_rect",
-		final_icon_rect,
-		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
-	)
-	icon_size_tweener.set_trans(Tween.TRANS_SINE)
-	icon_size_tweener.set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(
-		icon,
-		"modulate",
-		PORTRAIT_UI_PALETTE.UI_ICON_SOFT,
-		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
-	)
-	var label_scale_tweener: PropertyTweener = tween.tween_property(
-		label,
-		"scale",
-		Vector2.ONE * PORTRAIT_MAIN_NAV_TRANSITION_TEXT_SCALE,
-		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
-	)
-	label_scale_tweener.set_trans(Tween.TRANS_SINE)
-	label_scale_tweener.set_ease(Tween.EASE_IN)
-	tween.tween_property(
-		label,
-		"modulate",
-		Color(1.0, 1.0, 1.0, 0.0),
-		PORTRAIT_MAIN_NAV_TRANSITION_DURATION
-	)
-	tween.finished.connect(
-		Callable(self, "_finish_main_nav_tab_leave").bind(
-			icon,
-			label_holder,
-			final_icon_rect
-		),
-		CONNECT_ONE_SHOT
-	)
-
-func _finish_main_nav_tab_leave(
-	icon: Control,
-	label_holder: Control,
-	final_icon_rect: Rect2
-) -> void:
-	# Replace the animated texture with a clean, static instance. Reusing the
-	# tweened Control could retain a transform frame from the active-tab bounce,
-	# which made the Tasks icon sit too low until the navigation was rebuilt.
-	if icon != null and is_instance_valid(icon) and icon.is_inside_tree():
-		var icon_parent: Node = icon.get_parent()
-		var rest_icon: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control
-		rest_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rest_icon.set("texture", icon.get("texture"))
-		rest_icon.modulate = PORTRAIT_UI_PALETTE.UI_ICON_SOFT
-		rest_icon.z_index = 42
-		icon_parent.add_child(rest_icon)
-		rest_icon.set("stage_rect", final_icon_rect)
-		icon.queue_free()
-	if label_holder != null and is_instance_valid(label_holder):
-		label_holder.queue_free()
-
-func _stage_main_navigation(active_tab: int, previous_tab: int = -1) -> void:
-	if !_portrait_main_tab_swipe_building_target:
-		_portrait_active_main_tab = active_tab
-		_reset_portrait_main_tab_swipe()
-	var animates_switch: bool = (
-		previous_tab >= MainTab.TASKS
-		and previous_tab <= MainTab.PROFILE
-		and previous_tab != active_tab
-	)
-	# Keep every navigation element in one bottom-attached coordinate space.
-	# The active tab intentionally begins above PORTRAIT_MAIN_NAV_Y; without
-	# this group, tall screens map it as regular content while the blue bar is
-	# pinned to the bottom, separating both the visuals and their hit areas.
-	var previous_content: Control = _portrait_begin_bottom_attached_group()
-	content.name = "PortraitMainNavigation"
-	content.visible = !_portrait_main_tab_swipe_building_target
-	var navigation_panel := _stage_panel(
-		Rect2(0.0, PORTRAIT_MAIN_NAV_Y, PORTRAIT_STAGE_SIZE.x, PORTRAIT_MAIN_NAV_HEIGHT),
-		PORTRAIT_BLUE
-	)
-	navigation_panel.z_index = 40
-	var top_rule := _stage_panel(
-		Rect2(0.0, PORTRAIT_MAIN_NAV_Y, PORTRAIT_STAGE_SIZE.x, 2.0),
-		PORTRAIT_UI_PALETTE.TEXT_SOFT_BLUE
-	)
-	top_rule.z_index = 41
-
-	for tab_index in range(PORTRAIT_MAIN_NAV_TAB_COUNT):
-		var tab_action: Callable = _portrait_main_tab_action(tab_index)
-		var tab_icon: Texture2D
-		var tab_label: String = _portrait_main_tab_label(tab_index)
-		match tab_index:
-			MainTab.HOME:
-				tab_icon = PORTRAIT_NAV_HOME_ICON
-			MainTab.TASKS:
-				tab_icon = PORTRAIT_NAV_TASKS_ICON
-			MainTab.PROFILE:
-				tab_icon = PORTRAIT_NAV_PROFILE_ICON
-
-		var tab_x: float = float(tab_index) * PORTRAIT_MAIN_NAV_ITEM_WIDTH
-		var is_active: bool = tab_index == active_tab
-		var was_active: bool = animates_switch and tab_index == previous_tab
-		var hit_rect := Rect2(tab_x, PORTRAIT_MAIN_NAV_ACTIVE_Y, PORTRAIT_MAIN_NAV_ITEM_WIDTH, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.y)
-		if is_active:
-			# Compose a rounded cap with a square body: only the upper corners of
-			# the selected tab are rounded, while its lower edge joins the bar.
-			var active_cap := _stage_panel(
-				Rect2(_portrait_main_nav_active_x(tab_x), PORTRAIT_MAIN_NAV_ACTIVE_Y, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x, 36.0),
-				PORTRAIT_ORANGE,
-				18.0
-			)
-			active_cap.z_index = 42
-			var active_body := _stage_panel(
-				Rect2(_portrait_main_nav_active_x(tab_x), PORTRAIT_MAIN_NAV_ACTIVE_Y + 18.0, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.x, PORTRAIT_MAIN_NAV_ACTIVE_RECT_SIZE.y - 18.0),
-				PORTRAIT_ORANGE
-			)
-			active_body.z_index = 42
-			var active_icon := _stage_texture(
-				_portrait_main_nav_icon_rect(tab_x, !animates_switch),
-				tab_icon
-			)
-			active_icon.z_index = 43
-			var active_label := _stage_main_nav_label(tab_x, tab_label)
-			if animates_switch:
-				_animate_main_nav_tab_enter(
-					active_icon,
-					active_label,
-					_portrait_main_nav_icon_rect(tab_x, true)
-				)
-		else:
-			var inactive_icon := _stage_texture(
-				_portrait_main_nav_icon_rect(tab_x, was_active),
-				tab_icon
-			)
-			inactive_icon.z_index = 42
-			if was_active:
-				var departing_label := _stage_main_nav_label(tab_x, tab_label)
-				_animate_main_nav_tab_leave(
-					inactive_icon,
-					departing_label,
-					_portrait_main_nav_icon_rect(tab_x, false)
-				)
-			else:
-				inactive_icon.modulate = PORTRAIT_UI_PALETTE.UI_ICON_SOFT
-		var tab_button := _stage_button(hit_rect, tab_action, "")
-		tab_button.z_index = 46
-	content = previous_content
-
-func _show_main_tab_screen(
-	screen_builder: Callable,
-	active_tab: int,
-	force_rebuild: bool = false
-) -> void:
-	# Tapping the already active tab should not destroy and rebuild the complete
-	# page tree. Internal controls may explicitly force a refresh after changing
-	# data that affects the current page.
-	if (
-		!force_rebuild
-		and !_portrait_main_tab_swipe_building_target
-		and active_tab == _portrait_active_main_tab
-	):
-		return
-	var previous_tab: int = (
-		-1
-		if _portrait_main_tab_swipe_building_target
-		else _portrait_active_main_tab
-	)
-	screen_builder.call()
-	_stage_main_navigation(active_tab, previous_tab)
-
 func show_coin_store() -> void:
 	_show_coin_refill_popup()
 
@@ -2261,16 +1517,7 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 
 func show_tasks() -> void:
 	coin_store_return_action = Callable()
-	_show_main_tab_screen(Callable(self, "_show_theme_select_screen").bind(true), MainTab.TASKS)
-
-func _portrait_top_right_coin_badge_rect(button_rect: Rect2, badge_size: Vector2) -> Rect2:
-	return Rect2(
-		Vector2(
-			button_rect.end.x - badge_size.x * 0.82,
-			button_rect.position.y - badge_size.y * 0.18
-		),
-		badge_size
-	)
+	_show_theme_select_screen(false)
 
 func _stage_single_player_level_header(level_index: int) -> void:
 	_stage_portrait_page_header(
@@ -2419,7 +1666,6 @@ func _portrait_popup_begin(
 	_portrait_popup_resume_without_intro = false
 	if !resume_without_intro:
 		_play_popup_open_sound()
-	_reset_portrait_main_tab_swipe()
 	var previous_content: Control = content
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = name + "Canvas"
@@ -2848,11 +2094,8 @@ func _show_menu_screen() -> void:
 	_stage_currency_counter(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 235.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
-	# Preserve the logo aspect ratio inside the same 20%-smaller title slot so
-	# the square handwritten asset is not stretched horizontally. The texture is
-	# loaded from the raw PNG at runtime specifically for this logo, which avoids
-	# device-side import/compression color shifts and keeps the authored palette.
-	var main_menu_logo_texture: Texture2D = _get_main_menu_logo_texture()
+	# Preserve the logo aspect ratio and reuse the imported texture on every visit.
+	var main_menu_logo_texture: Texture2D = MAIN_MENU_LOGO_TEXTURE
 	# Make the logo 15% larger in UI while keeping the same authored center point.
 	var main_menu_logo_bounds := Rect2(19.2, 102.52, 441.6, 264.96)
 	var main_menu_logo_rect: Rect2 = _fit_stage_rect_keep_aspect(main_menu_logo_bounds, main_menu_logo_texture.get_size())
@@ -2863,25 +2106,8 @@ func _show_menu_screen() -> void:
 	# Play one soft diagonal highlight sweep every time the Home screen is entered.
 	# The shader keeps the source alpha intact, so the highlight is visible only
 	# on the painted logo pixels and never on its transparent background.
-	var logo_shine_shader := Shader.new()
-	logo_shine_shader.code = """
-shader_type canvas_item;
-
-uniform float shine_progress = -0.30;
-uniform float shine_width = 0.12;
-uniform float shine_strength = 0.46;
-
-void fragment() {
-	vec4 base = texture(TEXTURE, UV);
-	float diagonal = UV.x + UV.y * 0.28;
-	float distance_to_shine = abs(diagonal - shine_progress);
-	float band = 1.0 - smoothstep(0.0, shine_width, distance_to_shine);
-	float shine = band * shine_strength * base.a;
-	COLOR = vec4(mix(base.rgb, vec3(1.0), shine), base.a);
-}
-"""
 	var logo_shine_material := ShaderMaterial.new()
-	logo_shine_material.shader = logo_shine_shader
+	logo_shine_material.shader = MAIN_MENU_LOGO_SHINE_SHADER
 	main_menu_logo.material = logo_shine_material
 	var logo_shine_tween := create_tween()
 	logo_shine_tween.bind_node(main_menu_logo)
@@ -3307,26 +2533,11 @@ func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_presse
 	button.set_meta(&"quiz_press_scale_tween", tween)
 
 
-func _quiz_answer_holder(button: Button) -> Control:
-	if button == null or !is_instance_valid(button):
-		return null
-	var holder_variant: Variant = button.get_meta(&"quiz_answer_holder", null)
-	return holder_variant as Control if holder_variant is Control else null
-
 func _quiz_answer_shadow(button: Button) -> Panel:
 	if button == null or !is_instance_valid(button):
 		return null
 	var shadow_variant: Variant = button.get_meta(&"quiz_answer_shadow", null)
 	return shadow_variant as Panel if shadow_variant is Panel else null
-
-func _set_quiz_answer_shadow_hidden(button: Button, hidden: bool) -> void:
-	if button == null or !is_instance_valid(button):
-		return
-	button.set_meta(&"quiz_answer_keep_shadow_hidden", hidden)
-	var shadow_panel := _quiz_answer_shadow(button)
-	if shadow_panel != null and is_instance_valid(shadow_panel):
-		shadow_panel.visible = !hidden
-
 
 func _quiz_answer_label(button: Button) -> Label:
 	if button == null or !is_instance_valid(button):
@@ -3729,6 +2940,58 @@ func _return_to_quiz_from_coin_store() -> void:
 		if !hint_key.is_empty():
 			_refresh_portrait_quiz_hint_counter(hint_button, hint_key)
 
+func _refresh_quiz_question_in_place() -> bool:
+	if (
+		!_quiz_screen_active
+		or _quiz_question_label == null
+		or !is_instance_valid(_quiz_question_label)
+		or _quiz_continue_button == null
+		or !is_instance_valid(_quiz_continue_button)
+	):
+		return false
+	var answers_variant: Variant = _quiz_current_question.get("answers", [])
+	if !(answers_variant is Array):
+		return false
+	var answers: Array = Array(answers_variant)
+	var visible_answer_count: int = mini(4, answers.size())
+	if visible_answer_count != _quiz_answer_buttons.size():
+		return false
+
+	_quiz_entrance_generation += 1
+	var question_text: String = str(
+		_quiz_current_question.get("question", "")
+	).strip_edges()
+	_quiz_question_label.text = question_text
+	_quiz_question_label.add_theme_font_size_override(
+		"font_size",
+		_quiz_question_font_size(question_text)
+	)
+	_quiz_question_label.modulate = Color.WHITE
+
+	for answer_index in range(visible_answer_count):
+		var answer_button := _quiz_answer_buttons[answer_index] as Button
+		if answer_button == null or !is_instance_valid(answer_button):
+			return false
+		var answer_text: String = str(answers[answer_index]).strip_edges()
+		_prepare_quiz_answer_for_replacement(answer_button, answer_text, 0.0)
+		answer_button.disabled = false
+		answer_button.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	_quiz_continue_button.visible = false
+	_quiz_continue_button.modulate.a = 1.0
+	_quiz_continue_button.set("attention_bounce_enabled", false)
+	for hint_button: Control in _quiz_hint_buttons:
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		hint_button.visible = true
+		hint_button.modulate = Color.WHITE
+		hint_button.mouse_filter = Control.MOUSE_FILTER_STOP
+		hint_button.set("button_disabled", false)
+		var hint_key: String = str(hint_button.get_meta(&"quiz_hint_key", ""))
+		if !hint_key.is_empty():
+			_refresh_portrait_quiz_hint_counter(hint_button, hint_key)
+	return true
+
 func _on_quiz_continue_pressed() -> void:
 	if !_quiz_screen_active or _quiz_selected_theme_index < 0:
 		return
@@ -3773,7 +3036,8 @@ func _on_quiz_continue_pressed() -> void:
 	_quiz_fifty_fifty_hidden_indices.clear()
 	_quiz_replace_question_used = false
 	_quiz_question_replacing = false
-	_show_quiz_game_screen()
+	if !_refresh_quiz_question_in_place():
+		_show_quiz_game_screen()
 
 func _finish_quiz_fifty_fifty_removal(button: Button, shadow_panel: Panel) -> void:
 	if button != null and is_instance_valid(button):
@@ -3961,6 +3225,11 @@ func _prepare_quiz_answer_for_replacement(
 		var fifty_tween := fifty_tween_variant as Tween
 		if fifty_tween.is_valid():
 			fifty_tween.kill()
+	var result_tween_variant: Variant = button.get_meta(&"quiz_result_bounce_tween", null)
+	if result_tween_variant is Tween:
+		var result_tween := result_tween_variant as Tween
+		if result_tween.is_valid():
+			result_tween.kill()
 
 	button.visible = true
 	button.disabled = true
@@ -3971,6 +3240,11 @@ func _prepare_quiz_answer_for_replacement(
 	_set_quiz_answer_fill(button, Color.WHITE)
 	var answer_label := _quiz_answer_label(button)
 	if answer_label != null and is_instance_valid(answer_label):
+		var shake_tween_variant: Variant = answer_label.get_meta(&"quiz_text_shake_tween", null)
+		if shake_tween_variant is Tween:
+			var shake_tween := shake_tween_variant as Tween
+			if shake_tween.is_valid():
+				shake_tween.kill()
 		answer_label.text = answer_text
 		answer_label.position.x = 18.0
 		answer_label.modulate = Color.WHITE
@@ -4606,26 +3880,14 @@ func _show_quiz_game_screen() -> void:
 func show_theme_select() -> void:
 	_show_theme_select_screen(false)
 
-func _show_theme_select_screen(with_main_navigation: bool) -> void:
+func _show_theme_select_screen(_with_main_navigation: bool) -> void:
 	_clear()
-	if with_main_navigation:
-		_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-	else:
-		_portrait_screen(0.0)
-	var theme_title: String = (
-		_portrait_main_tab_label(MainTab.TASKS)
-		if with_main_navigation
-		else tr("CHALLENGES_TITLE")
+	_portrait_screen(0.0)
+	_stage_portrait_page_header(
+		tr("CHALLENGES_TITLE"),
+		Callable(self, "show_menu"),
+		Callable(self, "show_theme_select")
 	)
-	if with_main_navigation:
-		_stage_currency_counter(Callable(self, "show_tasks"))
-		_stage_portrait_page_title(theme_title)
-	else:
-		_stage_portrait_page_header(
-			theme_title,
-			Callable(self, "show_menu"),
-			Callable(self, "show_theme_select")
-		)
 
 	for i in range(Database.get_theme_count()):
 		var col: int = i % 2
@@ -4660,7 +3922,7 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 			if theme_icon != null:
 				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i, with_main_navigation) if completed else Callable(self, "start_classic_game").bind(i)
+		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i, false) if completed else Callable(self, "start_classic_game").bind(i)
 		var theme_button := _stage_button(Rect2(x, y, 214.0, 88.0), action, "")
 		theme_button.disabled = disabled
 		_bind_theme_card_press_state(theme_button, card)
@@ -4675,7 +3937,7 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 	var difficulty_action: Callable = Callable(
 		self,
 		"_cycle_classic_difficulty"
-	).bind(with_main_navigation)
+	).bind(false)
 	var difficulty_font_size: int = _portrait_footer_font_size(22)
 	var difficulty_button := _stage_main_button(
 		difficulty_rect,
@@ -4684,19 +3946,6 @@ func _show_theme_select_screen(with_main_navigation: bool) -> void:
 		difficulty_font_size
 	)
 	_style_difficulty_button(difficulty_button)
-
-func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:
-	_cycle_difficulty_mode()
-	if return_to_tasks:
-		# The Tasks tab is already active, so its normal same-tab optimization would
-		# skip the rebuild and leave the old label/cards on screen until navigation.
-		_show_main_tab_screen(
-			Callable(self, "_show_theme_select_screen").bind(true),
-			MainTab.TASKS,
-			true
-		)
-		return
-	show_theme_select()
 
 func _show_clear_theme_popup(theme_index: int, return_to_tasks: bool = false) -> void:
 	_remove_clear_theme_popup()
@@ -5052,59 +4301,6 @@ func _on_single_player_extra_attempt_ad_pressed() -> void:
 	if !GameSession.has_deferred_loss():
 		return
 	_show_portrait_rewarded_action(&"extra_attempt")
-
-func _stage_heart_recovery_timer_counter(counter_rect: Rect2, heart_count: int) -> Label:
-	var counter_scale: float = counter_rect.size.y / 48.0
-	var panel := _stage_panel(
-		counter_rect,
-		PORTRAIT_DARK_BLUE,
-		counter_rect.size.y * 0.5,
-		PORTRAIT_UI_PALETTE.UI_BLUE_LIGHT_BORDER,
-		2.0 * counter_scale
-	)
-	panel.z_index = 13
-
-	# Fill the full counter height with the dimensional PNG clock, matching the
-	# visual weight of the heart and coin resource icons.
-	var clock_size: float = counter_rect.size.y
-	var clock_rect := Rect2(
-		Vector2(counter_rect.position.x, counter_rect.position.y),
-		Vector2.ONE * clock_size
-	)
-	var clock_icon := _stage_texture(clock_rect, HEART_RECOVERY_CLOCK_TEXTURE)
-	clock_icon.z_index = 14
-
-	var timer_rect := Rect2(
-		Vector2(
-			counter_rect.position.x + counter_rect.size.y + 2.0 * counter_scale,
-			counter_rect.position.y
-		),
-		Vector2(
-			counter_rect.size.x - counter_rect.size.y - 6.0 * counter_scale,
-			counter_rect.size.y
-		)
-	)
-	var timer_text: String = _heart_status_text(
-		heart_count,
-		GameState.get_heart_recovery_seconds()
-	)
-	var timer_label := _stage_label(
-		timer_rect,
-		timer_text,
-		maxi(1, int(round(25.0 * counter_scale))),
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	timer_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	timer_label.z_index = 14
-	_fit_single_line_label_to_width(
-		timer_label,
-		timer_text,
-		timer_rect.size.x,
-		maxi(1, int(round(25.0 * counter_scale))),
-		maxi(1, int(round(16.0 * counter_scale)))
-	)
-	return timer_label
 
 func _show_heart_refill_popup(
 	continue_action: Callable = Callable(),
@@ -8108,26 +7304,6 @@ func _apply_portrait_panel_style(
 		style.border_width_bottom = resolved_border_width
 	panel.add_theme_stylebox_override("panel", style)
 
-func _portrait_hint_local_label(
-	parent: Control,
-	text: String,
-	font_size: int,
-	color: Color,
-	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
-) -> Label:
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.text = text
-	label.horizontal_alignment = align
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	label.z_index = 1
-	parent.add_child(label)
-	return label
-
 func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> Dictionary:
 	if button == null or !is_instance_valid(button):
 		return {}
@@ -8317,59 +7493,6 @@ func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) ->
 		var node := component.get(key) as CanvasItem
 		if node != null and is_instance_valid(node):
 			node.visible = false
-
-func _portrait_button_badge_shadow(
-	button: Control,
-	local_rect: Rect2,
-	corner_radius: float
-) -> Panel:
-	var component := _create_portrait_button_badge(button, {
-		"coin_rect": local_rect,
-		"ad_rect": local_rect,
-		"free_rect": local_rect,
-		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
-	})
-	var shadow := component.get("shadow") as Panel
-	if shadow != null and is_instance_valid(shadow):
-		_apply_portrait_panel_style(
-			shadow,
-			Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.28),
-			corner_radius,
-			Color(0.0, 0.0, 0.0, 0.0),
-			0.0
-		)
-	var badge := component.get("badge") as CanvasItem
-	if badge != null and is_instance_valid(badge):
-		badge.queue_free()
-	return shadow
-
-func _create_portrait_button_ad_badge(
-	button: Control,
-	badge_rect: Rect2,
-	icon_scale_multiplier: float = 1.0
-) -> Dictionary:
-	var component := _create_portrait_button_badge(button, {
-		"coin_rect": badge_rect,
-		"ad_rect": badge_rect,
-		"free_rect": badge_rect,
-		"ad_icon_scale": icon_scale_multiplier,
-		"state": PORTRAIT_BUTTON_BADGE_STATE_AD,
-	})
-	component["icon"] = component.get("ad")
-	return component
-
-func _create_portrait_button_price_badge(
-	button: Control,
-	badge_rect: Rect2,
-	price: int
-) -> Dictionary:
-	return _create_portrait_button_badge(button, {
-		"coin_rect": badge_rect,
-		"ad_rect": badge_rect,
-		"free_rect": badge_rect,
-		"price": price,
-		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
-	})
 
 func _style_portrait_hint_counter_badge_label(label: Label) -> void:
 	var counter_outline_color := Color(
@@ -9825,13 +8948,6 @@ func _stage_final_reward_glow(rect: Rect2, tint_color: Color = Color.WHITE) -> T
 	holder.add_child(glow)
 	return glow
 
-func _set_final_reward_glow_color(glow: CanvasItem, tint_color: Color) -> void:
-	if glow == null or !is_instance_valid(glow):
-		return
-	var current_alpha: float = glow.modulate.a
-	glow.modulate = Color(tint_color.r, tint_color.g, tint_color.b, current_alpha)
-	glow.set_meta(&"glow_tint_color", tint_color)
-
 func _start_final_reward_glow_rotation(
 	glow: Control,
 	duration: float = PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION
@@ -10136,58 +9252,6 @@ func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: 
 			0.7
 		)
 		detail_layer.self_modulate = darker
-
-func _ensure_final_reward_double_button_bonus_icon(button: Control) -> TextureRect:
-	if button == null or !is_instance_valid(button):
-		return null
-	var existing := button.get_node_or_null("BonusCoinIcon") as TextureRect
-	if existing != null and is_instance_valid(existing):
-		return existing
-	var coin_icon := TextureRect.new()
-	coin_icon.name = "BonusCoinIcon"
-	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
-	button.add_child(coin_icon)
-	return coin_icon
-
-func _ensure_final_reward_double_button_icon_shadow(button: Control) -> TextureRect:
-	if button == null or !is_instance_valid(button):
-		return null
-	var existing := button.get_node_or_null("AdIconShadow") as TextureRect
-	if existing != null and is_instance_valid(existing):
-		return existing
-	var icon_shadow := TextureRect.new()
-	icon_shadow.name = "AdIconShadow"
-	icon_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon_shadow.modulate = Color(
-		PORTRAIT_DARK_BLUE.r,
-		PORTRAIT_DARK_BLUE.g,
-		PORTRAIT_DARK_BLUE.b,
-		0.92
-	)
-	button.add_child(icon_shadow)
-	icon_shadow.z_index = 0
-	button.move_child(icon_shadow, 0)
-	return icon_shadow
-
-func _ensure_final_reward_double_button_icon(button: Control) -> TextureRect:
-	if button == null or !is_instance_valid(button):
-		return null
-	var existing := button.get_node_or_null("AdIcon") as TextureRect
-	if existing != null and is_instance_valid(existing):
-		return existing
-	var ad_icon := TextureRect.new()
-	ad_icon.name = "AdIcon"
-	ad_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ad_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ad_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	ad_icon.texture = WATCH_AD_ICON_TEXTURE
-	button.add_child(ad_icon)
-	return ad_icon
 
 func _sync_final_reward_double_button_content(button: Control) -> void:
 	if button == null or !is_instance_valid(button):
@@ -10926,6 +9990,12 @@ func _show_single_player_reward_chain_screen() -> void:
 		and bool(last_result_data.get("single_player_level_completed", false))
 		and current_slot == word_count - 1
 	)
+	# Quiz slots do not keep an active GameSession round, so GameSession.theme_id
+	# is -1 by the time their reward screen is shown. Resolve the reward theme
+	# from the level definition and retain the active round as a safe fallback.
+	var reward_theme_index: int = _single_player_level_selected_theme(level_index)
+	if reward_theme_index < 0:
+		reward_theme_index = GameSession.theme_id
 	if is_final_reward:
 		_portrait_final_reward_claim_in_progress = false
 		_portrait_final_reward_waiting_for_ad = false
@@ -11055,7 +10125,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		# animated pattern remains visible, but still behind the reward content
 		# that is added afterwards.
 		final_reward_background_overlay.z_index = 0
-		_add_final_reward_theme_pattern(final_reward_background_overlay, GameSession.theme_id)
+		_add_final_reward_theme_pattern(final_reward_background_overlay, reward_theme_index)
 	var masked_hero: Dictionary = _create_single_player_reward_masked_hero(
 		reward_screen_content,
 		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
@@ -11796,20 +10866,24 @@ func _fit_single_line_label_to_width(label: Label, text: String, available_width
 	label.add_theme_font_size_override("font_size", resolved_font_size)
 
 func show_profile() -> void:
-	_show_main_tab_screen(Callable(self, "_show_profile_screen"), MainTab.PROFILE)
+	_show_profile_screen()
 
 func _show_profile_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
-	_portrait_screen(0.0, PORTRAIT_MAIN_NAV_Y)
-	_stage_currency_counter(Callable(self, "show_profile"))
-	_stage_portrait_page_title(_portrait_main_tab_label(MainTab.PROFILE))
+	_portrait_screen(0.0)
+	_stage_portrait_page_header(
+		tr("NAV_PROFILE").to_upper(),
+		Callable(self, "show_menu"),
+		Callable(self, "show_profile")
+	)
 
 	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)
 	_stage_profile_header_card()
 	_stage_label(Rect2(26.0, 310.0, 428.0, 40.0), tr("RECORDS_TITLE").to_upper(), 27, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
 	_portrait_profile_stat_row(392.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), int(GameState.records[0][2]), tr("RECORD_HARD_STREAK"), int(GameState.records[0][3]))
 	_portrait_end_adaptive_group(profile_root_content)
+	_stage_portrait_ad_banner()
 
 func _stage_profile_header_card() -> void:
 	var card_rect := Rect2(24.0, 136.0, 432.0, 150.0)

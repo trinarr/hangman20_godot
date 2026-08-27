@@ -47,13 +47,13 @@ const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const LONG_BUTTON_COLOR_ORANGE: int = 0
-const LONG_BUTTON_COLOR_GREEN: int = 1
 const LONG_BUTTON_COLOR_BLUE: int = 2
 const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
 const STAGE_LETTER_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_letter_button.gd")
 const FLASH_STAGE_PANEL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_symbol.gd")
+const THEME_ASSET_CACHE: GDScript = preload("res://scripts/core/theme_asset_cache.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
@@ -72,50 +72,6 @@ const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
 const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
 const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
 const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
-const THEME_ICON_SPORT_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_sport.png")
-const THEME_ICON_GEOGRAPHY_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_geography.png")
-const THEME_ICON_NATURE_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_nature.png")
-const THEME_ICON_TECHNICS_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_technics.png")
-const THEME_ICON_PEOPLE_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_people.png")
-const THEME_ICON_FOOD_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_food.png")
-const THEME_ICON_SCIENCE_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_science.png")
-const THEME_ICON_HISTORY_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_history.png")
-const THEME_ICON_GENERAL_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_general.png")
-const THEME_ICON_FILM_MUSIC_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons/theme_icon_film_music.png")
-const THEME_ICON_SPORT_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_sport_white.png")
-const THEME_ICON_GEOGRAPHY_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_geography_white.png")
-const THEME_ICON_NATURE_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_nature_white.png")
-const THEME_ICON_TECHNICS_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_technics_white.png")
-const THEME_ICON_PEOPLE_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_people_white.png")
-const THEME_ICON_FOOD_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_food_white.png")
-const THEME_ICON_SCIENCE_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_science_white.png")
-const THEME_ICON_HISTORY_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_history_white.png")
-const THEME_ICON_GENERAL_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_general_white.png")
-const THEME_ICON_FILM_MUSIC_MONO_TEXTURE: Texture2D = preload("res://flash_assets/theme_icons_mono/theme_icon_film_music_white.png")
-const THEME_ICON_TEXTURES := {
-	1: THEME_ICON_SPORT_TEXTURE,
-	2: THEME_ICON_GEOGRAPHY_TEXTURE,
-	3: THEME_ICON_NATURE_TEXTURE,
-	4: THEME_ICON_TECHNICS_TEXTURE,
-	5: THEME_ICON_PEOPLE_TEXTURE,
-	6: THEME_ICON_FOOD_TEXTURE,
-	7: THEME_ICON_SCIENCE_TEXTURE,
-	8: THEME_ICON_HISTORY_TEXTURE,
-	9: THEME_ICON_GENERAL_TEXTURE,
-	10: THEME_ICON_FILM_MUSIC_TEXTURE,
-}
-const THEME_ICON_MONO_TEXTURES := {
-	1: THEME_ICON_SPORT_MONO_TEXTURE,
-	2: THEME_ICON_GEOGRAPHY_MONO_TEXTURE,
-	3: THEME_ICON_NATURE_MONO_TEXTURE,
-	4: THEME_ICON_TECHNICS_MONO_TEXTURE,
-	5: THEME_ICON_PEOPLE_MONO_TEXTURE,
-	6: THEME_ICON_FOOD_MONO_TEXTURE,
-	7: THEME_ICON_SCIENCE_MONO_TEXTURE,
-	8: THEME_ICON_HISTORY_MONO_TEXTURE,
-	9: THEME_ICON_GENERAL_MONO_TEXTURE,
-	10: THEME_ICON_FILM_MUSIC_MONO_TEXTURE,
-}
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
@@ -208,6 +164,11 @@ func _ready() -> void:
 		GameState.hearts_changed.connect(_on_hearts_changed)
 	_last_heart_count_for_animation = GameState.get_hearts()
 	show_menu()
+	_prewarm_runtime_assets()
+
+func _prewarm_runtime_assets() -> void:
+	THEME_ASSET_CACHE.prewarm()
+	FLASH_STAGE_SYMBOL_SCRIPT.prewarm_hero_type(_selected_character_id())
 
 # Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
 # that shared game logic calls; all screen construction lives in the portrait
@@ -815,13 +776,13 @@ func _theme_icon_texture(theme_index: int) -> Texture2D:
 	var theme_id: int = Database.get_theme_id(theme_index)
 	if theme_id <= 0:
 		return null
-	return THEME_ICON_TEXTURES.get(theme_id, null) as Texture2D
+	return THEME_ASSET_CACHE.get_icon(theme_id) as Texture2D
 
 func _theme_icon_mono_texture(theme_index: int) -> Texture2D:
 	var theme_id: int = Database.get_theme_id(theme_index)
 	if theme_id <= 0:
 		return null
-	return THEME_ICON_MONO_TEXTURES.get(theme_id, null) as Texture2D
+	return THEME_ASSET_CACHE.get_icon(theme_id, true) as Texture2D
 
 func _single_player_level_label() -> String:
 	return tr("LEVEL_LABEL")
@@ -2476,11 +2437,6 @@ func _continue_single_player_result() -> void:
 		show_menu()
 	else:
 		_start_next_single_player_word(level_index)
-
-func _current_word_source_label() -> String:
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER or GameSession.theme_id < 0:
-		return Database.tr_text(40, "Word from player")
-	return Database.tr_text(42, "Category").to_upper() + " " + Database.get_theme_name(GameSession.theme_id).to_upper()
 
 func _remove_word_comment_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("word_comment_popup")

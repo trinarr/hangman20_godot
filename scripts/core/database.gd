@@ -18,6 +18,10 @@ var _alphabet_cache := PackedStringArray()
 # the word database in Settings.
 var _json_cache: Dictionary = {}
 var _loaded_word_language: String = ""
+var _word_bundle_cache: Dictionary = {}
+var _word_load_thread: Thread = null
+var _word_load_thread_language: String = ""
+var _queued_word_load_language: String = ""
 
 const DIFFICULTY_SPLIT: float = 0.5
 
@@ -152,22 +156,133 @@ const QUIZ_FILES := {
 var _quiz_questions_by_theme_cache: Dictionary = {}
 var _quiz_data_loaded: bool = false
 
+func _ready() -> void:
+	set_process(false)
+
+func _process(_delta: float) -> void:
+	if _word_load_thread == null or _word_load_thread.is_alive():
+		return
+	_finish_background_word_load(false)
+
+func _exit_tree() -> void:
+	while _word_load_thread != null:
+		_finish_background_word_load(true)
+
 func load_languages(interface_lang: String, word_lang: String) -> void:
 	interface_language = _normalize_language(interface_lang)
 	current_language = _normalize_language(word_lang)
 	TranslationServer.set_locale(interface_language)
-	_ensure_word_language_loaded()
+	_request_word_language_load(current_language)
 
 func load_word_language(word_lang: String) -> void:
 	current_language = _normalize_language(word_lang)
-	_ensure_word_language_loaded()
+	_request_word_language_load(current_language)
 
 func _ensure_word_language_loaded() -> void:
 	if _loaded_word_language == current_language:
 		return
+	if _word_bundle_cache.has(current_language):
+		_apply_word_bundle(current_language, _word_bundle_cache[current_language])
+		return
+	while _word_load_thread != null:
+		_finish_background_word_load(true)
+		if _loaded_word_language == current_language:
+			return
+		if _word_bundle_cache.has(current_language):
+			_apply_word_bundle(current_language, _word_bundle_cache[current_language])
+			return
 	_load_words()
 	_load_hints()
 	_loaded_word_language = current_language
+
+func _request_word_language_load(language: String) -> void:
+	var normalized_language: String = _normalize_language(language)
+	if _loaded_word_language == normalized_language:
+		return
+	if _word_bundle_cache.has(normalized_language):
+		if current_language == normalized_language:
+			_apply_word_bundle(normalized_language, _word_bundle_cache[normalized_language])
+		return
+	if _word_load_thread != null:
+		if _word_load_thread_language == normalized_language:
+			return
+		_queued_word_load_language = normalized_language
+		return
+
+	_word_load_thread = Thread.new()
+	_word_load_thread_language = normalized_language
+	var start_error: int = _word_load_thread.start(
+		Callable(self, "_read_word_bundle_background").bind(normalized_language)
+	)
+	if start_error != OK:
+		_word_load_thread = null
+		_word_load_thread_language = ""
+		if current_language == normalized_language:
+			_load_words()
+			_load_hints()
+			_loaded_word_language = current_language
+		return
+	set_process(true)
+
+func _read_word_bundle_background(language: String) -> Dictionary:
+	return {
+		"words": _read_json_uncached(str(WORD_FILES.get(language, ""))),
+		"hints": _read_json_uncached(str(HINT_FILES.get(language, ""))),
+	}
+
+func _read_json_uncached(path: String) -> Variant:
+	if path.is_empty() or !FileAccess.file_exists(path):
+		return null
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	var text := file.get_as_text()
+	file.close()
+	if text.length() > 0 and text.unicode_at(0) == 0xFEFF:
+		text = text.substr(1)
+	return JSON.parse_string(text)
+
+func _finish_background_word_load(wait_for_completion: bool) -> void:
+	if _word_load_thread == null:
+		return
+	if !wait_for_completion and _word_load_thread.is_alive():
+		return
+
+	var loaded_language: String = _word_load_thread_language
+	var result: Variant = _word_load_thread.wait_to_finish()
+	_word_load_thread = null
+	_word_load_thread_language = ""
+	if result is Dictionary:
+		var bundle: Dictionary = result
+		var words_result: Variant = bundle.get("words")
+		var hints_result: Variant = bundle.get("hints")
+		if words_result is Dictionary and hints_result is Dictionary:
+			_word_bundle_cache[loaded_language] = bundle
+			_json_cache[WORD_FILES[loaded_language]] = words_result
+			_json_cache[HINT_FILES[loaded_language]] = hints_result
+			if current_language == loaded_language:
+				_apply_word_bundle(loaded_language, bundle)
+
+	var queued_language: String = _queued_word_load_language
+	_queued_word_load_language = ""
+	if !queued_language.is_empty() and !_word_bundle_cache.has(queued_language):
+		_request_word_language_load(queued_language)
+	elif _word_load_thread == null:
+		set_process(false)
+
+func _apply_word_bundle(language: String, bundle: Dictionary) -> void:
+	var words_result: Variant = bundle.get("words")
+	var hints_result: Variant = bundle.get("hints")
+	if !(words_result is Dictionary) or !(hints_result is Dictionary):
+		return
+	_invalidate_word_runtime_cache()
+	data = words_result
+	hints = {}
+	if hints_result.has("hints") and hints_result["hints"] is Dictionary:
+		hints = hints_result["hints"]
+	_loaded_word_language = language
+	_validate_theme_data()
+	_validate_hint_data()
 
 func _normalize_language(lang: String) -> String:
 	var normalized := lang.to_lower()
@@ -289,6 +404,7 @@ func tr_text(index: int, fallback: String = "") -> String:
 	return translated
 
 func get_alphabet() -> PackedStringArray:
+	_ensure_word_language_loaded()
 	if !_alphabet_cache.is_empty():
 		return _alphabet_cache
 	var alphabet := str(data.get("alphabet", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
@@ -311,14 +427,8 @@ func get_theme_id(theme_index: int) -> int:
 		return THEME_IDS[theme_index]
 	return 0
 
-func get_theme_index(theme_id: int) -> int:
-	return THEME_IDS.find(theme_id)
-
 func get_theme_key(theme_id: int) -> String:
 	return str(THEME_KEYS.get(theme_id, ""))
-
-func get_theme_key_by_index(theme_index: int) -> String:
-	return get_theme_key(get_theme_id(theme_index))
 
 func get_theme_name(theme_index: int) -> String:
 	var theme_id: int = get_theme_id(theme_index)
@@ -404,6 +514,7 @@ func get_quiz_question_by_id(theme_index: int, question_id: int) -> Dictionary:
 	return {}
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
+	_ensure_word_language_loaded()
 	var cache_key := "%d:%d" % [theme_index, difficulty_filter]
 	var cached_words: Variant = _words_by_index_cache.get(cache_key)
 	if cached_words is Array:
@@ -439,6 +550,7 @@ func normalize_loaded_word(word: String) -> String:
 	return result
 
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
+	_ensure_word_language_loaded()
 	var theme_id: int = get_theme_id(theme_index)
 	var difficulty_data = data.get("difficulty", {})
 	var theme_difficulty: Variant = null
@@ -459,6 +571,7 @@ func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	return 0.0
 
 func get_hint(theme_index: int, word_index: int) -> String:
+	_ensure_word_language_loaded()
 	if theme_index < 0 or word_index < 0:
 		return ""
 	var theme_id: int = get_theme_id(theme_index)
