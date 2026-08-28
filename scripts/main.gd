@@ -64,6 +64,7 @@ const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
 const SOFT_CURRENCY_COIN_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin.png")
+const STAR_CURRENCY_TEXTURE: Texture2D = preload("res://flash_assets/star_currency_icon.png")
 const SINGLE_PLAYER_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
@@ -140,6 +141,7 @@ var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
 var currency_balance_label: Label = null
+var stars_balance_label: Label = null
 var heart_count_label: Label = null
 var heart_status_label: Label = null
 var heart_add_badge_visual: Control = null
@@ -162,6 +164,8 @@ func _ready() -> void:
 	GameSession.round_lost.connect(_on_round_lost)
 	if !GameState.soft_currency_changed.is_connected(_on_soft_currency_changed):
 		GameState.soft_currency_changed.connect(_on_soft_currency_changed)
+	if !GameState.stars_changed.is_connected(_on_stars_changed):
+		GameState.stars_changed.connect(_on_stars_changed)
 	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
 		GameState.hearts_changed.connect(_on_hearts_changed)
 	_last_heart_count_for_animation = GameState.get_hearts()
@@ -265,6 +269,13 @@ func _on_soft_currency_changed(balance: int) -> void:
 			balance_label.text = balance_text
 	_update_single_player_refresh_price(maxi(balance, 0))
 
+func _on_stars_changed(balance: int) -> void:
+	var resolved_balance: int = maxi(balance, 0)
+	var balance_text: String = _soft_currency_balance_text(resolved_balance)
+	for balance_node: Node in get_tree().get_nodes_in_group(&"stars_balance_label"):
+		var balance_label := balance_node as Label
+		if balance_label != null and is_instance_valid(balance_label):
+			balance_label.text = balance_text
 func _on_hearts_changed(heart_count: int, recovery_seconds: int) -> void:
 	var resolved_count: int = clampi(heart_count, 0, GameState.MAX_HEARTS)
 	var previous_count: int = _last_heart_count_for_animation
@@ -377,6 +388,7 @@ func _clear() -> void:
 	custom_word_check_button = null
 	custom_word_start_button = null
 	currency_balance_label = null
+	stars_balance_label = null
 	heart_count_label = null
 	heart_status_label = null
 	heart_add_badge_visual = null
@@ -1207,6 +1219,19 @@ func _single_player_level_question_target_difficulty(level_index: int) -> float:
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
 
+func _single_player_stage_reward_currency(
+	level_index: int,
+	word_slot: int,
+	word_count: int
+) -> String:
+	# Quiz stages and the final/main-prize stage keep coins. Every other level
+	# stage is a star reward, regardless of which word theme was selected.
+	if word_slot == word_count - 1:
+		return GameState.STAGE_REWARD_COINS
+	if word_slot == _single_player_level_question_slot_index(level_index):
+		return GameState.STAGE_REWARD_COINS
+	return GameState.STAGE_REWARD_STARS
+
 func _single_player_level_played_count(level_index: int) -> int:
 	return GameState.get_single_level_played_count(
 		Database.current_language,
@@ -1271,6 +1296,21 @@ func _single_player_mark_current_word_finished(
 	)
 	result["single_player_difficulty_before"] = float(progress.get("difficulty_before", 0.0))
 	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
+	var stage_reward_currency: String = ""
+	var stage_reward_amount: int = 0
+	if is_win and !level_completed:
+		stage_reward_currency = _single_player_stage_reward_currency(
+			single_player_active_level_index,
+			single_player_active_word_slot,
+			level_word_count
+		)
+		stage_reward_amount = (
+			GameState.WORD_REWARD_STARS
+			if stage_reward_currency == GameState.STAGE_REWARD_STARS
+			else GameState.WORD_REWARD_COINS
+		)
+		result["single_player_stage_reward_currency"] = stage_reward_currency
+		result["single_player_stage_reward_amount"] = stage_reward_amount
 	if level_completed:
 		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
 	elif bool(progress.get("failed", false)):
@@ -1288,7 +1328,12 @@ func _single_player_mark_current_word_finished(
 			"theme_id": Database.get_theme_id(
 				_single_player_level_selected_theme(single_player_active_level_index)
 			),
-			"data": {},
+			"data": {
+				"result": result.duplicate(true),
+				"reward_currency": stage_reward_currency,
+				"reward_amount": stage_reward_amount,
+				"reward_claimed": false,
+			},
 		}, false)
 	else:
 		GameState.clear_active_single_player_session(false)
@@ -1836,7 +1881,6 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
 	var chain_failed: bool = bool(last_result_data.get("single_player_chain_failed", false))
 	var forfeit_result: Dictionary = last_result_data.duplicate(true)
-	var reward_was_granted: bool = game_finished and last_result_is_win
 	# A result transition may already be waiting for the letter-marker animation.
 	# In that case the round has already been recorded, so only cancel the delayed
 	# result screen and return to the level without recording it a second time.
@@ -1870,11 +1914,8 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 		)
 		_invalidate_single_player_level_cache()
 	if show_failure_reward and should_lose_heart and level_index >= 0 and !level_completed:
-		# A successfully guessed word has already credited its regular reward before
-		# the result Back button can open the confirmation popup. Revoke that credit
-		# so a confirmed forfeit has the same zero-reward outcome as leaving mid-word.
-		if reward_was_granted:
-			GameState.spend_soft_currency(GameState.WORD_REWARD_COINS, false)
+		# Stage rewards are not claimed until their reward-screen animation begins,
+		# so leaving from the solved-word result has no economy credit to revoke.
 		GameState.save_game()
 		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
 		last_result_is_win = false
@@ -2440,7 +2481,10 @@ func _finish_round(is_win: bool) -> void:
 		and single_player_active_word_slot
 			== _single_player_level_word_count(single_player_active_level_index) - 1
 	)
-	last_result_data = GameSession.finish_result(is_win, !defer_single_player_final_reward)
+	var award_immediate_win_coins: bool = (
+		GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
+	)
+	last_result_data = GameSession.finish_result(is_win, award_immediate_win_coins)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if !is_win:
 			GameState.lose_heart(false)
@@ -2450,14 +2494,6 @@ func _finish_round(is_win: bool) -> void:
 			true,
 			defer_single_player_final_reward
 		)
-		# Sequential level play normally guarantees that the last word completes
-		# the chain. If imported/corrupt progress says otherwise, preserve the
-		# ordinary per-word reward instead of silently dropping it.
-		if (
-			defer_single_player_final_reward
-			and !bool(last_result_data.get("single_player_level_completed", false))
-		):
-			GameState.add_soft_currency(GameState.WORD_REWARD_COINS)
 	# All round results now use the same in-place presentation. In particular,
 	# Single Player victories follow Classic exactly instead of entering the old
 	# dedicated win transition after the final letter feedback delay.

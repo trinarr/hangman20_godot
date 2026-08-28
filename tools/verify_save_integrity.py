@@ -86,6 +86,9 @@ def main() -> None:
         "DirAccess.rename_absolute",
         "_normalize_settings",
         "_normalize_records",
+        'signal stars_changed(balance: int)',
+        '"stars": stars',
+        'stars = clampi(int(parsed.get("stars", DEFAULT_STARS))',
     ):
         require(token in game_state, f"Launch-save invariant missing: {token}")
 
@@ -142,8 +145,8 @@ def main() -> None:
     quiz_result = function_body(portrait, "_record_single_player_quiz_result")
     require("defer_final_reward" in quiz_result, "Final quiz reward is still credited early")
     require(
-        "GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)" in quiz_result,
-        "Non-final quiz reward is not transactional",
+        "add_soft_currency" not in quiz_result and "add_stars" not in quiz_result,
+        "Quiz rewards are still credited before the reward screen",
     )
     final_claim = function_body(portrait, "_complete_single_player_final_reward")
     require(
@@ -175,10 +178,92 @@ def main() -> None:
         "Home does not schedule the animated coin delivery",
     )
 
+    stage_claim = function_body(game_state, "claim_active_single_player_stage_reward")
+    require(
+        "reward_claimed" in stage_claim
+        and "add_soft_currency(requested_amount, false)" in stage_claim
+        and "add_stars(requested_amount, false)" in stage_claim
+        and "save_game()" in stage_claim,
+        "Animated stage rewards are not claimed atomically",
+    )
+    session_reward = function_body(session, "finish_result")
+    require(
+        "add_stars" not in session_reward,
+        "Stars are still granted directly at round completion",
+    )
+    stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
+    require(
+        "word_slot == word_count - 1" in stage_currency
+        and "_single_player_level_question_slot_index" in stage_currency
+        and "STAGE_REWARD_STARS" in stage_currency,
+        "Stage currency rules do not preserve quiz/final coins and ordinary stars",
+    )
+    stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
+    require(
+        '"reward_currency": stage_reward_currency' in stage_result
+        and '"reward_claimed": false' in stage_result,
+        "Pending stage reward is not persisted with level resume state",
+    )
+    pending_claim = function_body(game_state, "claim_pending_single_player_reward")
+    require(
+        "add_stars" not in pending_claim and "stars_changed" not in pending_claim,
+        "The final coin ad multiplier must not duplicate or multiply stars",
+    )
+
+    home_screen = function_body(portrait, "_show_menu_screen")
+    home_counters = function_body(portrait, "_stage_home_resource_counters")
+    game_header = function_body(portrait, "_stage_portrait_game_header")
+    reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
+    require(
+        "_stage_home_resource_counters" in home_screen
+        and "_stage_heart_counter" in home_counters
+        and "_stage_star_counter" in home_counters,
+        "Home does not expose coins, hearts, and stars",
+    )
+    require(
+        "_stage_coin_and_star_counters" in game_header
+        and "_stage_coin_and_star_counters" in reward_screen,
+        "Gameplay and reward screens do not expose coins and stars",
+    )
+    counter_bodies = "\n".join(
+        function_body(portrait, name)
+        for name in (
+            "_stage_currency_counter",
+            "_stage_centered_coin_only_counter",
+            "_stage_star_counter",
+            "_stage_heart_counter",
+        )
+    )
+    require(
+        counter_bodies.count("Color.TRANSPARENT,\n\t\t0.0") == 4,
+        "A top resource counter still draws its panel outline",
+    )
+    reward_animation = function_body(
+        portrait, "_play_single_player_reward_resource_collection"
+    )
+    require(
+        "STAR_CURRENCY_TEXTURE" in reward_animation
+        and "_portrait_star_icon_visual" in reward_animation,
+        "Star rewards do not fly into the star counter",
+    )
+    star_icon = ROOT / "flash_assets/star_currency_icon.png"
+    require(star_icon.is_file(), "Raster star currency icon is missing")
+    star_bytes = star_icon.read_bytes()
+    require(
+        star_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+        and len(star_bytes) > 25
+        and star_bytes[25] in (4, 6),
+        "Star icon must be a transparent PNG",
+    )
+    require(
+        not (ROOT / "flash_assets/star_currency_icon.svg").exists(),
+        "Obsolete SVG star icon is still present",
+    )
+
     require('package/unique_name="com.trinarr.Hangman20"' in export, "Android package identity changed")
     require("user_data_backup/allow=false" in export, "Cloud/Android backup must remain disabled")
     verify_word_keys()
-    print("Save integrity verified: launch schema, atomic local writes, durable rewards, ad-close animation, and level resume.")
+    print("Save integrity verified: deferred animated stage rewards, raster star UI, durable saves, ads, and level resume.")
 
 
 if __name__ == "__main__":

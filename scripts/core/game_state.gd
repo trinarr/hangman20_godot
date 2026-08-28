@@ -1,6 +1,7 @@
 extends Node
 
 signal soft_currency_changed(balance: int)
+signal stars_changed(balance: int)
 signal hearts_changed(hearts: int, recovery_seconds: int)
 
 const SAVE_PATH := "user://save_hangman.json"
@@ -16,9 +17,13 @@ const HINT_QUIZ_FIFTY_FIFTY: String = "quiz_fifty_fifty"
 const HINT_QUIZ_REPLACE_QUESTION: String = "quiz_replace_question"
 const DEFAULT_HINT_COUNT: int = 3
 const DEFAULT_SOFT_CURRENCY: int = 100
+const DEFAULT_STARS: int = 0
 const MAX_HEARTS: int = 5
 const HEART_RECOVERY_SECONDS: int = 5 * 60
 const WORD_REWARD_COINS: int = 10
+const WORD_REWARD_STARS: int = 10
+const STAGE_REWARD_COINS: String = "coins"
+const STAGE_REWARD_STARS: String = "stars"
 const COIN_REFILL_AD_MAX_VIEWS: int = 5
 const COIN_REFILL_AD_COOLDOWN_SECONDS: int = 5 * 60 * 60
 const SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = 0.18
@@ -55,6 +60,7 @@ var interface_language: String = "ru"
 var word_language: String = "ru"
 var player_name: String = ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
+var stars: int = DEFAULT_STARS
 var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
 var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
@@ -136,6 +142,7 @@ func load_game() -> void:
 	# never discard an otherwise valid profile or restore economy defaults.
 	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
 	soft_currency = clampi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0, 2_000_000_000)
+	stars = clampi(int(parsed.get("stars", DEFAULT_STARS)), 0, 2_000_000_000)
 	settings = _normalize_settings(parsed.get("settings", settings))
 	records = _normalize_records(parsed.get("records", records))
 	progress = (
@@ -254,6 +261,7 @@ func save_game() -> bool:
 		"pending_single_player_reward": pending_single_player_reward,
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
+		"stars": stars,
 		"hearts": hearts,
 		"heart_recovery_at": heart_recovery_at,
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
@@ -356,6 +364,56 @@ func clear_active_single_player_session(persist: bool = true) -> void:
 
 func get_active_single_player_session() -> Dictionary:
 	return active_single_player_session.duplicate(true)
+
+func get_active_single_player_stage_reward() -> Dictionary:
+	if str(active_single_player_session.get("kind", "")) != "next":
+		return {}
+	var data_variant: Variant = active_single_player_session.get("data", {})
+	if !(data_variant is Dictionary):
+		return {}
+	var data: Dictionary = data_variant
+	var currency: String = str(data.get("reward_currency", ""))
+	var amount: int = clampi(int(data.get("reward_amount", 0)), 0, 1_000_000_000)
+	if ![STAGE_REWARD_COINS, STAGE_REWARD_STARS].has(currency) or amount <= 0:
+		return {}
+	return {
+		"currency": currency,
+		"amount": amount,
+		"claimed": bool(data.get("reward_claimed", false)),
+	}
+
+func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary:
+	var reward: Dictionary = get_active_single_player_stage_reward()
+	if reward.is_empty():
+		return {}
+	var currency: String = str(reward.get("currency", ""))
+	if bool(reward.get("claimed", false)):
+		return {
+			"currency": currency,
+			"amount": 0,
+			"already_claimed": true,
+		}
+	var session: Dictionary = active_single_player_session.duplicate(true)
+	var data: Dictionary = Dictionary(session.get("data", {})).duplicate(true)
+	data["reward_claimed"] = true
+	session["data"] = data
+	active_single_player_session = session
+	var requested_amount: int = int(reward.get("amount", 0))
+	var previous_balance: int = (
+		get_stars() if currency == STAGE_REWARD_STARS else get_soft_currency()
+	)
+	var final_balance: int = (
+		add_stars(requested_amount, false)
+		if currency == STAGE_REWARD_STARS
+		else add_soft_currency(requested_amount, false)
+	)
+	if persist:
+		save_game()
+	return {
+		"currency": currency,
+		"amount": maxi(final_balance - previous_balance, 0),
+		"already_claimed": false,
+	}
 
 func get_pending_single_player_reward() -> Dictionary:
 	return pending_single_player_reward.duplicate(true)
@@ -517,6 +575,10 @@ func get_soft_currency() -> int:
 	soft_currency = maxi(soft_currency, 0)
 	return soft_currency
 
+func get_stars() -> int:
+	stars = clampi(stars, 0, 2_000_000_000)
+	return stars
+
 func get_hearts() -> int:
 	_apply_elapsed_heart_recovery(true)
 	return clampi(hearts, 0, MAX_HEARTS)
@@ -611,7 +673,7 @@ func _emit_heart_status_if_changed(force: bool = false) -> void:
 func add_soft_currency(amount: int, persist: bool = true) -> int:
 	if amount <= 0:
 		return get_soft_currency()
-	soft_currency = maxi(soft_currency + amount, 0)
+	soft_currency = clampi(soft_currency + amount, 0, 2_000_000_000)
 	soft_currency_changed.emit(soft_currency)
 	if persist:
 		save_game()
@@ -622,6 +684,24 @@ func spend_soft_currency(amount: int, persist: bool = true) -> bool:
 		return false
 	soft_currency -= amount
 	soft_currency_changed.emit(soft_currency)
+	if persist:
+		save_game()
+	return true
+
+func add_stars(amount: int, persist: bool = true) -> int:
+	if amount <= 0:
+		return get_stars()
+	stars = clampi(stars + amount, 0, 2_000_000_000)
+	stars_changed.emit(stars)
+	if persist:
+		save_game()
+	return stars
+
+func spend_stars(amount: int, persist: bool = true) -> bool:
+	if amount <= 0 or get_stars() < amount:
+		return false
+	stars -= amount
+	stars_changed.emit(stars)
 	if persist:
 		save_game()
 	return true

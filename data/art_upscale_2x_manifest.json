@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 162,
+  "file_count": 163,
   "files": [
     {
       "path": "icon.png",
@@ -211,17 +211,17 @@
     {
       "path": "flash_assets/life_heart_icon.png",
       "source_size": [
-        84,
-        76
+        128,
+        128
       ],
       "target_size": [
-        84,
-        76
+        128,
+        128
       ],
       "source_mode": "RGBA",
-      "source_sha256": "60e07c50969e4cc6fc4ac246857c5174fd39f0919e907059f28f453695a847d6",
-      "target_sha256": "8e3f4ad6ee1a35704fe7368cd26871916a07872c403e1984b099ad2487e66d85",
-      "native_target_scale": true
+      "source_sha256": "e3e17f41e9cf8c2eed727c054286f20479881e2e6a415728f647c5375fd77a4a",
+      "target_sha256": "bfddd7dcfe4e47e4833918b9bc15b068bc5f012c6dcde1a2cc656f2d943534ad",
+      "native_2x": true
     },
     {
       "path": "flash_assets/main_menu_logo_hangman_20.png",
@@ -339,6 +339,21 @@
       "source_mode": "RGBA",
       "source_sha256": "4bc1e5a112346875ce8e77490c1bbd6892e31e4f03be47350bd25403a8f514cc",
       "target_sha256": "4bc1e5a112346875ce8e77490c1bbd6892e31e4f03be47350bd25403a8f514cc",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/star_currency_icon.png",
+      "source_size": [
+        128,
+        128
+      ],
+      "target_size": [
+        128,
+        128
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "874db80b6e4378b78aa4ed4bd8527d7ea12edb346007ae2d79b0e50406ed0ccf",
+      "target_sha256": "66bf7fe7236361123fb8648aecc6f9553540019da860334871df0f0269374ff2",
       "native_2x": true
     },
     {
