@@ -9,7 +9,6 @@ const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
 	"res://scripts/ui/rounded_rect_texture_mask.gdshader"
 )
 const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
-const REWARD_COIN_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_01_small.png")
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 const WATCH_AD_ICON_TEXTURE: Texture2D = preload("res://flash_assets/watch_ad_icon.png")
@@ -54,20 +53,20 @@ const PORTRAIT_GAME_INFO_THEME_LINE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 150.0, P
 const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
 const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
 const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
-# Regular pages retain their centered coins-and-hearts block. Home uses three
-# compact plates, while gameplay and rewards use the full-size coins-and-stars
-# pair requested by the game economy.
-const PORTRAIT_RESOURCE_COUNTER_GAP: float = 28.0
-const PORTRAIT_HOME_RESOURCE_COUNTER_GAP: float = 7.0
-const PORTRAIT_HOME_RESOURCE_COUNTER_WIDTH: float = 102.0
-const PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE: float = 0.80
+# Every top bar uses one shared resource-counter width. Home fits the same
+# plates into the area before Settings; gameplay and rewards center their pair.
+const PORTRAIT_RESOURCE_COUNTER_GAP: float = 7.0
+const PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE: float = 0.84
 const PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE: float = 0.80
 const PORTRAIT_RESOURCE_COUNTER_PANEL_TRAILING_INSET: float = 6.0
+const PORTRAIT_RESOURCE_COUNTER_FONT_SCALE: float = 0.90
 # Both resource plates are 10% wider than the original 109.94 px layout. Shift
 # the complete pair left by the same added half-width so it stays centered.
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(105.066, 21.68, 120.934, 38.64)
 const PORTRAIT_GAME_CURRENCY_COUNTER_RECT := PORTRAIT_CURRENCY_COUNTER_RECT
-const PORTRAIT_CURRENCY_ICON_SIZE: float = 35.42 * 1.15
+const PORTRAIT_HOME_RESOURCE_COUNTER_WIDTH: float = PORTRAIT_CURRENCY_COUNTER_RECT.size.x
+const PORTRAIT_CURRENCY_ICON_SIZE: float = 36.6597
+const PORTRAIT_RESOURCE_COUNTER_ICON_X_SHIFT: float = PORTRAIT_CURRENCY_ICON_SIZE * 0.28
 const PORTRAIT_HEART_ICON_ASPECT_RATIO: float = 1.0
 const PORTRAIT_HEART_ICON_LEFT_INSET: float = 2.0
 const PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE: float = 0.94
@@ -135,7 +134,7 @@ const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP: float = 10.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_COLOR := PORTRAIT_UI_PALETTE.REWARD_CHAIN
 const PORTRAIT_SINGLE_REWARD_CURRENT_NODE_SCALE: float = 1.20
 const PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE: float = 0.90
-const PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE: float = 0.72
+const PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE: float = 0.612
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE: int = 22
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE: int = 15
 const PORTRAIT_SINGLE_REWARD_STATUS_ICON_SCALE: float = 0.574
@@ -302,7 +301,7 @@ const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 18.0
 const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)
 const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0
 const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0
-const PORTRAIT_REFILL_HEART_ICON_SIZE := Vector2(138.0, 125.0) * 0.6885
+const PORTRAIT_REFILL_HEART_ICON_SIZE := Vector2(95.013, 86.0625)
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
@@ -704,16 +703,17 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 	)
 
 func _portrait_resource_counter_panel_rect(
-	counter_rect: Rect2,
-	icon_rect: Rect2
+	counter_rect: Rect2
 ) -> Rect2:
 	var panel_size := Vector2(
 		counter_rect.size.x * PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE,
 		counter_rect.size.y * PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE
 	)
+	var counter_scale: float = counter_rect.size.y / 48.0
+	var panel_right: float = counter_rect.end.x - 2.0 * counter_scale
 	return Rect2(
 		Vector2(
-			icon_rect.get_center().x,
+			panel_right - panel_size.x,
 			counter_rect.get_center().y - panel_size.y * 0.5
 		),
 		panel_size
@@ -749,10 +749,13 @@ func _stage_currency_counter(
 	_portrait_currency_counter_visual = counter_visual
 	content = counter_visual
 	var icon_rect := Rect2(
-		counter_rect.position + Vector2(2.0 * counter_scale, (counter_rect.size.y - PORTRAIT_CURRENCY_ICON_SIZE) * 0.5),
+		counter_rect.position + Vector2(
+			2.0 * counter_scale + PORTRAIT_RESOURCE_COUNTER_ICON_X_SHIFT,
+			(counter_rect.size.y - PORTRAIT_CURRENCY_ICON_SIZE) * 0.5
+		),
 		Vector2(PORTRAIT_CURRENCY_ICON_SIZE, PORTRAIT_CURRENCY_ICON_SIZE)
 	)
-	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect, icon_rect)
+	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect)
 	var panel := _stage_panel(
 		panel_rect,
 		panel_color,
@@ -775,8 +778,12 @@ func _stage_currency_counter(
 		Vector2(maxf(1.0, balance_right - balance_left), panel_rect.size.y)
 	)
 	var balance_text: String = _soft_currency_balance_text(GameState.get_soft_currency())
-	var balance_font_size: int = maxi(1, int(round(24.0 * counter_scale)))
-	var balance_min_font_size: int = maxi(1, int(round(14.0 * counter_scale)))
+	var balance_font_size: int = maxi(1, int(round(
+		24.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
+	var balance_min_font_size: int = maxi(1, int(round(
+		14.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
 	var balance_label := _stage_label(
 		balance_rect,
 		balance_text,
@@ -784,7 +791,7 @@ func _stage_currency_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_HEADING_FONT)
+	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
@@ -846,10 +853,13 @@ func _stage_centered_coin_only_counter(
 	_portrait_currency_counter_visual = counter_visual
 	content = counter_visual
 	var icon_rect := Rect2(
-		counter_rect.position + Vector2(2.0 * counter_scale, (counter_rect.size.y - PORTRAIT_CURRENCY_ICON_SIZE) * 0.5),
+		counter_rect.position + Vector2(
+			2.0 * counter_scale + PORTRAIT_RESOURCE_COUNTER_ICON_X_SHIFT,
+			(counter_rect.size.y - PORTRAIT_CURRENCY_ICON_SIZE) * 0.5
+		),
 		Vector2(PORTRAIT_CURRENCY_ICON_SIZE, PORTRAIT_CURRENCY_ICON_SIZE)
 	)
-	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect, icon_rect)
+	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect)
 	var panel := _stage_panel(
 		panel_rect,
 		panel_color,
@@ -872,8 +882,12 @@ func _stage_centered_coin_only_counter(
 		Vector2(maxf(1.0, balance_right - balance_left), panel_rect.size.y)
 	)
 	var balance_text: String = _soft_currency_balance_text(GameState.get_soft_currency())
-	var balance_font_size: int = maxi(1, int(round(24.0 * counter_scale)))
-	var balance_min_font_size: int = maxi(1, int(round(14.0 * counter_scale)))
+	var balance_font_size: int = maxi(1, int(round(
+		24.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
+	var balance_min_font_size: int = maxi(1, int(round(
+		14.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
 	var balance_label := _stage_label(
 		balance_rect,
 		balance_text,
@@ -881,7 +895,7 @@ func _stage_centered_coin_only_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_HEADING_FONT)
+	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
@@ -919,12 +933,12 @@ func _stage_star_counter(
 	content = counter_visual
 	var icon_rect := Rect2(
 		counter_rect.position + Vector2(
-			2.0 * counter_scale,
+			2.0 * counter_scale + PORTRAIT_RESOURCE_COUNTER_ICON_X_SHIFT,
 			(counter_rect.size.y - PORTRAIT_CURRENCY_ICON_SIZE) * 0.5
 		),
 		Vector2(PORTRAIT_CURRENCY_ICON_SIZE, PORTRAIT_CURRENCY_ICON_SIZE)
 	)
-	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect, icon_rect)
+	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect)
 	var panel := _stage_panel(
 		panel_rect,
 		panel_color,
@@ -945,8 +959,12 @@ func _stage_star_counter(
 		Vector2(maxf(1.0, balance_right - balance_left), panel_rect.size.y)
 	)
 	var balance_text: String = _soft_currency_balance_text(GameState.get_stars())
-	var balance_font_size: int = maxi(1, int(round(24.0 * counter_scale)))
-	var balance_min_font_size: int = maxi(1, int(round(14.0 * counter_scale)))
+	var balance_font_size: int = maxi(1, int(round(
+		24.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
+	var balance_min_font_size: int = maxi(1, int(round(
+		14.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
 	var balance_label := _stage_label(
 		balance_rect,
 		balance_text,
@@ -954,7 +972,7 @@ func _stage_star_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_HEADING_FONT)
+	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	balance_label.add_to_group(&"stars_balance_label")
 	stars_balance_label = balance_label
 	balance_label.z_index = 21
@@ -1005,10 +1023,11 @@ func _stage_home_resource_counters(return_action: Callable) -> void:
 		PORTRAIT_CURRENCY_COUNTER_RECT.size.y
 	)
 	var total_width: float = (
-		counter_size.x * 3.0 + PORTRAIT_HOME_RESOURCE_COUNTER_GAP * 2.0
+		counter_size.x * 3.0 + PORTRAIT_RESOURCE_COUNTER_GAP * 2.0
 	)
+	var available_width: float = PORTRAIT_MENU_SETTINGS_BUTTON_RECT.position.x
 	var coin_rect := Rect2(
-		(PORTRAIT_STAGE_SIZE.x - total_width) * 0.5,
+		(available_width - total_width) * 0.5,
 		PORTRAIT_CURRENCY_COUNTER_RECT.position.y,
 		counter_size.x,
 		counter_size.y
@@ -1021,12 +1040,12 @@ func _stage_home_resource_counters(return_action: Callable) -> void:
 		false
 	)
 	var heart_rect := Rect2(
-		coin_rect.position + Vector2(coin_rect.size.x + PORTRAIT_HOME_RESOURCE_COUNTER_GAP, 0.0),
+		coin_rect.position + Vector2(coin_rect.size.x + PORTRAIT_RESOURCE_COUNTER_GAP, 0.0),
 		coin_rect.size
 	)
 	_stage_heart_counter(return_action, heart_rect)
 	var star_rect := Rect2(
-		heart_rect.position + Vector2(heart_rect.size.x + PORTRAIT_HOME_RESOURCE_COUNTER_GAP, 0.0),
+		heart_rect.position + Vector2(heart_rect.size.x + PORTRAIT_RESOURCE_COUNTER_GAP, 0.0),
 		heart_rect.size
 	)
 	_stage_star_counter(star_rect)
@@ -1063,12 +1082,14 @@ func _stage_heart_counter(
 	)
 	var icon_rect := Rect2(
 		Vector2(
-			counter_rect.position.x + PORTRAIT_HEART_ICON_LEFT_INSET * counter_scale,
+			counter_rect.position.x
+			+ PORTRAIT_HEART_ICON_LEFT_INSET * counter_scale
+			+ PORTRAIT_RESOURCE_COUNTER_ICON_X_SHIFT,
 			counter_rect.position.y + (counter_rect.size.y - heart_icon_size.y) * 0.5
 		),
 		heart_icon_size
 	)
-	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect, icon_rect)
+	var panel_rect: Rect2 = _portrait_resource_counter_panel_rect(counter_rect)
 	var panel := _stage_panel(
 		panel_rect,
 		panel_color,
@@ -1084,11 +1105,13 @@ func _stage_heart_counter(
 	var count_label := _stage_label(
 		icon_rect,
 		str(resolved_hearts),
-		maxi(1, int(round(22.0 * counter_scale))),
+		maxi(1, int(round(
+			22.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+		))),
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	count_label.add_theme_font_override("font", UI_HEADING_FONT)
+	count_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	count_label.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.HEART_TEXT_OUTLINE)
 	count_label.add_theme_constant_override("outline_size", maxi(2, int(round(4.0 * counter_scale))))
 	count_label.z_index = 22
@@ -1110,8 +1133,12 @@ func _stage_heart_counter(
 	)
 	var recovery_seconds: int = GameState.get_heart_recovery_seconds()
 	var status_text: String = _heart_status_text(resolved_hearts, recovery_seconds)
-	var status_font_size: int = maxi(1, int(round(25.0 * counter_scale)))
-	var status_min_font_size: int = maxi(1, int(round(16.0 * counter_scale)))
+	var status_font_size: int = maxi(1, int(round(
+		25.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
+	var status_min_font_size: int = maxi(1, int(round(
+		16.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE
+	)))
 	var status_label := _stage_label(
 		status_rect,
 		status_text,
@@ -1119,7 +1146,7 @@ func _stage_heart_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	status_label.add_theme_font_override("font", UI_HEADING_FONT)
+	status_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	status_label.z_index = 21
 	heart_status_label = status_label
 	_fit_single_line_label_to_width(status_label, status_text, status_rect.size.x, status_font_size, status_min_font_size)
@@ -8606,7 +8633,7 @@ func _stage_single_player_reward_resource_icon(
 	resource_icon.texture = (
 		STAR_CURRENCY_TEXTURE
 		if reward_currency == GameState.STAGE_REWARD_STARS
-		else REWARD_COIN_TEXTURE
+		else SOFT_CURRENCY_COIN_TEXTURE
 	)
 	resource_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	resource_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
