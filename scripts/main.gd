@@ -1365,18 +1365,24 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	_style_single_player_level_button(button, level_index)
 
 	var title_label := Label.new()
-	title_label.name = "LevelTitle"
+	title_label.name = "ResumeLevel" if resume_available else "LevelTitle"
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_label.position = Vector2(0.0, 0.0 if use_subtitle else 3.0)
-	title_label.size = Vector2(rect.size.x, rect.size.y * (0.60 if use_subtitle else 0.92))
+	title_label.position = Vector2(
+		0.0,
+		rect.size.y * 0.02 if resume_available else (0.0 if use_subtitle else 3.0)
+	)
+	title_label.size = Vector2(
+		rect.size.x,
+		rect.size.y * (0.32 if resume_available else (0.60 if use_subtitle else 0.92))
+	)
 	title_label.text = (
-		Database.tr_text(3, "Continue").to_upper()
+		(tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
 		if resume_available
 		else ("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper()
 	)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if use_subtitle else VERTICAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 28)
+	title_label.add_theme_font_size_override("font_size", 15 if resume_available else 28)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	var title_effect_color: Color = (
 		Color(DIFFICULTY_HARD_OUTLINE_COLOR.r, DIFFICULTY_HARD_OUTLINE_COLOR.g, DIFFICULTY_HARD_OUTLINE_COLOR.b, 0.55)
@@ -1388,18 +1394,26 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 
 	if use_subtitle:
 		var challenge_label := Label.new()
-		challenge_label.name = "ResumeLevel" if resume_available else "ChallengeSubtitle"
+		challenge_label.name = "ResumeAction" if resume_available else "ChallengeSubtitle"
 		challenge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		challenge_label.position = Vector2(0.0, rect.size.y * 0.57)
-		challenge_label.size = Vector2(rect.size.x, rect.size.y * 0.30)
+		challenge_label.position = Vector2(
+			0.0,
+			rect.size.y * (0.29 if resume_available else 0.57)
+		)
+		challenge_label.size = Vector2(
+			rect.size.x,
+			rect.size.y * (0.62 if resume_available else 0.30)
+		)
 		challenge_label.text = (
-			(tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
+			Database.tr_text(3, "Continue").to_upper()
 			if resume_available
 			else _single_player_challenge_level_label().to_upper()
 		)
 		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-		challenge_label.add_theme_font_size_override("font_size", 15)
+		challenge_label.vertical_alignment = (
+			VERTICAL_ALIGNMENT_CENTER if resume_available else VERTICAL_ALIGNMENT_TOP
+		)
+		challenge_label.add_theme_font_size_override("font_size", 28 if resume_available else 15)
 		challenge_label.add_theme_color_override(
 			"font_color",
 			Color.WHITE if resume_available else UI_PALETTE.CHALLENGE_TEXT
@@ -2464,6 +2478,22 @@ func _on_round_won() -> void:
 func _on_round_lost() -> void:
 	_finish_round(false)
 
+func _grant_remaining_attempt_star_reward(result: Dictionary, is_win: bool) -> Dictionary:
+	var rewarded_result: Dictionary = result.duplicate(true)
+	if !is_win or GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		return rewarded_result
+	var remaining_attempts: int = GameSession.get_remaining_attempts()
+	if remaining_attempts <= 0:
+		return rewarded_result
+	var previous_balance: int = GameState.get_stars()
+	var final_balance: int = GameState.add_stars(remaining_attempts, false)
+	var credited_amount: int = maxi(final_balance - previous_balance, 0)
+	if credited_amount <= 0:
+		return rewarded_result
+	rewarded_result["remaining_attempt_star_reward_amount"] = credited_amount
+	rewarded_result["remaining_attempt_star_balance_before"] = previous_balance
+	return rewarded_result
+
 func _finish_round(is_win: bool) -> void:
 	if game_finished:
 		return
@@ -2485,6 +2515,7 @@ func _finish_round(is_win: bool) -> void:
 		GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
 	)
 	last_result_data = GameSession.finish_result(is_win, award_immediate_win_coins)
+	last_result_data = _grant_remaining_attempt_star_reward(last_result_data, is_win)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if !is_win:
 			GameState.lose_heart(false)
@@ -2494,6 +2525,11 @@ func _finish_round(is_win: bool) -> void:
 			true,
 			defer_single_player_final_reward
 		)
+	elif last_result_data.has("remaining_attempt_star_reward_amount"):
+		# Classic finish_result() saves its own progress before this bonus is added.
+		# Commit the star balance separately so closing during the result animation
+		# cannot lose or repeat the reward.
+		GameState.save_game()
 	# All round results now use the same in-place presentation. In particular,
 	# Single Player victories follow Classic exactly instead of entering the old
 	# dedicated win transition after the final letter feedback delay.

@@ -259,6 +259,9 @@ const PORTRAIT_RESULT_LETTER_BOUNCE_MAX_SPEED_MULTIPLIER: float = 2.2
 const PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_STRENGTH: float = 0.42
 const PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_RADIUS: int = 2
 const PORTRAIT_RESULT_SEARCH_APPEAR_DURATION: float = 0.18
+const PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE := Vector2(1.32, 1.32)
+const PORTRAIT_ATTEMPT_REWARD_BOUNCE_GROW_DURATION: float = 0.18
+const PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION: float = 0.24
 const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.32
 const PORTRAIT_GAME_HERO_Y_LIFT: float = 42.0
@@ -358,6 +361,17 @@ const PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION: float = 0.34
 const PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION: float = PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION * 0.80
 const PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER: float = 0.045
 const PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION: float = 0.112
+const PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC: int = 4000
+const PORTRAIT_QUIZ_FEEDBACK_START_SCALE := Vector2(0.64, 0.64)
+const PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE := Vector2(1.14, 1.14)
+const PORTRAIT_QUIZ_FEEDBACK_GROW_DURATION: float = 0.16
+const PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION: float = 0.22
+const PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION: float = 0.18
+const PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION: float = 1.0
+const PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE := Vector2(1.08, 1.08)
+const PORTRAIT_QUIZ_FEEDBACK_EXIT_GROW_DURATION: float = 0.10
+const PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION: float = 0.16
+const PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE: float = 42.0
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
 var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
@@ -391,6 +405,8 @@ var _portrait_inline_result_marker_holder: Control = null
 var _portrait_inline_result_continue_button: Control = null
 var _portrait_in_place_result_active: bool = false
 var _portrait_in_place_result_is_win: bool = false
+var _portrait_attempt_star_collection_active: bool = false
+var _portrait_attempt_star_collection_started: bool = false
 var _portrait_game_entrance_pending: bool = false
 var _portrait_game_entrance_active: bool = false
 var _portrait_top_bar_content: Control = null
@@ -454,6 +470,7 @@ var _quiz_question_label: Label = null
 var _quiz_single_player_embedded: bool = false
 var _quiz_single_player_target_difficulty: float = 0.5
 var _quiz_entrance_generation: int = 0
+var _quiz_question_ready_at_msec: int = 0
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
@@ -490,6 +507,7 @@ func _hide_portrait_ad_banner() -> void:
 func _clear() -> void:
 	_hide_portrait_ad_banner()
 	_quiz_screen_active = false
+	_quiz_question_ready_at_msec = 0
 	_quiz_answer_buttons.clear()
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
@@ -528,11 +546,14 @@ func _clear() -> void:
 	_portrait_inline_result_search_button = null
 	_portrait_inline_result_word_holder = null
 	_portrait_inline_result_marker_holder = null
+	_portrait_inline_result_continue_button = null
 	_portrait_game_runtime_ready = false
 	_portrait_hint_counter_animation_active = false
 	_portrait_hint_counter_refresh_requested = false
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
+	_portrait_attempt_star_collection_active = false
+	_portrait_attempt_star_collection_started = false
 	super._clear()
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
@@ -2772,6 +2793,19 @@ func _record_single_player_quiz_result(is_win: bool) -> void:
 		defer_final_reward
 	)
 
+func _mark_quiz_question_ready() -> void:
+	if _quiz_screen_active and !_quiz_answer_locked and !_quiz_question_replacing:
+		_quiz_question_ready_at_msec = Time.get_ticks_msec()
+	else:
+		_quiz_question_ready_at_msec = 0
+
+func _take_quiz_fast_answer_result() -> bool:
+	if _quiz_question_ready_at_msec <= 0:
+		return false
+	var elapsed_msec: int = Time.get_ticks_msec() - _quiz_question_ready_at_msec
+	_quiz_question_ready_at_msec = 0
+	return elapsed_msec >= 0 and elapsed_msec <= PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC
+
 func _quiz_question_font_size(question_text: String) -> int:
 	# Match the comment popup typography for quiz questions. The larger question
 	# card gives enough room for the same 25 px heading style in this mode.
@@ -2965,6 +2999,252 @@ func _enable_quiz_continue_attention() -> void:
 		return
 	_quiz_continue_button.set("attention_bounce_enabled", true)
 
+func _quiz_correct_feedback_text(fast_answer: bool) -> String:
+	if Database.interface_language == "ru":
+		return "Вот это скорость!" if fast_answer else "Верно!"
+	return "That was fast!" if fast_answer else "Correct!"
+
+func _style_quiz_correct_feedback_label(label: Label, font_size: int) -> void:
+	var effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.38)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", UI_HEADING_FONT)
+	label.add_theme_font_size_override("font_size", _heading_font_size(font_size))
+	label.add_theme_color_override("font_color", PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
+	label.add_theme_color_override("font_outline_color", effect_color)
+	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_color_override(
+		"font_shadow_color",
+		Color(effect_color.r, effect_color.g, effect_color.b, 0.88)
+	)
+	label.add_theme_constant_override("shadow_offset_x", 3)
+	label.add_theme_constant_override("shadow_offset_y", 4)
+	label.add_theme_constant_override("shadow_outline_size", 2)
+
+func _create_quiz_correct_feedback(fast_answer: bool) -> Dictionary:
+	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
+		return {}
+	var question_holder := _quiz_question_label.get_parent() as Control
+	if question_holder == null or !is_instance_valid(question_holder):
+		return {}
+
+	_quiz_question_label.visible = false
+	var feedback_root := Control.new()
+	feedback_root.name = "QuizCorrectFeedback"
+	feedback_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	question_holder.add_child(feedback_root)
+	feedback_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	feedback_root.z_index = _quiz_question_label.z_index + 1
+
+	var feedback_label := Label.new()
+	feedback_label.name = "QuizCorrectFeedbackLabel"
+	feedback_label.text = _quiz_correct_feedback_text(fast_answer)
+	feedback_label.position = Vector2(0.0, 16.0 if fast_answer else 0.0)
+	feedback_label.size = Vector2(
+		feedback_root.size.x,
+		118.0 if fast_answer else feedback_root.size.y
+	)
+	feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_style_quiz_correct_feedback_label(feedback_label, 34 if fast_answer else 38)
+	feedback_root.add_child(feedback_label)
+	feedback_label.pivot_offset = feedback_label.size * 0.5
+	feedback_label.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE
+
+	var reward_source: Control = null
+	var reward_row: Control = null
+	if fast_answer:
+		reward_row = Control.new()
+		reward_row.name = "QuizFastAnswerReward"
+		reward_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		reward_row.position = Vector2((feedback_root.size.x - 96.0) * 0.5, 108.0)
+		reward_row.size = Vector2(96.0, 48.0)
+		reward_row.modulate.a = 0.0
+		feedback_root.add_child(reward_row)
+
+		var reward_amount_label := Label.new()
+		reward_amount_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		reward_amount_label.position = Vector2(0.0, 0.0)
+		reward_amount_label.size = Vector2(52.0, 48.0)
+		reward_amount_label.text = "+1"
+		_style_quiz_correct_feedback_label(reward_amount_label, 28)
+		reward_amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		reward_amount_label.add_theme_color_override("font_color", Color.WHITE)
+		reward_row.add_child(reward_amount_label)
+
+		var reward_icon := TextureRect.new()
+		reward_icon.name = "QuizFastAnswerStarIcon"
+		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		reward_icon.texture = STAR_CURRENCY_TEXTURE
+		reward_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		reward_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		reward_icon.position = Vector2(52.0, 3.0)
+		reward_icon.size = Vector2.ONE * PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE
+		reward_row.add_child(reward_icon)
+		reward_source = reward_icon
+
+	return {
+		"root": feedback_root,
+		"feedback_label": feedback_label,
+		"reward_row": reward_row,
+		"reward_source": reward_source,
+	}
+
+func _finish_quiz_fast_answer_star_collection() -> void:
+	_set_stage_reward_animated_balance(
+		float(GameState.get_stars()),
+		GameState.STAGE_REWARD_STARS
+	)
+	_show_quiz_continue_button(true)
+
+func _play_quiz_fast_answer_star_collection(
+	source_visual: Control,
+	previous_balance: int,
+	final_balance: int
+) -> void:
+	if (
+		source_visual == null
+		or !is_instance_valid(source_visual)
+		or !source_visual.is_inside_tree()
+	):
+		_finish_quiz_fast_answer_star_collection()
+		return
+	_set_stage_reward_animated_balance(
+		float(previous_balance),
+		GameState.STAGE_REWARD_STARS
+	)
+	_play_single_player_reward_resource_collection(
+		source_visual,
+		GameState.STAGE_REWARD_STARS,
+		null,
+		Callable(self, "_finish_quiz_fast_answer_star_collection")
+	)
+	var balance_tween := create_tween()
+	balance_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var balance_roll := balance_tween.tween_method(
+		Callable(self, "_set_stage_reward_animated_balance").bind(
+			GameState.STAGE_REWARD_STARS
+		),
+		float(previous_balance),
+		float(final_balance),
+		_single_player_reward_collection_duration()
+	)
+	balance_roll.set_trans(Tween.TRANS_QUAD)
+	balance_roll.set_ease(Tween.EASE_OUT)
+
+func _finish_quiz_correct_question_feedback(
+	feedback_root: Control,
+	reward_source: Control,
+	fast_answer: bool,
+	previous_balance: int,
+	final_balance: int
+) -> void:
+	if (
+		!_quiz_screen_active
+		or _quiz_question_label == null
+		or !is_instance_valid(_quiz_question_label)
+	):
+		if feedback_root != null and is_instance_valid(feedback_root):
+			feedback_root.queue_free()
+		_set_stage_reward_animated_balance(
+			float(GameState.get_stars()),
+			GameState.STAGE_REWARD_STARS
+		)
+		return
+
+	_quiz_question_label.visible = true
+	_quiz_question_label.modulate = Color.WHITE
+	if fast_answer:
+		_play_quiz_fast_answer_star_collection(
+			reward_source,
+			previous_balance,
+			final_balance
+		)
+	else:
+		_show_quiz_continue_button(true)
+	if feedback_root != null and is_instance_valid(feedback_root):
+		feedback_root.queue_free()
+
+func _play_quiz_correct_question_feedback(
+	fast_answer: bool,
+	previous_balance: int,
+	final_balance: int
+) -> void:
+	var feedback: Dictionary = _create_quiz_correct_feedback(fast_answer)
+	var feedback_root := feedback.get("root") as Control
+	var feedback_label := feedback.get("feedback_label") as Label
+	var reward_row := feedback.get("reward_row") as Control
+	var reward_source := feedback.get("reward_source") as Control
+	if (
+		feedback_root == null
+		or !is_instance_valid(feedback_root)
+		or feedback_label == null
+		or !is_instance_valid(feedback_label)
+	):
+		if _quiz_question_label != null and is_instance_valid(_quiz_question_label):
+			_quiz_question_label.visible = true
+		if fast_answer:
+			_finish_quiz_fast_answer_star_collection()
+		else:
+			_show_quiz_continue_button(true)
+		return
+
+	var feedback_tween := feedback_label.create_tween()
+	feedback_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := feedback_tween.tween_property(
+		feedback_label,
+		"scale",
+		PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE,
+		PORTRAIT_QUIZ_FEEDBACK_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_BACK)
+	grow.set_ease(Tween.EASE_OUT)
+	var settle := feedback_tween.tween_property(
+		feedback_label,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	if reward_row != null and is_instance_valid(reward_row):
+		var reward_fade := feedback_tween.tween_property(
+			reward_row,
+			"modulate:a",
+			1.0,
+			PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION
+		)
+		reward_fade.set_trans(Tween.TRANS_SINE)
+		reward_fade.set_ease(Tween.EASE_OUT)
+	feedback_tween.tween_interval(PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION)
+	# Pop only the green feedback text out before restoring the question. The
+	# static +1/star row keeps its authored scale throughout this exit bounce.
+	var exit_grow := feedback_tween.tween_property(
+		feedback_label,
+		"scale",
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE,
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_GROW_DURATION
+	)
+	exit_grow.set_trans(Tween.TRANS_QUAD)
+	exit_grow.set_ease(Tween.EASE_OUT)
+	var exit_hide := feedback_tween.tween_property(
+		feedback_label,
+		"scale",
+		Vector2.ZERO,
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
+	)
+	exit_hide.set_trans(Tween.TRANS_BACK)
+	exit_hide.set_ease(Tween.EASE_IN)
+	feedback_tween.tween_callback(
+		Callable(self, "_finish_quiz_correct_question_feedback").bind(
+			feedback_root,
+			reward_source,
+			fast_answer,
+			previous_balance,
+			final_balance
+		)
+	)
+
 func _finish_quiz_correct_answer_bounce(
 	button: Button,
 	shadow_panel: Panel,
@@ -3126,21 +3406,35 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		or correct_index >= _quiz_answer_buttons.size()
 	):
 		return
+	var correct_answer: bool = answer_index == correct_index
+	var fast_answer: bool = _take_quiz_fast_answer_result() and correct_answer
+	var previous_star_balance: int = GameState.get_stars()
+	var final_star_balance: int = previous_star_balance
+	if fast_answer:
+		final_star_balance = GameState.add_stars(1, true)
+		# The bonus is already durable, but its HUD value waits for the visual
+		# collection that starts after the original question returns.
+		_set_stage_reward_animated_balance(
+			float(previous_star_balance),
+			GameState.STAGE_REWARD_STARS
+		)
 	_quiz_answer_locked = true
 	_quiz_selected_answer_index = answer_index
 	if _quiz_single_player_embedded:
-		_record_single_player_quiz_result(answer_index == correct_index)
+		_record_single_player_quiz_result(correct_answer)
 	_disable_quiz_answer_buttons()
 	_hide_quiz_hint_buttons()
 
 	var selected_button := _quiz_answer_buttons[answer_index] as Button
 	if selected_button == null or !is_instance_valid(selected_button):
 		return
-	if answer_index == correct_index:
+	if correct_answer:
 		_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
-		_play_quiz_correct_answer_bounce(
-			selected_button,
-			Callable(self, "_show_quiz_continue_button").bind(true)
+		_play_quiz_correct_answer_bounce(selected_button)
+		_play_quiz_correct_question_feedback(
+			fast_answer,
+			previous_star_balance,
+			final_star_balance
 		)
 		return
 
@@ -3362,6 +3656,7 @@ func _refresh_quiz_question_in_place() -> bool:
 		var hint_key: String = str(hint_button.get_meta(&"quiz_hint_key", ""))
 		if !hint_key.is_empty():
 			_refresh_portrait_quiz_hint_counter(hint_button, hint_key)
+	_mark_quiz_question_ready()
 	return true
 
 func _on_quiz_continue_pressed() -> void:
@@ -3795,6 +4090,7 @@ func _on_quiz_replace_question_pressed() -> void:
 			answer_button.disabled = false
 	_quiz_question_replacing = false
 	_set_quiz_hint_buttons_temporarily_disabled(false)
+	_mark_quiz_question_ready()
 
 func _stage_portrait_quiz_hint_buttons() -> void:
 	# Quiz uses dedicated 50/50 and question-replacement controls. Both are wired
@@ -4095,6 +4391,7 @@ func _play_quiz_screen_entrance(
 			&"quiz_entrance_rest_mouse_filter",
 			Control.MOUSE_FILTER_STOP
 		))
+	_mark_quiz_question_ready()
 
 func _show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
@@ -4257,6 +4554,8 @@ func _show_quiz_game_screen() -> void:
 	else:
 		_quiz_entrance_generation += 1
 	_restore_quiz_answer_result_state()
+	if !should_animate_quiz_intro and !_quiz_answer_locked:
+		_mark_quiz_question_ready()
 	_stage_portrait_ad_banner()
 
 func show_theme_select() -> void:
@@ -6455,6 +6754,8 @@ func _refresh_game_screen() -> void:
 	_portrait_inline_result_continue_button = null
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
+	_portrait_attempt_star_collection_active = false
+	_portrait_attempt_star_collection_started = false
 	_capture_hero_animation_phase()
 	for child: Node in content.get_children():
 		content.remove_child(child)
@@ -7363,6 +7664,8 @@ func _play_portrait_result_word_bounce_sequence(
 
 func _reveal_portrait_result_actions(search_button: Control, continue_button: Control, continue_text: Control) -> void:
 	if search_button == null or !is_instance_valid(search_button) or !search_button.is_inside_tree():
+		if _portrait_attempt_star_collection_active:
+			_finish_portrait_attempt_star_collection()
 		return
 	search_button.visible = true
 	search_button.modulate = Color(1.0, 1.0, 1.0, 0.0)
@@ -7410,6 +7713,165 @@ func _reveal_portrait_result_actions(search_button: Control, continue_button: Co
 	)
 	scale_tweener.set_trans(Tween.TRANS_BACK)
 	scale_tweener.set_ease(Tween.EASE_OUT)
+	if _portrait_attempt_star_collection_active:
+		reveal_tween.finished.connect(
+			Callable(self, "_start_portrait_attempt_star_collection"),
+			CONNECT_ONE_SHOT
+		)
+
+func _remaining_attempt_star_reward_amount() -> int:
+	return maxi(int(last_result_data.get("remaining_attempt_star_reward_amount", 0)), 0)
+
+func _remaining_attempt_star_balance_before() -> int:
+	return maxi(int(last_result_data.get(
+		"remaining_attempt_star_balance_before",
+		GameState.get_stars()
+	)), 0)
+
+func _prepare_portrait_attempt_star_collection(animated: bool) -> void:
+	var reward_amount: int = _remaining_attempt_star_reward_amount()
+	_portrait_attempt_star_collection_active = (
+		animated
+		and _portrait_in_place_result_is_win
+		and reward_amount > 0
+	)
+	_portrait_attempt_star_collection_started = false
+	if reward_amount <= 0:
+		return
+	if _portrait_attempt_star_collection_active:
+		# GameState already contains the durable final balance. Reconstruct the
+		# visible pre-reward value until the flying stars reach the HUD.
+		_set_stage_reward_animated_balance(
+			float(_remaining_attempt_star_balance_before()),
+			GameState.STAGE_REWARD_STARS
+		)
+		return
+	_set_portrait_attempts_result_value(0)
+	_set_stage_reward_animated_balance(
+		float(GameState.get_stars()),
+		GameState.STAGE_REWARD_STARS
+	)
+
+func _set_portrait_attempts_result_value(value: int) -> void:
+	var resolved_value: int = maxi(value, 0)
+	if _portrait_game_attempts_roll_tween != null and _portrait_game_attempts_roll_tween.is_valid():
+		_portrait_game_attempts_roll_tween.kill()
+	_portrait_game_attempts_roll_tween = null
+	if _portrait_game_attempts_roll_clip != null and is_instance_valid(_portrait_game_attempts_roll_clip):
+		_portrait_game_attempts_roll_clip.queue_free()
+	_portrait_game_attempts_roll_clip = null
+	_portrait_game_attempts_displayed_value = resolved_value
+	if (
+		_portrait_game_attempts_value_label != null
+		and is_instance_valid(_portrait_game_attempts_value_label)
+	):
+		_portrait_game_attempts_value_label.text = str(resolved_value)
+		_portrait_game_attempts_value_label.position = Vector2.ZERO
+		_portrait_game_attempts_value_label.scale = Vector2.ONE
+		_portrait_game_attempts_value_label.visible = true
+
+func _start_portrait_attempt_star_collection() -> void:
+	if (
+		!_portrait_attempt_star_collection_active
+		or _portrait_attempt_star_collection_started
+	):
+		return
+	_portrait_attempt_star_collection_started = true
+	var reward_amount: int = _remaining_attempt_star_reward_amount()
+	var source_label: Label = _portrait_game_attempts_value_label
+	var destination_icon: Control = _portrait_star_icon_visual
+	if (
+		reward_amount <= 0
+		or source_label == null
+		or !is_instance_valid(source_label)
+		or !source_label.is_inside_tree()
+		or destination_icon == null
+		or !is_instance_valid(destination_icon)
+		or !destination_icon.is_inside_tree()
+	):
+		_finish_portrait_attempt_star_collection()
+		return
+
+	var generation: int = result_transition_generation
+	source_label.pivot_offset = source_label.size * 0.5
+	source_label.scale = Vector2.ONE
+	var bounce_tween := source_label.create_tween()
+	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := bounce_tween.tween_property(
+		source_label,
+		"scale",
+		PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE,
+		PORTRAIT_ATTEMPT_REWARD_BOUNCE_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_QUAD)
+	grow.set_ease(Tween.EASE_OUT)
+	var settle := bounce_tween.tween_property(
+		source_label,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	# Complete the bounce first. Only after the digit has returned to its normal
+	# size do the standard reward stars appear over it and start flying.
+	bounce_tween.tween_callback(
+		Callable(self, "_launch_portrait_attempt_star_collection").bind(
+			generation,
+			source_label
+		)
+	)
+
+func _launch_portrait_attempt_star_collection(
+	generation: int,
+	source_label: Label
+) -> void:
+	if (
+		generation != result_transition_generation
+		or !_portrait_attempt_star_collection_active
+		or source_label == null
+		or !is_instance_valid(source_label)
+		or !source_label.is_inside_tree()
+	):
+		_finish_portrait_attempt_star_collection()
+		return
+
+	var previous_balance: int = _remaining_attempt_star_balance_before()
+	# Reuse the exact reward-screen resource collection: it owns the standard
+	# number of stars, spread, timing, flight curve and HUD impact bounce.
+	_play_single_player_reward_resource_collection(
+		source_label,
+		GameState.STAGE_REWARD_STARS,
+		null,
+		Callable(self, "_finish_portrait_attempt_star_collection")
+	)
+	_portrait_game_attempts_displayed_value = 0
+	source_label.text = "0"
+
+	var balance_tween := source_label.create_tween()
+	balance_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var balance_roll := balance_tween.tween_method(
+		Callable(self, "_set_stage_reward_animated_balance").bind(
+			GameState.STAGE_REWARD_STARS
+		),
+		float(previous_balance),
+		float(GameState.get_stars()),
+		_single_player_reward_collection_duration()
+	)
+	balance_roll.set_trans(Tween.TRANS_QUAD)
+	balance_roll.set_ease(Tween.EASE_OUT)
+
+func _finish_portrait_attempt_star_collection() -> void:
+	if !_portrait_attempt_star_collection_active and !_portrait_attempt_star_collection_started:
+		return
+	_portrait_attempt_star_collection_active = false
+	_portrait_attempt_star_collection_started = false
+	_set_portrait_attempts_result_value(0)
+	_set_stage_reward_animated_balance(
+		float(GameState.get_stars()),
+		GameState.STAGE_REWARD_STARS
+	)
+	_reveal_in_place_result_action_after_attempt_stars()
 
 func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
 	# Every occurrence of the newly revealed letter gets its own tween, so words
@@ -8390,6 +8852,7 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 		return
 	_portrait_in_place_result_active = true
 	_portrait_in_place_result_is_win = is_win
+	_prepare_portrait_attempt_star_collection(animated)
 	# A fast round can finish while the delayed hint-entrance tween is still queued.
 	# Cancel that choreography before hiding the row so it cannot reveal the hints
 	# again underneath Continue.
@@ -8502,6 +8965,12 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 	action_button.z_index = 50
 	_portrait_inline_result_continue_button = action_button
 	content = previous_content
+	if _portrait_attempt_star_collection_active:
+		action_button.visible = false
+		action_button.modulate.a = 0.0
+		action_button.set("disabled", true)
+		action_button.set("attention_bounce_enabled", false)
+		return
 	# Use the shared StageLongButton attention loop. It keeps cycling and yields
 	# to the standard pressed-state animation while the player touches the button.
 	action_button.set("attention_bounce_enabled", true)
@@ -8520,6 +8989,29 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 		1.0,
 		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
 	)
+
+func _reveal_in_place_result_action_after_attempt_stars() -> void:
+	var action_button: Control = _portrait_inline_result_continue_button
+	if (
+		action_button == null
+		or !is_instance_valid(action_button)
+		or !action_button.is_inside_tree()
+	):
+		return
+	action_button.visible = true
+	action_button.modulate.a = 0.0
+	action_button.set("disabled", false)
+	action_button.set("attention_bounce_enabled", true)
+	var reveal_tween := action_button.create_tween()
+	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var fade := reveal_tween.tween_property(
+		action_button,
+		"modulate:a",
+		1.0,
+		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
+	)
+	fade.set_trans(Tween.TRANS_SINE)
+	fade.set_ease(Tween.EASE_OUT)
 
 func _single_player_reward_for_slot(word_slot: int, word_count: int) -> int:
 	var reward: int = GameState.WORD_REWARD_COINS
@@ -8860,11 +9352,16 @@ func _play_single_player_reward_coin_collection(
 func _play_single_player_reward_resource_collection(
 	source_visual: Control,
 	reward_currency: String,
-	continue_button: Control = null
+	continue_button: Control = null,
+	finished_callback: Callable = Callable()
 ) -> void:
 	if ui == null or !is_instance_valid(ui):
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	if source_visual == null or !is_instance_valid(source_visual) or !source_visual.is_inside_tree():
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	var destination_icon: Control = (
 		_portrait_star_icon_visual
@@ -8876,6 +9373,8 @@ func _play_single_player_reward_resource_collection(
 		or !is_instance_valid(destination_icon)
 		or !destination_icon.is_inside_tree()
 	):
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.name = "SinglePlayerRewardResourceCanvas"
@@ -8952,6 +9451,8 @@ func _play_single_player_reward_resource_collection(
 					continue_button
 				)
 			)
+			if finished_callback.is_valid():
+				tween.tween_callback(finished_callback)
 		tween.tween_callback(Callable(resource_icon, "queue_free"))
 
 	var cleanup_delay: float = (

@@ -131,8 +131,15 @@ def main() -> None:
 
     resume_body = function_body(main_source, "_stage_single_player_menu_button")
     require("resume_available" in resume_body, "Single-player button does not switch to Resume")
-    require('Database.tr_text(3, "Continue")' in resume_body, "Large Continue label is missing")
-    require('tr("LEVEL_NUMBER")' in resume_body, "Small Level N label is missing")
+    require(
+        'title_label.name = "ResumeLevel"' in resume_body
+        and 'challenge_label.name = "ResumeAction"' in resume_body
+        and 'Database.tr_text(3, "Continue")' in resume_body
+        and 'tr("LEVEL_NUMBER")' in resume_body
+        and '15 if resume_available else 28' in resume_body
+        and '28 if resume_available else 15' in resume_body,
+        "Resume button does not place small Level N above large Continue",
+    )
     require(
         'single_player_action = Callable(self, "_resume_saved_single_player_level")' in portrait,
         "Home does not conditionally show Resume",
@@ -147,6 +154,72 @@ def main() -> None:
     require(
         "add_soft_currency" not in quiz_result and "add_stars" not in quiz_result,
         "Quiz rewards are still credited before the reward screen",
+    )
+    quiz_ready = function_body(portrait, "_mark_quiz_question_ready")
+    quiz_fast_check = function_body(portrait, "_take_quiz_fast_answer_result")
+    quiz_answer = function_body(portrait, "_on_quiz_answer_selected")
+    quiz_feedback = function_body(portrait, "_play_quiz_correct_question_feedback")
+    quiz_feedback_create = function_body(portrait, "_create_quiz_correct_feedback")
+    quiz_feedback_finish = function_body(
+        portrait, "_finish_quiz_correct_question_feedback"
+    )
+    quiz_fast_collection = function_body(
+        portrait, "_play_quiz_fast_answer_star_collection"
+    )
+    require(
+        "Time.get_ticks_msec()" in quiz_ready
+        and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in quiz_fast_check
+        and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC: int = 4000" in portrait,
+        "Quiz fast-answer window is not measured from interactive readiness",
+    )
+    require(
+        "_take_quiz_fast_answer_result()" in quiz_answer
+        and "GameState.add_stars(1, true)" in quiz_answer
+        and "_play_quiz_correct_question_feedback" in quiz_answer
+        and "PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION" in quiz_feedback
+        and "PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION: float = 1.0" in portrait
+        and 'return "Вот это скорость!" if fast_answer else "Верно!"' in portrait
+        and 'return "That was fast!" if fast_answer else "Correct!"' in portrait,
+        "Correct and fast quiz feedback is missing or the +1 star is not durable",
+    )
+    require(
+        'reward_row.position = Vector2((feedback_root.size.x - 96.0) * 0.5, 108.0)'
+        in quiz_feedback_create
+        and 'reward_amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)'
+        in quiz_feedback_create
+        and 'reward_amount_label.add_theme_color_override("font_color", Color.WHITE)'
+        in quiz_feedback_create,
+        "Fast-answer +1 is not close to the title with a white Bold style",
+    )
+    require(
+        "feedback_label.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE"
+        in quiz_feedback_create
+        and "feedback_root.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE"
+        not in quiz_feedback_create
+        and "reward_row.modulate.a = 0.0" in quiz_feedback_create
+        and '\n\t\tfeedback_label,\n\t\t"scale"' in quiz_feedback
+        and '\n\t\t\treward_row,\n\t\t\t"modulate:a"' in quiz_feedback
+        and "PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION" in quiz_feedback
+        and quiz_feedback.index("PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION")
+        < quiz_feedback.index("PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION"),
+        "Fast-answer reward does not fade in after the green-text bounce",
+    )
+    require(
+        "PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE" in quiz_feedback
+        and "PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION" in quiz_feedback
+        and '\n\t\tfeedback_label,\n\t\t"scale",\n\t\tVector2.ZERO' in quiz_feedback
+        and quiz_feedback.index("PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION")
+        < quiz_feedback.index("PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE")
+        < quiz_feedback.index("_finish_quiz_correct_question_feedback"),
+        "Green quiz feedback does not bounce out before the question returns",
+    )
+    require(
+        quiz_feedback_finish.index("_quiz_question_label.visible = true")
+        < quiz_feedback_finish.index("_play_quiz_fast_answer_star_collection")
+        and "_play_single_player_reward_resource_collection" in quiz_fast_collection
+        and "GameState.STAGE_REWARD_STARS" in quiz_fast_collection
+        and "_single_player_reward_collection_duration()" in quiz_fast_collection,
+        "Fast-answer stars do not animate after the original question returns",
     )
     final_claim = function_body(portrait, "_complete_single_player_final_reward")
     require(
@@ -189,7 +262,55 @@ def main() -> None:
     session_reward = function_body(session, "finish_result")
     require(
         "add_stars" not in session_reward,
-        "Stars are still granted directly at round completion",
+        "Fixed stage stars must still wait for the reward screen",
+    )
+    attempt_star_reward = function_body(
+        main_source, "_grant_remaining_attempt_star_reward"
+    )
+    require(
+        "GameSession.get_remaining_attempts()" in attempt_star_reward
+        and "GameState.GameMode.TWO_PLAYER" in attempt_star_reward
+        and "GameState.add_stars(remaining_attempts, false)" in attempt_star_reward
+        and '"remaining_attempt_star_balance_before"' in attempt_star_reward,
+        "Remaining-attempt stars are not granted durably or exclude custom words",
+    )
+    finish_round = function_body(main_source, "_finish_round")
+    require(
+        "_grant_remaining_attempt_star_reward" in finish_round
+        and "GameState.save_game()" in finish_round,
+        "Remaining-attempt stars are not committed with the round result",
+    )
+    attempt_star_flight = function_body(
+        portrait, "_start_portrait_attempt_star_collection"
+    )
+    attempt_star_launch = function_body(
+        portrait, "_launch_portrait_attempt_star_collection"
+    )
+    standard_reward_flight = function_body(
+        portrait, "_play_single_player_reward_resource_collection"
+    )
+    result_reveal = function_body(portrait, "_reveal_portrait_result_actions")
+    require(
+        "_portrait_game_attempts_value_label" in attempt_star_flight
+        and "_portrait_star_icon_visual" in attempt_star_flight
+        and "PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE" in attempt_star_flight
+        and "_launch_portrait_attempt_star_collection" in attempt_star_flight
+        and attempt_star_flight.index("PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION")
+        < attempt_star_flight.index("_launch_portrait_attempt_star_collection")
+        and "_play_single_player_reward_resource_collection" in attempt_star_launch
+        and "GameState.STAGE_REWARD_STARS" in attempt_star_launch
+        and "_portrait_game_attempts_displayed_value = 0" in attempt_star_launch
+        and 'source_label.text = "0"' in attempt_star_launch
+        and "_single_player_reward_collection_duration()" in attempt_star_launch
+        and "PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT" in standard_reward_flight
+        and "STAR_CURRENCY_TEXTURE" in standard_reward_flight
+        and "_start_portrait_attempt_star_collection" in result_reveal,
+        "Remaining attempts do not finish their bounce before launching reward stars",
+    )
+    require(
+        "PORTRAIT_ATTEMPT_STAR_FLY_" not in portrait
+        and "_roll_portrait_attempt_star_source" not in portrait,
+        "A separate star flight or gradual Attempts roll still exists",
     )
     stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
     require(
@@ -263,7 +384,7 @@ def main() -> None:
     require('package/unique_name="com.trinarr.Hangman20"' in export, "Android package identity changed")
     require("user_data_backup/allow=false" in export, "Cloud/Android backup must remain disabled")
     verify_word_keys()
-    print("Save integrity verified: deferred animated stage rewards, raster star UI, durable saves, ads, and level resume.")
+    print("Save integrity verified: remaining-attempt stars, deferred stage rewards, durable saves, ads, and level resume.")
 
 
 if __name__ == "__main__":
