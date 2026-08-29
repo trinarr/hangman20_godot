@@ -371,6 +371,7 @@ const PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION: float = 1.0
 const PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE := Vector2(1.08, 1.08)
 const PORTRAIT_QUIZ_FEEDBACK_EXIT_GROW_DURATION: float = 0.10
 const PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION: float = 0.16
+const PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION: float = 0.20
 const PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE: float = 42.0
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
@@ -3227,6 +3228,10 @@ func _play_quiz_correct_question_feedback(
 	)
 	exit_grow.set_trans(Tween.TRANS_QUAD)
 	exit_grow.set_ease(Tween.EASE_OUT)
+	# Keep the original question fully hidden until both feedback elements have
+	# faded out. Its restore fade is appended as the next tween step below.
+	_quiz_question_label.visible = true
+	_quiz_question_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	var exit_hide := feedback_tween.tween_property(
 		feedback_label,
 		"scale",
@@ -3235,6 +3240,32 @@ func _play_quiz_correct_question_feedback(
 	)
 	exit_hide.set_trans(Tween.TRANS_BACK)
 	exit_hide.set_ease(Tween.EASE_IN)
+	var feedback_exit_fade := feedback_tween.parallel().tween_property(
+		feedback_label,
+		"modulate:a",
+		0.0,
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
+	)
+	feedback_exit_fade.set_trans(Tween.TRANS_SINE)
+	feedback_exit_fade.set_ease(Tween.EASE_IN)
+	if reward_row != null and is_instance_valid(reward_row):
+		var reward_exit_fade := feedback_tween.parallel().tween_property(
+			reward_row,
+			"modulate:a",
+			0.0,
+			PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
+		)
+		reward_exit_fade.set_trans(Tween.TRANS_SINE)
+		reward_exit_fade.set_ease(Tween.EASE_IN)
+	# Start restoring the question only after the entire exit step is complete.
+	var question_restore := feedback_tween.tween_property(
+		_quiz_question_label,
+		"modulate:a",
+		1.0,
+		PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION
+	)
+	question_restore.set_trans(Tween.TRANS_SINE)
+	question_restore.set_ease(Tween.EASE_OUT)
 	feedback_tween.tween_callback(
 		Callable(self, "_finish_quiz_correct_question_feedback").bind(
 			feedback_root,

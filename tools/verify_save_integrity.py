@@ -214,6 +214,27 @@ def main() -> None:
         "Green quiz feedback does not bounce out before the question returns",
     )
     require(
+        "PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION" in quiz_feedback
+        and "PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION: float = 0.20"
+        in portrait
+        and "_quiz_question_label.visible = true" in quiz_feedback
+        and "_quiz_question_label.modulate = Color(1.0, 1.0, 1.0, 0.0)"
+        in quiz_feedback
+        and 'feedback_exit_fade := feedback_tween.parallel().tween_property(\n\t\tfeedback_label,\n\t\t"modulate:a",\n\t\t0.0'
+        in quiz_feedback
+        and 'reward_exit_fade := feedback_tween.parallel().tween_property(\n\t\t\treward_row,\n\t\t\t"modulate:a",\n\t\t\t0.0'
+        in quiz_feedback
+        and 'question_restore := feedback_tween.tween_property(\n\t\t_quiz_question_label,\n\t\t"modulate:a"'
+        in quiz_feedback
+        and quiz_feedback.index("PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION")
+        < quiz_feedback.index("feedback_exit_fade :=")
+        < quiz_feedback.index("reward_exit_fade :=")
+        < quiz_feedback.index("question_restore :=")
+        < quiz_feedback.index("PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION")
+        < quiz_feedback.index("_finish_quiz_correct_question_feedback"),
+        "Quiz feedback does not fade out completely before the question fades in",
+    )
+    require(
         quiz_feedback_finish.index("_quiz_question_label.visible = true")
         < quiz_feedback_finish.index("_play_quiz_fast_answer_star_collection")
         and "_play_single_player_reward_resource_collection" in quiz_fast_collection
