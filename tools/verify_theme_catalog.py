@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify stable theme IDs across data, localization, and lazy icon catalogs."""
+"""Verify theme IDs, paired data, and campaign difficulty invariants."""
 
 from __future__ import annotations
 
@@ -7,6 +7,12 @@ import csv
 import json
 import re
 from pathlib import Path
+
+from curate_word_database import (
+    DIFFICULTY_MODEL_VERSION,
+    GEOGRAPHY_DIFFICULTY_CAPS,
+    GEOGRAPHY_DIFFICULTY_FLOORS,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ("ru", "en")
@@ -52,13 +58,36 @@ def main() -> None:
 
     totals = {}
     for language in LANGUAGES:
-        words = load_json(ROOT / f"data/words_{language}.json")["words"]
-        difficulty = load_json(ROOT / f"data/words_{language}.json")["difficulty"]
+        word_data = load_json(ROOT / f"data/words_{language}.json")
+        words = word_data["words"]
+        difficulty = word_data["difficulty"]
         hints = load_json(ROOT / f"data/hints_{language}.json")["hints"]
+        require(
+            word_data.get("difficulty_model_version") == DIFFICULTY_MODEL_VERSION,
+            f"{language}: expected difficulty model {DIFFICULTY_MODEL_VERSION}",
+        )
         expected = [str(theme_id) for theme_id in ids]
         require(list(words) == expected and list(difficulty) == expected and list(hints) == expected, f"{language}: theme order differs")
         for theme_id in expected:
             require(len(words[theme_id]) == len(difficulty[theme_id]) == len(hints[theme_id]), f"{language}/{theme_id}: data size mismatch")
+            require(
+                all(0.0 <= float(score) <= 1.0 for score in difficulty[theme_id]),
+                f"{language}/{theme_id}: difficulty outside 0..1",
+            )
+
+        geography_scores = dict(zip(words["2"], difficulty["2"], strict=True))
+        for word, floor in GEOGRAPHY_DIFFICULTY_FLOORS[language].items():
+            require(word in geography_scores, f"{language}/geography: missing {word}")
+            require(
+                float(geography_scores[word]) >= floor,
+                f"{language}/geography/{word}: {geography_scores[word]} below {floor}",
+            )
+        for word, cap in GEOGRAPHY_DIFFICULTY_CAPS[language].items():
+            require(word in geography_scores, f"{language}/geography: missing {word}")
+            require(
+                float(geography_scores[word]) <= cap,
+                f"{language}/geography/{word}: {geography_scores[word]} above {cap}",
+            )
         totals[language] = sum(len(words[theme_id]) for theme_id in expected)
     print("Theme catalog verified: " + ", ".join(f"{language}={total}" for language, total in totals.items()))
 

@@ -7,7 +7,12 @@ import json
 import re
 from pathlib import Path
 
+from verify_quiz_answer_leaks import find_answer_leaks
+
 ROOT = Path(__file__).resolve().parents[1]
+QUIZ_QUESTION_COUNT = 700
+QUIZ_QUESTIONS_PER_THEME = 70
+QUIZ_LOW_DIFFICULTY_START_ID = 401
 
 
 def require(condition: bool, message: str) -> None:
@@ -67,23 +72,61 @@ def main() -> None:
         require(quiz.get("language") == language, f"Quiz language marker differs: {language}")
         questions = quiz.get("questions", [])
         require(
-            len(questions) == 400,
-            f"Expected 400 {language} quiz questions, got {len(questions)}",
+            len(questions) == QUIZ_QUESTION_COUNT,
+            f"Expected {QUIZ_QUESTION_COUNT} {language} quiz questions, got {len(questions)}",
+        )
+        question_ids = [int(question.get("id", 0)) for question in questions]
+        require(
+            set(question_ids) == set(range(1, QUIZ_QUESTION_COUNT + 1)),
+            f"Quiz IDs must be unique and continuous for {language}",
+        )
+        require(
+            question_ids[-(QUIZ_QUESTION_COUNT - QUIZ_LOW_DIFFICULTY_START_ID + 1):]
+            == list(range(QUIZ_LOW_DIFFICULTY_START_ID, QUIZ_QUESTION_COUNT + 1)),
+            f"New quiz IDs must be appended in order for {language}",
+        )
+        normalized_questions = [
+            re.sub(r"[^a-zа-я0-9]+", "", str(question.get("question", "")).casefold().replace("ё", "е"))
+            for question in questions
+        ]
+        require(
+            len(normalized_questions) == len(set(normalized_questions)),
+            f"Duplicate {language} quiz questions detected",
         )
         counts = {theme_id: 0 for theme_id in range(1, 11)}
         for question in questions:
+            question_id = int(question.get("id", 0))
             theme_id = int(question.get("theme_id", 0))
             require(theme_id in counts, f"Invalid {language} quiz theme: {theme_id}")
             counts[theme_id] += 1
             answers = question.get("answers", [])
-            require(len(answers) == 4, f"Quiz question {question.get('id')} needs four answers")
+            require(len(answers) == 4, f"Quiz question {question_id} needs four answers")
+            require(
+                max(len(str(answer)) for answer in answers) <= 35,
+                f"{language} answer is too long for question {question_id}",
+            )
+            normalized_answers = [str(answer).casefold().strip() for answer in answers]
+            require(
+                len(normalized_answers) == len(set(normalized_answers)),
+                f"Quiz question {question_id} has duplicate answers",
+            )
             require(
                 0 <= int(question.get("correct_index", -1)) < 4,
-                f"Quiz question {question.get('id')} has an invalid correct answer",
+                f"Quiz question {question_id} has an invalid correct answer",
             )
+            if question_id >= QUIZ_LOW_DIFFICULTY_START_ID:
+                require(
+                    0.0 <= float(question.get("difficulty", -1.0)) <= 0.5,
+                    f"New quiz question {question_id} exceeds difficulty 0.5",
+                )
         require(
-            all(count == 40 for count in counts.values()),
+            all(count == QUIZ_QUESTIONS_PER_THEME for count in counts.values()),
             f"Quiz theme distribution differs for {language}: {counts}",
+        )
+        leaks = find_answer_leaks(language, questions)
+        require(
+            not leaks,
+            "Quiz answer leakage detected:\n" + "\n".join(leaks),
         )
         quiz_by_language[language] = {int(question["id"]): question for question in questions}
 
@@ -102,10 +145,6 @@ def main() -> None:
         require(
             not any(re.search(r"[А-Яа-яЁё]", value) for value in english_strings),
             f"Cyrillic text remains in English quiz question {question_id}",
-        )
-        require(
-            max(len(answer) for answer in english_question["answers"]) <= 35,
-            f"English answer is too long for question {question_id}",
         )
 
     missing = []

@@ -1,0 +1,401 @@
+theme|tier|word|hint
+sport|1|MORNING EXERCISE|A short routine performed after waking up
+sport|1|BALL CONTROL|The ability to keep the playing sphere close while moving
+sport|1|GOAL LINE|The boundary running between the football posts
+sport|1|MIDFIELD|The central part of a football pitch
+sport|1|PENALTY AREA|The marked box where a goalkeeper may use their hands
+sport|1|THREE-POINT SHOT|A distant basketball attempt is worth more than a close one
+sport|1|FREE THROW LINE|The mark used for an uncontested basketball attempt
+sport|1|REBOUND|A player gains possession after a missed attempt
+sport|1|DRIBBLING|Moving while repeatedly bouncing a basketball
+sport|1|OVERHAND SERVE|Volleyball begins with the arm striking above the shoulder
+sport|1|UNDERHAND SERVE|Volleyball begins with the arm swinging upward from below
+sport|2|BLOCKING|Players jump beside the net to stop an attack
+sport|1|SERVE RECEIVE|The first touch controls an opponent's opening hit
+sport|1|FIRST SERVE|The opening tennis attempt begins a rally
+sport|1|SECOND SERVE|The backup tennis attempt follows an error
+sport|1|SIDELINE|The long boundary edge of a playing court
+sport|1|BASELINE|The boundary behind a tennis player
+sport|1|FREESTYLE|A swimming event where crawl is normally chosen
+sport|2|DOWNHILL RUN|A skier races from a high point to the bottom
+sport|2|SKI WAX|A coating improves glide over snow
+sport|2|SKATING STRIDE|Cross-country movement pushes each foot diagonally outward
+sport|2|CLASSIC STRIDE|Cross-country movement follows two parallel tracks
+sport|2|SHOOTING RANGE|Biathletes stop here to fire at targets
+sport|1|WALL BARS|A gym frame has many horizontal rungs
+sport|2|VAULT|A gymnast crosses apparatus after pushing with both hands
+sport|2|SCORECARD|Officials record their marks to determine the winner
+sport|1|RING CORNER|A boxer rests here between rounds
+sport|1|CHESSBOARD|A square surface has sixty-four alternating cells
+sport|1|WHITE PIECES|This set makes the opening move
+sport|1|BLACK PIECES|This set responds to the opening move
+sport|2|KNIGHT FORK|A horse-shaped chessman attacks two targets at once
+sport|2|DOUBLE CHECK|The king is attacked by two units at once
+sport|2|CHECKMATE THREAT|The game may end on the next move
+sport|1|GOAL KICK|A football restart is taken from the defensive six-yard box
+sport|1|HEADER|A footballer redirects the sphere using their forehead
+sport|1|HALF-TIME|An interval divides a match into two parts
+sport|1|FINAL WHISTLE|A referee's signal ends the match
+sport|1|TRAINING SESSION|A planned period improves fitness or skill
+sport|1|FITNESS TEST|A set of exercises measures strength and endurance
+sport|1|SPRINT FINISH|A runner reaches the line after a short fast race
+geography|1|CASPIAN SEA|The world's largest enclosed inland body of water
+geography|1|BALTIC SEA|Northern European waters bordered by Sweden, Poland and Finland
+geography|1|NORTH SEA|Waters between Britain, Norway and mainland Europe
+geography|1|RED SEA|Narrow warm waters separate northeast Africa from Arabia
+geography|2|ARABIAN SEA|Indian waters lie between the Saudi coast and the subcontinent
+geography|1|BERING STRAIT|A narrow waterway separates Alaska from Russia
+geography|1|ENGLISH CHANNEL|The waterway separates Britain from France
+geography|1|PERSIAN GULF|Warm shallow waters lie beside Iran and Arabia
+geography|1|GULF STREAM|A warm Atlantic current helps heat western Europe
+geography|1|LAKE BAIKAL|The world's deepest freshwater body
+geography|1|LAKE VICTORIA|A huge African freshwater body near the equator
+geography|1|GREAT LAKES|Five vast freshwater bodies border Canada and the United States
+geography|1|RIVER NILE|A famous African waterway passes through Egypt
+geography|1|RIVER AMAZON|A vast South American waterway crosses rainforest
+geography|1|RIVER DANUBE|A major European waterway passes through many countries
+geography|1|RIVER THAMES|This waterway passes through London
+geography|1|RIVER RHINE|This major European waterway passes through Germany
+geography|1|MISSISSIPPI RIVER|The main waterway drains the central United States
+geography|1|MOUNT EVEREST|The highest summit on Earth
+geography|1|MOUNT ELBRUS|The highest summit in Russia and Europe
+geography|1|ROCKY MOUNTAINS|A vast western North American highland chain
+geography|1|ANDES MOUNTAINS|A long highland chain follows western South America
+geography|2|ATLAS MOUNTAINS|A northwestern African highland chain
+geography|1|URAL MOUNTAINS|A traditional boundary between Europe and Asia
+geography|2|GREAT DIVIDING RANGE|A long highland system follows eastern Australia
+geography|1|AFRICA|The world's second-largest continent
+geography|1|ASIA|The largest continent by area and population
+geography|1|EUROPE|The continent west of the Urals
+geography|1|EURASIA|The largest landmass joins two continents
+geography|1|AUSTRALIA|A country occupies an entire continent
+geography|1|NORTH AMERICA|The continent includes Canada, the United States and Mexico
+geography|1|SOUTH AMERICA|The continent is known for the Amazon and Andes
+geography|1|INDIAN OCEAN|Warm waters lie between Africa, Asia and Australia
+geography|1|ATLANTIC OCEAN|These waters separate Europe and Africa from the Americas
+geography|1|ARCTIC OCEAN|The smallest major body surrounds the North Pole
+geography|1|NORTHERN HEMISPHERE|The half of Earth above the equator
+geography|1|SOUTHERN HEMISPHERE|The half of Earth below the equator
+geography|1|WORLD MAP|A flat picture shows every continent and major water body
+geography|1|PHYSICAL MAP|Colours and shading show relief and natural features
+geography|1|POLITICAL MAP|Borders and colours show countries and territories
+nature|1|DOMESTIC CAT|A popular pet purrs and catches mice
+nature|1|DOMESTIC DOG|A loyal pet guards homes and walks with people
+nature|1|GREY WOLF|A pack-hunting predator resembles a large dog
+nature|1|RED FOX|A woodland predator has a bushy tail
+nature|2|BROWN HARE|A fast long-eared animal lives in open fields
+nature|1|RED SQUIRREL|A small tree-dweller stores nuts and has a bushy tail
+nature|1|AFRICAN ELEPHANT|The largest land animal has a trunk
+nature|2|WHITE RHINOCEROS|A huge herbivore has two horns on its face
+nature|1|WHITE STORK|A large migrating bird often nests on roofs
+nature|2|GREY CRANE|A tall bird has long legs and a long neck
+nature|1|HOUSE SPARROW|A small city bird lives close to people
+nature|1|GREAT TIT|A small garden bird has a yellow chest
+nature|2|BLACK-HEADED GULL|A noisy water bird gains a dark cap in summer
+nature|1|MALLARD DUCK|A familiar water bird often lives in city parks
+nature|1|SILVER BIRCH|A tree is easily recognised by its pale bark
+nature|2|SCOTS PINE|A conifer has long needles and woody cones
+nature|1|BLUE SPRUCE|A conifer has silvery coloured needles
+nature|1|ENGLISH OAK|A broad strong tree produces acorns
+nature|1|WEEPING WILLOW|A waterside tree lowers its long branches
+nature|2|HORSE CHESTNUT|A common city tree produces spiky cases and shiny seeds
+nature|1|FIELD DAISY|A small flower has white petals around a yellow centre
+nature|1|GARDEN ROSE|A thorny shrub is grown for fragrant flowers
+nature|1|WILD STRAWBERRY|A small red fruit grows in sunny woodland clearings
+nature|1|BLACKCURRANT|A dark tart berry grows in clusters
+nature|1|REDCURRANT|A bright tart berry grows in translucent clusters
+nature|1|WILD RASPBERRY|A thorny shrub produces fragrant red fruit
+nature|1|PORCINI MUSHROOM|A prized edible fungus has a thick pale stem
+nature|1|FLY AGARIC|A poisonous woodland fungus has a spotted red cap
+nature|2|HONEY FUNGUS|Edible fungi often grow in clusters on tree stumps
+nature|1|SEASONAL CHANGE|Spring, summer, autumn and winter follow one another
+nature|1|MIGRATORY BIRD|It travels to warmer regions and later returns
+nature|1|PREDATORY ANIMAL|It hunts other creatures for food
+nature|1|NOCTURNAL ANIMAL|It becomes active after sunset and rests by day
+nature|1|DIURNAL ANIMAL|It is active in daylight and sleeps at night
+nature|2|SPRING MOULT|Winter fur or feathers are replaced as weather warms
+nature|1|OFFSPRING|The young produced by a parent or pair
+nature|2|NESTING|Birds build a home and raise chicks
+nature|1|FLOWERING|Plants open their buds and display blossoms
+nature|1|UNDERWATER WORLD|Fish, reefs and plants form a hidden environment
+nature|1|NORTHERN LIGHTS|Coloured bands glow across polar night skies
+technics|1|MICROWAVE OVEN|A kitchen appliance heats food very quickly
+technics|1|FRIDGE SHELF|A flat cold surface holds fresh food
+technics|1|FREEZER COMPARTMENT|A below-zero section keeps food for a long time
+technics|1|COOKER HOOD|An appliance above the hob removes steam and smells
+technics|1|GAS COOKER|A kitchen appliance prepares food over open flames
+technics|1|LED BULB|An efficient light source gives off little heat
+technics|1|ELECTRIC WIRE|A metal strand carries energy through a circuit
+technics|1|BATTERY PACK|Several power cells work together inside one case
+technics|1|ELECTRIC CIRCUIT|Connected components create a closed path for charge
+technics|2|DIRECT CURRENT|Electrical charge moves continuously one way
+technics|2|ALTERNATING CURRENT|Electrical charge regularly reverses direction
+technics|1|SHORT CIRCUIT|An unwanted connection causes a sudden current surge
+technics|1|COPPER WIRE|A reddish metal strand carries electricity well
+technics|2|CIRCUIT BOARD|A flat base uses tracks to connect electronic parts
+technics|1|MICROCHIP|A tiny electronic component performs many operations
+technics|2|RESISTOR|An electronic component limits current
+technics|2|CAPACITOR|An electronic component temporarily stores charge
+technics|2|LIGHT-EMITTING DIODE|A small electronic component glows when current passes
+technics|2|GEAR DRIVE|Toothed wheels transfer rotation between shafts
+technics|2|CHAIN DRIVE|Metal links connect two toothed wheels
+technics|1|PISTON|A moving part travels inside an engine cylinder
+technics|1|CYLINDER|A hollow engine part guides the piston
+technics|1|STEERING WHEEL|A driver turns it to change vehicle direction
+technics|1|BRAKE PEDAL|Pressing it with a foot slows a vehicle
+technics|1|HANDBRAKE|A lever keeps a parked vehicle still
+technics|1|SEAT BELT|A strap holds a passenger during sudden stops
+technics|1|ROAD SIGN|A roadside symbol gives rules or warnings
+technics|1|TRAFFIC LIGHT|Red, amber and green control vehicles
+technics|1|USER ACCOUNT|A personal profile stores settings and access details
+technics|1|SEARCH BAR|A field accepts a query on a website
+technics|1|EMAIL ADDRESS|A unique destination receives digital messages
+technics|1|DIGITAL CAMERA|A device stores photographs on a memory card
+technics|1|HARD DRIVE|A computer device keeps files permanently
+technics|1|FILE SYSTEM|Rules organise folders and documents on storage
+technics|1|RECYCLE BIN|Deleted computer files wait here before removal
+technics|1|CONTROL PANEL|A screen gathers important device settings
+technics|1|DESKTOP|The main computer workspace holds icons and windows
+technics|1|PROGRAM WINDOW|A framed screen area displays one application
+technics|1|SPACE BAR|The longest keyboard key separates typed words
+technics|1|STATUS BAR|A narrow screen strip displays current information
+people|1|PRIMARY TEACHER|Educates young pupils in reading, writing and arithmetic
+people|1|PHYSICS TEACHER|Explains forces, energy and motion to pupils
+people|1|HISTORY TEACHER|Guides pupils through important events from the past
+people|1|BIOLOGY TEACHER|Explains living organisms to pupils
+people|1|SCHOOL HEADTEACHER|Leads an educational institution
+people|1|PAEDIATRICIAN|Treats young patients at clinics
+people|1|FAMILY DOCTOR|Provides general care to adults and children
+people|1|EYE DOCTOR|Tests vision and treats sight problems
+people|1|NURSE|Cares for patients and assists medical staff
+people|1|FIREFIGHTER|Rescues people and puts out dangerous blazes
+people|1|TRAIN DRIVER|Operates a railway locomotive
+people|1|SHIP CAPTAIN|Commands a vessel and its crew
+people|1|MUSEUM ATTENDANT|Protects exhibits and helps visitors in galleries
+people|1|SCHOOL COUNSELLOR|Supports pupils with worries and personal problems
+people|1|NURSERY TEACHER|Guides young children before primary education
+people|1|DEPARTMENT MANAGER|Organises one team within a company
+people|2|RESEARCH ASSISTANT|Supports studies at a university or institute
+people|2|LANGUAGE SCHOLAR|Studies speech, grammar and linguistic development
+people|1|PHYSIOTHERAPIST|Helps patients restore movement after injury
+people|2|PAEDIATRIC DENTIST|Treats teeth and gums of young patients
+people|1|RADIOGRAPHER|Operates medical imaging equipment in hospitals
+people|1|PHARMACIST|Prepares medicines and advises customers about them
+people|2|FORENSIC EXPERT|Examines evidence and prepares findings for court
+people|1|TRAFFIC OFFICER|Enforces road rules and manages vehicles
+people|2|BAILIFF|Enforces court orders and collects debts
+people|2|TAX INSPECTOR|Checks whether required payments are correct
+people|1|RECORDS CLERK|Organises documents and keeps official information accurate
+people|1|WAREHOUSE MANAGER|Controls stored goods and supervises staff
+people|1|TV PRESENTER|Introduces programmes and speaks directly to viewers
+people|1|PUBLISHER|Organises the release of books, magazines or newspapers
+people|1|PRINTER|Operates equipment that produces text and images on paper
+people|1|CAR MECHANIC|Diagnoses and repairs motor vehicles
+people|2|AUTO ELECTRICIAN|Repairs vehicle wiring and powered equipment
+people|1|JOINER|Makes precise wooden fittings and furniture
+people|1|BRICKLAYER|Builds walls using blocks and mortar
+people|1|PLASTERER|Covers walls and ceilings with a smooth wet mixture
+people|1|ROOFER|Builds and repairs the top covering of a house
+people|1|FITTER|Assembles, installs and repairs mechanical equipment
+people|1|TRACTOR DRIVER|Operates a powerful agricultural vehicle
+people|1|BUS DRIVER|Carries passengers along a scheduled route
+food|1|OAT PORRIDGE|A warm breakfast is made from cooked cereal flakes
+food|1|SEMOLINA PORRIDGE|A smooth warm dish uses finely milled wheat
+food|1|CABBAGE SALAD|A crunchy cold dish uses finely shredded leaves
+food|1|BEETROOT SALAD|A cold dish gets its deep purple colour from an earthy vegetable
+food|1|VEGETABLE STOCK|Carrots, onions and herbs create a clear cooking base
+food|1|PEA SOUP|A thick first course uses dried green pulses
+food|1|CHICKEN SOUP|A comforting first course is made with poultry broth
+food|1|SCRAMBLED EGGS|Beaten yolks and whites are stirred while cooking
+food|1|BOILED EGG|A shell-covered breakfast item cooks in hot water
+food|1|POACHED EGG|A shell-free breakfast item cooks gently in water
+food|1|ROAST POTATOES|Golden crisp pieces cook in an oven
+food|1|FRIED RICE|Cooked grains are tossed in a hot pan
+food|1|VEGETABLE SOUP|A warm first course contains several garden ingredients
+food|1|GREEN SALAD|Fresh leaves form a simple cold dish
+food|1|COLESLAW|Shredded cabbage and carrot are mixed with dressing
+food|1|APPLE PIE|A baked pastry case holds sliced orchard fruit
+food|1|CHERRY PIE|A baked pastry case holds small red stone fruit
+food|1|CARROT CAKE|A sweet bake uses a grated orange root vegetable
+food|1|SPONGE CAKE|A light airy bake often forms the base of a dessert
+food|1|BREAD ROLL|A small individual loaf accompanies a meal
+food|1|WHOLEMEAL BREAD|A brown loaf uses flour containing the entire grain
+food|1|PUFF PASTRY|Many thin layers rise and become crisp while baking
+food|2|SHORTCRUST PASTRY|A crumbly dough forms tart and pie cases
+food|1|YEAST DOUGH|Living culture makes the mixture rise before baking
+food|1|WHEAT FLOUR|A pale powder forms the base of most baking
+food|1|RYE FLOUR|A darker grain powder gives loaves a strong flavour
+food|1|SUNFLOWER OIL|A cooking fat is pressed from striped seeds
+food|1|BUTTER|A rich dairy fat spreads easily on toast
+food|1|COTTAGE CHEESE|A mild dairy food contains soft white curds
+food|1|SOUR CREAM|A thick tangy dairy product tops soups and baked dishes
+food|2|FERMENTED MILK|Helpful bacteria give this dairy drink a tangy taste
+food|1|PICKLED CABBAGE|Shredded leaves are preserved through salt and fermentation
+food|1|PICKLED CUCUMBER|A green vegetable is preserved in seasoned liquid
+food|1|APPLE JAM|A sweet spread is cooked from orchard fruit
+food|1|STRAWBERRY JAM|A sweet red spread smells of summer fruit
+food|1|RASPBERRY JAM|A fragrant red spread is often served with toast
+food|1|STEWED BEEF|Pieces of meat cook slowly in liquid until tender
+food|1|STEAMED VEGETABLES|Garden produce cooks gently above boiling water
+food|1|BOILED RICE|White grains cook in bubbling water
+food|1|PASTA SAUCE|A seasoned topping coats noodles before serving
+science|1|CHEMICAL ELEMENT|A pure substance contains one type of atom
+science|1|WATER MOLECULE|Two hydrogen atoms join one oxygen atom
+science|1|NITROGEN|This gas makes up most of Earth's atmosphere
+science|1|CARBON DIOXIDE|People breathe it out and plants absorb it
+science|1|TABLE SALT|White crystals give food a familiar savoury taste
+science|1|BAKING SODA|A white powder helps baked food rise
+science|1|CHEMICAL REACTION|Starting substances change into different substances
+science|1|PHYSICAL CHANGE|Form or state alters without creating a new substance
+science|1|SOLID BODY|Matter keeps its own shape and volume
+science|1|LIQUID STATE|Matter keeps its volume but takes its container's shape
+science|1|FRICTION FORCE|Contact between surfaces resists sliding
+science|1|ELASTIC FORCE|It returns a stretched spring to its original shape
+science|1|AIR PRESSURE|The atmosphere pushes against surrounding surfaces
+science|1|LIGHT RAY|A narrow directed path represents visible radiation
+science|1|LIGHT REFLECTION|A mirror sends incoming radiation back
+science|1|ELECTRIC CONDUCTOR|A material allows charge to move freely
+science|1|INSULATOR|A material strongly resists moving electrical charge
+science|1|LEVER|A simple machine turns around a fixed support
+science|2|INCLINED PLANE|A sloping surface helps raise a heavy load
+science|1|MATERIAL DENSITY|This compares mass with occupied volume
+science|1|CELL|The smallest living unit of an organism
+science|1|CYTOPLASM|A jelly-like substance fills the living unit
+science|1|CELL NUCLEUS|This part stores genetic information inside the living unit
+science|1|ORGAN SYSTEM|Several body parts work together for one major function
+science|1|CIRCULATORY SYSTEM|The heart and vessels carry blood around the body
+science|1|NERVOUS SYSTEM|The brain controls the body through rapid impulses
+science|1|RESPIRATORY SYSTEM|The lungs and airways exchange gases
+science|1|NATURAL NUMBER|It is used for ordinary counting
+science|1|WHOLE NUMBER|It has no fractional or decimal part
+science|1|FRACTION|It represents part of a single unit
+science|1|PRIME NUMBER|It divides exactly only by itself and one
+science|1|EVEN NUMBER|It divides by two with no remainder
+science|1|ODD NUMBER|Division by two leaves a remainder of one
+science|1|NUMERATOR|The upper part shows how many portions are taken
+science|1|EQUATION|A mathematical statement contains an unknown value
+science|1|INEQUALITY|A mathematical statement compares values that need not match
+science|1|COORDINATE AXIS|A numbered line shows the position of points
+science|1|RECTANGLE|A four-sided shape has four square corners
+science|1|TRIANGLE|A flat shape has three straight sides
+science|1|RIGHT ANGLE|A quarter turn measures ninety degrees
+history|1|OLYMPIC GAMES|Ancient athletic contests took place every four years
+history|1|EXPLORATION VOYAGES|Sailors found new routes and previously unknown lands
+history|1|SLAVERY ABOLITION|Law ended the ownership of human beings
+history|2|GERMAN UNIFICATION|Separate states formed one country in 1871
+history|2|BERLIN AIRLIFT|Aircraft supplied a blockaded western city after the Second World War
+history|1|GAGARIN FLIGHT|The first human travelled beyond Earth in 1961
+history|1|HUMAN RIGHTS|Basic freedoms belong to everyone from birth
+history|1|VOTING RIGHTS|Citizens gain the legal ability to choose representatives
+history|1|ANCIENT ROME|A powerful civilisation grew from a city beside the Tiber
+history|1|ROMAN ARMY|Legions conquered and defended a vast empire
+history|1|ROMAN ROAD|A paved route connected distant provinces
+history|1|ROMAN AQUEDUCT|A raised channel carried fresh water into cities
+history|1|GREEK THEATRE|Open-air performances combined drama, masks and a chorus
+history|1|EGYPTIAN PYRAMID|A huge stone tomb was built for a pharaoh
+history|1|HIEROGLYPHICS|Picture-like symbols recorded an ancient language
+history|1|ALPHABET|An ordered set of letters records speech
+history|1|WRITING SYSTEM|Shared symbols allow people to record language
+history|2|FEUDAL LORD|A medieval landholder controlled an estate and dependants
+history|1|PEASANT FARMER|A rural worker grew crops on medieval land
+history|1|PLATE ARMOUR|Metal protection covered a mounted medieval warrior
+history|1|CASTLE MOAT|A defensive water-filled ditch surrounded a fortress
+history|1|DRAWBRIDGE|A raised crossing controlled access to a fortress
+history|1|MARKET TOWN|A settlement held regular trading days
+history|1|SPICE TRADE|Merchants carried valuable seasonings over long distances
+history|1|STEAM ENGINE|Heated water powered machines and transport
+history|1|FACTORY SYSTEM|Workers and machines gathered in large industrial buildings
+history|1|INDUSTRIAL CITY|Rapid manufacturing growth drew many workers into one place
+history|1|RAILWAY AGE|Tracks and locomotives transformed nineteenth-century travel
+history|1|TELEGRAPH|Electrical signals carried messages over long distances
+history|1|UNITED NATIONS|A global organisation formed after the Second World War
+history|1|EUROPEAN UNION|Neighbouring countries cooperate through shared institutions
+history|1|SOVIET UNION|A socialist state existed from 1922 to 1991
+history|1|EARLY FARMING|People began growing crops and keeping animals
+history|1|CAVE PAINTING|Prehistoric people drew animals on stone walls
+history|1|CRUSADES|Medieval religious campaigns travelled towards the eastern Mediterranean
+history|2|HUNDRED YEARS WAR|England and France fought a long medieval conflict
+history|1|REFORMATION|A religious movement divided western Christianity
+history|1|NAPOLEONIC WARS|French-led armies fought changing European coalitions
+history|2|ENLIGHTENMENT|Thinkers promoted reason, science and individual liberty
+history|2|ABSOLUTE MONARCHY|A ruler holds power with few legal limits
+general|1|PHONE NUMBER|A sequence of digits connects callers to one subscriber
+general|1|PASSENGER TICKET|A document confirms payment for a journey
+general|1|TRAIN TIMETABLE|A chart lists railway departures and arrivals
+general|1|BAGGAGE BELT|A moving surface delivers suitcases at an airport
+general|1|WAITING ROOM|Passengers sit here before departure
+general|1|HOTEL ROOM|A private space provides temporary accommodation
+general|1|FRONT DOOR|People pass through it to enter a home
+general|1|RUBBISH BIN|A container holds everyday waste
+general|1|PLAYGROUND|An outdoor area has swings, slides and climbing frames
+general|1|FOOTPATH|A narrow route is intended for walkers
+general|1|PARKING SPACE|A marked place holds one vehicle
+general|1|SHOPPING BASKET|Customers carry selected goods in it
+general|1|PRICE TAG|A small label displays an item's cost
+general|1|SALES RECEIPT|A printed document proves payment for goods
+general|1|BANK CARD|A plastic or virtual method pays from an account
+general|1|CASH PAYMENT|Notes and coins settle a purchase
+general|1|SMALL CHANGE|A low-value amount is returned after a purchase
+general|1|PRODUCT LABEL|Printed information identifies ingredients and details
+general|1|INSTRUCTION MANUAL|A guide explains setup and correct use
+general|1|SUPPORT SERVICE|A team helps customers solve problems
+general|1|FEEDBACK FORM|Customers use it to share comments about a service
+general|1|PERSONAL DATA|Information can identify a specific individual
+general|1|SECURE PASSWORD|A secret combination protects access from strangers
+general|1|VERIFICATION CODE|Temporary digits confirm a user's action
+general|1|SYSTEM UPDATE|A new version fixes errors and improves a device
+general|1|SCREEN SETTINGS|Options change brightness, text size or colours
+general|1|HOME ADDRESS|It identifies a resident's town, street and building
+general|1|BIRTHPLACE|The town or location where someone was born
+general|1|MARITAL STATUS|It records whether someone is legally married
+general|1|DAY OFF|A person rests instead of doing regular work
+general|1|PUBLIC HOLIDAY|A special date brings national celebration or rest
+general|1|HOMEWORK|A pupil completes this after lessons
+general|1|CLASSWORK|A pupil completes this during a lesson
+general|1|SCHOOL DIARY|A pupil records lessons, tasks and marks here
+general|1|SCHOOL TIMETABLE|A table shows the order of lessons
+general|1|FINAL GRADE|A result summarises achievement for a term or year
+general|1|FINAL EXAM|The last major assessment completes a course
+general|1|STUDENT CARD|A document proves enrolment at a college or university
+general|1|LIBRARY CARD|A document allows someone to borrow books
+general|1|CONTENTS PAGE|A list gives sections and their locations in a book
+film_music|1|MAIN CHARACTER|The central person drives the story
+film_music|1|STORYLINE|A connected sequence of events forms the narrative
+film_music|1|OPENING SCENE|The first moments introduce the setting and people
+film_music|1|FINAL SCENE|The last moments complete the narrative
+film_music|1|CHASE SCENE|Characters pursue one another at high speed
+film_music|1|BATTLE SCENE|Characters take part in a large fight
+film_music|1|ROMANTIC STORYLINE|A relationship develops throughout the narrative
+film_music|1|OPENING CREDITS|Creators' names appear before the main action
+film_music|1|CLOSING CREDITS|Creators' names appear after the narrative ends
+film_music|1|MUSICAL THEME|A memorable melody is linked to a work or person
+film_music|1|CAST|All performers appearing in one production
+film_music|1|FILM CREW|The team creates a movie behind the camera
+film_music|1|MEDIUM SHOT|A person is usually framed roughly from the waist up
+film_music|1|LONG SHOT|People appear together with much of their surroundings
+film_music|1|SHOT CHANGE|One camera image gives way to the next
+film_music|1|FILM EDITING|Selected images are arranged into a finished sequence
+film_music|1|MONOCHROME FILM|The picture uses shades of grey without colour
+film_music|1|SILENT FILM|A movie has no recorded spoken dialogue
+film_music|1|MUSICAL NOTATION|A system of symbols records melody and rhythm
+film_music|1|TREBLE CLEF|A symbol at the start of a stave sets higher pitches
+film_music|1|BASS CLEF|A symbol at the start of a stave sets lower pitches
+film_music|1|WHOLE NOTE|This symbol normally lasts four beats
+film_music|1|HALF NOTE|This symbol normally lasts two beats
+film_music|1|QUARTER NOTE|This symbol normally lasts one beat
+film_music|1|EIGHTH NOTE|Two of these symbols normally fit into one beat
+film_music|1|MUSICAL REST|A written symbol marks a period of silence
+film_music|1|PITCH|This quality makes a tone sound high or low
+film_music|1|MUSICAL RHYTHM|Patterns of duration organise a piece through time
+film_music|1|FAST TEMPO|A piece is performed quickly and energetically
+film_music|1|SLOW TEMPO|A piece is performed calmly and unhurriedly
+film_music|1|MAJOR KEY|This tonal pattern often sounds bright and settled
+film_music|1|MINOR KEY|This tonal pattern often sounds sad or tense
+film_music|1|MUSICAL SCALE|Pitches are ordered step by step from low to high
+film_music|1|CHORAL SINGING|A large group performs a piece using voices
+film_music|1|FOLK SONG|A traditional piece passes between generations
+film_music|1|LULLABY|A gentle tune helps a baby fall asleep
+film_music|1|DANCE MUSIC|A strong beat encourages people to move
+film_music|1|STRING ORCHESTRA|An ensemble mainly uses violins, violas and cellos
+film_music|1|WIND ORCHESTRA|An ensemble mainly uses instruments played by blowing
+film_music|1|WIND INSTRUMENT|A player blows air to create the tone
