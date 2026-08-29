@@ -149,6 +149,29 @@ def main() -> None:
         "Resume must reuse the existing single-player button",
     )
 
+    custom_word_screen = function_body(portrait, "show_custom_word")
+    require(
+        re.search(
+            r'_stage_portrait_page_header\(\s*'
+            r'Database\.tr_text\(37, "Input the word"\)\.to_upper\(\),\s*'
+            r'Callable\(self, "show_menu"\),\s*'
+            r'Callable\(self, "_return_to_custom_word_from_coin_store"\),\s*'
+            r'false\s*\)',
+            custom_word_screen,
+        )
+        is not None,
+        "Two-player setup still stages the life counter",
+    )
+
+    game_header = function_body(portrait, "_stage_portrait_game_header")
+    require(
+        "GameState.current_mode == GameState.GameMode.TWO_PLAYER" in game_header
+        and "_stage_centered_coin_only_counter(" in game_header
+        and "else:" in game_header
+        and "_stage_coin_and_star_counters(" in game_header,
+        "Two-player gameplay still stages the star counter",
+    )
+
     quiz_result = function_body(portrait, "_record_single_player_quiz_result")
     require("defer_final_reward" in quiz_result, "Final quiz reward is still credited early")
     require(
@@ -158,6 +181,9 @@ def main() -> None:
     quiz_ready = function_body(portrait, "_mark_quiz_question_ready")
     quiz_fast_check = function_body(portrait, "_take_quiz_fast_answer_result")
     quiz_answer = function_body(portrait, "_on_quiz_answer_selected")
+    quiz_restore_result = function_body(portrait, "_restore_quiz_answer_result_state")
+    quiz_hide_exit = function_body(portrait, "_hide_quiz_exit_button")
+    quiz_screen = function_body(portrait, "_show_quiz_game_screen")
     quiz_feedback = function_body(portrait, "_play_quiz_correct_question_feedback")
     quiz_feedback_create = function_body(portrait, "_create_quiz_correct_feedback")
     quiz_feedback_finish = function_body(
@@ -181,6 +207,19 @@ def main() -> None:
         and 'return "Вот это скорость!" if fast_answer else "Верно!"' in portrait
         and 'return "That was fast!" if fast_answer else "Correct!"' in portrait,
         "Correct and fast quiz feedback is missing or the +1 star is not durable",
+    )
+    require(
+        "var _quiz_exit_button: Control = null" in portrait
+        and "_quiz_exit_button = null" in function_body(portrait, "_clear")
+        and "_quiz_exit_button = back_button" in quiz_screen
+        and "_quiz_exit_button.visible = false" in quiz_hide_exit
+        and "_quiz_exit_button.mouse_filter = Control.MOUSE_FILTER_IGNORE"
+        in quiz_hide_exit
+        and '_quiz_exit_button.set("disabled", true)' in quiz_hide_exit
+        and "_portrait_back_button_visible = false" in quiz_hide_exit
+        and "_hide_quiz_exit_button()" in quiz_answer
+        and "_hide_quiz_exit_button()" in quiz_restore_result,
+        "Quiz exit button remains available after an answer has been accepted",
     )
     require(
         'reward_row.position = Vector2((feedback_root.size.x - 96.0) * 0.5, 108.0)'
@@ -249,8 +288,25 @@ def main() -> None:
     )
     rewarded = function_body(portrait, "_on_portrait_rewarded_action_rewarded")
     rewarded_close = function_body(portrait, "_on_portrait_rewarded_action_closed")
+    rewarded_grant = function_body(portrait, "_grant_portrait_rewarded_action")
+    theme_reroll_present = function_body(
+        portrait, "_present_pending_single_player_theme_ad_reroll"
+    )
+    theme_reroll_animate = function_body(
+        portrait, "_animate_single_player_theme_reroll"
+    )
     require("_grant_portrait_rewarded_action" in rewarded, "Reward is not granted on rewarded callback")
     require("_grant_portrait_rewarded_action" not in rewarded_close, "Reward still waits for ad close")
+    require(
+        "_portrait_pending_theme_reroll_presentation" in rewarded_grant
+        and "_reroll_single_player_theme_options" in rewarded_grant
+        and "_animate_single_player_theme_reroll" not in rewarded_grant
+        and 'earned_reward and action == &"theme_reroll"' in rewarded_close
+        and "_present_pending_single_player_theme_ad_reroll" in rewarded_close
+        and "_animate_single_player_theme_reroll" in theme_reroll_present
+        and "_start_single_player_theme_slot_animation" in theme_reroll_animate,
+        "Rewarded theme reroll is not committed on reward and presented after ad close",
+    )
     final_rewarded = function_body(portrait, "_on_final_reward_ad_rewarded")
     require(
         "_complete_single_player_final_reward(2, false)" in final_rewarded,
@@ -310,7 +366,16 @@ def main() -> None:
     standard_reward_flight = function_body(
         portrait, "_play_single_player_reward_resource_collection"
     )
+    result_word_sequence = function_body(
+        portrait, "_play_portrait_result_word_bounce_sequence"
+    )
+    result_word_sequence_complete = function_body(
+        portrait, "_complete_portrait_result_word_bounce_sequence"
+    )
     result_reveal = function_body(portrait, "_reveal_portrait_result_actions")
+    attempt_star_finish = function_body(
+        portrait, "_finish_portrait_attempt_star_collection"
+    )
     require(
         "_portrait_game_attempts_value_label" in attempt_star_flight
         and "_portrait_star_icon_visual" in attempt_star_flight
@@ -325,13 +390,33 @@ def main() -> None:
         and "_single_player_reward_collection_duration()" in attempt_star_launch
         and "PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT" in standard_reward_flight
         and "STAR_CURRENCY_TEXTURE" in standard_reward_flight
-        and "_start_portrait_attempt_star_collection" in result_reveal,
-        "Remaining attempts do not finish their bounce before launching reward stars",
+        and "sequence.tween_interval(animation_duration)" in result_word_sequence
+        and "_complete_portrait_result_word_bounce_sequence" in result_word_sequence
+        and "_reveal_portrait_result_actions" in result_word_sequence_complete
+        and "_start_portrait_attempt_star_collection()"
+        in result_word_sequence_complete
+        and result_word_sequence_complete.index("_reveal_portrait_result_actions")
+        < result_word_sequence_complete.index("_start_portrait_attempt_star_collection()")
+        and "_start_portrait_attempt_star_collection" not in result_reveal
+        and "_reveal_portrait_result_actions" not in attempt_star_finish
+        and "_reveal_in_place_result_action_after_attempt_stars()"
+        in attempt_star_finish,
+        "Search reveal and attempt-star conversion do not start together after the letters",
     )
     require(
         "PORTRAIT_ATTEMPT_STAR_FLY_" not in portrait
         and "_roll_portrait_attempt_star_source" not in portrait,
         "A separate star flight or gradual Attempts roll still exists",
+    )
+    exit_popup = function_body(portrait, "_show_exit_game_popup")
+    require(
+        "GameState.GameMode.TWO_PLAYER" in exit_popup
+        and "Rect2(28.0, 235.0, 424.0, 260.0)" in exit_popup
+        and "two_player_rect.position.y" in exit_popup
+        and "two_player_rect.end.y" in exit_popup
+        and "_portrait_popup_bottom_button_y(" in exit_popup
+        and "Rect2(28.0, 205.0, 424.0, 320.0)" not in exit_popup,
+        "Two-player exit popup still uses the oversized layout",
     )
     stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
     require(
@@ -387,6 +472,14 @@ def main() -> None:
         "STAR_CURRENCY_TEXTURE" in reward_animation
         and "_portrait_star_icon_visual" in reward_animation,
         "Star rewards do not fly into the star counter",
+    )
+    require(
+        "PORTRAIT_SINGLE_REWARD_FLY_STAR_SIZE: float = "
+        "PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE * 1.10" in portrait
+        and "PORTRAIT_SINGLE_REWARD_FLY_STAR_SIZE" in reward_animation
+        and "if reward_currency == GameState.STAGE_REWARD_STARS"
+        in reward_animation,
+        "Flying reward stars are not 10 percent larger than flying coins",
     )
     star_icon = ROOT / "flash_assets/star_currency_icon.png"
     require(star_icon.is_file(), "Raster star currency icon is missing")

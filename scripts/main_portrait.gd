@@ -152,6 +152,7 @@ const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_GROW_DURATION: float = 0.15
 const PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_SETTLE_DURATION: float = 0.20
 const PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT: int = 9
 const PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE: float = 66.0
+const PORTRAIT_SINGLE_REWARD_FLY_STAR_SIZE: float = PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE * 1.10
 const PORTRAIT_SINGLE_REWARD_FLY_SPREAD_X: float = 30.0
 const PORTRAIT_SINGLE_REWARD_FLY_SPREAD_Y: float = 18.0
 const PORTRAIT_SINGLE_REWARD_FLY_START_DELAY: float = 0.02
@@ -425,6 +426,7 @@ var _portrait_final_reward_double_button: Control = null
 var _portrait_rewarded_action: StringName = &""
 var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
+var _portrait_pending_theme_reroll_presentation: Dictionary = {}
 var _portrait_pending_home_reward_amount: int = 0
 var _portrait_pending_home_reward_animation_running: bool = false
 var _portrait_hint_counter_animation_active: bool = false
@@ -461,6 +463,7 @@ var _quiz_current_question: Dictionary = {}
 var _quiz_answer_buttons: Array[Control] = []
 var _quiz_hint_buttons: Array[Control] = []
 var _quiz_continue_button: Control = null
+var _quiz_exit_button: Control = null
 var _quiz_answer_locked: bool = false
 var _quiz_selected_answer_index: int = -1
 var _quiz_fifty_fifty_used: bool = false
@@ -510,6 +513,7 @@ func _clear() -> void:
 	_quiz_screen_active = false
 	_quiz_question_ready_at_msec = 0
 	_quiz_answer_buttons.clear()
+	_quiz_exit_button = null
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
 	_remove_settings_popup()
@@ -1760,11 +1764,18 @@ func _stage_single_player_level_header(level_index: int) -> void:
 	)
 
 func _stage_portrait_game_header() -> void:
-	_stage_coin_and_star_counters(
-		Callable(self, "_return_to_game_from_coin_store"),
-		PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
-		_portrait_game_is_challenge_level()
-	)
+	var coin_store_return_action := Callable(self, "_return_to_game_from_coin_store")
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		_stage_centered_coin_only_counter(
+			coin_store_return_action,
+			PORTRAIT_GAME_CURRENCY_COUNTER_RECT
+		)
+	else:
+		_stage_coin_and_star_counters(
+			coin_store_return_action,
+			PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
+			_portrait_game_is_challenge_level()
+		)
 	_stage_menu_settings_button()
 
 func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
@@ -2966,6 +2977,14 @@ func _disable_quiz_answer_buttons() -> void:
 		if answer_button != null and is_instance_valid(answer_button):
 			answer_button.disabled = true
 
+func _hide_quiz_exit_button() -> void:
+	if _quiz_exit_button == null or !is_instance_valid(_quiz_exit_button):
+		return
+	_quiz_exit_button.visible = false
+	_quiz_exit_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quiz_exit_button.set("disabled", true)
+	_portrait_back_button_visible = false
+
 func _hide_quiz_hint_buttons() -> void:
 	for hint_button: Control in _quiz_hint_buttons:
 		if hint_button != null and is_instance_valid(hint_button):
@@ -3451,6 +3470,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		)
 	_quiz_answer_locked = true
 	_quiz_selected_answer_index = answer_index
+	_hide_quiz_exit_button()
 	if _quiz_single_player_embedded:
 		_record_single_player_quiz_result(correct_answer)
 	_disable_quiz_answer_buttons()
@@ -3481,6 +3501,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 func _restore_quiz_answer_result_state() -> void:
 	if !_quiz_answer_locked:
 		return
+	_hide_quiz_exit_button()
 	var correct_index: int = _quiz_correct_answer_index()
 	if correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
 		return
@@ -4463,6 +4484,7 @@ func _show_quiz_game_screen() -> void:
 		quiz_back_action,
 		"×"
 	)
+	_quiz_exit_button = back_button
 	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 
 	# Reuse the answer-button shadow treatment under the question card as well,
@@ -5623,6 +5645,13 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 func _perform_single_player_theme_reroll(level_index: int) -> void:
 	var previous_options: Array = _single_player_level_theme_options(level_index).duplicate()
 	var next_options: Array = _reroll_single_player_theme_options(level_index, previous_options)
+	_animate_single_player_theme_reroll(level_index, previous_options, next_options)
+
+func _animate_single_player_theme_reroll(
+	level_index: int,
+	previous_options: Array,
+	next_options: Array
+) -> void:
 	_update_single_player_refresh_price(GameState.get_soft_currency())
 	if (
 		previous_options.size() != next_options.size()
@@ -5641,6 +5670,19 @@ func _perform_single_player_theme_reroll(level_index: int) -> void:
 		-1,
 		false
 	)
+
+func _present_pending_single_player_theme_ad_reroll(level_index: int) -> void:
+	var pending: Dictionary = _portrait_pending_theme_reroll_presentation
+	_portrait_pending_theme_reroll_presentation = {}
+	if (
+		int(pending.get("level_index", -1)) != level_index
+		or level_index != single_player_popup_level_index
+	):
+		_update_single_player_theme_reroll_button_state()
+		return
+	var previous_options: Array = Array(pending.get("previous_options", [])).duplicate()
+	var next_options: Array = Array(pending.get("next_options", [])).duplicate()
+	_animate_single_player_theme_reroll(level_index, previous_options, next_options)
 
 func _update_single_player_theme_reroll_badge() -> void:
 	var show_price_badge: bool = !_single_player_theme_reroll_used
@@ -6491,15 +6533,15 @@ func _show_exit_game_popup() -> void:
 	_remove_exit_game_popup()
 	var close_action := Callable(self, "_remove_exit_game_popup")
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+		var two_player_rect := Rect2(28.0, 235.0, 424.0, 260.0)
 		var two_player_previous_content := _portrait_popup_begin(
 			"ExitGamePopup",
 			"exit_game_popup",
 			140,
 			close_action,
-			205.0,
-			525.0
+			two_player_rect.position.y,
+			two_player_rect.end.y
 		)
-		var two_player_rect := Rect2(28.0, 205.0, 424.0, 320.0)
 		_portrait_popup_shell(
 			two_player_rect,
 			_exit_game_title_text().to_upper(),
@@ -6507,7 +6549,7 @@ func _show_exit_game_popup() -> void:
 			27
 		)
 		var two_player_warning := _stage_label(
-			Rect2(58.0, 310.0, 364.0, 70.0),
+			Rect2(58.0, 322.0, 364.0, 70.0),
 			_exit_game_warning_text(),
 			21,
 			Color.WHITE,
@@ -6515,14 +6557,18 @@ func _show_exit_game_popup() -> void:
 		)
 		two_player_warning.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		two_player_warning.clip_text = false
+		var two_player_button_y: float = _portrait_popup_bottom_button_y(
+			two_player_rect.end.y,
+			52.0
+		)
 		_stage_portrait_popup_main_button(
-			Rect2(82.0, 442.0, 145.0, 52.0),
+			Rect2(82.0, two_player_button_y, 145.0, 52.0),
 			Callable(self, "_confirm_exit_game").bind(true),
 			tr("YES"),
 			20
 		)
 		_stage_portrait_popup_main_button(
-			Rect2(253.0, 442.0, 145.0, 52.0),
+			Rect2(253.0, two_player_button_y, 145.0, 52.0),
 			close_action,
 			tr("NO"),
 			20,
@@ -6630,7 +6676,8 @@ func show_custom_word() -> void:
 	_stage_portrait_page_header(
 		Database.tr_text(37, "Input the word").to_upper(),
 		Callable(self, "show_menu"),
-		Callable(self, "_return_to_custom_word_from_coin_store")
+		Callable(self, "_return_to_custom_word_from_coin_store"),
+		false
 	)
 
 	# Keep the complete action stack above the advertising reserve. The group is
@@ -7684,19 +7731,48 @@ func _play_portrait_result_word_bounce_sequence(
 	continue_text: Control
 ) -> void:
 	if animation_duration <= 0.0:
-		_reveal_portrait_result_actions(search_button, continue_button, continue_text)
+		_complete_portrait_result_word_bounce_sequence(
+			search_button,
+			continue_button,
+			continue_text
+		)
 		return
 	var sequence: Tween = create_tween()
 	sequence.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	sequence.tween_interval(animation_duration)
 	sequence.tween_callback(
-		Callable(self, "_reveal_portrait_result_actions").bind(search_button, continue_button, continue_text)
+		Callable(self, "_complete_portrait_result_word_bounce_sequence").bind(
+			search_button,
+			continue_button,
+			continue_text
+		)
 	)
 
-func _reveal_portrait_result_actions(search_button: Control, continue_button: Control, continue_text: Control) -> void:
+func _complete_portrait_result_word_bounce_sequence(
+	search_button: Control,
+	continue_button: Control,
+	continue_text: Control
+) -> void:
+	# Once every solved-word letter has completed its bounce, reveal the search
+	# button and convert remaining attempts in parallel. Continue still waits for
+	# the final star impact.
+	if _portrait_attempt_star_collection_active:
+		_reveal_portrait_result_actions(search_button, continue_button, continue_text)
+		_start_portrait_attempt_star_collection()
+		return
+	_reveal_portrait_result_actions(search_button, continue_button, continue_text)
+
+func _reveal_portrait_result_actions(
+	search_button: Control,
+	continue_button: Control,
+	continue_text: Control,
+	finished_callback: Callable = Callable()
+) -> void:
 	if search_button == null or !is_instance_valid(search_button) or !search_button.is_inside_tree():
 		if _portrait_attempt_star_collection_active:
 			_finish_portrait_attempt_star_collection()
+		elif finished_callback.is_valid():
+			finished_callback.call()
 		return
 	search_button.visible = true
 	search_button.modulate = Color(1.0, 1.0, 1.0, 0.0)
@@ -7744,9 +7820,9 @@ func _reveal_portrait_result_actions(search_button: Control, continue_button: Co
 	)
 	scale_tweener.set_trans(Tween.TRANS_BACK)
 	scale_tweener.set_ease(Tween.EASE_OUT)
-	if _portrait_attempt_star_collection_active:
+	if finished_callback.is_valid():
 		reveal_tween.finished.connect(
-			Callable(self, "_start_portrait_attempt_star_collection"),
+			finished_callback,
 			CONNECT_ONE_SHOT
 		)
 
@@ -9417,7 +9493,11 @@ func _play_single_player_reward_resource_collection(
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay_layer.add_child(overlay)
 
-	var resource_size := Vector2.ONE * PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE
+	var resource_size := Vector2.ONE * (
+		PORTRAIT_SINGLE_REWARD_FLY_STAR_SIZE
+		if reward_currency == GameState.STAGE_REWARD_STARS
+		else PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE
+	)
 	var resource_texture: Texture2D = (
 		STAR_CURRENCY_TEXTURE
 		if reward_currency == GameState.STAGE_REWARD_STARS
@@ -10572,6 +10652,8 @@ func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -
 	if ads_service == null or !ads_service.has_method("show_rewarded_video"):
 		return false
 	_connect_portrait_rewarded_action_signals(ads_service)
+	if action == &"theme_reroll":
+		_portrait_pending_theme_reroll_presentation = {}
 	_portrait_rewarded_action = action
 	_portrait_rewarded_action_level_index = level_index
 	_portrait_rewarded_action_earned = false
@@ -10655,6 +10737,9 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 				and !_single_player_theme_ad_reroll_used
 				and !_single_player_theme_slot_animating
 			):
+				var previous_options: Array = _single_player_level_theme_options(
+					level_index
+				).duplicate()
 				_single_player_theme_ad_reroll_used = true
 				GameState.set_single_level_theme_reroll_state(
 					Database.current_language,
@@ -10662,9 +10747,19 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 					GameState.SINGLE_LEVEL_THEME_REROLL_AD_USED,
 					false
 				)
+				var next_options: Array = _reroll_single_player_theme_options(
+					level_index,
+					previous_options
+				)
+				# The seed and ad-use state are durable immediately, but the reels must
+				# stay pending until the native fullscreen ad has been dismissed.
+				_portrait_pending_theme_reroll_presentation = {
+					"level_index": level_index,
+					"previous_options": previous_options,
+					"next_options": next_options,
+				}
 				_update_single_player_theme_reroll_badge()
 				_update_single_player_theme_reroll_button_state()
-				_perform_single_player_theme_reroll(level_index)
 		&"heart_refill":
 			if GameState.get_hearts() < GameState.MAX_HEARTS:
 				GameState.add_hearts(1)
@@ -10707,7 +10802,9 @@ func _on_portrait_rewarded_action_closed() -> void:
 	_portrait_rewarded_action = &""
 	_portrait_rewarded_action_level_index = -1
 	_portrait_rewarded_action_earned = false
-	if !earned_reward:
+	if earned_reward and action == &"theme_reroll":
+		_present_pending_single_player_theme_ad_reroll(level_index)
+	elif !earned_reward:
 		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 
 func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
@@ -10718,6 +10815,8 @@ func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	_portrait_rewarded_action = &""
 	_portrait_rewarded_action_level_index = -1
 	_portrait_rewarded_action_earned = false
+	if action == &"theme_reroll":
+		_portrait_pending_theme_reroll_presentation = {}
 	_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 
 func _on_final_reward_double_pressed() -> void:
