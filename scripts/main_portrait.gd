@@ -2377,18 +2377,6 @@ func _show_menu_screen() -> void:
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var button_x: float = 90.0
-	_stage_main_button(
-		PORTRAIT_QUIZ_MENU_BUTTON_RECT,
-		Callable(self, "show_quiz_theme_select"),
-		_quiz_menu_label(),
-		22,
-		false,
-		0.32,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_BLUE
-	)
 	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_action := Callable(self, "_open_next_single_player_level")
 	if GameState.has_resumable_single_player_level():
@@ -2528,20 +2516,17 @@ func _resume_saved_single_player_level() -> void:
 func _legal_interface_text(russian_text: String, english_text: String) -> String:
 	return russian_text if Database.interface_language == "ru" else english_text
 
-func _stage_portrait_legal_link(
-	rect: Rect2,
+func _create_portrait_legal_link(
 	text: String,
 	document_type: String,
 	font_size: int = 21
 ) -> LinkButton:
-	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
 	var link := LinkButton.new()
 	link.name = "LegalLink_" + document_type
 	link.text = text
 	link.mouse_filter = Control.MOUSE_FILTER_STOP
 	link.focus_mode = Control.FOCUS_NONE
 	link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
-	link.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	link.add_theme_font_override("font", UI_PRIMARY_FONT)
 	link.add_theme_font_size_override("font_size", font_size)
 	link.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.SUCCESS_SOFT)
@@ -2550,9 +2535,58 @@ func _stage_portrait_legal_link(
 	link.add_theme_color_override("font_focus_color", PORTRAIT_UI_PALETTE.SUCCESS_SOFT)
 	link.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.UI_BLUE_DARK)
 	link.add_theme_constant_override("outline_size", 2)
-	holder.add_child(link)
 	_connect_stage_button_action(link, Callable(self, "_open_legal_document").bind(document_type))
 	return link
+
+func _stage_portrait_legal_link(
+	rect: Rect2,
+	text: String,
+	document_type: String,
+	font_size: int = 21
+) -> LinkButton:
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(center)
+	var link := _create_portrait_legal_link(text, document_type, font_size)
+	center.add_child(link)
+	return link
+
+func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	holder.add_child(center)
+
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_theme_constant_override("separation", 12)
+	center.add_child(row)
+
+	row.add_child(_create_portrait_legal_link(
+		_legal_interface_text("Конфиденциальность", "Privacy"),
+		"privacy",
+		font_size
+	))
+
+	var separator := Label.new()
+	separator.text = "·"
+	separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	separator.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	separator.add_theme_font_override("font", UI_PRIMARY_FONT)
+	separator.add_theme_font_size_override("font_size", font_size)
+	separator.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE)
+	separator.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.UI_BLUE_DARK)
+	separator.add_theme_constant_override("outline_size", 2)
+	row.add_child(separator)
+
+	row.add_child(_create_portrait_legal_link(
+		_legal_interface_text("Условия", "Terms"),
+		"terms",
+		font_size
+	))
 
 func _on_portrait_legal_text_meta_clicked(meta: Variant) -> void:
 	var document_type := str(meta)
@@ -2710,24 +2744,13 @@ func _show_settings_popup() -> void:
 		_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
 		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
-		_stage_portrait_legal_link(
-			Rect2(62.0, 470.0, 168.0, 34.0),
-			_legal_interface_text("Условия", "Terms"),
-			"terms",
-			17
-		)
-		_stage_portrait_legal_link(
-			Rect2(250.0, 470.0, 168.0, 34.0),
-			_legal_interface_text("Политика", "Privacy"),
-			"privacy",
-			17
-		)
 
-	# Anchor the contact buttons and version to the shell bottom instead of
+	# Anchor the contact buttons, legal links, and version to the shell bottom instead of
 	# leaving the footer floating beneath the settings controls.
 	var footer_bottom_y: float = rect.end.y
-	var social_buttons_y: float = footer_bottom_y - 122.0
-	var version_y: float = footer_bottom_y - 44.0
+	var social_buttons_y: float = footer_bottom_y - 142.0
+	var legal_links_y: float = footer_bottom_y - 76.0
+	var version_y: float = footer_bottom_y - 39.0
 	if !compact_layout:
 		_stage_round_icon_button(
 			Rect2(174.0, social_buttons_y, 58.0, 58.0),
@@ -2740,6 +2763,10 @@ func _show_settings_popup() -> void:
 			Callable(self, "_about_contact_action").bind("mail"),
 			ABOUT_MAIL_ICON,
 			ABOUT_MAIL_ICON_SIZE
+		)
+		_stage_portrait_legal_links_row(
+			Rect2(rect.position.x, legal_links_y, rect.size.x, 30.0),
+			17
 		)
 		var version_label := _stage_label(
 			Rect2(40.0, version_y, 400.0, 28.0),
