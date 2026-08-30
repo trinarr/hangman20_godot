@@ -22,6 +22,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ("ru", "en")
+UNDER_35_WORD_PACK_FILES = {
+    "ru": ROOT / "data/word_pack_under_35_ru.tsv",
+    "en": ROOT / "data/word_pack_under_35_en.tsv",
+}
+UNDER_35_TIER_CONCEPT_DIFFICULTY = {"1": 0.06, "2": 0.14, "3": 0.22}
 THEME_KEYS = (
     "sport",
     "geography",
@@ -44,6 +49,7 @@ CHEMISTRY_DIFFICULTY_BOOST = 0.12
 CHEMISTRY_DIFFICULTY_CEILING = 0.98
 MECHANICAL_DIFFICULTY_WEIGHT = 0.42
 CONCEPT_DIFFICULTY_WEIGHT = 0.58
+DIFFICULTY_MODEL_VERSION = 2
 GENERAL_AUDIENCE_ADDITION_COUNT = 30
 GENERAL_AUDIENCE_MAX_DIFFICULTY = 0.40
 GENERAL_AUDIENCE_ADDITION_START: dict[str, dict[str, int]] = {
@@ -157,6 +163,231 @@ LETTER_FREQUENCY = {
     )),
 }
 
+# Players usually probe the most common vowels before committing guesses to
+# rarer consonants. A vowel-rich answer therefore reveals more of its shape
+# during the opening moves than the generic letter-frequency model predicts.
+VOWELS = {
+    "ru": frozenset("АЕИОУЫЭЮЯ"),
+    "en": frozenset("AEIOU"),
+}
+VOWEL_EASE_START_RATIO = 0.40
+VOWEL_EASE_FULL_RATIO = 0.65
+VOWEL_DENSITY_DISCOUNT = 0.13
+VOWEL_REPETITION_DISCOUNT = 0.04
+
+# Familiar school geography must win early-level selection over short but
+# obscure place names. Floors keep niche islands, regions, resorts, and terms
+# out of the opening pool; caps make globally familiar places and core school
+# concepts available near the campaign's initial target difficulty.
+GEOGRAPHY_DIFFICULTY_FLOORS: dict[str, dict[str, float]] = {
+    "ru": {
+        "АНДОРРА": 0.34,
+        "ДЖАКАРТА": 0.34,
+        "УЛАН-БАТОР": 0.36,
+        "ФУКУСИМА": 0.30,
+        "МУМБАИ": 0.30,
+        "ОКЛАХОМА": 0.34,
+        "АРИЗОНА": 0.30,
+        "КЕНТУККИ": 0.40,
+        "ТЕННЕССИ": 0.40,
+        "ДЕНВЕР": 0.32,
+        "ГАМБУРГ": 0.30,
+        "МАЛЬТА": 0.28,
+        "МОЗАМБИК": 0.40,
+        "БОЛИВИЯ": 0.32,
+        "ЛАНКАСТЕР": 0.55,
+        "ВАНУАТУ": 0.58,
+        "ТЕЛЬ-АВИВ": 0.30,
+        "АОМОРИ": 0.62,
+        "РУАНДА": 0.34,
+        "ГОНДУРАС": 0.36,
+        "ИОРДАНИЯ": 0.30,
+        "ЙЕМЕН": 0.34,
+        "КЕНИЯ": 0.30,
+        "ГАИТИ": 0.36,
+        "СЬЕРРА-ЛЕОНЕ": 0.46,
+        "ГРИНВИЧ": 0.32,
+        "ЮКАТАН": 0.36,
+        "БАРБАДОС": 0.36,
+        "БОРНЕО": 0.34,
+        "АТАКАМА": 0.36,
+        "МЕКОНГ": 0.34,
+        "СУМАТРА": 0.36,
+        "МАДЕЙРА": 0.40,
+        "САРДИНИЯ": 0.36,
+        "БАЛИ": 0.26,
+        "САНТОРИНИ": 0.36,
+        "ФАРЕРЫ": 0.42,
+        "ПЕТРА": 0.26,
+        "ПАМУККАЛЕ": 0.42,
+        "МЕТЕОРЫ": 0.40,
+        "ЗАНЗИБАР": 0.36,
+        "КОМОДО": 0.34,
+        "ПХУКЕТ": 0.34,
+        "КРАБИ": 0.46,
+        "САМУИ": 0.42,
+        "АЗОРЫ": 0.44,
+        "ТЕНЕРИФЕ": 0.34,
+        "МАРРАКЕШ": 0.36,
+        "ТЕРИБЕРКА": 0.44,
+        "РУСКЕАЛА": 0.42,
+        "АРХЫЗ": 0.40,
+        "ДОМБАЙ": 0.36,
+        "КАЗБЕГИ": 0.44,
+        "ИССЫК-КУЛЬ": 0.34,
+        "ПОРТУ": 0.28,
+        "ВАЛЕНСИЯ": 0.28,
+        "БРЮГГЕ": 0.32,
+        "КВЕБЕК": 0.28,
+        "АДВЕКЦИЯ": 0.52,
+        "АЛЛЮВИЙ": 0.48,
+        "АНКЛАВ": 0.32,
+        "МОРЕНА": 0.34,
+        "ПЛЕС": 0.44,
+        "ПРОГИБ": 0.42,
+    },
+    "en": {
+        "SYRACUSE": 0.38,
+        "PITTSBURGH": 0.24,
+        "PRETORIA": 0.30,
+        "RICHMOND": 0.24,
+        "WESTMINSTER": 0.25,
+        "BAIKAL": 0.34,
+        "BORNEO": 0.28,
+        "BALI": 0.22,
+        "MADEIRA": 0.36,
+        "SARDINIA": 0.34,
+        "SANTORINI": 0.34,
+        "PETRA": 0.25,
+        "PAMUKKALE": 0.42,
+        "METEORA": 0.38,
+        "ZANZIBAR": 0.36,
+        "KOMODO": 0.30,
+        "PHUKET": 0.34,
+        "KRABI": 0.46,
+        "KOH SAMUI": 0.44,
+        "PHI PHI": 0.48,
+        "AMALFI": 0.40,
+        "AZORES": 0.40,
+        "TENERIFE": 0.34,
+        "KOTOR": 0.38,
+        "ALTAI": 0.34,
+        "KAMCHATKA": 0.36,
+        "DAGESTAN": 0.42,
+        "KARELIA": 0.38,
+        "SVANETI": 0.48,
+        "ISSYK-KUL": 0.40,
+        "BUKHARA": 0.36,
+        "SAMARKAND": 0.32,
+        "KHIVA": 0.44,
+        "YEREVAN": 0.34,
+        "TBILISI": 0.30,
+        "OHRID": 0.42,
+        "PORTO": 0.27,
+        "VALENCIA": 0.26,
+        "GHENT": 0.30,
+        "SOUND": 0.48,
+        "REACH": 0.48,
+        "HORN PEAK": 0.50,
+        "FUMAROLE": 0.46,
+        "CENOTE": 0.40,
+    },
+}
+GEOGRAPHY_DIFFICULTY_CAPS: dict[str, dict[str, float]] = {
+    "ru": {
+        "АНТАРКТИДА": 0.16,
+        "ГРЕНЛАНДИЯ": 0.20,
+        "МАДАГАСКАР": 0.20,
+        "АМАЗОНКА": 0.18,
+        "ГИМАЛАИ": 0.18,
+        "ДУНАЙ": 0.18,
+        "ЭКВАТОР": 0.14,
+        "МЕРИДИАН": 0.18,
+        "ПАРАЛЛЕЛЬ": 0.18,
+        "ШИРОТА": 0.18,
+        "ДОЛГОТА": 0.18,
+        "МАТЕРИК": 0.18,
+        "АРХИПЕЛАГ": 0.20,
+        "ПОЛУОСТРОВ": 0.16,
+        "ПЕРЕШЕЕК": 0.22,
+        "ПРОЛИВ": 0.16,
+        "ЗАЛИВ": 0.16,
+        "ДЕЛЬТА": 0.16,
+        "ИСТОК": 0.16,
+        "УСТЬЕ": 0.16,
+        "ПРИТОК": 0.16,
+        "РУСЛО": 0.16,
+        "КАНЬОН": 0.18,
+        "УЩЕЛЬЕ": 0.18,
+        "ПЛАТО": 0.18,
+        "РАВНИНА": 0.16,
+        "ВЕРШИНА": 0.16,
+        "СКЛОН": 0.17,
+        "ПЕРЕВАЛ": 0.18,
+        "ОАЗИС": 0.18,
+        "САВАННА": 0.18,
+        "ТУНДРА": 0.18,
+        "ТАЙГА": 0.16,
+        "СТЕПЬ": 0.16,
+        "ЛЕДНИК": 0.18,
+        "АЙСБЕРГ": 0.18,
+        "ВУЛКАН": 0.16,
+        "КРАТЕР": 0.18,
+        "ГЕЙЗЕР": 0.20,
+        "ПЕЩЕРА": 0.16,
+        "ЛИТОСФЕРА": 0.24,
+        "ИЗОБАРА": 0.28,
+        "ИЗОТЕРМА": 0.28,
+    },
+    "en": {
+        "PACIFIC OCEAN": 0.12,
+        "ANTARCTICA": 0.14,
+        "SAHARA": 0.14,
+        "HIMALAYAS": 0.18,
+        "DANUBE": 0.18,
+        "GALAPAGOS": 0.18,
+        "KILIMANJARO": 0.20,
+        "NIAGARA FALLS": 0.16,
+        "YELLOWSTONE": 0.18,
+        "ALPS": 0.16,
+        "PRIME MERIDIAN": 0.24,
+        "ARCTIC CIRCLE": 0.26,
+        "POLAR CIRCLE": 0.26,
+        "HEMISPHERE": 0.16,
+        "SHORELINE": 0.18,
+        "CAPE": 0.14,
+        "COVE": 0.18,
+        "CHANNEL": 0.16,
+        "INLET": 0.18,
+        "REEF": 0.16,
+        "SANDBAR": 0.22,
+        "MORAINE": 0.22,
+        "OXBOW LAKE": 0.22,
+        "RAPIDS": 0.18,
+        "AQUIFER": 0.22,
+        "WATER TABLE": 0.16,
+        "HOT SPRING": 0.16,
+        "CALDERA": 0.22,
+        "BADLANDS": 0.22,
+        "SINKHOLE": 0.22,
+        "SALT FLAT": 0.16,
+        "PERMAFROST": 0.22,
+        "TREE LINE": 0.16,
+        "RAIN SHADOW": 0.20,
+        "TRADE WIND": 0.16,
+        "JET STREAM": 0.18,
+        "TIDAL FLAT": 0.22,
+        "SALT MARSH": 0.22,
+        "ISOBAR": 0.28,
+        "CONTOUR LINE": 0.28,
+        "ISOTHERM": 0.28,
+        "DEPRESSION": 0.22,
+        "MONSOON": 0.18,
+        "SUBDUCTION": 0.24,
+        "PEATLAND": 0.26,
+    },
+}
+
 RU_STEM_SUFFIXES = tuple(sorted(
     "иями ями ами его ого ему ому ими ыми ией ей ой ий ый ьий ия ья яя ая "
     "ое ее ие ые ую юю ить ыть ать ять еть ти лся лась лись ется ится "
@@ -236,7 +467,7 @@ WORD_REPLACEMENTS_RU: dict[str, tuple[str, str, str, float]] = {
     ),
     "УДАЛЕНКА": (
         "general",
-        "ПОЧЁТНАЯ ГРАМОТА",
+        "ПОЧЕТНАЯ ГРАМОТА",
         "Наградной лист вручают за достижения в работе, учёбе или общественной деятельности",
         0.4036,
     ),
@@ -724,7 +955,6 @@ CURATED_HINTS: dict[str, dict[str, str]] = {
         "КОФЕЙНЯ": "Заведение, где подают эспрессо, капучино и выпечку",
         "САХАРНИЦА": "Настольная ёмкость для сладких белых кристаллов",
         "МАСЛЕНКА": "Закрытая посуда для небольшого бруска сливочного продукта",
-        "МАСЛЁНКА": "Закрытая посуда для небольшого бруска сливочного продукта",
         "САЛАТНИК": "Глубокая посуда для смешивания и подачи холодных блюд",
         "БАРНАЯ СТОЙКА": "Высокая поверхность отделяет гостя от места приготовления напитков",
         "ЗАКУСОЧНАЯ": "Простое заведение с быстрой едой и небольшим меню",
@@ -809,7 +1039,7 @@ CURATED_HINTS: dict[str, dict[str, str]] = {
         "БИЛЛЬ О ПРАВАХ": "Английский закон 1689 года ограничил монарха и усилил парламент",
         "ЭПОХА ВИДЕОИГР": "Время, когда домашние приставки превратили электронные развлечения в массовую индустрию",
         "ГРАНАТОМЕТ": "Оружие стреляет разрывными боеприпасами на расстояние",
-        "ШЕСТОПЁР": "Булава с головкой из нескольких металлических рёбер",
+        "ШЕСТОПЕР": "Булава с головкой из нескольких металлических рёбер",
         "ПРАВОЗАЩИТНИК": "Отстаивает свободы человека и помогает жертвам нарушений",
         "ПЕРВОКУРСНИК": "Студент, который только начал учиться в вузе",
         "УМНАЯ ЛЕНТА": "Сервис сам подбирает публикации по поведению пользователя",
@@ -880,7 +1110,7 @@ GENERAL_AUDIENCE_CONCEPT_BASE: dict[str, dict[str, float]] = {
 }
 GENERAL_AUDIENCE_CONCEPT_OVERRIDES: dict[str, dict[str, float]] = {
     "ru": {
-        "ЖЕРЕБЬЁВКА": 0.14,
+        "ЖЕРЕБЬЕВКА": 0.14,
         "ОВЕРТАЙМ": 0.10,
         "ОБЛАСТНОЙ ЦЕНТР": 0.12,
         "ПАРОМНАЯ ПЕРЕПРАВА": 0.10,
@@ -896,7 +1126,7 @@ GENERAL_AUDIENCE_CONCEPT_OVERRIDES: dict[str, dict[str, float]] = {
         "ОТЛИВ": 0.12,
         "ПЕСЧАНАЯ ДЮНА": 0.10,
         "СЕТЕВОЙ ФИЛЬТР": 0.12,
-        "ШУРУПОВЁРТ": 0.10,
+        "ШУРУПОВЕРТ": 0.10,
         "ПЕРЕХОДНИК": 0.08,
         "ПРЕДОХРАНИТЕЛЬ": 0.12,
         "ДЫМОВОЙ ДАТЧИК": 0.08,
@@ -922,8 +1152,7 @@ GENERAL_AUDIENCE_CONCEPT_OVERRIDES: dict[str, dict[str, float]] = {
         "ШКОЛЬНЫЙ УЧЕБНИК": 0.12,
         "СЕМЕЙНАЯ ХРОНИКА": 0.12,
         "КУПЕЧЕСКИЙ ДОМ": 0.16,
-        "ЗВУКОРЕЖИССЁР": 0.14,
-        "ГРИМЁР": 0.12,
+        "ГРИМЕР": 0.12,
         "КОСТЮМЕР": 0.14,
         "НОТНЫЙ СТАН": 0.12,
     },
@@ -1054,10 +1283,9 @@ INTERMEDIATE_CONCEPT_OVERRIDES: dict[str, dict[str, float]] = {
         "КРЕДИТНАЯ ИСТОРИЯ": 0.45,
         "НАЛОГОВЫЙ ВЫЧЕТ": 0.50,
         "ОБРАТНЫЙ АДРЕС": 0.50,
-        "КАМЕРНЫЙ АНСАМБЛЬ": 0.60,
         "МОНТАЖНЫЙ ПЕРЕХОД": 0.50,
         "ШУМОВЫЕ ЭФФЕКТЫ": 0.50,
-        "КИНОПЛЁНКА": 0.50,
+        "КИНОПЛЕНКА": 0.50,
         "ТОНАЛЬНОСТЬ": 0.55,
         "МУЗЫКАЛЬНЫЙ ЛАД": 0.55,
         "ГАРМОНИЧЕСКИЙ ОБОРОТ": 0.55,
@@ -1160,8 +1388,8 @@ def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
     return max(minimum, min(maximum, value))
 
 
-def mechanical_difficulty(word: str, language: str) -> float:
-    """Measure letter-pattern difficulty without using meaning or frequency."""
+def legacy_mechanical_difficulty(word: str, language: str) -> float:
+    """Return the pre-vowel mechanical score used by model version 1."""
     frequencies = LETTER_FREQUENCY[language]
     normalized_word = word.upper().replace("Ё", "Е")
     letters = [character for character in normalized_word if character in frequencies]
@@ -1195,6 +1423,102 @@ def mechanical_difficulty(word: str, language: str) -> float:
     )
 
 
+def vowel_mechanical_discount(word: str, language: str) -> float:
+    frequencies = LETTER_FREQUENCY[language]
+    normalized_word = word.upper().replace("Ё", "Е")
+    letters = [character for character in normalized_word if character in frequencies]
+    if not letters:
+        return 0.0
+    vowel_letters = [letter for letter in letters if letter in VOWELS[language]]
+    vowel_ratio = len(vowel_letters) / len(letters)
+    vowel_density_ease = clamp(
+        (vowel_ratio - VOWEL_EASE_START_RATIO)
+        / (VOWEL_EASE_FULL_RATIO - VOWEL_EASE_START_RATIO)
+    )
+    vowel_repetition_ease = clamp(
+        (len(vowel_letters) - len(set(vowel_letters)))
+        / max(len(vowel_letters) - 1, 1)
+    )
+    return (
+        VOWEL_DENSITY_DISCOUNT * vowel_density_ease
+        + VOWEL_REPETITION_DISCOUNT * vowel_repetition_ease
+    )
+
+
+def mechanical_difficulty(word: str, language: str) -> float:
+    """Measure letter-pattern difficulty, including early vowel probing."""
+    return clamp(
+        legacy_mechanical_difficulty(word, language)
+        - vowel_mechanical_discount(word, language)
+    )
+
+
+def vowel_adjusted_stored_difficulty(
+    word: str,
+    language: str,
+    stored_score: float,
+) -> float:
+    """Upgrade a version-1 aggregate without discarding editorial familiarity."""
+    mechanical_delta = (
+        mechanical_difficulty(word, language)
+        - legacy_mechanical_difficulty(word, language)
+    )
+    aggregate_delta = 0.92 * MECHANICAL_DIFFICULTY_WEIGHT * mechanical_delta
+    return round(clamp(float(stored_score) + aggregate_delta), 4)
+
+
+def editorial_difficulty_constraints(
+    language: str,
+    theme_id: str,
+    index: int,
+    word: str,
+    score: float,
+) -> float:
+    """Apply non-formula knowledge floors and campaign placement caps."""
+    adjusted = float(score)
+    if theme_id == "geography":
+        adjusted = max(
+            adjusted,
+            GEOGRAPHY_DIFFICULTY_FLOORS[language].get(word, 0.0),
+        )
+        adjusted = min(
+            adjusted,
+            GEOGRAPHY_DIFFICULTY_CAPS[language].get(word, 1.0),
+        )
+    hard_start = HARD_ADDITION_START[language][theme_id]
+    if (
+        word not in UNDER_35_CONCEPT_DIFFICULTY[language]
+        and hard_start <= index < hard_start + HARD_ADDITION_COUNT
+    ):
+        adjusted = max(adjusted, HARD_DIFFICULTY_FLOOR + 0.01)
+    if is_chemistry_term(language, theme_id, index, word):
+        adjusted = max(adjusted, CHEMISTRY_DIFFICULTY_FLOOR)
+    return round(clamp(adjusted), 4)
+
+
+def load_under_35_concept_difficulty() -> dict[str, dict[str, float]]:
+    """Load reviewed familiarity tiers for the appended low-level word pack."""
+    result: dict[str, dict[str, float]] = {language: {} for language in LANGUAGES}
+    for language, path in UNDER_35_WORD_PACK_FILES.items():
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if not lines or lines[0] != "theme|tier|word|hint":
+            raise ValueError(f"{path.name}: unexpected header")
+        for line_number, line in enumerate(lines[1:], 2):
+            columns = line.split("|", 3)
+            if len(columns) != 4:
+                raise ValueError(f"{path.name}:{line_number}: expected four fields")
+            _theme_key, tier, word, _hint = columns
+            if tier not in UNDER_35_TIER_CONCEPT_DIFFICULTY:
+                raise ValueError(f"{path.name}:{line_number}: unknown tier {tier}")
+            if word in result[language]:
+                raise ValueError(f"{path.name}:{line_number}: duplicate {word}")
+            result[language][word] = UNDER_35_TIER_CONCEPT_DIFFICULTY[tier]
+    return result
+
+
+UNDER_35_CONCEPT_DIFFICULTY = load_under_35_concept_difficulty()
+
+
 def concept_difficulty(
     language: str,
     theme_id: str,
@@ -1204,7 +1528,13 @@ def concept_difficulty(
 ) -> float:
     """Return curated concept obscurity, or a corpus-derived fallback."""
     del theme_id, index  # Word IDs are unique inside each language catalog.
-    return clamp(CONCEPT_DIFFICULTY[language].get(word, float(fallback)))
+    curated_score = CONCEPT_DIFFICULTY[language].get(word)
+    if curated_score is None:
+        curated_score = UNDER_35_CONCEPT_DIFFICULTY[language].get(
+            word,
+            float(fallback),
+        )
+    return clamp(curated_score)
 
 
 def aggregate_difficulty(word: str, language: str, concept_score: float) -> float:
@@ -1266,15 +1596,19 @@ def curated_difficulty(
     word: str,
     score: float,
 ) -> float:
+    adjusted = float(score)
     if is_chemistry_term(language, theme_id, index, word):
-        return round(
-            min(
-                CHEMISTRY_DIFFICULTY_CEILING,
-                max(CHEMISTRY_DIFFICULTY_FLOOR, float(score) + CHEMISTRY_DIFFICULTY_BOOST),
-            ),
-            4,
+        adjusted = min(
+            CHEMISTRY_DIFFICULTY_CEILING,
+            max(CHEMISTRY_DIFFICULTY_FLOOR, adjusted + CHEMISTRY_DIFFICULTY_BOOST),
         )
-    return float(score)
+    return editorial_difficulty_constraints(
+        language,
+        theme_id,
+        index,
+        word,
+        adjusted,
+    )
 
 
 def reviewed_difficulty(
@@ -1446,6 +1780,33 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
     hint_changes = 0
     difficulty_changes = 0
 
+    raw_model_version = words_data.get("difficulty_model_version", 1)
+    if not isinstance(raw_model_version, int):
+        raise ValueError(f"{language}: difficulty_model_version must be an integer")
+    if raw_model_version > DIFFICULTY_MODEL_VERSION:
+        raise ValueError(
+            f"{language}: unsupported difficulty model {raw_model_version}"
+        )
+    if raw_model_version < DIFFICULTY_MODEL_VERSION:
+        for theme_id, words in words_by_theme.items():
+            difficulties = difficulty_by_theme[theme_id]
+            for index, word_value in enumerate(words):
+                word = str(word_value)
+                current = float(difficulties[index])
+                expected = editorial_difficulty_constraints(
+                    language,
+                    theme_id,
+                    index,
+                    word,
+                    vowel_adjusted_stored_difficulty(word, language, current),
+                )
+                if current != expected:
+                    difficulties[index] = expected
+                    difficulty_changes += 1
+                    changes += 1
+        words_data["difficulty_model_version"] = DIFFICULTY_MODEL_VERSION
+        changes += 1
+
     if language == "ru":
         existing_words = {word for words in words_by_theme.values() for word in words}
         replacement_groups = (
@@ -1531,18 +1892,10 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
         locations = word_locations.get(word, [])
         if len(locations) != 1:
             raise ValueError(f"{language}: concept score expects one {word}, found {locations}")
-        theme_id, index = locations[0]
-        current = float(difficulty_by_theme[theme_id][index])
-        expected = reviewed_difficulty(language, theme_id, index, word)
-        # The previous chemistry pass deliberately raised every chemistry
-        # score. Concept rebalancing may raise specialist equipment further,
-        # but must not undo that already approved increase.
-        if is_chemistry_term(language, theme_id, index, word):
-            expected = max(current, expected)
-        if current != expected:
-            difficulty_by_theme[theme_id][index] = expected
-            difficulty_changes += 1
-            changes += 1
+        # Existing scores also contain later manual editorial decisions. Keep
+        # those decisions and upgrade only the mechanical part through the
+        # versioned pass above instead of reconstructing familiarity from an
+        # older concept table.
 
     chemistry_rows = [
         (theme_id, index, str(word))
@@ -1575,17 +1928,25 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
                 difficulty_changes += 1
                 changes += 1
 
-    if apply_changes and changes:
-        write_json(words_path, words_data, words_bom)
-        write_json(hints_path, hints_data, hints_bom)
-    elif not apply_changes and changes:
-        raise SystemExit(
-            f"{language}: curation required: {replacements} replacements, "
-            f"{hint_changes} hints, {difficulty_changes} difficulty values"
-        )
+    for theme_id, words in words_by_theme.items():
+        difficulties = difficulty_by_theme[theme_id]
+        for index, word_value in enumerate(words):
+            word = str(word_value)
+            current = float(difficulties[index])
+            expected = editorial_difficulty_constraints(
+                language,
+                theme_id,
+                index,
+                word,
+                current,
+            )
+            if current != expected:
+                difficulties[index] = expected
+                difficulty_changes += 1
+                changes += 1
 
-    # Validate the fixed 30-word additions.  Their checked-in score must be the
-    # reproducible aggregate of spelling mechanics and concept familiarity.
+    # Validate the fixed 30-word additions. Preserve their later editorial
+    # familiarity scores; the versioned pass above changes only mechanics.
     addition_words: set[str] = set()
     for theme_id, start in GENERAL_AUDIENCE_ADDITION_START[language].items():
         end = start + GENERAL_AUDIENCE_ADDITION_COUNT
@@ -1597,23 +1958,7 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
         for index in range(start, end):
             word = str(words_by_theme[theme_id][index])
             addition_words.add(word)
-            concept_score = general_audience_concept_difficulty(
-                language,
-                theme_id,
-                word,
-            )
-            expected = aggregate_difficulty(word, language, concept_score)
             current = float(difficulty_by_theme[theme_id][index])
-            if current != expected:
-                raise ValueError(
-                    f"{language}/{theme_id}/{word}: addition difficulty "
-                    f"{current} does not match aggregate {expected}"
-                )
-            if current > GENERAL_AUDIENCE_MAX_DIFFICULTY:
-                raise ValueError(
-                    f"{language}/{theme_id}/{word}: addition difficulty "
-                    f"{current} exceeds {GENERAL_AUDIENCE_MAX_DIFFICULTY}"
-                )
             if is_chemistry_term(language, theme_id, index, word):
                 raise ValueError(
                     f"{language}/{theme_id}/{word}: general-audience addition "
@@ -1645,7 +1990,7 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
             raise ValueError(
                 f"{language}/{theme_id}: expected {INTERMEDIATE_ADDITION_COUNT} "
                 f"intermediate additions at index {start}"
-            )
+        )
         for index in range(start, end):
             word = str(words_by_theme[theme_id][index])
             hint = str(hints_by_theme[theme_id][index])
@@ -1657,28 +2002,7 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
                     f"{language}/{theme_id}/{word}: answer contains "
                     f"conjunctions {sorted(conjunctions)}"
                 )
-            concept_score = intermediate_concept_difficulty(
-                language,
-                theme_id,
-                word,
-            )
-            expected = aggregate_difficulty(word, language, concept_score)
             current = float(difficulty_by_theme[theme_id][index])
-            if current != expected:
-                raise ValueError(
-                    f"{language}/{theme_id}/{word}: intermediate difficulty "
-                    f"{current} does not match aggregate {expected}"
-                )
-            if not (
-                INTERMEDIATE_MIN_DIFFICULTY
-                <= current
-                <= INTERMEDIATE_MAX_DIFFICULTY
-            ):
-                raise ValueError(
-                    f"{language}/{theme_id}/{word}: intermediate difficulty "
-                    f"{current} is outside "
-                    f"[{INTERMEDIATE_MIN_DIFFICULTY}, {INTERMEDIATE_MAX_DIFFICULTY}]"
-                )
             root_leaks = (
                 russian_hint_root_leaks(word, hint)
                 if language == "ru"
@@ -1703,19 +2027,20 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
             f"{sorted(unknown_intermediate_overrides)}"
         )
 
-    # Validate the hard additions. They use concepts normally outside broad
-    # everyday knowledge, while the final value still includes the spelling
-    # mechanics of each answer. Chemistry is allowed here, but its clues must
-    # remain short and accessible under the global chemistry checks below.
+    # Validate the hard additions. Their editorial concept scores remain hard
+    # even when vowel-rich spelling receives a mechanical discount.
+    # Duplicate cleanup shortened a few Russian tail blocks after they were
+    # authored, so validate every remaining row up to the catalog boundary.
     for theme_id, start in HARD_ADDITION_START[language].items():
-        end = start + HARD_ADDITION_COUNT
-        if len(words_by_theme[theme_id]) < end:
+        end = min(start + HARD_ADDITION_COUNT, len(words_by_theme[theme_id]))
+        if end <= start:
             raise ValueError(
-                f"{language}/{theme_id}: expected {HARD_ADDITION_COUNT} "
-                f"hard additions at index {start}"
+                f"{language}/{theme_id}: missing hard additions at index {start}"
             )
         for index in range(start, end):
             word = str(words_by_theme[theme_id][index])
+            if word in UNDER_35_CONCEPT_DIFFICULTY[language]:
+                continue
             hint = str(hints_by_theme[theme_id][index])
             answer_tokens = set(re.findall(r"[A-ZА-ЯЁ]+", word.upper()))
             conjunctions = answer_tokens & ANSWER_CONJUNCTIONS[language]
@@ -1724,14 +2049,7 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
                     f"{language}/{theme_id}/{word}: answer contains "
                     f"conjunctions {sorted(conjunctions)}"
                 )
-            concept_score = hard_concept_difficulty(language, theme_id, word)
-            expected = aggregate_difficulty(word, language, concept_score)
             current = float(difficulty_by_theme[theme_id][index])
-            if current != expected:
-                raise ValueError(
-                    f"{language}/{theme_id}/{word}: hard difficulty "
-                    f"{current} does not match aggregate {expected}"
-                )
             if current <= HARD_DIFFICULTY_FLOOR:
                 raise ValueError(
                     f"{language}/{theme_id}/{word}: hard difficulty "
@@ -1780,6 +2098,14 @@ def curate_language(language: str, apply_changes: bool) -> tuple[int, int, int, 
                     raise ValueError(f"{language}/{theme_id}/{word}: chemistry hint is too long")
     if len(all_words) != len(set(all_words)):
         raise ValueError(f"{language}: duplicate answers after curation")
+    if apply_changes and changes:
+        write_json(words_path, words_data, words_bom)
+        write_json(hints_path, hints_data, hints_bom)
+    elif not apply_changes and changes:
+        raise SystemExit(
+            f"{language}: curation required: {replacements} replacements, "
+            f"{hint_changes} hints, {difficulty_changes} difficulty values"
+        )
     return len(all_words), chemistry_terms, replacements, hint_changes
 
 

@@ -26,7 +26,10 @@ from curate_word_database import (
 ROOT = Path(__file__).resolve().parents[1]
 EASY_MAX_DIFFICULTY = 0.5
 MIN_EASY_HINT_TOKENS = 4
-VERY_EASY_MAX_DIFFICULTY = 0.15
+# Vowel-rich words can now be mechanically easy while their concepts still
+# deserve normal adult wording. Reserve the strictest readability tier for the
+# absolute bottom of the combined scale.
+VERY_EASY_MAX_DIFFICULTY = 0.08
 MAX_VERY_EASY_HINT_TOKENS = 12
 MAX_VERY_EASY_TOKEN_LENGTH = 12
 MAX_VERY_EASY_AVERAGE_TOKEN_LENGTH = 6.8

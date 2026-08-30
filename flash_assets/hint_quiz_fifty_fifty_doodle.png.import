@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://y27crgpknnub"
-path="res://.godot/imported/nav_profile_icon.png-54c55d233a27ac00aa4675dbeed5c149.ctex"
+uid="uid://bmxh7i7j7wh4b"
+path="res://.godot/imported/hint_quiz_fifty_fifty_doodle.png-75bc0b370c0145735198fccadff08c67.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://flash_assets/nav_profile_icon.png"
-dest_files=["res://.godot/imported/nav_profile_icon.png-54c55d233a27ac00aa4675dbeed5c149.ctex"]
+source_file="res://flash_assets/hint_quiz_fifty_fifty_doodle.png"
+dest_files=["res://.godot/imported/hint_quiz_fifty_fifty_doodle.png-75bc0b370c0145735198fccadff08c67.ctex"]
 
 [params]
 

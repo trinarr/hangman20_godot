@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from curate_word_database import (
+    DIFFICULTY_MODEL_VERSION,
     aggregate_difficulty,
     clamp,
     concept_difficulty,
@@ -119,10 +120,14 @@ def recalculate_file(path: Path, language: str, check_only: bool) -> dict[str, A
         calculated[theme_id] = scores
 
     if check_only:
-        if difficulty != calculated:
+        if (
+            difficulty != calculated
+            or data.get("difficulty_model_version") != DIFFICULTY_MODEL_VERSION
+        ):
             raise SystemExit(f"{path.name}: stored scores differ from recalculation")
     else:
         data["difficulty"] = calculated
+        data["difficulty_model_version"] = DIFFICULTY_MODEL_VERSION
         write_json(path, data, has_bom)
 
     all_scores = [score for scores in calculated.values() for score in scores]

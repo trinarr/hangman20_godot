@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Hangman 2.0"
 config/version="4.0"
-run/main_scene="uid://778614541"
+run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
 boot_splash/show_image=false
@@ -20,7 +20,7 @@ config/icon="res://icon.png"
 
 [autoload]
 
-Database="*uid://b7r1r3q4v2uv8"
+Database="*res://scripts/core/database.gd"
 WordManager="*uid://b354mil1wdgmk"
 GameState="*uid://corukvt7gsejg"
 GameSession="*uid://dct6g2n5b3fkn"
@@ -45,6 +45,11 @@ theme/default_font_multichannel_signed_distance_field=true
 [internationalization]
 
 locale/translations=PackedStringArray("res://localization/translations.ru.translation", "res://localization/translations.en.translation")
+
+[legal]
+
+terms_of_service_url=""
+privacy_policy_url=""
 
 [physics]
 
