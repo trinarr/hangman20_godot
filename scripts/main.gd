@@ -42,6 +42,8 @@ const DIFFICULTY_HARD_SELECTED_TINT := UI_PALETTE.CHALLENGE_SELECTED
 const DIFFICULTY_HARD_OUTLINE_COLOR := UI_PALETTE.CHALLENGE_OUTLINE
 const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
+const LEGAL_TERMS_PROJECT_SETTING: String = "legal/terms_of_service_url"
+const LEGAL_PRIVACY_PROJECT_SETTING: String = "legal/privacy_policy_url"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
@@ -693,6 +695,21 @@ func _about_contact_action(contact_type: String) -> void:
 			OS.shell_open(AUTHOR_VK_URL)
 		"mail":
 			OS.shell_open(AUTHOR_EMAIL_URL)
+
+func _legal_document_url(document_type: String) -> String:
+	var setting_key: String = (
+		LEGAL_TERMS_PROJECT_SETTING
+		if document_type == "terms"
+		else LEGAL_PRIVACY_PROJECT_SETTING
+	)
+	return str(ProjectSettings.get_setting(setting_key, "")).strip_edges()
+
+func _open_legal_document(document_type: String) -> void:
+	var document_url: String = _legal_document_url(document_type)
+	if document_url.is_empty():
+		push_warning("Legal document URL is not configured: " + document_type)
+		return
+	OS.shell_open(document_url)
 
 func _toggle_setting(index: int) -> void:
 	GameState.settings[index] = 1 if int(GameState.settings[index]) == 2 else 2
@@ -2605,6 +2622,10 @@ func _open_word_search() -> void:
 	OS.shell_open("https://www.google.com/search?q=" + word.to_lower().uri_encode())
 
 func _unhandled_input(event: InputEvent) -> void:
+	if !get_tree().get_nodes_in_group("legal_consent_popup").is_empty():
+		if event is InputEventKey and event.pressed and !event.echo:
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and !event.echo:
 		if event.keycode == KEY_ESCAPE:
 			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():

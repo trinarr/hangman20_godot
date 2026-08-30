@@ -8,6 +8,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const SAVE_FORMAT_VERSION: int = 2
+const LEGAL_DOCUMENTS_VERSION: int = 1
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
 const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
 const HINT_OPEN_LETTER: String = "open_letter"
@@ -65,6 +66,7 @@ var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
 var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
 var coin_refill_ad_cooldown_until: int = 0
+var accepted_legal_documents_version: int = 0
 var _heart_tick_timer: Timer = null
 var _last_emitted_hearts: int = -1
 var _last_emitted_heart_seconds: int = -1
@@ -137,6 +139,10 @@ func load_game() -> void:
 		return
 
 	word_language = _normalize_language(str(parsed.get("word_language", word_language)))
+	accepted_legal_documents_version = maxi(
+		int(parsed.get("accepted_legal_documents_version", 0)),
+		0
+	)
 
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
@@ -266,6 +272,7 @@ func save_game() -> bool:
 		"heart_recovery_at": heart_recovery_at,
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
 		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until,
+		"accepted_legal_documents_version": accepted_legal_documents_version,
 	}
 	var file := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
 	if file == null:
@@ -307,6 +314,19 @@ func save_game() -> bool:
 
 	_save_write_in_progress = false
 	return true
+
+func has_accepted_legal_documents() -> bool:
+	return accepted_legal_documents_version >= LEGAL_DOCUMENTS_VERSION
+
+func accept_legal_documents() -> bool:
+	if has_accepted_legal_documents():
+		return true
+	var previous_version: int = accepted_legal_documents_version
+	accepted_legal_documents_version = LEGAL_DOCUMENTS_VERSION
+	if save_game():
+		return true
+	accepted_legal_documents_version = previous_version
+	return false
 
 func _normalize_active_single_player_session(source: Variant) -> Dictionary:
 	if !(source is Dictionary):

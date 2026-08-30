@@ -78,6 +78,7 @@ const PORTRAIT_FREE_HINT_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
+const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
 const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 646.0, 280.5, 70.4)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
@@ -2038,7 +2039,8 @@ func _portrait_popup_shell(
 	header_color: Color = PORTRAIT_BLUE,
 	body_color: Color = PORTRAIT_DARK_BLUE,
 	separator_color: Color = PORTRAIT_ORANGE,
-	subtitle: String = ""
+	subtitle: String = "",
+	show_close_button: bool = true
 ) -> void:
 	# PopupStageCenter centers the authored body bounds and scales the complete
 	# modal composition around that center on every supported aspect ratio.
@@ -2099,9 +2101,13 @@ func _portrait_popup_shell(
 		subtitle_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 		subtitle_label.clip_text = false
 
-	var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
-	var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
-	_stage_portrait_popup_close_button(Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE), close_callable)
+	if show_close_button:
+		var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
+		var close_y: float = rect.end.y + PORTRAIT_POPUP_CLOSE_GAP
+		_stage_portrait_popup_close_button(
+			Rect2(close_x, close_y, PORTRAIT_POPUP_CLOSE_SIZE, PORTRAIT_POPUP_CLOSE_SIZE),
+			close_callable
+		)
 
 func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
 	# Reuse the same life art as the refill popup and draw a bold zig-zag split on
@@ -2394,6 +2400,8 @@ func _show_menu_screen() -> void:
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation")
+	if !GameState.has_accepted_legal_documents():
+		call_deferred("_show_legal_consent_popup")
 
 func _restore_single_player_language(language: String) -> void:
 	var normalized_language: String = "ru" if language.to_lower().begins_with("ru") else "en"
@@ -2517,6 +2525,140 @@ func _resume_saved_single_player_level() -> void:
 	GameState.clear_active_single_player_session(true)
 	_open_next_single_player_level()
 
+func _legal_interface_text(russian_text: String, english_text: String) -> String:
+	return russian_text if Database.interface_language == "ru" else english_text
+
+func _stage_portrait_legal_link(
+	rect: Rect2,
+	text: String,
+	document_type: String,
+	font_size: int = 21
+) -> LinkButton:
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
+	var link := LinkButton.new()
+	link.name = "LegalLink_" + document_type
+	link.text = text
+	link.mouse_filter = Control.MOUSE_FILTER_STOP
+	link.focus_mode = Control.FOCUS_NONE
+	link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
+	link.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	link.add_theme_font_override("font", UI_PRIMARY_FONT)
+	link.add_theme_font_size_override("font_size", font_size)
+	link.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.SUCCESS_SOFT)
+	link.add_theme_color_override("font_hover_color", PORTRAIT_UI_PALETTE.SUCCESS)
+	link.add_theme_color_override("font_pressed_color", PORTRAIT_UI_PALETTE.SUCCESS_PRESSED)
+	link.add_theme_color_override("font_focus_color", PORTRAIT_UI_PALETTE.SUCCESS_SOFT)
+	link.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.UI_BLUE_DARK)
+	link.add_theme_constant_override("outline_size", 2)
+	holder.add_child(link)
+	_connect_stage_button_action(link, Callable(self, "_open_legal_document").bind(document_type))
+	return link
+
+func _on_portrait_legal_text_meta_clicked(meta: Variant) -> void:
+	var document_type := str(meta)
+	if document_type == "terms" or document_type == "privacy":
+		_open_legal_document(document_type)
+
+func _stage_portrait_legal_inline_text(rect: Rect2) -> RichTextLabel:
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
+	var legal_text := RichTextLabel.new()
+	legal_text.name = "LegalConsentText"
+	legal_text.mouse_filter = Control.MOUSE_FILTER_STOP
+	legal_text.focus_mode = Control.FOCUS_NONE
+	legal_text.bbcode_enabled = true
+	legal_text.fit_content = false
+	legal_text.scroll_active = false
+	legal_text.selection_enabled = false
+	legal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	legal_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	legal_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	legal_text.add_theme_font_override("normal_font", UI_HEADING_FONT)
+	legal_text.add_theme_font_override("bold_font", UI_HEADING_FONT)
+	legal_text.add_theme_font_size_override("normal_font_size", 22)
+	legal_text.add_theme_font_size_override("bold_font_size", 22)
+	legal_text.add_theme_color_override("default_color", Color.WHITE)
+	legal_text.add_theme_color_override(
+		"font_outline_color",
+		PORTRAIT_UI_PALETTE.UI_BLUE_DARK
+	)
+	legal_text.add_theme_constant_override("outline_size", 2)
+	var link_color: String = PORTRAIT_UI_PALETTE.SUCCESS_SOFT.to_html(false)
+	legal_text.text = _legal_interface_text(
+		(
+			"[center]Пожалуйста, прочитайте и примите наши "
+			+ "[url=terms][u][color=#%s]Условия обслуживания[/color][/u][/url] " % link_color
+			+ "и [url=privacy][u][color=#%s]Политику[/color][/u][/url][/center]" % link_color
+		),
+		(
+			"[center]Please read and accept our "
+			+ "[url=terms][u][color=#%s]Terms of Service[/color][/u][/url] " % link_color
+			+ "and [url=privacy][u][color=#%s]Privacy Policy[/color][/u][/url][/center]" % link_color
+		)
+	)
+	legal_text.meta_clicked.connect(Callable(self, "_on_portrait_legal_text_meta_clicked"))
+	holder.add_child(legal_text)
+	return legal_text
+
+func _show_legal_consent_popup() -> void:
+	if GameState.has_accepted_legal_documents():
+		return
+	_remove_legal_consent_popup()
+	_hide_portrait_ad_banner()
+	var rect := Rect2(28.0, 225.0, 424.0, 280.0)
+	var previous_content := _portrait_popup_begin(
+		"LegalConsentPopup",
+		str(PORTRAIT_LEGAL_POPUP_GROUP),
+		500,
+		Callable(),
+		rect.position.y,
+		rect.end.y,
+		false,
+		Callable(),
+		false
+	)
+	_portrait_popup_shell(
+		rect,
+		_legal_interface_text("Добро пожаловать", "Welcome"),
+		Callable(),
+		27,
+		PORTRAIT_BLUE,
+		PORTRAIT_DARK_BLUE,
+		PORTRAIT_ORANGE,
+		"",
+		false
+	)
+	_stage_portrait_legal_inline_text(Rect2(54.0, 294.0, 372.0, 116.0))
+	_stage_portrait_popup_main_button(
+		Rect2(
+			90.0,
+			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
+			300.0,
+			56.0
+		),
+		Callable(self, "_accept_legal_documents"),
+		_legal_interface_text("Принять", "Accept"),
+		22,
+		false,
+		0.0,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	content = previous_content
+
+func _remove_legal_consent_popup() -> void:
+	for node: Node in get_tree().get_nodes_in_group(PORTRAIT_LEGAL_POPUP_GROUP):
+		if is_instance_valid(node) and node.get_parent() != null:
+			node.get_parent().remove_child(node)
+			node.queue_free()
+
+func _accept_legal_documents() -> void:
+	if !GameState.accept_legal_documents():
+		return
+	_remove_legal_consent_popup()
+	_show_menu_screen()
+
 func show_settings() -> void:
 	_show_settings_popup()
 
@@ -2568,6 +2710,18 @@ func _show_settings_popup() -> void:
 		_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
 		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
+		_stage_portrait_legal_link(
+			Rect2(62.0, 470.0, 168.0, 34.0),
+			_legal_interface_text("Условия", "Terms"),
+			"terms",
+			17
+		)
+		_stage_portrait_legal_link(
+			Rect2(250.0, 470.0, 168.0, 34.0),
+			_legal_interface_text("Политика", "Privacy"),
+			"privacy",
+			17
+		)
 
 	# Anchor the contact buttons and version to the shell bottom instead of
 	# leaving the footer floating beneath the settings controls.
