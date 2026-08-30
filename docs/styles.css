@@ -135,13 +135,6 @@ li + li {
   background: #fff7ef;
 }
 
-.placeholder {
-  padding: 0 0.2em;
-  background: #fff1a8;
-  color: #5b4100;
-  font-weight: 750;
-}
-
 .document-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

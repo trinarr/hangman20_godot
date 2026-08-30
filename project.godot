@@ -48,8 +48,10 @@ locale/translations=PackedStringArray("res://localization/translations.ru.transl
 
 [legal]
 
-terms_of_service_url=""
-privacy_policy_url=""
+terms_of_service_url="https://trinarr.github.io/hangman20_godot/terms-of-service.html"
+terms_of_service_url_en="https://trinarr.github.io/hangman20_godot/terms-of-service-en.html"
+privacy_policy_url="https://trinarr.github.io/hangman20_godot/privacy-policy.html"
+privacy_policy_url_en="https://trinarr.github.io/hangman20_godot/privacy-policy-en.html"
 
 [physics]
 

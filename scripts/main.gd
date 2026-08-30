@@ -43,7 +43,9 @@ const DIFFICULTY_HARD_OUTLINE_COLOR := UI_PALETTE.CHALLENGE_OUTLINE
 const AUTHOR_VK_URL: String = "https://vk.ru/trinarr_tavern"
 const AUTHOR_EMAIL_URL: String = "mailto:trinarr@mail.ru"
 const LEGAL_TERMS_PROJECT_SETTING: String = "legal/terms_of_service_url"
+const LEGAL_TERMS_EN_PROJECT_SETTING: String = "legal/terms_of_service_url_en"
 const LEGAL_PRIVACY_PROJECT_SETTING: String = "legal/privacy_policy_url"
+const LEGAL_PRIVACY_EN_PROJECT_SETTING: String = "legal/privacy_policy_url_en"
 const FLASH_STAGE_CONTROL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_button.gd")
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
@@ -697,11 +699,20 @@ func _about_contact_action(contact_type: String) -> void:
 			OS.shell_open(AUTHOR_EMAIL_URL)
 
 func _legal_document_url(document_type: String) -> String:
-	var setting_key: String = (
-		LEGAL_TERMS_PROJECT_SETTING
-		if document_type == "terms"
-		else LEGAL_PRIVACY_PROJECT_SETTING
-	)
+	var use_russian_documents: bool = Database.interface_language == "ru"
+	var setting_key: String
+	if document_type == "terms":
+		setting_key = (
+			LEGAL_TERMS_PROJECT_SETTING
+			if use_russian_documents
+			else LEGAL_TERMS_EN_PROJECT_SETTING
+		)
+	else:
+		setting_key = (
+			LEGAL_PRIVACY_PROJECT_SETTING
+			if use_russian_documents
+			else LEGAL_PRIVACY_EN_PROJECT_SETTING
+		)
 	return str(ProjectSettings.get_setting(setting_key, "")).strip_edges()
 
 func _open_legal_document(document_type: String) -> void:
