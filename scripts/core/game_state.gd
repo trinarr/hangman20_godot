@@ -57,13 +57,7 @@ var SINGLE_PLAYER_DIFFICULTY_MIN: float = GAME_DESIGN.get_float_range(
 	"difficulty.minimum", 0.08, 0.0, 1.0
 )
 var SINGLE_PLAYER_DIFFICULTY_MAX: float = GAME_DESIGN.get_float_range(
-	"difficulty.maximum", 0.92, 0.0, 1.0
-)
-var SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP: float = GAME_DESIGN.get_float_range(
-	"difficulty.increase_after_win", 0.02, 0.0, 1.0
-)
-var SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP: float = GAME_DESIGN.get_float_range(
-	"difficulty.decrease_after_loss", 0.04, 0.0, 1.0
+	"difficulty.maximum", 0.86, 0.0, 1.0
 )
 var SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = GAME_DESIGN.get_int(
 	"economy.rewards.level_base_bonus_coins", 10
@@ -973,6 +967,8 @@ func _new_single_player_bucket() -> Dictionary:
 		"completed_attempts": 0,
 		"failed_attempts": 0,
 		"forfeited_attempts": 0,
+		"win_streak": 0,
+		"loss_streak": 0,
 		"levels": {},
 		"selected_themes": {},
 		"level_seeds": {},
@@ -1007,7 +1003,13 @@ func _single_player_bucket(lang: String) -> Dictionary:
 		SINGLE_PLAYER_DIFFICULTY_MIN,
 		SINGLE_PLAYER_DIFFICULTY_MAX
 	)
-	for counter_key in ["completed_attempts", "failed_attempts", "forfeited_attempts"]:
+	for counter_key in [
+		"completed_attempts",
+		"failed_attempts",
+		"forfeited_attempts",
+		"win_streak",
+		"loss_streak",
+	]:
 		bucket[counter_key] = maxi(int(bucket.get(counter_key, 0)), 0)
 	single_player[lang_key] = bucket
 	return bucket
@@ -1330,26 +1332,38 @@ func mark_single_level_word_played(
 	var unlocked_level: int = int(bucket.get("unlocked_level", 0))
 	var difficulty_before: float = get_single_player_adaptive_difficulty(lang_key)
 	var difficulty_after: float = difficulty_before
+	var difficulty_delta: float = 0.0
 	if was_unplayed and is_win and completed:
+		var win_streak: int = int(bucket.get("win_streak", 0)) + 1
+		difficulty_delta = GAME_DESIGN.difficulty_win_increase(
+			difficulty_before,
+			win_streak
+		)
 		difficulty_after = clampf(
-			difficulty_before + SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP,
+			difficulty_before + difficulty_delta,
 			SINGLE_PLAYER_DIFFICULTY_MIN,
 			SINGLE_PLAYER_DIFFICULTY_MAX
 		)
 		bucket["adaptive_difficulty"] = difficulty_after
 		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
+		bucket["win_streak"] = win_streak
+		bucket["loss_streak"] = 0
 		completion_bonus = _single_player_level_completion_bonus(word_count)
 		if award_completion_bonus:
 			add_soft_currency(completion_bonus, false)
 	elif was_unplayed and !is_win:
 		if failure_affects_difficulty:
+			var loss_streak: int = int(bucket.get("loss_streak", 0)) + 1
+			difficulty_delta = -GAME_DESIGN.difficulty_loss_decrease(loss_streak)
 			difficulty_after = clampf(
-				difficulty_before - SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP,
+				difficulty_before + difficulty_delta,
 				SINGLE_PLAYER_DIFFICULTY_MIN,
 				SINGLE_PLAYER_DIFFICULTY_MAX
 			)
 			bucket["adaptive_difficulty"] = difficulty_after
 			bucket["failed_attempts"] = int(bucket.get("failed_attempts", 0)) + 1
+			bucket["win_streak"] = 0
+			bucket["loss_streak"] = loss_streak
 		else:
 			bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
 	if completed and level_index >= unlocked_level:
@@ -1382,6 +1396,9 @@ func mark_single_level_word_played(
 		"completion_bonus": completion_bonus,
 		"difficulty_before": difficulty_before,
 		"difficulty_after": difficulty_after,
+		"difficulty_delta": difficulty_delta,
+		"win_streak": int(bucket.get("win_streak", 0)),
+		"loss_streak": int(bucket.get("loss_streak", 0)),
 	}
 
 func record_single_player_forfeit(lang: String, persist: bool = true) -> void:

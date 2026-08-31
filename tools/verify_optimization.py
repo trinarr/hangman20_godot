@@ -10,9 +10,64 @@ from pathlib import Path
 from verify_quiz_answer_leaks import find_answer_leaks
 
 ROOT = Path(__file__).resolve().parents[1]
-QUIZ_QUESTION_COUNT = 700
-QUIZ_QUESTIONS_PER_THEME = 70
+QUIZ_QUESTION_COUNT = 800
+QUIZ_QUESTIONS_PER_THEME = 80
 QUIZ_LOW_DIFFICULTY_START_ID = 401
+QUIZ_EARLY_REBALANCE_START_ID = 701
+QUIZ_NUMERIC_DIFFICULTY_MIN = 0.27
+QUIZ_NUMERIC_DIFFICULTY_MAX = 0.57
+QUIZ_YEAR_DIFFICULTY_MIN = 0.41
+QUIZ_YEAR_DIFFICULTY_MAX = 0.71
+QUIZ_CURATED_NUMERIC_QUESTION_IDS = {
+    3, 4, 10, 11, 13, 14, 15, 92, 129, 130, 151, 152, 154, 156, 158, 161,
+    162, 184, 185, 203, 242, 250, 273, 402, 403, 405, 406, 408, 415, 416,
+    584, 585, 586, 593, 598, 599, 608, 615, 627, 641, 642, 643, 644, 645,
+    646, 647, 648, 649, 650, 651, 657, 661, 662, 663, 664, 665, 666, 667,
+    668, 670, 693, 694,
+}
+QUIZ_CURATED_YEAR_QUESTION_IDS = {
+    51, 52, 108, 112, 113, 256, 257, 261, 263, 264, 265, 269, 270, 616,
+    620, 621, 622, 623, 624, 625,
+}
+QUIZ_RU_NOTATION_QUESTION_IDS = {
+    241, 242, 382, 584, 591, 592, 608, 609, 610, 615, 619, 655, 658, 669,
+}
+QUIZ_RU_PROPER_NAME_ANSWER_IDS = {140, 144, 292, 296, 400, 675, 682, 686}
+
+RU_NUMBER_WORDS = set(
+    "ноль один одна одно два две три четыре пять шесть семь восемь девять десять "
+    "одиннадцать двенадцать тринадцать четырнадцать пятнадцать шестнадцать "
+    "семнадцать восемнадцать девятнадцать двадцать тридцать сорок пятьдесят "
+    "шестьдесят семьдесят восемьдесят девяносто сто двести триста четыреста "
+    "пятьсот шестьсот семьсот восемьсот девятьсот тысяча тысячи тысяч миллион "
+    "миллиона миллионов половина четверть".split()
+)
+EN_NUMBER_WORDS = set(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen "
+    "fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty forty fifty "
+    "sixty seventy eighty ninety hundred hundreds thousand thousands million millions "
+    "half quarter".split()
+)
+DIGIT_ANSWER_PATTERN = re.compile(r"(?<![A-Za-zА-Яа-яЁё])\d")
+ROMAN_ANSWER_PATTERN = re.compile(r"^[IVXLCDM]+(?:\s.*)?$", re.IGNORECASE)
+YEAR_PATTERN = re.compile(r"(?<!\d)(?:1\d{3}|20\d{2})(?!\d)")
+WORD_PATTERN = re.compile(r"[a-zа-я]+")
+
+
+def is_quantity_answer(value: str, language: str) -> bool:
+    normalized = value.casefold().replace("ё", "е")
+    words = set(WORD_PATTERN.findall(normalized))
+    number_words = RU_NUMBER_WORDS if language == "ru" else EN_NUMBER_WORDS
+    return bool(
+        DIGIT_ANSWER_PATTERN.search(value)
+        or ROMAN_ANSWER_PATTERN.fullmatch(value.strip())
+        or words.intersection(number_words)
+    )
+
+
+def is_year_question(question: dict, language: str) -> bool:
+    del language
+    return sum(bool(YEAR_PATTERN.search(str(answer))) for answer in question["answers"]) >= 3
 
 
 def require(condition: bool, message: str) -> None:
@@ -94,6 +149,8 @@ def main() -> None:
             f"Duplicate {language} quiz questions detected",
         )
         counts = {theme_id: 0 for theme_id in range(1, 11)}
+        curated_numeric_difficulties = []
+        curated_year_difficulties = []
         for question in questions:
             question_id = int(question.get("id", 0))
             theme_id = int(question.get("theme_id", 0))
@@ -114,14 +171,56 @@ def main() -> None:
                 0 <= int(question.get("correct_index", -1)) < 4,
                 f"Quiz question {question_id} has an invalid correct answer",
             )
-            if question_id >= QUIZ_LOW_DIFFICULTY_START_ID:
+            difficulty = float(question.get("difficulty", -1.0))
+            if question_id in QUIZ_CURATED_NUMERIC_QUESTION_IDS:
                 require(
-                    0.0 <= float(question.get("difficulty", -1.0)) <= 0.5,
-                    f"New quiz question {question_id} exceeds difficulty 0.5",
+                    QUIZ_NUMERIC_DIFFICULTY_MIN <= difficulty <= QUIZ_NUMERIC_DIFFICULTY_MAX,
+                    f"Curated numeric quiz question {question_id} is outside its difficulty band",
+                )
+                curated_numeric_difficulties.append(difficulty)
+            elif question_id in QUIZ_CURATED_YEAR_QUESTION_IDS:
+                require(
+                    QUIZ_YEAR_DIFFICULTY_MIN <= difficulty <= QUIZ_YEAR_DIFFICULTY_MAX,
+                    f"Curated year quiz question {question_id} is outside its difficulty band",
+                )
+                curated_year_difficulties.append(difficulty)
+            elif QUIZ_LOW_DIFFICULTY_START_ID <= question_id < QUIZ_EARLY_REBALANCE_START_ID:
+                require(
+                    0.0 <= difficulty <= 0.5,
+                    f"New quiz question {question_id} exceeds its difficulty cap",
+                )
+            if question_id >= QUIZ_EARLY_REBALANCE_START_ID:
+                require(
+                    0.0 <= difficulty < 0.3,
+                    f"Early-game quiz question {question_id} must stay below difficulty 0.3",
+                )
+            if sum(is_quantity_answer(str(answer), language) for answer in answers) >= 3:
+                require(
+                    difficulty >= QUIZ_NUMERIC_DIFFICULTY_MIN,
+                    f"Numeric quiz question {question_id} is too easy in {language}",
+                )
+            if is_year_question(question, language):
+                require(
+                    difficulty >= QUIZ_YEAR_DIFFICULTY_MIN,
+                    f"Year quiz question {question_id} is too easy in {language}",
+                )
+            if language == "ru" and all(re.search(r"[A-Za-z]", str(answer)) for answer in answers):
+                require(
+                    question_id in QUIZ_RU_NOTATION_QUESTION_IDS
+                    or question_id in QUIZ_RU_PROPER_NAME_ANSWER_IDS,
+                    f"Russian quiz question {question_id} has an untranslated English answer set",
                 )
         require(
             all(count == QUIZ_QUESTIONS_PER_THEME for count in counts.values()),
             f"Quiz theme distribution differs for {language}: {counts}",
+        )
+        require(
+            len(set(curated_numeric_difficulties)) >= 15,
+            f"Numeric quiz difficulty was flattened again for {language}",
+        )
+        require(
+            len(set(curated_year_difficulties)) >= 12,
+            f"Year quiz difficulty was flattened again for {language}",
         )
         leaks = find_answer_leaks(language, questions)
         require(
@@ -145,6 +244,12 @@ def main() -> None:
         require(
             not any(re.search(r"[А-Яа-яЁё]", value) for value in english_strings),
             f"Cyrillic text remains in English quiz question {question_id}",
+        )
+    for question_id in QUIZ_RU_PROPER_NAME_ANSWER_IDS:
+        require(
+            quiz_by_language["ru"][question_id]["answers"]
+            == quiz_by_language["en"][question_id]["answers"],
+            f"Established proper names were translated in Russian quiz question {question_id}",
         )
 
     missing = []

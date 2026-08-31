@@ -95,6 +95,10 @@ def main() -> None:
         'int(parsed.get("accepted_legal_documents_version", 0))',
         "func has_accepted_legal_documents()",
         "func accept_legal_documents()",
+        '"win_streak": 0',
+        '"loss_streak": 0',
+        'bucket["win_streak"] = win_streak',
+        'bucket["loss_streak"] = loss_streak',
     ):
         require(token in game_state, f"Launch-save invariant missing: {token}")
 
@@ -115,6 +119,19 @@ def main() -> None:
     require(
         not re.search(r'\["(?:played|guessed)"\]\[[^\]]+\]', "\n".join((game_state, session, main_source, portrait))),
         "Runtime still indexes played/guessed progress by array position",
+    )
+
+    difficulty_result = function_body(game_state, "mark_single_level_word_played")
+    require(
+        "GAME_DESIGN.difficulty_win_increase" in difficulty_result
+        and "GAME_DESIGN.difficulty_loss_decrease" in difficulty_result
+        and 'bucket["loss_streak"] = 0' in difficulty_result
+        and 'bucket["win_streak"] = 0' in difficulty_result,
+        "Adaptive difficulty streak transitions are incomplete",
+    )
+    require(
+        "adaptive_difficulty" not in function_body(game_state, "record_single_player_forfeit"),
+        "Voluntary forfeits must not change adaptive difficulty",
     )
 
     for token in (

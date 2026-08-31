@@ -57,6 +57,12 @@ var HEART_REFILL_COST: int = GAME_DESIGN.get_int("economy.hearts.refill_cost", 1
 var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
 	"difficulty.chain_spread", 0.06, 0.0, 1.0
 )
+var SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET: float = GAME_DESIGN.get_float_range(
+	"difficulty.bonus_level_offset", 0.01, 0.0, 1.0
+)
+var SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM: float = GAME_DESIGN.get_float_range(
+	"difficulty.quiz_target_maximum", 0.68, 0.0, 1.0
+)
 var SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = GAME_DESIGN.get_float(
 	"difficulty.played_word_penalty", 0.05
 )
@@ -1111,6 +1117,10 @@ func _single_player_pick_level_question(
 	theme_index: int,
 	target_difficulty: float
 ) -> Dictionary:
+	var resolved_target_difficulty: float = minf(
+		clampf(target_difficulty, 0.0, 1.0),
+		SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
+	)
 	var saved_question_id: int = GameState.get_single_level_question_id(
 		Database.current_language,
 		level_index
@@ -1148,7 +1158,7 @@ func _single_player_pick_level_question(
 			continue
 		var question: Dictionary = question_variant
 		var score: float = (
-			absf(float(question.get("difficulty", 0.5)) - target_difficulty)
+			absf(float(question.get("difficulty", 0.5)) - resolved_target_difficulty)
 			+ rng.randf_range(0.0, SINGLE_PLAYER_QUESTION_PICK_JITTER)
 		)
 		if score < best_score:
@@ -1191,7 +1201,7 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var target_difficulty: float = adaptive_difficulty
 	if _single_player_is_bonus_level(level_index):
 		target_difficulty = clampf(
-			adaptive_difficulty + GameState.SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP,
+			adaptive_difficulty + SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET,
 			GameState.SINGLE_PLAYER_DIFFICULTY_MIN,
 			GameState.SINGLE_PLAYER_DIFFICULTY_MAX
 		)
@@ -1226,7 +1236,10 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
 		if question_slot >= 0 and question_slot < words.size():
 			var replaced_word: Dictionary = words[question_slot]
-			question_target_difficulty = float(replaced_word.get("difficulty", target_difficulty))
+			question_target_difficulty = minf(
+				float(replaced_word.get("difficulty", target_difficulty)),
+				SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
+			)
 			question = _single_player_pick_level_question(
 				level_index,
 				level_seed,
@@ -1270,10 +1283,13 @@ func _single_player_level_question(level_index: int) -> Dictionary:
 	return {}
 
 func _single_player_level_question_target_difficulty(level_index: int) -> float:
-	return float(_single_player_level_data(level_index).get(
-		"question_target_difficulty",
-		GameState.get_single_player_adaptive_difficulty(Database.current_language)
-	))
+	return minf(
+		float(_single_player_level_data(level_index).get(
+			"question_target_difficulty",
+			GameState.get_single_player_adaptive_difficulty(Database.current_language)
+		)),
+		SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
+	)
 
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))

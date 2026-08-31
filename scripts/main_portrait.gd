@@ -2847,7 +2847,11 @@ func _resume_saved_single_player_level() -> void:
 					_quiz_single_player_embedded = true
 					_quiz_selected_theme_index = theme_index
 					_quiz_current_question = question.duplicate(true)
-					_quiz_single_player_target_difficulty = clampf(float(data.get("target_difficulty", 0.5)), 0.0, 1.0)
+					_quiz_single_player_target_difficulty = clampf(
+						float(data.get("target_difficulty", 0.5)),
+						0.0,
+						SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
+					)
 					_quiz_answer_locked = false
 					_quiz_selected_answer_index = -1
 					_quiz_fifty_fifty_used = bool(data.get("fifty_fifty_used", false))
@@ -4438,6 +4442,7 @@ func _quiz_replacement_question() -> Dictionary:
 		if _quiz_single_player_embedded
 		else float(_quiz_current_question.get("difficulty", 0.5))
 	)
+	target_difficulty = minf(target_difficulty, SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM)
 	var unseen_candidates: Array = []
 	var fallback_candidates: Array = []
 	for question_variant: Variant in questions:

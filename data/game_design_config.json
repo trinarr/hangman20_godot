@@ -38,9 +38,25 @@
   "difficulty": {
     "default": 0.18,
     "minimum": 0.08,
-    "maximum": 0.92,
-    "increase_after_win": 0.02,
-    "decrease_after_loss": 0.04,
+    "maximum": 0.86,
+    "quiz_target_maximum": 0.68,
+    "bonus_level_offset": 0.01,
+    "win_steps": [
+      {"below_difficulty": 0.3, "increase": 0.01},
+      {"below_difficulty": 0.5, "increase": 0.008},
+      {"below_difficulty": 0.7, "increase": 0.006},
+      {"below_difficulty": 1.01, "increase": 0.004}
+    ],
+    "win_streak_multipliers": [
+      {"from_wins": 1, "to_wins": 2, "multiplier": 1.0},
+      {"from_wins": 3, "to_wins": 5, "multiplier": 1.15},
+      {"from_wins": 6, "to_wins": 0, "multiplier": 1.25}
+    ],
+    "loss_steps": [
+      {"from_losses": 1, "to_losses": 1, "decrease": 0.012},
+      {"from_losses": 2, "to_losses": 2, "decrease": 0.02},
+      {"from_losses": 3, "to_losses": 0, "decrease": 0.03}
+    ],
     "chain_spread": 0.06,
     "played_word_penalty": 0.05,
     "guessed_word_penalty": 0.12,

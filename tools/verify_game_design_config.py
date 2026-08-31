@@ -45,6 +45,55 @@ def stage_count(config: dict[str, Any], level: int) -> int:
     return matches[0]
 
 
+def win_increase(config: dict[str, Any], difficulty: float, streak: int) -> float:
+    increase = None
+    for band in resolve(config, "difficulty.win_steps"):
+        if difficulty < float(band["below_difficulty"]):
+            increase = float(band["increase"])
+            break
+    require(increase is not None, f"No win step covers difficulty {difficulty}")
+    multiplier = None
+    for streak_range in resolve(config, "difficulty.win_streak_multipliers"):
+        start = int(streak_range["from_wins"])
+        end = int(streak_range["to_wins"])
+        if streak >= start and (end == 0 or streak <= end):
+            multiplier = float(streak_range["multiplier"])
+            break
+    require(multiplier is not None, f"No win multiplier covers streak {streak}")
+    return increase * multiplier
+
+
+def loss_decrease(config: dict[str, Any], streak: int) -> float:
+    for streak_range in resolve(config, "difficulty.loss_steps"):
+        start = int(streak_range["from_losses"])
+        end = int(streak_range["to_losses"])
+        if streak >= start and (end == 0 or streak <= end):
+            return float(streak_range["decrease"])
+    raise SystemExit(f"No loss step covers streak {streak}")
+
+
+def validate_open_ended_ranges(
+    ranges: list[dict[str, Any]],
+    start_key: str,
+    end_key: str,
+    value_key: str,
+    label: str,
+) -> None:
+    require(bool(ranges), f"{label} ranges are empty")
+    expected_start = 1
+    for index, item in enumerate(ranges):
+        start = int(item[start_key])
+        end = int(item[end_key])
+        require(start == expected_start, f"{label} range {index} starts at {start}, expected {expected_start}")
+        require(float(item[value_key]) >= 0.0, f"{label} range {index} has a negative value")
+        if end == 0:
+            require(index == len(ranges) - 1, f"Only the final {label} range may be open-ended")
+            return
+        require(end >= start, f"{label} range {index} ends before it starts")
+        expected_start = end + 1
+    raise SystemExit(f"Final {label} range must be open-ended")
+
+
 def main() -> None:
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     require(isinstance(config, dict), "Game-design config root must be an object")
@@ -74,8 +123,48 @@ def main() -> None:
     default = float(resolve(config, "difficulty.default"))
     maximum = float(resolve(config, "difficulty.maximum"))
     require(0.0 <= minimum <= default <= maximum <= 1.0, "Difficulty bounds are inconsistent")
-    require(float(resolve(config, "difficulty.increase_after_win")) >= 0.0, "Win step is negative")
-    require(float(resolve(config, "difficulty.decrease_after_loss")) >= 0.0, "Loss step is negative")
+    quiz_maximum = float(resolve(config, "difficulty.quiz_target_maximum"))
+    require(minimum <= quiz_maximum <= maximum, "Quiz target maximum is outside word bounds")
+    require(float(resolve(config, "difficulty.bonus_level_offset")) >= 0.0, "Bonus offset is negative")
+
+    win_steps = resolve(config, "difficulty.win_steps")
+    require(isinstance(win_steps, list) and bool(win_steps), "Win-step bands are missing")
+    previous_boundary = 0.0
+    for index, band in enumerate(win_steps):
+        boundary = float(band["below_difficulty"])
+        require(boundary > previous_boundary, f"Win-step band {index} is not ordered")
+        require(float(band["increase"]) >= 0.0, f"Win-step band {index} is negative")
+        previous_boundary = boundary
+    require(previous_boundary > maximum, "Win-step bands do not cover maximum difficulty")
+    validate_open_ended_ranges(
+        resolve(config, "difficulty.win_streak_multipliers"),
+        "from_wins",
+        "to_wins",
+        "multiplier",
+        "win-streak",
+    )
+    validate_open_ended_ranges(
+        resolve(config, "difficulty.loss_steps"),
+        "from_losses",
+        "to_losses",
+        "decrease",
+        "loss-streak",
+    )
+
+    simulated = default
+    milestones: dict[int, float] = {}
+    for streak in range(1, 91):
+        simulated = min(simulated + win_increase(config, simulated, streak), maximum)
+        milestones[streak] = simulated
+    require(0.29 <= milestones[10] <= 0.31, "Ten-win difficulty milestone drifted")
+    require(0.49 <= milestones[30] <= 0.51, "Thirty-win difficulty milestone drifted")
+    require(0.68 <= milestones[55] <= 0.71, "Fifty-five-win difficulty milestone drifted")
+    require(abs(milestones[90] - maximum) < 1e-9, "Difficulty does not reach its configured cap")
+    require(
+        [loss_decrease(config, streak) for streak in (1, 2, 3, 10)]
+        == [0.012, 0.02, 0.03, 0.03],
+        "Loss-streak decreases differ from the intended launch curve",
+    )
     require(int(resolve(config, "gameplay.max_mistakes")) > 0, "Maximum mistakes must be positive")
     require(int(resolve(config, "economy.extra_attempts.count_step_interval")) > 0, "Attempt interval must be positive")
     require(int(resolve(config, "economy.maximum_balance")) > 0, "Maximum balance must be positive")
@@ -102,9 +191,16 @@ def main() -> None:
         "Level stage counts are not read from the game-design config",
     )
     require(
-        '"difficulty.increase_after_win"' in state_source
-        and '"difficulty.decrease_after_loss"' in state_source,
-        "Adaptive difficulty steps are not read from the game-design config",
+        "GAME_DESIGN.difficulty_win_increase" in state_source
+        and "GAME_DESIGN.difficulty_loss_decrease" in state_source
+        and '"win_streak"' in state_source
+        and '"loss_streak"' in state_source,
+        "Adaptive difficulty streaks are not connected to saved progression",
+    )
+    require(
+        "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" in main_source
+        and '"difficulty.quiz_target_maximum"' in main_source,
+        "Quiz difficulty cap is not read from the game-design config",
     )
     require(
         "PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS" in portrait_source
