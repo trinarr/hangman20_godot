@@ -7,6 +7,7 @@ signal banner_loaded(size_pixels: Vector2)
 signal banner_failed_to_load(error_code: int)
 signal interstitial_loaded
 signal interstitial_failed_to_load(error_code: int)
+signal interstitial_shown
 signal interstitial_failed_to_show(message: String)
 signal interstitial_closed
 signal rewarded(currency: String, amount: int)
@@ -88,6 +89,7 @@ func _connect_native_signals() -> void:
 		&"_on_interstitial_failed_to_load",
 		Callable(self, "_on_interstitial_failed_to_load")
 	)
+	_connect_native(&"_on_interstitial_ad_show", Callable(self, "_on_interstitial_ad_show"))
 	_connect_native(
 		&"_on_interstitial_failed_to_show",
 		Callable(self, "_on_interstitial_failed_to_show")
@@ -233,6 +235,9 @@ func _on_interstitial_failed_to_load(error_code: int) -> void:
 	_interstitial_loading = false
 	_interstitial_loaded = false
 	interstitial_failed_to_load.emit(error_code)
+
+func _on_interstitial_ad_show() -> void:
+	interstitial_shown.emit()
 
 func _on_interstitial_failed_to_show(message: String) -> void:
 	_interstitial_loaded = false

@@ -1,12 +1,16 @@
 extends Node
 
+const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+
 signal changed
 signal round_won
 signal round_lost
 signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
 
-const WRONG_LETTER_VIBRATION_MS: int = 35
-const MAX_MISTAKES: int = 6
+var WRONG_LETTER_VIBRATION_MS: int = GAME_DESIGN.get_int(
+	"gameplay.vibration.wrong_letter_ms", 35
+)
+var MAX_MISTAKES: int = GAME_DESIGN.get_int_range("gameplay.max_mistakes", 6, 1, 64)
 
 var word_index: int = -1
 var theme_id: int = -1

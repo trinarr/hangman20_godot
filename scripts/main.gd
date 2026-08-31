@@ -1,5 +1,6 @@
 extends Node2D
 
+const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.020833333333333332
 const HERO_NESTED_FRAME_SAMPLE_OFFSET: float = 0.020833333333333332
@@ -9,31 +10,74 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 0.20833333333333334 + HERO_NES
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 0.375 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 1.6666666666666667
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 0.5
-const RANDOM_CUSTOM_WORD_MAX_LENGTH: int = 7
-const RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = 2
-const SETTINGS_TOGGLE_ON_VIBRATION_MS: int = 35
-const CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = 35
-const CUSTOM_WORD_RESULT_COLOR_DURATION: float = 1.81
+var RANDOM_CUSTOM_WORD_MAX_LENGTH: int = GAME_DESIGN.get_int_range(
+	"gameplay.random_custom_word.max_length", 7, 1, 64
+)
+var RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = GAME_DESIGN.get_int(
+	"gameplay.random_custom_word.difficulty_filter", 2
+)
+var SETTINGS_TOGGLE_ON_VIBRATION_MS: int = GAME_DESIGN.get_int(
+	"gameplay.vibration.settings_toggle_ms", 35
+)
+var CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = GAME_DESIGN.get_int(
+	"gameplay.vibration.custom_word_not_found_ms", 35
+)
+var CUSTOM_WORD_RESULT_COLOR_DURATION: float = GAME_DESIGN.get_float(
+	"timings.custom_word_result_color_seconds", 1.81
+)
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
-const CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = 0.4
+var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
+	"timings.custom_word_check_dots_seconds", 0.4, 0.01, 60.0
+)
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := UI_PALETTE.UI_BLUE_DARK
 const SOUND_SETTING_INDEX: int = 3
 const THEME_CARD_PRESSED_MODULATE := UI_PALETTE.THEME_CARD_PRESSED
 const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
-const SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = 3
-const SINGLE_PLAYER_THEME_REFRESH_COST: int = 25
-const SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = 25
-const SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP: int = 5
-const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = 2
-const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP: int = 1
-const SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL: int = 2
-const HEART_REFILL_COST: int = 100
-const SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = 0.06
-const SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = 0.05
-const SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = 0.12
-const SINGLE_PLAYER_WORD_PICK_JITTER: float = 0.012
-const SINGLE_PLAYER_QUESTION_PICK_JITTER: float = 0.008
+var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
+	"progression.theme_options_per_level", 3, 1, 10
+)
+var SINGLE_PLAYER_THEME_REFRESH_COST: int = GAME_DESIGN.get_int("economy.theme_reroll_cost", 25)
+var SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = GAME_DESIGN.get_int(
+	"economy.extra_attempts.base_cost", 25
+)
+var SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP: int = GAME_DESIGN.get_int(
+	"economy.extra_attempts.cost_step", 5
+)
+var SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = GAME_DESIGN.get_int(
+	"economy.extra_attempts.base_count", 2
+)
+var SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP: int = GAME_DESIGN.get_int(
+	"economy.extra_attempts.count_step", 1
+)
+var SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL: int = GAME_DESIGN.get_int_range(
+	"economy.extra_attempts.count_step_interval", 2, 1, 1000000
+)
+var HEART_REFILL_COST: int = GAME_DESIGN.get_int("economy.hearts.refill_cost", 100)
+var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
+	"difficulty.chain_spread", 0.06, 0.0, 1.0
+)
+var SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = GAME_DESIGN.get_float(
+	"difficulty.played_word_penalty", 0.05
+)
+var SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = GAME_DESIGN.get_float(
+	"difficulty.guessed_word_penalty", 0.12
+)
+var SINGLE_PLAYER_WORD_PICK_JITTER: float = GAME_DESIGN.get_float(
+	"difficulty.word_pick_jitter", 0.012
+)
+var SINGLE_PLAYER_QUESTION_PICK_JITTER: float = GAME_DESIGN.get_float(
+	"difficulty.question_pick_jitter", 0.008
+)
+var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
+	"progression.quiz.first_slot_ratio", 0.5, 0.0, 1.0
+)
+var SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET: int = GAME_DESIGN.get_int_range(
+	"progression.quiz.last_slot_end_offset", 2, 1, 1000
+)
+var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
+	"progression.quiz.onboarding_slot", 1
+)
 const DIFFICULTY_MODE_HARD: int = 1
 const DIFFICULTY_MODE_NORMAL: int = 2
 const DIFFICULTY_HARD_NORMAL_TINT := UI_PALETTE.CHALLENGE_NORMAL
@@ -882,31 +926,18 @@ func _invalidate_single_player_level_cache() -> void:
 
 func _single_player_level_word_target(level_index: int) -> int:
 	var level_number: int = maxi(level_index + 1, 1)
-	if level_number == 1:
-		return 1
-	var word_count: int = 2
-	if level_number > 18:
-		word_count = 5
-	elif level_number >= 8:
-		word_count = 4
-	elif level_number >= 5:
-		word_count = 3
-	if _single_player_is_bonus_level(level_index):
-		word_count += 2
-	return word_count
+	return GAME_DESIGN.level_stage_count_with_bonus(level_number)
 
 func _single_player_level_uses_question(level_index: int, word_count: int) -> bool:
 	# Levels 2-4 are intentionally two-part onboarding levels: one word followed
 	# by one quiz question. From level 5 onward the normal question-slot rules
 	# apply to every level with at least three parts.
 	var level_number: int = maxi(level_index + 1, 1)
-	if level_number >= 2 and level_number <= 4:
-		return word_count >= 2
-	return word_count >= 3
+	return GAME_DESIGN.level_uses_quiz(level_number, word_count)
 
 func _single_player_is_bonus_level(level_index: int) -> bool:
 	var level_number: int = level_index + 1
-	return level_number > 0 and level_number % 10 == 0
+	return GAME_DESIGN.is_bonus_level(level_number)
 
 func _prepare_single_player_level_attempt(level_index: int) -> int:
 	level_index = maxi(level_index, 0)
@@ -1041,14 +1072,14 @@ func _single_player_level_question_slot(level_index: int, level_seed: int, word_
 		level_index
 	)
 	var level_number: int = maxi(level_index + 1, 1)
-	var first_slot: int = int(floor(float(word_count) * 0.5))
-	var last_slot: int = word_count - 2
+	var first_slot: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
+	var last_slot: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
 	# The second, third and fourth levels are always "word -> quiz". Their quiz
 	# therefore occupies the second/final slot instead of using the later-half
 	# placement rule used by normal 3+ part levels.
-	if level_number >= 2 and level_number <= 4 and word_count == 2:
-		first_slot = 1
-		last_slot = 1
+	if GAME_DESIGN.is_quiz_onboarding_level(level_number):
+		first_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
+		last_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
 	if saved_slot >= first_slot and saved_slot <= last_slot:
 		return saved_slot
 	if first_slot > last_slot:
@@ -1798,6 +1829,10 @@ func _start_next_single_player_word(level_index: int) -> void:
 	if next_slot < 0:
 		_open_next_single_player_level()
 		return
+	# Advertising is unlocked by the actual start of the configured level, not by
+	# merely opening its theme-selection popup. The call is idempotent for every
+	# subsequent stage and restores the gate correctly for a resumed level.
+	GameState.activate_ads_for_level(level_index)
 	if next_slot == _single_player_level_question_slot_index(level_index):
 		_start_single_player_question(level_index, next_slot)
 	else:
@@ -1809,6 +1844,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		return
 	if _single_player_level_word_status(level_index, word_slot) != 0:
 		return
+	GameState.activate_ads_for_level(level_index)
 	var word_info: Dictionary = words[word_slot]
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = word_slot

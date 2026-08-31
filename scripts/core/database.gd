@@ -1,5 +1,7 @@
 extends Node
 
+const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+
 var data: Dictionary = {}
 var hints: Dictionary = {}
 # `current_language` is kept as the word-database language because progress is
@@ -23,7 +25,9 @@ var _word_load_thread: Thread = null
 var _word_load_thread_language: String = ""
 var _queued_word_load_language: String = ""
 
-const DIFFICULTY_SPLIT: float = 0.5
+var DIFFICULTY_SPLIT: float = GAME_DESIGN.get_float_range(
+	"gameplay.classic_difficulty_split", 0.5, 0.0, 1.0
+)
 
 # Stable numeric IDs are shared by data, icons, and runtime lookup. Semantic
 # keys are kept separately for resource paths, diagnostics, and localization.

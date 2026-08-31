@@ -1,5 +1,7 @@
 extends Node
 
+const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+
 signal soft_currency_changed(balance: int)
 signal stars_changed(balance: int)
 signal hearts_changed(hearts: int, recovery_seconds: int)
@@ -16,33 +18,68 @@ const HINT_REMOVE_WRONG: String = "remove_wrong"
 const HINT_COMMENT: String = "comment"
 const HINT_QUIZ_FIFTY_FIFTY: String = "quiz_fifty_fifty"
 const HINT_QUIZ_REPLACE_QUESTION: String = "quiz_replace_question"
-const DEFAULT_HINT_COUNT: int = 3
-const DEFAULT_SOFT_CURRENCY: int = 100
-const DEFAULT_STARS: int = 0
-const MAX_HEARTS: int = 5
-const HEART_RECOVERY_SECONDS: int = 300
-const WORD_REWARD_COINS: int = 10
-const WORD_REWARD_STARS: int = 10
+var DEFAULT_HINT_COUNT: int = GAME_DESIGN.get_int("economy.hints.starting_count", 3)
+var DEFAULT_SOFT_CURRENCY: int = GAME_DESIGN.get_int("economy.starting_coins", 100)
+var DEFAULT_STARS: int = GAME_DESIGN.get_int("economy.starting_stars", 0)
+var MAX_CURRENCY_BALANCE: int = GAME_DESIGN.get_int_range(
+	"economy.maximum_balance", 2_000_000_000, 1, 2_000_000_000
+)
+var MAX_SINGLE_REWARD: int = GAME_DESIGN.get_int_range(
+	"economy.maximum_single_reward", 1_000_000_000, 1, MAX_CURRENCY_BALANCE
+)
+var MAX_HEARTS: int = GAME_DESIGN.get_int_range("economy.hearts.maximum", 5, 1, 1000)
+var HEART_RECOVERY_SECONDS: int = GAME_DESIGN.get_int_range(
+	"economy.hearts.recovery_seconds", 300, 1, 31536000
+)
+var HEART_STATE_POLL_SECONDS: float = GAME_DESIGN.get_float_range(
+	"timings.heart_state_poll_seconds", 1.0, 0.05, 60.0
+)
+var WORD_REWARD_COINS: int = GAME_DESIGN.get_int("economy.rewards.word_coins", 10)
+var WORD_REWARD_STARS: int = GAME_DESIGN.get_int("economy.rewards.word_stars", 10)
 const STAGE_REWARD_COINS: String = "coins"
 const STAGE_REWARD_STARS: String = "stars"
-const COIN_REFILL_AD_MAX_VIEWS: int = 5
-const COIN_REFILL_AD_COOLDOWN_SECONDS: int = 18000
-const SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = 0.18
-const SINGLE_PLAYER_DIFFICULTY_MIN: float = 0.08
-const SINGLE_PLAYER_DIFFICULTY_MAX: float = 0.92
-const SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP: float = 0.02
-const SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP: float = 0.04
-const SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = 10
-const SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS: int = 5
+var COIN_REFILL_AD_MAX_VIEWS: int = GAME_DESIGN.get_int_range(
+	"economy.coin_refill_ad.maximum_views", 5, 1, 1000
+)
+var COIN_REFILL_AD_COOLDOWN_SECONDS: int = GAME_DESIGN.get_int(
+	"economy.coin_refill_ad.cooldown_seconds", 18000
+)
+var ADS_UNLOCK_LEVEL: int = GAME_DESIGN.get_int_range(
+	"advertising.unlock_level", 3, 1, 1_000_000
+)
+var INTERSTITIAL_INTERVAL_SECONDS: float = GAME_DESIGN.get_float_range(
+	"advertising.interstitial_interval_seconds", 300.0, 1.0, 86_400.0
+)
+var SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = GAME_DESIGN.get_float_range(
+	"difficulty.default", 0.18, 0.0, 1.0
+)
+var SINGLE_PLAYER_DIFFICULTY_MIN: float = GAME_DESIGN.get_float_range(
+	"difficulty.minimum", 0.08, 0.0, 1.0
+)
+var SINGLE_PLAYER_DIFFICULTY_MAX: float = GAME_DESIGN.get_float_range(
+	"difficulty.maximum", 0.92, 0.0, 1.0
+)
+var SINGLE_PLAYER_SUCCESS_DIFFICULTY_STEP: float = GAME_DESIGN.get_float_range(
+	"difficulty.increase_after_win", 0.02, 0.0, 1.0
+)
+var SINGLE_PLAYER_FAILURE_DIFFICULTY_STEP: float = GAME_DESIGN.get_float_range(
+	"difficulty.decrease_after_loss", 0.04, 0.0, 1.0
+)
+var SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = GAME_DESIGN.get_int(
+	"economy.rewards.level_base_bonus_coins", 10
+)
+var SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS: int = GAME_DESIGN.get_int(
+	"economy.rewards.level_word_bonus_coins", 5
+)
 const SINGLE_LEVEL_THEME_REROLL_AVAILABLE: int = 0
 const SINGLE_LEVEL_THEME_REROLL_COIN_USED: int = 1
 const SINGLE_LEVEL_THEME_REROLL_AD_USED: int = 2
-const HINT_COSTS: Dictionary = {
-	HINT_OPEN_LETTER: 20,
-	HINT_REMOVE_WRONG: 15,
-	HINT_COMMENT: 10,
-	HINT_QUIZ_FIFTY_FIFTY: 20,
-	HINT_QUIZ_REPLACE_QUESTION: 20,
+var HINT_COSTS: Dictionary = {
+	HINT_OPEN_LETTER: GAME_DESIGN.get_int("economy.hints.costs.open_letter", 20),
+	HINT_REMOVE_WRONG: GAME_DESIGN.get_int("economy.hints.costs.remove_wrong", 15),
+	HINT_COMMENT: GAME_DESIGN.get_int("economy.hints.costs.comment", 10),
+	HINT_QUIZ_FIFTY_FIFTY: GAME_DESIGN.get_int("economy.hints.costs.quiz_fifty_fifty", 20),
+	HINT_QUIZ_REPLACE_QUESTION: GAME_DESIGN.get_int("economy.hints.costs.quiz_replace_question", 20),
 }
 
 enum GameMode {
@@ -66,10 +103,14 @@ var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
 var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
 var coin_refill_ad_cooldown_until: int = 0
+var ads_unlocked: bool = false
+var interstitial_active_elapsed_seconds: float = 0.0
 var accepted_legal_documents_version: int = 0
 var _heart_tick_timer: Timer = null
 var _last_emitted_hearts: int = -1
 var _last_emitted_heart_seconds: int = -1
+var _app_in_foreground: bool = true
+var _fullscreen_ad_active: bool = false
 
 # Settings:
 # 0 - reserved
@@ -101,15 +142,87 @@ var _save_write_in_progress: bool = false
 var _save_blocked_by_future_version: bool = false
 
 func _ready() -> void:
+	_normalize_game_design_values()
 	load_game()
 	_heart_tick_timer = Timer.new()
 	_heart_tick_timer.name = "HeartRecoveryTick"
-	_heart_tick_timer.wait_time = 1.0
+	_heart_tick_timer.wait_time = HEART_STATE_POLL_SECONDS
 	_heart_tick_timer.one_shot = false
 	_heart_tick_timer.timeout.connect(_on_heart_tick)
 	add_child(_heart_tick_timer)
 	_heart_tick_timer.start()
 	_emit_heart_status_if_changed(true)
+
+func _process(delta: float) -> void:
+	if !ads_unlocked or !_app_in_foreground or _fullscreen_ad_active:
+		return
+	interstitial_active_elapsed_seconds = minf(
+		interstitial_active_elapsed_seconds + maxf(delta, 0.0),
+		INTERSTITIAL_INTERVAL_SECONDS
+	)
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_PAUSED:
+			_app_in_foreground = false
+			save_game()
+		NOTIFICATION_APPLICATION_RESUMED:
+			_app_in_foreground = true
+
+func activate_ads_for_level(level_index: int, persist: bool = true) -> bool:
+	if ads_unlocked or level_index + 1 < ADS_UNLOCK_LEVEL:
+		return ads_unlocked
+	ads_unlocked = true
+	interstitial_active_elapsed_seconds = 0.0
+	if persist:
+		save_game()
+	return true
+
+func are_ads_enabled() -> bool:
+	return ads_unlocked
+
+func is_interstitial_ready() -> bool:
+	return (
+		ads_unlocked
+		and interstitial_active_elapsed_seconds >= INTERSTITIAL_INTERVAL_SECONDS
+	)
+
+func reset_interstitial_timer(persist: bool = true) -> void:
+	if !ads_unlocked:
+		return
+	interstitial_active_elapsed_seconds = 0.0
+	if persist:
+		save_game()
+
+func set_fullscreen_ad_active(active: bool) -> void:
+	_fullscreen_ad_active = active
+
+func get_interstitial_remaining_seconds() -> float:
+	if !ads_unlocked:
+		return INTERSTITIAL_INTERVAL_SECONDS
+	return maxf(
+		INTERSTITIAL_INTERVAL_SECONDS - interstitial_active_elapsed_seconds,
+		0.0
+	)
+
+func _normalize_game_design_values() -> void:
+	SINGLE_PLAYER_DIFFICULTY_MAX = maxf(
+		SINGLE_PLAYER_DIFFICULTY_MAX,
+		SINGLE_PLAYER_DIFFICULTY_MIN
+	)
+	SINGLE_PLAYER_DIFFICULTY_DEFAULT = clampf(
+		SINGLE_PLAYER_DIFFICULTY_DEFAULT,
+		SINGLE_PLAYER_DIFFICULTY_MIN,
+		SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+	soft_currency = clampi(soft_currency, 0, MAX_CURRENCY_BALANCE)
+	stars = clampi(stars, 0, MAX_CURRENCY_BALANCE)
+	hearts = clampi(hearts, 0, MAX_HEARTS)
+	coin_refill_ad_views_remaining = clampi(
+		coin_refill_ad_views_remaining,
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
 
 func _on_heart_tick() -> void:
 	_apply_elapsed_heart_recovery(true)
@@ -147,8 +260,8 @@ func load_game() -> void:
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
 	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
-	soft_currency = clampi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0, 2_000_000_000)
-	stars = clampi(int(parsed.get("stars", DEFAULT_STARS)), 0, 2_000_000_000)
+	soft_currency = clampi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0, MAX_CURRENCY_BALANCE)
+	stars = clampi(int(parsed.get("stars", DEFAULT_STARS)), 0, MAX_CURRENCY_BALANCE)
 	settings = _normalize_settings(parsed.get("settings", settings))
 	records = _normalize_records(parsed.get("records", records))
 	progress = (
@@ -170,6 +283,12 @@ func load_game() -> void:
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
 	_load_coin_refill_ad_state_from_save(parsed)
+	ads_unlocked = bool(parsed.get("ads_unlocked", false))
+	interstitial_active_elapsed_seconds = clampf(
+		float(parsed.get("interstitial_active_elapsed_seconds", 0.0)),
+		0.0,
+		INTERSTITIAL_INTERVAL_SECONDS
+	)
 	_normalize_single_player_buckets()
 
 	if loaded_from_backup:
@@ -272,6 +391,8 @@ func save_game() -> bool:
 		"heart_recovery_at": heart_recovery_at,
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
 		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until,
+		"ads_unlocked": ads_unlocked,
+		"interstitial_active_elapsed_seconds": interstitial_active_elapsed_seconds,
 		"accepted_legal_documents_version": accepted_legal_documents_version,
 	}
 	var file := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
@@ -353,7 +474,7 @@ func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
 	var level_index: int = int(pending.get("level_index", -1))
 	var word_count: int = int(pending.get("word_count", 0))
 	var word_slot: int = int(pending.get("word_slot", word_count - 1))
-	var amount: int = clampi(int(pending.get("amount", 0)), 0, 1_000_000_000)
+	var amount: int = clampi(int(pending.get("amount", 0)), 0, MAX_SINGLE_REWARD)
 	if level_index < 0 or word_count <= 0 or word_slot < 0 or amount <= 0:
 		return {}
 	return {
@@ -393,7 +514,7 @@ func get_active_single_player_stage_reward() -> Dictionary:
 		return {}
 	var data: Dictionary = data_variant
 	var currency: String = str(data.get("reward_currency", ""))
-	var amount: int = clampi(int(data.get("reward_amount", 0)), 0, 1_000_000_000)
+	var amount: int = clampi(int(data.get("reward_amount", 0)), 0, MAX_SINGLE_REWARD)
 	if ![STAGE_REWARD_COINS, STAGE_REWARD_STARS].has(currency) or amount <= 0:
 		return {}
 	return {
@@ -477,7 +598,7 @@ func claim_pending_single_player_reward(multiplier: int = 1) -> int:
 	if credited_amount <= 0:
 		return 0
 	pending_single_player_reward = {}
-	soft_currency = clampi(soft_currency + credited_amount, 0, 2_000_000_000)
+	soft_currency = clampi(soft_currency + credited_amount, 0, MAX_CURRENCY_BALANCE)
 	soft_currency_changed.emit(soft_currency)
 	save_game()
 	return credited_amount
@@ -596,7 +717,7 @@ func get_soft_currency() -> int:
 	return soft_currency
 
 func get_stars() -> int:
-	stars = clampi(stars, 0, 2_000_000_000)
+	stars = clampi(stars, 0, MAX_CURRENCY_BALANCE)
 	return stars
 
 func get_hearts() -> int:
@@ -693,7 +814,7 @@ func _emit_heart_status_if_changed(force: bool = false) -> void:
 func add_soft_currency(amount: int, persist: bool = true) -> int:
 	if amount <= 0:
 		return get_soft_currency()
-	soft_currency = clampi(soft_currency + amount, 0, 2_000_000_000)
+	soft_currency = clampi(soft_currency + amount, 0, MAX_CURRENCY_BALANCE)
 	soft_currency_changed.emit(soft_currency)
 	if persist:
 		save_game()
@@ -711,7 +832,7 @@ func spend_soft_currency(amount: int, persist: bool = true) -> bool:
 func add_stars(amount: int, persist: bool = true) -> int:
 	if amount <= 0:
 		return get_stars()
-	stars = clampi(stars + amount, 0, 2_000_000_000)
+	stars = clampi(stars + amount, 0, MAX_CURRENCY_BALANCE)
 	stars_changed.emit(stars)
 	if persist:
 		save_game()
