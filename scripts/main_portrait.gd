@@ -11057,33 +11057,10 @@ func _start_single_player_final_reward_transition_deferred(
 		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 		return
 
-	# The final tile stays visible long enough to read the completed chain. Its
-	# regular reward art then crossfades into the authored grand-prize coin pack.
-	var crossfade_tween := transition_pack.create_tween()
-	crossfade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	crossfade_tween.set_parallel(true)
-	crossfade_tween.tween_property(
-		source_coin,
-		"modulate:a",
-		0.0,
-		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
-	)
-	crossfade_tween.tween_property(
-		source_count,
-		"modulate:a",
-		0.0,
-		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
-	)
-	crossfade_tween.tween_property(
-		transition_pack,
-		"modulate:a",
-		1.0,
-		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
-	)
-	await crossfade_tween.finished
-
-	# Grow and move the converted pack into the physical center while the chain
-	# fades out and the hero simply disappears through alpha instead of shrinking.
+	# Move the grand-prize pack immediately after the short chain hold. Crossfade
+	# the regular reward art into it during the flight instead of pausing first.
+	# The chain fades out and the hero simply disappears through alpha instead of
+	# shrinking.
 	# Coins are still only credited after the player chooses the main-menu action;
 	# this phase is presentation-only.
 	if hero_texture != null and is_instance_valid(hero_texture):
@@ -11096,30 +11073,31 @@ func _start_single_player_final_reward_transition_deferred(
 		target_coin_rect,
 		PORTRAIT_FINAL_REWARD_REPLACE_DURATION
 	)
-	move_pack.set_trans(Tween.TRANS_QUAD)
-	move_pack.set_ease(Tween.EASE_OUT)
+	move_pack.set_trans(Tween.TRANS_LINEAR)
+	replace_tween.parallel().tween_property(
+		source_coin,
+		"modulate:a",
+		0.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
+	)
+	replace_tween.parallel().tween_property(
+		source_count,
+		"modulate:a",
+		0.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
+	)
+	replace_tween.parallel().tween_property(
+		transition_pack,
+		"modulate:a",
+		1.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
+	)
 	replace_tween.parallel().tween_property(
 		chain_holder,
 		"modulate:a",
 		0.0,
 		PORTRAIT_FINAL_REWARD_REPLACE_DURATION * 0.72
 	)
-	if background_overlay != null and is_instance_valid(background_overlay):
-		var backdrop_fade := replace_tween.parallel().tween_property(
-			background_overlay,
-			"modulate:a",
-			1.0,
-			PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
-		)
-		backdrop_fade.set_trans(Tween.TRANS_SINE)
-		backdrop_fade.set_ease(Tween.EASE_IN_OUT)
-	if title_panel != null and is_instance_valid(title_panel):
-		replace_tween.parallel().tween_method(
-			Callable(self, "_set_panel_fill_color").bind(title_panel),
-			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR,
-			PORTRAIT_BLUE,
-			PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
-		)
 	if hero_texture != null and is_instance_valid(hero_texture):
 		var hero_fade := replace_tween.parallel().tween_property(
 			hero_texture,
@@ -11129,6 +11107,31 @@ func _start_single_player_final_reward_transition_deferred(
 		)
 		hero_fade.set_trans(Tween.TRANS_QUAD)
 		hero_fade.set_ease(Tween.EASE_IN)
+	# The background transition is intentionally independent: it lasts longer
+	# than the icon flight and must not delay the center bounce after arrival.
+	if (
+		(background_overlay != null and is_instance_valid(background_overlay))
+		or (title_panel != null and is_instance_valid(title_panel))
+	):
+		var backdrop_tween := transition_pack.create_tween()
+		backdrop_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		backdrop_tween.set_parallel(true)
+		if background_overlay != null and is_instance_valid(background_overlay):
+			var backdrop_fade := backdrop_tween.tween_property(
+				background_overlay,
+				"modulate:a",
+				1.0,
+				PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
+			)
+			backdrop_fade.set_trans(Tween.TRANS_SINE)
+			backdrop_fade.set_ease(Tween.EASE_IN_OUT)
+		if title_panel != null and is_instance_valid(title_panel):
+			backdrop_tween.tween_method(
+				Callable(self, "_set_panel_fill_color").bind(title_panel),
+				PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR,
+				PORTRAIT_BLUE,
+				PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
+			)
 	await replace_tween.finished
 
 	if glow != null and is_instance_valid(glow):
