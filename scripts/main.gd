@@ -104,6 +104,7 @@ const FLASH_STAGE_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const STAGE_LONG_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_long_button.gd")
 const LONG_BUTTON_COLOR_ORANGE: int = 0
+const LONG_BUTTON_COLOR_GREEN: int = 1
 const LONG_BUTTON_COLOR_BLUE: int = 2
 const ROUND_BUTTON_COLOR_BLUE: int = 2
 const STAGE_ROUND_BUTTON_SCRIPT: GDScript = preload("res://scripts/ui/stage_round_button.gd")
@@ -924,13 +925,15 @@ func _single_player_next_level_index() -> int:
 
 func _single_player_hides_close_controls(level_index: int) -> bool:
 	return (
-		level_index >= 0
+		!GameState.is_single_player_guided_onboarding_completed()
+		and level_index >= 0
 		and level_index + 1 < SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL
 	)
 
 func _single_player_theme_selection_is_locked(level_index: int) -> bool:
 	return (
-		level_index >= 0
+		!GameState.is_single_player_guided_onboarding_completed()
+		and level_index >= 0
 		and level_index + 1 <= SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL
 	)
 
@@ -959,6 +962,8 @@ func _persist_guided_single_player_theme_selection(
 	})
 
 func _should_auto_resume_guided_single_player() -> bool:
+	if GameState.is_single_player_guided_onboarding_completed():
+		return false
 	if !GameState.has_resumable_single_player_level():
 		return false
 	var level_index: int = GameState.get_resumable_single_player_level_index()
@@ -1820,17 +1825,24 @@ func _purchase_single_player_extra_attempt() -> void:
 	if !GameSession.has_deferred_loss():
 		_remove_single_player_last_chance_popup()
 		return
+	var free_offer: bool = _single_player_extra_attempt_is_free()
 	var purchase_cost: int = _single_player_extra_attempt_cost()
-	if GameState.get_soft_currency() < purchase_cost:
+	if !free_offer and GameState.get_soft_currency() < purchase_cost:
 		_remove_single_player_last_chance_popup()
 		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
 		return
 	single_player_extra_attempt_claim_in_progress = true
-	if !GameState.spend_soft_currency(purchase_cost, false):
+	if !free_offer and !GameState.spend_soft_currency(purchase_cost, false):
 		single_player_extra_attempt_claim_in_progress = false
 		return
 	_remove_single_player_last_chance_popup()
 	_grant_single_player_extra_attempt()
+
+func _single_player_extra_attempt_is_free() -> bool:
+	return (
+		single_player_active_level_index >= 0
+		and single_player_active_level_index < 2
+	)
 
 func _single_player_extra_attempt_cost() -> int:
 	return maxi(single_player_extra_attempt_current_cost, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
@@ -1905,6 +1917,8 @@ func _start_next_single_player_word(level_index: int) -> void:
 	# Advertising is unlocked by the actual start of the configured level, not by
 	# merely opening its theme-selection popup. The call is idempotent for every
 	# subsequent stage and restores the gate correctly for a resumed level.
+	if level_index + 1 >= SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL:
+		GameState.complete_single_player_guided_onboarding(true)
 	GameState.activate_ads_for_level(level_index)
 	if next_slot == _single_player_level_question_slot_index(level_index):
 		_start_single_player_question(level_index, next_slot)
@@ -2749,7 +2763,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and !event.echo:
 		if event.keycode == KEY_ESCAPE:
 			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
-				_decline_single_player_extra_attempt()
+				if !_single_player_extra_attempt_is_free():
+					_decline_single_player_extra_attempt()
 			elif (
 				!get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
 			):

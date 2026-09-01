@@ -184,10 +184,33 @@ def main() -> None:
         main_source, "_should_auto_resume_guided_single_player"
     )
     require(
-        'str(active_session.get("kind", "")) == "theme"' in guided_auto_resume
+        "is_single_player_guided_onboarding_completed" in guided_auto_resume
+        and 'str(active_session.get("kind", "")) == "theme"' in guided_auto_resume
         and "_single_player_theme_selection_is_locked" in guided_auto_resume
         and "_single_player_hides_close_controls" in guided_auto_resume,
         "Startup resume does not distinguish the level-three theme boundary",
+    )
+    for boundary_function in (
+        "_single_player_hides_close_controls",
+        "_single_player_theme_selection_is_locked",
+    ):
+        require(
+            "is_single_player_guided_onboarding_completed" in function_body(
+                main_source, boundary_function
+            ),
+            f"{boundary_function} still restricts play after level 3 has started",
+        )
+    guided_start = function_body(main_source, "_start_next_single_player_word")
+    require(
+        "complete_single_player_guided_onboarding(true)" in guided_start,
+        "Starting level 3 does not permanently finish guided onboarding",
+    )
+    require(
+        '"guided_onboarding_completed": guided_onboarding_completed' in game_state
+        and 'parsed.get(\n\t\t"guided_onboarding_completed",\n\t\tads_unlocked' in game_state
+        and 'str(active_single_player_session.get("kind", "")) == "theme"'
+        in function_body(game_state, "complete_single_player_guided_onboarding"),
+        "Guided completion is not durable or cannot repair the old level-3 popup state",
     )
     guided_home_screen = function_body(portrait, "_show_menu_screen")
     require(
@@ -226,6 +249,47 @@ def main() -> None:
         "A first-two-level gameplay or reward close button is still unconditional",
     )
 
+    free_attempt_offer = function_body(
+        main_source, "_single_player_extra_attempt_is_free"
+    )
+    require(
+        "single_player_active_level_index >= 0" in free_attempt_offer
+        and "single_player_active_level_index < 2" in free_attempt_offer,
+        "Extra-attempt purchases are not free throughout the first two levels",
+    )
+    attempt_purchase = function_body(
+        main_source, "_purchase_single_player_extra_attempt"
+    )
+    require(
+        "!free_offer and GameState.get_soft_currency() < purchase_cost"
+        in attempt_purchase
+        and "!free_offer and !GameState.spend_soft_currency(purchase_cost, false)"
+        in attempt_purchase,
+        "A first-two-level extra-attempt purchase can still spend coins",
+    )
+    attempt_popup = function_body(
+        portrait, "_show_single_player_last_chance_popup"
+    )
+    require(
+        "popup_bottom: float = 503.0 if free_offer else 582.0" in attempt_popup
+        and 'tr("COMMON_FREE") if free_offer else ""' in attempt_popup
+        and "LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE"
+        in attempt_popup
+        and 'purchase_button.set("attention_bounce_enabled", free_offer)'
+        in attempt_popup
+        and "popup_bottom,\n\t\t!free_offer," in attempt_popup
+        and '"",\n\t\t!free_offer\n\t)' in attempt_popup
+        and "if !free_offer:" in attempt_popup,
+        "The free extra-attempt popup is not compact, mandatory, green, and bouncing",
+    )
+    unhandled_input = function_body(main_source, "_unhandled_input")
+    require(
+        'get_nodes_in_group("single_player_last_chance_popup")' in unhandled_input
+        and "if !_single_player_extra_attempt_is_free():\n"
+        "\t\t\t\t\t_decline_single_player_extra_attempt()" in unhandled_input,
+        "The mandatory free extra-attempt popup can still be declined with Back",
+    )
+
     quiz_result = function_body(portrait, "_record_single_player_quiz_result")
     require("defer_final_reward" in quiz_result, "Final quiz reward is still credited early")
     require(
@@ -236,6 +300,44 @@ def main() -> None:
     require(
         "claim_pending_single_player_reward" in final_claim,
         "Final reward is not claimed idempotently",
+    )
+    require(
+        "queue_home_animation" in final_claim
+        and "return credited_reward_amount" in final_claim,
+        "Final reward claim cannot drive an in-place coin animation",
+    )
+    early_final_claim = function_body(
+        portrait, "_play_early_final_reward_coin_claim"
+    )
+    require(
+        "_complete_single_player_final_reward(" in early_final_claim
+        and "_play_single_player_reward_coin_collection(source_visual)"
+        in early_final_claim
+        and "_set_stage_reward_animated_balance" in early_final_claim
+        and "await count_tween.finished" not in early_final_claim,
+        "Early final rewards do not animate their credited coins into the HUD",
+    )
+    final_transition = function_body(
+        portrait, "_start_single_player_final_reward_transition_deferred"
+    )
+    require(
+        "claim_before_actions" in final_transition
+        and "\n\t\t_play_early_final_reward_coin_claim(transition_pack)"
+        in final_transition,
+        "First-two-level coin animation does not start with Continue",
+    )
+    reward_bounce_position = final_transition.index(
+        "await _play_final_reward_pack_bounce"
+    )
+    coin_claim_position = final_transition.index(
+        "_play_early_final_reward_coin_claim"
+    )
+    actions_reveal_position = final_transition.rindex(
+        "_reveal_final_reward_actions"
+    )
+    require(
+        reward_bounce_position < coin_claim_position < actions_reveal_position,
+        "Final coin crediting does not start after prize arrival and with Continue",
     )
     rewarded = function_body(portrait, "_on_portrait_rewarded_action_rewarded")
     rewarded_close = function_body(portrait, "_on_portrait_rewarded_action_closed")
@@ -257,6 +359,14 @@ def main() -> None:
     )
     final_reward_finish = function_body(portrait, "_finish_single_player_final_reward_claim")
     require("show_menu()" in final_reward_finish, "Claimed reward never returns to Home")
+    require(
+        "if next_theme_level_index >= 0:" in final_reward_finish
+        and "_stop_final_reward_continue_attention()" in final_reward_finish
+        and "_portrait_pending_home_reward_amount = 0" in final_reward_finish
+        and "_show_single_player_level_popup(next_theme_level_index)" in final_reward_finish
+        and "\n\t\treturn\n\tshow_menu()" in final_reward_finish,
+        "Early final rewards do not stop Continue attention or still rebuild Home",
+    )
     require(
         'call_deferred("_play_pending_home_reward_animation")' in portrait,
         "Home does not schedule the animated coin delivery",

@@ -719,6 +719,7 @@ var _portrait_final_reward_waiting_for_ad: bool = false
 var _portrait_final_reward_earned_ad_reward: bool = false
 var _portrait_final_reward_ad_close_pending: bool = false
 var _portrait_final_reward_double_button: Control = null
+var _portrait_final_reward_continue_button: Control = null
 var _portrait_rewarded_action: StringName = &""
 var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
@@ -906,6 +907,7 @@ func _clear() -> void:
 	_portrait_game_hint_signature = ""
 	_portrait_game_back_button = null
 	_portrait_final_reward_double_button = null
+	_portrait_final_reward_continue_button = null
 	_stop_portrait_attempts_attention_bounce(true)
 	_portrait_game_attempts_controls.clear()
 	_portrait_game_attempts_value_label = null
@@ -5403,6 +5405,7 @@ func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void
 func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> void:
 	if !GameSession.has_deferred_loss():
 		return
+	var free_offer: bool = _single_player_extra_attempt_is_free()
 	# The final wrong guess immediately updates GameSession, which starts the
 	# mechanical Attempts counter roll. Keep the gameplay screen visible until
 	# that subtraction animation has fully settled, then open the purchase popup.
@@ -5421,29 +5424,37 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		if advance_offer_cost
 		else _single_player_extra_attempt_cost()
 	)
+	if free_offer:
+		purchase_cost = 0
 	var attempt_count: int = _single_player_extra_attempt_count()
 	var animate_attempt_count_increase: bool = (
 		advance_offer_cost and attempt_count > previous_attempt_count
 	)
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
+	var popup_bottom: float = 503.0 if free_offer else 582.0
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
 		"single_player_last_chance_popup",
 		140,
 		close_action,
 		145.0,
-		582.0,
-		true,
+		popup_bottom,
+		!free_offer,
 		Callable(self, "_return_to_single_player_last_chance_from_coin_store"),
 		false
 	)
-	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
+	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
 		rect,
 		tr("EXTRA_ATTEMPTS_TITLE"),
 		close_action,
-		28
+		28,
+		PORTRAIT_BLUE,
+		PORTRAIT_DARK_BLUE,
+		PORTRAIT_ORANGE,
+		"",
+		!free_offer
 	)
 	# Match the life-refill popup: keep the reward art and explanatory copy on a
 	# single light-blue status surface, then present ad and coin choices below it.
@@ -5511,58 +5522,61 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	description_label.clip_text = false
 	description_label.z_index = 11
 
-	var rewarded_attempt_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, 425.0, 300.0, 56.0),
-		Callable(self, "_on_single_player_extra_attempt_ad_pressed"),
-		tr("COMMON_CONTINUE"),
-		18,
-		false,
-		0.32,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_BLUE
-	)
-	rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
-	rewarded_attempt_button.z_index = 16
-	rewarded_attempt_button.visible = _portrait_ads_enabled()
-	var rewarded_ad_icon_texture := AtlasTexture.new()
-	rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
-	rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
-	rewarded_attempt_button.set("icon_texture", rewarded_ad_icon_texture)
-	rewarded_attempt_button.set("icon_stage_size", Vector2(34.0, 28.0))
-	rewarded_attempt_button.set("icon_gap_stage", 9.0)
-	rewarded_attempt_button.set("icon_before_text", true)
-	rewarded_attempt_button.set("icon_shadow_enabled", true)
-	rewarded_attempt_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
-	rewarded_attempt_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
-	if rewarded_attempt_button.has_method("set_color_palette"):
-		rewarded_attempt_button.call(
-			"set_color_palette",
-			PORTRAIT_AD_BADGE_PURPLE,
-			PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
-			PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
+	if !free_offer:
+		var rewarded_attempt_button := _stage_portrait_popup_main_button(
+			Rect2(90.0, 425.0, 300.0, 56.0),
+			Callable(self, "_on_single_player_extra_attempt_ad_pressed"),
+			tr("COMMON_CONTINUE"),
+			18,
+			false,
+			0.32,
+			false,
+			false,
+			false,
+			LONG_BUTTON_COLOR_BLUE
 		)
+		rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
+		rewarded_attempt_button.z_index = 16
+		rewarded_attempt_button.visible = _portrait_ads_enabled()
+		var rewarded_ad_icon_texture := AtlasTexture.new()
+		rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
+		rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
+		rewarded_attempt_button.set("icon_texture", rewarded_ad_icon_texture)
+		rewarded_attempt_button.set("icon_stage_size", Vector2(34.0, 28.0))
+		rewarded_attempt_button.set("icon_gap_stage", 9.0)
+		rewarded_attempt_button.set("icon_before_text", true)
+		rewarded_attempt_button.set("icon_shadow_enabled", true)
+		rewarded_attempt_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
+		rewarded_attempt_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
+		if rewarded_attempt_button.has_method("set_color_palette"):
+			rewarded_attempt_button.call(
+				"set_color_palette",
+				PORTRAIT_AD_BADGE_PURPLE,
+				PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
+				PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
+			)
 
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
 		Callable(self, "_purchase_single_player_extra_attempt"),
-		"",
+		tr("COMMON_FREE") if free_offer else "",
 		18,
 		false,
 		0.32,
 		false,
 		false,
 		false,
-		LONG_BUTTON_COLOR_ORANGE
+		LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE
 	)
 	purchase_button.z_index = 16
-	_stage_portrait_popup_coin_purchase_content(
-		purchase_button,
-		tr("COMMON_CONTINUE"),
-		purchase_cost,
-		_purchase_price_color(purchase_cost)
-	)
+	purchase_button.set("attention_bounce_enabled", free_offer)
+	if !free_offer:
+		_stage_portrait_popup_coin_purchase_content(
+			purchase_button,
+			tr("COMMON_CONTINUE"),
+			purchase_cost,
+			_purchase_price_color(purchase_cost)
+		)
 	content = previous_content
 	if animate_attempt_count_increase:
 		# Keep both purchase choices fully interactive while the offer value animates.
@@ -11188,6 +11202,15 @@ func _enable_final_reward_continue_attention(button: Control) -> void:
 		return
 	button.set("attention_bounce_enabled", true)
 
+func _stop_final_reward_continue_attention() -> void:
+	if (
+		_portrait_final_reward_continue_button == null
+		or !is_instance_valid(_portrait_final_reward_continue_button)
+	):
+		return
+	_portrait_final_reward_continue_button.set_meta(&"attention_after_reveal", false)
+	_portrait_final_reward_continue_button.set("attention_bounce_enabled", false)
+
 func _start_single_player_final_reward_transition_deferred(
 	chain_holder: Control,
 	_hero_mask: Control,
@@ -11203,7 +11226,8 @@ func _start_single_player_final_reward_transition_deferred(
 	target_coin_rect: Rect2,
 	double_button: Control,
 	collect_holder: Control,
-	collect_button: Button
+	collect_button: Button,
+	claim_before_actions: bool
 ) -> void:
 	if transition_pack == null or !is_instance_valid(transition_pack) or !transition_pack.is_inside_tree():
 		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
@@ -11329,6 +11353,8 @@ func _start_single_player_final_reward_transition_deferred(
 				PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 			)
 	await _play_final_reward_pack_bounce(transition_pack)
+	if claim_before_actions:
+		_play_early_final_reward_coin_claim(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
 func _layout_final_reward_theme_pattern(clip_root: Control, motion: Control, mono_texture: Texture2D) -> void:
@@ -11749,30 +11775,60 @@ func _on_final_reward_ad_failed_to_show(_message: String) -> void:
 func _claim_single_player_final_reward() -> void:
 	_complete_single_player_final_reward(1)
 
+func _play_early_final_reward_coin_claim(source_visual: Control) -> void:
+	var previous_balance: int = GameState.get_soft_currency()
+	var credited_reward_amount: int = _complete_single_player_final_reward(
+		1,
+		false,
+		false
+	)
+	if credited_reward_amount <= 0:
+		return
+	var final_balance: int = previous_balance + credited_reward_amount
+	_set_stage_reward_animated_balance(
+		float(previous_balance),
+		GameState.STAGE_REWARD_COINS
+	)
+	_play_single_player_reward_coin_collection(source_visual)
+	var count_tween := create_tween()
+	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var roll := count_tween.tween_method(
+		Callable(self, "_set_stage_reward_animated_balance").bind(
+			GameState.STAGE_REWARD_COINS
+		),
+		float(previous_balance),
+		float(final_balance),
+		_single_player_reward_collection_duration()
+	)
+	roll.set_trans(Tween.TRANS_QUAD)
+	roll.set_ease(Tween.EASE_OUT)
+
 func _claim_single_player_final_reward_and_open_next_theme(
 	next_level_index: int
 ) -> void:
-	if _portrait_final_reward_claim_in_progress:
-		return
-	_complete_single_player_final_reward(1, false)
+	if !_portrait_final_reward_claim_in_progress:
+		_complete_single_player_final_reward(1, false, false)
 	_finish_single_player_final_reward_claim(next_level_index)
 
 func _complete_single_player_final_reward(
 	reward_multiplier: int,
-	present_immediately: bool = true
-) -> void:
+	present_immediately: bool = true,
+	queue_home_animation: bool = true
+) -> int:
 	if _portrait_final_reward_claim_in_progress:
-		return
+		return 0
 	_portrait_final_reward_claim_in_progress = true
 	var credited_reward_amount: int = GameState.claim_pending_single_player_reward(
 		maxi(reward_multiplier, 1)
 	)
-	if credited_reward_amount > 0:
+	if credited_reward_amount > 0 and queue_home_animation:
 		_portrait_pending_home_reward_amount += credited_reward_amount
 	if present_immediately:
 		_finish_single_player_final_reward_claim()
+	return credited_reward_amount
 
 func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) -> void:
+	_stop_final_reward_continue_attention()
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
@@ -11781,11 +11837,15 @@ func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) 
 	game_finished = false
 	last_result_data = {}
 	single_player_active_word_slot = -1
-	show_menu()
 	if next_theme_level_index >= 0:
-		# Both calls complete synchronously in the same frame. Home provides the
-		# normal dimmed backdrop, while the player sees the next theme popup directly.
+		# Levels 1 and 2 continue directly from the final-reward presentation. Keep
+		# that screen alive as the dimmed backdrop instead of briefly rebuilding Home.
+		# The balance label has already been updated by GameState, so this reward must
+		# not be replayed later as a delayed Home collection animation.
+		_portrait_pending_home_reward_amount = 0
 		_show_single_player_level_popup(next_theme_level_index)
+		return
+	show_menu()
 
 func _set_home_reward_animated_balance(value: float) -> void:
 	var balance_text: String = _soft_currency_balance_text(int(round(value)))
@@ -12359,6 +12419,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				LONG_BUTTON_COLOR_ORANGE
 			)
 			final_action_button.name = "FinalRewardContinueButton"
+			_portrait_final_reward_continue_button = final_action_button
 			final_action_button.set("attention_bounce_enabled", false)
 			final_action_button.set_meta(
 				&"attention_after_reveal",
@@ -12386,7 +12447,8 @@ func _show_single_player_reward_chain_screen() -> void:
 			target_coin_rect,
 			final_action_button,
 			collect_holder,
-			collect_button
+			collect_button,
+			opens_next_theme_directly and !_portrait_ads_enabled()
 		)
 	else:
 		# Put the reward CTA in the same bottom-attached coordinate space as the

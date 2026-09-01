@@ -98,6 +98,7 @@ var heart_recovery_at: int = 0
 var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
 var coin_refill_ad_cooldown_until: int = 0
 var ads_unlocked: bool = false
+var guided_onboarding_completed: bool = false
 var interstitial_active_elapsed_seconds: float = 0.0
 var accepted_legal_documents_version: int = 0
 var _heart_tick_timer: Timer = null
@@ -168,6 +169,21 @@ func activate_ads_for_level(level_index: int, persist: bool = true) -> bool:
 		return ads_unlocked
 	ads_unlocked = true
 	interstitial_active_elapsed_seconds = 0.0
+	if persist:
+		save_game()
+	return true
+
+func is_single_player_guided_onboarding_completed() -> bool:
+	return guided_onboarding_completed
+
+func complete_single_player_guided_onboarding(persist: bool = true) -> bool:
+	if guided_onboarding_completed:
+		return false
+	guided_onboarding_completed = true
+	# A theme snapshot only exists while the mandatory first-session popup is
+	# active. Once level 3 actually starts, it must never force that popup again.
+	if str(active_single_player_session.get("kind", "")) == "theme":
+		active_single_player_session = {}
 	if persist:
 		save_game()
 	return true
@@ -278,6 +294,20 @@ func load_game() -> void:
 	_load_hearts_from_save(parsed)
 	_load_coin_refill_ad_state_from_save(parsed)
 	ads_unlocked = bool(parsed.get("ads_unlocked", false))
+	var guided_state_was_missing: bool = !parsed.has("guided_onboarding_completed")
+	# Existing development saves already record the real start of level 3 by
+	# unlocking ads. Reuse that durable fact to repair the old forced-popup state.
+	guided_onboarding_completed = bool(parsed.get(
+		"guided_onboarding_completed",
+		ads_unlocked
+	))
+	var stale_guided_theme_session_removed: bool = false
+	if (
+		guided_onboarding_completed
+		and str(active_single_player_session.get("kind", "")) == "theme"
+	):
+		active_single_player_session = {}
+		stale_guided_theme_session_removed = true
 	interstitial_active_elapsed_seconds = clampf(
 		float(parsed.get("interstitial_active_elapsed_seconds", 0.0)),
 		0.0,
@@ -285,7 +315,7 @@ func load_game() -> void:
 	)
 	_normalize_single_player_buckets()
 
-	if loaded_from_backup:
+	if loaded_from_backup or guided_state_was_missing or stale_guided_theme_session_removed:
 		save_game()
 
 func _read_save_dictionary(path: String) -> Dictionary:
@@ -386,6 +416,7 @@ func save_game() -> bool:
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
 		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until,
 		"ads_unlocked": ads_unlocked,
+		"guided_onboarding_completed": guided_onboarding_completed,
 		"interstitial_active_elapsed_seconds": interstitial_active_elapsed_seconds,
 		"accepted_legal_documents_version": accepted_legal_documents_version,
 	}
