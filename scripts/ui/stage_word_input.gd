@@ -25,6 +25,7 @@ const WORD_BOUNCE_START_SCALE := Vector2(0.58, 0.58)
 const WORD_BOUNCE_PEAK_SCALE := Vector2(1.24, 1.24)
 const WORD_BOUNCE_GROW_DURATION: float = 0.18
 const WORD_BOUNCE_SETTLE_DURATION: float = 0.24
+const VIRTUAL_KEYBOARD_POLL_INTERVAL: float = 0.05
 
 var max_input_length: int = 15
 var input_font_size: int = 34
@@ -46,6 +47,7 @@ var _visual_root: Control = null
 var _has_input_focus: bool = false
 var _validation_toast: Control = null
 var _word_bounce_tweens: Array[Tween] = []
+var _virtual_keyboard_poll_elapsed: float = VIRTUAL_KEYBOARD_POLL_INTERVAL
 
 func configure(initial_text: String, maximum_length: int = 15, font_size: int = 34) -> void:
 	max_input_length = maxi(maximum_length, 1)
@@ -109,6 +111,17 @@ func _play_letter_bounce_from_slot(first_slot_index: int) -> void:
 		settle_tweener.set_trans(Tween.TRANS_BACK)
 		settle_tweener.set_ease(Tween.EASE_OUT)
 		_word_bounce_tweens.append(bounce_tween)
+		bounce_tween.finished.connect(
+			_prune_finished_word_bounce_tweens,
+			CONNECT_ONE_SHOT
+		)
+
+func _prune_finished_word_bounce_tweens() -> void:
+	var active_tweens: Array[Tween] = []
+	for bounce_tween: Tween in _word_bounce_tweens:
+		if bounce_tween != null and bounce_tween.is_valid() and bounce_tween.is_running():
+			active_tweens.append(bounce_tween)
+	_word_bounce_tweens = active_tweens
 
 func show_validation_toast(message_key: StringName, is_success: bool) -> void:
 	_ensure_nodes()
@@ -133,7 +146,14 @@ func _exit_tree() -> void:
 	_word_bounce_tweens.clear()
 	super._exit_tree()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_virtual_keyboard_poll_elapsed += maxf(delta, 0.0)
+	if _virtual_keyboard_poll_elapsed < VIRTUAL_KEYBOARD_POLL_INTERVAL:
+		return
+	_virtual_keyboard_poll_elapsed = fposmod(
+		_virtual_keyboard_poll_elapsed,
+		VIRTUAL_KEYBOARD_POLL_INTERVAL
+	)
 	_sync_to_stage()
 
 func _sync_to_stage() -> void:
@@ -231,6 +251,7 @@ func _on_line_edit_text_submitted(value: String) -> void:
 
 func _on_focus_entered() -> void:
 	_has_input_focus = true
+	_virtual_keyboard_poll_elapsed = VIRTUAL_KEYBOARD_POLL_INTERVAL
 	set_process(avoid_virtual_keyboard)
 	_move_caret_to_end()
 	_rebuild_visuals()

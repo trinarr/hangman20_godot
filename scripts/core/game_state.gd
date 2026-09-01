@@ -147,28 +147,43 @@ func _ready() -> void:
 	add_child(_heart_tick_timer)
 	_heart_tick_timer.start()
 	_emit_heart_status_if_changed(true)
+	_sync_interstitial_process_state()
 
 func _process(delta: float) -> void:
-	if !ads_unlocked or !_app_in_foreground or _fullscreen_ad_active:
-		return
 	interstitial_active_elapsed_seconds = minf(
 		interstitial_active_elapsed_seconds + maxf(delta, 0.0),
 		INTERSTITIAL_INTERVAL_SECONDS
+	)
+	if interstitial_active_elapsed_seconds >= INTERSTITIAL_INTERVAL_SECONDS:
+		set_process(false)
+
+func _sync_interstitial_process_state() -> void:
+	# The interstitial cooldown is the only state that needs an idle callback.
+	# Stop dispatching `_process` while ads are locked, the application is paused,
+	# a fullscreen ad is visible, or the cooldown has already completed.
+	set_process(
+		ads_unlocked
+		and _app_in_foreground
+		and !_fullscreen_ad_active
+		and interstitial_active_elapsed_seconds < INTERSTITIAL_INTERVAL_SECONDS
 	)
 
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED:
 			_app_in_foreground = false
+			_sync_interstitial_process_state()
 			save_game()
 		NOTIFICATION_APPLICATION_RESUMED:
 			_app_in_foreground = true
+			_sync_interstitial_process_state()
 
 func activate_ads_for_level(level_index: int, persist: bool = true) -> bool:
 	if ads_unlocked or level_index + 1 < ADS_UNLOCK_LEVEL:
 		return ads_unlocked
 	ads_unlocked = true
 	interstitial_active_elapsed_seconds = 0.0
+	_sync_interstitial_process_state()
 	if persist:
 		save_game()
 	return true
@@ -201,11 +216,13 @@ func reset_interstitial_timer(persist: bool = true) -> void:
 	if !ads_unlocked:
 		return
 	interstitial_active_elapsed_seconds = 0.0
+	_sync_interstitial_process_state()
 	if persist:
 		save_game()
 
 func set_fullscreen_ad_active(active: bool) -> void:
 	_fullscreen_ad_active = active
+	_sync_interstitial_process_state()
 
 func get_interstitial_remaining_seconds() -> float:
 	if !ads_unlocked:

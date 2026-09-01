@@ -83,9 +83,11 @@ def main() -> None:
     project = read("project.godot")
     scene = read("scenes/Main.tscn")
     database = read("scripts/core/database.gd")
+    game_state = read("scripts/core/game_state.gd")
     main_source = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     symbol = read("scripts/ui/flash_stage_symbol.gd")
+    word_input = read("scripts/ui/stage_word_input.gd")
     cache = read("scripts/core/theme_asset_cache.gd")
 
     require('run/main_scene="res://scenes/Main.tscn"' in project, "Main scene must use a stable path")
@@ -100,6 +102,28 @@ def main() -> None:
     )
     require("THEME_ASSET_CACHE.prewarm()" in main_source, "Theme prewarm is missing")
     require("const COLOR_ICON_PATHS := {" in cache and "const MONO_ICON_PATHS := {" in cache, "Lazy theme catalogs are missing")
+    require(
+        "func _sync_interstitial_process_state()" in game_state
+        and game_state.count("_sync_interstitial_process_state()") >= 6
+        and "if interstitial_active_elapsed_seconds >= INTERSTITIAL_INTERVAL_SECONDS:\n\t\tset_process(false)" in game_state,
+        "Interstitial cooldown must disable idle processing whenever it is inactive or complete",
+    )
+    require(
+        "_playback_player.play_section(" in symbol
+        and "_playback_player.seek(_playback_loop_position, true)" not in symbol
+        and "_playback_player.pause()" not in symbol,
+        "Hero loop must use native section playback instead of seeking the imported hierarchy every frame",
+    )
+    require(
+        "func _prune_finished_word_bounce_tweens()" in word_input
+        and "bounce_tween.finished.connect(\n\t\t\t_prune_finished_word_bounce_tweens," in word_input,
+        "Completed word-bounce tweens must be released immediately",
+    )
+    require(
+        "const VIRTUAL_KEYBOARD_POLL_INTERVAL: float = 0.05" in word_input
+        and "_virtual_keyboard_poll_elapsed < VIRTUAL_KEYBOARD_POLL_INTERVAL" in word_input,
+        "Virtual-keyboard geometry polling must stay throttled",
+    )
     require("_refresh_quiz_question_in_place()" in portrait, "Quiz question reuse is missing")
     require("func show_quiz_theme_select()" in portrait, "Quiz theme screen was removed")
     require("func show_theme_select()" in portrait, "Hangman theme screen was removed")

@@ -138,6 +138,9 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if get_viewport() != null and get_viewport().size_changed.is_connected(_sync_to_stage):
 		get_viewport().size_changed.disconnect(_sync_to_stage)
+	_pending_symbol_path = ""
+	_pending_playback.clear()
+	_stop_playback_state()
 
 func _reload_symbol() -> void:
 	_stop_playback_state()
@@ -418,10 +421,10 @@ func play_nested_loop(root_time: float, nested_start_time: float, nested_end_tim
 	_play_nested(root_time, nested_start_time, nested_end_time, playback_speed_scale, true, resolved_initial_time)
 
 func get_nested_playback_position() -> float:
-	if _playback_loop and _playback_loop_position >= 0.0:
-		return _playback_loop_position
 	if _playback_player != null and _playback_player.current_animation == "default":
 		return _playback_player.current_animation_position
+	if _playback_loop and _playback_loop_position >= 0.0:
+		return _playback_loop_position
 	return maxf(nested_animation_time, 0.0)
 
 func _play_nested(root_time: float, nested_start_time: float, nested_end_time: float, playback_speed_scale: float, should_loop: bool, initial_time: float) -> void:
@@ -471,18 +474,21 @@ func _play_nested(root_time: float, nested_start_time: float, nested_end_time: f
 	var playback_initial_time: float = clampf(initial_time, range_start, range_end)
 	if should_loop and playback_initial_time + 0.0005 >= range_end:
 		playback_initial_time = range_start
-	_playback_player.speed_scale = _playback_speed_scale
-	_playback_player.play("default")
-	_playback_player.seek(playback_initial_time, true)
+	_playback_player.play_section(
+		"default",
+		playback_initial_time,
+		_playback_end_time,
+		-1.0,
+		_playback_speed_scale
+	)
 	if should_loop:
-		# Imported Flash clips are not marked as looping Godot animations. Drive
-		# their terminal cycle explicitly so the last frame cannot stop playback
-		# before the original hanging/swaying animation wraps to its first frame.
+		# Imported Flash clips are not marked as looping Godot animations. Let the
+		# AnimationPlayer advance the section natively and restart only at its end;
+		# seeking and pausing the full imported hierarchy every frame is expensive.
 		_playback_loop_position = playback_initial_time
-		_playback_player.pause()
 	set_process(true)
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _pending_symbol_path != "":
 		_poll_pending_hero_pose()
 		if _pending_symbol_path != "":
@@ -495,26 +501,30 @@ func _process(delta: float) -> void:
 		if loop_duration <= 0.0005:
 			_stop_playback_state()
 			return
-		_playback_loop_position = _playback_start_time + fposmod(
-			_playback_loop_position - _playback_start_time + delta * _playback_speed_scale,
-			loop_duration
-		)
 		if _playback_player.current_animation != "default":
-			_playback_player.play("default")
-		_playback_player.seek(_playback_loop_position, true)
-		_playback_player.pause()
-		return
-	if _playback_player.current_animation != "default":
-		if _playback_loop:
 			_restart_nested_loop()
 			return
+		var current_position: float = _playback_player.current_animation_position
+		_playback_loop_position = current_position
+		if (
+			!_playback_player.is_playing()
+			or current_position + 0.0005 >= _playback_end_time
+		):
+			var overflow: float = maxf(current_position - _playback_end_time, 0.0)
+			var restart_position: float = _playback_start_time + fposmod(
+				overflow,
+				loop_duration
+			)
+			_restart_nested_loop(restart_position)
+		return
+	if _playback_player.current_animation != "default":
 		_stop_playback_state()
 		emit_signal("playback_finished")
 		return
-	if _playback_player.current_animation_position + 0.0005 >= _playback_end_time:
-		if _playback_loop:
-			_restart_nested_loop()
-			return
+	if (
+		!_playback_player.is_playing()
+		or _playback_player.current_animation_position + 0.0005 >= _playback_end_time
+	):
 		_playback_player.seek(_playback_end_time, true)
 		_playback_player.stop(true)
 		if _playback_nested_time >= 0.0:
@@ -525,12 +535,22 @@ func _process(delta: float) -> void:
 		_stop_playback_state()
 		emit_signal("playback_finished")
 
-func _restart_nested_loop() -> void:
+func _restart_nested_loop(restart_position: float = -1.0) -> void:
 	if _playback_player == null:
 		return
-	_playback_player.speed_scale = _playback_speed_scale
-	_playback_player.play("default")
-	_playback_player.seek(_playback_start_time, true)
+	var resolved_position: float = (
+		_playback_start_time
+		if restart_position < _playback_start_time
+		else clampf(restart_position, _playback_start_time, _playback_end_time)
+	)
+	_playback_loop_position = resolved_position
+	_playback_player.play_section(
+		"default",
+		resolved_position,
+		_playback_end_time,
+		-1.0,
+		_playback_speed_scale
+	)
 
 func _stop_playback_state() -> void:
 	if _playback_player != null:
