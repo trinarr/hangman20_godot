@@ -362,16 +362,22 @@ var PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION: float = PORTRAIT_GAME_DES
 	"timings.animations.final_reward.pattern_move_seconds", 22.17
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.icon_peak_scale", 1.22
+	"timings.animations.currency_reward.icon_peak_scale", 1.05
 )
 var PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.counter_peak_scale", 1.06
+	"timings.animations.currency_reward.counter_peak_scale", 1.10
+)
+var PORTRAIT_CURRENCY_COUNTER_REWARD_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
+	"timings.animations.currency_reward.counter_grow_seconds", 0.14
+)
+var PORTRAIT_CURRENCY_COUNTER_REWARD_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
+	"timings.animations.currency_reward.counter_settle_seconds", 0.16
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.grow_seconds", 0.035
+	"timings.animations.currency_reward.icon_bounce_grow_seconds", 0.035
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.settle_seconds", 0.050
+	"timings.animations.currency_reward.icon_bounce_settle_seconds", 0.05
 )
 var PORTRAIT_HINT_COUNTER_ROLL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.hint.counter_roll_seconds", 0.18
@@ -1672,22 +1678,20 @@ func _set_currency_counter_pressed(
 	scale_tweener.set_ease(Tween.EASE_OUT)
 	counter_visual.set_meta(&"press_tween", press_tween)
 
-func _bounce_portrait_currency_counter() -> void:
-	_bounce_portrait_resource_counter(
-		_portrait_currency_coin_icon_visual,
-		_portrait_currency_counter_visual
-	)
-
-func _bounce_portrait_star_counter() -> void:
-	_bounce_portrait_resource_counter(
-		_portrait_star_icon_visual,
-		_portrait_star_counter_visual
-	)
-
-func _bounce_portrait_resource_counter(
-	icon_visual: Control,
-	counter_visual: Control
+func _set_portrait_resource_counter_collection_active(
+	reward_currency: String,
+	active: bool
 ) -> void:
+	var icon_visual: Control = (
+		_portrait_star_icon_visual
+		if reward_currency == GameState.STAGE_REWARD_STARS
+		else _portrait_currency_coin_icon_visual
+	)
+	var counter_visual: Control = (
+		_portrait_star_counter_visual
+		if reward_currency == GameState.STAGE_REWARD_STARS
+		else _portrait_currency_counter_visual
+	)
 	if (
 		icon_visual == null
 		or !is_instance_valid(icon_visual)
@@ -1696,9 +1700,6 @@ func _bounce_portrait_resource_counter(
 		return
 	var resource_icon: Control = icon_visual
 	resource_icon.pivot_offset = Vector2.ZERO
-	var previous_tween: Tween = resource_icon.get_meta(&"reward_counter_bounce_tween", null) as Tween
-	if previous_tween != null and previous_tween.is_valid():
-		previous_tween.kill()
 	var rest_scale: Vector2 = resource_icon.get_meta(&"reward_icon_rest_scale", Vector2.ZERO)
 	var rest_position: Vector2 = resource_icon.position
 	if rest_scale == Vector2.ZERO:
@@ -1710,23 +1711,13 @@ func _bounce_portrait_resource_counter(
 		rest_position = resource_icon.get_meta(&"reward_icon_rest_position", resource_icon.position)
 	else:
 		resource_icon.set_meta(&"reward_icon_rest_position", rest_position)
-	# FlashStageTexture is authored with a top-left pivot. Changing pivot_offset on
-	# the live stage node shifts its apparent position because the node already has
-	# the adaptive fit scale applied. Keep the original pivot untouched and
-	# compensate position while scaling so the visual center stays perfectly fixed.
-	resource_icon.scale = rest_scale
-	resource_icon.position = rest_position
-	var peak_scale: Vector2 = rest_scale * PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE
-	var peak_position: Vector2 = rest_position - resource_icon.size * (peak_scale - rest_scale) * 0.5
-	var bounce_tween := resource_icon.create_tween()
-	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var counter_can_bounce: bool = (
+	var counter_can_scale: bool = (
 		counter_visual != null
 		and is_instance_valid(counter_visual)
 		and counter_visual.is_inside_tree()
 	)
 	var counter_rest_scale := Vector2.ONE
-	if counter_can_bounce:
+	if counter_can_scale:
 		counter_rest_scale = counter_visual.get_meta(
 			&"reward_counter_rest_scale",
 			Vector2.ZERO
@@ -1736,58 +1727,160 @@ func _bounce_portrait_resource_counter(
 			if counter_rest_scale == Vector2.ZERO:
 				counter_rest_scale = Vector2.ONE
 			counter_visual.set_meta(&"reward_counter_rest_scale", counter_rest_scale)
-		counter_visual.scale = counter_rest_scale
-	var grow_scale := bounce_tween.tween_property(
+		var previous_counter_tween: Tween = counter_visual.get_meta(
+			&"reward_counter_hold_tween",
+			null
+		) as Tween
+		if previous_counter_tween != null and previous_counter_tween.is_valid():
+			previous_counter_tween.kill()
+		counter_visual.set_meta(&"reward_counter_collection_active", active)
+	var previous_icon_hold_tween: Tween = resource_icon.get_meta(
+		&"reward_counter_icon_hold_tween",
+		null
+	) as Tween
+	if previous_icon_hold_tween != null and previous_icon_hold_tween.is_valid():
+		previous_icon_hold_tween.kill()
+	if !active:
+		var previous_impact_tween: Tween = resource_icon.get_meta(
+			&"reward_icon_impact_tween",
+			null
+		) as Tween
+		if previous_impact_tween != null and previous_impact_tween.is_valid():
+			previous_impact_tween.kill()
+
+	# The icon is a child of the complete counter visual. While the plate is held
+	# enlarged, counteract that parent transform so the icon keeps its normal
+	# visible size between impacts. Impact bounces are handled separately below.
+	var counter_peak: float = maxf(
+		PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE,
+		0.001
+	)
+	var target_icon_scale: Vector2 = rest_scale / counter_peak if active else rest_scale
+	var target_icon_position: Vector2 = (
+		rest_position - resource_icon.size * (target_icon_scale - rest_scale) * 0.5
+	)
+	var duration: float = (
+		PORTRAIT_CURRENCY_COUNTER_REWARD_GROW_DURATION
+		if active
+		else PORTRAIT_CURRENCY_COUNTER_REWARD_SETTLE_DURATION
+	)
+	var collection_tween := resource_icon.create_tween()
+	collection_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var icon_scale_tweener := collection_tween.tween_property(
 		resource_icon,
 		"scale",
-		peak_scale,
+		target_icon_scale,
+		duration
+	)
+	icon_scale_tweener.set_trans(Tween.TRANS_SINE)
+	icon_scale_tweener.set_ease(Tween.EASE_IN_OUT)
+	var icon_position_tweener := collection_tween.parallel().tween_property(
+		resource_icon,
+		"position",
+		target_icon_position,
+		duration
+	)
+	icon_position_tweener.set_trans(Tween.TRANS_SINE)
+	icon_position_tweener.set_ease(Tween.EASE_IN_OUT)
+	resource_icon.set_meta(&"reward_counter_icon_hold_tween", collection_tween)
+	if counter_can_scale:
+		var target_counter_scale: Vector2 = (
+			counter_rest_scale * PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE
+			if active
+			else counter_rest_scale
+		)
+		var counter_scale_tweener := collection_tween.parallel().tween_property(
+			counter_visual,
+			"scale",
+			target_counter_scale,
+			duration
+		)
+		counter_scale_tweener.set_trans(Tween.TRANS_SINE)
+		counter_scale_tweener.set_ease(Tween.EASE_IN_OUT)
+		counter_visual.set_meta(&"reward_counter_hold_tween", collection_tween)
+
+func _bounce_portrait_resource_counter_icon(reward_currency: String) -> void:
+	var resource_icon: Control = (
+		_portrait_star_icon_visual
+		if reward_currency == GameState.STAGE_REWARD_STARS
+		else _portrait_currency_coin_icon_visual
+	)
+	var counter_visual: Control = (
+		_portrait_star_counter_visual
+		if reward_currency == GameState.STAGE_REWARD_STARS
+		else _portrait_currency_counter_visual
+	)
+	if (
+		resource_icon == null
+		or !is_instance_valid(resource_icon)
+		or !resource_icon.is_inside_tree()
+	):
+		return
+	var previous_tween: Tween = resource_icon.get_meta(&"reward_icon_impact_tween", null) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	var rest_scale: Vector2 = resource_icon.get_meta(&"reward_icon_rest_scale", Vector2.ONE)
+	var rest_position: Vector2 = resource_icon.get_meta(
+		&"reward_icon_rest_position",
+		resource_icon.position
+	)
+	var counter_is_held: bool = (
+		counter_visual != null
+		and is_instance_valid(counter_visual)
+		and bool(counter_visual.get_meta(&"reward_counter_collection_active", false))
+	)
+	var parent_scale: float = (
+		maxf(PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE, 0.001)
+		if counter_is_held
+		else 1.0
+	)
+	var local_rest_scale: Vector2 = rest_scale / parent_scale
+	var local_peak_scale: Vector2 = (
+		rest_scale * PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE / parent_scale
+	)
+	var local_rest_position: Vector2 = (
+		rest_position - resource_icon.size * (local_rest_scale - rest_scale) * 0.5
+	)
+	var local_peak_position: Vector2 = (
+		rest_position - resource_icon.size * (local_peak_scale - rest_scale) * 0.5
+	)
+	resource_icon.scale = local_rest_scale
+	resource_icon.position = local_rest_position
+	var impact_tween := resource_icon.create_tween()
+	impact_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow_scale := impact_tween.tween_property(
+		resource_icon,
+		"scale",
+		local_peak_scale,
 		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION
 	)
 	grow_scale.set_trans(Tween.TRANS_BACK)
 	grow_scale.set_ease(Tween.EASE_OUT)
-	var grow_position := bounce_tween.parallel().tween_property(
+	var grow_position := impact_tween.parallel().tween_property(
 		resource_icon,
 		"position",
-		peak_position,
+		local_peak_position,
 		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION
 	)
 	grow_position.set_trans(Tween.TRANS_BACK)
 	grow_position.set_ease(Tween.EASE_OUT)
-	if counter_can_bounce:
-		var counter_grow := bounce_tween.parallel().tween_property(
-			counter_visual,
-			"scale",
-			counter_rest_scale * PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE,
-			PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION
-		)
-		counter_grow.set_trans(Tween.TRANS_BACK)
-		counter_grow.set_ease(Tween.EASE_OUT)
-	var settle_scale := bounce_tween.tween_property(
+	var settle_scale := impact_tween.tween_property(
 		resource_icon,
 		"scale",
-		rest_scale,
+		local_rest_scale,
 		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION
 	)
 	settle_scale.set_trans(Tween.TRANS_BOUNCE)
 	settle_scale.set_ease(Tween.EASE_OUT)
-	var settle_position := bounce_tween.parallel().tween_property(
+	var settle_position := impact_tween.parallel().tween_property(
 		resource_icon,
 		"position",
-		rest_position,
+		local_rest_position,
 		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION
 	)
 	settle_position.set_trans(Tween.TRANS_BOUNCE)
 	settle_position.set_ease(Tween.EASE_OUT)
-	if counter_can_bounce:
-		var counter_settle := bounce_tween.parallel().tween_property(
-			counter_visual,
-			"scale",
-			counter_rest_scale,
-			PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION
-		)
-		counter_settle.set_trans(Tween.TRANS_BOUNCE)
-		counter_settle.set_ease(Tween.EASE_OUT)
-	resource_icon.set_meta(&"reward_counter_bounce_tween", bounce_tween)
+	resource_icon.set_meta(&"reward_icon_impact_tween", impact_tween)
 
 func _apply_portrait_standard_text_outline(target: Control, alpha: float = 0.82, outline_size: int = 2) -> void:
 	if target == null or !is_instance_valid(target):
@@ -10109,19 +10202,14 @@ func _play_single_player_reward_resource_collection(
 		if reward_currency == GameState.STAGE_REWARD_STARS
 		else SOFT_CURRENCY_COIN_TEXTURE
 	)
-	var bounce_callback := Callable(
-		self,
-		(
-			"_bounce_portrait_star_counter"
-			if reward_currency == GameState.STAGE_REWARD_STARS
-			else "_bounce_portrait_currency_counter"
-		)
-	)
 	var source_viewport_center: Vector2 = _control_center_in_control_space(source_visual, overlay)
 	var target_center: Vector2 = _control_center_in_control_space(
 		destination_icon,
 		overlay
 	)
+	# Grow the destination once and keep it at peak scale for the complete stream.
+	# Repeated impact bounces briefly returned the counter to rest between units.
+	_set_portrait_resource_counter_collection_active(reward_currency, true)
 	for resource_index in range(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT):
 		var resource_icon := TextureRect.new()
 		resource_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -10157,10 +10245,20 @@ func _play_single_player_reward_resource_collection(
 		var fly := tween.tween_property(resource_icon, "position", flight_end, PORTRAIT_SINGLE_REWARD_FLY_DURATION)
 		fly.set_trans(Tween.TRANS_CUBIC)
 		fly.set_ease(Tween.EASE_IN)
-		# Each copy is absorbed by the matching HUD icon. Pulse that resource at the
-		# moment of impact, then remove the flying copy immediately.
-		tween.tween_callback(bounce_callback)
+		var icon_bounce_callback := Callable(
+			self,
+			"_bounce_portrait_resource_counter_icon"
+		).bind(reward_currency)
+		tween.tween_callback(icon_bounce_callback)
 		if resource_index == PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1:
+			# Let the last icon impact finish before the plate returns to rest.
+			tween.tween_interval(_portrait_resource_icon_bounce_duration())
+			tween.tween_callback(
+				Callable(self, "_set_portrait_resource_counter_collection_active").bind(
+					reward_currency,
+					false
+				)
+			)
 			# The last impact marks the end of the visible crediting sequence. Only
 			# now make Continue available; the later overlay cleanup is technical.
 			tween.tween_callback(
@@ -10172,24 +10270,33 @@ func _play_single_player_reward_resource_collection(
 				tween.tween_callback(finished_callback)
 		tween.tween_callback(Callable(resource_icon, "queue_free"))
 
-	var cleanup_delay: float = (
-		PORTRAIT_SINGLE_REWARD_FLY_START_DELAY
-		+ float(maxi(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1, 0)) * PORTRAIT_SINGLE_REWARD_FLY_STAGGER
-		+ 0.10
-		+ PORTRAIT_SINGLE_REWARD_FLY_DURATION
-		+ 0.12
-	)
+	var cleanup_delay: float = _single_player_reward_collection_duration() + 0.04
 	var cleanup_tween := overlay.create_tween()
 	cleanup_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	cleanup_tween.tween_interval(cleanup_delay)
 	cleanup_tween.tween_callback(Callable(overlay_layer, "queue_free"))
 
 func _single_player_reward_collection_duration() -> float:
+	return _single_player_reward_flight_duration() + _portrait_resource_collection_tail_duration()
+
+func _single_player_reward_flight_duration() -> float:
 	return (
 		PORTRAIT_SINGLE_REWARD_FLY_START_DELAY
 		+ float(maxi(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1, 0)) * PORTRAIT_SINGLE_REWARD_FLY_STAGGER
 		+ 0.10
 		+ PORTRAIT_SINGLE_REWARD_FLY_DURATION
+	)
+
+func _portrait_resource_icon_bounce_duration() -> float:
+	return (
+		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION
+		+ PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION
+	)
+
+func _portrait_resource_collection_tail_duration() -> float:
+	return (
+		_portrait_resource_icon_bounce_duration()
+		+ PORTRAIT_CURRENCY_COUNTER_REWARD_SETTLE_DURATION
 	)
 
 func _set_stage_reward_animated_balance(value: float, reward_currency: String) -> void:
@@ -10209,7 +10316,7 @@ func _single_player_reward_check_reveal_delay() -> float:
 	# resource reaching the HUD. The overlay cleanup tail is not part of the flight.
 	return lerpf(
 		PORTRAIT_SINGLE_REWARD_FLY_START_DELAY,
-		_single_player_reward_collection_duration(),
+		_single_player_reward_flight_duration(),
 		0.5
 	)
 

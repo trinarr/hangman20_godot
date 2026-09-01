@@ -1616,8 +1616,14 @@ func _stage_single_player_theme_card(
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
 		word_badge_label.z_index = 13
-		var badge_effect_color: Color = UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
-		BUTTON_TEXT_STYLE_SCRIPT.apply(word_badge_label, badge_effect_color, badge_effect_color)
+		# Word-count badges sit directly over detailed theme art. Keep their text
+		# completely flat so no inherited outline or shadow reads as a second badge.
+		word_badge_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+		word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
+		word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
+		word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+		word_badge_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+		word_badge_label.add_theme_constant_override("outline_size", 0)
 
 	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 	var title_font_size: int = 20 if theme_name.length() > 15 else 26

@@ -168,6 +168,22 @@ def main() -> None:
     require(int(resolve(config, "gameplay.max_mistakes")) > 0, "Maximum mistakes must be positive")
     require(int(resolve(config, "economy.extra_attempts.count_step_interval")) > 0, "Attempt interval must be positive")
     require(int(resolve(config, "economy.maximum_balance")) > 0, "Maximum balance must be positive")
+    currency_icon_peak = float(resolve(config, "timings.animations.currency_reward.icon_peak_scale"))
+    currency_counter_peak = float(resolve(config, "timings.animations.currency_reward.counter_peak_scale"))
+    require(
+        1.0 < currency_icon_peak < currency_counter_peak,
+        "Currency icon must grow less than its parent counter",
+    )
+    require(
+        float(resolve(config, "timings.animations.currency_reward.counter_grow_seconds")) >= 0.1
+        and float(resolve(config, "timings.animations.currency_reward.counter_settle_seconds")) >= 0.1,
+        "Currency counter scale transitions are too abrupt",
+    )
+    require(
+        0.0 < float(resolve(config, "timings.animations.currency_reward.icon_bounce_grow_seconds")) < 0.1
+        and 0.0 < float(resolve(config, "timings.animations.currency_reward.icon_bounce_settle_seconds")) < 0.1,
+        "Currency icon impact bounces must stay short and responsive",
+    )
 
     def validate_numbers(value: Any, path: str = "") -> None:
         if isinstance(value, dict):
@@ -206,6 +222,13 @@ def main() -> None:
         "PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS" in portrait_source
         and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in portrait_source,
         "Gameplay timers are not connected to the game-design config",
+    )
+    require(
+        'set_meta(&"reward_counter_collection_active", active)' in portrait_source
+        and "_bounce_portrait_resource_counter_icon" in portrait_source
+        and "counter_scale_tweener.set_trans(Tween.TRANS_SINE)" in portrait_source
+        and "icon_bounce_callback" in portrait_source,
+        "Currency plate hold and per-impact icon bounces are not connected",
     )
 
     print(

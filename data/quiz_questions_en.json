@@ -19,7 +19,7 @@
     {"id": 15, "theme_id": 1, "difficulty": 0.28, "question": "How many interlocking rings are shown in the Olympic symbol?", "answers": ["Four", "Six", "Five", "Seven"], "correct_index": 2},
     {"id": 151, "theme_id": 1, "difficulty": 0.28, "question": "How long is regulation time in a football match?", "answers": ["60 minutes", "80 minutes", "90 minutes", "100 minutes"], "correct_index": 2},
     {"id": 152, "theme_id": 1, "difficulty": 0.52, "question": "How high is a basketball hoop?", "answers": ["2.75 meters", "3 meters", "3.25 meters", "3.05 meters"], "correct_index": 3},
-    {"id": 153, "theme_id": 1, "difficulty": 0.28, "question": "What is a score of zero called in tennis?", "answers": ["Love", "Zero", "Blank", "Nil"], "correct_index": 0},
+    {"id": 153, "theme_id": 1, "difficulty": 0.34, "question": "What is a score of zero called in tennis?", "answers": ["Love", "Zero", "Blank", "Nil"], "correct_index": 0},
     {"id": 154, "theme_id": 1, "difficulty": 0.38, "question": "How many players from one ice hockey team are usually on the ice, including the goaltender?", "answers": ["Five", "Six", "Seven", "Eight"], "correct_index": 1},
     {"id": 155, "theme_id": 1, "difficulty": 0.12, "question": "What is hit back and forth in badminton?", "answers": ["A ball", "A puck", "A shuttlecock", "A disc"], "correct_index": 2},
     {"id": 156, "theme_id": 1, "difficulty": 0.47, "question": "How many players from one handball team are on the court at a time?", "answers": ["Five", "Six", "Eight", "Seven"], "correct_index": 3},

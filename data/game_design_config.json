@@ -187,10 +187,12 @@
         "coin_refill_glow_rotation_speed_multiplier": 0.7
       },
       "currency_reward": {
-        "icon_peak_scale": 1.22,
-        "counter_peak_scale": 1.06,
-        "grow_seconds": 0.035,
-        "settle_seconds": 0.05
+        "icon_peak_scale": 1.05,
+        "counter_peak_scale": 1.1,
+        "counter_grow_seconds": 0.14,
+        "counter_settle_seconds": 0.16,
+        "icon_bounce_grow_seconds": 0.035,
+        "icon_bounce_settle_seconds": 0.05
       },
       "hint": {
         "counter_roll_seconds": 0.18,

@@ -32,7 +32,7 @@ QUIZ_CURATED_YEAR_QUESTION_IDS = {
 QUIZ_RU_NOTATION_QUESTION_IDS = {
     241, 242, 382, 584, 591, 592, 608, 609, 610, 615, 619, 655, 658, 669,
 }
-QUIZ_RU_PROPER_NAME_ANSWER_IDS = {140, 144, 292, 296, 400, 675, 682, 686}
+QUIZ_RU_PRESERVED_ENGLISH_ANSWER_IDS = {140, 144, 153, 292, 296, 400, 675, 682, 686}
 
 RU_NUMBER_WORDS = set(
     "ноль один одна одно два две три четыре пять шесть семь восемь девять десять "
@@ -110,6 +110,21 @@ def main() -> None:
     )
     require("MainTab" not in portrait and "PORTRAIT_MAIN_NAV_" not in portrait, "Retired main navigation remains")
     require("Shader.new()" not in portrait and "ImageTexture.create_from_image" not in portrait, "Home still builds resources synchronously")
+    require(
+        'word_badge_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)'
+        in main_source
+        and 'word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))'
+        in portrait,
+        "Theme-card counters must not have text shadows",
+    )
+    require(
+        "_set_portrait_resource_counter_collection_active(reward_currency, true)" in portrait
+        and 'Callable(self, "_set_portrait_resource_counter_collection_active").bind('
+        in portrait
+        and "_bounce_portrait_currency_counter" not in portrait
+        and "_bounce_portrait_star_counter" not in portrait,
+        "Animated currency collection must hold the destination counter until the last impact",
+    )
 
     tigre_match = re.search(r"const HERO_TYPE_2_STATES: Array\[String\] = \[(.*?)\]", symbol, re.S)
     require(tigre_match is not None, "El Tigre state catalog is missing")
@@ -207,7 +222,7 @@ def main() -> None:
             if language == "ru" and all(re.search(r"[A-Za-z]", str(answer)) for answer in answers):
                 require(
                     question_id in QUIZ_RU_NOTATION_QUESTION_IDS
-                    or question_id in QUIZ_RU_PROPER_NAME_ANSWER_IDS,
+                    or question_id in QUIZ_RU_PRESERVED_ENGLISH_ANSWER_IDS,
                     f"Russian quiz question {question_id} has an untranslated English answer set",
                 )
         require(
@@ -245,12 +260,19 @@ def main() -> None:
             not any(re.search(r"[А-Яа-яЁё]", value) for value in english_strings),
             f"Cyrillic text remains in English quiz question {question_id}",
         )
-    for question_id in QUIZ_RU_PROPER_NAME_ANSWER_IDS:
+    for question_id in QUIZ_RU_PRESERVED_ENGLISH_ANSWER_IDS:
         require(
             quiz_by_language["ru"][question_id]["answers"]
             == quiz_by_language["en"][question_id]["answers"],
-            f"Established proper names were translated in Russian quiz question {question_id}",
+            f"Preserved English answers changed in Russian quiz question {question_id}",
         )
+    tennis_zero_answers = ["Love", "Zero", "Blank", "Nil"]
+    require(
+        quiz_by_language["ru"][153]["answers"] == tennis_zero_answers
+        and quiz_by_language["en"][153]["answers"] == tennis_zero_answers
+        and float(quiz_by_language["ru"][153]["difficulty"]) == 0.34,
+        "Tennis zero-score answers or difficulty changed",
+    )
 
     missing = []
     resource_pattern = re.compile(r'res://[A-Za-z0-9_./\-]+')

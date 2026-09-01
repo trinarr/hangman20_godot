@@ -1981,13 +1981,13 @@
     {
       "id": 153,
       "theme_id": 1,
-      "difficulty": 0.28,
+      "difficulty": 0.34,
       "question": "Как в теннисе называют нулевой счёт игрока?",
       "answers": [
-        "Лав",
-        "Зеро",
-        "Бланк",
-        "Нил"
+        "Love",
+        "Zero",
+        "Blank",
+        "Nil"
       ],
       "correct_index": 0
     },
