@@ -257,6 +257,34 @@ def main() -> None:
         and "single_player_active_level_index < 2" in free_attempt_offer,
         "Extra-attempt purchases are not free throughout the first two levels",
     )
+    advance_attempt_offer = function_body(
+        main_source, "_advance_single_player_extra_attempt_offer"
+    )
+    require(
+        "count_step_interval: int" in advance_attempt_offer
+        and "if _single_player_extra_attempt_is_free()" in advance_attempt_offer
+        and "else SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL"
+        in advance_attempt_offer
+        and "/ float(count_step_interval)" in advance_attempt_offer,
+        "Free early-level attempt bundles do not grow on every new offer",
+    )
+    prepare_attempt_offers = function_body(
+        main_source, "_prepare_single_player_extra_attempt_offers"
+    )
+    require(
+        "level_index < 2" in prepare_attempt_offers
+        and "single_player_extra_attempt_offer_level_index == level_index"
+        in prepare_attempt_offers
+        and "if keep_early_level_progress:\n\t\treturn" in prepare_attempt_offers,
+        "Early-level attempt bundle growth is still reset between level stages",
+    )
+    require(
+        "_prepare_single_player_extra_attempt_offers(level_index)"
+        in function_body(main_source, "_start_single_player_word")
+        and "_prepare_single_player_extra_attempt_offers(level_index)"
+        in function_body(portrait, "_start_single_player_question"),
+        "Attempt-offer level scope is not applied to every early-level stage",
+    )
     attempt_purchase = function_body(
         main_source, "_purchase_single_player_extra_attempt"
     )
@@ -276,6 +304,10 @@ def main() -> None:
         and "LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE"
         in attempt_popup
         and 'purchase_button.set("attention_bounce_enabled", free_offer)'
+        in attempt_popup
+        and "advance_offer_cost and attempt_count > previous_attempt_count"
+        in attempt_popup
+        and '"_play_single_player_extra_attempt_offer_increase"'
         in attempt_popup
         and "popup_bottom,\n\t\t!free_offer," in attempt_popup
         and '"",\n\t\t!free_offer\n\t)' in attempt_popup

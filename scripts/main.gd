@@ -169,6 +169,7 @@ var single_player_retry_after_loss: bool = false
 var single_player_extra_attempt_offer_count: int = 0
 var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 var single_player_extra_attempt_current_count: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
+var single_player_extra_attempt_offer_level_index: int = -1
 var single_player_extra_attempt_claim_in_progress: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
@@ -1861,11 +1862,16 @@ func _advance_single_player_extra_attempt_offer() -> int:
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 		+ single_player_extra_attempt_offer_count * SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP
 	)
+	var count_step_interval: int = (
+		1
+		if _single_player_extra_attempt_is_free()
+		else SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL
+	)
 	single_player_extra_attempt_current_count = mini(
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
 		+ floori(
 			float(single_player_extra_attempt_offer_count)
-			/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)
+			/ float(count_step_interval)
 		) * SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP,
 		GameSession.MAX_MISTAKES
 	)
@@ -1876,6 +1882,18 @@ func _reset_single_player_extra_attempt_offers() -> void:
 	single_player_extra_attempt_offer_count = 0
 	single_player_extra_attempt_current_cost = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 	single_player_extra_attempt_current_count = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
+	single_player_extra_attempt_offer_level_index = -1
+
+func _prepare_single_player_extra_attempt_offers(level_index: int) -> void:
+	var keep_early_level_progress: bool = (
+		level_index >= 0
+		and level_index < 2
+		and single_player_extra_attempt_offer_level_index == level_index
+	)
+	if keep_early_level_progress:
+		return
+	_reset_single_player_extra_attempt_offers()
+	single_player_extra_attempt_offer_level_index = level_index
 
 func _grant_single_player_extra_attempt() -> void:
 	# A reaction overlay from the previous wrong guess can still be playing under
@@ -1935,7 +1953,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	var word_info: Dictionary = words[word_slot]
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = word_slot
-	_reset_single_player_extra_attempt_offers()
+	_prepare_single_player_extra_attempt_offers(level_index)
 	game_finished = false
 	last_result_data = {}
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER

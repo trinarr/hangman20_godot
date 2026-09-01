@@ -3430,7 +3430,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	GameSession.discard_current_round()
 	single_player_active_level_index = level_index
 	single_player_active_word_slot = word_slot
-	_reset_single_player_extra_attempt_offers()
+	_prepare_single_player_extra_attempt_offers(level_index)
 	game_finished = false
 	last_result_data = {}
 	last_result_is_win = false
