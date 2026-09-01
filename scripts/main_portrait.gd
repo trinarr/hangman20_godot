@@ -328,6 +328,9 @@ var PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION: float = PORTRAIT_GAME_DESIGN.g
 var PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.action_reveal_seconds", 0.162
 )
+var PORTRAIT_FINAL_REWARD_DIRECT_THEME_THROUGH_LEVEL: int = PORTRAIT_GAME_DESIGN.get_int_range(
+	"progression.direct_theme_selection_after_reward_through_level", 2, 0, 1_000_000
+)
 var PORTRAIT_FINAL_REWARD_COLLECT_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.collect_delay_seconds", 0.9
 )
@@ -750,6 +753,7 @@ var _single_player_theme_slot_final_selection: int = -1
 var _single_player_theme_reroll_level_index: int = -1
 var _single_player_theme_reroll_used: bool = false
 var _single_player_theme_ad_reroll_used: bool = false
+var _startup_guided_resume_checked: bool = false
 
 var _quiz_mode_active: bool = false
 var _quiz_screen_active: bool = false
@@ -2849,6 +2853,10 @@ func _show_menu_screen() -> void:
 		call_deferred("_play_pending_home_reward_animation")
 	if !GameState.has_accepted_legal_documents():
 		call_deferred("_show_legal_consent_popup")
+	elif !_startup_guided_resume_checked:
+		_startup_guided_resume_checked = true
+		if _should_auto_resume_guided_single_player():
+			call_deferred("_resume_saved_single_player_level")
 
 func _restore_single_player_language(language: String) -> void:
 	var normalized_language: String = "ru" if language.to_lower().begins_with("ru") else "en"
@@ -2912,6 +2920,22 @@ func _resume_saved_single_player_level() -> void:
 	last_result_data = {}
 	last_result_is_win = false
 	match kind:
+		"theme":
+			var theme_data_variant: Variant = session.get("data", {})
+			var retry_after_loss: bool = false
+			if theme_data_variant is Dictionary:
+				retry_after_loss = bool(
+					Dictionary(theme_data_variant).get("retry_after_loss", false)
+				)
+			var selected_theme: int = Database.get_theme_index_by_id(
+				int(session.get("theme_id", -1))
+			)
+			_show_single_player_level_popup(
+				level_index,
+				selected_theme,
+				retry_after_loss
+			)
+			return
 		"word":
 			var word_data_variant: Variant = session.get("data", {})
 			if (
@@ -5136,20 +5160,25 @@ func _show_quiz_game_screen() -> void:
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT
 	)
 	_stage_menu_settings_button()
-	var quiz_back_action: Callable = (
-		Callable(self, "_show_exit_game_popup")
-		if _quiz_single_player_embedded
-		else Callable(self, "show_quiz_theme_select")
+	var hide_quiz_close: bool = (
+		_quiz_single_player_embedded
+		and _single_player_hides_close_controls(single_player_active_level_index)
 	)
-	# Match the normal word-guessing screen: gameplay exits use the round X button
-	# rather than the page-navigation arrow.
-	var back_button := _stage_round_button(
-		PORTRAIT_PAGE_BACK_BUTTON_RECT,
-		quiz_back_action,
-		"×"
-	)
-	_quiz_exit_button = back_button
-	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
+	if !hide_quiz_close:
+		var quiz_back_action: Callable = (
+			Callable(self, "_show_exit_game_popup")
+			if _quiz_single_player_embedded
+			else Callable(self, "show_quiz_theme_select")
+		)
+		# Match the normal word-guessing screen: gameplay exits use the round X button
+		# rather than the page-navigation arrow.
+		var back_button := _stage_round_button(
+			PORTRAIT_PAGE_BACK_BUTTON_RECT,
+			quiz_back_action,
+			"×"
+		)
+		_quiz_exit_button = back_button
+		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 
 	# Reuse the answer-button shadow treatment under the question card as well,
 	# then draw the bordered light-blue surface on top.
@@ -5958,6 +5987,12 @@ func _show_single_player_level_popup(
 	single_player_active_word_slot = -1
 	single_player_popup_level_index = level_index
 	single_player_popup_selected_theme = selected_theme
+	var theme_selection_locked: bool = _single_player_theme_selection_is_locked(level_index)
+	_persist_guided_single_player_theme_selection(
+		level_index,
+		selected_theme,
+		retry_after_loss
+	)
 	var close_action := (
 		Callable(self, "_close_single_player_retry_popup")
 		if retry_after_loss
@@ -5975,7 +6010,8 @@ func _show_single_player_level_popup(
 			level_index,
 			retry_after_loss,
 			selected_theme
-		)
+		),
+		!theme_selection_locked
 	)
 	single_player_popup_stage_content = content
 	var rect := Rect2(24.0, 118.0, 432.0, 450.0)
@@ -5988,7 +6024,8 @@ func _show_single_player_level_popup(
 		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE,
 		PORTRAIT_CHALLENGE_POPUP_BODY if challenge_level else PORTRAIT_DARK_BLUE,
 		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_ORANGE,
-		_single_player_challenge_level_label() if challenge_level else ""
+		_single_player_challenge_level_label() if challenge_level else "",
+		!theme_selection_locked
 	)
 	var instruction_y: float = 208.0
 	var instruction_label := _stage_label(
@@ -7141,6 +7178,11 @@ func _select_single_player_popup_theme(level_index: int, theme_index: int) -> vo
 	if !_single_player_level_theme_options(level_index).has(theme_index):
 		return
 	single_player_popup_selected_theme = theme_index
+	_persist_guided_single_player_theme_selection(
+		level_index,
+		theme_index,
+		single_player_retry_after_loss
+	)
 	var selection_color: Color = (
 		DIFFICULTY_HARD_NORMAL_TINT
 		if _single_player_is_bonus_level(level_index)
@@ -7686,22 +7728,26 @@ func _refresh_game_screen() -> void:
 		_stage_portrait_hint_buttons()
 	_portrait_end_adaptive_group(input_root_content)
 
-	# Keep the confirmed round-exit action in the same compact top-left
-	# navigation position used by the footerless selection screens.
-	var back_button := _stage_round_button(
-		PORTRAIT_PAGE_BACK_BUTTON_RECT,
-		Callable(self, "_show_exit_game_popup"),
-		"×"
-	)
-	_portrait_game_back_button = back_button
-	if _portrait_game_is_challenge_level():
-		back_button.call(
-			"set_color_palette",
-			DIFFICULTY_HARD_NORMAL_TINT,
-			DIFFICULTY_HARD_PRESSED_TINT,
-			DIFFICULTY_HARD_SELECTED_TINT
+	if !(
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and _single_player_hides_close_controls(single_player_active_level_index)
+	):
+		# Keep the confirmed round-exit action in the same compact top-left
+		# navigation position used by the footerless selection screens.
+		var back_button := _stage_round_button(
+			PORTRAIT_PAGE_BACK_BUTTON_RECT,
+			Callable(self, "_show_exit_game_popup"),
+			"×"
 		)
-	_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
+		_portrait_game_back_button = back_button
+		if _portrait_game_is_challenge_level():
+			back_button.call(
+				"set_color_palette",
+				DIFFICULTY_HARD_NORMAL_TINT,
+				DIFFICULTY_HARD_PRESSED_TINT,
+				DIFFICULTY_HARD_SELECTED_TINT
+			)
+		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	_stage_portrait_ad_banner()
 	_portrait_game_runtime_ready = true
 	call_deferred("_sync_portrait_attempts_attention_bounce")
@@ -11110,6 +11156,10 @@ func _reveal_final_reward_actions(
 	)
 	button_grow.set_trans(Tween.TRANS_BACK)
 	button_grow.set_ease(Tween.EASE_OUT)
+	reveal_tween.finished.connect(
+		Callable(self, "_enable_final_reward_continue_attention").bind(double_button),
+		CONNECT_ONE_SHOT
+	)
 	if (
 		collect_holder != null
 		and is_instance_valid(collect_holder)
@@ -11130,6 +11180,13 @@ func _reveal_final_reward_actions(
 				collect_button
 			)
 		)
+
+func _enable_final_reward_continue_attention(button: Control) -> void:
+	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
+		return
+	if !bool(button.get_meta(&"attention_after_reveal", false)):
+		return
+	button.set("attention_bounce_enabled", true)
 
 func _start_single_player_final_reward_transition_deferred(
 	chain_holder: Control,
@@ -11692,6 +11749,14 @@ func _on_final_reward_ad_failed_to_show(_message: String) -> void:
 func _claim_single_player_final_reward() -> void:
 	_complete_single_player_final_reward(1)
 
+func _claim_single_player_final_reward_and_open_next_theme(
+	next_level_index: int
+) -> void:
+	if _portrait_final_reward_claim_in_progress:
+		return
+	_complete_single_player_final_reward(1, false)
+	_finish_single_player_final_reward_claim(next_level_index)
+
 func _complete_single_player_final_reward(
 	reward_multiplier: int,
 	present_immediately: bool = true
@@ -11707,7 +11772,7 @@ func _complete_single_player_final_reward(
 	if present_immediately:
 		_finish_single_player_final_reward_claim()
 
-func _finish_single_player_final_reward_claim() -> void:
+func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) -> void:
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
@@ -11717,6 +11782,10 @@ func _finish_single_player_final_reward_claim() -> void:
 	last_result_data = {}
 	single_player_active_word_slot = -1
 	show_menu()
+	if next_theme_level_index >= 0:
+		# Both calls complete synchronously in the same frame. Home provides the
+		# normal dimmed backdrop, while the player sees the next theme popup directly.
+		_show_single_player_level_popup(next_theme_level_index)
 
 func _set_home_reward_animated_balance(value: float) -> void:
 	var balance_text: String = _soft_currency_balance_text(int(round(value)))
@@ -12246,6 +12315,9 @@ func _show_single_player_reward_chain_screen() -> void:
 		var final_action_button: Control
 		var collect_holder: Control = null
 		var collect_button: Button = null
+		var opens_next_theme_directly: bool = (
+			level_index + 1 <= PORTRAIT_FINAL_REWARD_DIRECT_THEME_THROUGH_LEVEL
+		)
 		if _portrait_ads_enabled():
 			final_action_button = _stage_main_button(
 				PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
@@ -12268,9 +12340,15 @@ func _show_single_player_reward_chain_screen() -> void:
 			collect_holder = collect_controls.get("holder") as Control
 			collect_button = collect_controls.get("button") as Button
 		else:
+			var continue_action := Callable(self, "_claim_single_player_final_reward")
+			if opens_next_theme_directly:
+				continue_action = Callable(
+					self,
+					"_claim_single_player_final_reward_and_open_next_theme"
+				).bind(level_index + 1)
 			final_action_button = _stage_main_button(
 				PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
-				Callable(self, "_claim_single_player_final_reward"),
+				continue_action,
 				tr("COMMON_CONTINUE"),
 				22,
 				false,
@@ -12281,6 +12359,11 @@ func _show_single_player_reward_chain_screen() -> void:
 				LONG_BUTTON_COLOR_ORANGE
 			)
 			final_action_button.name = "FinalRewardContinueButton"
+			final_action_button.set("attention_bounce_enabled", false)
+			final_action_button.set_meta(
+				&"attention_after_reveal",
+				opens_next_theme_directly
+			)
 		final_action_button.modulate.a = 0.0
 		final_action_button.z_index = 120
 		final_action_button.set("button_disabled", true)
@@ -12331,7 +12414,10 @@ func _show_single_player_reward_chain_screen() -> void:
 		content = reward_content
 	content = reward_screen_content
 	var failure_back_button: Control = null
-	if is_failure_reward:
+	if (
+		is_failure_reward
+		and !_single_player_hides_close_controls(level_index)
+	):
 		# Stage Back only after every full-screen reward layer. Godot resolves GUI
 		# picking by scene-tree order, so z_index alone cannot keep an earlier button
 		# clickable above controls created later in the reward composition.

@@ -3,14 +3,38 @@ extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
 const ICON_VISUAL_SCALE: float = 0.82
-const ATTENTION_BOUNCE_SCALE: Vector2 = Vector2(1.10, 1.10)
-const ATTENTION_BOUNCE_GROW_DURATION: float = 0.72
-const ATTENTION_BOUNCE_SETTLE_DURATION: float = 0.82
-const ATTENTION_BOUNCE_PAUSE_DURATION: float = 0.24
+var _attention_bounce_scale_value: float = GAME_DESIGN.get_float_range(
+	"timings.animations.button_attention.round.scale", 1.1, 1.0, 1.5
+)
+var _attention_bounce_grow_duration: float = GAME_DESIGN.get_float(
+	"timings.animations.button_attention.round.grow_seconds", 0.72
+)
+var _attention_bounce_settle_duration: float = GAME_DESIGN.get_float(
+	"timings.animations.button_attention.round.settle_seconds", 0.82
+)
+var _attention_bounce_count: int = GAME_DESIGN.get_int_range(
+	"timings.animations.button_attention.bounce_count", 2, 1, 8
+)
+var _attention_bounce_speed_multiplier: float = GAME_DESIGN.get_float_range(
+	"timings.animations.button_attention.speed_multiplier", 1.5, 0.1, 10.0
+)
+var _attention_shine_duration: float = GAME_DESIGN.get_float(
+	"timings.animations.button_attention.shine_seconds", 0.55
+)
+var _attention_cycle_pause_duration: float = GAME_DESIGN.get_float(
+	"timings.animations.button_attention.pause_seconds", 0.1
+)
+var _attention_shine_width: float = GAME_DESIGN.get_float_range(
+	"timings.animations.button_attention.shine_width", 0.16, 0.01, 1.0
+)
+var _attention_shine_strength: float = GAME_DESIGN.get_float_range(
+	"timings.animations.button_attention.shine_strength", 0.42, 0.0, 1.0
+)
 
 enum ColorPreset {
 	ORANGE,
@@ -159,33 +183,46 @@ func _set_press_scale(is_pressed: bool, animated: bool = true) -> void:
 func _start_attention_bounce() -> void:
 	if !attention_bounce_enabled or disabled or _is_down or !is_inside_tree():
 		return
+	_configure_attention_shine(_attention_shine_width, _attention_shine_strength)
 	_stop_attention_bounce(false)
 	visual_scale = Vector2.ONE
 	_attention_bounce_tween = create_tween()
 	_attention_bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_attention_bounce_tween.set_loops()
-	var grow_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
-		self,
-		"visual_scale",
-		ATTENTION_BOUNCE_SCALE,
-		ATTENTION_BOUNCE_GROW_DURATION
+	var bounce_scale: Vector2 = Vector2.ONE * _attention_bounce_scale_value
+	var grow_duration: float = _attention_bounce_grow_duration / _attention_bounce_speed_multiplier
+	var settle_duration: float = _attention_bounce_settle_duration / _attention_bounce_speed_multiplier
+	_attention_bounce_tween.tween_callback(_reset_attention_shine)
+	_attention_bounce_tween.tween_method(
+		_set_attention_shine_progress,
+		ATTENTION_SHINE_START_PROGRESS,
+		ATTENTION_SHINE_END_PROGRESS,
+		_attention_shine_duration
 	)
-	grow_tweener.set_trans(Tween.TRANS_QUAD)
-	grow_tweener.set_ease(Tween.EASE_OUT)
-	var settle_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
-		self,
-		"visual_scale",
-		Vector2.ONE,
-		ATTENTION_BOUNCE_SETTLE_DURATION
-	)
-	settle_tweener.set_trans(Tween.TRANS_BACK)
-	settle_tweener.set_ease(Tween.EASE_OUT)
-	_attention_bounce_tween.tween_interval(ATTENTION_BOUNCE_PAUSE_DURATION)
+	for _bounce_index: int in range(_attention_bounce_count):
+		var grow_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
+			self,
+			"visual_scale",
+			bounce_scale,
+			grow_duration
+		)
+		grow_tweener.set_trans(Tween.TRANS_QUAD)
+		grow_tweener.set_ease(Tween.EASE_OUT)
+		var settle_tweener: PropertyTweener = _attention_bounce_tween.tween_property(
+			self,
+			"visual_scale",
+			Vector2.ONE,
+			settle_duration
+		)
+		settle_tweener.set_trans(Tween.TRANS_BACK)
+		settle_tweener.set_ease(Tween.EASE_OUT)
+	_attention_bounce_tween.tween_interval(_attention_cycle_pause_duration)
 
 func _stop_attention_bounce(reset_scale: bool) -> void:
 	if _attention_bounce_tween != null and _attention_bounce_tween.is_valid():
 		_attention_bounce_tween.kill()
 	_attention_bounce_tween = null
+	_reset_attention_shine()
 	if reset_scale:
 		visual_scale = Vector2.ONE
 

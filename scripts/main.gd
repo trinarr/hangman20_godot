@@ -37,6 +37,9 @@ const APP_VERSION_FALLBACK: String = "3.0.0"
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
 	"progression.theme_options_per_level", 3, 1, 10
 )
+var SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL: int = GAME_DESIGN.get_int_range(
+	"progression.guided_onboarding.required_start_level", 3, 1, 1_000_000
+)
 var SINGLE_PLAYER_THEME_REFRESH_COST: int = GAME_DESIGN.get_int("economy.theme_reroll_cost", 25)
 var SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = GAME_DESIGN.get_int(
 	"economy.extra_attempts.base_cost", 25
@@ -918,6 +921,54 @@ func _single_player_theme_start_label() -> String:
 
 func _single_player_next_level_index() -> int:
 	return maxi(GameState.get_single_player_unlocked_level(Database.current_language), 0)
+
+func _single_player_hides_close_controls(level_index: int) -> bool:
+	return (
+		level_index >= 0
+		and level_index + 1 < SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL
+	)
+
+func _single_player_theme_selection_is_locked(level_index: int) -> bool:
+	return (
+		level_index >= 0
+		and level_index + 1 <= SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL
+	)
+
+func _persist_guided_single_player_theme_selection(
+	level_index: int,
+	theme_index: int,
+	retry_after_loss: bool
+) -> void:
+	if (
+		!_single_player_theme_selection_is_locked(level_index)
+		or theme_index < 0
+	):
+		return
+	GameState.set_active_single_player_session({
+		"kind": "theme",
+		"language": Database.current_language,
+		"level_index": level_index,
+		# Theme selection is a resumable level state, but it precedes the first
+		# actual word slot. Zero keeps the common save envelope valid without
+		# pretending that a round has already started.
+		"word_slot": 0,
+		"theme_id": Database.get_theme_id(theme_index),
+		"data": {
+			"retry_after_loss": retry_after_loss,
+		},
+	})
+
+func _should_auto_resume_guided_single_player() -> bool:
+	if !GameState.has_resumable_single_player_level():
+		return false
+	var level_index: int = GameState.get_resumable_single_player_level_index()
+	if level_index < 0:
+		return false
+	var active_session: Dictionary = GameState.get_active_single_player_session()
+	if str(active_session.get("kind", "")) == "theme":
+		# The level-three theme popup still precedes the configured start boundary.
+		return _single_player_theme_selection_is_locked(level_index)
+	return _single_player_hides_close_controls(level_index)
 
 func _open_next_single_player_level() -> void:
 	single_player_active_level_index = _single_player_next_level_index()
@@ -2700,10 +2751,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
 				_decline_single_player_extra_attempt()
 			elif (
-				single_player_retry_after_loss
-				and !get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
+				!get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
 			):
-				_close_single_player_retry_popup()
+				if (
+					single_player_retry_after_loss
+					and !_single_player_theme_selection_is_locked(
+						single_player_popup_level_index
+					)
+				):
+					_close_single_player_retry_popup()
+				get_viewport().set_input_as_handled()
 			elif game_finished:
 				_result_back_action()
 			elif GameSession.is_active:

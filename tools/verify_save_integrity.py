@@ -165,6 +165,67 @@ def main() -> None:
         "Resume must reuse the existing single-player button",
     )
 
+    active_session_normalizer = function_body(
+        game_state, "_normalize_active_single_player_session"
+    )
+    require(
+        '"theme", "word", "quiz", "next"' in active_session_normalizer,
+        "Theme selection is not a durable resumable session kind",
+    )
+    guided_theme_save = function_body(
+        main_source, "_persist_guided_single_player_theme_selection"
+    )
+    require(
+        '"kind": "theme"' in guided_theme_save
+        and '"retry_after_loss": retry_after_loss' in guided_theme_save,
+        "Guided theme selection is not persisted completely",
+    )
+    guided_auto_resume = function_body(
+        main_source, "_should_auto_resume_guided_single_player"
+    )
+    require(
+        'str(active_session.get("kind", "")) == "theme"' in guided_auto_resume
+        and "_single_player_theme_selection_is_locked" in guided_auto_resume
+        and "_single_player_hides_close_controls" in guided_auto_resume,
+        "Startup resume does not distinguish the level-three theme boundary",
+    )
+    guided_home_screen = function_body(portrait, "_show_menu_screen")
+    require(
+        "_startup_guided_resume_checked" in guided_home_screen
+        and 'call_deferred("_resume_saved_single_player_level")' in guided_home_screen,
+        "Home does not auto-resume guided onboarding exactly once at startup",
+    )
+    portrait_resume = function_body(portrait, "_resume_saved_single_player_level")
+    require(
+        '"theme":' in portrait_resume
+        and "_show_single_player_level_popup" in portrait_resume,
+        "Saved theme selection cannot be restored",
+    )
+    theme_popup = function_body(portrait, "_show_single_player_level_popup")
+    require(
+        "_persist_guided_single_player_theme_selection" in theme_popup
+        and theme_popup.count("!theme_selection_locked") >= 2,
+        "Guided theme popup can still be dismissed or is not resumable",
+    )
+    require(
+        "_single_player_theme_selection_is_locked" in function_body(
+            main_source, "_unhandled_input"
+        ),
+        "System Back can still close the mandatory theme popup",
+    )
+    require(
+        "_single_player_hides_close_controls" in function_body(
+            portrait, "_show_quiz_game_screen"
+        )
+        and "_single_player_hides_close_controls" in function_body(
+            portrait, "_refresh_game_screen"
+        )
+        and "_single_player_hides_close_controls" in function_body(
+            portrait, "_show_single_player_reward_chain_screen"
+        ),
+        "A first-two-level gameplay or reward close button is still unconditional",
+    )
+
     quiz_result = function_body(portrait, "_record_single_player_quiz_result")
     require("defer_final_reward" in quiz_result, "Final quiz reward is still credited early")
     require(
@@ -220,8 +281,14 @@ def main() -> None:
         "Legal acceptance is not persisted before returning to Home",
     )
     require(
-        'terms_of_service_url=""' in project
-        and 'privacy_policy_url=""' in project,
+        'terms_of_service_url="https://trinarr.github.io/hangman20_godot/terms-of-service.html"'
+        in project
+        and 'terms_of_service_url_en="https://trinarr.github.io/hangman20_godot/terms-of-service-en.html"'
+        in project
+        and 'privacy_policy_url="https://trinarr.github.io/hangman20_godot/privacy-policy.html"'
+        in project
+        and 'privacy_policy_url_en="https://trinarr.github.io/hangman20_godot/privacy-policy-en.html"'
+        in project,
         "GitHub Pages legal URL settings are missing",
     )
     require(

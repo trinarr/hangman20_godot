@@ -4,6 +4,9 @@ extends Control
 signal pressed
 
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
+const ATTENTION_SHINE_SHADER: Shader = preload("res://shaders/button_attention_shine.gdshader")
+const ATTENTION_SHINE_START_PROGRESS: float = -0.35
+const ATTENTION_SHINE_END_PROGRESS: float = 1.55
 
 var use_stage_layout: bool = true:
 	set(value):
@@ -60,6 +63,8 @@ var visual_scale: Vector2 = Vector2.ONE:
 
 var _is_down: bool = false
 var _press_scale_tween: Tween = null
+var _attention_shine_rect: ColorRect = null
+var _attention_shine_material: ShaderMaterial = null
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -71,6 +76,7 @@ func _ready() -> void:
 	if use_stage_layout and !get_viewport().size_changed.is_connected(_sync_to_stage):
 		get_viewport().size_changed.connect(_sync_to_stage)
 	_sync_to_stage()
+	_sync_attention_shine_shape()
 
 func _exit_tree() -> void:
 	if _press_scale_tween != null and _press_scale_tween.is_valid():
@@ -171,3 +177,40 @@ func _sync_visual_child_scales() -> void:
 			# icon shrink as one unit while the clickable area stays unchanged.
 			visual_child.pivot_offset = visual_center - visual_child.position
 			visual_child.scale = visual_scale
+
+func _ensure_attention_shine() -> void:
+	if _attention_shine_rect != null and is_instance_valid(_attention_shine_rect):
+		return
+	_attention_shine_material = ShaderMaterial.new()
+	_attention_shine_material.shader = ATTENTION_SHINE_SHADER
+	_attention_shine_rect = ColorRect.new()
+	_attention_shine_rect.name = "AttentionShine"
+	_attention_shine_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_attention_shine_rect.color = Color.WHITE
+	_attention_shine_rect.material = _attention_shine_material
+	add_child(_attention_shine_rect)
+	_attention_shine_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	move_child(_attention_shine_rect, 0)
+	if !resized.is_connected(_sync_attention_shine_shape):
+		resized.connect(_sync_attention_shine_shape)
+	_reset_attention_shine()
+	_sync_attention_shine_shape()
+
+func _configure_attention_shine(width: float, strength: float) -> void:
+	_ensure_attention_shine()
+	_attention_shine_material.set_shader_parameter("shine_width", width)
+	_attention_shine_material.set_shader_parameter("shine_strength", strength)
+
+func _set_attention_shine_progress(progress: float) -> void:
+	if _attention_shine_material == null or !is_instance_valid(_attention_shine_material):
+		return
+	_attention_shine_material.set_shader_parameter("shine_progress", progress)
+
+func _reset_attention_shine() -> void:
+	_set_attention_shine_progress(ATTENTION_SHINE_START_PROGRESS)
+
+func _sync_attention_shine_shape() -> void:
+	if _attention_shine_material == null or !is_instance_valid(_attention_shine_material):
+		return
+	var aspect_ratio: float = size.x / maxf(size.y, 1.0)
+	_attention_shine_material.set_shader_parameter("aspect_ratio", maxf(aspect_ratio, 1.0))

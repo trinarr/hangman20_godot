@@ -14,6 +14,10 @@
   },
   "progression": {
     "theme_options_per_level": 3,
+    "direct_theme_selection_after_reward_through_level": 2,
+    "guided_onboarding": {
+      "required_start_level": 3
+    },
     "level_stage_counts": [
       {"from_level": 1, "to_level": 1, "count": 1},
       {"from_level": 2, "to_level": 4, "count": 2},
@@ -123,6 +127,24 @@
       "back_entrance_seconds": 0.24,
       "counter_press_seconds": 0.055,
       "counter_release_seconds": 0.085,
+      "button_attention": {
+        "bounce_count": 2,
+        "speed_multiplier": 1.725,
+        "pause_seconds": 0.18,
+        "shine_seconds": 0.683478,
+        "shine_width": 0.16,
+        "shine_strength": 0.42,
+        "long": {
+          "scale": 1.07,
+          "grow_seconds": 0.8,
+          "settle_seconds": 0.85
+        },
+        "round": {
+          "scale": 1.1,
+          "grow_seconds": 0.72,
+          "settle_seconds": 0.82
+        }
+      },
       "round_end": {
         "key_fade_seconds": 0.22,
         "key_wave_seconds": 0.48,

@@ -18,6 +18,8 @@ SOURCE_PATHS = (
     ROOT / "scripts" / "core" / "game_session.gd",
     ROOT / "scripts" / "core" / "game_state.gd",
     ROOT / "scripts" / "core" / "game_design_config.gd",
+    ROOT / "scripts" / "ui" / "stage_long_button.gd",
+    ROOT / "scripts" / "ui" / "stage_round_button.gd",
 )
 
 
@@ -116,6 +118,22 @@ def main() -> None:
     require(stage_count(config, 5) == 3, "Level 5 must contain three stages")
     require(stage_count(config, 8) == 4, "Level 8 must contain four stages")
     require(stage_count(config, 19) == 5, "Level 19 must contain five stages")
+    require(
+        int(resolve(config, "progression.direct_theme_selection_after_reward_through_level")) == 2,
+        "The first two final rewards must continue directly to theme selection",
+    )
+    guided_required_start = int(
+        resolve(config, "progression.guided_onboarding.required_start_level")
+    )
+    require(
+        guided_required_start == 3,
+        "Guided onboarding must remain mandatory until level 3 starts",
+    )
+    require(
+        int(resolve(config, "progression.direct_theme_selection_after_reward_through_level"))
+        == guided_required_start - 1,
+        "Direct theme flow and guided onboarding boundaries have diverged",
+    )
     for level in range(1, 1001):
         require(stage_count(config, level) > 0, f"Invalid stage count for level {level}")
 
@@ -184,6 +202,20 @@ def main() -> None:
         and 0.0 < float(resolve(config, "timings.animations.currency_reward.icon_bounce_settle_seconds")) < 0.1,
         "Currency icon impact bounces must stay short and responsive",
     )
+    button_attention = resolve(config, "timings.animations.button_attention")
+    require(int(button_attention["bounce_count"]) == 2, "Button attention cycle must contain two bounces")
+    require(
+        abs(float(button_attention["speed_multiplier"]) - 1.725) < 1e-9,
+        "Button attention bounce speed does not include the additional 15 percent increase",
+    )
+    require(
+        abs(float(button_attention["pause_seconds"]) - 0.18) < 1e-9,
+        "Button attention cycle pause must be 0.18 seconds",
+    )
+    require(
+        abs(float(button_attention["shine_seconds"]) - 0.683478) < 1e-9,
+        "Button attention shine duration does not include the 15 percent speed increase",
+    )
 
     def validate_numbers(value: Any, path: str = "") -> None:
         if isinstance(value, dict):
@@ -229,6 +261,31 @@ def main() -> None:
         and "counter_scale_tweener.set_trans(Tween.TRANS_SINE)" in portrait_source
         and "icon_bounce_callback" in portrait_source,
         "Currency plate hold and per-impact icon bounces are not connected",
+    )
+    require(
+        "_claim_single_player_final_reward_and_open_next_theme" in portrait_source
+        and '&"attention_after_reveal"' in portrait_source
+        and "_enable_final_reward_continue_attention" in portrait_source,
+        "Early final rewards do not open the next theme popup with button attention",
+    )
+    long_button_source = (ROOT / "scripts" / "ui" / "stage_long_button.gd").read_text(encoding="utf-8")
+    round_button_source = (ROOT / "scripts" / "ui" / "stage_round_button.gd").read_text(encoding="utf-8")
+    for label, button_source in (("long", long_button_source), ("round", round_button_source)):
+        shine_index = button_source.find("_attention_bounce_tween.tween_callback(_reset_attention_shine)")
+        bounce_index = button_source.find("for _bounce_index: int in range(_attention_bounce_count)")
+        pause_index = button_source.find("_attention_bounce_tween.tween_interval(_attention_cycle_pause_duration)")
+        require(
+            0 <= shine_index < bounce_index < pause_index and "tween_method(" in button_source,
+            f"The {label} button does not run the shine, two-bounce and pause cycle",
+        )
+    require(
+        (ROOT / "shaders" / "button_attention_shine.gdshader").is_file(),
+        "Button attention shine shader is missing",
+    )
+    shine_source = (ROOT / "shaders" / "button_attention_shine.gdshader").read_text(encoding="utf-8")
+    require(
+        "UV.x + UV.y * 0.20" in shine_source,
+        "Button attention shine vertical direction is not inverted",
     )
 
     print(

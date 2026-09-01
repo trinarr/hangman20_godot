@@ -450,7 +450,7 @@ func _normalize_active_single_player_session(source: Variant) -> Dictionary:
 	var kind: String = str(session.get("kind", ""))
 	var level_index: int = int(session.get("level_index", -1))
 	var word_slot: int = int(session.get("word_slot", -1))
-	if !["word", "quiz", "next"].has(kind) or level_index < 0 or word_slot < 0:
+	if !["theme", "word", "quiz", "next"].has(kind) or level_index < 0 or word_slot < 0:
 		return {}
 	session["kind"] = kind
 	session["language"] = _normalize_language(str(session.get("language", word_language)))
