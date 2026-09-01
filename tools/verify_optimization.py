@@ -84,11 +84,13 @@ def main() -> None:
     scene = read("scenes/Main.tscn")
     database = read("scripts/core/database.gd")
     game_state = read("scripts/core/game_state.gd")
+    ads_service = read("addons/GodotAndroidYandexAds/yandex_ads.gd")
     main_source = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
     symbol = read("scripts/ui/flash_stage_symbol.gd")
     word_input = read("scripts/ui/stage_word_input.gd")
     cache = read("scripts/core/theme_asset_cache.gd")
+    translations = read("localization/translations.csv")
 
     require('run/main_scene="res://scenes/Main.tscn"' in project, "Main scene must use a stable path")
     require('Database="*res://scripts/core/database.gd"' in project, "Database autoload path is missing")
@@ -123,6 +125,25 @@ def main() -> None:
         "const VIRTUAL_KEYBOARD_POLL_INTERVAL: float = 0.05" in word_input
         and "_virtual_keyboard_poll_elapsed < VIRTUAL_KEYBOARD_POLL_INTERVAL" in word_input,
         "Virtual-keyboard geometry polling must stay throttled",
+    )
+    require(
+        'const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")'
+        in portrait
+        and "func _show_portrait_ad_not_ready_toast()" in portrait
+        and portrait.count("_show_portrait_ad_not_ready_toast()") >= 6
+        and 'call("show_message", _portrait_ad_not_ready_message(), false)' in portrait,
+        "Rewarded-ad failures must show the standard red-cross toast",
+    )
+    require(
+        "TOAST_AD_NOT_READY,Реклама еще не готова,The ad isn't ready yet" in translations,
+        "The rewarded-ad failure toast must be localized",
+    )
+    require(
+        "func can_request_rewarded_video() -> bool:" in ads_service
+        and 'ads_service.call("can_request_rewarded_video")' in portrait
+        and "func _on_final_reward_ad_loaded()" in portrait
+        and "func _on_final_reward_ad_failed_to_load(_error_code: int)" in portrait,
+        "Final-reward ads must reject an unavailable SDK and retain automatic display after a valid preload",
     )
     require("_refresh_quiz_question_in_place()" in portrait, "Quiz question reuse is missing")
     require("func show_quiz_theme_select()" in portrait, "Quiz theme screen was removed")

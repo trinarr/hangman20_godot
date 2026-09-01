@@ -99,6 +99,7 @@ WORD_CHECK_FAILED,Не удалось проверить,Check failed
 TOAST_WORD_FOUND,Слово найдено,Word found
 TOAST_WORD_NOT_FOUND,Слово не найдено,Word not found
 TOAST_ERROR,Ошибка,Error
+TOAST_AD_NOT_READY,Реклама еще не готова,The ad isn't ready yet
 CONTINUE_CLASSIC,"Доиграть в режиме
 «Классика»","Continue in
 Classic mode"

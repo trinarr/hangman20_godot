@@ -191,6 +191,9 @@ func load_rewarded_video() -> void:
 func is_rewarded_video_loaded() -> bool:
 	return _rewarded_loaded
 
+func can_request_rewarded_video() -> bool:
+	return is_native_available() and _sdk_ready and !rewarded_id.is_empty()
+
 func show_rewarded_video() -> bool:
 	if !is_native_available() or !_rewarded_loaded:
 		load_rewarded_video()
