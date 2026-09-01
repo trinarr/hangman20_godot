@@ -3035,15 +3035,20 @@ func _resume_saved_single_player_level() -> void:
 		"next":
 			var next_data_variant: Variant = session.get("data", {})
 			var stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
-			if next_data_variant is Dictionary and !stage_reward.is_empty():
+			if next_data_variant is Dictionary:
 				var next_data: Dictionary = next_data_variant
 				var result_variant: Variant = next_data.get("result", {})
 				if result_variant is Dictionary:
 					game_finished = true
-					last_result_is_win = true
 					last_result_data = Dictionary(result_variant).duplicate(true)
+					# Older `next` snapshots only represented victories. New ones
+					# persist the outcome explicitly so a failed stage is resumable.
+					last_result_is_win = bool(last_result_data.get(
+						"single_player_stage_won",
+						true
+					))
 					_portrait_single_reward_resume_without_intro = bool(
-						stage_reward.get("claimed", false)
+						!last_result_is_win or stage_reward.get("claimed", false)
 					)
 					_show_single_player_reward_chain_screen()
 					return
@@ -5794,13 +5799,17 @@ func _on_single_player_extra_attempt_ad_pressed() -> void:
 
 func _show_heart_refill_popup(
 	continue_action: Callable = Callable(),
-	store_return_action: Callable = Callable()
+	store_return_action: Callable = Callable(),
+	cancel_action: Callable = Callable(),
+	reward_acquired: bool = false
 ) -> void:
 	_remove_heart_refill_popup()
 	heart_refill_continue_action = continue_action
 	heart_refill_store_return_action = store_return_action
+	heart_refill_cancel_action = cancel_action
+	heart_refill_reward_acquired = reward_acquired
 	heart_refill_store_is_open = _portrait_coin_store_active
-	var close_action := Callable(self, "_remove_heart_refill_popup")
+	var close_action := Callable(self, "_close_heart_refill_popup")
 	var previous_content := _portrait_popup_begin(
 		"HeartRefillPopup",
 		"heart_refill_popup",
@@ -5811,7 +5820,9 @@ func _show_heart_refill_popup(
 		true,
 		Callable(self, "_return_to_heart_refill_from_coin_store").bind(
 			continue_action,
-			store_return_action
+			store_return_action,
+			cancel_action,
+			reward_acquired
 		)
 	)
 	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
@@ -5991,16 +6002,33 @@ func _on_heart_refill_ad_pressed() -> void:
 		return
 	_show_portrait_rewarded_action(&"heart_refill")
 
+func _close_heart_refill_popup() -> void:
+	var continue_action: Callable = heart_refill_continue_action
+	var cancel_action: Callable = heart_refill_cancel_action
+	var reward_acquired: bool = heart_refill_reward_acquired
+	_remove_heart_refill_popup()
+	if reward_acquired and continue_action.is_valid():
+		continue_action.call_deferred()
+	elif cancel_action.is_valid():
+		cancel_action.call_deferred()
+
 func _return_to_heart_refill_from_coin_store(
 	continue_action: Callable,
-	restore_action: Callable
+	restore_action: Callable,
+	cancel_action: Callable = Callable(),
+	reward_acquired: bool = false
 ) -> void:
 	if restore_action.is_valid():
 		restore_action.call()
 	else:
 		show_menu()
 	_portrait_popup_resume_without_intro = true
-	_show_heart_refill_popup(continue_action, restore_action)
+	_show_heart_refill_popup(
+		continue_action,
+		restore_action,
+		cancel_action,
+		reward_acquired
+	)
 
 func _restore_single_player_heart_refill_context(level_index: int, theme_index: int) -> void:
 	show_tasks()
@@ -9927,9 +9955,18 @@ func _reveal_in_place_result_action_after_attempt_stars() -> void:
 	fade.set_trans(Tween.TRANS_SINE)
 	fade.set_ease(Tween.EASE_OUT)
 
-func _single_player_reward_for_slot(word_slot: int, word_count: int) -> int:
-	var reward: int = GameState.WORD_REWARD_COINS
-	if word_slot == word_count - 1:
+func _single_player_reward_for_slot(level_index: int, word_slot: int, word_count: int) -> int:
+	var currency: String = _single_player_stage_reward_currency(
+		level_index,
+		word_slot,
+		word_count
+	)
+	var reward: int = (
+		GameState.WORD_REWARD_STARS
+		if currency == GameState.STAGE_REWARD_STARS
+		else GameState.WORD_REWARD_COINS
+	)
+	if word_slot == word_count - 1 and currency == GameState.STAGE_REWARD_COINS:
 		reward += (
 			GameState.SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS
 			+ maxi(word_count, 0) * GameState.SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS
@@ -11648,7 +11685,13 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 			if !popup_nodes.is_empty():
 				var continue_action: Callable = heart_refill_continue_action
 				var restore_action: Callable = heart_refill_store_return_action
-				_show_heart_refill_popup(continue_action, restore_action)
+				var cancel_action: Callable = heart_refill_cancel_action
+				_show_heart_refill_popup(
+					continue_action,
+					restore_action,
+					cancel_action,
+					true
+				)
 		&"coin_refill":
 			# Count only successfully rewarded ads. Persist the coin grant and the
 			# remaining-view/cooldown state together in the same save write, then keep
@@ -12075,12 +12118,12 @@ func _show_single_player_reward_chain_screen() -> void:
 	title_panel.z_index = 0
 	var level_title_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
 	var result_heading_text: String = (
-		tr("REWARD_NOT_COMPLETED")
+		tr("REWARD_STAGE_FAILED")
 		if is_failure_reward
 		else (
 			tr("REWARD_COMPLETED")
 			if is_final_reward
-			else tr("REWARD_WORD_GUESSED")
+			else tr("REWARD_STAGE_COMPLETED")
 		)
 	)
 	var reward_title := Label.new()
@@ -12286,13 +12329,19 @@ func _show_single_player_reward_chain_screen() -> void:
 
 		var is_previous: bool = word_slot < current_slot
 		var is_current: bool = word_slot == current_slot
-		var is_failed_current: bool = is_failure_reward and is_current
+		var slot_status: int = _single_player_level_word_status(level_index, word_slot)
+		var is_failed_slot: bool = slot_status == 2
+		var is_failed_current: bool = is_failed_slot and is_current
 		var reward_currency: String = _single_player_stage_reward_currency(
 			level_index,
 			word_slot,
 			word_count
 		)
-		var reward_amount: int = _single_player_reward_for_slot(word_slot, word_count)
+		var reward_amount: int = _single_player_reward_for_slot(
+			level_index,
+			word_slot,
+			word_count
+		)
 		# Reward amounts start fully white. Once a reward is claimed, the checkmark
 		# dims both its resource icon and xN; future rewards stay white.
 		var count_color: Color = Color.WHITE
@@ -12310,7 +12359,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			level_index,
 			word_slot <= current_slot,
 			is_current,
-			is_failed_current,
+			is_failed_slot,
 			accent_color,
 			header_color
 		)
@@ -12338,7 +12387,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			reward_currency
 		)
 		var is_claimed: bool = (
-			is_previous
+			(is_previous and slot_status == 1)
 			or (
 				is_current
 				and !is_final_reward
@@ -12346,13 +12395,15 @@ func _show_single_player_reward_chain_screen() -> void:
 				and !is_failed_current
 			)
 		)
-		if is_failed_current:
-			failure_reward_cross_visual = _stage_single_player_reward_status_icon(
+		if is_failed_slot:
+			var failed_cross := _stage_single_player_reward_status_icon(
 				node_holder,
 				local_node_rect,
-				true,
+				is_current,
 				false
 			)
+			if is_current:
+				failure_reward_cross_visual = failed_cross
 		elif is_claimed:
 			_stage_single_player_reward_status_icon(node_holder, local_node_rect)
 		elif is_current and !is_final_reward:
@@ -12374,7 +12425,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			count_font_size,
 			count_color
 		)
-		if is_claimed or is_failed_current:
+		if is_claimed or is_failed_slot:
 			# Claimed and failed rewards keep both the icon and xN inactive.
 			# Future rewards stay white.
 			resource_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
@@ -12393,10 +12444,14 @@ func _show_single_player_reward_chain_screen() -> void:
 	if is_final_reward:
 		var reward_amount: int = int(last_result_data.get(
 			"single_player_deferred_reward_amount",
-			_single_player_reward_for_slot(current_slot, word_count)
+			_single_player_reward_for_slot(level_index, current_slot, word_count)
 		))
 		if reward_amount <= 0:
-			reward_amount = _single_player_reward_for_slot(current_slot, word_count)
+			reward_amount = _single_player_reward_for_slot(
+				level_index,
+				current_slot,
+				word_count
+			)
 		var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
 			PORTRAIT_FINAL_REWARD_COIN_SIZE
 		)
@@ -12544,11 +12599,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		continue_button = _stage_main_button(
 			_portrait_in_place_result_button_rect(),
 			Callable(self, "_continue_from_single_player_reward_chain"),
-			(
-				tr("REWARD_START_OVER")
-				if is_failure_reward
-				else _result_continue_button_text()
-			),
+			_result_continue_button_text(),
 			22,
 			false,
 			0.32,
@@ -12632,9 +12683,6 @@ func _show_single_player_reward_chain_screen() -> void:
 	)
 
 func _continue_from_single_player_reward_chain() -> void:
-	if !last_result_is_win:
-		_open_single_player_retry_theme_popup()
-		return
 	var level_index: int = int(last_result_data.get(
 		"single_player_level_index",
 		single_player_active_level_index
@@ -12643,22 +12691,64 @@ func _continue_from_single_player_reward_chain() -> void:
 		"single_player_level_completed",
 		false
 	))
+	if !last_result_is_win and GameState.get_hearts() <= 0:
+		_show_heart_refill_popup(
+			Callable(self, "_continue_single_player_stage_after_refill").bind(level_index),
+			Callable(self, "_return_to_single_player_reward_from_coin_store"),
+			Callable(self, "_cancel_single_player_stage_heart_refill").bind(level_index)
+		)
+		return
 	if level_completed:
-		GameSession.discard_current_round()
-		game_finished = false
-		last_result_data = {}
-		single_player_active_word_slot = -1
-		show_menu()
+		_finish_completed_single_player_stage_result()
 		return
 	_start_next_single_player_word(level_index)
+
+func _continue_single_player_stage_after_refill(level_index: int) -> void:
+	if GameState.get_hearts() <= 0:
+		return
+	if bool(last_result_data.get("single_player_level_completed", false)):
+		_finish_completed_single_player_stage_result()
+		return
+	_start_next_single_player_word(level_index)
+
+func _finish_completed_single_player_stage_result() -> void:
+	GameState.clear_active_single_player_session(true)
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
+	show_menu()
+
+func _cancel_single_player_stage_heart_refill(level_index: int) -> void:
+	# Closing without a coin or rewarded-ad refill discards the whole attempt,
+	# even if the passive timer happened to restore a heart while the popup was open.
+	GameState.reset_single_level_attempt(
+		Database.current_language,
+		level_index,
+		true,
+		true,
+		false
+	)
+	GameState.relock_single_player_level_if_latest(
+		Database.current_language,
+		level_index,
+		false
+	)
+	GameState.save_game()
+	_invalidate_single_player_level_cache()
+	GameSession.discard_current_round()
+	game_finished = false
+	last_result_data = {}
+	single_player_active_word_slot = -1
+	show_menu()
 
 func _leave_single_player_failure_reward_to_menu() -> void:
 	_discard_round_for_navigation()
 	show_menu()
 
 func _continue_single_player_result() -> void:
-	# Both outcomes use the reward-chain interstitial. A loss presents the failed
-	# current reward before Start over opens a fresh theme selection.
+	# Both outcomes use the reward-chain interstitial. A failed stage shows its
+	# missed reward, then Continue advances through the same level chain.
 	_show_single_player_reward_chain_screen()
 
 func _use_open_hint() -> void:

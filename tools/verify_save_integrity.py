@@ -462,16 +462,47 @@ def main() -> None:
     )
     stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
     require(
-        "word_slot == word_count - 1" in stage_currency
-        and "_single_player_level_question_slot_index" in stage_currency
-        and "STAGE_REWARD_STARS" in stage_currency,
-        "Stage currency rules do not preserve quiz/final coins and ordinary stars",
+        "_single_player_level_question_slot_index" in stage_currency
+        and "STAGE_REWARD_STARS" in stage_currency
+        and "STAGE_REWARD_COINS" in stage_currency
+        and "word_slot == word_count - 1" not in stage_currency,
+        "Stage currency rules do not award quiz stars and Hangman coins",
     )
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(
         '"reward_currency": stage_reward_currency' in stage_result
-        and '"reward_claimed": false' in stage_result,
+        and '"reward_claimed": !is_win' in stage_result
+        and 'result["single_player_chain_failed"] = false' in stage_result,
         "Pending stage reward is not persisted with level resume state",
+    )
+    level_completed = function_body(game_state, "is_single_level_completed")
+    level_progress = function_body(game_state, "mark_single_level_word_played")
+    level_prepare = function_body(main_source, "_prepare_single_player_level_attempt")
+    require(
+        "get_single_level_played_count" in level_completed
+        and '"chain_ended": completed' in level_progress
+        and "is_single_level_failed" not in level_prepare,
+        "A failed stage can still terminate or reset the whole level",
+    )
+    classic_attempt_reward = function_body(main_source, "_grant_remaining_attempt_star_reward")
+    require(
+        "GameState.current_mode == GameState.GameMode.TWO_PLAYER" in classic_attempt_reward
+        and "GameState.current_mode != GameState.GameMode.CLASSIC" not in classic_attempt_reward,
+        "Single-player Hangman no longer grants stars for its remaining attempts",
+    )
+    reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
+    reward_continue = function_body(portrait, "_continue_from_single_player_reward_chain")
+    refill_cancel = function_body(portrait, "_cancel_single_player_stage_heart_refill")
+    refill_close = function_body(portrait, "_close_heart_refill_popup")
+    require(
+        'tr("REWARD_STAGE_COMPLETED")' in reward_screen
+        and 'tr("REWARD_STAGE_FAILED")' in reward_screen
+        and "GameState.get_hearts() <= 0" in reward_continue
+        and "_show_heart_refill_popup" in reward_continue
+        and "reset_single_level_attempt" in refill_cancel
+        and "relock_single_player_level_if_latest" in refill_cancel
+        and "reward_acquired and continue_action.is_valid()" in refill_close,
+        "Stage result copy or the zero-heart reset flow is incomplete",
     )
     pending_claim = function_body(game_state, "claim_pending_single_player_reward")
     require(

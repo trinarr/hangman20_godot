@@ -209,6 +209,8 @@ var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
 var heart_refill_continue_action: Callable = Callable()
 var heart_refill_store_return_action: Callable = Callable()
+var heart_refill_cancel_action: Callable = Callable()
+var heart_refill_reward_acquired: bool = false
 var heart_refill_store_is_open: bool = false
 
 func _ready() -> void:
@@ -388,7 +390,9 @@ func _show_single_player_last_chance_popup(_advance_offer_cost: bool = true) -> 
 
 func _show_heart_refill_popup(
 	_continue_action: Callable = Callable(),
-	_store_return_action: Callable = Callable()
+	_store_return_action: Callable = Callable(),
+	_cancel_action: Callable = Callable(),
+	_reward_acquired: bool = false
 ) -> void:
 	pass
 
@@ -1012,10 +1016,6 @@ func _prepare_single_player_level_attempt(level_index: int) -> int:
 		)
 		if selected_theme < 0:
 			return level_index
-		if GameState.is_single_level_failed(Database.current_language, level_index, word_count):
-			GameState.reset_single_level_attempt(Database.current_language, level_index)
-			_invalidate_single_player_level_cache()
-			return level_index
 		if !GameState.is_single_level_completed(Database.current_language, level_index, word_count):
 			return level_index
 		# Older saves could contain a completed tenth level that was previously
@@ -1354,15 +1354,12 @@ func _single_player_level_word_count(level_index: int) -> int:
 func _single_player_stage_reward_currency(
 	level_index: int,
 	word_slot: int,
-	word_count: int
+	_word_count: int
 ) -> String:
-	# Quiz stages and the final/main-prize stage keep coins. Every other level
-	# stage is a star reward, regardless of which word theme was selected.
-	if word_slot == word_count - 1:
-		return GameState.STAGE_REWARD_COINS
+	# Hangman stages award coins; the embedded quiz stage awards stars.
 	if word_slot == _single_player_level_question_slot_index(level_index):
-		return GameState.STAGE_REWARD_COINS
-	return GameState.STAGE_REWARD_STARS
+		return GameState.STAGE_REWARD_STARS
+	return GameState.STAGE_REWARD_COINS
 
 func _single_player_level_played_count(level_index: int) -> int:
 	return GameState.get_single_level_played_count(
@@ -1415,8 +1412,9 @@ func _single_player_mark_current_word_finished(
 	result["single_player_total_count"] = level_word_count
 	result["single_player_level_completed"] = bool(progress.get("completed", false))
 	result["single_player_level_perfect"] = bool(progress.get("perfect", false))
-	result["single_player_chain_failed"] = bool(progress.get("failed", false))
-	result["single_player_chain_ended"] = bool(progress.get("chain_ended", false))
+	result["single_player_chain_failed"] = false
+	result["single_player_chain_ended"] = bool(progress.get("completed", false))
+	result["single_player_stage_won"] = is_win
 	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
 	result["single_player_completion_bonus"] = int(progress.get("completion_bonus", 0))
 	var level_completed: bool = bool(progress.get("completed", false))
@@ -1443,15 +1441,22 @@ func _single_player_mark_current_word_finished(
 		)
 		result["single_player_stage_reward_currency"] = stage_reward_currency
 		result["single_player_stage_reward_amount"] = stage_reward_amount
-	if level_completed:
+	if level_completed and int(progress.get("completion_bonus", 0)) > 0:
 		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
-	elif bool(progress.get("failed", false)):
-		result["lines"].append(_single_player_chain_failed_label())
-	if level_completed:
+	if level_completed and is_win:
 		# mark_single_level_word_played() has already replaced the active snapshot
 		# with a durable pending reward when this is the deferred final result.
 		GameState.clear_active_single_player_session(false)
-	elif is_win:
+	else:
+		# Both outcomes remain resumable until Continue starts the next stage. A
+		# failed stage stores a zero-value, already-claimed reward so relaunching
+		# restores the failure result without granting currency.
+		if stage_reward_currency.is_empty():
+			stage_reward_currency = _single_player_stage_reward_currency(
+				single_player_active_level_index,
+				single_player_active_word_slot,
+				level_word_count
+			)
 		GameState.set_active_single_player_session({
 			"kind": "next",
 			"language": Database.current_language,
@@ -1464,11 +1469,9 @@ func _single_player_mark_current_word_finished(
 				"result": result.duplicate(true),
 				"reward_currency": stage_reward_currency,
 				"reward_amount": stage_reward_amount,
-				"reward_claimed": false,
+				"reward_claimed": !is_win,
 			},
 		}, false)
-	else:
-		GameState.clear_active_single_player_session(false)
 	if persist:
 		GameState.save_game()
 	return result
@@ -1588,6 +1591,8 @@ func _remove_heart_refill_popup() -> void:
 			node.queue_free()
 	heart_refill_continue_action = Callable()
 	heart_refill_store_return_action = Callable()
+	heart_refill_cancel_action = Callable()
+	heart_refill_reward_acquired = false
 	heart_refill_store_is_open = false
 
 func _remove_coin_refill_popup() -> void:
@@ -1606,11 +1611,15 @@ func _purchase_heart_refill() -> void:
 			return
 		var continue_action: Callable = heart_refill_continue_action
 		var restore_action: Callable = heart_refill_store_return_action
+		var cancel_action: Callable = heart_refill_cancel_action
+		var reward_acquired: bool = heart_refill_reward_acquired
 		_remove_heart_refill_popup()
 		_open_coin_store(
 			Callable(self, "_return_to_heart_refill_from_coin_store").bind(
 				continue_action,
-				restore_action
+				restore_action,
+				cancel_action,
+				reward_acquired
 			)
 		)
 		return
@@ -2080,7 +2089,13 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 		forfeit_result = _single_player_mark_current_word_finished({}, false, false, false, false)
 		chain_failed = true
 		should_lose_heart = true
-	elif game_finished and level_index >= 0 and !level_completed and !chain_failed:
+	elif (
+		game_finished
+		and last_result_is_win
+		and level_index >= 0
+		and !level_completed
+		and !chain_failed
+	):
 		# Leaving after a successfully guessed word still forfeits the unfinished
 		# chain, but intentionally leaves adaptive difficulty unchanged.
 		GameState.record_single_player_forfeit(Database.current_language, false)
@@ -2748,9 +2763,6 @@ func _continue_two_player_result() -> void:
 func _continue_single_player_result() -> void:
 	var level_index: int = single_player_active_level_index
 	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
-	if !last_result_is_win:
-		_open_single_player_retry_theme_popup()
-		return
 	if level_completed:
 		GameSession.discard_current_round()
 		game_finished = false

@@ -1315,7 +1315,9 @@ func get_single_level_guessed_count(lang: String, level_index: int, word_count: 
 	return count
 
 func is_single_level_completed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
-	return is_single_level_perfect(lang, level_index, word_count, difficulty)
+	if word_count <= 0:
+		return false
+	return get_single_level_played_count(lang, level_index, word_count, difficulty) >= word_count
 
 func is_single_level_perfect(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
 	if word_count <= 0:
@@ -1343,6 +1345,30 @@ func ensure_single_player_next_level_unlocked(lang: String, completed_level_inde
 	bucket["unlocked_level"] = completed_level_index + 1
 	single_player[lang_key] = bucket
 	save_game()
+
+func relock_single_player_level_if_latest(
+	lang: String,
+	level_index: int,
+	persist: bool = true
+) -> bool:
+	# Used only when the zero-heart popup is closed after the last failed stage.
+	# Never relock if the following level has already acquired any durable state.
+	if level_index < 0:
+		return false
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	if int(bucket.get("unlocked_level", 0)) != level_index + 1:
+		return false
+	var next_level_key := str(level_index + 1)
+	var levels: Dictionary = bucket["levels"]
+	var selected_themes: Dictionary = bucket["selected_themes"]
+	if levels.has(next_level_key) or selected_themes.has(next_level_key):
+		return false
+	bucket["unlocked_level"] = level_index
+	single_player[lang_key] = bucket
+	if persist:
+		save_game()
+	return true
 
 func get_single_player_adaptive_difficulty(lang: String) -> float:
 	var bucket := _single_player_bucket(lang)
@@ -1382,20 +1408,24 @@ func mark_single_level_word_played(
 	var difficulty_after: float = difficulty_before
 	var difficulty_delta: float = 0.0
 	if was_unplayed and is_win and completed:
-		var win_streak: int = int(bucket.get("win_streak", 0)) + 1
-		difficulty_delta = GAME_DESIGN.difficulty_win_increase(
-			difficulty_before,
-			win_streak
-		)
-		difficulty_after = clampf(
-			difficulty_before + difficulty_delta,
-			SINGLE_PLAYER_DIFFICULTY_MIN,
-			SINGLE_PLAYER_DIFFICULTY_MAX
-		)
-		bucket["adaptive_difficulty"] = difficulty_after
-		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
-		bucket["win_streak"] = win_streak
-		bucket["loss_streak"] = 0
+		# Finishing the last stage completes the level even when an earlier stage
+		# was lost. Keep its final reward, but raise adaptive difficulty only after
+		# a perfect chain.
+		if perfect:
+			var win_streak: int = int(bucket.get("win_streak", 0)) + 1
+			difficulty_delta = GAME_DESIGN.difficulty_win_increase(
+				difficulty_before,
+				win_streak
+			)
+			difficulty_after = clampf(
+				difficulty_before + difficulty_delta,
+				SINGLE_PLAYER_DIFFICULTY_MIN,
+				SINGLE_PLAYER_DIFFICULTY_MAX
+			)
+			bucket["adaptive_difficulty"] = difficulty_after
+			bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
+			bucket["win_streak"] = win_streak
+			bucket["loss_streak"] = 0
 		completion_bonus = _single_player_level_completion_bonus(word_count)
 		if award_completion_bonus:
 			add_soft_currency(completion_bonus, false)
@@ -1436,7 +1466,8 @@ func mark_single_level_word_played(
 		"completed": completed,
 		"perfect": perfect,
 		"failed": failed,
-		"chain_ended": completed or failed,
+		# A failed stage only withholds its reward; it no longer ends the chain.
+		"chain_ended": completed,
 		"played_count": get_single_level_played_count(lang, level_index, word_count, difficulty),
 		"guessed_count": get_single_level_guessed_count(lang, level_index, word_count, difficulty),
 		"unlocked_next": unlocked_next,
