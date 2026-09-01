@@ -10793,7 +10793,10 @@ func _start_final_reward_glow_rotation(
 		duration
 	).from(0.0)
 
-func _play_final_reward_pack_bounce(pack: Control) -> void:
+func _play_final_reward_pack_bounce(
+	pack: Control,
+	peak_callback: Callable = Callable()
+) -> void:
 	if pack == null or !is_instance_valid(pack) or !pack.is_inside_tree():
 		return
 	# FlashStageTexture stores the viewport fit in Control.scale. Preserve that
@@ -10812,6 +10815,10 @@ func _play_final_reward_pack_bounce(pack: Control) -> void:
 	)
 	grow.set_trans(Tween.TRANS_QUAD)
 	grow.set_ease(Tween.EASE_OUT)
+	if peak_callback.is_valid():
+		# This callback runs after the grow phase has reached its exact target
+		# scale and before the settling phase starts shrinking the prize again.
+		bounce_tween.tween_callback(peak_callback)
 	var settle := bounce_tween.tween_property(
 		pack,
 		"scale",
@@ -11211,6 +11218,15 @@ func _stop_final_reward_continue_attention() -> void:
 	_portrait_final_reward_continue_button.set_meta(&"attention_after_reveal", false)
 	_portrait_final_reward_continue_button.set("attention_bounce_enabled", false)
 
+func _start_early_final_reward_claim_at_pack_peak(
+	transition_pack: Control,
+	double_button: Control,
+	collect_holder: Control,
+	collect_button: Button
+) -> void:
+	_play_early_final_reward_coin_claim(transition_pack)
+	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
+
 func _start_single_player_final_reward_transition_deferred(
 	chain_holder: Control,
 	_hero_mask: Control,
@@ -11254,8 +11270,8 @@ func _start_single_player_final_reward_transition_deferred(
 	# the regular reward art into it during the flight instead of pausing first.
 	# The chain fades out and the hero simply disappears through alpha instead of
 	# shrinking.
-	# Coins are still only credited after the player chooses the main-menu action;
-	# this phase is presentation-only.
+	# Guided levels credit their coins at the peak of the center bounce. Later
+	# levels retain their regular claim / rewarded-ad flow.
 	if hero_texture != null and is_instance_valid(hero_texture):
 		hero_texture.pivot_offset = hero_texture.size * 0.5
 	var replace_tween := transition_pack.create_tween()
@@ -11352,10 +11368,20 @@ func _start_single_player_final_reward_transition_deferred(
 				1.0,
 				PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 			)
-	await _play_final_reward_pack_bounce(transition_pack)
+	var pack_peak_callback := Callable()
 	if claim_before_actions:
-		_play_early_final_reward_coin_claim(transition_pack)
-	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
+		pack_peak_callback = Callable(
+			self,
+			"_start_early_final_reward_claim_at_pack_peak"
+		).bind(
+			transition_pack,
+			double_button,
+			collect_holder,
+			collect_button
+		)
+	await _play_final_reward_pack_bounce(transition_pack, pack_peak_callback)
+	if !claim_before_actions:
+		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
 func _layout_final_reward_theme_pattern(clip_root: Control, motion: Control, mono_texture: Texture2D) -> void:
 	if clip_root == null or !is_instance_valid(clip_root):

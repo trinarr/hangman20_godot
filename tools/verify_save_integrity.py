@@ -352,24 +352,33 @@ def main() -> None:
     final_transition = function_body(
         portrait, "_start_single_player_final_reward_transition_deferred"
     )
+    final_pack_bounce = function_body(
+        portrait, "_play_final_reward_pack_bounce"
+    )
+    require(
+        "peak_callback: Callable = Callable()" in final_pack_bounce
+        and "bounce_tween.tween_callback(peak_callback)" in final_pack_bounce
+        and final_pack_bounce.index("bounce_tween.tween_callback(peak_callback)")
+        < final_pack_bounce.index("var settle := bounce_tween.tween_property"),
+        "Final reward peak callback does not run before the prize settles",
+    )
+    peak_claim = function_body(
+        portrait, "_start_early_final_reward_claim_at_pack_peak"
+    )
+    require(
+        "_play_early_final_reward_coin_claim(transition_pack)" in peak_claim
+        and "_reveal_final_reward_actions(" in peak_claim
+        and peak_claim.index("_play_early_final_reward_coin_claim")
+        < peak_claim.index("_reveal_final_reward_actions"),
+        "Coin crediting and Continue do not start together at the prize peak",
+    )
     require(
         "claim_before_actions" in final_transition
-        and "\n\t\t_play_early_final_reward_coin_claim(transition_pack)"
-        in final_transition,
-        "First-two-level coin animation does not start with Continue",
-    )
-    reward_bounce_position = final_transition.index(
-        "await _play_final_reward_pack_bounce"
-    )
-    coin_claim_position = final_transition.index(
-        "_play_early_final_reward_coin_claim"
-    )
-    actions_reveal_position = final_transition.rindex(
-        "_reveal_final_reward_actions"
-    )
-    require(
-        reward_bounce_position < coin_claim_position < actions_reveal_position,
-        "Final coin crediting does not start after prize arrival and with Continue",
+        and '"_start_early_final_reward_claim_at_pack_peak"' in final_transition
+        and "await _play_final_reward_pack_bounce(transition_pack, pack_peak_callback)"
+        in final_transition
+        and "if !claim_before_actions:" in final_transition,
+        "First-two-level final rewards are not routed through the peak callback",
     )
     rewarded = function_body(portrait, "_on_portrait_rewarded_action_rewarded")
     rewarded_close = function_body(portrait, "_on_portrait_rewarded_action_closed")
