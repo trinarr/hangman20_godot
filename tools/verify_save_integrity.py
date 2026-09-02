@@ -543,6 +543,9 @@ def main() -> None:
     completed_stage_finish = function_body(
         portrait, "_finish_completed_single_player_stage_result"
     )
+    reward_exit_to_menu = function_body(
+        portrait, "_leave_single_player_failure_reward_to_menu"
+    )
     direct_theme_level = function_body(
         portrait, "_direct_theme_level_after_completed_level"
     )
@@ -571,9 +574,14 @@ def main() -> None:
     require(
         "completed_level_index + 1 if completed_level_index >= 0 else -1"
         in completed_stage_finish
+        and "open_next_theme_popup" in completed_stage_finish
         and "_show_single_player_level_popup(next_theme_level_index, -1, false, true)"
-        in completed_stage_finish,
-        "Completed levels must open the next-theme popup in place",
+        in completed_stage_finish
+        and 'last_result_data.get("single_player_level_completed", false)'
+        in reward_exit_to_menu
+        and "_finish_completed_single_player_stage_result(false)"
+        in reward_exit_to_menu,
+        "Completed levels must open the next-theme popup on Continue and finalize to Home on X",
     )
     final_collect = function_body(portrait, "_stage_final_reward_collect_text")
     require(

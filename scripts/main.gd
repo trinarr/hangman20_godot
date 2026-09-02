@@ -404,7 +404,7 @@ func _show_heart_refill_popup(
 func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
 	pass
 
-func _show_single_player_forfeit_reward_screen() -> void:
+func _show_single_player_forfeit_reward_screen(_show_interstitial: bool = false) -> void:
 	show_menu()
 
 func _update_single_player_theme_popup(_level_index: int) -> void:
@@ -2183,7 +2183,10 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
 		last_result_is_win = false
 		hero_force_default_pose = false
-		_show_single_player_forfeit_reward_screen()
+		# Only a newly forced loss should trigger the extra interstitial opportunity.
+		# A naturally failed stage has already consumed its heart and should simply
+		# reveal the existing failed node without another ad trigger.
+		_show_single_player_forfeit_reward_screen(should_lose_heart)
 		return
 	GameSession.discard_current_round()
 	game_finished = false

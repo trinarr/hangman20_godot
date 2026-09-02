@@ -9912,9 +9912,13 @@ func _return_to_single_player_reward_from_coin_store() -> void:
 	_portrait_single_reward_resume_without_intro = true
 	_show_single_player_reward_chain_screen()
 
-func _show_single_player_forfeit_reward_screen() -> void:
+func _show_single_player_forfeit_reward_screen(show_interstitial: bool = false) -> void:
 	_portrait_single_reward_resume_without_intro = false
-	_show_single_player_reward_chain_screen()
+	var show_reward_action := Callable(self, "_show_single_player_reward_chain_screen")
+	if show_interstitial:
+		_run_action_after_interstitial_if_ready(show_reward_action)
+		return
+	show_reward_action.call()
 
 func _return_to_single_player_last_chance_from_coin_store() -> void:
 	_portrait_game_entrance_pending = false
@@ -12951,7 +12955,7 @@ func _direct_theme_level_after_completed_level(level_index: int) -> int:
 		return level_index + 1
 	return -1
 
-func _finish_completed_single_player_stage_result() -> void:
+func _finish_completed_single_player_stage_result(open_next_theme_popup: bool = true) -> void:
 	var completed_level_index: int = int(last_result_data.get(
 		"single_player_level_index",
 		single_player_active_level_index
@@ -12964,7 +12968,7 @@ func _finish_completed_single_player_stage_result() -> void:
 	game_finished = false
 	last_result_data = {}
 	single_player_active_word_slot = -1
-	if next_theme_level_index >= 0:
+	if open_next_theme_popup and next_theme_level_index >= 0:
 		_stop_single_reward_continue_attention()
 		_show_single_player_level_popup(next_theme_level_index, -1, false, true)
 		return
@@ -12994,6 +12998,13 @@ func _cancel_single_player_stage_heart_refill(level_index: int) -> void:
 	show_menu()
 
 func _leave_single_player_failure_reward_to_menu() -> void:
+	# Once every stage has been played, the reward-chain X is an alternative
+	# completion action, not an interrupted level. Clear the resumable snapshot
+	# exactly like Continue does, but go straight Home instead of opening the
+	# next-theme popup. Earlier reward nodes remain resumable when leaving mid-level.
+	if bool(last_result_data.get("single_player_level_completed", false)):
+		_finish_completed_single_player_stage_result(false)
+		return
 	_discard_round_for_navigation()
 	show_menu()
 
