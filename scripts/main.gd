@@ -168,6 +168,7 @@ var single_player_popup_stage_content: Control = null
 var single_player_popup_theme_card_nodes: Array[Node] = []
 var single_player_popup_play_button: Control = null
 var single_player_popup_refresh_price_label: Label = null
+var single_player_popup_return_to_menu_on_close: bool = false
 var single_player_retry_after_loss: bool = false
 var single_player_extra_attempt_offer_count: int = 0
 var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
@@ -384,7 +385,8 @@ func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> vo
 func _show_single_player_level_popup(
 	_level_index: int,
 	_selected_theme: int = -1,
-	_retry_after_loss: bool = false
+	_retry_after_loss: bool = false,
+	_return_to_menu_on_close: bool = false
 ) -> void:
 	pass
 
@@ -1561,11 +1563,15 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 			"font_color",
 			Color.WHITE if resume_available else UI_PALETTE.CHALLENGE_TEXT
 		)
-		var challenge_effect_color := Color(
-			DIFFICULTY_HARD_OUTLINE_COLOR.r,
-			DIFFICULTY_HARD_OUTLINE_COLOR.g,
-			DIFFICULTY_HARD_OUTLINE_COLOR.b,
-			0.52
+		var challenge_effect_color: Color = (
+			UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
+			if resume_available
+			else Color(
+				DIFFICULTY_HARD_OUTLINE_COLOR.r,
+				DIFFICULTY_HARD_OUTLINE_COLOR.g,
+				DIFFICULTY_HARD_OUTLINE_COLOR.b,
+				0.52
+			)
 		)
 		BUTTON_TEXT_STYLE_SCRIPT.apply(challenge_label, challenge_effect_color, challenge_effect_color)
 		button.add_child(challenge_label)
@@ -1583,6 +1589,11 @@ func _remove_single_player_theme_popup() -> void:
 	single_player_popup_stage_content = null
 	single_player_popup_play_button = null
 	single_player_popup_refresh_price_label = null
+	single_player_popup_return_to_menu_on_close = false
+
+func _close_single_player_theme_popup_to_menu() -> void:
+	_remove_single_player_theme_popup()
+	show_menu()
 
 func _remove_single_player_last_chance_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_last_chance_popup")
@@ -1832,10 +1843,16 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 func _return_to_single_player_theme_popup(
 	level_index: int,
 	retry_after_loss: bool = false,
-	selected_theme: int = -1
+	selected_theme: int = -1,
+	return_to_menu_on_close: bool = false
 ) -> void:
 	show_menu()
-	_show_single_player_level_popup(level_index, selected_theme, retry_after_loss)
+	_show_single_player_level_popup(
+		level_index,
+		selected_theme,
+		retry_after_loss,
+		return_to_menu_on_close
+	)
 
 func _purchase_single_player_extra_attempt() -> void:
 	if single_player_extra_attempt_claim_in_progress:
@@ -2066,27 +2083,44 @@ func _single_player_forfeit_reward_data(source_result: Dictionary, level_index: 
 	result["single_player_level_index"] = level_index
 	result["single_player_word_slot"] = word_slot
 	result["single_player_total_count"] = word_count
-	result["single_player_level_completed"] = false
 	result["single_player_level_perfect"] = false
-	result["single_player_chain_failed"] = true
-	result["single_player_chain_ended"] = true
-	result["single_player_unlocked_next"] = false
-	result["single_player_completion_bonus"] = 0
+	result["single_player_chain_failed"] = false
+	result["single_player_stage_won"] = false
 	result["single_player_forfeit_reward"] = true
 	result["single_player_reward_granted"] = false
 	return result
 
-func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
+func _single_player_strip_win_rewards_for_forfeit(source_result: Dictionary) -> Dictionary:
+	var result: Dictionary = source_result.duplicate(true)
+	var remaining_attempt_reward: int = maxi(
+		int(result.get("remaining_attempt_star_reward_amount", 0)),
+		0
+	)
+	if remaining_attempt_reward > 0:
+		GameState.spend_stars(remaining_attempt_reward, false)
+	if bool(result.get("single_player_reward_deferred", false)):
+		GameState.clear_pending_single_player_reward(false)
+	for reward_key: String in [
+		"remaining_attempt_star_reward_amount",
+		"remaining_attempt_star_balance_before",
+		"single_player_stage_reward_currency",
+		"single_player_stage_reward_amount",
+		"single_player_reward_deferred",
+		"single_player_deferred_reward_amount",
+	]:
+		result.erase(reward_key)
+	return result
+
+func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 	var level_index: int = single_player_active_level_index
-	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
-	var chain_failed: bool = bool(last_result_data.get("single_player_chain_failed", false))
 	var forfeit_result: Dictionary = last_result_data.duplicate(true)
-	# A result transition may already be waiting for the letter-marker animation.
-	# In that case the round has already been recorded, so only cancel the delayed
-	# result screen and return to the level without recording it a second time.
+	# A forced exit is a loss of the current stage, not a reset of the whole level.
+	# Preserve every earlier status so the reward chain can show its existing checks
+	# together with a cross on the stage that the player abandoned.
 	result_transition_generation += 1
 	round_result_delay_requested = false
 	var should_lose_heart: bool = false
+	var has_stage_failure: bool = false
 	if (
 		!game_finished
 		and (GameSession.is_active or _single_player_embedded_question_active())
@@ -2094,42 +2128,55 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 		and single_player_active_word_slot >= 0
 	):
 		game_finished = true
-		forfeit_result = _single_player_mark_current_word_finished({}, false, false, false, false)
-		chain_failed = true
+		forfeit_result = _single_player_mark_current_word_finished(
+			{},
+			false,
+			false,
+			false,
+			false
+		)
 		should_lose_heart = true
+		has_stage_failure = true
 	elif (
 		game_finished
 		and last_result_is_win
 		and level_index >= 0
-		and !level_completed
-		and !chain_failed
+		and single_player_active_word_slot >= 0
+		and !bool(last_result_data.get("single_player_level_completed", false))
 	):
-		# Leaving after a successfully guessed word still forfeits the unfinished
-		# chain, but intentionally leaves adaptive difficulty unchanged.
-		GameState.record_single_player_forfeit(Database.current_language, false)
-		should_lose_heart = true
-	if should_lose_heart:
-		GameState.lose_heart(false)
-	if level_index >= 0 and !level_completed:
-		GameState.reset_single_level_attempt(
-			Database.current_language,
-			level_index,
-			true,
-			true,
+		# Exiting from the solved-stage result still counts as abandoning that stage.
+		# Revoke rewards granted before Continue, replace its saved status with a loss,
+		# and keep the rest of the level intact.
+		forfeit_result = _single_player_strip_win_rewards_for_forfeit(last_result_data)
+		forfeit_result = _single_player_mark_current_word_finished(
+			forfeit_result,
+			false,
+			false,
+			false,
 			false
 		)
-		_invalidate_single_player_level_cache()
-	if show_failure_reward and should_lose_heart and level_index >= 0 and !level_completed:
-		# Stage rewards are not claimed until their reward-screen animation begins,
-		# so leaving from the solved-word result has no economy credit to revoke.
+		GameState.record_single_player_forfeit(Database.current_language, false)
+		should_lose_heart = true
+		has_stage_failure = true
+	elif (
+		game_finished
+		and !last_result_is_win
+		and level_index >= 0
+		and single_player_active_word_slot >= 0
+	):
+		# A naturally failed stage has already consumed its heart and saved status.
+		# Back/Exit should simply reveal that same failed node on the reward chain.
+		has_stage_failure = true
+	if should_lose_heart:
+		GameState.lose_heart(false)
+	if has_stage_failure:
+		GameSession.discard_current_round()
 		GameState.save_game()
 		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
 		last_result_is_win = false
 		hero_force_default_pose = false
 		_show_single_player_forfeit_reward_screen()
 		return
-	if should_lose_heart or (level_index >= 0 and !level_completed):
-		GameState.save_game()
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
@@ -2801,12 +2848,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and !event.echo:
 		if event.keycode == KEY_ESCAPE:
 			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
-				if !_single_player_extra_attempt_is_free():
-					_decline_single_player_extra_attempt()
+				_decline_single_player_extra_attempt()
+				get_viewport().set_input_as_handled()
 			elif (
 				!get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
 			):
-				if (
+				if single_player_popup_return_to_menu_on_close:
+					_close_single_player_theme_popup_to_menu()
+				elif (
 					single_player_retry_after_loss
 					and !_single_player_theme_selection_is_locked(
 						single_player_popup_level_index

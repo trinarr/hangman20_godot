@@ -195,6 +195,16 @@ def main() -> None:
     require(int(resolve(config, "gameplay.max_mistakes")) > 0, "Maximum mistakes must be positive")
     require(int(resolve(config, "economy.extra_attempts.count_step_interval")) > 0, "Attempt interval must be positive")
     require(int(resolve(config, "economy.maximum_balance")) > 0, "Maximum balance must be positive")
+    require(
+        int(resolve(config, "timings.quiz_lightning_answer_window_ms")) == 3500
+        and int(resolve(config, "timings.quiz_fast_answer_window_ms")) == 5000,
+        "Quiz speed windows must remain at 3.5 and 5 seconds",
+    )
+    require(
+        int(resolve(config, "economy.rewards.lightning_quiz_answer_stars")) == 2
+        and int(resolve(config, "economy.rewards.quick_quiz_answer_stars")) == 1,
+        "Quiz speed rewards must remain at two and one stars",
+    )
     currency_icon_peak = float(resolve(config, "timings.animations.currency_reward.icon_peak_scale"))
     currency_counter_peak = float(resolve(config, "timings.animations.currency_reward.counter_peak_scale"))
     require(
@@ -267,6 +277,7 @@ def main() -> None:
     )
     require(
         "PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS" in portrait_source
+        and "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in portrait_source
         and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in portrait_source,
         "Gameplay timers are not connected to the game-design config",
     )
@@ -284,6 +295,11 @@ def main() -> None:
         "Early final rewards do not open the next theme popup with button attention",
     )
     long_button_source = (ROOT / "scripts" / "ui" / "stage_long_button.gd").read_text(encoding="utf-8")
+    require(
+        "func play_single_attention_shine()" in long_button_source
+        and "_single_attention_shine_tween.tween_method(" in long_button_source,
+        "Long buttons do not expose a one-shot attention shine",
+    )
     round_button_source = (ROOT / "scripts" / "ui" / "stage_round_button.gd").read_text(encoding="utf-8")
     for label, button_source in (("long", long_button_source), ("round", round_button_source)):
         shine_index = button_source.find("_attention_bounce_tween.tween_callback(_reset_attention_shine)")

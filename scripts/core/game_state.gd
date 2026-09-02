@@ -601,6 +601,13 @@ func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary
 func get_pending_single_player_reward() -> Dictionary:
 	return pending_single_player_reward.duplicate(true)
 
+func clear_pending_single_player_reward(persist: bool = true) -> void:
+	if pending_single_player_reward.is_empty():
+		return
+	pending_single_player_reward = {}
+	if persist:
+		save_game()
+
 func has_resumable_single_player_level() -> bool:
 	return !pending_single_player_reward.is_empty() or !active_single_player_session.is_empty()
 

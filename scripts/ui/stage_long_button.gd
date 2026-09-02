@@ -90,6 +90,7 @@ var button_disabled: bool = false:
 		button_disabled = value
 		disabled = value
 		if button_disabled:
+			_stop_single_attention_shine()
 			_stop_attention_bounce(true)
 		elif attention_bounce_enabled:
 			_start_attention_bounce()
@@ -195,6 +196,7 @@ var _icon_rect: TextureRect = null
 var _trailing_icon_rect: TextureRect = null
 var _use_normal_parts_when_disabled: bool = false
 var _attention_bounce_tween: Tween = null
+var _single_attention_shine_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
@@ -212,6 +214,7 @@ func _ready() -> void:
 	_start_attention_bounce()
 
 func _exit_tree() -> void:
+	_stop_single_attention_shine()
 	_stop_attention_bounce(false)
 	super._exit_tree()
 
@@ -220,6 +223,7 @@ func _set_press_scale(is_pressed: bool, animated: bool = true) -> void:
 	# Give the pressed state exclusive control while the finger is down, then
 	# resume the loop only after the release scale has returned to rest.
 	if is_pressed:
+		_stop_single_attention_shine()
 		_stop_attention_bounce(false)
 	super._set_press_scale(is_pressed, animated)
 	if is_pressed or !attention_bounce_enabled or disabled:
@@ -232,6 +236,7 @@ func _set_press_scale(is_pressed: bool, animated: bool = true) -> void:
 func _start_attention_bounce() -> void:
 	if !attention_bounce_enabled or disabled or _is_down or !is_inside_tree():
 		return
+	_stop_single_attention_shine()
 	_configure_attention_shine(_attention_shine_width, _attention_shine_strength)
 	_stop_attention_bounce(false)
 	visual_scale = Vector2.ONE
@@ -274,6 +279,38 @@ func _stop_attention_bounce(reset_scale: bool) -> void:
 	_reset_attention_shine()
 	if reset_scale:
 		visual_scale = Vector2.ONE
+
+func play_single_attention_shine() -> void:
+	if disabled or !is_inside_tree():
+		return
+	_stop_single_attention_shine()
+	_configure_attention_shine(_attention_shine_width, _attention_shine_strength)
+	_reset_attention_shine()
+	_single_attention_shine_tween = create_tween()
+	_single_attention_shine_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_single_attention_shine_tween.tween_method(
+		_set_attention_shine_progress,
+		ATTENTION_SHINE_START_PROGRESS,
+		ATTENTION_SHINE_END_PROGRESS,
+		_attention_shine_duration
+	)
+	_single_attention_shine_tween.finished.connect(
+		_finish_single_attention_shine,
+		CONNECT_ONE_SHOT
+	)
+
+func _finish_single_attention_shine() -> void:
+	_single_attention_shine_tween = null
+	_reset_attention_shine()
+
+func _stop_single_attention_shine() -> void:
+	if (
+		_single_attention_shine_tween != null
+		and _single_attention_shine_tween.is_valid()
+	):
+		_single_attention_shine_tween.kill()
+	_single_attention_shine_tween = null
+	_reset_attention_shine()
 
 func _draw() -> void:
 	var use_pressed_parts: bool = selected or _is_down

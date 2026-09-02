@@ -566,6 +566,9 @@ const PORTRAIT_QUIZ_HINT_GAP: float = 22.0
 const PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_QUIZ_ANSWER_WRONG_COLOR := PORTRAIT_UI_PALETTE.ERROR_SOFT
 const PORTRAIT_QUIZ_ENTRANCE_PANEL_OFFSET: float = 32.0
+const PORTRAIT_QUIZ_SPEED_NONE: int = 0
+const PORTRAIT_QUIZ_SPEED_FAST: int = 1
+const PORTRAIT_QUIZ_SPEED_LIGHTNING: int = 2
 var PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.quiz.entrance_background_fade_seconds", 0.34
 )
@@ -584,11 +587,17 @@ var PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER: float = PORTRAIT_GAME_DESIGN.get_floa
 var PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.quiz.entrance_question_fade_seconds", 0.112
 )
+var PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC: int = PORTRAIT_GAME_DESIGN.get_int(
+	"timings.quiz_lightning_answer_window_ms", 3500
+)
 var PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.quiz_fast_answer_window_ms", 4000
+	"timings.quiz_fast_answer_window_ms", 5000
 )
 var PORTRAIT_QUIZ_FAST_REWARD_STARS: int = PORTRAIT_GAME_DESIGN.get_int(
 	"economy.rewards.quick_quiz_answer_stars", 1
+)
+var PORTRAIT_QUIZ_LIGHTNING_REWARD_STARS: int = PORTRAIT_GAME_DESIGN.get_int(
+	"economy.rewards.lightning_quiz_answer_stars", 2
 )
 var PORTRAIT_QUIZ_FEEDBACK_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.quiz.feedback_start_scale", 0.64
@@ -3537,12 +3546,25 @@ func _mark_quiz_question_ready() -> void:
 	else:
 		_quiz_question_ready_at_msec = 0
 
-func _take_quiz_fast_answer_result() -> bool:
+func _take_quiz_speed_tier() -> int:
 	if _quiz_question_ready_at_msec <= 0:
-		return false
+		return PORTRAIT_QUIZ_SPEED_NONE
 	var elapsed_msec: int = Time.get_ticks_msec() - _quiz_question_ready_at_msec
 	_quiz_question_ready_at_msec = 0
-	return elapsed_msec >= 0 and elapsed_msec <= PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC
+	if elapsed_msec < 0:
+		return PORTRAIT_QUIZ_SPEED_NONE
+	if elapsed_msec <= PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC:
+		return PORTRAIT_QUIZ_SPEED_LIGHTNING
+	if elapsed_msec <= PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC:
+		return PORTRAIT_QUIZ_SPEED_FAST
+	return PORTRAIT_QUIZ_SPEED_NONE
+
+func _quiz_speed_reward_amount(speed_tier: int) -> int:
+	if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
+		return maxi(PORTRAIT_QUIZ_LIGHTNING_REWARD_STARS, 0)
+	if speed_tier == PORTRAIT_QUIZ_SPEED_FAST:
+		return maxi(PORTRAIT_QUIZ_FAST_REWARD_STARS, 0)
+	return 0
 
 func _quiz_question_font_size(question_text: String) -> int:
 	# Match the comment popup typography for quiz questions. The larger question
@@ -3749,19 +3771,27 @@ func _enable_quiz_continue_attention() -> void:
 		return
 	_quiz_continue_button.set("attention_bounce_enabled", true)
 
-func _quiz_correct_feedback_text(fast_answer: bool) -> String:
+func _quiz_correct_feedback_text(speed_tier: int) -> String:
 	if Database.interface_language == "ru":
-		return "Вот это скорость!" if fast_answer else "Верно!"
-	return "That was fast!" if fast_answer else "Correct!"
+		if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
+			return "Молниеносно!"
+		return "Вот это скорость!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "Верно!"
+	if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
+		return "Lightning fast!"
+	return "That was fast!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "Correct!"
 
-func _style_quiz_correct_feedback_label(label: Label, font_size: int) -> void:
+func _style_quiz_feedback_label(
+	label: Label,
+	font_size: int,
+	font_color: Color
+) -> void:
 	var effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.38)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", UI_HEADING_FONT)
 	label.add_theme_font_size_override("font_size", _heading_font_size(font_size))
-	label.add_theme_color_override("font_color", PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
+	label.add_theme_color_override("font_color", font_color)
 	label.add_theme_color_override("font_outline_color", effect_color)
 	label.add_theme_constant_override("outline_size", 6)
 	label.add_theme_color_override(
@@ -3772,7 +3802,7 @@ func _style_quiz_correct_feedback_label(label: Label, font_size: int) -> void:
 	label.add_theme_constant_override("shadow_offset_y", 4)
 	label.add_theme_constant_override("shadow_outline_size", 2)
 
-func _create_quiz_correct_feedback(fast_answer: bool) -> Dictionary:
+func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
 		return {}
 	var question_holder := _quiz_question_label.get_parent() as Control
@@ -3789,21 +3819,26 @@ func _create_quiz_correct_feedback(fast_answer: bool) -> Dictionary:
 
 	var feedback_label := Label.new()
 	feedback_label.name = "QuizCorrectFeedbackLabel"
-	feedback_label.text = _quiz_correct_feedback_text(fast_answer)
-	feedback_label.position = Vector2(0.0, 16.0 if fast_answer else 0.0)
+	feedback_label.text = _quiz_correct_feedback_text(speed_tier)
+	var has_speed_reward: bool = speed_tier != PORTRAIT_QUIZ_SPEED_NONE
+	feedback_label.position = Vector2(0.0, 16.0 if has_speed_reward else 0.0)
 	feedback_label.size = Vector2(
 		feedback_root.size.x,
-		118.0 if fast_answer else feedback_root.size.y
+		118.0 if has_speed_reward else feedback_root.size.y
 	)
 	feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_style_quiz_correct_feedback_label(feedback_label, 34 if fast_answer else 38)
+	_style_quiz_feedback_label(
+		feedback_label,
+		34 if has_speed_reward else 38,
+		PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR
+	)
 	feedback_root.add_child(feedback_label)
 	feedback_label.pivot_offset = feedback_label.size * 0.5
 	feedback_label.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE
 
 	var reward_source: Control = null
 	var reward_row: Control = null
-	if fast_answer:
+	if has_speed_reward:
 		reward_row = Control.new()
 		reward_row.name = "QuizFastAnswerReward"
 		reward_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3816,10 +3851,9 @@ func _create_quiz_correct_feedback(fast_answer: bool) -> Dictionary:
 		reward_amount_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		reward_amount_label.position = Vector2(0.0, 0.0)
 		reward_amount_label.size = Vector2(52.0, 48.0)
-		reward_amount_label.text = "+%d" % PORTRAIT_QUIZ_FAST_REWARD_STARS
-		_style_quiz_correct_feedback_label(reward_amount_label, 28)
+		reward_amount_label.text = "+%d" % _quiz_speed_reward_amount(speed_tier)
+		_style_quiz_feedback_label(reward_amount_label, 28, Color.WHITE)
 		reward_amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-		reward_amount_label.add_theme_color_override("font_color", Color.WHITE)
 		reward_row.add_child(reward_amount_label)
 
 		var reward_icon := TextureRect.new()
@@ -3885,7 +3919,7 @@ func _play_quiz_fast_answer_star_collection(
 func _finish_quiz_correct_question_feedback(
 	feedback_root: Control,
 	reward_source: Control,
-	fast_answer: bool,
+	speed_tier: int,
 	previous_balance: int,
 	final_balance: int
 ) -> void:
@@ -3904,7 +3938,7 @@ func _finish_quiz_correct_question_feedback(
 
 	_quiz_question_label.visible = true
 	_quiz_question_label.modulate = Color.WHITE
-	if fast_answer:
+	if speed_tier != PORTRAIT_QUIZ_SPEED_NONE:
 		_play_quiz_fast_answer_star_collection(
 			reward_source,
 			previous_balance,
@@ -3916,11 +3950,11 @@ func _finish_quiz_correct_question_feedback(
 		feedback_root.queue_free()
 
 func _play_quiz_correct_question_feedback(
-	fast_answer: bool,
+	speed_tier: int,
 	previous_balance: int,
 	final_balance: int
 ) -> void:
-	var feedback: Dictionary = _create_quiz_correct_feedback(fast_answer)
+	var feedback: Dictionary = _create_quiz_correct_feedback(speed_tier)
 	var feedback_root := feedback.get("root") as Control
 	var feedback_label := feedback.get("feedback_label") as Label
 	var reward_row := feedback.get("reward_row") as Control
@@ -3933,7 +3967,7 @@ func _play_quiz_correct_question_feedback(
 	):
 		if _quiz_question_label != null and is_instance_valid(_quiz_question_label):
 			_quiz_question_label.visible = true
-		if fast_answer:
+		if speed_tier != PORTRAIT_QUIZ_SPEED_NONE:
 			_finish_quiz_fast_answer_star_collection()
 		else:
 			_show_quiz_continue_button(true)
@@ -3968,7 +4002,7 @@ func _play_quiz_correct_question_feedback(
 		reward_fade.set_ease(Tween.EASE_OUT)
 	feedback_tween.tween_interval(PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION)
 	# Pop only the green feedback text out before restoring the question. The
-	# static +1/star row keeps its authored scale throughout this exit bounce.
+	# static +N/star row keeps its authored scale throughout this exit bounce.
 	var exit_grow := feedback_tween.tween_property(
 		feedback_label,
 		"scale",
@@ -4019,10 +4053,153 @@ func _play_quiz_correct_question_feedback(
 		Callable(self, "_finish_quiz_correct_question_feedback").bind(
 			feedback_root,
 			reward_source,
-			fast_answer,
+			speed_tier,
 			previous_balance,
 			final_balance
 		)
+	)
+
+func _create_quiz_wrong_feedback() -> Dictionary:
+	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
+		return {}
+	var question_holder := _quiz_question_label.get_parent() as Control
+	if question_holder == null or !is_instance_valid(question_holder):
+		return {}
+
+	_quiz_question_label.visible = false
+	var feedback_root := Control.new()
+	feedback_root.name = "QuizWrongFeedback"
+	feedback_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	question_holder.add_child(feedback_root)
+	feedback_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	feedback_root.z_index = _quiz_question_label.z_index + 1
+
+	var feedback_visual := Control.new()
+	feedback_visual.name = "QuizWrongFeedbackVisual"
+	feedback_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	feedback_visual.size = Vector2(132.0, 72.0)
+	feedback_visual.position = (feedback_root.size - feedback_visual.size) * 0.5
+	feedback_visual.pivot_offset = feedback_visual.size * 0.5
+	feedback_visual.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE
+	feedback_visual.modulate.a = 0.0
+	feedback_root.add_child(feedback_visual)
+
+	var loss_label := Label.new()
+	loss_label.name = "QuizWrongHeartLossLabel"
+	loss_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loss_label.position = Vector2.ZERO
+	loss_label.size = Vector2(68.0, feedback_visual.size.y)
+	loss_label.text = "-1"
+	_style_quiz_feedback_label(loss_label, 42, Color.WHITE)
+	loss_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	feedback_visual.add_child(loss_label)
+
+	var heart_icon := TextureRect.new()
+	heart_icon.name = "QuizWrongHeartIcon"
+	heart_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart_icon.texture = LIFE_HEART_ICON_TEXTURE
+	heart_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	heart_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	heart_icon.position = Vector2(70.0, 8.0)
+	heart_icon.size = Vector2.ONE * 56.0
+	feedback_visual.add_child(heart_icon)
+
+	return {
+		"root": feedback_root,
+		"visual": feedback_visual,
+	}
+
+func _finish_quiz_wrong_question_feedback(feedback_root: Control) -> void:
+	if (
+		_quiz_screen_active
+		and _quiz_question_label != null
+		and is_instance_valid(_quiz_question_label)
+	):
+		_quiz_question_label.visible = true
+		_quiz_question_label.modulate = Color.WHITE
+		_show_quiz_continue_button(true)
+	if feedback_root != null and is_instance_valid(feedback_root):
+		feedback_root.queue_free()
+
+func _play_quiz_wrong_question_feedback() -> void:
+	var feedback: Dictionary = _create_quiz_wrong_feedback()
+	var feedback_root := feedback.get("root") as Control
+	var feedback_visual := feedback.get("visual") as Control
+	if (
+		feedback_root == null
+		or !is_instance_valid(feedback_root)
+		or feedback_visual == null
+		or !is_instance_valid(feedback_visual)
+	):
+		if _quiz_question_label != null and is_instance_valid(_quiz_question_label):
+			_quiz_question_label.visible = true
+			_quiz_question_label.modulate = Color.WHITE
+		_show_quiz_continue_button(true)
+		return
+
+	var feedback_tween := feedback_visual.create_tween()
+	feedback_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := feedback_tween.tween_property(
+		feedback_visual,
+		"scale",
+		PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE,
+		PORTRAIT_QUIZ_FEEDBACK_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_BACK)
+	grow.set_ease(Tween.EASE_OUT)
+	var fade_in := feedback_tween.parallel().tween_property(
+		feedback_visual,
+		"modulate:a",
+		1.0,
+		PORTRAIT_QUIZ_FEEDBACK_GROW_DURATION
+	)
+	fade_in.set_trans(Tween.TRANS_SINE)
+	fade_in.set_ease(Tween.EASE_OUT)
+	var settle := feedback_tween.tween_property(
+		feedback_visual,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	feedback_tween.tween_interval(PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION)
+	var exit_grow := feedback_tween.tween_property(
+		feedback_visual,
+		"scale",
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE,
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_GROW_DURATION
+	)
+	exit_grow.set_trans(Tween.TRANS_QUAD)
+	exit_grow.set_ease(Tween.EASE_OUT)
+	_quiz_question_label.visible = true
+	_quiz_question_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var exit_hide := feedback_tween.tween_property(
+		feedback_visual,
+		"scale",
+		Vector2.ZERO,
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
+	)
+	exit_hide.set_trans(Tween.TRANS_BACK)
+	exit_hide.set_ease(Tween.EASE_IN)
+	var exit_fade := feedback_tween.parallel().tween_property(
+		feedback_visual,
+		"modulate:a",
+		0.0,
+		PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
+	)
+	exit_fade.set_trans(Tween.TRANS_SINE)
+	exit_fade.set_ease(Tween.EASE_IN)
+	var question_restore := feedback_tween.tween_property(
+		_quiz_question_label,
+		"modulate:a",
+		1.0,
+		PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION
+	)
+	question_restore.set_trans(Tween.TRANS_SINE)
+	question_restore.set_ease(Tween.EASE_OUT)
+	feedback_tween.tween_callback(
+		Callable(self, "_finish_quiz_wrong_question_feedback").bind(feedback_root)
 	)
 
 func _finish_quiz_correct_answer_bounce(
@@ -4163,16 +4340,22 @@ func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = 
 func _quiz_correct_answer_index() -> int:
 	return int(_quiz_current_question.get("correct_index", -1))
 
-func _reveal_quiz_correct_answer(correct_index: int) -> void:
+func _reveal_quiz_correct_answer(
+	correct_index: int,
+	show_continue_after_bounce: bool = true
+) -> void:
 	if !_quiz_screen_active or correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
 		return
 	var correct_button := _quiz_answer_buttons[correct_index] as Button
 	if correct_button == null or !is_instance_valid(correct_button):
 		return
 	_set_quiz_answer_fill(correct_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
+	var finished_callback := Callable()
+	if show_continue_after_bounce:
+		finished_callback = Callable(self, "_show_quiz_continue_button").bind(true)
 	_play_quiz_correct_answer_bounce(
 		correct_button,
-		Callable(self, "_show_quiz_continue_button").bind(true)
+		finished_callback
 	)
 
 func _on_quiz_answer_selected(answer_index: int) -> void:
@@ -4187,11 +4370,14 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	):
 		return
 	var correct_answer: bool = answer_index == correct_index
-	var fast_answer: bool = _take_quiz_fast_answer_result() and correct_answer
+	var speed_tier: int = _take_quiz_speed_tier()
+	if !correct_answer:
+		speed_tier = PORTRAIT_QUIZ_SPEED_NONE
+	var speed_reward_amount: int = _quiz_speed_reward_amount(speed_tier)
 	var previous_star_balance: int = GameState.get_stars()
 	var final_star_balance: int = previous_star_balance
-	if fast_answer:
-		final_star_balance = GameState.add_stars(PORTRAIT_QUIZ_FAST_REWARD_STARS, true)
+	if speed_reward_amount > 0:
+		final_star_balance = GameState.add_stars(speed_reward_amount, true)
 		# The bonus is already durable, but its HUD value waits for the visual
 		# collection that starts after the original question returns.
 		_set_stage_reward_animated_balance(
@@ -4213,18 +4399,23 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
 		_play_quiz_correct_answer_bounce(selected_button)
 		_play_quiz_correct_question_feedback(
-			fast_answer,
+			speed_tier,
 			previous_star_balance,
 			final_star_balance
 		)
 		return
 
 	_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
+	if _quiz_single_player_embedded:
+		_play_quiz_wrong_question_feedback()
 	_run_quiz_feedback_after_press_return(
 		selected_button,
 		Callable(self, "_play_quiz_answer_text_shake").bind(
 			selected_button,
-			Callable(self, "_reveal_quiz_correct_answer").bind(correct_index)
+			Callable(self, "_reveal_quiz_correct_answer").bind(
+				correct_index,
+				!_quiz_single_player_embedded
+			)
 		)
 	)
 
@@ -5495,7 +5686,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		popup_bottom,
 		!free_offer,
 		Callable(self, "_return_to_single_player_last_chance_from_coin_store"),
-		false
+		true
 	)
 	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
@@ -5507,7 +5698,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		PORTRAIT_DARK_BLUE,
 		PORTRAIT_ORANGE,
 		"",
-		!free_offer
+		true
 	)
 	# Match the life-refill popup: keep the reward art and explanatory copy on a
 	# single light-blue status surface, then present ad and coin choices below it.
@@ -6037,12 +6228,14 @@ func _restore_single_player_heart_refill_context(level_index: int, theme_index: 
 func _show_single_player_level_popup(
 	level_index: int,
 	selected_theme: int = -1,
-	retry_after_loss: bool = false
+	retry_after_loss: bool = false,
+	return_to_menu_on_close: bool = false
 ) -> void:
 	_quiz_single_player_embedded = false
 	_quiz_single_player_target_difficulty = 0.5
 	_remove_single_player_theme_popup()
 	single_player_retry_after_loss = retry_after_loss
+	single_player_popup_return_to_menu_on_close = return_to_menu_on_close
 	level_index = _prepare_single_player_level_attempt(level_index)
 	_single_player_theme_reroll_level_index = level_index
 	var persisted_reroll_state: int = GameState.get_single_level_theme_reroll_state(
@@ -6083,11 +6276,11 @@ func _show_single_player_level_popup(
 		selected_theme,
 		retry_after_loss
 	)
-	var close_action := (
-		Callable(self, "_close_single_player_retry_popup")
-		if retry_after_loss
-		else Callable(self, "_remove_single_player_theme_popup")
-	)
+	var close_action := Callable(self, "_remove_single_player_theme_popup")
+	if retry_after_loss:
+		close_action = Callable(self, "_close_single_player_retry_popup")
+	elif return_to_menu_on_close:
+		close_action = Callable(self, "_close_single_player_theme_popup_to_menu")
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLevelPopup",
 		"single_player_theme_popup",
@@ -6099,7 +6292,8 @@ func _show_single_player_level_popup(
 		Callable(self, "_return_to_single_player_theme_popup").bind(
 			level_index,
 			retry_after_loss,
-			selected_theme
+			selected_theme,
+			return_to_menu_on_close
 		),
 		!theme_selection_locked
 	)
@@ -10933,7 +11127,7 @@ func _set_final_reward_collect_pressed(visual: Control, is_pressed: bool) -> voi
 	press_tween.tween_property(visual, "modulate", target_modulate, 0.07)
 	visual.set_meta(&"final_reward_press_tween", press_tween)
 
-func _stage_final_reward_collect_text(rect: Rect2) -> Dictionary:
+func _stage_final_reward_collect_text(rect: Rect2, next_level_index: int = -1) -> Dictionary:
 	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
 	holder.name = "FinalRewardCollectText"
 	holder.z_index = 120
@@ -10955,9 +11149,15 @@ func _stage_final_reward_collect_text(rect: Rect2) -> Dictionary:
 	_apply_portrait_reward_header_text_effect(label, 3)
 	visual.add_child(label)
 
+	var collect_action := Callable(self, "_claim_single_player_final_reward")
+	if next_level_index >= 0:
+		collect_action = Callable(
+			self,
+			"_claim_single_player_final_reward_and_open_next_theme"
+		).bind(next_level_index)
 	var hit_button := _stage_button(
 		rect,
-		Callable(self, "_claim_single_player_final_reward"),
+		collect_action,
 		""
 	)
 	hit_button.name = "FinalRewardCollectButton"
@@ -11263,7 +11463,7 @@ func _reveal_final_reward_actions(
 	button_grow.set_trans(Tween.TRANS_BACK)
 	button_grow.set_ease(Tween.EASE_OUT)
 	reveal_tween.finished.connect(
-		Callable(self, "_enable_final_reward_continue_attention").bind(double_button),
+		Callable(self, "_finish_final_reward_action_reveal").bind(double_button),
 		CONNECT_ONE_SHOT
 	)
 	if (
@@ -11286,6 +11486,16 @@ func _reveal_final_reward_actions(
 				collect_button
 			)
 		)
+
+func _finish_final_reward_action_reveal(button: Control) -> void:
+	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
+		return
+	if (
+		bool(button.get_meta(&"single_shine_after_reveal", false))
+		and button.has_method("play_single_attention_shine")
+	):
+		button.call("play_single_attention_shine")
+	_enable_final_reward_continue_attention(button)
 
 func _enable_final_reward_continue_attention(button: Control) -> void:
 	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
@@ -11981,7 +12191,7 @@ func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) 
 		# The balance label has already been updated by GameState, so this reward must
 		# not be replayed later as a delayed Home collection animation.
 		_portrait_pending_home_reward_amount = 0
-		_show_single_player_level_popup(next_theme_level_index)
+		_show_single_player_level_popup(next_theme_level_index, -1, false, true)
 		return
 	show_menu()
 
@@ -12077,6 +12287,11 @@ func _show_single_player_reward_chain_screen() -> void:
 		and bool(last_result_data.get("single_player_level_completed", false))
 		and current_slot == word_count - 1
 	)
+	var is_failed_final_stage: bool = (
+		is_failure_reward
+		and bool(last_result_data.get("single_player_level_completed", false))
+		and current_slot == word_count - 1
+	)
 	# Quiz slots do not keep an active GameSession round, so GameSession.theme_id
 	# is -1 by the time their reward screen is shown. Resolve the reward theme
 	# from the level definition and retain the active round as a safe fallback.
@@ -12093,11 +12308,9 @@ func _show_single_player_reward_chain_screen() -> void:
 	var accent_color: Color = StageLetterButton.CIRCLED_COLOR
 	var resume_without_intro: bool = _portrait_single_reward_resume_without_intro
 	_portrait_single_reward_resume_without_intro = false
-	var result_title_color: Color = (
-		PORTRAIT_SINGLE_REWARD_FAILURE_TITLE_COLOR
-		if is_failure_reward
-		else PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR
-	)
+	var result_title_color: Color = PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR
+	if is_failure_reward and !is_failed_final_stage:
+		result_title_color = PORTRAIT_SINGLE_REWARD_FAILURE_TITLE_COLOR
 
 	_clear()
 	_portrait_screen()
@@ -12125,15 +12338,13 @@ func _show_single_player_reward_chain_screen() -> void:
 	)
 	title_panel.z_index = 0
 	var level_title_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
-	var result_heading_text: String = (
-		tr("REWARD_STAGE_FAILED")
-		if is_failure_reward
-		else (
-			tr("REWARD_COMPLETED")
-			if is_final_reward
-			else tr("REWARD_STAGE_COMPLETED")
-		)
-	)
+	var result_heading_text: String = tr("REWARD_STAGE_COMPLETED")
+	if is_final_reward:
+		result_heading_text = tr("REWARD_MAIN_PRIZE")
+	elif is_failed_final_stage:
+		result_heading_text = tr("REWARD_LEVEL_FINISHED")
+	elif is_failure_reward:
+		result_heading_text = tr("REWARD_STAGE_FAILED")
 	var reward_title := Label.new()
 	reward_title.name = "RewardTitle"
 	reward_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -12542,10 +12753,12 @@ func _show_single_player_reward_chain_screen() -> void:
 				LONG_BUTTON_COLOR_BLUE
 			)
 			final_action_button.name = "FinalRewardDoubleButton"
+			final_action_button.set_meta(&"single_shine_after_reveal", true)
 			_configure_final_reward_double_button(final_action_button, reward_amount)
 			_portrait_final_reward_double_button = final_action_button
 			var collect_controls: Dictionary = _stage_final_reward_collect_text(
-				PORTRAIT_FINAL_REWARD_COLLECT_RECT
+				PORTRAIT_FINAL_REWARD_COLLECT_RECT,
+				level_index + 1
 			)
 			collect_holder = collect_controls.get("holder") as Control
 			collect_button = collect_controls.get("button") as Button
@@ -12732,8 +12945,8 @@ func _finish_completed_single_player_stage_result() -> void:
 		"single_player_level_index",
 		single_player_active_level_index
 	))
-	var next_theme_level_index: int = _direct_theme_level_after_completed_level(
-		completed_level_index
+	var next_theme_level_index: int = (
+		completed_level_index + 1 if completed_level_index >= 0 else -1
 	)
 	GameState.clear_active_single_player_session(true)
 	GameSession.discard_current_round()
@@ -12741,7 +12954,7 @@ func _finish_completed_single_player_stage_result() -> void:
 	last_result_data = {}
 	single_player_active_word_slot = -1
 	if next_theme_level_index >= 0:
-		_show_single_player_level_popup(next_theme_level_index)
+		_show_single_player_level_popup(next_theme_level_index, -1, false, true)
 		return
 	show_menu()
 

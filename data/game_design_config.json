@@ -102,6 +102,7 @@
       "level_base_bonus_coins": 10,
       "level_word_bonus_coins": 5,
       "quick_quiz_answer_stars": 1,
+      "lightning_quiz_answer_stars": 2,
       "coin_refill_ad_coins": 50
     },
     "coin_refill_ad": {
@@ -119,7 +120,8 @@
     "heart_popup_poll_seconds": 1.0,
     "custom_word_result_color_seconds": 1.81,
     "custom_word_check_dots_seconds": 0.4,
-    "quiz_fast_answer_window_ms": 4000,
+    "quiz_lightning_answer_window_ms": 3500,
+    "quiz_fast_answer_window_ms": 5000,
     "menu_logo_shine_delay_seconds": 0.28,
     "menu_logo_shine_duration_seconds": 0.72,
     "quiz_wrong_answer_shake_step_seconds": 0.065,

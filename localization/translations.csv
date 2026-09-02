@@ -1,46 +1,23 @@
 keys,ru,en
-GAME_TITLE,ВИСЕЛИЦА,HANGMAN
 MENU_CLASSIC,Классика,Classic
 MENU_TWO_PLAYER,Два игрока,Two players
 COMMON_CONTINUE,Продолжить,Continue
 COMMON_FREE,Бесплатно,Free
 SETTINGS_TITLE,Настройки,Settings
 COMMON_EXIT,Выйти,Exit
-NEW_GAME,Новая игра,New game
-CHARACTER_SELECT_TITLE,Выберите персонажа:,Choose the hero:
-RESTART,Играть еще,Play again
-MUSIC_LABEL,Музыка:,Music:
-UNUSED_12,,
-ABOUT_TITLE,Об игре,About
 WORD_DATABASE_LABEL,База слов:,Database:
-GIVE_UP,Сдаться,Give up
-START,Начать,Start
 RECORDS_TITLE,Статистика,Statistics
 RECORD_EASY_STREAK,Легких слов подряд,Easy words in a row
 RECORD_HARD_STREAK,Сложных слов подряд,Hard words in a row
-AUTHOR_NIKITA,Никита Луканин,Nikita Lukanin
 VERSION_LABEL,Версия:,Version:
-AUTHOR_LABEL,Автор:,Creator:
-CONTACTS_LABEL,Контакты:,Contacts:
-ABOUT_WORD,Узнать о слове,About the word
-SHOW_EDGE_LETTERS,Крайние буквы,First and last letter
-SHOW_HINTS,Подсказки,Hints
 CLEAR_THEME_CONFIRM,Очистить тему?,Clear the category?
 YES,Да,Yes
 NO,Нет,No
 EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?
-THEME_SELECT_TITLE,Выберите тему:,Choose the category:
-ALL_WORDS_GUESSED,Все слова отгаданы,All words are guessed
 GUESSED,Отгадано,Guessed
-OF,из,of
-HINTS_LABEL,Подсказки:,Hints:
 RESULT_VICTORY,ПОБЕДА,VICTORY
 RESULT_DEFEAT,ПОРАЖЕНИЕ,DEFEAT
-RESULT_END,КОНЕЦ ИГРЫ,GAME OVER
-UNAVAILABLE,НЕДОСТУПНО,UNAVAILABLE
 INPUT_WORD,Введите слово,Input the word
-VICTORIES,Побед,Victories
-DEFEATS,Поражений,Defeats
 NO_CATEGORY,Без темы,No category
 THEME_SPORT,СПОРТ,SPORT
 THEME_GEOGRAPHY,ГЕОГРАФИЯ,GEOGRAPHY
@@ -53,59 +30,21 @@ THEME_HISTORY,ИСТОРИЯ,HISTORY
 THEME_GENERAL,ОБЩЕЕ,GENERAL
 THEME_FILM_MUSIC,КИНО И МУЗЫКА,FILM AND MUSIC
 COMMENT,Комментарий,Comment
-CATEGORY_LABEL,Тема:,Category:
-WIN_MESSAGE,Не останавливайтесь!,Don't stop!
-LOSE_MESSAGE,Вы можете лучше!,Try harder!
-CHANGE_CATEGORY,Сменить тему,Change category
-EDGE_LETTERS,Крайние буквы,First and last letter
-EASY_WORDS,Простые слова,Easy words
-HARD_WORDS,Сложные слова,Hard words
-ALL_WORDS,Все слова,All words
-TRIES_LEFT,Попытки:,Tries left:
-WORDS_TOTAL,Всего слов,Words
-DIFFICULTY_GENERAL,ОБЩИЙ,GENERAL
-DIFFICULTY_HARD,СЛОЖНЫЙ,HARD
-DIFFICULTY_EASY,ПРОСТОЙ,EASY
-DIFFICULTY_SELECT_TITLE,Уровень сложности,Difficulty level
-NEW_RECORD,Новый рекорд!,New record!
 CATEGORY_COMPLETED,Тема завершена!,Category is completed!
-PLAY,ИГРАТЬ,PLAY
-SPACE,ПРОБЕЛ,SPACE
 CHECK_WORD,Проверить слово,Check the word
 VIBRATION,Вибрация,Vibration
-REMOVE_ADS,Убрать рекламу,Remove ads
-AUTHOR_BRUNO,Bruno Philippsen,Bruno Philippsen
 ERROR_GENERIC,Ошибка! Что-то пошло не так.,Error! Something goes wrong.
 SOUND_MUSIC,Звуки и музыка,Sounds and music
-NO_COMMENT,Комментария нет,No comment
-CHARACTER_LUCKY,ЛАКИ,LUCKY
-CHARACTER_EL_TIGRE,ЭЛЬ ТИГРЕ,EL TIGRE
-WELCOME_BACK,С возвращением!,Welcome back!
-NO_UNFINISHED_GAMES,"Незавершенных игр
-не найдено","No unfinished games
-found"
 LANGUAGE_RU_SHORT,Рус,Rus
 LANGUAGE_EN_SHORT,Eng,Eng
 ON,Вкл.,On
 OFF,Выкл.,Off
-MAX_35_CHARACTERS,Макс. 15 символов,Max. 15 characters
 RANDOM_WORD,Случайное,Random
 START_GAME,Начать игру,Start game
-OK,OK,OK
-WORD_CHECKING,Проверка...,Checking...
-WORD_FOUND,Слово найдено,Word found
-WORD_NOT_FOUND,Слово не найдено,Word not found
-WORD_CHECK_FAILED,Не удалось проверить,Check failed
 TOAST_WORD_FOUND,Слово найдено,Word found
 TOAST_WORD_NOT_FOUND,Слово не найдено,Word not found
-TOAST_ERROR,Ошибка,Error
+TOAST_ERROR,Ошибка сети,Error
 TOAST_AD_NOT_READY,Реклама еще не готова,The ad isn't ready yet
-CONTINUE_CLASSIC,"Доиграть в режиме
-«Классика»","Continue in
-Classic mode"
-CONTINUE_TWO_PLAYER,"Доиграть в режиме
-«Два игрока»","Continue in
-Two Player mode"
 COIN_STORE_TITLE,МОНЕТЫ,COINS
 COINS_EARNED,Монеты: +%d,Coins: +%d
 DIFFICULTY_HARD_MODE,Сложный режим,Hard mode
@@ -139,16 +78,12 @@ HEART_GET_ONE,ПОЛУЧИТЬ 1,GET 1
 HEART_REFILL,ВОСПОЛНИТЬ,REFILL
 NO_THANKS,"НЕТ, СПАСИБО","NO, THANKS"
 REWARD_GET_X2,Получить Х2,Get X2
-REWARD_NOT_COMPLETED,НЕ ПРОЙДЕН,NOT COMPLETED
-REWARD_COMPLETED,ПРОЙДЕН,COMPLETED
-REWARD_WORD_GUESSED,СЛОВО УГАДАНО,WORD GUESSED
-REWARD_STAGE_COMPLETED,ЭТАП ПРОЙДЕН,STAGE COMPLETED
+REWARD_MAIN_PRIZE,ГЛАВНЫЙ ПРИЗ,MAIN PRIZE
+REWARD_LEVEL_FINISHED,КОНЕЦ УРОВНЯ,LEVEL COMPLETE
+REWARD_STAGE_COMPLETED,ЭТАП ПРОЙДЕН,STAGE COMPLETE
 REWARD_STAGE_FAILED,НЕУДАЧА!,FAILURE!
 REWARD_DOUBLE,Удвоить награду,Double reward
-REWARD_START_OVER,Начать заново,Start over
 LEVEL_NUMBER,Уровень %d,Level %d
-NAV_HOME,Главная,Home
-NAV_TASKS,Задания,Tasks
 NAV_PROFILE,Профиль,Profile
 PROFILE_TAP_TO_EDIT,"Нажмите, чтобы изменить",Tap to edit
 PROFILE_EDIT_TITLE,Редактировать профиль,Edit profile
