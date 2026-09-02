@@ -1846,6 +1846,14 @@ func _return_to_single_player_theme_popup(
 	selected_theme: int = -1,
 	return_to_menu_on_close: bool = false
 ) -> void:
+	# Coin refill is a stacked modal in the portrait UI. When it was opened from
+	# the theme picker, that picker is still alive underneath it, so rebuilding
+	# the picker would restart its presentation and replace its original backdrop
+	# (for example the completed-level reward screen) with Home. Simply reveal the
+	# existing picker after the coin modal is removed. Keep the old rebuild path as
+	# a fallback for contexts where the underlying modal was actually destroyed.
+	if !get_tree().get_nodes_in_group("single_player_theme_popup").is_empty():
+		return
 	show_menu()
 	_show_single_player_level_popup(
 		level_index,

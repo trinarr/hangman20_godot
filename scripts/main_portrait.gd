@@ -733,6 +733,7 @@ var _portrait_final_reward_earned_ad_reward: bool = false
 var _portrait_final_reward_ad_close_pending: bool = false
 var _portrait_final_reward_double_button: Control = null
 var _portrait_final_reward_continue_button: Control = null
+var _portrait_single_reward_continue_button: Control = null
 var _portrait_rewarded_action: StringName = &""
 var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
@@ -965,6 +966,7 @@ func _clear() -> void:
 	_portrait_game_back_button = null
 	_portrait_final_reward_double_button = null
 	_portrait_final_reward_continue_button = null
+	_portrait_single_reward_continue_button = null
 	_stop_portrait_attempts_attention_bounce(true)
 	_portrait_game_attempts_controls.clear()
 	_portrait_game_attempts_value_label = null
@@ -11513,6 +11515,14 @@ func _stop_final_reward_continue_attention() -> void:
 	_portrait_final_reward_continue_button.set_meta(&"attention_after_reveal", false)
 	_portrait_final_reward_continue_button.set("attention_bounce_enabled", false)
 
+func _stop_single_reward_continue_attention() -> void:
+	if (
+		_portrait_single_reward_continue_button == null
+		or !is_instance_valid(_portrait_single_reward_continue_button)
+	):
+		return
+	_portrait_single_reward_continue_button.set("attention_bounce_enabled", false)
+
 func _start_early_final_reward_claim_at_pack_peak(
 	transition_pack: Control,
 	double_button: Control,
@@ -12832,11 +12842,12 @@ func _show_single_player_reward_chain_screen() -> void:
 		continue_button.z_index = 120
 		continue_button.modulate.a = 0.0
 		continue_button.set("disabled", true)
+		_portrait_single_reward_continue_button = continue_button
 		content = reward_content
 	content = reward_screen_content
 	var failure_back_button: Control = null
 	if (
-		is_failure_reward
+		!is_final_reward
 		and !_single_player_hides_close_controls(level_index)
 	):
 		# Stage Back only after every full-screen reward layer. Godot resolves GUI
@@ -12954,6 +12965,7 @@ func _finish_completed_single_player_stage_result() -> void:
 	last_result_data = {}
 	single_player_active_word_slot = -1
 	if next_theme_level_index >= 0:
+		_stop_single_reward_continue_attention()
 		_show_single_player_level_popup(next_theme_level_index, -1, false, true)
 		return
 	show_menu()

@@ -249,6 +249,12 @@ def main() -> None:
         ),
         "A first-two-level gameplay or reward close button is still unconditional",
     )
+    reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
+    require(
+        "!is_final_reward" in reward_screen
+        and "and !_single_player_hides_close_controls(level_index)" in reward_screen,
+        "Reward-chain close button is still limited to failed stages",
+    )
 
     free_attempt_offer = function_body(
         main_source, "_single_player_extra_attempt_is_free"
