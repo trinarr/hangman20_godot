@@ -401,7 +401,8 @@ def main() -> None:
     final_reward_finish = function_body(portrait, "_finish_single_player_final_reward_claim")
     require("show_menu()" in final_reward_finish, "Claimed reward never returns to Home")
     require(
-        "if next_theme_level_index >= 0:" in final_reward_finish
+        "_direct_theme_level_after_completed_level" in final_reward_finish
+        and "if next_theme_level_index >= 0:" in final_reward_finish
         and "_stop_final_reward_continue_attention()" in final_reward_finish
         and "_portrait_pending_home_reward_amount = 0" in final_reward_finish
         and "_show_single_player_level_popup(next_theme_level_index)" in final_reward_finish
@@ -465,8 +466,10 @@ def main() -> None:
         "_single_player_level_question_slot_index" in stage_currency
         and "STAGE_REWARD_STARS" in stage_currency
         and "STAGE_REWARD_COINS" in stage_currency
-        and "word_slot == word_count - 1" not in stage_currency,
-        "Stage currency rules do not award quiz stars and Hangman coins",
+        and "word_slot == word_count - 1" in stage_currency
+        and stage_currency.index("word_slot == word_count - 1")
+        < stage_currency.index("_single_player_level_question_slot_index"),
+        "The final reward is not forced to coins before quiz-stage currency is resolved",
     )
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(
@@ -492,6 +495,12 @@ def main() -> None:
     )
     reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
     reward_continue = function_body(portrait, "_continue_from_single_player_reward_chain")
+    completed_stage_finish = function_body(
+        portrait, "_finish_completed_single_player_stage_result"
+    )
+    direct_theme_level = function_body(
+        portrait, "_direct_theme_level_after_completed_level"
+    )
     refill_cancel = function_body(portrait, "_cancel_single_player_stage_heart_refill")
     refill_close = function_body(portrait, "_close_heart_refill_popup")
     require(
@@ -503,6 +512,13 @@ def main() -> None:
         and "relock_single_player_level_if_latest" in refill_cancel
         and "reward_acquired and continue_action.is_valid()" in refill_close,
         "Stage result copy or the zero-heart reset flow is incomplete",
+    )
+    require(
+        "PORTRAIT_FINAL_REWARD_DIRECT_THEME_THROUGH_LEVEL" in direct_theme_level
+        and "_direct_theme_level_after_completed_level" in completed_stage_finish
+        and "_show_single_player_level_popup(next_theme_level_index)"
+        in completed_stage_finish,
+        "A failed final stage can still return early levels to Home",
     )
     pending_claim = function_body(game_state, "claim_pending_single_player_reward")
     require(

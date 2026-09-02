@@ -115,9 +115,18 @@ def main() -> None:
 
     require(stage_count(config, 1) == 1, "Level 1 must contain one stage")
     require(stage_count(config, 2) == 2, "Level 2 must contain two stages")
-    require(stage_count(config, 5) == 3, "Level 5 must contain three stages")
+    require(stage_count(config, 3) == 3, "Level 3 must contain three stages")
+    require(stage_count(config, 7) == 3, "Level 7 must contain three stages")
     require(stage_count(config, 8) == 4, "Level 8 must contain four stages")
     require(stage_count(config, 19) == 5, "Level 19 must contain five stages")
+    require(
+        int(resolve(config, "progression.quiz.second_level_slot")) == 0,
+        "Level 2 must start with its quiz stage",
+    )
+    require(
+        int(resolve(config, "progression.quiz.onboarding_slot")) == 1,
+        "Levels 3 and 4 must keep their quiz in the middle slot",
+    )
     require(
         int(resolve(config, "progression.direct_theme_selection_after_reward_through_level")) == 2,
         "The first two final rewards must continue directly to theme selection",
@@ -249,6 +258,12 @@ def main() -> None:
         "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" in main_source
         and '"difficulty.quiz_target_maximum"' in main_source,
         "Quiz difficulty cap is not read from the game-design config",
+    )
+    require(
+        '"progression.quiz.second_level_slot"' in main_source
+        and "level_number == 2" in main_source
+        and "SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT" in main_source,
+        "Level 2 does not force quiz-first ordering",
     )
     require(
         "PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS" in portrait_source

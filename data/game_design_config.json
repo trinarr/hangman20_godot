@@ -20,8 +20,8 @@
     },
     "level_stage_counts": [
       {"from_level": 1, "to_level": 1, "count": 1},
-      {"from_level": 2, "to_level": 4, "count": 2},
-      {"from_level": 5, "to_level": 7, "count": 3},
+      {"from_level": 2, "to_level": 2, "count": 2},
+      {"from_level": 3, "to_level": 7, "count": 3},
       {"from_level": 8, "to_level": 18, "count": 4},
       {"from_level": 19, "to_level": 0, "count": 5}
     ],
@@ -33,6 +33,7 @@
       "onboarding_from_level": 2,
       "onboarding_to_level": 4,
       "onboarding_stage_count": 2,
+      "second_level_slot": 0,
       "onboarding_slot": 1,
       "regular_min_stage_count": 3,
       "first_slot_ratio": 0.5,

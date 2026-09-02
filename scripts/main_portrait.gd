@@ -11959,6 +11959,14 @@ func _complete_single_player_final_reward(
 
 func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) -> void:
 	_stop_final_reward_continue_attention()
+	if next_theme_level_index < 0:
+		var completed_level_index: int = int(last_result_data.get(
+			"single_player_level_index",
+			single_player_active_level_index
+		))
+		next_theme_level_index = _direct_theme_level_after_completed_level(
+			completed_level_index
+		)
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
@@ -12711,12 +12719,30 @@ func _continue_single_player_stage_after_refill(level_index: int) -> void:
 		return
 	_start_next_single_player_word(level_index)
 
+func _direct_theme_level_after_completed_level(level_index: int) -> int:
+	if (
+		level_index >= 0
+		and level_index + 1 <= PORTRAIT_FINAL_REWARD_DIRECT_THEME_THROUGH_LEVEL
+	):
+		return level_index + 1
+	return -1
+
 func _finish_completed_single_player_stage_result() -> void:
+	var completed_level_index: int = int(last_result_data.get(
+		"single_player_level_index",
+		single_player_active_level_index
+	))
+	var next_theme_level_index: int = _direct_theme_level_after_completed_level(
+		completed_level_index
+	)
 	GameState.clear_active_single_player_session(true)
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
 	single_player_active_word_slot = -1
+	if next_theme_level_index >= 0:
+		_show_single_player_level_popup(next_theme_level_index)
+		return
 	show_menu()
 
 func _cancel_single_player_stage_heart_refill(level_index: int) -> void:

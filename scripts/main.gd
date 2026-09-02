@@ -84,6 +84,9 @@ var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
 var SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET: int = GAME_DESIGN.get_int_range(
 	"progression.quiz.last_slot_end_offset", 2, 1, 1000
 )
+var SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT: int = GAME_DESIGN.get_int(
+	"progression.quiz.second_level_slot", 0
+)
 var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
 	"progression.quiz.onboarding_slot", 1
 )
@@ -996,9 +999,8 @@ func _single_player_level_word_target(level_index: int) -> int:
 	return GAME_DESIGN.level_stage_count_with_bonus(level_number)
 
 func _single_player_level_uses_question(level_index: int, word_count: int) -> bool:
-	# Levels 2-4 are intentionally two-part onboarding levels: one word followed
-	# by one quiz question. From level 5 onward the normal question-slot rules
-	# apply to every level with at least three parts.
+	# Levels 2-4 introduce the embedded quiz with an explicit onboarding order.
+	# From level 5 onward the normal question-slot rules apply.
 	var level_number: int = maxi(level_index + 1, 1)
 	return GAME_DESIGN.level_uses_quiz(level_number, word_count)
 
@@ -1137,10 +1139,12 @@ func _single_player_level_question_slot(level_index: int, level_seed: int, word_
 	var level_number: int = maxi(level_index + 1, 1)
 	var first_slot: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
 	var last_slot: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
-	# The second, third and fourth levels are always "word -> quiz". Their quiz
-	# therefore occupies the second/final slot instead of using the later-half
-	# placement rule used by normal 3+ part levels.
-	if GAME_DESIGN.is_quiz_onboarding_level(level_number):
+	# Level 2 introduces the quiz first and finishes with Hangman. Levels 3 and 4
+	# keep the quiz in the middle of their new three-stage chains.
+	if level_number == 2:
+		first_slot = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
+		last_slot = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
+	elif GAME_DESIGN.is_quiz_onboarding_level(level_number):
 		first_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
 		last_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
 	if saved_slot >= first_slot and saved_slot <= last_slot:
@@ -1354,9 +1358,13 @@ func _single_player_level_word_count(level_index: int) -> int:
 func _single_player_stage_reward_currency(
 	level_index: int,
 	word_slot: int,
-	_word_count: int
+	word_count: int
 ) -> String:
-	# Hangman stages award coins; the embedded quiz stage awards stars.
+	# The chain's final/main reward is always coins, even if a saved or migrated
+	# level definition happens to place its quiz in that slot. Earlier Hangman
+	# stages award coins and earlier embedded quiz stages award stars.
+	if word_slot == word_count - 1:
+		return GameState.STAGE_REWARD_COINS
 	if word_slot == _single_player_level_question_slot_index(level_index):
 		return GameState.STAGE_REWARD_STARS
 	return GameState.STAGE_REWARD_COINS
