@@ -2865,14 +2865,61 @@ func _show_menu_screen() -> void:
 	_clear()
 
 	_portrait_screen(0.0)
+	var home_background_overlay := _stage_horizontal_fill(
+		PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
+	)
+	home_background_overlay.name = "HomeBackgroundOverlay"
+	home_background_overlay.z_index = -1
+	_add_multi_theme_pattern(
+		home_background_overlay,
+		_collect_theme_pattern_textures(true),
+		"HomeThemePattern",
+		Color(1.0, 1.0, 1.0, 0.13),
+		0.92,
+		1.10,
+		0.87,
+		0.0,
+		0.70
+	)
+	_add_full_rect_gradient_overlay(
+		home_background_overlay,
+		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.0),
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
+		"HomeBackgroundGradient"
+	)
 	_stage_home_resource_counters(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 235.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
 	# Preserve the logo aspect ratio and reuse the imported texture on every visit.
 	var main_menu_logo_texture: Texture2D = MAIN_MENU_LOGO_TEXTURE
-	# Make the logo 15% larger in UI while keeping the same authored center point.
-	var main_menu_logo_bounds := Rect2(19.2, 102.52, 441.6, 264.96)
+	# Make the logo 32% larger than the authored source size and place it closer
+	# to the visual center of the Home screen while preserving its aspect ratio.
+	var main_menu_logo_bounds := Rect2(-13.44, 142.8, 506.88, 304.128)
 	var main_menu_logo_rect: Rect2 = _fit_stage_rect_keep_aspect(main_menu_logo_bounds, main_menu_logo_texture.get_size())
+	var main_menu_logo_glow_outer_size := main_menu_logo_rect.size * 1.34
+	var main_menu_logo_glow_outer_rect := Rect2(
+		main_menu_logo_rect.get_center() - main_menu_logo_glow_outer_size * 0.5,
+		main_menu_logo_glow_outer_size
+	)
+	var main_menu_logo_glow_outer := _stage_texture(
+		main_menu_logo_glow_outer_rect,
+		FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	)
+	main_menu_logo_glow_outer.modulate = Color(0.47, 0.83, 1.0, 0.17)
+	main_menu_logo_glow_outer.z_index = -2
+	var main_menu_logo_glow_inner_size := main_menu_logo_rect.size * 1.16
+	var main_menu_logo_glow_inner_rect := Rect2(
+		main_menu_logo_rect.get_center() - main_menu_logo_glow_inner_size * 0.5,
+		main_menu_logo_glow_inner_size
+	)
+	var main_menu_logo_glow_inner := _stage_texture(
+		main_menu_logo_glow_inner_rect,
+		FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	)
+	main_menu_logo_glow_inner.modulate = Color(0.60, 0.88, 1.0, 0.24)
+	main_menu_logo_glow_inner.z_index = -1
 	var main_menu_logo := _stage_texture(main_menu_logo_rect, main_menu_logo_texture)
 	main_menu_logo.modulate = Color.WHITE
 	main_menu_logo.self_modulate = Color.WHITE
@@ -2900,13 +2947,12 @@ func _show_menu_screen() -> void:
 		logo_shine_motion.set_ease(Tween.EASE_IN_OUT)
 	_portrait_end_adaptive_group(menu_title_content)
 
-	var button_x: float = 90.0
-	_stage_main_button(Rect2(button_x, 554.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
+	_stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_action := Callable(self, "_open_next_single_player_level")
 	if GameState.has_resumable_single_player_level():
 		single_player_action = Callable(self, "_resume_saved_single_player_level")
 	_stage_single_player_menu_button(
-		Rect2(67.5, 632.0, 345.0, 73.6),
+		Rect2(33.0, 670.0, 414.0, 88.32),
 		single_player_action
 	)
 	_stage_portrait_ad_banner()
@@ -11778,6 +11824,148 @@ func _add_final_reward_theme_pattern(background_overlay: Control, theme_index: i
 	clip_root.add_child(motion)
 	clip_root.resized.connect(Callable(self, "_layout_final_reward_theme_pattern").bind(clip_root, motion, mono_texture))
 	call_deferred("_layout_final_reward_theme_pattern", clip_root, motion, mono_texture)
+
+func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
+	var textures: Array = []
+	for theme_index: int in range(Database.get_theme_count()):
+		var theme_texture: Texture2D = (
+			_theme_icon_mono_texture(theme_index)
+			if use_mono_icons
+			else _theme_icon_texture(theme_index)
+		)
+		if theme_texture != null:
+			textures.append(theme_texture)
+	return textures
+
+func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA), spacing_multiplier: float = 1.0, icon_scale: float = 1.0, move_duration_multiplier: float = 1.0, bottom_alpha: float = -1.0, full_alpha_screen_ratio: float = 0.0) -> void:
+	if clip_root == null or !is_instance_valid(clip_root):
+		return
+	if motion == null or !is_instance_valid(motion):
+		return
+	if theme_textures.is_empty():
+		return
+
+	var clip_size: Vector2 = clip_root.size
+	if clip_size.x <= 0.0 or clip_size.y <= 0.0:
+		return
+
+	var existing_tween: Tween = motion.get_meta("pattern_move_tween", null) as Tween
+	if existing_tween != null and is_instance_valid(existing_tween):
+		existing_tween.kill()
+	for child: Node in motion.get_children():
+		child.free()
+
+	var spacing: float = PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING * maxf(spacing_multiplier, 0.05)
+	var overscan: float = spacing * 2.0
+	motion.position = Vector2.ZERO
+	motion.size = clip_size + Vector2.ONE * overscan * 2.0
+	var cols: int = int(ceil((clip_size.x + overscan * 2.0) / spacing)) + 2
+	var rows: int = int(ceil((clip_size.y + overscan * 2.0) / spacing)) + 2
+	var texture_count: int = theme_textures.size()
+	var gradient_height: float = maxf(clip_size.y + overscan * 2.0, 1.0)
+	var top_alpha: float = icon_modulate.a
+	var effective_bottom_alpha: float = top_alpha if bottom_alpha < 0.0 else clampf(bottom_alpha, 0.0, 1.0)
+	var clamped_full_alpha_ratio: float = clampf(full_alpha_screen_ratio, 0.0, 1.0)
+	for row: int in range(rows):
+		for col: int in range(cols):
+			var icon := TextureRect.new()
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			icon.texture = theme_textures[(row * cols + col) % texture_count] as Texture2D
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.size = Vector2.ONE * PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE * maxf(icon_scale, 0.05)
+			icon.position = Vector2(
+				-overscan
+					+ float(col) * spacing
+					+ (spacing * 0.5 if row % 2 == 0 else 0.0),
+				-overscan + float(row) * spacing
+			)
+			var icon_center_y: float = icon.position.y + icon.size.y * 0.5
+			var screen_y_ratio: float = clampf((icon_center_y + overscan) / gradient_height, 0.0, 1.0)
+			var icon_alpha: float = top_alpha
+			if bottom_alpha >= 0.0:
+				if clamped_full_alpha_ratio > 0.0 and clamped_full_alpha_ratio < 1.0:
+					var fade_t: float = clampf(
+						(1.0 - screen_y_ratio) / (1.0 - clamped_full_alpha_ratio),
+						0.0,
+						1.0
+					)
+					# Softer ease-in: 30% closer to linear than the previous t^2 curve,
+					# while still growing slowly at first and accelerating toward the threshold.
+					fade_t = pow(fade_t, 1.7)
+					icon_alpha = lerpf(effective_bottom_alpha, top_alpha, fade_t)
+				else:
+					icon_alpha = lerpf(top_alpha, effective_bottom_alpha, screen_y_ratio)
+			icon.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_alpha)
+			icon.rotation_degrees = -18.0
+			motion.add_child(icon)
+
+	var move_tween := motion.create_tween()
+	move_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	move_tween.set_loops()
+	var repeat_offset := Vector2(spacing * 0.5, -spacing)
+	var move := move_tween.tween_property(
+		motion,
+		"position",
+		repeat_offset,
+		PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION * maxf(move_duration_multiplier, 0.01)
+	)
+	move.from(Vector2.ZERO)
+	move.set_trans(Tween.TRANS_LINEAR)
+	motion.set_meta("pattern_move_tween", move_tween)
+
+func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String = "MultiThemePattern", icon_modulate: Color = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA), spacing_multiplier: float = 1.0, icon_scale: float = 1.0, move_duration_multiplier: float = 1.0, bottom_alpha: float = -1.0, full_alpha_screen_ratio: float = 0.0) -> void:
+	if background_overlay == null or !is_instance_valid(background_overlay):
+		return
+	if theme_textures.is_empty():
+		return
+	var clip_root := Control.new()
+	clip_root.name = pattern_name
+	clip_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_root.clip_contents = true
+	clip_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip_root.offset_left = 0.0
+	clip_root.offset_top = 0.0
+	clip_root.offset_right = 0.0
+	clip_root.offset_bottom = 0.0
+	background_overlay.add_child(clip_root)
+
+	var motion := Control.new()
+	motion.name = "PatternMotion"
+	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	motion.position = Vector2.ZERO
+	clip_root.add_child(motion)
+	clip_root.resized.connect(Callable(self, "_layout_multi_theme_pattern").bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio))
+	call_deferred("_layout_multi_theme_pattern", clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio)
+
+func _add_full_rect_gradient_overlay(background_overlay: Control, top_color: Color, bottom_color: Color, overlay_name: String = "GradientOverlay") -> void:
+	if background_overlay == null or !is_instance_valid(background_overlay):
+		return
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([top_color, bottom_color])
+	gradient.offsets = PackedFloat32Array([0.0, 1.0])
+	var gradient_texture := GradientTexture2D.new()
+	gradient_texture.gradient = gradient
+	gradient_texture.fill = GradientTexture2D.FILL_LINEAR
+	gradient_texture.fill_from = Vector2(0.5, 0.0)
+	gradient_texture.fill_to = Vector2(0.5, 1.0)
+	gradient_texture.width = 1
+	gradient_texture.height = 256
+	var overlay := TextureRect.new()
+	overlay.name = overlay_name
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.texture = gradient_texture
+	overlay.stretch_mode = TextureRect.STRETCH_SCALE
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.offset_left = 0.0
+	overlay.offset_top = 0.0
+	overlay.offset_right = 0.0
+	overlay.offset_bottom = 0.0
+	# Keep the gradient above the patterned body but below the top-bar surface
+	# and all interactive Home controls. The parent background itself sits at -1.
+	overlay.z_index = 0
+	background_overlay.add_child(overlay)
+
 
 func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -> bool:
 	if (
