@@ -149,9 +149,10 @@ def main() -> None:
     require("func show_quiz_theme_select()" in portrait, "Quiz theme screen was removed")
     require("func show_theme_select()" in portrait, "Hangman theme screen was removed")
     require(
-        "_add_final_reward_theme_pattern(final_reward_background_overlay, reward_theme_index)" in portrait
+        "var final_reward_pattern_texture: Texture2D = _theme_icon_mono_texture(reward_theme_index)" in portrait
+        and "[final_reward_pattern_texture]" in portrait
         and "reward_theme_index: int = _single_player_level_selected_theme(level_index)" in portrait,
-        "Quiz final reward must resolve its pattern from the selected level theme",
+        "Main reward must resolve its shared pattern from the selected level theme",
     )
     require("MainTab" not in portrait and "PORTRAIT_MAIN_NAV_" not in portrait, "Retired main navigation remains")
     require("Shader.new()" not in portrait and "ImageTexture.create_from_image" not in portrait, "Home still builds resources synchronously")

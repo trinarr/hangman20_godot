@@ -360,12 +360,11 @@ const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 var PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.home_count_seconds", 1.36
 )
-const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE: float = 133.12
-const PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING: float = 218.7
-const PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA: float = 0.12
+const PORTRAIT_THEME_PATTERN_ICON_SIZE: float = 133.12
+const PORTRAIT_THEME_PATTERN_SPACING: float = 218.7
 # A half-cell right plus one cell up is a seamless staggered-lattice vector.
 # This duration preserves the current screen-space speed for diagonal motion.
-var PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
+var PORTRAIT_THEME_PATTERN_MOVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.pattern_move_seconds", 22.17
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
@@ -5436,16 +5435,35 @@ func _show_quiz_game_screen() -> void:
 	_quiz_screen_active = true
 	_portrait_screen(0.0)
 
-	# Quiz levels use a solid dark-blue playfield instead of the standard
-	# graph-paper texture, but now also reuse the animated theme pattern from
-	# the main-reward screen so each quiz topic gets its own moving backdrop.
+	# Reuse the Home background treatment for quiz gameplay: the same body color,
+	# animated pattern tuning, alpha falloff, and dark-blue vertical gradient.
+	# Unlike Home, the quiz pattern repeats only the current topic's mono icon.
 	var quiz_background := _stage_horizontal_fill(
 		PORTRAIT_HEADER_HEIGHT,
 		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
 		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	)
+	quiz_background.name = "QuizBackgroundOverlay"
 	quiz_background.z_index = -1
-	_add_final_reward_theme_pattern(quiz_background, _quiz_selected_theme_index)
+	var quiz_pattern_texture: Texture2D = _theme_icon_mono_texture(_quiz_selected_theme_index)
+	if quiz_pattern_texture != null:
+		_add_multi_theme_pattern(
+			quiz_background,
+			[quiz_pattern_texture],
+			"QuizThemePattern",
+			Color(1.0, 1.0, 1.0, 0.13),
+			0.92,
+			1.10,
+			0.87,
+			0.0,
+			0.70
+		)
+	_add_full_rect_gradient_overlay(
+		quiz_background,
+		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.0),
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
+		"QuizBackgroundGradient"
+	)
 
 	# Keep the normal gameplay resource/header treatment, but omit the character,
 	# attempts counter and theme title entirely.
@@ -11738,93 +11756,6 @@ func _start_single_player_final_reward_transition_deferred(
 	if !claim_before_actions:
 		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
-func _layout_final_reward_theme_pattern(clip_root: Control, motion: Control, mono_texture: Texture2D) -> void:
-	if clip_root == null or !is_instance_valid(clip_root):
-		return
-	if motion == null or !is_instance_valid(motion):
-		return
-	if mono_texture == null:
-		return
-
-	# Resize events can arrive several times while the safe area / ad banner is
-	# settling. Never clear a valid pattern while the new layout still has a zero
-	# or transitional size. The next real `resized` signal will rebuild it.
-	var clip_size: Vector2 = clip_root.size
-	if clip_size.x <= 0.0 or clip_size.y <= 0.0:
-		return
-
-	var existing_tween: Tween = motion.get_meta("pattern_move_tween", null) as Tween
-	if existing_tween != null and is_instance_valid(existing_tween):
-		existing_tween.kill()
-	for child: Node in motion.get_children():
-		# Rebuild synchronously. The old implementation queued the children for
-		# deletion and then yielded a frame, which allowed overlapping resize calls
-		# to leave the pattern permanently empty.
-		child.free()
-
-	var spacing: float = PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING
-	var overscan: float = spacing * 2.0
-	motion.position = Vector2.ZERO
-	motion.size = clip_size + Vector2.ONE * overscan * 2.0
-	var cols: int = int(ceil((clip_size.x + overscan * 2.0) / spacing)) + 2
-	var rows: int = int(ceil((clip_size.y + overscan * 2.0) / spacing)) + 2
-	for row: int in range(rows):
-		for col: int in range(cols):
-			var icon := TextureRect.new()
-			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			icon.texture = mono_texture
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.size = Vector2.ONE * PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE
-			icon.position = Vector2(
-				-overscan
-					+ float(col) * spacing
-					+ (spacing * 0.5 if row % 2 == 0 else 0.0),
-				-overscan + float(row) * spacing
-			)
-			icon.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA)
-			icon.rotation_degrees = -18.0
-			motion.add_child(icon)
-
-	var move_tween := motion.create_tween()
-	move_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	move_tween.set_loops()
-	var repeat_offset := Vector2(spacing * 0.5, -spacing)
-	var move := move_tween.tween_property(
-		motion,
-		"position",
-		repeat_offset,
-		PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION
-	)
-	move.from(Vector2.ZERO)
-	move.set_trans(Tween.TRANS_LINEAR)
-	motion.set_meta("pattern_move_tween", move_tween)
-
-func _add_final_reward_theme_pattern(background_overlay: Control, theme_index: int) -> void:
-	if background_overlay == null or !is_instance_valid(background_overlay):
-		return
-	var mono_texture: Texture2D = _theme_icon_mono_texture(theme_index)
-	if mono_texture == null:
-		return
-	var clip_root := Control.new()
-	clip_root.name = "FinalRewardThemePattern"
-	clip_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clip_root.clip_contents = true
-	clip_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	clip_root.offset_left = 0.0
-	clip_root.offset_top = 0.0
-	clip_root.offset_right = 0.0
-	clip_root.offset_bottom = 0.0
-	background_overlay.add_child(clip_root)
-
-	var motion := Control.new()
-	motion.name = "PatternMotion"
-	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	motion.position = Vector2.ZERO
-	clip_root.add_child(motion)
-	clip_root.resized.connect(Callable(self, "_layout_final_reward_theme_pattern").bind(clip_root, motion, mono_texture))
-	call_deferred("_layout_final_reward_theme_pattern", clip_root, motion, mono_texture)
-
 func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
 	var textures: Array = []
 	for theme_index: int in range(Database.get_theme_count()):
@@ -11837,7 +11768,7 @@ func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
 			textures.append(theme_texture)
 	return textures
 
-func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA), spacing_multiplier: float = 1.0, icon_scale: float = 1.0, move_duration_multiplier: float = 1.0, bottom_alpha: float = -1.0, full_alpha_screen_ratio: float = 0.0) -> void:
+func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
 	if clip_root == null or !is_instance_valid(clip_root):
 		return
 	if motion == null or !is_instance_valid(motion):
@@ -11855,7 +11786,7 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 	for child: Node in motion.get_children():
 		child.free()
 
-	var spacing: float = PORTRAIT_FINAL_REWARD_THEME_PATTERN_SPACING * maxf(spacing_multiplier, 0.05)
+	var spacing: float = PORTRAIT_THEME_PATTERN_SPACING * maxf(spacing_multiplier, 0.05)
 	var overscan: float = spacing * 2.0
 	motion.position = Vector2.ZERO
 	motion.size = clip_size + Vector2.ONE * overscan * 2.0
@@ -11873,7 +11804,7 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 			icon.texture = theme_textures[(row * cols + col) % texture_count] as Texture2D
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.size = Vector2.ONE * PORTRAIT_FINAL_REWARD_THEME_PATTERN_ICON_SIZE * maxf(icon_scale, 0.05)
+			icon.size = Vector2.ONE * PORTRAIT_THEME_PATTERN_ICON_SIZE * maxf(icon_scale, 0.05)
 			icon.position = Vector2(
 				-overscan
 					+ float(col) * spacing
@@ -11908,13 +11839,13 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 		motion,
 		"position",
 		repeat_offset,
-		PORTRAIT_FINAL_REWARD_THEME_PATTERN_MOVE_DURATION * maxf(move_duration_multiplier, 0.01)
+		PORTRAIT_THEME_PATTERN_MOVE_DURATION * maxf(move_duration_multiplier, 0.01)
 	)
 	move.from(Vector2.ZERO)
 	move.set_trans(Tween.TRANS_LINEAR)
 	motion.set_meta("pattern_move_tween", move_tween)
 
-func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String = "MultiThemePattern", icon_modulate: Color = Color(1.0, 1.0, 1.0, PORTRAIT_FINAL_REWARD_THEME_PATTERN_ALPHA), spacing_multiplier: float = 1.0, icon_scale: float = 1.0, move_duration_multiplier: float = 1.0, bottom_alpha: float = -1.0, full_alpha_screen_ratio: float = 0.0) -> void:
+func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
 	if background_overlay == null or !is_instance_valid(background_overlay):
 		return
 	if theme_textures.is_empty():
@@ -12607,25 +12538,35 @@ func _show_single_player_reward_chain_screen() -> void:
 	# drawn over the paper background.
 	var final_reward_background_overlay: Control = null
 	if is_final_reward:
-		# The animated theme pattern belongs only to the main reward body. Keep it
-		# below the top currency bar and below the dark reward header strip, so it
-		# does not bleed into the upper bar area.
-		var final_reward_pattern_top: float = (
-			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT.position.y
-			+ PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT.size.y
-		)
+		# Reuse the same backdrop treatment as Home and quiz gameplay. The main
+		# reward differs only by repeating the mono icon of the rewarded topic.
 		final_reward_background_overlay = _stage_horizontal_fill(
-			final_reward_pattern_top,
-			PORTRAIT_STAGE_SIZE.y - final_reward_pattern_top,
+			PORTRAIT_HEADER_HEIGHT,
+			PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
 			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 		)
 		final_reward_background_overlay.name = "FinalRewardBackgroundOverlay"
 		final_reward_background_overlay.modulate.a = 0.0
-		# Keep the themed backdrop above the screen base background so the
-		# animated pattern remains visible, but still behind the reward content
-		# that is added afterwards.
-		final_reward_background_overlay.z_index = 0
-		_add_final_reward_theme_pattern(final_reward_background_overlay, reward_theme_index)
+		final_reward_background_overlay.z_index = -1
+		var final_reward_pattern_texture: Texture2D = _theme_icon_mono_texture(reward_theme_index)
+		if final_reward_pattern_texture != null:
+			_add_multi_theme_pattern(
+				final_reward_background_overlay,
+				[final_reward_pattern_texture],
+				"FinalRewardThemePattern",
+				Color(1.0, 1.0, 1.0, 0.13),
+				0.92,
+				1.10,
+				0.87,
+				0.0,
+				0.70
+			)
+		_add_full_rect_gradient_overlay(
+			final_reward_background_overlay,
+			Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.0),
+			PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
+			"FinalRewardBackgroundGradient"
+		)
 	var masked_hero: Dictionary = _create_single_player_reward_masked_hero(
 		reward_screen_content,
 		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
