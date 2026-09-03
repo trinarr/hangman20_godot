@@ -452,6 +452,7 @@ const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
+const PORTRAIT_HINT_SHADOW_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
 const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
@@ -474,7 +475,7 @@ const PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE: int = 39
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
 const PORTRAIT_POPUP_CORNER_RADIUS: float = 26.0
 const PORTRAIT_POPUP_TOP_TRIM: float = 51.3
-const PORTRAIT_POPUP_TITLE_SCALE: float = 1.098
+const PORTRAIT_POPUP_TITLE_SCALE: float = 1.2078
 const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH: float = 280.0
@@ -2717,16 +2718,18 @@ func _stage_portrait_popup_coin_purchase_content(
 	# Treat the caption, coin and price as one visual block. Measure the complete
 	# row first and only then center it inside the button, so every coin purchase
 	# CTA uses identical typography and spacing regardless of caption length.
-	var resolved_font_size: int = _portrait_popup_font_size(18)
+	var resolved_font_size: int = UI_FONTS.display_button_font_size(
+		_portrait_popup_font_size(18)
+	)
 	var caption_text: String = button_text.to_upper()
 	var price_text := str(maxi(price, 0))
-	var caption_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
+	var caption_size: Vector2 = UI_BUTTON_FONT.get_string_size(
 		caption_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		resolved_font_size
 	)
-	var price_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
+	var price_size: Vector2 = UI_BUTTON_FONT.get_string_size(
 		price_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
@@ -2753,7 +2756,7 @@ func _stage_portrait_popup_coin_purchase_content(
 	caption_label.text = caption_text
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	caption_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	caption_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	caption_label.add_theme_font_override("font", UI_BUTTON_FONT)
 	caption_label.add_theme_font_size_override("font_size", resolved_font_size)
 	caption_label.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(caption_label)
@@ -2785,7 +2788,7 @@ func _stage_portrait_popup_coin_purchase_content(
 	price_label.text = price_text
 	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	price_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	price_label.add_theme_font_override("font", UI_BUTTON_FONT)
 	price_label.add_theme_font_size_override("font_size", resolved_font_size)
 	price_label.add_theme_color_override("font_color", price_color)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(price_label)
@@ -2796,6 +2799,17 @@ func _stage_portrait_popup_coin_purchase_content(
 		"coin": price_coin,
 		"price": price_label,
 	}
+
+func _apply_settings_compact_toggle_font_size(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	# Compact settings selectors (ON/OFF, language, etc.) share one caption
+	# scale. This is 15% larger than the previous 0.80 ON/OFF treatment.
+	var resolved_font_size: int = int(button.get("button_font_size"))
+	button.set(
+		"button_font_size",
+		maxi(1, int(round(float(resolved_font_size) * 0.92)))
+	)
 
 func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 	var enabled: bool = int(GameState.settings[setting_index]) == 2
@@ -2812,6 +2826,7 @@ func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	_apply_settings_compact_toggle_font_size(button)
 	settings_toggle_buttons[setting_index] = button
 
 func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
@@ -2828,6 +2843,7 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	_apply_settings_compact_toggle_font_size(button)
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
@@ -3822,7 +3838,7 @@ func _style_quiz_feedback_label(
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_HEADING_FONT)
+	label.add_theme_font_override("font", UI_BUTTON_FONT)
 	label.add_theme_font_size_override("font_size", _heading_font_size(font_size))
 	label.add_theme_color_override("font_color", font_color)
 	label.add_theme_color_override("font_outline_color", effect_color)
@@ -9226,24 +9242,47 @@ func _stage_portrait_hint_art(
 		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
 		(button.size.y - PORTRAIT_GAME_HINT_ART_SIZE.y) * 0.5 + y_offset
 	)
-	var art_shadow := TextureRect.new()
-	art_shadow.name = "HintArtShadow"
-	art_shadow.texture = texture
-	art_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	art_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art_shadow.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	art_shadow.size = PORTRAIT_GAME_HINT_ART_SIZE
-	art_shadow.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
-	art_shadow.position = art_position + Vector2(2.0, 2.0)
-	art_shadow.modulate = Color(
-		PORTRAIT_DARK_BLUE.r,
-		PORTRAIT_DARK_BLUE.g,
-		PORTRAIT_DARK_BLUE.b,
-		0.62
+	var art_shadow_material := ShaderMaterial.new()
+	art_shadow_material.shader = PORTRAIT_HINT_SHADOW_SHADER
+	art_shadow_material.set_shader_parameter(
+		"shadow_color",
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
 	)
-	art_shadow.z_index = 3
-	button.add_child(art_shadow)
+	var icon_extent: float = minf(
+		PORTRAIT_GAME_HINT_ART_SIZE.x,
+		PORTRAIT_GAME_HINT_ART_SIZE.y
+	)
+	var shadow_depth: float = clampf(
+		icon_extent * 0.055,
+		1.5,
+		5.0
+	)
+	var shadow_offset_x: float = minf(icon_extent * 0.012, 1.5)
+	for shadow_index: int in range(4):
+		var layer_t: float = 1.0
+		match shadow_index:
+			0:
+				layer_t = 0.25
+			1:
+				layer_t = 0.55
+			2:
+				layer_t = 0.80
+		var art_shadow := TextureRect.new()
+		art_shadow.name = "HintArtExtrusion%02d" % (shadow_index + 1)
+		art_shadow.texture = texture
+		art_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art_shadow.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		art_shadow.size = PORTRAIT_GAME_HINT_ART_SIZE
+		art_shadow.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
+		art_shadow.position = art_position + Vector2(
+			shadow_offset_x * layer_t,
+			shadow_depth * layer_t
+		)
+		art_shadow.material = art_shadow_material
+		art_shadow.z_index = 3
+		button.add_child(art_shadow)
 	var art := TextureRect.new()
 	art.name = "HintArt"
 	art.texture = texture
@@ -11185,8 +11224,11 @@ func _stage_final_reward_collect_text(rect: Rect2, next_level_index: int = -1) -
 	label.text = tr("NO_THANKS")
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_DISPLAY_FONT)
-	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_font_override("font", UI_BUTTON_FONT)
+	label.add_theme_font_size_override(
+		"font_size",
+		UI_FONTS.display_button_font_size(24)
+	)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
 	visual.add_child(label)

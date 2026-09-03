@@ -123,6 +123,7 @@ const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 var UI_DISPLAY_FONT: Font = UI_FONTS.display_font()
+var UI_BUTTON_FONT: Font = UI_FONTS.button_font()
 const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
@@ -526,8 +527,8 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
-	button.add_theme_font_override("font", UI_DISPLAY_FONT)
-	_apply_transparent_button_style(button, text != "", font_size)
+	button.add_theme_font_override("font", UI_BUTTON_FONT)
+	_apply_transparent_button_style(button, text != "", UI_FONTS.display_button_font_size(font_size))
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.set("stage_rect", rect)
@@ -646,7 +647,7 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
+	button.call("configure", text, UI_FONTS.display_button_font_size(font_size), disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
 	button.set("attention_bounce_enabled", attention_bounce)
 	_connect_stage_button_action(button, callable)
@@ -656,7 +657,7 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
+	button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
@@ -1515,11 +1516,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.position = Vector2(
 		0.0,
-		rect.size.y * 0.02 if resume_available else (0.0 if use_subtitle else 3.0)
+		rect.size.y * 0.03 if resume_available else (0.0 if use_subtitle else 3.0)
 	)
 	title_label.size = Vector2(
 		rect.size.x,
-		rect.size.y * (0.32 if resume_available else (0.60 if use_subtitle else 0.92))
+		rect.size.y * (0.36 if resume_available else (0.60 if use_subtitle else 0.92))
 	)
 	title_label.text = (
 		(tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
@@ -1528,8 +1529,16 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if use_subtitle else VERTICAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-	title_label.add_theme_font_size_override("font_size", 15 if resume_available else 28)
+	title_label.add_theme_font_override("font", UI_BUTTON_FONT)
+	var level_title_font_size: int = UI_FONTS.display_button_font_size(
+		15 if resume_available else 28
+	)
+	if resume_available:
+		level_title_font_size = maxi(
+			1,
+			int(round(float(level_title_font_size) * 1.10))
+		)
+	title_label.add_theme_font_size_override("font_size", level_title_font_size)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 	button.add_child(title_label)
@@ -1555,8 +1564,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.vertical_alignment = (
 			VERTICAL_ALIGNMENT_CENTER if resume_available else VERTICAL_ALIGNMENT_TOP
 		)
-		challenge_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-		challenge_label.add_theme_font_size_override("font_size", 28 if resume_available else 15)
+		challenge_label.add_theme_font_override("font", UI_BUTTON_FONT)
+		challenge_label.add_theme_font_size_override(
+			"font_size",
+			UI_FONTS.display_button_font_size(28 if resume_available else 15)
+		)
 		challenge_label.add_theme_color_override(
 			"font_color",
 			Color.WHITE if resume_available else UI_PALETTE.CHALLENGE_TEXT

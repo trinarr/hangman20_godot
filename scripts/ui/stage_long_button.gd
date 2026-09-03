@@ -191,7 +191,7 @@ var icon_shadow_color: Color = UI_PALETTE.AD_ICON_SHADOW:
 		icon_shadow_color = value
 		_sync_icon()
 
-var _button_text_font: Font = UI_FONTS.display_font()
+var _button_text_font: Font = UI_FONTS.button_font()
 var _label: Label = null
 var _icon_shadow_rect: TextureRect = null
 var _icon_rect: TextureRect = null

@@ -3,18 +3,22 @@ extends Control
 
 const DISPLAY_TEXT_SHADER: Shader = preload("res://shaders/display_text_outline_shadow.gdshader")
 
-# The outline scales with the display font instead of using one fixed value.
-# 28 px button text resolves to ~8 px, matching the current authored treatment.
-const OUTLINE_SIZE_RATIO: float = 0.285
-const OUTLINE_SIZE_MIN: float = 3.0
-const OUTLINE_SIZE_MAX: float = 14.0
+# Subway-style display treatment: the outline stays proportional to the text,
+# but is much tighter than the previous heavy 3D treatment.
+const OUTLINE_SIZE_RATIO: float = 0.075
+const OUTLINE_SIZE_MIN: float = 2.0
+const OUTLINE_SIZE_MAX: float = 9.0
 
-# Build a compact lower extrusion from several connected text silhouettes.
-const SHADOW_DEPTH_RATIO: float = 0.145
-const SHADOW_DEPTH_MIN: float = 2.0
-const SHADOW_DEPTH_MAX: float = 8.0
-const SHADOW_SPREAD_FROM_OUTLINE: float = 0.82
-const SHADOW_LAYER_COUNT: int = 6
+# Build a short, dense lower edge rather than a deep extrusion. The tiny
+# rightward drift gives the shadow a printed/sticker feel without changing the
+# project colors.
+const SHADOW_DEPTH_RATIO: float = 0.055
+const SHADOW_DEPTH_MIN: float = 1.5
+const SHADOW_DEPTH_MAX: float = 5.0
+const SHADOW_OFFSET_X_RATIO: float = 0.012
+const SHADOW_OFFSET_X_MAX: float = 1.5
+const SHADOW_SPREAD_FROM_OUTLINE: float = 0.92
+const SHADOW_LAYER_COUNT: int = 4
 const EFFECT_MARGIN_EXTRA: float = 4.0
 const EFFECT_NODE_NAME: StringName = &"DisplayTextShaderEffect"
 
@@ -28,6 +32,7 @@ var _effect_margin: float = 0.0
 var _outline_size: int = 0
 var _shadow_spread: int = 0
 var _shadow_depth: float = 0.0
+var _shadow_offset_x: float = 0.0
 
 static func attach(target: Control, outline_color: Color, shadow_color: Color) -> void:
 	if target == null or !is_instance_valid(target):
@@ -167,8 +172,21 @@ func _sync_from_target() -> void:
 	for index: int in range(_shadow_labels.size()):
 		var shadow_label: Label = _shadow_labels[index]
 		_copy_text_layout(_target, shadow_label)
-		var layer_t: float = float(index + 1) / float(maxi(SHADOW_LAYER_COUNT, 1))
-		shadow_label.position = base_position + Vector2(0.0, _shadow_depth * layer_t)
+		# Pack the four silhouettes into one short lower edge. These authored
+		# depths keep the first layers close to the glyph and the last layer at
+		# the full shadow depth.
+		var layer_t: float = 1.0
+		match index:
+			0:
+				layer_t = 0.25
+			1:
+				layer_t = 0.55
+			2:
+				layer_t = 0.80
+		shadow_label.position = base_position + Vector2(
+			_shadow_offset_x * layer_t,
+			_shadow_depth * layer_t
+		)
 		shadow_label.size = _target.size
 		shadow_label.custom_minimum_size = Vector2.ZERO
 		shadow_label.add_theme_constant_override("outline_size", _shadow_spread)
@@ -196,9 +214,12 @@ func _sync_effect_metrics() -> void:
 		SHADOW_DEPTH_MIN,
 		SHADOW_DEPTH_MAX
 	)
+	_shadow_offset_x = minf(font_size * SHADOW_OFFSET_X_RATIO, SHADOW_OFFSET_X_MAX)
 	_outline_size = maxi(1, int(round(outline_local)))
 	_shadow_spread = maxi(1, int(round(outline_local * SHADOW_SPREAD_FROM_OUTLINE)))
-	_effect_margin = ceil(float(_outline_size) + _shadow_depth + EFFECT_MARGIN_EXTRA)
+	_effect_margin = ceil(
+		float(_outline_size) + _shadow_depth + absf(_shadow_offset_x) + EFFECT_MARGIN_EXTRA
+	)
 
 	position = -Vector2.ONE * _effect_margin
 	size = Vector2(

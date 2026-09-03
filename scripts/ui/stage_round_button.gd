@@ -149,7 +149,7 @@ var button_disabled: bool = false:
 			_start_attention_bounce()
 		_sync_visuals()
 
-var _button_text_font: Font = UI_FONTS.display_font()
+var _button_text_font: Font = UI_FONTS.button_font()
 var _icon_rect: TextureRect = null
 var _icon_label: Label = null
 var _attention_bounce_tween: Tween = null
