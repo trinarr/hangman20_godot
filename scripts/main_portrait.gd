@@ -2599,19 +2599,10 @@ func _portrait_popup_shell(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	# Title treatment is intentionally darker than the popup background so the
-	# floating title remains legible while crossing the popup edge.
-	var title_effect_color: Color = body_color.darkened(0.40)
-	title_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	title_label.add_theme_color_override("font_outline_color", title_effect_color)
-	title_label.add_theme_constant_override("outline_size", 5)
-	title_label.add_theme_color_override(
-		"font_shadow_color",
-		Color(title_effect_color.r, title_effect_color.g, title_effect_color.b, 0.90)
-	)
-	title_label.add_theme_constant_override("shadow_offset_x", 3)
-	title_label.add_theme_constant_override("shadow_offset_y", 4)
-	title_label.add_theme_constant_override("shadow_outline_size", 2)
+	# All Nunito display text uses the same dark navy outline as the comment-popup
+	# title, with the heavier/crisper treatment defined in ButtonTextStyle.
+	title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 	title_label.clip_text = false
 	if !subtitle.is_empty():
 		var subtitle_label := _stage_label(
@@ -2754,8 +2745,6 @@ func _stage_portrait_popup_coin_purchase_content(
 		+ price_width
 	)
 	var row_x: float = (button.size.x - row_width) * 0.5
-	var effect_color: Color = PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.UI_BLUE_DARK, 0.55)
-
 	var caption_label := Label.new()
 	caption_label.name = "PurchaseCaption"
 	caption_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2764,10 +2753,10 @@ func _stage_portrait_popup_coin_purchase_content(
 	caption_label.text = caption_text
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	caption_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	caption_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	caption_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	caption_label.add_theme_font_size_override("font_size", resolved_font_size)
 	caption_label.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(caption_label, effect_color, effect_color)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(caption_label)
 	caption_label.z_index = 5
 	button.add_child(caption_label)
 
@@ -2796,10 +2785,10 @@ func _stage_portrait_popup_coin_purchase_content(
 	price_label.text = price_text
 	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	price_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	price_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	price_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	price_label.add_theme_font_size_override("font_size", resolved_font_size)
 	price_label.add_theme_color_override("font_color", price_color)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(price_label, effect_color, effect_color)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(price_label)
 	price_label.z_index = 5
 	button.add_child(price_label)
 	return {
@@ -3456,11 +3445,8 @@ func _show_quiz_theme_select_screen() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT
 		)
 		title_label.clip_text = false
-		var theme_effect_color: Color = PORTRAIT_UI_PALETTE.with_alpha(
-			PORTRAIT_UI_PALETTE.UI_BLUE_EFFECT,
-			0.55
-		)
-		BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_effect_color, theme_effect_color)
+		title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 
 		if disabled:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
@@ -5526,23 +5512,9 @@ func _show_quiz_game_screen() -> void:
 	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	theme_label.add_theme_font_size_override("font_size", _heading_font_size(26))
-	var quiz_theme_title_effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.40)
-	theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	theme_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	theme_label.add_theme_color_override("font_color", Color.WHITE)
-	theme_label.add_theme_color_override("font_outline_color", quiz_theme_title_effect_color)
-	theme_label.add_theme_constant_override("outline_size", 5)
-	theme_label.add_theme_color_override(
-		"font_shadow_color",
-		Color(
-			quiz_theme_title_effect_color.r,
-			quiz_theme_title_effect_color.g,
-			quiz_theme_title_effect_color.b,
-			0.90
-		)
-	)
-	theme_label.add_theme_constant_override("shadow_offset_x", 3)
-	theme_label.add_theme_constant_override("shadow_offset_y", 4)
-	theme_label.add_theme_constant_override("shadow_outline_size", 2)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(theme_label)
 	theme_label.clip_text = false
 	theme_label.z_index = 3
 	question_panel.add_child(theme_label)
@@ -5652,8 +5624,8 @@ func _show_theme_select_screen(_with_main_navigation: bool) -> void:
 		var title_font_size: int = 17 if theme_name.length() > 12 else 21
 		var title_label := _stage_label(Rect2(x + 52.0, y + 41.0, 152.0, 38.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		title_label.clip_text = false
-		var theme_effect_color: Color = PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.UI_BLUE_EFFECT, 0.55)
-		BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_effect_color, theme_effect_color)
+		title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 		if disabled:
 			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
 			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
@@ -11213,10 +11185,10 @@ func _stage_final_reward_collect_text(rect: Rect2, next_level_index: int = -1) -
 	label.text = tr("NO_THANKS")
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", Color.WHITE)
-	_apply_portrait_reward_header_text_effect(label, 3)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
 	visual.add_child(label)
 
 	var collect_action := Callable(self, "_claim_single_player_final_reward")
@@ -12491,10 +12463,10 @@ func _show_single_player_reward_chain_screen() -> void:
 		reward_title_font_size = PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE
 	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	reward_title.add_theme_font_override("font", UI_PRIMARY_FONT)
+	reward_title.add_theme_font_override("font", UI_DISPLAY_FONT)
 	reward_title.add_theme_font_size_override("font_size", reward_title_font_size)
 	reward_title.add_theme_color_override("font_color", result_title_color)
-	_apply_portrait_reward_header_text_effect(reward_title, 2)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(reward_title)
 	reward_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	reward_title.clip_text = false
 	_fit_single_line_label_to_width(
@@ -12837,10 +12809,10 @@ func _show_single_player_reward_chain_screen() -> void:
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
 		caption_label.name = "FinalRewardCaption"
-		caption_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		caption_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 		caption_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		caption_label.clip_text = false
-		_apply_portrait_reward_header_text_effect(caption_label, 2)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(caption_label)
 		_fit_single_line_label_to_width(
 			caption_label,
 			caption_label.text,

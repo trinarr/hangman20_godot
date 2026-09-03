@@ -3,6 +3,7 @@ extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
 const NORMAL_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_left.png")
@@ -190,6 +191,7 @@ var icon_shadow_color: Color = UI_PALETTE.AD_ICON_SHADOW:
 		icon_shadow_color = value
 		_sync_icon()
 
+var _button_text_font: Font = UI_FONTS.display_font()
 var _label: Label = null
 var _icon_shadow_rect: TextureRect = null
 var _icon_rect: TextureRect = null
@@ -459,23 +461,13 @@ func _sync_label() -> void:
 	if _label == null or !is_instance_valid(_label):
 		return
 	_label.text = button_text
+	_label.add_theme_font_override("font", _button_text_font)
 	_label.add_theme_font_size_override("font_size", button_font_size)
 	var label_color: Color = disabled_text_color if button_disabled else text_color
 	if button_disabled:
 		label_color = Color(label_color.r, label_color.g, label_color.b, label_color.a * DISABLED_OPACITY)
 	_label.add_theme_color_override("font_color", label_color)
-	var text_effect_color := Color(
-		outline_color.r,
-		outline_color.g,
-		outline_color.b,
-		outline_color.a * 0.55
-	)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(
-		_label,
-		text_effect_color,
-		text_effect_color,
-		3 if outline_size > 0 else 0
-	)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(_label)
 	_sync_content_layout()
 
 func _sync_icon() -> void:

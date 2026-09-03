@@ -119,8 +119,10 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
+const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
+var UI_DISPLAY_FONT: Font = UI_FONTS.display_font()
 const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
@@ -511,7 +513,8 @@ func _stage_heading_label(
 	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
 ) -> Label:
 	var label := _stage_label(rect, text, _heading_font_size(font_size), color, align)
-	label.add_theme_font_override("font", UI_HEADING_FONT)
+	label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
 	return label
 
 func _heading_font_size(font_size: int) -> int:
@@ -523,6 +526,7 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
+	button.add_theme_font_override("font", UI_DISPLAY_FONT)
 	_apply_transparent_button_style(button, text != "", font_size)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
@@ -706,13 +710,10 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_hover_color", font_color)
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
-	var text_effect_color: Color = UI_PALETTE.TEXT_SHADOW_DARK if show_text else Color.TRANSPARENT
-	BUTTON_TEXT_STYLE_SCRIPT.apply(
-		button,
-		text_effect_color,
-		text_effect_color,
-		3 if show_text else 0
-	)
+	if show_text:
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(button)
+	else:
+		BUTTON_TEXT_STYLE_SCRIPT.apply(button, Color.TRANSPARENT, Color.TRANSPARENT, 0)
 	button.add_theme_font_size_override("font_size", font_size)
 func _selected_character_id() -> int:
 	if GameState.settings.size() > 5:
@@ -1527,14 +1528,10 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if use_subtitle else VERTICAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	title_label.add_theme_font_size_override("font_size", 15 if resume_available else 28)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
-	var title_effect_color: Color = (
-		Color(DIFFICULTY_HARD_OUTLINE_COLOR.r, DIFFICULTY_HARD_OUTLINE_COLOR.g, DIFFICULTY_HARD_OUTLINE_COLOR.b, 0.55)
-		if challenge_level
-		else UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
-	)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, title_effect_color, title_effect_color)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 	button.add_child(title_label)
 
 	if use_subtitle:
@@ -1558,22 +1555,13 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.vertical_alignment = (
 			VERTICAL_ALIGNMENT_CENTER if resume_available else VERTICAL_ALIGNMENT_TOP
 		)
+		challenge_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 		challenge_label.add_theme_font_size_override("font_size", 28 if resume_available else 15)
 		challenge_label.add_theme_color_override(
 			"font_color",
 			Color.WHITE if resume_available else UI_PALETTE.CHALLENGE_TEXT
 		)
-		var challenge_effect_color: Color = (
-			UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
-			if resume_available
-			else Color(
-				DIFFICULTY_HARD_OUTLINE_COLOR.r,
-				DIFFICULTY_HARD_OUTLINE_COLOR.g,
-				DIFFICULTY_HARD_OUTLINE_COLOR.b,
-				0.52
-			)
-		)
-		BUTTON_TEXT_STYLE_SCRIPT.apply(challenge_label, challenge_effect_color, challenge_effect_color)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(challenge_label)
 		button.add_child(challenge_label)
 
 func _remove_single_player_theme_popup() -> void:
@@ -1724,8 +1712,8 @@ func _stage_single_player_theme_card(
 	)
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	title_label.clip_text = false
-	var theme_title_effect_color: Color = UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_EFFECT, 0.55)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_title_effect_color, theme_title_effect_color)
+	title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 
 	if selected:
 		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, UI_PALETTE.ACCENT_ORANGE, 3.0)

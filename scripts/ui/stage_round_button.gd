@@ -3,6 +3,7 @@ extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
@@ -148,6 +149,7 @@ var button_disabled: bool = false:
 			_start_attention_bounce()
 		_sync_visuals()
 
+var _button_text_font: Font = UI_FONTS.display_font()
 var _icon_rect: TextureRect = null
 var _icon_label: Label = null
 var _attention_bounce_tween: Tween = null
@@ -323,25 +325,15 @@ func _sync_visuals() -> void:
 	var has_texture: bool = icon_texture != null
 	var visual_opacity: float = DISABLED_OPACITY if button_disabled else 1.0
 	var current_icon_color := Color(icon_color.r, icon_color.g, icon_color.b, icon_color.a * visual_opacity)
-	var current_effect_color := Color(
-		icon_outline_color.r,
-		icon_outline_color.g,
-		icon_outline_color.b,
-		icon_outline_color.a * visual_opacity * 0.55
-	)
 	_icon_rect.visible = has_texture
 	_icon_rect.texture = icon_texture
 	_icon_rect.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_modulate.a * visual_opacity)
 	_icon_label.visible = !has_texture and icon_text != ""
 	_icon_label.text = icon_text
+	_icon_label.add_theme_font_override("font", _button_text_font)
 	_icon_label.add_theme_font_size_override("font_size", icon_font_size)
 	_icon_label.add_theme_color_override("font_color", current_icon_color)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(
-		_icon_label,
-		current_effect_color,
-		current_effect_color,
-		3 if icon_outline_size > 0 else 0
-	)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(_icon_label)
 
 func _sync_icon_layout() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):
