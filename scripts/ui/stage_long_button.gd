@@ -5,6 +5,14 @@ const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+const ICON_EXTRUSION_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
+
+const ICON_SHADOW_DEPTH_RATIO: float = 0.055
+const ICON_SHADOW_DEPTH_MIN: float = 1.5
+const ICON_SHADOW_DEPTH_MAX: float = 5.0
+const ICON_SHADOW_OFFSET_X_RATIO: float = 0.012
+const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
+const ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
 
 const NORMAL_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_left.png")
 const NORMAL_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_center.png")
@@ -181,20 +189,18 @@ var icon_shadow_enabled: bool = false:
 		icon_shadow_enabled = value
 		_sync_icon()
 
-var icon_shadow_offset_stage: Vector2 = Vector2(2.0, 2.0):
+var trailing_icon_shadow_enabled: bool = false:
 	set(value):
-		icon_shadow_offset_stage = value
-		_sync_content_layout()
-
-var icon_shadow_color: Color = UI_PALETTE.AD_ICON_SHADOW:
-	set(value):
-		icon_shadow_color = value
-		_sync_icon()
+		trailing_icon_shadow_enabled = value
+		_sync_trailing_icon()
 
 var _button_text_font: Font = UI_FONTS.button_font()
 var _label: Label = null
-var _icon_shadow_rect: TextureRect = null
+var _icon_shadow_layers: Array[TextureRect] = []
+var _icon_shadow_material: ShaderMaterial = null
 var _icon_rect: TextureRect = null
+var _trailing_icon_shadow_layers: Array[TextureRect] = []
+var _trailing_icon_shadow_material: ShaderMaterial = null
 var _trailing_icon_rect: TextureRect = null
 var _use_normal_parts_when_disabled: bool = false
 var _attention_bounce_tween: Tween = null
@@ -203,8 +209,9 @@ var _single_attention_shine_tween: Tween = null
 func _ready() -> void:
 	press_scale_enabled = true
 	_ensure_label()
-	_ensure_icon_shadow()
+	_ensure_icon_shadow_layers()
 	_ensure_icon()
+	_ensure_trailing_icon_shadow_layers()
 	_ensure_trailing_icon()
 	if !resized.is_connected(_sync_content_layout):
 		resized.connect(_sync_content_layout)
@@ -423,17 +430,74 @@ func _ensure_label() -> void:
 	_label.z_index = 2
 	add_child(_label)
 
-func _ensure_icon_shadow() -> void:
-	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
+func _create_icon_shadow_layers(prefix: String, material: ShaderMaterial) -> Array[TextureRect]:
+	var layers: Array[TextureRect] = []
+	for index: int in range(ICON_SHADOW_LAYER_T.size()):
+		var layer := TextureRect.new()
+		layer.name = "%sExtrusion%02d" % [prefix, index + 1]
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		layer.z_index = 0
+		layer.material = material
+		add_child(layer)
+		move_child(layer, 0)
+		layers.append(layer)
+	return layers
+
+func _ensure_icon_shadow_layers() -> void:
+	if !_icon_shadow_layers.is_empty():
 		return
-	_icon_shadow_rect = TextureRect.new()
-	_icon_shadow_rect.name = "IconShadow"
-	_icon_shadow_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_icon_shadow_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_icon_shadow_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_icon_shadow_rect.z_index = 0
-	add_child(_icon_shadow_rect)
-	move_child(_icon_shadow_rect, 0)
+	_icon_shadow_material = ShaderMaterial.new()
+	_icon_shadow_material.shader = ICON_EXTRUSION_SHADER
+	_icon_shadow_material.set_shader_parameter("shadow_color", UI_PALETTE.NAV_TEXT_SHADOW)
+	_icon_shadow_layers = _create_icon_shadow_layers("Icon", _icon_shadow_material)
+
+func _ensure_trailing_icon_shadow_layers() -> void:
+	if !_trailing_icon_shadow_layers.is_empty():
+		return
+	_trailing_icon_shadow_material = ShaderMaterial.new()
+	_trailing_icon_shadow_material.shader = ICON_EXTRUSION_SHADER
+	_trailing_icon_shadow_material.set_shader_parameter("shadow_color", UI_PALETTE.NAV_TEXT_SHADOW)
+	_trailing_icon_shadow_layers = _create_icon_shadow_layers("TrailingIcon", _trailing_icon_shadow_material)
+
+func _set_icon_shadow_layers_state(
+	layers: Array[TextureRect],
+	texture: Texture2D,
+	visible: bool
+) -> void:
+	for layer: TextureRect in layers:
+		if layer == null or !is_instance_valid(layer):
+			continue
+		layer.texture = texture
+		layer.visible = visible and texture != null
+		layer.modulate = Color(1.0, 1.0, 1.0, DISABLED_OPACITY if button_disabled else 1.0)
+
+func _layout_icon_shadow_layers(
+	layers: Array[TextureRect],
+	base_position: Vector2,
+	icon_size: Vector2
+) -> void:
+	var icon_extent: float = minf(icon_size.x, icon_size.y)
+	var shadow_depth: float = clampf(
+		icon_extent * ICON_SHADOW_DEPTH_RATIO,
+		ICON_SHADOW_DEPTH_MIN,
+		ICON_SHADOW_DEPTH_MAX
+	)
+	var shadow_offset_x: float = minf(
+		icon_extent * ICON_SHADOW_OFFSET_X_RATIO,
+		ICON_SHADOW_OFFSET_X_MAX
+	)
+	for index: int in range(layers.size()):
+		var layer: TextureRect = layers[index]
+		if layer == null or !is_instance_valid(layer):
+			continue
+		var layer_t: float = float(ICON_SHADOW_LAYER_T[index])
+		layer.position = base_position + Vector2(
+			shadow_offset_x * layer_t,
+			shadow_depth * layer_t
+		)
+		layer.size = icon_size
 
 func _ensure_icon() -> void:
 	if _icon_rect != null and is_instance_valid(_icon_rect):
@@ -476,17 +540,11 @@ func _sync_icon() -> void:
 	_icon_rect.texture = icon_texture
 	_icon_rect.visible = icon_texture != null
 	_icon_rect.modulate = Color(1.0, 1.0, 1.0, DISABLED_OPACITY if button_disabled else 1.0)
-	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-		_icon_shadow_rect.texture = icon_texture
-		_icon_shadow_rect.visible = icon_shadow_enabled and icon_texture != null
-		var shadow_alpha: float = icon_shadow_color.a * (DISABLED_OPACITY if button_disabled else 1.0)
-		_icon_shadow_rect.modulate = Color(
-			icon_shadow_color.r,
-			icon_shadow_color.g,
-			icon_shadow_color.b,
-			shadow_alpha
-		)
-		_icon_shadow_rect.z_index = 0
+	_set_icon_shadow_layers_state(
+		_icon_shadow_layers,
+		icon_texture,
+		icon_shadow_enabled and icon_texture != null
+	)
 	if _icon_rect != null and is_instance_valid(_icon_rect):
 		_icon_rect.z_index = 1
 	if _label != null and is_instance_valid(_label):
@@ -505,6 +563,11 @@ func _sync_trailing_icon() -> void:
 		DISABLED_OPACITY if button_disabled else 1.0
 	)
 	_trailing_icon_rect.z_index = 1
+	_set_icon_shadow_layers_state(
+		_trailing_icon_shadow_layers,
+		trailing_icon_texture,
+		trailing_icon_shadow_enabled and trailing_icon_texture != null
+	)
 	_sync_content_layout()
 
 func _sync_content_layout() -> void:
@@ -524,8 +587,12 @@ func _sync_content_layout() -> void:
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		if _icon_rect != null and is_instance_valid(_icon_rect):
 			_icon_rect.visible = false
-		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-			_icon_shadow_rect.visible = false
+		for layer: TextureRect in _icon_shadow_layers:
+			if layer != null and is_instance_valid(layer):
+				layer.visible = false
+		for layer: TextureRect in _trailing_icon_shadow_layers:
+			if layer != null and is_instance_valid(layer):
+				layer.visible = false
 		if _trailing_icon_rect != null and is_instance_valid(_trailing_icon_rect):
 			_trailing_icon_rect.visible = false
 		_sync_visual_child_scales()
@@ -538,8 +605,16 @@ func _sync_content_layout() -> void:
 	var actual_trailing_gap: float = trailing_icon_gap_stage * scale_to_view.x
 	if _icon_rect != null and is_instance_valid(_icon_rect):
 		_icon_rect.visible = has_icon
-	if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-		_icon_shadow_rect.visible = icon_shadow_enabled and has_icon
+	_set_icon_shadow_layers_state(
+		_icon_shadow_layers,
+		icon_texture,
+		icon_shadow_enabled and has_icon
+	)
+	_set_icon_shadow_layers_state(
+		_trailing_icon_shadow_layers,
+		trailing_icon_texture,
+		trailing_icon_shadow_enabled and has_trailing_icon
+	)
 	if _trailing_icon_rect != null and is_instance_valid(_trailing_icon_rect):
 		_trailing_icon_rect.visible = has_trailing_icon
 
@@ -558,9 +633,7 @@ func _sync_content_layout() -> void:
 		if has_icon:
 			_icon_rect.position = Vector2(icon_cursor_x, (size.y - actual_icon_size.y) * 0.5)
 			_icon_rect.size = actual_icon_size
-			if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-				_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
-				_icon_shadow_rect.size = actual_icon_size
+			_layout_icon_shadow_layers(_icon_shadow_layers, _icon_rect.position, actual_icon_size)
 			icon_cursor_x += actual_icon_size.x + (actual_trailing_gap if has_trailing_icon else 0.0)
 		if has_trailing_icon:
 			_trailing_icon_rect.position = Vector2(
@@ -568,6 +641,11 @@ func _sync_content_layout() -> void:
 				(size.y - actual_trailing_icon_size.y) * 0.5
 			)
 			_trailing_icon_rect.size = actual_trailing_icon_size
+			_layout_icon_shadow_layers(
+				_trailing_icon_shadow_layers,
+				_trailing_icon_rect.position,
+				actual_trailing_icon_size
+			)
 		_sync_visual_child_scales()
 		return
 
@@ -588,9 +666,7 @@ func _sync_content_layout() -> void:
 	if has_icon and icon_before_text:
 		_icon_rect.position = Vector2(cursor_x, (size.y - actual_icon_size.y) * 0.5)
 		_icon_rect.size = actual_icon_size
-		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-			_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
-			_icon_shadow_rect.size = actual_icon_size
+		_layout_icon_shadow_layers(_icon_shadow_layers, _icon_rect.position, actual_icon_size)
 		cursor_x += actual_icon_size.x + actual_gap
 
 	_label.position = Vector2(cursor_x, 0.0)
@@ -602,9 +678,7 @@ func _sync_content_layout() -> void:
 		cursor_x += actual_gap
 		_icon_rect.position = Vector2(cursor_x, (size.y - actual_icon_size.y) * 0.5)
 		_icon_rect.size = actual_icon_size
-		if _icon_shadow_rect != null and is_instance_valid(_icon_shadow_rect):
-			_icon_shadow_rect.position = _icon_rect.position + icon_shadow_offset_stage * scale_to_view
-			_icon_shadow_rect.size = actual_icon_size
+		_layout_icon_shadow_layers(_icon_shadow_layers, _icon_rect.position, actual_icon_size)
 		cursor_x += actual_icon_size.x
 
 	if has_trailing_icon:
@@ -614,4 +688,9 @@ func _sync_content_layout() -> void:
 			(size.y - actual_trailing_icon_size.y) * 0.5
 		)
 		_trailing_icon_rect.size = actual_trailing_icon_size
+		_layout_icon_shadow_layers(
+			_trailing_icon_shadow_layers,
+			_trailing_icon_rect.position,
+			actual_trailing_icon_size
+		)
 	_sync_visual_child_scales()

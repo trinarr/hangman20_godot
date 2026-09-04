@@ -1516,11 +1516,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.position = Vector2(
 		0.0,
-		rect.size.y * 0.03 if resume_available else (0.0 if use_subtitle else 3.0)
+		0.0 if use_subtitle else 3.0
 	)
 	title_label.size = Vector2(
 		rect.size.x,
-		rect.size.y * (0.36 if resume_available else (0.60 if use_subtitle else 0.92))
+		rect.size.y * (0.60 if use_subtitle else 0.92)
 	)
 	title_label.text = (
 		(tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
@@ -1530,15 +1530,10 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if use_subtitle else VERTICAL_ALIGNMENT_CENTER
 	title_label.add_theme_font_override("font", UI_BUTTON_FONT)
-	var level_title_font_size: int = UI_FONTS.display_button_font_size(
-		15 if resume_available else 28
+	title_label.add_theme_font_size_override(
+		"font_size",
+		UI_FONTS.display_button_font_size(28)
 	)
-	if resume_available:
-		level_title_font_size = maxi(
-			1,
-			int(round(float(level_title_font_size) * 1.10))
-		)
-	title_label.add_theme_font_size_override("font_size", level_title_font_size)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 	button.add_child(title_label)
@@ -1549,11 +1544,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		challenge_label.position = Vector2(
 			0.0,
-			rect.size.y * (0.29 if resume_available else 0.57)
+			rect.size.y * 0.57
 		)
 		challenge_label.size = Vector2(
 			rect.size.x,
-			rect.size.y * (0.62 if resume_available else 0.30)
+			rect.size.y * 0.30
 		)
 		challenge_label.text = (
 			Database.tr_text(3, "Continue").to_upper()
@@ -1561,13 +1556,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 			else _single_player_challenge_level_label().to_upper()
 		)
 		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		challenge_label.vertical_alignment = (
-			VERTICAL_ALIGNMENT_CENTER if resume_available else VERTICAL_ALIGNMENT_TOP
-		)
+		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		challenge_label.add_theme_font_override("font", UI_BUTTON_FONT)
 		challenge_label.add_theme_font_size_override(
 			"font_size",
-			UI_FONTS.display_button_font_size(28 if resume_available else 15)
+			UI_FONTS.display_button_font_size(15)
 		)
 		challenge_label.add_theme_color_override(
 			"font_color",

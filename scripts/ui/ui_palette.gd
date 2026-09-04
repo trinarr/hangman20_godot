@@ -36,7 +36,6 @@ const DISABLED_OPACITY: float = 0.85
 const AD_PURPLE := Color("#BB11E0")
 const AD_PURPLE_PRESSED := Color("#9710B5")
 const AD_PURPLE_SELECTED := Color("#86109F")
-const AD_ICON_SHADOW := Color(0.2314, 0.2627, 0.5176, 0.92)
 
 # Success / failure semantics.
 const SUCCESS := Color("#21D44A")

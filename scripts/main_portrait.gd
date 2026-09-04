@@ -452,7 +452,7 @@ const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
-const PORTRAIT_HINT_SHADOW_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
+const PORTRAIT_ICON_EXTRUSION_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
 const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
@@ -1111,6 +1111,7 @@ func _stage_menu_settings_button() -> void:
 		PORTRAIT_MENU_SETTINGS_ICON,
 		PORTRAIT_MENU_SETTINGS_ICON_SIZE
 	)
+	settings_button.set("icon_shadow_enabled", true)
 	if game_screen_visible and _portrait_game_is_challenge_level():
 		settings_button.call(
 			"set_color_palette",
@@ -2188,8 +2189,6 @@ func _show_coin_refill_popup() -> void:
 	rewarded_coin_button.set("icon_gap_stage", 9.0)
 	rewarded_coin_button.set("icon_before_text", true)
 	rewarded_coin_button.set("icon_shadow_enabled", true)
-	rewarded_coin_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
-	rewarded_coin_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
 	if rewarded_coin_button.has_method("set_color_palette"):
 		rewarded_coin_button.call(
 			"set_color_palette",
@@ -2763,16 +2762,28 @@ func _stage_portrait_popup_coin_purchase_content(
 	caption_label.z_index = 5
 	button.add_child(caption_label)
 
+	var price_coin_position := Vector2(
+		row_x + caption_width + caption_coin_gap,
+		(button.size.y - coin_size.y) * 0.5
+	)
+	var price_coin_shadow_layers := _create_portrait_icon_extrusion_layers(
+		button,
+		SOFT_CURRENCY_COIN_TEXTURE,
+		"PriceCoin",
+		4
+	)
+	_layout_portrait_icon_extrusion_layers(
+		price_coin_shadow_layers,
+		price_coin_position,
+		coin_size
+	)
 	var price_coin := TextureRect.new()
 	price_coin.name = "PriceCoin"
 	price_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	price_coin.texture = SOFT_CURRENCY_COIN_TEXTURE
 	price_coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	price_coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	price_coin.position = Vector2(
-		row_x + caption_width + caption_coin_gap,
-		(button.size.y - coin_size.y) * 0.5
-	)
+	price_coin.position = price_coin_position
 	price_coin.size = coin_size
 	price_coin.z_index = 5
 	button.add_child(price_coin)
@@ -5844,8 +5855,6 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		rewarded_attempt_button.set("icon_gap_stage", 9.0)
 		rewarded_attempt_button.set("icon_before_text", true)
 		rewarded_attempt_button.set("icon_shadow_enabled", true)
-		rewarded_attempt_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
-		rewarded_attempt_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
 		if rewarded_attempt_button.has_method("set_color_palette"):
 			rewarded_attempt_button.call(
 				"set_color_palette",
@@ -6203,11 +6212,10 @@ func _show_heart_refill_popup(
 	rewarded_heart_button.set("icon_gap_stage", 8.0)
 	rewarded_heart_button.set("icon_before_text", true)
 	rewarded_heart_button.set("icon_shadow_enabled", true)
-	rewarded_heart_button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
-	rewarded_heart_button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
 	rewarded_heart_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
 	rewarded_heart_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	rewarded_heart_button.set("trailing_icon_gap_stage", 8.0)
+	rewarded_heart_button.set("trailing_icon_shadow_enabled", true)
 	if rewarded_heart_button.has_method("set_color_palette"):
 		rewarded_heart_button.call(
 			"set_color_palette",
@@ -7717,6 +7725,7 @@ func _show_exit_game_popup() -> void:
 	exit_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
 	exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	exit_button.set("trailing_icon_gap_stage", 8.0)
+	exit_button.set("trailing_icon_shadow_enabled", true)
 	content = previous_content
 
 func show_custom_word() -> void:
@@ -9230,6 +9239,98 @@ func _stage_portrait_hint_buttons() -> void:
 		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
 	_portrait_game_hint_signature = _portrait_game_hint_state_signature()
 
+func _create_portrait_icon_extrusion_layers(
+	parent: Control,
+	texture: Texture2D,
+	prefix: String,
+	z_index: int = 0
+) -> Array[TextureRect]:
+	var layers: Array[TextureRect] = []
+	if parent == null or !is_instance_valid(parent) or texture == null:
+		return layers
+	var shadow_material := ShaderMaterial.new()
+	shadow_material.shader = PORTRAIT_ICON_EXTRUSION_SHADER
+	shadow_material.set_shader_parameter(
+		"shadow_color",
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
+	)
+	for layer_index: int in range(4):
+		var layer := TextureRect.new()
+		layer.name = "%sExtrusion%02d" % [prefix, layer_index + 1]
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.texture = texture
+		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		layer.material = shadow_material
+		layer.z_index = z_index
+		parent.add_child(layer)
+		layers.append(layer)
+	return layers
+
+func _layout_portrait_icon_extrusion_layers(
+	layers: Array[TextureRect],
+	icon_position: Vector2,
+	icon_size: Vector2
+) -> void:
+	var icon_extent: float = minf(icon_size.x, icon_size.y)
+	var shadow_depth: float = clampf(icon_extent * 0.055, 1.5, 5.0)
+	var shadow_offset_x: float = minf(icon_extent * 0.012, 1.5)
+	for layer_index: int in range(layers.size()):
+		var layer: TextureRect = layers[layer_index]
+		if layer == null or !is_instance_valid(layer):
+			continue
+		var layer_t: float = 1.0
+		match layer_index:
+			0:
+				layer_t = 0.25
+			1:
+				layer_t = 0.55
+			2:
+				layer_t = 0.80
+		layer.position = icon_position + Vector2(
+			shadow_offset_x * layer_t,
+			shadow_depth * layer_t
+		)
+		layer.size = icon_size
+
+func _layout_portrait_icon_holder_extrusion(
+	holder: Control,
+	layers: Array[TextureRect]
+) -> void:
+	if holder == null or !is_instance_valid(holder):
+		return
+	_layout_portrait_icon_extrusion_layers(layers, Vector2.ZERO, holder.size)
+
+func _add_portrait_icon_with_extrusion_to_holder(
+	holder: Control,
+	texture: Texture2D,
+	prefix: String,
+	icon_z_index: int = 1
+) -> TextureRect:
+	if holder == null or !is_instance_valid(holder) or texture == null:
+		return null
+	var layers := _create_portrait_icon_extrusion_layers(
+		holder,
+		texture,
+		prefix,
+		icon_z_index - 1
+	)
+	if !holder.resized.is_connected(_layout_portrait_icon_holder_extrusion):
+		holder.resized.connect(
+			Callable(self, "_layout_portrait_icon_holder_extrusion").bind(holder, layers)
+		)
+	call_deferred("_layout_portrait_icon_holder_extrusion", holder, layers)
+	var icon := TextureRect.new()
+	icon.name = prefix
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.texture = texture
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.z_index = icon_z_index
+	holder.add_child(icon)
+	return icon
+
 func _stage_portrait_hint_art(
 	button: Control,
 	texture: Texture2D,
@@ -9238,67 +9339,26 @@ func _stage_portrait_hint_art(
 ) -> void:
 	if button == null:
 		return
-	var art_position := Vector2(
+	var art_holder := Control.new()
+	art_holder.name = "HintArtHolder"
+	art_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_holder.position = Vector2(
 		(button.size.x - PORTRAIT_GAME_HINT_ART_SIZE.x) * 0.5,
 		(button.size.y - PORTRAIT_GAME_HINT_ART_SIZE.y) * 0.5 + y_offset
 	)
-	var art_shadow_material := ShaderMaterial.new()
-	art_shadow_material.shader = PORTRAIT_HINT_SHADOW_SHADER
-	art_shadow_material.set_shader_parameter(
-		"shadow_color",
-		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
+	art_holder.size = PORTRAIT_GAME_HINT_ART_SIZE
+	art_holder.z_index = 3
+	button.add_child(art_holder)
+	var art := _add_portrait_icon_with_extrusion_to_holder(
+		art_holder,
+		texture,
+		"HintArt",
+		1
 	)
-	var icon_extent: float = minf(
-		PORTRAIT_GAME_HINT_ART_SIZE.x,
-		PORTRAIT_GAME_HINT_ART_SIZE.y
-	)
-	var shadow_depth: float = clampf(
-		icon_extent * 0.055,
-		1.5,
-		5.0
-	)
-	var shadow_offset_x: float = minf(icon_extent * 0.012, 1.5)
-	for shadow_index: int in range(4):
-		var layer_t: float = 1.0
-		match shadow_index:
-			0:
-				layer_t = 0.25
-			1:
-				layer_t = 0.55
-			2:
-				layer_t = 0.80
-		var art_shadow := TextureRect.new()
-		art_shadow.name = "HintArtExtrusion%02d" % (shadow_index + 1)
-		art_shadow.texture = texture
-		art_shadow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art_shadow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art_shadow.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		art_shadow.size = PORTRAIT_GAME_HINT_ART_SIZE
-		art_shadow.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
-		art_shadow.position = art_position + Vector2(
-			shadow_offset_x * layer_t,
-			shadow_depth * layer_t
-		)
-		art_shadow.material = art_shadow_material
-		art_shadow.z_index = 3
-		button.add_child(art_shadow)
-	var art := TextureRect.new()
-	art.name = "HintArt"
-	art.texture = texture
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	art.size = PORTRAIT_GAME_HINT_ART_SIZE
-	art.custom_minimum_size = PORTRAIT_GAME_HINT_ART_SIZE
-	art.position = art_position
-	if grayscale:
+	if art != null and grayscale:
 		var grayscale_material := ShaderMaterial.new()
 		grayscale_material.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
 		art.material = grayscale_material
-	art.z_index = 4
-	button.add_child(art)
 
 func _portrait_hint_local_panel(
 	button: Control,
@@ -9380,24 +9440,17 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	coin_icon.z_index = 1
 	holder.add_child(coin_icon)
-	var ad_shadow_icon := TextureRect.new()
-	ad_shadow_icon.name = "HintAdIconShadow"
-	ad_shadow_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ad_shadow_icon.texture = WATCH_AD_ICON_TEXTURE
-	ad_shadow_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ad_shadow_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	ad_shadow_icon.modulate = Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.6)
-	ad_shadow_icon.z_index = 0
-	holder.add_child(ad_shadow_icon)
-	var ad_icon := TextureRect.new()
-	ad_icon.name = "HintAdIcon"
-	ad_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ad_icon.texture = WATCH_AD_ICON_TEXTURE
-	ad_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ad_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	ad_icon.modulate = Color.WHITE
-	ad_icon.z_index = 1
-	holder.add_child(ad_icon)
+	var ad_icon_holder := Control.new()
+	ad_icon_holder.name = "HintAdIconHolder"
+	ad_icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ad_icon_holder.z_index = 1
+	holder.add_child(ad_icon_holder)
+	var ad_icon := _add_portrait_icon_with_extrusion_to_holder(
+		ad_icon_holder,
+		WATCH_AD_ICON_TEXTURE,
+		"HintAdIcon",
+		1
+	)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -9410,7 +9463,7 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 		"badge": badge,
 		"holder": holder,
 		"coin": coin_icon,
-		"ad_shadow": ad_shadow_icon,
+		"ad_holder": ad_icon_holder,
 		"ad": ad_icon,
 		"label": label,
 		"coin_rect": config.get("coin_rect", Rect2()),
@@ -9442,10 +9495,10 @@ func _set_portrait_button_badge_state(
 	var badge := component.get("badge") as Panel
 	var holder := component.get("holder") as Control
 	var coin_icon := component.get("coin") as TextureRect
-	var ad_shadow_icon := component.get("ad_shadow") as TextureRect
+	var ad_icon_holder := component.get("ad_holder") as Control
 	var ad_icon := component.get("ad") as TextureRect
 	var label := component.get("label") as Label
-	if shadow == null or badge == null or holder == null or coin_icon == null or ad_shadow_icon == null or ad_icon == null or label == null:
+	if shadow == null or badge == null or holder == null or coin_icon == null or ad_icon_holder == null or ad_icon == null or label == null:
 		return
 	var rect: Rect2 = component.get("coin_rect", Rect2())
 	match state:
@@ -9470,7 +9523,7 @@ func _set_portrait_button_badge_state(
 		0.0
 	)
 	coin_icon.visible = false
-	ad_shadow_icon.visible = false
+	ad_icon_holder.visible = false
 	ad_icon.visible = false
 	label.visible = false
 	match state:
@@ -9509,16 +9562,13 @@ func _set_portrait_button_badge_state(
 			label.add_theme_constant_override("outline_size", 0)
 		PORTRAIT_BUTTON_BADGE_STATE_AD:
 			_apply_portrait_panel_style(badge, PORTRAIT_AD_BADGE_PURPLE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
-			ad_shadow_icon.visible = true
+			ad_icon_holder.visible = true
 			ad_icon.visible = true
-			ad_shadow_icon.modulate = Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.6)
 			ad_icon.modulate = Color.WHITE
 			var ad_icon_size := Vector2(rect.size.x - 6.0, rect.size.y - 12.0) * float(component.get("ad_icon_scale", 1.0))
 			var ad_icon_position := (rect.size - ad_icon_size) * 0.5
-			ad_shadow_icon.position = ad_icon_position + Vector2(1.0, 1.0)
-			ad_shadow_icon.size = ad_icon_size
-			ad_icon.position = ad_icon_position
-			ad_icon.size = ad_icon_size
+			ad_icon_holder.position = ad_icon_position
+			ad_icon_holder.size = ad_icon_size
 		PORTRAIT_BUTTON_BADGE_STATE_FREE:
 			_apply_portrait_panel_style(badge, PORTRAIT_FREE_HINT_BADGE_GREEN, rect.size.x * 0.5)
 			label.visible = true
@@ -9541,7 +9591,7 @@ func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) ->
 		return
 	if visible:
 		return
-	for key in ["shadow", "badge", "coin", "ad_shadow", "ad", "label"]:
+	for key in ["shadow", "badge", "coin", "ad_holder", "ad", "label"]:
 		var node := component.get(key) as CanvasItem
 		if node != null and is_instance_valid(node):
 			node.visible = false
@@ -11468,8 +11518,6 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 	button.set("icon_gap_stage", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP)
 	button.set("icon_before_text", true)
 	button.set("icon_shadow_enabled", true)
-	button.set("icon_shadow_offset_stage", Vector2(2.0, 2.0))
-	button.set("icon_shadow_color", PORTRAIT_UI_PALETTE.AD_ICON_SHADOW)
 	var label := button.get_node_or_null("Text") as Label
 	if label != null and is_instance_valid(label):
 		label.visible = true
@@ -11482,7 +11530,7 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 		built_in_icon.visible = true
 	# Legacy final-reward overlay icons are no longer used; the standard button
 	# owns its icon through the built-in Icon node.
-	for child_name: String in ["AdIcon", "AdIconShadow", "BonusCoinIcon"]:
+	for child_name: String in ["AdIcon", "BonusCoinIcon"]:
 		var child := button.get_node_or_null(child_name) as CanvasItem
 		if child != null and is_instance_valid(child):
 			child.visible = false
