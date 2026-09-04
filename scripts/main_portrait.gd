@@ -3849,7 +3849,7 @@ func _style_quiz_feedback_label(
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_BUTTON_FONT)
+	label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	label.add_theme_font_size_override("font_size", _heading_font_size(font_size))
 	label.add_theme_color_override("font_color", font_color)
 	label.add_theme_color_override("font_outline_color", effect_color)
