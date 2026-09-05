@@ -4,7 +4,7 @@ const FALLBACK_DISPLAY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const ROBOTO_FLEX_PATH: String = "res://" + "fonts/RobotoFlex-Variable.ttf"
 
 # Headings.
-const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 750.0
+const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 780.0
 const ROBOTO_FLEX_DISPLAY_WIDTH: float = 35.0
 const ROBOTO_FLEX_DISPLAY_GRADE: float = -10.0
 const ROBOTO_FLEX_DISPLAY_THIN_STROKE: float = 90.0
@@ -15,8 +15,13 @@ const ROBOTO_FLEX_BUTTON_WIDTH: float = 25.0
 const ROBOTO_FLEX_BUTTON_GRADE: float = -30.0
 const ROBOTO_FLEX_BUTTON_THIN_STROKE: float = 80.0
 
+# Regular text: resource counters and other compact informational UI.
+const ROBOTO_FLEX_REGULAR_WEIGHT: float = 650.0
+const ROBOTO_FLEX_REGULAR_WIDTH: float = 75.0
+const ROBOTO_FLEX_REGULAR_GRADE: float = 0.0
+const ROBOTO_FLEX_REGULAR_THIN_STROKE: float = 80.0
+
 # Shared Roboto Flex axes.
-const ROBOTO_FLEX_SLANT: float = 0.0
 const ROBOTO_FLEX_THICK_STROKE: float = 80.0
 
 # Subway-style buttons devote more of their height to the caption. Keep this
@@ -44,7 +49,6 @@ static func _roboto_flex_font(
 	variation.variation_opentype = {
 		text_server.name_to_tag("wght"): weight,
 		text_server.name_to_tag("wdth"): width,
-		text_server.name_to_tag("slnt"): ROBOTO_FLEX_SLANT,
 		text_server.name_to_tag("GRAD"): grade,
 		text_server.name_to_tag("XOPQ"): ROBOTO_FLEX_THICK_STROKE,
 		text_server.name_to_tag("YOPQ"): thin_stroke,
@@ -65,4 +69,12 @@ static func button_font() -> Font:
 		ROBOTO_FLEX_BUTTON_WIDTH,
 		ROBOTO_FLEX_BUTTON_GRADE,
 		ROBOTO_FLEX_BUTTON_THIN_STROKE
+	)
+
+static func regular_font() -> Font:
+	return _roboto_flex_font(
+		ROBOTO_FLEX_REGULAR_WEIGHT,
+		ROBOTO_FLEX_REGULAR_WIDTH,
+		ROBOTO_FLEX_REGULAR_GRADE,
+		ROBOTO_FLEX_REGULAR_THIN_STROKE
 	)

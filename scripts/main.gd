@@ -124,6 +124,7 @@ const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 var UI_DISPLAY_FONT: Font = UI_FONTS.display_font()
 var UI_BUTTON_FONT: Font = UI_FONTS.button_font()
+var UI_REGULAR_FONT: Font = UI_FONTS.regular_font()
 const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")

@@ -2,6 +2,7 @@ extends "res://scripts/main.gd"
 
 const PORTRAIT_GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const BADGE_SHADOW_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/badge_shadow_style.gd")
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
@@ -400,6 +401,7 @@ var PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_
 var PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.hint.entrance_settle_seconds", 0.16
 )
+const PORTRAIT_GAME_HINT_BADGE_FADE_DURATION: float = 0.16
 const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 44.0
 const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
 const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
@@ -453,6 +455,7 @@ const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_asse
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
 const PORTRAIT_ICON_EXTRUSION_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
+const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = 0.50
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
 const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
@@ -1251,7 +1254,7 @@ func _stage_currency_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
@@ -1355,7 +1358,7 @@ func _stage_centered_coin_only_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	currency_balance_label = balance_label
 	balance_label.z_index = 21
@@ -1432,7 +1435,7 @@ func _stage_star_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	balance_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	balance_label.add_to_group(&"stars_balance_label")
 	stars_balance_label = balance_label
 	balance_label.z_index = 21
@@ -1571,7 +1574,7 @@ func _stage_heart_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	count_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	count_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	count_label.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.HEART_TEXT_OUTLINE)
 	count_label.add_theme_constant_override("outline_size", maxi(2, int(round(4.0 * counter_scale))))
 	count_label.z_index = 22
@@ -1606,7 +1609,7 @@ func _stage_heart_counter(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	status_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	status_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	status_label.z_index = 21
 	heart_status_label = status_label
 	_fit_single_line_label_to_width(status_label, status_text, status_rect.size.x, status_font_size, status_min_font_size)
@@ -2029,6 +2032,10 @@ func _stage_coin_refill_ad_counter(button: Control) -> void:
 		"ad_rect": badge_rect,
 		"free_rect": badge_rect,
 		"count": GameState.get_coin_refill_ad_views_remaining(),
+		"panel_shader_shadow": true,
+		"panel_shader_shadow_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
+		"panel_shadow_enabled": false,
+		"regular_display_text_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
 		"state": PORTRAIT_BUTTON_BADGE_STATE_FREE,
 	})
 	button.set_meta(&"coin_refill_ad_badge_component", component)
@@ -2146,12 +2153,10 @@ func _show_coin_refill_popup() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	amount_label.name = "CoinRefillAmount"
-	amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	amount_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	amount_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	amount_label.clip_text = false
-	_apply_portrait_reward_header_text_effect(amount_label, 4)
-	amount_label.add_theme_constant_override("shadow_offset_x", 3)
-	amount_label.add_theme_constant_override("shadow_offset_y", 3)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(amount_label)
 	_fit_single_line_label_to_width(
 		amount_label,
 		amount_label.text,
@@ -2446,7 +2451,15 @@ func _portrait_popup_begin(
 	popup_root.name = name + "Layer"
 	popup_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	popup_root.mouse_filter = Control.MOUSE_FILTER_STOP
-	popup_root.theme = ui.theme
+	# Ordinary popup copy uses the shared Regular Roboto Flex style. Explicit
+	# Heading/Button overrides continue to use their dedicated Roboto variants.
+	var popup_theme := Theme.new()
+	if ui.theme != null:
+		var inherited_popup_theme := ui.theme.duplicate() as Theme
+		if inherited_popup_theme != null:
+			popup_theme = inherited_popup_theme
+	popup_theme.default_font = UI_REGULAR_FONT
+	popup_root.theme = popup_theme
 	popup_layer.add_child(popup_root)
 	content = popup_root
 	var dimmer_close_callable: Callable = close_callable if close_on_dimmer else Callable()
@@ -2612,7 +2625,7 @@ func _portrait_popup_shell(
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
-		subtitle_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		subtitle_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		subtitle_label.clip_text = false
 
 	if show_close_button:
@@ -3143,7 +3156,7 @@ func _create_portrait_legal_link(
 	link.mouse_filter = Control.MOUSE_FILTER_STOP
 	link.focus_mode = Control.FOCUS_NONE
 	link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
-	link.add_theme_font_override("font", UI_PRIMARY_FONT)
+	link.add_theme_font_override("font", UI_REGULAR_FONT)
 	link.add_theme_font_size_override("font_size", font_size)
 	link.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.SUCCESS_SOFT)
 	link.add_theme_color_override("font_hover_color", PORTRAIT_UI_PALETTE.SUCCESS)
@@ -3191,7 +3204,7 @@ func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
 	separator.text = "·"
 	separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	separator.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	separator.add_theme_font_override("font", UI_PRIMARY_FONT)
+	separator.add_theme_font_override("font", UI_REGULAR_FONT)
 	separator.add_theme_font_size_override("font_size", font_size)
 	separator.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE)
 	separator.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.UI_BLUE_DARK)
@@ -3222,8 +3235,8 @@ func _stage_portrait_legal_inline_text(rect: Rect2) -> RichTextLabel:
 	legal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	legal_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	legal_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	legal_text.add_theme_font_override("normal_font", UI_HEADING_FONT)
-	legal_text.add_theme_font_override("bold_font", UI_HEADING_FONT)
+	legal_text.add_theme_font_override("normal_font", UI_REGULAR_FONT)
+	legal_text.add_theme_font_override("bold_font", UI_REGULAR_FONT)
 	legal_text.add_theme_font_size_override("normal_font_size", 22)
 	legal_text.add_theme_font_size_override("bold_font_size", 22)
 	legal_text.add_theme_color_override("default_color", Color.WHITE)
@@ -3329,7 +3342,7 @@ func _show_settings_popup() -> void:
 	settings_word_language_buttons.clear()
 	var compact_layout: bool = _settings_popup_uses_compact_layout()
 	var rect := (
-		Rect2(28.0, 250.0, 424.0, 300.0)
+		Rect2(28.0, 250.0, 424.0, 244.0)
 		if compact_layout
 		else Rect2(28.0, 120.0, 424.0, 560.0)
 	)
@@ -3704,7 +3717,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	answer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	answer_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	answer_label.clip_text = true
-	answer_label.add_theme_font_override("font", UI_HEADING_FONT)
+	answer_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	answer_label.add_theme_font_size_override("font_size", font_size)
 	answer_label.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
 	button.add_child(answer_label)
@@ -4575,6 +4588,10 @@ func _stage_portrait_quiz_hint_counter(button: Control, hint_key: String) -> voi
 		"ad_rect": free_rect,
 		"free_rect": free_rect,
 		"price": GameState.get_hint_cost(hint_key),
+		"price_font": UI_REGULAR_FONT,
+		"panel_shader_shadow": true,
+		"panel_shadow_enabled": false,
+		"regular_display_text_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
 		"count": count,
 		"state": (
 			PORTRAIT_BUTTON_BADGE_STATE_FREE
@@ -4592,6 +4609,18 @@ func _refresh_portrait_quiz_hint_counter(button: Control, hint_key: String) -> v
 	if !(component_variant is Dictionary):
 		return
 	var component: Dictionary = component_variant
+	var hint_used: bool = (
+		(hint_key == GameState.HINT_QUIZ_FIFTY_FIFTY and _quiz_fifty_fifty_used)
+		or (
+			hint_key == GameState.HINT_QUIZ_REPLACE_QUESTION
+			and _quiz_replace_question_used
+		)
+	)
+	if hint_used:
+		if bool(button.get_meta(&"quiz_hint_counter_roll_active", false)):
+			return
+		_set_portrait_button_badge_visible(component, false)
+		return
 	var count: int = GameState.get_hint_count(hint_key)
 	_set_portrait_button_badge_state(
 		component,
@@ -4606,10 +4635,86 @@ func _refresh_portrait_quiz_hint_counter(button: Control, hint_key: String) -> v
 		}
 	)
 
+func _finish_portrait_quiz_hint_counter_roll(
+	button: Control,
+	hint_key: String,
+	current_label: Label,
+	next_label: Label,
+	to_count: int
+) -> void:
+	if current_label != null and is_instance_valid(current_label):
+		current_label.position = Vector2.ZERO
+		current_label.text = str(maxi(to_count, 0))
+	if next_label != null and is_instance_valid(next_label):
+		next_label.queue_free()
+	if button == null or !is_instance_valid(button):
+		return
+	button.set_meta(&"quiz_hint_counter_roll_active", false)
+	_refresh_portrait_quiz_hint_counter(button, hint_key)
+
+func _animate_portrait_quiz_hint_counter_roll(
+	button: Control,
+	hint_key: String,
+	to_count: int
+) -> bool:
+	if button == null or !is_instance_valid(button):
+		return false
+	var component_variant: Variant = button.get_meta(&"quiz_hint_badge_component", {})
+	if !(component_variant is Dictionary):
+		return false
+	var component: Dictionary = component_variant
+	var holder := component.get("holder") as Control
+	var current_label := component.get("label") as Label
+	if (
+		holder == null
+		or !is_instance_valid(holder)
+		or current_label == null
+		or !is_instance_valid(current_label)
+	):
+		return false
+
+	button.set_meta(&"quiz_hint_counter_roll_active", true)
+	var next_label := _create_portrait_hint_counter_badge_label(
+		holder,
+		str(maxi(to_count, 0))
+	)
+	next_label.position = Vector2(0.0, -holder.size.y)
+	next_label.modulate.a = 1.0
+
+	var tween := holder.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var old_move := tween.parallel().tween_property(
+		current_label,
+		"position:y",
+		holder.size.y,
+		PORTRAIT_HINT_COUNTER_ROLL_DURATION
+	)
+	old_move.set_trans(Tween.TRANS_CUBIC)
+	old_move.set_ease(Tween.EASE_IN_OUT)
+	var new_move := tween.parallel().tween_property(
+		next_label,
+		"position:y",
+		0.0,
+		PORTRAIT_HINT_COUNTER_ROLL_DURATION
+	)
+	new_move.set_trans(Tween.TRANS_CUBIC)
+	new_move.set_ease(Tween.EASE_IN_OUT)
+	tween.tween_callback(
+		Callable(self, "_finish_portrait_quiz_hint_counter_roll").bind(
+			button,
+			hint_key,
+			current_label,
+			next_label,
+			to_count
+		)
+	)
+	return true
+
 func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
 	if !GameState.can_pay_for_hint(hint_key):
 		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
+	var previous_count: int = GameState.get_hint_count(hint_key)
 	var payment: int = GameState.pay_for_hint(
 		hint_key,
 		false
@@ -4617,7 +4722,18 @@ func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
 	if payment == GameState.HintPayment.FAILED:
 		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
-	_refresh_portrait_quiz_hint_counter(button, hint_key)
+	var current_count: int = GameState.get_hint_count(hint_key)
+	var free_counter_animated: bool = (
+		previous_count > 0
+		and current_count < previous_count
+		and _animate_portrait_quiz_hint_counter_roll(
+			button,
+			hint_key,
+			current_count
+		)
+	)
+	if !free_counter_animated:
+		_refresh_portrait_quiz_hint_counter(button, hint_key)
 	return true
 
 func _return_to_quiz_from_coin_store() -> void:
@@ -4837,6 +4953,10 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 		return
 
 	_quiz_fifty_fifty_used = true
+	_refresh_portrait_quiz_hint_counter(
+		fifty_hint_button,
+		GameState.HINT_QUIZ_FIFTY_FIFTY
+	)
 	_quiz_fifty_fifty_hidden_indices = [wrong_indices[0], wrong_indices[1]]
 	if _quiz_single_player_embedded:
 		_persist_active_single_player_quiz_session()
@@ -4993,6 +5113,10 @@ func _on_quiz_replace_question_pressed() -> void:
 		return
 
 	_quiz_replace_question_used = true
+	_refresh_portrait_quiz_hint_counter(
+		replace_hint_button,
+		GameState.HINT_QUIZ_REPLACE_QUESTION
+	)
 	_quiz_question_replacing = true
 	_quiz_current_question = next_question
 	if _quiz_single_player_embedded:
@@ -5174,6 +5298,8 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	_stage_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
 	_stage_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
 	_quiz_hint_buttons = [open_button, remove_button]
+	_refresh_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
+	_refresh_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
 	if _quiz_fifty_fifty_used:
 		open_button.set("button_disabled", true)
 	if _quiz_replace_question_used or _quiz_question_replacing:
@@ -5248,6 +5374,7 @@ func _prepare_quiz_screen_entrance(
 		hint_button.set_meta(&"quiz_entrance_rest_mouse_filter", hint_button.mouse_filter)
 		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint_button.modulate.a = 0.0
+		_set_portrait_hint_button_badge_alpha(hint_button, 0.0)
 		hint_button.set(
 			"visual_scale",
 			rest_scale * PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE
@@ -5411,12 +5538,18 @@ func _play_quiz_screen_entrance(
 		)
 		settle.set_trans(Tween.TRANS_BOUNCE)
 		settle.set_ease(Tween.EASE_OUT)
+		_fade_in_portrait_hint_button_badge(
+			hint_button,
+			PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+			+ PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+		)
 
 	var hint_wait := create_tween()
 	hint_wait.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	hint_wait.tween_interval(
 		PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
 		+ PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+		+ PORTRAIT_GAME_HINT_BADGE_FADE_DURATION
 	)
 	await hint_wait.finished
 	if !_quiz_entrance_is_current(generation):
@@ -5538,7 +5671,10 @@ func _show_quiz_game_screen() -> void:
 	theme_label.text = theme_name
 	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	theme_label.add_theme_font_size_override("font_size", _heading_font_size(26))
+	theme_label.add_theme_font_size_override(
+		"font_size",
+		int(round(float(_heading_font_size(26)) * 1.30))
+	)
 	theme_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	theme_label.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(theme_label)
@@ -5554,7 +5690,7 @@ func _show_quiz_game_screen() -> void:
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	question_label.add_theme_font_override("font", UI_HEADING_FONT)
+	question_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	question_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	question_label.clip_text = false
 	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -5827,7 +5963,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	description_label.add_theme_font_override("font", UI_HEADING_FONT)
+	description_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	description_label.clip_text = false
 	description_label.z_index = 11
 
@@ -6162,7 +6298,7 @@ func _show_heart_refill_popup(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	recovery_timer_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	recovery_timer_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	recovery_timer_label.clip_text = false
 	recovery_timer_label.z_index = 12
 	# Keep the popup copy live without replacing the global top-bar label refs.
@@ -6381,8 +6517,9 @@ func _show_single_player_level_popup(
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	instruction_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	instruction_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	instruction_label.clip_text = false
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(instruction_label)
 	var card_y: float = 256.0
 	# Place the reroll/ad control in the same bottom CTA row as the orange Play
 	# button. The row spans the popup's full content width. The round control uses
@@ -6447,7 +6584,14 @@ func _show_single_player_level_popup(
 			"free_rect": refresh_ad_badge_rect,
 			"price": SINGLE_PLAYER_THEME_REFRESH_COST,
 			"price_font_size": 13,
+			"price_font": UI_REGULAR_FONT,
 			"ad_icon_scale": 1.4025,
+			"panel_shader_shadow": true,
+			"panel_shader_shadow_states": [
+				PORTRAIT_BUTTON_BADGE_STATE_COINS,
+				PORTRAIT_BUTTON_BADGE_STATE_AD,
+			],
+			"panel_shadow_enabled": false,
 			"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
 		}
 	)
@@ -6580,7 +6724,7 @@ func _stage_single_player_popup_theme_cards(
 			# card with a redundant x1 badge. Keep counters only for multi-word levels.
 			if word_count > 1:
 				var word_badge_text := "x%d" % word_count
-				var word_badge_text_size: Vector2 = UI_PRIMARY_FONT.get_string_size(
+				var word_badge_text_size: Vector2 = UI_REGULAR_FONT.get_string_size(
 					word_badge_text,
 					HORIZONTAL_ALIGNMENT_LEFT,
 					-1.0,
@@ -6600,6 +6744,16 @@ func _stage_single_player_popup_theme_cards(
 					0.0
 				)
 				word_badge.z_index = 13
+				var word_badge_shadow_layers := _create_portrait_rounded_panel_extrusion_layers(
+					word_badge,
+					"ThemeStageBadge",
+					-1
+				)
+				_layout_portrait_rounded_panel_extrusion_layers(
+					word_badge_shadow_layers,
+					word_badge.size,
+					word_badge_size.y * 0.5
+				)
 				word_badge_label = _stage_label(
 					word_badge_rect,
 					word_badge_text,
@@ -6608,12 +6762,18 @@ func _stage_single_player_popup_theme_cards(
 					HORIZONTAL_ALIGNMENT_CENTER
 				)
 				word_badge_label.z_index = 14
-				word_badge_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-				word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+				word_badge_label.add_theme_font_override("font", UI_REGULAR_FONT)
+				word_badge_label.add_theme_color_override(
+					"font_shadow_color",
+					Color(0.0, 0.0, 0.0, 0.0)
+				)
 				word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
 				word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
 				word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
-				word_badge_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+				word_badge_label.add_theme_color_override(
+					"font_outline_color",
+					Color(0.0, 0.0, 0.0, 0.0)
+				)
 				word_badge_label.add_theme_constant_override("outline_size", 0)
 		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
 		var theme_name_height: float = 56.0
@@ -6631,17 +6791,11 @@ func _stage_single_player_popup_theme_cards(
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
-		theme_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		theme_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		theme_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		theme_label.clip_text = false
-		var popup_theme_effect_color := Color(
-			PORTRAIT_DARK_BLUE.r,
-			PORTRAIT_DARK_BLUE.g,
-			PORTRAIT_DARK_BLUE.b,
-			0.55
-		)
-		BUTTON_TEXT_STYLE_SCRIPT.apply(theme_label, popup_theme_effect_color, popup_theme_effect_color)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(theme_label)
 		var theme_button := _stage_button(
 			card_rect,
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
@@ -9239,20 +9393,51 @@ func _stage_portrait_hint_buttons() -> void:
 		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
 	_portrait_game_hint_signature = _portrait_game_hint_state_signature()
 
+func _create_portrait_rounded_panel_extrusion_layers(
+	parent: Control,
+	prefix: String,
+	z_index: int = -1
+) -> Array[ColorRect]:
+	return BADGE_SHADOW_STYLE_SCRIPT.create_layers(parent, prefix, z_index)
+
+func _layout_portrait_rounded_panel_extrusion_layers(
+	layers: Array[ColorRect],
+	panel_size: Vector2,
+	corner_radius: float
+) -> void:
+	BADGE_SHADOW_STYLE_SCRIPT.layout_layers(
+		layers,
+		panel_size,
+		corner_radius
+	)
+
+func _set_portrait_rounded_panel_extrusion_visible(
+	layers: Array,
+	visible_value: bool
+) -> void:
+	BADGE_SHADOW_STYLE_SCRIPT.set_visible(layers, visible_value)
+
 func _create_portrait_icon_extrusion_layers(
 	parent: Control,
 	texture: Texture2D,
 	prefix: String,
-	z_index: int = 0
+	z_index: int = 0,
+	shadow_alpha: float = 1.0
 ) -> Array[TextureRect]:
 	var layers: Array[TextureRect] = []
 	if parent == null or !is_instance_valid(parent) or texture == null:
 		return layers
 	var shadow_material := ShaderMaterial.new()
 	shadow_material.shader = PORTRAIT_ICON_EXTRUSION_SHADER
+	var icon_shadow_base: Color = PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
 	shadow_material.set_shader_parameter(
 		"shadow_color",
-		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
+		Color(
+			icon_shadow_base.r,
+			icon_shadow_base.g,
+			icon_shadow_base.b,
+			clampf(shadow_alpha, 0.0, 1.0)
+		)
 	)
 	for layer_index: int in range(4):
 		var layer := TextureRect.new()
@@ -9270,11 +9455,19 @@ func _create_portrait_icon_extrusion_layers(
 func _layout_portrait_icon_extrusion_layers(
 	layers: Array[TextureRect],
 	icon_position: Vector2,
-	icon_size: Vector2
+	icon_size: Vector2,
+	shadow_offset_scale: float = 1.0
 ) -> void:
 	var icon_extent: float = minf(icon_size.x, icon_size.y)
-	var shadow_depth: float = clampf(icon_extent * 0.055, 1.5, 5.0)
-	var shadow_offset_x: float = minf(icon_extent * 0.012, 1.5)
+	var resolved_offset_scale: float = maxf(shadow_offset_scale, 0.0)
+	var shadow_depth: float = (
+		clampf(icon_extent * 0.055, 1.5, 5.0)
+		* resolved_offset_scale
+	)
+	var shadow_offset_x: float = (
+		minf(icon_extent * 0.012, 1.5)
+		* resolved_offset_scale
+	)
 	for layer_index: int in range(layers.size()):
 		var layer: TextureRect = layers[layer_index]
 		if layer == null or !is_instance_valid(layer):
@@ -9295,17 +9488,25 @@ func _layout_portrait_icon_extrusion_layers(
 
 func _layout_portrait_icon_holder_extrusion(
 	holder: Control,
-	layers: Array[TextureRect]
+	layers: Array[TextureRect],
+	shadow_offset_scale: float = 1.0
 ) -> void:
 	if holder == null or !is_instance_valid(holder):
 		return
-	_layout_portrait_icon_extrusion_layers(layers, Vector2.ZERO, holder.size)
+	_layout_portrait_icon_extrusion_layers(
+		layers,
+		Vector2.ZERO,
+		holder.size,
+		shadow_offset_scale
+	)
 
 func _add_portrait_icon_with_extrusion_to_holder(
 	holder: Control,
 	texture: Texture2D,
 	prefix: String,
-	icon_z_index: int = 1
+	icon_z_index: int = 1,
+	shadow_alpha: float = 1.0,
+	shadow_offset_scale: float = 1.0
 ) -> TextureRect:
 	if holder == null or !is_instance_valid(holder) or texture == null:
 		return null
@@ -9313,13 +9514,23 @@ func _add_portrait_icon_with_extrusion_to_holder(
 		holder,
 		texture,
 		prefix,
-		icon_z_index - 1
+		icon_z_index - 1,
+		shadow_alpha
 	)
 	if !holder.resized.is_connected(_layout_portrait_icon_holder_extrusion):
 		holder.resized.connect(
-			Callable(self, "_layout_portrait_icon_holder_extrusion").bind(holder, layers)
+			Callable(self, "_layout_portrait_icon_holder_extrusion").bind(
+				holder,
+				layers,
+				shadow_offset_scale
+			)
 		)
-	call_deferred("_layout_portrait_icon_holder_extrusion", holder, layers)
+	call_deferred(
+		"_layout_portrait_icon_holder_extrusion",
+		holder,
+		layers,
+		shadow_offset_scale
+	)
 	var icon := TextureRect.new()
 	icon.name = prefix
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -9353,7 +9564,9 @@ func _stage_portrait_hint_art(
 		art_holder,
 		texture,
 		"HintArt",
-		1
+		1,
+		PORTRAIT_HINT_ICON_SHADOW_ALPHA,
+		0.70
 	)
 	if art != null and grayscale:
 		var grayscale_material := ShaderMaterial.new()
@@ -9472,14 +9685,46 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 		"price": int(config.get("price", 0)),
 		"count": int(config.get("count", 0)),
 		"price_font_size": int(config.get("price_font_size", 16)),
+		"price_font": config.get("price_font", UI_PRIMARY_FONT),
 		"free_font_size": int(config.get("free_font_size", 17)),
 		"ad_icon_scale": float(config.get("ad_icon_scale", 1.0)),
 		"price_color": config.get("price_color", PORTRAIT_BLUE),
+		"panel_shader_shadow": bool(config.get("panel_shader_shadow", false)),
+		"panel_shader_shadow_states": config.get("panel_shader_shadow_states", []),
+		"panel_shadow_enabled": bool(config.get("panel_shadow_enabled", true)),
+		"regular_display_text_states": config.get("regular_display_text_states", []),
 	}
-	_set_portrait_button_badge_state(
-		component,
-		String(config.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS))
+	var panel_shader_shadow_layers: Array[ColorRect] = []
+	if bool(component.get("panel_shader_shadow", false)):
+		panel_shader_shadow_layers = _create_portrait_rounded_panel_extrusion_layers(
+			badge,
+			"BadgePanel",
+			-1
+		)
+	component["panel_shader_shadow_layers"] = panel_shader_shadow_layers
+
+	# Configure the badge first so the label already has its final size, font,
+	# font size and text before the Regular display effect measures it. Attaching
+	# the effect earlier made the initial quiz FREE counter render from the
+	# placeholder label geometry until its text changed for the first time.
+	var initial_state: String = String(
+		config.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS)
 	)
+	_set_portrait_button_badge_state(component, initial_state)
+
+	var regular_display_text_states: Array = component.get(
+		"regular_display_text_states",
+		[]
+	)
+	if !regular_display_text_states.is_empty():
+		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(label)
+		var regular_effect := label.get_node_or_null(
+			NodePath("DisplayTextShaderEffect")
+		) as CanvasItem
+		if regular_effect != null and is_instance_valid(regular_effect):
+			regular_effect.visible = initial_state in regular_display_text_states
+
+	button.set_meta(&"portrait_button_badge_component", component)
 	return component
 
 func _set_portrait_button_badge_state(
@@ -9515,6 +9760,16 @@ func _set_portrait_button_badge_state(
 	var corner_radius := rect.size.y * 0.5
 	if state == PORTRAIT_BUTTON_BADGE_STATE_AD:
 		corner_radius = rect.size.x * 0.5
+	var panel_shader_shadow_layers: Array = component.get(
+		"panel_shader_shadow_layers",
+		[]
+	)
+	if bool(component.get("panel_shader_shadow", false)):
+		_layout_portrait_rounded_panel_extrusion_layers(
+			panel_shader_shadow_layers,
+			rect.size,
+			corner_radius
+		)
 	_apply_portrait_panel_style(
 		shadow,
 		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.28),
@@ -9531,6 +9786,11 @@ func _set_portrait_button_badge_state(
 			_apply_portrait_panel_style(badge, Color.WHITE, corner_radius, Color(0.0, 0.0, 0.0, 0.0), 0.0)
 			coin_icon.visible = true
 			label.visible = true
+			var price_font: Font = component.get("price_font", UI_PRIMARY_FONT) as Font
+			label.add_theme_font_override(
+				"font",
+				price_font if price_font != null else UI_PRIMARY_FONT
+			)
 			var badge_price: int = maxi(int(component.get("price", 0)), 0)
 			var price_color: Color = (
 				component.get("price_color", PORTRAIT_BLUE)
@@ -9572,6 +9832,7 @@ func _set_portrait_button_badge_state(
 		PORTRAIT_BUTTON_BADGE_STATE_FREE:
 			_apply_portrait_panel_style(badge, PORTRAIT_FREE_HINT_BADGE_GREEN, rect.size.x * 0.5)
 			label.visible = true
+			label.add_theme_font_override("font", UI_REGULAR_FONT)
 			label.position = Vector2.ZERO
 			label.size = rect.size
 			label.text = str(maxi(int(component.get("count", 0)), 0))
@@ -9583,7 +9844,32 @@ func _set_portrait_button_badge_state(
 			label.add_theme_constant_override("shadow_outline_size", 0)
 			label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
 			label.add_theme_constant_override("outline_size", 0)
-	shadow.visible = state != PORTRAIT_BUTTON_BADGE_STATE_FREE
+	shadow.visible = (
+		bool(component.get("panel_shadow_enabled", true))
+		and state != PORTRAIT_BUTTON_BADGE_STATE_FREE
+	)
+	var panel_shader_shadow_states: Array = component.get(
+		"panel_shader_shadow_states",
+		[]
+	)
+	var panel_shader_shadow_visible: bool = bool(
+		component.get("panel_shader_shadow", false)
+	)
+	if panel_shader_shadow_visible and !panel_shader_shadow_states.is_empty():
+		panel_shader_shadow_visible = state in panel_shader_shadow_states
+	_set_portrait_rounded_panel_extrusion_visible(
+		panel_shader_shadow_layers,
+		panel_shader_shadow_visible
+	)
+	var regular_display_text_states: Array = component.get(
+		"regular_display_text_states",
+		[]
+	)
+	var regular_effect := label.get_node_or_null(
+		NodePath("DisplayTextShaderEffect")
+	) as CanvasItem
+	if regular_effect != null and is_instance_valid(regular_effect):
+		regular_effect.visible = state in regular_display_text_states
 	badge.visible = true
 
 func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) -> void:
@@ -9596,20 +9882,55 @@ func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) ->
 		if node != null and is_instance_valid(node):
 			node.visible = false
 
-func _style_portrait_hint_counter_badge_label(label: Label) -> void:
-	var counter_outline_color := Color(
-		PORTRAIT_DARK_BLUE.r,
-		PORTRAIT_DARK_BLUE.g,
-		PORTRAIT_DARK_BLUE.b,
-		0.9
+func _set_portrait_hint_button_badge_alpha(
+	button: Control,
+	alpha: float
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var component_variant: Variant = button.get_meta(
+		&"portrait_button_badge_component",
+		{}
 	)
-	var counter_shadow_color := Color(
-		PORTRAIT_DARK_BLUE.r,
-		PORTRAIT_DARK_BLUE.g,
-		PORTRAIT_DARK_BLUE.b,
-		0.55
+	if !(component_variant is Dictionary):
+		return
+	var component: Dictionary = component_variant
+	var badge := component.get("badge") as CanvasItem
+	if badge != null and is_instance_valid(badge):
+		badge.modulate.a = clampf(alpha, 0.0, 1.0)
+	var old_shadow := component.get("shadow") as CanvasItem
+	if old_shadow != null and is_instance_valid(old_shadow):
+		old_shadow.modulate.a = clampf(alpha, 0.0, 1.0)
+
+func _fade_in_portrait_hint_button_badge(
+	button: Control,
+	delay: float = 0.0
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var component_variant: Variant = button.get_meta(
+		&"portrait_button_badge_component",
+		{}
 	)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(label, counter_outline_color, counter_shadow_color)
+	if !(component_variant is Dictionary):
+		return
+	var component: Dictionary = component_variant
+	var badge := component.get("badge") as CanvasItem
+	if badge == null or !is_instance_valid(badge) or !badge.visible:
+		return
+	badge.modulate.a = 0.0
+	var badge_tween := badge.create_tween()
+	badge_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	if delay > 0.0:
+		badge_tween.tween_interval(delay)
+	var badge_fade := badge_tween.tween_property(
+		badge,
+		"modulate:a",
+		1.0,
+		PORTRAIT_GAME_HINT_BADGE_FADE_DURATION
+	)
+	badge_fade.set_trans(Tween.TRANS_SINE)
+	badge_fade.set_ease(Tween.EASE_OUT)
 
 func _create_portrait_hint_counter_badge_label(parent: Control, text: String) -> Label:
 	var label := Label.new()
@@ -9619,12 +9940,18 @@ func _create_portrait_hint_counter_badge_label(parent: Control, text: String) ->
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	label.add_theme_font_override("font", UI_REGULAR_FONT)
 	label.add_theme_font_size_override("font_size", 17)
 	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 0)
+	label.add_theme_constant_override("shadow_outline_size", 0)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
+	label.add_theme_constant_override("outline_size", 0)
 	label.z_index = 1
 	parent.add_child(label)
-	_style_portrait_hint_counter_badge_label(label)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(label)
 	return label
 
 func _stage_portrait_hint_ad_counter(button: Control) -> void:
@@ -9643,6 +9970,8 @@ func _stage_portrait_hint_ad_counter(button: Control) -> void:
 		"ad_rect": badge_rect,
 		"free_rect": badge_rect,
 		"ad_icon_scale": 1.4025,
+		"panel_shader_shadow": true,
+		"panel_shadow_enabled": false,
 		"state": PORTRAIT_BUTTON_BADGE_STATE_AD,
 	})
 
@@ -9666,6 +9995,9 @@ func _stage_portrait_hint_counter(button: Control, hint_key: String) -> void:
 		"ad_rect": badge_rect,
 		"free_rect": badge_rect,
 		"count": count,
+		"panel_shader_shadow": true,
+		"panel_shadow_enabled": false,
+		"regular_display_text_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
 		"state": PORTRAIT_BUTTON_BADGE_STATE_FREE,
 	})
 	button.set_meta(&"portrait_hint_counter_badge", component.get("badge"))
@@ -9688,6 +10020,9 @@ func _stage_portrait_hint_price(button: Control, price: int) -> void:
 		"ad_rect": badge_rect,
 		"free_rect": badge_rect,
 		"price": price,
+		"price_font": UI_REGULAR_FONT,
+		"panel_shader_shadow": true,
+		"panel_shadow_enabled": false,
 		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
 	})
 
@@ -9749,6 +10084,7 @@ func _prepare_portrait_game_entrance() -> void:
 		hint_button.set_meta(&"portrait_entrance_rest_mouse_filter", hint_button.mouse_filter)
 		hint_button.set_meta(&"portrait_entrance_rest_disabled", bool(hint_button.get("disabled")))
 		hint_button.modulate.a = 0.0
+		_set_portrait_hint_button_badge_alpha(hint_button, 0.0)
 		hint_button.set(
 			"visual_scale",
 			rest_hint_scale * PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE
@@ -9887,6 +10223,7 @@ func _play_portrait_game_entrance() -> void:
 		latest_key_finish
 		+ PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
 		+ PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+		+ PORTRAIT_GAME_HINT_BADGE_FADE_DURATION
 	)
 	var entrance_finish: float = maxf(
 		core_entrance_finish,
@@ -9943,6 +10280,11 @@ func _play_portrait_game_hint_entrance_bounce() -> void:
 		)
 		settle.set_trans(Tween.TRANS_BOUNCE)
 		settle.set_ease(Tween.EASE_OUT)
+		_fade_in_portrait_hint_button_badge(
+			hint_button,
+			PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION
+			+ PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION
+		)
 
 func _finish_portrait_game_entrance() -> void:
 	if !_portrait_game_entrance_active:
@@ -9984,6 +10326,7 @@ func _finish_portrait_game_entrance() -> void:
 			"disabled",
 			bool(hint_button.get_meta(&"portrait_entrance_rest_disabled", false))
 		)
+		_set_portrait_hint_button_badge_alpha(hint_button, 1.0)
 		hint_button.mouse_filter = int(hint_button.get_meta(
 			&"portrait_entrance_rest_mouse_filter",
 			Control.MOUSE_FILTER_STOP
@@ -10560,45 +10903,56 @@ func _stage_single_player_reward_count(
 	icon_rect: Rect2,
 	amount: int,
 	font_size: int,
-	count_color: Color
+	count_color: Color,
+	compact_side_tile: bool = false
 ) -> Label:
-	var count_text: String = _single_player_reward_chain_count_text(amount)
+	var count_text: String = (
+		str(maxi(amount, 0))
+		if compact_side_tile
+		else _single_player_reward_chain_count_text(amount)
+	)
 	var count_label := Label.new()
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Keep xN at the same normalized vertical position inside every reward tile.
-	# The current tile is larger than side tiles, so scale both the label box and
-	# its bottom inset by the same factor. This prevents the active counter from
-	# drifting down into the border while preserving the authored side-tile layout.
+	# Keep the current reward centered as before. Side rewards use a compact
+	# bottom-right counter so their amount reads like a corner badge rather than
+	# competing with the resource icon.
 	var side_node_size: float = (
 		PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE * PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE
 	)
 	var node_layout_scale: float = node_rect.size.y / side_node_size
-	var label_height: float = 22.0 * node_layout_scale
+	var label_height: float = 22.0 * 1.20 * node_layout_scale
 	var label_bottom_inset: float = 10.0 * node_layout_scale
 	var label_y: float = node_rect.size.y - label_height - label_bottom_inset
-	count_label.position = Vector2(0.0, label_y)
-	count_label.size = Vector2(node_rect.size.x, label_height)
+	var label_x: float = 0.0
+	var label_width: float = node_rect.size.x
+	if compact_side_tile:
+		var label_right_inset: float = 7.0 * node_layout_scale
+		label_width = node_rect.size.x * 0.58
+		label_x = node_rect.size.x - label_width - label_right_inset
+	count_label.position = Vector2(label_x, label_y)
+	count_label.size = Vector2(label_width, label_height)
 	count_label.text = count_text
-	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.horizontal_alignment = (
+		HORIZONTAL_ALIGNMENT_RIGHT
+		if compact_side_tile
+		else HORIZONTAL_ALIGNMENT_CENTER
+	)
 	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	count_label.add_theme_font_size_override("font_size", font_size)
 	count_label.add_theme_color_override("font_color", count_color)
 	count_label.z_index = 5
 	parent.add_child(count_label)
-	count_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+	count_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	count_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	count_label.clip_text = false
-	# Keep the heavier 4 px counter outline, but use the same deep navy
-	# outline/shadow colors as the reward-screen heading.
-	_apply_portrait_reward_header_text_effect(count_label, 4)
-	count_label.add_theme_constant_override("shadow_offset_x", 3)
-	count_label.add_theme_constant_override("shadow_offset_y", 3)
+	# Reward counters use the same heading font and display outline/extrusion.
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(count_label)
 	_fit_single_line_label_to_width(
 		count_label,
 		count_text,
 		count_label.size.x,
 		font_size,
-		PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE
+		int(round(float(PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE) * 1.20))
 	)
 	return count_label
 
@@ -12576,7 +12930,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_subtitle.text = level_title_text
 	reward_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	reward_subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	reward_subtitle.add_theme_font_override("font", UI_HEADING_FONT)
+	reward_subtitle.add_theme_font_override("font", UI_REGULAR_FONT)
 	reward_subtitle.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
 	reward_subtitle.add_theme_color_override("font_color", Color.WHITE)
 	reward_subtitle.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
@@ -12839,15 +13193,22 @@ func _show_single_player_reward_chain_screen() -> void:
 			)
 
 		var count_font_size: int = int(round(
-			float(PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE) * (1.12 if is_current else 1.0)
+			float(PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE)
+			* 1.20
+			* (1.12 if is_current else 1.0)
 		))
+		# Every reward shown inside the chain tile uses the compact badge counter.
+		# The separate final/main reward screen uses its own amount label and keeps
+		# its authored formatting.
+		var compact_reward_count: bool = true
 		var count_visual := _stage_single_player_reward_count(
 			node_holder,
 			local_node_rect,
 			resource_rect,
 			reward_amount,
 			count_font_size,
-			count_color
+			count_color,
+			compact_reward_count
 		)
 		if is_claimed or is_failed_slot:
 			# Claimed and failed rewards keep both the icon and xN inactive.
@@ -12879,9 +13240,10 @@ func _show_single_player_reward_chain_screen() -> void:
 		var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
 			PORTRAIT_FINAL_REWARD_COIN_SIZE
 		)
+		var final_reward_glow_size: Vector2 = PORTRAIT_FINAL_REWARD_GLOW_SIZE * 1.30
 		var target_glow_rect: Rect2 = Rect2(
-			target_coin_rect.get_center() - PORTRAIT_FINAL_REWARD_GLOW_SIZE * 0.5,
-			PORTRAIT_FINAL_REWARD_GLOW_SIZE
+			target_coin_rect.get_center() - final_reward_glow_size * 0.5,
+			final_reward_glow_size
 		)
 		var glow := _stage_final_reward_glow(target_glow_rect)
 		var transition_pack := _stage_texture(
@@ -12913,26 +13275,27 @@ func _show_single_player_reward_chain_screen() -> void:
 		caption_label.visible = false
 		caption_label.modulate.a = 0.0
 		caption_label.z_index = 21
+		var final_reward_count_font_size: int = int(round(
+			float(PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE) * 1.20
+		))
 		var amount_label := _stage_label(
 			_portrait_final_reward_amount_rect(target_coin_rect),
 			_single_player_reward_chain_count_text(reward_amount),
-			PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE,
+			final_reward_count_font_size,
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
 		amount_label.name = "FinalRewardAmount"
-		amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		amount_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 		amount_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		amount_label.clip_text = false
-		_apply_portrait_reward_header_text_effect(amount_label, 4)
-		amount_label.add_theme_constant_override("shadow_offset_x", 3)
-		amount_label.add_theme_constant_override("shadow_offset_y", 3)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(amount_label)
 		_fit_single_line_label_to_width(
 			amount_label,
 			amount_label.text,
 			PORTRAIT_FINAL_REWARD_AMOUNT_SIZE.x,
-			PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE,
-			28
+			final_reward_count_font_size,
+			int(round(28.0 * 1.20))
 		)
 		amount_label.modulate.a = 0.0
 		amount_label.z_index = 21
@@ -13614,8 +13977,8 @@ func _show_word_comment_popup() -> void:
 	if hint == "":
 		return
 	_remove_word_comment_popup()
-	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 544.0)
-	var rect := Rect2(28.0, 160.0, 424.0, 384.0)
+	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 512.0)
+	var rect := Rect2(28.0, 160.0, 424.0, 352.0)
 	# Lift the centered popup composition above the fullscreen dimmer. The theme
 	# icon/glow keep negative local z-indices, so they stay behind the popup shell
 	# while remaining above the dimmed screen.
@@ -13664,10 +14027,9 @@ func _show_word_comment_popup() -> void:
 		30,
 		PORTRAIT_BLUE,
 		PORTRAIT_DARK_BLUE,
-		PORTRAIT_ORANGE,
-		tr("COMMENT").to_upper()
+		PORTRAIT_ORANGE
 	)
-	var comment_panel_rect := Rect2(48.0, 286.0, 384.0, 238.0)
+	var comment_panel_rect := Rect2(48.0, 254.0, 384.0, 238.0)
 	var comment_panel := _stage_panel(
 		comment_panel_rect,
 		PORTRAIT_UI_PALETTE.THEME_CARD,
@@ -13686,7 +14048,7 @@ func _show_word_comment_popup() -> void:
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)
-	hint_label.add_theme_font_override("font", UI_HEADING_FONT)
+	hint_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false
 	hint_label.z_index = 9

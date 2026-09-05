@@ -33,8 +33,18 @@ var _outline_size: int = 0
 var _shadow_spread: int = 0
 var _shadow_depth: float = 0.0
 var _shadow_offset_x: float = 0.0
+var _shadow_offset_scale: float = 1.0
+var _outline_scale: float = 1.0
+var _shadow_spread_scale: float = 1.0
 
-static func attach(target: Control, outline_color: Color, shadow_color: Color) -> void:
+static func attach(
+	target: Control,
+	outline_color: Color,
+	shadow_color: Color,
+	shadow_offset_scale: float = 1.0,
+	outline_scale: float = 1.0,
+	shadow_spread_scale: float = 1.0
+) -> void:
 	if target == null or !is_instance_valid(target):
 		return
 	var existing: Node = target.get_node_or_null(NodePath(String(EFFECT_NODE_NAME)))
@@ -43,12 +53,29 @@ static func attach(target: Control, outline_color: Color, shadow_color: Color) -
 		effect = DisplayTextEffect.new()
 		effect.name = EFFECT_NODE_NAME
 		target.add_child(effect)
-	effect.configure(target, outline_color, shadow_color)
+	effect.configure(
+		target,
+		outline_color,
+		shadow_color,
+		shadow_offset_scale,
+		outline_scale,
+		shadow_spread_scale
+	)
 
-func configure(target: Control, outline_color: Color, shadow_color: Color) -> void:
+func configure(
+	target: Control,
+	outline_color: Color,
+	shadow_color: Color,
+	shadow_offset_scale: float = 1.0,
+	outline_scale: float = 1.0,
+	shadow_spread_scale: float = 1.0
+) -> void:
 	_target = target
 	_outline_color = outline_color
 	_shadow_color = shadow_color
+	_shadow_offset_scale = maxf(shadow_offset_scale, 0.0)
+	_outline_scale = maxf(outline_scale, 0.0)
+	_shadow_spread_scale = maxf(shadow_spread_scale, 0.0)
 	if !_target.resized.is_connected(_sync_all):
 		_target.resized.connect(_sync_all)
 	_ensure_nodes()
@@ -209,14 +236,30 @@ func _sync_effect_metrics() -> void:
 		OUTLINE_SIZE_MIN,
 		OUTLINE_SIZE_MAX
 	)
-	_shadow_depth = clampf(
-		font_size * SHADOW_DEPTH_RATIO,
-		SHADOW_DEPTH_MIN,
-		SHADOW_DEPTH_MAX
+	_shadow_depth = (
+		clampf(
+			font_size * SHADOW_DEPTH_RATIO,
+			SHADOW_DEPTH_MIN,
+			SHADOW_DEPTH_MAX
+		)
+		* _shadow_offset_scale
 	)
-	_shadow_offset_x = minf(font_size * SHADOW_OFFSET_X_RATIO, SHADOW_OFFSET_X_MAX)
-	_outline_size = maxi(1, int(round(outline_local)))
-	_shadow_spread = maxi(1, int(round(outline_local * SHADOW_SPREAD_FROM_OUTLINE)))
+	_shadow_offset_x = (
+		minf(font_size * SHADOW_OFFSET_X_RATIO, SHADOW_OFFSET_X_MAX)
+		* _shadow_offset_scale
+	)
+	_outline_size = maxi(
+		1,
+		int(round(outline_local * _outline_scale))
+	)
+	_shadow_spread = maxi(
+		1,
+		int(round(
+			outline_local
+			* SHADOW_SPREAD_FROM_OUTLINE
+			* _shadow_spread_scale
+		))
+	)
 	_effect_margin = ceil(
 		float(_outline_size) + _shadow_depth + absf(_shadow_offset_x) + EFFECT_MARGIN_EXTRA
 	)
