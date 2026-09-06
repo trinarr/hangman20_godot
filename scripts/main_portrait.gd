@@ -3851,33 +3851,26 @@ func _enable_quiz_continue_attention() -> void:
 func _quiz_correct_feedback_text(speed_tier: int) -> String:
 	if Database.interface_language == "ru":
 		if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
-			return "Молниеносно!"
-		return "Вот это скорость!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "Верно!"
+			return "МОЛНИЕНОСНО!"
+		return "ВОТ ЭТО СКОРОСТЬ!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "ВЕРНО!"
 	if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
-		return "Lightning fast!"
-	return "That was fast!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "Correct!"
+		return "LIGHTNING FAST!"
+	return "THAT WAS FAST!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "CORRECT!"
 
 func _style_quiz_feedback_label(
 	label: Label,
 	font_size: int,
 	font_color: Color
 ) -> void:
-	var effect_color: Color = PORTRAIT_DARK_BLUE.darkened(0.38)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	label.add_theme_font_size_override("font_size", _heading_font_size(font_size))
 	label.add_theme_color_override("font_color", font_color)
-	label.add_theme_color_override("font_outline_color", effect_color)
-	label.add_theme_constant_override("outline_size", 6)
-	label.add_theme_color_override(
-		"font_shadow_color",
-		Color(effect_color.r, effect_color.g, effect_color.b, 0.88)
-	)
-	label.add_theme_constant_override("shadow_offset_x", 3)
-	label.add_theme_constant_override("shadow_offset_y", 4)
-	label.add_theme_constant_override("shadow_outline_size", 2)
+	# Quiz result cues now use the exact shader-driven outline/extrusion treatment
+	# used by standard button text instead of Godot's native font shadow.
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
 
 func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
@@ -3930,18 +3923,27 @@ func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 		reward_amount_label.size = Vector2(52.0, 48.0)
 		reward_amount_label.text = "+%d" % _quiz_speed_reward_amount(speed_tier)
 		_style_quiz_feedback_label(reward_amount_label, 28, Color.WHITE)
-		reward_amount_label.add_theme_font_override("font", UI_PRIMARY_FONT)
+		# The compact +N reward uses the same Roboto Flex variant and shader-driven
+		# outline/extrusion as ordinary button captions.
+		reward_amount_label.add_theme_font_override("font", UI_BUTTON_FONT)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(reward_amount_label)
 		reward_row.add_child(reward_amount_label)
 
-		var reward_icon := TextureRect.new()
-		reward_icon.name = "QuizFastAnswerStarIcon"
-		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		reward_icon.texture = STAR_CURRENCY_TEXTURE
-		reward_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		reward_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		reward_icon.position = Vector2(52.0, 3.0)
-		reward_icon.size = Vector2.ONE * PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE
-		reward_row.add_child(reward_icon)
+		var reward_icon_holder := Control.new()
+		reward_icon_holder.name = "QuizFastAnswerStarHolder"
+		reward_icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		reward_icon_holder.position = Vector2(52.0, 3.0)
+		reward_icon_holder.size = Vector2.ONE * PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE
+		reward_icon_holder.z_index = 1
+		reward_row.add_child(reward_icon_holder)
+		var reward_icon := _add_portrait_icon_with_extrusion_to_holder(
+			reward_icon_holder,
+			STAR_CURRENCY_TEXTURE,
+			"QuizFastAnswerStar",
+			1
+		)
+		if reward_icon != null:
+			reward_icon.name = "QuizFastAnswerStarIcon"
 		reward_source = reward_icon
 
 	return {
@@ -4171,15 +4173,21 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	loss_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	feedback_visual.add_child(loss_label)
 
-	var heart_icon := TextureRect.new()
-	heart_icon.name = "QuizWrongHeartIcon"
-	heart_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	heart_icon.texture = LIFE_HEART_ICON_TEXTURE
-	heart_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	heart_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	heart_icon.position = Vector2(70.0, 8.0)
-	heart_icon.size = Vector2.ONE * 56.0
-	feedback_visual.add_child(heart_icon)
+	var heart_holder := Control.new()
+	heart_holder.name = "QuizWrongHeartHolder"
+	heart_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart_holder.position = Vector2(70.0, 8.0)
+	heart_holder.size = Vector2.ONE * 56.0
+	heart_holder.z_index = 1
+	feedback_visual.add_child(heart_holder)
+	var heart_icon := _add_portrait_icon_with_extrusion_to_holder(
+		heart_holder,
+		LIFE_HEART_ICON_TEXTURE,
+		"QuizWrongHeart",
+		1
+	)
+	if heart_icon != null:
+		heart_icon.name = "QuizWrongHeartIcon"
 
 	return {
 		"root": feedback_root,
@@ -11094,16 +11102,12 @@ func _stage_single_player_reward_count(
 	count_color: Color,
 	compact_side_tile: bool = false
 ) -> Label:
-	var count_text: String = (
-		str(maxi(amount, 0))
-		if compact_side_tile
-		else _single_player_reward_chain_count_text(amount)
-	)
+	# All reward tiles use the same xN notation as the large reward. Small chain
+	# cards keep the counter on their lower line, but center it across the full
+	# card instead of pinning it to the right edge.
+	var count_text: String = _single_player_reward_chain_count_text(amount)
 	var count_label := Label.new()
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Keep the current reward centered as before. Side rewards use a compact
-	# bottom-right counter so their amount reads like a corner badge rather than
-	# competing with the resource icon.
 	var side_node_size: float = (
 		PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE * PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE
 	)
@@ -11111,20 +11115,10 @@ func _stage_single_player_reward_count(
 	var label_height: float = 22.0 * 1.20 * node_layout_scale
 	var label_bottom_inset: float = 10.0 * node_layout_scale
 	var label_y: float = node_rect.size.y - label_height - label_bottom_inset
-	var label_x: float = 0.0
-	var label_width: float = node_rect.size.x
-	if compact_side_tile:
-		var label_right_inset: float = 7.0 * node_layout_scale
-		label_width = node_rect.size.x * 0.58
-		label_x = node_rect.size.x - label_width - label_right_inset
-	count_label.position = Vector2(label_x, label_y)
-	count_label.size = Vector2(label_width, label_height)
+	count_label.position = Vector2(0.0, label_y)
+	count_label.size = Vector2(node_rect.size.x, label_height)
 	count_label.text = count_text
-	count_label.horizontal_alignment = (
-		HORIZONTAL_ALIGNMENT_RIGHT
-		if compact_side_tile
-		else HORIZONTAL_ALIGNMENT_CENTER
-	)
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	count_label.add_theme_font_size_override("font_size", font_size)
 	count_label.add_theme_color_override("font_color", count_color)

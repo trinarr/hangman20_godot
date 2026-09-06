@@ -348,6 +348,7 @@ def main() -> None:
     require(
         'loss_label.text = "-1"' in quiz_wrong_create
         and "LIFE_HEART_ICON_TEXTURE" in quiz_wrong_create
+        and "_add_portrait_icon_with_extrusion_to_holder(" in quiz_wrong_create
         and "PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE" in quiz_wrong_play
         and "PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION" in quiz_wrong_play
         and "PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION" in quiz_wrong_play
@@ -361,8 +362,11 @@ def main() -> None:
         and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in quiz_speed_tier
         and "PORTRAIT_QUIZ_LIGHTNING_REWARD_STARS" in quiz_speed_reward
         and "PORTRAIT_QUIZ_FAST_REWARD_STARS" in quiz_speed_reward
-        and 'return "Молниеносно!"' in quiz_feedback_text
-        and 'return "Lightning fast!"' in quiz_feedback_text
+        and 'return "МОЛНИЕНОСНО!"' in quiz_feedback_text
+        and 'return "LIGHTNING FAST!"' in quiz_feedback_text
+        and 'return "ВЕРНО!"' in quiz_feedback_text
+        and "BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)"
+        in function_body(portrait, "_style_quiz_feedback_label")
         and "speed_reward_amount" in quiz_answer_selected,
         "Quiz speed tiers do not award 2/1 stars with distinct feedback",
     )
