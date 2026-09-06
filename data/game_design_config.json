@@ -249,9 +249,10 @@
         "acceleration_seconds": 0.055,
         "landing_seconds": 0.006,
         "reveal_stagger_seconds": 0.0,
+        "reveal_start_delay_seconds": 0.0,
         "reveal_peak_scale": 1.38,
-        "reveal_grow_seconds": 0.08,
-        "reveal_settle_seconds": 0.14,
+        "reveal_grow_seconds": 0.0941,
+        "reveal_settle_seconds": 0.1647,
         "label_fade_seconds": 0.14,
         "selection_outline_seconds": 0.16
       },

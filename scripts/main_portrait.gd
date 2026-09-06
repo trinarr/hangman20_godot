@@ -492,6 +492,9 @@ const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA: float = 0.46
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_INACTIVE_GLOW_ALPHA: float = (
+	PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.8
+)
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_PRESS_SCALE: float = 0.94
 const PORTRAIT_REFILL_STATUS_GLOW_ALPHA: float = PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.8
 const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
@@ -516,6 +519,9 @@ var PORTRAIT_SINGLE_PLAYER_SLOT_LANDING_DURATION: float = PORTRAIT_GAME_DESIGN.g
 const PORTRAIT_SINGLE_PLAYER_SLOT_SPIN_ICON_ALPHA: float = 0.90
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.theme_reels.reveal_stagger_seconds", 0.0
+)
+var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_START_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
+	"timings.animations.theme_reels.reveal_start_delay_seconds", 0.0
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.theme_reels.reveal_peak_scale", 1.38
@@ -6922,9 +6928,9 @@ func _stage_single_player_popup_theme_cards(
 	var card_size := Vector2(target_card_width, authored_card_size.y * 0.9975 * card_scale)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	var card_fill: Color = (
-		PORTRAIT_UI_PALETTE.THEME_CARD_BASE_CHALLENGE
+		PORTRAIT_CHALLENGE_THEME_CARD
 		if challenge_level
-		else PORTRAIT_UI_PALETTE.THEME_CARD_BASE
+		else PORTRAIT_UI_PALETTE.THEME_CARD
 	)
 	var card_border: Color = (
 		PORTRAIT_CHALLENGE_POPUP_HEADER
@@ -6971,7 +6977,12 @@ func _stage_single_player_popup_theme_cards(
 			theme_glow = _stage_final_reward_glow(theme_glow_rect, Color.WHITE)
 			if theme_glow.get_parent() != null and theme_glow.get_parent() is CanvasItem:
 				(theme_glow.get_parent() as CanvasItem).z_index = 11
-			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
+			theme_glow.modulate = Color(
+				1.0,
+				1.0,
+				1.0,
+				PORTRAIT_SINGLE_PLAYER_THEME_CARD_INACTIVE_GLOW_ALPHA
+			)
 			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
 			theme_icon.z_index = 12
 			# A single word is the default/minimal case, so do not clutter the theme
@@ -7288,6 +7299,7 @@ func _prepare_single_player_theme_slot_animation_visuals(
 ) -> void:
 	_single_player_theme_slot_hide_actions = hide_actions_during_animation
 	single_player_popup_selected_theme = -1
+	_sync_single_player_popup_theme_glow_rotation(-1)
 	_set_single_player_theme_panels_unselected(level_index)
 	_set_single_player_theme_static_visuals_visible(false)
 	_set_single_player_theme_slot_action_visibility(!hide_actions_during_animation)
@@ -7548,6 +7560,10 @@ func _set_single_player_theme_static_visuals_visible(visible_value: bool) -> voi
 
 func _set_single_player_theme_panels_unselected(level_index: int) -> void:
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	# Keep the same normal card fill before, during and after the reel. Only the
+	# selected card gets its highlighted fill once a concrete theme is selected.
+	# This removes the extra dark reel state and the color transition around the
+	# landing/reveal bounce.
 	var fill_color: Color = (
 		PORTRAIT_CHALLENGE_THEME_CARD
 		if challenge_level
@@ -7562,9 +7578,12 @@ func _set_single_player_theme_panels_unselected(level_index: int) -> void:
 		var panel := panel_variant as Control
 		if panel == null or !is_instance_valid(panel):
 			continue
-		panel.set("fill_color", fill_color)
-		panel.set("border_color", border_color)
-		panel.set("border_width", 2.0)
+		_animate_single_player_popup_theme_card_selection(
+			panel,
+			fill_color,
+			border_color,
+			2.0
+		)
 
 func _finish_single_player_theme_slot_animation(
 	level_index: int,
@@ -7622,9 +7641,6 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		if theme_glow != null and is_instance_valid(theme_glow):
 			theme_glow.visible = true
 			theme_glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
-			if !theme_glow.has_meta(&"theme_card_glow_rotation_started"):
-				_start_final_reward_glow_rotation(theme_glow)
-				theme_glow.set_meta(&"theme_card_glow_rotation_started", true)
 
 		if theme_icon != null and is_instance_valid(theme_icon):
 			var icon_rest_position: Vector2 = theme_icon.position
@@ -7681,7 +7697,10 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			&"slot_reveal_rest_scale",
 			theme_icon.scale
 		)
-		var reveal_delay: float = float(visual_index) * PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER
+		var reveal_delay: float = (
+			PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_START_DELAY
+			+ float(visual_index) * PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER
+		)
 		var reveal_tween: Tween = theme_icon.create_tween()
 		reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		if reveal_delay > 0.0:
@@ -7695,10 +7714,15 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			glow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 			if reveal_delay > 0.0:
 				glow_tween.tween_interval(reveal_delay)
+			var glow_target_alpha: float = (
+				PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA
+				if int(reveal_visual.get("theme_index", -1)) == single_player_popup_selected_theme
+				else PORTRAIT_SINGLE_PLAYER_THEME_CARD_INACTIVE_GLOW_ALPHA
+			)
 			var glow_fade: PropertyTweener = glow_tween.tween_property(
 				theme_glow,
 				"modulate:a",
-				PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA,
+				glow_target_alpha,
 				PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION + PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
 			)
 			glow_fade.set_trans(Tween.TRANS_SINE)
@@ -7759,7 +7783,10 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		return
 	var label_trigger_tween: Tween = label_trigger_icon.create_tween()
 	label_trigger_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	label_trigger_tween.tween_interval(PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION)
+	label_trigger_tween.tween_interval(
+		PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_START_DELAY
+		+ PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION
+	)
 	label_trigger_tween.tween_callback(
 		Callable(self, "_start_single_player_theme_slot_labels_reveal").bind(
 			animation_generation
@@ -7841,7 +7868,12 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		var theme_glow := visual.get("theme_glow") as Control
 		if theme_glow != null and is_instance_valid(theme_glow):
 			theme_glow.visible = true
-			theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA)
+			var glow_alpha: float = (
+				PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA
+				if int(visual.get("theme_index", -1)) == single_player_popup_selected_theme
+				else PORTRAIT_SINGLE_PLAYER_THEME_CARD_INACTIVE_GLOW_ALPHA
+			)
+			theme_glow.modulate = Color(1.0, 1.0, 1.0, glow_alpha)
 		var theme_label := visual.get("theme_label") as Control
 		if theme_label != null and is_instance_valid(theme_label):
 			theme_label.visible = true
@@ -7865,10 +7897,40 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
 		single_player_popup_play_button.set("button_disabled", false)
 		single_player_popup_play_button.mouse_filter = Control.MOUSE_FILTER_STOP
+		# The label fade can finish a fraction before the icon bounce settles. Delay
+		# the one-shot Play shine just enough to start after the last card animation.
+		var last_card_stagger: float = (
+			float(maxi(_single_player_popup_theme_card_visuals.size() - 1, 0))
+			* PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER
+		)
+		var play_shine_delay: float = maxf(
+			last_card_stagger
+			+ PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
+			- PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION,
+			0.0
+		)
+		if play_shine_delay > 0.0:
+			var play_shine_tween: Tween = single_player_popup_play_button.create_tween()
+			play_shine_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			play_shine_tween.tween_interval(play_shine_delay)
+			play_shine_tween.tween_callback(
+				Callable(self, "_play_single_player_theme_play_button_shine").bind(
+					single_player_popup_play_button
+				)
+			)
+		else:
+			_play_single_player_theme_play_button_shine(single_player_popup_play_button)
 	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
 		single_player_popup_refresh_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_single_player_theme_reroll_button_state()
 	_single_player_theme_slot_hide_actions = false
+
+
+func _play_single_player_theme_play_button_shine(button: Control) -> void:
+	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
+		return
+	if button.has_method("play_single_attention_shine"):
+		button.call("play_single_attention_shine")
 
 func _cancel_single_player_theme_slot_animation() -> void:
 	_single_player_theme_slot_generation += 1
@@ -8079,6 +8141,53 @@ func _set_single_player_popup_theme_card_pressed(theme_index: int, is_pressed: b
 			)
 			press_control.set_meta(&"theme_card_press_tween", tween)
 
+func _set_single_player_popup_theme_glow_rotating(glow: Control, should_rotate: bool) -> void:
+	if glow == null or !is_instance_valid(glow):
+		return
+	var rotation_tween: Tween = glow.get_meta(&"theme_card_glow_rotation_tween", null) as Tween
+	if rotation_tween != null and rotation_tween.is_valid():
+		rotation_tween.kill()
+	glow.remove_meta(&"theme_card_glow_rotation_tween")
+	# Wrap the stopped angle by a full turn so changing the selected theme never
+	# causes a visible snap, while keeping the stored rotation numerically small.
+	glow.rotation = fposmod(glow.rotation, TAU)
+	if !should_rotate or !glow.is_inside_tree():
+		return
+	glow.pivot_offset = glow.size * 0.5
+	var start_rotation: float = glow.rotation
+	var tween := glow.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_loops()
+	tween.tween_property(
+		glow,
+		^"rotation",
+		start_rotation + TAU,
+		PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION
+	).from(start_rotation)
+	glow.set_meta(&"theme_card_glow_rotation_tween", tween)
+
+func _sync_single_player_popup_theme_glow_rotation(selected_theme_index: int) -> void:
+	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
+		if !(visual_variant is Dictionary):
+			continue
+		var visual: Dictionary = visual_variant
+		var theme_glow := visual.get("theme_glow") as Control
+		if theme_glow == null or !is_instance_valid(theme_glow):
+			continue
+		var is_selected: bool = int(visual.get("theme_index", -1)) == selected_theme_index
+		_set_single_player_popup_theme_glow_rotating(theme_glow, is_selected)
+		# During the reel/reveal sequence alpha is owned by the reveal tween. Once
+		# interaction is live, switching themes updates the selected glow immediately
+		# while keeping every inactive glow 20% more transparent.
+		if !_single_player_theme_slot_animating:
+			var glow_modulate: Color = theme_glow.modulate
+			glow_modulate.a = (
+				PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA
+				if is_selected
+				else PORTRAIT_SINGLE_PLAYER_THEME_CARD_INACTIVE_GLOW_ALPHA
+			)
+			theme_glow.modulate = glow_modulate
+
 func _animate_single_player_popup_theme_card_selection(
 	panel: Control,
 	fill_color: Color,
@@ -8105,6 +8214,9 @@ func _animate_single_player_popup_theme_card_selection(
 			target_value,
 			PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION
 		)
+		# Always continue from the currently displayed card state. This keeps the
+		# orange outline transition smooth even if a reel-state tween was just killed.
+		property_tweener.from(panel.get(StringName(String(property_path))))
 		property_tweener.set_trans(Tween.TRANS_SINE)
 		property_tweener.set_ease(Tween.EASE_OUT)
 	panel.set_meta(&"theme_card_selection_tween", tween)
@@ -8115,6 +8227,7 @@ func _select_single_player_popup_theme(level_index: int, theme_index: int) -> vo
 	if !_single_player_level_theme_options(level_index).has(theme_index):
 		return
 	single_player_popup_selected_theme = theme_index
+	_sync_single_player_popup_theme_glow_rotation(theme_index)
 	_persist_guided_single_player_theme_selection(
 		level_index,
 		theme_index,
@@ -10131,6 +10244,8 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 		"panel_shader_shadow_states": config.get("panel_shader_shadow_states", []),
 		"panel_shadow_enabled": bool(config.get("panel_shadow_enabled", true)),
 		"regular_display_text_states": config.get("regular_display_text_states", []),
+		"state": String(config.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS)),
+		"shader_effects_suppressed": false,
 	}
 	var panel_shader_shadow_layers: Array[ColorRect] = []
 	if bool(component.get("panel_shader_shadow", false)):
@@ -10146,7 +10261,7 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 	# the effect earlier made the initial quiz FREE counter render from the
 	# placeholder label geometry until its text changed for the first time.
 	var initial_state: String = String(
-		config.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS)
+		component.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS)
 	)
 	_set_portrait_button_badge_state(component, initial_state)
 
@@ -10174,6 +10289,7 @@ func _set_portrait_button_badge_state(
 		return
 	for key in update.keys():
 		component[key] = update[key]
+	component["state"] = state
 	var shadow := component.get("shadow") as Panel
 	var badge := component.get("badge") as Panel
 	var holder := component.get("holder") as Control
@@ -10295,6 +10411,8 @@ func _set_portrait_button_badge_state(
 	)
 	if panel_shader_shadow_visible and !panel_shader_shadow_states.is_empty():
 		panel_shader_shadow_visible = state in panel_shader_shadow_states
+	if bool(component.get("shader_effects_suppressed", false)):
+		panel_shader_shadow_visible = false
 	_set_portrait_rounded_panel_extrusion_visible(
 		panel_shader_shadow_layers,
 		panel_shader_shadow_visible
@@ -10307,7 +10425,10 @@ func _set_portrait_button_badge_state(
 		NodePath("DisplayTextShaderEffect")
 	) as CanvasItem
 	if regular_effect != null and is_instance_valid(regular_effect):
-		regular_effect.visible = state in regular_display_text_states
+		regular_effect.visible = (
+			!bool(component.get("shader_effects_suppressed", false))
+			and state in regular_display_text_states
+		)
 	badge.visible = true
 
 func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) -> void:
@@ -10319,6 +10440,69 @@ func _set_portrait_button_badge_visible(component: Dictionary, visible: bool) ->
 		var node := component.get(key) as CanvasItem
 		if node != null and is_instance_valid(node):
 			node.visible = false
+
+func _set_portrait_hint_button_badge_shader_effects_enabled(
+	button: Control,
+	enabled: bool
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var component_variant: Variant = button.get_meta(
+		&"portrait_button_badge_component",
+		{}
+	)
+	if !(component_variant is Dictionary):
+		return
+	var component: Dictionary = component_variant
+	component["shader_effects_suppressed"] = !enabled
+
+	var state: String = String(
+		component.get("state", PORTRAIT_BUTTON_BADGE_STATE_COINS)
+	)
+	var panel_shader_shadow_layers: Array = component.get(
+		"panel_shader_shadow_layers",
+		[]
+	)
+	var panel_shader_shadow_states: Array = component.get(
+		"panel_shader_shadow_states",
+		[]
+	)
+	var panel_shader_shadow_visible: bool = (
+		enabled and bool(component.get("panel_shader_shadow", false))
+	)
+	if panel_shader_shadow_visible and !panel_shader_shadow_states.is_empty():
+		panel_shader_shadow_visible = state in panel_shader_shadow_states
+	_set_portrait_rounded_panel_extrusion_visible(
+		panel_shader_shadow_layers,
+		panel_shader_shadow_visible
+	)
+
+	var label := component.get("label") as Label
+	if label != null and is_instance_valid(label):
+		var regular_effect := label.get_node_or_null(
+			NodePath("DisplayTextShaderEffect")
+		) as CanvasItem
+		if regular_effect != null and is_instance_valid(regular_effect):
+			var regular_display_text_states: Array = component.get(
+				"regular_display_text_states",
+				[]
+			)
+			regular_effect.visible = (
+				enabled and state in regular_display_text_states
+			)
+
+	# The ad pictogram uses four shader-based extrusion layers. Keep the plain
+	# icon visible during the fade and reveal only those shader layers after the
+	# badge itself has fully reached alpha 1.
+	var ad_icon_holder := component.get("ad_holder") as Control
+	if ad_icon_holder != null and is_instance_valid(ad_icon_holder):
+		for child: Node in ad_icon_holder.get_children():
+			var shader_layer := child as CanvasItem
+			if (
+				shader_layer != null
+				and String(child.name).begins_with("HintAdIconExtrusion")
+			):
+				shader_layer.visible = enabled
 
 func _set_portrait_hint_button_badge_alpha(
 	button: Control,
@@ -10333,6 +10517,8 @@ func _set_portrait_hint_button_badge_alpha(
 	if !(component_variant is Dictionary):
 		return
 	var component: Dictionary = component_variant
+	if alpha <= 0.001:
+		_set_portrait_hint_button_badge_shader_effects_enabled(button, false)
 	var badge := component.get("badge") as CanvasItem
 	if badge != null and is_instance_valid(badge):
 		badge.modulate.a = clampf(alpha, 0.0, 1.0)
@@ -10356,6 +10542,7 @@ func _fade_in_portrait_hint_button_badge(
 	var badge := component.get("badge") as CanvasItem
 	if badge == null or !is_instance_valid(badge) or !badge.visible:
 		return
+	_set_portrait_hint_button_badge_shader_effects_enabled(button, false)
 	badge.modulate.a = 0.0
 	var badge_tween := badge.create_tween()
 	badge_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -10369,6 +10556,12 @@ func _fade_in_portrait_hint_button_badge(
 	)
 	badge_fade.set_trans(Tween.TRANS_SINE)
 	badge_fade.set_ease(Tween.EASE_OUT)
+	badge_tween.tween_callback(
+		Callable(self, "_set_portrait_hint_button_badge_shader_effects_enabled").bind(
+			button,
+			true
+		)
+	)
 
 func _create_portrait_hint_counter_badge_label(parent: Control, text: String) -> Label:
 	var label := Label.new()
