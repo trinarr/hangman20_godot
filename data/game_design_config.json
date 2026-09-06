@@ -94,7 +94,7 @@
       "cost_step": 5,
       "base_count": 2,
       "count_step": 1,
-      "count_step_interval": 2
+      "count_step_interval": 1
     },
     "rewards": {
       "word_coins": 10,
@@ -252,7 +252,8 @@
         "reveal_peak_scale": 1.38,
         "reveal_grow_seconds": 0.08,
         "reveal_settle_seconds": 0.14,
-        "label_fade_seconds": 0.14
+        "label_fade_seconds": 0.14,
+        "selection_outline_seconds": 0.16
       },
       "word_letters": {
         "start_scale": 0.58,

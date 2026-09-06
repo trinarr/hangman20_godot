@@ -159,8 +159,11 @@ def main() -> None:
     require(
         'word_badge_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)'
         in main_source
-        and 'word_badge_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))'
-        in portrait,
+        and re.search(
+            r'word_badge_label\.add_theme_color_override\(\s*"font_shadow_color",\s*Color\(0\.0, 0\.0, 0\.0, 0\.0\)\s*\)',
+            portrait,
+        )
+        is not None,
         "Theme-card counters must not have text shadows",
     )
     require(

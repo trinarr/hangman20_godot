@@ -1894,20 +1894,18 @@ func _single_player_extra_attempt_description(attempt_count: int) -> String:
 	return tr(description_key) % attempt_count
 
 func _advance_single_player_extra_attempt_offer() -> int:
+	# Both price and bundle-size progression are scoped to the current stage.
+	# With count_step_interval = 1, every new popup grows the bundle by one:
+	# +2, +3, +4, ... until the stage changes.
 	single_player_extra_attempt_current_cost = (
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 		+ single_player_extra_attempt_offer_count * SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP
-	)
-	var count_step_interval: int = (
-		1
-		if _single_player_extra_attempt_is_free()
-		else SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL
 	)
 	single_player_extra_attempt_current_count = mini(
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
 		+ floori(
 			float(single_player_extra_attempt_offer_count)
-			/ float(count_step_interval)
+			/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)
 		) * SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP,
 		GameSession.MAX_MISTAKES
 	)
@@ -1921,13 +1919,7 @@ func _reset_single_player_extra_attempt_offers() -> void:
 	single_player_extra_attempt_offer_level_index = -1
 
 func _prepare_single_player_extra_attempt_offers(level_index: int) -> void:
-	var keep_early_level_progress: bool = (
-		level_index >= 0
-		and level_index < 2
-		and single_player_extra_attempt_offer_level_index == level_index
-	)
-	if keep_early_level_progress:
-		return
+	# Every word/quiz stage starts its own offer progression.
 	_reset_single_player_extra_attempt_offers()
 	single_player_extra_attempt_offer_level_index = level_index
 

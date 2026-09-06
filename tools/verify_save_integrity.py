@@ -268,22 +268,23 @@ def main() -> None:
         main_source, "_advance_single_player_extra_attempt_offer"
     )
     require(
-        "count_step_interval: int" in advance_attempt_offer
-        and "if _single_player_extra_attempt_is_free()" in advance_attempt_offer
-        and "else SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL"
+        "float(single_player_extra_attempt_offer_count)" in advance_attempt_offer
+        and "/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)"
         in advance_attempt_offer
-        and "/ float(count_step_interval)" in advance_attempt_offer,
-        "Free early-level attempt bundles do not grow on every new offer",
+        and "single_player_extra_attempt_offer_count += 1" in advance_attempt_offer,
+        "Extra-attempt bundle size does not grow on every new stage-scoped offer",
     )
     prepare_attempt_offers = function_body(
         main_source, "_prepare_single_player_extra_attempt_offers"
     )
     require(
-        "level_index < 2" in prepare_attempt_offers
-        and "single_player_extra_attempt_offer_level_index == level_index"
+        "_reset_single_player_extra_attempt_offers()" in prepare_attempt_offers
+        and "single_player_extra_attempt_offer_level_index = level_index"
         in prepare_attempt_offers
-        and "if keep_early_level_progress:\n\t\treturn" in prepare_attempt_offers,
-        "Early-level attempt bundle growth is still reset between level stages",
+        and "single_player_extra_attempt_offer_level_index != level_index"
+        not in prepare_attempt_offers
+        and "if level_index >= 2:" not in prepare_attempt_offers,
+        "Extra-attempt price/count progression is not reset for every new stage",
     )
     require(
         "_prepare_single_player_extra_attempt_offers(level_index)"

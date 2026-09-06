@@ -492,6 +492,7 @@ const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA: float = 0.46
+const PORTRAIT_SINGLE_PLAYER_THEME_CARD_PRESS_SCALE: float = 0.94
 const PORTRAIT_REFILL_STATUS_GLOW_ALPHA: float = PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.8
 const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
 var PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS: int = PORTRAIT_GAME_DESIGN.get_int(
@@ -527,6 +528,9 @@ var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION: float = PORTRAIT_GAME_DE
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.theme_reels.label_fade_seconds", 0.14
+)
+var PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
+	"timings.animations.theme_reels.selection_outline_seconds", 0.16
 )
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
@@ -5887,7 +5891,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		popup_bottom,
 		!free_offer,
 		Callable(self, "_return_to_single_player_last_chance_from_coin_store"),
-		true
+		false
 	)
 	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
@@ -6787,7 +6791,7 @@ func _stage_single_player_popup_theme_cards(
 		var theme_label := _stage_label(
 			theme_name_rect,
 			theme_name,
-			17 if theme_name.length() <= 15 else 16,
+			19 if theme_name.length() <= 15 else 18,
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
@@ -6803,6 +6807,7 @@ func _stage_single_player_popup_theme_cards(
 		)
 		theme_button.disabled = false
 		_single_player_popup_theme_card_visuals.append({
+			"card": card,
 			"card_rect": card_rect,
 			"theme_icon_rect": theme_icon_rect,
 			"theme_index": theme_index,
@@ -6813,6 +6818,15 @@ func _stage_single_player_popup_theme_cards(
 			"theme_label": theme_label,
 			"theme_button": theme_button,
 		})
+		theme_button.button_down.connect(
+			Callable(self, "_set_single_player_popup_theme_card_pressed").bind(theme_index, true)
+		)
+		theme_button.button_up.connect(
+			Callable(self, "_set_single_player_popup_theme_card_pressed").bind(theme_index, false)
+		)
+		theme_button.mouse_exited.connect(
+			Callable(self, "_set_single_player_popup_theme_card_pressed").bind(theme_index, false)
+		)
 	for child_index in range(first_card_node_index, content.get_child_count()):
 		single_player_popup_theme_card_nodes.append(content.get_child(child_index))
 	content = previous_content
@@ -7672,6 +7686,179 @@ func _update_single_player_refresh_price(balance: int) -> void:
 		)
 		price_label.add_theme_color_override("font_color", price_color)
 
+func _single_player_popup_theme_card_visual(theme_index: int) -> Dictionary:
+	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
+		if !(visual_variant is Dictionary):
+			continue
+		var visual: Dictionary = visual_variant
+		if int(visual.get("theme_index", -1)) == theme_index:
+			return visual
+	return {}
+
+func _single_player_popup_theme_card_press_controls(visual: Dictionary) -> Array[Control]:
+	var result: Array[Control] = []
+	var card := visual.get("card") as Control
+	if card == null:
+		card = single_player_popup_theme_panels.get(int(visual.get("theme_index", -1))) as Control
+	var theme_glow := visual.get("theme_glow") as Control
+	var theme_icon := visual.get("theme_icon") as Control
+	var word_badge := visual.get("word_badge") as Control
+	var word_badge_label := visual.get("word_badge_label") as Control
+	var theme_label := visual.get("theme_label") as Control
+	for control_variant: Variant in [
+		card,
+		theme_glow.get_parent() if theme_glow != null else null,
+		theme_icon,
+		word_badge,
+		word_badge_label.get_parent() if word_badge_label != null else null,
+		theme_label.get_parent() if theme_label != null else null,
+	]:
+		var press_control := control_variant as Control
+		if press_control != null and is_instance_valid(press_control) and !result.has(press_control):
+			result.append(press_control)
+	return result
+
+func _restore_single_player_popup_theme_card_press_transform(press_control: Control) -> void:
+	if press_control == null or !is_instance_valid(press_control):
+		return
+	if !press_control.has_meta(&"theme_card_press_rest_scale"):
+		return
+	var rest_scale: Vector2 = press_control.get_meta(
+		&"theme_card_press_rest_scale",
+		press_control.scale
+	)
+	var rest_position: Vector2 = press_control.get_meta(
+		&"theme_card_press_rest_position",
+		press_control.position
+	)
+	var rest_pivot: Vector2 = press_control.get_meta(
+		&"theme_card_press_rest_pivot",
+		press_control.pivot_offset
+	)
+	press_control.scale = rest_scale
+	press_control.position = rest_position
+	press_control.pivot_offset = rest_pivot
+	press_control.remove_meta(&"theme_card_press_rest_scale")
+	press_control.remove_meta(&"theme_card_press_rest_position")
+	press_control.remove_meta(&"theme_card_press_rest_pivot")
+	press_control.remove_meta(&"theme_card_press_tween")
+
+func _set_single_player_popup_theme_card_pressed(theme_index: int, is_pressed: bool) -> void:
+	# Selected cards are already in a persistent highlighted state. Only an
+	# unselected card receives the standard short 0.94 button press. A release is
+	# always allowed so a card selected by the same tap returns to its exact stage
+	# transform. FlashStage nodes already carry the viewport fit in Control.scale,
+	# so changing pivot_offset without compensating position would permanently
+	# shift the separately staged card elements.
+	if is_pressed and theme_index == single_player_popup_selected_theme:
+		return
+	var visual: Dictionary = _single_player_popup_theme_card_visual(theme_index)
+	if visual.is_empty():
+		return
+	var card_rect: Rect2 = visual.get("card_rect", Rect2())
+	var card_center: Vector2 = card_rect.get_center()
+	for press_control: Control in _single_player_popup_theme_card_press_controls(visual):
+		if !press_control.is_inside_tree():
+			continue
+		var stage_rect_variant: Variant = press_control.get("stage_rect")
+		if !(stage_rect_variant is Rect2):
+			continue
+		var previous_tween: Tween = press_control.get_meta(&"theme_card_press_tween", null) as Tween
+		if previous_tween != null and previous_tween.is_valid():
+			previous_tween.kill()
+
+		if is_pressed:
+			if !press_control.has_meta(&"theme_card_press_rest_scale"):
+				press_control.set_meta(&"theme_card_press_rest_scale", press_control.scale)
+				press_control.set_meta(&"theme_card_press_rest_position", press_control.position)
+				press_control.set_meta(&"theme_card_press_rest_pivot", press_control.pivot_offset)
+			var rest_scale: Vector2 = press_control.get_meta(
+				&"theme_card_press_rest_scale",
+				press_control.scale
+			)
+			var rest_position: Vector2 = press_control.get_meta(
+				&"theme_card_press_rest_position",
+				press_control.position
+			)
+			var rest_pivot: Vector2 = press_control.get_meta(
+				&"theme_card_press_rest_pivot",
+				press_control.pivot_offset
+			)
+			var stage_rect: Rect2 = stage_rect_variant
+			var press_pivot: Vector2 = card_center - stage_rect.position
+			# Preserve the exact rest-space visual position while moving the pivot to
+			# the common card center. This is required because rest_scale is the
+			# viewport fit scale rather than Vector2.ONE on most devices.
+			press_control.pivot_offset = press_pivot
+			press_control.position = (
+				rest_position
+				+ (rest_scale - Vector2.ONE) * (press_pivot - rest_pivot)
+			)
+			var tween := press_control.create_tween()
+			tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			var scale_tweener := tween.tween_property(
+				press_control,
+				^"scale",
+				rest_scale * PORTRAIT_SINGLE_PLAYER_THEME_CARD_PRESS_SCALE,
+				PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION
+			)
+			scale_tweener.set_trans(Tween.TRANS_QUAD)
+			scale_tweener.set_ease(Tween.EASE_OUT)
+			press_control.set_meta(&"theme_card_press_tween", tween)
+		else:
+			if !press_control.has_meta(&"theme_card_press_rest_scale"):
+				continue
+			var rest_scale: Vector2 = press_control.get_meta(
+				&"theme_card_press_rest_scale",
+				press_control.scale
+			)
+			var tween := press_control.create_tween()
+			tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			var scale_tweener := tween.tween_property(
+				press_control,
+				^"scale",
+				rest_scale,
+				PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION
+			)
+			scale_tweener.set_trans(Tween.TRANS_QUAD)
+			scale_tweener.set_ease(Tween.EASE_OUT)
+			tween.tween_callback(
+				Callable(self, "_restore_single_player_popup_theme_card_press_transform").bind(
+					press_control
+				)
+			)
+			press_control.set_meta(&"theme_card_press_tween", tween)
+
+func _animate_single_player_popup_theme_card_selection(
+	panel: Control,
+	fill_color: Color,
+	border_color: Color,
+	border_width: float
+) -> void:
+	if panel == null or !is_instance_valid(panel):
+		return
+	var previous_tween: Tween = panel.get_meta(&"theme_card_selection_tween", null) as Tween
+	if previous_tween != null and previous_tween.is_valid():
+		previous_tween.kill()
+	var tween := panel.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_parallel(true)
+	for property_path: NodePath in [^"fill_color", ^"border_color", ^"border_width"]:
+		var target_value: Variant = fill_color
+		if property_path == ^"border_color":
+			target_value = border_color
+		elif property_path == ^"border_width":
+			target_value = border_width
+		var property_tweener := tween.tween_property(
+			panel,
+			property_path,
+			target_value,
+			PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION
+		)
+		property_tweener.set_trans(Tween.TRANS_SINE)
+		property_tweener.set_ease(Tween.EASE_OUT)
+	panel.set_meta(&"theme_card_selection_tween", tween)
+
 func _select_single_player_popup_theme(level_index: int, theme_index: int) -> void:
 	if level_index != single_player_popup_level_index:
 		return
@@ -7683,11 +7870,9 @@ func _select_single_player_popup_theme(level_index: int, theme_index: int) -> vo
 		theme_index,
 		single_player_retry_after_loss
 	)
-	var selection_color: Color = (
-		DIFFICULTY_HARD_NORMAL_TINT
-		if _single_player_is_bonus_level(level_index)
-		else PORTRAIT_ORANGE
-	)
+	# Theme selection uses one consistent orange confirmation outline, including
+	# challenge levels; their distinct fill palette remains unchanged.
+	var selection_color: Color = PORTRAIT_ORANGE
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	var unselected_fill: Color = (
 		PORTRAIT_CHALLENGE_THEME_CARD
@@ -7709,9 +7894,12 @@ func _select_single_player_popup_theme(level_index: int, theme_index: int) -> vo
 		if panel == null or !is_instance_valid(panel):
 			continue
 		var is_selected: bool = int(option_theme) == theme_index
-		panel.set("fill_color", selected_fill if is_selected else unselected_fill)
-		panel.set("border_color", selection_color if is_selected else unselected_border)
-		panel.set("border_width", 4.0 if is_selected else 2.0)
+		_animate_single_player_popup_theme_card_selection(
+			panel,
+			selected_fill if is_selected else unselected_fill,
+			selection_color if is_selected else unselected_border,
+			4.0 if is_selected else 2.0
+		)
 	if (
 		single_player_popup_play_button != null
 		and is_instance_valid(single_player_popup_play_button)
@@ -12933,12 +13121,7 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_subtitle.add_theme_font_override("font", UI_REGULAR_FONT)
 	reward_subtitle.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
 	reward_subtitle.add_theme_color_override("font_color", Color.WHITE)
-	reward_subtitle.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.0))
-	reward_subtitle.add_theme_constant_override("outline_size", 0)
-	reward_subtitle.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.0))
-	reward_subtitle.add_theme_constant_override("shadow_offset_x", 0)
-	reward_subtitle.add_theme_constant_override("shadow_offset_y", 0)
-	reward_subtitle.add_theme_constant_override("shadow_outline_size", 0)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(reward_subtitle)
 	reward_subtitle.autowrap_mode = TextServer.AUTOWRAP_OFF
 	reward_subtitle.clip_text = false
 	reward_subtitle.z_index = 1
