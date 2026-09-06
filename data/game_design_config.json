@@ -152,7 +152,7 @@
         "key_fade_seconds": 0.22,
         "key_wave_seconds": 0.48,
         "key_scale": 1.28,
-        "paper_flip_seconds": 0.92,
+        "paper_flip_seconds": 0.5,
         "attempts_fade_seconds": 0.2,
         "hints_fade_seconds": 0.18
       },
@@ -167,6 +167,7 @@
       "game_entrance": {
         "start_delay_seconds": 0.05,
         "speed_multiplier": 1.3,
+        "paper_reveal_seconds": 0.92,
         "hero_fade_seconds": 0.26,
         "continue_grow_seconds": 0.12
       },

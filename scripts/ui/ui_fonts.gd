@@ -21,6 +21,10 @@ const ROBOTO_FLEX_REGULAR_WIDTH: float = 75.0
 const ROBOTO_FLEX_REGULAR_GRADE: float = 0.0
 const ROBOTO_FLEX_REGULAR_THIN_STROKE: float = 80.0
 
+# Long-form copy shared by the quiz question and word-comment popup. Keep the
+# Regular axes, but use the lighter authored weight requested for this pair.
+const ROBOTO_FLEX_QUESTION_COMMENT_WEIGHT: float = 550.0
+
 # Shared Roboto Flex axes.
 const ROBOTO_FLEX_THICK_STROKE: float = 80.0
 
@@ -74,6 +78,14 @@ static func button_font() -> Font:
 static func regular_font() -> Font:
 	return _roboto_flex_font(
 		ROBOTO_FLEX_REGULAR_WEIGHT,
+		ROBOTO_FLEX_REGULAR_WIDTH,
+		ROBOTO_FLEX_REGULAR_GRADE,
+		ROBOTO_FLEX_REGULAR_THIN_STROKE
+	)
+
+static func question_comment_font() -> Font:
+	return _roboto_flex_font(
+		ROBOTO_FLEX_QUESTION_COMMENT_WEIGHT,
 		ROBOTO_FLEX_REGULAR_WIDTH,
 		ROBOTO_FLEX_REGULAR_GRADE,
 		ROBOTO_FLEX_REGULAR_THIN_STROKE

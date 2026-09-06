@@ -121,7 +121,7 @@ var PORTRAIT_ROUND_END_KEY_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_scale", 1.28
 )
 var PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.paper_flip_seconds", 0.92
+	"timings.animations.round_end.paper_flip_seconds", 0.5
 )
 const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
 var PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
@@ -154,6 +154,9 @@ var PORTRAIT_GAME_ENTRANCE_START_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
 )
 var PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER: float = PORTRAIT_GAME_DESIGN.get_float_range(
 	"timings.animations.game_entrance.speed_multiplier", 1.30, 0.01, 100.0
+)
+var PORTRAIT_GAME_PAPER_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
+	"timings.animations.game_entrance.paper_reveal_seconds", 0.92
 )
 var PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.game_entrance.hero_fade_seconds", 0.26
@@ -3891,10 +3894,9 @@ func _quiz_speed_reward_amount(speed_tier: int) -> int:
 		return maxi(PORTRAIT_QUIZ_FAST_REWARD_STARS, 0)
 	return 0
 
-func _quiz_question_font_size(question_text: String) -> int:
-	# Match the comment popup typography for quiz questions. The larger question
-	# card gives enough room for the same 25 px heading style in this mode.
-	return 25
+func _quiz_question_font_size(_question_text: String) -> int:
+	# Quiz questions and word comments share their own lighter body-copy style.
+	return 24
 
 func _quiz_answer_font_size(_answer_text: String) -> int:
 	# Keep quiz answers consistently readable. Long answers are allowed to wrap
@@ -5950,7 +5952,7 @@ func _show_quiz_game_screen() -> void:
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
-	question_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	question_label.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
 	question_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	question_label.clip_text = false
 	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -10728,7 +10730,7 @@ func _play_portrait_game_entrance() -> void:
 	if !_portrait_game_entrance_active or !game_screen_visible or game_finished:
 		return
 	var entrance_start_delay: float = PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
-	var paper_duration: float = PORTRAIT_ROUND_END_PAPER_FLIP_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
+	var paper_duration: float = PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
 	var key_wave_duration: float = PORTRAIT_ROUND_END_KEY_WAVE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
 	var key_fade_duration: float = PORTRAIT_ROUND_END_KEY_FADE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
@@ -11141,8 +11143,9 @@ func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:
 		1.0,
 		PORTRAIT_ROUND_END_PAPER_FLIP_DURATION
 	)
-	mask_tweener.set_trans(Tween.TRANS_QUAD)
-	mask_tweener.set_ease(Tween.EASE_OUT)
+	# Keep the peel speed constant from start to finish; the previous QUAD/EASE_OUT
+	# curve visibly slowed the paper as it approached the right edge.
+	mask_tweener.set_trans(Tween.TRANS_LINEAR)
 	flip_tween.finished.connect(
 		Callable(self, "_finish_in_place_result_paper_peel").bind(paper_layer, true),
 		CONNECT_ONE_SHOT
@@ -14816,11 +14819,11 @@ func _show_word_comment_popup() -> void:
 			comment_panel_rect.size.y - 36.0
 		),
 		hint,
-		25,
+		24,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)
-	hint_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	hint_label.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false
 	hint_label.z_index = 9
