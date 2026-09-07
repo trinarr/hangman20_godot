@@ -917,7 +917,7 @@ func _single_player_level_label() -> String:
 	return tr("LEVEL_LABEL")
 
 func _single_player_challenge_level_label() -> String:
-	return tr("CHALLENGE_LEVEL_LABEL")
+	return tr("CHALLENGE_SHORT_LABEL")
 
 func _single_player_level_failed_label() -> String:
 	return tr("LEVEL_FAILURE")

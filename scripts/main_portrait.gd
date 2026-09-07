@@ -1130,13 +1130,6 @@ func _stage_menu_settings_button() -> void:
 		PORTRAIT_MENU_SETTINGS_ICON_SIZE
 	)
 	settings_button.set("icon_shadow_enabled", true)
-	if game_screen_visible and _portrait_game_is_challenge_level():
-		settings_button.call(
-			"set_color_palette",
-			DIFFICULTY_HARD_NORMAL_TINT,
-			DIFFICULTY_HARD_PRESSED_TINT,
-			DIFFICULTY_HARD_SELECTED_TINT
-		)
 	content = screen_content
 
 func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:
@@ -2558,7 +2551,7 @@ func _stage_portrait_game_header() -> void:
 		_stage_coin_and_star_counters(
 			coin_store_return_action,
 			PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
-			_portrait_game_is_challenge_level()
+			false
 		)
 	_stage_menu_settings_button()
 
@@ -2674,8 +2667,6 @@ func _portrait_game_is_challenge_level() -> bool:
 	)
 
 func _portrait_game_header_color() -> Color:
-	if _portrait_game_is_challenge_level():
-		return PORTRAIT_CHALLENGE_POPUP_HEADER
 	return PORTRAIT_BLUE
 
 func _portrait_popup_begin(
@@ -2873,15 +2864,29 @@ func _portrait_popup_shell(
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 	title_label.clip_text = false
 	if !subtitle.is_empty():
+		# Challenge indicator belongs above the level title, not inside the popup
+		# body. Reuse the exact button-text font/effect treatment so it reads as
+		# a compact status badge while keeping the level title as the main header.
+		# Enlarge only this popup status by 30%; the Home challenge subtitle keeps
+		# its own authored size.
+		var subtitle_scale: float = 1.30
+		var subtitle_height: float = 28.0 * subtitle_scale
 		var subtitle_label := _stage_label(
-			Rect2(popup_rect.position.x + 20.0, popup_rect.position.y + 28.0, popup_rect.size.x - 40.0, 32.0),
-			subtitle,
-			21,
-			Color.WHITE,
+			Rect2(
+				popup_rect.position.x + 20.0,
+				title_rect.position.y - subtitle_height + 10.0,
+				popup_rect.size.x - 40.0,
+				subtitle_height
+			),
+			subtitle.to_upper(),
+			int(round(float(UI_FONTS.display_button_font_size(15)) * subtitle_scale)),
+			UI_PALETTE.CHALLENGE_NORMAL,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
-		subtitle_label.add_theme_font_override("font", UI_REGULAR_FONT)
+		subtitle_label.add_theme_font_override("font", UI_BUTTON_FONT)
+		subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		subtitle_label.clip_text = false
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(subtitle_label)
 
 	if show_close_button:
 		var close_x: float = rect.position.x + (rect.size.x - PORTRAIT_POPUP_CLOSE_SIZE) * 0.5
@@ -3896,7 +3901,7 @@ func _quiz_speed_reward_amount(speed_tier: int) -> int:
 
 func _quiz_question_font_size(_question_text: String) -> int:
 	# Quiz questions and word comments share their own lighter body-copy style.
-	return 24
+	return 25
 
 func _quiz_answer_font_size(_answer_text: String) -> int:
 	# Keep quiz answers consistently readable. Long answers are allowed to wrap
@@ -5953,6 +5958,7 @@ func _show_quiz_game_screen() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	question_label.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(question_label)
 	question_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	question_label.clip_text = false
 	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -6765,10 +6771,10 @@ func _show_single_player_level_popup(
 		("%s %d" % [_single_player_level_label(), level_index + 1]).to_upper(),
 		close_action,
 		29,
-		PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE,
-		PORTRAIT_CHALLENGE_POPUP_BODY if challenge_level else PORTRAIT_DARK_BLUE,
-		PORTRAIT_CHALLENGE_POPUP_SEPARATOR if challenge_level else PORTRAIT_ORANGE,
-		_single_player_challenge_level_label() if challenge_level else "",
+		PORTRAIT_BLUE,
+		PORTRAIT_DARK_BLUE,
+		PORTRAIT_ORANGE,
+		tr("CHALLENGE_SHORT_LABEL") if challenge_level else "",
 		!theme_selection_locked
 	)
 	var instruction_y: float = 208.0
@@ -6811,13 +6817,6 @@ func _show_single_player_level_popup(
 		false
 	)
 	single_player_popup_refresh_button = refresh_button
-	if challenge_level:
-		refresh_button.call(
-			"set_color_palette",
-			DIFFICULTY_HARD_NORMAL_TINT,
-			DIFFICULTY_HARD_PRESSED_TINT,
-			DIFFICULTY_HARD_SELECTED_TINT
-		)
 	refresh_button.z_index = 15
 	var refresh_price_badge_size := Vector2(44.0, 22.0)
 	var refresh_price_badge_rect := Rect2(
@@ -8794,13 +8793,6 @@ func _refresh_game_screen() -> void:
 			"×"
 		)
 		_portrait_game_back_button = back_button
-		if _portrait_game_is_challenge_level():
-			back_button.call(
-				"set_color_palette",
-				DIFFICULTY_HARD_NORMAL_TINT,
-				DIFFICULTY_HARD_PRESSED_TINT,
-				DIFFICULTY_HARD_SELECTED_TINT
-			)
 		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	_stage_portrait_ad_banner()
 	_portrait_game_runtime_ready = true
@@ -11304,17 +11296,8 @@ func _stage_single_player_reward_tile(
 ) -> void:
 	if parent == null or !is_instance_valid(parent):
 		return
-	var challenge_level: bool = _single_player_is_bonus_level(level_index)
-	var card_fill: Color = (
-		PORTRAIT_CHALLENGE_THEME_CARD
-		if challenge_level
-		else PORTRAIT_UI_PALETTE.THEME_CARD
-	)
-	var card_border: Color = (
-		PORTRAIT_CHALLENGE_POPUP_HEADER
-		if challenge_level
-		else PORTRAIT_RULE
-	)
+	var card_fill: Color = PORTRAIT_UI_PALETTE.THEME_CARD
+	var card_border: Color = PORTRAIT_RULE
 	var card_rect := Rect2(Vector2.ZERO, Vector2.ONE * node_size)
 	var card := _portrait_hint_local_panel(
 		parent,
@@ -12375,13 +12358,10 @@ func _stage_final_reward_collect_text(rect: Rect2, next_level_index: int = -1) -
 	label.text = tr("NO_THANKS")
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_BUTTON_FONT)
-	label.add_theme_font_size_override(
-		"font_size",
-		UI_FONTS.display_button_font_size(24)
-	)
+	label.add_theme_font_override("font", UI_REGULAR_FONT)
+	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(label)
 	visual.add_child(label)
 
 	var collect_action := Callable(self, "_claim_single_player_final_reward")
@@ -13262,12 +13242,16 @@ func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	_show_portrait_ad_not_ready_toast()
 
 func _on_final_reward_double_pressed() -> void:
-	if (
-		!_portrait_ads_enabled()
-		or _portrait_final_reward_claim_in_progress
-		or _portrait_final_reward_waiting_for_ad
-		or _portrait_rewarded_action != &""
-	):
+	# The base reward is credited at the peak of the prize bounce, so
+	# `_portrait_final_reward_claim_in_progress` is the normal state by the time
+	# the x2 button becomes available. It must not block the rewarded ad.
+	if !_portrait_ads_enabled():
+		_show_portrait_ad_not_ready_toast()
+		return
+	if _portrait_final_reward_waiting_for_ad:
+		return
+	if _portrait_rewarded_action != &"":
+		_show_portrait_ad_not_ready_toast()
 		return
 	var ads_service: Node = _portrait_ads_service()
 	if ads_service == null or !ads_service.has_method("show_rewarded_video"):
@@ -13285,8 +13269,14 @@ func _on_final_reward_double_pressed() -> void:
 	_portrait_final_reward_ad_close_pending = false
 	_set_final_reward_double_button_enabled(false)
 	if !bool(ads_service.call("show_rewarded_video")):
-		# The service starts a preload when an ad is not ready. Keep this request
-		# pending: the loaded callback below opens that same ad automatically.
+		# `show_rewarded_video()` starts preloading when no rewarded ad is ready.
+		# Do not leave the button in a silent pending state: report the miss now,
+		# restore interaction, and let the newly preloaded ad be used on the next tap.
+		_portrait_final_reward_waiting_for_ad = false
+		_portrait_final_reward_earned_ad_reward = false
+		_portrait_final_reward_ad_close_pending = false
+		_set_final_reward_double_button_enabled(true)
+		_show_portrait_ad_not_ready_toast()
 		return
 	GameState.set_fullscreen_ad_active(true)
 
@@ -13331,7 +13321,7 @@ func _set_final_reward_double_button_enabled(enabled: bool) -> void:
 		_portrait_final_reward_double_button.set("button_disabled", !enabled)
 
 func _on_final_reward_ad_loaded() -> void:
-	if !_portrait_final_reward_waiting_for_ad or _portrait_final_reward_claim_in_progress:
+	if !_portrait_final_reward_waiting_for_ad:
 		return
 	var ads_service: Node = _portrait_ads_service()
 	var ad_shown: bool = (
@@ -13632,8 +13622,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		_portrait_final_reward_waiting_for_ad = false
 		_portrait_final_reward_earned_ad_reward = false
 		_portrait_final_reward_ad_close_pending = false
-	var challenge_level: bool = _single_player_is_bonus_level(level_index)
-	var header_color: Color = PORTRAIT_CHALLENGE_POPUP_HEADER if challenge_level else PORTRAIT_BLUE
+	var header_color: Color = PORTRAIT_BLUE
 	var accent_color: Color = StageLetterButton.CIRCLED_COLOR
 	var resume_without_intro: bool = _portrait_single_reward_resume_without_intro
 	_portrait_single_reward_resume_without_intro = false
@@ -13779,7 +13768,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			else Callable(self, "_return_to_single_player_reward_from_coin_store")
 		),
 		PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
-		challenge_level,
+		false,
 		false
 	)
 	# Keep the just-earned reward locked to the horizontal center. Neighboring
@@ -14819,11 +14808,12 @@ func _show_word_comment_popup() -> void:
 			comment_panel_rect.size.y - 36.0
 		),
 		hint,
-		24,
+		25,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)
 	hint_label.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(hint_label)
 	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	hint_label.clip_text = false
 	hint_label.z_index = 9

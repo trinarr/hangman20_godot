@@ -23,7 +23,7 @@ const ROBOTO_FLEX_REGULAR_THIN_STROKE: float = 80.0
 
 # Long-form copy shared by the quiz question and word-comment popup. Keep the
 # Regular axes, but use the lighter authored weight requested for this pair.
-const ROBOTO_FLEX_QUESTION_COMMENT_WEIGHT: float = 550.0
+const ROBOTO_FLEX_QUESTION_COMMENT_WEIGHT: float = 580.0
 
 # Shared Roboto Flex axes.
 const ROBOTO_FLEX_THICK_STROKE: float = 80.0

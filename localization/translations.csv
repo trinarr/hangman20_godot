@@ -51,6 +51,7 @@ DIFFICULTY_HARD_MODE,Сложный режим,Hard mode
 DIFFICULTY_NORMAL_MODE,Обычный режим,Normal mode
 LEVEL_LABEL,Уровень,Level
 CHALLENGE_LEVEL_LABEL,Сложный уровень,Challenge level
+CHALLENGE_SHORT_LABEL,Сложный,Hard
 LEVEL_FAILURE,НЕУДАЧА,FAILURE
 LEVEL_COMPLETED_BONUS,Уровень пройден! Бонус: +%d,Level completed! Bonus: +%d
 CHAIN_TRY_BETTER,Вы можете лучше,You can do better
