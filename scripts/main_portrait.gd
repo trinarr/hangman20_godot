@@ -3,6 +3,7 @@ extends "res://scripts/main.gd"
 const PORTRAIT_GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const BADGE_SHADOW_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/badge_shadow_style.gd")
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
@@ -456,8 +457,6 @@ const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/h
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
-const PORTRAIT_HINT_USED_GRAYSCALE_SHADER: Shader = preload("res://shaders/hint_icon_grayscale.gdshader")
-const PORTRAIT_ICON_EXTRUSION_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
 const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = 0.50
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
@@ -466,8 +465,6 @@ const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flas
 const PORTRAIT_BLUE := PORTRAIT_UI_PALETTE.UI_BLUE
 const PORTRAIT_DARK_BLUE := PORTRAIT_UI_PALETTE.UI_BLUE_DARK
 const PORTRAIT_CHALLENGE_POPUP_HEADER := PORTRAIT_UI_PALETTE.CHALLENGE_SELECTED
-const PORTRAIT_CHALLENGE_POPUP_BODY := PORTRAIT_UI_PALETTE.CHALLENGE_BODY
-const PORTRAIT_CHALLENGE_POPUP_SEPARATOR := PORTRAIT_UI_PALETTE.CHALLENGE_NORMAL
 const PORTRAIT_CHALLENGE_THEME_CARD := PORTRAIT_UI_PALETTE.CHALLENGE_THEME_CARD
 const PORTRAIT_CHALLENGE_THEME_CARD_SELECTED := PORTRAIT_UI_PALETTE.CHALLENGE_THEME_CARD_SELECTED
 const PORTRAIT_CHALLENGE_HUD_PANEL := PORTRAIT_UI_PALETTE.CHALLENGE_HUD_PANEL
@@ -570,7 +567,6 @@ const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTO
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
 # attached so it remains clear of adaptive banners on tall devices.
-const PORTRAIT_QUIZ_MENU_BUTTON_RECT := Rect2(90.0, 476.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_QUIZ_THEME_TITLE_RECT := Rect2(34.0, 98.0, 412.0, 44.0)
 const PORTRAIT_QUIZ_QUESTION_PANEL_RECT := Rect2(22.0, 120.0, 436.0, 260.0)
 const PORTRAIT_QUIZ_QUESTION_RECT := Rect2(40.0, 138.0, 400.0, 224.0)
@@ -773,10 +769,6 @@ var _profile_avatar_halos: Dictionary = {}
 var single_player_popup_refresh_button: Control = null
 var _single_player_popup_refresh_visuals: Array[CanvasItem] = []
 var _single_player_popup_refresh_badge_component: Dictionary = {}
-var _single_player_popup_refresh_price_badge: Control = null
-var _single_player_popup_refresh_badge_shadow: Control = null
-var _single_player_popup_refresh_price_coin: CanvasItem = null
-var _single_player_popup_refresh_ad_icon: CanvasItem = null
 var _single_player_popup_theme_card_visuals: Array = []
 var _single_player_theme_slot_animation_nodes: Array[Node] = []
 var _single_player_theme_slot_tweens: Array[Tween] = []
@@ -784,7 +776,6 @@ var _single_player_theme_slot_animating: bool = false
 var _single_player_theme_slot_hide_actions: bool = false
 var _single_player_theme_slot_generation: int = 0
 var _single_player_theme_slot_final_selection: int = -1
-var _single_player_theme_reroll_level_index: int = -1
 var _single_player_theme_reroll_used: bool = false
 var _single_player_theme_ad_reroll_used: bool = false
 var _startup_guided_resume_checked: bool = false
@@ -811,6 +802,11 @@ var _quiz_question_ready_at_msec: int = 0
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
+
+func _optional_node_meta(node: Object, key: StringName) -> Variant:
+	# A null get_meta default still reports a missing-key error in Godot.
+	# Animation metadata is deliberately absent before the first interaction.
+	return node.get_meta(key) if node.has_meta(key) else null
 
 func _portrait_ads_enabled() -> bool:
 	return GameState.are_ads_enabled()
@@ -1264,7 +1260,6 @@ func _stage_currency_counter(
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	balance_label.add_to_group(&"soft_currency_balance_label")
-	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
 	content = counter_parent_content
@@ -1368,7 +1363,6 @@ func _stage_centered_coin_only_counter(
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	balance_label.add_to_group(&"soft_currency_balance_label")
-	currency_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
 	content = counter_parent_content
@@ -1731,7 +1725,7 @@ func _set_currency_counter_pressed(
 		counter_rect.get_center(),
 		counter_visual
 	)
-	var previous_tween: Tween = counter_visual.get_meta(&"press_tween", null) as Tween
+	var previous_tween: Tween = _optional_node_meta(counter_visual, &"press_tween") as Tween
 	if previous_tween != null and previous_tween.is_valid():
 		previous_tween.kill()
 	var target_scale: Vector2 = (
@@ -1805,23 +1799,20 @@ func _set_portrait_resource_counter_collection_active_legacy(
 			if counter_rest_scale == Vector2.ZERO:
 				counter_rest_scale = Vector2.ONE
 			counter_visual.set_meta(&"reward_counter_rest_scale", counter_rest_scale)
-		var previous_counter_tween: Tween = counter_visual.get_meta(
-			&"reward_counter_hold_tween",
-			null
+		var previous_counter_tween: Tween = _optional_node_meta(
+			counter_visual, &"reward_counter_hold_tween"
 		) as Tween
 		if previous_counter_tween != null and previous_counter_tween.is_valid():
 			previous_counter_tween.kill()
 		counter_visual.set_meta(&"reward_counter_collection_active", active)
-	var previous_icon_hold_tween: Tween = resource_icon.get_meta(
-		&"reward_counter_icon_hold_tween",
-		null
+	var previous_icon_hold_tween: Tween = _optional_node_meta(
+		resource_icon, &"reward_counter_icon_hold_tween"
 	) as Tween
 	if previous_icon_hold_tween != null and previous_icon_hold_tween.is_valid():
 		previous_icon_hold_tween.kill()
 	if !active:
-		var previous_impact_tween: Tween = resource_icon.get_meta(
-			&"reward_icon_impact_tween",
-			null
+		var previous_impact_tween: Tween = _optional_node_meta(
+			resource_icon, &"reward_icon_impact_tween"
 		) as Tween
 		if previous_impact_tween != null and previous_impact_tween.is_valid():
 			previous_impact_tween.kill()
@@ -1950,7 +1941,7 @@ func _bounce_portrait_resource_counter_icon_legacy(reward_currency: String) -> v
 		or !resource_icon.is_inside_tree()
 	):
 		return
-	var previous_tween: Tween = resource_icon.get_meta(&"reward_icon_impact_tween", null) as Tween
+	var previous_tween: Tween = _optional_node_meta(resource_icon, &"reward_icon_impact_tween") as Tween
 	if previous_tween != null and previous_tween.is_valid():
 		previous_tween.kill()
 	var rest_scale: Vector2 = resource_icon.get_meta(&"reward_icon_rest_scale", Vector2.ONE)
@@ -2074,15 +2065,13 @@ func _set_portrait_resource_counter_collection_active(
 			counter_rest_scale = Vector2.ONE
 		counter_visual.set_meta(&"reward_counter_rest_scale", counter_rest_scale)
 
-	var previous_counter_tween: Tween = counter_visual.get_meta(
-		&"reward_counter_hold_tween",
-		null
+	var previous_counter_tween: Tween = _optional_node_meta(
+		counter_visual, &"reward_counter_hold_tween"
 	) as Tween
 	if previous_counter_tween != null and previous_counter_tween.is_valid():
 		previous_counter_tween.kill()
-	var previous_icon_hold_tween: Tween = resource_icon.get_meta(
-		&"reward_counter_icon_hold_tween",
-		null
+	var previous_icon_hold_tween: Tween = _optional_node_meta(
+		resource_icon, &"reward_counter_icon_hold_tween"
 	) as Tween
 	if previous_icon_hold_tween != null and previous_icon_hold_tween.is_valid():
 		previous_icon_hold_tween.kill()
@@ -2090,9 +2079,8 @@ func _set_portrait_resource_counter_collection_active(
 	# Collection starts and ends only with the icon at its normal LOCAL size.
 	# This gives the exact order: whole counter grows -> icon impacts -> icon
 	# settles -> whole counter shrinks.
-	var previous_impact_tween: Tween = resource_icon.get_meta(
-		&"reward_icon_impact_tween",
-		null
+	var previous_impact_tween: Tween = _optional_node_meta(
+		resource_icon, &"reward_icon_impact_tween"
 	) as Tween
 	if previous_impact_tween != null and previous_impact_tween.is_valid():
 		previous_impact_tween.kill()
@@ -2134,9 +2122,8 @@ func _bounce_portrait_resource_counter_icon(reward_currency: String) -> void:
 		or !resource_icon.is_inside_tree()
 	):
 		return
-	var previous_tween: Tween = resource_icon.get_meta(
-		&"reward_icon_impact_tween",
-		null
+	var previous_tween: Tween = _optional_node_meta(
+		resource_icon, &"reward_icon_impact_tween"
 	) as Tween
 	if previous_tween != null and previous_tween.is_valid():
 		previous_tween.kill()
@@ -2332,7 +2319,7 @@ func _refresh_coin_refill_ad_button(button: Control, interaction_enabled: bool =
 
 	_stop_coin_refill_ad_button_timer(button)
 	button.set("button_text", tr("COMMON_FREE"))
-	button.set("icon_texture", button.get_meta(&"coin_refill_ad_icon_texture", null))
+	button.set("icon_texture", _optional_node_meta(button, &"coin_refill_ad_icon_texture"))
 	button.set("icon_shadow_enabled", true)
 	button.set("button_disabled", !interaction_enabled)
 	_set_portrait_button_badge_state(
@@ -4009,7 +3996,7 @@ func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_presse
 		button.get_meta(&"quiz_answer_keep_shadow_hidden", false)
 	)
 	shadow_panel.visible = !is_pressed and !keep_shadow_hidden
-	var previous_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	var previous_tween_variant: Variant = _optional_node_meta(button, &"quiz_press_scale_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
 		if previous_tween.is_valid():
@@ -4035,13 +4022,13 @@ func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_presse
 func _quiz_answer_shadow(button: Button) -> Panel:
 	if button == null or !is_instance_valid(button):
 		return null
-	var shadow_variant: Variant = button.get_meta(&"quiz_answer_shadow", null)
+	var shadow_variant: Variant = _optional_node_meta(button, &"quiz_answer_shadow")
 	return shadow_variant as Panel if shadow_variant is Panel else null
 
 func _quiz_answer_label(button: Button) -> Label:
 	if button == null or !is_instance_valid(button):
 		return null
-	var label_variant: Variant = button.get_meta(&"quiz_answer_label", null)
+	var label_variant: Variant = _optional_node_meta(button, &"quiz_answer_label")
 	return label_variant as Label if label_variant is Label else null
 
 func _set_quiz_answer_fill(button: Button, fill_color: Color) -> void:
@@ -4568,13 +4555,13 @@ func _play_quiz_correct_answer_bounce(
 	# the viewport fit factor, so resetting it to Vector2.ONE shrinks the answer
 	# and makes the bounce appear left-aligned on tall devices. Bounce the local
 	# button face (and its shadow when visible) around their own centers instead.
-	var press_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	var press_tween_variant: Variant = _optional_node_meta(button, &"quiz_press_scale_tween")
 	if press_tween_variant is Tween:
 		var press_tween := press_tween_variant as Tween
 		if press_tween.is_valid():
 			press_tween.kill()
 
-	var previous_tween_variant: Variant = button.get_meta(&"quiz_result_bounce_tween", null)
+	var previous_tween_variant: Variant = _optional_node_meta(button, &"quiz_result_bounce_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
 		if previous_tween.is_valid():
@@ -4623,7 +4610,7 @@ func _run_quiz_feedback_after_press_return(button: Button, callback: Callable) -
 			CONNECT_ONE_SHOT
 		)
 		return
-	var press_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	var press_tween_variant: Variant = _optional_node_meta(button, &"quiz_press_scale_tween")
 	if press_tween_variant is Tween:
 		var press_tween := press_tween_variant as Tween
 		if press_tween.is_valid() and press_tween.is_running():
@@ -4648,7 +4635,7 @@ func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = 
 		if finished_callback.is_valid():
 			finished_callback.call()
 		return
-	var previous_tween_variant: Variant = answer_label.get_meta(&"quiz_text_shake_tween", null)
+	var previous_tween_variant: Variant = _optional_node_meta(answer_label, &"quiz_text_shake_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
 		if previous_tween.is_valid():
@@ -5158,7 +5145,7 @@ func _play_quiz_fifty_fifty_removal(button: Button) -> void:
 		# 50/50 removal also runs without a shadow for the full bounce/fade.
 		shadow_panel.visible = false
 
-	var previous_tween_variant: Variant = button.get_meta(&"quiz_fifty_fifty_tween", null)
+	var previous_tween_variant: Variant = _optional_node_meta(button, &"quiz_fifty_fifty_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
 		if previous_tween.is_valid():
@@ -5319,17 +5306,17 @@ func _prepare_quiz_answer_for_replacement(
 ) -> void:
 	if button == null or !is_instance_valid(button):
 		return
-	var press_tween_variant: Variant = button.get_meta(&"quiz_press_scale_tween", null)
+	var press_tween_variant: Variant = _optional_node_meta(button, &"quiz_press_scale_tween")
 	if press_tween_variant is Tween:
 		var press_tween := press_tween_variant as Tween
 		if press_tween.is_valid():
 			press_tween.kill()
-	var fifty_tween_variant: Variant = button.get_meta(&"quiz_fifty_fifty_tween", null)
+	var fifty_tween_variant: Variant = _optional_node_meta(button, &"quiz_fifty_fifty_tween")
 	if fifty_tween_variant is Tween:
 		var fifty_tween := fifty_tween_variant as Tween
 		if fifty_tween.is_valid():
 			fifty_tween.kill()
-	var result_tween_variant: Variant = button.get_meta(&"quiz_result_bounce_tween", null)
+	var result_tween_variant: Variant = _optional_node_meta(button, &"quiz_result_bounce_tween")
 	if result_tween_variant is Tween:
 		var result_tween := result_tween_variant as Tween
 		if result_tween.is_valid():
@@ -5344,7 +5331,7 @@ func _prepare_quiz_answer_for_replacement(
 	_set_quiz_answer_fill(button, Color.WHITE)
 	var answer_label := _quiz_answer_label(button)
 	if answer_label != null and is_instance_valid(answer_label):
-		var shake_tween_variant: Variant = answer_label.get_meta(&"quiz_text_shake_tween", null)
+		var shake_tween_variant: Variant = _optional_node_meta(answer_label, &"quiz_text_shake_tween")
 		if shake_tween_variant is Tween:
 			var shake_tween := shake_tween_variant as Tween
 			if shake_tween.is_valid():
@@ -6106,10 +6093,6 @@ func _remove_single_player_theme_popup() -> void:
 	single_player_popup_refresh_button = null
 	_single_player_popup_refresh_visuals.clear()
 	_single_player_popup_refresh_badge_component.clear()
-	_single_player_popup_refresh_price_badge = null
-	_single_player_popup_refresh_badge_shadow = null
-	_single_player_popup_refresh_price_coin = null
-	_single_player_popup_refresh_ad_icon = null
 	_single_player_popup_theme_card_visuals.clear()
 
 func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
@@ -6490,10 +6473,6 @@ func _show_heart_refill_popup(
 		close_action,
 		28
 	)
-	var body_rect := Rect2(
-		rect.position + Vector2(0.0, 80.0),
-		Vector2(rect.size.x, rect.size.y - 80.0)
-	)
 
 	var current_hearts: int = GameState.get_hearts()
 	# Group the heart and recovery copy on the same light-blue surface used by
@@ -6703,7 +6682,6 @@ func _show_single_player_level_popup(
 	single_player_retry_after_loss = retry_after_loss
 	single_player_popup_return_to_menu_on_close = return_to_menu_on_close
 	level_index = _prepare_single_player_level_attempt(level_index)
-	_single_player_theme_reroll_level_index = level_index
 	var persisted_reroll_state: int = GameState.get_single_level_theme_reroll_state(
 		Database.current_language,
 		level_index
@@ -6856,11 +6834,6 @@ func _show_single_player_level_popup(
 			"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
 		}
 	)
-	_single_player_popup_refresh_badge_shadow = _single_player_popup_refresh_badge_component.get("shadow") as Control
-	_single_player_popup_refresh_price_badge = _single_player_popup_refresh_badge_component.get("badge") as Control
-	_single_player_popup_refresh_price_coin = _single_player_popup_refresh_badge_component.get("coin") as CanvasItem
-	_single_player_popup_refresh_ad_icon = _single_player_popup_refresh_badge_component.get("ad") as CanvasItem
-	single_player_popup_refresh_price_label = _single_player_popup_refresh_badge_component.get("label") as Label
 	_single_player_popup_refresh_visuals.clear()
 	for refresh_visual_variant: Variant in [
 		refresh_button,
@@ -8076,7 +8049,7 @@ func _set_single_player_popup_theme_card_pressed(theme_index: int, is_pressed: b
 		var stage_rect_variant: Variant = press_control.get("stage_rect")
 		if !(stage_rect_variant is Rect2):
 			continue
-		var previous_tween: Tween = press_control.get_meta(&"theme_card_press_tween", null) as Tween
+		var previous_tween: Tween = _optional_node_meta(press_control, &"theme_card_press_tween") as Tween
 		if previous_tween != null and previous_tween.is_valid():
 			previous_tween.kill()
 
@@ -8145,7 +8118,7 @@ func _set_single_player_popup_theme_card_pressed(theme_index: int, is_pressed: b
 func _set_single_player_popup_theme_glow_rotating(glow: Control, should_rotate: bool) -> void:
 	if glow == null or !is_instance_valid(glow):
 		return
-	var rotation_tween: Tween = glow.get_meta(&"theme_card_glow_rotation_tween", null) as Tween
+	var rotation_tween: Tween = _optional_node_meta(glow, &"theme_card_glow_rotation_tween") as Tween
 	if rotation_tween != null and rotation_tween.is_valid():
 		rotation_tween.kill()
 	glow.remove_meta(&"theme_card_glow_rotation_tween")
@@ -8197,7 +8170,7 @@ func _animate_single_player_popup_theme_card_selection(
 ) -> void:
 	if panel == null or !is_instance_valid(panel):
 		return
-	var previous_tween: Tween = panel.get_meta(&"theme_card_selection_tween", null) as Tween
+	var previous_tween: Tween = _optional_node_meta(panel, &"theme_card_selection_tween") as Tween
 	if previous_tween != null and previous_tween.is_valid():
 		previous_tween.kill()
 	var tween := panel.create_tween()
@@ -8284,7 +8257,6 @@ func _start_single_player_popup_level(level_index: int) -> void:
 			restore_action
 		)
 		return
-	_single_player_theme_reroll_level_index = -1
 	_single_player_theme_reroll_used = false
 	_single_player_theme_ad_reroll_used = false
 	super._start_single_player_popup_level(level_index)
@@ -9112,8 +9084,8 @@ func _animate_portrait_hint_counter_roll(hint_key: String, from_count: int, to_c
 		if _portrait_hint_counter_refresh_requested:
 			_refresh_portrait_game_hints_if_needed()
 		return
-	var holder: Control = button.get_meta(&"portrait_hint_counter_holder", null) as Control
-	var current_label: Label = button.get_meta(&"portrait_hint_counter_label", null) as Label
+	var holder: Control = _optional_node_meta(button, &"portrait_hint_counter_holder") as Control
+	var current_label: Label = _optional_node_meta(button, &"portrait_hint_counter_label") as Label
 	if holder == null or !is_instance_valid(holder) or current_label == null or !is_instance_valid(current_label):
 		_portrait_hint_counter_animation_active = false
 		if _portrait_hint_counter_refresh_requested:
@@ -9972,11 +9944,8 @@ func _create_portrait_icon_extrusion_layers(
 	var layers: Array[TextureRect] = []
 	if parent == null or !is_instance_valid(parent) or texture == null:
 		return layers
-	var shadow_material := ShaderMaterial.new()
-	shadow_material.shader = PORTRAIT_ICON_EXTRUSION_SHADER
 	var icon_shadow_base: Color = PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
-	shadow_material.set_shader_parameter(
-		"shadow_color",
+	var shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(
 		Color(
 			icon_shadow_base.r,
 			icon_shadow_base.g,
@@ -10114,9 +10083,7 @@ func _stage_portrait_hint_art(
 		0.70
 	)
 	if art != null and grayscale:
-		var grayscale_material := ShaderMaterial.new()
-		grayscale_material.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
-		art.material = grayscale_material
+		art.material = UI_MATERIALS.grayscale()
 
 func _portrait_hint_local_panel(
 	button: Control,
@@ -12075,9 +12042,8 @@ func _reveal_single_player_reward_continue_button(continue_button: Control) -> v
 		return
 	continue_button.set("disabled", false)
 	continue_button.set("attention_bounce_enabled", false)
-	var paired_back_button := continue_button.get_meta(
-		&"paired_failure_back_button",
-		null
+	var paired_back_button := _optional_node_meta(
+		continue_button, &"paired_failure_back_button"
 	) as Control
 	if paired_back_button != null and is_instance_valid(paired_back_button):
 		paired_back_button.visible = true
@@ -12330,7 +12296,7 @@ func _play_final_reward_pack_bounce(
 func _set_final_reward_collect_pressed(visual: Control, is_pressed: bool) -> void:
 	if visual == null or !is_instance_valid(visual) or !visual.is_inside_tree():
 		return
-	var previous_tween := visual.get_meta(&"final_reward_press_tween", null) as Tween
+	var previous_tween := _optional_node_meta(visual, &"final_reward_press_tween") as Tween
 	if previous_tween != null and previous_tween.is_valid():
 		previous_tween.kill()
 	var target_scale := Vector2.ONE * (0.93 if is_pressed else 1.0)
@@ -12931,7 +12897,7 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 	if clip_size.x <= 0.0 or clip_size.y <= 0.0:
 		return
 
-	var existing_tween: Tween = motion.get_meta("pattern_move_tween", null) as Tween
+	var existing_tween: Tween = _optional_node_meta(motion, "pattern_move_tween") as Tween
 	if existing_tween != null and is_instance_valid(existing_tween):
 		existing_tween.kill()
 	for child: Node in motion.get_children():
@@ -13136,9 +13102,7 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 	match action:
 		&"hint_open":
 			if GameSession.can_use_open_letter_hint_ad():
-				round_result_delay_requested = true
 				GameSession.use_open_letter_hint_ad()
-				round_result_delay_requested = false
 		&"hint_remove":
 			if GameSession.can_use_remove_wrong_hint_ad():
 				GameSession.use_remove_wrong_hint_ad()
@@ -13775,8 +13739,6 @@ func _show_single_player_reward_chain_screen() -> void:
 	# rewards expand away from it. Reward tiles now keep a fixed authored size; if
 	# a long chain does not fit fully on screen, outer tiles are allowed to run
 	# offscreen instead of shrinking.
-	var left_count: int = current_slot
-	var right_count: int = maxi(word_count - current_slot - 1, 0)
 	var node_gap: float = PORTRAIT_SINGLE_REWARD_NODE_GAP
 	var normal_node_size: float = PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE * PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE
 	var current_node_size: float = PORTRAIT_SINGLE_REWARD_NODE_MAX_SIZE * PORTRAIT_SINGLE_REWARD_CURRENT_NODE_SCALE
@@ -14775,9 +14737,7 @@ func _show_word_comment_popup() -> void:
 				(comment_theme_glow.get_parent() as CanvasItem).z_index = -2
 			comment_theme_glow.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.50)
 			var comment_theme_icon := _stage_texture(comment_theme_icon_rect, comment_theme_icon_texture)
-			var comment_theme_icon_grayscale := ShaderMaterial.new()
-			comment_theme_icon_grayscale.shader = PORTRAIT_HINT_USED_GRAYSCALE_SHADER
-			comment_theme_icon.material = comment_theme_icon_grayscale
+			comment_theme_icon.material = UI_MATERIALS.grayscale()
 			comment_theme_icon.z_index = -1
 	var comment_popup_title: String = (
 		Database.get_theme_name(GameSession.theme_id)

@@ -346,7 +346,9 @@ func _read_save_dictionary(path: String) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(text)
 	if !(parsed is Dictionary):
 		return {}
-	return Dictionary(parsed).duplicate(true)
+	# JSON.parse_string already owns a fresh tree. The load normalizers copy the
+	# sections they retain; validation of temporary/backup saves needs no copy.
+	return parsed
 
 func _normalize_settings(source: Variant) -> Array:
 	var result: Array = [1, 1, 2, 2, 2, 1]
@@ -957,10 +959,7 @@ func _normalize_word_flag_dictionary(source: Variant) -> Dictionary:
 
 func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionary:
 	var normalized := _normalize_word_flag_dictionary(source)
-	var allowed_keys: Dictionary = {}
-	for key: String in Database.get_word_progress_keys(theme_index):
-		if !key.is_empty():
-			allowed_keys[key] = true
+	var allowed_keys: Dictionary = Database.get_word_progress_key_set(theme_index)
 	for key_variant: Variant in normalized.keys():
 		if !allowed_keys.has(str(key_variant)):
 			normalized.erase(key_variant)

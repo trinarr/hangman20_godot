@@ -6,7 +6,15 @@ render_mode unshaded;
 // same project shadow color used by button/headline display text.
 uniform vec4 shadow_color : source_color = vec4(0.05, 0.08, 0.24, 0.72);
 
+varying float vertex_alpha;
+
+void vertex() {
+	vertex_alpha = COLOR.a;
+}
+
 void fragment() {
-	vec4 source = texture(TEXTURE, UV) * COLOR;
-	COLOR = vec4(shadow_color.rgb, source.a * shadow_color.a);
+	// Preserve the authored edge coverage (the previous TEXTURE * COLOR applied
+	// texture alpha twice), but sample the texture explicitly only once.
+	float alpha = texture(TEXTURE, UV).a;
+	COLOR = vec4(shadow_color.rgb, alpha * alpha * vertex_alpha * shadow_color.a);
 }

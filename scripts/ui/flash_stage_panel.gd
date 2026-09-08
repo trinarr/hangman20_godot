@@ -11,24 +11,30 @@ var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):
 var fill_color: Color = Color.WHITE:
 	set(value):
 		fill_color = value
+		_style_dirty = true
 		queue_redraw()
 
 var border_color: Color = Color(0.0, 0.0, 0.0, 0.0):
 	set(value):
 		border_color = value
+		_style_dirty = true
 		queue_redraw()
 
 var border_width: float = 0.0:
 	set(value):
 		border_width = value
+		_style_dirty = true
 		queue_redraw()
 
 var corner_radius: float = 0.0:
 	set(value):
 		corner_radius = value
+		_style_dirty = true
 		_sync_to_stage()
 
 var _fit_scale: float = 1.0
+var _style := StyleBoxFlat.new()
+var _style_dirty: bool = true
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -42,11 +48,16 @@ func _exit_tree() -> void:
 		get_viewport().size_changed.disconnect(_sync_to_stage)
 
 func _draw() -> void:
-	var target_rect := Rect2(Vector2.ZERO, size)
+	if _style_dirty:
+		_update_style()
+	draw_style_box(_style, Rect2(Vector2.ZERO, size))
+
+func _update_style() -> void:
+	_style_dirty = false
 	var radius: float = maxf(corner_radius, 0.0)
 	var scaled_border: float = maxf(border_width, 0.0)
 
-	var style: StyleBoxFlat = StyleBoxFlat.new()
+	var style: StyleBoxFlat = _style
 	style.bg_color = fill_color
 	var style_radius: int = int(round(radius))
 	style.corner_radius_top_left = style_radius
@@ -54,13 +65,11 @@ func _draw() -> void:
 	style.corner_radius_bottom_left = style_radius
 	style.corner_radius_bottom_right = style_radius
 	var solid_border: int = int(round(scaled_border))
-	if solid_border > 0:
-		style.border_color = border_color
-		style.border_width_left = solid_border
-		style.border_width_top = solid_border
-		style.border_width_right = solid_border
-		style.border_width_bottom = solid_border
-	draw_style_box(style, Rect2(Vector2.ZERO, size))
+	style.border_color = border_color
+	style.border_width_left = solid_border
+	style.border_width_top = solid_border
+	style.border_width_right = solid_border
+	style.border_width_bottom = solid_border
 
 func _sync_to_stage() -> void:
 	if !is_inside_tree():

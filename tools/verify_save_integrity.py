@@ -279,11 +279,7 @@ def main() -> None:
     )
     require(
         "_reset_single_player_extra_attempt_offers()" in prepare_attempt_offers
-        and "single_player_extra_attempt_offer_level_index = level_index"
-        in prepare_attempt_offers
-        and "single_player_extra_attempt_offer_level_index != level_index"
-        not in prepare_attempt_offers
-        and "if level_index >= 2:" not in prepare_attempt_offers,
+        and "\n\tif " not in prepare_attempt_offers,
         "Extra-attempt price/count progression is not reset for every new stage",
     )
     require(
@@ -319,10 +315,10 @@ def main() -> None:
         in attempt_popup
         and "popup_bottom,\n\t\t!free_offer," in attempt_popup
         and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store"),\n'
-        "\t\ttrue\n\t)" in attempt_popup
+        "\t\tfalse\n\t)" in attempt_popup
         and '"",\n\t\ttrue\n\t)' in attempt_popup
         and "if !free_offer:" in attempt_popup,
-        "The free extra-attempt popup is not compact, closable, green, and bouncing",
+        "The free extra-attempt popup must be compact, green, bouncing, closable by X, and ignore dimmer taps",
     )
     unhandled_input = function_body(main_source, "_unhandled_input")
     require(
@@ -364,7 +360,8 @@ def main() -> None:
         and "PORTRAIT_QUIZ_FAST_REWARD_STARS" in quiz_speed_reward
         and 'return "МОЛНИЕНОСНО!"' in quiz_feedback_text
         and 'return "LIGHTNING FAST!"' in quiz_feedback_text
-        and 'return "ВЕРНО!"' in quiz_feedback_text
+        and 'return "ВОТ ЭТО СКОРОСТЬ!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "ВЕРНО!"'
+        in quiz_feedback_text
         and "BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)"
         in function_body(portrait, "_style_quiz_feedback_label")
         and "speed_reward_amount" in quiz_answer_selected,

@@ -34,6 +34,8 @@ void fragment() {
 }
 """
 
+static var _shader: Shader = null
+
 static func create_layers(
 	parent: Control,
 	prefix: String,
@@ -43,23 +45,20 @@ static func create_layers(
 	if parent == null or !is_instance_valid(parent):
 		return layers
 
-	var shader := Shader.new()
-	shader.code = SHADER_CODE
+	if _shader == null:
+		_shader = Shader.new()
+		_shader.code = SHADER_CODE
 	var shadow_base: Color = UI_PALETTE.NAV_TEXT_SHADOW
+	# The four silhouettes have identical uniforms. Their offsets belong to the
+	# nodes, so one material per badge preserves their appearance and independence.
+	var shadow_material := ShaderMaterial.new()
+	shadow_material.shader = _shader
+	shadow_material.set_shader_parameter(
+		"shadow_color",
+		Color(shadow_base.r, shadow_base.g, shadow_base.b, SHADOW_ALPHA)
+	)
 
 	for layer_index: int in range(LAYER_COUNT):
-		var shadow_material := ShaderMaterial.new()
-		shadow_material.shader = shader
-		shadow_material.set_shader_parameter(
-			"shadow_color",
-			Color(
-				shadow_base.r,
-				shadow_base.g,
-				shadow_base.b,
-				SHADOW_ALPHA
-			)
-		)
-
 		var layer := ColorRect.new()
 		layer.name = "%sExtrusion%02d" % [prefix, layer_index + 1]
 		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -87,6 +86,12 @@ static func layout_layers(
 		panel_extent * SHADOW_OFFSET_X_RATIO,
 		SHADOW_OFFSET_X_MAX
 	)
+	# All layers created above share this material; update its geometry once.
+	if !layers.is_empty() and is_instance_valid(layers[0]):
+		var material := layers[0].material as ShaderMaterial
+		if material != null:
+			material.set_shader_parameter("panel_size", panel_size)
+			material.set_shader_parameter("corner_radius", corner_radius)
 
 	for layer_index: int in range(layers.size()):
 		var layer: ColorRect = layers[layer_index]
@@ -101,11 +106,6 @@ static func layout_layers(
 			shadow_depth * layer_t
 		)
 		layer.size = panel_size
-
-		var material := layer.material as ShaderMaterial
-		if material != null:
-			material.set_shader_parameter("panel_size", panel_size)
-			material.set_shader_parameter("corner_radius", corner_radius)
 
 static func set_visible(layers: Array, visible_value: bool) -> void:
 	for layer_variant: Variant in layers:

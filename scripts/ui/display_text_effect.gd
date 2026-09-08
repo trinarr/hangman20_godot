@@ -1,7 +1,7 @@
 class_name DisplayTextEffect
 extends Control
 
-const DISPLAY_TEXT_SHADER: Shader = preload("res://shaders/display_text_outline_shadow.gdshader")
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
 # Subway-style display treatment: the outline stays proportional to the text,
 # but is much tighter than the previous heavy 3D treatment.
@@ -36,6 +36,8 @@ var _shadow_offset_x: float = 0.0
 var _shadow_offset_scale: float = 1.0
 var _outline_scale: float = 1.0
 var _shadow_spread_scale: float = 1.0
+var _sync_queued: bool = false
+var _last_signature: Array = []
 
 static func attach(
 	target: Control,
@@ -70,51 +72,53 @@ func configure(
 	outline_scale: float = 1.0,
 	shadow_spread_scale: float = 1.0
 ) -> void:
+	if _target != target and is_instance_valid(_target):
+		_disconnect_target()
 	_target = target
 	_outline_color = outline_color
 	_shadow_color = shadow_color
 	_shadow_offset_scale = maxf(shadow_offset_scale, 0.0)
 	_outline_scale = maxf(outline_scale, 0.0)
 	_shadow_spread_scale = maxf(shadow_spread_scale, 0.0)
-	if !_target.resized.is_connected(_sync_all):
-		_target.resized.connect(_sync_all)
+	# Label has no text_changed signal. draw also catches equal-width text
+	# replacements, alignment changes, and Button.disabled, which need not resize
+	# the control. These signals fire on invalidation, not on every rendered frame.
+	for signal_name: StringName in [&"resized", &"minimum_size_changed", &"theme_changed", &"draw", &"visibility_changed"]:
+		if !_target.is_connected(signal_name, _queue_sync):
+			_target.connect(signal_name, _queue_sync)
+	_last_signature.clear()
 	_ensure_nodes()
 	_sync_all()
 	if is_inside_tree():
-		call_deferred("_sync_all")
+		_queue_sync()
+
+func _disconnect_target() -> void:
+	for signal_name: StringName in [&"resized", &"minimum_size_changed", &"theme_changed", &"draw", &"visibility_changed"]:
+		if _target.is_connected(signal_name, _queue_sync):
+			_target.disconnect(signal_name, _queue_sync)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	show_behind_parent = false
 	z_index = 1
-	set_process(true)
+	set_process(false)
 	_ensure_nodes()
 	_sync_all()
 
-func _process(_delta: float) -> void:
-	if _target == null or !is_instance_valid(_target):
-		queue_free()
+func _queue_sync() -> void:
+	if _sync_queued or !is_inside_tree():
 		return
-	if _main_label == null or !is_instance_valid(_main_label):
-		_sync_all()
-		return
+	_sync_queued = true
+	call_deferred("_flush_sync")
 
-	var expected_text: String = _target_text()
-	var expected_font_size: int = _target.get_theme_font_size("font_size")
-	var expected_font: Font = _target.get_theme_font("font")
-	var expected_color: Color = _target_font_color()
-	if (
-		_main_label.text != expected_text
-		or _main_label.get_theme_font_size("font_size") != expected_font_size
-		or _main_label.get_theme_font("font") != expected_font
-		or _main_label.get_theme_color("font_color") != expected_color
-	):
+func _flush_sync() -> void:
+	_sync_queued = false
+	if is_inside_tree():
 		_sync_all()
 
 func _ensure_nodes() -> void:
 	if _shadow_material == null:
-		_shadow_material = ShaderMaterial.new()
-		_shadow_material.shader = DISPLAY_TEXT_SHADER
+		_shadow_material = UI_MATERIALS.text_shadow(_shadow_color)
 
 	while _shadow_labels.size() < SHADOW_LAYER_COUNT:
 		var shadow_label := Label.new()
@@ -128,6 +132,7 @@ func _ensure_nodes() -> void:
 		shadow_label.add_theme_constant_override("shadow_offset_x", 0)
 		shadow_label.add_theme_constant_override("shadow_offset_y", 0)
 		shadow_label.add_theme_constant_override("shadow_outline_size", 0)
+		shadow_label.minimum_size_changed.connect(_queue_sync)
 		add_child(shadow_label)
 		_shadow_labels.append(shadow_label)
 
@@ -140,11 +145,47 @@ func _ensure_nodes() -> void:
 		_main_label.add_theme_constant_override("shadow_offset_x", 0)
 		_main_label.add_theme_constant_override("shadow_offset_y", 0)
 		_main_label.add_theme_constant_override("shadow_outline_size", 0)
+		_main_label.minimum_size_changed.connect(_queue_sync)
 		add_child(_main_label)
 
 func _sync_all() -> void:
+	if !is_instance_valid(_target):
+		return
+	var signature: Array = [
+		_target_text(), _target.size, _target.get_theme_font("font"),
+		_target.get_theme_font_size("font_size"), _target_font_color(),
+		_outline_color, _shadow_color, _shadow_offset_scale,
+		_outline_scale, _shadow_spread_scale,
+	]
+	if _target is Label:
+		var label := _target as Label
+		signature.append_array([
+			label.horizontal_alignment, label.vertical_alignment, label.autowrap_mode,
+			label.text_overrun_behavior, label.clip_text, label.max_lines_visible,
+			label.lines_skipped, label.text_direction, label.language,
+		])
+	elif _target is Button:
+		var button := _target as Button
+		signature.append_array([
+			button.alignment, button.clip_text, button.text_direction, button.language,
+		])
+	if signature == _last_signature:
+		_sync_layer_sizes()
+		return
+	_last_signature = signature
 	_sync_effect_metrics()
 	_sync_from_target()
+
+func _sync_layer_sizes() -> void:
+	# Wrapped Labels update their minimum height after shaping. The first size
+	# assignment can therefore be clamped to the old, narrow-width text layout.
+	# When that minimum settles, restore the authored bounds even if the target
+	# signature has not changed. Otherwise centered/bottom-aligned text drifts.
+	for shadow_label: Label in _shadow_labels:
+		if is_instance_valid(shadow_label) and shadow_label.size != _target.size:
+			shadow_label.size = _target.size
+	if is_instance_valid(_main_label) and _main_label.size != _target.size:
+		_main_label.size = _target.size
 
 func _target_text() -> String:
 	if _target is Label:
@@ -194,10 +235,11 @@ func _sync_from_target() -> void:
 		return
 	_ensure_nodes()
 
-	_shadow_material.set_shader_parameter("shadow_color", _shadow_color)
+	_shadow_material = UI_MATERIALS.text_shadow(_shadow_color)
 	var base_position := Vector2.ONE * _effect_margin
 	for index: int in range(_shadow_labels.size()):
 		var shadow_label: Label = _shadow_labels[index]
+		shadow_label.material = _shadow_material
 		_copy_text_layout(_target, shadow_label)
 		# Pack the four silhouettes into one short lower edge. These authored
 		# depths keep the first layers close to the glyph and the last layer at

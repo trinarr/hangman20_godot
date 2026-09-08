@@ -29,7 +29,6 @@ THEME_SCIENCE,НАУКА,SCIENCE
 THEME_HISTORY,ИСТОРИЯ,HISTORY
 THEME_GENERAL,ОБЩЕЕ,GENERAL
 THEME_FILM_MUSIC,КИНО И МУЗЫКА,FILM AND MUSIC
-COMMENT,Комментарий,Comment
 CATEGORY_COMPLETED,Тема завершена!,Category is completed!
 CHECK_WORD,Проверить слово,Check the word
 VIBRATION,Вибрация,Vibration
@@ -50,7 +49,6 @@ COINS_EARNED,Монеты: +%d,Coins: +%d
 DIFFICULTY_HARD_MODE,Сложный режим,Hard mode
 DIFFICULTY_NORMAL_MODE,Обычный режим,Normal mode
 LEVEL_LABEL,Уровень,Level
-CHALLENGE_LEVEL_LABEL,Сложный уровень,Challenge level
 CHALLENGE_SHORT_LABEL,Сложный,Hard
 LEVEL_FAILURE,НЕУДАЧА,FAILURE
 LEVEL_COMPLETED_BONUS,Уровень пройден! Бонус: +%d,Level completed! Bonus: +%d

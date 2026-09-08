@@ -5,7 +5,7 @@ const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
-const ICON_EXTRUSION_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
 const ICON_SHADOW_DEPTH_RATIO: float = 0.055
 const ICON_SHADOW_DEPTH_MIN: float = 1.5
@@ -202,7 +202,6 @@ var _icon_rect: TextureRect = null
 var _trailing_icon_shadow_layers: Array[TextureRect] = []
 var _trailing_icon_shadow_material: ShaderMaterial = null
 var _trailing_icon_rect: TextureRect = null
-var _use_normal_parts_when_disabled: bool = false
 var _attention_bounce_tween: Tween = null
 var _single_attention_shine_tween: Tween = null
 
@@ -407,7 +406,6 @@ func configure(text_value: String, font_size_value: int = 20, disabled_value: bo
 	button_text = text_value
 	button_font_size = font_size_value
 	disabled_overlay_alpha = disabled_overlay_alpha_value
-	_use_normal_parts_when_disabled = use_normal_texture_when_disabled
 	selected = selected_value
 	button_disabled = disabled_value
 	_ensure_label()
@@ -448,17 +446,13 @@ func _create_icon_shadow_layers(prefix: String, material: ShaderMaterial) -> Arr
 func _ensure_icon_shadow_layers() -> void:
 	if !_icon_shadow_layers.is_empty():
 		return
-	_icon_shadow_material = ShaderMaterial.new()
-	_icon_shadow_material.shader = ICON_EXTRUSION_SHADER
-	_icon_shadow_material.set_shader_parameter("shadow_color", UI_PALETTE.NAV_TEXT_SHADOW)
+	_icon_shadow_material = UI_MATERIALS.icon_shadow(UI_PALETTE.NAV_TEXT_SHADOW)
 	_icon_shadow_layers = _create_icon_shadow_layers("Icon", _icon_shadow_material)
 
 func _ensure_trailing_icon_shadow_layers() -> void:
 	if !_trailing_icon_shadow_layers.is_empty():
 		return
-	_trailing_icon_shadow_material = ShaderMaterial.new()
-	_trailing_icon_shadow_material.shader = ICON_EXTRUSION_SHADER
-	_trailing_icon_shadow_material.set_shader_parameter("shadow_color", UI_PALETTE.NAV_TEXT_SHADOW)
+	_trailing_icon_shadow_material = UI_MATERIALS.icon_shadow(UI_PALETTE.NAV_TEXT_SHADOW)
 	_trailing_icon_shadow_layers = _create_icon_shadow_layers("TrailingIcon", _trailing_icon_shadow_material)
 
 func _set_icon_shadow_layers_state(

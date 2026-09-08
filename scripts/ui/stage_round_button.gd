@@ -5,7 +5,7 @@ const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
-const ICON_EXTRUSION_SHADER: Shader = preload("res://shaders/hint_icon_extrusion_shadow.gdshader")
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
@@ -60,8 +60,6 @@ const GREEN_SELECTED_TINT := UI_PALETTE.SUCCESS_SELECTED
 const BLUE_NORMAL_TINT := UI_PALETTE.BUTTON_BLUE
 const BLUE_PRESSED_TINT := UI_PALETTE.BUTTON_BLUE_PRESSED
 const BLUE_SELECTED_TINT := UI_PALETTE.BUTTON_BLUE_SELECTED
-const BLUE_ICON_OUTLINE_COLOR := UI_PALETTE.BUTTON_BLUE_OUTLINE
-const DEFAULT_ICON_OUTLINE_COLOR := UI_PALETTE.UI_BLUE
 const ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
 const ICON_SHADOW_DEPTH_RATIO: float = 0.055
 const ICON_SHADOW_DEPTH_MIN: float = 1.5
@@ -107,16 +105,6 @@ var icon_stage_offset: Vector2 = Vector2.ZERO:
 var icon_color: Color = Color.WHITE:
 	set(value):
 		icon_color = value
-		_sync_visuals()
-
-var icon_outline_color: Color = DEFAULT_ICON_OUTLINE_COLOR:
-	set(value):
-		icon_outline_color = value
-		_sync_visuals()
-
-var icon_outline_size: int = 3:
-	set(value):
-		icon_outline_size = value
 		_sync_visuals()
 
 var icon_modulate: Color = Color.WHITE:
@@ -288,9 +276,7 @@ func configure_texture(texture_value: Texture2D, stage_size_value: Vector2, disa
 func _ensure_icon_shadow_layers() -> void:
 	if !_icon_shadow_layers.is_empty():
 		return
-	_icon_shadow_material = ShaderMaterial.new()
-	_icon_shadow_material.shader = ICON_EXTRUSION_SHADER
-	_icon_shadow_material.set_shader_parameter("shadow_color", UI_PALETTE.NAV_TEXT_SHADOW)
+	_icon_shadow_material = UI_MATERIALS.icon_shadow(UI_PALETTE.NAV_TEXT_SHADOW)
 	for layer_index: int in range(ICON_SHADOW_LAYER_T.size()):
 		var layer := TextureRect.new()
 		layer.name = "IconExtrusion%02d" % (layer_index + 1)
@@ -361,22 +347,15 @@ func set_color_preset(preset: int) -> void:
 	match preset:
 		ColorPreset.GREEN:
 			color_preset = ColorPreset.GREEN
-			_apply_icon_outline_style(DEFAULT_ICON_OUTLINE_COLOR, 3)
 			_apply_color_palette(GREEN_NORMAL_TINT, GREEN_PRESSED_TINT, GREEN_SELECTED_TINT)
 		ColorPreset.BLUE:
 			color_preset = ColorPreset.BLUE
-			_apply_icon_outline_style(BLUE_ICON_OUTLINE_COLOR, 4)
 			_apply_color_palette(BLUE_NORMAL_TINT, BLUE_PRESSED_TINT, BLUE_SELECTED_TINT)
 		ColorPreset.CUSTOM:
 			color_preset = ColorPreset.CUSTOM
 		_:
 			color_preset = ColorPreset.ORANGE
-			_apply_icon_outline_style(DEFAULT_ICON_OUTLINE_COLOR, 3)
 			_apply_color_palette(ORANGE_NORMAL_TINT, ORANGE_PRESSED_TINT, ORANGE_SELECTED_TINT)
-
-func _apply_icon_outline_style(color: Color, size_value: int) -> void:
-	icon_outline_color = color
-	icon_outline_size = size_value
 
 func set_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color = ORANGE_SELECTED_TINT) -> void:
 	color_preset = ColorPreset.CUSTOM

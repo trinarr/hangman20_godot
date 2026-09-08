@@ -32,6 +32,10 @@ const ROBOTO_FLEX_THICK_STROKE: float = 80.0
 # separate from heading sizing so page/popup titles are not enlarged.
 const DISPLAY_BUTTON_FONT_SCALE: float = 1.25
 
+# A font profile is immutable at runtime. All labels/buttons using the same
+# axes can share one variation instead of creating one for every new widget.
+static var _variations: Dictionary = {}
+
 static func display_button_font_size(font_size: int) -> int:
 	return maxi(1, int(round(float(font_size) * DISPLAY_BUTTON_FONT_SCALE)))
 
@@ -41,6 +45,9 @@ static func _roboto_flex_font(
 	grade: float,
 	thin_stroke: float
 ) -> Font:
+	var profile := Vector4(weight, width, grade, thin_stroke)
+	if _variations.has(profile):
+		return _variations[profile] as Font
 	if !ResourceLoader.exists(ROBOTO_FLEX_PATH):
 		return FALLBACK_DISPLAY_FONT
 	var loaded_resource: Resource = ResourceLoader.load(ROBOTO_FLEX_PATH)
@@ -57,6 +64,7 @@ static func _roboto_flex_font(
 		text_server.name_to_tag("XOPQ"): ROBOTO_FLEX_THICK_STROKE,
 		text_server.name_to_tag("YOPQ"): thin_stroke,
 	}
+	_variations[profile] = variation
 	return variation
 
 static func display_font() -> Font:

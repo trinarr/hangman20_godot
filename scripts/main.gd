@@ -172,13 +172,11 @@ var single_player_popup_theme_panels: Dictionary = {}
 var single_player_popup_stage_content: Control = null
 var single_player_popup_theme_card_nodes: Array[Node] = []
 var single_player_popup_play_button: Control = null
-var single_player_popup_refresh_price_label: Label = null
 var single_player_popup_return_to_menu_on_close: bool = false
 var single_player_retry_after_loss: bool = false
 var single_player_extra_attempt_offer_count: int = 0
 var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 var single_player_extra_attempt_current_count: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
-var single_player_extra_attempt_offer_level_index: int = -1
 var single_player_extra_attempt_claim_in_progress: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
@@ -204,11 +202,9 @@ var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
-var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
-var currency_balance_label: Label = null
 var stars_balance_label: Label = null
 var heart_count_label: Label = null
 var heart_status_label: Label = null
@@ -455,12 +451,10 @@ func _clear() -> void:
 	custom_word_color_generation += 1
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
-	round_result_delay_requested = false
 	_clear_hero_animation_overlay()
 	_cancel_custom_word_check()
 	custom_word_check_button = null
 	custom_word_start_button = null
-	currency_balance_label = null
 	stars_balance_label = null
 	heart_count_label = null
 	heart_status_label = null
@@ -1583,7 +1577,6 @@ func _remove_single_player_theme_popup() -> void:
 	single_player_popup_theme_panels.clear()
 	single_player_popup_stage_content = null
 	single_player_popup_play_button = null
-	single_player_popup_refresh_price_label = null
 	single_player_popup_return_to_menu_on_close = false
 
 func _close_single_player_theme_popup_to_menu() -> void:
@@ -1917,12 +1910,10 @@ func _reset_single_player_extra_attempt_offers() -> void:
 	single_player_extra_attempt_offer_count = 0
 	single_player_extra_attempt_current_cost = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 	single_player_extra_attempt_current_count = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
-	single_player_extra_attempt_offer_level_index = -1
 
-func _prepare_single_player_extra_attempt_offers(level_index: int) -> void:
+func _prepare_single_player_extra_attempt_offers(_level_index: int) -> void:
 	# Every word/quiz stage starts its own offer progression.
 	_reset_single_player_extra_attempt_offers()
-	single_player_extra_attempt_offer_level_index = level_index
 
 func _grant_single_player_extra_attempt() -> void:
 	# A reaction overlay from the previous wrong guess can still be playing under
@@ -2062,7 +2053,6 @@ func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 
 func _discard_round_for_navigation() -> void:
 	result_transition_generation += 1
-	round_result_delay_requested = false
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
@@ -2113,7 +2103,6 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 	# Preserve every earlier status so the reward chain can show its existing checks
 	# together with a cross on the stage that the player abandoned.
 	result_transition_generation += 1
-	round_result_delay_requested = false
 	var should_lose_heart: bool = false
 	var has_stage_failure: bool = false
 	if (
@@ -2651,9 +2640,7 @@ func _press_letter(letter: String) -> void:
 		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and GameSession.get_remaining_attempts() == 1
 	)
-	round_result_delay_requested = true
 	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
-	round_result_delay_requested = false
 	if guess_is_available:
 		_play_letter_feedback_sound(guess_was_correct)
 	if GameSession.has_deferred_loss():
@@ -2673,9 +2660,7 @@ func _use_open_hint() -> void:
 		return
 	# If the hint reveals the final letter, keep the gameplay screen visible long
 	# enough for the standard circle-and-bounce feedback to finish.
-	round_result_delay_requested = true
 	GameSession.use_open_letter_hint()
-	round_result_delay_requested = false
 
 func _use_remove_hint() -> void:
 	if !_can_activate_hint(GameState.HINT_REMOVE_WRONG, GameSession.can_use_remove_wrong_hint()):
