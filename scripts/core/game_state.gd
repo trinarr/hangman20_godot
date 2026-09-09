@@ -683,6 +683,7 @@ func _compact_single_player_history() -> void:
 			"theme_reroll_states",
 			"level_question_slots",
 			"level_question_ids",
+			"level_word_assignments",
 		]:
 			var values_variant: Variant = bucket.get(field_name, {})
 			if !(values_variant is Dictionary):
@@ -952,7 +953,7 @@ func _normalize_word_flag_dictionary(source: Variant) -> Dictionary:
 	if source is Dictionary:
 		for key_variant: Variant in (source as Dictionary).keys():
 			if bool((source as Dictionary).get(key_variant, false)):
-				var key: String = str(key_variant).strip_edges()
+				var key: String = Database.word_progress_key_from_text(str(key_variant).strip_edges())
 				if !key.is_empty():
 					result[key] = true
 	return result
@@ -965,10 +966,38 @@ func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionar
 			normalized.erase(key_variant)
 	return normalized
 
+func _migrate_word_aliases_in_stats(stats: Dictionary) -> void:
+	if int(stats.get("_word_catalog_version", 0)) >= 3:
+		return
+	var aliases: Dictionary = Database.get_word_progress_alias_themes()
+	for theme_key: Variant in stats.keys():
+		if !(stats[theme_key] is Dictionary):
+			continue
+		var source: Dictionary = stats[theme_key]
+		for field: String in ["played", "guessed"]:
+			if !(source.get(field) is Dictionary):
+				continue
+			var flags: Dictionary = source[field]
+			for old_key: Variant in flags.keys():
+				var normalized: String = Database.normalize_loaded_word(str(old_key))
+				if !aliases.has(normalized):
+					continue
+				if bool(flags[old_key]):
+					var target_theme: String = str(int(aliases[normalized]))
+					if !(stats.get(target_theme) is Dictionary):
+						stats[target_theme] = {}
+					var target: Dictionary = stats[target_theme]
+					if !(target.get(field) is Dictionary):
+						target[field] = {}
+					target[field][Database.word_progress_key_from_text(normalized)] = true
+				flags.erase(old_key)
+	stats["_word_catalog_version"] = 3
+
 func ensure_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
 	if !progress.has(lang_key) or !(progress[lang_key] is Dictionary):
 		progress[lang_key] = {}
+	_migrate_word_aliases_in_stats(progress[lang_key])
 	var theme_key := _theme_progress_key(theme_index)
 	if theme_key.is_empty():
 		return {"played": {}, "guessed": {}}
@@ -1030,6 +1059,7 @@ func _new_single_player_bucket() -> Dictionary:
 		"word_stats": {},
 		"level_question_slots": {},
 		"level_question_ids": {},
+		"level_word_assignments": {},
 		"question_stats": {},
 	}
 
@@ -1046,6 +1076,7 @@ func _single_player_bucket(lang: String) -> Dictionary:
 		"word_stats",
 		"level_question_slots",
 		"level_question_ids",
+		"level_word_assignments",
 		"question_stats",
 	]:
 		if !bucket.has(dictionary_key) or !(bucket[dictionary_key] is Dictionary):
@@ -1075,6 +1106,7 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var word_stats: Dictionary = bucket["word_stats"]
+	_migrate_word_aliases_in_stats(word_stats)
 	var theme_key := _theme_progress_key(theme_index)
 	if theme_key.is_empty():
 		return {"played": {}, "guessed": {}}
@@ -1128,6 +1160,18 @@ func set_single_level_question_slot(lang: String, level_index: int, question_slo
 	single_player[lang_key] = bucket
 	if persist:
 		save_game()
+
+# Only the completed prefix and the currently offered stage are committed.
+# Later stages are selected again using the latest shared adaptive difficulty.
+func get_single_level_word_assignments(lang: String, level_index: int) -> Array:
+	var bucket := _single_player_bucket(lang)
+	var source: Variant = bucket["level_word_assignments"].get(str(level_index), [])
+	return Array(source).duplicate(true) if source is Array else []
+
+func set_single_level_word_assignments(lang: String, level_index: int, words: Array) -> void:
+	var bucket := _single_player_bucket(lang)
+	bucket["level_word_assignments"][str(level_index)] = words.duplicate(true)
+	save_game()
 
 func get_single_level_question_id(lang: String, level_index: int) -> int:
 	if level_index < 0:
@@ -1400,7 +1444,7 @@ func mark_single_level_word_played(
 ) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
-	if word_slot >= 0 and word_slot < statuses.size():
+	if was_unplayed:
 		statuses[word_slot] = 1 if is_win else 2
 	var completed: bool = is_single_level_completed(lang, level_index, word_count, difficulty)
 	var perfect: bool = is_single_level_perfect(lang, level_index, word_count, difficulty)
@@ -1413,28 +1457,22 @@ func mark_single_level_word_played(
 	var difficulty_before: float = get_single_player_adaptive_difficulty(lang_key)
 	var difficulty_after: float = difficulty_before
 	var difficulty_delta: float = 0.0
-	if was_unplayed and is_win and completed:
-		# Finishing the last stage completes the level even when an earlier stage
-		# was lost. Keep its final reward, but raise adaptive difficulty only after
-		# a perfect chain.
-		if perfect:
-			var win_streak: int = int(bucket.get("win_streak", 0)) + 1
-			difficulty_delta = GAME_DESIGN.difficulty_win_increase(
-				difficulty_before,
-				win_streak
-			)
-			difficulty_after = clampf(
-				difficulty_before + difficulty_delta,
-				SINGLE_PLAYER_DIFFICULTY_MIN,
-				SINGLE_PLAYER_DIFFICULTY_MAX
-			)
-			bucket["adaptive_difficulty"] = difficulty_after
-			bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
-			bucket["win_streak"] = win_streak
-			bucket["loss_streak"] = 0
-		completion_bonus = _single_player_level_completion_bonus(word_count)
-		if award_completion_bonus:
-			add_soft_currency(completion_bonus, false)
+	if was_unplayed and is_win:
+		var win_streak: int = int(bucket.get("win_streak", 0)) + 1
+		difficulty_delta = GAME_DESIGN.difficulty_win_increase(difficulty_before, win_streak)
+		difficulty_after = clampf(
+			difficulty_before + difficulty_delta,
+			SINGLE_PLAYER_DIFFICULTY_MIN,
+			SINGLE_PLAYER_DIFFICULTY_MAX
+		)
+		bucket["adaptive_difficulty"] = difficulty_after
+		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
+		bucket["win_streak"] = win_streak
+		bucket["loss_streak"] = 0
+		if completed:
+			completion_bonus = _single_player_level_completion_bonus(word_count)
+			if award_completion_bonus:
+				add_soft_currency(completion_bonus, false)
 	elif was_unplayed and !is_win:
 		if failure_affects_difficulty:
 			var loss_streak: int = int(bucket.get("loss_streak", 0)) + 1
@@ -1450,7 +1488,8 @@ func mark_single_level_word_played(
 			bucket["loss_streak"] = loss_streak
 		else:
 			bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
-	if completed and level_index >= unlocked_level:
+	difficulty_delta = difficulty_after - difficulty_before
+	if was_unplayed and completed and level_index >= unlocked_level:
 		bucket["unlocked_level"] = level_index + 1
 		unlocked_next = true
 	single_player[lang_key] = bucket
@@ -1516,6 +1555,7 @@ func reset_single_level_attempt(
 	selected_themes.erase(level_key)
 	level_question_slots.erase(level_key)
 	level_question_ids.erase(level_key)
+	bucket["level_word_assignments"].erase(level_key)
 	if reroll_seed:
 		level_seeds.erase(level_key)
 	if clear_theme_reroll_state:

@@ -501,6 +501,7 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 		words = Array(data["words"].get(data_theme_id, []))
 
 	var filtered: Array = []
+	var ids: Array = data.get("ids", {}).get(data_theme_id, [])
 	for i in range(words.size()):
 		var word := normalize_loaded_word(str(words[i]))
 		if word == "" or word == "_":
@@ -513,7 +514,8 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 				continue
 			if difficulty_filter == 2 and diff > DIFFICULTY_SPLIT:
 				continue
-		filtered.append({"text": word, "index": i, "difficulty": diff})
+		filtered.append({"text": word, "index": i, "difficulty": diff,
+			"id": str(ids[i]) if i < ids.size() else ""})
 	_words_by_index_cache[cache_key] = filtered
 	return filtered
 
@@ -577,11 +579,14 @@ func get_word_progress_key_set(theme_index: int) -> Dictionary:
 	get_word_progress_keys(theme_index)
 	return _word_progress_key_sets[theme_index]
 
+func get_word_progress_alias_themes() -> Dictionary:
+	_ensure_word_language_loaded()
+	return data.get("progress_alias_themes", {})
+
 func word_progress_key_from_text(word: String) -> String:
-	# The normalized word itself is the stable content identity. Reordering the
-	# database no longer moves progress to a different entry; editing/removing one
-	# word only retires that word's key instead of shifting every later flag.
-	return normalize_loaded_word(word)
+	_ensure_word_language_loaded()
+	var normalized: String = normalize_loaded_word(word)
+	return str(data.get("progress_aliases", {}).get(normalized, normalized))
 
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	_ensure_word_language_loaded()

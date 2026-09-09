@@ -9417,6 +9417,20 @@ func _stage_portrait_word_slots(
 	var underline_width: float = 30.0 * scale
 	var underline_height: float = max(3.0, 4.0 * scale)
 	var effective_font_size: int = maxi(24, int(round(font_size * max(scale, 0.82))))
+	# A twenty-letter answer may need narrower slots than the old minimum font
+	# allowed. Fit the widest glyph before creating labels, preserving one size
+	# across the whole answer and the existing size whenever it already fits.
+	var widest_glyph: float = 0.0
+	for item: Dictionary in layout:
+		if !bool(item["is_space"]):
+			widest_glyph = maxf(widest_glyph, UI_HEADING_FONT.get_string_size(
+				str(item["letter"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, effective_font_size
+			).x)
+	var glyph_width_limit: float = base_slot_width * scale
+	if widest_glyph > glyph_width_limit:
+		effective_font_size = maxi(12, int(floor(
+			float(effective_font_size) * glyph_width_limit / widest_glyph
+		)))
 	var start_x: float = rect.position.x + (rect.size.x - total_width * scale) * 0.5
 	var baseline_y: float = rect.position.y + rect.size.y - 8.0
 	var x: float = start_x

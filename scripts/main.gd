@@ -1070,6 +1070,12 @@ func _single_player_slot_difficulty(target_difficulty: float, word_slot: int, wo
 		GameState.SINGLE_PLAYER_DIFFICULTY_MAX
 	)
 
+func _single_player_first_unplayed_slot(level_index: int, word_count: int) -> int:
+	for slot: int in range(word_count):
+		if GameState.get_single_level_word_status(Database.current_language, level_index, slot, word_count) == 0:
+			return slot
+	return word_count
+
 func _single_player_words_for_theme(
 	level_index: int,
 	level_seed: int,
@@ -1091,7 +1097,34 @@ func _single_player_words_for_theme(
 	var guessed_keys: Dictionary = theme_progress.get("guessed", {})
 	var progress_word_keys: Array[String] = Database.get_word_progress_keys(theme_index)
 	var words: Array = []
+	var saved: Array = GameState.get_single_level_word_assignments(Database.current_language, level_index)
+	var first_unplayed: int = _single_player_first_unplayed_slot(level_index, word_count)
 	for word_slot in range(mini(word_count, candidates.size())):
+		# A saved assignment survives cache invalidation, a restart, and row reordering.
+		if word_slot < saved.size() and saved[word_slot] is Dictionary:
+			var previous: Dictionary = saved[word_slot]
+			if int(previous.get("theme_index", -1)) == theme_index:
+				var found: int = -1
+				for candidate_index: int in range(candidates.size()):
+					var candidate: Dictionary = candidates[candidate_index]
+					if (
+						(!str(previous.get("id", "")).is_empty() and candidate.get("id", "") == previous.get("id"))
+						or Database.word_progress_key_from_text(str(candidate.get("text", ""))) == Database.word_progress_key_from_text(str(previous.get("text", "")))
+					):
+						found = candidate_index
+						break
+				if found >= 0:
+					var candidate: Dictionary = candidates[found]
+					previous["word_index"] = candidate["index"]
+					previous["text"] = candidate["text"]
+					previous["id"] = candidate.get("id", "")
+					candidates.remove_at(found)
+					words.append(previous)
+					continue
+				elif word_slot < first_unplayed:
+					# Completed history may contain a word removed in a content update.
+					words.append(previous)
+					continue
 		var slot_target: float = _single_player_slot_difficulty(target_difficulty, word_slot, word_count)
 		var picked_pool_index: int = -1
 		var picked_score: float = INF
@@ -1121,12 +1154,16 @@ func _single_player_words_for_theme(
 		var picked: Dictionary = candidates[picked_pool_index]
 		candidates.remove_at(picked_pool_index)
 		words.append({
+			"id": str(picked.get("id", "")),
 			"theme_index": theme_index,
 			"word_index": int(picked.get("index", 0)),
 			"text": str(picked.get("text", "")),
 			"difficulty": float(picked.get("difficulty", 0.0)),
 			"target_difficulty": slot_target,
 		})
+	var committed: Array = words.slice(0, mini(first_unplayed + 1, words.size()))
+	if committed != saved:
+		GameState.set_single_level_word_assignments(Database.current_language, level_index, committed)
 	return words
 
 func _single_player_level_question_slot(level_index: int, level_seed: int, word_count: int) -> int:
@@ -1176,7 +1213,8 @@ func _single_player_pick_level_question(
 	level_index: int,
 	level_seed: int,
 	theme_index: int,
-	target_difficulty: float
+	target_difficulty: float,
+	persist_selection: bool = true
 ) -> Dictionary:
 	var resolved_target_difficulty: float = minf(
 		clampf(target_difficulty, 0.0, 1.0),
@@ -1229,7 +1267,7 @@ func _single_player_pick_level_question(
 		return {}
 	var picked_question: Dictionary = best_question.duplicate(true)
 	var picked_id: int = int(picked_question.get("id", -1))
-	if picked_id >= 0:
+	if picked_id >= 0 and persist_selection:
 		GameState.set_single_level_question_id(
 			Database.current_language,
 			level_index,
@@ -1255,7 +1293,7 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var level_key := str(level_index)
 	if single_player_level_definitions_cache.has(level_key):
 		var cached: Variant = single_player_level_definitions_cache[level_key]
-		if cached is Dictionary:
+		if cached is Dictionary and int(cached.get("selection_stage", -1)) == _single_player_first_unplayed_slot(level_index, _single_player_level_word_target(level_index)):
 			return cached
 	if theme_count <= 0:
 		return {}
@@ -1298,19 +1336,21 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		if question_slot >= 0 and question_slot < words.size():
 			var replaced_word: Dictionary = words[question_slot]
 			question_target_difficulty = minf(
-				float(replaced_word.get("difficulty", target_difficulty)),
+				float(replaced_word.get("target_difficulty", target_difficulty)),
 				SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
 			)
 			question = _single_player_pick_level_question(
 				level_index,
 				level_seed,
 				selected_theme,
-				question_target_difficulty
+				question_target_difficulty,
+				question_slot <= _single_player_first_unplayed_slot(level_index, word_count)
 			)
 		if question.is_empty():
 			question_slot = -1
 	var level_data := {
 		"index": level_index,
+		"selection_stage": _single_player_first_unplayed_slot(level_index, word_count),
 		"theme_options": options,
 		"selected_theme_index": selected_theme,
 		"word_count": word_count,
