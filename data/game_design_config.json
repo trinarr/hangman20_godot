@@ -276,7 +276,7 @@
         "feedback_grow_seconds": 0.16,
         "feedback_settle_seconds": 0.22,
         "fast_reward_fade_seconds": 0.18,
-        "feedback_hold_seconds": 1.0,
+        "feedback_hold_seconds": 0.7,
         "feedback_exit_peak_scale": 1.08,
         "feedback_exit_grow_seconds": 0.1,
         "feedback_exit_hide_seconds": 0.16,

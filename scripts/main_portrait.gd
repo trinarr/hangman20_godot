@@ -133,6 +133,17 @@ const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 646.0, 280.5, 70.4)
 const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
+# Primary bottom CTA width is based on the current two-player Start button after
+# footer sizing, then enlarged by 15%. Reuse the resolved width for screen-level
+# Continue buttons so the main action has one consistent visual length.
+const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH_SCALE: float = 1.15
+const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH: float = (
+	PORTRAIT_LONG_BUTTON_SIZE.x
+	* PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE
+	* PORTRAIT_FOOTER_CONTROL_SCALE
+	* PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH_SCALE
+)
+const PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE: int = 19
 const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
@@ -660,7 +671,7 @@ var PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_fl
 	"timings.animations.quiz.fast_reward_fade_seconds", 0.18
 )
 var PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_hold_seconds", 1.0
+	"timings.animations.quiz.feedback_hold_seconds", 0.7
 )
 var PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.quiz.feedback_exit_peak_scale", 1.08
@@ -1079,6 +1090,12 @@ func _portrait_scaled_footer_control_rect(rect: Rect2) -> Rect2:
 
 func _portrait_footer_font_size(font_size: int) -> int:
 	return int(round(float(font_size) * PORTRAIT_FOOTER_CONTROL_SCALE))
+
+func _portrait_primary_bottom_button_rect(rect: Rect2) -> Rect2:
+	var resized_rect: Rect2 = rect
+	resized_rect.position.x = rect.get_center().x - PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH * 0.5
+	resized_rect.size.x = PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH
+	return resized_rect
 
 func _portrait_begin_bottom_attached_group() -> Control:
 	var previous_content: Control = content
@@ -3725,14 +3742,35 @@ func _show_settings_popup() -> void:
 	)
 
 	var controls_y_offset: float = rect.position.y - 120.0
-	_stage_label(Rect2(56.0, 218.0 + controls_y_offset, 250.0, 42.0), _settings_sound_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var sound_label := _stage_label(
+		Rect2(56.0, 218.0 + controls_y_offset, 250.0, 42.0),
+		_settings_sound_label(),
+		22,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(sound_label)
 	_stage_settings_toggle_button(Rect2(330.0, 214.0 + controls_y_offset, 102.0, 49.0), 3)
-	_stage_label(Rect2(56.0, 286.0 + controls_y_offset, 250.0, 42.0), _settings_vibration_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var vibration_label := _stage_label(
+		Rect2(56.0, 286.0 + controls_y_offset, 250.0, 42.0),
+		_settings_vibration_label(),
+		22,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(vibration_label)
 	_stage_settings_toggle_button(Rect2(330.0, 282.0 + controls_y_offset, 102.0, 49.0), 4)
 
 	if !compact_layout:
 		_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
-		_stage_label(Rect2(56.0, 374.0, 150.0, 42.0), _settings_word_base_label(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		var word_base_label := _stage_label(
+			Rect2(56.0, 374.0, 150.0, 42.0),
+			_settings_word_base_label(),
+			22,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT
+		)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(word_base_label)
 		_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
 		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
@@ -8549,12 +8587,15 @@ func show_custom_word() -> void:
 	# Keep the complete action stack above the advertising reserve. The group is
 	# still bottom-attached, so it follows the physical bottom on tall screens.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
-	custom_word_check_button = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), 22, false, 0.0)
-	_stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), 22)
+	custom_word_check_button = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE, false, 0.0)
+	_stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE)
 
 	# Keep the primary action above the banner without drawing a blue footer.
+	# It is 15% wider than before; its font size and vertical geometry are unchanged.
 	custom_word_start_button = _stage_main_button(
-		_portrait_custom_word_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT),
+		_portrait_primary_bottom_button_rect(
+			_portrait_custom_word_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT)
+		),
 		Callable(self, "start_custom_game"),
 		_custom_word_start_label(),
 		_portrait_footer_font_size(22),
@@ -9920,10 +9961,10 @@ func _portrait_in_place_result_button_rect() -> Rect2:
 	)
 	return Rect2(
 		Vector2(
-			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_RETRY_BUTTON_SIZE.x) * 0.5,
+			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH) * 0.5,
 			button_y
 		),
-		PORTRAIT_GAME_RETRY_BUTTON_SIZE
+		Vector2(PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH, PORTRAIT_GAME_RETRY_BUTTON_SIZE.y)
 	)
 
 func _portrait_stage_point_to_viewport(stage_point: Vector2, reference_node: Node = null) -> Vector2:
@@ -14736,7 +14777,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			collect_button = collect_controls.get("button") as Button
 		else:
 			action_button = _stage_main_button(
-				PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
+				_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 				Callable(self, "_decline_single_player_stage_coin_reward_double"),
 				tr("COMMON_CONTINUE"),
 				22,
@@ -14890,7 +14931,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				collect_button = collect_controls.get("button") as Button
 			else:
 				final_action_button = _stage_main_button(
-					PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
+					_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 					Callable(self, "_claim_single_player_final_reward"),
 					tr("COMMON_CONTINUE"),
 					22,
