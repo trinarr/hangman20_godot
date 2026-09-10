@@ -389,7 +389,7 @@ def main() -> None:
         "Early final rewards do not animate their credited coins into the HUD",
     )
     final_transition = function_body(
-        portrait, "_start_single_player_final_reward_transition_deferred"
+        portrait, "_start_single_player_level_summary_transition_deferred"
     )
     final_pack_bounce = function_body(
         portrait, "_play_final_reward_pack_bounce"
@@ -420,12 +420,9 @@ def main() -> None:
         "The final rewarded-ad button does not shine once after appearing",
     )
     require(
-        "claim_before_actions" in final_transition
-        and '"_start_early_final_reward_claim_at_pack_peak"' in final_transition
-        and "await _play_final_reward_pack_bounce(transition_pack, pack_peak_callback)"
-        in final_transition
-        and "if !claim_before_actions:" in final_transition,
-        "First-two-level final rewards are not routed through the peak callback",
+        "_play_level_completion_chest_pressure_burst" in final_transition
+        and "bounce_peak_callback" in final_transition,
+        "Chest transition lost its durable peak claim callback",
     )
     rewarded = function_body(portrait, "_on_portrait_rewarded_action_rewarded")
     rewarded_close = function_body(portrait, "_on_portrait_rewarded_action_closed")
@@ -433,7 +430,7 @@ def main() -> None:
     require("_grant_portrait_rewarded_action" not in rewarded_close, "Reward still waits for ad close")
     final_rewarded = function_body(portrait, "_on_final_reward_ad_rewarded")
     require(
-        "_complete_single_player_final_reward(2, false)" in final_rewarded,
+        "GameState.claim_pending_single_player_reward(2)" in final_rewarded,
         "Final x2 reward is not claimed on rewarded callback",
     )
     require(
@@ -510,13 +507,11 @@ def main() -> None:
     )
     stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
     require(
-        "_single_player_level_question_slot_index" in stage_currency
-        and "STAGE_REWARD_STARS" in stage_currency
-        and "STAGE_REWARD_COINS" in stage_currency
-        and "word_slot == word_count - 1" in stage_currency
-        and stage_currency.index("word_slot == word_count - 1")
-        < stage_currency.index("_single_player_level_question_slot_index"),
-        "The final reward is not forced to coins before quiz-stage currency is resolved",
+        "return GameState.STAGE_REWARD_COINS" in stage_currency
+        and "QUIZ_STAGE_REWARD_COIN_MULTIPLIER" in function_body(
+            main_source, "_single_player_stage_reward_amount"
+        ),
+        "Hangman and embedded quiz must pay coins with distinct amounts",
     )
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(
@@ -556,10 +551,8 @@ def main() -> None:
     require(
         'tr("REWARD_STAGE_COMPLETED")' in reward_screen
         and 'tr("REWARD_STAGE_FAILED")' in reward_screen
-        and 'tr("REWARD_MAIN_PRIZE")' in reward_screen
-        and 'tr("REWARD_LEVEL_FINISHED")' in reward_screen
-        and "is_failed_final_stage" in reward_screen
-        and "is_failure_reward and !is_failed_final_stage" in reward_screen
+        and "_single_player_level_completed_label()" in reward_screen
+        and "is_failure_reward and !is_level_summary" in reward_screen
         and "PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR" in reward_screen
         and "GameState.get_hearts() <= 0" in reward_continue
         and "_show_heart_refill_popup" in reward_continue
@@ -581,9 +574,9 @@ def main() -> None:
         in completed_stage_finish
         and 'last_result_data.get("single_player_level_completed", false)'
         in reward_exit_to_menu
-        and "_finish_completed_single_player_stage_result(false)"
-        in reward_exit_to_menu,
-        "Completed levels must open the next-theme popup on Continue and finalize to Home on X",
+        and "_discard_round_for_navigation()" in reward_exit_to_menu
+        and "clear_active_single_player_session" not in reward_exit_to_menu,
+        "Continue must open the next theme; X must preserve unclaimed rewards for resume",
     )
     final_collect = function_body(portrait, "_stage_final_reward_collect_text")
     require(

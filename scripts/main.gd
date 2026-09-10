@@ -1395,19 +1395,32 @@ func _single_player_level_question_target_difficulty(level_index: int) -> float:
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
 
+func _single_player_stage_is_quiz(level_index: int, word_slot: int) -> bool:
+	return word_slot == _single_player_level_question_slot_index(level_index)
+
 func _single_player_stage_reward_currency(
+	_level_index: int,
+	_word_slot: int,
+	_word_count: int
+) -> String:
+	# Hangman and embedded quiz stages now both pay soft currency. Quiz stages
+	# differ by amount rather than by currency.
+	return GameState.STAGE_REWARD_COINS
+
+func _single_player_stage_reward_amount(
 	level_index: int,
 	word_slot: int,
-	word_count: int
-) -> String:
-	# The chain's final/main reward is always coins, even if a saved or migrated
-	# level definition happens to place its quiz in that slot. Earlier Hangman
-	# stages award coins and earlier embedded quiz stages award stars.
-	if word_slot == word_count - 1:
-		return GameState.STAGE_REWARD_COINS
-	if word_slot == _single_player_level_question_slot_index(level_index):
-		return GameState.STAGE_REWARD_STARS
-	return GameState.STAGE_REWARD_COINS
+	_word_count: int
+) -> int:
+	if _single_player_stage_is_quiz(level_index, word_slot):
+		return maxi(
+			int(round(
+				float(GameState.WORD_REWARD_COINS)
+				* GameState.QUIZ_STAGE_REWARD_COIN_MULTIPLIER
+			)),
+			0
+		)
+	return GameState.WORD_REWARD_COINS
 
 func _single_player_level_played_count(level_index: int) -> int:
 	return GameState.get_single_level_played_count(
@@ -1439,6 +1452,17 @@ func _single_player_mark_current_word_finished(
 ) -> Dictionary:
 	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
 		return data
+	# A duplicate result must not replace the durable claim flags with a fresh
+	# unclaimed stage payout, even though progress itself is already idempotent.
+	if _single_player_level_word_status(single_player_active_level_index, single_player_active_word_slot) != 0:
+		var saved: Dictionary = GameState.get_active_single_player_session()
+		if (
+			str(saved.get("kind", "")) == "next"
+			and int(saved.get("level_index", -1)) == single_player_active_level_index
+			and int(saved.get("word_slot", -1)) == single_player_active_word_slot
+		):
+			return Dictionary(Dictionary(saved.get("data", {})).get("result", data)).duplicate(true)
+		return data
 	var result: Dictionary = data.duplicate(true)
 	var level_word_count: int = _single_player_level_word_count(single_player_active_level_index)
 	var progress: Dictionary = GameState.mark_single_level_word_played(
@@ -1466,60 +1490,73 @@ func _single_player_mark_current_word_finished(
 	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
 	result["single_player_completion_bonus"] = int(progress.get("completion_bonus", 0))
 	var level_completed: bool = bool(progress.get("completed", false))
-	result["single_player_reward_deferred"] = defer_final_reward and level_completed
+	var completion_bonus: int = int(progress.get("completion_bonus", 0))
+	var has_deferred_completion_reward: bool = (
+		defer_final_reward and level_completed and completion_bonus > 0
+	)
+	result["single_player_reward_deferred"] = has_deferred_completion_reward
 	result["single_player_deferred_reward_amount"] = (
-		GameState.WORD_REWARD_COINS + int(progress.get("completion_bonus", 0))
-		if defer_final_reward and level_completed
-		else 0
+		completion_bonus if has_deferred_completion_reward else 0
 	)
 	result["single_player_difficulty_before"] = float(progress.get("difficulty_before", 0.0))
 	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
 	var stage_reward_currency: String = ""
 	var stage_reward_amount: int = 0
-	if is_win and !level_completed:
+	if is_win:
 		stage_reward_currency = _single_player_stage_reward_currency(
 			single_player_active_level_index,
 			single_player_active_word_slot,
 			level_word_count
 		)
-		stage_reward_amount = (
-			GameState.WORD_REWARD_STARS
-			if stage_reward_currency == GameState.STAGE_REWARD_STARS
-			else GameState.WORD_REWARD_COINS
+		stage_reward_amount = _single_player_stage_reward_amount(
+			single_player_active_level_index,
+			single_player_active_word_slot,
+			level_word_count
 		)
 		result["single_player_stage_reward_currency"] = stage_reward_currency
 		result["single_player_stage_reward_amount"] = stage_reward_amount
 	if level_completed and int(progress.get("completion_bonus", 0)) > 0:
 		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
-	if level_completed and is_win:
-		# mark_single_level_word_played() has already replaced the active snapshot
-		# with a durable pending reward when this is the deferred final result.
-		GameState.clear_active_single_player_session(false)
-	else:
-		# Both outcomes remain resumable until Continue starts the next stage. A
-		# failed stage stores a zero-value, already-claimed reward so relaunching
-		# restores the failure result without granting currency.
-		if stage_reward_currency.is_empty():
-			stage_reward_currency = _single_player_stage_reward_currency(
-				single_player_active_level_index,
-				single_player_active_word_slot,
-				level_word_count
-			)
-		GameState.set_active_single_player_session({
-			"kind": "next",
-			"language": Database.current_language,
-			"level_index": single_player_active_level_index,
-			"word_slot": single_player_active_word_slot,
-			"theme_id": Database.get_theme_id(
-				_single_player_level_selected_theme(single_player_active_level_index)
+	# Every stage, including a successful final stage, remains resumable on its
+	# ordinary stage-reward screen until that step is resolved. On a successful
+	# final stage the deferred level reward may coexist with this active snapshot;
+	# the UI clears the stage snapshot only when it advances to the level summary.
+	if stage_reward_currency.is_empty():
+		stage_reward_currency = _single_player_stage_reward_currency(
+			single_player_active_level_index,
+			single_player_active_word_slot,
+			level_word_count
+		)
+	GameState.set_active_single_player_session({
+		"kind": "next",
+		"language": Database.current_language,
+		"level_index": single_player_active_level_index,
+		"word_slot": single_player_active_word_slot,
+		"theme_id": Database.get_theme_id(
+			_single_player_level_selected_theme(single_player_active_level_index)
+		),
+		"data": {
+			"result": result.duplicate(true),
+			"reward_currency": stage_reward_currency,
+			"reward_amount": stage_reward_amount,
+			"reward_claimed": !is_win,
+			# Successful quiz stages offer x2 as usual. A one-stage level also uses
+			# that same large-reward offer, but for its stage reward itself: there is
+			# no separate whole-level completion bonus on such levels.
+			"reward_double_resolved": (
+				!is_win
+				or stage_reward_currency != GameState.STAGE_REWARD_COINS
+				or (
+					level_word_count > 1
+					and !_single_player_stage_is_quiz(
+						single_player_active_level_index,
+						single_player_active_word_slot
+					)
+				)
 			),
-			"data": {
-				"result": result.duplicate(true),
-				"reward_currency": stage_reward_currency,
-				"reward_amount": stage_reward_amount,
-				"reward_claimed": !is_win,
-			},
-		}, false)
+			"reward_double_claimed": false,
+		},
+	}, false)
 	if persist:
 		GameState.save_game()
 	return result
@@ -2152,11 +2189,15 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 		and single_player_active_word_slot >= 0
 	):
 		game_finished = true
+		var defer_forfeit_level_reward: bool = (
+			single_player_active_word_slot
+				== _single_player_level_word_count(level_index) - 1
+		)
 		forfeit_result = _single_player_mark_current_word_finished(
 			{},
 			false,
 			false,
-			false,
+			defer_forfeit_level_reward,
 			false
 		)
 		should_lose_heart = true
@@ -2767,8 +2808,7 @@ func _finish_round(is_win: bool) -> void:
 	# replace the gameplay pose just because the word was solved.
 	hero_force_default_pose = false
 	var defer_single_player_final_reward: bool = (
-		is_win
-		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and single_player_active_level_index >= 0
 		and single_player_active_word_slot
 			== _single_player_level_word_count(single_player_active_level_index) - 1

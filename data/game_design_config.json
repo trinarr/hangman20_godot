@@ -99,8 +99,11 @@
     "rewards": {
       "word_coins": 10,
       "word_stars": 10,
-      "level_base_bonus_coins": 10,
-      "level_word_bonus_coins": 5,
+      "quiz_stage_coin_multiplier": 1.5,
+      "level_completion_base_coins": 25,
+      "level_completion_per_win_coins": 10,
+      "challenge_level_completion_base_coins": 50,
+      "challenge_level_completion_per_win_coins": 20,
       "quick_quiz_answer_stars": 1,
       "lightning_quiz_answer_stars": 2,
       "coin_refill_ad_coins": 50
@@ -176,7 +179,6 @@
         "side_node_scale": 0.9,
         "chain_icon_scale": 0.612,
         "status_icon_scale": 0.574,
-        "crown_fly_seconds": 0.38,
         "coin_dim_alpha": 0.45,
         "check_start_scale": 0.42,
         "check_peak_scale": 1.16,
