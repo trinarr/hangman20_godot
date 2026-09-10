@@ -194,6 +194,11 @@ var trailing_icon_shadow_enabled: bool = false:
 		trailing_icon_shadow_enabled = value
 		_sync_trailing_icon()
 
+var text_horizontal_padding: float = 0.0:
+	set(value):
+		text_horizontal_padding = maxf(value, 0.0)
+		_sync_content_layout()
+
 var _button_text_font: Font = UI_FONTS.button_font()
 var _label: Label = null
 var _icon_shadow_layers: Array[TextureRect] = []
@@ -576,8 +581,9 @@ func _sync_content_layout() -> void:
 		and trailing_icon_texture != null
 	)
 	if (!has_icon and !has_trailing_icon) or stage_rect.size.x <= 0.0 or stage_rect.size.y <= 0.0:
-		_label.position = Vector2.ZERO
-		_label.size = size
+		var horizontal_padding: float = minf(text_horizontal_padding, maxf(size.x * 0.25, 0.0))
+		_label.position = Vector2(horizontal_padding, 0.0)
+		_label.size = Vector2(maxf(size.x - horizontal_padding * 2.0, 1.0), size.y)
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		if _icon_rect != null and is_instance_valid(_icon_rect):
 			_icon_rect.visible = false

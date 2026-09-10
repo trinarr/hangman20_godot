@@ -144,6 +144,7 @@ const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH: float = (
 	* PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH_SCALE
 )
 const PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE: int = 19
+const PORTRAIT_CUSTOM_WORD_SECONDARY_TEXT_PADDING: float = 10.0
 const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
@@ -8588,7 +8589,11 @@ func show_custom_word() -> void:
 	# still bottom-attached, so it follows the physical bottom on tall screens.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
 	custom_word_check_button = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE, false, 0.0)
-	_stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE)
+	if custom_word_check_button != null and is_instance_valid(custom_word_check_button):
+		custom_word_check_button.set("text_horizontal_padding", PORTRAIT_CUSTOM_WORD_SECONDARY_TEXT_PADDING)
+	var custom_word_random_button: Control = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE)
+	if custom_word_random_button != null and is_instance_valid(custom_word_random_button):
+		custom_word_random_button.set("text_horizontal_padding", PORTRAIT_CUSTOM_WORD_SECONDARY_TEXT_PADDING)
 
 	# Keep the primary action above the banner without drawing a blue footer.
 	# It is 15% wider than before; its font size and vertical geometry are unchanged.
@@ -14753,7 +14758,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		var collect_button: Button = null
 		if _portrait_ads_enabled():
 			action_button = _stage_main_button(
-				PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
+				_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 				Callable(self, "_on_final_reward_double_pressed"),
 				tr("REWARD_DOUBLE"),
 				22,
@@ -14908,7 +14913,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			if _portrait_ads_enabled():
 				var deferred_reward_amount: int = completion_reward_amount
 				final_action_button = _stage_main_button(
-					PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT,
+					_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 					Callable(self, "_on_final_reward_double_pressed"),
 					tr("REWARD_DOUBLE"),
 					22,
