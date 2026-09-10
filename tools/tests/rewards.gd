@@ -154,19 +154,17 @@ func run() -> void:
 	await settle()
 	check(main._portrait_reward_double_context == &"", "Quiz ad did not finish its offer")
 	check(GameState.get_pending_single_player_reward().is_empty(), "Mid-level quiz created a chest")
-	# A single stage has no chest or stars screen. Its star flag survives reload.
+	# A single-stage level has no chest, stars screen, or whole-level star bonus.
 	await setup_level(0, [])
 	record_stage(true)
 	check(GameState.get_pending_single_player_reward().is_empty(), "One-stage level created a chest bonus")
 	GameState.claim_active_single_player_stage_reward()
-	check(GameState.claim_single_stage_level_stars() == 1, "Single-stage win missing its star")
 	reload_save()
-	check(GameState.claim_single_stage_level_stars() == 0, "Single-stage star repeated after reload")
 	main._resume_saved_single_player_level()
 	await settle()
 	main._decline_single_player_stage_coin_reward_double()
 	await settle()
-	check(GameState.get_stars() == 101 and GameState.get_soft_currency() == 110, "Single-stage Continue duplicated payout")
+	check(GameState.get_stars() == 100 and GameState.get_soft_currency() == 110, "Single-stage Continue added an extra level reward")
 	check(!main.last_result_data.get("single_player_level_stars_view", false), "Single-stage level displayed a separate stars screen")
 	# Closing the ad before its earned signal must still grant once and advance.
 	await setup_level(0, [])
@@ -177,7 +175,7 @@ func run() -> void:
 	main._on_final_reward_ad_closed()
 	main._on_final_reward_ad_rewarded("coins", 1)
 	await settle()
-	check(GameState.get_soft_currency() == 120 and GameState.get_stars() == 101, "Close-before-reward lost or duplicated single-stage rewards")
+	check(GameState.get_soft_currency() == 120 and GameState.get_stars() == 100, "Close-before-reward lost or duplicated single-stage rewards")
 	check(!main.last_result_data.get("single_player_level_summary_view", false), "Single-stage x2 opened a completion screen")
 	# X on a completed stage retains both the result and the pending chest.
 	await setup_level(4, [true, false])

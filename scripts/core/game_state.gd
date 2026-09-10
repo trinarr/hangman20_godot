@@ -743,25 +743,6 @@ func resolve_pending_single_player_reward_double(grant_bonus: bool, persist: boo
 		save_game()
 	return credited_amount
 
-func claim_single_stage_level_stars(persist: bool = true) -> int:
-	if str(active_single_player_session.get("kind", "")) != "next":
-		return 0
-	var data: Dictionary = active_single_player_session.get("data", {})
-	var result: Dictionary = data.get("result", {})
-	if (
-		int(result.get("single_player_total_count", 0)) != 1
-		or !bool(result.get("single_player_level_completed", false))
-		or bool(data.get("level_stars_claimed", false))
-	):
-		return 0
-	data["level_stars_claimed"] = true
-	var previous_balance: int = get_stars()
-	if bool(result.get("single_player_stage_won", false)):
-		add_stars(1, false)
-	if persist:
-		save_game()
-	return get_stars() - previous_balance
-
 func _normalize_single_player_buckets() -> void:
 	if !(single_player is Dictionary):
 		single_player = {}
