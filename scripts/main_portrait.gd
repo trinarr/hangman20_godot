@@ -35,6 +35,9 @@ const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 const MAIN_MENU_LOGO_SHINE_SHADER: Shader = preload(
 	"res://shaders/main_menu_logo_shine.gdshader"
 )
+const REWARD_COIN_SHINE_OVERLAY_SHADER: Shader = preload(
+	"res://shaders/reward_coin_shine_overlay.gdshader"
+)
 
 func _load_runtime_png_texture(path: String) -> Texture2D:
 	# Use Godot's resource loader instead of Image.load_from_file(). In exported
@@ -700,6 +703,18 @@ var PORTRAIT_MENU_LOGO_SHINE_DELAY_SECONDS: float = PORTRAIT_GAME_DESIGN.get_flo
 var PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.menu_logo_shine_duration_seconds", 0.72
 )
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_DELAY: float = 0.05
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_DURATION: float = 0.62
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS: float = -0.32
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_END_PROGRESS: float = 1.28
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_WIDTH: float = 0.16
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_STRENGTH: float = 1.0
+const PORTRAIT_FINAL_REWARD_COIN_SHINE_LOOP_DELAY: float = 1.15
+const PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION: float = 0.23
+const PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION: float = 0.44
+const PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY: float = 1.43
+const PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE: float = 0.82
+const PORTRAIT_FINAL_REWARD_SPARKLE_PEAK_SCALE: float = 1.00
 var PORTRAIT_QUIZ_WRONG_ANSWER_SHAKE_STEP_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.quiz_wrong_answer_shake_step_seconds", 0.065
 )
@@ -11487,6 +11502,9 @@ func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	holder.set_meta(&"reward_chest_closed_visual", closed_visual)
 	holder.set_meta(&"reward_chest_open_visual", open_visual)
 	holder.set_meta(&"reward_chest_flash_overlay", flash_overlay)
+	# Reward shine follows the final visible prize art. The chest is a composite
+	# Control, so publish its open texture explicitly for the overlay effect.
+	holder.set_meta(&"reward_coin_shine_texture", _reward_chest_open_texture())
 	return holder
 
 func _set_reward_chest_icon_open_state(chest_icon: Control, is_open: bool) -> void:
@@ -13031,6 +13049,390 @@ func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: 
 		)
 		detail_layer.self_modulate = darker
 
+func _reward_coin_shine_texture(reward_visual: Control) -> Texture2D:
+	if reward_visual == null or !is_instance_valid(reward_visual):
+		return null
+	# Composite rewards (notably the open level chest) publish the exact texture
+	# that the shine must follow. Resolve that first so no generic property lookup
+	# can prevent the effect from being created on a Control-only holder.
+	if reward_visual.has_meta(&"reward_coin_shine_texture"):
+		var stored_texture: Variant = reward_visual.get_meta(&"reward_coin_shine_texture", null)
+		if stored_texture is Texture2D:
+			return stored_texture as Texture2D
+	var open_visual := _optional_node_meta(
+		reward_visual,
+		&"reward_chest_open_visual"
+	) as TextureRect
+	if open_visual != null and is_instance_valid(open_visual):
+		return open_visual.texture
+	if reward_visual is TextureRect:
+		return (reward_visual as TextureRect).texture
+	# FlashStageTexture exposes a script property named `texture`. Check the
+	# property list before reading it; plain Control holders do not have it.
+	for property_info: Dictionary in reward_visual.get_property_list():
+		if StringName(str(property_info.get("name", ""))) != &"texture":
+			continue
+		var direct_texture: Variant = reward_visual.get("texture")
+		if direct_texture is Texture2D:
+			return direct_texture as Texture2D
+		break
+	return null
+
+func _ensure_reward_coin_shine_overlay(reward_visual: Control) -> TextureRect:
+	if reward_visual == null or !is_instance_valid(reward_visual):
+		return null
+	var overlay := _optional_node_meta(
+		reward_visual,
+		&"reward_coin_shine_overlay"
+	) as TextureRect
+	if overlay == null and reward_visual.has_node("RewardCoinShineOverlay"):
+		overlay = reward_visual.get_node("RewardCoinShineOverlay") as TextureRect
+	if overlay == null or !is_instance_valid(overlay):
+		overlay = TextureRect.new()
+		overlay.name = "RewardCoinShineOverlay"
+		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# Keep the animated glint above both open/closed chest art and the white
+		# pressure-flash overlay. The previous default z=0 could visually disappear
+		# into equally ranked child layers on the composite chest reward.
+		overlay.z_index = 3
+		overlay.visible = false
+		var shine_material := ShaderMaterial.new()
+		shine_material.shader = REWARD_COIN_SHINE_OVERLAY_SHADER
+		overlay.material = shine_material
+		reward_visual.add_child(overlay)
+		overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		reward_visual.set_meta(&"reward_coin_shine_overlay", overlay)
+	_update_reward_coin_shine_overlay(reward_visual, overlay)
+	return overlay
+
+func _update_reward_coin_shine_overlay(
+	reward_visual: Control,
+	overlay: TextureRect
+) -> void:
+	if (
+		reward_visual == null
+		or !is_instance_valid(reward_visual)
+		or overlay == null
+		or !is_instance_valid(overlay)
+	):
+		return
+	overlay.texture = _reward_coin_shine_texture(reward_visual)
+	var shine_material := overlay.material as ShaderMaterial
+	if shine_material == null:
+		return
+	var aspect_ratio: float = 1.0
+	if reward_visual.size.y > 0.0:
+		aspect_ratio = maxf(reward_visual.size.x / reward_visual.size.y, 0.01)
+	shine_material.set_shader_parameter("aspect_ratio", aspect_ratio)
+	shine_material.set_shader_parameter(
+		"shine_width",
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_WIDTH
+	)
+	shine_material.set_shader_parameter(
+		"shine_strength",
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_STRENGTH
+	)
+	shine_material.set_shader_parameter(
+		"shine_progress",
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS
+	)
+
+func _set_reward_coin_shine_progress(overlay: TextureRect, progress: float) -> void:
+	if overlay == null or !is_instance_valid(overlay):
+		return
+	var shine_material := overlay.material as ShaderMaterial
+	if shine_material == null:
+		return
+	shine_material.set_shader_parameter("shine_progress", progress)
+
+func _reset_reward_coin_shine_overlay(overlay: TextureRect) -> void:
+	if overlay == null or !is_instance_valid(overlay):
+		return
+	overlay.visible = false
+	_set_reward_coin_shine_progress(
+		overlay,
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS
+	)
+
+func _show_reward_coin_shine_overlay(overlay: TextureRect) -> void:
+	if overlay == null or !is_instance_valid(overlay):
+		return
+	_set_reward_coin_shine_progress(
+		overlay,
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS
+	)
+	overlay.visible = true
+
+func _stop_reward_coin_shine(reward_visual: Control) -> void:
+	if reward_visual == null or !is_instance_valid(reward_visual):
+		return
+	var running_tween := _optional_node_meta(
+		reward_visual,
+		&"reward_coin_shine_tween"
+	) as Tween
+	if running_tween != null and running_tween.is_valid():
+		running_tween.kill()
+	reward_visual.set_meta(&"reward_coin_shine_tween", null)
+	_stop_reward_coin_sparkles(reward_visual)
+	var overlay := _optional_node_meta(
+		reward_visual,
+		&"reward_coin_shine_overlay"
+	) as TextureRect
+	if overlay == null and reward_visual.has_node("RewardCoinShineOverlay"):
+		overlay = reward_visual.get_node("RewardCoinShineOverlay") as TextureRect
+	_reset_reward_coin_shine_overlay(overlay)
+
+func _play_reward_coin_shine(reward_visual: Control) -> void:
+	if (
+		reward_visual == null
+		or !is_instance_valid(reward_visual)
+		or !reward_visual.is_inside_tree()
+	):
+		return
+	_stop_reward_coin_shine(reward_visual)
+	_play_reward_coin_sparkles(reward_visual)
+	var overlay: TextureRect = _ensure_reward_coin_shine_overlay(reward_visual)
+	if overlay == null or !is_instance_valid(overlay):
+		return
+	_update_reward_coin_shine_overlay(reward_visual, overlay)
+	if overlay.texture == null:
+		return
+	var shine_tween := reward_visual.create_tween()
+	shine_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	shine_tween.bind_node(reward_visual)
+	shine_tween.set_loops()
+	if PORTRAIT_FINAL_REWARD_COIN_SHINE_DELAY > 0.0:
+		shine_tween.tween_interval(PORTRAIT_FINAL_REWARD_COIN_SHINE_DELAY)
+	shine_tween.tween_callback(
+		Callable(self, "_show_reward_coin_shine_overlay").bind(overlay)
+	)
+	var shine_motion := shine_tween.tween_method(
+		Callable(self, "_set_reward_coin_shine_progress").bind(overlay),
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS,
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_END_PROGRESS,
+		PORTRAIT_FINAL_REWARD_COIN_SHINE_DURATION
+	)
+	shine_motion.set_trans(Tween.TRANS_SINE)
+	shine_motion.set_ease(Tween.EASE_IN_OUT)
+	shine_tween.tween_callback(
+		Callable(self, "_reset_reward_coin_shine_overlay").bind(overlay)
+	)
+	if PORTRAIT_FINAL_REWARD_COIN_SHINE_LOOP_DELAY > 0.0:
+		shine_tween.tween_interval(PORTRAIT_FINAL_REWARD_COIN_SHINE_LOOP_DELAY)
+	reward_visual.set_meta(&"reward_coin_shine_tween", shine_tween)
+
+func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
+	var sparkle := Node2D.new()
+	sparkle.name = "RewardCoinSparkle"
+	sparkle.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var sparkle_size: float = base_size * 1.30
+
+	# Keep the glint close to a compact painted diamond: slightly taller than it is
+	# wide, but only by ~20%, so it does not feel stretched vertically.
+	var outer_glint := Polygon2D.new()
+	outer_glint.name = "OuterGlint"
+	outer_glint.polygon = PackedVector2Array([
+		Vector2(0.0, -sparkle_size * 0.72),
+		Vector2(sparkle_size * 0.18, -sparkle_size * 0.22),
+		Vector2(sparkle_size * 0.60, 0.0),
+		Vector2(sparkle_size * 0.18, sparkle_size * 0.22),
+		Vector2(0.0, sparkle_size * 0.72),
+		Vector2(-sparkle_size * 0.18, sparkle_size * 0.22),
+		Vector2(-sparkle_size * 0.60, 0.0),
+		Vector2(-sparkle_size * 0.18, -sparkle_size * 0.22),
+	])
+	outer_glint.color = Color(1.0, 0.91, 0.44, 0.72)
+	sparkle.add_child(outer_glint)
+
+	var inner_glint := Polygon2D.new()
+	inner_glint.name = "InnerGlint"
+	inner_glint.polygon = PackedVector2Array([
+		Vector2(0.0, -sparkle_size * 0.50),
+		Vector2(sparkle_size * 0.12, -sparkle_size * 0.16),
+		Vector2(sparkle_size * 0.42, 0.0),
+		Vector2(sparkle_size * 0.12, sparkle_size * 0.16),
+		Vector2(0.0, sparkle_size * 0.50),
+		Vector2(-sparkle_size * 0.12, sparkle_size * 0.16),
+		Vector2(-sparkle_size * 0.42, 0.0),
+		Vector2(-sparkle_size * 0.12, -sparkle_size * 0.16),
+	])
+	inner_glint.color = Color(1.0, 1.0, 1.0, 0.98)
+	sparkle.add_child(inner_glint)
+
+	var core := Polygon2D.new()
+	core.name = "DiamondCore"
+	core.polygon = PackedVector2Array([
+		Vector2(0.0, -sparkle_size * 0.24),
+		Vector2(sparkle_size * 0.20, 0.0),
+		Vector2(0.0, sparkle_size * 0.24),
+		Vector2(-sparkle_size * 0.20, 0.0),
+	])
+	core.color = Color(1.0, 1.0, 1.0, 1.0)
+	sparkle.add_child(core)
+	return sparkle
+
+func _reward_coin_sparkle_specs(reward_visual: Control) -> Array:
+	var is_chest: bool = reward_visual.has_meta(&"reward_chest_open_visual")
+	if !is_chest and reward_visual.has_node("ChestOpenVisual"):
+		is_chest = true
+	if is_chest:
+		return [
+			{
+				"pos": Vector2(0.30, 0.50),
+				"size": 13.0,
+				"delay": 0.00,
+			},
+			{
+				"pos": Vector2(0.49, 0.44),
+				"size": 15.0,
+				"delay": 0.32,
+			},
+			{
+				"pos": Vector2(0.66, 0.51),
+				"size": 12.0,
+				"delay": 0.66,
+			},
+		]
+	return [
+		{
+			"pos": Vector2(0.36, 0.56),
+			"size": 13.0,
+			"delay": 0.00,
+		},
+		{
+			"pos": Vector2(0.53, 0.47),
+			"size": 15.0,
+			"delay": 0.30,
+		},
+		{
+			"pos": Vector2(0.67, 0.58),
+			"size": 12.0,
+			"delay": 0.62,
+		},
+	]
+
+func _ensure_reward_coin_sparkle_layer(reward_visual: Control) -> Control:
+	if reward_visual == null or !is_instance_valid(reward_visual):
+		return null
+	var layer := _optional_node_meta(
+		reward_visual,
+		&"reward_coin_sparkle_layer"
+	) as Control
+	if layer == null and reward_visual.has_node("RewardCoinSparkleLayer"):
+		layer = reward_visual.get_node("RewardCoinSparkleLayer") as Control
+	if layer == null or !is_instance_valid(layer):
+		layer = Control.new()
+		layer.name = "RewardCoinSparkleLayer"
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.z_index = 4
+		reward_visual.add_child(layer)
+		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		reward_visual.set_meta(&"reward_coin_sparkle_layer", layer)
+	if layer.get_child_count() == 0:
+		var specs: Array = _reward_coin_sparkle_specs(reward_visual)
+		for index in range(specs.size()):
+			var spec: Dictionary = specs[index]
+			var sparkle := _build_reward_coin_sparkle(float(spec.get("size", 14.0)))
+			sparkle.name = "Sparkle%d" % index
+			sparkle.position = Vector2(
+				reward_visual.size.x * float((spec.get("pos", Vector2(0.5, 0.5)) as Vector2).x),
+				reward_visual.size.y * float((spec.get("pos", Vector2(0.5, 0.5)) as Vector2).y)
+			)
+			sparkle.set_meta(&"reward_sparkle_delay", float(spec.get("delay", 0.0)))
+			layer.add_child(sparkle)
+	return layer
+
+func _reset_reward_coin_sparkle(sparkle: Node2D) -> void:
+	if sparkle == null or !is_instance_valid(sparkle):
+		return
+	sparkle.modulate.a = 0.0
+	sparkle.scale = Vector2.ONE * PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE
+
+func _stop_reward_coin_sparkles(reward_visual: Control) -> void:
+	if reward_visual == null or !is_instance_valid(reward_visual):
+		return
+	var layer := _optional_node_meta(
+		reward_visual,
+		&"reward_coin_sparkle_layer"
+	) as Control
+	if layer == null and reward_visual.has_node("RewardCoinSparkleLayer"):
+		layer = reward_visual.get_node("RewardCoinSparkleLayer") as Control
+	if layer == null or !is_instance_valid(layer):
+		return
+	for child in layer.get_children():
+		var sparkle := child as Node2D
+		if sparkle == null or !is_instance_valid(sparkle):
+			continue
+		var sparkle_tween := _optional_node_meta(sparkle, &"reward_sparkle_tween") as Tween
+		if sparkle_tween != null and sparkle_tween.is_valid():
+			sparkle_tween.kill()
+		sparkle.set_meta(&"reward_sparkle_tween", null)
+		_reset_reward_coin_sparkle(sparkle)
+
+func _play_reward_coin_sparkles(reward_visual: Control) -> void:
+	if (
+		reward_visual == null
+		or !is_instance_valid(reward_visual)
+		or !reward_visual.is_inside_tree()
+	):
+		return
+	var layer: Control = _ensure_reward_coin_sparkle_layer(reward_visual)
+	if layer == null or !is_instance_valid(layer):
+		return
+	_stop_reward_coin_sparkles(reward_visual)
+	for child in layer.get_children():
+		var sparkle := child as Node2D
+		if sparkle == null or !is_instance_valid(sparkle):
+			continue
+		_reset_reward_coin_sparkle(sparkle)
+		var sparkle_tween := sparkle.create_tween()
+		sparkle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		sparkle_tween.bind_node(sparkle)
+		sparkle_tween.set_loops()
+		var initial_delay: float = float(sparkle.get_meta(&"reward_sparkle_delay", 0.0)) * 1.3
+		if initial_delay > 0.0:
+			sparkle_tween.tween_interval(initial_delay)
+		var fade_in := sparkle_tween.tween_property(
+			sparkle,
+			"modulate:a",
+			0.95,
+			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION
+		)
+		fade_in.set_trans(Tween.TRANS_SINE)
+		fade_in.set_ease(Tween.EASE_OUT)
+		var scale_in := sparkle_tween.parallel().tween_property(
+			sparkle,
+			"scale",
+			Vector2.ONE * PORTRAIT_FINAL_REWARD_SPARKLE_PEAK_SCALE,
+			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION
+		)
+		scale_in.set_trans(Tween.TRANS_SINE)
+		scale_in.set_ease(Tween.EASE_OUT)
+		var fade_out := sparkle_tween.tween_property(
+			sparkle,
+			"modulate:a",
+			0.0,
+			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION
+		)
+		fade_out.set_trans(Tween.TRANS_SINE)
+		fade_out.set_ease(Tween.EASE_IN)
+		var scale_out := sparkle_tween.parallel().tween_property(
+			sparkle,
+			"scale",
+			Vector2.ONE * (PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE * 0.9),
+			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION
+		)
+		scale_out.set_trans(Tween.TRANS_SINE)
+		scale_out.set_ease(Tween.EASE_IN)
+		sparkle_tween.tween_callback(
+			Callable(self, "_reset_reward_coin_sparkle").bind(sparkle)
+		)
+		if PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY > 0.0:
+			sparkle_tween.tween_interval(PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY)
+		sparkle.set_meta(&"reward_sparkle_tween", sparkle_tween)
+
 func _sync_final_reward_double_button_content(button: Control) -> void:
 	if button == null or !is_instance_valid(button):
 		return
@@ -13202,7 +13604,8 @@ func _start_single_player_level_summary_transition_deferred(
 	amount_label: Label,
 	actions_reveal_callback: Callable = Callable(),
 	bounce_peak_callback: Callable = Callable(),
-	use_chest_animation: bool = true
+	use_chest_animation: bool = true,
+	bounce_finished_callback: Callable = Callable()
 ) -> void:
 	# The stage chain remains hidden on the whole-level reward step, but the closed
 	# chest now uses the standard large-reward flight and bounce. It opens exactly
@@ -13258,6 +13661,8 @@ func _start_single_player_level_summary_transition_deferred(
 			bounce_peak_callback
 		)
 		await _play_final_reward_pack_bounce(transition_prize, reveal_at_peak)
+	if bounce_finished_callback.is_valid():
+		bounce_finished_callback.call()
 	if actions_reveal_callback.is_valid():
 		actions_reveal_callback.call()
 
@@ -13859,6 +14264,8 @@ func _start_single_player_stage_coin_reward_transition_deferred(
 		"_play_early_stage_coin_reward_claim"
 	).bind(transition_pack)
 	await _play_final_reward_pack_bounce(transition_pack, peak_callback)
+	if collect_holder != null and is_instance_valid(collect_holder):
+		_play_reward_coin_shine(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
 func _persist_single_player_level_summary_view() -> void:
@@ -14969,6 +15376,12 @@ func _show_single_player_reward_chain_screen() -> void:
 				collect_button,
 				false
 			)
+			var reward_shine_callback := Callable()
+			if collect_holder != null and is_instance_valid(collect_holder):
+				reward_shine_callback = Callable(
+					self,
+					"_play_reward_coin_shine"
+				).bind(transition_pack)
 			final_reward_completion = Callable(
 				self,
 				"_start_single_player_level_summary_transition_deferred"
@@ -14983,7 +15396,8 @@ func _show_single_player_reward_chain_screen() -> void:
 				completion_amount_label,
 				action_reveal_callback,
 				pack_peak_callback,
-				use_completion_chest
+				use_completion_chest,
+				reward_shine_callback
 			)
 		else:
 			var reward_content: Control = _portrait_begin_bottom_attached_group()
