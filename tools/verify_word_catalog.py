@@ -31,6 +31,14 @@ def main():
             for word in ('АТОМ', 'КОЛБА', 'ПРОБИРКА'):
                 assert difficulty(byword[word], language) < .4
             assert sum(c.isalpha() for c in byword['БЕСПРОВОДНЫЕ НАУШНИКИ']['answer']) == 20
+        else:
+            byword = {e['answer']: e for e in catalog['entries']}
+            assert len(byword) == 3444
+            assert 'GLUON' not in byword and 'ETERNAL SUNSHINE' not in byword
+            assert "CAPTAIN ARMBAND" in byword["CAPTAIN'S ARMBAND"]['aliases']
+            assert 'FILM DIRECTOR' in byword['DIRECTOR']['aliases']
+            assert difficulty(byword["CAPTAIN'S ARMBAND"], language) < .4
+            assert 'crustacean' not in byword['GROUPER']['hint'].lower()
         print(f'{language}: export, stable IDs, reorder/delete invariance, editorial calibration OK')
 
 

@@ -15,6 +15,26 @@ func _ready() -> void:
 func run() -> void:
 	# Run with a separate XDG_DATA_HOME; the fixture deliberately writes saves.
 	GameState.single_player = {}
+	Database.load_languages("en", "en")
+	# Patch03 saves already have revision 3. New cross-theme aliases must still run.
+	var old_en_stats: Dictionary = {
+		"_word_catalog_version": 3,
+		"9": {"played": {"FILM DIRECTOR": true}, "guessed": {"FILM DIRECTOR": true}},
+		"4": {"played": {"WEB CAMERA": true}, "guessed": {"WEB CAMERA": true}},
+		"1": {"played": {"RACQUET": true}, "guessed": {"CAPTAIN ARMBAND": true}},
+	}
+	GameState.progress = {"en": old_en_stats.duplicate(true)}
+	GameState._single_player_bucket("en")["word_stats"] = old_en_stats.duplicate(true)
+	var en_classic: Dictionary = GameState.ensure_theme_progress("en", 9, 0)
+	check(bool(en_classic.guessed.get("DIRECTOR", false)), "English classic cross-theme alias lost revision-3 progress")
+	var en_campaign: Dictionary = GameState.ensure_single_player_theme_progress("en", 8, 0)
+	check(bool(en_campaign.played.get("WEBCAM", false)) and bool(en_campaign.guessed.get("WEBCAM", false)), "English campaign merge lost revision-3 progress")
+	var en_sport: Dictionary = GameState.ensure_single_player_theme_progress("en", 0, 0)
+	check(bool(en_sport.played.get("RACKET", false)) and bool(en_sport.guessed.get("CAPTAIN'S ARMBAND", false)), "English same-theme rename lost progress")
+	var migrated_stats: Dictionary = GameState._single_player_bucket("en")["word_stats"].duplicate(true)
+	GameState.ensure_single_player_theme_progress("en", 8, 0)
+	check(GameState._single_player_bucket("en")["word_stats"] == migrated_stats, "English alias migration must be idempotent")
+	GameState.single_player = {}
 	GameState.interface_language = "ru"
 	GameState.word_language = "ru"
 	Database.load_languages("ru", "ru")

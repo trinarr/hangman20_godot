@@ -10,6 +10,8 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const SAVE_FORMAT_VERSION: int = 2
+# Content aliases change independently of the word difficulty model version.
+const WORD_PROGRESS_ALIAS_REVISION: int = 4
 const LEGAL_DOCUMENTS_VERSION: int = 1
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
 const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
@@ -967,7 +969,7 @@ func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionar
 	return normalized
 
 func _migrate_word_aliases_in_stats(stats: Dictionary) -> void:
-	if int(stats.get("_word_catalog_version", 0)) >= 3:
+	if int(stats.get("_word_catalog_version", 0)) >= WORD_PROGRESS_ALIAS_REVISION:
 		return
 	var aliases: Dictionary = Database.get_word_progress_alias_themes()
 	for theme_key: Variant in stats.keys():
@@ -991,7 +993,7 @@ func _migrate_word_aliases_in_stats(stats: Dictionary) -> void:
 						target[field] = {}
 					target[field][Database.word_progress_key_from_text(normalized)] = true
 				flags.erase(old_key)
-	stats["_word_catalog_version"] = 3
+	stats["_word_catalog_version"] = WORD_PROGRESS_ALIAS_REVISION
 
 func ensure_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
