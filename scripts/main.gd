@@ -1,5 +1,7 @@
 extends Node2D
 
+const QUIZ_SELECTION: GDScript = preload("res://scripts/core/quiz_selection.gd")
+
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.020833333333333332
@@ -63,9 +65,6 @@ var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
 var SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET: float = GAME_DESIGN.get_float_range(
 	"difficulty.bonus_level_offset", 0.01, 0.0, 1.0
 )
-var SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM: float = GAME_DESIGN.get_float_range(
-	"difficulty.quiz_target_maximum", 0.68, 0.0, 1.0
-)
 var SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = GAME_DESIGN.get_float(
 	"difficulty.played_word_penalty", 0.05
 )
@@ -75,8 +74,8 @@ var SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = GAME_DESIGN.get_float(
 var SINGLE_PLAYER_WORD_PICK_JITTER: float = GAME_DESIGN.get_float(
 	"difficulty.word_pick_jitter", 0.012
 )
-var SINGLE_PLAYER_QUESTION_PICK_JITTER: float = GAME_DESIGN.get_float(
-	"difficulty.question_pick_jitter", 0.008
+var SINGLE_PLAYER_QUIZ_PICK_WINDOW: float = GAME_DESIGN.get_float_range(
+	"difficulty.quiz_pick_window", 0.08, 0.0, 1.0
 )
 var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
 	"progression.quiz.first_slot_ratio", 0.5, 0.0, 1.0
@@ -1216,10 +1215,7 @@ func _single_player_pick_level_question(
 	target_difficulty: float,
 	persist_selection: bool = true
 ) -> Dictionary:
-	var resolved_target_difficulty: float = minf(
-		clampf(target_difficulty, 0.0, 1.0),
-		SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
-	)
+	var resolved_target_difficulty: float = clampf(target_difficulty, 0.0, 1.0)
 	var saved_question_id: int = GameState.get_single_level_question_id(
 		Database.current_language,
 		level_index
@@ -1232,40 +1228,17 @@ func _single_player_pick_level_question(
 	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
 	if questions.is_empty():
 		return {}
-	var unseen_questions: Array = []
-	for question_variant: Variant in questions:
-		if !(question_variant is Dictionary):
-			continue
-		var question: Dictionary = question_variant
-		var question_id: int = int(question.get("id", -1))
-		if !GameState.has_single_player_question_been_seen(
-			Database.current_language,
-			theme_index,
-			question_id
-		):
-			unseen_questions.append(question)
-	# An endless campaign can eventually exhaust a finite theme pool. Avoid every
-	# repeat while unseen questions remain; only after the full theme was seen do
-	# we allow a new cycle rather than leaving the level without a question.
-	var pool: Array = unseen_questions if !unseen_questions.is_empty() else questions
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 809)
-	var best_question: Dictionary = {}
-	var best_score: float = INF
-	for question_variant: Variant in pool:
-		if !(question_variant is Dictionary):
-			continue
-		var question: Dictionary = question_variant
-		var score: float = (
-			absf(float(question.get("difficulty", 0.5)) - resolved_target_difficulty)
-			+ rng.randf_range(0.0, SINGLE_PLAYER_QUESTION_PICK_JITTER)
-		)
-		if score < best_score:
-			best_score = score
-			best_question = question
-	if best_question.is_empty():
+	var picked_question: Dictionary = QUIZ_SELECTION.pick(
+		questions,
+		resolved_target_difficulty,
+		SINGLE_PLAYER_QUIZ_PICK_WINDOW,
+		GameState.get_single_player_question_history(Database.current_language, theme_index),
+		rng
+	)
+	if picked_question.is_empty():
 		return {}
-	var picked_question: Dictionary = best_question.duplicate(true)
 	var picked_id: int = int(picked_question.get("id", -1))
 	if picked_id >= 0 and persist_selection:
 		GameState.set_single_level_question_id(
@@ -1335,10 +1308,7 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
 		if question_slot >= 0 and question_slot < words.size():
 			var replaced_word: Dictionary = words[question_slot]
-			question_target_difficulty = minf(
-				float(replaced_word.get("target_difficulty", target_difficulty)),
-				SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
-			)
+			question_target_difficulty = float(replaced_word.get("target_difficulty", target_difficulty))
 			question = _single_player_pick_level_question(
 				level_index,
 				level_seed,
@@ -1384,13 +1354,10 @@ func _single_player_level_question(level_index: int) -> Dictionary:
 	return {}
 
 func _single_player_level_question_target_difficulty(level_index: int) -> float:
-	return minf(
-		float(_single_player_level_data(level_index).get(
-			"question_target_difficulty",
-			GameState.get_single_player_adaptive_difficulty(Database.current_language)
-		)),
-		SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
-	)
+	return float(_single_player_level_data(level_index).get(
+		"question_target_difficulty",
+		GameState.get_single_player_adaptive_difficulty(Database.current_language)
+	))
 
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))

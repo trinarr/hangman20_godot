@@ -3307,6 +3307,43 @@ func _show_menu_screen() -> void:
 		if _should_auto_resume_guided_single_player():
 			call_deferred("_resume_saved_single_player_level")
 
+func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int) -> Dictionary:
+	if theme_index < 0:
+		return {}
+	var data: Dictionary = saved.duplicate(true)
+	var snapshot_value: Variant = data.get("question", {})
+	var snapshot: Dictionary = snapshot_value if snapshot_value is Dictionary else {}
+	var canonical: Dictionary = Database.get_quiz_question_by_id(
+		theme_index, int(snapshot.get("id", -1))
+	)
+	var restored: Dictionary = QUIZ_SELECTION.restore_question(snapshot, canonical)
+	if restored.is_empty():
+		if canonical.is_empty():
+			# A retired fact is not an alias of its replacement. Pick for this
+			# stage normally; do not transfer the old fact's seen status.
+			canonical = _single_player_pick_level_question(
+				level_index, GameState.get_or_create_single_level_seed(Database.current_language, level_index),
+				theme_index, float(data.get("target_difficulty", 0.5))
+			)
+		if canonical.is_empty():
+			return {}
+		restored = QUIZ_SELECTION.shuffled(canonical)
+		# A paid 50/50 remains effective after an editorial update, with no
+		# second charge. Old answer indices cannot be reused on new text.
+		data["hidden_indices"] = []
+		if bool(data.get("fifty_fifty_used", false)):
+			var wrong: Array = []
+			for index: int in range(4):
+				if index != int(restored["correct_index"]):
+					wrong.append(index)
+			wrong.shuffle()
+			data["hidden_indices"] = wrong.slice(0, 2)
+		GameState.mark_single_player_question_seen(
+			Database.current_language, theme_index, int(restored["id"]), false
+		)
+	data["question"] = restored
+	return data
+
 func _restore_single_player_language(language: String) -> void:
 	var normalized_language: String = "ru" if language.to_lower().begins_with("ru") else "en"
 	if Database.current_language != normalized_language:
@@ -3410,9 +3447,11 @@ func _resume_saved_single_player_level() -> void:
 		"quiz":
 			var quiz_data_variant: Variant = session.get("data", {})
 			if quiz_data_variant is Dictionary:
-				var data: Dictionary = Dictionary(quiz_data_variant)
-				var question_variant: Variant = data.get("question", {})
 				var theme_index: int = Database.get_theme_index_by_id(int(session.get("theme_id", -1)))
+				var data: Dictionary = _restore_quiz_session_data(
+					Dictionary(quiz_data_variant), theme_index, level_index
+				)
+				var question_variant: Variant = data.get("question", {})
 				var question: Dictionary = (
 					Dictionary(question_variant)
 					if question_variant is Dictionary
@@ -3428,7 +3467,7 @@ func _resume_saved_single_player_level() -> void:
 					_quiz_single_player_target_difficulty = clampf(
 						float(data.get("target_difficulty", 0.5)),
 						0.0,
-						SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
+						1.0
 					)
 					_quiz_answer_locked = false
 					_quiz_selected_answer_index = -1
@@ -3441,6 +3480,7 @@ func _resume_saved_single_player_level() -> void:
 					)
 					_quiz_replace_question_used = bool(data.get("replace_question_used", false))
 					_quiz_question_replacing = false
+					_persist_active_single_player_quiz_session()
 					_show_quiz_game_screen()
 					return
 		"next":
@@ -3931,7 +3971,7 @@ func _start_quiz_theme(theme_index: int) -> void:
 	_quiz_single_player_target_difficulty = 0.5
 	_quiz_selected_theme_index = theme_index
 	var selected_question: Dictionary = questions[randi_range(0, questions.size() - 1)]
-	_quiz_current_question = selected_question.duplicate(true)
+	_quiz_current_question = QUIZ_SELECTION.shuffled(selected_question)
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
@@ -3991,7 +4031,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	_quiz_single_player_embedded = true
 	_quiz_single_player_target_difficulty = _single_player_level_question_target_difficulty(level_index)
 	_quiz_selected_theme_index = theme_index
-	_quiz_current_question = question.duplicate(true)
+	_quiz_current_question = QUIZ_SELECTION.shuffled(question)
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
@@ -5272,7 +5312,7 @@ func _on_quiz_continue_pressed() -> void:
 	else:
 		next_question = questions[randi_range(0, questions.size() - 1)]
 
-	_quiz_current_question = next_question.duplicate(true)
+	_quiz_current_question = QUIZ_SELECTION.shuffled(next_question)
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
@@ -5403,61 +5443,22 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 
 func _quiz_replacement_question() -> Dictionary:
 	var questions: Array = Database.get_quiz_questions_by_theme_index(_quiz_selected_theme_index)
-	if questions.size() <= 1:
-		return {}
-	var current_id: int = int(_quiz_current_question.get("id", -1))
-	var current_text: String = str(_quiz_current_question.get("question", ""))
 	var target_difficulty: float = (
 		_quiz_single_player_target_difficulty
 		if _quiz_single_player_embedded
 		else float(_quiz_current_question.get("difficulty", 0.5))
 	)
-	target_difficulty = minf(target_difficulty, SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM)
-	var unseen_candidates: Array = []
-	var fallback_candidates: Array = []
-	for question_variant: Variant in questions:
-		if !(question_variant is Dictionary):
-			continue
-		var question: Dictionary = question_variant
-		var question_id: int = int(question.get("id", -1))
-		var same_question: bool = (
-			(current_id >= 0 and question_id == current_id)
-			or (current_id < 0 and str(question.get("question", "")) == current_text)
-		)
-		if same_question:
-			continue
-		fallback_candidates.append(question)
-		if (
-			!_quiz_single_player_embedded
-			or !GameState.has_single_player_question_been_seen(
-				Database.current_language,
-				_quiz_selected_theme_index,
-				question_id
-			)
-		):
-			unseen_candidates.append(question)
-	var candidates: Array = unseen_candidates
-	if candidates.is_empty():
-		candidates = fallback_candidates
-	if candidates.is_empty():
-		return {}
-
-	var nearest_distance: float = INF
-	for question_variant: Variant in candidates:
-		var question: Dictionary = question_variant
-		nearest_distance = minf(
-			nearest_distance,
-			absf(float(question.get("difficulty", 0.5)) - target_difficulty)
-		)
-	var close_candidates: Array = []
-	var allowed_distance: float = nearest_distance + 0.08
-	for question_variant: Variant in candidates:
-		var question: Dictionary = question_variant
-		var distance: float = absf(float(question.get("difficulty", 0.5)) - target_difficulty)
-		if distance <= allowed_distance:
-			close_candidates.append(question)
-	var pool: Array = close_candidates if !close_candidates.is_empty() else candidates
-	return (pool[randi_range(0, pool.size() - 1)] as Dictionary).duplicate(true)
+	var history: Dictionary = (
+		GameState.get_single_player_question_history(Database.current_language, _quiz_selected_theme_index)
+		if _quiz_single_player_embedded else {}
+	)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return QUIZ_SELECTION.pick(
+		questions, clampf(target_difficulty, 0.0, 1.0),
+		SINGLE_PLAYER_QUIZ_PICK_WINDOW, history, rng,
+		int(_quiz_current_question.get("id", -1))
+	)
 
 func _set_quiz_hint_buttons_temporarily_disabled(disabled: bool) -> void:
 	for hint_index: int in range(_quiz_hint_buttons.size()):
@@ -5545,7 +5546,11 @@ func _on_quiz_replace_question_pressed() -> void:
 		GameState.HINT_QUIZ_REPLACE_QUESTION
 	)
 	_quiz_question_replacing = true
-	_quiz_current_question = next_question
+	_quiz_current_question = QUIZ_SELECTION.shuffled(next_question)
+	# Save one consistent new question before the first animation await.
+	# The old 50/50 applied to the replaced question, not its new answer order.
+	_quiz_fifty_fifty_used = false
+	_quiz_fifty_fifty_hidden_indices.clear()
 	if _quiz_single_player_embedded:
 		var replacement_id: int = int(_quiz_current_question.get("id", -1))
 		if replacement_id >= 0:
@@ -5619,9 +5624,6 @@ func _on_quiz_replace_question_pressed() -> void:
 
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
-	_quiz_fifty_fifty_used = false
-	_quiz_fifty_fifty_hidden_indices.clear()
-	_persist_active_single_player_quiz_session()
 
 	var new_question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
 	_quiz_question_label.text = new_question_text

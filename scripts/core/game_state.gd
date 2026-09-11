@@ -1291,6 +1291,17 @@ func _single_player_question_theme_stats(lang: String, theme_index: int) -> Dict
 	var theme_stats: Dictionary = question_stats[theme_key]
 	if !theme_stats.has("seen") or !(theme_stats["seen"] is Dictionary):
 		theme_stats["seen"] = {}
+	# JSON numbers reload as floats; normalize IDs before Array.has/erase.
+	var recent_value: Variant = theme_stats.get("recent", [])
+	var recent: Array = []
+	if recent_value is Array:
+		for value: Variant in recent_value:
+			if value is int or value is float:
+				var question_id: int = int(value)
+				if question_id >= 0:
+					recent.erase(question_id)
+					recent.append(question_id)
+	theme_stats["recent"] = recent.slice(maxi(0, recent.size() - 8))
 	question_stats[theme_key] = theme_stats
 	bucket["question_stats"] = question_stats
 	single_player[lang_key] = bucket
@@ -1303,6 +1314,9 @@ func has_single_player_question_been_seen(lang: String, theme_index: int, questi
 	var seen: Dictionary = theme_stats["seen"]
 	return bool(seen.get(str(question_id), false))
 
+func get_single_player_question_history(lang: String, theme_index: int) -> Dictionary:
+	return _single_player_question_theme_stats(lang, theme_index).duplicate(true)
+
 func mark_single_player_question_seen(lang: String, theme_index: int, question_id: int, persist: bool = true) -> void:
 	if theme_index < 0 or question_id < 0:
 		return
@@ -1310,10 +1324,17 @@ func mark_single_player_question_seen(lang: String, theme_index: int, question_i
 	var theme_key := _theme_progress_key(theme_index)
 	var theme_stats: Dictionary = _single_player_question_theme_stats(lang_key, theme_index)
 	var seen: Dictionary = theme_stats["seen"]
-	if bool(seen.get(str(question_id), false)):
-		return
 	seen[str(question_id)] = true
 	theme_stats["seen"] = seen
+	# Track the last eight actual presentations, including repeats. Old saves
+	# have no recent list and retain their complete seen history unchanged.
+	var recent_value: Variant = theme_stats.get("recent", [])
+	var recent: Array = Array(recent_value).duplicate() if recent_value is Array else []
+	recent.erase(question_id)
+	recent.append(question_id)
+	while recent.size() > 8:
+		recent.pop_front()
+	theme_stats["recent"] = recent
 	var bucket := _single_player_bucket(lang_key)
 	var question_stats: Dictionary = bucket["question_stats"]
 	question_stats[theme_key] = theme_stats

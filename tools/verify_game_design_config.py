@@ -150,8 +150,7 @@ def main() -> None:
     default = float(resolve(config, "difficulty.default"))
     maximum = float(resolve(config, "difficulty.maximum"))
     require(0.0 <= minimum <= default <= maximum <= 1.0, "Difficulty bounds are inconsistent")
-    quiz_maximum = float(resolve(config, "difficulty.quiz_target_maximum"))
-    require(minimum <= quiz_maximum <= maximum, "Quiz target maximum is outside word bounds")
+    require("quiz_target_maximum" not in config["difficulty"], "Obsolete separate quiz cap")
     require(float(resolve(config, "difficulty.bonus_level_offset")) >= 0.0, "Bonus offset is negative")
 
     win_steps = resolve(config, "difficulty.win_steps")
@@ -265,9 +264,8 @@ def main() -> None:
         "Adaptive difficulty streaks are not connected to saved progression",
     )
     require(
-        "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" in main_source
-        and '"difficulty.quiz_target_maximum"' in main_source,
-        "Quiz difficulty cap is not read from the game-design config",
+        "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" not in main_source,
+        "Quiz still has a separate difficulty cap",
     )
     require(
         '"progression.quiz.second_level_slot"' in main_source

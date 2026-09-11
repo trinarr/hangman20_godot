@@ -1,0 +1,254 @@
+{
+  "52": {
+    "ru": {
+      "id": 52,
+      "theme_id": 4,
+      "difficulty": 0.41,
+      "question": "В каком году вышла операционная система Windows 98?",
+      "answers": [
+        "В 1995 году",
+        "В 1997 году",
+        "В 2000 году",
+        "В 1998 году"
+      ],
+      "correct_index": 3
+    },
+    "en": {
+      "id": 52,
+      "theme_id": 4,
+      "difficulty": 0.41,
+      "question": "In what year was Windows 98 released?",
+      "answers": [
+        "1995",
+        "1997",
+        "2000",
+        "1998"
+      ],
+      "correct_index": 3
+    }
+  },
+  "389": {
+    "ru": {
+      "id": 389,
+      "theme_id": 9,
+      "difficulty": 0.52,
+      "question": "Сколько цифр содержит современный номер ISBN-13?",
+      "answers": [
+        "Тринадцать",
+        "Десять",
+        "Двенадцать",
+        "Шестнадцать"
+      ],
+      "correct_index": 0
+    },
+    "en": {
+      "id": 389,
+      "theme_id": 9,
+      "difficulty": 0.52,
+      "question": "How many digits are in a modern ISBN-13?",
+      "answers": [
+        "Thirteen",
+        "Ten",
+        "Twelve",
+        "Sixteen"
+      ],
+      "correct_index": 0
+    }
+  },
+  "416": {
+    "ru": {
+      "id": 416,
+      "theme_id": 1,
+      "difficulty": 0.29,
+      "question": "Сколько дисциплин входит в легкоатлетическое десятиборье?",
+      "answers": [
+        "8",
+        "12",
+        "15",
+        "10"
+      ],
+      "correct_index": 3
+    },
+    "en": {
+      "id": 416,
+      "theme_id": 1,
+      "difficulty": 0.29,
+      "question": "How many events are in an athletics decathlon?",
+      "answers": [
+        "8",
+        "12",
+        "15",
+        "10"
+      ],
+      "correct_index": 3
+    }
+  },
+  "612": {
+    "ru": {
+      "id": 612,
+      "theme_id": 8,
+      "difficulty": 0.1,
+      "question": "Какой древнегреческий город считают родиной демократии?",
+      "answers": [
+        "Спарта",
+        "Коринф",
+        "Троя",
+        "Афины"
+      ],
+      "correct_index": 3
+    },
+    "en": {
+      "id": 612,
+      "theme_id": 8,
+      "difficulty": 0.1,
+      "question": "Which ancient Greek city is regarded as the birthplace of democracy?",
+      "answers": [
+        "Sparta",
+        "Corinth",
+        "Troy",
+        "Athens"
+      ],
+      "correct_index": 3
+    }
+  },
+  "664": {
+    "ru": {
+      "id": 664,
+      "theme_id": 9,
+      "difficulty": 0.28,
+      "question": "Сколько сторон у шестиугольника?",
+      "answers": [
+        "5",
+        "7",
+        "8",
+        "6"
+      ],
+      "correct_index": 3
+    },
+    "en": {
+      "id": 664,
+      "theme_id": 9,
+      "difficulty": 0.28,
+      "question": "How many sides does a hexagon have?",
+      "answers": [
+        "5",
+        "7",
+        "8",
+        "6"
+      ],
+      "correct_index": 3
+    }
+  },
+  "665": {
+    "ru": {
+      "id": 665,
+      "theme_id": 9,
+      "difficulty": 0.28,
+      "question": "Сколько сторон у восьмиугольника?",
+      "answers": [
+        "Восемь",
+        "Шесть",
+        "Семь",
+        "Десять"
+      ],
+      "correct_index": 0
+    },
+    "en": {
+      "id": 665,
+      "theme_id": 9,
+      "difficulty": 0.28,
+      "question": "How many sides does an octagon have?",
+      "answers": [
+        "Eight",
+        "Six",
+        "Seven",
+        "Ten"
+      ],
+      "correct_index": 0
+    }
+  },
+  "726": {
+    "ru": {
+      "id": 726,
+      "theme_id": 3,
+      "difficulty": 0.06,
+      "question": "Какая часть растения поглощает воду из почвы?",
+      "answers": [
+        "Цветы",
+        "Корни",
+        "Плоды",
+        "Листья"
+      ],
+      "correct_index": 1
+    },
+    "en": {
+      "id": 726,
+      "theme_id": 3,
+      "difficulty": 0.06,
+      "question": "Which part of a plant absorbs water from the soil?",
+      "answers": [
+        "Flowers",
+        "Roots",
+        "Fruit",
+        "Leaves"
+      ],
+      "correct_index": 1
+    }
+  },
+  "764": {
+    "ru": {
+      "id": 764,
+      "theme_id": 7,
+      "difficulty": 0.08,
+      "question": "Через какую часть растение получает воду из почвы?",
+      "answers": [
+        "Лепестки",
+        "Стебель",
+        "Плоды",
+        "Корни"
+      ],
+      "correct_index": 3
+    },
+    "en": {
+      "id": 764,
+      "theme_id": 7,
+      "difficulty": 0.08,
+      "question": "Through which part does a plant take in water from the soil?",
+      "answers": [
+        "Petals",
+        "Stem",
+        "Fruit",
+        "Roots"
+      ],
+      "correct_index": 3
+    }
+  },
+  "778": {
+    "ru": {
+      "id": 778,
+      "theme_id": 8,
+      "difficulty": 0.1,
+      "question": "Какой город Древней Греции считают родиной демократии?",
+      "answers": [
+        "Спарта",
+        "Коринф",
+        "Фивы",
+        "Афины"
+      ],
+      "correct_index": 3
+    },
+    "en": {
+      "id": 778,
+      "theme_id": 8,
+      "difficulty": 0.1,
+      "question": "Which ancient Greek city is considered the birthplace of democracy?",
+      "answers": [
+        "Sparta",
+        "Corinth",
+        "Thebes",
+        "Athens"
+      ],
+      "correct_index": 3
+    }
+  }
+}

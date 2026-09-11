@@ -44,7 +44,6 @@
     "default": 0.18,
     "minimum": 0.08,
     "maximum": 0.86,
-    "quiz_target_maximum": 0.68,
     "bonus_level_offset": 0.01,
     "win_steps": [
       {"below_difficulty": 0.3, "increase": 0.01},
@@ -66,7 +65,7 @@
     "played_word_penalty": 0.05,
     "guessed_word_penalty": 0.12,
     "word_pick_jitter": 0.012,
-    "question_pick_jitter": 0.008
+    "quiz_pick_window": 0.08
   },
   "economy": {
     "starting_coins": 100,
