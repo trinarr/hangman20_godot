@@ -7,8 +7,8 @@ const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
+const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
-const RESULT_WORD_BOUNCE_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/result_word_bounce_effect.gd")
 const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
 	"res://scripts/ui/rounded_rect_texture_mask.gdshader"
 )
@@ -457,6 +457,7 @@ const PORTRAIT_GAME_HINT_BADGE_FADE_DURATION: float = 0.16
 const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 44.0
 const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
 const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
+const PORTRAIT_RESULT_SEARCH_PEAK_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 1.18
 const PORTRAIT_RESULT_WORD_SEARCH_GAP: float = 10.0
 const PORTRAIT_RESULT_SEARCH_SAFE_MARGIN: float = 14.0
 const PORTRAIT_RESULT_WORD_Y_OFFSET: float = 4.0
@@ -607,7 +608,7 @@ var PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_
 var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.word_letters.settle_seconds", 0.24
 )
-const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(22.0, 0.0, 436.0, 72.0)
+const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(24.0, 0.0, 432.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
@@ -781,7 +782,9 @@ var _portrait_currency_coin_icon_visual: Control = null
 var _portrait_star_counter_visual: Control = null
 var _portrait_star_icon_visual: Control = null
 var _portrait_heart_icon_visual: Control = null
-var _portrait_round_end_bounce_started: bool = false
+var _portrait_word_letter_bounce_active_count: int = 0
+var _portrait_word_letter_bounce_generation: int = 0
+var _portrait_round_end_waiting_for_letter_bounce: bool = false
 var _portrait_inline_result_search_button: Control = null
 var _portrait_inline_result_word_holder: Control = null
 var _portrait_inline_result_marker_holder: Control = null
@@ -1061,6 +1064,9 @@ func _clear() -> void:
 	_portrait_inline_result_marker_holder = null
 	_portrait_inline_result_continue_button = null
 	_portrait_game_runtime_ready = false
+	_portrait_word_letter_bounce_active_count = 0
+	_portrait_word_letter_bounce_generation += 1
+	_portrait_round_end_waiting_for_letter_bounce = false
 	_portrait_hint_counter_animation_active = false
 	_portrait_hint_counter_refresh_requested = false
 	_portrait_in_place_result_active = false
@@ -8711,7 +8717,7 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 		"marker_size": marker_size,
 		"font_size": int(round(29.0 * keyboard_scale)),
 		"start_y": keyboard_start_y,
-		"word_rect": Rect2(22.0, keyboard_start_y - 120.0, 436.0, 64.0),
+		"word_rect": Rect2(24.0, keyboard_start_y - 120.0, 432.0, 64.0),
 	}
 
 func _refresh_game_screen() -> void:
@@ -8756,7 +8762,9 @@ func _refresh_game_screen() -> void:
 		_portrait_game_attempts_roll_clip.queue_free()
 	_portrait_game_attempts_roll_clip = null
 	_portrait_game_attempts_displayed_value = -1
-	_portrait_round_end_bounce_started = false
+	_portrait_word_letter_bounce_active_count = 0
+	_portrait_word_letter_bounce_generation += 1
+	_portrait_round_end_waiting_for_letter_bounce = false
 	_portrait_inline_result_search_button = null
 	_portrait_inline_result_word_holder = null
 	_portrait_inline_result_continue_button = null
@@ -9164,6 +9172,12 @@ func _stop_portrait_attempts_attention_bounce(reset_scale: bool) -> void:
 		_portrait_game_attempts_value_label.scale = Vector2.ONE
 
 func _rebuild_portrait_game_word_slots() -> void:
+	# Rebuilding replaces all gameplay-letter labels. Advance the generation so
+	# callbacks from a tween attached to a discarded label cannot decrement the
+	# active count of a newer guess.
+	if !_portrait_in_place_result_active:
+		_portrait_word_letter_bounce_generation += 1
+		_portrait_word_letter_bounce_active_count = 0
 	if (
 		_portrait_game_word_slots_root == null
 		or !is_instance_valid(_portrait_game_word_slots_root)
@@ -9391,76 +9405,155 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 	_stage_portrait_word_slots(rect, font_size, false, false)
 	content = previous_content
 
+func _portrait_display_word_text(text: String) -> String:
+	# Keep stored/session separators untouched, but render compound-word separators
+	# with the mathematical minus. It is longer than a hyphen while staying much
+	# shorter than an em dash, and the same glyph is used for layout measurement.
+	return WORD_SLOT_LAYOUT_SCRIPT.display_text(text)
+
+func _portrait_result_word_font(width: float = UI_FONTS.ROBOTO_FLEX_BUTTON_WIDTH) -> Font:
+	# Result words use the same Roboto Flex profile as regular button captions,
+	# but long answers may compress only the wdth axis before any size fallback.
+	return UI_FONTS.button_font_with_width(width)
+
+func _portrait_result_word_text_width(
+	text: String,
+	font: Font,
+	font_size: int
+) -> float:
+	return font.get_string_size(
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size
+	).x
+
+func _resolve_portrait_result_word_layout(
+	word_text: String,
+	available_width: float,
+	base_font_size: int
+) -> Dictionary:
+	var resolved_width_axis: float = UI_FONTS.ROBOTO_FLEX_BUTTON_WIDTH
+	var resolved_font_size: int = base_font_size
+	var resolved_font: Font = _portrait_result_word_font(resolved_width_axis)
+	var measured_word_width: float = _portrait_result_word_text_width(
+		word_text,
+		resolved_font,
+		resolved_font_size
+	)
+	if measured_word_width > available_width:
+		var lower_width: float = UI_FONTS.ROBOTO_FLEX_BUTTON_MIN_WIDTH
+		var upper_width: float = UI_FONTS.ROBOTO_FLEX_BUTTON_WIDTH
+		for _iteration: int in range(8):
+			var candidate_width: float = (lower_width + upper_width) * 0.5
+			var candidate_font: Font = _portrait_result_word_font(candidate_width)
+			var candidate_word_width: float = _portrait_result_word_text_width(
+				word_text,
+				candidate_font,
+				resolved_font_size
+			)
+			if candidate_word_width <= available_width:
+				lower_width = candidate_width
+			else:
+				upper_width = candidate_width
+		resolved_width_axis = floorf(lower_width)
+		resolved_font = _portrait_result_word_font(resolved_width_axis)
+		measured_word_width = _portrait_result_word_text_width(
+			word_text,
+			resolved_font,
+			resolved_font_size
+		)
+	if measured_word_width > available_width:
+		var minimum_font_size: int = 24
+		while measured_word_width > available_width and resolved_font_size > minimum_font_size:
+			resolved_font_size -= 1
+			measured_word_width = _portrait_result_word_text_width(
+				word_text,
+				resolved_font,
+				resolved_font_size
+			)
+	return {
+		"font": resolved_font,
+		"font_size": resolved_font_size,
+		"font_width": resolved_width_axis,
+		"measured_width": measured_word_width,
+	}
+
 func _stage_portrait_result_word_display(
 	rect: Rect2,
 	continue_button: Control,
 	continue_text: Control,
-	animate_result: bool
+	animate_result: bool,
+	bounce_start_delay: float = 0.0
 ) -> Dictionary:
-	var reserved_width: float = (
-		PORTRAIT_RESULT_SEARCH_BUTTON_SIZE
-		+ PORTRAIT_RESULT_WORD_SEARCH_GAP
-		+ PORTRAIT_RESULT_SEARCH_SAFE_MARGIN
+	# Treat the final word and search button as one centered group. Reserving the
+	# search width symmetrically on both sides used to waste the free left margin,
+	# forcing long answers to overlap the button even though the screen still had
+	# plenty of room on the opposite side.
+	var group_side_margin: float = maxf(PORTRAIT_RESULT_SEARCH_SAFE_MARGIN, 18.0)
+	var max_group_width: float = maxf(
+		PORTRAIT_STAGE_SIZE.x - group_side_margin * 2.0,
+		1.0
 	)
-	# The result is a single shaped line, so the font controls glyph advances and
-	# kerning. The search button is appended after the measured text without
-	# participating in the answer's centering.
-	var word_width: float = minf(
-		rect.size.x,
-		PORTRAIT_STAGE_SIZE.x - reserved_width * 2.0
+	var max_word_width: float = maxf(
+		max_group_width
+		- PORTRAIT_RESULT_WORD_SEARCH_GAP
+		- PORTRAIT_RESULT_SEARCH_BUTTON_SIZE,
+		1.0
+	)
+	var word_width: float = minf(rect.size.x, max_word_width)
+	var word_text: String = _portrait_display_word_text("".join(GameSession.letters))
+
+	# The settled result uses the exact same Label + DisplayTextEffect path as a
+	# button caption. This avoids the small per-glyph inconsistencies produced by
+	# the former RichTextLabel recreation of the button outline/shadow.
+	var result_font_size: int = 39
+	var result_layout: Dictionary = _resolve_portrait_result_word_layout(
+		word_text,
+		word_width,
+		result_font_size
+	)
+	var result_font: Font = result_layout.get("font") as Font
+	result_font_size = int(result_layout.get("font_size", result_font_size))
+	var measured_word_width: float = float(result_layout.get("measured_width", 0.0))
+	var result_group_width: float = (
+		measured_word_width
+		+ PORTRAIT_RESULT_WORD_SEARCH_GAP
+		+ PORTRAIT_RESULT_SEARCH_BUTTON_SIZE
+	)
+	var result_group_x: float = clampf(
+		(PORTRAIT_STAGE_SIZE.x - result_group_width) * 0.5,
+		group_side_margin,
+		maxf(
+			group_side_margin,
+			PORTRAIT_STAGE_SIZE.x - group_side_margin - result_group_width
+		)
 	)
 	var word_rect := Rect2(
 		Vector2(
-			(PORTRAIT_STAGE_SIZE.x - word_width) * 0.5,
+			result_group_x,
 			rect.position.y + PORTRAIT_RESULT_WORD_Y_OFFSET + PORTRAIT_STAGE_SIZE.y * 0.02
 		),
-		Vector2(word_width, rect.size.y - 10.0)
+		Vector2(maxf(measured_word_width, 1.0), rect.size.y - 10.0)
 	)
-	var word_text: String = "".join(GameSession.letters)
 	var word_holder := _stage_holder(word_rect, Control.MOUSE_FILTER_IGNORE)
-	# The solved word now lives outside the clipping mask. The front paper layer
-	# simply stays above it and reveals the text by moving away during the peel.
 	word_holder.z_index = 29
-	var word_label := RichTextLabel.new()
+	var word_label := Label.new()
+	word_label.name = "ResultWordLabel"
 	word_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	word_label.focus_mode = Control.FOCUS_NONE
 	word_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	word_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	word_label.text = word_text
 	word_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	word_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	word_label.scroll_active = false
-	word_label.selection_enabled = false
-	word_label.context_menu_enabled = false
-	word_label.clip_contents = false
-	word_label.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-	var result_font_variation := FontVariation.new()
-	result_font_variation.base_font = UI_HEADING_FONT
-	result_font_variation.set("spacing_glyph", PORTRAIT_RESULT_LETTER_SPACING)
-	word_label.add_theme_font_override("normal_font", result_font_variation)
-	word_label.add_theme_color_override("default_color", PORTRAIT_BLUE)
-
-	var result_font: Font = result_font_variation
-	var result_font_size: int = 34
-	var measured_word_width: float = result_font.get_string_size(
-		word_text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		result_font_size
-	).x
-	if measured_word_width > word_width:
-		result_font_size = maxi(
-			12,
-			int(floor(float(result_font_size) * word_width / measured_word_width))
-		)
-		measured_word_width = result_font.get_string_size(
-			word_text,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1.0,
-			result_font_size
-		).x
-	word_label.add_theme_font_size_override("normal_font_size", result_font_size)
+	word_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	word_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	word_label.clip_text = false
+	word_label.add_theme_font_override("font", result_font)
+	word_label.add_theme_font_size_override("font_size", result_font_size)
+	word_label.add_theme_color_override("font_color", Color.WHITE)
 	word_holder.add_child(word_label)
 	word_label.z_index = 1
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(word_label)
 
 	var animated_letter_count: int = 0
 	for letter: String in GameSession.letters:
@@ -9475,37 +9568,30 @@ func _stage_portrait_result_word_display(
 	var settle_duration: float = PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION / speed_multiplier
 	var letter_gap: float = PORTRAIT_RESULT_LETTER_BOUNCE_GAP / speed_multiplier
 	var animation_duration: float = 0.0
-	if animate_result:
-		var bounce_effect: RichTextEffect = RESULT_WORD_BOUNCE_EFFECT_SCRIPT.new() as RichTextEffect
-		bounce_effect.call(
-			"configure",
+	var bounce_holder: Control = null
+	var bounce_labels: Array = []
+	if animate_result and animated_letter_count > 0:
+		word_label.visible = false
+		var bounce_result: Dictionary = _stage_portrait_result_word_bounce_labels(
+			word_holder,
 			word_text,
+			result_font,
+			result_font_size,
+			measured_word_width,
 			grow_duration,
 			settle_duration,
 			letter_gap,
-			result_font_size,
-			PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE.x,
-			PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_STRENGTH,
-			PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_RADIUS
+			bounce_start_delay
 		)
-		animation_duration = float(bounce_effect.call("animation_duration"))
-		word_label.push_customfx(bounce_effect, {})
-		word_label.add_text(word_text)
-		word_label.pop()
-	else:
-		word_label.add_text(word_text)
+		bounce_holder = bounce_result.get("holder") as Control
+		bounce_labels = bounce_result.get("labels", []) as Array
+		animation_duration = float(bounce_result.get("duration", 0.0))
 
 	var word_bounds := Rect2(
-		Vector2(
-			(PORTRAIT_STAGE_SIZE.x - measured_word_width) * 0.5,
-			word_rect.position.y
-		),
+		word_rect.position,
 		Vector2(measured_word_width, word_rect.size.y)
 	)
 	var search_x: float = word_bounds.end.x + PORTRAIT_RESULT_WORD_SEARCH_GAP
-	# RichTextLabel centers the shaped line inside word_rect. Center the search
-	# button on that same rect so its vertical alignment follows the text layout
-	# automatically instead of relying on a device-specific optical offset.
 	var search_y: float = word_rect.get_center().y - PORTRAIT_RESULT_SEARCH_BUTTON_SIZE * 0.5
 	var marker_left: float = maxf(18.0, word_bounds.position.x - 6.0)
 	var marker_right: float = minf(
@@ -9551,15 +9637,140 @@ func _stage_portrait_result_word_display(
 			animation_duration,
 			search_button,
 			continue_button,
-			continue_text
+			continue_text,
+			word_label,
+			bounce_holder
 		)
 	return {
 		"word_holder": word_holder,
 		"marker_holder": marker_holder,
 		"word_marker": word_marker,
 		"word_label": word_label,
+		"bounce_labels": bounce_labels,
 		"search_button": search_button,
 	}
+
+func _stage_portrait_result_word_bounce_labels(
+	word_holder: Control,
+	word_text: String,
+	font: Font,
+	font_size: int,
+	measured_word_width: float,
+	grow_duration: float,
+	settle_duration: float,
+	letter_gap: float,
+	start_delay: float = 0.0
+) -> Dictionary:
+	var bounce_holder := Control.new()
+	bounce_holder.name = "ResultWordBounceLetters"
+	bounce_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bounce_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bounce_holder.z_index = 2
+	word_holder.add_child(bounce_holder)
+
+	# Position every temporary bounce glyph from the shaped width of the real text
+	# prefix. The previous implementation spread the total kerning correction evenly
+	# across all pairs, which made long phrases snap when they were swapped back to
+	# the settled Label and could look like a second bounce pass.
+	var prefix_advances: Array[float] = [0.0]
+	for character_index: int in range(word_text.length()):
+		var prefix_text: String = word_text.substr(0, character_index + 1)
+		prefix_advances.append(
+			font.get_string_size(
+				prefix_text,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				font_size
+			).x
+		)
+
+	var animation_index: int = 0
+	var labels: Array = []
+	var start_step: float = grow_duration + letter_gap
+	for character_index: int in range(word_text.length()):
+		var character: String = word_text.substr(character_index, 1)
+		if character == " ":
+			continue
+		var glyph_width: float = maxf(
+			font.get_string_size(
+				character,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				font_size
+			).x,
+			1.0
+		)
+		var glyph_x: float = prefix_advances[character_index]
+		var letter_label := Label.new()
+		letter_label.name = "ResultLetter%02d" % character_index
+		letter_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		letter_label.position = Vector2(roundf(glyph_x), 0.0)
+		letter_label.size = Vector2(maxf(ceilf(glyph_width), 1.0), word_holder.size.y)
+		letter_label.text = character
+		letter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		letter_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		letter_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		letter_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+		letter_label.clip_text = false
+		letter_label.add_theme_font_override("font", font)
+		letter_label.add_theme_font_size_override("font_size", font_size)
+		letter_label.add_theme_color_override("font_color", Color.WHITE)
+		bounce_holder.add_child(letter_label)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(letter_label)
+		labels.append(letter_label)
+		if character != "-" and character != "—":
+			letter_label.pivot_offset = letter_label.size * 0.5
+			_play_portrait_result_letter_bounce(
+				letter_label,
+				start_delay + float(animation_index) * start_step,
+				grow_duration,
+				settle_duration
+			)
+			animation_index += 1
+
+	var duration: float = 0.0
+	if animation_index > 0:
+		duration = (
+			start_delay + float(animation_index - 1) * start_step
+			+ grow_duration
+			+ settle_duration
+		)
+	return {
+		"holder": bounce_holder,
+		"labels": labels,
+		"duration": duration,
+	}
+
+func _play_portrait_result_letter_bounce(
+	letter_label: Label,
+	delay: float,
+	grow_duration: float,
+	settle_duration: float
+) -> void:
+	if letter_label == null or !is_instance_valid(letter_label):
+		return
+	letter_label.scale = Vector2.ONE
+	var tween: Tween = letter_label.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.bind_node(letter_label)
+	if delay > 0.0:
+		tween.tween_interval(delay)
+	var grow := tween.tween_property(
+		letter_label,
+		"scale",
+		PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE,
+		grow_duration
+	)
+	grow.set_trans(Tween.TRANS_QUAD)
+	grow.set_ease(Tween.EASE_OUT)
+	var settle := tween.tween_property(
+		letter_label,
+		"scale",
+		Vector2.ONE,
+		settle_duration
+	)
+	settle.set_trans(Tween.TRANS_BACK)
+	settle.set_ease(Tween.EASE_OUT)
 
 func _stage_portrait_word_slots(
 	rect: Rect2,
@@ -9576,69 +9787,47 @@ func _stage_portrait_word_slots(
 			"letter_center_y": rect.position.y + (rect.size.y - 10.0) * 0.5,
 		}
 
-	var layout: Array = []
-	var total_width: float = 0.0
-	var base_slot_width: float = 38.0
-	var base_space_width: float = 20.7
-	var base_gap: float = 10.0
-	for i in range(GameSession.letters.size()):
-		var letter: String = GameSession.letters[i]
-		var is_space: bool = letter == " "
-		var item_width: float = base_space_width if is_space else base_slot_width
-		layout.append({
-			"letter": letter,
-			"revealed": reveal_all or bool(GameSession.revealed[i]),
-			"is_space": is_space,
-			"is_dash": letter == "-" or letter == "—",
-			"width": item_width,
-		})
-		total_width += item_width
-		if i < GameSession.letters.size() - 1:
-			total_width += base_gap
-
-	var scale: float = min(1.0, rect.size.x / max(total_width, 1.0))
-	var slot_gap: float = base_gap * scale
-	var underline_width: float = 30.0 * scale
-	var underline_height: float = max(3.0, 4.0 * scale)
-	var effective_font_size: int = maxi(24, int(round(font_size * max(scale, 0.82))))
-	# A twenty-letter answer may need narrower slots than the old minimum font
-	# allowed. Fit the widest glyph before creating labels, preserving one size
-	# across the whole answer and the existing size whenever it already fits.
-	var widest_glyph: float = 0.0
-	for item: Dictionary in layout:
-		if !bool(item["is_space"]):
-			widest_glyph = maxf(widest_glyph, UI_HEADING_FONT.get_string_size(
-				str(item["letter"]), HORIZONTAL_ALIGNMENT_LEFT, -1.0, effective_font_size
-			).x)
-	var glyph_width_limit: float = base_slot_width * scale
-	if widest_glyph > glyph_width_limit:
-		effective_font_size = maxi(12, int(floor(
-			float(effective_font_size) * glyph_width_limit / widest_glyph
-		)))
-	var start_x: float = rect.position.x + (rect.size.x - total_width * scale) * 0.5
-	var baseline_y: float = rect.position.y + rect.size.y - 8.0
-	var x: float = start_x
+	var resolved: Dictionary = WORD_SLOT_LAYOUT_SCRIPT.new(GameSession.letters).resolve(rect.size, font_size)
+	var layout: Array = resolved["items"]
+	var word_font: Font = resolved["font"]
+	var effective_font_size: int = int(resolved["font_size"])
+	var total_width: float = float(resolved["total_width"])
+	var start_x: float = rect.position.x + float(resolved["start_x"])
+	var baseline_y: float = rect.position.y + float(resolved["baseline_y"])
+	var shared_underline_width: float = float(resolved["underline_width"])
+	var underline_height: float = float(resolved["underline_height"])
 
 	for i in range(layout.size()):
 		var item: Dictionary = layout[i]
-		var item_width: float = float(item["width"]) * scale
+		var item_left: float = float(item["left"])
+		var item_width: float = float(item["width"])
+		var item_center: float = float(item["center"])
 		var letter: String = str(item["letter"])
+		var display_letter: String = _portrait_display_word_text(letter)
 		var is_space: bool = bool(item["is_space"])
 		var is_dash: bool = bool(item["is_dash"])
-		var revealed: bool = bool(item["revealed"])
+		var revealed: bool = reveal_all or bool(GameSession.revealed[i])
 		if !revealed and !is_space and !is_dash:
 			_stage_panel(Rect2(
-				x + (item_width - underline_width) * 0.5,
+				start_x + item_center - shared_underline_width * 0.5,
 				baseline_y,
-				underline_width,
+				shared_underline_width,
 				underline_height
 			), PORTRAIT_ORANGE)
 		if (revealed and !is_space) or is_dash:
-			var letter_label := _stage_label(Rect2(x, rect.position.y, item_width, rect.size.y - 10.0), letter, effective_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER)
-			letter_label.add_theme_font_override("font", UI_HEADING_FONT)
-			# Each revealed letter occupies an identical single-line slot. Disabling
-			# wrapping and resetting the full-rect offsets after parenting prevents
-			# wide glyphs from changing the label's line box and jumping vertically.
+			var letter_label := _stage_label(
+				Rect2(
+					start_x + item_left,
+					rect.position.y,
+					item_width,
+					rect.size.y - 10.0
+				),
+				display_letter,
+				effective_font_size,
+				PORTRAIT_BLUE,
+				HORIZONTAL_ALIGNMENT_CENTER
+			)
+			letter_label.add_theme_font_override("font", word_font)
 			letter_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 			letter_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 			letter_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -9662,12 +9851,9 @@ func _stage_portrait_word_slots(
 				if letter_holder != null:
 					letter_holder.z_index = 20
 				animated_letters.append(letter_label)
-		x += item_width
-		if i < layout.size() - 1:
-			x += slot_gap
 
 	return {
-		"bounds": Rect2(start_x, rect.position.y, total_width * scale, rect.size.y),
+		"bounds": Rect2(start_x, rect.position.y, total_width, rect.size.y),
 		"animated_letters": animated_letters,
 		"font_size": effective_font_size,
 		"letter_center_y": rect.position.y + (rect.size.y - 10.0) * 0.5,
@@ -9677,31 +9863,51 @@ func _play_portrait_result_word_bounce_sequence(
 	animation_duration: float,
 	search_button: Control,
 	continue_button: Control,
-	continue_text: Control
+	continue_text: Control,
+	settled_word_label: Label,
+	bounce_holder: Control
 ) -> void:
+	if settled_word_label == null or !is_instance_valid(settled_word_label):
+		return
 	if animation_duration <= 0.0:
 		_complete_portrait_result_word_bounce_sequence(
 			search_button,
 			continue_button,
-			continue_text
+			continue_text,
+			settled_word_label,
+			bounce_holder
 		)
 		return
-	var sequence: Tween = create_tween()
+	# Cancel the completion callback with this result if navigation removes it.
+	var sequence: Tween = settled_word_label.create_tween()
 	sequence.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	sequence.tween_interval(animation_duration)
 	sequence.tween_callback(
 		Callable(self, "_complete_portrait_result_word_bounce_sequence").bind(
 			search_button,
 			continue_button,
-			continue_text
+			continue_text,
+			settled_word_label,
+			bounce_holder
 		)
 	)
 
 func _complete_portrait_result_word_bounce_sequence(
 	search_button: Control,
 	continue_button: Control,
-	continue_text: Control
+	continue_text: Control,
+	settled_word_label: Label,
+	bounce_holder: Control
 ) -> void:
+	# Swap the temporary per-letter bounce composition for one settled Label. The
+	# final frame then uses exactly the same ButtonTextStyle path as button text,
+	# including identical shaping, outline and shader shadow.
+	if settled_word_label != null and is_instance_valid(settled_word_label):
+		settled_word_label.visible = true
+	if bounce_holder != null and is_instance_valid(bounce_holder):
+		bounce_holder.visible = false
+		bounce_holder.queue_free()
+
 	# Once every solved-word letter has completed its bounce, reveal the search
 	# button and convert remaining attempts in parallel. Continue still waits for
 	# the final star impact.
@@ -9724,6 +9930,9 @@ func _reveal_portrait_result_actions(
 			finished_callback.call()
 		return
 	search_button.visible = true
+	search_button.set("disabled", false)
+	# Press feedback also writes visual_scale; enable input after the entrance.
+	search_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	search_button.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE)
 	if continue_button != null and is_instance_valid(continue_button) and continue_button.is_inside_tree():
@@ -9732,7 +9941,7 @@ func _reveal_portrait_result_actions(
 	if continue_text != null and is_instance_valid(continue_text) and continue_text.is_inside_tree():
 		continue_text.visible = true
 		continue_text.modulate = Color(1.0, 1.0, 1.0, 0.0)
-	var reveal_tween: Tween = create_tween()
+	var reveal_tween: Tween = search_button.create_tween()
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	reveal_tween.set_parallel(true)
 	var fade_tweener: PropertyTweener = reveal_tween.tween_property(
@@ -9764,11 +9973,23 @@ func _reveal_portrait_result_actions(
 	var scale_tweener: PropertyTweener = reveal_tween.tween_property(
 		search_button,
 		"visual_scale",
+		PORTRAIT_RESULT_SEARCH_PEAK_VISUAL_SCALE,
+		PORTRAIT_RESULT_SEARCH_APPEAR_DURATION
+	)
+	scale_tweener.set_trans(Tween.TRANS_QUAD)
+	scale_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = reveal_tween.chain().tween_property(
+		search_button,
+		"visual_scale",
 		PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE,
 		PORTRAIT_RESULT_SEARCH_APPEAR_DURATION
 	)
-	scale_tweener.set_trans(Tween.TRANS_BACK)
-	scale_tweener.set_ease(Tween.EASE_OUT)
+	settle_tweener.set_trans(Tween.TRANS_BACK)
+	settle_tweener.set_ease(Tween.EASE_OUT)
+	reveal_tween.finished.connect(func() -> void:
+		if is_instance_valid(search_button) and search_button.is_inside_tree():
+			search_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	)
 	if finished_callback.is_valid():
 		reveal_tween.finished.connect(
 			finished_callback,
@@ -9931,13 +10152,38 @@ func _finish_portrait_attempt_star_collection() -> void:
 
 func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
 	# Every occurrence of the newly revealed letter gets its own tween, so words
-	# with repeated letters animate all matching slots at the same time.
+	# with repeated letters animate all matching slots at the same time. Count them
+	# before the deferred start: a solved round can be reported in this same frame.
+	var bounce_generation: int = _portrait_word_letter_bounce_generation
+	_portrait_word_letter_bounce_active_count += 1
 	letter_label.pivot_offset = letter_label.size * 0.5
 	letter_label.scale = PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE
-	call_deferred("_play_portrait_word_letter_bounce", letter_label)
+	call_deferred("_play_portrait_word_letter_bounce", letter_label, bounce_generation)
 
-func _play_portrait_word_letter_bounce(letter_label: Label) -> void:
+func _finish_portrait_word_letter_bounce(bounce_generation: int) -> void:
+	if bounce_generation != _portrait_word_letter_bounce_generation:
+		return
+	_portrait_word_letter_bounce_active_count = maxi(
+		_portrait_word_letter_bounce_active_count - 1,
+		0
+	)
+	if (
+		_portrait_word_letter_bounce_active_count == 0
+		and _portrait_round_end_waiting_for_letter_bounce
+		and _portrait_in_place_result_active
+		and _portrait_in_place_result_is_win
+	):
+		_portrait_round_end_waiting_for_letter_bounce = false
+		_peel_portrait_word_paper_for_in_place_result(true)
+
+func _play_portrait_word_letter_bounce(
+	letter_label: Label,
+	bounce_generation: int
+) -> void:
+	if bounce_generation != _portrait_word_letter_bounce_generation:
+		return
 	if letter_label == null or !is_instance_valid(letter_label) or !letter_label.is_inside_tree():
+		_finish_portrait_word_letter_bounce(bounce_generation)
 		return
 	letter_label.pivot_offset = letter_label.size * 0.5
 	var tween: Tween = create_tween()
@@ -9958,6 +10204,10 @@ func _play_portrait_word_letter_bounce(letter_label: Label) -> void:
 	)
 	settle_tweener.set_trans(Tween.TRANS_BACK)
 	settle_tweener.set_ease(Tween.EASE_OUT)
+	tween.finished.connect(
+		Callable(self, "_finish_portrait_word_letter_bounce").bind(bounce_generation),
+		CONNECT_ONE_SHOT
+	)
 
 func _portrait_game_hint_y() -> float:
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics_snapshot
@@ -11192,7 +11442,10 @@ func _grant_single_player_extra_attempt() -> void:
 	GameSession.grant_deferred_attempt(_single_player_extra_attempt_count())
 	single_player_extra_attempt_claim_in_progress = false
 
-func _stage_portrait_inline_result_word(animate_result: bool = false) -> Dictionary:
+func _stage_portrait_inline_result_word(
+	animate_result: bool = false,
+	bounce_start_delay: float = 0.0
+) -> Dictionary:
 	if (
 		_portrait_game_input_group == null
 		or !is_instance_valid(_portrait_game_input_group)
@@ -11205,7 +11458,8 @@ func _stage_portrait_inline_result_word(animate_result: bool = false) -> Diction
 		_portrait_game_word_rect,
 		null,
 		null,
-		animate_result
+		animate_result,
+		bounce_start_delay
 	)
 	content = previous_content
 	_portrait_inline_result_word_holder = result_controls.get("word_holder") as Control
@@ -11213,13 +11467,17 @@ func _stage_portrait_inline_result_word(animate_result: bool = false) -> Diction
 	return result_controls
 
 func _set_portrait_result_word_color(result_controls: Dictionary, color: Color) -> void:
-	var word_label := result_controls.get("word_label") as RichTextLabel
+	var word_label := result_controls.get("word_label") as Label
 	if word_label != null and is_instance_valid(word_label):
-		word_label.add_theme_color_override("default_color", Color.WHITE)
-		_apply_portrait_standard_text_outline(word_label, 0.9, 4)
-		word_label.add_theme_color_override("font_shadow_color", PORTRAIT_BLUE)
-		word_label.add_theme_constant_override("shadow_offset_x", 2)
-		word_label.add_theme_constant_override("shadow_offset_y", 2)
+		word_label.add_theme_color_override("font_color", Color.WHITE)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(word_label)
+	var bounce_labels: Array = result_controls.get("bounce_labels", []) as Array
+	for bounce_label_value: Variant in bounce_labels:
+		var bounce_label := bounce_label_value as Label
+		if bounce_label == null or !is_instance_valid(bounce_label):
+			continue
+		bounce_label.add_theme_color_override("font_color", Color.WHITE)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(bounce_label)
 	_set_portrait_result_word_marker_color(result_controls, color)
 
 func _in_place_result_word_color() -> Color:
@@ -11230,7 +11488,10 @@ func _in_place_result_word_color() -> Color:
 	)
 
 func _stage_in_place_result_word(animated: bool) -> void:
-	var result_controls: Dictionary = _stage_portrait_inline_result_word(false)
+	# Build visible letters once, underneath the paper, before the peel moves.
+	# Only their motion waits for the midpoint; the marker and word never vanish.
+	var bounce_start_delay: float = PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5 if animated else 0.0
+	var result_controls: Dictionary = _stage_portrait_inline_result_word(animated, bounce_start_delay)
 	_set_portrait_result_word_color(result_controls, _in_place_result_word_color())
 	var search_button := result_controls.get("search_button") as Control
 	_portrait_inline_result_search_button = search_button
@@ -11266,9 +11527,14 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 	# uncovered; Two Player simply has no hint row to remove.
 	_dim_portrait_keyboard_for_in_place_result()
 	_hide_portrait_hints_for_round_end(animated)
-	_portrait_round_end_bounce_started = false
-	_stage_in_place_result_word(animated)
-	_peel_portrait_word_paper_for_in_place_result(animated)
+	# On a win, keep the paper completely still until the final revealed gameplay
+	# letter has returned from its bounce. Repeated occurrences of the same guessed
+	# letter bounce in parallel, and the peel starts after the last one settles.
+	if is_win and animated and _portrait_word_letter_bounce_active_count > 0:
+		_portrait_round_end_waiting_for_letter_bounce = true
+	else:
+		_portrait_round_end_waiting_for_letter_bounce = false
+		_peel_portrait_word_paper_for_in_place_result(animated)
 
 func _dim_portrait_keyboard_for_in_place_result() -> void:
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
@@ -11281,6 +11547,8 @@ func _dim_portrait_keyboard_for_in_place_result() -> void:
 		button.modulate.a = PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA
 
 func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:
+	_portrait_round_end_waiting_for_letter_bounce = false
+	_stage_in_place_result_word(animated)
 	if _portrait_game_word_paper_layer == null or !is_instance_valid(_portrait_game_word_paper_layer):
 		_finish_in_place_result_paper_peel(null, animated)
 		return
@@ -11308,25 +11576,9 @@ func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:
 		CONNECT_ONE_SHOT
 	)
 
-	var bounce_start_tween := create_tween()
-	bounce_start_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	bounce_start_tween.tween_interval(PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5)
-	bounce_start_tween.tween_callback(
-		Callable(self, "_start_in_place_result_word_bounce")
-	)
-
-func _start_in_place_result_word_bounce() -> void:
-	if _portrait_round_end_bounce_started or !_portrait_in_place_result_active:
-		return
-	_portrait_round_end_bounce_started = true
-	_replace_portrait_inline_result_word_with_bounce(_in_place_result_word_color())
-
 func _finish_in_place_result_paper_peel(paper_layer: Control, animated: bool) -> void:
 	_finalize_portrait_word_paper_peel_visuals(paper_layer)
-	if animated:
-		if !_portrait_round_end_bounce_started:
-			_start_in_place_result_word_bounce()
-	elif (
+	if !animated and (
 		_portrait_inline_result_search_button != null
 		and is_instance_valid(_portrait_inline_result_search_button)
 	):
@@ -15859,38 +16111,6 @@ func _set_portrait_word_paper_peel_progress(progress: float) -> void:
 	# a later round-end peel always uses the normal fully opaque backside.
 	_portrait_game_word_paper_backside.modulate.a = 1.0
 	_portrait_game_word_paper_backside.visible = p > 0.001 and p < 0.999
-
-func _replace_portrait_inline_result_word_with_bounce(
-	word_color: Color = PORTRAIT_BLUE
-) -> void:
-	if (
-		_portrait_inline_result_word_holder != null
-		and is_instance_valid(_portrait_inline_result_word_holder)
-	):
-		_portrait_inline_result_word_holder.visible = false
-		_portrait_inline_result_word_holder.queue_free()
-	# The marker sits outside the moving paper mask so its opacity never changes
-	# with the peel. Remove the old instance before rebuilding the bouncing word;
-	# otherwise two translucent marker layers briefly overlap and look like an
-	# opacity animation halfway through the page turn.
-	if (
-		_portrait_inline_result_marker_holder != null
-		and is_instance_valid(_portrait_inline_result_marker_holder)
-	):
-		_portrait_inline_result_marker_holder.visible = false
-		_portrait_inline_result_marker_holder.queue_free()
-	if (
-		_portrait_inline_result_search_button != null
-		and is_instance_valid(_portrait_inline_result_search_button)
-	):
-		_portrait_inline_result_search_button.visible = false
-		_portrait_inline_result_search_button.queue_free()
-	_portrait_inline_result_word_holder = null
-	_portrait_inline_result_marker_holder = null
-	_portrait_inline_result_search_button = null
-	var bounced_controls: Dictionary = _stage_portrait_inline_result_word(true)
-	_set_portrait_result_word_color(bounced_controls, word_color)
-	_portrait_inline_result_search_button = bounced_controls.get("search_button") as Control
 
 func _finalize_portrait_word_paper_peel_visuals(paper_layer: Control) -> void:
 	if paper_layer != null and is_instance_valid(paper_layer):

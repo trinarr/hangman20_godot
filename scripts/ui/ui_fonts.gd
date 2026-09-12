@@ -12,6 +12,7 @@ const ROBOTO_FLEX_DISPLAY_THIN_STROKE: float = 90.0
 # Buttons: preserve the current tuning from the supplied ui_fonts.gd.
 const ROBOTO_FLEX_BUTTON_WEIGHT: float = 680.0
 const ROBOTO_FLEX_BUTTON_WIDTH: float = 25.0
+const ROBOTO_FLEX_BUTTON_MIN_WIDTH: float = 10.0
 const ROBOTO_FLEX_BUTTON_GRADE: float = -30.0
 const ROBOTO_FLEX_BUTTON_THIN_STROKE: float = 80.0
 
@@ -20,6 +21,14 @@ const ROBOTO_FLEX_REGULAR_WEIGHT: float = 650.0
 const ROBOTO_FLEX_REGULAR_WIDTH: float = 75.0
 const ROBOTO_FLEX_REGULAR_GRADE: float = 0.0
 const ROBOTO_FLEX_REGULAR_THIN_STROKE: float = 80.0
+
+# Hangman answer letters. Keep the authored font size fixed and use only the
+# variable-font width axis to make long answers fit their narrower slots.
+const ROBOTO_FLEX_GAME_WORD_WEIGHT: float = 500.0
+const ROBOTO_FLEX_GAME_WORD_WIDTH: float = 100.0
+const ROBOTO_FLEX_GAME_WORD_MIN_WIDTH: float = 25.0
+const ROBOTO_FLEX_GAME_WORD_GRADE: float = 0.0
+const ROBOTO_FLEX_GAME_WORD_THIN_STROKE: float = 80.0
 
 # Long-form copy shared by the quiz question and word-comment popup. Keep the
 # Regular axes, but use the lighter authored weight requested for this pair.
@@ -76,9 +85,17 @@ static func display_font() -> Font:
 	)
 
 static func button_font() -> Font:
+	return button_font_with_width(ROBOTO_FLEX_BUTTON_WIDTH)
+
+static func button_font_with_width(width: float = ROBOTO_FLEX_BUTTON_WIDTH) -> Font:
+	var resolved_width: float = clampf(
+		roundf(width),
+		ROBOTO_FLEX_BUTTON_MIN_WIDTH,
+		ROBOTO_FLEX_BUTTON_WIDTH
+	)
 	return _roboto_flex_font(
 		ROBOTO_FLEX_BUTTON_WEIGHT,
-		ROBOTO_FLEX_BUTTON_WIDTH,
+		resolved_width,
 		ROBOTO_FLEX_BUTTON_GRADE,
 		ROBOTO_FLEX_BUTTON_THIN_STROKE
 	)
@@ -89,6 +106,21 @@ static func regular_font() -> Font:
 		ROBOTO_FLEX_REGULAR_WIDTH,
 		ROBOTO_FLEX_REGULAR_GRADE,
 		ROBOTO_FLEX_REGULAR_THIN_STROKE
+	)
+
+static func gameplay_word_font(width: float = ROBOTO_FLEX_GAME_WORD_WIDTH) -> Font:
+	# Integer width steps keep the shared FontVariation cache bounded while still
+	# making the continuous Roboto Flex axis visually smooth at gameplay sizes.
+	var resolved_width: float = clampf(
+		roundf(width),
+		ROBOTO_FLEX_GAME_WORD_MIN_WIDTH,
+		ROBOTO_FLEX_GAME_WORD_WIDTH
+	)
+	return _roboto_flex_font(
+		ROBOTO_FLEX_GAME_WORD_WEIGHT,
+		resolved_width,
+		ROBOTO_FLEX_GAME_WORD_GRADE,
+		ROBOTO_FLEX_GAME_WORD_THIN_STROKE
 	)
 
 static func question_comment_font() -> Font:
