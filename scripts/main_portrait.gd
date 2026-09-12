@@ -1242,6 +1242,60 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 		_heading_font_size(20)
 	)
 
+func _stage_portrait_custom_word_title(title: String) -> void:
+	# Match the result-word presentation: a hand-drawn colored marker sits behind
+	# white display text, while the normal button/display shader geometry supplies
+	# the outline and extrusion. This screen uses an informational sky-blue tint.
+	var marker_rect := Rect2(62.0, 99.0, 356.0, 52.0)
+	var marker_holder := _stage_holder(marker_rect, Control.MOUSE_FILTER_IGNORE)
+	marker_holder.name = "CustomWordTitleMarkerHolder"
+	marker_holder.z_index = 0
+	var marker := _stage_portrait_result_word_marker(marker_holder.size)
+	marker.name = "CustomWordTitleMarker"
+	marker_holder.add_child(marker)
+
+	var marker_color: Color = PORTRAIT_UI_PALETTE.MARKER_INFO
+	var base_layer := marker.get_node_or_null("BaseLayer") as CanvasGroup
+	if base_layer != null and is_instance_valid(base_layer):
+		base_layer.self_modulate = Color(
+			marker_color.r,
+			marker_color.g,
+			marker_color.b,
+			0.35
+		)
+	var detail_layer := marker.get_node_or_null("DetailLayer") as CanvasGroup
+	if detail_layer != null and is_instance_valid(detail_layer):
+		var darker_marker: Color = marker_color.darkened(0.10)
+		detail_layer.self_modulate = Color(
+			darker_marker.r,
+			darker_marker.g,
+			darker_marker.b,
+			0.70
+		)
+
+	var title_label := _stage_heading_label(
+		PORTRAIT_PAGE_TITLE_RECT,
+		title,
+		30,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	title_label.name = "CustomWordTitleLabel"
+	title_label.clip_text = false
+	title_label.z_index = 2
+	_fit_single_line_label_to_width(
+		title_label,
+		title,
+		PORTRAIT_PAGE_TITLE_RECT.size.x,
+		_heading_font_size(30),
+		_heading_font_size(20)
+	)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display_tinted(
+		title_label,
+		marker_color.darkened(0.42),
+		marker_color.darkened(0.62)
+	)
+
 func _portrait_resource_counter_panel_rect(
 	counter_rect: Rect2
 ) -> Rect2:
@@ -8601,12 +8655,14 @@ func show_custom_word() -> void:
 	# Match the category screen: graph-paper background with a shared top
 	# navigation row and no footer backdrop.
 	_portrait_screen(0.0)
+	var custom_word_title: String = Database.tr_text(37, "Input the word").to_upper()
 	_stage_portrait_page_header(
-		Database.tr_text(37, "Input the word").to_upper(),
+		"",
 		Callable(self, "show_menu"),
 		Callable(self, "_return_to_custom_word_from_coin_store"),
 		false
 	)
+	_stage_portrait_custom_word_title(custom_word_title)
 
 	# Keep the complete action stack above the advertising reserve. The group is
 	# still bottom-attached, so it follows the physical bottom on tall screens.
@@ -11466,18 +11522,35 @@ func _stage_portrait_inline_result_word(
 	_portrait_inline_result_marker_holder = result_controls.get("marker_holder") as Control
 	return result_controls
 
+func _portrait_result_word_effect_colors(color: Color) -> Dictionary:
+	var marker_color: Color = PORTRAIT_UI_PALETTE.MARKER_SUCCESS
+	if color == StageLetterButton.CROSSED_COLOR:
+		marker_color = PORTRAIT_UI_PALETTE.MARKER_ERROR
+	return {
+		"outline": marker_color.darkened(0.42),
+		"shadow": marker_color.darkened(0.62),
+	}
+
+func _apply_portrait_result_word_style(target: Label, color: Color) -> void:
+	if target == null or !is_instance_valid(target):
+		return
+	var effect_colors: Dictionary = _portrait_result_word_effect_colors(color)
+	var outline_color: Color = effect_colors.get("outline", Color.BLACK)
+	var shadow_color: Color = effect_colors.get("shadow", Color.BLACK)
+	target.add_theme_color_override("font_color", Color.WHITE)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display_tinted(
+		target,
+		outline_color,
+		shadow_color
+	)
+
 func _set_portrait_result_word_color(result_controls: Dictionary, color: Color) -> void:
 	var word_label := result_controls.get("word_label") as Label
-	if word_label != null and is_instance_valid(word_label):
-		word_label.add_theme_color_override("font_color", Color.WHITE)
-		BUTTON_TEXT_STYLE_SCRIPT.apply_display(word_label)
+	_apply_portrait_result_word_style(word_label, color)
 	var bounce_labels: Array = result_controls.get("bounce_labels", []) as Array
 	for bounce_label_value: Variant in bounce_labels:
 		var bounce_label := bounce_label_value as Label
-		if bounce_label == null or !is_instance_valid(bounce_label):
-			continue
-		bounce_label.add_theme_color_override("font_color", Color.WHITE)
-		BUTTON_TEXT_STYLE_SCRIPT.apply_display(bounce_label)
+		_apply_portrait_result_word_style(bounce_label, color)
 	_set_portrait_result_word_marker_color(result_controls, color)
 
 func _in_place_result_word_color() -> Color:

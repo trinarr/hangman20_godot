@@ -71,6 +71,7 @@ const REWARD_GOLD_DARK := Color("#F3A928")
 const REWARD_GOLD_OUTLINE := Color("#173A7A")
 const MARKER_SUCCESS := Color("#86DE8A")
 const MARKER_ERROR := Color("#FF99A2")
+const MARKER_INFO := BUTTON_BLUE
 
 # Profile / neutral surfaces.
 const NEUTRAL_SURFACE := Color("#F7F7FA")

@@ -31,21 +31,31 @@ static func apply(
 	target.add_theme_constant_override("shadow_outline_size", 0)
 
 static func apply_display(target: Control) -> void:
+	# Reuse the exact navy treatment already present in the project: the outline
+	# matches the comment-popup title and the extrusion uses the navigation shadow.
+	apply_display_tinted(
+		target,
+		UI_PALETTE.UI_BLUE.darkened(0.40),
+		UI_PALETTE.NAV_TEXT_SHADOW
+	)
+
+static func apply_display_tinted(
+	target: Control,
+	outline_color: Color,
+	shadow_color: Color
+) -> void:
 	if target == null or !is_instance_valid(target):
 		return
-	# The shader owns the display outline and shadow. Keep the native Label/Button
-	# effects disabled so they do not double the generated silhouette.
+	# Keep the exact button/display geometry; only the two authored colors differ.
+	# Native Label/Button effects stay disabled so they cannot double the shader
+	# outline or extrusion.
 	target.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	target.add_theme_constant_override("outline_size", 0)
 	target.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	target.add_theme_constant_override("shadow_offset_x", 0)
 	target.add_theme_constant_override("shadow_offset_y", 0)
 	target.add_theme_constant_override("shadow_outline_size", 0)
-
-	# Reuse the exact navy treatment already present in the project: the outline
-	# matches the comment-popup title and the extrusion uses the navigation shadow.
-	var outline_color: Color = UI_PALETTE.UI_BLUE.darkened(0.40)
-	DISPLAY_TEXT_EFFECT_SCRIPT.attach(target, outline_color, UI_PALETTE.NAV_TEXT_SHADOW)
+	DISPLAY_TEXT_EFFECT_SCRIPT.attach(target, outline_color, shadow_color)
 
 static func apply_regular_display(target: Control) -> void:
 	if target == null or !is_instance_valid(target):
