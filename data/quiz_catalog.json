@@ -752,7 +752,7 @@
           "id": 11,
           "theme_id": 1,
           "difficulty": 0.3,
-          "question": "Before what count must a knocked-down boxer get up to avoid a knockout?",
+          "question": "A knocked-down boxer must get up before the referee counts to which number to avoid a knockout?",
           "answers": [
             "Five",
             "Eight",
@@ -1398,7 +1398,7 @@
           "id": 28,
           "theme_id": 2,
           "difficulty": 0.7,
-          "question": "What are the neighboring Bering Strait islands called, one belonging to Russia and the other to the USA?",
+          "question": "Which pair of Bering Strait islands has one island in Russia and the other in the United States?",
           "answers": [
             "Aleutian Islands",
             "Kuril Islands",
@@ -1803,7 +1803,7 @@
           "id": 39,
           "theme_id": 3,
           "difficulty": 0.22,
-          "question": "Как многие летучие мыши находят добычу в темноте с помощью звука?",
+          "question": "Как летучие мыши используют звук, чтобы находить добычу в темноте?",
           "answers": [
             "По отражённому эху",
             "По шороху собственных крыльев",
@@ -1938,7 +1938,7 @@
           "difficulty": 0.3,
           "question": "Which statement about goldfish memory is true?",
           "answers": [
-            "They can retain learned signals over time",
+            "They can remember things they have learned",
             "They forget everything after three seconds",
             "They cannot associate a signal with food",
             "They recognize an object only while viewing it"
@@ -2130,7 +2130,7 @@
           "answers": [
             "The speed of an ocean current",
             "Water depth",
-            "A celestial body's altitude",
+            "A celestial body's angle above the horizon",
             "Air temperature"
           ],
           "correct_index": 2
@@ -2354,7 +2354,7 @@
           "id": 53,
           "theme_id": 4,
           "difficulty": 0.62,
-          "question": "Why is a fuller added to a blade?",
+          "question": "Why do some blades have a long groove called a fuller?",
           "answers": [
             "To make the weapon lighter",
             "To drain blood",
@@ -2430,7 +2430,7 @@
           "id": 55,
           "theme_id": 4,
           "difficulty": 0.18,
-          "question": "Where does a GPS navigator get the data used to determine its position?",
+          "question": "Where does a GPS device get the signals it uses to determine its position?",
           "answers": [
             "Weather stations",
             "TV towers",
@@ -2962,7 +2962,7 @@
           "id": 69,
           "theme_id": 5,
           "difficulty": 0.28,
-          "question": "Who is associated with the spread of printing in Europe?",
+          "question": "Who helped spread movable-type printing in Europe?",
           "answers": [
             "Johannes Gutenberg",
             "Galileo Galilei",
@@ -3076,7 +3076,7 @@
           "id": 72,
           "theme_id": 5,
           "difficulty": 0.22,
-          "question": "Whose name is associated with the theory of natural selection?",
+          "question": "Who is best known for the theory of evolution by natural selection?",
           "answers": [
             "Gregor Mendel",
             "Carl Linnaeus",
@@ -3801,7 +3801,7 @@
           "id": 91,
           "theme_id": 7,
           "difficulty": 0.24,
-          "question": "How does shaving affect the speed or thickness of hair growth?",
+          "question": "How does shaving affect hair thickness and growth rate?",
           "answers": [
             "It makes hair grow faster",
             "It makes hair grow thicker",
@@ -3828,7 +3828,7 @@
           "id": 92,
           "theme_id": 7,
           "difficulty": 0.38,
-          "question": "Сколько пар хромосом обычно находится в ядре клетки тела человека, кроме половых клеток?",
+          "question": "Сколько пар хромосом обычно содержится в ядре неполовой клетки человека?",
           "answers": [
             "22 пары",
             "24 пары",
@@ -4018,7 +4018,7 @@
           "id": 97,
           "theme_id": 7,
           "difficulty": 0.3,
-          "question": "Какое свойство имеет чистый природный газ до добавления одоранта?",
+          "question": "Как пахнет очищенный природный газ без специальных добавок?",
           "answers": [
             "Не имеет запаха",
             "Пахнет серой",
@@ -4031,9 +4031,9 @@
           "id": 97,
           "theme_id": 7,
           "difficulty": 0.3,
-          "question": "What is pure natural gas like before an odorant is added?",
+          "question": "How does purified natural gas smell before additives are mixed in?",
           "answers": [
-            "It has no smell",
+            "It is odorless",
             "It smells like sulfur",
             "It smells like smoke",
             "It smells like ammonia"
@@ -4223,7 +4223,7 @@
           "id": 102,
           "theme_id": 7,
           "difficulty": 0.42,
-          "question": "Why is a laser beam usually invisible from the side in a clean vacuum?",
+          "question": "Why is a laser beam usually invisible from the side in a vacuum?",
           "answers": [
             "The laser stops emitting",
             "No particles scatter the light",
@@ -4337,7 +4337,7 @@
           "id": 105,
           "theme_id": 7,
           "difficulty": 0.32,
-          "question": "In which of these media does sound travel fastest under ordinary conditions?",
+          "question": "Where does sound travel fastest under ordinary conditions?",
           "answers": [
             "Steel",
             "Water",
@@ -4717,7 +4717,7 @@
           "id": 115,
           "theme_id": 8,
           "difficulty": 0.56,
-          "question": "Which year is traditionally given as the founding of Rome?",
+          "question": "According to tradition, in what year was Rome founded?",
           "answers": [
             "776 BC",
             "509 BC",
@@ -5160,7 +5160,7 @@
           "id": 127,
           "theme_id": 9,
           "difficulty": 0.3,
-          "question": "Как называется слово или фраза, одинаково читающаяся в обоих направлениях?",
+          "question": "Как называют слово или фразу, которые одинаково читаются слева направо и справа налево?",
           "answers": [
             "Акроним",
             "Омоним",
@@ -5540,7 +5540,7 @@
           "id": 137,
           "theme_id": 10,
           "difficulty": 0.12,
-          "question": "Какой инструмент крупнее?",
+          "question": "Какой из этих музыкальных инструментов обычно самый крупный?",
           "answers": [
             "Виолончель",
             "Скрипка",
@@ -5743,7 +5743,7 @@
           "id": 142,
           "theme_id": 10,
           "difficulty": 0.18,
-          "question": "What is a film in which dialogue is usually conveyed by intertitles rather than recorded speech called?",
+          "question": "What type of film usually presents dialogue on title cards instead of as recorded speech?",
           "answers": [
             "Documentary",
             "Silent film",
@@ -6013,7 +6013,7 @@
           "difficulty": 0.22,
           "question": "How is a cello normally held while being played?",
           "answers": [
-            "On an endpin between the knees",
+            "Between the knees, with a spike resting on the floor",
             "Resting on the shoulder",
             "In front of the face",
             "Hanging from a strap"
@@ -7614,7 +7614,7 @@
           "answers": [
             "To grow faster",
             "To store water",
-            "To communicate and control heat",
+            "To communicate and regulate body temperature",
             "To improve their hearing"
           ],
           "correct_index": 2
@@ -7878,7 +7878,7 @@
           "id": 198,
           "theme_id": 4,
           "difficulty": 0.3,
-          "question": "What does HTTPS at the start of a web address indicate about data transmission?",
+          "question": "What does HTTPS at the start of a web address indicate?",
           "answers": [
             "The connection to the site is encrypted",
             "The website’s content is guaranteed trustworthy",
@@ -8342,7 +8342,7 @@
           "question": "What is the main purpose of an aircraft's autopilot?",
           "answers": [
             "To fully replace the crew",
-            "To maintain flight parameters",
+            "To maintain a selected course and altitude",
             "To serve passengers",
             "To manage the cargo hold"
           ],
@@ -8567,7 +8567,7 @@
           "id": 216,
           "theme_id": 5,
           "difficulty": 0.08,
-          "question": "Who played the Terminator cyborg in the 1984 film The Terminator?",
+          "question": "Who played the title character in the 1984 film The Terminator?",
           "answers": [
             "Sylvester Stallone",
             "Bruce Willis",
@@ -8833,7 +8833,7 @@
           "id": 223,
           "theme_id": 5,
           "difficulty": 0.12,
-          "question": "Whose name is associated with the law of universal gravitation?",
+          "question": "Who formulated the law of universal gravitation?",
           "answers": [
             "Galileo Galilei",
             "Nicolaus Copernicus",
@@ -10949,7 +10949,7 @@
           "id": 809,
           "theme_id": 9,
           "difficulty": 0.28,
-          "question": "Какую греческую букву используют для отношения длины окружности к её диаметру?",
+          "question": "Какой греческой буквой обозначают отношение длины окружности к её диаметру?",
           "answers": [
             "Пи",
             "Альфа",
@@ -11228,7 +11228,7 @@
           "id": 286,
           "theme_id": 10,
           "difficulty": 0.08,
-          "question": "What is the main character in The Matrix called?",
+          "question": "What is the name of the main character in The Matrix?",
           "answers": [
             "Morpheus",
             "Neo",
@@ -12065,7 +12065,7 @@
           "id": 308,
           "theme_id": 1,
           "difficulty": 0.5,
-          "question": "What is the tie-breaking period played in curling when the score is level called?",
+          "question": "What is the deciding period called when a curling match is tied?",
           "answers": [
             "Extra end",
             "Tie-break",
@@ -12637,12 +12637,12 @@
           "id": 323,
           "theme_id": 3,
           "difficulty": 0.52,
-          "question": "Which developmental feature does an adult axolotl usually retain?",
+          "question": "What is unusual about an adult axolotl's development?",
           "answers": [
-            "Winter hibernation",
-            "Annual migration",
-            "Larval traits",
-            "A hard shell"
+            "It hibernates every winter",
+            "It migrates each year",
+            "It retains features of its larval stage",
+            "It develops a hard shell"
           ],
           "correct_index": 2
         }
@@ -12679,7 +12679,7 @@
           "answers": [
             "The female",
             "Both parents take turns",
-            "They develop outside the body",
+            "Neither parent",
             "The male"
           ],
           "correct_index": 3
@@ -12776,7 +12776,7 @@
           "id": 327,
           "theme_id": 3,
           "difficulty": 0.5,
-          "question": "Какая группа животных является ближайшей современной роднёй птиц среди предложенных?",
+          "question": "Какие из этих животных — ближайшие современные родственники птиц?",
           "answers": [
             "Ящерицы",
             "Черепахи",
@@ -13020,7 +13020,7 @@
           "difficulty": 0.46,
           "question": "What is the main purpose of DNS on the internet?",
           "answers": [
-            "Mapping domains to IP addresses",
+            "Matching domain names to IP addresses",
             "Encrypting website content",
             "Compressing downloads",
             "Filtering advertisements"
@@ -13098,7 +13098,7 @@
           "answers": [
             "To increase engine displacement",
             "To cool the brakes",
-            "To vary drive-wheel speeds",
+            "To let each driven wheel turn at its own speed",
             "To change suspension height"
           ],
           "correct_index": 2
@@ -13172,7 +13172,7 @@
           "difficulty": 0.26,
           "question": "What does the HTTP 404 response code mean?",
           "answers": [
-            "The requested resource is missing",
+            "The requested page or resource was not found",
             "Access was successfully granted",
             "The server is permanently offline",
             "The file is too large"
@@ -13590,7 +13590,7 @@
           "id": 348,
           "theme_id": 5,
           "difficulty": 0.44,
-          "question": "Who made the famous 1895 image of a hand using a previously unknown type of radiation?",
+          "question": "Which scientist used a newly discovered type of radiation to make a famous image of a hand in 1895?",
           "answers": [
             "Heinrich Hertz",
             "Henri Becquerel",
@@ -14185,7 +14185,7 @@
           "id": 364,
           "theme_id": 7,
           "difficulty": 0.48,
-          "question": "Как называется тип клеток, для которых отсутствие окружённого мембраной ядра — основной признак?",
+          "question": "Какие клетки не имеют ядра, окружённого мембраной?",
           "answers": [
             "Эукариотические",
             "Только растительные",
@@ -14198,7 +14198,7 @@
           "id": 364,
           "theme_id": 7,
           "difficulty": 0.48,
-          "question": "What is the cell type defined by the absence of a membrane-bound nucleus?",
+          "question": "Which cells lack a membrane-bound nucleus?",
           "answers": [
             "Eukaryotic cells",
             "Only plant cells",
@@ -14261,7 +14261,7 @@
           "id": 366,
           "theme_id": 7,
           "difficulty": 0.46,
-          "question": "Какие структуры производят большую часть АТФ — молекул, снабжающих энергией большинство клеток человека?",
+          "question": "Какие структуры в большинстве клеток человека производят основную часть АТФ — молекул, переносящих энергию?",
           "answers": [
             "Лизосомы",
             "Митохондрии",
@@ -14274,7 +14274,7 @@
           "id": 366,
           "theme_id": 7,
           "difficulty": 0.46,
-          "question": "Which structures produce most ATP, the energy-carrying molecules in most human cells?",
+          "question": "In most human cells, which structures produce most of the energy-carrying molecule ATP?",
           "answers": [
             "Lysosomes",
             "Mitochondria",
@@ -14356,7 +14356,7 @@
             "A bright ring of stars",
             "The center of any galaxy",
             "A region without gravity",
-            "The boundary of no return"
+            "The boundary beyond which light cannot escape"
           ],
           "correct_index": 3
         }
@@ -15000,7 +15000,7 @@
           "id": 385,
           "theme_id": 9,
           "difficulty": 0.52,
-          "question": "Which number is the origin of the word “quarantine”?",
+          "question": "Which number does the word \"quarantine\" come from?",
           "answers": [
             "Forty",
             "Seven",
@@ -15215,7 +15215,7 @@
           "id": 391,
           "theme_id": 10,
           "difficulty": 0.52,
-          "question": "Как называется один и тот же крик, многократно использованный в разных фильмах?",
+          "question": "Как называется знаменитая запись крика, которую используют как звуковой эффект во многих фильмах?",
           "answers": [
             "Крик Банши",
             "Эффект Доплера",
@@ -15367,7 +15367,7 @@
           "id": 395,
           "theme_id": 10,
           "difficulty": 0.62,
-          "question": "Кто написал произведение «4′33″», исполняемое без намеренно сыгранных звуков?",
+          "question": "Кто написал «4′33″» — произведение, в котором исполнители не извлекают звуков из инструментов?",
           "answers": [
             "Филип Гласс",
             "Эрик Сати",
@@ -15380,7 +15380,7 @@
           "id": 395,
           "theme_id": 10,
           "difficulty": 0.62,
-          "question": "Who composed 4′33″, a piece performed without intentionally played sounds?",
+          "question": "Who composed 4′33″, in which musicians do not play their instruments?",
           "answers": [
             "Philip Glass",
             "Erik Satie",
@@ -15991,7 +15991,7 @@
           "id": 411,
           "theme_id": 1,
           "difficulty": 0.32,
-          "question": "Which of these apparatuses is used in women's artistic gymnastics?",
+          "question": "Which piece of equipment is used in women's artistic gymnastics?",
           "answers": [
             "Pommel horse",
             "Balance beam",
@@ -16181,7 +16181,7 @@
           "id": 819,
           "theme_id": 1,
           "difficulty": 0.3,
-          "question": "Which swimming stroke uses a simultaneous arm recovery and a dolphin kick?",
+          "question": "Which swimming stroke combines a dolphin kick with both arms moving forward together over the water?",
           "answers": [
             "Butterfly",
             "Backstroke",
@@ -16244,7 +16244,7 @@
           "id": 418,
           "theme_id": 1,
           "difficulty": 0.12,
-          "question": "Какой снаряд сгибается, когда спортсмен отталкивается перед высокой планкой?",
+          "question": "Какой снаряд сгибается, а затем распрямляется, помогая спортсмену перепрыгнуть через высокую планку?",
           "answers": [
             "Короткая ракетка",
             "Гибкий шест",
@@ -16257,7 +16257,7 @@
           "id": 418,
           "theme_id": 1,
           "difficulty": 0.12,
-          "question": "Which piece of equipment bends as an athlete takes off toward a high bar?",
+          "question": "Which piece of equipment bends, then straightens to help an athlete clear a high bar?",
           "answers": [
             "A short racket",
             "A flexible pole",
@@ -16524,7 +16524,7 @@
           "id": 425,
           "theme_id": 1,
           "difficulty": 0.22,
-          "question": "Which flag warns of a track hazard and requires drivers to slow down without stopping the whole session?",
+          "question": "Which flag tells racing drivers to slow down because of a hazard, without halting the race?",
           "answers": [
             "Yellow",
             "Red",
@@ -16588,7 +16588,7 @@
           "id": 427,
           "theme_id": 1,
           "difficulty": 0.18,
-          "question": "Откуда вводят мяч, если он ушёл за линию ворот мимо ворот после последнего касания защитника?",
+          "question": "В футболе мяч от защитника вышел за лицевую линию рядом с его воротами. Откуда соперник введёт мяч в игру?",
           "answers": [
             "Из центра поля",
             "С линии ворот",
@@ -16601,7 +16601,7 @@
           "id": 427,
           "theme_id": 1,
           "difficulty": 0.18,
-          "question": "Where is play restarted when the ball crosses the goal line without a goal after a defender touched it last?",
+          "question": "In football, a defender deflects the ball over their own goal line, outside the goal. Where does play restart?",
           "answers": [
             "The center spot",
             "The goal line",
@@ -16715,12 +16715,12 @@
           "id": 430,
           "theme_id": 1,
           "difficulty": 0.32,
-          "question": "What does winning by a pin mean in wrestling?",
+          "question": "What does a wrestler do to win by a pin?",
           "answers": [
-            "The opponent stepped outside",
-            "Both shoulders touch the mat",
-            "Exactly ten points were scored",
-            "The period time expired"
+            "Push the opponent out of bounds",
+            "Hold both of the opponent's shoulders against the mat",
+            "Score exactly ten points",
+            "Wait for the period to end"
           ],
           "correct_index": 1
         }
@@ -17477,7 +17477,7 @@
           "id": 450,
           "theme_id": 2,
           "difficulty": 0.34,
-          "question": "Which countries are usually considered Scandinavia?",
+          "question": "Which countries are usually considered part of Scandinavia?",
           "answers": [
             "Finland, Iceland, and Estonia",
             "Denmark, Norway, and Sweden",
@@ -18166,8 +18166,8 @@
           "question": "Which parent incubates the egg in emperor penguins?",
           "answers": [
             "The female",
-            "Both, changing every hour",
-            "The sun warms it",
+            "Both parents take turns every hour",
+            "Neither parent",
             "The male"
           ],
           "correct_index": 3
@@ -18530,7 +18530,7 @@
           "id": 478,
           "theme_id": 3,
           "difficulty": 0.1,
-          "question": "В какой части кактус обычно запасает основную часть воды?",
+          "question": "Где кактус обычно запасает основную часть воды?",
           "answers": [
             "В колючках",
             "В стебле",
@@ -18697,7 +18697,7 @@
           "difficulty": 0.24,
           "question": "What is distinctive about the stripe pattern of each zebra?",
           "answers": [
-            "It is identical in the species",
+            "It is the same on every zebra",
             "It is unique",
             "It changes every month",
             "It disappears in winter"
@@ -19496,11 +19496,11 @@
           "id": 503,
           "theme_id": 4,
           "difficulty": 0.22,
-          "question": "What does a URL identify on the internet?",
+          "question": "What does a URL specify?",
           "answers": [
             "Processor speed",
             "Battery type",
-            "A resource address",
+            "The address of an online resource",
             "Screen resolution"
           ],
           "correct_index": 2
@@ -19991,11 +19991,11 @@
           "id": 516,
           "theme_id": 4,
           "difficulty": 0.3,
-          "question": "What can a browser cookie store?",
+          "question": "What do websites commonly use browser cookies to store?",
           "answers": [
             "Battery charge",
             "Processor temperature",
-            "Camera images without a site",
+            "Camera drivers",
             "Session data and site settings"
           ],
           "correct_index": 3
@@ -20072,10 +20072,10 @@
           "difficulty": 0.18,
           "question": "How does a smartphone camera read a QR code?",
           "answers": [
-            "Reads a hidden radio signal",
-            "Recognizes the contrasting pattern",
-            "Measures the paper’s thickness",
-            "Matches the border color to a catalog"
+            "By detecting a hidden radio signal",
+            "By recognizing the pattern of light and dark squares",
+            "By measuring the paper's thickness",
+            "By matching the border color to a catalog"
           ],
           "correct_index": 1
         }
@@ -20528,7 +20528,7 @@
           "id": 530,
           "theme_id": 5,
           "difficulty": 0.34,
-          "question": "Who created the over-five-meter-tall David housed in the Accademia Gallery in Florence?",
+          "question": "Who sculpted the marble David, over five meters tall, displayed in Florence's Accademia Gallery?",
           "answers": [
             "Donatello",
             "Michelangelo",
@@ -21579,7 +21579,7 @@
           "id": 558,
           "theme_id": 6,
           "difficulty": 0.16,
-          "question": "Чем обычно является карри в виде сухой приправы?",
+          "question": "Что представляет собой сухая приправа карри?",
           "answers": [
             "Одним видом перца",
             "Смесью специй",
@@ -21592,10 +21592,10 @@
           "id": 558,
           "theme_id": 6,
           "difficulty": 0.16,
-          "question": "What is curry powder usually?",
+          "question": "What is curry powder usually made of?",
           "answers": [
-            "A single pepper",
-            "A spice blend",
+            "One type of pepper",
+            "A blend of spices",
             "Dried cheese",
             "Ground nuts"
           ],
@@ -21822,10 +21822,10 @@
           "difficulty": 0.42,
           "question": "What does rennet do in cheesemaking?",
           "answers": [
-            "Sweetens the cheese",
-            "Colors the rind",
-            "Removes all salt",
-            "Coagulates milk"
+            "It sweetens the cheese",
+            "It colors the rind",
+            "It removes all salt",
+            "It causes the milk to curdle"
           ],
           "correct_index": 3
         }
@@ -21921,7 +21921,7 @@
           "id": 567,
           "theme_id": 6,
           "difficulty": 0.28,
-          "question": "Какую часть растения киноа используют в пищу вместо крупы?",
+          "question": "Какую часть растения киноа варят и едят подобно крупе?",
           "answers": [
             "Корни",
             "Листья",
@@ -21934,7 +21934,7 @@
           "id": 567,
           "theme_id": 6,
           "difficulty": 0.28,
-          "question": "Which part of the quinoa plant is eaten as a grain substitute?",
+          "question": "Which part of the quinoa plant is cooked and eaten like a grain?",
           "answers": [
             "Roots",
             "Leaves",
@@ -22053,7 +22053,7 @@
             "The leaves are frozen",
             "The leaves are more oxidized",
             "Cocoa is added",
-            "A different water is used"
+            "A different type of water is used"
           ],
           "correct_index": 1
         }
@@ -22126,10 +22126,10 @@
           "difficulty": 0.14,
           "question": "How is espresso brewed?",
           "answers": [
-            "Soak whole beans in cold water",
-            "Boil coffee for several hours",
-            "Dissolve coffee leaves",
-            "Force water through ground coffee under pressure"
+            "By soaking whole beans in cold water",
+            "By boiling coffee for several hours",
+            "By dissolving coffee leaves",
+            "By forcing hot water through ground coffee under pressure"
           ],
           "correct_index": 3
         }
@@ -22582,7 +22582,7 @@
           "id": 584,
           "theme_id": 7,
           "difficulty": 0.1,
-          "question": "At what Celsius temperature does pure water freeze at normal atmospheric pressure?",
+          "question": "At what temperature, in Celsius, does pure water freeze under normal atmospheric pressure?",
           "answers": [
             "10 °C",
             "32 °C",
@@ -23481,7 +23481,7 @@
           "id": 608,
           "theme_id": 7,
           "difficulty": 0.12,
-          "question": "Какая температура считается нормальной для тела человека приблизительно?",
+          "question": "Какова приблизительная нормальная температура тела человека?",
           "answers": [
             "32 °C",
             "42 °C",
@@ -23494,7 +23494,7 @@
           "id": 608,
           "theme_id": 7,
           "difficulty": 0.12,
-          "question": "Which temperature is approximately normal for the human body?",
+          "question": "What is the approximate normal temperature of the human body?",
           "answers": [
             "32 °C",
             "42 °C",
@@ -23610,12 +23610,12 @@
           "id": 611,
           "theme_id": 8,
           "difficulty": 0.06,
-          "question": "What was the main purpose of pyramids in ancient Egypt?",
+          "question": "What were pyramids in ancient Egypt mainly built to serve as?",
           "answers": [
             "Marketplaces",
             "Theaters",
             "Tombs for rulers",
-            "Sea lighthouses"
+            "Lighthouses"
           ],
           "correct_index": 2
         }
@@ -23762,7 +23762,7 @@
           "id": 615,
           "theme_id": 8,
           "difficulty": 0.46,
-          "question": "In which century did Johannes Gutenberg develop printing in Europe?",
+          "question": "In which century did Johannes Gutenberg develop movable-type printing in Europe?",
           "answers": [
             "12th",
             "17th",
@@ -24029,7 +24029,7 @@
           "id": 622,
           "theme_id": 8,
           "difficulty": 0.28,
-          "question": "In which year did Germany invade Poland, conventionally marking the start of World War II?",
+          "question": "In which year did Germany invade Poland, marking the start of World War II in Europe?",
           "answers": [
             "1937",
             "1939",
@@ -24219,7 +24219,7 @@
           "id": 627,
           "theme_id": 8,
           "difficulty": 0.33,
-          "question": "What was the mission of the first crewed Moon landing called?",
+          "question": "Which mission made the first crewed landing on the Moon?",
           "answers": [
             "Vostok 1",
             "Soyuz 1",
@@ -24333,9 +24333,9 @@
           "id": 630,
           "theme_id": 8,
           "difficulty": 0.18,
-          "question": "Which spectacles were commonly held in the Roman Colosseum?",
+          "question": "What kind of entertainment was commonly staged in the Roman Colosseum?",
           "answers": [
-            "Theatre competitions",
+            "Theater competitions",
             "Gladiator contests",
             "Chariot races",
             "Poetry contests"
@@ -24831,10 +24831,10 @@
           "difficulty": 0.33,
           "question": "What is a prime number?",
           "answers": [
-            "Always divisible by 10",
-            "Always even",
-            "Greater than 1, divisible only by 1 and itself",
-            "Has only one digit"
+            "A number always divisible by 10",
+            "A number that is always even",
+            "An integer greater than 1 divisible only by 1 and itself",
+            "A number with only one digit"
           ],
           "correct_index": 2
         }
@@ -25361,7 +25361,7 @@
           "id": 657,
           "theme_id": 9,
           "difficulty": 0.1,
-          "question": "How many days does February normally have?",
+          "question": "How many days does February have in a non-leap year?",
           "answers": [
             "28",
             "27",
@@ -25855,7 +25855,7 @@
           "id": 670,
           "theme_id": 9,
           "difficulty": 0.22,
-          "question": "How many squares are on a standard chessboard?",
+          "question": "How many playing squares are on a standard chessboard?",
           "answers": [
             "36",
             "64",
@@ -25969,7 +25969,7 @@
           "id": 673,
           "theme_id": 10,
           "difficulty": 0.24,
-          "question": "What is the moon where most of Avatar takes place called?",
+          "question": "What is the moon where the 2009 film Avatar is set called?",
           "answers": [
             "Pandora",
             "Tatooine",
@@ -26070,7 +26070,7 @@
           "id": 676,
           "theme_id": 10,
           "difficulty": 0.06,
-          "question": "Как зовут главного льва в мультфильме «Король Лев»?",
+          "question": "Как зовут главного героя мультфильма «Король Лев»?",
           "answers": [
             "Балу",
             "Шерхан",
@@ -26083,7 +26083,7 @@
           "id": 676,
           "theme_id": 10,
           "difficulty": 0.06,
-          "question": "What is the name of the main lion in The Lion King?",
+          "question": "Who is the main character in The Lion King?",
           "answers": [
             "Baloo",
             "Shere Khan",
@@ -26882,7 +26882,7 @@
           "id": 697,
           "theme_id": 10,
           "difficulty": 0.32,
-          "question": "Compared with the bass clef, which register does the treble clef normally represent?",
+          "question": "Compared with the bass clef, what does the treble clef normally indicate?",
           "answers": [
             "Higher notes",
             "Lower notes",
@@ -27110,7 +27110,7 @@
           "id": 703,
           "theme_id": 1,
           "difficulty": 0.08,
-          "question": "Which player is responsible for stopping the opposing team from scoring?",
+          "question": "Which player is primarily responsible for keeping the ball out of the net in football?",
           "answers": [
             "Captain",
             "Forward",
@@ -27249,7 +27249,7 @@
           "id": 707,
           "theme_id": 1,
           "difficulty": 0.12,
-          "question": "Какой вид спорта проходит на доске по морским волнам?",
+          "question": "В каком виде спорта катаются на доске по морским волнам?",
           "answers": [
             "Слалом",
             "Скейтбординг",
@@ -27452,7 +27452,7 @@
           "id": 712,
           "theme_id": 2,
           "difficulty": 0.42,
-          "question": "Which sea is Sochi located on?",
+          "question": "Sochi is on the coast of which sea?",
           "answers": [
             "Baltic Sea",
             "Black Sea",
@@ -27794,7 +27794,7 @@
           "id": 721,
           "theme_id": 3,
           "difficulty": 0.06,
-          "question": "What is the artificial home in which a beekeeper keeps a bee colony called?",
+          "question": "What is the structure a beekeeper uses to house a bee colony called?",
           "answers": [
             "Hive",
             "Burrow",
@@ -29130,10 +29130,10 @@
           "difficulty": 0.2,
           "question": "What does deep-frying mean?",
           "answers": [
-            "Cook in a large amount of hot oil",
-            "Stew in a little water",
-            "Bake under a lid",
-            "Cook with steam"
+            "Cooking food submerged in hot oil",
+            "Stewing food in a little water",
+            "Baking food under a lid",
+            "Cooking food with steam"
           ],
           "correct_index": 0
         }
@@ -29510,7 +29510,7 @@
           "difficulty": 0.08,
           "question": "Which metal is strongly attracted to a magnet?",
           "answers": [
-            "Aluminium",
+            "Aluminum",
             "Iron",
             "Copper",
             "Gold"
@@ -29774,7 +29774,7 @@
           "id": 773,
           "theme_id": 8,
           "difficulty": 0.26,
-          "question": "Which language was the main language of Roman law during the Republic?",
+          "question": "Which language was mainly used for Roman law during the Republic?",
           "answers": [
             "Greek",
             "Egyptian",
@@ -30255,7 +30255,7 @@
           "id": 786,
           "theme_id": 9,
           "difficulty": 0.2,
-          "question": "Как называется пустое место слева перед началом нового фрагмента текста?",
+          "question": "Как называется свободное место слева перед первой строкой нового фрагмента текста?",
           "answers": [
             "Поля",
             "Абзацный отступ",
@@ -30268,7 +30268,7 @@
           "id": 786,
           "theme_id": 9,
           "difficulty": 0.2,
-          "question": "What is the blank space at the left edge before a new paragraph begins called?",
+          "question": "What is the blank space before the first line of a new paragraph called?",
           "answers": [
             "Margin",
             "Indentation",
@@ -30483,7 +30483,7 @@
           "id": 792,
           "theme_id": 10,
           "difficulty": 0.08,
-          "question": "Как зовут юную рыбу-клоуна, которую отец ищет в мультфильме?",
+          "question": "Как зовут маленькую рыбу-клоуна, на поиски которой отправляется её отец Марлин?",
           "answers": [
             "Дори",
             "Немо",
@@ -30496,7 +30496,7 @@
           "id": 792,
           "theme_id": 10,
           "difficulty": 0.08,
-          "question": "What is the name of the young clownfish whose father searches for him in an animated film?",
+          "question": "What is the name of the young clownfish that Marlin searches for in a Pixar film?",
           "answers": [
             "Dory",
             "Nemo",
@@ -30521,7 +30521,7 @@
           "id": 793,
           "theme_id": 10,
           "difficulty": 0.08,
-          "question": "Какое оружие считается традиционным оружием джедаев в «Звёздных войнах»?",
+          "question": "Каким оружием обычно пользуются джедаи в «Звёздных войнах»?",
           "answers": [
             "Лук",
             "Бластер",
@@ -30686,7 +30686,7 @@
           "id": 797,
           "theme_id": 10,
           "difficulty": 0.08,
-          "question": "What is the name of the rat chef in the animated film about a French restaurant?",
+          "question": "What is the name of the rat who becomes a chef in Ratatouille?",
           "answers": [
             "Emile",
             "Linguini",
@@ -30711,7 +30711,7 @@
           "id": 798,
           "theme_id": 10,
           "difficulty": 0.24,
-          "question": "Какая машина стала машиной времени в фильме «Назад в будущее»?",
+          "question": "Какой автомобиль превратили в машину времени в фильме «Назад в будущее»?",
           "answers": [
             "Форд Мустанг",
             "Фольксваген Жук",
@@ -30865,7 +30865,7 @@
           "id": 830,
           "theme_id": 1,
           "difficulty": 0.38,
-          "question": "Как называется специальный гейм для разрешения равного счёта в теннисном сете?",
+          "question": "Как называется специальный гейм, который помогает определить победителя при равном счёте в теннисном сете?",
           "answers": [
             "Тай-брейк",
             "Фора",
@@ -30945,7 +30945,7 @@
           "id": 832,
           "theme_id": 1,
           "difficulty": 0.4,
-          "question": "Как называют защитного специалиста в волейболе, который носит форму другого цвета?",
+          "question": "Как называют волейболиста, который специализируется на защите и носит форму другого цвета?",
           "answers": [
             "Связующий",
             "Либеро",
@@ -30958,7 +30958,7 @@
           "id": 832,
           "theme_id": 1,
           "difficulty": 0.4,
-          "question": "What is the volleyball defensive specialist wearing a contrasting jersey called?",
+          "question": "What is a volleyball player who specializes in defense and wears a different-colored jersey called?",
           "answers": [
             "Setter",
             "Libero",
@@ -31036,9 +31036,9 @@
           "id": 834,
           "theme_id": 1,
           "difficulty": 0.4,
-          "question": "What is a defender's legal deflection of an opponent's attempt at the basket called?",
+          "question": "What is it called when a basketball defender legally knocks an opponent's shot away from the basket?",
           "answers": [
-            "Blocked shot",
+            "Block",
             "Screen",
             "Steal",
             "Rebound"
@@ -31075,7 +31075,7 @@
           "id": 835,
           "theme_id": 1,
           "difficulty": 0.32,
-          "question": "How many points is a basketball field goal from beyond the long-distance arc worth?",
+          "question": "How many points is a successful basketball shot from beyond the outer arc worth?",
           "answers": [
             "Two",
             "Four",
@@ -31335,7 +31335,7 @@
           "id": 842,
           "theme_id": 1,
           "difficulty": 0.42,
-          "question": "Как называют участника, занимающего высшее место в посеве теннисного турнира?",
+          "question": "Как называют теннисиста с наивысшим приоритетом при посеве турнира?",
           "answers": [
             "Лаки-лузер",
             "Вайлд-кард",
@@ -31348,7 +31348,7 @@
           "id": 842,
           "theme_id": 1,
           "difficulty": 0.42,
-          "question": "What is the highest-ranked entrant in a tennis draw called?",
+          "question": "What is the player given the highest priority when a tennis draw is arranged called?",
           "answers": [
             "Lucky loser",
             "Wild card",
@@ -31491,7 +31491,7 @@
           "id": 846,
           "theme_id": 1,
           "difficulty": 0.42,
-          "question": "В каком беговом виде спортсмены преодолевают барьеры и яму с водой?",
+          "question": "Как называется бег с препятствиями, в котором спортсмены преодолевают барьеры и яму с водой?",
           "answers": [
             "Стипль-чез",
             "Марафон",
@@ -31699,12 +31699,12 @@
           "id": 851,
           "theme_id": 1,
           "difficulty": 0.38,
-          "question": "What happens to a car during a normal pit stop?",
+          "question": "What is usually done to a car during a pit stop?",
           "answers": [
-            "Is checked on the starting grid",
-            "Receives tire changes or other servicing",
-            "Is sent on a penalty lap",
-            "Is weighed before qualifying"
+            "A final check before the race starts",
+            "A tire change or other servicing",
+            "A penalty lap around the track",
+            "A weigh-in before qualifying"
           ],
           "correct_index": 1
         }
@@ -31857,12 +31857,12 @@
           "id": 855,
           "theme_id": 1,
           "difficulty": 0.44,
-          "question": "What is bobbing under a punch in boxing?",
+          "question": "How does a boxer use a bob to avoid a punch?",
           "answers": [
-            "Throwing a straight lead-hand punch",
-            "Grabbing both of the opponent's arms",
-            "Jumping toward the opponent",
-            "Evading it by moving beneath the opponent's arm"
+            "By throwing a straight lead-hand punch",
+            "By grabbing both of the opponent's arms",
+            "By jumping toward the opponent",
+            "By moving down beneath the opponent's arm"
           ],
           "correct_index": 3
         }
@@ -31922,7 +31922,7 @@
           "id": 857,
           "theme_id": 1,
           "difficulty": 0.38,
-          "question": "Как называют систему турнира, при которой поражение сразу исключает участника?",
+          "question": "Как называют систему проведения турнира, в которой участник прекращает борьбу за титул после первого поражения?",
           "answers": [
             "Швейцарская",
             "На выбывание",
@@ -31935,7 +31935,7 @@
           "id": 857,
           "theme_id": 1,
           "difficulty": 0.38,
-          "question": "What tournament format has participants leave after their first defeat?",
+          "question": "In which tournament format does the first defeat end a player's run?",
           "answers": [
             "Swiss system",
             "Single elimination",
@@ -32249,7 +32249,7 @@
           "id": 865,
           "theme_id": 2,
           "difficulty": 0.38,
-          "question": "Which country contains the cities of Coimbra and Lisbon?",
+          "question": "Which country are Coimbra and Lisbon in?",
           "answers": [
             "Croatia",
             "Portugal",
@@ -32899,7 +32899,7 @@
           "id": 882,
           "theme_id": 2,
           "difficulty": 0.44,
-          "question": "Как называют сезонные ветры, меняющие направление между летом и зимой?",
+          "question": "Как называют сезонные ветры, которые летом и зимой дуют в разных направлениях?",
           "answers": [
             "Пассаты",
             "Бризы",
@@ -33146,7 +33146,7 @@
           "id": 888,
           "theme_id": 2,
           "difficulty": 0.46,
-          "question": "Where are Patagonia and Tierra del Fuego?",
+          "question": "On which continent are Patagonia and Tierra del Fuego?",
           "answers": [
             "Australia",
             "South America",
@@ -33640,7 +33640,7 @@
           "id": 901,
           "theme_id": 3,
           "difficulty": 0.48,
-          "question": "Какое питательное вещество помогают получать бобовым бактерии в корневых клубеньках?",
+          "question": "Какие вещества бобовые растения получают благодаря бактериям в корневых клубеньках?",
           "answers": [
             "Поваренную соль",
             "Соединения азота",
@@ -33757,7 +33757,7 @@
           "id": 904,
           "theme_id": 3,
           "difficulty": 0.44,
-          "question": "Чем морские губки добывают пищу?",
+          "question": "Как морские губки добывают пищу?",
           "answers": [
             "Жалят добычу щупальцами",
             "Соскребают водоросли зубами",
@@ -33848,7 +33848,7 @@
           "id": 906,
           "theme_id": 3,
           "difficulty": 0.44,
-          "question": "What can researchers learn from owl pellets?",
+          "question": "What can researchers learn about an owl by examining the pellets it regurgitates?",
           "answers": [
             "Its migration direction",
             "Its flight speed",
@@ -34149,7 +34149,7 @@
           "id": 914,
           "theme_id": 3,
           "difficulty": 0.46,
-          "question": "Что объясняет сходство костей крыла птицы и передней лапы кошки?",
+          "question": "Что объясняет сходство строения костей крыла птицы и передней лапы кошки?",
           "answers": [
             "Происхождение от конечностей общего предка",
             "Одинаковая функция",
@@ -34162,12 +34162,12 @@
           "id": 914,
           "theme_id": 3,
           "difficulty": 0.46,
-          "question": "What explains similarities between bird wing bones and a cat's foreleg bones?",
+          "question": "Why do the bones in a bird's wing and a cat's front leg have a similar structure?",
           "answers": [
-            "Descent from a common ancestor's limbs",
-            "Identical functions",
-            "Identical growth rates",
-            "Identical diets"
+            "They evolved from the limbs of a common ancestor",
+            "They perform identical functions",
+            "They grow at identical rates",
+            "They develop in animals with identical diets"
           ],
           "correct_index": 0
         }
@@ -34513,12 +34513,12 @@
           "id": 923,
           "theme_id": 4,
           "difficulty": 0.36,
-          "question": "What happens when a ZIP archive is extracted?",
+          "question": "What happens when you extract a ZIP archive?",
           "answers": [
             "A document is converted to PDF",
             "The entire drive is encrypted",
             "A network driver is installed",
-            "Its files are retrieved"
+            "The files inside it are unpacked"
           ],
           "correct_index": 3
         }
@@ -34658,7 +34658,7 @@
           "id": 927,
           "theme_id": 4,
           "difficulty": 0.44,
-          "question": "Что VPN обычно создаёт между устройством и своим сервером?",
+          "question": "Что VPN создаёт между устройством пользователя и сервером для защиты передаваемых данных?",
           "answers": [
             "Копию всех файлов диска",
             "Дополнительную физическую линию связи",
@@ -34671,7 +34671,7 @@
           "id": 927,
           "theme_id": 4,
           "difficulty": 0.44,
-          "question": "What does a VPN typically create between a device and its server?",
+          "question": "What does a VPN create between your device and a VPN server to protect data in transit?",
           "answers": [
             "A copy of every file on the drive",
             "An extra physical communication line",
@@ -34947,9 +34947,9 @@
           "question": "What happens during regenerative braking in an electric car?",
           "answers": [
             "The motor fully disconnects from the wheels",
-            "All energy becomes brake-disc heat",
-            "Some energy of motion returns to the battery",
-            "The battery swaps with a spare"
+            "All the energy becomes heat in the brake discs",
+            "Some energy from the car's motion is stored in the battery",
+            "The battery is replaced with a spare"
           ],
           "correct_index": 2
         }
@@ -34970,7 +34970,7 @@
           "id": 935,
           "theme_id": 4,
           "difficulty": 0.44,
-          "question": "Для чего двигателю турбокомпрессор?",
+          "question": "Зачем двигателю нужен турбокомпрессор?",
           "answers": [
             "Заменять свечи зажигания",
             "Подавать больше воздуха в цилиндры",
@@ -35087,7 +35087,7 @@
           "id": 938,
           "theme_id": 4,
           "difficulty": 0.4,
-          "question": "Какой разъём имеет симметричную овальную форму и вставляется любой стороной?",
+          "question": "Какой разъём позволяет вставлять овальный штекер любой стороной?",
           "answers": [
             "USB-C",
             "VGA",
@@ -35165,7 +35165,7 @@
           "id": 940,
           "theme_id": 4,
           "difficulty": 0.4,
-          "question": "Что показывает указанная в герцах характеристика дисплея?",
+          "question": "Какую характеристику экрана измеряют в герцах?",
           "answers": [
             "Число обновлений изображения за секунду",
             "Время автономной работы",
@@ -35243,7 +35243,7 @@
           "id": 942,
           "theme_id": 4,
           "difficulty": 0.44,
-          "question": "Что в программе означает конфликт версий при совместном редактировании?",
+          "question": "Что означает конфликт версий при совместном редактировании файла?",
           "answers": [
             "Несогласованные изменения одного фрагмента",
             "Отсутствие свободного места на экране",
@@ -35360,7 +35360,7 @@
           "id": 945,
           "theme_id": 4,
           "difficulty": 0.44,
-          "question": "Как векторное изображение хранит формы?",
+          "question": "Как в векторном изображении представлены линии и фигуры?",
           "answers": [
             "Только как список названий цветов",
             "Как звуковые частоты",
@@ -35455,10 +35455,10 @@
           "difficulty": 0.46,
           "question": "How does active noise cancellation in headphones work?",
           "answers": [
-            "Amplifies every surrounding sound",
-            "Only boosts the bass",
-            "Only seals the ear with a tight cushion",
-            "Generates a signal that weakens unwanted outside audio"
+            "It amplifies every surrounding sound",
+            "It only boosts the bass",
+            "It only seals the ear with a tight cushion",
+            "It produces sound waves that counteract unwanted sounds"
           ],
           "correct_index": 3
         }
@@ -35495,7 +35495,7 @@
           "question": "What is a keyboard shortcut in an application?",
           "answers": [
             "Only the power button",
-            "A key or combination that quickly invokes a command",
+            "A key or key combination that triggers a command",
             "An illuminated key",
             "A command available only with a mouse"
           ],
@@ -36261,7 +36261,7 @@
           "id": 968,
           "theme_id": 5,
           "difficulty": 0.44,
-          "question": "Кто стала первой американкой в космосе?",
+          "question": "Как звали первую американку, побывавшую в космосе?",
           "answers": [
             "Айлин Коллинз",
             "Мэй Джемисон",
@@ -36391,7 +36391,7 @@
           "id": 971,
           "theme_id": 5,
           "difficulty": 0.38,
-          "question": "What objects did Stephen Hawking study in his best-known work?",
+          "question": "What did Stephen Hawking study in some of his best-known research?",
           "answers": [
             "Ancient manuscripts",
             "Black holes",
@@ -37017,7 +37017,7 @@
           "id": 987,
           "theme_id": 6,
           "difficulty": 0.48,
-          "question": "Which substance in egg yolk helps hold oil in mayonnaise?",
+          "question": "Which substance in egg yolk helps keep oil and water mixed in mayonnaise?",
           "answers": [
             "Gelatin",
             "Pectin",
@@ -37056,7 +37056,7 @@
           "id": 988,
           "theme_id": 6,
           "difficulty": 0.36,
-          "question": "What is made by drying whipped egg whites and sugar in an oven?",
+          "question": "What is made by gently baking beaten egg whites and sugar until dry?",
           "answers": [
             "Meringue",
             "Custard",
@@ -37368,7 +37368,7 @@
           "id": 996,
           "theme_id": 6,
           "difficulty": 0.42,
-          "question": "What is a roux used in making sauces?",
+          "question": "What is a roux made from?",
           "answers": [
             "Fat and flour cooked together",
             "Vinegar mixed with salt",
@@ -37511,7 +37511,7 @@
           "id": 1000,
           "theme_id": 6,
           "difficulty": 0.4,
-          "question": "Какой кофейный напиток обычно готовят из эспрессо, горячей воды и без молока?",
+          "question": "Какой напиток готовят, добавляя в эспрессо горячую воду, но не молоко?",
           "answers": [
             "Американо",
             "Капучино",
@@ -37680,11 +37680,11 @@
           "id": 1004,
           "theme_id": 6,
           "difficulty": 0.38,
-          "question": "What is a coating batter?",
+          "question": "What is batter in cooking?",
           "answers": [
             "A dry salt-and-pepper blend",
             "A thick meat broth",
-            "A liquid dough-like mixture",
+            "A liquid mixture, usually containing flour",
             "A layer of melted cheese"
           ],
           "correct_index": 2
@@ -37786,7 +37786,7 @@
           "id": 1007,
           "theme_id": 6,
           "difficulty": 0.48,
-          "question": "Какую часть овощного фенхеля едят как хрустящую «луковицу»?",
+          "question": "Из чего состоит съедобная «луковица» овощного фенхеля?",
           "answers": [
             "Цветочные бутоны",
             "Подземные клубни",
@@ -37903,7 +37903,7 @@
           "id": 1010,
           "theme_id": 7,
           "difficulty": 0.4,
-          "question": "Как называют свойство тела сохранять скорость при отсутствии результирующей силы?",
+          "question": "Как называют свойство тела сохранять скорость, если действующие на него силы уравновешены?",
           "answers": [
             "Проводимость",
             "Упругость",
@@ -37916,7 +37916,7 @@
           "id": 1010,
           "theme_id": 7,
           "difficulty": 0.4,
-          "question": "What is an object's tendency to maintain its velocity when no net force acts on it?",
+          "question": "What is an object's tendency to keep moving at the same velocity unless a net force acts on it called?",
           "answers": [
             "Conductivity",
             "Elasticity",
@@ -38035,9 +38035,9 @@
           "id": 1013,
           "theme_id": 7,
           "difficulty": 0.4,
-          "question": "Why do bridges have expansion gaps?",
+          "question": "Why are small gaps left between sections of a bridge?",
           "answers": [
-            "To allow size changes with heating and cooling",
+            "To allow expansion and contraction as temperature changes",
             "To strengthen gravitational attraction",
             "To increase friction",
             "To reduce air pressure"
@@ -38074,7 +38074,7 @@
           "id": 1014,
           "theme_id": 7,
           "difficulty": 0.44,
-          "question": "Why is there a vacuum between a flask's walls?",
+          "question": "Why does a thermos have a vacuum between its walls?",
           "answers": [
             "It converts heat into sound",
             "It reduces heat transfer through gas",
@@ -38230,7 +38230,7 @@
           "id": 1018,
           "theme_id": 7,
           "difficulty": 0.42,
-          "question": "What is used in a simple magnifying glass?",
+          "question": "Which of these is used in a simple magnifying glass?",
           "answers": [
             "A diverging lens",
             "A flat glass plate",
@@ -38295,7 +38295,7 @@
           "id": 1020,
           "theme_id": 7,
           "difficulty": 0.4,
-          "question": "Какое небесное тело находится посередине при лунном затмении?",
+          "question": "Что находится между Солнцем и Луной при лунном затмении?",
           "answers": [
             "Луна",
             "Солнце",
@@ -38308,7 +38308,7 @@
           "id": 1020,
           "theme_id": 7,
           "difficulty": 0.4,
-          "question": "Which celestial body is in the middle during a lunar eclipse?",
+          "question": "Which body lies between the Sun and the Moon during a lunar eclipse?",
           "answers": [
             "Moon",
             "Sun",
@@ -38767,7 +38767,7 @@
           "id": 1032,
           "theme_id": 7,
           "difficulty": 0.42,
-          "question": "Что называют геном в школьном описании наследственности?",
+          "question": "Что такое ген?",
           "answers": [
             "Целую клетку",
             "Оболочку ядра",
@@ -38780,7 +38780,7 @@
           "id": 1032,
           "theme_id": 7,
           "difficulty": 0.42,
-          "question": "In a basic description of heredity, what is a gene?",
+          "question": "What is a gene?",
           "answers": [
             "An entire cell",
             "The membrane around a nucleus",
@@ -38936,7 +38936,7 @@
           "id": 1036,
           "theme_id": 7,
           "difficulty": 0.44,
-          "question": "How are interaction forces related under Newton's third law?",
+          "question": "According to Newton's third law, how do the forces two objects exert on each other compare?",
           "answers": [
             "Proportional to the bodies' sizes",
             "Equal and pointing the same way",
@@ -39001,7 +39001,7 @@
           "id": 1038,
           "theme_id": 7,
           "difficulty": 0.42,
-          "question": "Что у тела практически не меняется при перемещении с Земли на Луну?",
+          "question": "Какое свойство тела практически не меняется, если перенести его с Земли на Луну?",
           "answers": [
             "Ускорение свободного падения",
             "Сила притяжения к поверхности",
@@ -39287,7 +39287,7 @@
           "id": 1045,
           "theme_id": 8,
           "difficulty": 0.4,
-          "question": "Where did Columbus hope to reach by sailing west across the Atlantic in 1492?",
+          "question": "Where did Columbus hope to arrive by sailing west across the Atlantic in 1492?",
           "answers": [
             "New Zealand",
             "Australia",
@@ -39796,8 +39796,8 @@
           "difficulty": 0.38,
           "question": "Why did ancient Egyptians embalm the dead?",
           "answers": [
-            "To prepare it for cremation",
-            "To determine the person's occupation",
+            "To prepare bodies for cremation",
+            "To determine a person's occupation",
             "To replace funeral ceremonies",
             "To preserve the body for the afterlife"
           ],
@@ -39913,7 +39913,7 @@
           "difficulty": 0.44,
           "question": "What happened during the Boston Tea Party?",
           "answers": [
-            "Protesters destroyed cargo aboard ships",
+            "Protesters dumped ships' cargo into the harbor",
             "The first US railway opened",
             "Colonists signed peace with Britain",
             "Delegates assembled to adopt a constitution"
@@ -40418,7 +40418,7 @@
           "id": 1074,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "What is a short book annotation or blurb intended to provide?",
+          "question": "What does a book's blurb usually provide?",
           "answers": [
             "A brief description of the content",
             "The work's final paragraph",
@@ -40678,7 +40678,7 @@
           "id": 1081,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "Что обычно вводит пометка TLDR в длинной публикации?",
+          "question": "Что обычно следует после пометки TLDR в длинной публикации?",
           "answers": [
             "Пароль к вложению",
             "Краткое резюме",
@@ -40834,7 +40834,7 @@
           "id": 1085,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "Как называют выпуск передачи, доступный для прослушивания по запросу, обычно в составе серии?",
+          "question": "Как называют аудиопередачу, выпуски которой можно слушать в интернете в удобное время?",
           "answers": [
             "Аудиологотип",
             "Рингтон",
@@ -40847,7 +40847,7 @@
           "id": 1085,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "What is an on-demand audio episode, usually part of a series, called?",
+          "question": "What is an audio show released as episodes you can listen to on demand called?",
           "answers": [
             "Audio logo",
             "Ringtone",
@@ -40888,10 +40888,10 @@
           "difficulty": 0.42,
           "question": "How do you find the median of an ordered set with an odd number of values?",
           "answers": [
-            "Subtract the minimum from the maximum",
-            "Take the central entry",
-            "Add everything together",
-            "Take the largest entry"
+            "Subtract the smallest value from the largest value",
+            "Take the middle value",
+            "Add up every value",
+            "Take the largest value"
           ],
           "correct_index": 1
         }
@@ -41107,7 +41107,7 @@
           "id": 1092,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "Красные и синие шары находятся в отношении 2:1. Как это понять?",
+          "question": "Количество красных и синих шаров соотносится как 2:1. Что это значит?",
           "answers": [
             "Красных на один больше синих",
             "Красных и синих вместе ровно три",
@@ -41120,12 +41120,12 @@
           "id": 1092,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "What does a red-to-blue ball ratio of 2:1 mean?",
+          "question": "The ratio of red to blue balls is 2:1. What does this mean?",
           "answers": [
-            "Red balls exceed blue balls by one",
-            "Red balls and blue balls total exactly three",
-            "Blue balls are twice as numerous as red balls",
-            "Red balls are twice as numerous as blue balls"
+            "Red balls outnumber blue balls by one",
+            "There are exactly three red and blue balls in total",
+            "There are twice as many blue balls as red balls",
+            "There are twice as many red balls as blue balls"
           ],
           "correct_index": 3
         }
@@ -41162,8 +41162,8 @@
           "question": "What is a scale model?",
           "answers": [
             "An image with arbitrary proportions",
-            "A copy necessarily made from the same material",
-            "A copy with proportionally changed dimensions",
+            "A copy that must use the same material",
+            "A copy with all dimensions changed by the same factor",
             "A drawing of internal parts only"
           ],
           "correct_index": 2
@@ -41185,7 +41185,7 @@
           "id": 1094,
           "theme_id": 9,
           "difficulty": 0.4,
-          "question": "Как называют рисунок, показывающий только плоский тёмный контур фигуры?",
+          "question": "Как называют изображение фигуры сплошным тёмным пятном без внутренних деталей?",
           "answers": [
             "Панорама",
             "Силуэт",
@@ -41588,11 +41588,11 @@
           "id": 1104,
           "theme_id": 10,
           "difficulty": 0.42,
-          "question": "Which studio made My Neighbor Totoro?",
+          "question": "Which animation company made My Neighbor Totoro?",
           "answers": [
             "Illumination",
             "Pixar",
-            "Ghibli",
+            "Studio Ghibli",
             "DreamWorks"
           ],
           "correct_index": 2
@@ -41770,7 +41770,7 @@
           "id": 1109,
           "theme_id": 10,
           "difficulty": 0.42,
-          "question": "Как называется мир, скрывающийся за обычным в сериале «Очень странные дела»?",
+          "question": "Как называется мрачный параллельный мир в сериале «Очень странные дела»?",
           "answers": [
             "Вестерос",
             "Изнанка",
@@ -42173,7 +42173,7 @@
           "id": 1119,
           "theme_id": 10,
           "difficulty": 0.44,
-          "question": "Which instrument usually provides the low-pitched melodic foundation in a rock band?",
+          "question": "Which instrument usually plays the low notes that support the melody in a rock band?",
           "answers": [
             "Bass guitar",
             "Violin",
@@ -42277,7 +42277,7 @@
           "id": 1122,
           "theme_id": 10,
           "difficulty": 0.4,
-          "question": "Как называют одновременное созвучие нескольких нот, воспринимаемое как единое целое?",
+          "question": "Как называют сочетание трёх или более звуков разной высоты, звучащих одновременно?",
           "answers": [
             "Аккорд",
             "Гамма",
@@ -42290,7 +42290,7 @@
           "id": 1122,
           "theme_id": 10,
           "difficulty": 0.4,
-          "question": "What is a group of notes sounded together as a harmonic unit called?",
+          "question": "What is a combination of three or more notes played together called?",
           "answers": [
             "Chord",
             "Scale",
@@ -42370,7 +42370,7 @@
           "difficulty": 0.4,
           "question": "What is a film soundtrack?",
           "answers": [
-            "Its audio track or music released from it",
+            "A film's audio, or its music released separately",
             "A short promotional trailer",
             "A list of filming locations",
             "A scene storyboard"
@@ -42409,10 +42409,10 @@
           "difficulty": 0.42,
           "question": "What does a film editor do?",
           "answers": [
-            "Casts actors",
+            "Chooses actors for the roles",
             "Composes the orchestral score",
             "Designs costumes",
-            "Assembles recorded footage into a sequence"
+            "Selects and arranges footage to create the finished film"
           ],
           "correct_index": 3
         }
@@ -42472,7 +42472,7 @@
           "id": 1127,
           "theme_id": 10,
           "difficulty": 0.4,
-          "question": "Как называют новую экранизацию уже снятого фильма с повторным изложением его истории?",
+          "question": "Как называют заново снятую версию уже существующего фильма?",
           "answers": [
             "Ремейк",
             "Спин-офф",
@@ -42511,7 +42511,7 @@
           "id": 1128,
           "theme_id": 10,
           "difficulty": 0.44,
-          "question": "Зачем на съёмках хлопают специальной доской перед дублем?",
+          "question": "Для чего используют хлопушку при съёмке фильма?",
           "answers": [
             "Чтобы синхронизировать отдельно записанные звук и изображение",
             "Чтобы измерить освещённость",
@@ -42524,7 +42524,7 @@
           "id": 1128,
           "theme_id": 10,
           "difficulty": 0.44,
-          "question": "Why is a clapperboard snapped before a take?",
+          "question": "Why is a clapperboard snapped shut at the start of a take?",
           "answers": [
             "To synchronize separately recorded sound and picture",
             "To measure lighting",

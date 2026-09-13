@@ -4329,17 +4329,21 @@ func _hide_quiz_hint_buttons() -> void:
 		if hint_button != null and is_instance_valid(hint_button):
 			hint_button.visible = false
 
+func _set_quiz_answer_explanation() -> void:
+	if !_quiz_screen_active or !_quiz_answer_locked or !is_instance_valid(_quiz_question_label):
+		return
+	var explanation: String = Database.get_quiz_answer_explanation(
+		int(_quiz_current_question.get("id", -1))
+	)
+	if !explanation.is_empty():
+		_quiz_question_label.text = explanation
+
 func _show_quiz_continue_button(animated: bool) -> void:
 	if !_quiz_screen_active or !_quiz_answer_locked:
 		return
-	# Every result path reaches this point after feedback and bonus collection.
-	# Restoring an answered screen also uses it without granting rewards again.
+	# Also covers result restoration and feedback paths without a question fade.
+	_set_quiz_answer_explanation()
 	if is_instance_valid(_quiz_question_label):
-		var explanation: String = Database.get_quiz_answer_explanation(
-			int(_quiz_current_question.get("id", -1))
-		)
-		if !explanation.is_empty():
-			_quiz_question_label.text = explanation
 		_quiz_question_label.visible = true
 		_quiz_question_label.modulate = Color.WHITE
 	_hide_quiz_hint_buttons()
@@ -4607,7 +4611,7 @@ func _play_quiz_correct_question_feedback(
 		reward_fade.set_trans(Tween.TRANS_SINE)
 		reward_fade.set_ease(Tween.EASE_OUT)
 	feedback_tween.tween_interval(PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION)
-	# Pop only the green feedback text out before restoring the question. The
+	# Pop only the green feedback text out before showing the explanation. The
 	# static +N/star row keeps its authored scale throughout this exit bounce.
 	var exit_grow := feedback_tween.tween_property(
 		feedback_label,
@@ -4617,8 +4621,8 @@ func _play_quiz_correct_question_feedback(
 	)
 	exit_grow.set_trans(Tween.TRANS_QUAD)
 	exit_grow.set_ease(Tween.EASE_OUT)
-	# Keep the original question fully hidden until both feedback elements have
-	# faded out. Its restore fade is appended as the next tween step below.
+	# Keep this label transparent until both feedback elements have faded out.
+	# Replace its text before the following fade-in starts.
 	_quiz_question_label.visible = true
 	_quiz_question_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	var exit_hide := feedback_tween.tween_property(
@@ -4646,7 +4650,9 @@ func _play_quiz_correct_question_feedback(
 		)
 		reward_exit_fade.set_trans(Tween.TRANS_SINE)
 		reward_exit_fade.set_ease(Tween.EASE_IN)
-	# Start restoring the question only after the entire exit step is complete.
+	# Swap while transparent: the original question must never fade back in.
+	# Continue still waits for any subsequent star collection to finish.
+	feedback_tween.tween_callback(Callable(self, "_set_quiz_answer_explanation"))
 	var question_restore := feedback_tween.tween_property(
 		_quiz_question_label,
 		"modulate:a",
@@ -4802,6 +4808,9 @@ func _play_quiz_wrong_question_feedback() -> void:
 	)
 	exit_fade.set_trans(Tween.TRANS_SINE)
 	exit_fade.set_ease(Tween.EASE_IN)
+	# Swap while transparent: the original question must never fade back in.
+	# Continue still waits for any subsequent star collection to finish.
+	feedback_tween.tween_callback(Callable(self, "_set_quiz_answer_explanation"))
 	var question_restore := feedback_tween.tween_property(
 		_quiz_question_label,
 		"modulate:a",
@@ -4991,7 +5000,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	if speed_reward_amount > 0:
 		final_star_balance = GameState.add_stars(speed_reward_amount, true)
 		# The bonus is already durable, but its HUD value waits for the visual
-		# collection that starts after the original question returns.
+		# collection that starts after the answer explanation appears.
 		_set_stage_reward_animated_balance(
 			float(previous_star_balance),
 			GameState.STAGE_REWARD_STARS
