@@ -3278,28 +3278,6 @@ func _show_menu_screen() -> void:
 	# to the visual center of the Home screen while preserving its aspect ratio.
 	var main_menu_logo_bounds := Rect2(-13.44, 142.8, 506.88, 304.128)
 	var main_menu_logo_rect: Rect2 = _fit_stage_rect_keep_aspect(main_menu_logo_bounds, main_menu_logo_texture.get_size())
-	var main_menu_logo_glow_outer_size := main_menu_logo_rect.size * 1.34
-	var main_menu_logo_glow_outer_rect := Rect2(
-		main_menu_logo_rect.get_center() - main_menu_logo_glow_outer_size * 0.5,
-		main_menu_logo_glow_outer_size
-	)
-	var main_menu_logo_glow_outer := _stage_texture(
-		main_menu_logo_glow_outer_rect,
-		FINAL_REWARD_ROTATING_GLOW_TEXTURE
-	)
-	main_menu_logo_glow_outer.modulate = Color(0.47, 0.83, 1.0, 0.17)
-	main_menu_logo_glow_outer.z_index = -2
-	var main_menu_logo_glow_inner_size := main_menu_logo_rect.size * 1.16
-	var main_menu_logo_glow_inner_rect := Rect2(
-		main_menu_logo_rect.get_center() - main_menu_logo_glow_inner_size * 0.5,
-		main_menu_logo_glow_inner_size
-	)
-	var main_menu_logo_glow_inner := _stage_texture(
-		main_menu_logo_glow_inner_rect,
-		FINAL_REWARD_ROTATING_GLOW_TEXTURE
-	)
-	main_menu_logo_glow_inner.modulate = Color(0.60, 0.88, 1.0, 0.24)
-	main_menu_logo_glow_inner.z_index = -1
 	var main_menu_logo := _stage_texture(main_menu_logo_rect, main_menu_logo_texture)
 	main_menu_logo.modulate = Color.WHITE
 	main_menu_logo.self_modulate = Color.WHITE
