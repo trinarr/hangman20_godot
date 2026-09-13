@@ -32,8 +32,8 @@ const MAIN_MENU_LOGO_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
 )
-const MAIN_MENU_LOGO_SHINE_SHADER: Shader = preload(
-	"res://shaders/main_menu_logo_shine.gdshader"
+const HOME_LOGO_PAPER_REVEAL_SCRIPT: GDScript = preload(
+	"res://scripts/ui/home_logo_paper_reveal.gd"
 )
 const REWARD_COIN_SHINE_OVERLAY_SHADER: Shader = preload(
 	"res://shaders/reward_coin_shine_overlay.gdshader"
@@ -157,8 +157,10 @@ const PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET: float = 64.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
-const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0
-const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0
+const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0 * 0.85
+# Shrink both faces around the original center; the shadow is outside this height.
+const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0 + (118.0 - PORTRAIT_GAME_WORD_PAPER_HEIGHT) * 0.5
+const PORTRAIT_GAME_WORD_PAPER_SHADOW_SPACE: float = 6.0
 var PORTRAIT_ROUND_END_KEY_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_fade_seconds", 0.22
 )
@@ -505,6 +507,8 @@ const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_asse
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = 0.50
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
+const GAME_WORD_PAPER_SHADER: Shader = preload("res://shaders/game_word_paper.gdshader")
+const GAME_WORD_PAPER_BACKSIDE_SHADER: Shader = preload("res://shaders/game_word_paper_backside.gdshader")
 const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
 const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
 
@@ -695,9 +699,6 @@ var PORTRAIT_COIN_REFILL_POLL_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float_ra
 var PORTRAIT_HEART_POPUP_POLL_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float_range(
 	"timings.heart_popup_poll_seconds", 1.0, 0.05, 60.0
 )
-var PORTRAIT_MENU_LOGO_SHINE_DELAY_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.menu_logo_shine_delay_seconds", 0.28
-)
 var PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.menu_logo_shine_duration_seconds", 0.72
 )
@@ -759,7 +760,8 @@ var _portrait_game_input_group: Control = null
 var _portrait_game_word_paper_mask: Control = null
 var _portrait_game_word_paper_layer: Control = null
 var _portrait_game_word_paper_backside: Control = null
-var _portrait_game_word_paper_backside_visual: TextureRect = null
+var _portrait_game_word_paper_backside_visual: ColorRect = null
+var _portrait_coin_store_underlay: Control = null
 var _portrait_game_word_slots_root: Control = null
 var _portrait_game_word_rect := Rect2()
 var _portrait_game_keyboard_metrics_snapshot: Dictionary = {}
@@ -2355,7 +2357,36 @@ func _open_coin_store(return_action: Callable = Callable()) -> void:
 
 func _close_coin_store() -> void:
 	_portrait_coin_store_active = false
-	super._close_coin_store()
+	# Coin refill is an overlay: retain the live background and its animations.
+	# Other callbacks (quiz refresh, stacked offers) still perform their own work.
+	var same_screen_methods: Array[StringName] = [
+		&"show_menu", &"show_game_screen", &"_return_to_game_from_coin_store",
+		&"_return_to_single_player_reward_from_coin_store", &"_return_to_custom_word_from_coin_store",
+	]
+	if (
+		_coin_store_underlay_is_live()
+		and coin_store_return_action.is_valid()
+		and coin_store_return_action.get_object() == self
+		and same_screen_methods.has(coin_store_return_action.get_method())
+	):
+		coin_store_return_action = Callable()
+		_remove_coin_refill_popup()
+	else:
+		super._close_coin_store()
+	_portrait_coin_store_underlay = null
+
+func _run_for_live_control(target_ref: WeakRef, action: Callable, args: Array = []) -> void:
+	# A popup can close before its deferred layout/bounce runs. Resolve the node
+	# before calling a typed method, which cannot accept an already freed Control.
+	var target := target_ref.get_ref() as Control
+	if target == null or !target.is_inside_tree() or !action.is_valid():
+		return
+	var call_args: Array = [target]
+	call_args.append_array(args)
+	action.callv(call_args)
+
+func _coin_store_underlay_is_live() -> bool:
+	return is_instance_valid(_portrait_coin_store_underlay) and _portrait_coin_store_underlay.is_inside_tree()
 
 func _coin_refill_ad_cooldown_text(seconds: int) -> String:
 	var resolved_seconds: int = maxi(seconds, 0)
@@ -2457,6 +2488,7 @@ func _on_coin_refill_ad_cooldown_tick(button: Control) -> void:
 
 func _show_coin_refill_popup() -> void:
 	_remove_coin_refill_popup()
+	_portrait_coin_store_underlay = content
 	_portrait_coin_store_active = true
 	var close_action := Callable(self, "_close_coin_store")
 	var previous_content := _portrait_popup_begin(
@@ -2497,7 +2529,7 @@ func _show_coin_refill_popup() -> void:
 	coin_icon.name = "CoinRefillIcon"
 	coin_icon.add_to_group(&"coin_refill_reward_source")
 	coin_icon.z_index = 20
-	call_deferred("_play_final_reward_pack_bounce", coin_icon)
+	call_deferred("_run_for_live_control", weakref(coin_icon), Callable(self, "_play_final_reward_pack_bounce"))
 
 	var amount_label := _stage_label(
 		_portrait_final_reward_amount_rect(coin_rect),
@@ -3278,50 +3310,59 @@ func _show_menu_screen() -> void:
 	# to the visual center of the Home screen while preserving its aspect ratio.
 	var main_menu_logo_bounds := Rect2(-13.44, 142.8, 506.88, 304.128)
 	var main_menu_logo_rect: Rect2 = _fit_stage_rect_keep_aspect(main_menu_logo_bounds, main_menu_logo_texture.get_size())
-	var main_menu_logo := _stage_texture(main_menu_logo_rect, main_menu_logo_texture)
-	main_menu_logo.modulate = Color.WHITE
-	main_menu_logo.self_modulate = Color.WHITE
-
-	# Play one soft diagonal highlight sweep every time the Home screen is entered.
-	# The shader keeps the source alpha intact, so the highlight is visible only
-	# on the painted logo pixels and never on its transparent background.
-	var logo_shine_material := ShaderMaterial.new()
-	logo_shine_material.shader = MAIN_MENU_LOGO_SHINE_SHADER
-	main_menu_logo.material = logo_shine_material
-	var logo_shine_tween := create_tween()
-	logo_shine_tween.bind_node(main_menu_logo)
-	logo_shine_tween.tween_interval(PORTRAIT_MENU_LOGO_SHINE_DELAY_SECONDS)
-	var set_logo_shine_progress := func(progress: float) -> void:
-		if is_instance_valid(logo_shine_material):
-			logo_shine_material.set_shader_parameter("shine_progress", progress)
-	var logo_shine_motion = logo_shine_tween.tween_method(
-		set_logo_shine_progress,
-		-0.30,
-		1.55,
-		PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS
-	)
-	if logo_shine_motion != null:
-		logo_shine_motion.set_trans(Tween.TRANS_SINE)
-		logo_shine_motion.set_ease(Tween.EASE_IN_OUT)
+	# Keep the former logo transform as a layout anchor. The foreground texture
+	# is composited over a full-width paper layer without scaling the lettering.
+	var main_menu_logo_anchor: Control = _stage_holder(main_menu_logo_rect, Control.MOUSE_FILTER_IGNORE)
+	main_menu_logo_anchor.name = "HomeLogoAnchor"
 	_portrait_end_adaptive_group(menu_title_content)
 
-	_stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
+	var logo_reveal: Control = HOME_LOGO_PAPER_REVEAL_SCRIPT.new() as Control
+	logo_reveal.set("logo_anchor", main_menu_logo_anchor)
+	logo_reveal.set("logo_texture", main_menu_logo_texture)
+	logo_reveal.set("start_delay", maxf(0.12, PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER))
+	logo_reveal.set("reveal_duration", PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER)
+	logo_reveal.set("shine_duration", PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS)
+
+	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_action := Callable(self, "_open_next_single_player_level")
 	if GameState.has_resumable_single_player_level():
 		single_player_action = Callable(self, "_resume_saved_single_player_level")
-	_stage_single_player_menu_button(
+	var single_player_button := _stage_single_player_menu_button(
 		Rect2(33.0, 670.0, 414.0, 88.32),
 		single_player_action
 	)
+	var home_buttons: Array[Control] = [two_player_button, single_player_button]
+	two_player_button.name = "HomeTwoPlayerButton"
+	single_player_button.name = "HomeSinglePlayerButton"
+	for button: Control in home_buttons:
+		button.hide()
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The logo controller starts the button bounce at the peel midpoint.
+	# It owns both tweens, so leaving Home cancels the whole entrance.
+	logo_reveal.connect("buttons_appearance_changed", _sync_home_button_entrance.bind(home_buttons))
+	logo_reveal.connect("buttons_bounce_finished", _finish_home_button_entrance.bind(home_buttons))
+	content.add_child(logo_reveal)
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation")
 	if !GameState.has_accepted_legal_documents():
 		call_deferred("_show_legal_consent_popup")
-	elif !_startup_guided_resume_checked:
-		_startup_guided_resume_checked = true
-		if _should_auto_resume_guided_single_player():
-			call_deferred("_resume_saved_single_player_level")
+	else:
+		_check_startup_guided_resume()
+
+func _sync_home_button_entrance(opacity: float, visual_scale: float, buttons: Array[Control]) -> void:
+	for button: Control in buttons:
+		if !is_instance_valid(button) or !button.is_inside_tree():
+			continue
+		button.visible = opacity > 0.0
+		button.modulate.a = opacity
+		button.set("visual_scale", Vector2.ONE * visual_scale)
+
+func _finish_home_button_entrance(buttons: Array[Control]) -> void:
+	for button: Control in buttons:
+		if !is_instance_valid(button) or !button.is_inside_tree():
+			continue
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if bool(button.get("disabled")) else Control.MOUSE_FILTER_STOP
 
 func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int) -> Dictionary:
 	if theme_index < 0:
@@ -3772,7 +3813,18 @@ func _accept_legal_documents() -> void:
 	if !GameState.accept_legal_documents():
 		return
 	_remove_legal_consent_popup()
-	_show_menu_screen()
+	_check_startup_guided_resume()
+
+func _check_startup_guided_resume() -> void:
+	if !_startup_guided_resume_checked and GameState.has_accepted_legal_documents():
+		_startup_guided_resume_checked = true
+		if _should_auto_resume_guided_single_player():
+			call_deferred("_resume_saved_single_player_level")
+
+func _close_single_player_theme_popup_to_menu() -> void:
+	_remove_single_player_theme_popup()
+	if find_child("HomeLogoPaperReveal", true, false) == null:
+		show_menu()
 
 func show_settings() -> void:
 	_show_settings_popup()
@@ -6696,10 +6748,14 @@ func _return_to_heart_refill_from_coin_store(
 	cancel_action: Callable = Callable(),
 	reward_acquired: bool = false
 ) -> void:
-	if restore_action.is_valid():
-		restore_action.call()
-	else:
-		show_menu()
+	heart_refill_store_is_open = false
+	if !get_tree().get_nodes_in_group("heart_refill_popup").is_empty():
+		return
+	if !_coin_store_underlay_is_live():
+		if restore_action.is_valid():
+			restore_action.call()
+		else:
+			show_menu()
 	_portrait_popup_resume_without_intro = true
 	_show_heart_refill_popup(
 		continue_action,
@@ -8724,10 +8780,8 @@ func _refresh_game_screen() -> void:
 	_stage_portrait_game_word_display(game_word_rect, 34)
 	content = input_group_content
 
-	# The darker reverse side uses a fixed-width stage holder. Only the child
-	# TextureRect scales on X around its LEFT edge. Resizing FlashStageTexture's
-	# stage_rect used to re-stretch the entire wide source image every frame, which
-	# made the fold look squashed instead of physically opening from the contact line.
+	# The holder retains the original stage layout and fold travel. Its child
+	# draws the same flat reverse face, small edge flare and contact shadow as Home.
 	var backside_rect := Rect2(
 		0.0,
 		game_word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
@@ -8738,27 +8792,22 @@ func _refresh_game_screen() -> void:
 	word_paper_backside.z_index = 41
 	word_paper_backside.visible = false
 	_portrait_game_word_paper_backside = word_paper_backside
-
-	var word_paper_backside_visual := TextureRect.new()
-	word_paper_backside_visual.name = "PortraitGameWordPaperBacksideVisual"
-	word_paper_backside_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	word_paper_backside_visual.texture = PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE
-	word_paper_backside_visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	word_paper_backside_visual.stretch_mode = TextureRect.STRETCH_SCALE
-	word_paper_backside.add_child(word_paper_backside_visual)
-	# Keep the reverse-side texture at one authored local size. Its X transform is
-	# then a literal horizontal scale around the fold line, independent from stage
-	# rect remapping or anchor layout.
-	word_paper_backside_visual.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	word_paper_backside_visual.position = Vector2.ZERO
-	word_paper_backside_visual.size = Vector2(
-		PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
-		PORTRAIT_GAME_WORD_PAPER_HEIGHT
+	var backside_visual := ColorRect.new()
+	backside_visual.name = "PortraitGameWordPaperBacksideVisual"
+	backside_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backside_visual.position = Vector2(-9.0, -8.0)
+	backside_visual.size = Vector2(
+		PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH + 10.0,
+		PORTRAIT_GAME_WORD_PAPER_HEIGHT + 16.0
 	)
-	word_paper_backside_visual.custom_minimum_size = word_paper_backside_visual.size
-	word_paper_backside_visual.pivot_offset = Vector2(0.0, PORTRAIT_GAME_WORD_PAPER_HEIGHT * 0.5)
-	word_paper_backside_visual.scale = Vector2(0.0, 1.0)
-	_portrait_game_word_paper_backside_visual = word_paper_backside_visual
+	var backside_material := ShaderMaterial.new()
+	backside_material.shader = GAME_WORD_PAPER_BACKSIDE_SHADER
+	backside_material.set_shader_parameter("backside_texture", PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE)
+	backside_material.set_shader_parameter("surface_size", backside_visual.size)
+	backside_material.set_shader_parameter("paper_height", PORTRAIT_GAME_WORD_PAPER_HEIGHT)
+	backside_visual.material = backside_material
+	word_paper_backside.add_child(backside_visual)
+	_portrait_game_word_paper_backside_visual = backside_visual
 
 	# Explicitly initialize the page-turn mask in its fully closed/front-facing
 	# state. PRESET_FULL_RECT alone can still have a zero-sized clip rect during
@@ -9242,7 +9291,7 @@ func _stage_portrait_ad_banner() -> void:
 	banner_label.z_index = 31
 
 func _stage_portrait_game_word_paper(rect: Rect2) -> void:
-	# Use the restored cream/yellow torn paper strip as a single full-width asset.
+	# Keep the cream paper interior; the shader supplies a clean, antialiased edge.
 	# It intentionally overflows beyond the left/right screen edges so the ends
 	# are clipped by the viewport and only the central paper body is visible.
 	var paper_rect := Rect2(
@@ -9251,8 +9300,16 @@ func _stage_portrait_game_word_paper(rect: Rect2) -> void:
 		PORTRAIT_STAGE_SIZE.x + PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X * 2.0,
 		PORTRAIT_GAME_WORD_PAPER_HEIGHT
 	)
-	var paper_texture := _stage_texture(paper_rect, PORTRAIT_GAME_WORD_PAPER_TEXTURE)
+	var surface_rect := paper_rect
+	surface_rect.size.y += PORTRAIT_GAME_WORD_PAPER_SHADOW_SPACE
+	var paper_texture := _stage_texture(surface_rect, PORTRAIT_GAME_WORD_PAPER_TEXTURE)
 	paper_texture.z_index = -2
+	var paper_material := ShaderMaterial.new()
+	paper_material.shader = GAME_WORD_PAPER_SHADER
+	paper_material.set_shader_parameter("paper_size", paper_rect.size)
+	paper_material.set_shader_parameter("surface_size", surface_rect.size)
+	paper_material.set_shader_parameter("stage_origin_x", paper_rect.position.x)
+	paper_texture.material = paper_material
 
 func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void:
 	_stage_portrait_game_word_paper(rect)
@@ -10350,10 +10407,10 @@ func _add_portrait_icon_with_extrusion_to_holder(
 			)
 		)
 	call_deferred(
-		"_layout_portrait_icon_holder_extrusion",
-		holder,
-		layers,
-		shadow_offset_scale
+		"_run_for_live_control",
+		weakref(holder),
+		Callable(self, "_layout_portrait_icon_holder_extrusion"),
+		[layers, shadow_offset_scale]
 	)
 	var icon := TextureRect.new()
 	icon.name = prefix
@@ -11270,14 +11327,14 @@ func show_result_screen(is_win: bool, _data: Dictionary = {}) -> void:
 	_show_in_place_round_result(is_win, true)
 
 func _return_to_game_from_coin_store() -> void:
-	# Returning from the modal shop is not a fresh gameplay navigation. Rebuild
-	# the current stage without scheduling the one-shot entrance choreography.
+	# Fallback if the underlying stage was removed while the modal was open.
+	# Rebuild without scheduling the one-shot entrance choreography.
 	_portrait_game_entrance_pending = false
 	super.show_game_screen()
 
 func _return_to_single_player_reward_from_coin_store() -> void:
-	# The modal shop clears the current UI tree. Rebuild the reward screen directly
-	# in its settled state so returning from the shop does not replay the intro,
+	# If the background was removed, rebuild the reward screen directly in its
+	# settled state so the fallback return does not replay the intro,
 	# reward flight, check bounce, or Continue-button entrance.
 	_portrait_single_reward_resume_without_intro = true
 	_show_single_player_reward_chain_screen()
@@ -11291,6 +11348,8 @@ func _show_single_player_forfeit_reward_screen(show_interstitial: bool = false) 
 	show_reward_action.call()
 
 func _return_to_single_player_last_chance_from_coin_store() -> void:
+	if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
+		return
 	_portrait_game_entrance_pending = false
 	super.show_game_screen()
 	_portrait_popup_resume_without_intro = true
@@ -15928,7 +15987,7 @@ func _set_portrait_word_paper_entrance_progress(progress: float) -> void:
 			PORTRAIT_GAME_WORD_PAPER_HEIGHT
 		)
 	)
-	_portrait_game_word_paper_backside_visual.scale = Vector2(fold_curve, 1.0)
+	_sync_portrait_word_paper_backside_material(fold_stage_x, fold_curve)
 	# Never fade the reverse side during unfold. Its visibility is controlled only
 	# by the fold geometry and screen clipping.
 	_portrait_game_word_paper_backside.modulate.a = 1.0
@@ -15989,11 +16048,15 @@ func _set_portrait_word_paper_peel_progress(progress: float) -> void:
 			PORTRAIT_GAME_WORD_PAPER_HEIGHT
 		)
 	)
-	_portrait_game_word_paper_backside_visual.scale = Vector2(p, 1.0)
-	# Entrance fades the reverse side at its endpoints. Reset its opacity here so
-	# a later round-end peel always uses the normal fully opaque backside.
+	_sync_portrait_word_paper_backside_material(fold_stage_x, p)
+	# Keep the reverse face opaque throughout the peel, as on Home.
 	_portrait_game_word_paper_backside.modulate.a = 1.0
 	_portrait_game_word_paper_backside.visible = p > 0.001 and p < 0.999
+
+func _sync_portrait_word_paper_backside_material(stage_x: float, width_ratio: float) -> void:
+	var shader_material := _portrait_game_word_paper_backside_visual.material as ShaderMaterial
+	shader_material.set_shader_parameter("stage_origin_x", stage_x)
+	shader_material.set_shader_parameter("fold_width", PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH * width_ratio)
 
 func _finalize_portrait_word_paper_peel_visuals(paper_layer: Control) -> void:
 	if paper_layer != null and is_instance_valid(paper_layer):
@@ -16006,7 +16069,7 @@ func _finalize_portrait_word_paper_peel_visuals(paper_layer: Control) -> void:
 		_portrait_game_word_paper_backside_visual != null
 		and is_instance_valid(_portrait_game_word_paper_backside_visual)
 	):
-		_portrait_game_word_paper_backside_visual.scale = Vector2(0.0, 1.0)
+		_sync_portrait_word_paper_backside_material(0.0, 0.0)
 
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF

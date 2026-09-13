@@ -1457,7 +1457,7 @@ func _single_player_mark_current_word_finished(
 		GameState.save_game()
 	return result
 
-func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
+func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> Control:
 	var resume_available: bool = GameState.has_resumable_single_player_level()
 	var level_index: int = (
 		GameState.get_resumable_single_player_level_index()
@@ -1537,6 +1537,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		)
 		BUTTON_TEXT_STYLE_SCRIPT.apply_display(challenge_label)
 		button.add_child(challenge_label)
+	return button
 
 func _remove_single_player_theme_popup() -> void:
 	_clear_single_player_popup_theme_cards()
