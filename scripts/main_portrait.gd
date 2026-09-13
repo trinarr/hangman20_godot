@@ -4330,6 +4330,18 @@ func _hide_quiz_hint_buttons() -> void:
 			hint_button.visible = false
 
 func _show_quiz_continue_button(animated: bool) -> void:
+	if !_quiz_screen_active or !_quiz_answer_locked:
+		return
+	# Every result path reaches this point after feedback and bonus collection.
+	# Restoring an answered screen also uses it without granting rewards again.
+	if is_instance_valid(_quiz_question_label):
+		var explanation: String = Database.get_quiz_answer_explanation(
+			int(_quiz_current_question.get("id", -1))
+		)
+		if !explanation.is_empty():
+			_quiz_question_label.text = explanation
+		_quiz_question_label.visible = true
+		_quiz_question_label.modulate = Color.WHITE
 	_hide_quiz_hint_buttons()
 	if _quiz_continue_button == null or !is_instance_valid(_quiz_continue_button):
 		return

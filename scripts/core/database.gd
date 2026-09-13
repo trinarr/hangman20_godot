@@ -105,6 +105,12 @@ const QUIZ_FILES := {
 var _quiz_questions_by_theme_cache: Dictionary = {}
 var _quiz_questions_by_id: Dictionary = {}
 var _loaded_quiz_language: String = ""
+const QUIZ_EXPLANATION_FILES := {
+	"ru": "res://data/quiz_explanations_ru.json",
+	"en": "res://data/quiz_explanations_en.json",
+}
+# Load only when the first answered question needs its explanation.
+var _quiz_explanations_by_language: Dictionary = {}
 
 func _ready() -> void:
 	set_process(false)
@@ -456,6 +462,30 @@ func _ensure_quiz_data_loaded() -> void:
 		var question_id: int = int(question.get("id", -1))
 		if question_id >= 0 and !by_id.has(question_id):
 			by_id[question_id] = cached_question
+
+func get_quiz_answer_explanation(question_id: int) -> String:
+	if question_id < 0:
+		return ""
+	var language: String = _normalize_language(current_language)
+	if !_quiz_explanations_by_language.has(language):
+		var path: String = QUIZ_EXPLANATION_FILES[language]
+		var payload: Variant = _load_json(path)
+		var explanations: Dictionary = {}
+		if (
+			payload is Dictionary
+			and payload.get("format_version", 0) == 1
+			and payload.get("language", "") == language
+			and payload.get("explanations") is Dictionary
+		):
+			explanations = payload["explanations"]
+		else:
+			push_error("Invalid quiz explanations: " + path)
+		# Missing optional content must not block Continue or cause repeated I/O.
+		explanations.make_read_only()
+		_quiz_explanations_by_language[language] = explanations
+	var entries: Dictionary = _quiz_explanations_by_language[language]
+	var explanation: Variant = entries.get(str(question_id), "")
+	return explanation.strip_edges() if explanation is String else ""
 
 func get_quiz_questions_by_theme_index(theme_index: int) -> Array:
 	_ensure_quiz_data_loaded()
