@@ -59,8 +59,6 @@ const CHALLENGE_TEXT := Color("#FAE8FF")
 # Theme cards.
 const THEME_CARD := Color("#4C59AD")
 const THEME_CARD_SELECTED := Color("#616EC2")
-const THEME_CARD_PRESSED := Color("#B8B8B8")
-const THEME_PROGRESS_TEXT := Color("#6E7DD4")
 const PRESS_HIGHLIGHT := Color("#B8C4FA")
 
 # Reward screen and result markers.
@@ -77,8 +75,6 @@ const MARKER_INFO := BUTTON_BLUE
 const NEUTRAL_SURFACE := Color("#F7F7FA")
 const NEUTRAL_BORDER := Color("#B8BFD1")
 const NEUTRAL_TEXT := Color("#6E758A")
-const PROFILE_HALO := Color(0.42, 0.48, 0.82, 0.95)
-const PROFILE_HALO_IDLE := Color(0.32, 0.37, 0.67, 0.50)
 
 # Decorative paper accents.
 const PAPER_CRACK_DARK := Color("#1C2661")

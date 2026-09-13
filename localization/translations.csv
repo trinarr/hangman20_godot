@@ -6,9 +6,6 @@ COMMON_FREE,Бесплатно,Free
 SETTINGS_TITLE,Настройки,Settings
 COMMON_EXIT,Выйти,Exit
 WORD_DATABASE_LABEL,База слов:,Database:
-RECORDS_TITLE,Статистика,Statistics
-RECORD_EASY_STREAK,Легких слов подряд,Easy words in a row
-RECORD_HARD_STREAK,Сложных слов подряд,Hard words in a row
 VERSION_LABEL,Версия:,Version:
 CLEAR_THEME_CONFIRM,Очистить тему?,Clear the category?
 YES,Да,Yes
@@ -46,8 +43,6 @@ TOAST_ERROR,Ошибка сети,Error
 TOAST_AD_NOT_READY,Реклама еще не готова,The ad isn't ready yet
 COIN_STORE_TITLE,МОНЕТЫ,COINS
 COINS_EARNED,Монеты: +%d,Coins: +%d
-DIFFICULTY_HARD_MODE,Сложный режим,Hard mode
-DIFFICULTY_NORMAL_MODE,Обычный режим,Normal mode
 LEVEL_LABEL,Уровень,Level
 CHALLENGE_SHORT_LABEL,Сложный,Hard
 LEVEL_FAILURE,НЕУДАЧА,FAILURE
@@ -63,7 +58,6 @@ EXIT_PROGRESS_WARNING,Вы потеряете свой прогресс,You will
 EXIT_LEVEL_CONFIRM,Хотите выйти?,Exit level?
 ATTEMPTS_LABEL,Попытки,Attempts
 THEME_LABEL,Тема,Theme
-CHALLENGES_TITLE,ИСПЫТАНИЯ,CHALLENGES
 EXTRA_ATTEMPTS_TITLE,Продолжить?,Continue?
 EXTRA_ATTEMPTS_DESCRIPTION,"Добавьте %d попытки,
 чтобы продолжить игру","Add %d attempts
@@ -83,12 +77,5 @@ REWARD_STAGE_COMPLETED,ЭТАП ПРОЙДЕН,STAGE COMPLETE
 REWARD_STAGE_FAILED,НЕУДАЧА!,FAILURE!
 REWARD_DOUBLE,Удвоить награду,Double reward
 LEVEL_NUMBER,Уровень %d,Level %d
-NAV_PROFILE,Профиль,Profile
-PROFILE_TAP_TO_EDIT,"Нажмите, чтобы изменить",Tap to edit
-PROFILE_EDIT_TITLE,Редактировать профиль,Edit profile
-PROFILE_PLAYER_NAME,Имя игрока,Player name
-PROFILE_AVATAR,Аватар,Avatar
-PROFILE_SAVE,Сохранить,Save
-PROFILE_DEFAULT_PLAYER,Игрок,Player
 COMMON_MAX,Макс,Max
 COMPACT_THOUSANDS_SUFFIX,к,k

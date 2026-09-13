@@ -33,8 +33,6 @@ var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
 )
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := UI_PALETTE.UI_BLUE_DARK
 const SOUND_SETTING_INDEX: int = 3
-const THEME_CARD_PRESSED_MODULATE := UI_PALETTE.THEME_CARD_PRESSED
-const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
 	"progression.theme_options_per_level", 3, 1, 10
@@ -135,9 +133,6 @@ const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.pn
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
 const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
-const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
-const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
-const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
@@ -148,8 +143,6 @@ const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
 const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
 const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
-const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
-const HERO_AVATAR_TIGRE_TEXTURE: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 
 var ui: Control
 var content: Control
@@ -266,12 +259,6 @@ func _prewarm_runtime_assets() -> void:
 func show_menu() -> void:
 	pass
 
-func show_theme_select() -> void:
-	pass
-
-func show_tasks() -> void:
-	pass
-
 func show_custom_word() -> void:
 	pass
 
@@ -282,9 +269,6 @@ func show_coin_store() -> void:
 	pass
 
 func _stage_currency_counter(_return_action: Callable, _rect: Rect2 = Rect2()) -> void:
-	pass
-
-func _stage_single_player_level_header(_level_index: int) -> void:
 	pass
 
 func _open_coin_store(return_action: Callable = Callable()) -> void:
@@ -379,9 +363,6 @@ func _refresh_game_screen() -> void:
 func _create_hero_animation_overlay() -> FlashStageSymbol:
 	return null
 
-func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> void:
-	pass
-
 func _show_single_player_level_popup(
 	_level_index: int,
 	_selected_theme: int = -1,
@@ -467,7 +448,6 @@ func _clear() -> void:
 	_remove_heart_refill_popup()
 	_remove_single_player_last_chance_popup()
 	_remove_single_player_theme_popup()
-	_remove_clear_theme_popup()
 	custom_word_edit = null
 	custom_word_input_visual = null
 	for child: Node in ui.get_children():
@@ -678,22 +658,6 @@ func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state
 	button.stage_rect = rect
 	return button
 
-func _stage_line_edit(rect: Rect2, placeholder: String = "") -> LineEdit:
-	var holder: Control = _stage_holder(rect)
-	var edit := LineEdit.new()
-	edit.set_anchors_preset(Control.PRESET_FULL_RECT)
-	edit.placeholder_text = placeholder
-	edit.max_length = 35
-	edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	edit.add_theme_font_size_override("font_size", 26)
-	edit.add_theme_color_override("font_color", UI_PALETTE.UI_BLUE_DARK)
-	edit.add_theme_color_override("caret_color", UI_PALETTE.UI_BLUE_DARK)
-	var empty_style := StyleBoxEmpty.new()
-	edit.add_theme_stylebox_override("normal", empty_style)
-	edit.add_theme_stylebox_override("focus", empty_style)
-	holder.add_child(edit)
-	return edit
-
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
 	var empty_style := StyleBoxEmpty.new()
 	button.add_theme_stylebox_override("normal", empty_style)
@@ -848,15 +812,6 @@ func _refresh_settings_toggle_button(index: int) -> void:
 	button.set("button_text", _settings_on_label() if enabled else _settings_off_label())
 	button.set("selected", enabled)
 
-func _difficulty_mode_value() -> int:
-	return DIFFICULTY_MODE_HARD if int(GameState.settings[2]) == DIFFICULTY_MODE_HARD else DIFFICULTY_MODE_NORMAL
-
-func _difficulty_mode_label(value: int = -1) -> String:
-	var resolved: int = _difficulty_mode_value() if value < 0 else value
-	if resolved == DIFFICULTY_MODE_HARD:
-		return tr("DIFFICULTY_HARD_MODE")
-	return tr("DIFFICULTY_NORMAL_MODE")
-
 func _style_hard_button(button: Control) -> Control:
 	if button == null:
 		return button
@@ -870,29 +825,10 @@ func _style_hard_button(button: Control) -> Control:
 	button.set("outline_size", 4)
 	return button
 
-func _style_difficulty_button(button: Control) -> Control:
-	if _difficulty_mode_value() != DIFFICULTY_MODE_HARD:
-		return button
-	return _style_hard_button(button)
-
 func _style_single_player_level_button(button: Control, level_index: int) -> Control:
 	if !_single_player_is_bonus_level(level_index):
 		return button
 	return _style_hard_button(button)
-
-func _cycle_difficulty_mode() -> void:
-	if _difficulty_mode_value() == DIFFICULTY_MODE_NORMAL:
-		GameState.settings[2] = DIFFICULTY_MODE_HARD
-	else:
-		GameState.settings[2] = DIFFICULTY_MODE_NORMAL
-	GameState.save_game()
-
-func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:
-	_cycle_difficulty_mode()
-	if return_to_tasks:
-		show_tasks()
-	else:
-		show_theme_select()
 
 func _theme_icon_texture(theme_index: int) -> Texture2D:
 	var theme_id: int = Database.get_theme_id(theme_index)
@@ -1389,13 +1325,6 @@ func _single_player_stage_reward_amount(
 		)
 	return GameState.WORD_REWARD_COINS
 
-func _single_player_level_played_count(level_index: int) -> int:
-	return GameState.get_single_level_played_count(
-		Database.current_language,
-		level_index,
-		_single_player_level_word_count(level_index)
-	)
-
 func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
 	return GameState.get_single_level_word_status(
 		Database.current_language,
@@ -1691,141 +1620,6 @@ func _clear_single_player_popup_theme_cards() -> void:
 	single_player_popup_theme_card_nodes.clear()
 	single_player_popup_theme_panels.clear()
 
-func _stage_single_player_theme_card(
-	rect: Rect2,
-	theme_index: int,
-	word_count: int,
-	_played_count: int,
-	selected: bool,
-	disabled: bool,
-	action: Callable
-) -> void:
-	# Reuse the same layered card artwork as Classic mode, expanded to one wide
-	# row so the three offered categories read as the main level choices.
-	var card := _stage_texture(rect, THEME_CARD_TEXTURE)
-
-	var theme_icon: Control = null
-	var word_badge: Control = null
-	var word_badge_label: Label = null
-	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
-	var theme_icon_rect := Rect2(rect.position + Vector2(20.0, 18.0), Vector2(64.0, 64.0))
-	if theme_icon_texture != null:
-		theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
-		theme_icon.z_index = 11
-		var word_badge_size := Vector2(43.0, 25.0)
-		var word_badge_rect := Rect2(
-			theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
-			word_badge_size
-		)
-		word_badge = _stage_panel(
-			word_badge_rect,
-			UI_PALETTE.ACCENT_ORANGE,
-			word_badge_size.y * 0.5,
-			Color.WHITE,
-			1.5
-		)
-		word_badge.z_index = 12
-		word_badge_label = _stage_label(
-			word_badge_rect,
-			"x%d" % word_count,
-			16,
-			Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		word_badge_label.z_index = 13
-		# Word-count badges sit directly over detailed theme art. Keep their text
-		# completely flat so no inherited outline or shadow reads as a second badge.
-		word_badge_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-		word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
-		word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
-		word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
-		word_badge_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
-		word_badge_label.add_theme_constant_override("outline_size", 0)
-
-	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
-	var title_font_size: int = 20 if theme_name.length() > 15 else 26
-	var title_label := _stage_label(
-		Rect2(
-			rect.position + Vector2(100.0, rect.size.y - 45.0),
-			Vector2(rect.size.x - 118.0, 35.0)
-		),
-		theme_name,
-		title_font_size,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_LEFT
-	)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	title_label.clip_text = false
-	title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
-
-	if selected:
-		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, UI_PALETTE.ACCENT_ORANGE, 3.0)
-	if disabled:
-		for item in [card, theme_icon, word_badge, word_badge_label, title_label]:
-			if item != null:
-				item.modulate = Color(1.0, 1.0, 1.0, 0.30)
-
-	var theme_button := _stage_button(rect, action, "")
-	theme_button.disabled = disabled
-	_bind_theme_card_press_state(theme_button, card)
-
-func show_single_player_level(level_index: int) -> void:
-	level_index = _prepare_single_player_level_attempt(level_index)
-	single_player_active_level_index = level_index
-	single_player_active_word_slot = -1
-	_clear()
-	var screen_blue: Color = UI_PALETTE.UI_BLUE
-	_stage_texture_fill(0.0, 800.0, MENU_PAPER_COVER)
-	_stage_single_player_level_header(level_index)
-	var selected_theme: int = _single_player_level_selected_theme(level_index)
-	var instruction_text: String = _single_player_choose_theme_label()
-	if selected_theme >= 0:
-		instruction_text = tr("CONTINUE_SELECTED_THEME")
-	if _single_player_is_bonus_level(level_index):
-		instruction_text += "\n" + tr("CHALLENGE_LEVEL_PLUS_TWO_WORDS")
-	var instruction_label := _stage_label(
-		Rect2(36.0, 114.0, 408.0, 50.0),
-		instruction_text,
-		17 if _single_player_is_bonus_level(level_index) else 19,
-		screen_blue,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	instruction_label.clip_text = false
-
-	var word_count: int = _single_player_level_word_count(level_index)
-	var played_count: int = _single_player_level_played_count(level_index)
-	var theme_options: Array = _single_player_level_theme_options(level_index)
-	if theme_options.is_empty():
-		var unavailable_label := _stage_label(
-			Rect2(42.0, 260.0, 396.0, 100.0),
-			tr("NO_THEMES_AVAILABLE"),
-			24,
-			screen_blue,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		unavailable_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		unavailable_label.clip_text = false
-		return
-
-	var card_rect := Rect2(30.0, 166.0, 420.0, 112.0)
-	for option_index in range(theme_options.size()):
-		var theme_index: int = int(theme_options[option_index])
-		var is_selected: bool = selected_theme == theme_index
-		var disabled: bool = selected_theme >= 0 and !is_selected
-		var action: Callable = Callable(self, "_show_single_player_theme_popup").bind(level_index, theme_index)
-		if is_selected:
-			action = Callable(self, "_start_next_single_player_word").bind(level_index)
-		_stage_single_player_theme_card(
-			Rect2(card_rect.position + Vector2(0.0, float(option_index) * 144.0), card_rect.size),
-			theme_index,
-			word_count,
-			played_count,
-			is_selected,
-			disabled,
-			action
-		)
-
 func _confirm_single_player_theme_selection(level_index: int, theme_index: int) -> void:
 	_remove_single_player_theme_popup()
 	var options: Array = _single_player_level_theme_options(level_index)
@@ -2038,31 +1832,6 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
 	show_game_screen()
 
-func _bind_theme_card_press_state(button: BaseButton, card: CanvasItem) -> void:
-	if button.disabled:
-		return
-	button.button_down.connect(_set_theme_card_pressed.bind(card, true))
-	button.button_up.connect(_set_theme_card_pressed.bind(card, false))
-	button.mouse_exited.connect(_set_theme_card_pressed.bind(card, false))
-
-func _set_theme_card_pressed(card: CanvasItem, is_pressed: bool) -> void:
-	if card == null or !is_instance_valid(card):
-		return
-	card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE
-func _confirm_clear_theme(theme_index: int, return_to_tasks: bool = false) -> void:
-	WordManager.clear_the_theme(theme_index)
-	_remove_clear_theme_popup()
-	if return_to_tasks:
-		show_tasks()
-	else:
-		show_theme_select()
-
-func _remove_clear_theme_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("clear_theme_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
 func start_classic_game(theme_index: int) -> void:
 	game_finished = false
 	last_result_data = {}
@@ -2093,7 +1862,7 @@ func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 		_preserve_custom_word_on_next_show = true
 		show_custom_word()
 	else:
-		show_tasks()
+		show_menu()
 
 func _discard_round_for_navigation() -> void:
 	result_transition_generation += 1

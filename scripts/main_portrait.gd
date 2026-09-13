@@ -132,8 +132,6 @@ const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
-const PORTRAIT_TASKS_DIFFICULTY_RECT := Rect2(99.75, 646.0, 280.5, 70.4)
-const PORTRAIT_SMALL_BUTTON_SIZE := Vector2(196.0, 58.0)
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
 # Primary bottom CTA width is based on the current two-player Start button after
@@ -156,7 +154,6 @@ const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # moving toward the thumb zone.
 const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
 const PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET: float = 64.0
-const PORTRAIT_PROFILE_MAX_SCALE: float = 1.10
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
@@ -826,10 +823,6 @@ var _portrait_hint_counter_refresh_requested: bool = false
 const PORTRAIT_BUTTON_BADGE_STATE_COINS := "coins"
 const PORTRAIT_BUTTON_BADGE_STATE_AD := "ad"
 const PORTRAIT_BUTTON_BADGE_STATE_FREE := "free"
-var _profile_name_edit: LineEdit = null
-var _profile_edit_character_id: int = 1
-var _profile_avatar_checks: Dictionary = {}
-var _profile_avatar_halos: Dictionary = {}
 var single_player_popup_refresh_button: Control = null
 var _single_player_popup_refresh_visuals: Array[CanvasItem] = []
 var _single_player_popup_refresh_badge_component: Dictionary = {}
@@ -1025,7 +1018,6 @@ func _clear() -> void:
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
 	_remove_settings_popup()
-	_remove_profile_edit_popup()
 	_portrait_custom_word_input = null
 	_portrait_top_bar_content = null
 	_portrait_coin_store_active = false
@@ -2643,17 +2635,6 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 	roll.set_ease(Tween.EASE_OUT)
 	count_tween.tween_callback(Callable(source_stub, "queue_free"))
 
-func show_tasks() -> void:
-	coin_store_return_action = Callable()
-	_show_theme_select_screen(false)
-
-func _stage_single_player_level_header(level_index: int) -> void:
-	_stage_portrait_page_header(
-		"%s %d" % [_single_player_level_label(), level_index + 1],
-		Callable(self, "show_menu"),
-		Callable(self, "show_single_player_level").bind(level_index)
-	)
-
 func _stage_portrait_game_header() -> void:
 	var coin_store_return_action := Callable(self, "_return_to_game_from_coin_store")
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
@@ -3245,9 +3226,6 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
-	# Home is now a standalone landing screen. Profile and Classic remain intact,
-	# but their future entry points must be explicit instead of the removed bar or
-	# a hidden horizontal swipe from Home.
 	_quiz_mode_active = false
 	_quiz_screen_active = false
 	_quiz_selected_theme_index = -1
@@ -3934,97 +3912,10 @@ func _remove_settings_popup() -> void:
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 
-func _quiz_menu_label() -> String:
-	return "ВИКТОРИНА" if Database.interface_language == "ru" else "QUIZ"
-
-func _quiz_theme_select_title() -> String:
-	return "ВЫБЕРИТЕ ТЕМУ" if Database.interface_language == "ru" else "CHOOSE A TOPIC"
-
-func _quiz_question_count_text(question_count: int) -> String:
-	if Database.interface_language != "ru":
-		return "%d QUESTIONS" % question_count
-	var remainder_100: int = question_count % 100
-	var remainder_10: int = question_count % 10
-	var noun: String = "ВОПРОСОВ"
-	if remainder_100 < 11 or remainder_100 > 14:
-		if remainder_10 == 1:
-			noun = "ВОПРОС"
-		elif remainder_10 >= 2 and remainder_10 <= 4:
-			noun = "ВОПРОСА"
-	return "%d %s" % [question_count, noun]
-
-func show_quiz_theme_select() -> void:
-	_quiz_mode_active = true
-	_quiz_screen_active = false
-	_quiz_single_player_embedded = false
-	_quiz_single_player_target_difficulty = 0.5
-	_show_quiz_theme_select_screen()
-
-func _show_quiz_theme_select_screen() -> void:
-	_clear()
-	_quiz_mode_active = true
-	_portrait_screen(0.0)
-	_stage_portrait_page_header(
-		_quiz_theme_select_title(),
-		Callable(self, "show_menu"),
-		Callable(self, "show_quiz_theme_select")
-	)
-
-	for theme_index in range(Database.get_theme_count()):
-		var col: int = theme_index % 2
-		var row: int = int(theme_index / 2)
-		var x: float = 18.0 + float(col) * 230.0
-		var y: float = 154.0 + float(row) * 96.0
-		var question_count: int = Database.get_quiz_question_count_by_theme_index(theme_index)
-		var disabled: bool = question_count <= 0
-		var card := _stage_texture(Rect2(x, y, 214.0, 88.0), THEME_CARD_TEXTURE)
-		var progress_back := _stage_texture(Rect2(x, y, 214.0, 63.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_label := _stage_label(
-			Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0),
-			_quiz_question_count_text(question_count),
-			16,
-			PORTRAIT_UI_PALETTE.THEME_PROGRESS_TEXT
-		)
-		progress_label.clip_text = false
-
-		var theme_name: String = Database.get_theme_name(theme_index).to_upper()
-		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
-		var theme_icon: Control = null
-		if theme_icon_texture != null:
-			theme_icon = _stage_texture(Rect2(x + 12.0, y + 42.0, 34.0, 34.0), theme_icon_texture)
-			theme_icon.z_index = 11
-		var title_font_size: int = 17 if theme_name.length() > 12 else 21
-		var title_label := _stage_label(
-			Rect2(x + 52.0, y + 41.0, 152.0, 38.0),
-			theme_name,
-			title_font_size,
-			Color.WHITE,
-			HORIZONTAL_ALIGNMENT_LEFT
-		)
-		title_label.clip_text = false
-		title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-		BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
-
-		if disabled:
-			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			if theme_icon != null:
-				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-
-		var theme_button := _stage_button(
-			Rect2(x, y, 214.0, 88.0),
-			Callable(self, "_start_quiz_theme").bind(theme_index),
-			""
-		)
-		theme_button.disabled = disabled
-		_bind_theme_card_press_state(theme_button, card)
-
 func _start_quiz_theme(theme_index: int) -> void:
 	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
 	if questions.is_empty():
-		show_quiz_theme_select()
+		show_menu()
 		return
 	_quiz_mode_active = true
 	_quiz_single_player_embedded = false
@@ -6084,7 +5975,7 @@ func _play_quiz_screen_entrance(
 
 func _show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
-		show_quiz_theme_select()
+		show_menu()
 		return
 	_clear()
 	_quiz_mode_active = true
@@ -6136,7 +6027,7 @@ func _show_quiz_game_screen() -> void:
 		var quiz_back_action: Callable = (
 			Callable(self, "_show_exit_game_popup")
 			if _quiz_single_player_embedded
-			else Callable(self, "show_quiz_theme_select")
+			else Callable(self, "show_menu")
 		)
 		# Match the normal word-guessing screen: gameplay exits use the round X button
 		# rather than the page-navigation arrow.
@@ -6262,87 +6153,6 @@ func _show_quiz_game_screen() -> void:
 		_mark_quiz_question_ready()
 	_stage_portrait_ad_banner()
 
-func show_theme_select() -> void:
-	_show_theme_select_screen(false)
-
-func _show_theme_select_screen(_with_main_navigation: bool) -> void:
-	_clear()
-	_portrait_screen(0.0)
-	_stage_portrait_page_header(
-		tr("CHALLENGES_TITLE"),
-		Callable(self, "show_menu"),
-		Callable(self, "show_theme_select")
-	)
-
-	for i in range(Database.get_theme_count()):
-		var col: int = i % 2
-		var row: int = int(i / 2)
-		var x: float = 18.0 + float(col) * 230.0
-		var y: float = 154.0 + float(row) * 96.0
-		var words_count: int = Database.get_words_by_index(i, GameState.settings[2]).size()
-		var guessed: int = Database.get_number_of_guessed_words(i, true)
-		var guessed_percent: int = int(round(float(guessed) * 100.0 / float(words_count))) if words_count > 0 else 0
-		var disabled: bool = words_count == 0
-		var completed: bool = words_count > 0 and guessed >= words_count
-		var card := _stage_texture(Rect2(x, y, 214.0, 88.0), THEME_CARD_TEXTURE)
-		var progress_back := _stage_texture(Rect2(x, y, 214.0, 63.0), THEME_CARD_PROGRESS_TEXTURE)
-		var progress_text: String = Database.tr_text(30, "Guessed") + ": " + str(guessed_percent) + "%"
-		var progress_label := _stage_label(Rect2(x + 8.0, y + 7.0 + THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y, 198.0, 44.0), progress_text, 16, PORTRAIT_UI_PALETTE.THEME_PROGRESS_TEXT)
-		progress_label.clip_text = false
-		var theme_name: String = Database.get_theme_name(i).to_upper()
-		var theme_icon_texture: Texture2D = _theme_icon_texture(i)
-		var theme_icon: Control = null
-		if theme_icon_texture != null:
-			theme_icon = _stage_texture(Rect2(x + 12.0, y + 42.0, 34.0, 34.0), theme_icon_texture)
-			theme_icon.z_index = 11
-		var title_font_size: int = 17 if theme_name.length() > 12 else 21
-		var title_label := _stage_label(Rect2(x + 52.0, y + 41.0, 152.0, 38.0), theme_name, title_font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		title_label.clip_text = false
-		title_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-		BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
-		if disabled:
-			card.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_back.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			progress_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			if theme_icon != null:
-				theme_icon.modulate = Color(1.0, 1.0, 1.0, 0.45)
-			title_label.modulate = Color(1.0, 1.0, 1.0, 0.45)
-		var action: Callable = Callable(self, "_show_clear_theme_popup").bind(i, false) if completed else Callable(self, "start_classic_game").bind(i)
-		var theme_button := _stage_button(Rect2(x, y, 214.0, 88.0), action, "")
-		theme_button.disabled = disabled
-		_bind_theme_card_press_state(theme_button, card)
-
-	# The standalone Classic screen keeps its difficulty action in the verified
-	# gap between the last theme card and the advertising area;
-	# the previous y=725 placement was covered by the banner and stopped receiving input.
-	var difficulty_rect: Rect2 = PORTRAIT_TASKS_DIFFICULTY_RECT
-	# Always bind the context explicitly. The texture button emits a zero-argument
-	# signal; relying on the method's default argument left the standalone Classic
-	# action disconnected on affected Godot builds.
-	var difficulty_action: Callable = Callable(
-		self,
-		"_cycle_classic_difficulty"
-	).bind(false)
-	var difficulty_font_size: int = _portrait_footer_font_size(22)
-	var difficulty_button := _stage_main_button(
-		difficulty_rect,
-		difficulty_action,
-		_difficulty_mode_label(),
-		difficulty_font_size
-	)
-	_style_difficulty_button(difficulty_button)
-
-func _show_clear_theme_popup(theme_index: int, return_to_tasks: bool = false) -> void:
-	_remove_clear_theme_popup()
-	var previous_content := _portrait_popup_begin("ClearThemePopup", "clear_theme_popup", 125, Callable(self, "_remove_clear_theme_popup"), 250.0, 540.0)
-	var rect := Rect2(35.0, 250.0, 410.0, 290.0)
-	_portrait_popup_shell(rect, Database.tr_text(25, "Clear the category?"), Callable(self, "_remove_clear_theme_popup"), 25)
-	var theme_name := Database.get_theme_name(theme_index).to_upper()
-	var question_label := _stage_label(Rect2(65.0, 350.0, 350.0, 58.0), theme_name, 24, Color.WHITE)
-	question_label.clip_text = false
-	_stage_portrait_popup_main_button(Rect2(44.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_confirm_clear_theme").bind(theme_index, return_to_tasks), Database.tr_text(26, "Yes"), 20)
-	_stage_portrait_popup_main_button(Rect2(246.0, 454.0, PORTRAIT_SMALL_BUTTON_SIZE.x, PORTRAIT_SMALL_BUTTON_SIZE.y), Callable(self, "_remove_clear_theme_popup"), Database.tr_text(27, "No"), 20, false, 0.32, false, false, false, LONG_BUTTON_COLOR_ORANGE)
-	content = previous_content
 func _remove_single_player_theme_popup() -> void:
 	_cancel_single_player_theme_slot_animation()
 	super._remove_single_player_theme_popup()
@@ -6350,9 +6160,6 @@ func _remove_single_player_theme_popup() -> void:
 	_single_player_popup_refresh_visuals.clear()
 	_single_player_popup_refresh_badge_component.clear()
 	_single_player_popup_theme_card_visuals.clear()
-
-func _show_single_player_theme_popup(level_index: int, theme_index: int) -> void:
-	_show_single_player_level_popup(level_index, theme_index)
 
 func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> void:
 	if !GameSession.has_deferred_loss():
@@ -6924,7 +6731,7 @@ func _return_to_heart_refill_from_coin_store(
 	)
 
 func _restore_single_player_heart_refill_context(level_index: int, theme_index: int) -> void:
-	show_tasks()
+	show_menu()
 	_show_single_player_level_popup(level_index, theme_index)
 
 func _show_single_player_level_popup(
@@ -15150,7 +14957,11 @@ func _show_single_player_reward_chain_screen() -> void:
 	reward_title.add_theme_font_override("font", UI_DISPLAY_FONT)
 	reward_title.add_theme_font_size_override("font_size", reward_title_font_size)
 	reward_title.add_theme_color_override("font_color", result_title_color)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_display(reward_title)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display_tinted(
+		reward_title,
+		result_title_color.darkened(0.42),
+		result_title_color.darkened(0.62)
+	)
 	reward_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	reward_title.clip_text = false
 	_fit_single_line_label_to_width(
@@ -16242,124 +16053,6 @@ func _fit_single_line_label_to_width(label: Label, text: String, available_width
 		else:
 			upper_bound = candidate_size - 1
 	label.add_theme_font_size_override("font_size", resolved_font_size)
-
-func show_profile() -> void:
-	_show_profile_screen()
-
-func _show_profile_screen() -> void:
-	coin_store_return_action = Callable()
-	_clear()
-	_portrait_screen(0.0)
-	_stage_portrait_page_header(
-		tr("NAV_PROFILE").to_upper(),
-		Callable(self, "show_menu"),
-		Callable(self, "show_profile")
-	)
-
-	var profile_root_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 430.0), PORTRAIT_PROFILE_MAX_SCALE, 0.08)
-	_stage_profile_header_card()
-	_stage_label(Rect2(26.0, 310.0, 428.0, 40.0), tr("RECORDS_TITLE").to_upper(), 27, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_LEFT)
-	_portrait_profile_stat_row(392.0, tr("MENU_CLASSIC"), tr("RECORD_EASY_STREAK"), int(GameState.records[0][2]), tr("RECORD_HARD_STREAK"), int(GameState.records[0][3]))
-	_portrait_end_adaptive_group(profile_root_content)
-	_stage_portrait_ad_banner()
-
-func _stage_profile_header_card() -> void:
-	var card_rect := Rect2(24.0, 136.0, 432.0, 150.0)
-	var card := _stage_panel(card_rect, PORTRAIT_DARK_BLUE, 22.0, PORTRAIT_RULE, 2.0)
-	card.mouse_filter = Control.MOUSE_FILTER_STOP
-	_stage_texture(Rect2(42.0, 157.0, 108.0, 108.0), HERO_BADGE_RING_TEXTURE)
-	if _selected_character_id() == 2:
-		_stage_texture(Rect2(59.0, 185.0, 74.0, 65.0), HERO_AVATAR_TIGRE_TEXTURE)
-	else:
-		_stage_texture(Rect2(69.0, 181.0, 54.0, 58.0), HERO_AVATAR_LAKI_TEXTURE)
-	var name_label := _stage_label(Rect2(170.0, 166.0, 250.0, 48.0), _profile_display_name(), 31, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	name_label.clip_text = true
-	var edit_label := _stage_label(Rect2(170.0, 214.0, 250.0, 36.0), tr("PROFILE_TAP_TO_EDIT"), 18, PORTRAIT_UI_PALETTE.TEXT_SECONDARY, HORIZONTAL_ALIGNMENT_LEFT)
-	edit_label.clip_text = false
-	_stage_label(Rect2(414.0, 188.0, 26.0, 42.0), "›", 30, Color.WHITE)
-	_stage_button(card_rect, Callable(self, "_show_profile_edit_popup"), "")
-
-func _portrait_profile_stat_row(y: float, mode_text: String, left_text: String, left_value: int, right_text: String, right_value: int) -> void:
-	_stage_panel(Rect2(24.0, y, 432.0, 102.0), PORTRAIT_DARK_BLUE, 18.0, PORTRAIT_RULE, 1.5)
-	_stage_label(Rect2(42.0, y + 8.0, 396.0, 30.0), mode_text.to_upper(), 21, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_panel(Rect2(42.0, y + 41.0, 396.0, 1.5), PORTRAIT_RULE)
-	_stage_label(Rect2(42.0, y + 48.0, 180.0, 24.0), left_text, 16, PORTRAIT_UI_PALETTE.TEXT_SECONDARY, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(42.0, y + 70.0, 180.0, 26.0), str(left_value), 22, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(244.0, y + 48.0, 194.0, 24.0), right_text, 16, PORTRAIT_UI_PALETTE.TEXT_SECONDARY, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_label(Rect2(244.0, y + 70.0, 194.0, 26.0), str(right_value), 22, PORTRAIT_ORANGE, HORIZONTAL_ALIGNMENT_LEFT)
-
-func _show_profile_edit_popup() -> void:
-	_remove_profile_edit_popup()
-	_profile_edit_character_id = _selected_character_id()
-	_profile_avatar_checks.clear()
-	_profile_avatar_halos.clear()
-	var previous_content := _portrait_popup_begin("ProfileEditPopup", "profile_edit_popup", 130, Callable(self, "_remove_profile_edit_popup"), 120.0, 680.0)
-	var rect := Rect2(28.0, 120.0, 424.0, 560.0)
-	_portrait_popup_shell(rect, tr("PROFILE_EDIT_TITLE"), Callable(self, "_remove_profile_edit_popup"), 25)
-
-	_stage_label(Rect2(56.0, 226.0, 368.0, 34.0), tr("PROFILE_PLAYER_NAME"), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_panel(Rect2(56.0, 266.0, 368.0, 58.0), Color.WHITE, 22.0, PORTRAIT_UI_PALETTE.NEUTRAL_BORDER, 2.0)
-	_profile_name_edit = _stage_line_edit(Rect2(72.0, 270.0, 336.0, 50.0), _profile_default_name())
-	_profile_name_edit.text = _profile_display_name()
-	_profile_name_edit.max_length = 18
-	_profile_name_edit.add_theme_font_size_override("font_size", 23)
-
-	_stage_label(Rect2(56.0, 346.0, 368.0, 34.0), tr("PROFILE_AVATAR"), 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	_stage_profile_avatar_choice(1, Rect2(78.0, 404.0, 112.0, 112.0), Rect2(108.0, 431.0, 54.0, 58.0))
-	_stage_profile_avatar_choice(2, Rect2(290.0, 404.0, 112.0, 112.0), Rect2(306.0, 437.0, 80.0, 70.0))
-
-	_stage_portrait_popup_main_button(Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, PORTRAIT_LONG_BUTTON_SIZE.y), PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y), Callable(self, "_save_profile_edits"), tr("PROFILE_SAVE"), 20)
-	content = previous_content
-
-func _stage_profile_avatar_choice(character_id: int, circle_rect: Rect2, avatar_rect: Rect2) -> void:
-	var selected: bool = _profile_edit_character_id == character_id
-	var halo_color: Color = PORTRAIT_UI_PALETTE.PROFILE_HALO if selected else PORTRAIT_UI_PALETTE.PROFILE_HALO_IDLE
-	var halo := _stage_panel(Rect2(circle_rect.position - Vector2(10.0, 10.0), circle_rect.size + Vector2(20.0, 20.0)), halo_color, 66.0)
-	_profile_avatar_halos[character_id] = halo
-	_stage_panel(circle_rect, Color.WHITE, 56.0, PORTRAIT_ORANGE, 3.0)
-	_stage_texture(avatar_rect, HERO_AVATAR_LAKI_TEXTURE if character_id == 1 else HERO_AVATAR_TIGRE_TEXTURE)
-	var check := _stage_label(Rect2(circle_rect.position.x + 72.0, circle_rect.position.y + 70.0, 38.0, 38.0), "✓", 25, PORTRAIT_UI_PALETTE.SUCCESS_SOFT)
-	check.visible = selected
-	_profile_avatar_checks[character_id] = check
-	_stage_button(Rect2(circle_rect.position - Vector2(12.0, 12.0), circle_rect.size + Vector2(24.0, 24.0)), Callable(self, "_select_profile_avatar").bind(character_id), "")
-
-func _select_profile_avatar(character_id: int) -> void:
-	_profile_edit_character_id = clampi(character_id, 1, 2)
-	for key in _profile_avatar_checks.keys():
-		var check := _profile_avatar_checks[key] as Label
-		if check != null:
-			check.visible = int(key) == _profile_edit_character_id
-	for key in _profile_avatar_halos.keys():
-		var halo: Control = _profile_avatar_halos[key] as Control
-		if halo != null:
-			halo.set("fill_color", PORTRAIT_UI_PALETTE.PROFILE_HALO if int(key) == _profile_edit_character_id else PORTRAIT_UI_PALETTE.PROFILE_HALO_IDLE)
-
-func _save_profile_edits() -> void:
-	var entered_name: String = _profile_name_edit.text.strip_edges() if _profile_name_edit != null else ""
-	GameState.player_name = entered_name if entered_name != "" else _profile_default_name()
-	while GameState.settings.size() <= 5:
-		GameState.settings.append(1)
-	GameState.settings[5] = _profile_edit_character_id
-	GameState.save_game()
-	_remove_profile_edit_popup()
-	show_profile()
-
-func _remove_profile_edit_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("profile_edit_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
-	_profile_name_edit = null
-	_profile_avatar_checks.clear()
-	_profile_avatar_halos.clear()
-
-func _profile_display_name() -> String:
-	var saved_name: String = GameState.player_name.strip_edges()
-	return saved_name if saved_name != "" else _profile_default_name()
-
-func _profile_default_name() -> String:
-	return tr("PROFILE_DEFAULT_PLAYER")
 
 func _show_word_comment_popup() -> void:
 	if !GameSession.can_view_comment_hint():
