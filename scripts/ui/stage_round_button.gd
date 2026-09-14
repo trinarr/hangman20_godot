@@ -127,6 +127,13 @@ var selected: bool = false:
 
 var color_preset: int = ColorPreset.ORANGE
 
+# Individual controls can retain full opacity while using the gray disabled tint.
+var disabled_visual_opacity: float = DISABLED_OPACITY:
+	set(value):
+		disabled_visual_opacity = clampf(value, 0.0, 1.0)
+		_sync_visuals()
+		queue_redraw()
+
 var normal_tint: Color = ORANGE_NORMAL_TINT:
 	set(value):
 		normal_tint = value
@@ -240,7 +247,7 @@ func _draw() -> void:
 		# Match the pressed button's inverted relief while keeping the disabled
 		# state neutral gray and unavailable for pointer input.
 		background_texture = PRESSED_TEXTURE
-		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
+		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, disabled_visual_opacity)
 	elif selected:
 		background_texture = PRESSED_TEXTURE
 		background_tint = selected_tint
@@ -370,7 +377,7 @@ func _sync_visuals() -> void:
 	if _icon_rect == null or _icon_label == null:
 		return
 	var has_texture: bool = icon_texture != null
-	var visual_opacity: float = DISABLED_OPACITY if button_disabled else 1.0
+	var visual_opacity: float = disabled_visual_opacity if button_disabled else 1.0
 	var current_icon_color := Color(icon_color.r, icon_color.g, icon_color.b, icon_color.a * visual_opacity)
 	_icon_rect.visible = has_texture
 	_icon_rect.texture = icon_texture

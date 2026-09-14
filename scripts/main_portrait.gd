@@ -145,8 +145,6 @@ const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH: float = (
 	* PORTRAIT_FOOTER_CONTROL_SCALE
 	* PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH_SCALE
 )
-const PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE: int = 19
-const PORTRAIT_CUSTOM_WORD_SECONDARY_TEXT_PADDING: float = 10.0
 const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
@@ -506,6 +504,11 @@ const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/h
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
+const PORTRAIT_CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_doodle.png")
+const PORTRAIT_CUSTOM_WORD_CHECK_ICON: Texture2D = preload("res://flash_assets/custom_word_check_doodle.png")
+const PORTRAIT_CUSTOM_WORD_SEARCH_LOADING_ICON: Texture2D = preload("res://flash_assets/custom_word_search_loading_doodle.png")
+const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS: float = 3.0
+const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_DURATION: float = 1.1
 const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = 0.50
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const GAME_WORD_PAPER_SHADER: Shader = preload("res://shaders/game_word_paper.gdshader")
@@ -612,8 +615,19 @@ var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.ge
 )
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(24.0, 0.0, 432.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
-const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(94.0, 518.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(94.0, 592.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
+const PORTRAIT_CUSTOM_WORD_ACTION_GAP: float = 22.0
+const PORTRAIT_CUSTOM_WORD_ACTION_Y: float = 592.0 - PORTRAIT_CUSTOM_WORD_BUTTON_RISE
+const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(
+	Vector2(
+		(PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_HINT_BUTTON_SIZE.x * 2.0 - PORTRAIT_CUSTOM_WORD_ACTION_GAP) * 0.5,
+		PORTRAIT_CUSTOM_WORD_ACTION_Y
+	),
+	PORTRAIT_GAME_HINT_BUTTON_SIZE
+)
+const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(
+	PORTRAIT_CUSTOM_WORD_RANDOM_RECT.position + Vector2(PORTRAIT_GAME_HINT_BUTTON_SIZE.x + PORTRAIT_CUSTOM_WORD_ACTION_GAP, 0.0),
+	PORTRAIT_GAME_HINT_BUTTON_SIZE
+)
 
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
@@ -773,6 +787,7 @@ var _portrait_game_back_button: Control = null
 var _portrait_game_attempts_controls: Array[Control] = []
 var _portrait_game_attempts_value_label: Label = null
 var _portrait_game_attempts_bounce_tween: Tween = null
+var _portrait_custom_word_search_tween: Tween = null
 var _portrait_game_attempts_roll_tween: Tween = null
 var _portrait_game_attempts_roll_clip: Control = null
 var _portrait_game_attempts_displayed_value: int = -1
@@ -8537,12 +8552,21 @@ func show_custom_word() -> void:
 	# Keep the complete action stack above the advertising reserve. The group is
 	# still bottom-attached, so it follows the physical bottom on tall screens.
 	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
-	custom_word_check_button = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_CHECK_RECT), Callable(self, "_check_custom_word_now"), Database.tr_text(60, "Check the word"), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE, false, 0.0)
-	if custom_word_check_button != null and is_instance_valid(custom_word_check_button):
-		custom_word_check_button.set("text_horizontal_padding", PORTRAIT_CUSTOM_WORD_SECONDARY_TEXT_PADDING)
-	var custom_word_random_button: Control = _stage_main_button(_portrait_custom_word_button_rect(PORTRAIT_CUSTOM_WORD_RANDOM_RECT), Callable(self, "_set_random_custom_word"), _custom_word_random_label(), PORTRAIT_CUSTOM_WORD_SECONDARY_FONT_SIZE)
-	if custom_word_random_button != null and is_instance_valid(custom_word_random_button):
-		custom_word_random_button.set("text_horizontal_padding", PORTRAIT_CUSTOM_WORD_SECONDARY_TEXT_PADDING)
+	var custom_word_random_button: Control = _stage_round_button(
+		PORTRAIT_CUSTOM_WORD_RANDOM_RECT,
+		Callable(self, "_set_random_custom_word"),
+		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
+	)
+	custom_word_random_button.name = "CustomWordRandomButton"
+	_stage_portrait_hint_art(custom_word_random_button, PORTRAIT_CUSTOM_WORD_RANDOM_ICON)
+	custom_word_check_button = _stage_round_button(
+		PORTRAIT_CUSTOM_WORD_CHECK_RECT,
+		Callable(self, "_check_custom_word_now"),
+		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
+	)
+	custom_word_check_button.name = "CustomWordCheckButton"
+	custom_word_check_button.set("disabled_visual_opacity", 1.0)
+	_stage_portrait_hint_art(custom_word_check_button, PORTRAIT_CUSTOM_WORD_CHECK_ICON)
 
 	# Keep the primary action above the banner without drawing a blue footer.
 	# It is 15% wider than before; its font size and vertical geometry are unchanged.
@@ -8563,6 +8587,46 @@ func show_custom_word() -> void:
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_custom_word_field()
 	_stage_portrait_ad_banner()
+
+func _set_custom_word_checking(is_checking: bool) -> void:
+	# Stop first even if navigation has already removed the previous control.
+	# Completion, failure, input edits and Random all share this reset path.
+	if _portrait_custom_word_search_tween != null and _portrait_custom_word_search_tween.is_valid():
+		_portrait_custom_word_search_tween.kill()
+	_portrait_custom_word_search_tween = null
+	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
+		return
+	custom_word_check_button.modulate = Color.WHITE
+	custom_word_check_button.set("selected", false)
+	custom_word_check_button.set("button_disabled", is_checking)
+	var art_holder: Control = custom_word_check_button.get_node_or_null("HintArtHolder") as Control
+	if art_holder == null:
+		return
+	art_holder.modulate = Color.WHITE
+	var rest_position: Vector2 = (custom_word_check_button.size - art_holder.size) * 0.5
+	art_holder.position = rest_position
+	var texture: Texture2D = PORTRAIT_CUSTOM_WORD_SEARCH_LOADING_ICON if is_checking else PORTRAIT_CUSTOM_WORD_CHECK_ICON
+	# Replace the visible image and every extrusion layer together, so the old
+	# check mark cannot remain visible as a shadow behind the moving lens.
+	for child: Node in art_holder.get_children():
+		if child is TextureRect:
+			(child as TextureRect).texture = texture
+	if !is_checking:
+		return
+	# Bound to the icon: leaving the screen also terminates the loop automatically.
+	_portrait_custom_word_search_tween = art_holder.create_tween()
+	_portrait_custom_word_search_tween.set_loops()
+	_portrait_custom_word_search_tween.tween_method(
+		Callable(self, "_set_custom_word_search_orbit").bind(art_holder, rest_position),
+		0.0, TAU, PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_DURATION
+	).set_trans(Tween.TRANS_LINEAR)
+
+func _set_custom_word_search_orbit(angle: float, art_holder: Control, rest_position: Vector2) -> void:
+	if !is_instance_valid(art_holder):
+		return
+	# A small circular translation, not rotation. The first and last points equal
+	# the resting position, avoiding a jump when the repeating animation starts.
+	art_holder.position = rest_position + Vector2(cos(angle) - 1.0, sin(angle)) * PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS
 
 func _portrait_custom_word_button_rect(source_rect: Rect2) -> Rect2:
 	# Resolve the original footer sizing first, then raise the result. This keeps
