@@ -13,6 +13,8 @@ const BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backs
 # This separate, unscaled layer reaches the physical left and right screen edges.
 var logo_anchor: Control
 var logo_texture: Texture2D
+var title_texture: Texture2D
+var title_chroma_key: bool = false
 var start_delay: float = 0.12
 var reveal_duration: float = 0.71
 var badge_grow_duration: float = 0.18
@@ -32,6 +34,8 @@ func _ready() -> void:
 	_reveal_material = ShaderMaterial.new()
 	_reveal_material.shader = REVEAL_SHADER
 	_reveal_material.set_shader_parameter("logo_texture", logo_texture)
+	_reveal_material.set_shader_parameter("title_texture", title_texture if title_texture != null else logo_texture)
+	_reveal_material.set_shader_parameter("title_chroma_key", title_chroma_key)
 	_reveal_material.set_shader_parameter("paper_texture", PAPER_TEXTURE)
 	_reveal_material.set_shader_parameter("backside_texture", BACKSIDE_TEXTURE)
 	# Initialize before the first draw: only the normal blue background is visible.

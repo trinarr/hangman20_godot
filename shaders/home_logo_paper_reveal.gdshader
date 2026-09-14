@@ -2,6 +2,8 @@ shader_type canvas_item;
 render_mode unshaded;
 
 uniform sampler2D logo_texture : source_color, filter_linear, repeat_disable;
+uniform sampler2D title_texture : source_color, filter_linear, repeat_disable;
+uniform bool title_chroma_key = false;
 uniform sampler2D paper_texture : source_color, filter_linear, repeat_disable;
 uniform sampler2D backside_texture : source_color, filter_linear, repeat_disable;
 uniform vec2 canvas_size = vec2(480.0, 800.0);
@@ -28,6 +30,22 @@ vec4 sample_ink(vec2 uv) {
 	vec4 ink = vec4(0.0);
 	if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
 		ink = texture(logo_texture, uv);
+	}
+	return ink;
+}
+
+// Localized lettering uses the same atlas coordinates. Keep the original badge
+// texture so its silhouette, bounce pivot and shine are identical in both locales.
+vec4 sample_title(vec2 uv) {
+	vec4 ink = vec4(0.0);
+	if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
+		ink = texture(title_texture, uv);
+		if (title_chroma_key) {
+			// Remove the green key before compositing, including letter counters.
+			float key = ink.g - max(ink.r, ink.b);
+			ink.a *= 1.0 - smoothstep(0.06, 0.40, key);
+			ink.g = mix(ink.g, min(ink.g, max(ink.r, ink.b)), smoothstep(0.0, 0.12, key));
+		}
 	}
 	return ink;
 }
@@ -71,7 +89,7 @@ void fragment() {
 		float upper_lip = max(0.0, pixel.y - top - outline_width);
 		paper *= 1.0 - 0.17 * (1.0 - smoothstep(0.0, 3.0 * unit, upper_lip));
 
-		vec4 ink = sample_ink(logo_uv);
+		vec4 ink = sample_title(logo_uv);
 		ink.a *= 1.0 - badge_region(logo_uv);
 		vec3 result = mix(paper, ink.rgb, ink.a);
 

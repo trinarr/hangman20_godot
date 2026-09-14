@@ -1885,7 +1885,7 @@
           "difficulty": 0.38,
           "question": "Какое утверждение о леммингах является мифом?",
           "answers": [
-            "Они намеренно совершают массовое самоубийство",
+            "Массово совершают самоубийство",
             "Они относятся к грызунам",
             "Некоторые виды живут в тундре",
             "Их численность сильно колеблется"
@@ -1925,9 +1925,9 @@
           "difficulty": 0.3,
           "question": "Какое утверждение о памяти золотых рыбок верно?",
           "answers": [
-            "Они могут запоминать выученные сигналы надолго",
-            "Любую информацию забывают за три секунды",
-            "Не способны связывать сигнал с кормлением",
+            "Надолго запоминают сигналы",
+            "Всё забывают за три секунды",
+            "Не связывают сигнал с кормлением",
             "Узнают предмет только пока видят его"
           ],
           "correct_index": 0
@@ -1938,10 +1938,10 @@
           "difficulty": 0.3,
           "question": "Which statement about goldfish memory is true?",
           "answers": [
-            "They can remember things they have learned",
+            "They remember learned signals",
             "They forget everything after three seconds",
             "They cannot associate a signal with food",
-            "They recognize an object only while viewing it"
+            "They forget objects once out of sight"
           ],
           "correct_index": 0
         }
@@ -2305,7 +2305,7 @@
           "difficulty": 0.16,
           "question": "Для чего в Windows используют корзину?",
           "answers": [
-            "Для временного хранения удалённых файлов",
+            "Для хранения удалённых файлов",
             "Для увеличения объёма диска",
             "Для обновления драйверов",
             "Для проверки скорости интернета"
@@ -6013,7 +6013,7 @@
           "difficulty": 0.22,
           "question": "How is a cello normally held while being played?",
           "answers": [
-            "Between the knees, with a spike resting on the floor",
+            "Between the knees, spike on the floor",
             "Resting on the shoulder",
             "In front of the face",
             "Hanging from a strap"
@@ -7614,7 +7614,7 @@
           "answers": [
             "To grow faster",
             "To store water",
-            "To communicate and regulate body temperature",
+            "For signaling and heat regulation",
             "To improve their hearing"
           ],
           "correct_index": 2
@@ -7868,7 +7868,7 @@
           "question": "Что означает HTTPS в начале адреса сайта с точки зрения передачи данных?",
           "answers": [
             "Соединение с сайтом зашифровано",
-            "Содержимому сайта гарантированно можно доверять",
+            "Сайт содержит только правду",
             "Сайт работает без интернета",
             "На сайте отсутствует реклама"
           ],
@@ -7881,7 +7881,7 @@
           "question": "What does HTTPS at the start of a web address indicate?",
           "answers": [
             "The connection to the site is encrypted",
-            "The website’s content is guaranteed trustworthy",
+            "The site is guaranteed to be truthful",
             "The site works without the internet",
             "The site contains no advertisements"
           ],
@@ -8342,7 +8342,7 @@
           "question": "What is the main purpose of an aircraft's autopilot?",
           "answers": [
             "To fully replace the crew",
-            "To maintain a selected course and altitude",
+            "To hold a set course and altitude",
             "To serve passengers",
             "To manage the cargo hold"
           ],
@@ -10002,7 +10002,7 @@
           "question": "Что вызывает полярное сияние?",
           "answers": [
             "Отражение городских огней",
-            "Столкновения заряженных частиц с газами атмосферы",
+            "Столкновения частиц с газом",
             "Отражение солнечного света от льда",
             "Свет далёких галактик"
           ],
@@ -10015,7 +10015,7 @@
           "question": "What causes an aurora?",
           "answers": [
             "Reflected city lights",
-            "Charged particles colliding with atmospheric gases",
+            "Charged particles hitting gases",
             "Sunlight reflected from ice",
             "Light from distant galaxies"
           ],
@@ -12931,9 +12931,9 @@
           "difficulty": 0.2,
           "question": "Зачем делают резервные копии файлов?",
           "answers": [
-            "Чтобы восстановить данные при утрате оригиналов",
+            "Для возврата утраченных данных",
             "Чтобы быстрее открывать папки",
-            "Чтобы просмотреть историю документов",
+            "Для просмотра истории документов",
             "Чтобы изменить пароль компьютера"
           ],
           "correct_index": 0
@@ -13046,7 +13046,7 @@
           "question": "Чем OLED-экран принципиально отличается от обычного ЖК-экрана?",
           "answers": [
             "Пиксели сами излучают свет",
-            "Свет создаёт общая подсветка за матрицей",
+            "Свет даёт общая задняя подсветка",
             "Изображение отражается от бумаги",
             "Цвета создаёт вращающийся фильтр"
           ],
@@ -13059,7 +13059,7 @@
           "question": "What fundamentally distinguishes an OLED screen from a standard LCD?",
           "answers": [
             "The pixels emit their own light",
-            "A backlight behind the panel creates the light",
+            "It uses a shared backlight",
             "The image reflects from paper",
             "A rotating filter creates the colors"
           ],
@@ -13098,7 +13098,7 @@
           "answers": [
             "To increase engine displacement",
             "To cool the brakes",
-            "To let each driven wheel turn at its own speed",
+            "To let wheels turn at unequal speeds",
             "To change suspension height"
           ],
           "correct_index": 2
@@ -13172,7 +13172,7 @@
           "difficulty": 0.26,
           "question": "What does the HTTP 404 response code mean?",
           "answers": [
-            "The requested page or resource was not found",
+            "The requested resource was not found",
             "Access was successfully granted",
             "The server is permanently offline",
             "The file is too large"
@@ -14356,7 +14356,7 @@
             "A bright ring of stars",
             "The center of any galaxy",
             "A region without gravity",
-            "The boundary beyond which light cannot escape"
+            "The boundary light cannot escape from"
           ],
           "correct_index": 3
         }
@@ -15141,7 +15141,7 @@
           "difficulty": 0.32,
           "question": "Для чего книгам присваивают номер ISBN?",
           "answers": [
-            "Для идентификации конкретного издания",
+            "Для обозначения конкретного издания",
             "Для указания возраста читателя",
             "Для оценки качества текста",
             "Для обозначения числа страниц"
@@ -15296,7 +15296,7 @@
             "Песня из включённого в комнате радио",
             "Оркестровая музыка поверх погони",
             "Музыка финальных титров",
-            "Закадровый голос будущего рассказчика"
+            "Голос рассказчика из будущего"
           ],
           "correct_index": 0
         },
@@ -16718,7 +16718,7 @@
           "question": "What does a wrestler do to win by a pin?",
           "answers": [
             "Push the opponent out of bounds",
-            "Hold both of the opponent's shoulders against the mat",
+            "Pin both shoulders to the mat",
             "Score exactly ten points",
             "Wait for the period to end"
           ],
@@ -19260,7 +19260,7 @@
             "Переносит его в комнату",
             "Сохраняет его в стенках навсегда",
             "Уничтожает его внутри камеры",
-            "Использует его для создания нового льда"
+            "Превращает тепло в новый лёд"
           ],
           "correct_index": 0
         },
@@ -19526,7 +19526,7 @@
             "Для запуска игр",
             "Для хранения паролей",
             "Для управления двигателем",
-            "Для документов с фиксированной вёрсткой"
+            "Для документов с точной вёрсткой"
           ],
           "correct_index": 3
         },
@@ -19717,7 +19717,7 @@
             "ДВС и электромотор",
             "Два бензиновых двигателя",
             "Электромотор и паровую машину",
-            "Дизельный двигатель и газовую турбину"
+            "Дизель и газовую турбину"
           ],
           "correct_index": 0
         },
@@ -19727,7 +19727,7 @@
           "difficulty": 0.24,
           "question": "Which two power sources does a typical hybrid car combine?",
           "answers": [
-            "A combustion engine and an electric motor",
+            "An engine and an electric motor",
             "Two gasoline engines",
             "An electric motor and a steam engine",
             "A diesel engine and a gas turbine"
@@ -20021,7 +20021,7 @@
           "difficulty": 0.32,
           "question": "Какой пример является двухфакторной аутентификацией?",
           "answers": [
-            "Пароль и код из приложения на своём телефоне",
+            "Пароль и код из приложения",
             "Пароль и ещё один пароль",
             "Пароль и имя пользователя",
             "Пароль и секретный вопрос"
@@ -20034,7 +20034,7 @@
           "difficulty": 0.32,
           "question": "Which example uses two-factor authentication?",
           "answers": [
-            "A password and a code from an app on your phone",
+            "A password and a phone app code",
             "A password and a second password",
             "A password and a username",
             "A password and a security question"
@@ -20073,7 +20073,7 @@
           "question": "How does a smartphone camera read a QR code?",
           "answers": [
             "By detecting a hidden radio signal",
-            "By recognizing the pattern of light and dark squares",
+            "By recognizing light and dark squares",
             "By measuring the paper's thickness",
             "By matching the border color to a catalog"
           ],
@@ -22116,7 +22116,7 @@
             "Замачивают зёрна в холодной воде",
             "Кипятят кофе несколько часов",
             "Растворяют кофейные листья",
-            "Пропускают воду под давлением через молотый кофе"
+            "Воду продавливают через кофе"
           ],
           "correct_index": 3
         },
@@ -22129,7 +22129,7 @@
             "By soaking whole beans in cold water",
             "By boiling coffee for several hours",
             "By dissolving coffee leaves",
-            "By forcing hot water through ground coffee under pressure"
+            "Water is forced through ground coffee"
           ],
           "correct_index": 3
         }
@@ -24829,11 +24829,11 @@
           "id": 643,
           "theme_id": 9,
           "difficulty": 0.33,
-          "question": "What is a prime number?",
+          "question": "What defines a prime among whole numbers?",
           "answers": [
             "A number always divisible by 10",
             "A number that is always even",
-            "An integer greater than 1 divisible only by 1 and itself",
+            "Exactly two positive divisors",
             "A number with only one digit"
           ],
           "correct_index": 2
@@ -29117,7 +29117,7 @@
           "difficulty": 0.2,
           "question": "Что означает «готовить во фритюре»?",
           "answers": [
-            "Жарить в большом количестве горячего масла",
+            "Жарить, погрузив в горячее масло",
             "Тушить в небольшом количестве воды",
             "Запекать под крышкой",
             "Готовить на пару"
@@ -31103,7 +31103,7 @@
           "difficulty": 0.38,
           "question": "Что означает «подбор» в баскетболе?",
           "answers": [
-            "Овладение мячом после неточного броска",
+            "Захват мяча после промаха",
             "Передачу за спиной",
             "Остановку соперника заслоном",
             "Ввод мяча из-за боковой линии"
@@ -31181,7 +31181,7 @@
           "difficulty": 0.44,
           "question": "Что в гольфе называют грином?",
           "answers": [
-            "Участок с короткой травой вокруг лунки",
+            "Коротко стриженую зону у лунки",
             "Водоём на поле",
             "Песчаную ловушку",
             "Место первого удара"
@@ -31456,7 +31456,7 @@
           "answers": [
             "Задаёт заранее выбранный темп",
             "Измеряет длину дистанции",
-            "Принимает эстафету на последнем этапе",
+            "Бежит последний этап эстафеты",
             "Фиксирует порядок финиша"
           ],
           "correct_index": 0
@@ -31727,12 +31727,12 @@
           "id": 852,
           "theme_id": 1,
           "difficulty": 0.5,
-          "question": "Каков порядок стилей в индивидуальном комплексном плавании?",
+          "question": "Каков порядок первых трёх стилей в индивидуальном комплексном плавании?",
           "answers": [
-            "Брасс, спина, вольный стиль, баттерфляй",
-            "Вольный стиль, баттерфляй, спина, брасс",
-            "Баттерфляй, спина, брасс, вольный стиль",
-            "Спина, брасс, баттерфляй, вольный стиль"
+            "Брасс, спина, вольный стиль",
+            "Вольный стиль, баттерфляй, спина",
+            "Баттерфляй, спина, брасс",
+            "Спина, брасс, баттерфляй"
           ],
           "correct_index": 2
         },
@@ -31740,12 +31740,12 @@
           "id": 852,
           "theme_id": 1,
           "difficulty": 0.5,
-          "question": "What is the stroke order in an individual medley race?",
+          "question": "What is the order of the first three strokes in an individual medley?",
           "answers": [
-            "Breaststroke, backstroke, freestyle, butterfly",
-            "Freestyle, butterfly, backstroke, breaststroke",
-            "Butterfly, backstroke, breaststroke, freestyle",
-            "Backstroke, breaststroke, butterfly, freestyle"
+            "Breaststroke, backstroke, freestyle",
+            "Freestyle, butterfly, backstroke",
+            "Butterfly, backstroke, breaststroke",
+            "Backstroke, breaststroke, butterfly"
           ],
           "correct_index": 2
         }
@@ -31849,7 +31849,7 @@
             "Прямой удар ведущей рукой",
             "Захват обеих рук соперника",
             "Прыжок навстречу сопернику",
-            "Уход от удара движением под рукой соперника"
+            "Уход от удара под рукой соперника"
           ],
           "correct_index": 3
         },
@@ -31862,7 +31862,7 @@
             "By throwing a straight lead-hand punch",
             "By grabbing both of the opponent's arms",
             "By jumping toward the opponent",
-            "By moving down beneath the opponent's arm"
+            "By ducking under the opponent's arm"
           ],
           "correct_index": 3
         }
@@ -33447,7 +33447,7 @@
           "difficulty": 0.42,
           "question": "Что означает мимикрия у животных?",
           "answers": [
-            "Сходство с другим видом, дающее преимущество",
+            "Выгодное сходство с другим видом",
             "Переход к ночной активности",
             "Сезонную смену меха",
             "Образование большой стаи"
@@ -33460,7 +33460,7 @@
           "difficulty": 0.42,
           "question": "What is mimicry in animals?",
           "answers": [
-            "Resembling another species in a way that gives an advantage",
+            "Useful resemblance to another species",
             "Switching to nighttime activity",
             "Seasonal replacement of fur",
             "Forming a large flock"
@@ -34074,7 +34074,7 @@
           "question": "Что главным образом делает густой подшёрсток зимнего меха?",
           "answers": [
             "Поддерживает контакт кожи со снегом",
-            "Удерживает воздух и уменьшает потерю тепла",
+            "Сохраняет тепло, удерживая воздух",
             "Увеличивает испарение воды",
             "Заменяет жировые запасы"
           ],
@@ -34151,7 +34151,7 @@
           "difficulty": 0.46,
           "question": "Что объясняет сходство строения костей крыла птицы и передней лапы кошки?",
           "answers": [
-            "Происхождение от конечностей общего предка",
+            "Общий предок этих животных",
             "Одинаковая функция",
             "Одинаковая скорость роста",
             "Одинаковое питание"
@@ -34164,10 +34164,10 @@
           "difficulty": 0.46,
           "question": "Why do the bones in a bird's wing and a cat's front leg have a similar structure?",
           "answers": [
-            "They evolved from the limbs of a common ancestor",
+            "They came from a common ancestor",
             "They perform identical functions",
             "They grow at identical rates",
-            "They develop in animals with identical diets"
+            "They form in animals with equal diets"
           ],
           "correct_index": 0
         }
@@ -34229,7 +34229,7 @@
           "difficulty": 0.44,
           "question": "Что означает «эндемик» применительно к виду?",
           "answers": [
-            "Естественно встречается только в определённом регионе",
+            "Обитает только в одном регионе",
             "Появился после одомашнивания",
             "Питается лишь одним видом растений",
             "Живёт только один сезон"
@@ -34307,7 +34307,7 @@
           "difficulty": 0.46,
           "question": "Какую роль выполняют грибы-разрушители в лесу?",
           "answers": [
-            "Преобразуют азот воздуха в белки листьев",
+            "Превращают азот воздуха в белки",
             "Переносят пыльцу между цветками",
             "Образуют сахара на свету",
             "Разлагают мёртвую органику"
@@ -34320,7 +34320,7 @@
           "difficulty": 0.46,
           "question": "What role do decomposer fungi play in a forest?",
           "answers": [
-            "Turning atmospheric nitrogen into leaf proteins",
+            "Turning nitrogen into leaf proteins",
             "Carrying pollen between flowers",
             "Making sugars using sunlight",
             "Breaking down dead organic matter"
@@ -34466,7 +34466,7 @@
             "Резервный код входа",
             "Список прав доступа",
             "Журнал всех ошибок",
-            "Данные для ускорения повторного доступа"
+            "Данные для быстрого доступа"
           ],
           "correct_index": 3
         },
@@ -34505,7 +34505,7 @@
             "Переводят документ в PDF",
             "Шифруют весь диск",
             "Устанавливают драйвер сети",
-            "Извлекают содержащиеся в нём файлы"
+            "Извлекают файлы из него"
           ],
           "correct_index": 3
         },
@@ -34541,10 +34541,10 @@
           "difficulty": 0.42,
           "question": "Что отличает сжатие без потерь?",
           "answers": [
-            "Сохранение только текста без изображений",
-            "Возможность восстановить исходные данные точно",
-            "Уменьшение размера всегда ровно вдвое",
-            "Обязательное удаление мелких деталей"
+            "Сохранение лишь текста",
+            "Точное восстановление данных",
+            "Сокращение размера ровно вдвое",
+            "Удаление мелких деталей"
           ],
           "correct_index": 1
         },
@@ -34555,7 +34555,7 @@
           "question": "What distinguishes lossless compression?",
           "answers": [
             "Only text is retained, with no images",
-            "The original data can be reconstructed exactly",
+            "The exact original data is recoverable",
             "The size always falls by exactly half",
             "Small details must be discarded"
           ],
@@ -34580,9 +34580,9 @@
           "difficulty": 0.4,
           "question": "Для чего используют менеджер паролей?",
           "answers": [
-            "Для синхронизации системного времени",
+            "Для сверки системных часов",
             "Для фильтрации входящих писем",
-            "Для хранения и создания комбинаций для входа",
+            "Хранить и создавать данные для входа",
             "Для удаления истории браузера"
           ],
           "correct_index": 2
@@ -34622,8 +34622,8 @@
           "question": "Что режим инкогнито обычно меняет в браузере?",
           "answers": [
             "Скрывает посещения от всех сайтов",
-            "Не сохраняет историю сеанса на устройстве",
-            "Автоматически удаляет скачанные файлы",
+            "Не сохраняет историю посещений",
+            "Удаляет скачанные файлы",
             "Шифрует все документы на диске"
           ],
           "correct_index": 1
@@ -34635,7 +34635,7 @@
           "question": "What does a browser's incognito mode usually do?",
           "answers": [
             "Hides visits from every website",
-            "Avoids saving that session's history on the device",
+            "Does not save local browsing history",
             "Automatically deletes downloaded files",
             "Encrypts all documents on the drive"
           ],
@@ -34661,8 +34661,8 @@
           "question": "Что VPN создаёт между устройством пользователя и сервером для защиты передаваемых данных?",
           "answers": [
             "Копию всех файлов диска",
-            "Дополнительную физическую линию связи",
-            "Новую локальную операционную систему",
+            "Ещё одну физическую линию связи",
+            "Новую операционную систему",
             "Зашифрованный туннель для трафика"
           ],
           "correct_index": 3
@@ -34700,9 +34700,9 @@
           "question": "Что такое стриминг видео?",
           "answers": [
             "Преобразование речи в субтитры",
-            "Автоматическое удаление старых записей",
-            "Просмотр по мере получения данных из сети",
-            "Просмотр только после полной загрузки"
+            "Удаление старых записей",
+            "Просмотр по мере загрузки",
+            "Просмотр после полной загрузки"
           ],
           "correct_index": 2
         },
@@ -34739,7 +34739,7 @@
           "question": "Что означает обновление прошивки?",
           "answers": [
             "Замену аккумулятора",
-            "Установку новой версии встроенного ПО",
+            "Замену встроенного ПО новым",
             "Очистку корпуса",
             "Форматирование карты памяти"
           ],
@@ -34752,7 +34752,7 @@
           "question": "What does updating firmware mean?",
           "answers": [
             "Replacing the battery",
-            "Installing a new version of built-in software",
+            "Installing new built-in software",
             "Cleaning the casing",
             "Formatting a memory card"
           ],
@@ -34818,8 +34818,8 @@
           "answers": [
             "Перемещает линзы объектива",
             "Увеличивает размер матрицы",
-            "Меняет физическое расстояние до объекта",
-            "Обрезает и увеличивает часть изображения"
+            "Приближает камеру к объекту",
+            "Увеличивает фрагмент кадра"
           ],
           "correct_index": 3
         },
@@ -34831,7 +34831,7 @@
           "answers": [
             "Moves lens elements",
             "Enlarges the sensor",
-            "Changes the physical distance to the subject",
+            "Moves the camera nearer the subject",
             "Crops and enlarges part of the image"
           ],
           "correct_index": 3
@@ -34856,7 +34856,7 @@
           "question": "Что описывает диафрагменное число объектива?",
           "answers": [
             "Частоту видеозаписи",
-            "Относительный размер отверстия для света",
+            "Относительный размер отверстия",
             "Длину выдержки в секундах",
             "Количество пикселей матрицы"
           ],
@@ -34869,7 +34869,7 @@
           "question": "What does a lens f-number describe?",
           "answers": [
             "Video recording frame rate",
-            "The relative size of the opening that admits light",
+            "The relative size of the aperture",
             "Exposure duration in seconds",
             "The sensor's pixel count"
           ],
@@ -34895,7 +34895,7 @@
           "question": "Для чего автомобилю нужно сцепление?",
           "answers": [
             "Очищать выхлопные газы",
-            "Временно разъединять двигатель и трансмиссию",
+            "Разъединять мотор и коробку передач",
             "Изменять угол поворота колёс",
             "Охлаждать тормозные диски"
           ],
@@ -34908,7 +34908,7 @@
           "question": "What is a car's clutch for?",
           "answers": [
             "Cleaning exhaust gases",
-            "Temporarily disconnecting engine and transmission",
+            "Disconnecting engine and gearbox",
             "Changing the steering angle",
             "Cooling brake discs"
           ],
@@ -34933,10 +34933,10 @@
           "difficulty": 0.44,
           "question": "Что происходит при рекуперативном торможении электромобиля?",
           "answers": [
-            "Электромотор полностью отсоединяется от колёс",
+            "Мотор отсоединяется от колёс",
             "Вся энергия уходит в нагрев дисков",
-            "Часть энергии движения возвращается в батарею",
-            "Батарея обменивается местами с резервной"
+            "Энергия движения заряжает батарею",
+            "Батарея заменяется резервной"
           ],
           "correct_index": 2
         },
@@ -34946,9 +34946,9 @@
           "difficulty": 0.44,
           "question": "What happens during regenerative braking in an electric car?",
           "answers": [
-            "The motor fully disconnects from the wheels",
-            "All the energy becomes heat in the brake discs",
-            "Some energy from the car's motion is stored in the battery",
+            "The motor detaches from the wheels",
+            "All energy turns into brake heat",
+            "Motion recharges the battery",
             "The battery is replaced with a spare"
           ],
           "correct_index": 2
@@ -35167,7 +35167,7 @@
           "difficulty": 0.4,
           "question": "Какую характеристику экрана измеряют в герцах?",
           "answers": [
-            "Число обновлений изображения за секунду",
+            "Частоту обновления картинки",
             "Время автономной работы",
             "Количество цветов в пикселе",
             "Физическую диагональ экрана"
@@ -35245,8 +35245,8 @@
           "difficulty": 0.44,
           "question": "Что означает конфликт версий при совместном редактировании файла?",
           "answers": [
-            "Несогласованные изменения одного фрагмента",
-            "Отсутствие свободного места на экране",
+            "Несовместимые правки одного места",
+            "Нехватку места на экране",
             "Повреждение сетевого кабеля",
             "Разницу в марках мониторов"
           ],
@@ -35258,7 +35258,7 @@
           "difficulty": 0.44,
           "question": "What is a version conflict during collaborative editing?",
           "answers": [
-            "Incompatible changes to the same content",
+            "Incompatible changes to one section",
             "A lack of free screen space",
             "Damage to the network cable",
             "Different monitor brands"
@@ -35326,7 +35326,7 @@
             "Проверку прав доступа",
             "Измерение скорости сети",
             "Архивирование папок",
-            "Получение изображения из описания сцены"
+            "Создание картинки по описанию сцены"
           ],
           "correct_index": 3
         },
@@ -35339,7 +35339,7 @@
             "Checking access permissions",
             "Measuring network speed",
             "Archiving folders",
-            "Producing an image from a scene description"
+            "Creating an image from scene data"
           ],
           "correct_index": 3
         }
@@ -35405,8 +35405,8 @@
           "answers": [
             "Получать бесплатное оборудование",
             "Скрывать авторство чужой программы",
-            "Изучать и изменять его по правилам использования",
-            "Игнорировать права на любой чужой код"
+            "Менять код по условиям лицензии",
+            "Нарушать чужие авторские права"
           ],
           "correct_index": 2
         },
@@ -35418,7 +35418,7 @@
           "answers": [
             "Receiving free hardware",
             "Concealing someone else's authorship",
-            "Studying and modifying the code under its terms",
+            "Changing code under stated terms",
             "Ignoring every other license"
           ],
           "correct_index": 2
@@ -35442,10 +35442,10 @@
           "difficulty": 0.46,
           "question": "Как работает активное шумоподавление в наушниках?",
           "answers": [
-            "Повышает громкость всех внешних звуков",
+            "Усиливает внешние звуки",
             "Только усиливает басы",
-            "Только перекрывает ухо плотной амбушюрой",
-            "Создаёт звук, ослабляющий внешний шум"
+            "Лишь плотно закрывает ухо",
+            "Гасит шум встречным звуком"
           ],
           "correct_index": 3
         },
@@ -35458,7 +35458,7 @@
             "It amplifies every surrounding sound",
             "It only boosts the bass",
             "It only seals the ear with a tight cushion",
-            "It produces sound waves that counteract unwanted sounds"
+            "It emits waves to counter outside sound"
           ],
           "correct_index": 3
         }
@@ -35482,7 +35482,7 @@
           "question": "Что такое «горячая клавиша» в программе?",
           "answers": [
             "Только кнопка питания",
-            "Кнопка или сочетание для быстрого вызова команды",
+            "Быстрый способ вызвать команду",
             "Клавиша с подсветкой",
             "Команда, доступная лишь мышью"
           ],
@@ -35495,7 +35495,7 @@
           "question": "What is a keyboard shortcut in an application?",
           "answers": [
             "Only the power button",
-            "A key or key combination that triggers a command",
+            "Keys that quickly trigger a command",
             "An illuminated key",
             "A command available only with a mouse"
           ],
@@ -36826,7 +36826,7 @@
           "answers": [
             "Removing the skin after roasting",
             "A sweet glaze applied after baking",
-            "A coating of crumbs or flour applied before frying",
+            "Crumbs or flour coating food for frying",
             "Soaking in brine"
           ],
           "correct_index": 2
@@ -36850,7 +36850,7 @@
           "difficulty": 0.44,
           "question": "Как готовят продукты методом су-вид?",
           "answers": [
-            "В герметичном пакете в воде заданной температуры",
+            "В герметичном пакете в тёплой воде",
             "На открытом огне",
             "В горячем масле без крышки",
             "Под слоем соли в духовке"
@@ -36863,7 +36863,7 @@
           "difficulty": 0.44,
           "question": "How is food cooked sous vide?",
           "answers": [
-            "In a sealed bag in temperature-controlled water",
+            "In a sealed bag in controlled warm water",
             "Directly over flames",
             "Uncovered in hot oil",
             "Under a salt crust in an oven"
@@ -36969,7 +36969,7 @@
           "answers": [
             "Осадок на дне бульона",
             "Раствор соли в воде",
-            "Капли одной жидкости, распределённые в другой",
+            "Капли одной жидкости в другой",
             "Сухую смесь специй"
           ],
           "correct_index": 2
@@ -36982,7 +36982,7 @@
           "answers": [
             "Sediment at the bottom of broth",
             "Salt dissolved in water",
-            "Droplets of one liquid dispersed in another",
+            "Droplets of one liquid in another",
             "A dry blend of spices"
           ],
           "correct_index": 2
@@ -37318,7 +37318,7 @@
           "difficulty": 0.44,
           "question": "Что значит «деглазировать сковороду»?",
           "answers": [
-            "Растворить жидкостью поджаристые остатки на дне",
+            "Растворить поджаристый слой",
             "Покрыть продукты сахарной корочкой",
             "Снять покрытие с металла",
             "Охладить перед подачей"
@@ -37331,7 +37331,7 @@
           "difficulty": 0.44,
           "question": "What does deglazing a pan mean?",
           "answers": [
-            "Using liquid to dissolve browned bits stuck to the bottom",
+            "Dissolving browned bits with liquid",
             "Coating food with a sugar crust",
             "Removing its surface coating",
             "Cooling it before serving"
@@ -37435,7 +37435,7 @@
           "difficulty": 0.4,
           "question": "Что такое темпура?",
           "answers": [
-            "Продукты в лёгком кляре, обжаренные в масле",
+            "Продукты, обжаренные в лёгком кляре",
             "Рисовый десерт на пару",
             "Суп из лапши",
             "Маринованная морская капуста"
@@ -37553,7 +37553,7 @@
           "question": "Что характерно для сотирования?",
           "answers": [
             "Варка в большом количестве воды",
-            "Быстрое обжаривание в небольшом количестве жира",
+            "Быстрая жарка с минимумом жира",
             "Приготовление только на пару",
             "Долгая выдержка в маринаде"
           ],
@@ -37843,7 +37843,7 @@
             "Soaking in vinegar without heat",
             "Frying briefly over high heat",
             "Whipping into a foam",
-            "Preparing food for a long time over low heat"
+            "Long preparation over low heat"
           ],
           "correct_index": 3
         }
@@ -37986,7 +37986,7 @@
           "question": "Как меняется температура кипения воды высоко в горах?",
           "answers": [
             "Повышается",
-            "Становится равной температуре воздуха",
+            "Сравнивается с температурой воздуха",
             "Не зависит от высоты",
             "Снижается"
           ],
@@ -38024,7 +38024,7 @@
           "difficulty": 0.4,
           "question": "Зачем в конструкциях мостов предусматривают температурные зазоры?",
           "answers": [
-            "Для изменения размеров при нагреве и охлаждении",
+            "Для теплового расширения и сжатия",
             "Для усиления притяжения к земле",
             "Для увеличения силы трения",
             "Для уменьшения давления воздуха"
@@ -38037,7 +38037,7 @@
           "difficulty": 0.4,
           "question": "Why are small gaps left between sections of a bridge?",
           "answers": [
-            "To allow expansion and contraction as temperature changes",
+            "To allow thermal expansion and shrinking",
             "To strengthen gravitational attraction",
             "To increase friction",
             "To reduce air pressure"
@@ -38104,7 +38104,7 @@
           "answers": [
             "Просачиваются через стекло",
             "Из водяного пара в воздухе",
-            "Образуются из кислорода самого стекла",
+            "Из кислорода в составе стекла",
             "Выделяются из соли в напитке"
           ],
           "correct_index": 1
@@ -38575,7 +38575,7 @@
           "question": "Какую роль играет радужная оболочка глаза?",
           "answers": [
             "Вырабатывает слёзы",
-            "Регулирует количество поступающего света",
+            "Дозирует поступающий свет",
             "Формирует изображение в мозге",
             "Управляет движением век"
           ],
@@ -38588,7 +38588,7 @@
           "question": "What does the iris do?",
           "answers": [
             "Produces tears",
-            "Regulates the amount of light entering the eye",
+            "Controls how much light enters the eye",
             "Forms images in the brain",
             "Controls eyelid movement"
           ],
@@ -38694,7 +38694,7 @@
             "Переносить кислород по крови",
             "Хранить наследственную информацию",
             "Ускорять химические реакции",
-            "Образовывать минеральную основу костей"
+            "Создавать минеральную часть костей"
           ],
           "correct_index": 2
         },
@@ -38772,7 +38772,7 @@
             "Целую клетку",
             "Оболочку ядра",
             "Молекулу сахара",
-            "Участок ДНК с информацией о работе организма"
+            "Инструкция для клетки в ДНК"
           ],
           "correct_index": 3
         },
@@ -38785,7 +38785,7 @@
             "An entire cell",
             "The membrane around a nucleus",
             "A sugar molecule",
-            "A section of DNA carrying biological instructions"
+            "A DNA section with biological instructions"
           ],
           "correct_index": 3
         }
@@ -38847,9 +38847,9 @@
           "difficulty": 0.4,
           "question": "Что обычно происходит с растворённой солью при испарении морской воды?",
           "answers": [
-            "Она выпадает в осадок только в виде металла",
+            "Оседает в виде металла",
             "Она испаряется раньше воды",
-            "Она остаётся и повышает солёность остатка",
+            "Остаётся, повышая концентрацию",
             "Она превращается в кислород"
           ],
           "correct_index": 2
@@ -38862,7 +38862,7 @@
           "answers": [
             "They precipitate only as metal",
             "They evaporate before the water",
-            "They remain and become more concentrated",
+            "They become more concentrated",
             "They turn into oxygen"
           ],
           "correct_index": 2
@@ -38927,8 +38927,8 @@
           "answers": [
             "Пропорциональны размерам тел",
             "Равны и направлены в одну сторону",
-            "Действуют только на неподвижные тела",
-            "Равны по величине и противоположны по направлению"
+            "Действуют лишь на неподвижные тела",
+            "Равны и направлены противоположно"
           ],
           "correct_index": 3
         },
@@ -38941,7 +38941,7 @@
             "Proportional to the bodies' sizes",
             "Equal and pointing the same way",
             "Acting only on stationary bodies",
-            "Equal in magnitude and opposite in direction"
+            "Equal strength, opposite directions"
           ],
           "correct_index": 3
         }
@@ -38965,7 +38965,7 @@
           "question": "Как меняется объём газа при нагревании и постоянном давлении?",
           "answers": [
             "Увеличивается",
-            "Сначала исчезает, затем восстанавливается",
+            "Исчезает, затем восстанавливается",
             "Обязательно остаётся прежним",
             "Уменьшается"
           ],
@@ -39473,7 +39473,7 @@
           "answers": [
             "Участвовать в выборах",
             "Владеть дворянским титулом",
-            "Занимать только церковные должности",
+            "Занимать лишь церковные посты",
             "Не платить никаких налогов"
           ],
           "correct_index": 0
@@ -39512,7 +39512,7 @@
           "answers": [
             "Движение за отмену рабства",
             "Систему передачи земель за службу",
-            "Движение за восстановление монархии",
+            "Движение за возврат монархии",
             "Политику запрета книг"
           ],
           "correct_index": 0
@@ -39783,10 +39783,10 @@
           "difficulty": 0.38,
           "question": "Зачем в Древнем Египте бальзамировали умерших?",
           "answers": [
-            "Чтобы подготовить его к кремации",
-            "Чтобы определить профессию умершего",
+            "Для подготовки к кремации",
+            "Для выяснения профессии умершего",
             "Чтобы заменить погребальные обряды",
-            "Чтобы сохранить тело для загробной жизни"
+            "Сохранить тело для загробного мира"
           ],
           "correct_index": 3
         },
@@ -39900,10 +39900,10 @@
           "difficulty": 0.44,
           "question": "Что произошло во время Бостонского чаепития?",
           "answers": [
-            "Протестующие уничтожили груз на судах",
-            "Открылась первая железная дорога США",
+            "Бунтовщики сбросили груз за борт",
+            "Открылась первая железная дорога",
             "Колонисты подписали мир с Британией",
-            "Собрались делегаты для принятия конституции"
+            "Делегаты приняли конституцию"
           ],
           "correct_index": 0
         },
@@ -39913,10 +39913,10 @@
           "difficulty": 0.44,
           "question": "What happened during the Boston Tea Party?",
           "answers": [
-            "Protesters dumped ships' cargo into the harbor",
+            "Protesters dumped cargo overboard",
             "The first US railway opened",
             "Colonists signed peace with Britain",
-            "Delegates assembled to adopt a constitution"
+            "Delegates adopted a constitution"
           ],
           "correct_index": 0
         }
@@ -39978,10 +39978,10 @@
           "difficulty": 0.44,
           "question": "Чем был план Маршалла после Второй мировой войны?",
           "answers": [
-            "Проектом первого искусственного спутника",
+            "Проектом первого спутника",
             "Договором о разделе Африки",
-            "Программой экономической помощи Европе",
-            "Планом высадки союзников в Нормандии"
+            "Экономической помощью Европе",
+            "Планом высадки в Нормандии"
           ],
           "correct_index": 2
         },
@@ -40056,10 +40056,10 @@
           "difficulty": 0.42,
           "question": "Что означал «железный занавес» в политике холодной войны?",
           "answers": [
-            "Разделение Европы на противостоящие блоки",
+            "Раскол Европы на враждующие блоки",
             "Сеть военных союзов Южной Америки",
             "Программу развития металлургии",
-            "Торговый маршрут по Северному морю"
+            "Северный морской торговый путь"
           ],
           "correct_index": 0
         },
@@ -40070,7 +40070,7 @@
           "question": "What did the Iron Curtain mean in Cold War politics?",
           "answers": [
             "Europe's division into opposing blocs",
-            "A network of South American military alliances",
+            "South American military alliances",
             "A steel-industry development program",
             "A North Sea trade route"
           ],
@@ -40485,7 +40485,7 @@
           "difficulty": 0.38,
           "question": "Что означает «плагиат»?",
           "answers": [
-            "Переиздание с разрешения правообладателя",
+            "Переиздание с согласия автора",
             "Выдачу чужого произведения за своё",
             "Цитирование с ясной ссылкой",
             "Перевод с указанием автора"
@@ -40499,7 +40499,7 @@
           "question": "What is plagiarism?",
           "answers": [
             "Republishing with the owner's permission",
-            "Presenting someone else's work as your own",
+            "Claiming someone else's work as yours",
             "Quoting with a clear attribution",
             "Translating while naming the author"
           ],
@@ -40538,7 +40538,7 @@
           "question": "What is clickbait online?",
           "answers": [
             "A list of blocked accounts",
-            "A sensational headline meant to draw readers in",
+            "A sensational headline to lure readers",
             "A backup website address",
             "A connection-speed test"
           ],
@@ -40564,7 +40564,7 @@
           "question": "Для чего обычно добавляют хештег к публикации?",
           "answers": [
             "Удалить комментарии",
-            "Обозначить тему и помочь найти связанные записи",
+            "Отметить тему для поиска записей",
             "Зашифровать текст",
             "Изменить дату размещения"
           ],
@@ -40577,7 +40577,7 @@
           "question": "Why is a hashtag usually added to a post?",
           "answers": [
             "To delete comments",
-            "To label a topic and group related material",
+            "To group entries by topic",
             "To encrypt the text",
             "To change the publication date"
           ],
@@ -40604,7 +40604,7 @@
           "answers": [
             "Обмен валют в банке",
             "Продажу только готовых заводов",
-            "Сбор средств от многих людей на проект",
+            "Сбор денег на проект у многих людей",
             "Страхование всех покупок"
           ],
           "correct_index": 2
@@ -40617,7 +40617,7 @@
           "answers": [
             "Exchanging currencies at a bank",
             "Selling only completed factories",
-            "Raising money from many people for a project",
+            "Funding a project through many donors",
             "Insuring every purchase"
           ],
           "correct_index": 2
@@ -40721,7 +40721,7 @@
           "answers": [
             "Переписку с друзьями по расписанию",
             "Просмотр учебного курса",
-            "Долгое чтение тревожных новостей подряд",
+            "Долгое чтение тревожных новостей",
             "Поиск скидок в каталоге"
           ],
           "correct_index": 2
@@ -40734,7 +40734,7 @@
           "answers": [
             "Messaging friends on a schedule",
             "Watching a training course",
-            "Spending a long time scrolling through distressing news",
+            "Endlessly reading distressing news",
             "Searching a sale catalog"
           ],
           "correct_index": 2
@@ -40760,7 +40760,7 @@
           "answers": [
             "Список подписок",
             "Дату регистрации",
-            "Изображение, представляющее аккаунт",
+            "Картинку, представляющую аккаунт",
             "Резервную копию пароля"
           ],
           "correct_index": 2
@@ -40888,7 +40888,7 @@
           "difficulty": 0.42,
           "question": "How do you find the median of an ordered set with an odd number of values?",
           "answers": [
-            "Subtract the smallest value from the largest value",
+            "Largest value minus smallest value",
             "Take the middle value",
             "Add up every value",
             "Take the largest value"
@@ -41123,9 +41123,9 @@
           "question": "The ratio of red to blue balls is 2:1. What does this mean?",
           "answers": [
             "Red balls outnumber blue balls by one",
-            "There are exactly three red and blue balls in total",
-            "There are twice as many blue balls as red balls",
-            "There are twice as many red balls as blue balls"
+            "Three red and blue balls in total",
+            "Twice as many blue as red balls",
+            "Twice as many red as blue balls"
           ],
           "correct_index": 3
         }
@@ -41148,9 +41148,9 @@
           "difficulty": 0.4,
           "question": "Что такое масштабная модель?",
           "answers": [
-            "Изображение без соблюдения пропорций",
+            "Картинку с нарушением пропорций",
             "Копия только из того же материала",
-            "Копия с пропорционально изменёнными размерами",
+            "Копию с сохранёнными пропорциями",
             "Чертёж только внутренних деталей"
           ],
           "correct_index": 2
@@ -41163,7 +41163,7 @@
           "answers": [
             "An image with arbitrary proportions",
             "A copy that must use the same material",
-            "A copy with all dimensions changed by the same factor",
+            "A copy with matching proportions",
             "A drawing of internal parts only"
           ],
           "correct_index": 2
@@ -42240,7 +42240,7 @@
           "difficulty": 0.42,
           "question": "Что означает staccato при исполнении мелодии?",
           "answers": [
-            "Короткие отделённые друг от друга звуки",
+            "Короткие, раздельные звуки",
             "Постоянное усиление громкости",
             "Постепенное снижение высоты",
             "Плавное соединение звуков"
@@ -42357,7 +42357,7 @@
           "difficulty": 0.4,
           "question": "Что такое саундтрек фильма?",
           "answers": [
-            "Его звуковая дорожка или выпущенная к нему музыка",
+            "Звуковая дорожка или музыка к нему",
             "Краткий рекламный ролик",
             "Список мест съёмок",
             "Раскадровка сцен"
@@ -42370,7 +42370,7 @@
           "difficulty": 0.4,
           "question": "What is a film soundtrack?",
           "answers": [
-            "A film's audio, or its music released separately",
+            "A film's audio or its released music",
             "A short promotional trailer",
             "A list of filming locations",
             "A scene storyboard"
@@ -42399,7 +42399,7 @@
             "Подбирает актёров на роли",
             "Сочиняет оркестровую партитуру",
             "Разрабатывает костюмы",
-            "Собирает отснятый материал в последовательность"
+            "Отбирает и соединяет снятые кадры"
           ],
           "correct_index": 3
         },
@@ -42412,7 +42412,7 @@
             "Chooses actors for the roles",
             "Composes the orchestral score",
             "Designs costumes",
-            "Selects and arranges footage to create the finished film"
+            "Selects and assembles film footage"
           ],
           "correct_index": 3
         }
@@ -42513,9 +42513,9 @@
           "difficulty": 0.44,
           "question": "Для чего используют хлопушку при съёмке фильма?",
           "answers": [
-            "Чтобы синхронизировать отдельно записанные звук и изображение",
+            "Для синхронизации звука и видео",
             "Чтобы измерить освещённость",
-            "Чтобы определить продолжительность монтажа",
+            "Для расчёта длительности монтажа",
             "Чтобы настроить фокус объектива"
           ],
           "correct_index": 0
@@ -42526,7 +42526,7 @@
           "difficulty": 0.44,
           "question": "Why is a clapperboard snapped shut at the start of a take?",
           "answers": [
-            "To synchronize separately recorded sound and picture",
+            "To sync the sound and picture",
             "To measure lighting",
             "To calculate editing time",
             "To focus the lens"
