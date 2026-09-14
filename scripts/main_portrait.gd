@@ -6607,8 +6607,11 @@ func _show_heart_refill_popup(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	heart_value.add_theme_font_override("font", UI_PRIMARY_FONT)
-	heart_value.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.HEART_TEXT_OUTLINE)
-	heart_value.add_theme_constant_override("outline_size", 5)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display_tinted(
+		heart_value,
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.UI_BLUE_DARK, 0.96),
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_UI_PALETTE.TEXT_SHADOW_DARK, 0.82)
+	)
 	heart_value.z_index = 12
 
 	var recovery_text_block_rect := Rect2(188.0, 0.0, 224.0, 88.0)
@@ -6622,11 +6625,13 @@ func _show_heart_refill_popup(
 	var recovery_label := _stage_label(
 		recovery_text_rect,
 		tr("HEART_NEXT_LIFE"),
-		20,
-		PORTRAIT_UI_PALETTE.TEXT_SECONDARY,
+		22,
+		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
+	recovery_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	recovery_label.clip_text = false
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(recovery_label)
 	recovery_label.z_index = 12
 
 	var recovery_timer_label := _stage_label(
@@ -6643,6 +6648,7 @@ func _show_heart_refill_popup(
 	)
 	recovery_timer_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	recovery_timer_label.clip_text = false
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(recovery_timer_label)
 	recovery_timer_label.z_index = 12
 	# Keep the popup copy live without replacing the global top-bar label refs.
 	# That way closing the popup does not break the underlying HUD countdown.

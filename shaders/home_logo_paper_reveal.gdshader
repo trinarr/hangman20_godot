@@ -4,6 +4,13 @@ render_mode unshaded;
 uniform sampler2D logo_texture : source_color, filter_linear, repeat_disable;
 uniform sampler2D title_texture : source_color, filter_linear, repeat_disable;
 uniform bool title_chroma_key = false;
+// source_color keeps the reference palette consistent in Mobile and Compatibility.
+uniform vec4 localized_pencil_color : source_color = vec4(0.004, 0.255, 0.847, 1.0);
+uniform vec4 original_pencil_color : source_color = vec4(0.008, 0.208, 0.667, 1.0);
+uniform vec4 localized_shadow_color : source_color = vec4(0.792, 0.902, 0.992, 1.0);
+uniform vec4 original_shadow_color : source_color = vec4(0.604, 0.776, 0.988, 1.0);
+// Red/green encode the two thresholds, converted along with the texture colors.
+uniform vec4 localized_shadow_range : source_color = vec4(0.32, 0.65, 0.0, 1.0);
 uniform sampler2D paper_texture : source_color, filter_linear, repeat_disable;
 uniform sampler2D backside_texture : source_color, filter_linear, repeat_disable;
 uniform vec2 canvas_size = vec2(480.0, 800.0);
@@ -34,6 +41,16 @@ vec4 sample_ink(vec2 uv) {
 	return ink;
 }
 
+// Detect the light shadow beside the green matte. The source has a narrow blue
+// fringe there; brightness alone mistakes it for the dark face of a letter.
+vec2 localized_edge_sample(vec2 uv) {
+	vec3 color = texture(title_texture, uv).rgb;
+	float light_shadow = smoothstep(localized_shadow_range.r, localized_shadow_range.g, color.r)
+		* (1.0 - smoothstep(0.0, 0.04, color.r - color.b));
+	float matte = smoothstep(0.40, 0.65, color.g - max(color.r, color.b));
+	return vec2(light_shadow, matte);
+}
+
 // Localized lettering uses the same atlas coordinates. Keep the original badge
 // texture so its silhouette, bounce pivot and shine are identical in both locales.
 vec4 sample_title(vec2 uv) {
@@ -45,6 +62,47 @@ vec4 sample_title(vec2 uv) {
 			float key = ink.g - max(ink.r, ink.b);
 			ink.a *= 1.0 - smoothstep(0.06, 0.40, key);
 			ink.g = mix(ink.g, min(ink.g, max(ink.r, ink.b)), smoothstep(0.0, 0.12, key));
+			// Discard the localized orange stroke. The original underline is shared
+			// below, so translation cannot change its shape, texture or thickness.
+			float warm_ink = smoothstep(0.015, 0.08, ink.r - ink.b);
+			ink.a *= 1.0 - warm_ink;
+
+			// Match the English atlas's blue pencil and pale-blue offset shadow.
+			// Separate the light shadow from the lettering before correcting them;
+			// a global tint would leave the nearly-white rim and oversaturated ink.
+			float shadow_weight = smoothstep(localized_shadow_range.r, localized_shadow_range.g, ink.r);
+			vec3 pencil = clamp(
+				original_pencil_color.rgb
+					+ (ink.rgb - localized_pencil_color.rgb) * vec3(1.10, 0.55, 0.55),
+				original_pencil_color.rgb * 0.75,
+				mix(original_pencil_color.rgb, original_shadow_color.rgb, 0.55)
+			);
+			vec3 shadow = clamp(
+				original_shadow_color.rgb
+					+ (ink.rgb - localized_shadow_color.rgb) * vec3(0.35, 0.50, 0.25),
+				original_shadow_color.rgb * 0.85, vec3(1.0)
+			);
+			ink.rgb = mix(pencil, shadow, shadow_weight);
+			if (ink.a > 0.0 && shadow_weight < 1.0) {
+				vec2 radius = vec2(3.0) / vec2(textureSize(title_texture, 0));
+				vec2 nearby = max(
+					max(localized_edge_sample(uv + vec2(radius.x, 0.0)),
+						localized_edge_sample(uv - vec2(radius.x, 0.0))),
+					max(localized_edge_sample(uv + vec2(0.0, radius.y)),
+						localized_edge_sample(uv - vec2(0.0, radius.y)))
+				);
+				// Recolor only the outer shadow fringe. Keep its antialiased alpha,
+				// the letter silhouette and the pencil texture unchanged.
+				ink.rgb = mix(ink.rgb, original_shadow_color.rgb, nearby.x * nearby.y);
+			}
+
+			if (uv.y > 0.60) {
+				vec4 underline = sample_ink(uv);
+				underline.a *= smoothstep(0.015, 0.08, underline.r - underline.b);
+				float alpha = underline.a + ink.a * (1.0 - underline.a);
+				ink = vec4((underline.rgb * underline.a
+					+ ink.rgb * ink.a * (1.0 - underline.a)) / max(alpha, 0.0001), alpha);
+			}
 		}
 	}
 	return ink;
