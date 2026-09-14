@@ -616,7 +616,7 @@ var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.ge
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(24.0, 0.0, 432.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_ACTION_GAP: float = 22.0
-const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 28.6
+const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 38.6
 
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
@@ -8679,7 +8679,7 @@ func _stage_portrait_custom_word_field() -> void:
 	# Theme-dependent child controls are configured only after the component is
 	# inside the scene tree. This also keeps an input failure from hiding the
 	# already-created Check, Random and Start actions.
-	word_input.configure(custom_word_text, 15, 34)
+	word_input.configure(custom_word_text, CUSTOM_WORD_MAX_LENGTH, 34)
 	word_input.avoid_virtual_keyboard = true
 	_portrait_custom_word_input = word_input
 	custom_word_input_visual = word_input
@@ -8699,7 +8699,7 @@ func show_game_screen() -> void:
 	super.show_game_screen()
 
 func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
-	var alphabet := Database.get_alphabet()
+	var alphabet: PackedStringArray = _active_game_alphabet()
 	var columns: int = 6
 	var keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
 		viewport_size,
@@ -8820,7 +8820,7 @@ func _refresh_game_screen() -> void:
 	# vertical shift used by the hero on taller portrait screens.
 	_stage_portrait_game_info_text(upper_block_shift)
 
-	var alphabet := Database.get_alphabet()
+	var alphabet: PackedStringArray = _active_game_alphabet()
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(viewport_size)
 	# The persistent keyboard, paper and every later hint-button rebuild must share
 	# the exact same authored coordinates for the entire round. In particular, do
@@ -10225,7 +10225,7 @@ func _portrait_game_hint_y() -> float:
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics_snapshot
 	if keyboard_metrics.is_empty():
 		keyboard_metrics = _portrait_game_keyboard_metrics(get_viewport_rect().size)
-	var alphabet_count: int = Database.get_alphabet().size()
+	var alphabet_count: int = _active_game_alphabet().size()
 	var columns: int = int(keyboard_metrics["columns"])
 	var keyboard_rows: int = int(ceil(float(alphabet_count) / float(columns)))
 	var keyboard_key_size: Vector2 = keyboard_metrics["key_size"]

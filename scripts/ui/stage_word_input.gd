@@ -20,7 +20,7 @@ const WORD_BOUNCE_GROW_DURATION: float = 0.18
 const WORD_BOUNCE_SETTLE_DURATION: float = 0.24
 const VIRTUAL_KEYBOARD_POLL_INTERVAL: float = 0.05
 
-var max_input_length: int = 15
+var max_input_length: int = 20
 var input_font_size: int = 34
 var avoid_virtual_keyboard: bool = false:
 	set(value):
@@ -36,18 +36,20 @@ var underline_color: Color = UI_PALETTE.ACCENT_ORANGE:
 		_rebuild_visuals()
 
 var _line_edit: LineEdit = null
+var _visual_text: String = ""
 var _visual_root: Control = null
 var _has_input_focus: bool = false
 var _validation_toast: Control = null
 var _word_bounce_tweens: Array[Tween] = []
 var _virtual_keyboard_poll_elapsed: float = VIRTUAL_KEYBOARD_POLL_INTERVAL
 
-func configure(initial_text: String, maximum_length: int = 15, font_size: int = 34) -> void:
+func configure(initial_text: String, maximum_length: int = 20, font_size: int = 34) -> void:
 	max_input_length = maxi(maximum_length, 1)
 	input_font_size = maxi(font_size, MIN_FONT_SIZE)
 	_ensure_nodes()
 	_line_edit.max_length = max_input_length
 	_line_edit.text = initial_text
+	_visual_text = initial_text.substr(0, max_input_length)
 	_move_caret_to_end()
 	_rebuild_visuals()
 
@@ -55,8 +57,16 @@ func get_line_edit() -> LineEdit:
 	_ensure_nodes()
 	return _line_edit
 
+func set_display_text(value: String) -> void:
+	# Keep the visible, normalized word separate from the native LineEdit buffer.
+	# Android IMEs can keep an active composition range inside LineEdit; rewriting
+	# its text/caret from text_changed can invalidate that composition and leave
+	# the keyboard visible while subsequent key presses stop reaching the field.
+	_visual_text = value.substr(0, max_input_length)
+	_rebuild_visuals()
+
 func refresh_display() -> void:
-	_move_caret_to_end()
+	# A visual refresh must never move the native caret while an IME is composing.
 	_rebuild_visuals()
 
 func play_word_bounce() -> void:
@@ -218,7 +228,6 @@ func _ensure_nodes() -> void:
 	_line_edit.add_theme_stylebox_override("normal", empty_style)
 	_line_edit.add_theme_stylebox_override("focus", empty_style)
 	_line_edit.add_theme_stylebox_override("read_only", empty_style)
-	_line_edit.text_changed.connect(_on_line_edit_text_changed)
 	_line_edit.text_submitted.connect(_on_line_edit_text_submitted)
 	_line_edit.focus_entered.connect(_on_focus_entered)
 	_line_edit.focus_exited.connect(_on_focus_exited)
@@ -233,10 +242,6 @@ func _ensure_validation_toast() -> void:
 	_validation_toast.name = "ValidationToast"
 	add_child(_validation_toast)
 	_validation_toast.call("set_available_width", size.x)
-
-func _on_line_edit_text_changed(_value: String) -> void:
-	_move_caret_to_end()
-	_rebuild_visuals()
 
 func _on_line_edit_text_submitted(value: String) -> void:
 	_line_edit.release_focus()
@@ -278,7 +283,7 @@ func _rebuild_visuals() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
 
-	var value: String = _line_edit.text if _line_edit != null and is_instance_valid(_line_edit) else ""
+	var value: String = _visual_text
 	var slots := PackedStringArray()
 	if value.is_empty():
 		for _slot_index: int in range(EMPTY_PREVIEW_SLOTS):

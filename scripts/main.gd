@@ -12,6 +12,9 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 0.20833333333333334 + HERO_NES
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 0.375 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 1.6666666666666667
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 0.5
+const CUSTOM_WORD_MAX_LENGTH: int = 20
+const CUSTOM_WORD_LATIN_ALPHABET_TEXT: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT: String = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
 var RANDOM_CUSTOM_WORD_MAX_LENGTH: int = GAME_DESIGN.get_int_range(
 	"gameplay.random_custom_word.max_length", 7, 1, 64
 )
@@ -2004,11 +2007,10 @@ func _custom_word_start_label() -> String:
 func _on_custom_word_text_changed(value: String) -> void:
 	_reset_custom_word_check_feedback()
 	var previous_word_text: String = custom_word_text
+	# Keep Android/iOS IME composition entirely owned by the native LineEdit.
+	# Normalize only the game/visual value; assigning LineEdit.text or its caret
+	# from text_changed can invalidate an active mobile composition session.
 	custom_word_text = _normalize_custom_word_input(value)
-	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
-		var caret_column: int = custom_word_edit.caret_column
-		custom_word_edit.text = custom_word_text
-		custom_word_edit.caret_column = mini(caret_column, custom_word_edit.text.length())
 	_sync_custom_word_input_visual()
 	# When the player appends letters, animate only the newly entered glyphs with
 	# the exact same reveal bounce as letters on the guessing screen.
@@ -2027,17 +2029,53 @@ func _on_custom_word_text_changed(value: String) -> void:
 func _normalize_custom_word_input(value: String) -> String:
 	var normalized: String = value.to_upper().replace("-", "—").replace("Ё", "Е")
 	var filtered: String = ""
-	var allowed_letters: PackedStringArray = Database.get_alphabet()
+	var input_language: String = ""
 	for i: int in range(normalized.length()):
 		var character: String = normalized.substr(i, 1)
-		if allowed_letters.has(character):
-			filtered += character
+		var character_language: String = _custom_word_character_language(character)
+		if character_language != "":
+			# The first actual letter locks the word to one alphabet. Keep the
+			# native LineEdit untouched for mobile IME safety, but ignore letters
+			# from the other script in the visual/game value.
+			if input_language == "":
+				input_language = character_language
+			if character_language == input_language:
+				filtered += character
 		elif character == " " or character == "—":
 			# TextBlock.CheckLast() in the FLA prevents leading and consecutive
 			# separators while the word is being typed.
 			if filtered != "" and filtered.right(1) != " " and filtered.right(1) != "—":
 				filtered += character
-	return filtered.substr(0, 15)
+	return filtered.substr(0, CUSTOM_WORD_MAX_LENGTH)
+
+func _custom_word_character_language(character: String) -> String:
+	if character.length() != 1:
+		return ""
+	var code: int = character.unicode_at(0)
+	if code >= 0x41 and code <= 0x5A:
+		return "en"
+	if code >= 0x410 and code <= 0x42F:
+		return "ru"
+	return ""
+
+func _custom_word_alphabet(language_code: String) -> PackedStringArray:
+	var alphabet_text: String = ""
+	if language_code == "en":
+		alphabet_text = CUSTOM_WORD_LATIN_ALPHABET_TEXT
+	elif language_code == "ru":
+		alphabet_text = CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT
+	var result := PackedStringArray()
+	for i: int in range(alphabet_text.length()):
+		result.append(alphabet_text.substr(i, 1))
+	return result
+
+func _active_game_alphabet() -> PackedStringArray:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER and GameSession.word_data != null:
+		var custom_language: String = _custom_word_language(GameSession.word_data.text)
+		var custom_alphabet: PackedStringArray = _custom_word_alphabet(custom_language)
+		if !custom_alphabet.is_empty():
+			return custom_alphabet
+	return Database.get_alphabet()
 
 func _set_custom_word_input_color(color: Color) -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
@@ -2051,7 +2089,7 @@ func _set_custom_word_underline_color(color: Color) -> void:
 
 func _sync_custom_word_input_visual() -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
-		custom_word_input_visual.call("refresh_display")
+		custom_word_input_visual.call("set_display_text", custom_word_text)
 
 func _sync_custom_word_start_bounce() -> void:
 	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
@@ -2102,7 +2140,7 @@ func _is_random_custom_word_candidate(word: String) -> bool:
 func _check_custom_word_now() -> void:
 	if custom_word_edit == null:
 		return
-	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
+	custom_word_text = _normalize_custom_word_input(custom_word_edit.text)
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
 		_set_temporary_custom_word_underline_color(UI_PALETTE.ERROR_SOFT)
@@ -2275,7 +2313,7 @@ func _reset_custom_word_check_feedback() -> void:
 
 func start_custom_game() -> void:
 	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text
-	var word := WordManager.normalize_word(source_text)
+	var word := _normalize_custom_word_input(source_text)
 	if !_is_valid_custom_word(word):
 		if custom_word_edit != null:
 			_set_custom_word_input_color(UI_PALETTE.ERROR_SOFT)
@@ -2291,7 +2329,7 @@ func start_custom_game() -> void:
 	show_game_screen()
 
 func _is_valid_custom_word(word: String) -> bool:
-	if word.length() == 0 or word.length() > 15:
+	if word.length() == 0 or word.length() > CUSTOM_WORD_MAX_LENGTH:
 		return false
 	if word.begins_with(" ") or word.begins_with("—") or word.ends_with(" ") or word.ends_with("—"):
 		return false
@@ -2314,17 +2352,16 @@ func _is_valid_custom_word(word: String) -> bool:
 	return has_letter
 
 func _custom_word_language(word: String) -> String:
-	var has_latin := false
-	var has_cyrillic := false
+	var language: String = ""
 	for i in range(word.length()):
-		var code: int = word.substr(i, 1).unicode_at(0)
-		if code >= 0x41 and code <= 0x5A:
-			has_latin = true
-		elif code >= 0x410 and code <= 0x42F:
-			has_cyrillic = true
-	if has_latin == has_cyrillic:
-		return ""
-	return "en" if has_latin else "ru"
+		var character_language: String = _custom_word_character_language(word.substr(i, 1))
+		if character_language == "":
+			continue
+		if language == "":
+			language = character_language
+		elif character_language != language:
+			return ""
+	return language
 
 func show_game_screen() -> void:
 	# The converted GameMov scene contains button frame debris and large nested
@@ -2696,5 +2733,5 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and !event.echo:
 		var letter := OS.get_keycode_string(event.keycode).to_upper()
 		letter = WordManager.normalize_word(letter)
-		if letter.length() == 1 and Database.get_alphabet().has(letter):
+		if letter.length() == 1 and _active_game_alphabet().has(letter):
 			_press_letter(letter)
