@@ -32,6 +32,7 @@ var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
 	"timings.custom_word_check_dots_seconds", 0.4, 0.01, 60.0
 )
 const CUSTOM_WORD_INPUT_DEFAULT_COLOR := UI_PALETTE.UI_BLUE_DARK
+const CUSTOM_WORD_UNDERLINE_DEFAULT_COLOR := UI_PALETTE.ACCENT_ORANGE
 const SOUND_SETTING_INDEX: int = 3
 const APP_VERSION_FALLBACK: String = "3.0.0"
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
@@ -2044,6 +2045,10 @@ func _set_custom_word_input_color(color: Color) -> void:
 	elif custom_word_edit != null and is_instance_valid(custom_word_edit):
 		custom_word_edit.add_theme_color_override("font_color", color)
 
+func _set_custom_word_underline_color(color: Color) -> void:
+	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
+		custom_word_input_visual.set("underline_color", color)
+
 func _sync_custom_word_input_visual() -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
 		custom_word_input_visual.call("refresh_display")
@@ -2100,7 +2105,7 @@ func _check_custom_word_now() -> void:
 	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
-		_set_temporary_custom_word_input_color(UI_PALETTE.ERROR_SOFT)
+		_set_temporary_custom_word_underline_color(UI_PALETTE.ERROR_SOFT)
 		custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
 		_vibrate_custom_word_not_found()
@@ -2109,6 +2114,7 @@ func _check_custom_word_now() -> void:
 	_cancel_custom_word_check()
 	_hide_custom_word_toast()
 	_reset_custom_word_input_color()
+	_reset_custom_word_underline_color()
 	_set_custom_word_checking(true)
 	var encoded_lower: String = custom_word_text.to_lower().uri_encode()
 	var title_case: String = custom_word_text.substr(0, 1) + custom_word_text.substr(1).to_lower()
@@ -2152,8 +2158,11 @@ func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
 	_cancel_custom_word_check()
 	if network_error:
 		_reset_custom_word_input_color()
+		_reset_custom_word_underline_color()
 	elif custom_word_edit != null:
-		_set_temporary_custom_word_input_color(
+		# Search feedback belongs to the word slots, so tint the underlines while
+		# leaving the entered word itself in its normal text color.
+		_set_temporary_custom_word_underline_color(
 			UI_PALETTE.SUCCESS_SOFT if found else UI_PALETTE.ERROR_SOFT
 		)
 	if !found and !network_error:
@@ -2182,6 +2191,19 @@ func _set_temporary_custom_word_input_color(color: Color) -> void:
 func _reset_custom_word_input_color() -> void:
 	custom_word_color_generation += 1
 	_set_custom_word_input_color(CUSTOM_WORD_INPUT_DEFAULT_COLOR)
+
+func _set_temporary_custom_word_underline_color(color: Color) -> void:
+	custom_word_color_generation += 1
+	var color_generation: int = custom_word_color_generation
+	_set_custom_word_underline_color(color)
+	await get_tree().create_timer(CUSTOM_WORD_RESULT_COLOR_DURATION).timeout
+	if color_generation != custom_word_color_generation:
+		return
+	_set_custom_word_underline_color(CUSTOM_WORD_UNDERLINE_DEFAULT_COLOR)
+
+func _reset_custom_word_underline_color() -> void:
+	custom_word_color_generation += 1
+	_set_custom_word_underline_color(CUSTOM_WORD_UNDERLINE_DEFAULT_COLOR)
 
 func _vibrate_custom_word_not_found() -> void:
 	if GameState.settings.size() > 4 and int(GameState.settings[4]) == 2:
@@ -2249,6 +2271,7 @@ func _reset_custom_word_check_feedback() -> void:
 	_cancel_custom_word_check()
 	_hide_custom_word_toast()
 	_reset_custom_word_input_color()
+	_reset_custom_word_underline_color()
 
 func start_custom_game() -> void:
 	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text

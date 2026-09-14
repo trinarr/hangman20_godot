@@ -616,18 +616,7 @@ var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.ge
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(24.0, 0.0, 432.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_ACTION_GAP: float = 22.0
-const PORTRAIT_CUSTOM_WORD_ACTION_Y: float = 592.0 - PORTRAIT_CUSTOM_WORD_BUTTON_RISE
-const PORTRAIT_CUSTOM_WORD_RANDOM_RECT := Rect2(
-	Vector2(
-		(PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_HINT_BUTTON_SIZE.x * 2.0 - PORTRAIT_CUSTOM_WORD_ACTION_GAP) * 0.5,
-		PORTRAIT_CUSTOM_WORD_ACTION_Y
-	),
-	PORTRAIT_GAME_HINT_BUTTON_SIZE
-)
-const PORTRAIT_CUSTOM_WORD_CHECK_RECT := Rect2(
-	PORTRAIT_CUSTOM_WORD_RANDOM_RECT.position + Vector2(PORTRAIT_GAME_HINT_BUTTON_SIZE.x + PORTRAIT_CUSTOM_WORD_ACTION_GAP, 0.0),
-	PORTRAIT_GAME_HINT_BUTTON_SIZE
-)
+const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 28.6
 
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
@@ -1253,10 +1242,14 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 	)
 
 func _stage_portrait_custom_word_title(title: String) -> void:
+	# Keep the original authored title position, only 30 px lower. This preserves
+	# the previous top-area composition without tying the heading to the centered
+	# word field on taller screens.
+	const TITLE_Y_OFFSET: float = 30.0
 	# Match the result-word presentation: a hand-drawn colored marker sits behind
 	# white display text, while the normal button/display shader geometry supplies
 	# the outline and extrusion. This screen uses an informational sky-blue tint.
-	var marker_rect := Rect2(62.0, 99.0, 356.0, 52.0)
+	var marker_rect := Rect2(62.0, 99.0 + TITLE_Y_OFFSET, 356.0, 52.0)
 	var marker_holder := _stage_holder(marker_rect, Control.MOUSE_FILTER_IGNORE)
 	marker_holder.name = "CustomWordTitleMarkerHolder"
 	marker_holder.z_index = 0
@@ -1283,8 +1276,10 @@ func _stage_portrait_custom_word_title(title: String) -> void:
 			0.70
 		)
 
+	var custom_word_title_rect: Rect2 = PORTRAIT_PAGE_TITLE_RECT
+	custom_word_title_rect.position.y += TITLE_Y_OFFSET
 	var title_label := _stage_heading_label(
-		PORTRAIT_PAGE_TITLE_RECT,
+		custom_word_title_rect,
 		title,
 		30,
 		Color.WHITE,
@@ -1296,7 +1291,7 @@ func _stage_portrait_custom_word_title(title: String) -> void:
 	_fit_single_line_label_to_width(
 		title_label,
 		title,
-		PORTRAIT_PAGE_TITLE_RECT.size.x,
+		custom_word_title_rect.size.x,
 		_heading_font_size(30),
 		_heading_font_size(20)
 	)
@@ -8549,18 +8544,20 @@ func show_custom_word() -> void:
 	)
 	_stage_portrait_custom_word_title(custom_word_title)
 
-	# Keep the complete action stack above the advertising reserve. The group is
-	# still bottom-attached, so it follows the physical bottom on tall screens.
-	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
+	# The two auxiliary actions belong to the word field, not to the primary CTA.
+	# Keep them in regular screen content so they follow the vertically centered
+	# input on tall screens and sit immediately below it with one shared gap.
+	_stage_portrait_custom_word_field()
+	var custom_word_action_rects: Array[Rect2] = _portrait_custom_word_action_rects()
 	var custom_word_random_button: Control = _stage_round_button(
-		PORTRAIT_CUSTOM_WORD_RANDOM_RECT,
+		custom_word_action_rects[0],
 		Callable(self, "_set_random_custom_word"),
 		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
 	)
 	custom_word_random_button.name = "CustomWordRandomButton"
 	_stage_portrait_hint_art(custom_word_random_button, PORTRAIT_CUSTOM_WORD_RANDOM_ICON)
 	custom_word_check_button = _stage_round_button(
-		PORTRAIT_CUSTOM_WORD_CHECK_RECT,
+		custom_word_action_rects[1],
 		Callable(self, "_check_custom_word_now"),
 		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
 	)
@@ -8568,7 +8565,8 @@ func show_custom_word() -> void:
 	custom_word_check_button.set("disabled_visual_opacity", 1.0)
 	_stage_portrait_hint_art(custom_word_check_button, PORTRAIT_CUSTOM_WORD_CHECK_ICON)
 
-	# Keep the primary action above the banner without drawing a blue footer.
+	# Keep only the primary action attached to the physical bottom above the banner.
+	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
 	# It is 15% wider than before; its font size and vertical geometry are unchanged.
 	custom_word_start_button = _stage_main_button(
 		_portrait_primary_bottom_button_rect(
@@ -8585,7 +8583,6 @@ func show_custom_word() -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
-	_stage_portrait_custom_word_field()
 	_stage_portrait_ad_banner()
 
 func _set_custom_word_checking(is_checking: bool) -> void:
@@ -8639,6 +8636,34 @@ func _return_to_custom_word_from_coin_store() -> void:
 	_preserve_custom_word_on_next_show = true
 	show_custom_word()
 
+func _portrait_custom_word_input_rect() -> Rect2:
+	var custom_word_input_rect: Rect2 = PORTRAIT_CUSTOM_WORD_INPUT_RECT
+	custom_word_input_rect.position.y = (
+		PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)
+		- custom_word_input_rect.size.y
+	) * 0.5
+	return custom_word_input_rect
+
+func _portrait_custom_word_action_rects() -> Array[Rect2]:
+	var custom_word_input_rect: Rect2 = _portrait_custom_word_input_rect()
+	var total_width: float = (
+		PORTRAIT_GAME_HINT_BUTTON_SIZE.x * 2.0
+		+ PORTRAIT_CUSTOM_WORD_ACTION_GAP
+	)
+	var first_position := Vector2(
+		(PORTRAIT_STAGE_SIZE.x - total_width) * 0.5,
+		custom_word_input_rect.end.y + PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP
+	)
+	var random_rect := Rect2(first_position, PORTRAIT_GAME_HINT_BUTTON_SIZE)
+	var check_rect := Rect2(
+		first_position + Vector2(
+			PORTRAIT_GAME_HINT_BUTTON_SIZE.x + PORTRAIT_CUSTOM_WORD_ACTION_GAP,
+			0.0
+		),
+		PORTRAIT_GAME_HINT_BUTTON_SIZE
+	)
+	return [random_rect, check_rect]
+
 func _stage_portrait_custom_word_field() -> void:
 	var word_input := STAGE_WORD_INPUT_SCRIPT.new() as StageWordInput
 	if word_input == null:
@@ -8647,11 +8672,7 @@ func _stage_portrait_custom_word_field() -> void:
 
 	# Set authored geometry before entering the tree. The base control can then
 	# complete _ready() with a real size instead of briefly initializing at 0×0.
-	var custom_word_input_rect: Rect2 = PORTRAIT_CUSTOM_WORD_INPUT_RECT
-	custom_word_input_rect.position.y = (
-		PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)
-		- custom_word_input_rect.size.y
-	) * 0.5
+	var custom_word_input_rect: Rect2 = _portrait_custom_word_input_rect()
 	word_input.stage_rect = custom_word_input_rect
 	content.add_child(word_input)
 
