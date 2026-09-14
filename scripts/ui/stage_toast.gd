@@ -7,13 +7,15 @@ const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const DISPLAY_TEXT_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/display_text_effect.gd")
 
-const TOAST_HEIGHT: float = 40.0
-const TOAST_PARENT_GAP: float = 8.0
-const TOAST_HORIZONTAL_PADDING: float = 10.0
-const TOAST_ICON_TEXT_GAP: float = 5.0
-const TOAST_TEXT_FONT_SIZE: int = 18
+const TOAST_HEIGHT: float = 52.0
+const TOAST_PARENT_GAP: float = 10.4
+const TOAST_HORIZONTAL_PADDING: float = 13.0
+const TOAST_ICON_TEXT_GAP: float = 6.5
+const TOAST_TEXT_FONT_SIZE: int = 23
+const TOAST_ICON_SIZE: float = 31.2
+const TOAST_ICON_STROKE_WIDTH: float = 5.85
 const TOAST_ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
-const TOAST_ENTER_OFFSET: float = 8.0
+const TOAST_ENTER_OFFSET: float = 10.4
 const TOAST_ENTER_DURATION: float = 0.16
 const TOAST_HOLD_DURATION: float = 1.65
 const TOAST_EXIT_DURATION: float = 0.22
@@ -45,11 +47,11 @@ func show_message(message: String, is_success: bool) -> void:
 		hide_message()
 		return
 	_ensure_content()
-	_status_icon.call("configure", is_success, 4.5)
+	_status_icon.call("configure", is_success, TOAST_ICON_STROKE_WIDTH)
 	for shadow_icon: Control in _status_icon_shadow_layers:
 		if shadow_icon != null and is_instance_valid(shadow_icon):
-			shadow_icon.call("configure", is_success, 4.5)
-	_message_label.text = message
+			shadow_icon.call("configure", is_success, TOAST_ICON_STROKE_WIDTH)
+	_message_label.text = message.to_upper()
 	_layout_message()
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()
@@ -133,7 +135,7 @@ func _ensure_content() -> void:
 func _layout_message() -> void:
 	if _status_icon == null or !is_instance_valid(_status_icon):
 		return
-	var icon_width: float = 24.0
+	var icon_width: float = TOAST_ICON_SIZE
 	var message_font: Font = _message_label.get_theme_font("font")
 	var measured_message_width: float = ceilf(message_font.get_string_size(
 		_message_label.text,

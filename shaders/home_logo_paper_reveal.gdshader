@@ -94,6 +94,22 @@ vec4 sample_title(vec2 uv) {
 				// Recolor only the outer shadow fringe. Keep its antialiased alpha,
 				// the letter silhouette and the pencil texture unchanged.
 				ink.rgb = mix(ink.rgb, original_shadow_color.rgb, nearby.x * nearby.y);
+				shadow_weight = max(shadow_weight, nearby.x * nearby.y);
+			}
+
+			if (ink.a > 0.0 && shadow_weight > 0.0) {
+				// Match the English shadow's smaller downward/leftward overhang.
+				// Intersect only the shadow with an inset silhouette: never move or
+				// shrink the lettering. Atlas pixels scale with the existing logo.
+				vec2 inset_uv = uv + vec2(-2.0, 3.0) / vec2(textureSize(title_texture, 0));
+				vec4 inset = texture(title_texture, inset_uv);
+				float matte = inset.g - max(inset.r, inset.b);
+				float coverage = inset.a * (1.0 - smoothstep(0.06, 0.40, matte));
+				coverage *= 1.0 - smoothstep(0.015, 0.08, inset.r - inset.b);
+				float trim_weight = shadow_weight * smoothstep(
+					original_shadow_color.r * 0.50, original_shadow_color.r * 0.80, ink.r
+				);
+				ink.a *= mix(1.0, coverage, trim_weight);
 			}
 
 			if (uv.y > 0.60) {
