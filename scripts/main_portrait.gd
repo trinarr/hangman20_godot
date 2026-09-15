@@ -36,9 +36,6 @@ const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 const HOME_LOGO_PAPER_REVEAL_SCRIPT: GDScript = preload(
 	"res://scripts/ui/home_logo_paper_reveal.gd"
 )
-const REWARD_COIN_SHINE_OVERLAY_SHADER: Shader = preload(
-	"res://shaders/reward_coin_shine_overlay.gdshader"
-)
 
 func _load_runtime_png_texture(path: String) -> Texture2D:
 	# Use Godot's resource loader instead of Image.load_from_file(). In exported
@@ -706,13 +703,6 @@ var PORTRAIT_HEART_POPUP_POLL_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float_ra
 var PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.menu_logo_shine_duration_seconds", 0.72
 )
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_DELAY: float = 0.05
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_DURATION: float = 0.62
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS: float = -0.32
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_END_PROGRESS: float = 1.28
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_WIDTH: float = 0.16
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_STRENGTH: float = 1.0
-const PORTRAIT_FINAL_REWARD_COIN_SHINE_LOOP_DELAY: float = 1.15
 const PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION: float = 0.23
 const PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION: float = 0.44
 const PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY: float = 1.43
@@ -815,7 +805,7 @@ var _portrait_final_reward_double_button: Control = null
 var _portrait_final_reward_continue_button: Control = null
 var _portrait_single_reward_continue_button: Control = null
 var _portrait_reward_double_context: StringName = &""
-var _portrait_reward_ad_request_id: int = 0
+var _portrait_reward_ad_request_id: String = ""
 var _portrait_rewarded_action: StringName = &""
 var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
@@ -4012,7 +4002,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	_persist_active_single_player_quiz_session()
 	_show_quiz_game_screen()
 
-func _record_single_player_quiz_result(is_win: bool) -> void:
+func _record_single_player_quiz_result(is_win: bool, persist: bool = true) -> void:
 	if !_quiz_single_player_embedded or game_finished:
 		return
 	game_finished = true
@@ -4029,7 +4019,8 @@ func _record_single_player_quiz_result(is_win: bool) -> void:
 		result,
 		is_win,
 		true,
-		defer_final_reward
+		defer_final_reward,
+		persist
 	)
 
 func _mark_quiz_question_ready() -> void:
@@ -4882,7 +4873,7 @@ func _reveal_quiz_correct_answer(
 	)
 
 func _on_quiz_answer_selected(answer_index: int) -> void:
-	if _quiz_answer_locked or !_quiz_screen_active:
+	if _quiz_answer_locked or !_quiz_screen_active or (_quiz_single_player_embedded and game_finished):
 		return
 	var correct_index: int = _quiz_correct_answer_index()
 	if (
@@ -4900,9 +4891,9 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	var previous_star_balance: int = GameState.get_stars()
 	var final_star_balance: int = previous_star_balance
 	if speed_reward_amount > 0:
-		final_star_balance = GameState.add_stars(speed_reward_amount, true)
-		# The bonus is already durable, but its HUD value waits for the visual
-		# collection that starts after the answer explanation appears.
+		final_star_balance = GameState.add_stars(speed_reward_amount, false)
+		# Commit the bonus together with the result below; keep the HUD at its
+		# previous value until the visual collection finishes.
 		_set_stage_reward_animated_balance(
 			float(previous_star_balance),
 			GameState.STAGE_REWARD_STARS
@@ -4911,7 +4902,9 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	_quiz_selected_answer_index = answer_index
 	_hide_quiz_exit_button()
 	if _quiz_single_player_embedded:
-		_record_single_player_quiz_result(correct_answer)
+		_record_single_player_quiz_result(correct_answer, false)
+	# One atomic save contains the bonus, answered stage and reward snapshot.
+	GameState.save_game()
 	_disable_quiz_answer_buttons()
 	_hide_quiz_hint_buttons()
 
@@ -11775,7 +11768,6 @@ func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	holder.set_meta(&"reward_chest_flash_overlay", flash_overlay)
 	# Reward shine follows the final visible prize art. The chest is a composite
 	# Control, so publish its open texture explicitly for the overlay effect.
-	holder.set_meta(&"reward_coin_shine_texture", _reward_chest_open_texture())
 	return holder
 
 func _set_reward_chest_icon_open_state(chest_icon: Control, is_open: bool) -> void:
@@ -13367,180 +13359,6 @@ func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: 
 		)
 		detail_layer.self_modulate = darker
 
-func _reward_coin_shine_texture(reward_visual: Control) -> Texture2D:
-	if reward_visual == null or !is_instance_valid(reward_visual):
-		return null
-	# Composite rewards (notably the open level chest) publish the exact texture
-	# that the shine must follow. Resolve that first so no generic property lookup
-	# can prevent the effect from being created on a Control-only holder.
-	if reward_visual.has_meta(&"reward_coin_shine_texture"):
-		var stored_texture: Variant = reward_visual.get_meta(&"reward_coin_shine_texture", null)
-		if stored_texture is Texture2D:
-			return stored_texture as Texture2D
-	var open_visual := _optional_node_meta(
-		reward_visual,
-		&"reward_chest_open_visual"
-	) as TextureRect
-	if open_visual != null and is_instance_valid(open_visual):
-		return open_visual.texture
-	if reward_visual is TextureRect:
-		return (reward_visual as TextureRect).texture
-	# FlashStageTexture exposes a script property named `texture`. Check the
-	# property list before reading it; plain Control holders do not have it.
-	for property_info: Dictionary in reward_visual.get_property_list():
-		if StringName(str(property_info.get("name", ""))) != &"texture":
-			continue
-		var direct_texture: Variant = reward_visual.get("texture")
-		if direct_texture is Texture2D:
-			return direct_texture as Texture2D
-		break
-	return null
-
-func _ensure_reward_coin_shine_overlay(reward_visual: Control) -> TextureRect:
-	if reward_visual == null or !is_instance_valid(reward_visual):
-		return null
-	var overlay := _optional_node_meta(
-		reward_visual,
-		&"reward_coin_shine_overlay"
-	) as TextureRect
-	if overlay == null and reward_visual.has_node("RewardCoinShineOverlay"):
-		overlay = reward_visual.get_node("RewardCoinShineOverlay") as TextureRect
-	if overlay == null or !is_instance_valid(overlay):
-		overlay = TextureRect.new()
-		overlay.name = "RewardCoinShineOverlay"
-		overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		overlay.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# Keep the animated glint above both open/closed chest art and the white
-		# pressure-flash overlay. The previous default z=0 could visually disappear
-		# into equally ranked child layers on the composite chest reward.
-		overlay.z_index = 3
-		overlay.visible = false
-		var shine_material := ShaderMaterial.new()
-		shine_material.shader = REWARD_COIN_SHINE_OVERLAY_SHADER
-		overlay.material = shine_material
-		reward_visual.add_child(overlay)
-		overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		reward_visual.set_meta(&"reward_coin_shine_overlay", overlay)
-	_update_reward_coin_shine_overlay(reward_visual, overlay)
-	return overlay
-
-func _update_reward_coin_shine_overlay(
-	reward_visual: Control,
-	overlay: TextureRect
-) -> void:
-	if (
-		reward_visual == null
-		or !is_instance_valid(reward_visual)
-		or overlay == null
-		or !is_instance_valid(overlay)
-	):
-		return
-	overlay.texture = _reward_coin_shine_texture(reward_visual)
-	var shine_material := overlay.material as ShaderMaterial
-	if shine_material == null:
-		return
-	var aspect_ratio: float = 1.0
-	if reward_visual.size.y > 0.0:
-		aspect_ratio = maxf(reward_visual.size.x / reward_visual.size.y, 0.01)
-	shine_material.set_shader_parameter("aspect_ratio", aspect_ratio)
-	shine_material.set_shader_parameter(
-		"shine_width",
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_WIDTH
-	)
-	shine_material.set_shader_parameter(
-		"shine_strength",
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_STRENGTH
-	)
-	shine_material.set_shader_parameter(
-		"shine_progress",
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS
-	)
-
-func _set_reward_coin_shine_progress(overlay: TextureRect, progress: float) -> void:
-	if overlay == null or !is_instance_valid(overlay):
-		return
-	var shine_material := overlay.material as ShaderMaterial
-	if shine_material == null:
-		return
-	shine_material.set_shader_parameter("shine_progress", progress)
-
-func _reset_reward_coin_shine_overlay(overlay: TextureRect) -> void:
-	if overlay == null or !is_instance_valid(overlay):
-		return
-	overlay.visible = false
-	_set_reward_coin_shine_progress(
-		overlay,
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS
-	)
-
-func _show_reward_coin_shine_overlay(overlay: TextureRect) -> void:
-	if overlay == null or !is_instance_valid(overlay):
-		return
-	_set_reward_coin_shine_progress(
-		overlay,
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS
-	)
-	overlay.visible = true
-
-func _stop_reward_coin_shine(reward_visual: Control) -> void:
-	if reward_visual == null or !is_instance_valid(reward_visual):
-		return
-	var running_tween := _optional_node_meta(
-		reward_visual,
-		&"reward_coin_shine_tween"
-	) as Tween
-	if running_tween != null and running_tween.is_valid():
-		running_tween.kill()
-	reward_visual.set_meta(&"reward_coin_shine_tween", null)
-	_stop_reward_coin_sparkles(reward_visual)
-	var overlay := _optional_node_meta(
-		reward_visual,
-		&"reward_coin_shine_overlay"
-	) as TextureRect
-	if overlay == null and reward_visual.has_node("RewardCoinShineOverlay"):
-		overlay = reward_visual.get_node("RewardCoinShineOverlay") as TextureRect
-	_reset_reward_coin_shine_overlay(overlay)
-
-func _play_reward_coin_shine(reward_visual: Control) -> void:
-	if (
-		reward_visual == null
-		or !is_instance_valid(reward_visual)
-		or !reward_visual.is_inside_tree()
-	):
-		return
-	_stop_reward_coin_shine(reward_visual)
-	_play_reward_coin_sparkles(reward_visual)
-	var overlay: TextureRect = _ensure_reward_coin_shine_overlay(reward_visual)
-	if overlay == null or !is_instance_valid(overlay):
-		return
-	_update_reward_coin_shine_overlay(reward_visual, overlay)
-	if overlay.texture == null:
-		return
-	var shine_tween := reward_visual.create_tween()
-	shine_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	shine_tween.bind_node(reward_visual)
-	shine_tween.set_loops()
-	if PORTRAIT_FINAL_REWARD_COIN_SHINE_DELAY > 0.0:
-		shine_tween.tween_interval(PORTRAIT_FINAL_REWARD_COIN_SHINE_DELAY)
-	shine_tween.tween_callback(
-		Callable(self, "_show_reward_coin_shine_overlay").bind(overlay)
-	)
-	var shine_motion := shine_tween.tween_method(
-		Callable(self, "_set_reward_coin_shine_progress").bind(overlay),
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_START_PROGRESS,
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_END_PROGRESS,
-		PORTRAIT_FINAL_REWARD_COIN_SHINE_DURATION
-	)
-	shine_motion.set_trans(Tween.TRANS_SINE)
-	shine_motion.set_ease(Tween.EASE_IN_OUT)
-	shine_tween.tween_callback(
-		Callable(self, "_reset_reward_coin_shine_overlay").bind(overlay)
-	)
-	if PORTRAIT_FINAL_REWARD_COIN_SHINE_LOOP_DELAY > 0.0:
-		shine_tween.tween_interval(PORTRAIT_FINAL_REWARD_COIN_SHINE_LOOP_DELAY)
-	reward_visual.set_meta(&"reward_coin_shine_tween", shine_tween)
-
 func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
 	var sparkle := Node2D.new()
 	sparkle.name = "RewardCoinSparkle"
@@ -13936,11 +13754,18 @@ func _start_single_player_level_summary_transition_deferred(
 		# Match the quiz entrance: reveal the patterned blue destination backdrop
 		# through the same short sine fade instead of switching it on in one frame.
 		background_overlay.modulate.a = 0.0
-	if (
-		title_panel != null and is_instance_valid(title_panel)
-		and !bool(title_panel.get_meta(&"retained_reward_header", false))
-	):
-		_set_panel_fill_color(PORTRAIT_BLUE, title_panel)
+	if title_panel != null and is_instance_valid(title_panel):
+		var title_style := title_panel.get_theme_stylebox("panel") as StyleBoxFlat
+		if title_style != null:
+			var title_tween := title_panel.create_tween()
+			title_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			var title_fade := title_tween.tween_method(
+				Callable(self, "_set_panel_fill_color").bind(title_panel),
+				title_style.bg_color, PORTRAIT_BLUE,
+				PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION
+			)
+			title_fade.set_trans(Tween.TRANS_SINE)
+			title_fade.set_ease(Tween.EASE_IN_OUT)
 
 	if transition_prize == null or !is_instance_valid(transition_prize) or !transition_prize.is_inside_tree():
 		return
@@ -14607,7 +14432,7 @@ func _start_single_player_stage_coin_reward_transition_deferred(
 	).bind(transition_pack)
 	await _play_final_reward_pack_bounce(transition_pack, peak_callback)
 	if collect_holder != null and is_instance_valid(collect_holder):
-		_play_reward_coin_shine(transition_pack)
+		_play_reward_coin_sparkles(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
 
 func _persist_single_player_level_summary_view() -> void:
@@ -14698,12 +14523,17 @@ func _on_final_reward_double_pressed() -> void:
 		_show_portrait_ad_not_ready_toast()
 		return
 	_connect_final_reward_ad_signals(ads_service)
-	_portrait_reward_ad_request_id += 1
+	_portrait_reward_ad_request_id = GameState.begin_rewarded_double_request(
+		String(_portrait_reward_double_context)
+	)
+	if _portrait_reward_ad_request_id.is_empty():
+		return
 	_portrait_final_reward_waiting_for_ad = true
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
 	_set_final_reward_double_button_enabled(false)
-	if !bool(ads_service.call("show_rewarded_video")):
+	if !bool(ads_service.call("show_rewarded_video", _portrait_reward_ad_request_id)):
+		GameState.cancel_rewarded_double_request(_portrait_reward_ad_request_id)
 		# `show_rewarded_video()` starts preloading when no rewarded ad is ready.
 		# Do not leave the button in a silent pending state: report the miss now,
 		# restore interaction, and let the newly preloaded ad be used on the next tap.
@@ -14729,23 +14559,23 @@ func _connect_final_reward_ad_signals(ads_service: Node) -> void:
 	):
 		ads_service.connect(&"rewarded_video_failed_to_load", load_failed_callback)
 	var rewarded_callback := Callable(self, "_on_final_reward_ad_rewarded")
-	if ads_service.has_signal(&"rewarded") and !ads_service.is_connected(
-		&"rewarded",
+	if ads_service.has_signal(&"rewarded_for_request") and !ads_service.is_connected(
+		&"rewarded_for_request",
 		rewarded_callback
 	):
-		ads_service.connect(&"rewarded", rewarded_callback)
+		ads_service.connect(&"rewarded_for_request", rewarded_callback)
 	var closed_callback := Callable(self, "_on_final_reward_ad_closed")
-	if ads_service.has_signal(&"rewarded_video_closed") and !ads_service.is_connected(
-		&"rewarded_video_closed",
+	if ads_service.has_signal(&"rewarded_video_closed_for_request") and !ads_service.is_connected(
+		&"rewarded_video_closed_for_request",
 		closed_callback
 	):
-		ads_service.connect(&"rewarded_video_closed", closed_callback)
+		ads_service.connect(&"rewarded_video_closed_for_request", closed_callback)
 	var failed_callback := Callable(self, "_on_final_reward_ad_failed_to_show")
-	if ads_service.has_signal(&"rewarded_video_failed_to_show") and !ads_service.is_connected(
-		&"rewarded_video_failed_to_show",
+	if ads_service.has_signal(&"rewarded_video_failed_to_show_for_request") and !ads_service.is_connected(
+		&"rewarded_video_failed_to_show_for_request",
 		failed_callback
 	):
-		ads_service.connect(&"rewarded_video_failed_to_show", failed_callback)
+		ads_service.connect(&"rewarded_video_failed_to_show_for_request", failed_callback)
 
 func _set_final_reward_double_button_enabled(enabled: bool) -> void:
 	if (
@@ -14756,98 +14586,51 @@ func _set_final_reward_double_button_enabled(enabled: bool) -> void:
 		_portrait_final_reward_double_button.set("button_disabled", !enabled)
 
 func _on_final_reward_ad_loaded() -> void:
-	if !_portrait_final_reward_waiting_for_ad:
-		return
-	var ads_service: Node = _portrait_ads_service()
-	var ad_shown: bool = (
-		ads_service != null
-		and ads_service.has_method("show_rewarded_video")
-		and bool(ads_service.call("show_rewarded_video"))
-	)
-	if !ad_shown:
-		_portrait_final_reward_waiting_for_ad = false
-		_portrait_final_reward_earned_ad_reward = false
-		_portrait_final_reward_ad_close_pending = false
-		_set_final_reward_double_button_enabled(true)
-		_show_portrait_ad_not_ready_toast()
-		return
-	GameState.set_fullscreen_ad_active(true)
+	# Loading (including preload after dismissal) never authorizes another show.
+	_set_final_reward_double_button_enabled(!_portrait_final_reward_waiting_for_ad)
 
 func _on_final_reward_ad_failed_to_load(_error_code: int) -> void:
-	if !_portrait_final_reward_waiting_for_ad:
-		return
-	_portrait_final_reward_waiting_for_ad = false
-	GameState.set_fullscreen_ad_active(false)
-	_portrait_final_reward_earned_ad_reward = false
-	_portrait_final_reward_ad_close_pending = false
-	_set_final_reward_double_button_enabled(true)
-	_show_portrait_ad_not_ready_toast()
+	# A background preload failure is unrelated to the reward of the last show.
+	_set_final_reward_double_button_enabled(!_portrait_final_reward_waiting_for_ad)
 
-func _on_final_reward_ad_rewarded(_currency: String, _amount: int) -> void:
+func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount: int) -> void:
+	# A receipt survives dismissal and navigation. Only its original target can
+	# receive this bonus; repeated callbacks (or retries for it) grant it once.
+	var receipt: Dictionary = GameState.claim_rewarded_double_request(request_id)
+	if receipt.is_empty():
+		return
+	_set_stage_reward_animated_balance(float(GameState.get_soft_currency()), GameState.STAGE_REWARD_COINS)
+	GameState.reset_interstitial_timer(true)
 	if (
-		!_portrait_final_reward_waiting_for_ad
-		or _portrait_final_reward_earned_ad_reward
+		!bool(receipt.get("is_current", false))
+		or str(receipt.get("context", "")) != String(_portrait_reward_double_context)
 	):
 		return
 	_portrait_final_reward_earned_ad_reward = true
-	var ad_already_closed: bool = _portrait_final_reward_ad_close_pending
-	if _portrait_reward_double_context == &"stage_coin":
-		GameState.resolve_active_single_player_stage_reward_double(true, true)
-		_set_stage_reward_animated_balance(
-			float(GameState.get_soft_currency()),
-			GameState.STAGE_REWARD_COINS
-		)
-		GameState.reset_interstitial_timer(true)
-		if ad_already_closed:
-			_finish_single_player_stage_coin_reward_offer()
-		return
-	GameState.claim_pending_single_player_reward(2)
-	_set_stage_reward_animated_balance(float(GameState.get_soft_currency()), GameState.STAGE_REWARD_COINS)
-	GameState.reset_interstitial_timer(true)
-	if ad_already_closed:
-		_finish_single_player_final_reward_claim()
-
-func _resolve_final_reward_ad_close_without_reward(request_id: int) -> void:
-	# Give a late `rewarded` signal a short grace window after Android restores
-	# the game view. This also lets viewport/safe-area resizing settle before the
-	# final-reward screen resumes.
-	await get_tree().create_timer(
-		PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS,
-		true,
-		false,
-		true
-	).timeout
-	if (
-		request_id != _portrait_reward_ad_request_id
-		or !_portrait_final_reward_waiting_for_ad
-		or !_portrait_final_reward_ad_close_pending
-	):
-		return
-	_portrait_final_reward_ad_close_pending = false
-	if _portrait_final_reward_earned_ad_reward:
+	if !_portrait_final_reward_waiting_for_ad and _portrait_rewarded_action == &"":
 		if _portrait_reward_double_context == &"stage_coin":
 			_finish_single_player_stage_coin_reward_offer()
 		else:
 			_finish_single_player_final_reward_claim()
-	else:
-		_portrait_final_reward_waiting_for_ad = false
-		_set_final_reward_double_button_enabled(true)
 
-func _on_final_reward_ad_closed() -> void:
-	if !_portrait_final_reward_waiting_for_ad:
+func _on_final_reward_ad_closed(request_id: String) -> void:
+	if request_id != _portrait_reward_ad_request_id or !_portrait_final_reward_waiting_for_ad:
 		return
 	GameState.set_fullscreen_ad_active(false)
+	_portrait_final_reward_waiting_for_ad = false
+	_portrait_final_reward_ad_close_pending = true
 	if _portrait_final_reward_earned_ad_reward:
 		if _portrait_reward_double_context == &"stage_coin":
 			_finish_single_player_stage_coin_reward_offer()
 		else:
 			_finish_single_player_final_reward_claim()
 		return
-	_portrait_final_reward_ad_close_pending = true
-	call_deferred("_resolve_final_reward_ad_close_without_reward", _portrait_reward_ad_request_id)
+	# Release the UI immediately, but keep the receipt for a late confirmation.
+	_set_final_reward_double_button_enabled(true)
 
-func _on_final_reward_ad_failed_to_show(_message: String) -> void:
-	if !_portrait_final_reward_waiting_for_ad:
+func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) -> void:
+	GameState.cancel_rewarded_double_request(request_id)
+	if request_id != _portrait_reward_ad_request_id or !_portrait_final_reward_waiting_for_ad:
 		return
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
@@ -15808,11 +15591,11 @@ func _show_single_player_reward_chain_screen() -> void:
 				collect_button,
 				false
 			)
-			var reward_shine_callback := Callable()
+			var reward_sparkles_callback := Callable()
 			if collect_holder != null and is_instance_valid(collect_holder):
-				reward_shine_callback = Callable(
+				reward_sparkles_callback = Callable(
 					self,
-					"_play_reward_coin_shine"
+					"_play_reward_coin_sparkles"
 				).bind(transition_pack)
 			final_reward_completion = Callable(
 				self,
@@ -15829,7 +15612,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				action_reveal_callback,
 				pack_peak_callback,
 				use_completion_chest,
-				reward_shine_callback
+				reward_sparkles_callback
 			)
 		else:
 			var reward_content: Control = _portrait_begin_bottom_attached_group()

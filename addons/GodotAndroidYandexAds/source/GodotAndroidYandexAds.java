@@ -79,6 +79,9 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         signals.add(new SignalInfo("_on_rewarded_video_ad_dismissed"));
         signals.add(new SignalInfo("_on_rewarded_video_ad_clicked"));
         signals.add(new SignalInfo("_on_rewarded", String.class, Integer.class));
+        signals.add(new SignalInfo("_on_rewarded_for_request", String.class, String.class, Integer.class));
+        signals.add(new SignalInfo("_on_rewarded_closed_for_request", String.class));
+        signals.add(new SignalInfo("_on_rewarded_failed_for_request", String.class, String.class));
 
         signals.add(new SignalInfo("_on_interstitial_loaded"));
         signals.add(new SignalInfo("_on_interstitial_failed_to_load", Integer.class));
@@ -283,16 +286,23 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void showRewardedVideo() {
+        showRewardedVideoForRequest("");
+    }
+
+    @UsedByGodot
+    public void showRewardedVideoForRequest(final String requestId) {
         activity.runOnUiThread(() -> {
-            if (rewardedAd == null) {
+            final RewardedAd shownAd = rewardedAd;
+            if (shownAd == null) {
+                emitSignal("_on_rewarded_failed_for_request", requestId, "Rewarded ad is not ready");
                 return;
             }
-            rewardedAd.setAdEventListener(createRewardedEventListener());
-            rewardedAd.show(activity);
+            shownAd.setAdEventListener(createRewardedEventListener(requestId, shownAd));
+            shownAd.show(activity);
         });
     }
 
-    private RewardedAdEventListener createRewardedEventListener() {
+    private RewardedAdEventListener createRewardedEventListener(final String requestId, final RewardedAd shownAd) {
         return new RewardedAdEventListener() {
             @Override
             public void onAdShown() {
@@ -301,13 +311,15 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
             @Override
             public void onAdFailedToShow(AdError error) {
-                rewardedAd = null;
+                if (rewardedAd == shownAd) { rewardedAd = null; }
+                emitSignal("_on_rewarded_failed_for_request", requestId, error.getDescription());
                 emitSignal("_on_rewarded_video_ad_failed_to_show", error.getDescription());
             }
 
             @Override
             public void onAdDismissed() {
-                rewardedAd = null;
+                if (rewardedAd == shownAd) { rewardedAd = null; }
+                emitSignal("_on_rewarded_closed_for_request", requestId);
                 emitSignal("_on_rewarded_video_ad_dismissed");
             }
 
@@ -323,6 +335,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
             @Override
             public void onRewarded(Reward reward) {
+                emitSignal("_on_rewarded_for_request", requestId, reward.getType(), reward.getAmount());
                 emitSignal("_on_rewarded", reward.getType(), reward.getAmount());
             }
         };

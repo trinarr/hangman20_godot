@@ -136,6 +136,7 @@ var progress: Dictionary = {}
 var single_player: Dictionary = {}
 var active_single_player_session: Dictionary = {}
 var pending_single_player_reward: Dictionary = {}
+var rewarded_double_requests: Dictionary = {}
 var hint_counts: Dictionary = {
 	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
 	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
@@ -318,6 +319,7 @@ func load_game() -> void:
 	pending_single_player_reward = _normalize_pending_single_player_reward(
 		parsed.get("pending_single_player_reward", {})
 	)
+	_load_rewarded_double_requests(parsed.get("rewarded_double_requests", {}))
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
 	_load_coin_refill_ad_state_from_save(parsed)
@@ -438,6 +440,7 @@ func save_game() -> bool:
 		"single_player": single_player,
 		"active_single_player_session": active_single_player_session,
 		"pending_single_player_reward": pending_single_player_reward,
+		"rewarded_double_requests": rewarded_double_requests,
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
 		"stars": stars,
@@ -534,6 +537,7 @@ func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
 		return {}
 	return {
 		"claim_id": str(pending.get("claim_id", "%s:%d" % [word_language, level_index])),
+		"ad_reward_id": str(pending.get("ad_reward_id", "")),
 		"language": _normalize_language(str(pending.get("language", word_language))),
 		"level_index": level_index,
 		"word_count": word_count,
@@ -742,6 +746,114 @@ func resolve_pending_single_player_reward_double(grant_bonus: bool, persist: boo
 	if persist:
 		save_game()
 	return credited_amount
+
+# Each native show carries a durable request id. The receipt captures the amount
+# and target before showing, so a delayed callback cannot credit the next level.
+func _rewarded_double_target(context: String) -> Dictionary:
+	var source: Dictionary = {}
+	var amount: int = 0
+	var claimed: bool = false
+	var resolved: bool = true
+	var granted: bool = false
+	var reward_id: String = ""
+	if context == "final":
+		source = pending_single_player_reward
+		reward_id = str(source.get("ad_reward_id", ""))
+		amount = int(source.get("amount", 0))
+		claimed = bool(source.get("claimed", false))
+		resolved = bool(source.get("double_resolved", false))
+		granted = bool(source.get("double_claimed", false))
+	elif context == "stage_coin":
+		source = active_single_player_session
+		reward_id = str(Dictionary(source.get("data", {})).get("reward_ad_id", ""))
+		var reward: Dictionary = get_active_single_player_stage_reward()
+		if str(reward.get("currency", "")) != STAGE_REWARD_COINS:
+			return {}
+		amount = int(reward.get("amount", 0))
+		claimed = bool(reward.get("claimed", false))
+		resolved = bool(reward.get("double_resolved", false))
+		granted = bool(reward.get("double_claimed", false))
+	if source.is_empty() or amount <= 0 or !claimed:
+		return {}
+	return {
+		"target": "%s:%s:%d:%d:%s" % [context, str(source.get("language", word_language)),
+			int(source.get("level_index", -1)), int(source.get("word_slot", -1)), reward_id],
+		"context": context, "amount": amount, "resolved": resolved, "granted": granted,
+	}
+
+func begin_rewarded_double_request(context: String) -> String:
+	var target: Dictionary = _rewarded_double_target(context)
+	if target.is_empty() or bool(target.get("resolved", true)):
+		return ""
+	var request_id: String = "double:%s:%d:%d" % [str(Time.get_unix_time_from_system()), Time.get_ticks_usec(), randi()]
+	# The same level/slot can be replayed. Give each actual payout its own id.
+	if context == "final":
+		if str(pending_single_player_reward.get("ad_reward_id", "")).is_empty():
+			pending_single_player_reward["ad_reward_id"] = request_id
+	else:
+		var data: Dictionary = active_single_player_session["data"]
+		if str(data.get("reward_ad_id", "")).is_empty():
+			data["reward_ad_id"] = request_id
+	target = _rewarded_double_target(context)
+	rewarded_double_requests[request_id] = target
+	if !save_game():
+		rewarded_double_requests.erase(request_id)
+		return ""
+	return request_id
+
+func cancel_rewarded_double_request(request_id: String) -> void:
+	if rewarded_double_requests.has(request_id) and !bool(rewarded_double_requests[request_id].get("granted", false)):
+		rewarded_double_requests.erase(request_id)
+		save_game()
+
+func claim_rewarded_double_request(request_id: String) -> Dictionary:
+	var request: Dictionary = rewarded_double_requests.get(request_id, {})
+	if request.is_empty() or bool(request.get("granted", false)):
+		return {}
+	var context: String = str(request.get("context", ""))
+	var current: Dictionary = _rewarded_double_target(context)
+	var is_current: bool = !current.is_empty() and current.get("target") == request.get("target")
+	var already_granted: bool = is_current and bool(current.get("granted", false))
+	# Mark every retry for this reward as paid in the same save as the balance.
+	for other_id: Variant in rewarded_double_requests:
+		var other: Dictionary = rewarded_double_requests[other_id]
+		if other.get("target") == request.get("target"):
+			already_granted = already_granted or bool(other.get("granted", false))
+	for other_id: Variant in rewarded_double_requests:
+		var other: Dictionary = rewarded_double_requests[other_id]
+		if other.get("target") == request.get("target"):
+			other["granted"] = true
+	if is_current:
+		if context == "final":
+			pending_single_player_reward["double_resolved"] = true
+			pending_single_player_reward["double_claimed"] = true
+		else:
+			var data: Dictionary = active_single_player_session["data"]
+			data["reward_double_resolved"] = true
+			data["reward_double_claimed"] = true
+	var before: int = get_soft_currency()
+	if !already_granted:
+		add_soft_currency(int(request["amount"]), false)
+	save_game()
+	return {"context": context, "is_current": is_current, "amount": get_soft_currency() - before}
+
+func _load_rewarded_double_requests(source: Variant) -> void:
+	rewarded_double_requests = {}
+	if !(source is Dictionary):
+		return
+	for request_id: Variant in source:
+		var item: Variant = source[request_id]
+		if !(item is Dictionary):
+			continue
+		var context: String = str(item.get("context", ""))
+		var target: String = str(item.get("target", ""))
+		var amount: int = clampi(int(item.get("amount", 0)), 0, MAX_SINGLE_REWARD)
+		if str(request_id).is_empty() or target.is_empty() or amount <= 0 or !["final", "stage_coin"].has(context):
+			continue
+		rewarded_double_requests[str(request_id)] = {
+			"context": context, "target": target, "amount": amount,
+			"granted": bool(item.get("granted", false)),
+		}
 
 func _normalize_single_player_buckets() -> void:
 	if !(single_player is Dictionary):
