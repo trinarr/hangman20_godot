@@ -1,7 +1,7 @@
 # Godot Android Yandex Ads — project fork
 
 This addon is based on `noctisalamandra/godot-yandex-ads-android` (MIT) and is
-adapted for Godot 4.7 and Yandex Mobile Ads SDK 8.2.0.
+adapted for Godot 4.7 and Yandex Mobile Ads SDK 8.4.0.
 
 The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by
