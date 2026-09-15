@@ -6,14 +6,14 @@ const ROBOTO_FLEX_PATH: String = "res://" + "fonts/RobotoFlex-Variable.ttf"
 # Headings.
 const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 780.0
 const ROBOTO_FLEX_DISPLAY_WIDTH: float = 35.0
-const ROBOTO_FLEX_DISPLAY_MIN_WIDTH: float = 10.0
+const ROBOTO_FLEX_DISPLAY_MIN_WIDTH: float = 25.0
 const ROBOTO_FLEX_DISPLAY_GRADE: float = -10.0
 const ROBOTO_FLEX_DISPLAY_THIN_STROKE: float = 90.0
 
 # Buttons: preserve the current tuning from the supplied ui_fonts.gd.
 const ROBOTO_FLEX_BUTTON_WEIGHT: float = 680.0
 const ROBOTO_FLEX_BUTTON_WIDTH: float = 25.0
-const ROBOTO_FLEX_BUTTON_MIN_WIDTH: float = 10.0
+const ROBOTO_FLEX_BUTTON_MIN_WIDTH: float = 25.0
 const ROBOTO_FLEX_BUTTON_GRADE: float = -30.0
 const ROBOTO_FLEX_BUTTON_THIN_STROKE: float = 80.0
 
