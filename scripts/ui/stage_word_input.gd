@@ -6,11 +6,14 @@ signal input_submitted(value: String)
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
+const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
 
 const STAGE_SIZE := Vector2(480.0, 800.0)
-const EMPTY_PREVIEW_SLOTS: int = 5
 const MIN_FONT_SIZE: int = 18
+const INPUT_TEXT_SIDE_PADDING: float = 16.0
+const MARKER_BASE_ALPHA: float = 0.35
+const MARKER_DETAIL_ALPHA: float = 0.70
 const KEYBOARD_SAFE_MARGIN_STAGE: float = 24.0
 # Match the exact gameplay reveal bounce used when a correct guessed letter
 # appears on the word strip.
@@ -26,18 +29,22 @@ var avoid_virtual_keyboard: bool = false:
 	set(value):
 		avoid_virtual_keyboard = value
 		set_process(avoid_virtual_keyboard and _has_input_focus)
-var text_color: Color = UI_PALETTE.UI_BLUE:
+var text_color: Color = Color.WHITE:
 	set(value):
 		text_color = value
-		_rebuild_visuals()
-var underline_color: Color = UI_PALETTE.ACCENT_ORANGE:
+		_apply_display_text_style()
+var marker_color: Color = UI_PALETTE.MARKER_INFO:
 	set(value):
-		underline_color = value
-		_rebuild_visuals()
+		marker_color = value
+		_apply_marker_tint()
+		_apply_display_text_style()
 
 var _line_edit: LineEdit = null
 var _visual_text: String = ""
+var _display_content_width: float = -1.0
 var _visual_root: Control = null
+var _display_label: Label = null
+var _marker_node: Node2D = null
 var _has_input_focus: bool = false
 var _validation_toast: Control = null
 var _word_bounce_tweens: Array[Tween] = []
@@ -56,6 +63,20 @@ func configure(initial_text: String, maximum_length: int = 20, font_size: int = 
 func get_line_edit() -> LineEdit:
 	_ensure_nodes()
 	return _line_edit
+
+
+func set_marker_node(marker: Node2D) -> void:
+	_marker_node = marker
+	_apply_marker_tint()
+
+func set_display_content_width(width: float) -> void:
+	# The transparent native LineEdit deliberately remains full-width for IME/focus.
+	# Only the rendered word is constrained to the visible marker underneath it.
+	_display_content_width = maxf(width, 1.0)
+	_rebuild_visuals()
+
+func set_marker_tint(color: Color) -> void:
+	marker_color = color
 
 func set_display_text(value: String) -> void:
 	# Keep the visible, normalized word separate from the native LineEdit buffer.
@@ -280,68 +301,114 @@ func _rebuild_visuals() -> void:
 	for child: Node in _visual_root.get_children():
 		_visual_root.remove_child(child)
 		child.queue_free()
+	_display_label = null
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
 
-	var value: String = _visual_text
-	var slots := PackedStringArray()
-	if value.is_empty():
-		for _slot_index: int in range(EMPTY_PREVIEW_SLOTS):
-			slots.append("")
-	else:
-		for character_index: int in range(value.length()):
-			slots.append(value.substr(character_index, 1))
+	# The two-player input now uses the same visual language as the screen title:
+	# one centered display label over a hand-drawn marker. The native LineEdit
+	# remains transparent above it so Android/iOS IME composition is untouched.
+	var display_value: String = WORD_SLOT_LAYOUT_SCRIPT.display_text(_visual_text)
+	if display_value.is_empty():
+		return
 
-	# Resolve the same font axes, center rhythm, separators and underline geometry
-	# as gameplay. Input text is passed directly; GameSession is never modified.
-	var resolved: Dictionary = WORD_SLOT_LAYOUT_SCRIPT.new(slots).resolve(size, input_font_size)
-	var items: Array = resolved["items"]
-	var word_font: Font = resolved["font"]
-	var resolved_font_size: int = int(resolved["font_size"])
-	var underline_width: float = float(resolved["underline_width"])
-	var underline_height: float = float(resolved["underline_height"])
-	var start_x: float = float(resolved["start_x"])
-	var baseline_y: float = float(resolved["baseline_y"])
-	for slot_index: int in range(slots.size()):
-		var character: String = slots[slot_index]
-		var item: Dictionary = items[slot_index]
-		var slot_width: float = float(item["width"])
-		var x: float = start_x + float(item["left"])
-		var center_x: float = start_x + float(item["center"])
-		var is_space: bool = character == " "
-		var is_separator: bool = character == "—" or character == "-"
-		var is_active_slot: bool = (
-			(value.is_empty() and slot_index == 0)
-			or (
-				!value.is_empty()
-				and slot_index == value.length()
-				and value.length() < max_input_length
-			)
+	var content_width: float = size.x
+	if _display_content_width > 0.0:
+		content_width = minf(_display_content_width, size.x)
+	var text_area_width: float = maxf(
+		content_width - INPUT_TEXT_SIDE_PADDING * 2.0,
+		1.0
+	)
+	var label := Label.new()
+	label.name = "InputText"
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.position = Vector2((size.x - text_area_width) * 0.5, 0.0)
+	label.size = Vector2(text_area_width, size.y)
+	label.text = display_value
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	label.clip_text = false
+	var fit: Dictionary = _resolved_display_font(display_value, label.size.x)
+	label.add_theme_font_override("font", fit["font"] as Font)
+	label.add_theme_font_size_override("font_size", int(fit["font_size"]))
+	label.add_theme_color_override("font_color", text_color)
+	label.set_meta(&"word_slot_index", 0)
+	_visual_root.add_child(label)
+	_display_label = label
+	_apply_display_text_style()
+
+func _resolved_display_font(value: String, available_width: float) -> Dictionary:
+	var resolved_size: int = maxi(input_font_size, MIN_FONT_SIZE)
+	var resolved_width: float = UI_FONTS.ROBOTO_FLEX_DISPLAY_WIDTH
+	var font: Font = UI_FONTS.display_font_with_width(resolved_width)
+
+	# Stage 1: preserve the authored 40 px input size and spend the Roboto Flex
+	# width axis first. This keeps longer words visually large instead of making
+	# them immediately shorter in height as soon as they approach the marker edge.
+	while resolved_width > UI_FONTS.ROBOTO_FLEX_DISPLAY_MIN_WIDTH:
+		var measured_width: float = font.get_string_size(
+			value,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			resolved_size
+		).x
+		if measured_width <= available_width:
+			return {"font": font, "font_size": resolved_size}
+		resolved_width -= 1.0
+		font = UI_FONTS.display_font_with_width(resolved_width)
+
+	# Measure once at the minimum width before changing point size.
+	var measured_at_min_width: float = font.get_string_size(
+		value,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		resolved_size
+	).x
+	if measured_at_min_width <= available_width:
+		return {"font": font, "font_size": resolved_size}
+
+	# Stage 2: keep wdth pinned to 20 and only now reduce font size.
+	while resolved_size > MIN_FONT_SIZE:
+		resolved_size -= 1
+		var measured_width: float = font.get_string_size(
+			value,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			resolved_size
+		).x
+		if measured_width <= available_width:
+			break
+	return {"font": font, "font_size": resolved_size}
+
+func _apply_display_text_style() -> void:
+	if _display_label == null or !is_instance_valid(_display_label):
+		return
+	_display_label.add_theme_color_override("font_color", text_color)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display_tinted(
+		_display_label,
+		marker_color.darkened(0.42),
+		marker_color.darkened(0.62)
+	)
+
+func _apply_marker_tint() -> void:
+	if _marker_node == null or !is_instance_valid(_marker_node):
+		return
+	var base_layer := _marker_node.get_node_or_null("BaseLayer") as CanvasGroup
+	if base_layer != null and is_instance_valid(base_layer):
+		base_layer.self_modulate = Color(
+			marker_color.r,
+			marker_color.g,
+			marker_color.b,
+			MARKER_BASE_ALPHA
 		)
-		if !is_space and !is_separator:
-			var line := ColorRect.new()
-			line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			line.color = underline_color.lightened(0.16) if is_active_slot and _has_input_focus else underline_color
-			line.position = Vector2(
-				center_x - underline_width * 0.5,
-				baseline_y
-			)
-			line.size = Vector2(underline_width, underline_height)
-			_visual_root.add_child(line)
-		if !character.is_empty() and !is_space:
-			var label := Label.new()
-			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			label.position = Vector2(x, 0.0)
-			label.size = Vector2(slot_width, size.y - 10.0)
-			label.text = WORD_SLOT_LAYOUT_SCRIPT.display_text(character)
-			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-			label.autowrap_mode = TextServer.AUTOWRAP_OFF
-			label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-			# Match gameplay: allow the reveal bounce to extend beyond the glyph box.
-			label.clip_text = false
-			label.add_theme_font_override("font", word_font)
-			label.add_theme_font_size_override("font_size", resolved_font_size)
-			label.add_theme_color_override("font_color", text_color)
-			label.set_meta(&"word_slot_index", slot_index)
-			_visual_root.add_child(label)
+	var detail_layer := _marker_node.get_node_or_null("DetailLayer") as CanvasGroup
+	if detail_layer != null and is_instance_valid(detail_layer):
+		var darker_marker: Color = marker_color.darkened(0.10)
+		detail_layer.self_modulate = Color(
+			darker_marker.r,
+			darker_marker.g,
+			darker_marker.b,
+			MARKER_DETAIL_ALPHA
+		)

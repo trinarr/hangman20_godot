@@ -616,7 +616,7 @@ var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.ge
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(24.0, 0.0, 432.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_ACTION_GAP: float = 22.0
-const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 38.6
+const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 28.6
 
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
@@ -1242,63 +1242,28 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 	)
 
 func _stage_portrait_custom_word_title(title: String) -> void:
-	# Keep the original authored title position, only 30 px lower. This preserves
-	# the previous top-area composition without tying the heading to the centered
-	# word field on taller screens.
+	# Keep the original authored title position, only 30 px lower. The two-player
+	# word-entry heading intentionally uses the secondary UI typeface without the
+	# display/button shader treatment or the marker background.
 	const TITLE_Y_OFFSET: float = 30.0
-	# Match the result-word presentation: a hand-drawn colored marker sits behind
-	# white display text, while the normal button/display shader geometry supplies
-	# the outline and extrusion. This screen uses an informational sky-blue tint.
-	var marker_rect := Rect2(62.0, 99.0 + TITLE_Y_OFFSET, 356.0, 52.0)
-	var marker_holder := _stage_holder(marker_rect, Control.MOUSE_FILTER_IGNORE)
-	marker_holder.name = "CustomWordTitleMarkerHolder"
-	marker_holder.z_index = 0
-	var marker := _stage_portrait_result_word_marker(marker_holder.size)
-	marker.name = "CustomWordTitleMarker"
-	marker_holder.add_child(marker)
-
-	var marker_color: Color = PORTRAIT_UI_PALETTE.MARKER_INFO
-	var base_layer := marker.get_node_or_null("BaseLayer") as CanvasGroup
-	if base_layer != null and is_instance_valid(base_layer):
-		base_layer.self_modulate = Color(
-			marker_color.r,
-			marker_color.g,
-			marker_color.b,
-			0.35
-		)
-	var detail_layer := marker.get_node_or_null("DetailLayer") as CanvasGroup
-	if detail_layer != null and is_instance_valid(detail_layer):
-		var darker_marker: Color = marker_color.darkened(0.10)
-		detail_layer.self_modulate = Color(
-			darker_marker.r,
-			darker_marker.g,
-			darker_marker.b,
-			0.70
-		)
-
 	var custom_word_title_rect: Rect2 = PORTRAIT_PAGE_TITLE_RECT
 	custom_word_title_rect.position.y += TITLE_Y_OFFSET
-	var title_label := _stage_heading_label(
+	var title_label := _stage_label(
 		custom_word_title_rect,
 		title,
-		30,
-		Color.WHITE,
+		_heading_font_size(30),
+		PORTRAIT_BLUE,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	title_label.name = "CustomWordTitleLabel"
+	title_label.add_theme_font_override("font", UI_HEADING_FONT)
 	title_label.clip_text = false
-	title_label.z_index = 2
 	_fit_single_line_label_to_width(
 		title_label,
 		title,
 		custom_word_title_rect.size.x,
 		_heading_font_size(30),
 		_heading_font_size(20)
-	)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_display_tinted(
-		title_label,
-		marker_color.darkened(0.42),
-		marker_color.darkened(0.62)
 	)
 
 func _portrait_resource_counter_panel_rect(
@@ -8674,12 +8639,29 @@ func _stage_portrait_custom_word_field() -> void:
 	# complete _ready() with a real size instead of briefly initializing at 0×0.
 	var custom_word_input_rect: Rect2 = _portrait_custom_word_input_rect()
 	word_input.stage_rect = custom_word_input_rect
+
+	# Reuse the exact marker artwork from the "Input the word" heading. Keep the
+	# input marker at a fixed width, but make it another 15% taller than the
+	# previous 15%-enlarged version. The native LineEdit keeps the full field
+	# rect so IME/focus behavior is unaffected.
+	var marker_size := Vector2(356.0, 52.0 * 1.15 * 1.15)
+	var marker_holder := Control.new()
+	marker_holder.name = "CustomWordInputMarkerHolder"
+	marker_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	marker_holder.position = (custom_word_input_rect.size - marker_size) * 0.5
+	marker_holder.size = marker_size
+	word_input.add_child(marker_holder)
+	var marker := _stage_portrait_result_word_marker(marker_size)
+	marker.name = "CustomWordInputMarker"
+	marker_holder.add_child(marker)
+	word_input.set_marker_node(marker)
+	word_input.set_display_content_width(marker_size.x)
+
 	content.add_child(word_input)
 
-	# Theme-dependent child controls are configured only after the component is
-	# inside the scene tree. This also keeps an input failure from hiding the
-	# already-created Check, Random and Start actions.
-	word_input.configure(custom_word_text, CUSTOM_WORD_MAX_LENGTH, 34)
+	# Increase the input marker text by another ~15% over the previous 35 px.
+	# Long custom words are still shrunk only when they need extra horizontal room.
+	word_input.configure(custom_word_text, CUSTOM_WORD_MAX_LENGTH, 40)
 	word_input.avoid_virtual_keyboard = true
 	_portrait_custom_word_input = word_input
 	custom_word_input_visual = word_input
