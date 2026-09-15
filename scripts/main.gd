@@ -120,11 +120,12 @@ const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/f
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
-const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
+const UI_SECONDARY_BOLD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 var UI_DISPLAY_FONT: Font = UI_FONTS.display_font()
 var UI_BUTTON_FONT: Font = UI_FONTS.button_font()
 var UI_REGULAR_FONT: Font = UI_FONTS.regular_font()
+var UI_PRIMARY_FONT: Font = UI_FONTS.regular_font()
 var UI_QUESTION_COMMENT_FONT: Font = UI_FONTS.question_comment_font()
 const UI_HEADING_FONT_SCALE: float = 1.12
 
@@ -427,7 +428,7 @@ func _build_root() -> void:
 	ui_audio_player.name = "UIAudio"
 	add_child(ui_audio_player)
 
-func _clear() -> void:
+func _clear(preserved_content: Control = null) -> void:
 	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
@@ -454,6 +455,8 @@ func _clear() -> void:
 	custom_word_edit = null
 	custom_word_input_visual = null
 	for child: Node in ui.get_children():
+		if child == preserved_content:
+			continue
 		ui.remove_child(child)
 		child.queue_free()
 	content = Control.new()
