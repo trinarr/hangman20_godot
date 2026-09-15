@@ -613,7 +613,7 @@ var PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_
 var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.word_letters.settle_seconds", 0.24
 )
-const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(24.0, 0.0, 432.0, 72.0)
+const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(8.0, 0.0, 464.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
 const PORTRAIT_CUSTOM_WORD_ACTION_GAP: float = 22.0
 const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 28.6
@@ -8641,10 +8641,10 @@ func _stage_portrait_custom_word_field() -> void:
 	word_input.stage_rect = custom_word_input_rect
 
 	# Reuse the exact marker artwork from the "Input the word" heading. Keep the
-	# input marker at a fixed width, but make it another 15% taller than the
-	# previous 15%-enlarged version. The native LineEdit keeps the full field
-	# rect so IME/focus behavior is unaffected.
-	var marker_size := Vector2(356.0, 52.0 * 1.15 * 1.15)
+	# input marker at its existing 420 px width and twice-enlarged vertical size.
+	# Its brush strokes extend beyond that box; text uses the wider field below
+	# to avoid large blank margins while retaining a small screen-edge inset.
+	var marker_size := Vector2(420.0, 52.0 * 1.15 * 1.15)
 	var marker_holder := Control.new()
 	marker_holder.name = "CustomWordInputMarkerHolder"
 	marker_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -8655,7 +8655,7 @@ func _stage_portrait_custom_word_field() -> void:
 	marker.name = "CustomWordInputMarker"
 	marker_holder.add_child(marker)
 	word_input.set_marker_node(marker)
-	word_input.set_display_content_width(marker_size.x)
+	word_input.set_display_content_width(custom_word_input_rect.size.x)
 
 	content.add_child(word_input)
 

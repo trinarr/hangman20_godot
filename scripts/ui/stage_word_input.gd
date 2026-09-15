@@ -10,8 +10,11 @@ const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
 
 const STAGE_SIZE := Vector2(480.0, 800.0)
-const MIN_FONT_SIZE: int = 18
-const INPUT_TEXT_SIDE_PADDING: float = 16.0
+const MIN_FONT_SIZE: int = 24
+const INPUT_TEXT_SIDE_PADDING: float = 2.0
+# Keep glyph proportions readable; do not bypass this axis floor with scale.x.
+const INPUT_MIN_WIDTH: float = 30.0
+const INPUT_TEXT_EFFECT_PADDING: float = 12.0
 const MARKER_BASE_ALPHA: float = 0.35
 const MARKER_DETAIL_ALPHA: float = 0.70
 const KEYBOARD_SAFE_MARGIN_STAGE: float = 24.0
@@ -71,7 +74,7 @@ func set_marker_node(marker: Node2D) -> void:
 
 func set_display_content_width(width: float) -> void:
 	# The transparent native LineEdit deliberately remains full-width for IME/focus.
-	# Only the rendered word is constrained to the visible marker underneath it.
+	# Only the rendered word is constrained to the supplied display area.
 	_display_content_width = maxf(width, 1.0)
 	_rebuild_visuals()
 
@@ -114,14 +117,16 @@ func _play_letter_bounce_from_slot(first_slot_index: int) -> void:
 		var slot_index: int = int(label.get_meta(&"word_slot_index", -1))
 		if slot_index < first_slot_index:
 			continue
+		var rest_scale: Vector2 = label.get_meta(&"input_rest_scale", Vector2.ONE)
+		var peak_x: float = float(label.get_meta(&"input_bounce_peak_x", WORD_BOUNCE_PEAK_SCALE.x))
 		label.pivot_offset = label.size * 0.5
-		label.scale = WORD_BOUNCE_START_SCALE
+		label.scale = rest_scale * WORD_BOUNCE_START_SCALE
 		var bounce_tween := label.create_tween()
 		bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		var grow_tweener: PropertyTweener = bounce_tween.tween_property(
 			label,
 			"scale",
-			WORD_BOUNCE_PEAK_SCALE,
+			rest_scale * Vector2(peak_x, WORD_BOUNCE_PEAK_SCALE.y),
 			WORD_BOUNCE_GROW_DURATION
 		)
 		grow_tweener.set_trans(Tween.TRANS_QUAD)
@@ -129,7 +134,7 @@ func _play_letter_bounce_from_slot(first_slot_index: int) -> void:
 		var settle_tweener: PropertyTweener = bounce_tween.tween_property(
 			label,
 			"scale",
-			Vector2.ONE,
+			rest_scale,
 			WORD_BOUNCE_SETTLE_DURATION
 		)
 		settle_tweener.set_trans(Tween.TRANS_BACK)
@@ -221,7 +226,7 @@ func _ensure_nodes() -> void:
 		_visual_root.name = "WordSlots"
 		_visual_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_visual_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# The authored side margins leave room for the same reveal bounce as gameplay.
+		# The bounce peak is bounded separately using the fitted text width.
 		_visual_root.clip_contents = false
 		add_child(_visual_root)
 
@@ -298,6 +303,10 @@ func _rebuild_visuals() -> void:
 		return
 	if _validation_toast != null and is_instance_valid(_validation_toast):
 		_validation_toast.call("set_available_width", size.x)
+	for bounce_tween: Tween in _word_bounce_tweens:
+		if bounce_tween != null and bounce_tween.is_valid():
+			bounce_tween.kill()
+	_word_bounce_tweens.clear()
 	for child: Node in _visual_root.get_children():
 		_visual_root.remove_child(child)
 		child.queue_free()
@@ -319,20 +328,35 @@ func _rebuild_visuals() -> void:
 		content_width - INPUT_TEXT_SIDE_PADDING * 2.0,
 		1.0
 	)
+	# Fit against authored geometry, never Label.size: an unwrapped Label may
+	# enlarge itself to its text minimum before its final font has been assigned.
+	var fit: Dictionary = _resolved_display_font(
+		display_value, maxf(text_area_width - INPUT_TEXT_EFFECT_PADDING, 1.0)
+	)
+	var label_width: float = text_area_width
 	var label := Label.new()
 	label.name = "InputText"
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.position = Vector2((size.x - text_area_width) * 0.5, 0.0)
-	label.size = Vector2(text_area_width, size.y)
+	# A fixed, clipped layout box prevents native minimum-size growth. The full
+	# text is already fitted with room for outline/shadow; clipping is only a guard.
+	label.clip_text = true
+	label.add_theme_font_override("font", fit["font"] as Font)
+	label.add_theme_font_size_override("font_size", int(fit["font_size"]))
+	label.position = Vector2((size.x - label_width) * 0.5, 0.0)
+	label.size = Vector2(label_width, size.y)
+	label.pivot_offset = label.size * 0.5
+	label.scale = Vector2.ONE
+	label.set_meta(&"input_rest_scale", label.scale)
+	var occupied_width: float = float(fit["measured_width"]) + INPUT_TEXT_EFFECT_PADDING
+	label.set_meta(&"input_bounce_peak_x", clampf(
+		(content_width - 8.0) / maxf(occupied_width, 1.0),
+		1.0, WORD_BOUNCE_PEAK_SCALE.x
+	))
 	label.text = display_value
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	label.clip_text = false
-	var fit: Dictionary = _resolved_display_font(display_value, label.size.x)
-	label.add_theme_font_override("font", fit["font"] as Font)
-	label.add_theme_font_size_override("font_size", int(fit["font_size"]))
 	label.add_theme_color_override("font_color", text_color)
 	label.set_meta(&"word_slot_index", 0)
 	_visual_root.add_child(label)
@@ -343,44 +367,23 @@ func _resolved_display_font(value: String, available_width: float) -> Dictionary
 	var resolved_size: int = maxi(input_font_size, MIN_FONT_SIZE)
 	var resolved_width: float = UI_FONTS.ROBOTO_FLEX_DISPLAY_WIDTH
 	var font: Font = UI_FONTS.display_font_with_width(resolved_width)
-
-	# Stage 1: preserve the authored 40 px input size and spend the Roboto Flex
-	# width axis first. This keeps longer words visually large instead of making
-	# them immediately shorter in height as soon as they approach the marker edge.
-	while resolved_width > UI_FONTS.ROBOTO_FLEX_DISPLAY_MIN_WIDTH:
-		var measured_width: float = font.get_string_size(
-			value,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1.0,
-			resolved_size
-		).x
-		if measured_width <= available_width:
-			return {"font": font, "font_size": resolved_size}
-		resolved_width -= 1.0
+	var measured: float = font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_size).x
+	# Like the result word, exhaust width adjustment before reducing font size.
+	# Stop at wdth=30 and preserve the font's native proportions afterwards.
+	while measured > available_width and resolved_width > INPUT_MIN_WIDTH:
+		resolved_width = maxf(resolved_width - 1.0, INPUT_MIN_WIDTH)
 		font = UI_FONTS.display_font_with_width(resolved_width)
-
-	# Measure once at the minimum width before changing point size.
-	var measured_at_min_width: float = font.get_string_size(
-		value,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		resolved_size
-	).x
-	if measured_at_min_width <= available_width:
-		return {"font": font, "font_size": resolved_size}
-
-	# Stage 2: keep wdth pinned to 20 and only now reduce font size.
-	while resolved_size > MIN_FONT_SIZE:
+		measured = font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_size).x
+	# Extremely wide 20-letter words may need less than the old 24 px floor.
+	# Reduce size uniformly rather than squeezing glyphs or overflowing the field.
+	while measured > available_width and resolved_size > 1:
 		resolved_size -= 1
-		var measured_width: float = font.get_string_size(
-			value,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1.0,
-			resolved_size
-		).x
-		if measured_width <= available_width:
-			break
-	return {"font": font, "font_size": resolved_size}
+		measured = font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_size).x
+	return {
+		"font": font,
+		"font_size": resolved_size,
+		"measured_width": measured,
+	}
 
 func _apply_display_text_style() -> void:
 	if _display_label == null or !is_instance_valid(_display_label):
