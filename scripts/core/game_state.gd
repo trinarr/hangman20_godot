@@ -1284,6 +1284,11 @@ func _single_player_bucket(lang: String) -> Dictionary:
 			bucket[dictionary_key] = {}
 	if !bucket.has("unlocked_level"):
 		bucket["unlocked_level"] = 0
+	# Legacy saves already encode completed level count as the next level index.
+	bucket["theme_unlock_completed_levels"] = maxi(
+		maxi(int(bucket.get("theme_unlock_completed_levels", 0)), 0),
+		maxi(int(bucket.get("unlocked_level", 0)), 0)
+	)
 	bucket["adaptive_difficulty"] = clampf(
 		float(bucket.get("adaptive_difficulty", SINGLE_PLAYER_DIFFICULTY_DEFAULT)),
 		SINGLE_PLAYER_DIFFICULTY_MIN,
@@ -1603,6 +1608,49 @@ func is_single_level_failed(lang: String, level_index: int, word_count: int, dif
 			return true
 	return false
 
+# Unlocks follow completed campaign levels, not stars, wins or paid rerolls.
+# Keep a high-water mark so resetting an attempt never removes a theme.
+func get_theme_unlock_completed_levels(lang: String) -> int:
+	return int(_single_player_bucket(lang).get("theme_unlock_completed_levels", 0))
+
+func get_unlocked_theme_ids(lang: String) -> Array[int]:
+	var result: Array[int] = []
+	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids", [1, 9, 2]):
+		var theme_id: int = int(value)
+		if Database.THEME_IDS.has(theme_id) and !result.has(theme_id):
+			result.append(theme_id)
+	var completed: int = get_theme_unlock_completed_levels(lang)
+	for entry: Dictionary in _theme_unlock_milestones():
+		var theme_id: int = int(entry.get("theme_id", -1))
+		if completed >= int(entry.get("after_level", 0)) and !result.has(theme_id):
+			result.append(theme_id)
+	return result
+
+func _theme_unlock_milestones() -> Array:
+	return GAME_DESIGN.get_array("progression.theme_unlocks.milestones", [
+		{"after_level": 3, "theme_id": 6}, {"after_level": 6, "theme_id": 3},
+		{"after_level": 10, "theme_id": 10}, {"after_level": 14, "theme_id": 5},
+		{"after_level": 18, "theme_id": 8}, {"after_level": 25, "theme_id": 4},
+		{"after_level": 30, "theme_id": 7},
+	])
+
+func get_theme_unlock_reward_progress(before: int, after: int) -> Dictionary:
+	before = maxi(before, 0)
+	after = maxi(after, before)
+	var previous_goal: int = 0
+	for entry: Dictionary in _theme_unlock_milestones():
+		var goal: int = int(entry["after_level"])
+		if after < goal or (before < goal and after == goal):
+			var span: int = maxi(goal - previous_goal, 1)
+			return {
+				"theme_id": int(entry["theme_id"]), "goal_level": goal,
+				"from": clampi(before - previous_goal, 0, span),
+				"to": clampi(after - previous_goal, 0, span), "total": span,
+				"unlocked": before < goal and after >= goal,
+			}
+		previous_goal = goal
+	return {}
+
 func get_single_player_unlocked_level(lang: String, difficulty: int = -1) -> int:
 	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
 	return maxi(int(progress_bucket.get("unlocked_level", 0)), 0)
@@ -1685,6 +1733,7 @@ func mark_single_level_word_played(
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var unlocked_level: int = int(bucket.get("unlocked_level", 0))
+	var theme_unlock_before: int = int(bucket.get("theme_unlock_completed_levels", 0))
 	var difficulty_before: float = get_single_player_adaptive_difficulty(lang_key)
 	var difficulty_after: float = difficulty_before
 	var difficulty_delta: float = 0.0
@@ -1729,6 +1778,8 @@ func mark_single_level_word_played(
 	if was_unplayed and completed and level_index >= unlocked_level:
 		bucket["unlocked_level"] = level_index + 1
 		unlocked_next = true
+	if was_unplayed and completed:
+		bucket["theme_unlock_completed_levels"] = maxi(theme_unlock_before, level_index + 1)
 	single_player[lang_key] = bucket
 	if was_unplayed and completed and !award_completion_bonus and completion_bonus > 0:
 		var selected_theme_id: int = int(
@@ -1746,6 +1797,8 @@ func mark_single_level_word_played(
 		save_game()
 	return {
 		"completed": completed,
+		"theme_unlock_before": theme_unlock_before,
+		"theme_unlock_after": int(bucket.get("theme_unlock_completed_levels", 0)),
 		"perfect": perfect,
 		"failed": failed,
 		# A failed stage only withholds its reward; it no longer ends the chain.

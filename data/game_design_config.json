@@ -14,6 +14,18 @@
   },
   "progression": {
     "theme_options_per_level": 3,
+    "theme_unlocks": {
+      "initial_theme_ids": [1, 9, 2],
+      "milestones": [
+        {"after_level": 3, "theme_id": 6},
+        {"after_level": 6, "theme_id": 3},
+        {"after_level": 10, "theme_id": 10},
+        {"after_level": 14, "theme_id": 5},
+        {"after_level": 18, "theme_id": 8},
+        {"after_level": 25, "theme_id": 4},
+        {"after_level": 30, "theme_id": 7}
+      ]
+    },
     "direct_theme_selection_after_reward_through_level": 2,
     "guided_onboarding": {
       "required_start_level": 3

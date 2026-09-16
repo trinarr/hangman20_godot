@@ -6784,7 +6784,7 @@ func _show_single_player_level_popup(
 		Database.current_language,
 		level_index
 	)
-	if persisted_theme >= 0:
+	if persisted_theme >= 0 and options.has(persisted_theme):
 		selected_theme = persisted_theme
 	elif !options.has(selected_theme):
 		selected_theme = int(options[0])
@@ -6865,62 +6865,69 @@ func _show_single_player_level_popup(
 			bottom_button_height
 		)
 	)
-	var refresh_button := _stage_round_icon_button(
-		refresh_button_rect,
-		Callable(self, "_refresh_single_player_theme_popup").bind(level_index),
-		SINGLE_PLAYER_REFRESH_ICON,
-		Vector2(27.0, 27.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE,
-		false
-	)
-	single_player_popup_refresh_button = refresh_button
-	refresh_button.z_index = 15
-	var refresh_price_badge_size := Vector2(44.0, 22.0)
-	var refresh_price_badge_rect := Rect2(
-		Vector2(
-			refresh_button.size.x - refresh_price_badge_size.x * 0.82,
-			-refresh_price_badge_size.y * 0.18
-		),
-		refresh_price_badge_size
-	)
-	var refresh_ad_badge_size := Vector2(
-		PORTRAIT_GAME_HINT_COUNTER_SIZE,
-		PORTRAIT_GAME_HINT_COUNTER_SIZE
-	)
-	var refresh_ad_badge_rect := Rect2(
-		Vector2(
-			refresh_button.size.x - refresh_ad_badge_size.x * 0.82,
-			-refresh_ad_badge_size.y * 0.18
-		),
-		refresh_ad_badge_size
-	)
-	_single_player_popup_refresh_badge_component = _create_portrait_button_badge(
-		refresh_button,
-		{
-			"coin_rect": refresh_price_badge_rect,
-			"ad_rect": refresh_ad_badge_rect,
-			"free_rect": refresh_ad_badge_rect,
-			"price": SINGLE_PLAYER_THEME_REFRESH_COST,
-			"price_font_size": 13,
-			"price_font": UI_REGULAR_FONT,
-			"ad_icon_scale": 1.4025,
-			"panel_shader_shadow": true,
-			"panel_shader_shadow_states": [
-				PORTRAIT_BUTTON_BADGE_STATE_COINS,
-				PORTRAIT_BUTTON_BADGE_STATE_AD,
-			],
-			"panel_shadow_enabled": false,
-			"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
-		}
-	)
+	var can_reroll: bool = _single_player_can_reroll_themes(level_index)
+	single_player_popup_refresh_button = null
+	_single_player_popup_refresh_badge_component = {}
 	_single_player_popup_refresh_visuals.clear()
-	for refresh_visual_variant: Variant in [
-		refresh_button,
-	]:
-		var refresh_visual := refresh_visual_variant as CanvasItem
-		if refresh_visual != null:
-			_single_player_popup_refresh_visuals.append(refresh_visual)
-	_update_single_player_theme_reroll_badge()
-	_update_single_player_theme_reroll_button_state()
+	if !can_reroll:
+		play_button_rect.position.x = rect.get_center().x - play_button_rect.size.x * 0.5
+	else:
+		var refresh_button := _stage_round_icon_button(
+			refresh_button_rect,
+			Callable(self, "_refresh_single_player_theme_popup").bind(level_index),
+			SINGLE_PLAYER_REFRESH_ICON,
+			Vector2(27.0, 27.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE,
+			false
+		)
+		single_player_popup_refresh_button = refresh_button
+		refresh_button.z_index = 15
+		var refresh_price_badge_size := Vector2(44.0, 22.0)
+		var refresh_price_badge_rect := Rect2(
+			Vector2(
+				refresh_button.size.x - refresh_price_badge_size.x * 0.82,
+				-refresh_price_badge_size.y * 0.18
+			),
+			refresh_price_badge_size
+		)
+		var refresh_ad_badge_size := Vector2(
+			PORTRAIT_GAME_HINT_COUNTER_SIZE,
+			PORTRAIT_GAME_HINT_COUNTER_SIZE
+		)
+		var refresh_ad_badge_rect := Rect2(
+			Vector2(
+				refresh_button.size.x - refresh_ad_badge_size.x * 0.82,
+				-refresh_ad_badge_size.y * 0.18
+			),
+			refresh_ad_badge_size
+		)
+		_single_player_popup_refresh_badge_component = _create_portrait_button_badge(
+			refresh_button,
+			{
+				"coin_rect": refresh_price_badge_rect,
+				"ad_rect": refresh_ad_badge_rect,
+				"free_rect": refresh_ad_badge_rect,
+				"price": SINGLE_PLAYER_THEME_REFRESH_COST,
+				"price_font_size": 13,
+				"price_font": UI_REGULAR_FONT,
+				"ad_icon_scale": 1.4025,
+				"panel_shader_shadow": true,
+				"panel_shader_shadow_states": [
+					PORTRAIT_BUTTON_BADGE_STATE_COINS,
+					PORTRAIT_BUTTON_BADGE_STATE_AD,
+				],
+				"panel_shadow_enabled": false,
+				"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
+			}
+		)
+		_single_player_popup_refresh_visuals.clear()
+		for refresh_visual_variant: Variant in [
+			refresh_button,
+		]:
+			var refresh_visual := refresh_visual_variant as CanvasItem
+			if refresh_visual != null:
+				_single_player_popup_refresh_visuals.append(refresh_visual)
+		_update_single_player_theme_reroll_badge()
+		_update_single_player_theme_reroll_button_state()
 	var word_count: int = _single_player_level_word_count(level_index)
 	_stage_single_player_popup_theme_cards(
 		level_index,
@@ -6945,9 +6952,11 @@ func _show_single_player_level_popup(
 	if selected_theme >= 0:
 		_select_single_player_popup_theme(level_index, selected_theme)
 	# A freshly generated set arrives through the same reel animation as a paid
-	# reroll, but only after the popup itself has completed its opening bounce.
+	# reroll, but only when there are more eligible unlocked themes than visible
+	# slots. With three (or fewer) available themes there is no random subset to
+	# reveal, so the popup shows its cards immediately without meaningless reels.
 	# Existing seeded options never reroll merely because the popup was reopened.
-	if !theme_options_were_generated:
+	if !theme_options_were_generated and _single_player_can_reroll_themes(level_index):
 		var opening_options: Array = _single_player_theme_slot_opening_options(options)
 		_schedule_single_player_theme_slot_opening_animation(
 			level_index,
@@ -7145,7 +7154,7 @@ func _stage_single_player_popup_theme_cards(
 	content = previous_content
 
 func _refresh_single_player_theme_popup(level_index: int) -> void:
-	if level_index != single_player_popup_level_index or _single_player_theme_slot_animating:
+	if level_index != single_player_popup_level_index or _single_player_theme_slot_animating or !_single_player_can_reroll_themes(level_index):
 		return
 	if _single_player_theme_reroll_used:
 		if _portrait_ads_enabled() and !_single_player_theme_ad_reroll_used:
@@ -7251,7 +7260,7 @@ func _update_single_player_theme_reroll_button_state() -> void:
 	# Keep the reroll control in the popup after both rerolls are exhausted.
 	# Its disabled state already renders the round button in neutral gray and
 	# blocks pointer input, so removing it only makes the CTA row jump visually.
-	single_player_popup_refresh_button.visible = true
+	single_player_popup_refresh_button.visible = _single_player_can_reroll_themes(single_player_popup_level_index)
 	single_player_popup_refresh_button.set(
 		"button_disabled",
 		_single_player_theme_slot_animating
@@ -7261,8 +7270,8 @@ func _update_single_player_theme_reroll_button_state() -> void:
 
 func _reroll_single_player_theme_options(level_index: int, previous_options: Array) -> Array:
 	var next_options: Array = []
-	var require_fully_new_options: bool = Database.get_theme_count() >= previous_options.size() * 2
-	var max_attempts: int = 16 if require_fully_new_options else 1
+	var require_fully_new_options: bool = _single_player_available_theme_indices(_single_player_level_word_target(level_index)).size() >= previous_options.size() * 2
+	var max_attempts: int = 16
 	for _attempt_index in range(max_attempts):
 		GameState.reset_single_level_attempt(
 			Database.current_language,
@@ -7272,10 +7281,10 @@ func _reroll_single_player_theme_options(level_index: int, previous_options: Arr
 		)
 		_invalidate_single_player_level_cache()
 		next_options = _single_player_level_theme_options(level_index)
-		if !require_fully_new_options or _single_player_theme_options_are_fully_new(
-			previous_options,
-			next_options
-		):
+		var changed: bool = false
+		for option: Variant in next_options:
+			changed = changed or !previous_options.has(option)
+		if changed and (!require_fully_new_options or _single_player_theme_options_are_fully_new(previous_options, next_options)):
 			break
 	return next_options
 
@@ -7292,15 +7301,16 @@ func _single_player_theme_options_are_fully_new(
 
 func _single_player_theme_slot_opening_options(final_options: Array) -> Array:
 	var opening_options: Array = []
-	var theme_count: int = Database.get_theme_count()
+	var available: Array = _single_player_available_theme_indices()
+	var theme_count: int = available.size()
 	if theme_count <= 1:
 		return final_options.duplicate()
 	for option_index in range(final_options.size()):
 		var final_theme: int = int(final_options[option_index])
-		var start_theme: int = int(randi() % theme_count)
+		var start_theme: int = int(available[randi() % theme_count])
 		var attempts: int = 0
 		while start_theme == final_theme and attempts < theme_count * 2:
-			start_theme = int(randi() % theme_count)
+			start_theme = int(available[randi() % theme_count])
 			attempts += 1
 		opening_options.append(start_theme)
 	return opening_options
@@ -7371,7 +7381,7 @@ func _set_single_player_theme_slot_action_visibility(is_visible: bool) -> void:
 		single_player_popup_play_button.visible = is_visible
 	for refresh_visual: CanvasItem in _single_player_popup_refresh_visuals:
 		if refresh_visual != null and is_instance_valid(refresh_visual):
-			refresh_visual.visible = is_visible
+			refresh_visual.visible = is_visible and _single_player_can_reroll_themes(single_player_popup_level_index)
 	if is_visible:
 		_update_single_player_theme_reroll_badge()
 
@@ -7492,8 +7502,10 @@ func _single_player_theme_slot_sequence(
 	start_theme: int,
 	final_theme: int,
 	reel_index: int,
-	theme_count: int
+	_theme_count: int
 ) -> Array:
+	var available: Array = _single_player_available_theme_indices()
+	var theme_count: int = available.size()
 	var sequence: Array = [start_theme]
 	if theme_count <= 0:
 		sequence.append(final_theme)
@@ -7507,14 +7519,14 @@ func _single_player_theme_slot_sequence(
 	var intermediate_count: int = maxi(spin_count - 1, 0)
 	var previous_theme: int = start_theme
 	for spin_index in range(intermediate_count):
-		var next_theme: int = int(randi() % theme_count)
+		var next_theme: int = int(available[randi() % theme_count])
 		if theme_count > 1:
 			var attempts: int = 0
 			while (
 				next_theme == previous_theme
 				or (spin_index == intermediate_count - 1 and next_theme == final_theme)
 			) and attempts < theme_count * 2:
-				next_theme = int(randi() % theme_count)
+				next_theme = int(available[randi() % theme_count])
 				attempts += 1
 		sequence.append(next_theme)
 		previous_theme = next_theme
@@ -11688,7 +11700,7 @@ func _single_player_level_summary_stars_label() -> String:
 func _single_player_level_summary_value_text(amount: int) -> String:
 	return "+%d" % maxi(amount, 0)
 
-func _portrait_level_stars_panel_rect() -> Rect2:
+func _portrait_level_stars_panel_rect(include_unlock_progress: bool = false) -> Rect2:
 	# The second whole-level state replaces the chest with a compact one-row
 	# results panel. Anchor its top where the old combined panel used to begin so
 	# the transition feels like the reward presentation is advancing, not jumping.
@@ -11700,6 +11712,10 @@ func _portrait_level_stars_panel_rect() -> Rect2:
 		prize_rect.end.y,
 		PORTRAIT_LEVEL_SUMMARY_PANEL_PRIZE_OVERLAP_RATIO
 	)
+	if include_unlock_progress:
+		var viewport_size: Vector2 = get_viewport_rect().size
+		var continue_top: float = _portrait_in_place_result_button_rect().position.y + PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size) - PORTRAIT_STAGE_LAYOUT.safe_top_stage(viewport_size)
+		panel_top = minf(panel_top, continue_top - 24.0 - PORTRAIT_LEVEL_STARS_PANEL_SIZE.y - 14.0 - 96.0)
 	return Rect2(
 		Vector2(
 			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_LEVEL_STARS_PANEL_SIZE.x) * 0.5,
@@ -12042,6 +12058,131 @@ func _stage_single_player_level_stars_panel(
 	value.z_index = 2
 	holder.add_child(value)
 	return holder
+
+func _level_theme_unlock_progress() -> Dictionary:
+	var completed: int = GameState.get_theme_unlock_completed_levels(Database.current_language)
+	# New results carry both ends of the durable transition. Legacy reward
+	# snapshots show current progress without replaying a made-up unlock.
+	var before: int = int(last_result_data.get("theme_unlock_before", completed))
+	var after: int = int(last_result_data.get("theme_unlock_after", completed))
+	return GameState.get_theme_unlock_reward_progress(before, after)
+
+func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dictionary) -> Control:
+	if progress.is_empty():
+		return null
+	var holder := Control.new()
+	holder.name = "ThemeUnlockProgress"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.position = rect.position
+	holder.size = rect.size
+	parent.add_child(holder)
+	var background_panel := _portrait_hint_local_panel(holder, Rect2(Vector2.ZERO, rect.size),
+		PORTRAIT_UI_PALETTE.THEME_CARD, 18.0, PORTRAIT_RULE, 2.0)
+	# _portrait_hint_local_panel() normally renders at z=8 because it is used as
+	# a button/card surface. Here the panel is only the background for labels, the
+	# progress bar and the theme icon, so keep it behind the progress contents.
+	background_panel.z_index = 0
+	var title := Label.new()
+	title.name = "UnlockTitle"
+	title.position = Vector2(16.0, 7.0)
+	title.size = Vector2(rect.size.x - 104.0, 30.0)
+	title.text = tr("NEXT_THEME_UNLOCK")
+	title.add_theme_font_override("font", UI_REGULAR_FONT)
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(title)
+	title.z_index = 2
+	holder.add_child(title)
+	var bar := ProgressBar.new()
+	bar.name = "UnlockBar"
+	bar.position = Vector2(16.0, 48.0)
+	bar.size = Vector2(rect.size.x - 102.0, 28.0)
+	bar.min_value = 0.0
+	bar.max_value = float(progress["total"])
+	bar.value = float(progress["from"])
+	bar.show_percentage = false
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var track := StyleBoxFlat.new()
+	track.bg_color = PORTRAIT_DARK_BLUE
+	track.set_corner_radius_all(14)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = StageLetterButton.CIRCLED_COLOR
+	fill.set_corner_radius_all(14)
+	bar.add_theme_stylebox_override("background", track)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.z_index = 2
+	holder.add_child(bar)
+	var count := Label.new()
+	count.name = "UnlockCount"
+	count.position = bar.position
+	count.size = bar.size
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count.add_theme_font_override("font", UI_REGULAR_FONT)
+	count.add_theme_font_size_override("font_size", 17)
+	count.add_theme_color_override("font_color", Color.WHITE)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(count)
+	count.z_index = 3
+	holder.add_child(count)
+	var theme_index: int = Database.THEME_IDS.find(int(progress["theme_id"]))
+	var icon := TextureRect.new()
+	icon.name = "UnlockThemeIcon"
+	icon.texture = _theme_icon_texture(theme_index)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.position = Vector2(rect.size.x - 80.0, 17.0)
+	icon.size = Vector2(66.0, 66.0)
+	icon.pivot_offset = icon.size * 0.5
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.z_index = 2
+	holder.add_child(icon)
+	holder.set_meta(&"unlock_progress", progress)
+	_set_theme_unlock_bar_value(float(progress["from"]), holder)
+	return holder
+
+func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
+	if !is_instance_valid(holder):
+		return
+	var bar := holder.get_node("UnlockBar") as ProgressBar
+	bar.value = value
+	var count := holder.get_node("UnlockCount") as Label
+	count.text = "%d/%d" % [int(round(value)), int(bar.max_value)]
+
+func _animate_theme_unlock_progress(holder: Control) -> void:
+	if holder == null or !is_instance_valid(holder) or !holder.is_inside_tree():
+		return
+	if bool(holder.get_meta(&"unlock_animation_started", false)):
+		return
+	holder.set_meta(&"unlock_animation_started", true)
+	var progress: Dictionary = holder.get_meta(&"unlock_progress", {})
+	var tween := holder.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_method(Callable(self, "_set_theme_unlock_bar_value").bind(holder),
+		float(progress["from"]), float(progress["to"]), 0.75
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await tween.finished
+	if !is_instance_valid(holder) or !holder.is_inside_tree() or !bool(progress.get("unlocked", false)):
+		return
+	holder.get_node("UnlockBar").hide()
+	holder.get_node("UnlockCount").hide()
+	var title := holder.get_node("UnlockTitle") as Label
+	title.text = tr("NEW_THEME_UNLOCKED")
+	title.position.y = 15.0
+	var theme_name := Label.new()
+	theme_name.name = "UnlockedThemeName"
+	theme_name.position = Vector2(16.0, 49.0)
+	theme_name.size = Vector2(holder.size.x - 104.0, 30.0)
+	theme_name.text = Database.get_theme_name(Database.THEME_IDS.find(int(progress["theme_id"])))
+	theme_name.add_theme_font_override("font", UI_REGULAR_FONT)
+	theme_name.add_theme_font_size_override("font_size", 16)
+	theme_name.add_theme_color_override("font_color", Color.WHITE)
+	theme_name.z_index = 2
+	holder.add_child(theme_name)
+	var icon := holder.get_node("UnlockThemeIcon") as Control
+	var bounce := icon.create_tween()
+	bounce.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	bounce.tween_property(icon, "scale", Vector2.ONE * 1.18, 0.16).set_trans(Tween.TRANS_SINE)
+	bounce.tween_property(icon, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _single_player_reward_chain_count_text(amount: int) -> String:
 	return "x%d" % maxi(amount, 0)
@@ -13856,6 +13997,8 @@ func _start_single_player_level_stars_state_deferred(
 	if summary_panel == null or !is_instance_valid(summary_panel) or !summary_panel.is_inside_tree():
 		return
 
+	_animate_theme_unlock_progress(summary_panel.get_node_or_null("ThemeUnlockProgress") as Control)
+
 	var star_reward: Dictionary = GameState.get_active_single_player_stage_reward()
 	if (
 		total_stars <= 0
@@ -15442,12 +15585,17 @@ func _show_single_player_reward_chain_screen() -> void:
 			int(last_result_data.get("single_player_level_stars_amount", 0)),
 			0
 		)
+		var theme_progress: Dictionary = _level_theme_unlock_progress()
 		var stars_panel := _stage_single_player_level_stars_panel(
-			_portrait_level_stars_panel_rect(),
+			_portrait_level_stars_panel_rect(!theme_progress.is_empty()),
 			total_level_stars
 		)
 		stars_panel.name = "SinglePlayerLevelStarsSummary"
 		stars_panel.modulate.a = 0.0
+		_create_theme_unlock_progress(stars_panel,
+			Rect2(0.0, PORTRAIT_LEVEL_STARS_PANEL_SIZE.y + 14.0, PORTRAIT_LEVEL_STARS_PANEL_SIZE.x, 96.0),
+			theme_progress
+		)
 
 		var stars_content: Control = _portrait_begin_bottom_attached_group()
 		continue_button = _stage_main_button(

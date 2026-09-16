@@ -161,6 +161,7 @@ var single_player_active_word_slot: int = -1
 var single_player_level_definitions_cache: Dictionary = {}
 var single_player_level_cache_language: String = ""
 var single_player_level_cache_theme_count: int = -1
+var single_player_level_cache_unlocked_theme_count: int = -1
 var single_player_level_cache_difficulty: float = -1.0
 var single_player_popup_level_index: int = -1
 var single_player_popup_selected_theme: int = -1
@@ -933,6 +934,7 @@ func _invalidate_single_player_level_cache() -> void:
 	single_player_level_definitions_cache.clear()
 	single_player_level_cache_language = ""
 	single_player_level_cache_theme_count = -1
+	single_player_level_cache_unlocked_theme_count = -1
 	single_player_level_cache_difficulty = -1.0
 
 func _single_player_level_word_target(level_index: int) -> int:
@@ -983,16 +985,52 @@ func _single_player_shuffle(values: Array, rng: RandomNumberGenerator) -> void:
 		values[index] = values[swap_index]
 		values[swap_index] = temporary
 
-func _single_player_theme_options(level_index: int, level_seed: int, word_count: int) -> Array:
+func _single_player_available_theme_indices(word_count: int = 1) -> Array:
+	var available_ids: Array[int] = GameState.get_unlocked_theme_ids(Database.current_language)
 	var eligible: Array = []
-	for theme_index in range(Database.get_theme_count()):
-		if Database.get_words_by_index(theme_index, 0).size() >= word_count:
+	for theme_index: int in range(Database.get_theme_count()):
+		if (
+			available_ids.has(Database.get_theme_id(theme_index))
+			and Database.get_words_by_index(theme_index, 0).size() >= word_count
+		):
 			eligible.append(theme_index)
+	return eligible
+
+func _single_player_can_reroll_themes(level_index: int) -> bool:
+	return _single_player_available_theme_indices(_single_player_level_word_target(level_index)).size() > SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL
+
+func _single_player_first_offer_unlocked_theme_index(level_index: int) -> int:
+	var language: String = Database.current_language
+	var completed_levels: int = GameState.get_theme_unlock_completed_levels(language)
+	# A theme unlocked by completing level N is first offered on level N + 1.
+	# Keep forcing it while that original set is merely reopened, but stop as soon
+	# as the player spends the first reroll so every later roll is fully random.
+	if level_index != completed_levels or completed_levels <= 0:
+		return -1
+	if (
+		GameState.get_single_level_theme_reroll_state(language, level_index)
+		!= GameState.SINGLE_LEVEL_THEME_REROLL_AVAILABLE
+	):
+		return -1
+	var unlock_progress: Dictionary = GameState.get_theme_unlock_reward_progress(
+		completed_levels - 1,
+		completed_levels
+	)
+	if !bool(unlock_progress.get("unlocked", false)):
+		return -1
+	return Database.get_theme_index_by_id(int(unlock_progress.get("theme_id", -1)))
+
+func _single_player_theme_options(level_index: int, level_seed: int, word_count: int) -> Array:
+	var eligible: Array = _single_player_available_theme_indices(word_count)
 	if eligible.is_empty():
 		return []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, 11)
 	_single_player_shuffle(eligible, rng)
+	var first_offer_theme: int = _single_player_first_offer_unlocked_theme_index(level_index)
+	if first_offer_theme >= 0 and eligible.has(first_offer_theme):
+		eligible.erase(first_offer_theme)
+		eligible.push_front(first_offer_theme)
 	eligible.resize(mini(SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL, eligible.size()))
 	return eligible
 
@@ -1195,15 +1233,18 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		return {}
 	var theme_count: int = Database.get_theme_count()
 	var language: String = Database.current_language
+	var unlocked_theme_count: int = GameState.get_unlocked_theme_ids(language).size()
 	var adaptive_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)
 	if (
 		single_player_level_cache_language != language
 		or single_player_level_cache_theme_count != theme_count
+		or single_player_level_cache_unlocked_theme_count != unlocked_theme_count
 		or !is_equal_approx(single_player_level_cache_difficulty, adaptive_difficulty)
 	):
 		_invalidate_single_player_level_cache()
 		single_player_level_cache_language = language
 		single_player_level_cache_theme_count = theme_count
+		single_player_level_cache_unlocked_theme_count = unlocked_theme_count
 		single_player_level_cache_difficulty = adaptive_difficulty
 	var level_key := str(level_index)
 	if single_player_level_definitions_cache.has(level_key):
@@ -1223,6 +1264,17 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var level_seed: int = GameState.get_or_create_single_level_seed(language, level_index)
 	var options: Array = _single_player_theme_options(level_index, level_seed, word_count)
 	var selected_theme: int = GameState.get_single_level_selected_theme(language, level_index)
+	# Preserve an already-started legacy round, but never re-offer a locked
+	# category from an old, unstarted theme selection.
+	var saved_session: Dictionary = GameState.get_active_single_player_session()
+	var legacy_round_started: bool = (
+		_single_player_first_unplayed_slot(level_index, word_count) > 0
+		or (int(saved_session.get("level_index", -1)) == level_index
+			and str(saved_session.get("language", "")) == language
+			and str(saved_session.get("kind", "")) in ["word", "quiz", "next"])
+	)
+	if selected_theme >= 0 and !GameState.get_unlocked_theme_ids(language).has(Database.get_theme_id(selected_theme)) and !legacy_round_started:
+		selected_theme = -1
 	if selected_theme < 0 or selected_theme >= theme_count:
 		selected_theme = -1
 	elif !options.has(selected_theme):
@@ -1385,6 +1437,8 @@ func _single_player_mark_current_word_finished(
 	result["single_player_played_count"] = int(progress.get("played_count", 0))
 	result["single_player_total_count"] = level_word_count
 	result["single_player_level_completed"] = bool(progress.get("completed", false))
+	result["theme_unlock_before"] = int(progress.get("theme_unlock_before", 0))
+	result["theme_unlock_after"] = int(progress.get("theme_unlock_after", 0))
 	result["single_player_level_perfect"] = bool(progress.get("perfect", false))
 	result["single_player_chain_failed"] = false
 	result["single_player_chain_ended"] = bool(progress.get("completed", false))
