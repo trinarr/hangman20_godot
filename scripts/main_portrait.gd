@@ -12085,7 +12085,10 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	var title := Label.new()
 	title.name = "UnlockTitle"
 	title.position = Vector2(16.0, 7.0)
-	title.size = Vector2(rect.size.x - 104.0, 30.0)
+	# Match the progress bar width so the caption is centered over the bar itself,
+	# not over the whole card (the theme icon overlaps the bar's right endpoint).
+	title.size = Vector2(rect.size.x - 102.0, 30.0)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.text = tr("NEXT_THEME_UNLOCK")
 	title.add_theme_font_override("font", UI_REGULAR_FONT)
 	title.add_theme_font_size_override("font_size", 20)
@@ -12119,7 +12122,7 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	count.add_theme_font_override("font", UI_REGULAR_FONT)
-	count.add_theme_font_size_override("font_size", 17)
+	count.add_theme_font_size_override("font_size", 20)
 	count.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(count)
 	count.z_index = 3
@@ -12130,8 +12133,13 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	icon.texture = _theme_icon_texture(theme_index)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.position = Vector2(rect.size.x - 80.0, 17.0)
-	icon.size = Vector2(66.0, 66.0)
+	# The icon acts as the marker at the bar's endpoint rather than as a
+	# separate element. Keep its center exactly on the right end of the bar.
+	icon.size = Vector2(52.8, 52.8)
+	icon.position = Vector2(
+		bar.position.x + bar.size.x - icon.size.x * 0.5,
+		bar.position.y + (bar.size.y - icon.size.y) * 0.5
+	)
 	icon.pivot_offset = icon.size * 0.5
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.z_index = 2
