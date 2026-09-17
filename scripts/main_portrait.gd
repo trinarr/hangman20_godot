@@ -12199,6 +12199,33 @@ func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
 	var count := holder.get_node("UnlockCount") as Label
 	count.text = "%d/%d" % [int(round(value)), int(bar.max_value)]
 
+func _ensure_theme_unlock_glow(holder: Control) -> Control:
+	if holder == null or !is_instance_valid(holder):
+		return null
+	var existing := holder.get_node_or_null("UnlockThemeGlow") as Control
+	if existing != null and is_instance_valid(existing):
+		return existing
+	var icon := holder.get_node_or_null("UnlockThemeIcon") as Control
+	if icon == null or !is_instance_valid(icon):
+		return null
+	var glow := TextureRect.new()
+	glow.name = "UnlockThemeGlow"
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.texture = FINAL_REWARD_ROTATING_GLOW_TEXTURE
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	glow.size = icon.size * 1.534
+	glow.position = icon.position + icon.size * 0.5 - glow.size * 0.5
+	glow.pivot_offset = glow.size * 0.5
+	glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	# Final-state layering: bar < glow < text < theme icon. This keeps the
+	# rotating glow visibly on top of the progress bar while remaining directly
+	# behind the theme artwork.
+	glow.z_index = 3
+	icon.z_index = 5
+	holder.add_child(glow)
+	return glow
+
 func _animate_theme_unlock_progress(holder: Control) -> void:
 	if holder == null or !is_instance_valid(holder) or !holder.is_inside_tree():
 		return
@@ -12214,27 +12241,29 @@ func _animate_theme_unlock_progress(holder: Control) -> void:
 	await tween.finished
 	if !is_instance_valid(holder) or !holder.is_inside_tree() or !bool(progress.get("unlocked", false)):
 		return
-	holder.get_node("UnlockBar").hide()
-	holder.get_node("UnlockBarFrame").hide()
-	holder.get_node("UnlockCount").hide()
+	var bar := holder.get_node("UnlockBar") as ProgressBar
+	_set_theme_unlock_bar_value(bar.max_value, holder)
 	var title := holder.get_node("UnlockTitle") as Label
-	title.text = tr("NEW_THEME_UNLOCKED")
-	title.position.y = 15.0
-	var theme_name := Label.new()
-	theme_name.name = "UnlockedThemeName"
-	theme_name.position = Vector2(16.0, 49.0)
-	theme_name.size = Vector2(holder.size.x - 104.0, 30.0)
-	theme_name.text = Database.get_theme_name(Database.THEME_IDS.find(int(progress["theme_id"])))
-	theme_name.add_theme_font_override("font", UI_REGULAR_FONT)
-	theme_name.add_theme_font_size_override("font_size", 16)
-	theme_name.add_theme_color_override("font_color", Color.WHITE)
-	theme_name.z_index = 2
-	holder.add_child(theme_name)
+	title.hide()
+	var count := holder.get_node("UnlockCount") as Label
+	count.text = tr("NEW_THEME_UNLOCKED")
+	count.z_index = 4
+	count.show()
 	var icon := holder.get_node("UnlockThemeIcon") as Control
 	var bounce := icon.create_tween()
 	bounce.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	bounce.tween_property(icon, "scale", Vector2.ONE * 1.18, 0.16).set_trans(Tween.TRANS_SINE)
+	bounce.tween_property(icon, "scale", Vector2.ONE * 1.234, 0.16).set_trans(Tween.TRANS_SINE)
 	bounce.tween_property(icon, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await bounce.finished
+	if !is_instance_valid(holder) or !holder.is_inside_tree():
+		return
+	var glow := _ensure_theme_unlock_glow(holder)
+	if glow == null or !is_instance_valid(glow):
+		return
+	_start_final_reward_glow_rotation(glow, PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION)
+	var glow_fade := glow.create_tween()
+	glow_fade.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	glow_fade.tween_property(glow, "modulate", Color(1.0, 1.0, 1.0, 0.52), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _single_player_reward_chain_count_text(amount: int) -> String:
 	return "x%d" % maxi(amount, 0)
