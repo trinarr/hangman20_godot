@@ -1,0 +1,217 @@
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform sampler2D logo_texture : source_color, filter_linear, repeat_disable;
+uniform sampler2D title_texture : source_color, filter_linear, repeat_disable;
+uniform bool title_chroma_key = false;
+// source_color keeps the reference palette consistent in Mobile and Compatibility.
+uniform vec4 localized_pencil_color : source_color = vec4(0.004, 0.255, 0.847, 1.0);
+uniform vec4 original_pencil_color : source_color = vec4(0.008, 0.208, 0.667, 1.0);
+uniform vec4 localized_shadow_color : source_color = vec4(0.792, 0.902, 0.992, 1.0);
+uniform vec4 original_shadow_color : source_color = vec4(0.604, 0.776, 0.988, 1.0);
+// Red/green encode the two thresholds, converted along with the texture colors.
+uniform vec4 localized_shadow_range : source_color = vec4(0.32, 0.65, 0.0, 1.0);
+uniform sampler2D paper_texture : source_color, filter_linear, repeat_disable;
+uniform sampler2D backside_texture : source_color, filter_linear, repeat_disable;
+uniform vec2 canvas_size = vec2(480.0, 800.0);
+uniform vec4 logo_rect = vec4(87.936, 142.8, 304.128, 304.128);
+uniform float reveal_progress : hint_range(0.0, 1.0) = 0.0;
+uniform float shine_progress = -0.30;
+uniform float badge_alpha : hint_range(0.0, 1.0) = 0.0;
+uniform float badge_scale = 0.65;
+// Match the blue outline of the original torn-paper logo. Width is in stage pixels.
+uniform vec4 tear_outline_color : source_color = vec4(0.2353, 0.3059, 0.6235, 1.0);
+uniform float tear_outline_width : hint_range(0.0, 5.0) = 2.0;
+
+#include "res://shaders/paper_edge.gdshaderinc"
+
+// Split the existing foreground atlas through its transparent gap. The sloped
+// boundary follows the tilted badge without cutting the M or the right-hand N.
+float badge_region(vec2 uv) {
+	vec2 source = uv * 1254.0;
+	float lower_edge = source.x < 820.0 ? 550.0 : 676.0 - source.x * 0.105;
+	return step(720.0, source.x) * (1.0 - step(lower_edge, source.y));
+}
+
+vec4 sample_ink(vec2 uv) {
+	vec4 ink = vec4(0.0);
+	if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
+		ink = texture(logo_texture, uv);
+	}
+	return ink;
+}
+
+// Detect the light shadow beside the green matte. The source has a narrow blue
+// fringe there; brightness alone mistakes it for the dark face of a letter.
+vec2 localized_edge_sample(vec2 uv) {
+	vec3 color = texture(title_texture, uv).rgb;
+	float light_shadow = smoothstep(localized_shadow_range.r, localized_shadow_range.g, color.r)
+		* (1.0 - smoothstep(0.0, 0.04, color.r - color.b));
+	float matte = smoothstep(0.40, 0.65, color.g - max(color.r, color.b));
+	return vec2(light_shadow, matte);
+}
+
+// Localized lettering uses the same atlas coordinates. Keep the original badge
+// texture so its silhouette, bounce pivot and shine are identical in both locales.
+vec4 sample_title(vec2 uv) {
+	vec4 ink = vec4(0.0);
+	if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
+		ink = texture(title_texture, uv);
+		if (title_chroma_key) {
+			// Remove the green key before compositing, including letter counters.
+			float key = ink.g - max(ink.r, ink.b);
+			ink.a *= 1.0 - smoothstep(0.06, 0.40, key);
+			ink.g = mix(ink.g, min(ink.g, max(ink.r, ink.b)), smoothstep(0.0, 0.12, key));
+			// Discard the localized orange stroke. The original underline is shared
+			// below, so translation cannot change its shape, texture or thickness.
+			float warm_ink = smoothstep(0.015, 0.08, ink.r - ink.b);
+			ink.a *= 1.0 - warm_ink;
+
+			// Match the English atlas's blue pencil and pale-blue offset shadow.
+			// Separate the light shadow from the lettering before correcting them;
+			// a global tint would leave the nearly-white rim and oversaturated ink.
+			float shadow_weight = smoothstep(localized_shadow_range.r, localized_shadow_range.g, ink.r);
+			vec3 pencil = clamp(
+				original_pencil_color.rgb
+					+ (ink.rgb - localized_pencil_color.rgb) * vec3(1.10, 0.55, 0.55),
+				original_pencil_color.rgb * 0.75,
+				mix(original_pencil_color.rgb, original_shadow_color.rgb, 0.55)
+			);
+			vec3 shadow = clamp(
+				original_shadow_color.rgb
+					+ (ink.rgb - localized_shadow_color.rgb) * vec3(0.35, 0.50, 0.25),
+				original_shadow_color.rgb * 0.85, vec3(1.0)
+			);
+			ink.rgb = mix(pencil, shadow, shadow_weight);
+			if (ink.a > 0.0 && shadow_weight < 1.0) {
+				vec2 radius = vec2(3.0) / vec2(textureSize(title_texture, 0));
+				vec2 nearby = max(
+					max(localized_edge_sample(uv + vec2(radius.x, 0.0)),
+						localized_edge_sample(uv - vec2(radius.x, 0.0))),
+					max(localized_edge_sample(uv + vec2(0.0, radius.y)),
+						localized_edge_sample(uv - vec2(0.0, radius.y)))
+				);
+				// Recolor only the outer shadow fringe. Keep its antialiased alpha,
+				// the letter silhouette and the pencil texture unchanged.
+				ink.rgb = mix(ink.rgb, original_shadow_color.rgb, nearby.x * nearby.y);
+				shadow_weight = max(shadow_weight, nearby.x * nearby.y);
+			}
+
+			if (ink.a > 0.0 && shadow_weight > 0.0) {
+				// Match the English shadow's smaller downward/leftward overhang.
+				// Intersect only the shadow with an inset silhouette: never move or
+				// shrink the lettering. Atlas pixels scale with the existing logo.
+				vec2 inset_uv = uv + vec2(-2.0, 3.0) / vec2(textureSize(title_texture, 0));
+				vec4 inset = texture(title_texture, inset_uv);
+				float matte = inset.g - max(inset.r, inset.b);
+				float coverage = inset.a * (1.0 - smoothstep(0.06, 0.40, matte));
+				coverage *= 1.0 - smoothstep(0.015, 0.08, inset.r - inset.b);
+				float trim_weight = shadow_weight * smoothstep(
+					original_shadow_color.r * 0.50, original_shadow_color.r * 0.80, ink.r
+				);
+				ink.a *= mix(1.0, coverage, trim_weight);
+			}
+
+			if (uv.y > 0.60) {
+				vec4 underline = sample_ink(uv);
+				underline.a *= smoothstep(0.015, 0.08, underline.r - underline.b);
+				float alpha = underline.a + ink.a * (1.0 - underline.a);
+				ink = vec4((underline.rgb * underline.a
+					+ ink.rgb * ink.a * (1.0 - underline.a)) / max(alpha, 0.0001), alpha);
+			}
+		}
+	}
+	return ink;
+}
+
+void fragment() {
+	vec2 pixel = UV * canvas_size;
+	float unit = max(0.01, logo_rect.z / 304.128);
+	// Match the original paper body, excluding the badge projecting above it.
+	// Its 375 source pixels correspond to about 91 stage pixels, not 131.
+	float top = logo_rect.y + logo_rect.w * (490.0 / 1254.0);
+	float bottom = logo_rect.y + logo_rect.w * (865.0 / 1254.0);
+	float edge_x = pixel.x / unit;
+	top += (torn_edge(edge_x / 8.0) - 0.5) * 2.4 * unit;
+	bottom += (torn_edge(edge_x / 9.0 + 83.0) - 0.5) * 2.4 * unit;
+	float aa = max(0.65, fwidth(pixel.y));
+	float sheet_mask = smoothstep(top - aa, top + aa, pixel.y)
+		* (1.0 - smoothstep(bottom - aa, bottom + aa, pixel.y));
+	vec4 layer = vec4(0.0);
+	vec2 logo_uv = (pixel - logo_rect.xy) / logo_rect.zw;
+
+	// Both faces meet at the same antialiased contact line.
+	float detached_width = 190.0 * unit * reveal_progress;
+	float front = mix(-3.0 * unit, canvas_size.x + 12.0 * unit, reveal_progress);
+	if (reveal_progress > 0.0 && reveal_progress < 1.0) {
+		front += (torn_edge(pixel.y / (6.0 * unit) + 139.0) - 0.5) * 1.5 * unit;
+	}
+	float exposed = 1.0 - smoothstep(front - aa, front + aa, pixel.x);
+
+	if (sheet_mask > 0.0 && exposed > 0.0 && reveal_progress > 0.0) {
+		float band_y = clamp((pixel.y - top) / (bottom - top), 0.0, 1.0);
+		vec3 paper = texture(paper_texture, vec2(
+			mix(0.05, 0.95, pixel.x / canvas_size.x), mix(0.12, 0.82, band_y)
+		)).rgb;
+		vec2 grid_pos = pixel / (15.0 * unit);
+		vec2 grid_distance = abs(fract(grid_pos + 0.5) - 0.5) * (15.0 * unit);
+		float grid = 1.0 - smoothstep(0.30 * unit, 0.80 * unit,
+			min(grid_distance.x, grid_distance.y));
+		paper = mix(paper, vec3(0.61, 0.66, 0.85), grid * 0.40);
+		// The upper lip casts inward; the lower edge has an outline, not an inner shadow.
+		float outline_width = tear_outline_width * unit;
+		float upper_lip = max(0.0, pixel.y - top - outline_width);
+		paper *= 1.0 - 0.17 * (1.0 - smoothstep(0.0, 3.0 * unit, upper_lip));
+
+		vec4 ink = sample_title(logo_uv);
+		ink.a *= 1.0 - badge_region(logo_uv);
+		vec3 result = mix(paper, ink.rgb, ink.a);
+
+		float shadow = (1.0 - smoothstep(0.0, 9.0 * unit, front - pixel.x)) * 0.24;
+		result *= 1.0 - shadow * min(1.0, reveal_progress * 10.0);
+		// Only the white face has blue torn edges; they end at the contact line.
+		float edge_distance = min(pixel.y - top, bottom - pixel.y);
+		float outline = 1.0 - smoothstep(outline_width - aa, outline_width + aa, edge_distance);
+		result = mix(result, tear_outline_color.rgb, outline * tear_outline_color.a);
+		layer = vec4(result, sheet_mask * exposed);
+	}
+
+	// Keep most of the detached face flat. Only its final 35% widens gently,
+	// reaching 7% extra height at the free edge without a visible corner.
+	if (detached_width > 0.1 && reveal_progress < 1.0 && pixel.x > front - aa
+			&& pixel.x < front + detached_width + aa) {
+		float detached_u = clamp((pixel.x - front) / detached_width, 0.0, 1.0);
+		float flare = (bottom - top) * 0.035 * smoothstep(0.65, 1.0, detached_u);
+		float detached_top = top - flare;
+		float detached_bottom = bottom + flare;
+		float detached_mask = smoothstep(detached_top - aa, detached_top + aa, pixel.y)
+			* (1.0 - smoothstep(detached_bottom - aa, detached_bottom + aa, pixel.y))
+			* (1.0 - exposed)
+			* (1.0 - smoothstep(front + detached_width - aa, front + detached_width + aa, pixel.x));
+		if (detached_mask > 0.0) {
+			float band_y = clamp((pixel.y - detached_top) / (detached_bottom - detached_top), 0.0, 1.0);
+			vec3 backside = texture(backside_texture, vec2(detached_u, mix(0.10, 0.84, band_y))).rgb;
+			// Complementary coverage prevents a transparent hairline at the join.
+			float alpha = layer.a + detached_mask;
+			layer = vec4((layer.rgb * layer.a + backside * detached_mask) / max(0.0001, alpha), alpha);
+		}
+	}
+
+	// The badge is independent of both the paper mask and the moving fold.
+	// Restore its original atlas position, overlapping the paper's upper edge.
+	if (reveal_progress >= 1.0 && badge_alpha > 0.0) {
+		vec2 pivot = vec2(980.0, 585.0) / 1254.0;
+		vec2 badge_uv = pivot + (logo_uv - pivot) / max(0.01, badge_scale);
+		vec4 badge = sample_ink(badge_uv);
+		// Sweep in badge-local coordinates; the main lettering never receives shine.
+		vec2 badge_local = (badge_uv * 1254.0 - vec2(720.0, 350.0)) / vec2(490.0, 245.0);
+		float diagonal = badge_local.x + badge_local.y * 0.28;
+		float shine = (1.0 - smoothstep(0.0, 0.12, abs(diagonal - shine_progress))) * 0.46;
+		badge.rgb = mix(badge.rgb, vec3(1.0), shine * badge.a);
+		badge.a *= badge_region(badge_uv) * badge_alpha;
+		float combined_alpha = badge.a + layer.a * (1.0 - badge.a);
+		vec3 combined_rgb = badge.rgb * badge.a + layer.rgb * layer.a * (1.0 - badge.a);
+		layer = vec4(combined_rgb / max(0.0001, combined_alpha), combined_alpha);
+	}
+	COLOR = layer;
+}

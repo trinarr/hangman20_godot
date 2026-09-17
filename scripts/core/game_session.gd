@@ -160,7 +160,7 @@ func restore_from_save_data(source: Dictionary) -> bool:
 	return true
 
 func _is_separator(letter: String) -> bool:
-	return letter == " " or letter == "-" or letter == "—"
+	return letter == " " or letter == "-" or letter == "—" or letter == "'"
 
 func guess(letter: String, defer_loss: bool = false) -> bool:
 	if !is_active or loss_deferred:

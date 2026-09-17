@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://6kjip3mqt6xm"]
+
+[ext_resource type="Script" uid="uid://b567h5ajtjay1" path="res://tools/tests/quiz_editorial.gd" id="1"]
+
+[node name="QuizEditorialTest" type="Node" unique_id=1632474710]
+script = ExtResource("1")

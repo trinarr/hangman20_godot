@@ -75,6 +75,7 @@ def main() -> None:
     session = read("scripts/core/game_session.gd")
     main_source = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
+    localization = read("localization/translations.csv")
     export = read("export_presets.cfg")
     project = read("project.godot")
 
@@ -248,6 +249,12 @@ def main() -> None:
         ),
         "A first-two-level gameplay or reward close button is still unconditional",
     )
+    reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
+    require(
+        "!is_final_reward" in reward_screen
+        and "and !_single_player_hides_close_controls(level_index)" in reward_screen,
+        "Reward-chain close button is still limited to failed stages",
+    )
 
     free_attempt_offer = function_body(
         main_source, "_single_player_extra_attempt_is_free"
@@ -261,22 +268,19 @@ def main() -> None:
         main_source, "_advance_single_player_extra_attempt_offer"
     )
     require(
-        "count_step_interval: int" in advance_attempt_offer
-        and "if _single_player_extra_attempt_is_free()" in advance_attempt_offer
-        and "else SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL"
+        "float(single_player_extra_attempt_offer_count)" in advance_attempt_offer
+        and "/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)"
         in advance_attempt_offer
-        and "/ float(count_step_interval)" in advance_attempt_offer,
-        "Free early-level attempt bundles do not grow on every new offer",
+        and "single_player_extra_attempt_offer_count += 1" in advance_attempt_offer,
+        "Extra-attempt bundle size does not grow on every new stage-scoped offer",
     )
     prepare_attempt_offers = function_body(
         main_source, "_prepare_single_player_extra_attempt_offers"
     )
     require(
-        "level_index < 2" in prepare_attempt_offers
-        and "single_player_extra_attempt_offer_level_index == level_index"
-        in prepare_attempt_offers
-        and "if keep_early_level_progress:\n\t\treturn" in prepare_attempt_offers,
-        "Early-level attempt bundle growth is still reset between level stages",
+        "_reset_single_player_extra_attempt_offers()" in prepare_attempt_offers
+        and "\n\tif " not in prepare_attempt_offers,
+        "Extra-attempt price/count progression is not reset for every new stage",
     )
     require(
         "_prepare_single_player_extra_attempt_offers(level_index)"
@@ -310,16 +314,19 @@ def main() -> None:
         and '"_play_single_player_extra_attempt_offer_increase"'
         in attempt_popup
         and "popup_bottom,\n\t\t!free_offer," in attempt_popup
-        and '"",\n\t\t!free_offer\n\t)' in attempt_popup
+        and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store"),\n'
+        "\t\tfalse\n\t)" in attempt_popup
+        and '"",\n\t\ttrue\n\t)' in attempt_popup
         and "if !free_offer:" in attempt_popup,
-        "The free extra-attempt popup is not compact, mandatory, green, and bouncing",
+        "The free extra-attempt popup must be compact, green, bouncing, closable by X, and ignore dimmer taps",
     )
     unhandled_input = function_body(main_source, "_unhandled_input")
     require(
         'get_nodes_in_group("single_player_last_chance_popup")' in unhandled_input
-        and "if !_single_player_extra_attempt_is_free():\n"
-        "\t\t\t\t\t_decline_single_player_extra_attempt()" in unhandled_input,
-        "The mandatory free extra-attempt popup can still be declined with Back",
+        and "\t\t\t\t_decline_single_player_extra_attempt()" in unhandled_input
+        and "\t\t\t\tget_viewport().set_input_as_handled()" in unhandled_input
+        and "if !_single_player_extra_attempt_is_free():" not in unhandled_input,
+        "The first-two-level extra-attempt popup cannot be declined with Back",
     )
 
     quiz_result = function_body(portrait, "_record_single_player_quiz_result")
@@ -327,6 +334,38 @@ def main() -> None:
     require(
         "add_soft_currency" not in quiz_result and "add_stars" not in quiz_result,
         "Quiz rewards are still credited before the reward screen",
+    )
+    quiz_wrong_create = function_body(portrait, "_create_quiz_wrong_feedback")
+    quiz_wrong_play = function_body(portrait, "_play_quiz_wrong_question_feedback")
+    quiz_answer_selected = function_body(portrait, "_on_quiz_answer_selected")
+    quiz_speed_tier = function_body(portrait, "_take_quiz_speed_tier")
+    quiz_speed_reward = function_body(portrait, "_quiz_speed_reward_amount")
+    quiz_feedback_text = function_body(portrait, "_quiz_correct_feedback_text")
+    require(
+        'loss_label.text = "-1"' in quiz_wrong_create
+        and "LIFE_HEART_ICON_TEXTURE" in quiz_wrong_create
+        and "_add_portrait_icon_with_extrusion_to_holder(" in quiz_wrong_create
+        and "PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE" in quiz_wrong_play
+        and "PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION" in quiz_wrong_play
+        and "PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION" in quiz_wrong_play
+        and "if _quiz_single_player_embedded:" in quiz_answer_selected
+        and "_play_quiz_wrong_question_feedback()" in quiz_answer_selected
+        and "!_quiz_single_player_embedded" in quiz_answer_selected,
+        "Wrong quiz answers do not replace the question with an animated -1 heart cue",
+    )
+    require(
+        "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in quiz_speed_tier
+        and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in quiz_speed_tier
+        and "PORTRAIT_QUIZ_LIGHTNING_REWARD_STARS" in quiz_speed_reward
+        and "PORTRAIT_QUIZ_FAST_REWARD_STARS" in quiz_speed_reward
+        and 'return "МОЛНИЕНОСНО!"' in quiz_feedback_text
+        and 'return "LIGHTNING FAST!"' in quiz_feedback_text
+        and 'return "ВОТ ЭТО СКОРОСТЬ!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "ВЕРНО!"'
+        in quiz_feedback_text
+        and "BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)"
+        in function_body(portrait, "_style_quiz_feedback_label")
+        and "speed_reward_amount" in quiz_answer_selected,
+        "Quiz speed tiers do not award 2/1 stars with distinct feedback",
     )
     final_claim = function_body(portrait, "_complete_single_player_final_reward")
     require(
@@ -350,7 +389,7 @@ def main() -> None:
         "Early final rewards do not animate their credited coins into the HUD",
     )
     final_transition = function_body(
-        portrait, "_start_single_player_final_reward_transition_deferred"
+        portrait, "_start_single_player_level_summary_transition_deferred"
     )
     final_pack_bounce = function_body(
         portrait, "_play_final_reward_pack_bounce"
@@ -372,13 +411,18 @@ def main() -> None:
         < peak_claim.index("_reveal_final_reward_actions"),
         "Coin crediting and Continue do not start together at the prize peak",
     )
+    final_action_reveal = function_body(
+        portrait, "_finish_final_reward_action_reveal"
+    )
     require(
-        "claim_before_actions" in final_transition
-        and '"_start_early_final_reward_claim_at_pack_peak"' in final_transition
-        and "await _play_final_reward_pack_bounce(transition_pack, pack_peak_callback)"
-        in final_transition
-        and "if !claim_before_actions:" in final_transition,
-        "First-two-level final rewards are not routed through the peak callback",
+        '&"single_shine_after_reveal"' in portrait
+        and 'button.call("play_single_attention_shine")' in final_action_reveal,
+        "The final rewarded-ad button does not shine once after appearing",
+    )
+    require(
+        "_play_level_completion_chest_pressure_burst" in final_transition
+        and "bounce_peak_callback" in final_transition,
+        "Chest transition lost its durable peak claim callback",
     )
     rewarded = function_body(portrait, "_on_portrait_rewarded_action_rewarded")
     rewarded_close = function_body(portrait, "_on_portrait_rewarded_action_closed")
@@ -386,7 +430,7 @@ def main() -> None:
     require("_grant_portrait_rewarded_action" not in rewarded_close, "Reward still waits for ad close")
     final_rewarded = function_body(portrait, "_on_final_reward_ad_rewarded")
     require(
-        "_complete_single_player_final_reward(2, false)" in final_rewarded,
+        "GameState.claim_pending_single_player_reward(2)" in final_rewarded,
         "Final x2 reward is not claimed on rewarded callback",
     )
     require(
@@ -401,10 +445,11 @@ def main() -> None:
     final_reward_finish = function_body(portrait, "_finish_single_player_final_reward_claim")
     require("show_menu()" in final_reward_finish, "Claimed reward never returns to Home")
     require(
-        "if next_theme_level_index >= 0:" in final_reward_finish
+        "_direct_theme_level_after_completed_level" in final_reward_finish
+        and "if next_theme_level_index >= 0:" in final_reward_finish
         and "_stop_final_reward_continue_attention()" in final_reward_finish
         and "_portrait_pending_home_reward_amount = 0" in final_reward_finish
-        and "_show_single_player_level_popup(next_theme_level_index)" in final_reward_finish
+        and "_show_single_player_level_popup(next_theme_level_index, -1, false, true)" in final_reward_finish
         and "\n\t\treturn\n\tshow_menu()" in final_reward_finish,
         "Early final rewards do not stop Continue attention or still rebuild Home",
     )
@@ -462,16 +507,114 @@ def main() -> None:
     )
     stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
     require(
-        "word_slot == word_count - 1" in stage_currency
-        and "_single_player_level_question_slot_index" in stage_currency
-        and "STAGE_REWARD_STARS" in stage_currency,
-        "Stage currency rules do not preserve quiz/final coins and ordinary stars",
+        "return GameState.STAGE_REWARD_COINS" in stage_currency
+        and "QUIZ_STAGE_REWARD_COIN_MULTIPLIER" in function_body(
+            main_source, "_single_player_stage_reward_amount"
+        ),
+        "Hangman and embedded quiz must pay coins with distinct amounts",
     )
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(
         '"reward_currency": stage_reward_currency' in stage_result
-        and '"reward_claimed": false' in stage_result,
+        and '"reward_claimed": !is_win' in stage_result
+        and 'result["single_player_chain_failed"] = false' in stage_result,
         "Pending stage reward is not persisted with level resume state",
+    )
+    level_completed = function_body(game_state, "is_single_level_completed")
+    level_progress = function_body(game_state, "mark_single_level_word_played")
+    level_prepare = function_body(main_source, "_prepare_single_player_level_attempt")
+    require(
+        "get_single_level_played_count" in level_completed
+        and '"chain_ended": completed' in level_progress
+        and "is_single_level_failed" not in level_prepare,
+        "A failed stage can still terminate or reset the whole level",
+    )
+    classic_attempt_reward = function_body(main_source, "_grant_remaining_attempt_star_reward")
+    require(
+        "GameState.current_mode == GameState.GameMode.TWO_PLAYER" in classic_attempt_reward
+        and "GameState.current_mode != GameState.GameMode.CLASSIC" not in classic_attempt_reward,
+        "Single-player Hangman no longer grants stars for its remaining attempts",
+    )
+    reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
+    reward_continue = function_body(portrait, "_continue_from_single_player_reward_chain")
+    completed_stage_finish = function_body(
+        portrait, "_finish_completed_single_player_stage_result"
+    )
+    reward_exit_to_menu = function_body(
+        portrait, "_leave_single_player_failure_reward_to_menu"
+    )
+    direct_theme_level = function_body(
+        portrait, "_direct_theme_level_after_completed_level"
+    )
+    refill_cancel = function_body(portrait, "_cancel_single_player_stage_heart_refill")
+    refill_close = function_body(portrait, "_close_heart_refill_popup")
+    require(
+        'tr("REWARD_STAGE_COMPLETED")' in reward_screen
+        and 'tr("REWARD_STAGE_FAILED")' in reward_screen
+        and "_single_player_level_completed_label()" in reward_screen
+        and "is_failure_reward and !is_level_summary" in reward_screen
+        and "PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR" in reward_screen
+        and "GameState.get_hearts() <= 0" in reward_continue
+        and "_show_heart_refill_popup" in reward_continue
+        and "reset_single_level_attempt" in refill_cancel
+        and "relock_single_player_level_if_latest" in refill_cancel
+        and "reward_acquired and continue_action.is_valid()" in refill_close,
+        "Stage result copy or the zero-heart reset flow is incomplete",
+    )
+    require(
+        "REWARD_MAIN_PRIZE,ГЛАВНЫЙ ПРИЗ,MAIN PRIZE" in localization
+        and "REWARD_LEVEL_FINISHED,КОНЕЦ УРОВНЯ,LEVEL COMPLETE" in localization,
+        "Final-stage result headings are not localized",
+    )
+    require(
+        "completed_level_index + 1 if completed_level_index >= 0 else -1"
+        in completed_stage_finish
+        and "open_next_theme_popup" in completed_stage_finish
+        and "_show_single_player_level_popup(next_theme_level_index, -1, false, true)"
+        in completed_stage_finish
+        and 'last_result_data.get("single_player_level_completed", false)'
+        in reward_exit_to_menu
+        and "_discard_round_for_navigation()" in reward_exit_to_menu
+        and "clear_active_single_player_session" not in reward_exit_to_menu,
+        "Continue must open the next theme; X must preserve unclaimed rewards for resume",
+    )
+    final_collect = function_body(portrait, "_stage_final_reward_collect_text")
+    require(
+        "_claim_single_player_final_reward_and_open_next_theme" in final_collect
+        and "level_index + 1" in reward_screen,
+        "Main-reward No Thanks must open the next-theme popup in place",
+    )
+    theme_popup = function_body(portrait, "_show_single_player_level_popup")
+    theme_popup_close_to_menu = function_body(
+        main_source, "_close_single_player_theme_popup_to_menu"
+    )
+    back_input = function_body(main_source, "_unhandled_input")
+    require(
+        "return_to_menu_on_close" in theme_popup
+        and "_close_single_player_theme_popup_to_menu" in theme_popup
+        and "_remove_single_player_theme_popup()" in theme_popup_close_to_menu
+        and "show_menu()" in theme_popup_close_to_menu
+        and "single_player_popup_return_to_menu_on_close" in back_input,
+        "Post-level theme popup does not close back to Home",
+    )
+    forfeit = function_body(main_source, "_forfeit_single_player_round")
+    forfeit_result = function_body(main_source, "_single_player_forfeit_reward_data")
+    strip_forfeit_rewards = function_body(
+        main_source, "_single_player_strip_win_rewards_for_forfeit"
+    )
+    require(
+        "reset_single_level_attempt" not in forfeit
+        and "_single_player_mark_current_word_finished" in forfeit
+        and "_show_single_player_forfeit_reward_screen" in forfeit
+        and "GameSession.discard_current_round()" in forfeit
+        and 'last_result_is_win = false' in forfeit
+        and 'result["single_player_stage_won"] = false' in forfeit_result
+        and 'result["single_player_chain_failed"] = false' in forfeit_result
+        and "spend_stars" in strip_forfeit_rewards
+        and "clear_pending_single_player_reward" in strip_forfeit_rewards
+        and "is_failed_slot" in reward_screen
+        and "REWARD_STATUS_CROSS_TEXTURE" in portrait,
+        "Forced stage exits must persist a failed node and open the reward chain",
     )
     pending_claim = function_body(game_state, "claim_pending_single_player_reward")
     require(

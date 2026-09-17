@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://ba6pejvp6jq5n"]
+
+[ext_resource type="Script" uid="uid://cuynh5pa34oyo" path="res://tools/tests/stage_difficulty.gd" id="1"]
+
+[node name="StageDifficultyTest" type="Node" unique_id=21548619]
+script = ExtResource("1")

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cpnyovdflgguj"]
+
+[ext_resource type="Script" uid="uid://dp4ky3ncnhkbj" path="res://tools/tests/quiz_expansion.gd" id="1"]
+
+[node name="QuizExpansionChecks" type="Node" unique_id=1021176298]
+script = ExtResource("1")

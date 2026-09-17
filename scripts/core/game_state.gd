@@ -10,6 +10,8 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const SAVE_FORMAT_VERSION: int = 2
+# Content aliases change independently of the word difficulty model version.
+const WORD_PROGRESS_ALIAS_REVISION: int = 4
 const LEGAL_DOCUMENTS_VERSION: int = 1
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
 const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
@@ -36,6 +38,9 @@ var HEART_STATE_POLL_SECONDS: float = GAME_DESIGN.get_float_range(
 )
 var WORD_REWARD_COINS: int = GAME_DESIGN.get_int("economy.rewards.word_coins", 10)
 var WORD_REWARD_STARS: int = GAME_DESIGN.get_int("economy.rewards.word_stars", 10)
+var QUIZ_STAGE_REWARD_COIN_MULTIPLIER: float = GAME_DESIGN.get_float_range(
+	"economy.rewards.quiz_stage_coin_multiplier", 1.5, 0.0, 100.0
+)
 const STAGE_REWARD_COINS: String = "coins"
 const STAGE_REWARD_STARS: String = "stars"
 var COIN_REFILL_AD_MAX_VIEWS: int = GAME_DESIGN.get_int_range(
@@ -59,11 +64,17 @@ var SINGLE_PLAYER_DIFFICULTY_MIN: float = GAME_DESIGN.get_float_range(
 var SINGLE_PLAYER_DIFFICULTY_MAX: float = GAME_DESIGN.get_float_range(
 	"difficulty.maximum", 0.86, 0.0, 1.0
 )
-var SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS: int = GAME_DESIGN.get_int(
-	"economy.rewards.level_base_bonus_coins", 10
+var SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS: int = GAME_DESIGN.get_int(
+	"economy.rewards.level_completion_base_coins", 25
 )
-var SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS: int = GAME_DESIGN.get_int(
-	"economy.rewards.level_word_bonus_coins", 5
+var SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS: int = GAME_DESIGN.get_int(
+	"economy.rewards.level_completion_per_win_coins", 10
+)
+var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS: int = GAME_DESIGN.get_int(
+	"economy.rewards.challenge_level_completion_base_coins", 50
+)
+var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS: int = GAME_DESIGN.get_int(
+	"economy.rewards.challenge_level_completion_per_win_coins", 20
 )
 const SINGLE_LEVEL_THEME_REROLL_AVAILABLE: int = 0
 const SINGLE_LEVEL_THEME_REROLL_COIN_USED: int = 1
@@ -125,6 +136,7 @@ var progress: Dictionary = {}
 var single_player: Dictionary = {}
 var active_single_player_session: Dictionary = {}
 var pending_single_player_reward: Dictionary = {}
+var rewarded_double_requests: Dictionary = {}
 var hint_counts: Dictionary = {
 	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
 	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
@@ -307,6 +319,7 @@ func load_game() -> void:
 	pending_single_player_reward = _normalize_pending_single_player_reward(
 		parsed.get("pending_single_player_reward", {})
 	)
+	_load_rewarded_double_requests(parsed.get("rewarded_double_requests", {}))
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
 	_load_coin_refill_ad_state_from_save(parsed)
@@ -346,7 +359,9 @@ func _read_save_dictionary(path: String) -> Dictionary:
 	var parsed: Variant = JSON.parse_string(text)
 	if !(parsed is Dictionary):
 		return {}
-	return Dictionary(parsed).duplicate(true)
+	# JSON.parse_string already owns a fresh tree. The load normalizers copy the
+	# sections they retain; validation of temporary/backup saves needs no copy.
+	return parsed
 
 func _normalize_settings(source: Variant) -> Array:
 	var result: Array = [1, 1, 2, 2, 2, 1]
@@ -425,6 +440,7 @@ func save_game() -> bool:
 		"single_player": single_player,
 		"active_single_player_session": active_single_player_session,
 		"pending_single_player_reward": pending_single_player_reward,
+		"rewarded_double_requests": rewarded_double_requests,
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
 		"stars": stars,
@@ -521,12 +537,16 @@ func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
 		return {}
 	return {
 		"claim_id": str(pending.get("claim_id", "%s:%d" % [word_language, level_index])),
+		"ad_reward_id": str(pending.get("ad_reward_id", "")),
 		"language": _normalize_language(str(pending.get("language", word_language))),
 		"level_index": level_index,
 		"word_count": word_count,
 		"word_slot": clampi(word_slot, 0, word_count - 1),
 		"theme_id": maxi(int(pending.get("theme_id", 0)), 0),
 		"amount": amount,
+		"claimed": bool(pending.get("claimed", false)),
+		"double_resolved": bool(pending.get("double_resolved", false)),
+		"double_claimed": bool(pending.get("double_claimed", false)),
 	}
 
 func set_active_single_player_session(session: Dictionary, persist: bool = true) -> bool:
@@ -559,10 +579,16 @@ func get_active_single_player_stage_reward() -> Dictionary:
 	var amount: int = clampi(int(data.get("reward_amount", 0)), 0, MAX_SINGLE_REWARD)
 	if ![STAGE_REWARD_COINS, STAGE_REWARD_STARS].has(currency) or amount <= 0:
 		return {}
+	var claimed: bool = bool(data.get("reward_claimed", false))
 	return {
 		"currency": currency,
 		"amount": amount,
-		"claimed": bool(data.get("reward_claimed", false)),
+		"claimed": claimed,
+		# Older saves predate the intermediate coin x2 offer. Treat an already
+		# claimed legacy reward as resolved unless the new flag was persisted
+		# explicitly. New coin-stage snapshots store false until the player chooses.
+		"double_resolved": bool(data.get("reward_double_resolved", claimed)),
+		"double_claimed": bool(data.get("reward_double_claimed", false)),
 	}
 
 func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary:
@@ -598,8 +624,67 @@ func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary
 		"already_claimed": false,
 	}
 
+func resolve_active_single_player_stage_reward_double(
+	grant_bonus: bool,
+	persist: bool = true
+) -> Dictionary:
+	var reward: Dictionary = get_active_single_player_stage_reward()
+	if reward.is_empty():
+		return {}
+	var currency: String = str(reward.get("currency", ""))
+	if currency != STAGE_REWARD_COINS:
+		return {
+			"currency": currency,
+			"amount": 0,
+			"resolved": true,
+			"granted": false,
+		}
+	if bool(reward.get("double_resolved", false)):
+		return {
+			"currency": currency,
+			"amount": 0,
+			"resolved": true,
+			"granted": bool(reward.get("double_claimed", false)),
+		}
+	# The x2 option is a bonus on top of a base reward that has already been
+	# credited at the peak of the large-reward bounce. Never create the bonus if
+	# the base claim did not complete.
+	if !bool(reward.get("claimed", false)):
+		return {
+			"currency": currency,
+			"amount": 0,
+			"resolved": false,
+			"granted": false,
+		}
+	var session: Dictionary = active_single_player_session.duplicate(true)
+	var data: Dictionary = Dictionary(session.get("data", {})).duplicate(true)
+	data["reward_double_resolved"] = true
+	data["reward_double_claimed"] = grant_bonus
+	session["data"] = data
+	active_single_player_session = session
+	var credited_amount: int = 0
+	if grant_bonus:
+		var previous_balance: int = get_soft_currency()
+		var final_balance: int = add_soft_currency(int(reward.get("amount", 0)), false)
+		credited_amount = maxi(final_balance - previous_balance, 0)
+	if persist:
+		save_game()
+	return {
+		"currency": currency,
+		"amount": credited_amount,
+		"resolved": true,
+		"granted": grant_bonus,
+	}
+
 func get_pending_single_player_reward() -> Dictionary:
 	return pending_single_player_reward.duplicate(true)
+
+func clear_pending_single_player_reward(persist: bool = true) -> void:
+	if pending_single_player_reward.is_empty():
+		return
+	pending_single_player_reward = {}
+	if persist:
+		save_game()
 
 func has_resumable_single_player_level() -> bool:
 	return !pending_single_player_reward.is_empty() or !active_single_player_session.is_empty()
@@ -633,17 +718,142 @@ func _create_pending_single_player_reward(
 func claim_pending_single_player_reward(multiplier: int = 1) -> int:
 	if pending_single_player_reward.is_empty():
 		return 0
-	var credited_amount: int = maxi(
-		int(pending_single_player_reward.get("amount", 0)) * clampi(multiplier, 1, 2),
-		0
-	)
-	if credited_amount <= 0:
-		return 0
-	pending_single_player_reward = {}
-	soft_currency = clampi(soft_currency + credited_amount, 0, MAX_CURRENCY_BALANCE)
-	soft_currency_changed.emit(soft_currency)
+	var credited_amount: int = 0
+	if !bool(pending_single_player_reward.get("claimed", false)):
+		pending_single_player_reward["claimed"] = true
+		var previous_balance: int = get_soft_currency()
+		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false) - previous_balance
+	if multiplier >= 2:
+		credited_amount += resolve_pending_single_player_reward_double(true, false)
+	# Keep the completion snapshot through the x2 offer. Clearing it at the
+	# bounce peak loses both the offer and the following stars screen on restart.
 	save_game()
 	return credited_amount
+
+func resolve_pending_single_player_reward_double(grant_bonus: bool, persist: bool = true) -> int:
+	if (
+		pending_single_player_reward.is_empty()
+		or !bool(pending_single_player_reward.get("claimed", false))
+		or bool(pending_single_player_reward.get("double_resolved", false))
+	):
+		return 0
+	pending_single_player_reward["double_resolved"] = true
+	pending_single_player_reward["double_claimed"] = grant_bonus
+	var credited_amount: int = 0
+	if grant_bonus:
+		var previous_balance: int = get_soft_currency()
+		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false) - previous_balance
+	if persist:
+		save_game()
+	return credited_amount
+
+# Each native show carries a durable request id. The receipt captures the amount
+# and target before showing, so a delayed callback cannot credit the next level.
+func _rewarded_double_target(context: String) -> Dictionary:
+	var source: Dictionary = {}
+	var amount: int = 0
+	var claimed: bool = false
+	var resolved: bool = true
+	var granted: bool = false
+	var reward_id: String = ""
+	if context == "final":
+		source = pending_single_player_reward
+		reward_id = str(source.get("ad_reward_id", ""))
+		amount = int(source.get("amount", 0))
+		claimed = bool(source.get("claimed", false))
+		resolved = bool(source.get("double_resolved", false))
+		granted = bool(source.get("double_claimed", false))
+	elif context == "stage_coin":
+		source = active_single_player_session
+		reward_id = str(Dictionary(source.get("data", {})).get("reward_ad_id", ""))
+		var reward: Dictionary = get_active_single_player_stage_reward()
+		if str(reward.get("currency", "")) != STAGE_REWARD_COINS:
+			return {}
+		amount = int(reward.get("amount", 0))
+		claimed = bool(reward.get("claimed", false))
+		resolved = bool(reward.get("double_resolved", false))
+		granted = bool(reward.get("double_claimed", false))
+	if source.is_empty() or amount <= 0 or !claimed:
+		return {}
+	return {
+		"target": "%s:%s:%d:%d:%s" % [context, str(source.get("language", word_language)),
+			int(source.get("level_index", -1)), int(source.get("word_slot", -1)), reward_id],
+		"context": context, "amount": amount, "resolved": resolved, "granted": granted,
+	}
+
+func begin_rewarded_double_request(context: String) -> String:
+	var target: Dictionary = _rewarded_double_target(context)
+	if target.is_empty() or bool(target.get("resolved", true)):
+		return ""
+	var request_id: String = "double:%s:%d:%d" % [str(Time.get_unix_time_from_system()), Time.get_ticks_usec(), randi()]
+	# The same level/slot can be replayed. Give each actual payout its own id.
+	if context == "final":
+		if str(pending_single_player_reward.get("ad_reward_id", "")).is_empty():
+			pending_single_player_reward["ad_reward_id"] = request_id
+	else:
+		var data: Dictionary = active_single_player_session["data"]
+		if str(data.get("reward_ad_id", "")).is_empty():
+			data["reward_ad_id"] = request_id
+	target = _rewarded_double_target(context)
+	rewarded_double_requests[request_id] = target
+	if !save_game():
+		rewarded_double_requests.erase(request_id)
+		return ""
+	return request_id
+
+func cancel_rewarded_double_request(request_id: String) -> void:
+	if rewarded_double_requests.has(request_id) and !bool(rewarded_double_requests[request_id].get("granted", false)):
+		rewarded_double_requests.erase(request_id)
+		save_game()
+
+func claim_rewarded_double_request(request_id: String) -> Dictionary:
+	var request: Dictionary = rewarded_double_requests.get(request_id, {})
+	if request.is_empty() or bool(request.get("granted", false)):
+		return {}
+	var context: String = str(request.get("context", ""))
+	var current: Dictionary = _rewarded_double_target(context)
+	var is_current: bool = !current.is_empty() and current.get("target") == request.get("target")
+	var already_granted: bool = is_current and bool(current.get("granted", false))
+	# Mark every retry for this reward as paid in the same save as the balance.
+	for other_id: Variant in rewarded_double_requests:
+		var other: Dictionary = rewarded_double_requests[other_id]
+		if other.get("target") == request.get("target"):
+			already_granted = already_granted or bool(other.get("granted", false))
+	for other_id: Variant in rewarded_double_requests:
+		var other: Dictionary = rewarded_double_requests[other_id]
+		if other.get("target") == request.get("target"):
+			other["granted"] = true
+	if is_current:
+		if context == "final":
+			pending_single_player_reward["double_resolved"] = true
+			pending_single_player_reward["double_claimed"] = true
+		else:
+			var data: Dictionary = active_single_player_session["data"]
+			data["reward_double_resolved"] = true
+			data["reward_double_claimed"] = true
+	var before: int = get_soft_currency()
+	if !already_granted:
+		add_soft_currency(int(request["amount"]), false)
+	save_game()
+	return {"context": context, "is_current": is_current, "amount": get_soft_currency() - before}
+
+func _load_rewarded_double_requests(source: Variant) -> void:
+	rewarded_double_requests = {}
+	if !(source is Dictionary):
+		return
+	for request_id: Variant in source:
+		var item: Variant = source[request_id]
+		if !(item is Dictionary):
+			continue
+		var context: String = str(item.get("context", ""))
+		var target: String = str(item.get("target", ""))
+		var amount: int = clampi(int(item.get("amount", 0)), 0, MAX_SINGLE_REWARD)
+		if str(request_id).is_empty() or target.is_empty() or amount <= 0 or !["final", "stage_coin"].has(context):
+			continue
+		rewarded_double_requests[str(request_id)] = {
+			"context": context, "target": target, "amount": amount,
+			"granted": bool(item.get("granted", false)),
+		}
 
 func _normalize_single_player_buckets() -> void:
 	if !(single_player is Dictionary):
@@ -674,6 +884,7 @@ func _compact_single_player_history() -> void:
 			"theme_reroll_states",
 			"level_question_slots",
 			"level_question_ids",
+			"level_word_assignments",
 		]:
 			var values_variant: Variant = bucket.get(field_name, {})
 			if !(values_variant is Dictionary):
@@ -943,26 +1154,51 @@ func _normalize_word_flag_dictionary(source: Variant) -> Dictionary:
 	if source is Dictionary:
 		for key_variant: Variant in (source as Dictionary).keys():
 			if bool((source as Dictionary).get(key_variant, false)):
-				var key: String = str(key_variant).strip_edges()
+				var key: String = Database.word_progress_key_from_text(str(key_variant).strip_edges())
 				if !key.is_empty():
 					result[key] = true
 	return result
 
 func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionary:
 	var normalized := _normalize_word_flag_dictionary(source)
-	var allowed_keys: Dictionary = {}
-	for key: String in Database.get_word_progress_keys(theme_index):
-		if !key.is_empty():
-			allowed_keys[key] = true
+	var allowed_keys: Dictionary = Database.get_word_progress_key_set(theme_index)
 	for key_variant: Variant in normalized.keys():
 		if !allowed_keys.has(str(key_variant)):
 			normalized.erase(key_variant)
 	return normalized
 
+func _migrate_word_aliases_in_stats(stats: Dictionary) -> void:
+	if int(stats.get("_word_catalog_version", 0)) >= WORD_PROGRESS_ALIAS_REVISION:
+		return
+	var aliases: Dictionary = Database.get_word_progress_alias_themes()
+	for theme_key: Variant in stats.keys():
+		if !(stats[theme_key] is Dictionary):
+			continue
+		var source: Dictionary = stats[theme_key]
+		for field: String in ["played", "guessed"]:
+			if !(source.get(field) is Dictionary):
+				continue
+			var flags: Dictionary = source[field]
+			for old_key: Variant in flags.keys():
+				var normalized: String = Database.normalize_loaded_word(str(old_key))
+				if !aliases.has(normalized):
+					continue
+				if bool(flags[old_key]):
+					var target_theme: String = str(int(aliases[normalized]))
+					if !(stats.get(target_theme) is Dictionary):
+						stats[target_theme] = {}
+					var target: Dictionary = stats[target_theme]
+					if !(target.get(field) is Dictionary):
+						target[field] = {}
+					target[field][Database.word_progress_key_from_text(normalized)] = true
+				flags.erase(old_key)
+	stats["_word_catalog_version"] = WORD_PROGRESS_ALIAS_REVISION
+
 func ensure_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
 	if !progress.has(lang_key) or !(progress[lang_key] is Dictionary):
 		progress[lang_key] = {}
+	_migrate_word_aliases_in_stats(progress[lang_key])
 	var theme_key := _theme_progress_key(theme_index)
 	if theme_key.is_empty():
 		return {"played": {}, "guessed": {}}
@@ -1024,6 +1260,7 @@ func _new_single_player_bucket() -> Dictionary:
 		"word_stats": {},
 		"level_question_slots": {},
 		"level_question_ids": {},
+		"level_word_assignments": {},
 		"question_stats": {},
 	}
 
@@ -1040,12 +1277,18 @@ func _single_player_bucket(lang: String) -> Dictionary:
 		"word_stats",
 		"level_question_slots",
 		"level_question_ids",
+		"level_word_assignments",
 		"question_stats",
 	]:
 		if !bucket.has(dictionary_key) or !(bucket[dictionary_key] is Dictionary):
 			bucket[dictionary_key] = {}
 	if !bucket.has("unlocked_level"):
 		bucket["unlocked_level"] = 0
+	# Legacy saves already encode completed level count as the next level index.
+	bucket["theme_unlock_completed_levels"] = maxi(
+		maxi(int(bucket.get("theme_unlock_completed_levels", 0)), 0),
+		maxi(int(bucket.get("unlocked_level", 0)), 0)
+	)
 	bucket["adaptive_difficulty"] = clampf(
 		float(bucket.get("adaptive_difficulty", SINGLE_PLAYER_DIFFICULTY_DEFAULT)),
 		SINGLE_PLAYER_DIFFICULTY_MIN,
@@ -1069,6 +1312,7 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var word_stats: Dictionary = bucket["word_stats"]
+	_migrate_word_aliases_in_stats(word_stats)
 	var theme_key := _theme_progress_key(theme_index)
 	if theme_key.is_empty():
 		return {"played": {}, "guessed": {}}
@@ -1123,6 +1367,18 @@ func set_single_level_question_slot(lang: String, level_index: int, question_slo
 	if persist:
 		save_game()
 
+# Only the completed prefix and the currently offered stage are committed.
+# Later stages are selected again using the latest shared adaptive difficulty.
+func get_single_level_word_assignments(lang: String, level_index: int) -> Array:
+	var bucket := _single_player_bucket(lang)
+	var source: Variant = bucket["level_word_assignments"].get(str(level_index), [])
+	return Array(source).duplicate(true) if source is Array else []
+
+func set_single_level_word_assignments(lang: String, level_index: int, words: Array) -> void:
+	var bucket := _single_player_bucket(lang)
+	bucket["level_word_assignments"][str(level_index)] = words.duplicate(true)
+	save_game()
+
 func get_single_level_question_id(lang: String, level_index: int) -> int:
 	if level_index < 0:
 		return -1
@@ -1152,6 +1408,17 @@ func _single_player_question_theme_stats(lang: String, theme_index: int) -> Dict
 	var theme_stats: Dictionary = question_stats[theme_key]
 	if !theme_stats.has("seen") or !(theme_stats["seen"] is Dictionary):
 		theme_stats["seen"] = {}
+	# JSON numbers reload as floats; normalize IDs before Array.has/erase.
+	var recent_value: Variant = theme_stats.get("recent", [])
+	var recent: Array = []
+	if recent_value is Array:
+		for value: Variant in recent_value:
+			if value is int or value is float:
+				var question_id: int = int(value)
+				if question_id >= 0:
+					recent.erase(question_id)
+					recent.append(question_id)
+	theme_stats["recent"] = recent.slice(maxi(0, recent.size() - 8))
 	question_stats[theme_key] = theme_stats
 	bucket["question_stats"] = question_stats
 	single_player[lang_key] = bucket
@@ -1164,6 +1431,9 @@ func has_single_player_question_been_seen(lang: String, theme_index: int, questi
 	var seen: Dictionary = theme_stats["seen"]
 	return bool(seen.get(str(question_id), false))
 
+func get_single_player_question_history(lang: String, theme_index: int) -> Dictionary:
+	return _single_player_question_theme_stats(lang, theme_index).duplicate(true)
+
 func mark_single_player_question_seen(lang: String, theme_index: int, question_id: int, persist: bool = true) -> void:
 	if theme_index < 0 or question_id < 0:
 		return
@@ -1171,10 +1441,17 @@ func mark_single_player_question_seen(lang: String, theme_index: int, question_i
 	var theme_key := _theme_progress_key(theme_index)
 	var theme_stats: Dictionary = _single_player_question_theme_stats(lang_key, theme_index)
 	var seen: Dictionary = theme_stats["seen"]
-	if bool(seen.get(str(question_id), false)):
-		return
 	seen[str(question_id)] = true
 	theme_stats["seen"] = seen
+	# Track the last eight actual presentations, including repeats. Old saves
+	# have no recent list and retain their complete seen history unchanged.
+	var recent_value: Variant = theme_stats.get("recent", [])
+	var recent: Array = Array(recent_value).duplicate() if recent_value is Array else []
+	recent.erase(question_id)
+	recent.append(question_id)
+	while recent.size() > 8:
+		recent.pop_front()
+	theme_stats["recent"] = recent
 	var bucket := _single_player_bucket(lang_key)
 	var question_stats: Dictionary = bucket["question_stats"]
 	question_stats[theme_key] = theme_stats
@@ -1315,7 +1592,9 @@ func get_single_level_guessed_count(lang: String, level_index: int, word_count: 
 	return count
 
 func is_single_level_completed(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
-	return is_single_level_perfect(lang, level_index, word_count, difficulty)
+	if word_count <= 0:
+		return false
+	return get_single_level_played_count(lang, level_index, word_count, difficulty) >= word_count
 
 func is_single_level_perfect(lang: String, level_index: int, word_count: int, difficulty: int = -1) -> bool:
 	if word_count <= 0:
@@ -1328,6 +1607,49 @@ func is_single_level_failed(lang: String, level_index: int, word_count: int, dif
 		if _single_level_status(status) == 2:
 			return true
 	return false
+
+# Unlocks follow completed campaign levels, not stars, wins or paid rerolls.
+# Keep a high-water mark so resetting an attempt never removes a theme.
+func get_theme_unlock_completed_levels(lang: String) -> int:
+	return int(_single_player_bucket(lang).get("theme_unlock_completed_levels", 0))
+
+func get_unlocked_theme_ids(lang: String) -> Array[int]:
+	var result: Array[int] = []
+	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids", [1, 9, 2]):
+		var theme_id: int = int(value)
+		if Database.THEME_IDS.has(theme_id) and !result.has(theme_id):
+			result.append(theme_id)
+	var completed: int = get_theme_unlock_completed_levels(lang)
+	for entry: Dictionary in _theme_unlock_milestones():
+		var theme_id: int = int(entry.get("theme_id", -1))
+		if completed >= int(entry.get("after_level", 0)) and !result.has(theme_id):
+			result.append(theme_id)
+	return result
+
+func _theme_unlock_milestones() -> Array:
+	return GAME_DESIGN.get_array("progression.theme_unlocks.milestones", [
+		{"after_level": 3, "theme_id": 6}, {"after_level": 6, "theme_id": 3},
+		{"after_level": 10, "theme_id": 10}, {"after_level": 14, "theme_id": 5},
+		{"after_level": 18, "theme_id": 8}, {"after_level": 25, "theme_id": 4},
+		{"after_level": 30, "theme_id": 7},
+	])
+
+func get_theme_unlock_reward_progress(before: int, after: int) -> Dictionary:
+	before = maxi(before, 0)
+	after = maxi(after, before)
+	var previous_goal: int = 0
+	for entry: Dictionary in _theme_unlock_milestones():
+		var goal: int = int(entry["after_level"])
+		if after < goal or (before < goal and after == goal):
+			var span: int = maxi(goal - previous_goal, 1)
+			return {
+				"theme_id": int(entry["theme_id"]), "goal_level": goal,
+				"from": clampi(before - previous_goal, 0, span),
+				"to": clampi(after - previous_goal, 0, span), "total": span,
+				"unlocked": before < goal and after >= goal,
+			}
+		previous_goal = goal
+	return {}
 
 func get_single_player_unlocked_level(lang: String, difficulty: int = -1) -> int:
 	var progress_bucket := _single_player_progress_bucket(lang, difficulty)
@@ -1344,6 +1666,30 @@ func ensure_single_player_next_level_unlocked(lang: String, completed_level_inde
 	single_player[lang_key] = bucket
 	save_game()
 
+func relock_single_player_level_if_latest(
+	lang: String,
+	level_index: int,
+	persist: bool = true
+) -> bool:
+	# Used only when the zero-heart popup is closed after the last failed stage.
+	# Never relock if the following level has already acquired any durable state.
+	if level_index < 0:
+		return false
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	if int(bucket.get("unlocked_level", 0)) != level_index + 1:
+		return false
+	var next_level_key := str(level_index + 1)
+	var levels: Dictionary = bucket["levels"]
+	var selected_themes: Dictionary = bucket["selected_themes"]
+	if levels.has(next_level_key) or selected_themes.has(next_level_key):
+		return false
+	bucket["unlocked_level"] = level_index
+	single_player[lang_key] = bucket
+	if persist:
+		save_game()
+	return true
+
 func get_single_player_adaptive_difficulty(lang: String) -> float:
 	var bucket := _single_player_bucket(lang)
 	return clampf(
@@ -1352,8 +1698,17 @@ func get_single_player_adaptive_difficulty(lang: String) -> float:
 		SINGLE_PLAYER_DIFFICULTY_MAX
 	)
 
-func _single_player_level_completion_bonus(word_count: int) -> int:
-	return SINGLE_PLAYER_LEVEL_BASE_BONUS_COINS + maxi(word_count, 0) * SINGLE_PLAYER_LEVEL_WORD_BONUS_COINS
+func _single_player_level_completion_bonus(level_index: int, guessed_count: int) -> int:
+	var wins: int = maxi(guessed_count, 0)
+	if GAME_DESIGN.is_bonus_level(level_index + 1):
+		return (
+			SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS
+			+ wins * SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS
+		)
+	return (
+		SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS
+		+ wins * SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS
+	)
 
 func mark_single_level_word_played(
 	lang: String,
@@ -1368,7 +1723,7 @@ func mark_single_level_word_played(
 ) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
-	if word_slot >= 0 and word_slot < statuses.size():
+	if was_unplayed:
 		statuses[word_slot] = 1 if is_win else 2
 	var completed: bool = is_single_level_completed(lang, level_index, word_count, difficulty)
 	var perfect: bool = is_single_level_perfect(lang, level_index, word_count, difficulty)
@@ -1378,15 +1733,13 @@ func mark_single_level_word_played(
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var unlocked_level: int = int(bucket.get("unlocked_level", 0))
+	var theme_unlock_before: int = int(bucket.get("theme_unlock_completed_levels", 0))
 	var difficulty_before: float = get_single_player_adaptive_difficulty(lang_key)
 	var difficulty_after: float = difficulty_before
 	var difficulty_delta: float = 0.0
-	if was_unplayed and is_win and completed:
+	if was_unplayed and is_win:
 		var win_streak: int = int(bucket.get("win_streak", 0)) + 1
-		difficulty_delta = GAME_DESIGN.difficulty_win_increase(
-			difficulty_before,
-			win_streak
-		)
+		difficulty_delta = GAME_DESIGN.difficulty_win_increase(difficulty_before, win_streak)
 		difficulty_after = clampf(
 			difficulty_before + difficulty_delta,
 			SINGLE_PLAYER_DIFFICULTY_MIN,
@@ -1396,9 +1749,6 @@ func mark_single_level_word_played(
 		bucket["completed_attempts"] = int(bucket.get("completed_attempts", 0)) + 1
 		bucket["win_streak"] = win_streak
 		bucket["loss_streak"] = 0
-		completion_bonus = _single_player_level_completion_bonus(word_count)
-		if award_completion_bonus:
-			add_soft_currency(completion_bonus, false)
 	elif was_unplayed and !is_win:
 		if failure_affects_difficulty:
 			var loss_streak: int = int(bucket.get("loss_streak", 0)) + 1
@@ -1414,11 +1764,24 @@ func mark_single_level_word_played(
 			bucket["loss_streak"] = loss_streak
 		else:
 			bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
-	if completed and level_index >= unlocked_level:
+	if was_unplayed and completed and word_count > 1:
+		var guessed_count: int = get_single_level_guessed_count(
+			lang,
+			level_index,
+			word_count,
+			difficulty
+		)
+		completion_bonus = _single_player_level_completion_bonus(level_index, guessed_count)
+		if award_completion_bonus:
+			add_soft_currency(completion_bonus, false)
+	difficulty_delta = difficulty_after - difficulty_before
+	if was_unplayed and completed and level_index >= unlocked_level:
 		bucket["unlocked_level"] = level_index + 1
 		unlocked_next = true
+	if was_unplayed and completed:
+		bucket["theme_unlock_completed_levels"] = maxi(theme_unlock_before, level_index + 1)
 	single_player[lang_key] = bucket
-	if was_unplayed and is_win and completed and !award_completion_bonus:
+	if was_unplayed and completed and !award_completion_bonus and completion_bonus > 0:
 		var selected_theme_id: int = int(
 			(bucket["selected_themes"] as Dictionary).get(str(level_index), 0)
 		)
@@ -1428,15 +1791,18 @@ func mark_single_level_word_played(
 			word_slot,
 			word_count,
 			selected_theme_id,
-			WORD_REWARD_COINS + completion_bonus
+			completion_bonus
 		)
 	if persist:
 		save_game()
 	return {
 		"completed": completed,
+		"theme_unlock_before": theme_unlock_before,
+		"theme_unlock_after": int(bucket.get("theme_unlock_completed_levels", 0)),
 		"perfect": perfect,
 		"failed": failed,
-		"chain_ended": completed or failed,
+		# A failed stage only withholds its reward; it no longer ends the chain.
+		"chain_ended": completed,
 		"played_count": get_single_level_played_count(lang, level_index, word_count, difficulty),
 		"guessed_count": get_single_level_guessed_count(lang, level_index, word_count, difficulty),
 		"unlocked_next": unlocked_next,
@@ -1479,6 +1845,7 @@ func reset_single_level_attempt(
 	selected_themes.erase(level_key)
 	level_question_slots.erase(level_key)
 	level_question_ids.erase(level_key)
+	bucket["level_word_assignments"].erase(level_key)
 	if reroll_seed:
 		level_seeds.erase(level_key)
 	if clear_theme_reroll_state:

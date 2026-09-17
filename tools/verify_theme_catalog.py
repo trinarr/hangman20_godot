@@ -8,11 +8,8 @@ import json
 import re
 from pathlib import Path
 
-from curate_word_database import (
-    DIFFICULTY_MODEL_VERSION,
-    GEOGRAPHY_DIFFICULTY_CAPS,
-    GEOGRAPHY_DIFFICULTY_FLOORS,
-)
+from curate_word_database import DIFFICULTY_MODEL_VERSION, export
+
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ("ru", "en")
@@ -75,19 +72,7 @@ def main() -> None:
                 f"{language}/{theme_id}: difficulty outside 0..1",
             )
 
-        geography_scores = dict(zip(words["2"], difficulty["2"], strict=True))
-        for word, floor in GEOGRAPHY_DIFFICULTY_FLOORS[language].items():
-            require(word in geography_scores, f"{language}/geography: missing {word}")
-            require(
-                float(geography_scores[word]) >= floor,
-                f"{language}/geography/{word}: {geography_scores[word]} below {floor}",
-            )
-        for word, cap in GEOGRAPHY_DIFFICULTY_CAPS[language].items():
-            require(word in geography_scores, f"{language}/geography: missing {word}")
-            require(
-                float(geography_scores[word]) <= cap,
-                f"{language}/geography/{word}: {geography_scores[word]} above {cap}",
-            )
+        export(language, check=True)
         totals[language] = sum(len(words[theme_id]) for theme_id in expected)
     print("Theme catalog verified: " + ", ".join(f"{language}={total}" for language, total in totals.items()))
 

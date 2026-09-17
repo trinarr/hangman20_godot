@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dpb6oo8pe1dx6"
-path="res://.godot/imported/theme_card_user_239x90.png-cffbbc6e35a5ec388974e2edfc58c5a0.ctex"
+uid="uid://d0b7trn75osee"
+path="res://.godot/imported/custom_word_check_doodle.png-475ce1429d354a1100220a41f6329264.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://flash_assets/theme_card_user_239x90.png"
-dest_files=["res://.godot/imported/theme_card_user_239x90.png-cffbbc6e35a5ec388974e2edfc58c5a0.ctex"]
+source_file="res://flash_assets/custom_word_check_doodle.png"
+dest_files=["res://.godot/imported/custom_word_check_doodle.png-475ce1429d354a1100220a41f6329264.ctex"]
 
 [params]
 

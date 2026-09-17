@@ -1,6 +1,8 @@
 class_name StageLetterButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
+const KEYBOARD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
+
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 
 enum LetterState {
@@ -32,6 +34,7 @@ var label_stage_padding: Vector2 = Vector2(10.0, 12.0)
 var animate_marker: bool = false
 
 var _label: Label = null
+var _button_text_font: Font = KEYBOARD_FONT
 var _marker: TextureRect = null
 var _marker_tween: Tween = null
 var _letter_bounce_tween: Tween = null
@@ -99,6 +102,7 @@ func _sync_visuals() -> void:
 	if _marker == null or _label == null:
 		return
 	_label.text = letter_text
+	_label.add_theme_font_override("font", _button_text_font)
 	_label.add_theme_font_size_override("font_size", letter_font_size)
 	_label.add_theme_color_override("font_color", _letter_color())
 	# Gameplay keyboard letters stay clean and flat: no outline or shadow.

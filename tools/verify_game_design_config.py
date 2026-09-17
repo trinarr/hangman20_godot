@@ -115,9 +115,18 @@ def main() -> None:
 
     require(stage_count(config, 1) == 1, "Level 1 must contain one stage")
     require(stage_count(config, 2) == 2, "Level 2 must contain two stages")
-    require(stage_count(config, 5) == 3, "Level 5 must contain three stages")
+    require(stage_count(config, 3) == 3, "Level 3 must contain three stages")
+    require(stage_count(config, 7) == 3, "Level 7 must contain three stages")
     require(stage_count(config, 8) == 4, "Level 8 must contain four stages")
     require(stage_count(config, 19) == 5, "Level 19 must contain five stages")
+    require(
+        int(resolve(config, "progression.quiz.second_level_slot")) == 0,
+        "Level 2 must start with its quiz stage",
+    )
+    require(
+        int(resolve(config, "progression.quiz.onboarding_slot")) == 1,
+        "Levels 3 and 4 must keep their quiz in the middle slot",
+    )
     require(
         int(resolve(config, "progression.direct_theme_selection_after_reward_through_level")) == 2,
         "The first two final rewards must continue directly to theme selection",
@@ -141,8 +150,7 @@ def main() -> None:
     default = float(resolve(config, "difficulty.default"))
     maximum = float(resolve(config, "difficulty.maximum"))
     require(0.0 <= minimum <= default <= maximum <= 1.0, "Difficulty bounds are inconsistent")
-    quiz_maximum = float(resolve(config, "difficulty.quiz_target_maximum"))
-    require(minimum <= quiz_maximum <= maximum, "Quiz target maximum is outside word bounds")
+    require("quiz_target_maximum" not in config["difficulty"], "Obsolete separate quiz cap")
     require(float(resolve(config, "difficulty.bonus_level_offset")) >= 0.0, "Bonus offset is negative")
 
     win_steps = resolve(config, "difficulty.win_steps")
@@ -186,6 +194,16 @@ def main() -> None:
     require(int(resolve(config, "gameplay.max_mistakes")) > 0, "Maximum mistakes must be positive")
     require(int(resolve(config, "economy.extra_attempts.count_step_interval")) > 0, "Attempt interval must be positive")
     require(int(resolve(config, "economy.maximum_balance")) > 0, "Maximum balance must be positive")
+    require(
+        int(resolve(config, "timings.quiz_lightning_answer_window_ms")) == 3500
+        and int(resolve(config, "timings.quiz_fast_answer_window_ms")) == 5000,
+        "Quiz speed windows must remain at 3.5 and 5 seconds",
+    )
+    require(
+        int(resolve(config, "economy.rewards.lightning_quiz_answer_stars")) == 2
+        and int(resolve(config, "economy.rewards.quick_quiz_answer_stars")) == 1,
+        "Quiz speed rewards must remain at two and one stars",
+    )
     currency_icon_peak = float(resolve(config, "timings.animations.currency_reward.icon_peak_scale"))
     currency_counter_peak = float(resolve(config, "timings.animations.currency_reward.counter_peak_scale"))
     require(
@@ -246,12 +264,18 @@ def main() -> None:
         "Adaptive difficulty streaks are not connected to saved progression",
     )
     require(
-        "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" in main_source
-        and '"difficulty.quiz_target_maximum"' in main_source,
-        "Quiz difficulty cap is not read from the game-design config",
+        "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" not in main_source,
+        "Quiz still has a separate difficulty cap",
+    )
+    require(
+        '"progression.quiz.second_level_slot"' in main_source
+        and "level_number == 2" in main_source
+        and "SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT" in main_source,
+        "Level 2 does not force quiz-first ordering",
     )
     require(
         "PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS" in portrait_source
+        and "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in portrait_source
         and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in portrait_source,
         "Gameplay timers are not connected to the game-design config",
     )
@@ -269,6 +293,11 @@ def main() -> None:
         "Early final rewards do not open the next theme popup with button attention",
     )
     long_button_source = (ROOT / "scripts" / "ui" / "stage_long_button.gd").read_text(encoding="utf-8")
+    require(
+        "func play_single_attention_shine()" in long_button_source
+        and "_single_attention_shine_tween.tween_method(" in long_button_source,
+        "Long buttons do not expose a one-shot attention shine",
+    )
     round_button_source = (ROOT / "scripts" / "ui" / "stage_round_button.gd").read_text(encoding="utf-8")
     for label, button_source in (("long", long_button_source), ("round", round_button_source)):
         shine_index = button_source.find("_attention_bounce_tween.tween_callback(_reset_attention_shine)")

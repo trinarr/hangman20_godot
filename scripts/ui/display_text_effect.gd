@@ -1,0 +1,314 @@
+class_name DisplayTextEffect
+extends Control
+
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
+
+# Subway-style display treatment: the outline stays proportional to the text,
+# but is much tighter than the previous heavy 3D treatment.
+const OUTLINE_SIZE_RATIO: float = 0.075
+const OUTLINE_SIZE_MIN: float = 2.0
+const OUTLINE_SIZE_MAX: float = 9.0
+
+# Build a short, dense lower edge rather than a deep extrusion. The tiny
+# rightward drift gives the shadow a printed/sticker feel without changing the
+# project colors.
+const SHADOW_DEPTH_RATIO: float = 0.055
+const SHADOW_DEPTH_MIN: float = 1.5
+const SHADOW_DEPTH_MAX: float = 5.0
+const SHADOW_OFFSET_X_RATIO: float = 0.012
+const SHADOW_OFFSET_X_MAX: float = 1.5
+const SHADOW_SPREAD_FROM_OUTLINE: float = 0.92
+const SHADOW_LAYER_COUNT: int = 4
+const EFFECT_MARGIN_EXTRA: float = 4.0
+const EFFECT_NODE_NAME: StringName = &"DisplayTextShaderEffect"
+
+var _target: Control = null
+var _main_label: Label = null
+var _shadow_labels: Array[Label] = []
+var _shadow_material: ShaderMaterial = null
+var _outline_color: Color = Color.WHITE
+var _shadow_color: Color = Color.BLACK
+var _effect_margin: float = 0.0
+var _outline_size: int = 0
+var _shadow_spread: int = 0
+var _shadow_depth: float = 0.0
+var _shadow_offset_x: float = 0.0
+var _shadow_offset_scale: float = 1.0
+var _outline_scale: float = 1.0
+var _shadow_spread_scale: float = 1.0
+var _sync_queued: bool = false
+var _last_signature: Array = []
+
+static func attach(
+	target: Control,
+	outline_color: Color,
+	shadow_color: Color,
+	shadow_offset_scale: float = 1.0,
+	outline_scale: float = 1.0,
+	shadow_spread_scale: float = 1.0
+) -> void:
+	if target == null or !is_instance_valid(target):
+		return
+	var existing: Node = target.get_node_or_null(NodePath(String(EFFECT_NODE_NAME)))
+	var effect: DisplayTextEffect = existing as DisplayTextEffect
+	if effect == null:
+		effect = DisplayTextEffect.new()
+		effect.name = EFFECT_NODE_NAME
+		target.add_child(effect)
+	effect.configure(
+		target,
+		outline_color,
+		shadow_color,
+		shadow_offset_scale,
+		outline_scale,
+		shadow_spread_scale
+	)
+
+func configure(
+	target: Control,
+	outline_color: Color,
+	shadow_color: Color,
+	shadow_offset_scale: float = 1.0,
+	outline_scale: float = 1.0,
+	shadow_spread_scale: float = 1.0
+) -> void:
+	if _target != target and is_instance_valid(_target):
+		_disconnect_target()
+	_target = target
+	_outline_color = outline_color
+	_shadow_color = shadow_color
+	_shadow_offset_scale = maxf(shadow_offset_scale, 0.0)
+	_outline_scale = maxf(outline_scale, 0.0)
+	_shadow_spread_scale = maxf(shadow_spread_scale, 0.0)
+	# Label has no text_changed signal. draw also catches equal-width text
+	# replacements, alignment changes, and Button.disabled, which need not resize
+	# the control. These signals fire on invalidation, not on every rendered frame.
+	for signal_name: StringName in [&"resized", &"minimum_size_changed", &"theme_changed", &"draw", &"visibility_changed"]:
+		if !_target.is_connected(signal_name, _queue_sync):
+			_target.connect(signal_name, _queue_sync)
+	_last_signature.clear()
+	_ensure_nodes()
+	_sync_all()
+	if is_inside_tree():
+		_queue_sync()
+
+func _disconnect_target() -> void:
+	for signal_name: StringName in [&"resized", &"minimum_size_changed", &"theme_changed", &"draw", &"visibility_changed"]:
+		if _target.is_connected(signal_name, _queue_sync):
+			_target.disconnect(signal_name, _queue_sync)
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	show_behind_parent = false
+	z_index = 1
+	set_process(false)
+	_ensure_nodes()
+	_sync_all()
+
+func _queue_sync() -> void:
+	if _sync_queued or !is_inside_tree():
+		return
+	_sync_queued = true
+	call_deferred("_flush_sync")
+
+func _flush_sync() -> void:
+	_sync_queued = false
+	if is_inside_tree():
+		_sync_all()
+
+func _ensure_nodes() -> void:
+	if _shadow_material == null:
+		_shadow_material = UI_MATERIALS.text_shadow(_shadow_color)
+
+	while _shadow_labels.size() < SHADOW_LAYER_COUNT:
+		var shadow_label := Label.new()
+		shadow_label.name = "Extrusion%02d" % (_shadow_labels.size() + 1)
+		shadow_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shadow_label.z_index = 0
+		shadow_label.material = _shadow_material
+		shadow_label.add_theme_color_override("font_color", Color.WHITE)
+		shadow_label.add_theme_color_override("font_outline_color", Color.WHITE)
+		shadow_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+		shadow_label.add_theme_constant_override("shadow_offset_x", 0)
+		shadow_label.add_theme_constant_override("shadow_offset_y", 0)
+		shadow_label.add_theme_constant_override("shadow_outline_size", 0)
+		shadow_label.minimum_size_changed.connect(_queue_sync)
+		add_child(shadow_label)
+		_shadow_labels.append(shadow_label)
+
+	if _main_label == null or !is_instance_valid(_main_label):
+		_main_label = Label.new()
+		_main_label.name = "DisplayTextFront"
+		_main_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_main_label.z_index = 1
+		_main_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+		_main_label.add_theme_constant_override("shadow_offset_x", 0)
+		_main_label.add_theme_constant_override("shadow_offset_y", 0)
+		_main_label.add_theme_constant_override("shadow_outline_size", 0)
+		_main_label.minimum_size_changed.connect(_queue_sync)
+		add_child(_main_label)
+
+func _sync_all() -> void:
+	if !is_instance_valid(_target):
+		return
+	var signature: Array = [
+		_target_text(), _target.size, _target.get_theme_font("font"),
+		_target.get_theme_font_size("font_size"), _target_font_color(),
+		_outline_color, _shadow_color, _shadow_offset_scale,
+		_outline_scale, _shadow_spread_scale,
+	]
+	if _target is Label:
+		var label := _target as Label
+		signature.append_array([
+			label.horizontal_alignment, label.vertical_alignment, label.autowrap_mode,
+			label.text_overrun_behavior, label.clip_text, label.max_lines_visible,
+			label.lines_skipped, label.text_direction, label.language,
+		])
+	elif _target is Button:
+		var button := _target as Button
+		signature.append_array([
+			button.alignment, button.clip_text, button.text_direction, button.language,
+		])
+	if signature == _last_signature:
+		_sync_layer_sizes()
+		return
+	_last_signature = signature
+	_sync_effect_metrics()
+	_sync_from_target()
+
+func _sync_layer_sizes() -> void:
+	# Wrapped Labels update their minimum height after shaping. The first size
+	# assignment can therefore be clamped to the old, narrow-width text layout.
+	# When that minimum settles, restore the authored bounds even if the target
+	# signature has not changed. Otherwise centered/bottom-aligned text drifts.
+	for shadow_label: Label in _shadow_labels:
+		if is_instance_valid(shadow_label) and shadow_label.size != _target.size:
+			shadow_label.size = _target.size
+	if is_instance_valid(_main_label) and _main_label.size != _target.size:
+		_main_label.size = _target.size
+
+func _target_text() -> String:
+	if _target is Label:
+		return (_target as Label).text
+	if _target is Button:
+		return (_target as Button).text
+	return ""
+
+func _target_font_color() -> Color:
+	if _target == null or !is_instance_valid(_target):
+		return Color.WHITE
+	if _target is Button:
+		var button := _target as Button
+		if button.disabled:
+			return button.get_theme_color("font_disabled_color")
+	return _target.get_theme_color("font_color")
+
+func _copy_text_layout(source: Control, destination: Label) -> void:
+	destination.add_theme_font_override("font", source.get_theme_font("font"))
+	destination.add_theme_font_size_override("font_size", source.get_theme_font_size("font_size"))
+	if source is Label:
+		var label_source := source as Label
+		destination.text = label_source.text
+		destination.horizontal_alignment = label_source.horizontal_alignment
+		destination.vertical_alignment = label_source.vertical_alignment
+		destination.autowrap_mode = label_source.autowrap_mode
+		destination.text_overrun_behavior = label_source.text_overrun_behavior
+		destination.clip_text = label_source.clip_text
+		destination.max_lines_visible = label_source.max_lines_visible
+		destination.lines_skipped = label_source.lines_skipped
+		destination.text_direction = label_source.text_direction
+		destination.language = label_source.language
+	elif source is Button:
+		var button_source := source as Button
+		destination.text = button_source.text
+		destination.horizontal_alignment = button_source.alignment
+		destination.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		destination.autowrap_mode = TextServer.AUTOWRAP_OFF
+		destination.clip_text = button_source.clip_text
+		destination.text_direction = button_source.text_direction
+		destination.language = button_source.language
+	else:
+		destination.text = ""
+
+func _sync_from_target() -> void:
+	if _target == null or !is_instance_valid(_target):
+		return
+	_ensure_nodes()
+
+	_shadow_material = UI_MATERIALS.text_shadow(_shadow_color)
+	var base_position := Vector2.ONE * _effect_margin
+	for index: int in range(_shadow_labels.size()):
+		var shadow_label: Label = _shadow_labels[index]
+		shadow_label.material = _shadow_material
+		_copy_text_layout(_target, shadow_label)
+		# Pack the four silhouettes into one short lower edge. These authored
+		# depths keep the first layers close to the glyph and the last layer at
+		# the full shadow depth.
+		var layer_t: float = 1.0
+		match index:
+			0:
+				layer_t = 0.25
+			1:
+				layer_t = 0.55
+			2:
+				layer_t = 0.80
+		shadow_label.position = base_position + Vector2(
+			_shadow_offset_x * layer_t,
+			_shadow_depth * layer_t
+		)
+		shadow_label.size = _target.size
+		shadow_label.custom_minimum_size = Vector2.ZERO
+		shadow_label.add_theme_constant_override("outline_size", _shadow_spread)
+
+	_copy_text_layout(_target, _main_label)
+	_main_label.position = base_position
+	_main_label.size = _target.size
+	_main_label.custom_minimum_size = Vector2.ZERO
+	_main_label.add_theme_color_override("font_color", _target_font_color())
+	_main_label.add_theme_color_override("font_outline_color", _outline_color)
+	_main_label.add_theme_constant_override("outline_size", _outline_size)
+
+func _sync_effect_metrics() -> void:
+	if _target == null or !is_instance_valid(_target):
+		return
+	_ensure_nodes()
+	var font_size: float = float(maxi(_target.get_theme_font_size("font_size"), 1))
+	var outline_local: float = clampf(
+		font_size * OUTLINE_SIZE_RATIO,
+		OUTLINE_SIZE_MIN,
+		OUTLINE_SIZE_MAX
+	)
+	_shadow_depth = (
+		clampf(
+			font_size * SHADOW_DEPTH_RATIO,
+			SHADOW_DEPTH_MIN,
+			SHADOW_DEPTH_MAX
+		)
+		* _shadow_offset_scale
+	)
+	_shadow_offset_x = (
+		minf(font_size * SHADOW_OFFSET_X_RATIO, SHADOW_OFFSET_X_MAX)
+		* _shadow_offset_scale
+	)
+	_outline_size = maxi(
+		1,
+		int(round(outline_local * _outline_scale))
+	)
+	_shadow_spread = maxi(
+		1,
+		int(round(
+			outline_local
+			* SHADOW_SPREAD_FROM_OUTLINE
+			* _shadow_spread_scale
+		))
+	)
+	_effect_margin = ceil(
+		float(_outline_size) + _shadow_depth + absf(_shadow_offset_x) + EFFECT_MARGIN_EXTRA
+	)
+
+	position = -Vector2.ONE * _effect_margin
+	size = Vector2(
+		maxf(_target.size.x + _effect_margin * 2.0, 2.0),
+		maxf(_target.size.y + _effect_margin * 2.0, 2.0)
+	)
+	custom_minimum_size = Vector2.ZERO

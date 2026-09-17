@@ -14,6 +14,8 @@ var interface_language: String = "ru"
 var _themes_cache: Array = []
 var _themes_cache_ready: bool = false
 var _words_by_index_cache: Dictionary = {}
+var _word_progress_keys_cache: Dictionary = {}
+var _word_progress_key_sets: Dictionary = {}
 var _alphabet_cache := PackedStringArray()
 # Parsed source files are immutable during a run. Keeping both language payloads
 # avoids reparsing several hundred kilobytes of JSON whenever the player toggles
@@ -62,88 +64,30 @@ const WORD_FILES := {
 	"en": "res://data/words_en.json"
 }
 
-const TRANSLATION_KEYS := [
-	"GAME_TITLE",
-	"MENU_CLASSIC",
-	"MENU_TWO_PLAYER",
-	"COMMON_CONTINUE",
-	"SETTINGS_TITLE",
-	"COMMON_EXIT",
-	"NEW_GAME",
-	"CHARACTER_SELECT_TITLE",
-	"RESTART",
-	"MUSIC_LABEL",
-	"UNUSED_12",
-	"ABOUT_TITLE",
-	"WORD_DATABASE_LABEL",
-	"GIVE_UP",
-	"START",
-	"RECORDS_TITLE",
-	"RECORD_EASY_STREAK",
-	"RECORD_HARD_STREAK",
-	"AUTHOR_NIKITA",
-	"VERSION_LABEL",
-	"AUTHOR_LABEL",
-	"CONTACTS_LABEL",
-	"ABOUT_WORD",
-	"SHOW_EDGE_LETTERS",
-	"SHOW_HINTS",
-	"CLEAR_THEME_CONFIRM",
-	"YES",
-	"NO",
-	"THEME_SELECT_TITLE",
-	"ALL_WORDS_GUESSED",
-	"GUESSED",
-	"OF",
-	"HINTS_LABEL",
-	"RESULT_VICTORY",
-	"RESULT_DEFEAT",
-	"RESULT_END",
-	"UNAVAILABLE",
-	"INPUT_WORD",
-	"VICTORIES",
-	"DEFEATS",
-	"NO_CATEGORY",
-	"COMMENT",
-	"CATEGORY_LABEL",
-	"WIN_MESSAGE",
-	"LOSE_MESSAGE",
-	"CHANGE_CATEGORY",
-	"EDGE_LETTERS",
-	"EASY_WORDS",
-	"HARD_WORDS",
-	"ALL_WORDS",
-	"TRIES_LEFT",
-	"WORDS_TOTAL",
-	"DIFFICULTY_GENERAL",
-	"DIFFICULTY_HARD",
-	"DIFFICULTY_EASY",
-	"DIFFICULTY_SELECT_TITLE",
-	"NEW_RECORD",
-	"CATEGORY_COMPLETED",
-	"PLAY",
-	"SPACE",
-	"CHECK_WORD",
-	"VIBRATION",
-	"REMOVE_ADS",
-	"AUTHOR_BRUNO",
-	"ERROR_GENERIC",
-	"SOUND_MUSIC",
-	"NO_COMMENT",
-	"CHARACTER_LUCKY",
-	"CHARACTER_EL_TIGRE",
-	"WELCOME_BACK",
-	"NO_UNFINISHED_GAMES",
-	"LANGUAGE_RU_SHORT",
-	"LANGUAGE_EN_SHORT",
-	"ON",
-	"OFF",
-	"MAX_35_CHARACTERS",
-	"RANDOM_WORD",
-	"START_GAME",
-	"OK",
-	"COMMON_FREE",
-]
+const TRANSLATION_KEYS := {
+	2: &"MENU_TWO_PLAYER",
+	3: &"COMMON_CONTINUE",
+	12: &"WORD_DATABASE_LABEL",
+	19: &"VERSION_LABEL",
+	25: &"CLEAR_THEME_CONFIRM",
+	26: &"YES",
+	27: &"NO",
+	30: &"GUESSED",
+	33: &"RESULT_VICTORY",
+	34: &"RESULT_DEFEAT",
+	37: &"INPUT_WORD",
+	40: &"NO_CATEGORY",
+	57: &"CATEGORY_COMPLETED",
+	60: &"CHECK_WORD",
+	61: &"VIBRATION",
+	64: &"ERROR_GENERIC",
+	65: &"SOUND_MUSIC",
+	71: &"LANGUAGE_RU_SHORT",
+	72: &"LANGUAGE_EN_SHORT",
+	73: &"ON",
+	74: &"OFF",
+	77: &"START_GAME",
+}
 
 const HINT_FILES := {
 	"ru": "res://data/hints_ru.json",
@@ -159,7 +103,14 @@ const QUIZ_FILES := {
 }
 
 var _quiz_questions_by_theme_cache: Dictionary = {}
+var _quiz_questions_by_id: Dictionary = {}
 var _loaded_quiz_language: String = ""
+const QUIZ_EXPLANATION_FILES := {
+	"ru": "res://data/quiz_explanations_ru.json",
+	"en": "res://data/quiz_explanations_en.json",
+}
+# Load only when the first answered question needs its explanation.
+var _quiz_explanations_by_language: Dictionary = {}
 
 func _ready() -> void:
 	set_process(false)
@@ -334,6 +285,8 @@ func _invalidate_word_runtime_cache() -> void:
 	_themes_cache.clear()
 	_themes_cache_ready = false
 	_words_by_index_cache.clear()
+	_word_progress_keys_cache.clear()
+	_word_progress_key_sets.clear()
 	_alphabet_cache.clear()
 
 func _load_hints() -> void:
@@ -400,9 +353,9 @@ func _is_valid_data_theme_id(raw_theme_id: Variant) -> bool:
 	return data_theme_id == str(numeric_theme_id) and THEME_IDS.has(numeric_theme_id)
 
 func tr_text(index: int, fallback: String = "") -> String:
-	if index < 0 or index >= TRANSLATION_KEYS.size():
+	var key: StringName = TRANSLATION_KEYS.get(index, &"")
+	if key == &"":
 		return fallback
-	var key := StringName(TRANSLATION_KEYS[index])
 	var translated: String = str(TranslationServer.translate(key))
 	if translated == "" or translated == str(key):
 		return fallback
@@ -457,6 +410,7 @@ func _ensure_quiz_data_loaded() -> void:
 	if _loaded_quiz_language == quiz_language:
 		return
 	_quiz_questions_by_theme_cache.clear()
+	_quiz_questions_by_id.clear()
 
 	var quiz_path: String = str(QUIZ_FILES.get(quiz_language, ""))
 	if quiz_path.is_empty():
@@ -496,7 +450,42 @@ func _ensure_quiz_data_loaded() -> void:
 		if !_quiz_questions_by_theme_cache.has(theme_id):
 			_quiz_questions_by_theme_cache[theme_id] = []
 		var theme_questions: Array = _quiz_questions_by_theme_cache[theme_id]
-		theme_questions.append(question.duplicate(true))
+		# Cache immutable source entries once. Runtime callers duplicate only the
+		# selected question before shuffling/changing its answers.
+		var cached_question: Dictionary = question.duplicate(true)
+		(cached_question["answers"] as Array).make_read_only()
+		cached_question.make_read_only()
+		theme_questions.append(cached_question)
+		if !_quiz_questions_by_id.has(theme_id):
+			_quiz_questions_by_id[theme_id] = {}
+		var by_id: Dictionary = _quiz_questions_by_id[theme_id]
+		var question_id: int = int(question.get("id", -1))
+		if question_id >= 0 and !by_id.has(question_id):
+			by_id[question_id] = cached_question
+
+func get_quiz_answer_explanation(question_id: int) -> String:
+	if question_id < 0:
+		return ""
+	var language: String = _normalize_language(current_language)
+	if !_quiz_explanations_by_language.has(language):
+		var path: String = QUIZ_EXPLANATION_FILES[language]
+		var payload: Variant = _load_json(path)
+		var explanations: Dictionary = {}
+		if (
+			payload is Dictionary
+			and payload.get("format_version", 0) == 1
+			and payload.get("language", "") == language
+			and payload.get("explanations") is Dictionary
+		):
+			explanations = payload["explanations"]
+		else:
+			push_error("Invalid quiz explanations: " + path)
+		# Missing optional content must not block Continue or cause repeated I/O.
+		explanations.make_read_only()
+		_quiz_explanations_by_language[language] = explanations
+	var entries: Dictionary = _quiz_explanations_by_language[language]
+	var explanation: Variant = entries.get(str(question_id), "")
+	return explanation.strip_edges() if explanation is String else ""
 
 func get_quiz_questions_by_theme_index(theme_index: int) -> Array:
 	_ensure_quiz_data_loaded()
@@ -506,7 +495,9 @@ func get_quiz_questions_by_theme_index(theme_index: int) -> Array:
 	var cached: Variant = _quiz_questions_by_theme_cache.get(theme_id, [])
 	if !(cached is Array):
 		return []
-	return Array(cached).duplicate(true)
+	# Keep the outer list private to the caller; its immutable entries can be
+	# shared without copying all four answers of every question in the theme.
+	return Array(cached).duplicate()
 
 func get_quiz_question_count_by_theme_index(theme_index: int) -> int:
 	_ensure_quiz_data_loaded()
@@ -519,12 +510,11 @@ func get_quiz_question_count_by_theme_index(theme_index: int) -> int:
 func get_quiz_question_by_id(theme_index: int, question_id: int) -> Dictionary:
 	if question_id < 0:
 		return {}
-	for question_variant: Variant in get_quiz_questions_by_theme_index(theme_index):
-		if !(question_variant is Dictionary):
-			continue
-		var question: Dictionary = question_variant
-		if int(question.get("id", -1)) == question_id:
-			return question.duplicate(true)
+	_ensure_quiz_data_loaded()
+	var by_id: Dictionary = _quiz_questions_by_id.get(get_theme_id(theme_index), {})
+	if by_id.has(question_id):
+		var question: Dictionary = by_id[question_id]
+		return question.duplicate(true)
 	return {}
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
@@ -541,6 +531,7 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 		words = Array(data["words"].get(data_theme_id, []))
 
 	var filtered: Array = []
+	var ids: Array = data.get("ids", {}).get(data_theme_id, [])
 	for i in range(words.size()):
 		var word := normalize_loaded_word(str(words[i]))
 		if word == "" or word == "_":
@@ -553,7 +544,8 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 				continue
 			if difficulty_filter == 2 and diff > DIFFICULTY_SPLIT:
 				continue
-		filtered.append({"text": word, "index": i, "difficulty": diff})
+		filtered.append({"text": word, "index": i, "difficulty": diff,
+			"id": str(ids[i]) if i < ids.size() else ""})
 	_words_by_index_cache[cache_key] = filtered
 	return filtered
 
@@ -572,6 +564,9 @@ func get_word_progress_key(theme_index: int, word_index: int) -> String:
 	return ""
 
 func get_word_progress_keys(theme_index: int) -> Array[String]:
+	_ensure_word_language_loaded()
+	if _word_progress_keys_cache.has(theme_index):
+		return _word_progress_keys_cache[theme_index]
 	var keys: Array[String] = []
 	var words: Array = get_words_by_index(theme_index, 0)
 	var max_index: int = -1
@@ -599,13 +594,29 @@ func get_word_progress_keys(theme_index: int) -> Array[String]:
 				if int(totals.get(base, 0)) > 1
 				else base
 			)
+	var allowed_keys: Dictionary = {}
+	for key: String in keys:
+		if !key.is_empty():
+			allowed_keys[key] = true
+	keys.make_read_only()
+	allowed_keys.make_read_only()
+	_word_progress_keys_cache[theme_index] = keys
+	_word_progress_key_sets[theme_index] = allowed_keys
 	return keys
 
+func get_word_progress_key_set(theme_index: int) -> Dictionary:
+	# Both indexes are rebuilt together after a word-language change.
+	get_word_progress_keys(theme_index)
+	return _word_progress_key_sets[theme_index]
+
+func get_word_progress_alias_themes() -> Dictionary:
+	_ensure_word_language_loaded()
+	return data.get("progress_alias_themes", {})
+
 func word_progress_key_from_text(word: String) -> String:
-	# The normalized word itself is the stable content identity. Reordering the
-	# database no longer moves progress to a different entry; editing/removing one
-	# word only retires that word's key instead of shifting every later flag.
-	return normalize_loaded_word(word)
+	_ensure_word_language_loaded()
+	var normalized: String = normalize_loaded_word(word)
+	return str(data.get("progress_aliases", {}).get(normalized, normalized))
 
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	_ensure_word_language_loaded()

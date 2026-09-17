@@ -14,14 +14,26 @@
   },
   "progression": {
     "theme_options_per_level": 3,
+    "theme_unlocks": {
+      "initial_theme_ids": [1, 9, 2],
+      "milestones": [
+        {"after_level": 3, "theme_id": 6},
+        {"after_level": 6, "theme_id": 3},
+        {"after_level": 10, "theme_id": 10},
+        {"after_level": 14, "theme_id": 5},
+        {"after_level": 18, "theme_id": 8},
+        {"after_level": 25, "theme_id": 4},
+        {"after_level": 30, "theme_id": 7}
+      ]
+    },
     "direct_theme_selection_after_reward_through_level": 2,
     "guided_onboarding": {
       "required_start_level": 3
     },
     "level_stage_counts": [
       {"from_level": 1, "to_level": 1, "count": 1},
-      {"from_level": 2, "to_level": 4, "count": 2},
-      {"from_level": 5, "to_level": 7, "count": 3},
+      {"from_level": 2, "to_level": 2, "count": 2},
+      {"from_level": 3, "to_level": 7, "count": 3},
       {"from_level": 8, "to_level": 18, "count": 4},
       {"from_level": 19, "to_level": 0, "count": 5}
     ],
@@ -33,6 +45,7 @@
       "onboarding_from_level": 2,
       "onboarding_to_level": 4,
       "onboarding_stage_count": 2,
+      "second_level_slot": 0,
       "onboarding_slot": 1,
       "regular_min_stage_count": 3,
       "first_slot_ratio": 0.5,
@@ -43,7 +56,6 @@
     "default": 0.18,
     "minimum": 0.08,
     "maximum": 0.86,
-    "quiz_target_maximum": 0.68,
     "bonus_level_offset": 0.01,
     "win_steps": [
       {"below_difficulty": 0.3, "increase": 0.01},
@@ -65,7 +77,7 @@
     "played_word_penalty": 0.05,
     "guessed_word_penalty": 0.12,
     "word_pick_jitter": 0.012,
-    "question_pick_jitter": 0.008
+    "quiz_pick_window": 0.08
   },
   "economy": {
     "starting_coins": 100,
@@ -93,14 +105,18 @@
       "cost_step": 5,
       "base_count": 2,
       "count_step": 1,
-      "count_step_interval": 2
+      "count_step_interval": 1
     },
     "rewards": {
       "word_coins": 10,
       "word_stars": 10,
-      "level_base_bonus_coins": 10,
-      "level_word_bonus_coins": 5,
+      "quiz_stage_coin_multiplier": 1.5,
+      "level_completion_base_coins": 25,
+      "level_completion_per_win_coins": 10,
+      "challenge_level_completion_base_coins": 50,
+      "challenge_level_completion_per_win_coins": 20,
       "quick_quiz_answer_stars": 1,
+      "lightning_quiz_answer_stars": 2,
       "coin_refill_ad_coins": 50
     },
     "coin_refill_ad": {
@@ -118,8 +134,8 @@
     "heart_popup_poll_seconds": 1.0,
     "custom_word_result_color_seconds": 1.81,
     "custom_word_check_dots_seconds": 0.4,
-    "quiz_fast_answer_window_ms": 4000,
-    "menu_logo_shine_delay_seconds": 0.28,
+    "quiz_lightning_answer_window_ms": 3500,
+    "quiz_fast_answer_window_ms": 5000,
     "menu_logo_shine_duration_seconds": 0.72,
     "quiz_wrong_answer_shake_step_seconds": 0.065,
     "rewarded_ad_close_guard_seconds": 0.3,
@@ -149,7 +165,7 @@
         "key_fade_seconds": 0.22,
         "key_wave_seconds": 0.48,
         "key_scale": 1.28,
-        "paper_flip_seconds": 0.92,
+        "paper_flip_seconds": 0.5,
         "attempts_fade_seconds": 0.2,
         "hints_fade_seconds": 0.18
       },
@@ -164,6 +180,7 @@
       "game_entrance": {
         "start_delay_seconds": 0.05,
         "speed_multiplier": 1.3,
+        "paper_reveal_seconds": 0.92,
         "hero_fade_seconds": 0.26,
         "continue_grow_seconds": 0.12
       },
@@ -172,7 +189,6 @@
         "side_node_scale": 0.9,
         "chain_icon_scale": 0.612,
         "status_icon_scale": 0.574,
-        "crown_fly_seconds": 0.38,
         "coin_dim_alpha": 0.45,
         "check_start_scale": 0.42,
         "check_peak_scale": 1.16,
@@ -246,10 +262,12 @@
         "acceleration_seconds": 0.055,
         "landing_seconds": 0.006,
         "reveal_stagger_seconds": 0.0,
+        "reveal_start_delay_seconds": 0.0,
         "reveal_peak_scale": 1.38,
-        "reveal_grow_seconds": 0.08,
-        "reveal_settle_seconds": 0.14,
-        "label_fade_seconds": 0.14
+        "reveal_grow_seconds": 0.0941,
+        "reveal_settle_seconds": 0.1647,
+        "label_fade_seconds": 0.14,
+        "selection_outline_seconds": 0.16
       },
       "word_letters": {
         "start_scale": 0.58,
@@ -268,7 +286,7 @@
         "feedback_grow_seconds": 0.16,
         "feedback_settle_seconds": 0.22,
         "fast_reward_fade_seconds": 0.18,
-        "feedback_hold_seconds": 1.0,
+        "feedback_hold_seconds": 0.7,
         "feedback_exit_peak_scale": 1.08,
         "feedback_exit_grow_seconds": 0.1,
         "feedback_exit_hide_seconds": 0.16,

@@ -2,14 +2,20 @@ class_name StageToast
 extends Panel
 
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
+const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
+const DISPLAY_TEXT_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/display_text_effect.gd")
 
-const TOAST_HEIGHT: float = 40.0
-const TOAST_PARENT_GAP: float = 8.0
-const TOAST_HORIZONTAL_PADDING: float = 10.0
-const TOAST_ICON_TEXT_GAP: float = 5.0
-const TOAST_TEXT_FONT_SIZE: int = 18
-const TOAST_TEXT_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
-const TOAST_ENTER_OFFSET: float = 8.0
+const TOAST_HEIGHT: float = 52.0
+const TOAST_PARENT_GAP: float = 10.4
+const TOAST_HORIZONTAL_PADDING: float = 13.0
+const TOAST_ICON_TEXT_GAP: float = 6.5
+const TOAST_TEXT_FONT_SIZE: int = 23
+const TOAST_ICON_SIZE: float = 31.2
+const TOAST_ICON_STROKE_WIDTH: float = 5.85
+const TOAST_ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
+const TOAST_ENTER_OFFSET: float = 10.4
 const TOAST_ENTER_DURATION: float = 0.16
 const TOAST_HOLD_DURATION: float = 1.65
 const TOAST_EXIT_DURATION: float = 0.22
@@ -18,6 +24,7 @@ const STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon
 
 var _available_width: float = 0.0
 var _status_icon: Control = null
+var _status_icon_shadow_layers: Array[Control] = []
 var _message_label: Label = null
 var _toast_tween: Tween = null
 
@@ -40,8 +47,11 @@ func show_message(message: String, is_success: bool) -> void:
 		hide_message()
 		return
 	_ensure_content()
-	_status_icon.call("configure", is_success, 4.5)
-	_message_label.text = message
+	_status_icon.call("configure", is_success, TOAST_ICON_STROKE_WIDTH)
+	for shadow_icon: Control in _status_icon_shadow_layers:
+		if shadow_icon != null and is_instance_valid(shadow_icon):
+			shadow_icon.call("configure", is_success, TOAST_ICON_STROKE_WIDTH)
+	_message_label.text = message.to_upper()
 	_layout_message()
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()
@@ -91,9 +101,20 @@ func _exit_tree() -> void:
 func _ensure_content() -> void:
 	if _status_icon != null and is_instance_valid(_status_icon):
 		return
+	var icon_shadow_material: ShaderMaterial = UI_MATERIALS.text_shadow(UI_PALETTE.NAV_TEXT_SHADOW)
+	for layer_index: int in range(TOAST_ICON_SHADOW_LAYER_T.size()):
+		var shadow_icon: Control = STATUS_ICON_SCRIPT.new() as Control
+		shadow_icon.name = "StatusIconExtrusion%02d" % (layer_index + 1)
+		shadow_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shadow_icon.material = icon_shadow_material
+		shadow_icon.z_index = 0
+		add_child(shadow_icon)
+		_status_icon_shadow_layers.append(shadow_icon)
+
 	_status_icon = STATUS_ICON_SCRIPT.new() as Control
 	_status_icon.name = "StatusIcon"
 	_status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_status_icon.z_index = 1
 	add_child(_status_icon)
 
 	_message_label = Label.new()
@@ -104,15 +125,17 @@ func _ensure_content() -> void:
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_message_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	_message_label.clip_text = true
-	_message_label.add_theme_font_override("font", TOAST_TEXT_FONT)
+	_message_label.add_theme_font_override("font", UI_FONTS.button_font())
 	_message_label.add_theme_font_size_override("font_size", TOAST_TEXT_FONT_SIZE)
 	_message_label.add_theme_color_override("font_color", Color.WHITE)
+	_message_label.z_index = 2
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(_message_label)
 	add_child(_message_label)
 
 func _layout_message() -> void:
 	if _status_icon == null or !is_instance_valid(_status_icon):
 		return
-	var icon_width: float = 24.0
+	var icon_width: float = TOAST_ICON_SIZE
 	var message_font: Font = _message_label.get_theme_font("font")
 	var measured_message_width: float = ceilf(message_font.get_string_size(
 		_message_label.text,
@@ -144,6 +167,25 @@ func _layout_message() -> void:
 		(TOAST_HEIGHT - icon_width) * 0.5
 	)
 	_status_icon.size = Vector2(icon_width, icon_width)
+	var icon_shadow_depth: float = clampf(
+		float(TOAST_TEXT_FONT_SIZE) * DISPLAY_TEXT_EFFECT_SCRIPT.SHADOW_DEPTH_RATIO,
+		DISPLAY_TEXT_EFFECT_SCRIPT.SHADOW_DEPTH_MIN,
+		DISPLAY_TEXT_EFFECT_SCRIPT.SHADOW_DEPTH_MAX
+	)
+	var icon_shadow_offset_x: float = minf(
+		float(TOAST_TEXT_FONT_SIZE) * DISPLAY_TEXT_EFFECT_SCRIPT.SHADOW_OFFSET_X_RATIO,
+		DISPLAY_TEXT_EFFECT_SCRIPT.SHADOW_OFFSET_X_MAX
+	)
+	for layer_index: int in range(_status_icon_shadow_layers.size()):
+		var shadow_icon: Control = _status_icon_shadow_layers[layer_index]
+		if shadow_icon == null or !is_instance_valid(shadow_icon):
+			continue
+		var layer_t: float = float(TOAST_ICON_SHADOW_LAYER_T[layer_index])
+		shadow_icon.position = _status_icon.position + Vector2(
+			icon_shadow_offset_x * layer_t,
+			icon_shadow_depth * layer_t
+		)
+		shadow_icon.size = Vector2(icon_width, icon_width)
 	_message_label.position = Vector2(
 		TOAST_HORIZONTAL_PADDING + icon_width + TOAST_ICON_TEXT_GAP,
 		0.0

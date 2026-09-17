@@ -1,5 +1,7 @@
 extends Node2D
 
+const QUIZ_SELECTION: GDScript = preload("res://scripts/core/quiz_selection.gd")
+
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const HERO_ANIMATION_SPEED_SCALE: float = 1.0
 const HERO_OUTER_FRAME_SAMPLE_OFFSET: float = 0.020833333333333332
@@ -10,6 +12,9 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 0.20833333333333334 + HERO_NES
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 0.375 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 1.6666666666666667
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 0.5
+const CUSTOM_WORD_MAX_LENGTH: int = 20
+const CUSTOM_WORD_LATIN_ALPHABET_TEXT: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT: String = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
 var RANDOM_CUSTOM_WORD_MAX_LENGTH: int = GAME_DESIGN.get_int_range(
 	"gameplay.random_custom_word.max_length", 7, 1, 64
 )
@@ -29,10 +34,8 @@ const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
 	"timings.custom_word_check_dots_seconds", 0.4, 0.01, 60.0
 )
-const CUSTOM_WORD_INPUT_DEFAULT_COLOR := UI_PALETTE.UI_BLUE_DARK
+const CUSTOM_WORD_FIELD_DEFAULT_TINT := UI_PALETTE.MARKER_INFO
 const SOUND_SETTING_INDEX: int = 3
-const THEME_CARD_PRESSED_MODULATE := UI_PALETTE.THEME_CARD_PRESSED
-const THEME_PROGRESS_TEXT_OPTICAL_OFFSET_Y: float = -3.0
 const APP_VERSION_FALLBACK: String = "3.0.0"
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
 	"progression.theme_options_per_level", 3, 1, 10
@@ -63,9 +66,6 @@ var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
 var SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET: float = GAME_DESIGN.get_float_range(
 	"difficulty.bonus_level_offset", 0.01, 0.0, 1.0
 )
-var SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM: float = GAME_DESIGN.get_float_range(
-	"difficulty.quiz_target_maximum", 0.68, 0.0, 1.0
-)
 var SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = GAME_DESIGN.get_float(
 	"difficulty.played_word_penalty", 0.05
 )
@@ -75,14 +75,17 @@ var SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = GAME_DESIGN.get_float(
 var SINGLE_PLAYER_WORD_PICK_JITTER: float = GAME_DESIGN.get_float(
 	"difficulty.word_pick_jitter", 0.012
 )
-var SINGLE_PLAYER_QUESTION_PICK_JITTER: float = GAME_DESIGN.get_float(
-	"difficulty.question_pick_jitter", 0.008
+var SINGLE_PLAYER_QUIZ_PICK_WINDOW: float = GAME_DESIGN.get_float_range(
+	"difficulty.quiz_pick_window", 0.08, 0.0, 1.0
 )
 var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
 	"progression.quiz.first_slot_ratio", 0.5, 0.0, 1.0
 )
 var SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET: int = GAME_DESIGN.get_int_range(
 	"progression.quiz.last_slot_end_offset", 2, 1, 1000
+)
+var SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT: int = GAME_DESIGN.get_int(
+	"progression.quiz.second_level_slot", 0
 )
 var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
 	"progression.quiz.onboarding_slot", 1
@@ -116,8 +119,14 @@ const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_sta
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
-const UI_PRIMARY_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
+const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
+const UI_SECONDARY_BOLD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
+var UI_DISPLAY_FONT: Font = UI_FONTS.display_font()
+var UI_BUTTON_FONT: Font = UI_FONTS.button_font()
+var UI_REGULAR_FONT: Font = UI_FONTS.regular_font()
+var UI_PRIMARY_FONT: Font = UI_FONTS.regular_font()
+var UI_QUESTION_COMMENT_FONT: Font = UI_FONTS.question_comment_font()
 const UI_HEADING_FONT_SCALE: float = 1.12
 
 const RESULT_SEARCH_ICON: Texture2D = preload("res://flash_assets/result_search_icon_343.png")
@@ -128,9 +137,6 @@ const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.pn
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
 const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
-const HERO_BADGE_RING_TEXTURE: Texture2D = preload("res://flash_assets/user_hint_circle_74.png")
-const THEME_CARD_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_user_239x90.png")
-const THEME_CARD_PROGRESS_TEXTURE: Texture2D = preload("res://flash_assets/theme_card_progress_user_239x65.png")
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
 const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
@@ -141,8 +147,6 @@ const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
 const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
 const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
-const HERO_AVATAR_LAKI_TEXTURE: Texture2D = preload("res://img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png")
-const HERO_AVATAR_TIGRE_TEXTURE: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 
 var ui: Control
 var content: Control
@@ -157,6 +161,7 @@ var single_player_active_word_slot: int = -1
 var single_player_level_definitions_cache: Dictionary = {}
 var single_player_level_cache_language: String = ""
 var single_player_level_cache_theme_count: int = -1
+var single_player_level_cache_unlocked_theme_count: int = -1
 var single_player_level_cache_difficulty: float = -1.0
 var single_player_popup_level_index: int = -1
 var single_player_popup_selected_theme: int = -1
@@ -164,12 +169,11 @@ var single_player_popup_theme_panels: Dictionary = {}
 var single_player_popup_stage_content: Control = null
 var single_player_popup_theme_card_nodes: Array[Node] = []
 var single_player_popup_play_button: Control = null
-var single_player_popup_refresh_price_label: Label = null
+var single_player_popup_return_to_menu_on_close: bool = false
 var single_player_retry_after_loss: bool = false
 var single_player_extra_attempt_offer_count: int = 0
 var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 var single_player_extra_attempt_current_count: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
-var single_player_extra_attempt_offer_level_index: int = -1
 var single_player_extra_attempt_claim_in_progress: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
@@ -195,11 +199,9 @@ var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
 var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
-var round_result_delay_requested: bool = false
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
-var currency_balance_label: Label = null
 var stars_balance_label: Label = null
 var heart_count_label: Label = null
 var heart_status_label: Label = null
@@ -209,6 +211,8 @@ var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
 var heart_refill_continue_action: Callable = Callable()
 var heart_refill_store_return_action: Callable = Callable()
+var heart_refill_cancel_action: Callable = Callable()
+var heart_refill_reward_acquired: bool = false
 var heart_refill_store_is_open: bool = false
 
 func _ready() -> void:
@@ -260,12 +264,6 @@ func _prewarm_runtime_assets() -> void:
 func show_menu() -> void:
 	pass
 
-func show_theme_select() -> void:
-	pass
-
-func show_tasks() -> void:
-	pass
-
 func show_custom_word() -> void:
 	pass
 
@@ -276,9 +274,6 @@ func show_coin_store() -> void:
 	pass
 
 func _stage_currency_counter(_return_action: Callable, _rect: Rect2 = Rect2()) -> void:
-	pass
-
-func _stage_single_player_level_header(_level_index: int) -> void:
 	pass
 
 func _open_coin_store(return_action: Callable = Callable()) -> void:
@@ -373,13 +368,11 @@ func _refresh_game_screen() -> void:
 func _create_hero_animation_overlay() -> FlashStageSymbol:
 	return null
 
-func _show_single_player_theme_popup(_level_index: int, _theme_index: int) -> void:
-	pass
-
 func _show_single_player_level_popup(
 	_level_index: int,
 	_selected_theme: int = -1,
-	_retry_after_loss: bool = false
+	_retry_after_loss: bool = false,
+	_return_to_menu_on_close: bool = false
 ) -> void:
 	pass
 
@@ -388,14 +381,16 @@ func _show_single_player_last_chance_popup(_advance_offer_cost: bool = true) -> 
 
 func _show_heart_refill_popup(
 	_continue_action: Callable = Callable(),
-	_store_return_action: Callable = Callable()
+	_store_return_action: Callable = Callable(),
+	_cancel_action: Callable = Callable(),
+	_reward_acquired: bool = false
 ) -> void:
 	pass
 
 func _show_in_place_round_result(_is_win: bool, _animated: bool = true) -> void:
 	pass
 
-func _show_single_player_forfeit_reward_screen() -> void:
+func _show_single_player_forfeit_reward_screen(_show_interstitial: bool = false) -> void:
 	show_menu()
 
 func _update_single_player_theme_popup(_level_index: int) -> void:
@@ -434,19 +429,17 @@ func _build_root() -> void:
 	ui_audio_player.name = "UIAudio"
 	add_child(ui_audio_player)
 
-func _clear() -> void:
+func _clear(preserved_content: Control = null) -> void:
 	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
 	custom_word_color_generation += 1
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
-	round_result_delay_requested = false
 	_clear_hero_animation_overlay()
 	_cancel_custom_word_check()
 	custom_word_check_button = null
 	custom_word_start_button = null
-	currency_balance_label = null
 	stars_balance_label = null
 	heart_count_label = null
 	heart_status_label = null
@@ -460,10 +453,11 @@ func _clear() -> void:
 	_remove_heart_refill_popup()
 	_remove_single_player_last_chance_popup()
 	_remove_single_player_theme_popup()
-	_remove_clear_theme_popup()
 	custom_word_edit = null
 	custom_word_input_visual = null
 	for child: Node in ui.get_children():
+		if child == preserved_content:
+			continue
 		ui.remove_child(child)
 		child.queue_free()
 	content = Control.new()
@@ -502,7 +496,8 @@ func _stage_heading_label(
 	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
 ) -> Label:
 	var label := _stage_label(rect, text, _heading_font_size(font_size), color, align)
-	label.add_theme_font_override("font", UI_HEADING_FONT)
+	label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
 	return label
 
 func _heading_font_size(font_size: int) -> int:
@@ -514,7 +509,8 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.flat = true
-	_apply_transparent_button_style(button, text != "", font_size)
+	button.add_theme_font_override("font", UI_BUTTON_FONT)
+	_apply_transparent_button_style(button, text != "", UI_FONTS.display_button_font_size(font_size))
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.set("stage_rect", rect)
@@ -633,7 +629,7 @@ func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D
 
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure", text, font_size, disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
+	button.call("configure", text, UI_FONTS.display_button_font_size(font_size), disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
 	button.set("attention_bounce_enabled", attention_bounce)
 	_connect_stage_button_action(button, callable)
@@ -643,7 +639,7 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_text", icon_text, disabled, selected, 28, disabled_overlay_alpha)
+	button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
@@ -669,22 +665,6 @@ func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state
 	button.stage_rect = rect
 	return button
 
-func _stage_line_edit(rect: Rect2, placeholder: String = "") -> LineEdit:
-	var holder: Control = _stage_holder(rect)
-	var edit := LineEdit.new()
-	edit.set_anchors_preset(Control.PRESET_FULL_RECT)
-	edit.placeholder_text = placeholder
-	edit.max_length = 35
-	edit.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	edit.add_theme_font_size_override("font_size", 26)
-	edit.add_theme_color_override("font_color", UI_PALETTE.UI_BLUE_DARK)
-	edit.add_theme_color_override("caret_color", UI_PALETTE.UI_BLUE_DARK)
-	var empty_style := StyleBoxEmpty.new()
-	edit.add_theme_stylebox_override("normal", empty_style)
-	edit.add_theme_stylebox_override("focus", empty_style)
-	holder.add_child(edit)
-	return edit
-
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
 	var empty_style := StyleBoxEmpty.new()
 	button.add_theme_stylebox_override("normal", empty_style)
@@ -697,13 +677,10 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	button.add_theme_color_override("font_hover_color", font_color)
 	button.add_theme_color_override("font_pressed_color", font_color)
 	button.add_theme_color_override("font_disabled_color", Color(font_color.r, font_color.g, font_color.b, 0.45))
-	var text_effect_color: Color = UI_PALETTE.TEXT_SHADOW_DARK if show_text else Color.TRANSPARENT
-	BUTTON_TEXT_STYLE_SCRIPT.apply(
-		button,
-		text_effect_color,
-		text_effect_color,
-		3 if show_text else 0
-	)
+	if show_text:
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(button)
+	else:
+		BUTTON_TEXT_STYLE_SCRIPT.apply(button, Color.TRANSPARENT, Color.TRANSPARENT, 0)
 	button.add_theme_font_size_override("font_size", font_size)
 func _selected_character_id() -> int:
 	if GameState.settings.size() > 5:
@@ -842,15 +819,6 @@ func _refresh_settings_toggle_button(index: int) -> void:
 	button.set("button_text", _settings_on_label() if enabled else _settings_off_label())
 	button.set("selected", enabled)
 
-func _difficulty_mode_value() -> int:
-	return DIFFICULTY_MODE_HARD if int(GameState.settings[2]) == DIFFICULTY_MODE_HARD else DIFFICULTY_MODE_NORMAL
-
-func _difficulty_mode_label(value: int = -1) -> String:
-	var resolved: int = _difficulty_mode_value() if value < 0 else value
-	if resolved == DIFFICULTY_MODE_HARD:
-		return tr("DIFFICULTY_HARD_MODE")
-	return tr("DIFFICULTY_NORMAL_MODE")
-
 func _style_hard_button(button: Control) -> Control:
 	if button == null:
 		return button
@@ -864,29 +832,10 @@ func _style_hard_button(button: Control) -> Control:
 	button.set("outline_size", 4)
 	return button
 
-func _style_difficulty_button(button: Control) -> Control:
-	if _difficulty_mode_value() != DIFFICULTY_MODE_HARD:
-		return button
-	return _style_hard_button(button)
-
 func _style_single_player_level_button(button: Control, level_index: int) -> Control:
 	if !_single_player_is_bonus_level(level_index):
 		return button
 	return _style_hard_button(button)
-
-func _cycle_difficulty_mode() -> void:
-	if _difficulty_mode_value() == DIFFICULTY_MODE_NORMAL:
-		GameState.settings[2] = DIFFICULTY_MODE_HARD
-	else:
-		GameState.settings[2] = DIFFICULTY_MODE_NORMAL
-	GameState.save_game()
-
-func _cycle_classic_difficulty(return_to_tasks: bool = false) -> void:
-	_cycle_difficulty_mode()
-	if return_to_tasks:
-		show_tasks()
-	else:
-		show_theme_select()
 
 func _theme_icon_texture(theme_index: int) -> Texture2D:
 	var theme_id: int = Database.get_theme_id(theme_index)
@@ -904,7 +853,7 @@ func _single_player_level_label() -> String:
 	return tr("LEVEL_LABEL")
 
 func _single_player_challenge_level_label() -> String:
-	return tr("CHALLENGE_LEVEL_LABEL")
+	return tr("CHALLENGE_SHORT_LABEL")
 
 func _single_player_level_failed_label() -> String:
 	return tr("LEVEL_FAILURE")
@@ -985,6 +934,7 @@ func _invalidate_single_player_level_cache() -> void:
 	single_player_level_definitions_cache.clear()
 	single_player_level_cache_language = ""
 	single_player_level_cache_theme_count = -1
+	single_player_level_cache_unlocked_theme_count = -1
 	single_player_level_cache_difficulty = -1.0
 
 func _single_player_level_word_target(level_index: int) -> int:
@@ -992,9 +942,8 @@ func _single_player_level_word_target(level_index: int) -> int:
 	return GAME_DESIGN.level_stage_count_with_bonus(level_number)
 
 func _single_player_level_uses_question(level_index: int, word_count: int) -> bool:
-	# Levels 2-4 are intentionally two-part onboarding levels: one word followed
-	# by one quiz question. From level 5 onward the normal question-slot rules
-	# apply to every level with at least three parts.
+	# Levels 2-4 introduce the embedded quiz with an explicit onboarding order.
+	# From level 5 onward the normal question-slot rules apply.
 	var level_number: int = maxi(level_index + 1, 1)
 	return GAME_DESIGN.level_uses_quiz(level_number, word_count)
 
@@ -1011,10 +960,6 @@ func _prepare_single_player_level_attempt(level_index: int) -> int:
 			level_index
 		)
 		if selected_theme < 0:
-			return level_index
-		if GameState.is_single_level_failed(Database.current_language, level_index, word_count):
-			GameState.reset_single_level_attempt(Database.current_language, level_index)
-			_invalidate_single_player_level_cache()
 			return level_index
 		if !GameState.is_single_level_completed(Database.current_language, level_index, word_count):
 			return level_index
@@ -1040,16 +985,52 @@ func _single_player_shuffle(values: Array, rng: RandomNumberGenerator) -> void:
 		values[index] = values[swap_index]
 		values[swap_index] = temporary
 
-func _single_player_theme_options(level_index: int, level_seed: int, word_count: int) -> Array:
+func _single_player_available_theme_indices(word_count: int = 1) -> Array:
+	var available_ids: Array[int] = GameState.get_unlocked_theme_ids(Database.current_language)
 	var eligible: Array = []
-	for theme_index in range(Database.get_theme_count()):
-		if Database.get_words_by_index(theme_index, 0).size() >= word_count:
+	for theme_index: int in range(Database.get_theme_count()):
+		if (
+			available_ids.has(Database.get_theme_id(theme_index))
+			and Database.get_words_by_index(theme_index, 0).size() >= word_count
+		):
 			eligible.append(theme_index)
+	return eligible
+
+func _single_player_can_reroll_themes(level_index: int) -> bool:
+	return _single_player_available_theme_indices(_single_player_level_word_target(level_index)).size() > SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL
+
+func _single_player_first_offer_unlocked_theme_index(level_index: int) -> int:
+	var language: String = Database.current_language
+	var completed_levels: int = GameState.get_theme_unlock_completed_levels(language)
+	# A theme unlocked by completing level N is first offered on level N + 1.
+	# Keep forcing it while that original set is merely reopened, but stop as soon
+	# as the player spends the first reroll so every later roll is fully random.
+	if level_index != completed_levels or completed_levels <= 0:
+		return -1
+	if (
+		GameState.get_single_level_theme_reroll_state(language, level_index)
+		!= GameState.SINGLE_LEVEL_THEME_REROLL_AVAILABLE
+	):
+		return -1
+	var unlock_progress: Dictionary = GameState.get_theme_unlock_reward_progress(
+		completed_levels - 1,
+		completed_levels
+	)
+	if !bool(unlock_progress.get("unlocked", false)):
+		return -1
+	return Database.get_theme_index_by_id(int(unlock_progress.get("theme_id", -1)))
+
+func _single_player_theme_options(level_index: int, level_seed: int, word_count: int) -> Array:
+	var eligible: Array = _single_player_available_theme_indices(word_count)
 	if eligible.is_empty():
 		return []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, 11)
 	_single_player_shuffle(eligible, rng)
+	var first_offer_theme: int = _single_player_first_offer_unlocked_theme_index(level_index)
+	if first_offer_theme >= 0 and eligible.has(first_offer_theme):
+		eligible.erase(first_offer_theme)
+		eligible.push_front(first_offer_theme)
 	eligible.resize(mini(SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL, eligible.size()))
 	return eligible
 
@@ -1067,6 +1048,12 @@ func _single_player_slot_difficulty(target_difficulty: float, word_slot: int, wo
 		GameState.SINGLE_PLAYER_DIFFICULTY_MIN,
 		GameState.SINGLE_PLAYER_DIFFICULTY_MAX
 	)
+
+func _single_player_first_unplayed_slot(level_index: int, word_count: int) -> int:
+	for slot: int in range(word_count):
+		if GameState.get_single_level_word_status(Database.current_language, level_index, slot, word_count) == 0:
+			return slot
+	return word_count
 
 func _single_player_words_for_theme(
 	level_index: int,
@@ -1089,7 +1076,34 @@ func _single_player_words_for_theme(
 	var guessed_keys: Dictionary = theme_progress.get("guessed", {})
 	var progress_word_keys: Array[String] = Database.get_word_progress_keys(theme_index)
 	var words: Array = []
+	var saved: Array = GameState.get_single_level_word_assignments(Database.current_language, level_index)
+	var first_unplayed: int = _single_player_first_unplayed_slot(level_index, word_count)
 	for word_slot in range(mini(word_count, candidates.size())):
+		# A saved assignment survives cache invalidation, a restart, and row reordering.
+		if word_slot < saved.size() and saved[word_slot] is Dictionary:
+			var previous: Dictionary = saved[word_slot]
+			if int(previous.get("theme_index", -1)) == theme_index:
+				var found: int = -1
+				for candidate_index: int in range(candidates.size()):
+					var candidate: Dictionary = candidates[candidate_index]
+					if (
+						(!str(previous.get("id", "")).is_empty() and candidate.get("id", "") == previous.get("id"))
+						or Database.word_progress_key_from_text(str(candidate.get("text", ""))) == Database.word_progress_key_from_text(str(previous.get("text", "")))
+					):
+						found = candidate_index
+						break
+				if found >= 0:
+					var candidate: Dictionary = candidates[found]
+					previous["word_index"] = candidate["index"]
+					previous["text"] = candidate["text"]
+					previous["id"] = candidate.get("id", "")
+					candidates.remove_at(found)
+					words.append(previous)
+					continue
+				elif word_slot < first_unplayed:
+					# Completed history may contain a word removed in a content update.
+					words.append(previous)
+					continue
 		var slot_target: float = _single_player_slot_difficulty(target_difficulty, word_slot, word_count)
 		var picked_pool_index: int = -1
 		var picked_score: float = INF
@@ -1119,12 +1133,16 @@ func _single_player_words_for_theme(
 		var picked: Dictionary = candidates[picked_pool_index]
 		candidates.remove_at(picked_pool_index)
 		words.append({
+			"id": str(picked.get("id", "")),
 			"theme_index": theme_index,
 			"word_index": int(picked.get("index", 0)),
 			"text": str(picked.get("text", "")),
 			"difficulty": float(picked.get("difficulty", 0.0)),
 			"target_difficulty": slot_target,
 		})
+	var committed: Array = words.slice(0, mini(first_unplayed + 1, words.size()))
+	if committed != saved:
+		GameState.set_single_level_word_assignments(Database.current_language, level_index, committed)
 	return words
 
 func _single_player_level_question_slot(level_index: int, level_seed: int, word_count: int) -> int:
@@ -1137,10 +1155,12 @@ func _single_player_level_question_slot(level_index: int, level_seed: int, word_
 	var level_number: int = maxi(level_index + 1, 1)
 	var first_slot: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
 	var last_slot: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
-	# The second, third and fourth levels are always "word -> quiz". Their quiz
-	# therefore occupies the second/final slot instead of using the later-half
-	# placement rule used by normal 3+ part levels.
-	if GAME_DESIGN.is_quiz_onboarding_level(level_number):
+	# Level 2 introduces the quiz first and finishes with Hangman. Levels 3 and 4
+	# keep the quiz in the middle of their new three-stage chains.
+	if level_number == 2:
+		first_slot = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
+		last_slot = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
+	elif GAME_DESIGN.is_quiz_onboarding_level(level_number):
 		first_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
 		last_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
 	if saved_slot >= first_slot and saved_slot <= last_slot:
@@ -1172,12 +1192,10 @@ func _single_player_pick_level_question(
 	level_index: int,
 	level_seed: int,
 	theme_index: int,
-	target_difficulty: float
+	target_difficulty: float,
+	persist_selection: bool = true
 ) -> Dictionary:
-	var resolved_target_difficulty: float = minf(
-		clampf(target_difficulty, 0.0, 1.0),
-		SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
-	)
+	var resolved_target_difficulty: float = clampf(target_difficulty, 0.0, 1.0)
 	var saved_question_id: int = GameState.get_single_level_question_id(
 		Database.current_language,
 		level_index
@@ -1190,42 +1208,19 @@ func _single_player_pick_level_question(
 	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
 	if questions.is_empty():
 		return {}
-	var unseen_questions: Array = []
-	for question_variant: Variant in questions:
-		if !(question_variant is Dictionary):
-			continue
-		var question: Dictionary = question_variant
-		var question_id: int = int(question.get("id", -1))
-		if !GameState.has_single_player_question_been_seen(
-			Database.current_language,
-			theme_index,
-			question_id
-		):
-			unseen_questions.append(question)
-	# An endless campaign can eventually exhaust a finite theme pool. Avoid every
-	# repeat while unseen questions remain; only after the full theme was seen do
-	# we allow a new cycle rather than leaving the level without a question.
-	var pool: Array = unseen_questions if !unseen_questions.is_empty() else questions
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 809)
-	var best_question: Dictionary = {}
-	var best_score: float = INF
-	for question_variant: Variant in pool:
-		if !(question_variant is Dictionary):
-			continue
-		var question: Dictionary = question_variant
-		var score: float = (
-			absf(float(question.get("difficulty", 0.5)) - resolved_target_difficulty)
-			+ rng.randf_range(0.0, SINGLE_PLAYER_QUESTION_PICK_JITTER)
-		)
-		if score < best_score:
-			best_score = score
-			best_question = question
-	if best_question.is_empty():
+	var picked_question: Dictionary = QUIZ_SELECTION.pick(
+		questions,
+		resolved_target_difficulty,
+		SINGLE_PLAYER_QUIZ_PICK_WINDOW,
+		GameState.get_single_player_question_history(Database.current_language, theme_index),
+		rng
+	)
+	if picked_question.is_empty():
 		return {}
-	var picked_question: Dictionary = best_question.duplicate(true)
 	var picked_id: int = int(picked_question.get("id", -1))
-	if picked_id >= 0:
+	if picked_id >= 0 and persist_selection:
 		GameState.set_single_level_question_id(
 			Database.current_language,
 			level_index,
@@ -1238,20 +1233,23 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		return {}
 	var theme_count: int = Database.get_theme_count()
 	var language: String = Database.current_language
+	var unlocked_theme_count: int = GameState.get_unlocked_theme_ids(language).size()
 	var adaptive_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)
 	if (
 		single_player_level_cache_language != language
 		or single_player_level_cache_theme_count != theme_count
+		or single_player_level_cache_unlocked_theme_count != unlocked_theme_count
 		or !is_equal_approx(single_player_level_cache_difficulty, adaptive_difficulty)
 	):
 		_invalidate_single_player_level_cache()
 		single_player_level_cache_language = language
 		single_player_level_cache_theme_count = theme_count
+		single_player_level_cache_unlocked_theme_count = unlocked_theme_count
 		single_player_level_cache_difficulty = adaptive_difficulty
 	var level_key := str(level_index)
 	if single_player_level_definitions_cache.has(level_key):
 		var cached: Variant = single_player_level_definitions_cache[level_key]
-		if cached is Dictionary:
+		if cached is Dictionary and int(cached.get("selection_stage", -1)) == _single_player_first_unplayed_slot(level_index, _single_player_level_word_target(level_index)):
 			return cached
 	if theme_count <= 0:
 		return {}
@@ -1266,6 +1264,17 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var level_seed: int = GameState.get_or_create_single_level_seed(language, level_index)
 	var options: Array = _single_player_theme_options(level_index, level_seed, word_count)
 	var selected_theme: int = GameState.get_single_level_selected_theme(language, level_index)
+	# Preserve an already-started legacy round, but never re-offer a locked
+	# category from an old, unstarted theme selection.
+	var saved_session: Dictionary = GameState.get_active_single_player_session()
+	var legacy_round_started: bool = (
+		_single_player_first_unplayed_slot(level_index, word_count) > 0
+		or (int(saved_session.get("level_index", -1)) == level_index
+			and str(saved_session.get("language", "")) == language
+			and str(saved_session.get("kind", "")) in ["word", "quiz", "next"])
+	)
+	if selected_theme >= 0 and !GameState.get_unlocked_theme_ids(language).has(Database.get_theme_id(selected_theme)) and !legacy_round_started:
+		selected_theme = -1
 	if selected_theme < 0 or selected_theme >= theme_count:
 		selected_theme = -1
 	elif !options.has(selected_theme):
@@ -1293,20 +1302,19 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
 		if question_slot >= 0 and question_slot < words.size():
 			var replaced_word: Dictionary = words[question_slot]
-			question_target_difficulty = minf(
-				float(replaced_word.get("difficulty", target_difficulty)),
-				SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
-			)
+			question_target_difficulty = float(replaced_word.get("target_difficulty", target_difficulty))
 			question = _single_player_pick_level_question(
 				level_index,
 				level_seed,
 				selected_theme,
-				question_target_difficulty
+				question_target_difficulty,
+				question_slot <= _single_player_first_unplayed_slot(level_index, word_count)
 			)
 		if question.is_empty():
 			question_slot = -1
 	var level_data := {
 		"index": level_index,
+		"selection_stage": _single_player_first_unplayed_slot(level_index, word_count),
 		"theme_options": options,
 		"selected_theme_index": selected_theme,
 		"word_count": word_count,
@@ -1340,36 +1348,40 @@ func _single_player_level_question(level_index: int) -> Dictionary:
 	return {}
 
 func _single_player_level_question_target_difficulty(level_index: int) -> float:
-	return minf(
-		float(_single_player_level_data(level_index).get(
-			"question_target_difficulty",
-			GameState.get_single_player_adaptive_difficulty(Database.current_language)
-		)),
-		SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM
-	)
+	return float(_single_player_level_data(level_index).get(
+		"question_target_difficulty",
+		GameState.get_single_player_adaptive_difficulty(Database.current_language)
+	))
 
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
 
+func _single_player_stage_is_quiz(level_index: int, word_slot: int) -> bool:
+	return word_slot == _single_player_level_question_slot_index(level_index)
+
 func _single_player_stage_reward_currency(
+	_level_index: int,
+	_word_slot: int,
+	_word_count: int
+) -> String:
+	# Hangman and embedded quiz stages now both pay soft currency. Quiz stages
+	# differ by amount rather than by currency.
+	return GameState.STAGE_REWARD_COINS
+
+func _single_player_stage_reward_amount(
 	level_index: int,
 	word_slot: int,
-	word_count: int
-) -> String:
-	# Quiz stages and the final/main-prize stage keep coins. Every other level
-	# stage is a star reward, regardless of which word theme was selected.
-	if word_slot == word_count - 1:
-		return GameState.STAGE_REWARD_COINS
-	if word_slot == _single_player_level_question_slot_index(level_index):
-		return GameState.STAGE_REWARD_COINS
-	return GameState.STAGE_REWARD_STARS
-
-func _single_player_level_played_count(level_index: int) -> int:
-	return GameState.get_single_level_played_count(
-		Database.current_language,
-		level_index,
-		_single_player_level_word_count(level_index)
-	)
+	_word_count: int
+) -> int:
+	if _single_player_stage_is_quiz(level_index, word_slot):
+		return maxi(
+			int(round(
+				float(GameState.WORD_REWARD_COINS)
+				* GameState.QUIZ_STAGE_REWARD_COIN_MULTIPLIER
+			)),
+			0
+		)
+	return GameState.WORD_REWARD_COINS
 
 func _single_player_level_word_status(level_index: int, word_slot: int) -> int:
 	return GameState.get_single_level_word_status(
@@ -1394,6 +1406,17 @@ func _single_player_mark_current_word_finished(
 ) -> Dictionary:
 	if single_player_active_level_index < 0 or single_player_active_word_slot < 0:
 		return data
+	# A duplicate result must not replace the durable claim flags with a fresh
+	# unclaimed stage payout, even though progress itself is already idempotent.
+	if _single_player_level_word_status(single_player_active_level_index, single_player_active_word_slot) != 0:
+		var saved: Dictionary = GameState.get_active_single_player_session()
+		if (
+			str(saved.get("kind", "")) == "next"
+			and int(saved.get("level_index", -1)) == single_player_active_level_index
+			and int(saved.get("word_slot", -1)) == single_player_active_word_slot
+		):
+			return Dictionary(Dictionary(saved.get("data", {})).get("result", data)).duplicate(true)
+		return data
 	var result: Dictionary = data.duplicate(true)
 	var level_word_count: int = _single_player_level_word_count(single_player_active_level_index)
 	var progress: Dictionary = GameState.mark_single_level_word_played(
@@ -1414,66 +1437,87 @@ func _single_player_mark_current_word_finished(
 	result["single_player_played_count"] = int(progress.get("played_count", 0))
 	result["single_player_total_count"] = level_word_count
 	result["single_player_level_completed"] = bool(progress.get("completed", false))
+	result["theme_unlock_before"] = int(progress.get("theme_unlock_before", 0))
+	result["theme_unlock_after"] = int(progress.get("theme_unlock_after", 0))
 	result["single_player_level_perfect"] = bool(progress.get("perfect", false))
-	result["single_player_chain_failed"] = bool(progress.get("failed", false))
-	result["single_player_chain_ended"] = bool(progress.get("chain_ended", false))
+	result["single_player_chain_failed"] = false
+	result["single_player_chain_ended"] = bool(progress.get("completed", false))
+	result["single_player_stage_won"] = is_win
 	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
 	result["single_player_completion_bonus"] = int(progress.get("completion_bonus", 0))
 	var level_completed: bool = bool(progress.get("completed", false))
-	result["single_player_reward_deferred"] = defer_final_reward and level_completed
+	var completion_bonus: int = int(progress.get("completion_bonus", 0))
+	var has_deferred_completion_reward: bool = (
+		defer_final_reward and level_completed and completion_bonus > 0
+	)
+	result["single_player_reward_deferred"] = has_deferred_completion_reward
 	result["single_player_deferred_reward_amount"] = (
-		GameState.WORD_REWARD_COINS + int(progress.get("completion_bonus", 0))
-		if defer_final_reward and level_completed
-		else 0
+		completion_bonus if has_deferred_completion_reward else 0
 	)
 	result["single_player_difficulty_before"] = float(progress.get("difficulty_before", 0.0))
 	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
 	var stage_reward_currency: String = ""
 	var stage_reward_amount: int = 0
-	if is_win and !level_completed:
+	if is_win:
 		stage_reward_currency = _single_player_stage_reward_currency(
 			single_player_active_level_index,
 			single_player_active_word_slot,
 			level_word_count
 		)
-		stage_reward_amount = (
-			GameState.WORD_REWARD_STARS
-			if stage_reward_currency == GameState.STAGE_REWARD_STARS
-			else GameState.WORD_REWARD_COINS
+		stage_reward_amount = _single_player_stage_reward_amount(
+			single_player_active_level_index,
+			single_player_active_word_slot,
+			level_word_count
 		)
 		result["single_player_stage_reward_currency"] = stage_reward_currency
 		result["single_player_stage_reward_amount"] = stage_reward_amount
-	if level_completed:
+	if level_completed and int(progress.get("completion_bonus", 0)) > 0:
 		result["lines"].append(_single_player_level_completed_reward_label(int(progress.get("completion_bonus", 0))))
-	elif bool(progress.get("failed", false)):
-		result["lines"].append(_single_player_chain_failed_label())
-	if level_completed:
-		# mark_single_level_word_played() has already replaced the active snapshot
-		# with a durable pending reward when this is the deferred final result.
-		GameState.clear_active_single_player_session(false)
-	elif is_win:
-		GameState.set_active_single_player_session({
-			"kind": "next",
-			"language": Database.current_language,
-			"level_index": single_player_active_level_index,
-			"word_slot": single_player_active_word_slot,
-			"theme_id": Database.get_theme_id(
-				_single_player_level_selected_theme(single_player_active_level_index)
+	# Every stage, including a successful final stage, remains resumable on its
+	# ordinary stage-reward screen until that step is resolved. On a successful
+	# final stage the deferred level reward may coexist with this active snapshot;
+	# the UI clears the stage snapshot only when it advances to the level summary.
+	if stage_reward_currency.is_empty():
+		stage_reward_currency = _single_player_stage_reward_currency(
+			single_player_active_level_index,
+			single_player_active_word_slot,
+			level_word_count
+		)
+	GameState.set_active_single_player_session({
+		"kind": "next",
+		"language": Database.current_language,
+		"level_index": single_player_active_level_index,
+		"word_slot": single_player_active_word_slot,
+		"theme_id": Database.get_theme_id(
+			_single_player_level_selected_theme(single_player_active_level_index)
+		),
+		"data": {
+			"result": result.duplicate(true),
+			"reward_currency": stage_reward_currency,
+			"reward_amount": stage_reward_amount,
+			"reward_claimed": !is_win,
+			# Successful quiz stages offer x2 as usual. A one-stage level also uses
+			# that same large-reward offer, but for its stage reward itself: there is
+			# no separate whole-level completion bonus on such levels.
+			"reward_double_resolved": (
+				!is_win
+				or stage_reward_currency != GameState.STAGE_REWARD_COINS
+				or (
+					level_word_count > 1
+					and !_single_player_stage_is_quiz(
+						single_player_active_level_index,
+						single_player_active_word_slot
+					)
+				)
 			),
-			"data": {
-				"result": result.duplicate(true),
-				"reward_currency": stage_reward_currency,
-				"reward_amount": stage_reward_amount,
-				"reward_claimed": false,
-			},
-		}, false)
-	else:
-		GameState.clear_active_single_player_session(false)
+			"reward_double_claimed": false,
+		},
+	}, false)
 	if persist:
 		GameState.save_game()
 	return result
 
-func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
+func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> Control:
 	var resume_available: bool = GameState.has_resumable_single_player_level()
 	var level_index: int = (
 		GameState.get_resumable_single_player_level_index()
@@ -1501,11 +1545,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.position = Vector2(
 		0.0,
-		rect.size.y * 0.02 if resume_available else (0.0 if use_subtitle else 3.0)
+		0.0 if use_subtitle else 3.0
 	)
 	title_label.size = Vector2(
 		rect.size.x,
-		rect.size.y * (0.32 if resume_available else (0.60 if use_subtitle else 0.92))
+		rect.size.y * (0.60 if use_subtitle else 0.92)
 	)
 	title_label.text = (
 		(tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
@@ -1514,14 +1558,13 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 	)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if use_subtitle else VERTICAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 15 if resume_available else 28)
-	title_label.add_theme_color_override("font_color", Color.WHITE)
-	var title_effect_color: Color = (
-		Color(DIFFICULTY_HARD_OUTLINE_COLOR.r, DIFFICULTY_HARD_OUTLINE_COLOR.g, DIFFICULTY_HARD_OUTLINE_COLOR.b, 0.55)
-		if challenge_level
-		else UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_DARK, 0.55)
+	title_label.add_theme_font_override("font", UI_BUTTON_FONT)
+	title_label.add_theme_font_size_override(
+		"font_size",
+		UI_FONTS.display_button_font_size(28)
 	)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, title_effect_color, title_effect_color)
+	title_label.add_theme_color_override("font_color", Color.WHITE)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(title_label)
 	button.add_child(title_label)
 
 	if use_subtitle:
@@ -1530,11 +1573,11 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 		challenge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		challenge_label.position = Vector2(
 			0.0,
-			rect.size.y * (0.29 if resume_available else 0.57)
+			rect.size.y * 0.57
 		)
 		challenge_label.size = Vector2(
 			rect.size.x,
-			rect.size.y * (0.62 if resume_available else 0.30)
+			rect.size.y * 0.30
 		)
 		challenge_label.text = (
 			Database.tr_text(3, "Continue").to_upper()
@@ -1542,22 +1585,19 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> void:
 			else _single_player_challenge_level_label().to_upper()
 		)
 		challenge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		challenge_label.vertical_alignment = (
-			VERTICAL_ALIGNMENT_CENTER if resume_available else VERTICAL_ALIGNMENT_TOP
+		challenge_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		challenge_label.add_theme_font_override("font", UI_BUTTON_FONT)
+		challenge_label.add_theme_font_size_override(
+			"font_size",
+			UI_FONTS.display_button_font_size(15)
 		)
-		challenge_label.add_theme_font_size_override("font_size", 28 if resume_available else 15)
 		challenge_label.add_theme_color_override(
 			"font_color",
 			Color.WHITE if resume_available else UI_PALETTE.CHALLENGE_TEXT
 		)
-		var challenge_effect_color := Color(
-			DIFFICULTY_HARD_OUTLINE_COLOR.r,
-			DIFFICULTY_HARD_OUTLINE_COLOR.g,
-			DIFFICULTY_HARD_OUTLINE_COLOR.b,
-			0.52
-		)
-		BUTTON_TEXT_STYLE_SCRIPT.apply(challenge_label, challenge_effect_color, challenge_effect_color)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(challenge_label)
 		button.add_child(challenge_label)
+	return button
 
 func _remove_single_player_theme_popup() -> void:
 	_clear_single_player_popup_theme_cards()
@@ -1571,7 +1611,11 @@ func _remove_single_player_theme_popup() -> void:
 	single_player_popup_theme_panels.clear()
 	single_player_popup_stage_content = null
 	single_player_popup_play_button = null
-	single_player_popup_refresh_price_label = null
+	single_player_popup_return_to_menu_on_close = false
+
+func _close_single_player_theme_popup_to_menu() -> void:
+	_remove_single_player_theme_popup()
+	show_menu()
 
 func _remove_single_player_last_chance_popup() -> void:
 	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_last_chance_popup")
@@ -1588,6 +1632,8 @@ func _remove_heart_refill_popup() -> void:
 			node.queue_free()
 	heart_refill_continue_action = Callable()
 	heart_refill_store_return_action = Callable()
+	heart_refill_cancel_action = Callable()
+	heart_refill_reward_acquired = false
 	heart_refill_store_is_open = false
 
 func _remove_coin_refill_popup() -> void:
@@ -1606,11 +1652,15 @@ func _purchase_heart_refill() -> void:
 			return
 		var continue_action: Callable = heart_refill_continue_action
 		var restore_action: Callable = heart_refill_store_return_action
+		var cancel_action: Callable = heart_refill_cancel_action
+		var reward_acquired: bool = heart_refill_reward_acquired
 		_remove_heart_refill_popup()
 		_open_coin_store(
 			Callable(self, "_return_to_heart_refill_from_coin_store").bind(
 				continue_action,
-				restore_action
+				restore_action,
+				cancel_action,
+				reward_acquired
 			)
 		)
 		return
@@ -1630,141 +1680,6 @@ func _clear_single_player_popup_theme_cards() -> void:
 			card_node.queue_free()
 	single_player_popup_theme_card_nodes.clear()
 	single_player_popup_theme_panels.clear()
-
-func _stage_single_player_theme_card(
-	rect: Rect2,
-	theme_index: int,
-	word_count: int,
-	_played_count: int,
-	selected: bool,
-	disabled: bool,
-	action: Callable
-) -> void:
-	# Reuse the same layered card artwork as Classic mode, expanded to one wide
-	# row so the three offered categories read as the main level choices.
-	var card := _stage_texture(rect, THEME_CARD_TEXTURE)
-
-	var theme_icon: Control = null
-	var word_badge: Control = null
-	var word_badge_label: Label = null
-	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
-	var theme_icon_rect := Rect2(rect.position + Vector2(20.0, 18.0), Vector2(64.0, 64.0))
-	if theme_icon_texture != null:
-		theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
-		theme_icon.z_index = 11
-		var word_badge_size := Vector2(43.0, 25.0)
-		var word_badge_rect := Rect2(
-			theme_icon_rect.end - word_badge_size * Vector2(0.86, 0.82),
-			word_badge_size
-		)
-		word_badge = _stage_panel(
-			word_badge_rect,
-			UI_PALETTE.ACCENT_ORANGE,
-			word_badge_size.y * 0.5,
-			Color.WHITE,
-			1.5
-		)
-		word_badge.z_index = 12
-		word_badge_label = _stage_label(
-			word_badge_rect,
-			"x%d" % word_count,
-			16,
-			Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		word_badge_label.z_index = 13
-		# Word-count badges sit directly over detailed theme art. Keep their text
-		# completely flat so no inherited outline or shadow reads as a second badge.
-		word_badge_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-		word_badge_label.add_theme_constant_override("shadow_offset_x", 0)
-		word_badge_label.add_theme_constant_override("shadow_offset_y", 0)
-		word_badge_label.add_theme_constant_override("shadow_outline_size", 0)
-		word_badge_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
-		word_badge_label.add_theme_constant_override("outline_size", 0)
-
-	var theme_name: String = Database.get_theme_name(theme_index).to_upper()
-	var title_font_size: int = 20 if theme_name.length() > 15 else 26
-	var title_label := _stage_label(
-		Rect2(
-			rect.position + Vector2(100.0, rect.size.y - 45.0),
-			Vector2(rect.size.x - 118.0, 35.0)
-		),
-		theme_name,
-		title_font_size,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_LEFT
-	)
-	title_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	title_label.clip_text = false
-	var theme_title_effect_color: Color = UI_PALETTE.with_alpha(UI_PALETTE.UI_BLUE_EFFECT, 0.55)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(title_label, theme_title_effect_color, theme_title_effect_color)
-
-	if selected:
-		_stage_panel(rect.grow(2.0), Color.TRANSPARENT, 16.0, UI_PALETTE.ACCENT_ORANGE, 3.0)
-	if disabled:
-		for item in [card, theme_icon, word_badge, word_badge_label, title_label]:
-			if item != null:
-				item.modulate = Color(1.0, 1.0, 1.0, 0.30)
-
-	var theme_button := _stage_button(rect, action, "")
-	theme_button.disabled = disabled
-	_bind_theme_card_press_state(theme_button, card)
-
-func show_single_player_level(level_index: int) -> void:
-	level_index = _prepare_single_player_level_attempt(level_index)
-	single_player_active_level_index = level_index
-	single_player_active_word_slot = -1
-	_clear()
-	var screen_blue: Color = UI_PALETTE.UI_BLUE
-	_stage_texture_fill(0.0, 800.0, MENU_PAPER_COVER)
-	_stage_single_player_level_header(level_index)
-	var selected_theme: int = _single_player_level_selected_theme(level_index)
-	var instruction_text: String = _single_player_choose_theme_label()
-	if selected_theme >= 0:
-		instruction_text = tr("CONTINUE_SELECTED_THEME")
-	if _single_player_is_bonus_level(level_index):
-		instruction_text += "\n" + tr("CHALLENGE_LEVEL_PLUS_TWO_WORDS")
-	var instruction_label := _stage_label(
-		Rect2(36.0, 114.0, 408.0, 50.0),
-		instruction_text,
-		17 if _single_player_is_bonus_level(level_index) else 19,
-		screen_blue,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	instruction_label.clip_text = false
-
-	var word_count: int = _single_player_level_word_count(level_index)
-	var played_count: int = _single_player_level_played_count(level_index)
-	var theme_options: Array = _single_player_level_theme_options(level_index)
-	if theme_options.is_empty():
-		var unavailable_label := _stage_label(
-			Rect2(42.0, 260.0, 396.0, 100.0),
-			tr("NO_THEMES_AVAILABLE"),
-			24,
-			screen_blue,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		unavailable_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		unavailable_label.clip_text = false
-		return
-
-	var card_rect := Rect2(30.0, 166.0, 420.0, 112.0)
-	for option_index in range(theme_options.size()):
-		var theme_index: int = int(theme_options[option_index])
-		var is_selected: bool = selected_theme == theme_index
-		var disabled: bool = selected_theme >= 0 and !is_selected
-		var action: Callable = Callable(self, "_show_single_player_theme_popup").bind(level_index, theme_index)
-		if is_selected:
-			action = Callable(self, "_start_next_single_player_word").bind(level_index)
-		_stage_single_player_theme_card(
-			Rect2(card_rect.position + Vector2(0.0, float(option_index) * 144.0), card_rect.size),
-			theme_index,
-			word_count,
-			played_count,
-			is_selected,
-			disabled,
-			action
-		)
 
 func _confirm_single_player_theme_selection(level_index: int, theme_index: int) -> void:
 	_remove_single_player_theme_popup()
@@ -1815,10 +1730,24 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 func _return_to_single_player_theme_popup(
 	level_index: int,
 	retry_after_loss: bool = false,
-	selected_theme: int = -1
+	selected_theme: int = -1,
+	return_to_menu_on_close: bool = false
 ) -> void:
+	# Coin refill is a stacked modal in the portrait UI. When it was opened from
+	# the theme picker, that picker is still alive underneath it, so rebuilding
+	# the picker would restart its presentation and replace its original backdrop
+	# (for example the completed-level reward screen) with Home. Simply reveal the
+	# existing picker after the coin modal is removed. Keep the old rebuild path as
+	# a fallback for contexts where the underlying modal was actually destroyed.
+	if !get_tree().get_nodes_in_group("single_player_theme_popup").is_empty():
+		return
 	show_menu()
-	_show_single_player_level_popup(level_index, selected_theme, retry_after_loss)
+	_show_single_player_level_popup(
+		level_index,
+		selected_theme,
+		retry_after_loss,
+		return_to_menu_on_close
+	)
 
 func _purchase_single_player_extra_attempt() -> void:
 	if single_player_extra_attempt_claim_in_progress:
@@ -1858,20 +1787,18 @@ func _single_player_extra_attempt_description(attempt_count: int) -> String:
 	return tr(description_key) % attempt_count
 
 func _advance_single_player_extra_attempt_offer() -> int:
+	# Both price and bundle-size progression are scoped to the current stage.
+	# With count_step_interval = 1, every new popup grows the bundle by one:
+	# +2, +3, +4, ... until the stage changes.
 	single_player_extra_attempt_current_cost = (
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 		+ single_player_extra_attempt_offer_count * SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP
-	)
-	var count_step_interval: int = (
-		1
-		if _single_player_extra_attempt_is_free()
-		else SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL
 	)
 	single_player_extra_attempt_current_count = mini(
 		SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
 		+ floori(
 			float(single_player_extra_attempt_offer_count)
-			/ float(count_step_interval)
+			/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)
 		) * SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP,
 		GameSession.MAX_MISTAKES
 	)
@@ -1882,18 +1809,10 @@ func _reset_single_player_extra_attempt_offers() -> void:
 	single_player_extra_attempt_offer_count = 0
 	single_player_extra_attempt_current_cost = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 	single_player_extra_attempt_current_count = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
-	single_player_extra_attempt_offer_level_index = -1
 
-func _prepare_single_player_extra_attempt_offers(level_index: int) -> void:
-	var keep_early_level_progress: bool = (
-		level_index >= 0
-		and level_index < 2
-		and single_player_extra_attempt_offer_level_index == level_index
-	)
-	if keep_early_level_progress:
-		return
+func _prepare_single_player_extra_attempt_offers(_level_index: int) -> void:
+	# Every word/quiz stage starts its own offer progression.
 	_reset_single_player_extra_attempt_offers()
-	single_player_extra_attempt_offer_level_index = level_index
 
 func _grant_single_player_extra_attempt() -> void:
 	# A reaction overlay from the previous wrong guess can still be playing under
@@ -1974,31 +1893,6 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
 	show_game_screen()
 
-func _bind_theme_card_press_state(button: BaseButton, card: CanvasItem) -> void:
-	if button.disabled:
-		return
-	button.button_down.connect(_set_theme_card_pressed.bind(card, true))
-	button.button_up.connect(_set_theme_card_pressed.bind(card, false))
-	button.mouse_exited.connect(_set_theme_card_pressed.bind(card, false))
-
-func _set_theme_card_pressed(card: CanvasItem, is_pressed: bool) -> void:
-	if card == null or !is_instance_valid(card):
-		return
-	card.modulate = THEME_CARD_PRESSED_MODULATE if is_pressed else Color.WHITE
-func _confirm_clear_theme(theme_index: int, return_to_tasks: bool = false) -> void:
-	WordManager.clear_the_theme(theme_index)
-	_remove_clear_theme_popup()
-	if return_to_tasks:
-		show_tasks()
-	else:
-		show_theme_select()
-
-func _remove_clear_theme_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("clear_theme_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
 func start_classic_game(theme_index: int) -> void:
 	game_finished = false
 	last_result_data = {}
@@ -2029,11 +1923,10 @@ func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 		_preserve_custom_word_on_next_show = true
 		show_custom_word()
 	else:
-		show_tasks()
+		show_menu()
 
 func _discard_round_for_navigation() -> void:
 	result_transition_generation += 1
-	round_result_delay_requested = false
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
@@ -2049,27 +1942,43 @@ func _single_player_forfeit_reward_data(source_result: Dictionary, level_index: 
 	result["single_player_level_index"] = level_index
 	result["single_player_word_slot"] = word_slot
 	result["single_player_total_count"] = word_count
-	result["single_player_level_completed"] = false
 	result["single_player_level_perfect"] = false
-	result["single_player_chain_failed"] = true
-	result["single_player_chain_ended"] = true
-	result["single_player_unlocked_next"] = false
-	result["single_player_completion_bonus"] = 0
+	result["single_player_chain_failed"] = false
+	result["single_player_stage_won"] = false
 	result["single_player_forfeit_reward"] = true
 	result["single_player_reward_granted"] = false
 	return result
 
-func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
+func _single_player_strip_win_rewards_for_forfeit(source_result: Dictionary) -> Dictionary:
+	var result: Dictionary = source_result.duplicate(true)
+	var remaining_attempt_reward: int = maxi(
+		int(result.get("remaining_attempt_star_reward_amount", 0)),
+		0
+	)
+	if remaining_attempt_reward > 0:
+		GameState.spend_stars(remaining_attempt_reward, false)
+	if bool(result.get("single_player_reward_deferred", false)):
+		GameState.clear_pending_single_player_reward(false)
+	for reward_key: String in [
+		"remaining_attempt_star_reward_amount",
+		"remaining_attempt_star_balance_before",
+		"single_player_stage_reward_currency",
+		"single_player_stage_reward_amount",
+		"single_player_reward_deferred",
+		"single_player_deferred_reward_amount",
+	]:
+		result.erase(reward_key)
+	return result
+
+func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 	var level_index: int = single_player_active_level_index
-	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
-	var chain_failed: bool = bool(last_result_data.get("single_player_chain_failed", false))
 	var forfeit_result: Dictionary = last_result_data.duplicate(true)
-	# A result transition may already be waiting for the letter-marker animation.
-	# In that case the round has already been recorded, so only cancel the delayed
-	# result screen and return to the level without recording it a second time.
+	# A forced exit is a loss of the current stage, not a reset of the whole level.
+	# Preserve every earlier status so the reward chain can show its existing checks
+	# together with a cross on the stage that the player abandoned.
 	result_transition_generation += 1
-	round_result_delay_requested = false
 	var should_lose_heart: bool = false
+	var has_stage_failure: bool = false
 	if (
 		!game_finished
 		and (GameSession.is_active or _single_player_embedded_question_active())
@@ -2077,36 +1986,62 @@ func _forfeit_single_player_round(show_failure_reward: bool = false) -> void:
 		and single_player_active_word_slot >= 0
 	):
 		game_finished = true
-		forfeit_result = _single_player_mark_current_word_finished({}, false, false, false, false)
-		chain_failed = true
-		should_lose_heart = true
-	elif game_finished and level_index >= 0 and !level_completed and !chain_failed:
-		# Leaving after a successfully guessed word still forfeits the unfinished
-		# chain, but intentionally leaves adaptive difficulty unchanged.
-		GameState.record_single_player_forfeit(Database.current_language, false)
-		should_lose_heart = true
-	if should_lose_heart:
-		GameState.lose_heart(false)
-	if level_index >= 0 and !level_completed:
-		GameState.reset_single_level_attempt(
-			Database.current_language,
-			level_index,
-			true,
-			true,
+		var defer_forfeit_level_reward: bool = (
+			single_player_active_word_slot
+				== _single_player_level_word_count(level_index) - 1
+		)
+		forfeit_result = _single_player_mark_current_word_finished(
+			{},
+			false,
+			false,
+			defer_forfeit_level_reward,
 			false
 		)
-		_invalidate_single_player_level_cache()
-	if show_failure_reward and should_lose_heart and level_index >= 0 and !level_completed:
-		# Stage rewards are not claimed until their reward-screen animation begins,
-		# so leaving from the solved-word result has no economy credit to revoke.
+		should_lose_heart = true
+		has_stage_failure = true
+	elif (
+		game_finished
+		and last_result_is_win
+		and level_index >= 0
+		and single_player_active_word_slot >= 0
+		and !bool(last_result_data.get("single_player_level_completed", false))
+	):
+		# Exiting from the solved-stage result still counts as abandoning that stage.
+		# Revoke rewards granted before Continue, replace its saved status with a loss,
+		# and keep the rest of the level intact.
+		forfeit_result = _single_player_strip_win_rewards_for_forfeit(last_result_data)
+		forfeit_result = _single_player_mark_current_word_finished(
+			forfeit_result,
+			false,
+			false,
+			false,
+			false
+		)
+		GameState.record_single_player_forfeit(Database.current_language, false)
+		should_lose_heart = true
+		has_stage_failure = true
+	elif (
+		game_finished
+		and !last_result_is_win
+		and level_index >= 0
+		and single_player_active_word_slot >= 0
+	):
+		# A naturally failed stage has already consumed its heart and saved status.
+		# Back/Exit should simply reveal that same failed node on the reward chain.
+		has_stage_failure = true
+	if should_lose_heart:
+		GameState.lose_heart(false)
+	if has_stage_failure:
+		GameSession.discard_current_round()
 		GameState.save_game()
 		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
 		last_result_is_win = false
 		hero_force_default_pose = false
-		_show_single_player_forfeit_reward_screen()
+		# Only a newly forced loss should trigger the extra interstitial opportunity.
+		# A naturally failed stage has already consumed its heart and should simply
+		# reveal the existing failed node without another ad trigger.
+		_show_single_player_forfeit_reward_screen(should_lose_heart)
 		return
-	if should_lose_heart or (level_index >= 0 and !level_completed):
-		GameState.save_game()
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
@@ -2128,11 +2063,10 @@ func _custom_word_start_label() -> String:
 func _on_custom_word_text_changed(value: String) -> void:
 	_reset_custom_word_check_feedback()
 	var previous_word_text: String = custom_word_text
+	# Keep Android/iOS IME composition entirely owned by the native LineEdit.
+	# Normalize only the game/visual value; assigning LineEdit.text or its caret
+	# from text_changed can invalidate an active mobile composition session.
 	custom_word_text = _normalize_custom_word_input(value)
-	if custom_word_edit != null and custom_word_edit.text != custom_word_text:
-		var caret_column: int = custom_word_edit.caret_column
-		custom_word_edit.text = custom_word_text
-		custom_word_edit.caret_column = mini(caret_column, custom_word_edit.text.length())
 	_sync_custom_word_input_visual()
 	# When the player appends letters, animate only the newly entered glyphs with
 	# the exact same reveal bounce as letters on the guessing screen.
@@ -2151,27 +2085,61 @@ func _on_custom_word_text_changed(value: String) -> void:
 func _normalize_custom_word_input(value: String) -> String:
 	var normalized: String = value.to_upper().replace("-", "—").replace("Ё", "Е")
 	var filtered: String = ""
-	var allowed_letters: PackedStringArray = Database.get_alphabet()
+	var input_language: String = ""
 	for i: int in range(normalized.length()):
 		var character: String = normalized.substr(i, 1)
-		if allowed_letters.has(character):
-			filtered += character
+		var character_language: String = _custom_word_character_language(character)
+		if character_language != "":
+			# The first actual letter locks the word to one alphabet. Keep the
+			# native LineEdit untouched for mobile IME safety, but ignore letters
+			# from the other script in the visual/game value.
+			if input_language == "":
+				input_language = character_language
+			if character_language == input_language:
+				filtered += character
 		elif character == " " or character == "—":
 			# TextBlock.CheckLast() in the FLA prevents leading and consecutive
 			# separators while the word is being typed.
 			if filtered != "" and filtered.right(1) != " " and filtered.right(1) != "—":
 				filtered += character
-	return filtered.substr(0, 15)
+	return filtered.substr(0, CUSTOM_WORD_MAX_LENGTH)
 
-func _set_custom_word_input_color(color: Color) -> void:
+func _custom_word_character_language(character: String) -> String:
+	if character.length() != 1:
+		return ""
+	var code: int = character.unicode_at(0)
+	if code >= 0x41 and code <= 0x5A:
+		return "en"
+	if code >= 0x410 and code <= 0x42F:
+		return "ru"
+	return ""
+
+func _custom_word_alphabet(language_code: String) -> PackedStringArray:
+	var alphabet_text: String = ""
+	if language_code == "en":
+		alphabet_text = CUSTOM_WORD_LATIN_ALPHABET_TEXT
+	elif language_code == "ru":
+		alphabet_text = CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT
+	var result := PackedStringArray()
+	for i: int in range(alphabet_text.length()):
+		result.append(alphabet_text.substr(i, 1))
+	return result
+
+func _active_game_alphabet() -> PackedStringArray:
+	if GameState.current_mode == GameState.GameMode.TWO_PLAYER and GameSession.word_data != null:
+		var custom_language: String = _custom_word_language(GameSession.word_data.text)
+		var custom_alphabet: PackedStringArray = _custom_word_alphabet(custom_language)
+		if !custom_alphabet.is_empty():
+			return custom_alphabet
+	return Database.get_alphabet()
+
+func _set_custom_word_field_tint(color: Color) -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
-		custom_word_input_visual.set("text_color", color)
-	elif custom_word_edit != null and is_instance_valid(custom_word_edit):
-		custom_word_edit.add_theme_color_override("font_color", color)
+		custom_word_input_visual.call("set_marker_tint", color)
 
 func _sync_custom_word_input_visual() -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
-		custom_word_input_visual.call("refresh_display")
+		custom_word_input_visual.call("set_display_text", custom_word_text)
 
 func _sync_custom_word_start_bounce() -> void:
 	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
@@ -2222,10 +2190,10 @@ func _is_random_custom_word_candidate(word: String) -> bool:
 func _check_custom_word_now() -> void:
 	if custom_word_edit == null:
 		return
-	custom_word_text = WordManager.normalize_word(custom_word_edit.text)
+	custom_word_text = _normalize_custom_word_input(custom_word_edit.text)
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
-		_set_temporary_custom_word_input_color(UI_PALETTE.ERROR_SOFT)
+		_set_temporary_custom_word_field_tint(UI_PALETTE.MARKER_ERROR)
 		custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
 		_vibrate_custom_word_not_found()
@@ -2233,7 +2201,7 @@ func _check_custom_word_now() -> void:
 
 	_cancel_custom_word_check()
 	_hide_custom_word_toast()
-	_reset_custom_word_input_color()
+	_reset_custom_word_field_tint()
 	_set_custom_word_checking(true)
 	var encoded_lower: String = custom_word_text.to_lower().uri_encode()
 	var title_case: String = custom_word_text.substr(0, 1) + custom_word_text.substr(1).to_lower()
@@ -2276,10 +2244,12 @@ func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
 		result_key = &"TOAST_WORD_NOT_FOUND"
 	_cancel_custom_word_check()
 	if network_error:
-		_reset_custom_word_input_color()
+		_reset_custom_word_field_tint()
 	elif custom_word_edit != null:
-		_set_temporary_custom_word_input_color(
-			UI_PALETTE.SUCCESS_SOFT if found else UI_PALETTE.ERROR_SOFT
+		# Match the hangman result word: the marker and the text effect switch
+		# together to the shared success/error palette.
+		_set_temporary_custom_word_field_tint(
+			UI_PALETTE.MARKER_SUCCESS if found else UI_PALETTE.MARKER_ERROR
 		)
 	if !found and !network_error:
 		_vibrate_custom_word_not_found()
@@ -2295,18 +2265,18 @@ func _hide_custom_word_toast() -> void:
 		return
 	custom_word_input_visual.call("hide_validation_toast")
 
-func _set_temporary_custom_word_input_color(color: Color) -> void:
+func _set_temporary_custom_word_field_tint(color: Color) -> void:
 	custom_word_color_generation += 1
 	var color_generation: int = custom_word_color_generation
-	_set_custom_word_input_color(color)
+	_set_custom_word_field_tint(color)
 	await get_tree().create_timer(CUSTOM_WORD_RESULT_COLOR_DURATION).timeout
 	if color_generation != custom_word_color_generation:
 		return
-	_set_custom_word_input_color(CUSTOM_WORD_INPUT_DEFAULT_COLOR)
+	_set_custom_word_field_tint(CUSTOM_WORD_FIELD_DEFAULT_TINT)
 
-func _reset_custom_word_input_color() -> void:
+func _reset_custom_word_field_tint() -> void:
 	custom_word_color_generation += 1
-	_set_custom_word_input_color(CUSTOM_WORD_INPUT_DEFAULT_COLOR)
+	_set_custom_word_field_tint(CUSTOM_WORD_FIELD_DEFAULT_TINT)
 
 func _vibrate_custom_word_not_found() -> void:
 	if GameState.settings.size() > 4 and int(GameState.settings[4]) == 2:
@@ -2373,14 +2343,14 @@ func _update_custom_word_check_text() -> void:
 func _reset_custom_word_check_feedback() -> void:
 	_cancel_custom_word_check()
 	_hide_custom_word_toast()
-	_reset_custom_word_input_color()
+	_reset_custom_word_field_tint()
 
 func start_custom_game() -> void:
 	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text
-	var word := WordManager.normalize_word(source_text)
+	var word := _normalize_custom_word_input(source_text)
 	if !_is_valid_custom_word(word):
 		if custom_word_edit != null:
-			_set_custom_word_input_color(UI_PALETTE.ERROR_SOFT)
+			_set_custom_word_field_tint(UI_PALETTE.MARKER_ERROR)
 			custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		return
 	custom_word_text = word
@@ -2393,7 +2363,7 @@ func start_custom_game() -> void:
 	show_game_screen()
 
 func _is_valid_custom_word(word: String) -> bool:
-	if word.length() == 0 or word.length() > 15:
+	if word.length() == 0 or word.length() > CUSTOM_WORD_MAX_LENGTH:
 		return false
 	if word.begins_with(" ") or word.begins_with("—") or word.ends_with(" ") or word.ends_with("—"):
 		return false
@@ -2416,17 +2386,16 @@ func _is_valid_custom_word(word: String) -> bool:
 	return has_letter
 
 func _custom_word_language(word: String) -> String:
-	var has_latin := false
-	var has_cyrillic := false
+	var language: String = ""
 	for i in range(word.length()):
-		var code: int = word.substr(i, 1).unicode_at(0)
-		if code >= 0x41 and code <= 0x5A:
-			has_latin = true
-		elif code >= 0x410 and code <= 0x42F:
-			has_cyrillic = true
-	if has_latin == has_cyrillic:
-		return ""
-	return "en" if has_latin else "ru"
+		var character_language: String = _custom_word_character_language(word.substr(i, 1))
+		if character_language == "":
+			continue
+		if language == "":
+			language = character_language
+		elif character_language != language:
+			return ""
+	return language
 
 func show_game_screen() -> void:
 	# The converted GameMov scene contains button frame debris and large nested
@@ -2583,9 +2552,7 @@ func _press_letter(letter: String) -> void:
 		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and GameSession.get_remaining_attempts() == 1
 	)
-	round_result_delay_requested = true
 	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
-	round_result_delay_requested = false
 	if guess_is_available:
 		_play_letter_feedback_sound(guess_was_correct)
 	if GameSession.has_deferred_loss():
@@ -2605,9 +2572,7 @@ func _use_open_hint() -> void:
 		return
 	# If the hint reveals the final letter, keep the gameplay screen visible long
 	# enough for the standard circle-and-bounce feedback to finish.
-	round_result_delay_requested = true
 	GameSession.use_open_letter_hint()
-	round_result_delay_requested = false
 
 func _use_remove_hint() -> void:
 	if !_can_activate_hint(GameState.HINT_REMOVE_WRONG, GameSession.can_use_remove_wrong_hint()):
@@ -2674,8 +2639,7 @@ func _finish_round(is_win: bool) -> void:
 	# replace the gameplay pose just because the word was solved.
 	hero_force_default_pose = false
 	var defer_single_player_final_reward: bool = (
-		is_win
-		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and single_player_active_level_index >= 0
 		and single_player_active_word_slot
 			== _single_player_level_word_count(single_player_active_level_index) - 1
@@ -2748,9 +2712,6 @@ func _continue_two_player_result() -> void:
 func _continue_single_player_result() -> void:
 	var level_index: int = single_player_active_level_index
 	var level_completed: bool = bool(last_result_data.get("single_player_level_completed", false))
-	if !last_result_is_win:
-		_open_single_player_retry_theme_popup()
-		return
 	if level_completed:
 		GameSession.discard_current_round()
 		game_finished = false
@@ -2781,12 +2742,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and !event.echo:
 		if event.keycode == KEY_ESCAPE:
 			if !get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty():
-				if !_single_player_extra_attempt_is_free():
-					_decline_single_player_extra_attempt()
+				_decline_single_player_extra_attempt()
+				get_viewport().set_input_as_handled()
 			elif (
 				!get_tree().get_nodes_in_group("single_player_theme_popup").is_empty()
 			):
-				if (
+				if single_player_popup_return_to_menu_on_close:
+					_close_single_player_theme_popup_to_menu()
+				elif (
 					single_player_retry_after_loss
 					and !_single_player_theme_selection_is_locked(
 						single_player_popup_level_index
@@ -2804,5 +2767,5 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and !event.echo:
 		var letter := OS.get_keycode_string(event.keycode).to_upper()
 		letter = WordManager.normalize_word(letter)
-		if letter.length() == 1 and Database.get_alphabet().has(letter):
+		if letter.length() == 1 and _active_game_alphabet().has(letter):
 			_press_letter(letter)

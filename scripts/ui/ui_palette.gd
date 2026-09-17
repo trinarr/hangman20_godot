@@ -10,7 +10,6 @@ const UI_BLUE := Color("#454F9B")
 const UI_BLUE_DARK := Color("#3B4384")
 const UI_BLUE_RULE := Color(0.3157, 0.3765, 0.6902, 0.95)
 const UI_BLUE_LIGHT_BORDER := Color("#B8C4E8")
-const UI_BLUE_EFFECT := Color("#6B7DD1")
 const TEXT_SECONDARY := Color("#D1DBFF")
 const TEXT_DARK := Color("#121A52")
 const TEXT_SHADOW_DARK := Color(0.02, 0.04, 0.16, 0.30)
@@ -36,7 +35,6 @@ const DISABLED_OPACITY: float = 0.85
 const AD_PURPLE := Color("#BB11E0")
 const AD_PURPLE_PRESSED := Color("#9710B5")
 const AD_PURPLE_SELECTED := Color("#86109F")
-const AD_ICON_SHADOW := Color(0.2314, 0.2627, 0.5176, 0.92)
 
 # Success / failure semantics.
 const SUCCESS := Color("#21D44A")
@@ -53,20 +51,14 @@ const CHALLENGE_NORMAL := Color("#D866FE")
 const CHALLENGE_PRESSED := Color("#B44AD9")
 const CHALLENGE_SELECTED := Color("#9638B9")
 const CHALLENGE_OUTLINE := Color("#68267A")
-const CHALLENGE_BODY := Color("#4A2158")
-const CHALLENGE_THEME_CARD := Color("#642B74")
-const CHALLENGE_THEME_CARD_SELECTED := Color("#7C3590")
+const CHALLENGE_THEME_CARD := Color("#7A4AB4")
+const CHALLENGE_THEME_CARD_SELECTED := Color("#9257CE")
 const CHALLENGE_HUD_PANEL := Color("#642A75")
-const CHALLENGE_HUD_BORDER := Color("#E19AF4")
 const CHALLENGE_TEXT := Color("#FAE8FF")
 
 # Theme cards.
-const THEME_CARD_BASE := Color("#29337A")
-const THEME_CARD_BASE_CHALLENGE := Color("#303D8F")
 const THEME_CARD := Color("#4C59AD")
 const THEME_CARD_SELECTED := Color("#616EC2")
-const THEME_CARD_PRESSED := Color("#B8B8B8")
-const THEME_PROGRESS_TEXT := Color("#6E7DD4")
 const PRESS_HIGHLIGHT := Color("#B8C4FA")
 
 # Reward screen and result markers.
@@ -77,13 +69,12 @@ const REWARD_GOLD_DARK := Color("#F3A928")
 const REWARD_GOLD_OUTLINE := Color("#173A7A")
 const MARKER_SUCCESS := Color("#86DE8A")
 const MARKER_ERROR := Color("#FF99A2")
+const MARKER_INFO := BUTTON_BLUE
 
 # Profile / neutral surfaces.
 const NEUTRAL_SURFACE := Color("#F7F7FA")
 const NEUTRAL_BORDER := Color("#B8BFD1")
 const NEUTRAL_TEXT := Color("#6E758A")
-const PROFILE_HALO := Color(0.42, 0.48, 0.82, 0.95)
-const PROFILE_HALO_IDLE := Color(0.32, 0.37, 0.67, 0.50)
 
 # Decorative paper accents.
 const PAPER_CRACK_DARK := Color("#1C2661")

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bou34wdk136as"]
+
+[ext_resource type="Script" uid="uid://uqyaxhig5mh2" path="res://tools/tests/quiz_explanation_transition.gd" id="1"]
+
+[node name="QuizExplanationTransitionTest" type="Node" unique_id=777934908]
+script = ExtResource("1")

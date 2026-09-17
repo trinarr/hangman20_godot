@@ -3,7 +3,9 @@ extends "res://scripts/ui/flash_stage_texture_button.gd"
 
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
 const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
 const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
@@ -58,8 +60,12 @@ const GREEN_SELECTED_TINT := UI_PALETTE.SUCCESS_SELECTED
 const BLUE_NORMAL_TINT := UI_PALETTE.BUTTON_BLUE
 const BLUE_PRESSED_TINT := UI_PALETTE.BUTTON_BLUE_PRESSED
 const BLUE_SELECTED_TINT := UI_PALETTE.BUTTON_BLUE_SELECTED
-const BLUE_ICON_OUTLINE_COLOR := UI_PALETTE.BUTTON_BLUE_OUTLINE
-const DEFAULT_ICON_OUTLINE_COLOR := UI_PALETTE.UI_BLUE
+const ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
+const ICON_SHADOW_DEPTH_RATIO: float = 0.055
+const ICON_SHADOW_DEPTH_MIN: float = 1.5
+const ICON_SHADOW_DEPTH_MAX: float = 5.0
+const ICON_SHADOW_OFFSET_X_RATIO: float = 0.012
+const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
 
 var attention_bounce_enabled: bool = false:
 	set(value):
@@ -101,20 +107,18 @@ var icon_color: Color = Color.WHITE:
 		icon_color = value
 		_sync_visuals()
 
-var icon_outline_color: Color = DEFAULT_ICON_OUTLINE_COLOR:
-	set(value):
-		icon_outline_color = value
-		_sync_visuals()
-
-var icon_outline_size: int = 3:
-	set(value):
-		icon_outline_size = value
-		_sync_visuals()
-
 var icon_modulate: Color = Color.WHITE:
 	set(value):
 		icon_modulate = value
 		_sync_visuals()
+
+var icon_shadow_enabled: bool = false:
+	set(value):
+		icon_shadow_enabled = value
+		if icon_shadow_enabled:
+			_ensure_icon_shadow_layers()
+		_sync_visuals()
+		_sync_icon_layout()
 
 var selected: bool = false:
 	set(value):
@@ -122,6 +126,13 @@ var selected: bool = false:
 		_sync_background()
 
 var color_preset: int = ColorPreset.ORANGE
+
+# Individual controls can retain full opacity while using the gray disabled tint.
+var disabled_visual_opacity: float = DISABLED_OPACITY:
+	set(value):
+		disabled_visual_opacity = clampf(value, 0.0, 1.0)
+		_sync_visuals()
+		queue_redraw()
 
 var normal_tint: Color = ORANGE_NORMAL_TINT:
 	set(value):
@@ -148,8 +159,11 @@ var button_disabled: bool = false:
 			_start_attention_bounce()
 		_sync_visuals()
 
+var _button_text_font: Font = UI_FONTS.button_font()
 var _icon_rect: TextureRect = null
 var _icon_label: Label = null
+var _icon_shadow_layers: Array[TextureRect] = []
+var _icon_shadow_material: ShaderMaterial = null
 var _attention_bounce_tween: Tween = null
 
 func _ready() -> void:
@@ -233,7 +247,7 @@ func _draw() -> void:
 		# Match the pressed button's inverted relief while keeping the disabled
 		# state neutral gray and unavailable for pointer input.
 		background_texture = PRESSED_TEXTURE
-		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
+		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, disabled_visual_opacity)
 	elif selected:
 		background_texture = PRESSED_TEXTURE
 		background_tint = selected_tint
@@ -266,6 +280,54 @@ func configure_texture(texture_value: Texture2D, stage_size_value: Vector2, disa
 	_sync_visuals()
 	_sync_icon_layout()
 
+func _ensure_icon_shadow_layers() -> void:
+	if !_icon_shadow_layers.is_empty():
+		return
+	_icon_shadow_material = UI_MATERIALS.icon_shadow(UI_PALETTE.NAV_TEXT_SHADOW)
+	for layer_index: int in range(ICON_SHADOW_LAYER_T.size()):
+		var layer := TextureRect.new()
+		layer.name = "IconExtrusion%02d" % (layer_index + 1)
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		layer.material = _icon_shadow_material
+		layer.z_index = 0
+		add_child(layer)
+		move_child(layer, 0)
+		_icon_shadow_layers.append(layer)
+
+func _sync_icon_shadow_visuals(has_texture: bool, visual_opacity: float) -> void:
+	for layer: TextureRect in _icon_shadow_layers:
+		if layer == null or !is_instance_valid(layer):
+			continue
+		layer.texture = icon_texture
+		layer.visible = icon_shadow_enabled and has_texture
+		layer.modulate = Color(1.0, 1.0, 1.0, visual_opacity)
+
+func _sync_icon_shadow_layout(actual_size: Vector2) -> void:
+	if _icon_rect == null or !is_instance_valid(_icon_rect):
+		return
+	var icon_extent: float = minf(actual_size.x, actual_size.y)
+	var shadow_depth: float = clampf(
+		icon_extent * ICON_SHADOW_DEPTH_RATIO,
+		ICON_SHADOW_DEPTH_MIN,
+		ICON_SHADOW_DEPTH_MAX
+	)
+	var shadow_offset_x: float = minf(
+		icon_extent * ICON_SHADOW_OFFSET_X_RATIO,
+		ICON_SHADOW_OFFSET_X_MAX
+	)
+	for layer_index: int in range(_icon_shadow_layers.size()):
+		var layer: TextureRect = _icon_shadow_layers[layer_index]
+		if layer == null or !is_instance_valid(layer):
+			continue
+		var layer_t: float = float(ICON_SHADOW_LAYER_T[layer_index])
+		layer.position = _icon_rect.position + Vector2(
+			shadow_offset_x * layer_t,
+			shadow_depth * layer_t
+		)
+		layer.size = actual_size
+
 func _ensure_visual_nodes() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):
 		_icon_rect = TextureRect.new()
@@ -273,6 +335,7 @@ func _ensure_visual_nodes() -> void:
 		_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_icon_rect.z_index = 1
 		add_child(_icon_rect)
 	if _icon_label == null or !is_instance_valid(_icon_label):
 		_icon_label = Label.new()
@@ -291,22 +354,15 @@ func set_color_preset(preset: int) -> void:
 	match preset:
 		ColorPreset.GREEN:
 			color_preset = ColorPreset.GREEN
-			_apply_icon_outline_style(DEFAULT_ICON_OUTLINE_COLOR, 3)
 			_apply_color_palette(GREEN_NORMAL_TINT, GREEN_PRESSED_TINT, GREEN_SELECTED_TINT)
 		ColorPreset.BLUE:
 			color_preset = ColorPreset.BLUE
-			_apply_icon_outline_style(BLUE_ICON_OUTLINE_COLOR, 4)
 			_apply_color_palette(BLUE_NORMAL_TINT, BLUE_PRESSED_TINT, BLUE_SELECTED_TINT)
 		ColorPreset.CUSTOM:
 			color_preset = ColorPreset.CUSTOM
 		_:
 			color_preset = ColorPreset.ORANGE
-			_apply_icon_outline_style(DEFAULT_ICON_OUTLINE_COLOR, 3)
 			_apply_color_palette(ORANGE_NORMAL_TINT, ORANGE_PRESSED_TINT, ORANGE_SELECTED_TINT)
-
-func _apply_icon_outline_style(color: Color, size_value: int) -> void:
-	icon_outline_color = color
-	icon_outline_size = size_value
 
 func set_color_palette(normal_color: Color, pressed_color: Color, selected_color: Color = ORANGE_SELECTED_TINT) -> void:
 	color_preset = ColorPreset.CUSTOM
@@ -321,27 +377,20 @@ func _sync_visuals() -> void:
 	if _icon_rect == null or _icon_label == null:
 		return
 	var has_texture: bool = icon_texture != null
-	var visual_opacity: float = DISABLED_OPACITY if button_disabled else 1.0
+	var visual_opacity: float = disabled_visual_opacity if button_disabled else 1.0
 	var current_icon_color := Color(icon_color.r, icon_color.g, icon_color.b, icon_color.a * visual_opacity)
-	var current_effect_color := Color(
-		icon_outline_color.r,
-		icon_outline_color.g,
-		icon_outline_color.b,
-		icon_outline_color.a * visual_opacity * 0.55
-	)
 	_icon_rect.visible = has_texture
 	_icon_rect.texture = icon_texture
 	_icon_rect.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_modulate.a * visual_opacity)
+	if icon_shadow_enabled:
+		_ensure_icon_shadow_layers()
+	_sync_icon_shadow_visuals(has_texture, visual_opacity)
 	_icon_label.visible = !has_texture and icon_text != ""
 	_icon_label.text = icon_text
+	_icon_label.add_theme_font_override("font", _button_text_font)
 	_icon_label.add_theme_font_size_override("font_size", icon_font_size)
 	_icon_label.add_theme_color_override("font_color", current_icon_color)
-	BUTTON_TEXT_STYLE_SCRIPT.apply(
-		_icon_label,
-		current_effect_color,
-		current_effect_color,
-		3 if icon_outline_size > 0 else 0
-	)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(_icon_label)
 
 func _sync_icon_layout() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):
@@ -353,4 +402,5 @@ func _sync_icon_layout() -> void:
 	var actual_offset: Vector2 = icon_stage_offset * scale_to_view
 	_icon_rect.position = size * 0.5 + actual_offset - actual_size * 0.5
 	_icon_rect.size = actual_size
+	_sync_icon_shadow_layout(actual_size)
 	_sync_visual_child_scales()

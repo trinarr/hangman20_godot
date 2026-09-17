@@ -11,6 +11,9 @@ signal interstitial_shown
 signal interstitial_failed_to_show(message: String)
 signal interstitial_closed
 signal rewarded(currency: String, amount: int)
+signal rewarded_for_request(request_id: String, currency: String, amount: int)
+signal rewarded_video_closed_for_request(request_id: String)
+signal rewarded_video_failed_to_show_for_request(request_id: String, message: String)
 signal rewarded_video_loaded
 signal rewarded_video_failed_to_load(error_code: int)
 signal rewarded_video_failed_to_show(message: String)
@@ -40,6 +43,9 @@ var _interstitial_loading: bool = false
 var _interstitial_loaded: bool = false
 var _rewarded_loading: bool = false
 var _rewarded_loaded: bool = false
+var _rewarded_show_id: String = ""
+var _rewarded_show_open: bool = false
+var _rewarded_show_legacy: bool = false
 
 func _enter_tree() -> void:
 	_read_project_settings()
@@ -98,7 +104,14 @@ func _connect_native_signals() -> void:
 		&"_on_interstitial_ad_dismissed",
 		Callable(self, "_on_interstitial_ad_dismissed")
 	)
-	_connect_native(&"_on_rewarded", Callable(self, "_on_rewarded"))
+	if _native.has_method("showRewardedVideoForRequest"):
+		_connect_native(&"_on_rewarded_for_request", Callable(self, "_on_rewarded_for_request"))
+		_connect_native(&"_on_rewarded_closed_for_request", Callable(self, "_on_rewarded_closed_for_request"))
+		_connect_native(&"_on_rewarded_failed_for_request", Callable(self, "_on_rewarded_failed_for_request"))
+	else:
+		_connect_native(&"_on_rewarded", Callable(self, "_on_rewarded"))
+		_connect_native(&"_on_rewarded_video_ad_failed_to_show", Callable(self, "_on_rewarded_video_ad_failed_to_show"))
+		_connect_native(&"_on_rewarded_video_ad_dismissed", Callable(self, "_on_rewarded_video_ad_dismissed"))
 	_connect_native(
 		&"_on_rewarded_video_ad_loaded",
 		Callable(self, "_on_rewarded_video_ad_loaded")
@@ -106,14 +119,6 @@ func _connect_native_signals() -> void:
 	_connect_native(
 		&"_on_rewarded_video_ad_failed_to_load",
 		Callable(self, "_on_rewarded_video_ad_failed_to_load")
-	)
-	_connect_native(
-		&"_on_rewarded_video_ad_failed_to_show",
-		Callable(self, "_on_rewarded_video_ad_failed_to_show")
-	)
-	_connect_native(
-		&"_on_rewarded_video_ad_dismissed",
-		Callable(self, "_on_rewarded_video_ad_dismissed")
 	)
 
 func _connect_native(signal_name: StringName, callback: Callable) -> void:
@@ -194,13 +199,50 @@ func is_rewarded_video_loaded() -> bool:
 func can_request_rewarded_video() -> bool:
 	return is_native_available() and _sdk_ready and !rewarded_id.is_empty()
 
-func show_rewarded_video() -> bool:
+func show_rewarded_video(request_id: String = "") -> bool:
+	if _rewarded_show_open:
+		return false
 	if !is_native_available() or !_rewarded_loaded:
 		load_rewarded_video()
 		return false
+	# A token must reach the listener attached to this exact native ad object.
+	# Refuse tagged requests with an outdated binary instead of misattributing them.
+	if !request_id.is_empty() and !_native.has_method("showRewardedVideoForRequest"):
+		return false
 	_rewarded_loaded = false
-	_native.showRewardedVideo()
+	_rewarded_show_legacy = request_id.is_empty()
+	_rewarded_show_id = request_id if !request_id.is_empty() else "action:%d" % Time.get_ticks_usec()
+	_rewarded_show_open = true
+	if _native.has_method("showRewardedVideoForRequest"):
+		_native.showRewardedVideoForRequest(_rewarded_show_id)
+	else:
+		_native.showRewardedVideo()
 	return true
+
+func _on_rewarded_for_request(request_id: String, currency: String, amount: int) -> void:
+	# Deliver late tagged rewards even after another show or navigation. Legacy
+	# consumers only receive callbacks belonging to their own current show.
+	rewarded_for_request.emit(request_id, currency, amount)
+	if request_id == _rewarded_show_id and _rewarded_show_legacy:
+		rewarded.emit(currency, amount)
+
+func _on_rewarded_closed_for_request(request_id: String) -> void:
+	if request_id == _rewarded_show_id and _rewarded_show_open:
+		_rewarded_show_open = false
+		_rewarded_loaded = false
+		if _rewarded_show_legacy:
+			rewarded_video_closed.emit()
+		call_deferred("load_rewarded_video")
+	rewarded_video_closed_for_request.emit(request_id)
+
+func _on_rewarded_failed_for_request(request_id: String, message: String) -> void:
+	if request_id == _rewarded_show_id and _rewarded_show_open:
+		_rewarded_show_open = false
+		_rewarded_loaded = false
+		if _rewarded_show_legacy:
+			rewarded_video_failed_to_show.emit(message)
+		call_deferred("load_rewarded_video")
+	rewarded_video_failed_to_show_for_request.emit(request_id, message)
 
 func set_user_consent(value: bool) -> void:
 	user_consent = value
@@ -266,11 +308,13 @@ func _on_rewarded_video_ad_failed_to_load(error_code: int) -> void:
 	rewarded_video_failed_to_load.emit(error_code)
 
 func _on_rewarded_video_ad_failed_to_show(message: String) -> void:
+	_rewarded_show_open = false
 	_rewarded_loaded = false
 	rewarded_video_failed_to_show.emit(message)
 	call_deferred("load_rewarded_video")
 
 func _on_rewarded_video_ad_dismissed() -> void:
+	_rewarded_show_open = false
 	_rewarded_loaded = false
 	rewarded_video_closed.emit()
 	call_deferred("load_rewarded_video")

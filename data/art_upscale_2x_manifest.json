@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 163,
+  "file_count": 160,
   "files": [
     {
       "path": "icon.png",
@@ -357,34 +357,6 @@
       "native_2x": true
     },
     {
-      "path": "flash_assets/theme_card_progress_user_239x65.png",
-      "source_size": [
-        239,
-        65
-      ],
-      "target_size": [
-        478,
-        130
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "ea9a8ea4556658d8def36cf8a48235849762e397e2e03e2b932b8699b9683bd7",
-      "target_sha256": "88cf11f1731813f819173d43fe7e22ad6b107358db46a2c3e293241944c4e9cf"
-    },
-    {
-      "path": "flash_assets/theme_card_user_239x90.png",
-      "source_size": [
-        239,
-        90
-      ],
-      "target_size": [
-        478,
-        180
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "65c62d7c2a5588b65a3cb2dbc6d18c0f860ef02f13507e7bd47e8386927cb225",
-      "target_sha256": "615aa497dcc427bedae6e424b905b0acab0fb43b9cdfcad4df663d71546a2c03"
-    },
-    {
       "path": "flash_assets/theme_icons/theme_icon_film_music.png",
       "source_size": [
         256,
@@ -683,20 +655,6 @@
       "source_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
       "target_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
       "native_2x": true
-    },
-    {
-      "path": "flash_assets/user_hint_circle_74.png",
-      "source_size": [
-        111,
-        111
-      ],
-      "target_size": [
-        222,
-        222
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "fd163554902b59a1c7c5adbef290245b87cbdb06f91e51b0d73d99c204c508af",
-      "target_sha256": "13f9e7f9d4cf0db5f265257cfea4b187ea62991f04420a82c0a95151fd1be45d"
     },
     {
       "path": "flash_assets/user_main_button_21_center.png",
