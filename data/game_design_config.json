@@ -115,6 +115,10 @@
       "level_completion_per_win_coins": 10,
       "challenge_level_completion_base_coins": 50,
       "challenge_level_completion_per_win_coins": 20,
+      "level_completion_base_stars": 10,
+      "level_completion_per_win_stars": 2,
+      "challenge_level_completion_base_stars": 15,
+      "challenge_level_completion_per_win_stars": 3,
       "quick_quiz_answer_stars": 1,
       "lightning_quiz_answer_stars": 2,
       "coin_refill_ad_coins": 50

@@ -2696,6 +2696,18 @@ func _result_continue_action() -> Callable:
 func _result_back_action() -> void:
 	if (
 		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and bool(last_result_data.get("single_player_level_completed", false))
+		and GameState.is_pending_single_player_reward_presented()
+	):
+		# Once the whole-level reward screen has been reached, backing out is no
+		# longer an unfinished-level state. Grant any not-yet-animated base rewards,
+		# treat x2 as skipped, and return Home without creating Resume/Continue.
+		GameState.settle_presented_pending_single_player_reward(true)
+		_discard_round_for_navigation()
+		show_menu()
+		return
+	if (
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and last_result_is_win
 		and !bool(last_result_data.get("single_player_level_completed", false))
 	):
