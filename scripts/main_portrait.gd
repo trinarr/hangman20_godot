@@ -12076,18 +12076,15 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	holder.position = rect.position
 	holder.size = rect.size
 	parent.add_child(holder)
-	var background_panel := _portrait_hint_local_panel(holder, Rect2(Vector2.ZERO, rect.size),
-		PORTRAIT_UI_PALETTE.THEME_CARD, 18.0, PORTRAIT_RULE, 2.0)
-	# _portrait_hint_local_panel() normally renders at z=8 because it is used as
-	# a button/card surface. Here the panel is only the background for labels, the
-	# progress bar and the theme icon, so keep it behind the progress contents.
-	background_panel.z_index = 0
+	# Keep this reward as a lightweight progress element without an extra card
+	# surface. The stars summary panel above already provides enough grouping.
+	var bar_width: float = rect.size.x - 102.0
+	var bar_x: float = (rect.size.x - bar_width) * 0.5
 	var title := Label.new()
 	title.name = "UnlockTitle"
-	title.position = Vector2(16.0, 7.0)
-	# Match the progress bar width so the caption is centered over the bar itself,
-	# not over the whole card (the theme icon overlaps the bar's right endpoint).
-	title.size = Vector2(rect.size.x - 102.0, 30.0)
+	# Sit close to the bar and share its exact horizontal center.
+	title.position = Vector2(bar_x, 15.0)
+	title.size = Vector2(bar_width, 30.0)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.text = tr("NEXT_THEME_UNLOCK")
 	title.add_theme_font_override("font", UI_REGULAR_FONT)
@@ -12096,29 +12093,59 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(title)
 	title.z_index = 2
 	holder.add_child(title)
+	# Draw the dark track as a separate frame and inset the actual ProgressBar.
+	# This keeps a dark rim visible around the green fill even at 100%, so the
+	# track itself works as the progress bar outline instead of being covered.
+	var bar_frame := Panel.new()
+	bar_frame.name = "UnlockBarFrame"
+	bar_frame.position = Vector2(bar_x, 48.0)
+	bar_frame.size = Vector2(bar_width, 28.0)
+	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_frame.clip_contents = true
+	var track := StyleBoxFlat.new()
+	track.bg_color = PORTRAIT_DARK_BLUE
+	track.set_corner_radius_all(14)
+	bar_frame.add_theme_stylebox_override("panel", track)
+	bar_frame.z_index = 2
+	holder.add_child(bar_frame)
+
 	var bar := ProgressBar.new()
 	bar.name = "UnlockBar"
-	bar.position = Vector2(16.0, 48.0)
-	bar.size = Vector2(rect.size.x - 102.0, 28.0)
+	var bar_inset := 2.0
+	bar.position = bar_frame.position + Vector2.ONE * bar_inset
+	bar.size = bar_frame.size - Vector2.ONE * bar_inset * 2.0
 	bar.min_value = 0.0
 	bar.max_value = float(progress["total"])
 	bar.value = float(progress["from"])
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var track := StyleBoxFlat.new()
-	track.bg_color = PORTRAIT_DARK_BLUE
-	track.set_corner_radius_all(14)
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = StageLetterButton.CIRCLED_COLOR
-	fill.set_corner_radius_all(14)
-	bar.add_theme_stylebox_override("background", track)
-	bar.add_theme_stylebox_override("fill", fill)
+	var inner_track := StyleBoxFlat.new()
+	inner_track.bg_color = Color.TRANSPARENT
+	inner_track.set_corner_radius_all(11)
+	var transparent_fill := StyleBoxFlat.new()
+	transparent_fill.bg_color = Color.TRANSPARENT
+	transparent_fill.set_corner_radius_all(12)
+	bar.add_theme_stylebox_override("background", inner_track)
+	bar.add_theme_stylebox_override("fill", transparent_fill)
 	bar.z_index = 2
 	holder.add_child(bar)
+	# Draw the green portion ourselves inside the dark frame. Godot's native
+	# ProgressBar fill can extend past an inset track depending on the stylebox,
+	# so an explicit child keeps the 2 px dark rim exact on every side.
+	var fill_panel := Panel.new()
+	fill_panel.name = "UnlockBarFill"
+	fill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill_panel.position = Vector2.ONE * bar_inset
+	fill_panel.size = Vector2(0.0, bar_frame.size.y - bar_inset * 2.0)
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = StageLetterButton.CIRCLED_COLOR
+	fill_style.set_corner_radius_all(12)
+	fill_panel.add_theme_stylebox_override("panel", fill_style)
+	bar_frame.add_child(fill_panel)
 	var count := Label.new()
 	count.name = "UnlockCount"
-	count.position = bar.position
-	count.size = bar.size
+	count.position = bar_frame.position
+	count.size = bar_frame.size
 	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	count.add_theme_font_override("font", UI_REGULAR_FONT)
@@ -12133,12 +12160,16 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	icon.texture = _theme_icon_texture(theme_index)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# The icon acts as the marker at the bar's endpoint rather than as a
-	# separate element. Keep its center exactly on the right end of the bar.
+	# Keep the icon centered vertically on the bar and let it sit on the right
+	# endpoint. Theme icons contain a little transparent padding, so move the
+	# texture box slightly past the frame end; this keeps the visible artwork on
+	# the edge instead of leaving a dark tail to its right.
 	icon.size = Vector2(52.8, 52.8)
+	var bar_center_y: float = bar_frame.position.y + bar_frame.size.y * 0.5
+	var icon_edge_offset: float = 6.0
 	icon.position = Vector2(
-		bar.position.x + bar.size.x - icon.size.x * 0.5,
-		bar.position.y + (bar.size.y - icon.size.y) * 0.5
+		bar_frame.position.x + bar_frame.size.x - icon.size.x + icon_edge_offset,
+		bar_center_y - icon.size.y * 0.5
 	)
 	icon.pivot_offset = icon.size * 0.5
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -12153,6 +12184,18 @@ func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
 		return
 	var bar := holder.get_node("UnlockBar") as ProgressBar
 	bar.value = value
+	var bar_frame := holder.get_node("UnlockBarFrame") as Control
+	var fill_panel := bar_frame.get_node("UnlockBarFill") as Control
+	var bar_inset: float = 2.0
+	var ratio: float = 0.0
+	if bar.max_value > 0.0:
+		ratio = clampf(value / bar.max_value, 0.0, 1.0)
+	fill_panel.position = Vector2.ONE * bar_inset
+	fill_panel.size = Vector2(
+		maxf(0.0, bar_frame.size.x - bar_inset * 2.0) * ratio,
+		maxf(0.0, bar_frame.size.y - bar_inset * 2.0)
+	)
+	fill_panel.visible = ratio > 0.0
 	var count := holder.get_node("UnlockCount") as Label
 	count.text = "%d/%d" % [int(round(value)), int(bar.max_value)]
 
@@ -12172,6 +12215,7 @@ func _animate_theme_unlock_progress(holder: Control) -> void:
 	if !is_instance_valid(holder) or !holder.is_inside_tree() or !bool(progress.get("unlocked", false)):
 		return
 	holder.get_node("UnlockBar").hide()
+	holder.get_node("UnlockBarFrame").hide()
 	holder.get_node("UnlockCount").hide()
 	var title := holder.get_node("UnlockTitle") as Label
 	title.text = tr("NEW_THEME_UNLOCKED")
