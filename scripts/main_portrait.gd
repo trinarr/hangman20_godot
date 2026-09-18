@@ -13393,6 +13393,30 @@ func _play_single_player_reward_resource_collection(
 		if reward_currency == GameState.STAGE_REWARD_STARS
 		else PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE
 	)
+	if (
+		reward_currency == GameState.STAGE_REWARD_STARS
+		and source_visual.name == &"StarAwardIcon"
+		and source_visual.get_parent() != null
+		and source_visual.get_parent().name == &"SinglePlayerLevelStarAward"
+	):
+		# Match the flying copies to the star that is actually visible on the plaque.
+		# The plaque is held at its peak scale when collection starts, so using the
+		# transformed source bounds (rather than the generic flying-star constant)
+		# keeps the first animated star pixel-aligned with StarAwardIcon on every
+		# viewport size and at every parent scale.
+		var source_transform: Transform2D = source_visual.get_global_transform_with_canvas()
+		var overlay_inverse: Transform2D = overlay.get_global_transform_with_canvas().affine_inverse()
+		var source_origin: Vector2 = overlay_inverse * (source_transform * Vector2.ZERO)
+		var source_x_end: Vector2 = overlay_inverse * (
+			source_transform * Vector2(source_visual.size.x, 0.0)
+		)
+		var source_y_end: Vector2 = overlay_inverse * (
+			source_transform * Vector2(0.0, source_visual.size.y)
+		)
+		resource_size = Vector2(
+			source_origin.distance_to(source_x_end),
+			source_origin.distance_to(source_y_end)
+		)
 	var resource_texture: Texture2D = (
 		STAR_CURRENCY_TEXTURE
 		if reward_currency == GameState.STAGE_REWARD_STARS
@@ -13417,6 +13441,10 @@ func _play_single_player_reward_resource_collection(
 		resource_icon.position = source_viewport_center - resource_size * 0.5
 		resource_icon.scale = Vector2.ONE
 		resource_icon.modulate.a = 0.0
+		# Currency stacks peel from the top: resource_index 0 launches first and is
+		# therefore rendered above every later icon. As it leaves, the next layer
+		# underneath becomes the visible source, matching the coin/star payout flow.
+		resource_icon.z_index = PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - resource_index
 		overlay.add_child(resource_icon)
 
 		var spread_sign: float = -1.0 if resource_index % 2 == 0 else 1.0
