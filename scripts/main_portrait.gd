@@ -955,27 +955,41 @@ func _show_portrait_ad_not_ready_toast() -> void:
 			toast_root.theme = ui.theme
 		toast_layer.add_child(toast_root)
 
-		var toast_anchor: Control = FLASH_STAGE_CONTROL_SCRIPT.new() as Control
+		var toast_anchor := Control.new()
 		toast_anchor.name = "AdStatusToastAnchor"
 		toast_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		toast_root.add_child(toast_anchor)
-		toast_anchor.set(
-			"stage_rect",
-			Rect2(0.0, _portrait_ad_toast_anchor_y(), PORTRAIT_STAGE_SIZE.x, 0.0)
-		)
 
 		_portrait_ad_toast = STAGE_TOAST_SCRIPT.new() as Control
 		_portrait_ad_toast.name = "AdStatusToast"
 		toast_anchor.add_child(_portrait_ad_toast)
-		_portrait_ad_toast.call("set_available_width", PORTRAIT_STAGE_SIZE.x)
-	# The same toast instance is reused between screens, so refresh its stage anchor
-	# before every show instead of keeping the position from the screen that created it.
+	# The reward CTA is bottom-attached, so use its actual viewport position in the
+	# same pixel coordinate space as this CanvasLayer. Avoid FlashStageControl here:
+	# applying stage/safe-area transforms a second time is what moved the toast away.
 	var current_anchor := _portrait_ad_toast.get_parent() as Control
 	if current_anchor != null and is_instance_valid(current_anchor):
-		current_anchor.set(
-			"stage_rect",
-			Rect2(0.0, _portrait_ad_toast_anchor_y(), PORTRAIT_STAGE_SIZE.x, 0.0)
+		var viewport_size: Vector2 = get_viewport_rect().size
+		var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
+		var anchor_y_px: float = viewport_size.y * 0.5
+		if (
+			_portrait_final_reward_double_button != null
+			and is_instance_valid(_portrait_final_reward_double_button)
+			and _portrait_final_reward_double_button.is_inside_tree()
+			and _portrait_final_reward_double_button.visible
+		):
+			anchor_y_px = _portrait_final_reward_double_button.get_global_rect().position.y
+		# StageToast is authored in the same 480x800 coordinate system as the rest
+		# of the portrait UI. The raw CanvasLayer anchor must therefore restore the
+		# normal stage fit scale; otherwise the 52 px toast and its 23 px text render
+		# roughly half-size on a 960 px-wide device. Keep the anchor Y in viewport
+		# pixels so the reward toast still tracks the real x2 button position.
+		current_anchor.position = Vector2(
+			PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
+			anchor_y_px
 		)
+		current_anchor.scale = Vector2.ONE * fit_scale
+		current_anchor.size = Vector2(PORTRAIT_STAGE_SIZE.x, 0.0)
+		_portrait_ad_toast.call("set_available_width", PORTRAIT_STAGE_SIZE.x)
 	_portrait_ad_toast.call("show_message", _portrait_ad_not_ready_message(), false)
 
 func _connect_portrait_interstitial_signals(ads_service: Node) -> void:
@@ -12178,14 +12192,28 @@ func _level_star_text_bounds(text: String, font: Font, font_size: int) -> Rect2:
 	return bounds
 
 func _portrait_level_star_award_size(total_stars: int) -> Vector2:
-	var caption_bounds := _level_star_text_bounds(tr("LEVEL_STARS_EARNED"), UI_REGULAR_FONT, 20)
-	var value_bounds := _level_star_text_bounds(str(maxi(total_stars, 0)), UI_DISPLAY_FONT, 25)
-	# Include the caption's 1 px outline and the counter's 2 px outline.
-	var caption_right: float = 16.0 + 36.0 + 10.0 + caption_bounds.end.x + 1.0
-	return Vector2(
-		ceil(caption_right + 8.0 + value_bounds.size.x + 4.0 + 16.0),
-		PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT
+	# Measure exactly the same uppercase caption that is rendered in the plaque.
+	# Using the untranslated/lowercase form here made the Russian plaque too narrow.
+	var caption_text: String = tr("LEVEL_STARS_EARNED").to_upper()
+	var value_text: String = str(maxi(total_stars, 0))
+	var caption_width: float = UI_REGULAR_FONT.get_string_size(
+		caption_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20
+	).x
+	var value_width: float = UI_DISPLAY_FONT.get_string_size(
+		value_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 25
+	).x
+	# icon + caption + counter, with fixed inner gaps and enough room for outlines.
+	var content_width: float = (
+		16.0 # left padding
+		+ 36.0 # star icon
+		+ 10.0 # icon-to-caption gap
+		+ caption_width
+		+ 8.0 # caption-to-value gap
+		+ value_width
+		+ 4.0 # outline safety
+		+ 16.0 # right padding
 	)
+	return Vector2(ceil(content_width), PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT)
 
 func _layout_level_star_award_value(value: Label) -> void:
 	var area: Rect2 = value.get_meta(&"star_value_area")
@@ -12290,7 +12318,7 @@ func _stage_single_player_level_star_award_panel(
 	var label := Label.new()
 	label.name = "StarAwardLabel"
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.text = tr("LEVEL_STARS_EARNED")
+	label.text = tr("LEVEL_STARS_EARNED").to_upper()
 	var label_width: float = UI_REGULAR_FONT.get_string_size(
 		label.text,
 		HORIZONTAL_ALIGNMENT_LEFT,
@@ -12519,10 +12547,12 @@ func _level_star_source_departure_duration() -> float:
 func _reset_level_star_award_panel_after_source_empty(star_panel: Control) -> void:
 	if star_panel == null or !is_instance_valid(star_panel) or !star_panel.is_inside_tree():
 		return
-	# Keep the peak scale until the last star has left the source, then settle
-	# smoothly instead of snapping back to the resting transform.
+	# Keep the peak scale until the last star has left the source. As soon as the
+	# plaque starts settling from that bounce peak, fade it out in parallel so the
+	# exit begins during the downward scale motion instead of after it has finished.
 	var settle_tween := star_panel.create_tween()
 	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	settle_tween.set_parallel(true)
 	var settle := settle_tween.tween_property(
 		star_panel,
 		"scale",
@@ -12531,6 +12561,14 @@ func _reset_level_star_award_panel_after_source_empty(star_panel: Control) -> vo
 	)
 	settle.set_trans(Tween.TRANS_SINE)
 	settle.set_ease(Tween.EASE_OUT)
+	var fade := settle_tween.tween_property(
+		star_panel,
+		"modulate:a",
+		0.0,
+		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+	)
+	fade.set_trans(Tween.TRANS_SINE)
+	fade.set_ease(Tween.EASE_IN)
 
 func _launch_level_summary_star_collection(
 	star_panel: Control,
@@ -12602,12 +12640,21 @@ func _finish_level_summary_star_award(
 	if star_panel == null or !is_instance_valid(star_panel) or !star_panel.is_inside_tree():
 		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
 		return
-	var hide_tween := star_panel.create_tween()
-	hide_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	hide_tween.set_parallel(true)
-	hide_tween.tween_property(star_panel, "modulate:a", 0.0, PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION)
-	hide_tween.tween_property(star_panel, "scale", Vector2.ONE * 0.94, PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION)
-	await hide_tween.finished
+	# In the normal payout path the plaque has already faded while settling from
+	# its bounce peak. Do not add a second shrink/fade after the flying stars land.
+	# Keep a short fallback fade for any path that reaches here without that settle.
+	if star_panel.modulate.a > 0.001:
+		var hide_tween := star_panel.create_tween()
+		hide_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var fade := hide_tween.tween_property(
+			star_panel,
+			"modulate:a",
+			0.0,
+			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+		)
+		fade.set_trans(Tween.TRANS_SINE)
+		fade.set_ease(Tween.EASE_OUT)
+		await hide_tween.finished
 	if star_panel != null and is_instance_valid(star_panel):
 		star_panel.visible = false
 	_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
