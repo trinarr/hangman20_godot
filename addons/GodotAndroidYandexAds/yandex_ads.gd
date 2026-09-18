@@ -46,6 +46,7 @@ var _rewarded_loaded: bool = false
 var _rewarded_show_id: String = ""
 var _rewarded_show_open: bool = false
 var _rewarded_show_legacy: bool = false
+var _rewarded_show_tagged_legacy_bridge: bool = false
 
 func _enter_tree() -> void:
 	_read_project_settings()
@@ -205,17 +206,20 @@ func show_rewarded_video(request_id: String = "") -> bool:
 	if !is_native_available() or !_rewarded_loaded:
 		load_rewarded_video()
 		return false
-	# A token must reach the listener attached to this exact native ad object.
-	# Refuse tagged requests with an outdated binary instead of misattributing them.
-	if !request_id.is_empty() and !_native.has_method("showRewardedVideoForRequest"):
-		return false
 	_rewarded_loaded = false
 	_rewarded_show_legacy = request_id.is_empty()
 	_rewarded_show_id = request_id if !request_id.is_empty() else "action:%d" % Time.get_ticks_usec()
 	_rewarded_show_open = true
+	_rewarded_show_tagged_legacy_bridge = (
+		!request_id.is_empty()
+		and !_native.has_method("showRewardedVideoForRequest")
+	)
 	if _native.has_method("showRewardedVideoForRequest"):
 		_native.showRewardedVideoForRequest(_rewarded_show_id)
 	else:
+		# Keep tagged final-reward requests working with an older cached Android
+		# bridge too. The wrapper owns the single active show id and converts the
+		# legacy native callbacks back into the request-specific Godot signals.
 		_native.showRewardedVideo()
 	return true
 
@@ -295,6 +299,9 @@ func _on_interstitial_ad_dismissed() -> void:
 	call_deferred("load_interstitial")
 
 func _on_rewarded(currency: String, amount: int) -> void:
+	if _rewarded_show_tagged_legacy_bridge and !_rewarded_show_id.is_empty():
+		rewarded_for_request.emit(_rewarded_show_id, currency, amount)
+		return
 	rewarded.emit(currency, amount)
 
 func _on_rewarded_video_ad_loaded() -> void:
@@ -308,13 +315,23 @@ func _on_rewarded_video_ad_failed_to_load(error_code: int) -> void:
 	rewarded_video_failed_to_load.emit(error_code)
 
 func _on_rewarded_video_ad_failed_to_show(message: String) -> void:
+	var request_id: String = _rewarded_show_id
+	var tagged_legacy_bridge: bool = _rewarded_show_tagged_legacy_bridge
 	_rewarded_show_open = false
 	_rewarded_loaded = false
-	rewarded_video_failed_to_show.emit(message)
+	if tagged_legacy_bridge and !request_id.is_empty():
+		rewarded_video_failed_to_show_for_request.emit(request_id, message)
+	else:
+		rewarded_video_failed_to_show.emit(message)
 	call_deferred("load_rewarded_video")
 
 func _on_rewarded_video_ad_dismissed() -> void:
+	var request_id: String = _rewarded_show_id
+	var tagged_legacy_bridge: bool = _rewarded_show_tagged_legacy_bridge
 	_rewarded_show_open = false
 	_rewarded_loaded = false
-	rewarded_video_closed.emit()
+	if tagged_legacy_bridge and !request_id.is_empty():
+		rewarded_video_closed_for_request.emit(request_id)
+	else:
+		rewarded_video_closed.emit()
 	call_deferred("load_rewarded_video")

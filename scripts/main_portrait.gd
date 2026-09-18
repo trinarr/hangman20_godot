@@ -14662,9 +14662,29 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 		if child != null and is_instance_valid(child):
 			child.visible = false
 
+func _prepare_final_reward_rewarded_ad() -> void:
+	if !_portrait_ads_enabled():
+		return
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !is_instance_valid(ads_service):
+		return
+	_connect_final_reward_ad_signals(ads_service)
+	if (
+		ads_service.has_method("is_rewarded_video_loaded")
+		and bool(ads_service.call("is_rewarded_video_loaded"))
+	):
+		return
+	# Preload as soon as the x2 CTA is built. Loading may happen automatically,
+	# but explicitly warming it here prevents the final-reward button from being
+	# the first code path that asks the SDK for a rewarded ad. This never shows an
+	# ad automatically; a show still requires the player's button press.
+	if ads_service.has_method("load_rewarded_video"):
+		ads_service.call("load_rewarded_video")
+
 func _configure_final_reward_double_button(button: Control, bonus_amount: int) -> void:
 	if button == null or !is_instance_valid(button):
 		return
+	_prepare_final_reward_rewarded_ad()
 	_sync_final_reward_double_button_content(button)
 	# Keep the standard stretchable long-button slices and only tint them to the
 	# same purple used by rewarded-ad indicators.
