@@ -333,10 +333,49 @@ const PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 
 const PORTRAIT_FINAL_REWARD_AMOUNT_SIZE := Vector2(300.0, 58.0)
 const PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE: int = 40
 const PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT: float = 52.0
-const PORTRAIT_LEVEL_STAR_AWARD_GAP: float = 12.0
+const PORTRAIT_LEVEL_STAR_AWARD_GAP: float = 28.0
 const PORTRAIT_LEVEL_THEME_PROGRESS_SIZE := Vector2(384.0, 96.0)
-const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 6.0
-const PORTRAIT_LEVEL_STAR_PANEL_REVEAL_START_SCALE: float = 0.82
+const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 4.0
+# Authored at 480 px; the 960 px viewport renders a 6/6/6/9 px rim.
+const PORTRAIT_THEME_BAR_INSET := Vector2(3.0, 3.0)
+const PORTRAIT_THEME_BAR_BOTTOM_INSET: float = 4.5
+const THEME_UNLOCK_ICON_GRAYSCALE_SHADER_CODE: String = """
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform float saturation : hint_range(0.0, 1.0) = 0.0;
+varying vec4 canvas_modulate;
+
+void vertex() {
+	canvas_modulate = COLOR;
+}
+
+void fragment() {
+	vec4 source = texture(TEXTURE, UV);
+	float luminance = dot(source.rgb, vec3(0.299, 0.587, 0.114));
+	COLOR = vec4(mix(vec3(luminance), source.rgb, saturation), source.a) * canvas_modulate;
+}
+"""
+const THEME_UNLOCK_FILL_SHADER_CODE: String = """
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform vec2 fill_size = vec2(1.0, 30.0);
+uniform vec4 base_color : source_color;
+uniform vec4 highlight_color : source_color;
+
+void fragment() {
+	vec2 half_size = fill_size * 0.5;
+	float radius = min(half_size.x, half_size.y);
+	vec2 q = abs(UV * fill_size - half_size) - (half_size - vec2(radius));
+	float distance = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+	float feather = max(fwidth(distance), 0.001);
+	float mask = 1.0 - smoothstep(-feather, 0.0, distance);
+	// Both tones share one silhouette, including the moving rounded endpoint.
+	vec4 fill = mix(base_color, highlight_color, 1.0 - step(0.2, UV.y));
+	COLOR *= vec4(fill.rgb, fill.a * mask);
+}
+"""
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE: float = 1.14
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION: float = 0.16
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION: float = 0.20
@@ -11963,36 +12002,48 @@ func _reveal_level_summary_open_chest(
 	if extra_callback.is_valid():
 		extra_callback.call()
 
+func _level_star_text_bounds(text: String, font: Font, font_size: int) -> Rect2:
+	# Glyph advances include side bearings; center the actual glyph bounds instead.
+	var line := TextLine.new()
+	line.add_string(text, font, font_size)
+	var text_server := TextServerManager.get_primary_interface()
+	var bounds := Rect2()
+	var has_ink: bool = false
+	var pen_x: float = 0.0
+	for glyph: Dictionary in text_server.shaped_text_get_glyphs(line.get_rid()):
+		var glyph_size := Vector2i(int(glyph["font_size"]), 0)
+		var font_rid: RID = glyph["font_rid"]
+		var glyph_index: int = int(glyph["index"])
+		for repetition: int in int(glyph["repeat"]):
+			if font_rid.is_valid() and glyph_size.x > 0:
+				var offset: Vector2 = text_server.font_get_glyph_offset(font_rid, glyph_size, glyph_index)
+				var size: Vector2 = text_server.font_get_glyph_size(font_rid, glyph_size, glyph_index)
+				if size.x > 0.0 and size.y > 0.0:
+					var glyph_rect := Rect2(Vector2(pen_x, 0.0) + Vector2(glyph["offset"]) + offset, size)
+					bounds = bounds.merge(glyph_rect) if has_ink else glyph_rect
+					has_ink = true
+			pen_x += float(glyph["advance"])
+	return bounds
+
 func _portrait_level_star_award_size(total_stars: int) -> Vector2:
-	# Size the temporary plaque from its real contents instead of reserving a
-	# fixed 300 px row. This keeps the value visually attached to the caption in
-	# every locale while retaining compact, even outer padding.
-	var label_width: float = UI_REGULAR_FONT.get_string_size(
-		tr("LEVEL_STARS_EARNED"),
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		20
-	).x
-	var value_width: float = UI_DISPLAY_FONT.get_string_size(
-		str(maxi(total_stars, 0)),
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		25
-	).x
-	var horizontal_padding: float = 16.0
-	var icon_width: float = 36.0
-	var icon_label_gap: float = 10.0
-	var label_value_gap: float = 8.0
+	var caption_bounds := _level_star_text_bounds(tr("LEVEL_STARS_EARNED"), UI_REGULAR_FONT, 20)
+	var value_bounds := _level_star_text_bounds(str(maxi(total_stars, 0)), UI_DISPLAY_FONT, 25)
+	# Include the caption's 1 px outline and the counter's 2 px outline.
+	var caption_right: float = 16.0 + 36.0 + 10.0 + caption_bounds.end.x + 1.0
 	return Vector2(
-		ceil(
-			horizontal_padding * 2.0
-			+ icon_width
-			+ icon_label_gap
-			+ label_width
-			+ label_value_gap
-			+ value_width
-		),
+		ceil(caption_right + 8.0 + value_bounds.size.x + 4.0 + 16.0),
 		PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT
+	)
+
+func _layout_level_star_award_value(value: Label) -> void:
+	var area: Rect2 = value.get_meta(&"star_value_area")
+	var bounds := _level_star_text_bounds(value.text, UI_DISPLAY_FONT, 25)
+	# LEFT/TOP alignment gives an explicit baseline. Adjust whenever the countdown
+	# changes digit count, preserving the same visual center on both axes.
+	value.size = Vector2(UI_DISPLAY_FONT.get_string_size(value.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 25).x, UI_DISPLAY_FONT.get_height(25))
+	value.position = Vector2(
+		area.get_center().x - bounds.get_center().x,
+		area.get_center().y - UI_DISPLAY_FONT.get_ascent(25) - bounds.get_center().y
 	)
 
 func _portrait_level_star_award_rect(
@@ -12071,16 +12122,15 @@ func _stage_single_player_level_star_award_panel(
 	panel.add_theme_stylebox_override("panel", style)
 	holder.add_child(panel)
 
-	var horizontal_padding: float = 16.0
+	var left_padding: float = 16.0
 	var icon_label_gap: float = 10.0
-	var label_value_gap: float = 8.0
 	var icon := TextureRect.new()
 	icon.name = "StarAwardIcon"
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.texture = STAR_CURRENCY_TEXTURE
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.position = Vector2(horizontal_padding, 8.0)
+	icon.position = Vector2(left_padding, 8.0)
 	icon.size = Vector2.ONE * 36.0
 	icon.z_index = 2
 	holder.add_child(icon)
@@ -12110,32 +12160,30 @@ func _stage_single_player_level_star_award_panel(
 	value.name = "StarAwardValue"
 	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	value.text = str(maxi(total_stars, 0))
-	var value_width: float = UI_DISPLAY_FONT.get_string_size(
-		value.text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		25
-	).x
-	value.position = Vector2(label.position.x + label.size.x + label_value_gap, 0.0)
-	value.size = Vector2(value_width, holder.size.y)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var caption_right: float = label.position.x + _level_star_text_bounds(label.text, UI_REGULAR_FONT, 20).end.x + 1.0
+	# Compact caption-to-value gap, independent from the 16 px outer margin.
+	var value_left: float = caption_right + 8.0
+	value.set_meta(&"star_value_area", Rect2(value_left, 0.0, holder.size.x - 16.0 - value_left, holder.size.y))
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	value.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	value.add_theme_font_override("font", UI_DISPLAY_FONT)
 	value.add_theme_font_size_override("font_size", 25)
 	value.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(value)
 	value.z_index = 3
 	holder.add_child(value)
+	_layout_level_star_award_value(value)
 	holder.set_meta(&"level_star_value_label", value)
 	holder.modulate.a = 0.0
-	holder.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_REVEAL_START_SCALE
+	holder.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE
 	return holder
 
 func _play_level_star_award_panel_bounce(
 	panel: Control,
 	reveal: bool,
 	peak_callback: Callable = Callable(),
-	finished_callback: Callable = Callable()
+	finished_callback: Callable = Callable(),
+	hold_at_peak: bool = false
 ) -> void:
 	if panel == null or !is_instance_valid(panel) or !panel.is_inside_tree():
 		if peak_callback.is_valid():
@@ -12146,14 +12194,41 @@ func _play_level_star_award_panel_bounce(
 	panel.visible = true
 	panel.pivot_offset = panel.size * 0.5
 	if reveal:
-		panel.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_REVEAL_START_SCALE
+		# The plaque begins already at its former bounce peak. Its reveal starts in
+		# the same frame as the main reward artwork swap, then it simply settles
+		# down to normal size while fading in -- no introductory bounce.
+		panel.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE
 		panel.modulate.a = 0.0
-	else:
-		panel.scale = Vector2.ONE
-		panel.modulate.a = 1.0
+		if peak_callback.is_valid():
+			peak_callback.call()
+		var reveal_tween := panel.create_tween()
+		reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		reveal_tween.set_parallel(true)
+		var reveal_scale := reveal_tween.tween_property(
+			panel,
+			"scale",
+			Vector2.ONE,
+			PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+		)
+		reveal_scale.set_trans(Tween.TRANS_SINE)
+		reveal_scale.set_ease(Tween.EASE_OUT)
+		var reveal_alpha := reveal_tween.tween_property(
+			panel,
+			"modulate:a",
+			1.0,
+			PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+		)
+		reveal_alpha.set_trans(Tween.TRANS_SINE)
+		reveal_alpha.set_ease(Tween.EASE_OUT)
+		await reveal_tween.finished
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
+
+	panel.scale = Vector2.ONE
+	panel.modulate.a = 1.0
 	var grow_tween := panel.create_tween()
 	grow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	grow_tween.set_parallel(true)
 	var grow := grow_tween.tween_property(
 		panel,
 		"scale",
@@ -12162,18 +12237,15 @@ func _play_level_star_award_panel_bounce(
 	)
 	grow.set_trans(Tween.TRANS_BACK)
 	grow.set_ease(Tween.EASE_OUT)
-	if reveal:
-		grow_tween.tween_property(
-			panel,
-			"modulate:a",
-			1.0,
-			PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION
-		)
 	await grow_tween.finished
 	if panel == null or !is_instance_valid(panel) or !panel.is_inside_tree():
 		return
 	if peak_callback.is_valid():
 		peak_callback.call()
+	if hold_at_peak:
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
 	var settle_tween := panel.create_tween()
 	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var settle := settle_tween.tween_property(
@@ -12192,6 +12264,7 @@ func _set_level_star_award_remaining(value: float, value_label: Label) -> void:
 	if value_label == null or !is_instance_valid(value_label):
 		return
 	value_label.text = str(maxi(int(round(value)), 0))
+	_layout_level_star_award_value(value_label)
 
 func _start_level_summary_coin_and_star_sequence(
 	transition_pack: Control,
@@ -12275,8 +12348,34 @@ func _try_start_level_summary_star_sequence(
 			star_panel,
 			theme_progress,
 			actions_reveal_callback
-		)
+		),
+		Callable(),
+		true
 	)
+
+func _settle_level_star_award_panel_after_last_star_launch(star_panel: Control) -> void:
+	if star_panel == null or !is_instance_valid(star_panel) or !star_panel.is_inside_tree():
+		return
+	# Each flying star waits for its stagger and then spends 0.10 s rising away
+	# from the source before the main flight begins. Keep the plaque at its peak
+	# scale through that exact moment for the final star, then let it settle.
+	var last_launch_delay: float = (
+		PORTRAIT_SINGLE_REWARD_FLY_START_DELAY
+		+ float(maxi(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1, 0))
+			* PORTRAIT_SINGLE_REWARD_FLY_STAGGER
+		+ 0.10
+	)
+	var settle_tween := star_panel.create_tween()
+	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	settle_tween.tween_interval(last_launch_delay)
+	var settle := settle_tween.tween_property(
+		star_panel,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
 
 func _launch_level_summary_star_collection(
 	star_panel: Control,
@@ -12296,10 +12395,12 @@ func _launch_level_summary_star_collection(
 		_finish_level_summary_star_award(star_panel, theme_progress, actions_reveal_callback)
 		return
 	value_label.text = str(credited_amount)
+	_layout_level_star_award_value(value_label)
 	var final_balance: int = previous_balance + credited_amount
 	_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_STARS)
 	var source_icon := star_panel.get_node_or_null("StarAwardIcon") as Control
 	var collection_source: Control = source_icon if source_icon != null else value_label
+	_settle_level_star_award_panel_after_last_star_launch(star_panel)
 	_play_single_player_reward_resource_collection(
 		collection_source,
 		GameState.STAGE_REWARD_STARS,
@@ -12398,15 +12499,16 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	parent.add_child(holder)
 	# Keep this reward as a lightweight progress element without an extra card
 	# surface. On the merged reward screen it occupies the dedicated top slot.
-	var bar_width: float = rect.size.x - 102.0
+	var bar_width: float = (rect.size.x - 102.0) * 0.70 * 1.15
 	var bar_x: float = (rect.size.x - bar_width) * 0.5
 	var title := Label.new()
 	title.name = "UnlockTitle"
 	# Sit close to the bar and share its exact horizontal center.
-	title.position = Vector2(bar_x, 15.0)
-	title.size = Vector2(bar_width, 30.0)
+	title.position = Vector2(bar_x, 0.0)
+	title.size = Vector2(bar_width, 26.0)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.text = tr("NEXT_THEME_UNLOCK")
+	var title_text: String = tr("NEXT_THEME_UNLOCK").to_lower()
+	title.text = title_text.left(1).to_upper() + title_text.substr(1)
 	title.add_theme_font_override("font", UI_REGULAR_FONT)
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", Color.WHITE)
@@ -12418,22 +12520,51 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	# track itself works as the progress bar outline instead of being covered.
 	var bar_frame := Panel.new()
 	bar_frame.name = "UnlockBarFrame"
-	bar_frame.position = Vector2(bar_x, 48.0)
-	bar_frame.size = Vector2(bar_width, 28.0)
+	# Keep the 30 px fill height and the existing rim on the shorter backing.
+	bar_frame.position = Vector2(bar_x, 30.0)
+	bar_frame.size = Vector2(bar_width, 37.5)
 	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_frame.clip_contents = true
+	# Reuse the rounded-badge shader extrusion for the complete progress plaque.
+	# Keep it in a dedicated holder so the shadow can extend outside the clipped
+	# bar frame while following exactly the same rounded geometry.
+	var bar_shadow_holder := Control.new()
+	bar_shadow_holder.name = "UnlockBarShadow"
+	bar_shadow_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_shadow_holder.position = bar_frame.position
+	bar_shadow_holder.size = bar_frame.size
+	bar_shadow_holder.z_index = 1
+	holder.add_child(bar_shadow_holder)
+	var bar_shadow_layers := _create_portrait_rounded_panel_extrusion_layers(
+		bar_shadow_holder,
+		"UnlockBarShadow",
+		0
+	)
+	_layout_portrait_rounded_panel_extrusion_layers(
+		bar_shadow_layers,
+		bar_frame.size,
+		bar_frame.size.y * 0.5
+	)
+	# This plaque uses a lighter extrusion; do not change other badge shadows.
+	if !bar_shadow_layers.is_empty():
+		var shadow_material := bar_shadow_layers[0].material as ShaderMaterial
+		var shadow_color: Color = PORTRAIT_DARK_BLUE.lightened(0.18)
+		shadow_color.a = BADGE_SHADOW_STYLE_SCRIPT.SHADOW_ALPHA
+		shadow_material.set_shader_parameter("shadow_color", shadow_color)
 	var track := StyleBoxFlat.new()
 	track.bg_color = PORTRAIT_DARK_BLUE
-	track.set_corner_radius_all(14)
+	track.set_corner_radius_all(18)
 	bar_frame.add_theme_stylebox_override("panel", track)
 	bar_frame.z_index = 2
 	holder.add_child(bar_frame)
 
 	var bar := ProgressBar.new()
 	bar.name = "UnlockBar"
-	var bar_inset := 2.0
-	bar.position = bar_frame.position + Vector2.ONE * bar_inset
-	bar.size = bar_frame.size - Vector2.ONE * bar_inset * 2.0
+	bar.position = bar_frame.position + PORTRAIT_THEME_BAR_INSET
+	bar.size = bar_frame.size - Vector2(
+		PORTRAIT_THEME_BAR_INSET.x * 2.0,
+		PORTRAIT_THEME_BAR_INSET.y + PORTRAIT_THEME_BAR_BOTTOM_INSET
+	)
 	bar.min_value = 0.0
 	bar.max_value = float(progress["total"])
 	bar.value = float(progress["from"])
@@ -12441,26 +12572,29 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var inner_track := StyleBoxFlat.new()
 	inner_track.bg_color = Color.TRANSPARENT
-	inner_track.set_corner_radius_all(11)
+	inner_track.set_corner_radius_all(15)
 	var transparent_fill := StyleBoxFlat.new()
 	transparent_fill.bg_color = Color.TRANSPARENT
-	transparent_fill.set_corner_radius_all(12)
+	transparent_fill.set_corner_radius_all(15)
 	bar.add_theme_stylebox_override("background", inner_track)
 	bar.add_theme_stylebox_override("fill", transparent_fill)
 	bar.z_index = 2
 	holder.add_child(bar)
-	# Draw the green portion ourselves inside the dark frame. Godot's native
-	# ProgressBar fill can extend past an inset track depending on the stylebox,
-	# so an explicit child keeps the 2 px dark rim exact on every side.
-	var fill_panel := Panel.new()
+	# Render both green tones with the same rounded mask. clip_contents only
+	# clips to a rectangle and cannot contain a separate highlight at the corners.
+	var fill_panel := ColorRect.new()
 	fill_panel.name = "UnlockBarFill"
 	fill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill_panel.position = Vector2.ONE * bar_inset
-	fill_panel.size = Vector2(0.0, bar_frame.size.y - bar_inset * 2.0)
-	var fill_style := StyleBoxFlat.new()
-	fill_style.bg_color = StageLetterButton.CIRCLED_COLOR
-	fill_style.set_corner_radius_all(12)
-	fill_panel.add_theme_stylebox_override("panel", fill_style)
+	fill_panel.position = PORTRAIT_THEME_BAR_INSET
+	fill_panel.size = Vector2(0.0, bar.size.y)
+	fill_panel.color = Color.WHITE
+	var fill_shader := Shader.new()
+	fill_shader.code = THEME_UNLOCK_FILL_SHADER_CODE
+	var fill_material := ShaderMaterial.new()
+	fill_material.shader = fill_shader
+	fill_material.set_shader_parameter("base_color", PORTRAIT_ORANGE)
+	fill_material.set_shader_parameter("highlight_color", PORTRAIT_ORANGE.lightened(0.28))
+	fill_panel.material = fill_material
 	bar_frame.add_child(fill_panel)
 	var count := Label.new()
 	count.name = "UnlockCount"
@@ -12468,18 +12602,15 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	count.size = bar_frame.size
 	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	count.add_theme_font_override("font", UI_REGULAR_FONT)
+	count.add_theme_font_override("font", UI_DISPLAY_FONT)
 	count.add_theme_font_size_override("font_size", 20)
 	count.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(count)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(count)
 	count.z_index = 3
 	holder.add_child(count)
 	var theme_index: int = Database.THEME_IDS.find(int(progress["theme_id"]))
-	var icon := TextureRect.new()
+	var icon := Control.new()
 	icon.name = "UnlockThemeIcon"
-	icon.texture = _theme_icon_texture(theme_index)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	# Keep the icon centered vertically on the bar and let it sit on the right
 	# endpoint. Theme icons contain a little transparent padding, so move the
 	# texture box slightly past the frame end; this keeps the visible artwork on
@@ -12495,6 +12626,23 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.z_index = 2
 	holder.add_child(icon)
+	# Use the original art and its baked outline/shadow in both states. Animate
+	# saturation on one surface to avoid opacity dips from crossfading two copies.
+	var artwork := TextureRect.new()
+	artwork.name = "Artwork"
+	artwork.texture = _theme_icon_texture(theme_index)
+	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon_shader := Shader.new()
+	icon_shader.code = THEME_UNLOCK_ICON_GRAYSCALE_SHADER_CODE
+	var icon_material := ShaderMaterial.new()
+	icon_material.shader = icon_shader
+	icon_material.set_shader_parameter("saturation", 0.0)
+	artwork.material = icon_material
+	icon.add_child(artwork)
+	artwork.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Keep the count centered across the complete frame, including the icon end.
 	holder.set_meta(&"unlock_progress", progress)
 	_set_theme_unlock_bar_value(float(progress["from"]), holder)
 	return holder
@@ -12506,15 +12654,13 @@ func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
 	bar.value = value
 	var bar_frame := holder.get_node("UnlockBarFrame") as Control
 	var fill_panel := bar_frame.get_node("UnlockBarFill") as Control
-	var bar_inset: float = 2.0
 	var ratio: float = 0.0
 	if bar.max_value > 0.0:
 		ratio = clampf(value / bar.max_value, 0.0, 1.0)
-	fill_panel.position = Vector2.ONE * bar_inset
-	fill_panel.size = Vector2(
-		maxf(0.0, bar_frame.size.x - bar_inset * 2.0) * ratio,
-		maxf(0.0, bar_frame.size.y - bar_inset * 2.0)
-	)
+	fill_panel.position = bar.position - bar_frame.position
+	fill_panel.size = Vector2(bar.size.x * ratio, bar.size.y)
+	var fill_material := fill_panel.material as ShaderMaterial
+	fill_material.set_shader_parameter("fill_size", fill_panel.size)
 	fill_panel.visible = ratio > 0.0
 	var count := holder.get_node("UnlockCount") as Label
 	count.text = "%d/%d" % [int(round(value)), int(bar.max_value)]
@@ -12577,13 +12723,32 @@ func _animate_theme_unlock_progress(
 	var title := holder.get_node("UnlockTitle") as Label
 	title.hide()
 	var count := holder.get_node("UnlockCount") as Label
+	var caption_area_width: float = count.size.x
 	count.text = tr("NEW_THEME_UNLOCKED")
+	var caption_width: float = UI_DISPLAY_FONT.get_string_size(count.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20).x
+	# Fit symmetrically around the full bar center while keeping clear of the icon.
+	var caption_center_x: float = count.position.x + caption_area_width * 0.5
+	var icon_left: float = (holder.get_node("UnlockThemeIcon") as Control).position.x
+	var caption_fit_width: float = minf(caption_area_width - 6.0, (icon_left - caption_center_x - 4.0) * 2.0)
+	var caption_font_size: int = mini(20, int(floor(20.0 * maxf(caption_fit_width, 1.0) / maxf(caption_width, 1.0))))
+	count.add_theme_font_size_override("font_size", maxi(caption_font_size, 1))
+	count.size.x = caption_area_width
 	count.z_index = 4
 	count.show()
 	var icon := holder.get_node("UnlockThemeIcon") as Control
+	var fill := holder.get_node("UnlockBarFrame/UnlockBarFill") as Control
+	var fill_material := fill.material as ShaderMaterial
+	var recolor := holder.create_tween()
+	recolor.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	recolor.set_parallel(true)
+	recolor.tween_property(fill_material, "shader_parameter/base_color", PORTRAIT_UI_PALETTE.SUCCESS_SELECTED, 0.30).set_trans(Tween.TRANS_SINE)
+	recolor.tween_property(fill_material, "shader_parameter/highlight_color", StageLetterButton.CIRCLED_COLOR.lightened(0.18), 0.30).set_trans(Tween.TRANS_SINE)
 	var bounce := icon.create_tween()
 	bounce.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	bounce.tween_property(icon, "scale", Vector2.ONE * 1.234, 0.16).set_trans(Tween.TRANS_SINE)
+	# Restore the original colors smoothly while holding the maximum scale.
+	var icon_material := (icon.get_node("Artwork") as TextureRect).material as ShaderMaterial
+	bounce.tween_property(icon_material, "shader_parameter/saturation", 1.0, 0.12).set_trans(Tween.TRANS_SINE)
 	bounce.tween_property(icon, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await bounce.finished
 	if !is_instance_valid(holder) or !holder.is_inside_tree():
