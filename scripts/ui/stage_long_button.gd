@@ -73,6 +73,18 @@ const BLUE_OUTLINE_COLOR := UI_PALETTE.BUTTON_BLUE_OUTLINE
 const DEFAULT_OUTLINE_COLOR := UI_PALETTE.UI_BLUE_DARK
 const DISABLED_TINT := UI_PALETTE.DISABLED
 const DISABLED_OPACITY: float = UI_PALETTE.DISABLED_OPACITY
+# Opt-in drop shadow used by the primary reward/result CTAs. Keep its press
+# response identical to the round hint buttons: 4 px at rest, 3 px while held,
+# with the held shadow 15% lighter.
+const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
+const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
+const BUTTON_DROP_SHADOW_OFFSET_Y: float = 4.0
+const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
+
+var drop_shadow_enabled: bool = false:
+	set(value):
+		drop_shadow_enabled = value
+		queue_redraw()
 
 var attention_bounce_enabled: bool = false:
 	set(value):
@@ -342,7 +354,45 @@ func _draw() -> void:
 	var right_texture: Texture2D = PRESSED_RIGHT_TEXTURE if use_pressed_parts else NORMAL_RIGHT_TEXTURE
 	var visual_size: Vector2 = size * visual_scale
 	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
+	if drop_shadow_enabled:
+		var shadow_offset_y: float = (
+			BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y if _is_down else BUTTON_DROP_SHADOW_OFFSET_Y
+		) * visual_scale.y
+		var shadow_color: Color = (
+			BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
+		)
+		# During the attention bounce only fade the shadow as the button grows.
+		# Keep its offset fixed so the shadow does not visually expand away from the
+		# button. The settle phase restores the alpha automatically in reverse.
+		if !_is_down and visual_scale.y > 1.0:
+			var bounce_scale_range: float = maxf(_attention_bounce_scale_value - 1.0, 0.0001)
+			var bounce_lift_progress: float = clampf(
+				(visual_scale.y - 1.0) / bounce_scale_range,
+				0.0,
+				1.0
+			)
+			shadow_color.a *= 1.0 - bounce_lift_progress
+		_draw_capsule_shadow(visual_rect, shadow_offset_y, shadow_color)
 	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect, background_tint)
+
+func _draw_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or color.a <= 0.0:
+		return
+	var shadow_rect := Rect2(rect.position + Vector2(0.0, offset_y), rect.size)
+	var radius: float = minf(shadow_rect.size.y * 0.5, shadow_rect.size.x * 0.5)
+	var left_center := Vector2(shadow_rect.position.x + radius, shadow_rect.get_center().y)
+	var right_center := Vector2(shadow_rect.end.x - radius, shadow_rect.get_center().y)
+	if shadow_rect.size.x > radius * 2.0:
+		draw_rect(
+			Rect2(
+				Vector2(left_center.x, shadow_rect.position.y),
+				Vector2(right_center.x - left_center.x, shadow_rect.size.y)
+			),
+			color
+		)
+	draw_circle(left_center, radius, color)
+	if right_center.x > left_center.x:
+		draw_circle(right_center, radius, color)
 
 func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:

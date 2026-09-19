@@ -66,6 +66,17 @@ const ICON_SHADOW_DEPTH_MIN: float = 1.5
 const ICON_SHADOW_DEPTH_MAX: float = 5.0
 const ICON_SHADOW_OFFSET_X_RATIO: float = 0.012
 const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
+# Match the soft drop shadow used by the white quiz answer cards. The hint
+# buttons opt into this separately so regular round navigation/actions stay unchanged.
+const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
+const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
+const BUTTON_DROP_SHADOW_OFFSET_Y: float = 4.0
+const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
+
+var drop_shadow_enabled: bool = false:
+	set(value):
+		drop_shadow_enabled = value
+		queue_redraw()
 
 var attention_bounce_enabled: bool = false:
 	set(value):
@@ -241,6 +252,20 @@ func _stop_attention_bounce(reset_scale: bool) -> void:
 		visual_scale = Vector2.ONE
 
 func _draw() -> void:
+	var visual_size: Vector2 = size * visual_scale
+	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
+	if drop_shadow_enabled:
+		# Keep the regular 4 px depth, but compress the shadow to 3 px on press
+		# and reduce its opacity by 15% so the round button still feels pressed
+		# without the shadow disappearing completely.
+		var shadow_radius: float = minf(visual_size.x, visual_size.y) * 0.5
+		var shadow_offset_y: float = (
+			BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y if _is_down else BUTTON_DROP_SHADOW_OFFSET_Y
+		) * visual_scale.y
+		var shadow_center: Vector2 = visual_rect.get_center() + Vector2(0.0, shadow_offset_y)
+		var shadow_color: Color = BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
+		draw_circle(shadow_center, shadow_radius, shadow_color)
+
 	var background_texture: Texture2D = NORMAL_TEXTURE
 	var background_tint: Color = normal_tint
 	if disabled:
@@ -254,8 +279,6 @@ func _draw() -> void:
 	elif _is_down:
 		background_texture = PRESSED_TEXTURE
 		background_tint = pressed_tint
-	var visual_size: Vector2 = size * visual_scale
-	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
 	draw_texture_rect(background_texture, visual_rect, false, background_tint)
 
 func configure_text(text_value: String, disabled_value: bool = false, selected_value: bool = false, font_size_value: int = 26, disabled_overlay_alpha_value: float = 0.32) -> void:

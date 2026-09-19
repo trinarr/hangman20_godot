@@ -3390,6 +3390,8 @@ func _show_menu_screen() -> void:
 	var home_buttons: Array[Control] = [two_player_button, single_player_button]
 	two_player_button.name = "HomeTwoPlayerButton"
 	single_player_button.name = "HomeSinglePlayerButton"
+	two_player_button.set("drop_shadow_enabled", true)
+	single_player_button.set("drop_shadow_enabled", true)
 	for button: Control in home_buttons:
 		button.hide()
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5798,6 +5800,8 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 		0.0,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	open_button.set("drop_shadow_enabled", true)
+	remove_button.set("drop_shadow_enabled", true)
 	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
 	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
 	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
@@ -8630,6 +8634,7 @@ func show_custom_word() -> void:
 		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
 	)
 	custom_word_random_button.name = "CustomWordRandomButton"
+	custom_word_random_button.set("drop_shadow_enabled", true)
 	_stage_portrait_hint_art(custom_word_random_button, PORTRAIT_CUSTOM_WORD_RANDOM_ICON)
 	custom_word_check_button = _stage_round_button(
 		custom_word_action_rects[1],
@@ -8637,6 +8642,7 @@ func show_custom_word() -> void:
 		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
 	)
 	custom_word_check_button.name = "CustomWordCheckButton"
+	custom_word_check_button.set("drop_shadow_enabled", true)
 	custom_word_check_button.set("disabled_visual_opacity", 1.0)
 	_stage_portrait_hint_art(custom_word_check_button, PORTRAIT_CUSTOM_WORD_CHECK_ICON)
 
@@ -8657,6 +8663,7 @@ func show_custom_word() -> void:
 		!custom_word_text.is_empty(),
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	custom_word_start_button.set("drop_shadow_enabled", true)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_ad_banner()
 
@@ -10422,6 +10429,9 @@ func _stage_portrait_hint_buttons() -> void:
 		0.0,
 		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
 	)
+	open_button.set("drop_shadow_enabled", true)
+	remove_button.set("drop_shadow_enabled", true)
+	comment_button.set("drop_shadow_enabled", true)
 
 	_portrait_game_hint_buttons.clear()
 	open_button.set_meta(&"portrait_hint_key", GameState.HINT_OPEN_LETTER)
@@ -11738,6 +11748,7 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	action_button.set("drop_shadow_enabled", true)
 	action_button.z_index = 50
 	_portrait_inline_result_continue_button = action_button
 	content = previous_content
@@ -14686,6 +14697,7 @@ func _configure_final_reward_double_button(button: Control, bonus_amount: int) -
 		return
 	_prepare_final_reward_rewarded_ad()
 	_sync_final_reward_double_button_content(button)
+	button.set("drop_shadow_enabled", true)
 	# Keep the standard stretchable long-button slices and only tint them to the
 	# same purple used by rewarded-ad indicators.
 	if button.has_method("set_color_palette"):
@@ -16396,6 +16408,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				LONG_BUTTON_COLOR_ORANGE
 			)
 			action_button.name = "StageCoinRewardContinueButton"
+			action_button.set("drop_shadow_enabled", true)
 		action_button.modulate.a = 0.0
 		action_button.z_index = 120
 		action_button.set("button_disabled", true)
@@ -16540,6 +16553,7 @@ func _show_single_player_reward_chain_screen() -> void:
 					LONG_BUTTON_COLOR_ORANGE
 				)
 				final_action_button.name = "FinalRewardContinueButton"
+				final_action_button.set("drop_shadow_enabled", true)
 				_portrait_final_reward_continue_button = final_action_button
 				final_action_button.set("attention_bounce_enabled", false)
 				final_action_button.set_meta(&"attention_after_reveal", false)
@@ -16611,6 +16625,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				false,
 				LONG_BUTTON_COLOR_ORANGE
 			)
+			continue_button.set("drop_shadow_enabled", true)
 			continue_button.z_index = 120
 			continue_button.modulate.a = 0.0
 			continue_button.set("disabled", true)
@@ -16655,6 +16670,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				false,
 				LONG_BUTTON_COLOR_ORANGE
 			)
+			continue_button.set("drop_shadow_enabled", true)
 			continue_button.z_index = 120
 			continue_button.modulate.a = 0.0
 			continue_button.set("disabled", true)
