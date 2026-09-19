@@ -70,7 +70,7 @@ const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
 # buttons opt into this separately so regular round navigation/actions stay unchanged.
 const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
 const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
-const BUTTON_DROP_SHADOW_OFFSET_Y: float = 4.0
+const BUTTON_DROP_SHADOW_OFFSET_Y: float = 3.5
 const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
 
 var drop_shadow_enabled: bool = false:

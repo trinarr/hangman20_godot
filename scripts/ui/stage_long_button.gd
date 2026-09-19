@@ -78,7 +78,7 @@ const DISABLED_OPACITY: float = UI_PALETTE.DISABLED_OPACITY
 # with the held shadow 15% lighter.
 const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
 const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
-const BUTTON_DROP_SHADOW_OFFSET_Y: float = 4.0
+const BUTTON_DROP_SHADOW_OFFSET_Y: float = 3.5
 const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
 const BUTTON_DROP_SHADOW_UNDERLAP_Y: float = 1.5
 # Let the stretchable center run slightly underneath both end caps. The caps are
