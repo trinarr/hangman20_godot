@@ -80,6 +80,12 @@ const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
 const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
 const BUTTON_DROP_SHADOW_OFFSET_Y: float = 4.0
 const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
+const BUTTON_DROP_SHADOW_UNDERLAP_Y: float = 1.5
+# Let the stretchable center run slightly underneath both end caps. The caps are
+# drawn afterwards, so this only fills their translucent inner seam pixels and
+# prevents the three-slice construction from showing through on faded buttons.
+const BUTTON_SLICE_OVERLAP: float = 1.5
+const BUTTON_CAP_INNER_TRIM: float = 2.0
 
 var drop_shadow_enabled: bool = false:
 	set(value):
@@ -219,11 +225,19 @@ var _icon_rect: TextureRect = null
 var _trailing_icon_shadow_layers: Array[TextureRect] = []
 var _trailing_icon_shadow_material: ShaderMaterial = null
 var _trailing_icon_rect: TextureRect = null
+# Disabled long buttons are translucent. Composite the three background slices
+# first, then fade the completed face as one CanvasGroup so the 1.5 px overlap
+# cannot double-blend at the left/center and center/right seams.
+var _disabled_face_group: CanvasGroup = null
+var _disabled_face_center: Sprite2D = null
+var _disabled_face_left: Sprite2D = null
+var _disabled_face_right: Sprite2D = null
 var _attention_bounce_tween: Tween = null
 var _single_attention_shine_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
+	_ensure_disabled_face_group()
 	_ensure_label()
 	_ensure_icon_shadow_layers()
 	_ensure_icon()
@@ -344,7 +358,7 @@ func _draw() -> void:
 		# Reuse the pressed relief so the disabled button has the same inverted
 		# highlight/shadow direction, but keep it neutral gray and non-interactive.
 		use_pressed_parts = true
-		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
+		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, 1.0)
 	elif selected:
 		background_tint = selected_tint
 	elif _is_down:
@@ -372,7 +386,11 @@ func _draw() -> void:
 				1.0
 			)
 			shadow_color.a *= 1.0 - bounce_lift_progress
-		_draw_capsule_shadow(visual_rect, shadow_offset_y, shadow_color)
+		# Use only the exposed lower contour of the vertically shifted capsule.
+		# This avoids the extra circular shadow bulges that the full capsule shadow
+		# created under the rounded end caps of long buttons.
+		_draw_exposed_capsule_shadow(visual_rect, shadow_offset_y, shadow_color)
+	_hide_disabled_face_group()
 	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect, background_tint)
 
 func _draw_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
@@ -394,10 +412,145 @@ func _draw_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
 	if right_center.x > left_center.x:
 		draw_circle(right_center, radius, color)
 
-func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
+func _draw_filled_capsule(rect: Rect2, color: Color) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or color.a <= 0.0:
+		return
+	var radius: float = minf(rect.size.y * 0.5, rect.size.x * 0.5)
+	var left_center := Vector2(rect.position.x + radius, rect.get_center().y)
+	var right_center := Vector2(rect.end.x - radius, rect.get_center().y)
+	if rect.size.x > radius * 2.0:
+		draw_rect(
+			Rect2(
+				Vector2(left_center.x, rect.position.y),
+				Vector2(right_center.x - left_center.x, rect.size.y)
+			),
+			color
+		)
+	draw_circle(left_center, radius, color)
+	if right_center.x > left_center.x:
+		draw_circle(right_center, radius, color)
+
+func _draw_disabled_capsule_face(rect: Rect2) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
+	# Draw the disabled state as a single capsule instead of reusing the three-slice
+	# bitmap face. Because the disabled button is translucent, the original slice
+	# shading made its rounded end caps show through as separate internal parts.
+	# A single drawn capsule removes those seams completely.
+	var border: float = maxf(roundf(2.0 * visual_scale.y), 1.0)
+	var outer_color := Color(DEFAULT_OUTLINE_COLOR.r, DEFAULT_OUTLINE_COLOR.g, DEFAULT_OUTLINE_COLOR.b, 0.22)
+	var fill_color := Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
+	_draw_filled_capsule(rect, outer_color)
+	var inner_rect := Rect2(
+		rect.position + Vector2(border, border),
+		Vector2(maxf(rect.size.x - border * 2.0, 0.0), maxf(rect.size.y - border * 2.0, 0.0))
+	)
+	_draw_filled_capsule(inner_rect, fill_color)
 
+func _capsule_lower_contour(rect: Rect2, arc_segments: int = 12) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return points
+	var radius: float = minf(rect.size.y * 0.5, rect.size.x * 0.5)
+	var left_center := Vector2(rect.position.x + radius, rect.position.y + radius)
+	var right_center := Vector2(rect.end.x - radius, rect.position.y + radius)
+	var segment_count: int = maxi(arc_segments, 2)
+	# Leftmost midpoint -> lower-left tangent.
+	for index: int in range(segment_count + 1):
+		var progress: float = float(index) / float(segment_count)
+		var angle: float = PI - progress * PI * 0.5
+		points.append(left_center + Vector2(cos(angle), sin(angle)) * radius)
+	# Straight bottom edge between the two rounded ends.
+	if right_center.x > left_center.x:
+		points.append(Vector2(right_center.x, rect.end.y))
+	# Lower-right tangent -> rightmost midpoint.
+	for index: int in range(1, segment_count + 1):
+		var progress: float = float(index) / float(segment_count)
+		var angle: float = PI * 0.5 - progress * PI * 0.5
+		points.append(right_center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
+
+func _draw_exposed_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or offset_y <= 0.0 or color.a <= 0.0:
+		return
+	# The visible part of a vertically shifted capsule is a band that follows the
+	# original lower contour. Build that exact band instead of a rectangular strip,
+	# so the shadow keeps the same rounded silhouette at both ends.
+	var inner_contour: PackedVector2Array = _capsule_lower_contour(rect)
+	if inner_contour.size() < 2:
+		return
+	var polygon := PackedVector2Array()
+	# Start the shadow slightly underneath the button artwork. This hides the thin
+	# antialiased gap that can otherwise appear between the button's lower edge and
+	# the exposed shadow band, while the opaque button face masks the overlap.
+	for point: Vector2 in inner_contour:
+		polygon.append(point - Vector2(0.0, BUTTON_DROP_SHADOW_UNDERLAP_Y * visual_scale.y))
+	for index: int in range(inner_contour.size() - 1, -1, -1):
+		polygon.append(inner_contour[index] + Vector2(0.0, offset_y))
+	draw_colored_polygon(polygon, color)
+
+func _ensure_disabled_face_group() -> void:
+	if _disabled_face_group != null and is_instance_valid(_disabled_face_group):
+		return
+	_disabled_face_group = CanvasGroup.new()
+	_disabled_face_group.name = "DisabledFaceGroup"
+	_disabled_face_group.visible = false
+	add_child(_disabled_face_group)
+
+	_disabled_face_center = Sprite2D.new()
+	_disabled_face_center.name = "Center"
+	_disabled_face_center.centered = false
+	_disabled_face_center.z_index = 0
+	_disabled_face_group.add_child(_disabled_face_center)
+
+	_disabled_face_left = Sprite2D.new()
+	_disabled_face_left.name = "Left"
+	_disabled_face_left.centered = false
+	_disabled_face_left.z_index = 1
+	_disabled_face_group.add_child(_disabled_face_left)
+
+	_disabled_face_right = Sprite2D.new()
+	_disabled_face_right.name = "Right"
+	_disabled_face_right.centered = false
+	_disabled_face_right.z_index = 1
+	_disabled_face_group.add_child(_disabled_face_right)
+
+func _hide_disabled_face_group() -> void:
+	if _disabled_face_group != null and is_instance_valid(_disabled_face_group):
+		_disabled_face_group.visible = false
+
+func _layout_face_sprite(
+	sprite: Sprite2D,
+	texture: Texture2D,
+	rect: Rect2,
+	tint_rgb: Color,
+	source_region: Rect2 = Rect2()
+) -> void:
+	if sprite == null or !is_instance_valid(sprite) or texture == null:
+		return
+	var texture_size: Vector2 = texture.get_size()
+	var region: Rect2 = source_region
+	if region.size == Vector2.ZERO:
+		region = Rect2(Vector2.ZERO, texture_size)
+	if region.size.x <= 0.0 or region.size.y <= 0.0 or rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		sprite.visible = false
+		return
+	sprite.visible = true
+	sprite.texture = texture
+	sprite.region_enabled = true
+	sprite.region_rect = region
+	sprite.position = rect.position
+	sprite.scale = Vector2(rect.size.x / region.size.x, rect.size.y / region.size.y)
+	# Keep every slice fully opaque inside the CanvasGroup. The group alpha is
+	# applied once after composition, which prevents overlap from darkening seams.
+	sprite.self_modulate = Color(tint_rgb.r, tint_rgb.g, tint_rgb.b, 1.0)
+
+func _build_slice_layout(
+	left_texture: Texture2D,
+	center_texture: Texture2D,
+	right_texture: Texture2D,
+	rect: Rect2
+) -> Dictionary:
 	var left_source_size: Vector2 = left_texture.get_size()
 	var right_source_size: Vector2 = right_texture.get_size()
 	var left_width: float = rect.size.y * left_source_size.x / left_source_size.y
@@ -408,21 +561,109 @@ func _draw_stretchable_background(left_texture: Texture2D, center_texture: Textu
 		left_width *= cap_fit
 		right_width *= cap_fit
 
-	var center_left: float = rect.position.x + left_width
-	var center_right: float = rect.end.x - right_width
-	if center_right > center_left:
-		var center_rect := Rect2(
-			Vector2(center_left, rect.position.y),
-			Vector2(center_right - center_left, rect.size.y)
-		)
-		draw_texture_rect(center_texture, center_rect, false, tint)
+	var snapped_left: float = roundf(rect.position.x)
+	var snapped_top: float = roundf(rect.position.y)
+	var snapped_right: float = roundf(rect.end.x)
+	var snapped_bottom: float = roundf(rect.end.y)
+	var snapped_height: float = maxf(1.0, snapped_bottom - snapped_top)
+	var total_width: float = maxf(1.0, snapped_right - snapped_left)
 
-	draw_texture_rect(left_texture, Rect2(rect.position, Vector2(left_width, rect.size.y)), false, tint)
-	draw_texture_rect(
+	left_width = roundf(left_width)
+	right_width = roundf(right_width)
+	if left_width + right_width > total_width:
+		left_width = floorf(total_width * 0.5)
+		right_width = total_width - left_width
+
+	var left_rect := Rect2(Vector2(snapped_left, snapped_top), Vector2(left_width, snapped_height))
+	var right_rect := Rect2(Vector2(snapped_right - right_width, snapped_top), Vector2(right_width, snapped_height))
+	var center_left: float = left_rect.end.x
+	var center_right: float = right_rect.position.x
+	var overlap: float = minf(
+		roundf(BUTTON_SLICE_OVERLAP * visual_scale.x),
+		maxf(0.0, minf(left_width, right_width) - 1.0)
+	)
+	var center_rect := Rect2()
+	if center_right > center_left:
+		center_rect = Rect2(
+			Vector2(center_left - overlap, snapped_top),
+			Vector2(center_right - center_left + overlap * 2.0, snapped_height)
+		)
+	var left_region := Rect2(Vector2.ZERO, left_source_size)
+	var right_region := Rect2(Vector2.ZERO, right_source_size)
+	var inner_trim_left: float = minf(BUTTON_CAP_INNER_TRIM, maxf(0.0, left_source_size.x - 2.0))
+	var inner_trim_right: float = minf(BUTTON_CAP_INNER_TRIM, maxf(0.0, right_source_size.x - 2.0))
+	if inner_trim_left > 0.0:
+		left_region.size.x -= inner_trim_left
+	if inner_trim_right > 0.0:
+		right_region.position.x += inner_trim_right
+		right_region.size.x -= inner_trim_right
+	return {
+		"left_rect": left_rect,
+		"center_rect": center_rect,
+		"right_rect": right_rect,
+		"left_region": left_region,
+		"right_region": right_region,
+	}
+
+func _sync_disabled_face_group(
+	left_texture: Texture2D,
+	center_texture: Texture2D,
+	right_texture: Texture2D,
+	rect: Rect2,
+	tint: Color
+) -> void:
+	_ensure_disabled_face_group()
+	if _disabled_face_group == null or !is_instance_valid(_disabled_face_group):
+		return
+	var layout: Dictionary = _build_slice_layout(left_texture, center_texture, right_texture, rect)
+	var center_rect: Rect2 = layout.get("center_rect", Rect2())
+	if center_rect.size.x > 0.0:
+		_layout_face_sprite(
+			_disabled_face_center,
+			center_texture,
+			center_rect,
+			tint
+		)
+	else:
+		_disabled_face_center.visible = false
+	_layout_face_sprite(
+		_disabled_face_left,
+		left_texture,
+		layout.get("left_rect", Rect2()),
+		tint,
+		layout.get("left_region", Rect2())
+	)
+	_layout_face_sprite(
+		_disabled_face_right,
 		right_texture,
-		Rect2(Vector2(rect.end.x - right_width, rect.position.y), Vector2(right_width, rect.size.y)),
-		false,
-		tint
+		layout.get("right_rect", Rect2()),
+		tint,
+		layout.get("right_region", Rect2())
+	)
+	_disabled_face_group.modulate = Color(1.0, 1.0, 1.0, tint.a)
+	_disabled_face_group.visible = true
+
+func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+
+	var layout: Dictionary = _build_slice_layout(left_texture, center_texture, right_texture, rect)
+	var center_rect: Rect2 = layout.get("center_rect", Rect2())
+	if center_rect.size.x > 0.0:
+		draw_texture_rect(center_texture, center_rect, false, tint)
+	draw_texture_rect_region(
+		left_texture,
+		layout.get("left_rect", Rect2()),
+		layout.get("left_region", Rect2()),
+		tint,
+		false
+	)
+	draw_texture_rect_region(
+		right_texture,
+		layout.get("right_rect", Rect2()),
+		layout.get("right_region", Rect2()),
+		tint,
+		false
 	)
 
 func set_color_preset(preset: int) -> void:
