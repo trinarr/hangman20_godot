@@ -1463,6 +1463,7 @@ func _stage_currency_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -1569,6 +1570,7 @@ func _stage_centered_coin_only_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -1649,6 +1651,7 @@ func _stage_star_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"stars_balance_label")
 	stars_balance_label = balance_label
 	balance_label.z_index = 21
@@ -1791,8 +1794,7 @@ func _stage_heart_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	count_label.add_theme_font_override("font", UI_REGULAR_FONT)
-	count_label.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.HEART_TEXT_OUTLINE)
-	count_label.add_theme_constant_override("outline_size", maxi(2, int(round(4.0 * counter_scale))))
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(count_label)
 	count_label.z_index = 22
 	heart_count_label = count_label
 
@@ -1826,6 +1828,7 @@ func _stage_heart_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	status_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(status_label)
 	status_label.z_index = 21
 	heart_status_label = status_label
 	_fit_single_line_label_to_width(status_label, status_text, status_rect.size.x, status_font_size, status_min_font_size)
@@ -5940,6 +5943,8 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	)
 	open_button.set("drop_shadow_enabled", true)
 	remove_button.set("drop_shadow_enabled", true)
+	open_button.set("disabled_visual_opacity", 1.0)
+	remove_button.set("disabled_visual_opacity", 1.0)
 	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
 	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
 	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
@@ -10587,6 +10592,9 @@ func _stage_portrait_hint_buttons() -> void:
 	open_button.set("drop_shadow_enabled", true)
 	remove_button.set("drop_shadow_enabled", true)
 	comment_button.set("drop_shadow_enabled", true)
+	open_button.set("disabled_visual_opacity", 1.0)
+	remove_button.set("disabled_visual_opacity", 1.0)
+	comment_button.set("disabled_visual_opacity", 1.0)
 
 	_portrait_game_hint_buttons.clear()
 	open_button.set_meta(&"portrait_hint_key", GameState.HINT_OPEN_LETTER)
@@ -10599,12 +10607,12 @@ func _stage_portrait_hint_buttons() -> void:
 	_stage_portrait_hint_art(
 		open_button,
 		PORTRAIT_HINT_REVEAL_LETTER_ICON,
-		open_hint_used and !open_hint_ad_available
+		false
 	)
 	_stage_portrait_hint_art(
 		remove_button,
 		PORTRAIT_HINT_REMOVE_WRONG_ICON,
-		remove_hint_used and !remove_hint_ad_available
+		false
 	)
 	_stage_portrait_hint_art(
 		comment_button,
@@ -12470,16 +12478,21 @@ func _stage_single_player_level_star_award_panel(
 
 	var left_padding: float = 16.0
 	var icon_label_gap: float = 10.0
-	var icon := TextureRect.new()
-	icon.name = "StarAwardIcon"
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.texture = STAR_CURRENCY_TEXTURE
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.position = Vector2(left_padding, 8.0)
-	icon.size = Vector2.ONE * 36.0
-	icon.z_index = 2
-	holder.add_child(icon)
+	var icon_holder := Control.new()
+	icon_holder.name = "StarAwardIcon"
+	icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_holder.position = Vector2(left_padding, 8.0)
+	icon_holder.size = Vector2.ONE * 36.0
+	icon_holder.z_index = 1
+	holder.add_child(icon_holder)
+	_add_portrait_icon_with_extrusion_to_holder(
+		icon_holder,
+		STAR_CURRENCY_TEXTURE,
+		"StarAwardIconTexture",
+		1,
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a * 0.3,
+		1.0
+	)
 
 	var label := Label.new()
 	label.name = "StarAwardLabel"
@@ -12491,7 +12504,7 @@ func _stage_single_player_level_star_award_panel(
 		-1.0,
 		20
 	).x
-	label.position = Vector2(icon.position.x + icon.size.x + icon_label_gap, 0.0)
+	label.position = Vector2(icon_holder.position.x + icon_holder.size.x + icon_label_gap, 0.0)
 	label.size = Vector2(label_width, holder.size.y)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
