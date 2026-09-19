@@ -3378,6 +3378,92 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 	button.set("drop_shadow_selected_uses_pressed_state", true)
 	settings_word_language_buttons[language_code] = button
 
+func _set_settings_word_language(language_code: String) -> void:
+	var normalized_language: String = "ru" if language_code.to_lower().begins_with("ru") else "en"
+	if normalized_language == GameState.word_language:
+		return
+	_show_settings_word_language_confirm_popup(normalized_language)
+
+func _settings_word_language_display_name(language_code: String) -> String:
+	var russian_interface: bool = Database.interface_language == "ru"
+	if language_code == "ru":
+		return "Русский" if russian_interface else "Russian"
+	return "Английский" if russian_interface else "English"
+
+func _settings_word_language_confirm_title() -> String:
+	return "Сменить язык?" if Database.interface_language == "ru" else "Change language?"
+
+func _settings_word_language_confirm_description(language_code: String) -> String:
+	var level_index: int = GameState.get_resumable_single_player_level_index_for_language(
+		language_code
+	)
+	if level_index < 0:
+		level_index = GameState.get_single_player_unlocked_level(language_code)
+	var language_name: String = _settings_word_language_display_name(language_code)
+	if Database.interface_language == "ru":
+		return "Текущий уровень для языка %s: %d" % [language_name, level_index + 1]
+	return "Current level for language %s: %d" % [language_name, level_index + 1]
+
+func _show_settings_word_language_confirm_popup(language_code: String) -> void:
+	_remove_settings_word_language_confirm_popup()
+	var close_action := Callable(self, "_remove_settings_word_language_confirm_popup")
+	var popup_rect := Rect2(28.0, 235.0, 424.0, 260.0)
+	var previous_content := _portrait_popup_begin(
+		"WordLanguageConfirmPopup",
+		"word_language_confirm_popup",
+		150,
+		close_action,
+		popup_rect.position.y,
+		popup_rect.end.y
+	)
+	_portrait_popup_shell(
+		popup_rect,
+		_settings_word_language_confirm_title(),
+		close_action,
+		27
+	)
+	var description := _stage_label(
+		Rect2(58.0, 322.0, 364.0, 70.0),
+		_settings_word_language_confirm_description(language_code),
+		22,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
+	description.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	description.clip_text = false
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(description)
+	var button_y: float = _portrait_popup_bottom_button_y(popup_rect.end.y, 52.0)
+	var yes_button := _stage_portrait_popup_main_button(
+		Rect2(82.0, button_y, 145.0, 52.0),
+		Callable(self, "_confirm_settings_word_language_change").bind(language_code),
+		tr("YES"),
+		20
+	)
+	yes_button.set("drop_shadow_enabled", true)
+	var no_button := _stage_portrait_popup_main_button(
+		Rect2(253.0, button_y, 145.0, 52.0),
+		close_action,
+		tr("NO"),
+		20,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	no_button.set("drop_shadow_enabled", true)
+	content = previous_content
+
+func _remove_settings_word_language_confirm_popup() -> void:
+	_remove_popup_group_with_dimmer_fade(&"word_language_confirm_popup")
+
+func _confirm_settings_word_language_change(language_code: String) -> void:
+	_remove_settings_word_language_confirm_popup()
+	super._set_settings_word_language(language_code)
+	_remove_settings_popup()
+
 func show_menu() -> void:
 	# A completed level must never return to Home as resumable after the player has
 	# already reached its main-reward screen. If navigation interrupts that screen,
@@ -3530,12 +3616,15 @@ func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index
 	data["question"] = restored
 	return data
 
-func _restore_single_player_language(language: String) -> void:
+func _single_player_resume_language_matches_current(language: String) -> bool:
 	var normalized_language: String = "ru" if language.to_lower().begins_with("ru") else "en"
-	if Database.current_language != normalized_language:
-		GameState.word_language = normalized_language
-		Database.load_word_language(normalized_language)
-		_invalidate_single_player_level_cache()
+	# Resume must never change the user's selected campaign behind their back.
+	# The Home button exposes only the current language slot; a mismatch therefore
+	# means stale/corrupt state or a future caller bug, so fail safely instead.
+	return (
+		GameState.word_language == normalized_language
+		and Database.current_language == normalized_language
+	)
 
 func _resume_saved_single_player_level() -> void:
 	# A successful final stage now has one extra ordinary stage-reward step before
@@ -3544,6 +3633,24 @@ func _resume_saved_single_player_level() -> void:
 	# cleared and the pending level reward becomes the resume target.
 	var session: Dictionary = GameState.get_active_single_player_session()
 	var pending: Dictionary = GameState.get_pending_single_player_reward()
+	# A resume snapshot is valid only for the campaign currently selected in
+	# Settings. Never repair a mismatch by silently switching the word base.
+	if (
+		!session.is_empty()
+		and !_single_player_resume_language_matches_current(
+			str(session.get("language", Database.current_language))
+		)
+	):
+		show_menu()
+		return
+	if (
+		!pending.is_empty()
+		and !_single_player_resume_language_matches_current(
+			str(pending.get("language", Database.current_language))
+		)
+	):
+		show_menu()
+		return
 	if session.is_empty() and !pending.is_empty() and bool(pending.get("presentation_started", false)):
 		# The main reward was already presented before the process was interrupted.
 		# Finish it idempotently and go Home; never offer Continue for this level.
@@ -3555,7 +3662,6 @@ func _resume_saved_single_player_level() -> void:
 		show_menu()
 		return
 	if session.is_empty() and !pending.is_empty():
-		_restore_single_player_language(str(pending.get("language", Database.current_language)))
 		var level_index: int = int(pending.get("level_index", -1))
 		var word_count: int = maxi(int(pending.get("word_count", 1)), 1)
 		var word_slot: int = clampi(int(pending.get("word_slot", word_count - 1)), 0, word_count - 1)
@@ -3601,7 +3707,6 @@ func _resume_saved_single_player_level() -> void:
 	if session.is_empty():
 		show_menu()
 		return
-	_restore_single_player_language(str(session.get("language", Database.current_language)))
 	var level_index: int = int(session.get("level_index", -1))
 	var word_slot: int = int(session.get("word_slot", -1))
 	var kind: String = str(session.get("kind", ""))
@@ -4088,9 +4193,30 @@ func _show_settings_popup() -> void:
 	content = previous_content
 
 func _remove_settings_popup() -> void:
+	var had_settings_popup: bool = !get_tree().get_nodes_in_group("settings_popup").is_empty()
 	_remove_popup_group_with_dimmer_fade(&"settings_popup")
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
+	if had_settings_popup and settings_word_language_changed:
+		settings_word_language_changed = false
+		call_deferred("_refresh_home_after_word_language_change")
+
+func _refresh_home_after_word_language_change() -> void:
+	# The Settings popup is layered over Home, so its underlying single-player
+	# button was authored before the base language changed. Rebuild Home only after
+	# the popup closes, preserving the popup interaction while immediately exposing
+	# the selected language's independent Continue/New Level state.
+	if game_screen_visible or _quiz_screen_active:
+		return
+	if (
+		_portrait_custom_word_input != null
+		and is_instance_valid(_portrait_custom_word_input)
+		and _portrait_custom_word_input.is_inside_tree()
+	):
+		return
+	if find_child("HomeLogoPaperReveal", true, false) == null:
+		return
+	_show_menu_screen()
 
 func _start_quiz_theme(theme_index: int) -> void:
 	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)

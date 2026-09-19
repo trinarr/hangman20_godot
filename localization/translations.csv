@@ -33,8 +33,8 @@ ERROR_GENERIC,Ошибка! Что-то пошло не так.,Error! Something
 SOUND_MUSIC,Звуки и музыка,Sounds and music
 LANGUAGE_RU_SHORT,Рус,Rus
 LANGUAGE_EN_SHORT,Eng,Eng
-ON,Вкл.,On
-OFF,Выкл.,Off
+ON,Вкл,On
+OFF,Выкл,Off
 RANDOM_WORD,Случайное,Random
 START_GAME,Начать игру,Start game
 TOAST_WORD_FOUND,Слово найдено,Word found

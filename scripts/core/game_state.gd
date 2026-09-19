@@ -146,6 +146,11 @@ var records: Array = [[0, 0, 0, 0], [0, 0]]
 
 var progress: Dictionary = {}
 var single_player: Dictionary = {}
+# Resumable level UI/state is independent for each word-base language. The two
+# legacy current-state fields below remain the working slot used by gameplay;
+# `single_player_resume_states` preserves the inactive language while the player
+# switches between RU and EN from Settings.
+var single_player_resume_states: Dictionary = {}
 var active_single_player_session: Dictionary = {}
 var pending_single_player_reward: Dictionary = {}
 var rewarded_double_requests: Dictionary = {}
@@ -216,13 +221,15 @@ func is_single_player_guided_onboarding_completed() -> bool:
 	return guided_onboarding_completed
 
 func complete_single_player_guided_onboarding(persist: bool = true) -> bool:
+	# Onboarding is profile-wide: once completed in either language, starting
+	# level 3 in the other campaign must not mutate that campaign's resume state.
 	if guided_onboarding_completed:
 		return false
 	guided_onboarding_completed = true
-	# A theme snapshot only exists while the mandatory first-session popup is
-	# active. Once level 3 actually starts, it must never force that popup again.
-	if str(active_single_player_session.get("kind", "")) == "theme":
-		active_single_player_session = {}
+	# Clear only the transient guided theme snapshot of the language that is
+	# completing onboarding. The other language is an independent campaign and
+	# may legitimately have its own unfinished theme-selection state.
+	_clear_guided_theme_resume_state_for_language(word_language)
 	if persist:
 		save_game()
 	return true
@@ -325,12 +332,17 @@ func load_game() -> void:
 		if parsed.get("single_player", {}) is Dictionary
 		else {}
 	)
-	active_single_player_session = _normalize_active_single_player_session(
+	var legacy_active_session: Dictionary = _normalize_active_single_player_session(
 		parsed.get("active_single_player_session", {})
 	)
-	pending_single_player_reward = _normalize_pending_single_player_reward(
+	var legacy_pending_reward: Dictionary = _normalize_pending_single_player_reward(
 		parsed.get("pending_single_player_reward", {})
 	)
+	single_player_resume_states = _normalize_single_player_resume_states(
+		parsed.get("single_player_resume_states", {})
+	)
+	_merge_legacy_single_player_resume_state(legacy_active_session, legacy_pending_reward)
+	_restore_single_player_resume_state(word_language)
 	_load_rewarded_double_requests(parsed.get("rewarded_double_requests", {}))
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
@@ -343,13 +355,6 @@ func load_game() -> void:
 		"guided_onboarding_completed",
 		ads_unlocked
 	))
-	var stale_guided_theme_session_removed: bool = false
-	if (
-		guided_onboarding_completed
-		and str(active_single_player_session.get("kind", "")) == "theme"
-	):
-		active_single_player_session = {}
-		stale_guided_theme_session_removed = true
 	interstitial_active_elapsed_seconds = clampf(
 		float(parsed.get("interstitial_active_elapsed_seconds", 0.0)),
 		0.0,
@@ -357,7 +362,7 @@ func load_game() -> void:
 	)
 	_normalize_single_player_buckets()
 
-	if loaded_from_backup or guided_state_was_missing or stale_guided_theme_session_removed:
+	if loaded_from_backup or guided_state_was_missing:
 		save_game()
 
 func _read_save_dictionary(path: String) -> Dictionary:
@@ -442,6 +447,7 @@ func save_game() -> bool:
 		return false
 	_save_write_in_progress = true
 	_compact_single_player_history()
+	_store_current_single_player_resume_state()
 	var payload: Dictionary = {
 		"save_version": SAVE_FORMAT_VERSION,
 		"word_language": word_language,
@@ -450,6 +456,7 @@ func save_game() -> bool:
 		"records": records,
 		"progress": progress,
 		"single_player": single_player,
+		"single_player_resume_states": single_player_resume_states,
 		"active_single_player_session": active_single_player_session,
 		"pending_single_player_reward": pending_single_player_reward,
 		"rewarded_double_requests": rewarded_double_requests,
@@ -537,6 +544,107 @@ func _normalize_active_single_player_session(source: Variant) -> Dictionary:
 		session["data"] = {}
 	return session
 
+func _normalize_single_player_resume_states(source: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if !(source is Dictionary):
+		return result
+	for language: String in ["ru", "en"]:
+		var state_variant: Variant = Dictionary(source).get(language, {})
+		if !(state_variant is Dictionary):
+			continue
+		var state: Dictionary = state_variant
+		var active: Dictionary = _normalize_active_single_player_session(
+			state.get("active_session", {})
+		)
+		var pending: Dictionary = _normalize_pending_single_player_reward(
+			state.get("pending_reward", {})
+		)
+		if !active.is_empty() and str(active.get("language", "")) != language:
+			active = {}
+		if !pending.is_empty() and str(pending.get("language", "")) != language:
+			pending = {}
+		if !active.is_empty() or !pending.is_empty():
+			result[language] = {
+				"active_session": active,
+				"pending_reward": pending,
+			}
+	return result
+
+func _merge_legacy_single_player_resume_state(
+	legacy_active: Dictionary,
+	legacy_pending: Dictionary
+) -> void:
+	# Save v2 originally had only one global resume slot. Preserve it during the
+	# first launch with per-language slots, without replacing newer keyed state.
+	for source: Dictionary in [legacy_active, legacy_pending]:
+		if source.is_empty():
+			continue
+		var language: String = _normalize_language(str(source.get("language", word_language)))
+		var state: Dictionary = Dictionary(single_player_resume_states.get(language, {})).duplicate(true)
+		var field_name: String = (
+			"active_session" if source == legacy_active else "pending_reward"
+		)
+		if !(state.get(field_name, {}) is Dictionary) or Dictionary(state.get(field_name, {})).is_empty():
+			state[field_name] = source.duplicate(true)
+		single_player_resume_states[language] = state
+
+func _store_current_single_player_resume_state() -> void:
+	var language: String = _normalize_language(word_language)
+	if active_single_player_session.is_empty() and pending_single_player_reward.is_empty():
+		single_player_resume_states.erase(language)
+		return
+	single_player_resume_states[language] = {
+		"active_session": active_single_player_session.duplicate(true),
+		"pending_reward": pending_single_player_reward.duplicate(true),
+	}
+
+func _restore_single_player_resume_state(lang: String) -> void:
+	var language: String = _normalize_language(lang)
+	var state_variant: Variant = single_player_resume_states.get(language, {})
+	var state: Dictionary = state_variant if state_variant is Dictionary else {}
+	active_single_player_session = _normalize_active_single_player_session(
+		state.get("active_session", {})
+	)
+	pending_single_player_reward = _normalize_pending_single_player_reward(
+		state.get("pending_reward", {})
+	)
+	if (
+		!active_single_player_session.is_empty()
+		and str(active_single_player_session.get("language", "")) != language
+	):
+		active_single_player_session = {}
+	if (
+		!pending_single_player_reward.is_empty()
+		and str(pending_single_player_reward.get("language", "")) != language
+	):
+		pending_single_player_reward = {}
+
+func _clear_guided_theme_resume_state_for_language(lang: String) -> bool:
+	var language: String = _normalize_language(lang)
+	var removed: bool = false
+	# The working fields always belong to word_language. Never touch them while
+	# cleaning the inactive campaign's keyed slot.
+	if language == _normalize_language(word_language):
+		if str(active_single_player_session.get("kind", "")) == "theme":
+			active_single_player_session = {}
+			removed = true
+	var state_variant: Variant = single_player_resume_states.get(language, {})
+	if !(state_variant is Dictionary):
+		return removed
+	var state: Dictionary = Dictionary(state_variant).duplicate(true)
+	var active_variant: Variant = state.get("active_session", {})
+	if !(active_variant is Dictionary):
+		return removed
+	if str(Dictionary(active_variant).get("kind", "")) != "theme":
+		return removed
+	state["active_session"] = {}
+	var pending_variant: Variant = state.get("pending_reward", {})
+	if !(pending_variant is Dictionary) or Dictionary(pending_variant).is_empty():
+		single_player_resume_states.erase(language)
+	else:
+		single_player_resume_states[language] = state
+	return true
+
 func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
 	if !(source is Dictionary):
 		return {}
@@ -557,7 +665,7 @@ func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
 			else 0
 		)
 	return {
-		"claim_id": str(pending.get("claim_id", "%s:%d" % [word_language, level_index])),
+		"claim_id": str(pending.get("claim_id", "%s:%d" % [language, level_index])),
 		"ad_reward_id": str(pending.get("ad_reward_id", "")),
 		"language": language,
 		"level_index": level_index,
@@ -768,6 +876,22 @@ func get_resumable_single_player_level_index() -> int:
 	if !pending_single_player_reward.is_empty():
 		return int(pending_single_player_reward.get("level_index", -1))
 	return int(active_single_player_session.get("level_index", -1))
+
+func get_resumable_single_player_level_index_for_language(lang: String) -> int:
+	var language: String = _normalize_language(lang)
+	if language == word_language:
+		return get_resumable_single_player_level_index()
+	var state_variant: Variant = single_player_resume_states.get(language, {})
+	if !(state_variant is Dictionary):
+		return -1
+	var state: Dictionary = state_variant
+	var pending_variant: Variant = state.get("pending_reward", {})
+	if pending_variant is Dictionary and !Dictionary(pending_variant).is_empty():
+		return int(Dictionary(pending_variant).get("level_index", -1))
+	var active_variant: Variant = state.get("active_session", {})
+	if active_variant is Dictionary and !Dictionary(active_variant).is_empty():
+		return int(Dictionary(active_variant).get("level_index", -1))
+	return -1
 
 func _create_pending_single_player_reward(
 	lang: String,
@@ -1228,7 +1352,15 @@ func reset_current_game() -> void:
 	current_mode = GameMode.CLASSIC
 
 func set_word_language(lang: String) -> void:
-	word_language = _normalize_language(lang)
+	var normalized_language: String = _normalize_language(lang)
+	if normalized_language == word_language:
+		save_game()
+		return
+	# Keep the unfinished campaign of the language we are leaving, then expose
+	# only the resume state that belongs to the newly selected word base.
+	_store_current_single_player_resume_state()
+	word_language = normalized_language
+	_restore_single_player_resume_state(word_language)
 	save_game()
 
 func _theme_progress_key(theme_index: int) -> String:

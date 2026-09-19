@@ -199,6 +199,7 @@ var hero_force_default_pose: bool = false
 var game_screen_visible: bool = false
 var settings_toggle_buttons: Dictionary = {}
 var settings_word_language_buttons: Dictionary = {}
+var settings_word_language_changed: bool = false
 var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
 var result_transition_generation: int = 0
@@ -762,10 +763,13 @@ func _selected_character_id() -> int:
 		return int(GameState.settings[5])
 	return 1
 func _set_settings_word_language(language_code: String) -> void:
+	var previous_language: String = GameState.word_language
 	GameState.set_word_language(language_code)
 	Database.load_word_language(GameState.word_language)
 	_invalidate_single_player_level_cache()
 	_refresh_settings_word_language_buttons()
+	if GameState.word_language != previous_language:
+		settings_word_language_changed = true
 
 func _refresh_settings_word_language_buttons() -> void:
 	for language_code: String in settings_word_language_buttons:
