@@ -1364,6 +1364,29 @@ func _portrait_resource_counter_panel_rect(
 		panel_size
 	)
 
+func _stage_top_bar_resource_icon(
+	icon_rect: Rect2,
+	texture: Texture2D,
+	prefix: String
+) -> Control:
+	# Keep the stage-mapped holder as the animated resource icon so existing
+	# counter/bounce tweens scale the artwork and its extrusion shadow together.
+	var holder: Control = _stage_holder(icon_rect, Control.MOUSE_FILTER_IGNORE)
+	holder.name = "%sHolder" % prefix
+	# The counter plate itself uses z=20. The holder stays on that plane while
+	# its relative child z-indices put the shadow above the plate and the icon
+	# at the same effective depth the old stage texture used.
+	holder.z_index = 20
+	_add_portrait_icon_with_extrusion_to_holder(
+		holder,
+		texture,
+		prefix,
+		1,
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a * 0.3,
+		1.0
+	)
+	return holder
+
 func _stage_currency_counter(
 	return_action: Callable,
 	rect: Rect2 = Rect2(),
@@ -1409,8 +1432,11 @@ func _stage_currency_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
-	coin_icon.z_index = 21
+	var coin_icon := _stage_top_bar_resource_icon(
+		icon_rect,
+		SOFT_CURRENCY_COIN_TEXTURE,
+		"TopBarCoinIcon"
+	)
 	_portrait_currency_coin_icon_visual = coin_icon
 	if counter_is_interactive and !_portrait_coin_store_active:
 		_stage_resource_add_badge(icon_rect, counter_scale)
@@ -1512,8 +1538,11 @@ func _stage_centered_coin_only_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
-	coin_icon.z_index = 21
+	var coin_icon := _stage_top_bar_resource_icon(
+		icon_rect,
+		SOFT_CURRENCY_COIN_TEXTURE,
+		"TopBarCoinIcon"
+	)
 	_portrait_currency_coin_icon_visual = coin_icon
 	if counter_is_interactive and (!_portrait_coin_store_active or direct_action.is_valid()):
 		_stage_resource_add_badge(icon_rect, counter_scale)
@@ -1591,8 +1620,11 @@ func _stage_star_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var star_icon := _stage_texture(icon_rect, STAR_CURRENCY_TEXTURE)
-	star_icon.z_index = 21
+	var star_icon := _stage_top_bar_resource_icon(
+		icon_rect,
+		STAR_CURRENCY_TEXTURE,
+		"TopBarStarIcon"
+	)
 	_portrait_star_icon_visual = star_icon
 	var balance_left: float = counter_rect.position.x + 43.0 * counter_scale
 	var balance_right: float = (
@@ -1742,8 +1774,11 @@ func _stage_heart_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var heart_icon: Control = _stage_texture(icon_rect, LIFE_HEART_ICON_TEXTURE)
-	heart_icon.z_index = 21
+	var heart_icon: Control = _stage_top_bar_resource_icon(
+		icon_rect,
+		LIFE_HEART_ICON_TEXTURE,
+		"TopBarHeartIcon"
+	)
 	_portrait_heart_icon_visual = heart_icon
 
 	var count_label := _stage_label(
@@ -3013,6 +3048,7 @@ func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Cont
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", "×", false, false, PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE, 0.32)
 	button.call("set_color_preset", ROUND_BUTTON_COLOR_BLUE)
+	button.set("drop_shadow_enabled", true)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
@@ -3887,7 +3923,7 @@ func _show_legal_consent_popup() -> void:
 		false
 	)
 	_stage_portrait_legal_inline_text(Rect2(54.0, 294.0, 372.0, 116.0))
-	_stage_portrait_popup_main_button(
+	var accept_button := _stage_portrait_popup_main_button(
 		Rect2(
 			90.0,
 			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
@@ -3904,6 +3940,7 @@ func _show_legal_consent_popup() -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	accept_button.set("drop_shadow_enabled", true)
 	content = previous_content
 
 func _remove_legal_consent_popup() -> void:
@@ -4213,10 +4250,10 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	shadow_panel.name = "QuizAnswerShadow"
 	shadow_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shadow_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shadow_panel.offset_top = 6.0
-	shadow_panel.offset_bottom = 6.0
+	shadow_panel.offset_top = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
+	shadow_panel.offset_bottom = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	var shadow_style := StyleBoxFlat.new()
-	shadow_style.bg_color = Color(0.07, 0.12, 0.24, 0.22)
+	shadow_style.bg_color = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_COLOR
 	shadow_style.corner_radius_top_left = answer_corner_radius
 	shadow_style.corner_radius_top_right = answer_corner_radius
 	shadow_style.corner_radius_bottom_left = answer_corner_radius
@@ -4255,7 +4292,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	holder.add_child(button)
 	button.set_meta(&"quiz_answer_holder", holder)
 	button.set_meta(&"quiz_answer_shadow", shadow_panel)
-	button.set_meta(&"quiz_answer_keep_shadow_hidden", false)
+	button.set_meta(&"quiz_answer_shadow_style", shadow_style)
 
 	var answer_label := Label.new()
 	answer_label.name = "QuizAnswerText"
@@ -4292,17 +4329,35 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	)
 	return button
 
+func _set_quiz_answer_shadow_pressed_state(
+	button: Button,
+	shadow_panel: Panel,
+	is_pressed: bool
+) -> void:
+	if button == null or !is_instance_valid(button) or shadow_panel == null or !is_instance_valid(shadow_panel):
+		return
+	var shadow_offset_y: float = float(
+		STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y
+		if is_pressed
+		else STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
+	)
+	shadow_panel.offset_top = shadow_offset_y
+	shadow_panel.offset_bottom = shadow_offset_y
+	var shadow_style_variant: Variant = _optional_node_meta(button, &"quiz_answer_shadow_style")
+	if shadow_style_variant is StyleBoxFlat:
+		var shadow_style := shadow_style_variant as StyleBoxFlat
+		shadow_style.bg_color = (
+			STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_PRESSED_COLOR
+			if is_pressed
+			else STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_COLOR
+		)
+
 func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_pressed: bool) -> void:
 	if button == null or !is_instance_valid(button) or shadow_panel == null or !is_instance_valid(shadow_panel):
 		return
-	# A depressed quiz answer sits flush against the surface, just like the
-	# standard long buttons: hide its drop shadow for the duration of the press.
-	# Once an answer has been selected, keep that answer's shadow hidden even if
-	# a late button-up / mouse-exit signal arrives after the result was applied.
-	var keep_shadow_hidden: bool = bool(
-		button.get_meta(&"quiz_answer_keep_shadow_hidden", false)
-	)
-	shadow_panel.visible = !is_pressed and !keep_shadow_hidden
+	# Match StageLongButton exactly: the pressed face keeps its shadow, but the
+	# shadow moves closer to the button and becomes 15% lighter.
+	_set_quiz_answer_shadow_pressed_state(button, shadow_panel, is_pressed)
 	var previous_tween_variant: Variant = _optional_node_meta(button, &"quiz_press_scale_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
@@ -4861,6 +4916,26 @@ func _play_quiz_wrong_question_feedback() -> void:
 		Callable(self, "_finish_quiz_wrong_question_feedback").bind(feedback_root)
 	)
 
+func _set_quiz_answer_result_bounce_scale(
+	scale_value: float,
+	button: Button,
+	shadow_panel: Panel,
+	peak_scale: float
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var target_scale := Vector2.ONE * scale_value
+	button.scale = target_scale
+	if shadow_panel == null or !is_instance_valid(shadow_panel):
+		return
+	shadow_panel.scale = target_scale
+	# StageLongButton fades only the shadow while its attention bounce grows.
+	# Apply the same linear scale->alpha relationship to the quiz result bounce:
+	# full shadow at rest, fully transparent at the peak, then restored on settle.
+	var scale_range: float = maxf(peak_scale - 1.0, 0.0001)
+	var lift_progress: float = clampf((scale_value - 1.0) / scale_range, 0.0, 1.0)
+	shadow_panel.modulate.a = 1.0 - lift_progress
+
 func _finish_quiz_correct_answer_bounce(
 	button: Button,
 	shadow_panel: Panel,
@@ -4870,7 +4945,9 @@ func _finish_quiz_correct_answer_bounce(
 		button.scale = Vector2.ONE
 	if shadow_panel != null and is_instance_valid(shadow_panel):
 		shadow_panel.scale = Vector2.ONE
+		shadow_panel.modulate.a = 1.0
 		shadow_panel.visible = true
+		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 	if finished_callback.is_valid():
 		finished_callback.call()
 
@@ -4905,17 +4982,36 @@ func _play_quiz_correct_answer_bounce(
 	if shadow_panel != null and is_instance_valid(shadow_panel):
 		shadow_panel.scale = Vector2.ONE
 		shadow_panel.pivot_offset = shadow_panel.size * 0.5
-		# Result bounces are cleaner without the offset shadow moving underneath
-		# the scaled button. Restore it only after the button fully settles.
-		shadow_panel.visible = false
+		shadow_panel.modulate.a = 1.0
+		shadow_panel.visible = true
+		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 
+	var bounce_peak_scale: float = 1.10
 	var bounce_tween := button.create_tween()
 	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow := bounce_tween.tween_property(button, "scale", Vector2.ONE * 1.10, 0.17)
+	var grow := bounce_tween.tween_method(
+		Callable(self, "_set_quiz_answer_result_bounce_scale").bind(
+			button,
+			shadow_panel,
+			bounce_peak_scale
+		),
+		1.0,
+		bounce_peak_scale,
+		0.17
+	)
 	grow.set_trans(Tween.TRANS_BACK)
 	grow.set_ease(Tween.EASE_OUT)
 
-	var settle := bounce_tween.tween_property(button, "scale", Vector2.ONE, 0.34)
+	var settle := bounce_tween.tween_method(
+		Callable(self, "_set_quiz_answer_result_bounce_scale").bind(
+			button,
+			shadow_panel,
+			bounce_peak_scale
+		),
+		bounce_peak_scale,
+		1.0,
+		0.34
+	)
 	settle.set_trans(Tween.TRANS_BOUNCE)
 	settle.set_ease(Tween.EASE_OUT)
 	bounce_tween.finished.connect(
@@ -5622,7 +5718,6 @@ func _prepare_quiz_answer_for_replacement(
 	button.scale = Vector2.ONE
 	button.modulate = Color.WHITE
 	button.position.x = right_offset
-	button.set_meta(&"quiz_answer_keep_shadow_hidden", false)
 	_set_quiz_answer_fill(button, Color.WHITE)
 	var answer_label := _quiz_answer_label(button)
 	if answer_label != null and is_instance_valid(answer_label):
@@ -5641,6 +5736,7 @@ func _prepare_quiz_answer_for_replacement(
 		shadow_panel.scale = Vector2.ONE
 		shadow_panel.modulate = Color.WHITE
 		shadow_panel.position.x = right_offset
+		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 
 func _on_quiz_replace_question_pressed() -> void:
 	if (
@@ -5872,6 +5968,7 @@ func _stage_portrait_quiz_continue_button() -> Control:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	continue_button.set("drop_shadow_enabled", true)
 	continue_button.z_index = 50
 	continue_button.visible = false
 	continue_button.set("attention_bounce_enabled", false)
@@ -8550,13 +8647,14 @@ func _show_exit_game_popup() -> void:
 			two_player_rect.end.y,
 			52.0
 		)
-		_stage_portrait_popup_main_button(
+		var two_player_yes_button := _stage_portrait_popup_main_button(
 			Rect2(82.0, two_player_button_y, 145.0, 52.0),
 			Callable(self, "_confirm_exit_game").bind(true),
 			tr("YES"),
 			20
 		)
-		_stage_portrait_popup_main_button(
+		two_player_yes_button.set("drop_shadow_enabled", true)
+		var two_player_no_button := _stage_portrait_popup_main_button(
 			Rect2(253.0, two_player_button_y, 145.0, 52.0),
 			close_action,
 			tr("NO"),
@@ -8568,6 +8666,7 @@ func _show_exit_game_popup() -> void:
 			false,
 			LONG_BUTTON_COLOR_ORANGE
 		)
+		two_player_no_button.set("drop_shadow_enabled", true)
 		content = two_player_previous_content
 		return
 	var previous_content := _portrait_popup_begin(
@@ -8617,7 +8716,7 @@ func _show_exit_game_popup() -> void:
 	warning_label.clip_text = false
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(warning_label)
 	warning_label.z_index = 11
-	_stage_portrait_popup_main_button(
+	var continue_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 425.0, 300.0, 56.0),
 		close_action,
 		tr("COMMON_CONTINUE"),
@@ -8629,6 +8728,7 @@ func _show_exit_game_popup() -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	continue_button.set("drop_shadow_enabled", true)
 	var exit_button := _stage_portrait_popup_main_button(
 		Rect2(
 			90.0,
@@ -8646,6 +8746,7 @@ func _show_exit_game_popup() -> void:
 		false,
 		LONG_BUTTON_COLOR_BLUE
 	)
+	exit_button.set("drop_shadow_enabled", true)
 	exit_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
 	exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	exit_button.set("trailing_icon_gap_stage", 8.0)
