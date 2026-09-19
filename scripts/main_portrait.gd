@@ -3947,10 +3947,7 @@ func _show_legal_consent_popup() -> void:
 	content = previous_content
 
 func _remove_legal_consent_popup() -> void:
-	for node: Node in get_tree().get_nodes_in_group(PORTRAIT_LEGAL_POPUP_GROUP):
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(PORTRAIT_LEGAL_POPUP_GROUP)
 
 func _accept_legal_documents() -> void:
 	if !GameState.accept_legal_documents():
@@ -4091,11 +4088,7 @@ func _show_settings_popup() -> void:
 	content = previous_content
 
 func _remove_settings_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"settings_popup")
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 

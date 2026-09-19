@@ -147,6 +147,8 @@ const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
 const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
 const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
+const MODAL_DIMMER_FADE_IN_DURATION: float = 0.20
+const MODAL_DIMMER_FADE_OUT_DURATION: float = 0.16
 
 var ui: Control
 var content: Control
@@ -535,11 +537,84 @@ func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.5
 	# aspect ratios. Native full-rect Controls avoid clipping to stage bounds.
 	var dimmer := ColorRect.new()
 	dimmer.name = "ModalDimmer"
-	dimmer.color = Color(0.0, 0.0, 0.0, alpha)
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
 	dimmer.gui_input.connect(_on_modal_dimmer_input.bind(dimmer, close_callable))
 	content.add_child(dimmer)
 	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	# Let the background darkness arrive together with the popup's opening bounce
+	# instead of snapping to the final alpha on the first frame.
+	var dimmer_target_color := Color(0.0, 0.0, 0.0, alpha)
+	var dimmer_tween := create_tween()
+	dimmer_tween.bind_node(dimmer)
+	dimmer_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var dimmer_fade_in := dimmer_tween.tween_property(
+		dimmer,
+		"color",
+		dimmer_target_color,
+		MODAL_DIMMER_FADE_IN_DURATION
+	)
+	dimmer_fade_in.set_trans(Tween.TRANS_QUAD)
+	dimmer_fade_in.set_ease(Tween.EASE_OUT)
+
+func _spawn_modal_dimmer_fade_out(popup_layer: CanvasLayer, source_dimmer: ColorRect) -> void:
+	if (
+		popup_layer == null
+		or !is_instance_valid(popup_layer)
+		or source_dimmer == null
+		or !is_instance_valid(source_dimmer)
+		or source_dimmer.color.a <= 0.001
+	):
+		return
+
+	# The popup itself disappears immediately, while a non-interactive copy of its
+	# dimmer remains for the short fade-out. This keeps navigation responsive and
+	# also lets a replacement popup cross-fade its own dimmer without blocking input.
+	var fade_layer := CanvasLayer.new()
+	fade_layer.name = "ModalDimmerFadeOutCanvas"
+	fade_layer.layer = popup_layer.layer
+	add_child(fade_layer)
+
+	var fade_root := Control.new()
+	fade_root.name = "ModalDimmerFadeOutRoot"
+	fade_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_layer.add_child(fade_root)
+	fade_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var fade_dimmer := ColorRect.new()
+	fade_dimmer.name = "ModalDimmerFadeOut"
+	fade_dimmer.color = source_dimmer.color
+	fade_dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_root.add_child(fade_dimmer)
+	fade_dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var transparent_color := fade_dimmer.color
+	transparent_color.a = 0.0
+	var fade_tween := create_tween()
+	fade_tween.bind_node(fade_layer)
+	fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var dimmer_fade_out := fade_tween.tween_property(
+		fade_dimmer,
+		"color",
+		transparent_color,
+		MODAL_DIMMER_FADE_OUT_DURATION
+	)
+	dimmer_fade_out.set_trans(Tween.TRANS_QUAD)
+	dimmer_fade_out.set_ease(Tween.EASE_OUT)
+	fade_tween.finished.connect(fade_layer.queue_free, CONNECT_ONE_SHOT)
+
+func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
+	var popup_nodes: Array = get_tree().get_nodes_in_group(group_name)
+	for node: Node in popup_nodes:
+		if !is_instance_valid(node) or node.get_parent() == null:
+			continue
+		var popup_layer := node as CanvasLayer
+		if popup_layer != null:
+			var dimmer := popup_layer.find_child("ModalDimmer", true, false) as ColorRect
+			_spawn_modal_dimmer_fade_out(popup_layer, dimmer)
+		node.get_parent().remove_child(node)
+		node.queue_free()
 
 func _on_modal_dimmer_input(
 	event: InputEvent,
@@ -1601,11 +1676,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> Contro
 
 func _remove_single_player_theme_popup() -> void:
 	_clear_single_player_popup_theme_cards()
-	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_theme_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"single_player_theme_popup")
 	single_player_popup_level_index = -1
 	single_player_popup_selected_theme = -1
 	single_player_popup_theme_panels.clear()
@@ -1618,18 +1689,10 @@ func _close_single_player_theme_popup_to_menu() -> void:
 	show_menu()
 
 func _remove_single_player_last_chance_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("single_player_last_chance_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"single_player_last_chance_popup")
 
 func _remove_heart_refill_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("heart_refill_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"heart_refill_popup")
 	heart_refill_continue_action = Callable()
 	heart_refill_store_return_action = Callable()
 	heart_refill_cancel_action = Callable()
@@ -1637,11 +1700,7 @@ func _remove_heart_refill_popup() -> void:
 	heart_refill_store_is_open = false
 
 func _remove_coin_refill_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("coin_refill_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"coin_refill_popup")
 
 func _purchase_heart_refill() -> void:
 	if GameState.get_hearts() >= GameState.MAX_HEARTS:
@@ -2049,11 +2108,7 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 	show_menu()
 
 func _remove_exit_game_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("exit_game_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"exit_game_popup")
 func _custom_word_random_label() -> String:
 	return tr("RANDOM_WORD")
 
@@ -2744,11 +2799,7 @@ func _continue_single_player_result() -> void:
 		_start_next_single_player_word(level_index)
 
 func _remove_word_comment_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("word_comment_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"word_comment_popup")
 
 func _open_word_search() -> void:
 	var word := GameSession.get_full_word().strip_edges()
