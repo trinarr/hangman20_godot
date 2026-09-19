@@ -92,6 +92,13 @@ var drop_shadow_enabled: bool = false:
 		drop_shadow_enabled = value
 		queue_redraw()
 
+# Settings selectors use the pressed-depth shadow while selected, so the blue
+# state reads as physically engaged even before the user touches it again.
+var drop_shadow_selected_uses_pressed_state: bool = false:
+	set(value):
+		drop_shadow_selected_uses_pressed_state = value
+		queue_redraw()
+
 var attention_bounce_enabled: bool = false:
 	set(value):
 		if attention_bounce_enabled == value:
@@ -369,9 +376,16 @@ func _draw() -> void:
 	var visual_size: Vector2 = size * visual_scale
 	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
 	if drop_shadow_enabled:
+		var shadow_uses_pressed_offset: bool = (
+			_is_down or (selected and drop_shadow_selected_uses_pressed_state)
+		)
 		var shadow_offset_y: float = (
-			BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y if _is_down else BUTTON_DROP_SHADOW_OFFSET_Y
+			BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y
+			if shadow_uses_pressed_offset
+			else BUTTON_DROP_SHADOW_OFFSET_Y
 		) * visual_scale.y
+		# Selected settings toggles use the pressed depth immediately, but retain
+		# normal shadow opacity until the user actually presses the button.
 		var shadow_color: Color = (
 			BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
 		)

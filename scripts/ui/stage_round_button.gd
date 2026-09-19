@@ -78,6 +78,18 @@ var drop_shadow_enabled: bool = false:
 		drop_shadow_enabled = value
 		queue_redraw()
 
+# Most round gameplay buttons keep the 4/3 px shadow depth. Compact top-bar
+# and settings controls can override these per instance without changing hints.
+var drop_shadow_offset_y: float = BUTTON_DROP_SHADOW_OFFSET_Y:
+	set(value):
+		drop_shadow_offset_y = maxf(value, 0.0)
+		queue_redraw()
+
+var drop_shadow_pressed_offset_y: float = BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y:
+	set(value):
+		drop_shadow_pressed_offset_y = maxf(value, 0.0)
+		queue_redraw()
+
 var attention_bounce_enabled: bool = false:
 	set(value):
 		if attention_bounce_enabled == value:
@@ -260,7 +272,7 @@ func _draw() -> void:
 		# without the shadow disappearing completely.
 		var shadow_radius: float = minf(visual_size.x, visual_size.y) * 0.5
 		var shadow_offset_y: float = (
-			BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y if _is_down else BUTTON_DROP_SHADOW_OFFSET_Y
+			drop_shadow_pressed_offset_y if _is_down else drop_shadow_offset_y
 		) * visual_scale.y
 		var shadow_center: Vector2 = visual_rect.get_center() + Vector2(0.0, shadow_offset_y)
 		var shadow_color: Color = BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR

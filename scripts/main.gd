@@ -2153,6 +2153,16 @@ func _sync_custom_word_start_bounce() -> void:
 		custom_word_start_button.set("button_disabled", should_disable)
 	if bool(custom_word_start_button.get("attention_bounce_enabled")) != has_word:
 		custom_word_start_button.set("attention_bounce_enabled", has_word)
+	# The dictionary/search action is meaningless without a word. Keep it disabled
+	# in the same empty-input state as Start game, but do not interrupt an active
+	# lookup (that state already owns the button until the request is cancelled).
+	if (
+		custom_word_check_button != null
+		and is_instance_valid(custom_word_check_button)
+		and custom_word_check_request == null
+		and bool(custom_word_check_button.get("button_disabled")) != should_disable
+	):
+		custom_word_check_button.set("button_disabled", should_disable)
 
 func _set_random_custom_word() -> void:
 	var theme_count: int = Database.get_theme_count()
@@ -2297,7 +2307,7 @@ func _set_custom_word_checking(is_checking: bool) -> void:
 		return
 	# The shared disabled state is a neutral gray mask and blocks pointer input.
 	custom_word_check_button.set("selected", false)
-	custom_word_check_button.set("button_disabled", is_checking)
+	custom_word_check_button.set("button_disabled", is_checking or custom_word_text.is_empty())
 	custom_word_check_button.modulate = Color.WHITE
 	if is_checking:
 		_start_custom_word_check_text_animation()

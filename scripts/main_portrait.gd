@@ -1272,11 +1272,18 @@ func _stage_menu_settings_button() -> void:
 		PORTRAIT_MENU_SETTINGS_ICON_SIZE
 	)
 	settings_button.set("icon_shadow_enabled", true)
+	settings_button.set("drop_shadow_enabled", true)
+	settings_button.set("drop_shadow_offset_y", 2.0)
+	settings_button.set("drop_shadow_pressed_offset_y", 1.0)
 	content = screen_content
 
 func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:
 	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
 		return
+	# All top-bar back/exit actions share the compact round-button depth treatment.
+	button.set("drop_shadow_enabled", true)
+	button.set("drop_shadow_offset_y", 2.0)
+	button.set("drop_shadow_pressed_offset_y", 1.0)
 	var should_animate: bool = (
 		!_portrait_back_button_visible
 		and !_portrait_previous_screen_had_back
@@ -2575,11 +2582,22 @@ func _show_coin_refill_popup() -> void:
 		PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION
 	)
 
-	var coin_icon := _stage_texture(coin_rect, COIN_PACK_04_TEXTURE)
+	# Use the exact same shader-extrusion shadow as the large stage coin reward.
+	# A transparent holder is required here as well because drawing the artwork on
+	# the parent CanvasItem would swallow negative-z extrusion layers.
+	var coin_icon := _stage_main_reward_coin_pack_transition(coin_rect)
 	coin_icon.name = "CoinRefillIcon"
 	coin_icon.add_to_group(&"coin_refill_reward_source")
 	coin_icon.z_index = 20
-	call_deferred("_run_for_live_control", weakref(coin_icon), Callable(self, "_play_final_reward_pack_bounce"))
+	# Match the intermediate large stage reward: keep the extrusion shadow hidden
+	# throughout the grow phase, then reveal it only after the icon reaches the
+	# maximum bounce scale.
+	_set_main_reward_icon_shadow_alpha(coin_icon, 0.0)
+	call_deferred(
+		"_run_for_live_control",
+		weakref(coin_icon),
+		Callable(self, "_play_coin_refill_icon_bounce")
+	)
 
 	var amount_label := _stage_label(
 		_portrait_final_reward_amount_rect(coin_rect),
@@ -2620,6 +2638,7 @@ func _show_coin_refill_popup() -> void:
 		LONG_BUTTON_COLOR_BLUE
 	)
 	rewarded_coin_button.name = "CoinRefillAdButton"
+	rewarded_coin_button.set("drop_shadow_enabled", true)
 	rewarded_coin_button.add_to_group(&"coin_refill_ad_button")
 	rewarded_coin_button.z_index = 22
 	rewarded_coin_button.visible = _portrait_ads_enabled()
@@ -2640,6 +2659,15 @@ func _show_coin_refill_popup() -> void:
 	_stage_coin_refill_ad_counter(rewarded_coin_button)
 	_refresh_coin_refill_ad_button(rewarded_coin_button, true)
 	content = previous_content
+
+func _play_coin_refill_icon_bounce(coin_icon: Control) -> void:
+	if coin_icon == null or !is_instance_valid(coin_icon) or !coin_icon.is_inside_tree():
+		return
+	var peak_callback := Callable(
+		self,
+		"_fade_main_reward_icon_shadow_in"
+	).bind(coin_icon, 0.22)
+	await _play_final_reward_pack_bounce(coin_icon, peak_callback)
 
 func _on_coin_refill_ad_pressed() -> void:
 	if !GameState.can_watch_coin_refill_ad():
@@ -3288,6 +3316,8 @@ func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_apply_settings_compact_toggle_font_size(button)
+	button.set("drop_shadow_enabled", true)
+	button.set("drop_shadow_selected_uses_pressed_state", true)
 	settings_toggle_buttons[setting_index] = button
 
 func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
@@ -3305,6 +3335,8 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_apply_settings_compact_toggle_font_size(button)
+	button.set("drop_shadow_enabled", true)
+	button.set("drop_shadow_selected_uses_pressed_state", true)
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
@@ -3903,7 +3935,11 @@ func show_settings() -> void:
 func _settings_popup_uses_compact_layout() -> bool:
 	if _quiz_screen_active:
 		return true
-	if game_screen_visible and !game_finished:
+	# Keep settings compact for the whole hangman game screen, including the
+	# finished-word/result state. The top-bar settings button remains available
+	# after the final word is revealed, so reopening settings there must not jump
+	# back to the full Home-style popup.
+	if game_screen_visible:
 		return true
 	return (
 		_portrait_custom_word_input != null
@@ -3980,18 +4016,24 @@ func _show_settings_popup() -> void:
 	var legal_links_y: float = footer_bottom_y - 76.0
 	var version_y: float = footer_bottom_y - 39.0
 	if !compact_layout:
-		_stage_round_icon_button(
+		var vk_button := _stage_round_icon_button(
 			Rect2(174.0, social_buttons_y, 58.0, 58.0),
 			Callable(self, "_about_contact_action").bind("vk"),
 			ABOUT_VK_ICON,
 			ABOUT_VK_ICON_SIZE
 		)
-		_stage_round_icon_button(
+		vk_button.set("drop_shadow_enabled", true)
+		vk_button.set("drop_shadow_offset_y", 2.0)
+		vk_button.set("drop_shadow_pressed_offset_y", 1.0)
+		var mail_button := _stage_round_icon_button(
 			Rect2(248.0, social_buttons_y, 58.0, 58.0),
 			Callable(self, "_about_contact_action").bind("mail"),
 			ABOUT_MAIL_ICON,
 			ABOUT_MAIL_ICON_SIZE
 		)
+		mail_button.set("drop_shadow_enabled", true)
+		mail_button.set("drop_shadow_offset_y", 2.0)
+		mail_button.set("drop_shadow_pressed_offset_y", 1.0)
 		_stage_portrait_legal_links_row(
 			Rect2(rect.position.x, legal_links_y, rect.size.x, 30.0),
 			17
@@ -6404,6 +6446,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 			false,
 			LONG_BUTTON_COLOR_BLUE
 		)
+		rewarded_attempt_button.set("drop_shadow_enabled", true)
 		rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
 		rewarded_attempt_button.z_index = 16
 		rewarded_attempt_button.visible = _portrait_ads_enabled()
@@ -6436,6 +6479,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE
 	)
 	purchase_button.z_index = 16
+	purchase_button.set("drop_shadow_enabled", true)
 	purchase_button.set("attention_bounce_enabled", free_offer)
 	if !free_offer:
 		_stage_portrait_popup_coin_purchase_content(
@@ -6759,6 +6803,7 @@ func _show_heart_refill_popup(
 		false,
 		LONG_BUTTON_COLOR_BLUE
 	)
+	rewarded_heart_button.set("drop_shadow_enabled", true)
 	rewarded_heart_button.add_to_group(&"heart_refill_ad_button")
 	rewarded_heart_button.z_index = 16
 	rewarded_heart_button.visible = _portrait_ads_enabled()
@@ -6801,6 +6846,7 @@ func _show_heart_refill_popup(
 	# Keep all custom button content inside the button itself. The complete row is
 	# centered as one block, using the same font size as the extra-attempt popup.
 	purchase_button.z_index = 16
+	purchase_button.set("drop_shadow_enabled", true)
 	purchase_button.mouse_filter = (
 		Control.MOUSE_FILTER_IGNORE if purchase_disabled else Control.MOUSE_FILTER_STOP
 	)
@@ -6985,6 +7031,9 @@ func _show_single_player_level_popup(
 			false
 		)
 		single_player_popup_refresh_button = refresh_button
+		# Theme reroll uses the standard round-button shadow profile (4/3 px),
+		# not the compact top-bar/settings profile.
+		refresh_button.set("drop_shadow_enabled", true)
 		refresh_button.z_index = 15
 		var refresh_price_badge_size := Vector2(44.0, 22.0)
 		var refresh_price_badge_rect := Rect2(
@@ -7053,6 +7102,7 @@ func _show_single_player_level_popup(
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	single_player_popup_play_button.set("drop_shadow_enabled", true)
 	single_player_popup_play_button.set("attention_bounce_enabled", false)
 	if selected_theme >= 0:
 		_select_single_player_popup_theme(level_index, selected_theme)
@@ -8644,6 +8694,7 @@ func show_custom_word() -> void:
 	custom_word_check_button.name = "CustomWordCheckButton"
 	custom_word_check_button.set("drop_shadow_enabled", true)
 	custom_word_check_button.set("disabled_visual_opacity", 1.0)
+	custom_word_check_button.set("button_disabled", custom_word_text.is_empty())
 	_stage_portrait_hint_art(custom_word_check_button, PORTRAIT_CUSTOM_WORD_CHECK_ICON)
 
 	# Keep only the primary action attached to the physical bottom above the banner.
@@ -8677,7 +8728,7 @@ func _set_custom_word_checking(is_checking: bool) -> void:
 		return
 	custom_word_check_button.modulate = Color.WHITE
 	custom_word_check_button.set("selected", false)
-	custom_word_check_button.set("button_disabled", is_checking)
+	custom_word_check_button.set("button_disabled", is_checking or custom_word_text.is_empty())
 	var art_holder: Control = custom_word_check_button.get_node_or_null("HintArtHolder") as Control
 	if art_holder == null:
 		return
@@ -9740,6 +9791,9 @@ func _stage_portrait_result_word_display(
 	)
 	search_button.z_index = 29
 	search_button.set("press_scale_enabled", true)
+	search_button.set("drop_shadow_enabled", true)
+	search_button.set("drop_shadow_offset_y", 2.0)
+	search_button.set("drop_shadow_pressed_offset_y", 1.0)
 	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE)
 	search_button.visible = !animate_result
 	if animate_result:
@@ -16692,6 +16746,12 @@ func _show_single_player_reward_chain_screen() -> void:
 			Callable(self, "_leave_single_player_failure_reward_to_menu"),
 			"×"
 		)
+		# This reward-chain exit button is staged separately from the normal page
+		# header, so it does not pass through _animate_portrait_back_button_entrance().
+		# Give it the same compact top-bar depth profile explicitly.
+		failure_back_button.set("drop_shadow_enabled", true)
+		failure_back_button.set("drop_shadow_offset_y", 2.0)
+		failure_back_button.set("drop_shadow_pressed_offset_y", 1.0)
 		failure_back_button.z_index = 200
 		failure_back_button.modulate.a = 0.0
 		failure_back_button.set("disabled", true)
