@@ -76,6 +76,18 @@ var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS: int = GAME_DESIGN.get_i
 var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS: int = GAME_DESIGN.get_int(
 	"economy.rewards.challenge_level_completion_per_win_coins", 20
 )
+var SINGLE_PLAYER_LEVEL_COMPLETION_BASE_STARS: int = GAME_DESIGN.get_int(
+	"economy.rewards.level_completion_base_stars", 10
+)
+var SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_STARS: int = GAME_DESIGN.get_int(
+	"economy.rewards.level_completion_per_win_stars", 2
+)
+var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_STARS: int = GAME_DESIGN.get_int(
+	"economy.rewards.challenge_level_completion_base_stars", 15
+)
+var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_STARS: int = GAME_DESIGN.get_int(
+	"economy.rewards.challenge_level_completion_per_win_stars", 3
+)
 const SINGLE_LEVEL_THEME_REROLL_AVAILABLE: int = 0
 const SINGLE_LEVEL_THEME_REROLL_COIN_USED: int = 1
 const SINGLE_LEVEL_THEME_REROLL_AD_USED: int = 2
@@ -535,18 +547,30 @@ func _normalize_pending_single_player_reward(source: Variant) -> Dictionary:
 	var amount: int = clampi(int(pending.get("amount", 0)), 0, MAX_SINGLE_REWARD)
 	if level_index < 0 or word_count <= 0 or word_slot < 0 or amount <= 0:
 		return {}
+	var language: String = _normalize_language(str(pending.get("language", word_language)))
+	var stars_amount: int = clampi(int(pending.get("stars_amount", -1)), -1, MAX_SINGLE_REWARD)
+	if stars_amount < 0:
+		var guessed_count: int = get_single_level_guessed_count(language, level_index, word_count)
+		stars_amount = (
+			_single_player_level_completion_stars(level_index, guessed_count)
+			if word_count > 1
+			else 0
+		)
 	return {
 		"claim_id": str(pending.get("claim_id", "%s:%d" % [word_language, level_index])),
 		"ad_reward_id": str(pending.get("ad_reward_id", "")),
-		"language": _normalize_language(str(pending.get("language", word_language))),
+		"language": language,
 		"level_index": level_index,
 		"word_count": word_count,
 		"word_slot": clampi(word_slot, 0, word_count - 1),
 		"theme_id": maxi(int(pending.get("theme_id", 0)), 0),
 		"amount": amount,
 		"claimed": bool(pending.get("claimed", false)),
+		"stars_amount": maxi(stars_amount, 0),
+		"stars_claimed": bool(pending.get("stars_claimed", false)),
 		"double_resolved": bool(pending.get("double_resolved", false)),
 		"double_claimed": bool(pending.get("double_claimed", false)),
+		"presentation_started": bool(pending.get("presentation_started", false)),
 	}
 
 func set_active_single_player_session(session: Dictionary, persist: bool = true) -> bool:
@@ -686,6 +710,57 @@ func clear_pending_single_player_reward(persist: bool = true) -> void:
 	if persist:
 		save_game()
 
+func mark_pending_single_player_reward_presented(persist: bool = true) -> bool:
+	if pending_single_player_reward.is_empty():
+		return false
+	if bool(pending_single_player_reward.get("presentation_started", false)):
+		return true
+	pending_single_player_reward["presentation_started"] = true
+	if persist:
+		save_game()
+	return true
+
+func is_pending_single_player_reward_presented() -> bool:
+	return (
+		!pending_single_player_reward.is_empty()
+		and bool(pending_single_player_reward.get("presentation_started", false))
+	)
+
+func settle_presented_pending_single_player_reward(persist: bool = true) -> Dictionary:
+	if !is_pending_single_player_reward_presented():
+		return {}
+	var credited_coins: int = 0
+	var credited_stars: int = 0
+	if !bool(pending_single_player_reward.get("claimed", false)):
+		pending_single_player_reward["claimed"] = true
+		var previous_coins: int = get_soft_currency()
+		credited_coins = (
+			add_soft_currency(int(pending_single_player_reward.get("amount", 0)), false)
+			- previous_coins
+		)
+	if !bool(pending_single_player_reward.get("stars_claimed", false)):
+		pending_single_player_reward["stars_claimed"] = true
+		var previous_stars: int = get_stars()
+		credited_stars = (
+			add_stars(int(pending_single_player_reward.get("stars_amount", 0)), false)
+			- previous_stars
+		)
+	# Leaving the main-reward presentation means the optional x2 offer was skipped.
+	# Mark it resolved before dropping the snapshot so a resumed/late UI cannot
+	# resurrect the offer or create a Home Continue state for this completed level.
+	pending_single_player_reward["double_resolved"] = true
+	pending_single_player_reward["double_claimed"] = false
+	var settled_level_index: int = int(pending_single_player_reward.get("level_index", -1))
+	pending_single_player_reward = {}
+	active_single_player_session = {}
+	if persist:
+		save_game()
+	return {
+		"level_index": settled_level_index,
+		"coins": credited_coins,
+		"stars": credited_stars,
+	}
+
 func has_resumable_single_player_level() -> bool:
 	return !pending_single_player_reward.is_empty() or !active_single_player_session.is_empty()
 
@@ -704,14 +779,24 @@ func _create_pending_single_player_reward(
 ) -> void:
 	if level_index < 0 or word_count <= 0 or amount <= 0:
 		return
+	var language: String = _normalize_language(lang)
+	var guessed_count: int = get_single_level_guessed_count(language, level_index, word_count)
+	var stars_amount: int = (
+		_single_player_level_completion_stars(level_index, guessed_count)
+		if word_count > 1
+		else 0
+	)
 	pending_single_player_reward = {
-		"claim_id": "%s:%d:%d" % [_normalize_language(lang), level_index, word_slot],
-		"language": _normalize_language(lang),
+		"claim_id": "%s:%d:%d" % [language, level_index, word_slot],
+		"language": language,
 		"level_index": level_index,
 		"word_slot": clampi(word_slot, 0, word_count - 1),
 		"word_count": word_count,
 		"theme_id": maxi(theme_id, 0),
 		"amount": amount,
+		"stars_amount": stars_amount,
+		"stars_claimed": stars_amount <= 0,
+		"presentation_started": false,
 	}
 	active_single_player_session = {}
 
@@ -725,10 +810,27 @@ func claim_pending_single_player_reward(multiplier: int = 1) -> int:
 		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false) - previous_balance
 	if multiplier >= 2:
 		credited_amount += resolve_pending_single_player_reward_double(true, false)
-	# Keep the completion snapshot through the x2 offer. Clearing it at the
-	# bounce peak loses both the offer and the following stars screen on restart.
+	# Keep the completion snapshot through the x2 offer. It also owns the durable
+	# level-star claim used by the merged reward presentation.
 	save_game()
 	return credited_amount
+
+func claim_pending_single_player_level_stars(persist: bool = true) -> int:
+	if pending_single_player_reward.is_empty():
+		return 0
+	if bool(pending_single_player_reward.get("stars_claimed", false)):
+		return 0
+	pending_single_player_reward["stars_claimed"] = true
+	var requested_amount: int = clampi(
+		int(pending_single_player_reward.get("stars_amount", 0)),
+		0,
+		MAX_SINGLE_REWARD
+	)
+	var previous_balance: int = get_stars()
+	var final_balance: int = add_stars(requested_amount, false)
+	if persist:
+		save_game()
+	return maxi(final_balance - previous_balance, 0)
 
 func resolve_pending_single_player_reward_double(grant_bonus: bool, persist: bool = true) -> int:
 	if (
@@ -1708,6 +1810,18 @@ func _single_player_level_completion_bonus(level_index: int, guessed_count: int)
 	return (
 		SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS
 		+ wins * SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS
+	)
+
+func _single_player_level_completion_stars(level_index: int, guessed_count: int) -> int:
+	var wins: int = maxi(guessed_count, 0)
+	if GAME_DESIGN.is_bonus_level(level_index + 1):
+		return (
+			SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_STARS
+			+ wins * SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_STARS
+		)
+	return (
+		SINGLE_PLAYER_LEVEL_COMPLETION_BASE_STARS
+		+ wins * SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_STARS
 	)
 
 func mark_single_level_word_played(

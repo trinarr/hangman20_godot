@@ -332,15 +332,61 @@ const PORTRAIT_FINAL_REWARD_COIN_SIZE := Vector2(172.8, 172.8)
 const PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 1.20
 const PORTRAIT_FINAL_REWARD_AMOUNT_SIZE := Vector2(300.0, 58.0)
 const PORTRAIT_FINAL_REWARD_COUNT_FONT_SIZE: int = 40
-const PORTRAIT_LEVEL_STARS_PANEL_SIZE := Vector2(384.0, 132.0)
-const PORTRAIT_LEVEL_SUMMARY_PANEL_PRIZE_OVERLAP_RATIO: float = 0.68
-const PORTRAIT_LEVEL_SUMMARY_PANEL_HEADER_HEIGHT: float = 66.0
-const PORTRAIT_LEVEL_SUMMARY_ROW_HEIGHT: float = 58.0
-const PORTRAIT_LEVEL_SUMMARY_PANEL_CORNER_RADIUS: float = 22.0
-const PORTRAIT_LEVEL_SUMMARY_ROW_ICON_SIZE: float = 34.0
-const PORTRAIT_LEVEL_SUMMARY_ROW_LABEL_FONT_SIZE: int = 25
-const PORTRAIT_LEVEL_SUMMARY_ROW_VALUE_FONT_SIZE: int = 31
-const PORTRAIT_LEVEL_SUMMARY_HEADER_FONT_SIZE: int = 30
+const PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT: float = 52.0
+const PORTRAIT_LEVEL_STAR_AWARD_GAP: float = 28.0
+const PORTRAIT_LEVEL_THEME_PROGRESS_SIZE := Vector2(384.0, 96.0)
+const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 4.0
+# Authored at 480 px; the 960 px viewport renders a 5/5/5/9 px rim.
+const PORTRAIT_THEME_BAR_INSET := Vector2(2.0, 2.0)
+const PORTRAIT_THEME_BAR_BOTTOM_INSET: float = 4.5
+const THEME_UNLOCK_ICON_GRAYSCALE_SHADER_CODE: String = """
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform float saturation : hint_range(0.0, 1.0) = 0.0;
+uniform vec4 shadow_tint : source_color = vec4(0.25, 0.43, 0.92, 1.0);
+uniform vec4 highlight_tint : source_color = vec4(0.62, 0.82, 1.0, 1.0);
+varying vec4 canvas_modulate;
+
+void vertex() {
+	canvas_modulate = COLOR;
+}
+
+void fragment() {
+	vec4 source = texture(TEXTURE, UV);
+	float luminance = dot(source.rgb, vec3(0.299, 0.587, 0.114));
+	vec3 neutral = vec3(luminance);
+	vec3 tinted = mix(shadow_tint.rgb, highlight_tint.rgb, luminance);
+	vec3 locked = mix(neutral, tinted, 0.42);
+	COLOR = vec4(mix(locked, source.rgb, saturation), source.a) * canvas_modulate;
+}
+"""
+const THEME_UNLOCK_FILL_SHADER_CODE: String = """
+shader_type canvas_item;
+render_mode unshaded;
+
+uniform vec2 fill_size = vec2(1.0, 30.0);
+uniform vec4 base_color : source_color;
+uniform vec4 highlight_color : source_color;
+
+void fragment() {
+	// Always render one full-size rounded pill. Progress is revealed by the parent
+	// clip mask, so the artwork slides out from the left instead of collapsing into
+	// a tiny/deformed capsule at the start of the animation.
+	vec2 half_shape = fill_size * 0.5;
+	float radius = min(half_shape.x, half_shape.y);
+	vec2 q = abs(UV * fill_size - half_shape) - (half_shape - vec2(radius));
+	float distance = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+	float feather = max(fwidth(distance), 0.001);
+	float mask = 1.0 - smoothstep(-feather, 0.0, distance);
+	float highlight_mix = 1.0 - smoothstep(0.092, 0.108, UV.y);
+	vec4 fill = mix(base_color, highlight_color, highlight_mix);
+	COLOR *= vec4(fill.rgb, fill.a * mask);
+}
+"""
+const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE: float = 1.14
+const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION: float = 0.16
+const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION: float = 0.20
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT := Rect2(
 	90.0,
 	606.0 * PORTRAIT_GAME_ACTION_Y_SCALE,
@@ -878,6 +924,22 @@ func _portrait_ad_not_ready_message() -> String:
 		else "The ad isn't ready yet"
 	)
 
+func _portrait_ad_toast_anchor_y() -> float:
+	# On reward screens, attach the toast to the rewarded-ad button itself.
+	# StageToast already places its panel one TOAST_PARENT_GAP above its anchor,
+	# so using the button's top edge gives a small, consistent visual gap.
+	if (
+		_portrait_final_reward_double_button != null
+		and is_instance_valid(_portrait_final_reward_double_button)
+		and _portrait_final_reward_double_button.is_inside_tree()
+		and _portrait_final_reward_double_button.visible
+	):
+		var button_stage_rect: Variant = _portrait_final_reward_double_button.get("stage_rect")
+		if button_stage_rect is Rect2:
+			var resolved_button_rect: Rect2 = button_stage_rect
+			return resolved_button_rect.position.y
+	return PORTRAIT_AD_TOAST_ANCHOR_Y
+
 func _show_portrait_ad_not_ready_toast() -> void:
 	if _portrait_ad_toast == null or !is_instance_valid(_portrait_ad_toast):
 		var toast_layer := CanvasLayer.new()
@@ -893,18 +955,40 @@ func _show_portrait_ad_not_ready_toast() -> void:
 			toast_root.theme = ui.theme
 		toast_layer.add_child(toast_root)
 
-		var toast_anchor: Control = FLASH_STAGE_CONTROL_SCRIPT.new() as Control
+		var toast_anchor := Control.new()
 		toast_anchor.name = "AdStatusToastAnchor"
 		toast_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		toast_root.add_child(toast_anchor)
-		toast_anchor.set(
-			"stage_rect",
-			Rect2(0.0, PORTRAIT_AD_TOAST_ANCHOR_Y, PORTRAIT_STAGE_SIZE.x, 0.0)
-		)
 
 		_portrait_ad_toast = STAGE_TOAST_SCRIPT.new() as Control
 		_portrait_ad_toast.name = "AdStatusToast"
 		toast_anchor.add_child(_portrait_ad_toast)
+	# The reward CTA is bottom-attached, so use its actual viewport position in the
+	# same pixel coordinate space as this CanvasLayer. Avoid FlashStageControl here:
+	# applying stage/safe-area transforms a second time is what moved the toast away.
+	var current_anchor := _portrait_ad_toast.get_parent() as Control
+	if current_anchor != null and is_instance_valid(current_anchor):
+		var viewport_size: Vector2 = get_viewport_rect().size
+		var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
+		var anchor_y_px: float = viewport_size.y * 0.5
+		if (
+			_portrait_final_reward_double_button != null
+			and is_instance_valid(_portrait_final_reward_double_button)
+			and _portrait_final_reward_double_button.is_inside_tree()
+			and _portrait_final_reward_double_button.visible
+		):
+			anchor_y_px = _portrait_final_reward_double_button.get_global_rect().position.y
+		# StageToast is authored in the same 480x800 coordinate system as the rest
+		# of the portrait UI. The raw CanvasLayer anchor must therefore restore the
+		# normal stage fit scale; otherwise the 52 px toast and its 23 px text render
+		# roughly half-size on a 960 px-wide device. Keep the anchor Y in viewport
+		# pixels so the reward toast still tracks the real x2 button position.
+		current_anchor.position = Vector2(
+			PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
+			anchor_y_px
+		)
+		current_anchor.scale = Vector2.ONE * fit_scale
+		current_anchor.size = Vector2(PORTRAIT_STAGE_SIZE.x, 0.0)
 		_portrait_ad_toast.call("set_available_width", PORTRAIT_STAGE_SIZE.x)
 	_portrait_ad_toast.call("show_message", _portrait_ad_not_ready_message(), false)
 
@@ -1188,11 +1272,18 @@ func _stage_menu_settings_button() -> void:
 		PORTRAIT_MENU_SETTINGS_ICON_SIZE
 	)
 	settings_button.set("icon_shadow_enabled", true)
+	settings_button.set("drop_shadow_enabled", true)
+	settings_button.set("drop_shadow_offset_y", 2.0)
+	settings_button.set("drop_shadow_pressed_offset_y", 1.0)
 	content = screen_content
 
 func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) -> void:
 	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
 		return
+	# All top-bar back/exit actions share the compact round-button depth treatment.
+	button.set("drop_shadow_enabled", true)
+	button.set("drop_shadow_offset_y", 2.0)
+	button.set("drop_shadow_pressed_offset_y", 1.0)
 	var should_animate: bool = (
 		!_portrait_back_button_visible
 		and !_portrait_previous_screen_had_back
@@ -1273,6 +1364,29 @@ func _portrait_resource_counter_panel_rect(
 		panel_size
 	)
 
+func _stage_top_bar_resource_icon(
+	icon_rect: Rect2,
+	texture: Texture2D,
+	prefix: String
+) -> Control:
+	# Keep the stage-mapped holder as the animated resource icon so existing
+	# counter/bounce tweens scale the artwork and its extrusion shadow together.
+	var holder: Control = _stage_holder(icon_rect, Control.MOUSE_FILTER_IGNORE)
+	holder.name = "%sHolder" % prefix
+	# The counter plate itself uses z=20. The holder stays on that plane while
+	# its relative child z-indices put the shadow above the plate and the icon
+	# at the same effective depth the old stage texture used.
+	holder.z_index = 20
+	_add_portrait_icon_with_extrusion_to_holder(
+		holder,
+		texture,
+		prefix,
+		1,
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a * 0.3,
+		1.0
+	)
+	return holder
+
 func _stage_currency_counter(
 	return_action: Callable,
 	rect: Rect2 = Rect2(),
@@ -1318,8 +1432,11 @@ func _stage_currency_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
-	coin_icon.z_index = 21
+	var coin_icon := _stage_top_bar_resource_icon(
+		icon_rect,
+		SOFT_CURRENCY_COIN_TEXTURE,
+		"TopBarCoinIcon"
+	)
 	_portrait_currency_coin_icon_visual = coin_icon
 	if counter_is_interactive and !_portrait_coin_store_active:
 		_stage_resource_add_badge(icon_rect, counter_scale)
@@ -1346,6 +1463,7 @@ func _stage_currency_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -1421,8 +1539,11 @@ func _stage_centered_coin_only_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var coin_icon := _stage_texture(icon_rect, SOFT_CURRENCY_COIN_TEXTURE)
-	coin_icon.z_index = 21
+	var coin_icon := _stage_top_bar_resource_icon(
+		icon_rect,
+		SOFT_CURRENCY_COIN_TEXTURE,
+		"TopBarCoinIcon"
+	)
 	_portrait_currency_coin_icon_visual = coin_icon
 	if counter_is_interactive and (!_portrait_coin_store_active or direct_action.is_valid()):
 		_stage_resource_add_badge(icon_rect, counter_scale)
@@ -1449,6 +1570,7 @@ func _stage_centered_coin_only_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"soft_currency_balance_label")
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(balance_label, balance_text, balance_rect.size.x, balance_font_size, balance_min_font_size)
@@ -1500,8 +1622,11 @@ func _stage_star_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var star_icon := _stage_texture(icon_rect, STAR_CURRENCY_TEXTURE)
-	star_icon.z_index = 21
+	var star_icon := _stage_top_bar_resource_icon(
+		icon_rect,
+		STAR_CURRENCY_TEXTURE,
+		"TopBarStarIcon"
+	)
 	_portrait_star_icon_visual = star_icon
 	var balance_left: float = counter_rect.position.x + 43.0 * counter_scale
 	var balance_right: float = (
@@ -1526,6 +1651,7 @@ func _stage_star_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"stars_balance_label")
 	stars_balance_label = balance_label
 	balance_label.z_index = 21
@@ -1651,8 +1777,11 @@ func _stage_heart_counter(
 		0.0
 	)
 	panel.z_index = 20
-	var heart_icon: Control = _stage_texture(icon_rect, LIFE_HEART_ICON_TEXTURE)
-	heart_icon.z_index = 21
+	var heart_icon: Control = _stage_top_bar_resource_icon(
+		icon_rect,
+		LIFE_HEART_ICON_TEXTURE,
+		"TopBarHeartIcon"
+	)
 	_portrait_heart_icon_visual = heart_icon
 
 	var count_label := _stage_label(
@@ -1665,8 +1794,7 @@ func _stage_heart_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	count_label.add_theme_font_override("font", UI_REGULAR_FONT)
-	count_label.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.HEART_TEXT_OUTLINE)
-	count_label.add_theme_constant_override("outline_size", maxi(2, int(round(4.0 * counter_scale))))
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(count_label)
 	count_label.z_index = 22
 	heart_count_label = count_label
 
@@ -1700,6 +1828,7 @@ func _stage_heart_counter(
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	status_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(status_label)
 	status_label.z_index = 21
 	heart_status_label = status_label
 	_fit_single_line_label_to_width(status_label, status_text, status_rect.size.x, status_font_size, status_min_font_size)
@@ -2491,11 +2620,22 @@ func _show_coin_refill_popup() -> void:
 		PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION
 	)
 
-	var coin_icon := _stage_texture(coin_rect, COIN_PACK_04_TEXTURE)
+	# Use the exact same shader-extrusion shadow as the large stage coin reward.
+	# A transparent holder is required here as well because drawing the artwork on
+	# the parent CanvasItem would swallow negative-z extrusion layers.
+	var coin_icon := _stage_main_reward_coin_pack_transition(coin_rect)
 	coin_icon.name = "CoinRefillIcon"
 	coin_icon.add_to_group(&"coin_refill_reward_source")
 	coin_icon.z_index = 20
-	call_deferred("_run_for_live_control", weakref(coin_icon), Callable(self, "_play_final_reward_pack_bounce"))
+	# Match the intermediate large stage reward: keep the extrusion shadow hidden
+	# throughout the grow phase, then reveal it only after the icon reaches the
+	# maximum bounce scale.
+	_set_main_reward_icon_shadow_alpha(coin_icon, 0.0)
+	call_deferred(
+		"_run_for_live_control",
+		weakref(coin_icon),
+		Callable(self, "_play_coin_refill_icon_bounce")
+	)
 
 	var amount_label := _stage_label(
 		_portrait_final_reward_amount_rect(coin_rect),
@@ -2536,6 +2676,7 @@ func _show_coin_refill_popup() -> void:
 		LONG_BUTTON_COLOR_BLUE
 	)
 	rewarded_coin_button.name = "CoinRefillAdButton"
+	rewarded_coin_button.set("drop_shadow_enabled", true)
 	rewarded_coin_button.add_to_group(&"coin_refill_ad_button")
 	rewarded_coin_button.z_index = 22
 	rewarded_coin_button.visible = _portrait_ads_enabled()
@@ -2556,6 +2697,15 @@ func _show_coin_refill_popup() -> void:
 	_stage_coin_refill_ad_counter(rewarded_coin_button)
 	_refresh_coin_refill_ad_button(rewarded_coin_button, true)
 	content = previous_content
+
+func _play_coin_refill_icon_bounce(coin_icon: Control) -> void:
+	if coin_icon == null or !is_instance_valid(coin_icon) or !coin_icon.is_inside_tree():
+		return
+	var peak_callback := Callable(
+		self,
+		"_fade_main_reward_icon_shadow_in"
+	).bind(coin_icon, 0.22)
+	await _play_final_reward_pack_bounce(coin_icon, peak_callback)
 
 func _on_coin_refill_ad_pressed() -> void:
 	if !GameState.can_watch_coin_refill_ad():
@@ -2901,6 +3051,7 @@ func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Cont
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", "×", false, false, PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE, 0.32)
 	button.call("set_color_preset", ROUND_BUTTON_COLOR_BLUE)
+	button.set("drop_shadow_enabled", true)
 	_connect_stage_button_action(button, callable)
 	content.add_child(button)
 	button.stage_rect = rect
@@ -3204,6 +3355,8 @@ func _stage_settings_toggle_button(rect: Rect2, setting_index: int) -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_apply_settings_compact_toggle_font_size(button)
+	button.set("drop_shadow_enabled", true)
+	button.set("drop_shadow_selected_uses_pressed_state", true)
 	settings_toggle_buttons[setting_index] = button
 
 func _stage_settings_word_language_button(rect: Rect2, language_code: String, label_text: String) -> void:
@@ -3221,9 +3374,15 @@ func _stage_settings_word_language_button(rect: Rect2, language_code: String, la
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	_apply_settings_compact_toggle_font_size(button)
+	button.set("drop_shadow_enabled", true)
+	button.set("drop_shadow_selected_uses_pressed_state", true)
 	settings_word_language_buttons[language_code] = button
 
 func show_menu() -> void:
+	# A completed level must never return to Home as resumable after the player has
+	# already reached its main-reward screen. If navigation interrupts that screen,
+	# settle the still-pending base reward/stars and consider the optional x2 skipped.
+	GameState.settle_presented_pending_single_player_reward(true)
 	_quiz_mode_active = false
 	_quiz_screen_active = false
 	_quiz_selected_theme_index = -1
@@ -3302,6 +3461,8 @@ func _show_menu_screen() -> void:
 	var home_buttons: Array[Control] = [two_player_button, single_player_button]
 	two_player_button.name = "HomeTwoPlayerButton"
 	single_player_button.name = "HomeSinglePlayerButton"
+	two_player_button.set("drop_shadow_enabled", true)
+	single_player_button.set("drop_shadow_enabled", true)
 	for button: Control in home_buttons:
 		button.hide()
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3383,6 +3544,16 @@ func _resume_saved_single_player_level() -> void:
 	# cleared and the pending level reward becomes the resume target.
 	var session: Dictionary = GameState.get_active_single_player_session()
 	var pending: Dictionary = GameState.get_pending_single_player_reward()
+	if session.is_empty() and !pending.is_empty() and bool(pending.get("presentation_started", false)):
+		# The main reward was already presented before the process was interrupted.
+		# Finish it idempotently and go Home; never offer Continue for this level.
+		GameState.settle_presented_pending_single_player_reward(true)
+		GameSession.discard_current_round()
+		game_finished = false
+		last_result_data = {}
+		single_player_active_word_slot = -1
+		show_menu()
+		return
 	if session.is_empty() and !pending.is_empty():
 		_restore_single_player_language(str(pending.get("language", Database.current_language)))
 		var level_index: int = int(pending.get("level_index", -1))
@@ -3419,7 +3590,10 @@ func _resume_saved_single_player_level() -> void:
 			"single_player_level_summary_view": true,
 		}
 		if bool(pending.get("double_resolved", false)):
-			_show_completed_single_player_level_stars()
+			# In the merged flow the star/theme sequence always finishes before the
+			# x2 decision. A resolved completion reward therefore only needs safe
+			# finalization after a restart; never resurrect the removed stars screen.
+			_finish_single_player_final_reward_claim()
 			return
 		_show_single_player_reward_chain_screen()
 		return
@@ -3752,7 +3926,7 @@ func _show_legal_consent_popup() -> void:
 		false
 	)
 	_stage_portrait_legal_inline_text(Rect2(54.0, 294.0, 372.0, 116.0))
-	_stage_portrait_popup_main_button(
+	var accept_button := _stage_portrait_popup_main_button(
 		Rect2(
 			90.0,
 			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
@@ -3769,13 +3943,11 @@ func _show_legal_consent_popup() -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	accept_button.set("drop_shadow_enabled", true)
 	content = previous_content
 
 func _remove_legal_consent_popup() -> void:
-	for node: Node in get_tree().get_nodes_in_group(PORTRAIT_LEGAL_POPUP_GROUP):
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(PORTRAIT_LEGAL_POPUP_GROUP)
 
 func _accept_legal_documents() -> void:
 	if !GameState.accept_legal_documents():
@@ -3800,7 +3972,11 @@ func show_settings() -> void:
 func _settings_popup_uses_compact_layout() -> bool:
 	if _quiz_screen_active:
 		return true
-	if game_screen_visible and !game_finished:
+	# Keep settings compact for the whole hangman game screen, including the
+	# finished-word/result state. The top-bar settings button remains available
+	# after the final word is revealed, so reopening settings there must not jump
+	# back to the full Home-style popup.
+	if game_screen_visible:
 		return true
 	return (
 		_portrait_custom_word_input != null
@@ -3877,18 +4053,24 @@ func _show_settings_popup() -> void:
 	var legal_links_y: float = footer_bottom_y - 76.0
 	var version_y: float = footer_bottom_y - 39.0
 	if !compact_layout:
-		_stage_round_icon_button(
+		var vk_button := _stage_round_icon_button(
 			Rect2(174.0, social_buttons_y, 58.0, 58.0),
 			Callable(self, "_about_contact_action").bind("vk"),
 			ABOUT_VK_ICON,
 			ABOUT_VK_ICON_SIZE
 		)
-		_stage_round_icon_button(
+		vk_button.set("drop_shadow_enabled", true)
+		vk_button.set("drop_shadow_offset_y", 2.0)
+		vk_button.set("drop_shadow_pressed_offset_y", 1.0)
+		var mail_button := _stage_round_icon_button(
 			Rect2(248.0, social_buttons_y, 58.0, 58.0),
 			Callable(self, "_about_contact_action").bind("mail"),
 			ABOUT_MAIL_ICON,
 			ABOUT_MAIL_ICON_SIZE
 		)
+		mail_button.set("drop_shadow_enabled", true)
+		mail_button.set("drop_shadow_offset_y", 2.0)
+		mail_button.set("drop_shadow_pressed_offset_y", 1.0)
 		_stage_portrait_legal_links_row(
 			Rect2(rect.position.x, legal_links_y, rect.size.x, 30.0),
 			17
@@ -3906,11 +4088,7 @@ func _show_settings_popup() -> void:
 	content = previous_content
 
 func _remove_settings_popup() -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group("settings_popup")
-	for node: Node in popup_nodes:
-		if is_instance_valid(node) and node.get_parent() != null:
-			node.get_parent().remove_child(node)
-			node.queue_free()
+	_remove_popup_group_with_dimmer_fade(&"settings_popup")
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
 
@@ -4068,10 +4246,10 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	shadow_panel.name = "QuizAnswerShadow"
 	shadow_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shadow_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shadow_panel.offset_top = 6.0
-	shadow_panel.offset_bottom = 6.0
+	shadow_panel.offset_top = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
+	shadow_panel.offset_bottom = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	var shadow_style := StyleBoxFlat.new()
-	shadow_style.bg_color = Color(0.07, 0.12, 0.24, 0.22)
+	shadow_style.bg_color = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_COLOR
 	shadow_style.corner_radius_top_left = answer_corner_radius
 	shadow_style.corner_radius_top_right = answer_corner_radius
 	shadow_style.corner_radius_bottom_left = answer_corner_radius
@@ -4110,7 +4288,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	holder.add_child(button)
 	button.set_meta(&"quiz_answer_holder", holder)
 	button.set_meta(&"quiz_answer_shadow", shadow_panel)
-	button.set_meta(&"quiz_answer_keep_shadow_hidden", false)
+	button.set_meta(&"quiz_answer_shadow_style", shadow_style)
 
 	var answer_label := Label.new()
 	answer_label.name = "QuizAnswerText"
@@ -4147,17 +4325,35 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	)
 	return button
 
+func _set_quiz_answer_shadow_pressed_state(
+	button: Button,
+	shadow_panel: Panel,
+	is_pressed: bool
+) -> void:
+	if button == null or !is_instance_valid(button) or shadow_panel == null or !is_instance_valid(shadow_panel):
+		return
+	var shadow_offset_y: float = float(
+		STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y
+		if is_pressed
+		else STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
+	)
+	shadow_panel.offset_top = shadow_offset_y
+	shadow_panel.offset_bottom = shadow_offset_y
+	var shadow_style_variant: Variant = _optional_node_meta(button, &"quiz_answer_shadow_style")
+	if shadow_style_variant is StyleBoxFlat:
+		var shadow_style := shadow_style_variant as StyleBoxFlat
+		shadow_style.bg_color = (
+			STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_PRESSED_COLOR
+			if is_pressed
+			else STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_COLOR
+		)
+
 func _set_quiz_answer_press_scale(button: Button, shadow_panel: Panel, is_pressed: bool) -> void:
 	if button == null or !is_instance_valid(button) or shadow_panel == null or !is_instance_valid(shadow_panel):
 		return
-	# A depressed quiz answer sits flush against the surface, just like the
-	# standard long buttons: hide its drop shadow for the duration of the press.
-	# Once an answer has been selected, keep that answer's shadow hidden even if
-	# a late button-up / mouse-exit signal arrives after the result was applied.
-	var keep_shadow_hidden: bool = bool(
-		button.get_meta(&"quiz_answer_keep_shadow_hidden", false)
-	)
-	shadow_panel.visible = !is_pressed and !keep_shadow_hidden
+	# Match StageLongButton exactly: the pressed face keeps its shadow, but the
+	# shadow moves closer to the button and becomes 15% lighter.
+	_set_quiz_answer_shadow_pressed_state(button, shadow_panel, is_pressed)
 	var previous_tween_variant: Variant = _optional_node_meta(button, &"quiz_press_scale_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
@@ -4716,6 +4912,26 @@ func _play_quiz_wrong_question_feedback() -> void:
 		Callable(self, "_finish_quiz_wrong_question_feedback").bind(feedback_root)
 	)
 
+func _set_quiz_answer_result_bounce_scale(
+	scale_value: float,
+	button: Button,
+	shadow_panel: Panel,
+	peak_scale: float
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var target_scale := Vector2.ONE * scale_value
+	button.scale = target_scale
+	if shadow_panel == null or !is_instance_valid(shadow_panel):
+		return
+	shadow_panel.scale = target_scale
+	# StageLongButton fades only the shadow while its attention bounce grows.
+	# Apply the same linear scale->alpha relationship to the quiz result bounce:
+	# full shadow at rest, fully transparent at the peak, then restored on settle.
+	var scale_range: float = maxf(peak_scale - 1.0, 0.0001)
+	var lift_progress: float = clampf((scale_value - 1.0) / scale_range, 0.0, 1.0)
+	shadow_panel.modulate.a = 1.0 - lift_progress
+
 func _finish_quiz_correct_answer_bounce(
 	button: Button,
 	shadow_panel: Panel,
@@ -4725,7 +4941,9 @@ func _finish_quiz_correct_answer_bounce(
 		button.scale = Vector2.ONE
 	if shadow_panel != null and is_instance_valid(shadow_panel):
 		shadow_panel.scale = Vector2.ONE
+		shadow_panel.modulate.a = 1.0
 		shadow_panel.visible = true
+		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 	if finished_callback.is_valid():
 		finished_callback.call()
 
@@ -4760,17 +4978,36 @@ func _play_quiz_correct_answer_bounce(
 	if shadow_panel != null and is_instance_valid(shadow_panel):
 		shadow_panel.scale = Vector2.ONE
 		shadow_panel.pivot_offset = shadow_panel.size * 0.5
-		# Result bounces are cleaner without the offset shadow moving underneath
-		# the scaled button. Restore it only after the button fully settles.
-		shadow_panel.visible = false
+		shadow_panel.modulate.a = 1.0
+		shadow_panel.visible = true
+		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 
+	var bounce_peak_scale: float = 1.10
 	var bounce_tween := button.create_tween()
 	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow := bounce_tween.tween_property(button, "scale", Vector2.ONE * 1.10, 0.17)
+	var grow := bounce_tween.tween_method(
+		Callable(self, "_set_quiz_answer_result_bounce_scale").bind(
+			button,
+			shadow_panel,
+			bounce_peak_scale
+		),
+		1.0,
+		bounce_peak_scale,
+		0.17
+	)
 	grow.set_trans(Tween.TRANS_BACK)
 	grow.set_ease(Tween.EASE_OUT)
 
-	var settle := bounce_tween.tween_property(button, "scale", Vector2.ONE, 0.34)
+	var settle := bounce_tween.tween_method(
+		Callable(self, "_set_quiz_answer_result_bounce_scale").bind(
+			button,
+			shadow_panel,
+			bounce_peak_scale
+		),
+		bounce_peak_scale,
+		1.0,
+		0.34
+	)
 	settle.set_trans(Tween.TRANS_BOUNCE)
 	settle.set_ease(Tween.EASE_OUT)
 	bounce_tween.finished.connect(
@@ -5477,7 +5714,6 @@ func _prepare_quiz_answer_for_replacement(
 	button.scale = Vector2.ONE
 	button.modulate = Color.WHITE
 	button.position.x = right_offset
-	button.set_meta(&"quiz_answer_keep_shadow_hidden", false)
 	_set_quiz_answer_fill(button, Color.WHITE)
 	var answer_label := _quiz_answer_label(button)
 	if answer_label != null and is_instance_valid(answer_label):
@@ -5496,6 +5732,7 @@ func _prepare_quiz_answer_for_replacement(
 		shadow_panel.scale = Vector2.ONE
 		shadow_panel.modulate = Color.WHITE
 		shadow_panel.position.x = right_offset
+		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 
 func _on_quiz_replace_question_pressed() -> void:
 	if (
@@ -5697,6 +5934,10 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 		0.0,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	open_button.set("drop_shadow_enabled", true)
+	remove_button.set("drop_shadow_enabled", true)
+	open_button.set("disabled_visual_opacity", 1.0)
+	remove_button.set("disabled_visual_opacity", 1.0)
 	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
 	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
 	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
@@ -5725,6 +5966,7 @@ func _stage_portrait_quiz_continue_button() -> Control:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	continue_button.set("drop_shadow_enabled", true)
 	continue_button.z_index = 50
 	continue_button.visible = false
 	continue_button.set("attention_bounce_enabled", false)
@@ -6299,6 +6541,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 			false,
 			LONG_BUTTON_COLOR_BLUE
 		)
+		rewarded_attempt_button.set("drop_shadow_enabled", true)
 		rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
 		rewarded_attempt_button.z_index = 16
 		rewarded_attempt_button.visible = _portrait_ads_enabled()
@@ -6331,6 +6574,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE
 	)
 	purchase_button.z_index = 16
+	purchase_button.set("drop_shadow_enabled", true)
 	purchase_button.set("attention_bounce_enabled", free_offer)
 	if !free_offer:
 		_stage_portrait_popup_coin_purchase_content(
@@ -6654,6 +6898,7 @@ func _show_heart_refill_popup(
 		false,
 		LONG_BUTTON_COLOR_BLUE
 	)
+	rewarded_heart_button.set("drop_shadow_enabled", true)
 	rewarded_heart_button.add_to_group(&"heart_refill_ad_button")
 	rewarded_heart_button.z_index = 16
 	rewarded_heart_button.visible = _portrait_ads_enabled()
@@ -6696,6 +6941,7 @@ func _show_heart_refill_popup(
 	# Keep all custom button content inside the button itself. The complete row is
 	# centered as one block, using the same font size as the extra-attempt popup.
 	purchase_button.z_index = 16
+	purchase_button.set("drop_shadow_enabled", true)
 	purchase_button.mouse_filter = (
 		Control.MOUSE_FILTER_IGNORE if purchase_disabled else Control.MOUSE_FILTER_STOP
 	)
@@ -6880,6 +7126,9 @@ func _show_single_player_level_popup(
 			false
 		)
 		single_player_popup_refresh_button = refresh_button
+		# Theme reroll uses the standard round-button shadow profile (4/3 px),
+		# not the compact top-bar/settings profile.
+		refresh_button.set("drop_shadow_enabled", true)
 		refresh_button.z_index = 15
 		var refresh_price_badge_size := Vector2(44.0, 22.0)
 		var refresh_price_badge_rect := Rect2(
@@ -6948,6 +7197,7 @@ func _show_single_player_level_popup(
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	single_player_popup_play_button.set("drop_shadow_enabled", true)
 	single_player_popup_play_button.set("attention_bounce_enabled", false)
 	if selected_theme >= 0:
 		_select_single_player_popup_theme(level_index, selected_theme)
@@ -8395,13 +8645,14 @@ func _show_exit_game_popup() -> void:
 			two_player_rect.end.y,
 			52.0
 		)
-		_stage_portrait_popup_main_button(
+		var two_player_yes_button := _stage_portrait_popup_main_button(
 			Rect2(82.0, two_player_button_y, 145.0, 52.0),
 			Callable(self, "_confirm_exit_game").bind(true),
 			tr("YES"),
 			20
 		)
-		_stage_portrait_popup_main_button(
+		two_player_yes_button.set("drop_shadow_enabled", true)
+		var two_player_no_button := _stage_portrait_popup_main_button(
 			Rect2(253.0, two_player_button_y, 145.0, 52.0),
 			close_action,
 			tr("NO"),
@@ -8413,6 +8664,7 @@ func _show_exit_game_popup() -> void:
 			false,
 			LONG_BUTTON_COLOR_ORANGE
 		)
+		two_player_no_button.set("drop_shadow_enabled", true)
 		content = two_player_previous_content
 		return
 	var previous_content := _portrait_popup_begin(
@@ -8462,7 +8714,7 @@ func _show_exit_game_popup() -> void:
 	warning_label.clip_text = false
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(warning_label)
 	warning_label.z_index = 11
-	_stage_portrait_popup_main_button(
+	var continue_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 425.0, 300.0, 56.0),
 		close_action,
 		tr("COMMON_CONTINUE"),
@@ -8474,6 +8726,7 @@ func _show_exit_game_popup() -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	continue_button.set("drop_shadow_enabled", true)
 	var exit_button := _stage_portrait_popup_main_button(
 		Rect2(
 			90.0,
@@ -8491,6 +8744,7 @@ func _show_exit_game_popup() -> void:
 		false,
 		LONG_BUTTON_COLOR_BLUE
 	)
+	exit_button.set("drop_shadow_enabled", true)
 	exit_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
 	exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	exit_button.set("trailing_icon_gap_stage", 8.0)
@@ -8529,6 +8783,7 @@ func show_custom_word() -> void:
 		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
 	)
 	custom_word_random_button.name = "CustomWordRandomButton"
+	custom_word_random_button.set("drop_shadow_enabled", true)
 	_stage_portrait_hint_art(custom_word_random_button, PORTRAIT_CUSTOM_WORD_RANDOM_ICON)
 	custom_word_check_button = _stage_round_button(
 		custom_word_action_rects[1],
@@ -8536,7 +8791,9 @@ func show_custom_word() -> void:
 		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
 	)
 	custom_word_check_button.name = "CustomWordCheckButton"
+	custom_word_check_button.set("drop_shadow_enabled", true)
 	custom_word_check_button.set("disabled_visual_opacity", 1.0)
+	custom_word_check_button.set("button_disabled", custom_word_text.is_empty())
 	_stage_portrait_hint_art(custom_word_check_button, PORTRAIT_CUSTOM_WORD_CHECK_ICON)
 
 	# Keep only the primary action attached to the physical bottom above the banner.
@@ -8556,6 +8813,7 @@ func show_custom_word() -> void:
 		!custom_word_text.is_empty(),
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	custom_word_start_button.set("drop_shadow_enabled", true)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_ad_banner()
 
@@ -8569,7 +8827,7 @@ func _set_custom_word_checking(is_checking: bool) -> void:
 		return
 	custom_word_check_button.modulate = Color.WHITE
 	custom_word_check_button.set("selected", false)
-	custom_word_check_button.set("button_disabled", is_checking)
+	custom_word_check_button.set("button_disabled", is_checking or custom_word_text.is_empty())
 	var art_holder: Control = custom_word_check_button.get_node_or_null("HintArtHolder") as Control
 	if art_holder == null:
 		return
@@ -9632,6 +9890,9 @@ func _stage_portrait_result_word_display(
 	)
 	search_button.z_index = 29
 	search_button.set("press_scale_enabled", true)
+	search_button.set("drop_shadow_enabled", true)
+	search_button.set("drop_shadow_offset_y", 2.0)
+	search_button.set("drop_shadow_pressed_offset_y", 1.0)
 	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE)
 	search_button.visible = !animate_result
 	if animate_result:
@@ -10321,6 +10582,12 @@ func _stage_portrait_hint_buttons() -> void:
 		0.0,
 		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
 	)
+	open_button.set("drop_shadow_enabled", true)
+	remove_button.set("drop_shadow_enabled", true)
+	comment_button.set("drop_shadow_enabled", true)
+	open_button.set("disabled_visual_opacity", 1.0)
+	remove_button.set("disabled_visual_opacity", 1.0)
+	comment_button.set("disabled_visual_opacity", 1.0)
 
 	_portrait_game_hint_buttons.clear()
 	open_button.set_meta(&"portrait_hint_key", GameState.HINT_OPEN_LETTER)
@@ -10333,12 +10600,12 @@ func _stage_portrait_hint_buttons() -> void:
 	_stage_portrait_hint_art(
 		open_button,
 		PORTRAIT_HINT_REVEAL_LETTER_ICON,
-		open_hint_used and !open_hint_ad_available
+		false
 	)
 	_stage_portrait_hint_art(
 		remove_button,
 		PORTRAIT_HINT_REMOVE_WRONG_ICON,
-		remove_hint_used and !remove_hint_ad_available
+		false
 	)
 	_stage_portrait_hint_art(
 		comment_button,
@@ -11637,6 +11904,7 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
+	action_button.set("drop_shadow_enabled", true)
 	action_button.z_index = 50
 	_portrait_inline_result_continue_button = action_button
 	content = previous_content
@@ -11691,39 +11959,6 @@ func _reveal_in_place_result_action_after_attempt_stars() -> void:
 func _single_player_level_completed_label() -> String:
 	return "УРОВЕНЬ ПРОЙДЕН" if Database.interface_language == "ru" else "LEVEL COMPLETED"
 
-func _single_player_level_summary_title() -> String:
-	return "НАГРАДЫ" if Database.interface_language == "ru" else "REWARDS"
-
-func _single_player_level_summary_stars_label() -> String:
-	return "Звёзды" if Database.interface_language == "ru" else "Stars"
-
-func _single_player_level_summary_value_text(amount: int) -> String:
-	return "+%d" % maxi(amount, 0)
-
-func _portrait_level_stars_panel_rect(include_unlock_progress: bool = false) -> Rect2:
-	# The second whole-level state replaces the chest with a compact one-row
-	# results panel. Anchor its top where the old combined panel used to begin so
-	# the transition feels like the reward presentation is advancing, not jumping.
-	var prize_rect: Rect2 = _portrait_final_reward_center_rect(
-		PORTRAIT_FINAL_REWARD_COIN_SIZE
-	)
-	var panel_top: float = lerpf(
-		prize_rect.position.y,
-		prize_rect.end.y,
-		PORTRAIT_LEVEL_SUMMARY_PANEL_PRIZE_OVERLAP_RATIO
-	)
-	if include_unlock_progress:
-		var viewport_size: Vector2 = get_viewport_rect().size
-		var continue_top: float = _portrait_in_place_result_button_rect().position.y + PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size) - PORTRAIT_STAGE_LAYOUT.safe_top_stage(viewport_size)
-		panel_top = minf(panel_top, continue_top - 24.0 - PORTRAIT_LEVEL_STARS_PANEL_SIZE.y - 14.0 - 96.0)
-	return Rect2(
-		Vector2(
-			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_LEVEL_STARS_PANEL_SIZE.x) * 0.5,
-			panel_top
-		),
-		PORTRAIT_LEVEL_STARS_PANEL_SIZE
-	)
-
 func _reward_chest_flash_material() -> ShaderMaterial:
 	if _reward_chest_flash_material_cache == null:
 		# Build once on first use; no separate shader file is required to parse Main.
@@ -11732,6 +11967,112 @@ func _reward_chest_flash_material() -> ShaderMaterial:
 		_reward_chest_flash_material_cache = ShaderMaterial.new()
 		_reward_chest_flash_material_cache.shader = shader
 	return _reward_chest_flash_material_cache
+
+func _attach_main_reward_icon_shadow(
+	holder: Control,
+	texture: Texture2D,
+	prefix: String
+) -> Array[TextureRect]:
+	var layers: Array[TextureRect] = []
+	if holder == null or !is_instance_valid(holder) or texture == null:
+		return layers
+	# Match the theme-unlock icon exactly: the regular ad-button shader extrusion,
+	# half depth, tinted with the dark-blue progress-bar track color. Keep the
+	# layers as children of the reward visual so flight/bounce scale affects both.
+	layers = _create_portrait_icon_extrusion_layers(
+		holder,
+		texture,
+		prefix,
+		-1
+	)
+	var shadow_color := Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a
+	)
+	var shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(shadow_color)
+	for layer: TextureRect in layers:
+		layer.material = shadow_material
+	_layout_portrait_icon_holder_extrusion(holder, layers, 0.5)
+	var resize_callback := Callable(self, "_layout_portrait_icon_holder_extrusion").bind(
+		holder,
+		layers,
+		0.5
+	)
+	if !holder.resized.is_connected(resize_callback):
+		holder.resized.connect(resize_callback)
+	holder.set_meta(&"main_reward_icon_shadow_layers", layers)
+	return layers
+
+func _set_main_reward_icon_shadow_texture(holder: Control, texture: Texture2D) -> void:
+	if holder == null or !is_instance_valid(holder) or texture == null:
+		return
+	var layers_variant: Variant = holder.get_meta(&"main_reward_icon_shadow_layers", [])
+	if !(layers_variant is Array):
+		return
+	for layer_variant: Variant in layers_variant:
+		var layer := layer_variant as TextureRect
+		if layer != null and is_instance_valid(layer):
+			layer.texture = texture
+
+func _set_main_reward_icon_shadow_alpha(holder: Control, alpha: float) -> void:
+	if holder == null or !is_instance_valid(holder):
+		return
+	var layers_variant: Variant = holder.get_meta(&"main_reward_icon_shadow_layers", [])
+	if !(layers_variant is Array):
+		return
+	for layer_variant: Variant in layers_variant:
+		var layer := layer_variant as TextureRect
+		if layer != null and is_instance_valid(layer):
+			var layer_modulate: Color = layer.modulate
+			layer_modulate.a = clampf(alpha, 0.0, 1.0)
+			layer.modulate = layer_modulate
+
+func _fade_main_reward_icon_shadow_in(holder: Control, duration: float = 0.22) -> void:
+	if holder == null or !is_instance_valid(holder) or !holder.is_inside_tree():
+		return
+	var layers_variant: Variant = holder.get_meta(&"main_reward_icon_shadow_layers", [])
+	if !(layers_variant is Array):
+		return
+	for layer_variant: Variant in layers_variant:
+		var layer := layer_variant as TextureRect
+		if layer == null or !is_instance_valid(layer):
+			continue
+		var tween := layer.create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var fade := tween.tween_property(
+			layer,
+			"modulate:a",
+			1.0,
+			maxf(duration, 0.01)
+		)
+		fade.set_trans(Tween.TRANS_SINE)
+		fade.set_ease(Tween.EASE_OUT)
+
+func _stage_main_reward_coin_pack_transition(rect: Rect2) -> Control:
+	# FlashStageTexture draws its image on the parent CanvasItem itself, so negative-z
+	# child extrusion layers can be visually swallowed by the main draw. Mirror the
+	# chest implementation instead: use a transparent stage holder, place the shadow
+	# layers behind it, and draw the coin pack as a full-rect child above them.
+	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
+	holder.name = "SingleStageLevelCoinReward"
+	holder.z_index = 20
+	_attach_main_reward_icon_shadow(
+		holder,
+		COIN_PACK_04_TEXTURE,
+		"SingleStageLevelCoinRewardShadow"
+	)
+	var visual := TextureRect.new()
+	visual.name = "CoinPackVisual"
+	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual.texture = COIN_PACK_04_TEXTURE
+	visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	visual.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	holder.add_child(visual)
+	visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	visual.z_index = 0
+	return holder
 
 func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	# Keep both final-prize states alive from the moment the transition is created.
@@ -11744,6 +12085,14 @@ func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	# mask the lower part of the icon like the comment-popup shell masks its theme
 	# icon. Child z-indices stay at zero because CanvasItem z is relative by default.
 	holder.z_index = 20
+	_attach_main_reward_icon_shadow(
+		holder,
+		_reward_chest_closed_texture(),
+		"FinalRewardChestShadow"
+	)
+	# Keep the chest shadow completely hidden throughout the white pressure/flash
+	# effect. It is revealed only after that overlay has fully faded away.
+	_set_main_reward_icon_shadow_alpha(holder, 0.0)
 
 	var closed_visual := TextureRect.new()
 	closed_visual.name = "ChestClosedVisual"
@@ -11811,6 +12160,10 @@ func _set_reward_chest_icon_open_state(chest_icon: Control, is_open: bool) -> vo
 	):
 		closed_visual.visible = !is_open
 		open_visual.visible = is_open
+		_set_main_reward_icon_shadow_texture(
+			chest_icon,
+			_reward_chest_open_texture() if is_open else _reward_chest_closed_texture()
+		)
 		var flash_overlay := _reward_chest_flash_overlay(chest_icon)
 		if flash_overlay != null and is_instance_valid(flash_overlay):
 			flash_overlay.texture = _reward_chest_open_texture() if is_open else _reward_chest_closed_texture()
@@ -11940,6 +12293,8 @@ func _play_level_completion_chest_pressure_burst(
 	if flash_overlay != null and is_instance_valid(flash_overlay):
 		flash_overlay.modulate.a = 0.0
 		flash_overlay.visible = false
+	# Only now, after the white overlay is fully gone, ease the shader shadow in.
+	_fade_main_reward_icon_shadow_in(pack)
 
 func _reveal_level_summary_open_chest(
 	chest_icon: Control,
@@ -11980,84 +12335,579 @@ func _reveal_level_summary_open_chest(
 	if extra_callback.is_valid():
 		extra_callback.call()
 
-func _stage_single_player_level_stars_panel(
-	panel_rect: Rect2,
+func _level_star_text_bounds(text: String, font: Font, font_size: int) -> Rect2:
+	# Glyph advances include side bearings; center the actual glyph bounds instead.
+	var line := TextLine.new()
+	line.add_string(text, font, font_size)
+	var text_server := TextServerManager.get_primary_interface()
+	var bounds := Rect2()
+	var has_ink: bool = false
+	var pen_x: float = 0.0
+	for glyph: Dictionary in text_server.shaped_text_get_glyphs(line.get_rid()):
+		var glyph_size := Vector2i(int(glyph["font_size"]), 0)
+		var font_rid: RID = glyph["font_rid"]
+		var glyph_index: int = int(glyph["index"])
+		for repetition: int in int(glyph["repeat"]):
+			if font_rid.is_valid() and glyph_size.x > 0:
+				var offset: Vector2 = text_server.font_get_glyph_offset(font_rid, glyph_size, glyph_index)
+				var size: Vector2 = text_server.font_get_glyph_size(font_rid, glyph_size, glyph_index)
+				if size.x > 0.0 and size.y > 0.0:
+					var glyph_rect := Rect2(Vector2(pen_x, 0.0) + Vector2(glyph["offset"]) + offset, size)
+					bounds = bounds.merge(glyph_rect) if has_ink else glyph_rect
+					has_ink = true
+			pen_x += float(glyph["advance"])
+	return bounds
+
+func _portrait_level_star_award_size(total_stars: int) -> Vector2:
+	# Measure exactly the same uppercase caption that is rendered in the plaque.
+	# Using the untranslated/lowercase form here made the Russian plaque too narrow.
+	var caption_text: String = tr("LEVEL_STARS_EARNED").to_upper()
+	var value_text: String = str(maxi(total_stars, 0))
+	var caption_width: float = UI_REGULAR_FONT.get_string_size(
+		caption_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20
+	).x
+	var value_width: float = UI_DISPLAY_FONT.get_string_size(
+		value_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 25
+	).x
+	# icon + caption + counter, with fixed inner gaps and enough room for outlines.
+	var content_width: float = (
+		16.0 # left padding
+		+ 36.0 # star icon
+		+ 10.0 # icon-to-caption gap
+		+ caption_width
+		+ 8.0 # caption-to-value gap
+		+ value_width
+		+ 4.0 # outline safety
+		+ 16.0 # right padding
+	)
+	return Vector2(ceil(content_width), PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT)
+
+func _layout_level_star_award_value(value: Label) -> void:
+	var area: Rect2 = value.get_meta(&"star_value_area")
+	var bounds := _level_star_text_bounds(value.text, UI_DISPLAY_FONT, 25)
+	# LEFT/TOP alignment gives an explicit baseline. Adjust whenever the countdown
+	# changes digit count, preserving the same visual center on both axes.
+	value.size = Vector2(UI_DISPLAY_FONT.get_string_size(value.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 25).x, UI_DISPLAY_FONT.get_height(25))
+	value.position = Vector2(
+		area.get_center().x - bounds.get_center().x,
+		area.get_center().y - UI_DISPLAY_FONT.get_ascent(25) - bounds.get_center().y
+	)
+
+func _portrait_level_star_award_rect(
+	prize_rect: Rect2,
+	use_completion_chest: bool,
 	total_stars: int
+) -> Rect2:
+	# Keep the temporary star plaque visually attached to the centered main reward.
+	# It may occupy the later CTA zone because the x2/continue action remains hidden
+	# until the star transfer finishes and the plaque disappears.
+	var amount_rect: Rect2 = (
+		_portrait_level_completion_amount_rect(prize_rect)
+		if use_completion_chest
+		else _portrait_final_reward_amount_rect(prize_rect)
+	)
+	var panel_size: Vector2 = _portrait_level_star_award_size(total_stars)
+	return Rect2(
+		Vector2(
+			(PORTRAIT_STAGE_SIZE.x - panel_size.x) * 0.5,
+			amount_rect.end.y + PORTRAIT_LEVEL_STAR_AWARD_GAP
+		),
+		panel_size
+	)
+
+func _portrait_level_theme_progress_rect(size: Vector2) -> Rect2:
+	# Theme progress belongs to the header zone, not to the centered reward group.
+	# Put it directly under the fixed blue “level completed” title block.
+	var title_bottom_y: float = (
+		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT.position.y
+		+ PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT.size.y
+	)
+	return Rect2(
+		Vector2(
+			(PORTRAIT_STAGE_SIZE.x - size.x) * 0.5,
+			title_bottom_y + PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP
+		),
+		size
+	)
+
+func _stage_single_player_level_star_award_panel(
+	total_stars: int,
+	panel_rect: Rect2
 ) -> Control:
-	var holder := _stage_holder(panel_rect, Control.MOUSE_FILTER_IGNORE)
-	holder.name = "SinglePlayerLevelSummary"
-	# Stars are presented in their own compact panel after the chest offer.
-	holder.z_index = 22
-	var local_rect := Rect2(Vector2.ZERO, panel_rect.size)
-	var panel := _portrait_hint_local_panel(
-		holder,
-		local_rect,
-		PORTRAIT_UI_PALETTE.THEME_CARD,
-		PORTRAIT_LEVEL_SUMMARY_PANEL_CORNER_RADIUS,
-		PORTRAIT_RULE,
-		2.0
+	# Keep authored stage placement on an outer FlashStageControl and animate only
+	# its inner child. If the desired Y crosses the layout's bottom-attachment
+	# threshold on a tall phone, anchor the stage just above that threshold and
+	# express the remaining offset locally. This keeps the plaque beside the
+	# centered reward instead of accidentally jumping to the physical footer.
+	var stage_rect: Rect2 = panel_rect
+	var local_y: float = 0.0
+	if stage_rect.position.y >= PORTRAIT_STAGE_LAYOUT.FIXED_BOTTOM_START:
+		var anchor_y: float = PORTRAIT_STAGE_LAYOUT.FIXED_BOTTOM_START - 1.0
+		local_y = stage_rect.position.y - anchor_y
+		stage_rect.position.y = anchor_y
+	var stage_holder := _stage_holder(
+		stage_rect,
+		Control.MOUSE_FILTER_IGNORE
 	)
-	panel.z_index = 0
-	var header_label := Label.new()
-	header_label.name = "SummaryHeader"
-	header_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Reuse the comment-popup title treatment: the label is centered directly on
-	# the panel's top edge, so the surface visually cuts the title in half.
-	header_label.position = Vector2(0.0, -PORTRAIT_LEVEL_SUMMARY_PANEL_HEADER_HEIGHT * 0.5)
-	header_label.size = Vector2(panel_rect.size.x, PORTRAIT_LEVEL_SUMMARY_PANEL_HEADER_HEIGHT)
-	header_label.text = _single_player_level_summary_title().to_upper()
-	header_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	header_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-	header_label.add_theme_font_size_override(
-		"font_size",
-		maxi(1, int(round(
-			float(PORTRAIT_LEVEL_SUMMARY_HEADER_FONT_SIZE) * PORTRAIT_POPUP_TITLE_SCALE
-		)))
+	stage_holder.name = "SinglePlayerLevelStarAwardStage"
+	stage_holder.z_index = 24
+	var holder := Control.new()
+	holder.name = "SinglePlayerLevelStarAward"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.position = Vector2(0.0, local_y)
+	holder.size = panel_rect.size
+	stage_holder.add_child(holder)
+	holder.pivot_offset = panel_rect.size * 0.5
+	var panel := Panel.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.90)
+	style.border_color = PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_RULE, 0.90)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(26)
+	panel.add_theme_stylebox_override("panel", style)
+	holder.add_child(panel)
+
+	var left_padding: float = 16.0
+	var icon_label_gap: float = 10.0
+	var icon_holder := Control.new()
+	icon_holder.name = "StarAwardIcon"
+	icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_holder.position = Vector2(left_padding, 8.0)
+	icon_holder.size = Vector2.ONE * 36.0
+	icon_holder.z_index = 1
+	holder.add_child(icon_holder)
+	_add_portrait_icon_with_extrusion_to_holder(
+		icon_holder,
+		STAR_CURRENCY_TEXTURE,
+		"StarAwardIconTexture",
+		1,
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a * 0.3,
+		1.0
 	)
-	header_label.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_display(header_label)
-	header_label.clip_text = false
-	header_label.z_index = 2
-	holder.add_child(header_label)
-	var row_top: float = 50.0
-	var row_icon := TextureRect.new()
-	row_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row_icon.texture = STAR_CURRENCY_TEXTURE
-	row_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	row_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	row_icon.position = Vector2(28.0, row_top + (PORTRAIT_LEVEL_SUMMARY_ROW_HEIGHT - PORTRAIT_LEVEL_SUMMARY_ROW_ICON_SIZE) * 0.5)
-	row_icon.size = Vector2.ONE * PORTRAIT_LEVEL_SUMMARY_ROW_ICON_SIZE
-	row_icon.z_index = 2
-	holder.add_child(row_icon)
-	holder.set_meta(&"level_summary_star_icon", row_icon)
+
 	var label := Label.new()
+	label.name = "StarAwardLabel"
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.position = Vector2(72.0, row_top)
-	label.size = Vector2(panel_rect.size.x - 180.0, PORTRAIT_LEVEL_SUMMARY_ROW_HEIGHT)
-	label.text = _single_player_level_summary_stars_label()
+	label.text = tr("LEVEL_STARS_EARNED").to_upper()
+	var label_width: float = UI_REGULAR_FONT.get_string_size(
+		label.text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		20
+	).x
+	label.position = Vector2(icon_holder.position.x + icon_holder.size.x + icon_label_gap, 0.0)
+	label.size = Vector2(label_width, holder.size.y)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
-	label.add_theme_font_size_override("font_size", PORTRAIT_LEVEL_SUMMARY_ROW_LABEL_FONT_SIZE)
+	label.add_theme_font_override("font", UI_REGULAR_FONT)
+	label.add_theme_font_size_override("font_size", 20)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(label)
 	label.z_index = 2
 	holder.add_child(label)
+
 	var value := Label.new()
+	value.name = "StarAwardValue"
 	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	value.position = Vector2(panel_rect.size.x - 136.0, row_top)
-	value.size = Vector2(104.0, PORTRAIT_LEVEL_SUMMARY_ROW_HEIGHT)
-	value.text = _single_player_level_summary_value_text(total_stars)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	value.text = str(maxi(total_stars, 0))
+	var caption_right: float = label.position.x + _level_star_text_bounds(label.text, UI_REGULAR_FONT, 20).end.x + 1.0
+	# Compact caption-to-value gap, independent from the 16 px outer margin.
+	var value_left: float = caption_right + 8.0
+	value.set_meta(&"star_value_area", Rect2(value_left, 0.0, holder.size.x - 16.0 - value_left, holder.size.y))
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	value.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	value.add_theme_font_override("font", UI_DISPLAY_FONT)
-	value.add_theme_font_size_override("font_size", PORTRAIT_LEVEL_SUMMARY_ROW_VALUE_FONT_SIZE)
+	value.add_theme_font_size_override("font_size", 25)
 	value.add_theme_color_override("font_color", Color.WHITE)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(value)
-	value.z_index = 2
+	value.z_index = 3
 	holder.add_child(value)
+	_layout_level_star_award_value(value)
+	holder.set_meta(&"level_star_value_label", value)
+	holder.modulate.a = 0.0
+	holder.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE
 	return holder
+
+func _play_level_star_award_panel_bounce(
+	panel: Control,
+	reveal: bool,
+	peak_callback: Callable = Callable(),
+	finished_callback: Callable = Callable(),
+	hold_at_peak: bool = false
+) -> void:
+	if panel == null or !is_instance_valid(panel) or !panel.is_inside_tree():
+		if peak_callback.is_valid():
+			peak_callback.call()
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
+	panel.visible = true
+	panel.pivot_offset = panel.size * 0.5
+	if reveal:
+		# The plaque begins already at its former bounce peak. Its reveal starts in
+		# the same frame as the main reward artwork swap, then it simply settles
+		# down to normal size while fading in -- no introductory bounce.
+		panel.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE
+		panel.modulate.a = 0.0
+		if peak_callback.is_valid():
+			peak_callback.call()
+		var reveal_tween := panel.create_tween()
+		reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		reveal_tween.set_parallel(true)
+		var reveal_scale := reveal_tween.tween_property(
+			panel,
+			"scale",
+			Vector2.ONE,
+			PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+		)
+		reveal_scale.set_trans(Tween.TRANS_SINE)
+		reveal_scale.set_ease(Tween.EASE_OUT)
+		var reveal_alpha := reveal_tween.tween_property(
+			panel,
+			"modulate:a",
+			1.0,
+			PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+		)
+		reveal_alpha.set_trans(Tween.TRANS_SINE)
+		reveal_alpha.set_ease(Tween.EASE_OUT)
+		await reveal_tween.finished
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
+
+	panel.scale = Vector2.ONE
+	panel.modulate.a = 1.0
+	var grow_tween := panel.create_tween()
+	grow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := grow_tween.tween_property(
+		panel,
+		"scale",
+		Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE,
+		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_BACK)
+	grow.set_ease(Tween.EASE_OUT)
+	await grow_tween.finished
+	if panel == null or !is_instance_valid(panel) or !panel.is_inside_tree():
+		return
+	if peak_callback.is_valid():
+		peak_callback.call()
+	if hold_at_peak:
+		if finished_callback.is_valid():
+			finished_callback.call()
+		return
+	var settle_tween := panel.create_tween()
+	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var settle := settle_tween.tween_property(
+		panel,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	await settle_tween.finished
+	if finished_callback.is_valid():
+		finished_callback.call()
+
+func _set_level_star_award_remaining(value: float, value_label: Label) -> void:
+	if value_label == null or !is_instance_valid(value_label):
+		return
+	value_label.text = str(maxi(int(round(value)), 0))
+	_layout_level_star_award_value(value_label)
+
+func _start_level_summary_coin_and_star_sequence(
+	transition_pack: Control,
+	star_panel: Control,
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	var pending: Dictionary = GameState.get_pending_single_player_reward()
+	var stars_amount: int = maxi(int(pending.get("stars_amount", 0)), 0)
+	var stars_already_claimed: bool = bool(pending.get("stars_claimed", stars_amount <= 0))
+	if star_panel != null and is_instance_valid(star_panel):
+		star_panel.set_meta(&"coin_collection_finished", false)
+		star_panel.set_meta(&"initial_bounce_finished", stars_already_claimed or stars_amount <= 0)
+		star_panel.set_meta(&"star_sequence_started", false)
+		if !stars_already_claimed and stars_amount > 0:
+			_play_level_star_award_panel_bounce(
+				star_panel,
+				true,
+				Callable(),
+				Callable(self, "_on_level_star_initial_bounce_finished").bind(
+					star_panel,
+					theme_progress,
+					actions_reveal_callback
+				)
+			)
+	_play_early_final_reward_coin_claim(
+		transition_pack,
+		Callable(self, "_on_level_summary_coin_collection_finished").bind(
+			star_panel,
+			theme_progress,
+			actions_reveal_callback
+		)
+	)
+
+func _on_level_star_initial_bounce_finished(
+	star_panel: Control,
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	if star_panel == null or !is_instance_valid(star_panel):
+		return
+	star_panel.set_meta(&"initial_bounce_finished", true)
+	_try_start_level_summary_star_sequence(star_panel, theme_progress, actions_reveal_callback)
+
+func _on_level_summary_coin_collection_finished(
+	star_panel: Control,
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	if star_panel == null or !is_instance_valid(star_panel):
+		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+		return
+	star_panel.set_meta(&"coin_collection_finished", true)
+	_try_start_level_summary_star_sequence(star_panel, theme_progress, actions_reveal_callback)
+
+func _try_start_level_summary_star_sequence(
+	star_panel: Control,
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	if star_panel == null or !is_instance_valid(star_panel):
+		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+		return
+	if bool(star_panel.get_meta(&"star_sequence_started", false)):
+		return
+	if !bool(star_panel.get_meta(&"coin_collection_finished", false)):
+		return
+	if !bool(star_panel.get_meta(&"initial_bounce_finished", false)):
+		return
+	star_panel.set_meta(&"star_sequence_started", true)
+	var pending: Dictionary = GameState.get_pending_single_player_reward()
+	var stars_amount: int = maxi(int(pending.get("stars_amount", 0)), 0)
+	if stars_amount <= 0 or bool(pending.get("stars_claimed", false)):
+		star_panel.visible = false
+		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+		return
+	_play_level_star_award_panel_bounce(
+		star_panel,
+		false,
+		Callable(self, "_launch_level_summary_star_collection").bind(
+			star_panel,
+			theme_progress,
+			actions_reveal_callback
+		),
+		Callable(),
+		true
+	)
+
+func _level_star_source_departure_duration() -> float:
+	# The last flying star has fully left the plaque after its stagger plus the
+	# 0.10 s rise phase. Source count and plaque scale must resolve at this exact
+	# moment rather than waiting for the much longer flight-to-HUD tail.
+	return (
+		PORTRAIT_SINGLE_REWARD_FLY_START_DELAY
+		+ float(maxi(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1, 0))
+			* PORTRAIT_SINGLE_REWARD_FLY_STAGGER
+		+ 0.10
+	)
+
+func _reset_level_star_award_panel_after_source_empty(star_panel: Control) -> void:
+	if star_panel == null or !is_instance_valid(star_panel) or !star_panel.is_inside_tree():
+		return
+	# Keep the peak scale until the last star has left the source. As soon as the
+	# plaque starts settling from that bounce peak, fade it out in parallel so the
+	# exit begins during the downward scale motion instead of after it has finished.
+	var settle_tween := star_panel.create_tween()
+	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	settle_tween.set_parallel(true)
+	var settle := settle_tween.tween_property(
+		star_panel,
+		"scale",
+		Vector2.ONE,
+		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_SINE)
+	settle.set_ease(Tween.EASE_OUT)
+	var fade := settle_tween.tween_property(
+		star_panel,
+		"modulate:a",
+		0.0,
+		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
+	)
+	fade.set_trans(Tween.TRANS_SINE)
+	fade.set_ease(Tween.EASE_IN)
+
+func _launch_level_summary_star_collection(
+	star_panel: Control,
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	if star_panel == null or !is_instance_valid(star_panel) or !star_panel.is_inside_tree():
+		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+		return
+	var value_label := star_panel.get_meta(&"level_star_value_label", null) as Label
+	if value_label == null or !is_instance_valid(value_label):
+		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+		return
+	var previous_balance: int = GameState.get_stars()
+	var credited_amount: int = GameState.claim_pending_single_player_level_stars(true)
+	if credited_amount <= 0:
+		_finish_level_summary_star_award(star_panel, theme_progress, actions_reveal_callback)
+		return
+	# Theme progress starts together with the actual star payout, while the star
+	# plaque is held at its peak and the first flying stars leave the source.
+	_start_level_theme_progress_reveal(theme_progress)
+	value_label.text = str(credited_amount)
+	_layout_level_star_award_value(value_label)
+	var final_balance: int = previous_balance + credited_amount
+	_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_STARS)
+	var source_icon := star_panel.get_node_or_null("StarAwardIcon") as Control
+	var collection_source: Control = source_icon if source_icon != null else value_label
+	_play_single_player_reward_resource_collection(
+		collection_source,
+		GameState.STAGE_REWARD_STARS,
+		null,
+		Callable(self, "_finish_level_summary_star_award").bind(
+			star_panel,
+			theme_progress,
+			actions_reveal_callback
+		)
+	)
+	var source_count_tween := value_label.create_tween()
+	source_count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var source_roll := source_count_tween.tween_method(
+		Callable(self, "_set_level_star_award_remaining").bind(value_label),
+		float(credited_amount),
+		0.0,
+		_level_star_source_departure_duration()
+	)
+	source_roll.set_trans(Tween.TRANS_QUAD)
+	source_roll.set_ease(Tween.EASE_OUT)
+	# End the source-state animation in the same frame in which the last star
+	# leaves the plaque: counter is already zero and the held peak scale resets.
+	source_count_tween.tween_callback(
+		Callable(self, "_reset_level_star_award_panel_after_source_empty").bind(star_panel)
+	)
+	var hud_count_tween := create_tween()
+	hud_count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var hud_roll := hud_count_tween.tween_method(
+		Callable(self, "_set_stage_reward_animated_balance").bind(GameState.STAGE_REWARD_STARS),
+		float(previous_balance),
+		float(final_balance),
+		_single_player_reward_collection_duration()
+	)
+	hud_roll.set_trans(Tween.TRANS_QUAD)
+	hud_roll.set_ease(Tween.EASE_OUT)
+
+func _finish_level_summary_star_award(
+	star_panel: Control,
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	if star_panel == null or !is_instance_valid(star_panel) or !star_panel.is_inside_tree():
+		_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+		return
+	# In the normal payout path the plaque has already faded while settling from
+	# its bounce peak. Do not add a second shrink/fade after the flying stars land.
+	# Keep a short fallback fade for any path that reaches here without that settle.
+	if star_panel.modulate.a > 0.001:
+		var hide_tween := star_panel.create_tween()
+		hide_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var fade := hide_tween.tween_property(
+			star_panel,
+			"modulate:a",
+			0.0,
+			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+		)
+		fade.set_trans(Tween.TRANS_SINE)
+		fade.set_ease(Tween.EASE_OUT)
+		await hide_tween.finished
+	if star_panel != null and is_instance_valid(star_panel):
+		star_panel.visible = false
+	_show_level_theme_progress_then_actions(theme_progress, actions_reveal_callback)
+
+func _start_level_theme_progress_reveal(theme_progress: Control) -> void:
+	if theme_progress == null or !is_instance_valid(theme_progress) or !theme_progress.is_inside_tree():
+		return
+	if bool(theme_progress.get_meta(&"theme_progress_reveal_started", false)):
+		return
+	theme_progress.set_meta(&"theme_progress_reveal_started", true)
+	theme_progress.visible = true
+	theme_progress.modulate.a = 0.0
+	var reveal_tween := theme_progress.create_tween()
+	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var fade := reveal_tween.tween_property(
+		theme_progress,
+		"modulate:a",
+		1.0,
+		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+	)
+	fade.set_trans(Tween.TRANS_SINE)
+	fade.set_ease(Tween.EASE_OUT)
+	await reveal_tween.finished
+	if theme_progress == null or !is_instance_valid(theme_progress) or !theme_progress.is_inside_tree():
+		return
+	_animate_theme_unlock_progress(theme_progress)
+
+func _show_level_theme_progress_then_actions(
+	theme_progress: Control,
+	actions_reveal_callback: Callable
+) -> void:
+	if theme_progress == null or !is_instance_valid(theme_progress) or !theme_progress.is_inside_tree():
+		if actions_reveal_callback.is_valid():
+			actions_reveal_callback.call()
+		return
+	# During the normal merged-reward flow theme progress already starts together
+	# with star payout. When stars finish, reveal only the final actions and never
+	# replay/re-fade the progress block.
+	if bool(theme_progress.get_meta(&"theme_progress_reveal_started", false)):
+		if actions_reveal_callback.is_valid():
+			actions_reveal_callback.call()
+		return
+	# Fallback for reward states without an active star payout: keep the existing
+	# final-action-driven theme reveal timing.
+	# Reveal the final x2/continue action first. Theme progress starts only after
+	# the button has finished its reveal/back-bounce animation, so the two focal
+	# animations no longer compete for attention.
+	theme_progress.visible = false
+	theme_progress.modulate.a = 0.0
+	if actions_reveal_callback.is_valid():
+		actions_reveal_callback.call()
+	# On ad-enabled reward screens, show theme progress at the same moment as
+	# “No, thanks”: after the x2 button has revealed, played its one-off shine and
+	# reached the existing collect-action delay. Without ads, keep the old reveal
+	# timing because there is no secondary collect action to synchronize with.
+	var progress_reveal_delay: float = PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+	if _portrait_ads_enabled():
+		progress_reveal_delay += PORTRAIT_FINAL_REWARD_COLLECT_DELAY
+	await get_tree().create_timer(
+		progress_reveal_delay,
+		true,
+		false,
+		true
+	).timeout
+	if theme_progress == null or !is_instance_valid(theme_progress) or !theme_progress.is_inside_tree():
+		return
+	theme_progress.visible = true
+	var reveal_tween := theme_progress.create_tween()
+	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var fade := reveal_tween.tween_property(
+		theme_progress,
+		"modulate:a",
+		1.0,
+		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
+	)
+	fade.set_trans(Tween.TRANS_SINE)
+	fade.set_ease(Tween.EASE_OUT)
+	await reveal_tween.finished
+	if theme_progress == null or !is_instance_valid(theme_progress) or !theme_progress.is_inside_tree():
+		return
+	_animate_theme_unlock_progress(theme_progress)
 
 func _level_theme_unlock_progress() -> Dictionary:
 	var completed: int = GameState.get_theme_unlock_completed_levels(Database.current_language)
@@ -12077,16 +12927,17 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	holder.size = rect.size
 	parent.add_child(holder)
 	# Keep this reward as a lightweight progress element without an extra card
-	# surface. The stars summary panel above already provides enough grouping.
-	var bar_width: float = rect.size.x - 102.0
+	# surface. On the merged reward screen it occupies the dedicated top slot.
+	var bar_width: float = (rect.size.x - 102.0) * 0.70 * 1.15
 	var bar_x: float = (rect.size.x - bar_width) * 0.5
 	var title := Label.new()
 	title.name = "UnlockTitle"
 	# Sit close to the bar and share its exact horizontal center.
-	title.position = Vector2(bar_x, 15.0)
-	title.size = Vector2(bar_width, 30.0)
+	title.position = Vector2(bar_x, 0.0)
+	title.size = Vector2(bar_width, 26.0)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.text = tr("NEXT_THEME_UNLOCK")
+	var title_text: String = tr("NEXT_THEME_UNLOCK").to_lower()
+	title.text = title_text.left(1).to_upper() + title_text.substr(1)
 	title.add_theme_font_override("font", UI_REGULAR_FONT)
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", Color.WHITE)
@@ -12098,22 +12949,55 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	# track itself works as the progress bar outline instead of being covered.
 	var bar_frame := Panel.new()
 	bar_frame.name = "UnlockBarFrame"
-	bar_frame.position = Vector2(bar_x, 48.0)
-	bar_frame.size = Vector2(bar_width, 28.0)
+	# Keep the 30 px fill height while using a visibly heavier lower edge:
+	# 5 px top/sides and 9 px bottom at the 960 px reference viewport.
+	bar_frame.position = Vector2(bar_x, 30.0)
+	bar_frame.size = Vector2(bar_width, 36.5)
 	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_frame.clip_contents = true
+	# Reuse the rounded-badge shader extrusion for the complete progress plaque.
+	# Keep it in a dedicated holder so the shadow can extend outside the clipped
+	# bar frame while following exactly the same rounded geometry.
+	var bar_shadow_holder := Control.new()
+	bar_shadow_holder.name = "UnlockBarShadow"
+	bar_shadow_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_shadow_holder.position = bar_frame.position
+	bar_shadow_holder.size = bar_frame.size
+	bar_shadow_holder.z_index = 1
+	holder.add_child(bar_shadow_holder)
+	var bar_shadow_layers := _create_portrait_rounded_panel_extrusion_layers(
+		bar_shadow_holder,
+		"UnlockBarShadow",
+		0
+	)
+	_layout_portrait_rounded_panel_extrusion_layers(
+		bar_shadow_layers,
+		bar_frame.size,
+		bar_frame.size.y * 0.5
+	)
+	# This plaque uses a lighter extrusion; do not change other badge shadows.
+	if !bar_shadow_layers.is_empty():
+		var shadow_material := bar_shadow_layers[0].material as ShaderMaterial
+		var shadow_color: Color = PORTRAIT_DARK_BLUE.lightened(0.18)
+		shadow_color.a = BADGE_SHADOW_STYLE_SCRIPT.SHADOW_ALPHA
+		shadow_material.set_shader_parameter("shadow_color", shadow_color)
 	var track := StyleBoxFlat.new()
 	track.bg_color = PORTRAIT_DARK_BLUE
-	track.set_corner_radius_all(14)
+	track.set_corner_radius_all(18)
 	bar_frame.add_theme_stylebox_override("panel", track)
 	bar_frame.z_index = 2
 	holder.add_child(bar_frame)
 
 	var bar := ProgressBar.new()
 	bar.name = "UnlockBar"
-	var bar_inset := 2.0
-	bar.position = bar_frame.position + Vector2.ONE * bar_inset
-	bar.size = bar_frame.size - Vector2.ONE * bar_inset * 2.0
+	# Keep the fill itself asymmetrically inset inside one continuous rounded track:
+	# 5 px on top/sides and 9 px on the bottom at the 960 px reference viewport.
+	# No overlay/masking strip is needed, so there is no seam at the rounded edge.
+	bar.position = bar_frame.position + PORTRAIT_THEME_BAR_INSET
+	bar.size = Vector2(
+		bar_frame.size.x - PORTRAIT_THEME_BAR_INSET.x * 2.0,
+		bar_frame.size.y - PORTRAIT_THEME_BAR_INSET.y - PORTRAIT_THEME_BAR_BOTTOM_INSET
+	)
 	bar.min_value = 0.0
 	bar.max_value = float(progress["total"])
 	bar.value = float(progress["from"])
@@ -12121,45 +13005,54 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var inner_track := StyleBoxFlat.new()
 	inner_track.bg_color = Color.TRANSPARENT
-	inner_track.set_corner_radius_all(11)
+	inner_track.set_corner_radius_all(15)
 	var transparent_fill := StyleBoxFlat.new()
 	transparent_fill.bg_color = Color.TRANSPARENT
-	transparent_fill.set_corner_radius_all(12)
+	transparent_fill.set_corner_radius_all(15)
 	bar.add_theme_stylebox_override("background", inner_track)
 	bar.add_theme_stylebox_override("fill", transparent_fill)
 	bar.z_index = 2
 	holder.add_child(bar)
-	# Draw the green portion ourselves inside the dark frame. Godot's native
-	# ProgressBar fill can extend past an inset track depending on the stylebox,
-	# so an explicit child keeps the 2 px dark rim exact on every side.
-	var fill_panel := Panel.new()
+	# Reveal the full-size rounded fill through a rectangular clip mask. The fill
+	# itself never changes shape, so the first pixels slide out from the left instead
+	# of squeezing the rounded geometry into a narrow vertical capsule.
+	var fill_mask := Control.new()
+	fill_mask.name = "UnlockBarFillMask"
+	fill_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill_mask.position = bar.position - bar_frame.position
+	fill_mask.size = Vector2(0.0, bar.size.y)
+	fill_mask.clip_contents = true
+	bar_frame.add_child(fill_mask)
+	var fill_panel := ColorRect.new()
 	fill_panel.name = "UnlockBarFill"
 	fill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill_panel.position = Vector2.ONE * bar_inset
-	fill_panel.size = Vector2(0.0, bar_frame.size.y - bar_inset * 2.0)
-	var fill_style := StyleBoxFlat.new()
-	fill_style.bg_color = StageLetterButton.CIRCLED_COLOR
-	fill_style.set_corner_radius_all(12)
-	fill_panel.add_theme_stylebox_override("panel", fill_style)
-	bar_frame.add_child(fill_panel)
+	fill_panel.position = Vector2.ZERO
+	fill_panel.size = bar.size
+	fill_panel.color = Color.WHITE
+	var fill_shader := Shader.new()
+	fill_shader.code = THEME_UNLOCK_FILL_SHADER_CODE
+	var fill_material := ShaderMaterial.new()
+	fill_material.shader = fill_shader
+	fill_material.set_shader_parameter("fill_size", fill_panel.size)
+	fill_material.set_shader_parameter("base_color", PORTRAIT_UI_PALETTE.BUTTON_BLUE)
+	fill_material.set_shader_parameter("highlight_color", Color("#96A9FF"))
+	fill_panel.material = fill_material
+	fill_mask.add_child(fill_panel)
 	var count := Label.new()
 	count.name = "UnlockCount"
 	count.position = bar_frame.position
 	count.size = bar_frame.size
 	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	count.add_theme_font_override("font", UI_REGULAR_FONT)
+	count.add_theme_font_override("font", UI_DISPLAY_FONT)
 	count.add_theme_font_size_override("font_size", 20)
 	count.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(count)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_display(count)
 	count.z_index = 3
 	holder.add_child(count)
 	var theme_index: int = Database.THEME_IDS.find(int(progress["theme_id"]))
-	var icon := TextureRect.new()
+	var icon := Control.new()
 	icon.name = "UnlockThemeIcon"
-	icon.texture = _theme_icon_texture(theme_index)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	# Keep the icon centered vertically on the bar and let it sit on the right
 	# endpoint. Theme icons contain a little transparent padding, so move the
 	# texture box slightly past the frame end; this keeps the visible artwork on
@@ -12175,6 +13068,45 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.z_index = 2
 	holder.add_child(icon)
+	# Use the same shader-extrusion technique as ad-button icons, but make this
+	# shadow half as deep and tint it with the progress-bar track blue.
+	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
+	var icon_shadow_layers := _create_portrait_icon_extrusion_layers(
+		icon,
+		theme_icon_texture,
+		"UnlockThemeIcon",
+		0
+	)
+	var theme_icon_shadow_color := Color(
+		PORTRAIT_DARK_BLUE.r,
+		PORTRAIT_DARK_BLUE.g,
+		PORTRAIT_DARK_BLUE.b,
+		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a
+	)
+	var theme_icon_shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(theme_icon_shadow_color)
+	for shadow_layer: TextureRect in icon_shadow_layers:
+		shadow_layer.material = theme_icon_shadow_material
+	_layout_portrait_icon_holder_extrusion(icon, icon_shadow_layers, 0.5)
+	# Animate saturation on one artwork surface to avoid opacity dips from
+	# crossfading two copies while the shadow remains stable underneath.
+	var artwork := TextureRect.new()
+	artwork.name = "Artwork"
+	artwork.texture = theme_icon_texture
+	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	artwork.z_index = 1
+	var icon_shader := Shader.new()
+	icon_shader.code = THEME_UNLOCK_ICON_GRAYSCALE_SHADER_CODE
+	var icon_material := ShaderMaterial.new()
+	icon_material.shader = icon_shader
+	icon_material.set_shader_parameter("saturation", 0.0)
+	icon_material.set_shader_parameter("shadow_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE_SELECTED)
+	icon_material.set_shader_parameter("highlight_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE.lightened(0.10))
+	artwork.material = icon_material
+	icon.add_child(artwork)
+	artwork.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Keep the count centered across the complete frame, including the icon end.
 	holder.set_meta(&"unlock_progress", progress)
 	_set_theme_unlock_bar_value(float(progress["from"]), holder)
 	return holder
@@ -12185,19 +13117,20 @@ func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
 	var bar := holder.get_node("UnlockBar") as ProgressBar
 	bar.value = value
 	var bar_frame := holder.get_node("UnlockBarFrame") as Control
-	var fill_panel := bar_frame.get_node("UnlockBarFill") as Control
-	var bar_inset: float = 2.0
+	var fill_mask := bar_frame.get_node("UnlockBarFillMask") as Control
+	var fill_panel := fill_mask.get_node("UnlockBarFill") as Control
 	var ratio: float = 0.0
 	if bar.max_value > 0.0:
 		ratio = clampf(value / bar.max_value, 0.0, 1.0)
-	fill_panel.position = Vector2.ONE * bar_inset
-	fill_panel.size = Vector2(
-		maxf(0.0, bar_frame.size.x - bar_inset * 2.0) * ratio,
-		maxf(0.0, bar_frame.size.y - bar_inset * 2.0)
-	)
-	fill_panel.visible = ratio > 0.0
+	fill_mask.position = bar.position - bar_frame.position
+	fill_mask.size = Vector2(bar.size.x * ratio, bar.size.y)
+	fill_panel.position = Vector2.ZERO
+	fill_panel.size = bar.size
+	var fill_material := fill_panel.material as ShaderMaterial
+	fill_material.set_shader_parameter("fill_size", fill_panel.size)
+	fill_mask.visible = ratio > 0.0
 	var count := holder.get_node("UnlockCount") as Label
-	count.text = "%d/%d" % [int(round(value)), int(bar.max_value)]
+	count.text = "%d / %d" % [int(round(value)), int(bar.max_value)]
 
 func _ensure_theme_unlock_glow(holder: Control) -> Control:
 	if holder == null or !is_instance_valid(holder):
@@ -12226,44 +13159,86 @@ func _ensure_theme_unlock_glow(holder: Control) -> Control:
 	holder.add_child(glow)
 	return glow
 
-func _animate_theme_unlock_progress(holder: Control) -> void:
+func _animate_theme_unlock_progress(
+	holder: Control,
+	finished_callback: Callable = Callable()
+) -> void:
 	if holder == null or !is_instance_valid(holder) or !holder.is_inside_tree():
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	if bool(holder.get_meta(&"unlock_animation_started", false)):
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	holder.set_meta(&"unlock_animation_started", true)
 	var progress: Dictionary = holder.get_meta(&"unlock_progress", {})
 	var tween := holder.create_tween()
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_method(Callable(self, "_set_theme_unlock_bar_value").bind(holder),
-		float(progress["from"]), float(progress["to"]), 0.75
+		float(progress["from"]), float(progress["to"]), 0.577
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await tween.finished
-	if !is_instance_valid(holder) or !holder.is_inside_tree() or !bool(progress.get("unlocked", false)):
+	if !is_instance_valid(holder) or !holder.is_inside_tree():
+		return
+	if !bool(progress.get("unlocked", false)):
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	var bar := holder.get_node("UnlockBar") as ProgressBar
 	_set_theme_unlock_bar_value(bar.max_value, holder)
 	var title := holder.get_node("UnlockTitle") as Label
 	title.hide()
 	var count := holder.get_node("UnlockCount") as Label
+	var caption_area_width: float = count.size.x
 	count.text = tr("NEW_THEME_UNLOCKED")
+	var caption_width: float = UI_DISPLAY_FONT.get_string_size(count.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20).x
+	# Fit symmetrically around the full bar center while keeping clear of the icon.
+	var caption_center_x: float = count.position.x + caption_area_width * 0.5
+	var icon_left: float = (holder.get_node("UnlockThemeIcon") as Control).position.x
+	var caption_fit_width: float = minf(caption_area_width - 6.0, (icon_left - caption_center_x - 4.0) * 2.0)
+	var caption_font_size: int = mini(20, int(floor(20.0 * maxf(caption_fit_width, 1.0) / maxf(caption_width, 1.0))))
+	count.add_theme_font_size_override("font_size", maxi(caption_font_size, 1))
+	count.size.x = caption_area_width
 	count.z_index = 4
 	count.show()
 	var icon := holder.get_node("UnlockThemeIcon") as Control
-	var bounce := icon.create_tween()
-	bounce.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	bounce.tween_property(icon, "scale", Vector2.ONE * 1.234, 0.16).set_trans(Tween.TRANS_SINE)
-	bounce.tween_property(icon, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	await bounce.finished
+	var fill := holder.get_node("UnlockBarFrame/UnlockBarFillMask/UnlockBarFill") as Control
+	var fill_material := fill.material as ShaderMaterial
+	var recolor := holder.create_tween()
+	recolor.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	recolor.set_parallel(true)
+	recolor.tween_property(fill_material, "shader_parameter/base_color", PORTRAIT_UI_PALETTE.SUCCESS_SELECTED, 0.30).set_trans(Tween.TRANS_SINE)
+	recolor.tween_property(fill_material, "shader_parameter/highlight_color", PORTRAIT_UI_PALETTE.SUCCESS_SOFT, 0.30).set_trans(Tween.TRANS_SINE)
+	var bounce_up := icon.create_tween()
+	bounce_up.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	bounce_up.tween_property(icon, "scale", Vector2.ONE * 1.234, 0.16).set_trans(Tween.TRANS_SINE)
+	await bounce_up.finished
 	if !is_instance_valid(holder) or !holder.is_inside_tree():
 		return
+	# Start revealing the rotating glow exactly at the bounce peak, while the
+	# colored theme icon is still held at its maximum scale.
 	var glow := _ensure_theme_unlock_glow(holder)
-	if glow == null or !is_instance_valid(glow):
-		return
-	_start_final_reward_glow_rotation(glow, PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION)
-	var glow_fade := glow.create_tween()
-	glow_fade.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	glow_fade.tween_property(glow, "modulate", Color(1.0, 1.0, 1.0, 0.52), 0.35).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if glow != null and is_instance_valid(glow):
+		_start_final_reward_glow_rotation(glow, PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION)
+		var glow_fade := glow.create_tween()
+		glow_fade.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		glow_fade.tween_property(
+			glow,
+			"modulate",
+			Color(1.0, 1.0, 1.0, 0.52),
+			0.35
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	# Restore the original colors while holding the peak briefly, then settle the
+	# icon back to rest. The glow fade runs in parallel from the peak onward.
+	var icon_material := (icon.get_node("Artwork") as TextureRect).material as ShaderMaterial
+	var settle := icon.create_tween()
+	settle.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	settle.tween_property(icon_material, "shader_parameter/saturation", 1.0, 0.12).set_trans(Tween.TRANS_SINE)
+	settle.tween_property(icon, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await settle.finished
+	if finished_callback.is_valid():
+		finished_callback.call()
 
 func _single_player_reward_chain_count_text(amount: int) -> String:
 	return "x%d" % maxi(amount, 0)
@@ -12585,12 +13560,14 @@ func _set_portrait_flying_reward_resource_progress(
 
 func _play_single_player_reward_coin_collection(
 	source_visual: Control,
-	continue_button: Control = null
+	continue_button: Control = null,
+	finished_callback: Callable = Callable()
 ) -> void:
 	_play_single_player_reward_resource_collection(
 		source_visual,
 		GameState.STAGE_REWARD_COINS,
-		continue_button
+		continue_button,
+		finished_callback
 	)
 
 func _play_single_player_reward_resource_collection(
@@ -12635,6 +13612,30 @@ func _play_single_player_reward_resource_collection(
 		if reward_currency == GameState.STAGE_REWARD_STARS
 		else PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE
 	)
+	if (
+		reward_currency == GameState.STAGE_REWARD_STARS
+		and source_visual.name == &"StarAwardIcon"
+		and source_visual.get_parent() != null
+		and source_visual.get_parent().name == &"SinglePlayerLevelStarAward"
+	):
+		# Match the flying copies to the star that is actually visible on the plaque.
+		# The plaque is held at its peak scale when collection starts, so using the
+		# transformed source bounds (rather than the generic flying-star constant)
+		# keeps the first animated star pixel-aligned with StarAwardIcon on every
+		# viewport size and at every parent scale.
+		var source_transform: Transform2D = source_visual.get_global_transform_with_canvas()
+		var overlay_inverse: Transform2D = overlay.get_global_transform_with_canvas().affine_inverse()
+		var source_origin: Vector2 = overlay_inverse * (source_transform * Vector2.ZERO)
+		var source_x_end: Vector2 = overlay_inverse * (
+			source_transform * Vector2(source_visual.size.x, 0.0)
+		)
+		var source_y_end: Vector2 = overlay_inverse * (
+			source_transform * Vector2(0.0, source_visual.size.y)
+		)
+		resource_size = Vector2(
+			source_origin.distance_to(source_x_end),
+			source_origin.distance_to(source_y_end)
+		)
 	var resource_texture: Texture2D = (
 		STAR_CURRENCY_TEXTURE
 		if reward_currency == GameState.STAGE_REWARD_STARS
@@ -12659,6 +13660,10 @@ func _play_single_player_reward_resource_collection(
 		resource_icon.position = source_viewport_center - resource_size * 0.5
 		resource_icon.scale = Vector2.ONE
 		resource_icon.modulate.a = 0.0
+		# Currency stacks peel from the top: resource_index 0 launches first and is
+		# therefore rendered above every later icon. As it leaves, the next layer
+		# underneath becomes the visible source, matching the coin/star payout flow.
+		resource_icon.z_index = PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - resource_index
 		overlay.add_child(resource_icon)
 
 		var spread_sign: float = -1.0 if resource_index % 2 == 0 else 1.0
@@ -13401,6 +14406,12 @@ func _portrait_final_reward_center_rect(size: Vector2) -> Rect2:
 		size
 	)
 
+func _portrait_level_reward_prize_rect(size: Vector2, _has_level_stars: bool) -> Rect2:
+	# The merged stars flow no longer pushes the main reward upward. Keep the chest
+	# or coin pack on the true screen center and attach the compact star plaque
+	# below its amount instead.
+	return _portrait_final_reward_center_rect(size)
+
 func _portrait_final_reward_amount_rect(coin_rect: Rect2) -> Rect2:
 	return Rect2(
 		Vector2(
@@ -13802,6 +14813,10 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 	button.set("icon_gap_stage", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP)
 	button.set("icon_before_text", true)
 	button.set("icon_shadow_enabled", true)
+	button.set("trailing_icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
+	button.set("trailing_icon_stage_size", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE)
+	button.set("trailing_icon_gap_stage", 6.0)
+	button.set("trailing_icon_shadow_enabled", true)
 	var label := button.get_node_or_null("Text") as Label
 	if label != null and is_instance_valid(label):
 		label.visible = true
@@ -13819,10 +14834,31 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 		if child != null and is_instance_valid(child):
 			child.visible = false
 
+func _prepare_final_reward_rewarded_ad() -> void:
+	if !_portrait_ads_enabled():
+		return
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !is_instance_valid(ads_service):
+		return
+	_connect_final_reward_ad_signals(ads_service)
+	if (
+		ads_service.has_method("is_rewarded_video_loaded")
+		and bool(ads_service.call("is_rewarded_video_loaded"))
+	):
+		return
+	# Preload as soon as the x2 CTA is built. Loading may happen automatically,
+	# but explicitly warming it here prevents the final-reward button from being
+	# the first code path that asks the SDK for a rewarded ad. This never shows an
+	# ad automatically; a show still requires the player's button press.
+	if ads_service.has_method("load_rewarded_video"):
+		ads_service.call("load_rewarded_video")
+
 func _configure_final_reward_double_button(button: Control, bonus_amount: int) -> void:
 	if button == null or !is_instance_valid(button):
 		return
+	_prepare_final_reward_rewarded_ad()
 	_sync_final_reward_double_button_content(button)
+	button.set("drop_shadow_enabled", true)
 	# Keep the standard stretchable long-button slices and only tint them to the
 	# same purple used by rewarded-ad indicators.
 	if button.has_method("set_color_palette"):
@@ -13963,7 +14999,8 @@ func _start_single_player_level_summary_transition_deferred(
 	actions_reveal_callback: Callable = Callable(),
 	bounce_peak_callback: Callable = Callable(),
 	use_chest_animation: bool = true,
-	bounce_finished_callback: Callable = Callable()
+	bounce_finished_callback: Callable = Callable(),
+	has_level_stars: bool = false
 ) -> void:
 	# The stage chain remains hidden on the whole-level reward step, but the closed
 	# chest now uses the standard large-reward flight and bounce. It opens exactly
@@ -14014,10 +15051,13 @@ func _start_single_player_level_summary_transition_deferred(
 	if use_chest_animation:
 		_set_reward_chest_icon_open_state(transition_prize, false)
 	transition_prize.modulate.a = 1.0
-	var target_prize_rect: Rect2 = _portrait_final_reward_center_rect(
-		PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
-		if use_chest_animation
-		else PORTRAIT_FINAL_REWARD_COIN_SIZE
+	var target_prize_rect: Rect2 = _portrait_level_reward_prize_rect(
+		(
+			PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
+			if use_chest_animation
+			else PORTRAIT_FINAL_REWARD_COIN_SIZE
+		),
+		has_level_stars
 	)
 	var flight_tween := transition_prize.create_tween()
 	flight_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -14054,124 +15094,6 @@ func _start_single_player_level_summary_transition_deferred(
 		bounce_finished_callback.call()
 	if actions_reveal_callback.is_valid():
 		actions_reveal_callback.call()
-
-func _start_single_player_level_stars_state_deferred(
-	summary_panel: Control,
-	continue_button: Control,
-	total_stars: int
-) -> void:
-	# Stars are the second, separate whole-level reward state. Reveal the compact
-	# panel first, then credit stars and reuse the standard resource flight into
-	# the HUD. A persisted claimed state only re-reveals the panel and Continue.
-	if summary_panel == null or !is_instance_valid(summary_panel) or !summary_panel.is_inside_tree():
-		_reveal_single_player_reward_continue_button(continue_button)
-		return
-	var panel_tween := summary_panel.create_tween()
-	panel_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	panel_tween.tween_property(
-		summary_panel,
-		"modulate:a",
-		1.0,
-		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
-	)
-	await panel_tween.finished
-	if summary_panel == null or !is_instance_valid(summary_panel) or !summary_panel.is_inside_tree():
-		return
-
-	_animate_theme_unlock_progress(summary_panel.get_node_or_null("ThemeUnlockProgress") as Control)
-
-	var star_reward: Dictionary = GameState.get_active_single_player_stage_reward()
-	if (
-		total_stars <= 0
-		or star_reward.is_empty()
-		or bool(star_reward.get("claimed", false))
-	):
-		_reveal_single_player_reward_continue_button(continue_button)
-		return
-	var source_icon := summary_panel.get_meta(&"level_summary_star_icon", null) as Control
-	var previous_balance: int = GameState.get_stars()
-	var claim_result: Dictionary = GameState.claim_active_single_player_stage_reward(true)
-	var credited_amount: int = maxi(int(claim_result.get("amount", 0)), 0)
-	if credited_amount <= 0:
-		_reveal_single_player_reward_continue_button(continue_button)
-		return
-	var final_balance: int = previous_balance + credited_amount
-	_set_stage_reward_animated_balance(
-		float(previous_balance),
-		GameState.STAGE_REWARD_STARS
-	)
-	_play_single_player_reward_resource_collection(
-		source_icon,
-		GameState.STAGE_REWARD_STARS,
-		continue_button
-	)
-	var count_tween := create_tween()
-	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var roll := count_tween.tween_method(
-		Callable(self, "_set_stage_reward_animated_balance").bind(
-			GameState.STAGE_REWARD_STARS
-		),
-		float(previous_balance),
-		float(final_balance),
-		_single_player_reward_collection_duration()
-	)
-	roll.set_trans(Tween.TRANS_QUAD)
-	roll.set_ease(Tween.EASE_OUT)
-
-func _show_completed_single_player_level_stars() -> void:
-	if bool(last_result_data.get("single_player_level_stars_view", false)):
-		return
-	if !bool(last_result_data.get("single_player_level_completed", false)):
-		return
-	var level_index: int = int(last_result_data.get(
-		"single_player_level_index",
-		single_player_active_level_index
-	))
-	var word_count: int = maxi(int(last_result_data.get(
-		"single_player_total_count",
-		_single_player_level_word_count(level_index)
-	)), 1)
-	var word_slot: int = clampi(int(last_result_data.get(
-		"single_player_word_slot",
-		word_count - 1
-	)), 0, word_count - 1)
-	var total_stars: int = GameState.get_single_level_guessed_count(Database.current_language, level_index, word_count)
-	last_result_data["single_player_level_summary_view"] = true
-	last_result_data["single_player_level_stars_view"] = true
-	last_result_data["single_player_level_stars_amount"] = maxi(total_stars, 0)
-
-	# Replace the claimed chest offer with the stars snapshot in a single save.
-	# There must be no persisted gap between these two resumable reward states.
-	var selected_theme_index: int = _single_player_level_selected_theme(level_index)
-	var selected_theme_id: int = (
-		Database.get_theme_id(selected_theme_index)
-		if selected_theme_index >= 0
-		else 0
-	)
-	GameState.set_active_single_player_session({
-		"kind": "next",
-		"language": Database.current_language,
-		"level_index": level_index,
-		"word_slot": word_slot,
-		"theme_id": selected_theme_id,
-		"data": {
-			"result": last_result_data.duplicate(true),
-			"reward_currency": GameState.STAGE_REWARD_STARS,
-			"reward_amount": maxi(total_stars, 0),
-			"reward_claimed": total_stars <= 0,
-			"reward_double_resolved": true,
-			"reward_double_claimed": false,
-		},
-	}, false)
-	GameState.clear_pending_single_player_reward(false)
-	GameState.save_game()
-	_portrait_single_reward_resume_without_intro = true
-	_portrait_final_reward_claim_in_progress = false
-	_portrait_reward_double_context = &""
-	# Completion coins (including the rewarded-ad bonus) are already reflected in
-	# the HUD before this state starts; do not replay them later on Home.
-	_portrait_pending_home_reward_amount = 0
-	_show_single_player_reward_chain_screen()
 
 func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
 	var textures: Array = []
@@ -14873,7 +15795,10 @@ func _claim_single_player_final_reward() -> void:
 		return
 	_complete_single_player_final_reward(1)
 
-func _play_early_final_reward_coin_claim(source_visual: Control) -> void:
+func _play_early_final_reward_coin_claim(
+	source_visual: Control,
+	finished_callback: Callable = Callable()
+) -> void:
 	var previous_balance: int = GameState.get_soft_currency()
 	var credited_reward_amount: int = _complete_single_player_final_reward(
 		1,
@@ -14881,13 +15806,19 @@ func _play_early_final_reward_coin_claim(source_visual: Control) -> void:
 		false
 	)
 	if credited_reward_amount <= 0:
+		if finished_callback.is_valid():
+			finished_callback.call()
 		return
 	var final_balance: int = previous_balance + credited_reward_amount
 	_set_stage_reward_animated_balance(
 		float(previous_balance),
 		GameState.STAGE_REWARD_COINS
 	)
-	_play_single_player_reward_coin_collection(source_visual)
+	_play_single_player_reward_coin_collection(
+		source_visual,
+		null,
+		finished_callback
+	)
 	var count_tween := create_tween()
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
@@ -14927,21 +15858,16 @@ func _complete_single_player_final_reward(
 
 func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) -> void:
 	_stop_final_reward_continue_attention()
-	var advance_to_level_stars: bool = (
-		bool(last_result_data.get("single_player_level_summary_view", false))
-		and !bool(last_result_data.get("single_player_level_stars_view", false))
-	)
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
 	_portrait_reward_double_context = &""
-	if advance_to_level_stars:
-		# No-thanks and a completed rewarded ad both advance to the second whole-level
-		# state instead of finishing navigation immediately.
-		GameState.resolve_pending_single_player_reward_double(false, false)
-		_show_completed_single_player_level_stars()
-		return
+	# Stars are now part of this same reward presentation and are credited before
+	# the x2 / No Thanks actions appear. Keep this finalization idempotent for old
+	# or interrupted saves, then clear the durable level-reward snapshot.
+	GameState.claim_pending_single_player_level_stars(false)
+	GameState.clear_pending_single_player_reward(true)
 	if next_theme_level_index < 0:
 		var completed_level_index: int = int(last_result_data.get(
 			"single_player_level_index",
@@ -15083,6 +16009,9 @@ func _show_single_player_reward_chain_screen() -> void:
 	if level_index < 0:
 		show_menu()
 		return
+	if bool(last_result_data.get("single_player_level_stars_view", false)):
+		_finish_legacy_single_player_level_stars_state()
+		return
 	var is_failure_reward: bool = !last_result_is_win
 
 	var word_count: int = maxi(
@@ -15108,15 +16037,23 @@ func _show_single_player_reward_chain_screen() -> void:
 		final_stage_completed
 		and bool(last_result_data.get("single_player_level_summary_view", false))
 	)
-	var is_level_stars_summary: bool = (
-		is_level_summary
-		and bool(last_result_data.get("single_player_level_stars_view", false))
-	)
 	var pending_level_reward: Dictionary = GameState.get_pending_single_player_reward()
 	var is_final_reward: bool = (
 		is_level_summary
-		and !is_level_stars_summary
 		and maxi(int(pending_level_reward.get("amount", 0)), 0) > 0
+	)
+	if is_final_reward:
+		# From this point on, an interrupted app/session should finish the level
+		# instead of resurrecting the reward screen as Home -> Continue.
+		GameState.mark_pending_single_player_reward_presented(true)
+	var level_star_reward_amount: int = maxi(
+		int(pending_level_reward.get("stars_amount", 0)),
+		0
+	)
+	var has_level_star_reward: bool = (
+		is_final_reward
+		and word_count > 1
+		and level_star_reward_amount > 0
 	)
 	var active_stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
 	var is_quiz_coin_reward: bool = (
@@ -15150,9 +16087,6 @@ func _show_single_player_reward_chain_screen() -> void:
 	if is_final_reward:
 		_portrait_final_reward_claim_in_progress = false
 		_portrait_reward_double_context = &"final"
-	elif is_level_stars_summary:
-		_portrait_final_reward_claim_in_progress = false
-		_portrait_reward_double_context = &""
 	elif is_quiz_coin_reward:
 		_portrait_reward_double_context = &"stage_coin"
 	else:
@@ -15315,13 +16249,6 @@ func _show_single_player_reward_chain_screen() -> void:
 		)
 	var hero_mask := masked_hero.get("mask") as Control
 	var hero_texture := masked_hero.get("texture") as TextureRect
-	if is_level_stars_summary:
-		if final_reward_background_overlay != null and is_instance_valid(final_reward_background_overlay):
-			final_reward_background_overlay.modulate.a = 1.0
-		if hero_texture != null and is_instance_valid(hero_texture):
-			hero_texture.modulate.a = 0.0
-		if !bool(title_panel.get_meta(&"retained_reward_header", false)):
-			_set_panel_fill_color(PORTRAIT_BLUE, title_panel)
 	var reward_body := Control.new()
 	reward_body.name = "SinglePlayerRewardBody"
 	reward_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -15576,9 +16503,11 @@ func _show_single_player_reward_chain_screen() -> void:
 			reward_glow_size
 		)
 		var glow := _stage_final_reward_glow(target_glow_rect)
-		var transition_pack := _stage_texture(
-			current_reward_resource_stage_rect,
-			COIN_PACK_04_TEXTURE
+		# Stage-completion coin rewards use the same shadow-aware coin-pack holder
+		# as the one-stage level reward. The old _stage_texture() path bypassed the
+		# shader extrusion completely, which is why this screen had no visible shadow.
+		var transition_pack := _stage_main_reward_coin_pack_transition(
+			current_reward_resource_stage_rect
 		)
 		transition_pack.name = "StageCoinLargeReward"
 		transition_pack.modulate.a = 0.0
@@ -15640,6 +16569,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				LONG_BUTTON_COLOR_ORANGE
 			)
 			action_button.name = "StageCoinRewardContinueButton"
+			action_button.set("drop_shadow_enabled", true)
 		action_button.modulate.a = 0.0
 		action_button.z_index = 120
 		action_button.set("button_disabled", true)
@@ -15661,49 +16591,6 @@ func _show_single_player_reward_chain_screen() -> void:
 			collect_holder,
 			collect_button
 		)
-	elif is_level_stars_summary:
-		var total_level_stars: int = maxi(
-			int(last_result_data.get("single_player_level_stars_amount", 0)),
-			0
-		)
-		var theme_progress: Dictionary = _level_theme_unlock_progress()
-		var stars_panel := _stage_single_player_level_stars_panel(
-			_portrait_level_stars_panel_rect(!theme_progress.is_empty()),
-			total_level_stars
-		)
-		stars_panel.name = "SinglePlayerLevelStarsSummary"
-		stars_panel.modulate.a = 0.0
-		_create_theme_unlock_progress(stars_panel,
-			Rect2(0.0, PORTRAIT_LEVEL_STARS_PANEL_SIZE.y + 14.0, PORTRAIT_LEVEL_STARS_PANEL_SIZE.x, 96.0),
-			theme_progress
-		)
-
-		var stars_content: Control = _portrait_begin_bottom_attached_group()
-		continue_button = _stage_main_button(
-			_portrait_in_place_result_button_rect(),
-			Callable(self, "_finish_completed_single_player_stage_result"),
-			_result_continue_button_text(),
-			22,
-			false,
-			0.32,
-			false,
-			false,
-			false,
-			LONG_BUTTON_COLOR_ORANGE
-		)
-		continue_button.z_index = 120
-		continue_button.modulate.a = 0.0
-		continue_button.set("disabled", true)
-		_portrait_single_reward_continue_button = continue_button
-		content = stars_content
-		final_reward_completion = Callable(
-			self,
-			"_start_single_player_level_stars_state_deferred"
-		).bind(
-			stars_panel,
-			continue_button,
-			total_level_stars
-		)
 	elif is_level_summary:
 		var completion_reward_amount: int = maxi(
 			int(pending_level_reward.get("amount", 0)),
@@ -15712,10 +16599,13 @@ func _show_single_player_reward_chain_screen() -> void:
 		# One-stage levels use the ordinary large-coin x2 presentation instead of
 		# the special completion chest. The whole-level bonus amount is unchanged.
 		var use_completion_chest: bool = word_count > 1
-		var prize_rect: Rect2 = _portrait_final_reward_center_rect(
-			PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
-			if use_completion_chest
-			else PORTRAIT_FINAL_REWARD_COIN_SIZE
+		var prize_rect: Rect2 = _portrait_level_reward_prize_rect(
+			(
+				PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
+				if use_completion_chest
+				else PORTRAIT_FINAL_REWARD_COIN_SIZE
+			),
+			has_level_star_reward
 		)
 		var final_reward_glow_size: Vector2 = PORTRAIT_FINAL_REWARD_GLOW_SIZE * 1.30
 		var target_glow_rect: Rect2 = Rect2(
@@ -15729,12 +16619,9 @@ func _show_single_player_reward_chain_screen() -> void:
 				current_reward_resource_stage_rect
 			)
 		else:
-			transition_pack = _stage_texture(
-				current_reward_resource_stage_rect,
-				COIN_PACK_04_TEXTURE
+			transition_pack = _stage_main_reward_coin_pack_transition(
+				current_reward_resource_stage_rect
 			)
-			transition_pack.name = "SingleStageLevelCoinReward"
-			transition_pack.z_index = 20
 		transition_pack.modulate.a = 0.0
 		var summary_panel: Control = null
 		var completion_amount_label := _stage_label(
@@ -15755,6 +16642,34 @@ func _show_single_player_reward_chain_screen() -> void:
 		BUTTON_TEXT_STYLE_SCRIPT.apply_display(completion_amount_label)
 		completion_amount_label.modulate.a = 0.0
 		completion_amount_label.z_index = 24
+
+		var star_award_panel: Control = null
+		var theme_unlock_progress_control: Control = null
+		if is_final_reward and has_level_star_reward:
+			star_award_panel = _stage_single_player_level_star_award_panel(
+				level_star_reward_amount,
+				_portrait_level_star_award_rect(prize_rect, use_completion_chest, level_star_reward_amount)
+			)
+			var theme_progress_data: Dictionary = _level_theme_unlock_progress()
+			if !theme_progress_data.is_empty():
+				# Theme progress has its own top slot directly under the completed-level
+				# header, independent from the centered main-reward/star composition.
+				var theme_progress_rect: Rect2 = _portrait_level_theme_progress_rect(
+					PORTRAIT_LEVEL_THEME_PROGRESS_SIZE
+				)
+				var theme_progress_stage := _stage_holder(
+					theme_progress_rect,
+					Control.MOUSE_FILTER_IGNORE
+				)
+				theme_progress_stage.name = "ThemeUnlockProgressStage"
+				theme_progress_stage.z_index = 24
+				theme_unlock_progress_control = _create_theme_unlock_progress(
+					theme_progress_stage,
+					Rect2(Vector2.ZERO, theme_progress_rect.size),
+					theme_progress_data
+				)
+				if theme_unlock_progress_control != null:
+					theme_unlock_progress_control.visible = false
 
 		if is_final_reward:
 			var final_reward_content: Control = _portrait_begin_bottom_attached_group()
@@ -15799,6 +16714,7 @@ func _show_single_player_reward_chain_screen() -> void:
 					LONG_BUTTON_COLOR_ORANGE
 				)
 				final_action_button.name = "FinalRewardContinueButton"
+				final_action_button.set("drop_shadow_enabled", true)
 				_portrait_final_reward_continue_button = final_action_button
 				final_action_button.set("attention_bounce_enabled", false)
 				final_action_button.set_meta(&"attention_after_reveal", false)
@@ -15810,16 +16726,28 @@ func _show_single_player_reward_chain_screen() -> void:
 				self,
 				"_reveal_final_reward_actions"
 			).bind(final_action_button, collect_holder, collect_button)
-			var pack_peak_callback := Callable(
-				self,
-				"_start_early_final_reward_claim_at_pack_peak"
-			).bind(
-				transition_pack,
-				final_action_button,
-				collect_holder,
-				collect_button,
-				false
-			)
+			var pack_peak_callback := Callable()
+			if has_level_star_reward:
+				pack_peak_callback = Callable(
+					self,
+					"_start_level_summary_coin_and_star_sequence"
+				).bind(
+					transition_pack,
+					star_award_panel,
+					theme_unlock_progress_control,
+					action_reveal_callback
+				)
+			else:
+				pack_peak_callback = Callable(
+					self,
+					"_start_early_final_reward_claim_at_pack_peak"
+				).bind(
+					transition_pack,
+					final_action_button,
+					collect_holder,
+					collect_button,
+					false
+				)
 			var reward_sparkles_callback := Callable()
 			if collect_holder != null and is_instance_valid(collect_holder):
 				reward_sparkles_callback = Callable(
@@ -15838,10 +16766,11 @@ func _show_single_player_reward_chain_screen() -> void:
 				glow,
 				summary_panel,
 				completion_amount_label,
-				action_reveal_callback,
+				Callable() if has_level_star_reward else action_reveal_callback,
 				pack_peak_callback,
 				use_completion_chest,
-				reward_sparkles_callback
+				reward_sparkles_callback,
+				has_level_star_reward
 			)
 		else:
 			var reward_content: Control = _portrait_begin_bottom_attached_group()
@@ -15857,6 +16786,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				false,
 				LONG_BUTTON_COLOR_ORANGE
 			)
+			continue_button.set("drop_shadow_enabled", true)
 			continue_button.z_index = 120
 			continue_button.modulate.a = 0.0
 			continue_button.set("disabled", true)
@@ -15880,7 +16810,9 @@ func _show_single_player_reward_chain_screen() -> void:
 				completion_amount_label,
 				action_reveal_callback,
 				Callable(),
-				use_completion_chest
+				use_completion_chest,
+				Callable(),
+				false
 			)
 	else:
 		# Intermediate stages keep the manual CTA. The ordinary reward screen for
@@ -15899,6 +16831,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				false,
 				LONG_BUTTON_COLOR_ORANGE
 			)
+			continue_button.set("drop_shadow_enabled", true)
 			continue_button.z_index = 120
 			continue_button.modulate.a = 0.0
 			continue_button.set("disabled", true)
@@ -15920,6 +16853,12 @@ func _show_single_player_reward_chain_screen() -> void:
 			Callable(self, "_leave_single_player_failure_reward_to_menu"),
 			"×"
 		)
+		# This reward-chain exit button is staged separately from the normal page
+		# header, so it does not pass through _animate_portrait_back_button_entrance().
+		# Give it the same compact top-bar depth profile explicitly.
+		failure_back_button.set("drop_shadow_enabled", true)
+		failure_back_button.set("drop_shadow_offset_y", 2.0)
+		failure_back_button.set("drop_shadow_pressed_offset_y", 1.0)
 		failure_back_button.z_index = 200
 		failure_back_button.modulate.a = 0.0
 		failure_back_button.set("disabled", true)
@@ -16035,6 +16974,17 @@ func _direct_theme_level_after_completed_level(level_index: int) -> int:
 	):
 		return level_index + 1
 	return -1
+
+func _finish_legacy_single_player_level_stars_state() -> void:
+	# Pre-merged saves may still contain the old separate stars-result snapshot.
+	# Preserve any unclaimed stars, but never reconstruct that removed UI state.
+	var reward: Dictionary = GameState.get_active_single_player_stage_reward()
+	if (
+		str(reward.get("currency", "")) == GameState.STAGE_REWARD_STARS
+		and !bool(reward.get("claimed", false))
+	):
+		GameState.claim_active_single_player_stage_reward(true)
+	_finish_completed_single_player_stage_result()
 
 func _finish_completed_single_player_stage_result(open_next_theme_popup: bool = true) -> void:
 	var completed_level_index: int = int(last_result_data.get(
