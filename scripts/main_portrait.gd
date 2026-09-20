@@ -2,6 +2,7 @@ extends "res://scripts/main.gd"
 
 const PORTRAIT_GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const THEME_NEW_BADGE_SHADER: Shader = preload("res://shaders/theme_new_badge.gdshader")
 const BADGE_SHADOW_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/badge_shadow_style.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
@@ -127,6 +128,9 @@ const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 20.0
 const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS
 const PORTRAIT_FREE_HINT_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
+const PORTRAIT_THEME_NEW_BADGE_FILL := PORTRAIT_UI_PALETTE.SUCCESS
+const PORTRAIT_THEME_NEW_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_PRESSED
+const PORTRAIT_THEME_NEW_BADGE_FOLD := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
@@ -7405,6 +7409,7 @@ func _stage_single_player_popup_theme_cards(
 	var card_scale: float = target_card_width / authored_card_size.x
 	var card_size := Vector2(target_card_width, authored_card_size.y * 0.9975 * card_scale)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
+	var first_offer_theme: int = _single_player_first_offer_unlocked_theme_index(level_index)
 	var card_fill: Color = (
 		PORTRAIT_CHALLENGE_THEME_CARD
 		if challenge_level
@@ -7431,11 +7436,15 @@ func _stage_single_player_popup_theme_cards(
 			2.0
 		)
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Reserve a layer between the popup body and the card for ribbon folds.
+		card.z_index = 1
 		single_player_popup_theme_panels[theme_index] = card
 		var theme_icon: Control = null
 		var theme_glow: Control = null
 		var word_badge: Control = null
 		var word_badge_label: Label = null
+		var new_badge: Control = null
+		var new_badge_label: Label = null
 		var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
 		var theme_icon_rect := Rect2()
 		if theme_icon_texture != null:
@@ -7534,11 +7543,126 @@ func _stage_single_player_popup_theme_cards(
 			Color.WHITE,
 			HORIZONTAL_ALIGNMENT_CENTER
 		)
+		theme_label.get_parent().set("z_index", 2)
 		theme_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		theme_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		theme_label.clip_text = false
 		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(theme_label)
+		if theme_index == first_offer_theme:
+			var new_badge_size := Vector2(55.0, 20.0)
+			var new_badge_local_position := Vector2(
+				-8.0,
+				theme_name_rect.position.y - card_rect.position.y + 13.0
+			)
+			new_badge = Control.new()
+			new_badge.name = "ThemeNewBadge"
+			new_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			new_badge.position = new_badge_local_position
+			new_badge.size = new_badge_size
+			new_badge.z_index = 16
+			card.add_child(new_badge)
+
+			var new_badge_panel := ColorRect.new()
+			new_badge_panel.name = "ThemeNewBadgePanel"
+			new_badge_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			new_badge_panel.position = Vector2.ZERO
+			new_badge_panel.size = new_badge_size
+			new_badge.add_child(new_badge_panel)
+			new_badge_panel.color = Color.WHITE
+			var new_badge_material := ShaderMaterial.new()
+			new_badge_material.shader = THEME_NEW_BADGE_SHADER
+			new_badge_material.set_shader_parameter("panel_size", new_badge_size)
+			new_badge_material.set_shader_parameter("top_color", PORTRAIT_THEME_NEW_BADGE_FILL.lightened(0.08))
+			new_badge_material.set_shader_parameter("bottom_color", PORTRAIT_THEME_NEW_BADGE_FILL.darkened(0.08))
+			new_badge_panel.material = new_badge_material
+
+			# Only the shadow is clipped to the card. The ribbon and its return
+			# remain free to extend outside, including during card press/reveal.
+			var new_badge_shadow_clip := Control.new()
+			new_badge_shadow_clip.name = "ThemeNewBadgeShadowClip"
+			new_badge_shadow_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			new_badge_shadow_clip.position = -new_badge_local_position
+			new_badge_shadow_clip.size = card_rect.size
+			new_badge_shadow_clip.clip_contents = true
+			new_badge_shadow_clip.z_index = -1
+			new_badge.add_child(new_badge_shadow_clip)
+			var new_badge_shadow_layers := _create_portrait_rounded_panel_extrusion_layers(
+				new_badge_shadow_clip,
+				"ThemeNewBadge",
+				0
+			)
+			_layout_portrait_rounded_panel_extrusion_layers(
+				new_badge_shadow_layers,
+				new_badge_size,
+				3.0
+			)
+			for shadow_layer: ColorRect in new_badge_shadow_layers:
+				# Convert the standard ribbon-local offsets into card-local space.
+				shadow_layer.position += new_badge_local_position
+				shadow_layer.show_behind_parent = false
+			if !new_badge_shadow_layers.is_empty():
+				var new_badge_shadow_material := new_badge_shadow_layers[0].material as ShaderMaterial
+				if new_badge_shadow_material != null:
+					# Match the diagonal silhouette while retaining the standard shadow profile.
+					new_badge_shadow_material.shader = THEME_NEW_BADGE_SHADER
+					new_badge_shadow_material.set_shader_parameter("panel_size", new_badge_size)
+					new_badge_shadow_material.set_shader_parameter("shadow_pass", true)
+					new_badge_shadow_material.set_shader_parameter(
+						"shadow_color",
+						PORTRAIT_UI_PALETTE.with_alpha(
+							PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW,
+							BADGE_SHADOW_STYLE_SCRIPT.SHADOW_ALPHA
+						)
+					)
+
+			# The return folds from the exact lower-left edge behind the card.
+			# Extend it under the card, whose fill/border masks the inner end.
+			# show_behind_parent alone only puts it behind the ribbon, not the card.
+			var new_badge_fold := Polygon2D.new()
+			new_badge_fold.name = "ThemeNewBadgeFold"
+			new_badge_fold.color = PORTRAIT_THEME_NEW_BADGE_FOLD
+			var new_badge_fold_width: float = -new_badge_local_position.x + 2.0
+			new_badge_fold.polygon = PackedVector2Array([
+				Vector2(0.0, 0.0),
+				Vector2(new_badge_fold_width, 0.0),
+				Vector2(new_badge_fold_width, 6.0),
+			])
+			new_badge_fold.position = Vector2(0.0, new_badge_size.y - 0.5)
+			new_badge_fold.z_index = -new_badge.z_index - 1
+			new_badge.add_child(new_badge_fold)
+
+			new_badge_label = Label.new()
+			new_badge_label.name = "ThemeNewBadgeLabel"
+			new_badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			new_badge_label.text = tr("THEME_NEW_BADGE")
+			new_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			new_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			new_badge_label.add_theme_font_override("font", UI_REGULAR_FONT)
+			# Slightly heavier letters on this badge only; preserve the regular axes.
+			var new_badge_font := UI_REGULAR_FONT.duplicate() as FontVariation
+			if new_badge_font != null:
+				var new_badge_font_axes: Dictionary = new_badge_font.variation_opentype.duplicate()
+				new_badge_font_axes[TextServerManager.get_primary_interface().name_to_tag("wght")] = 700.0
+				new_badge_font.variation_opentype = new_badge_font_axes
+				new_badge_label.add_theme_font_override("font", new_badge_font)
+			new_badge_label.add_theme_font_size_override("font_size", 12)
+			# Set bounds after the font, so the default font's minimum height
+			# cannot enlarge this compact label. Balance the lower text extrusion.
+			# Extend only the right edge of the ribbon; keep the text in place.
+			new_badge_label.size = Vector2(49.0, new_badge_size.y)
+			new_badge_label.position = Vector2(-3.0, -1.0)
+			new_badge_label.add_theme_color_override("font_color", Color.WHITE)
+			BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(new_badge_label)
+			new_badge_label.add_theme_color_override(
+				"font_shadow_color",
+				Color(0.0, 0.0, 0.0, 0.0)
+			)
+			new_badge_label.add_theme_constant_override("shadow_offset_x", 0)
+			new_badge_label.add_theme_constant_override("shadow_offset_y", 0)
+			new_badge_label.add_theme_constant_override("shadow_outline_size", 0)
+			new_badge_label.add_theme_constant_override("outline_size", 0)
+			new_badge.add_child(new_badge_label)
 		var theme_button := _stage_button(
 			card_rect,
 			Callable(self, "_select_single_player_popup_theme").bind(level_index, theme_index),
@@ -7554,6 +7678,8 @@ func _stage_single_player_popup_theme_cards(
 			"theme_icon": theme_icon,
 			"word_badge": word_badge,
 			"word_badge_label": word_badge_label,
+			"new_badge": new_badge,
+			"new_badge_label": new_badge_label,
 			"theme_label": theme_label,
 			"theme_button": theme_button,
 		})
@@ -8027,7 +8153,7 @@ func _set_single_player_theme_static_visuals_visible(visible_value: bool) -> voi
 		if !(visual_variant is Dictionary):
 			continue
 		var visual: Dictionary = visual_variant
-		for key: String in ["theme_glow", "theme_icon", "word_badge", "word_badge_label", "theme_label"]:
+		for key: String in ["theme_glow", "theme_icon", "word_badge", "word_badge_label", "new_badge", "new_badge_label", "theme_label"]:
 			var node := visual.get(key) as CanvasItem
 			if node != null and is_instance_valid(node):
 				node.visible = visible_value
@@ -8118,6 +8244,8 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		var theme_label := visual.get("theme_label") as Control
 		var badge_panel := visual.get("word_badge") as Control
 		var badge_label := visual.get("word_badge_label") as Control
+		var new_badge := visual.get("new_badge") as Control
+		var new_badge_label := visual.get("new_badge_label") as Control
 
 		if theme_glow != null and is_instance_valid(theme_glow):
 			theme_glow.visible = true
@@ -8151,6 +8279,13 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			badge_label.visible = false
 			badge_label.scale = Vector2.ONE
 			badge_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		if new_badge != null and is_instance_valid(new_badge):
+			new_badge.visible = false
+			new_badge.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		if new_badge_label != null and is_instance_valid(new_badge_label):
+			new_badge_label.visible = false
+			new_badge_label.scale = Vector2.ONE
+			new_badge_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
 
 		var theme_button := visual.get("theme_button") as Control
 		if theme_button != null and is_instance_valid(theme_button):
@@ -8286,7 +8421,9 @@ func _start_single_player_theme_slot_labels_reveal(animation_generation: int) ->
 		var theme_label := visual.get("theme_label") as Control
 		var badge_panel := visual.get("word_badge") as Control
 		var badge_label := visual.get("word_badge_label") as Control
-		for control_variant: Variant in [theme_label, badge_panel, badge_label]:
+		var new_badge := visual.get("new_badge") as Control
+		var new_badge_label := visual.get("new_badge_label") as Control
+		for control_variant: Variant in [theme_label, badge_panel, badge_label, new_badge, new_badge_label]:
 			var reveal_control := control_variant as Control
 			if reveal_control != null and is_instance_valid(reveal_control):
 				reveal_control.visible = true
@@ -8372,6 +8509,16 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 			badge_label.scale = Vector2.ONE
 			badge_label.modulate = Color.WHITE
 			badge_label.pivot_offset = Vector2.ZERO
+		var new_badge := visual.get("new_badge") as Control
+		if new_badge != null and is_instance_valid(new_badge):
+			new_badge.visible = true
+			new_badge.modulate = Color.WHITE
+		var new_badge_label := visual.get("new_badge_label") as Control
+		if new_badge_label != null and is_instance_valid(new_badge_label):
+			new_badge_label.visible = true
+			new_badge_label.scale = Vector2.ONE
+			new_badge_label.modulate = Color.WHITE
+			new_badge_label.pivot_offset = Vector2.ZERO
 		var theme_button := visual.get("theme_button") as Control
 		if theme_button != null and is_instance_valid(theme_button):
 			theme_button.mouse_filter = Control.MOUSE_FILTER_STOP

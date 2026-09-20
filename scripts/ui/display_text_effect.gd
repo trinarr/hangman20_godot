@@ -290,11 +290,12 @@ func _sync_effect_metrics() -> void:
 		minf(font_size * SHADOW_OFFSET_X_RATIO, SHADOW_OFFSET_X_MAX)
 		* _shadow_offset_scale
 	)
-	_outline_size = maxi(
+	# Zero explicitly disables the contour; positive scales keep the existing minimum.
+	_outline_size = 0 if _outline_scale <= 0.0 else maxi(
 		1,
 		int(round(outline_local * _outline_scale))
 	)
-	_shadow_spread = maxi(
+	_shadow_spread = 0 if _shadow_spread_scale <= 0.0 else maxi(
 		1,
 		int(round(
 			outline_local

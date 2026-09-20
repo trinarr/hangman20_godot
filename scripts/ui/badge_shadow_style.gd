@@ -22,11 +22,15 @@ render_mode unshaded;
 uniform vec4 shadow_color : source_color = vec4(0.05, 0.08, 0.24, 0.5);
 uniform vec2 panel_size = vec2(32.0, 32.0);
 uniform float corner_radius = 16.0;
+uniform bool square_left = false;
 
 void fragment() {
 	vec2 half_size = panel_size * 0.5;
 	vec2 p = UV * panel_size - half_size;
 	float radius = clamp(corner_radius, 0.0, min(half_size.x, half_size.y));
+	if (square_left && p.x < 0.0) {
+		radius = 0.0;
+	}
 	vec2 q = abs(p) - (half_size - vec2(radius));
 	float dist = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
 	float alpha = 1.0 - smoothstep(-1.0, 1.0, dist);
