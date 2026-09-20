@@ -83,3 +83,17 @@ COMPACT_THOUSANDS_SUFFIX,к,k
 NEXT_THEME_UNLOCK,НОВАЯ ТЕМА,NEW THEME
 NEW_THEME_UNLOCKED,ТЕМА ОТКРЫТА!,THEME UNLOCKED!
 LEVEL_STARS_EARNED,Заработано звезд:,Stars earned:
+LANGUAGE_RU_NAME,Русский,Russian
+LANGUAGE_EN_NAME,Английский,English
+WORD_LANGUAGE_CHANGE_CONFIRM_TITLE,Сменить язык?,Change language?
+WORD_LANGUAGE_CHANGE_CURRENT_LEVEL,Текущий уровень для языка %s: %d,Current level for language %s: %d
+LEGAL_PRIVACY_LINK,Конфиденциальность,Privacy
+LEGAL_TERMS_LINK,Условия,Terms
+LEGAL_CONSENT_TEXT,"[center]Пожалуйста, прочитайте и примите наши [url=terms][u][color=#%s]Условия обслуживания[/color][/u][/url] и [url=privacy][u][color=#%s]Политику[/color][/u][/url][/center]",[center]Please read and accept our [url=terms][u][color=#%s]Terms of Service[/color][/u][/url] and [url=privacy][u][color=#%s]Privacy Policy[/color][/u][/url][/center]
+LEGAL_WELCOME_TITLE,Добро пожаловать,Welcome
+LEGAL_ACCEPT,Принять,Accept
+QUIZ_FEEDBACK_LIGHTNING,МОЛНИЕНОСНО!,LIGHTNING FAST!
+QUIZ_FEEDBACK_FAST,ВОТ ЭТО СКОРОСТЬ!,THAT WAS FAST!
+QUIZ_FEEDBACK_CORRECT,ВЕРНО!,CORRECT!
+LEVEL_COMPLETED_TITLE,УРОВЕНЬ ПРОЙДЕН,LEVEL COMPLETED
+AD_BANNER_PLACEHOLDER,YANDEX ADS • ADAPTIVE STICKY,YANDEX ADS • ADAPTIVE STICKY

@@ -3385,13 +3385,12 @@ func _set_settings_word_language(language_code: String) -> void:
 	_show_settings_word_language_confirm_popup(normalized_language)
 
 func _settings_word_language_display_name(language_code: String) -> String:
-	var russian_interface: bool = Database.interface_language == "ru"
 	if language_code == "ru":
-		return "Русский" if russian_interface else "Russian"
-	return "Английский" if russian_interface else "English"
+		return tr("LANGUAGE_RU_NAME")
+	return tr("LANGUAGE_EN_NAME")
 
 func _settings_word_language_confirm_title() -> String:
-	return "Сменить язык?" if Database.interface_language == "ru" else "Change language?"
+	return tr("WORD_LANGUAGE_CHANGE_CONFIRM_TITLE")
 
 func _settings_word_language_confirm_description(language_code: String) -> String:
 	var level_index: int = GameState.get_resumable_single_player_level_index_for_language(
@@ -3400,9 +3399,7 @@ func _settings_word_language_confirm_description(language_code: String) -> Strin
 	if level_index < 0:
 		level_index = GameState.get_single_player_unlocked_level(language_code)
 	var language_name: String = _settings_word_language_display_name(language_code)
-	if Database.interface_language == "ru":
-		return "Текущий уровень для языка %s: %d" % [language_name, level_index + 1]
-	return "Current level for language %s: %d" % [language_name, level_index + 1]
+	return tr("WORD_LANGUAGE_CHANGE_CURRENT_LEVEL") % [language_name, level_index + 1]
 
 func _show_settings_word_language_confirm_popup(language_code: String) -> void:
 	_remove_settings_word_language_confirm_popup()
@@ -3816,9 +3813,6 @@ func _resume_saved_single_player_level() -> void:
 	GameState.clear_active_single_player_session(true)
 	_open_next_single_player_level()
 
-func _legal_interface_text(russian_text: String, english_text: String) -> String:
-	return russian_text if Database.interface_language == "ru" else english_text
-
 func _create_portrait_legal_link(
 	text: String,
 	document_type: String,
@@ -3869,7 +3863,7 @@ func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
 	center.add_child(row)
 
 	row.add_child(_create_portrait_legal_link(
-		_legal_interface_text("Конфиденциальность", "Privacy"),
+		tr("LEGAL_PRIVACY_LINK"),
 		"privacy",
 		font_size
 	))
@@ -3886,7 +3880,7 @@ func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
 	row.add_child(separator)
 
 	row.add_child(_create_portrait_legal_link(
-		_legal_interface_text("Условия", "Terms"),
+		tr("LEGAL_TERMS_LINK"),
 		"terms",
 		font_size
 	))
@@ -3985,18 +3979,7 @@ func _stage_portrait_legal_inline_text(rect: Rect2) -> RichTextLabel:
 	legal_text.add_theme_font_size_override("bold_font_size", 22)
 	legal_text.add_theme_color_override("default_color", Color.WHITE)
 	var link_color: String = PORTRAIT_UI_PALETTE.SUCCESS_SOFT.to_html(false)
-	legal_text.text = _legal_interface_text(
-		(
-			"[center]Пожалуйста, прочитайте и примите наши "
-			+ "[url=terms][u][color=#%s]Условия обслуживания[/color][/u][/url] " % link_color
-			+ "и [url=privacy][u][color=#%s]Политику[/color][/u][/url][/center]" % link_color
-		),
-		(
-			"[center]Please read and accept our "
-			+ "[url=terms][u][color=#%s]Terms of Service[/color][/u][/url] " % link_color
-			+ "and [url=privacy][u][color=#%s]Privacy Policy[/color][/u][/url][/center]" % link_color
-		)
-	)
+	legal_text.text = tr("LEGAL_CONSENT_TEXT") % [link_color, link_color]
 	_apply_regular_display_to_rich_text(holder, legal_text)
 	legal_text.meta_clicked.connect(Callable(self, "_on_portrait_legal_text_meta_clicked"))
 	holder.add_child(legal_text)
@@ -4021,7 +4004,7 @@ func _show_legal_consent_popup() -> void:
 	)
 	_portrait_popup_shell(
 		rect,
-		_legal_interface_text("Добро пожаловать", "Welcome"),
+		tr("LEGAL_WELCOME_TITLE"),
 		Callable(),
 		27,
 		PORTRAIT_BLUE,
@@ -4039,7 +4022,7 @@ func _show_legal_consent_popup() -> void:
 			56.0
 		),
 		Callable(self, "_accept_legal_documents"),
-		_legal_interface_text("Принять", "Accept"),
+		tr("LEGAL_ACCEPT"),
 		22,
 		false,
 		0.0,
@@ -4590,13 +4573,11 @@ func _enable_quiz_continue_attention() -> void:
 	_quiz_continue_button.set("attention_bounce_enabled", true)
 
 func _quiz_correct_feedback_text(speed_tier: int) -> String:
-	if Database.interface_language == "ru":
-		if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
-			return "МОЛНИЕНОСНО!"
-		return "ВОТ ЭТО СКОРОСТЬ!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "ВЕРНО!"
 	if speed_tier == PORTRAIT_QUIZ_SPEED_LIGHTNING:
-		return "LIGHTNING FAST!"
-	return "THAT WAS FAST!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "CORRECT!"
+		return tr("QUIZ_FEEDBACK_LIGHTNING")
+	if speed_tier == PORTRAIT_QUIZ_SPEED_FAST:
+		return tr("QUIZ_FEEDBACK_FAST")
+	return tr("QUIZ_FEEDBACK_CORRECT")
 
 func _style_quiz_feedback_label(
 	label: Label,
@@ -8879,9 +8860,8 @@ func _show_exit_game_popup() -> void:
 
 func show_custom_word() -> void:
 	_clear()
-	# Two-player words do not support comments, gameplay hints, or automatic
-	# opening of edge letters. GameSession enforces that rule directly.
-	custom_comment_text = ""
+	# Two-player words do not support gameplay hints or automatic opening of edge
+	# letters. GameSession enforces that rule directly.
 	if !_preserve_custom_word_on_next_show or custom_word_text.is_empty():
 		_set_random_custom_word()
 	_preserve_custom_word_on_next_show = false
@@ -9061,11 +9041,6 @@ func _stage_portrait_custom_word_field() -> void:
 	custom_word_edit = word_input.get_line_edit()
 	if custom_word_edit != null and !custom_word_edit.text_changed.is_connected(_on_custom_word_text_changed):
 		custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-
-func start_custom_game() -> void:
-	# Two-player rounds always start without comments or hints.
-	custom_comment_text = ""
-	super.start_custom_game()
 
 func show_game_screen() -> void:
 	# Only actual navigation into the active gameplay page gets the entrance
@@ -9750,7 +9725,7 @@ func _stage_portrait_ad_banner() -> void:
 	banner_panel.z_index = 30
 	var banner_label := _stage_label(
 		banner_rect,
-		"YANDEX ADS • ADAPTIVE STICKY",
+		tr("AD_BANNER_PLACEHOLDER"),
 		12,
 		PORTRAIT_UI_PALETTE.NEUTRAL_TEXT,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -12083,7 +12058,7 @@ func _reveal_in_place_result_action_after_attempt_stars() -> void:
 	fade.set_ease(Tween.EASE_OUT)
 
 func _single_player_level_completed_label() -> String:
-	return "УРОВЕНЬ ПРОЙДЕН" if Database.interface_language == "ru" else "LEVEL COMPLETED"
+	return tr("LEVEL_COMPLETED_TITLE")
 
 func _reward_chest_flash_material() -> ShaderMaterial:
 	if _reward_chest_flash_material_cache == null:
@@ -17468,11 +17443,7 @@ func _show_word_comment_popup() -> void:
 			var comment_theme_icon := _stage_texture(comment_theme_icon_rect, comment_theme_icon_texture)
 			comment_theme_icon.material = UI_MATERIALS.grayscale()
 			comment_theme_icon.z_index = -1
-	var comment_popup_title: String = (
-		Database.get_theme_name(GameSession.theme_id)
-		if GameState.current_mode != GameState.GameMode.TWO_PLAYER and GameSession.theme_id >= 0
-		else Database.tr_text(40, "Word from player")
-	)
+	var comment_popup_title: String = Database.get_theme_name(GameSession.theme_id)
 	_portrait_popup_shell(
 		rect,
 		comment_popup_title,

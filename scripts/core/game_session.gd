@@ -63,15 +63,13 @@ func start_new_round(theme_index: int) -> void:
 	var word := WordManager.select_new_word(theme_index)
 	start_round(word, GameState.GameMode.CLASSIC)
 
-func start_custom_round(text: String, comment: String = "") -> void:
-	var word := WordManager.set_custom_word(text, comment)
+func start_custom_round(text: String) -> void:
+	var word := WordManager.set_custom_word(text)
 	start_round(word, GameState.GameMode.TWO_PLAYER)
 
 func _resolve_word_hint() -> String:
 	if word_data == null:
 		return ""
-	if word_data.custom_comment.strip_edges() != "":
-		return word_data.custom_comment.strip_edges()
 	if theme_id >= 0 and word_index >= 0:
 		return Database.get_hint(theme_id, word_index)
 	return ""
@@ -90,7 +88,6 @@ func to_save_data() -> Dictionary:
 		"difficulty": word_data.difficulty,
 		"theme_id": Database.get_theme_id(theme_id),
 		"word_index": word_index,
-		"custom_comment": word_data.custom_comment,
 		"revealed": revealed.duplicate(),
 		"correct_letters": Array(correct_letters),
 		"wrong_letters": Array(wrong_letters),
@@ -136,8 +133,7 @@ func restore_from_save_data(source: Dictionary) -> bool:
 		text,
 		clampf(float(source.get("difficulty", 0.0)), 0.0, 1.0),
 		restored_theme_index,
-		restored_word_index,
-		str(source.get("custom_comment", ""))
+		restored_word_index
 	)
 	word_index = restored_word_index
 	theme_id = restored_theme_index

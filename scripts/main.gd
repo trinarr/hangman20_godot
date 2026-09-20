@@ -180,7 +180,6 @@ var single_player_extra_attempt_claim_in_progress: bool = false
 var custom_word_edit: LineEdit
 var custom_word_input_visual: Control = null
 var custom_word_text: String = ""
-var custom_comment_text: String = ""
 var custom_word_check_request: HTTPRequest = null
 var custom_word_check_urls: Array[String] = []
 var custom_word_check_button: Control = null
@@ -2428,7 +2427,7 @@ func start_custom_game() -> void:
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	GameSession.start_custom_round(word, custom_comment_text)
+	GameSession.start_custom_round(word)
 	show_game_screen()
 
 func _is_valid_custom_word(word: String) -> bool:
