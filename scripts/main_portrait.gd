@@ -426,9 +426,6 @@ var PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION: float = PORTRAIT_GAME_DESIGN.g
 var PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.action_reveal_seconds", 0.162
 )
-var PORTRAIT_FINAL_REWARD_DIRECT_THEME_THROUGH_LEVEL: int = PORTRAIT_GAME_DESIGN.get_int_range(
-	"progression.direct_theme_selection_after_reward_through_level", 2, 0, 1_000_000
-)
 var PORTRAIT_FINAL_REWARD_COLLECT_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.collect_delay_seconds", 0.9
 )
@@ -852,9 +849,12 @@ var _portrait_final_reward_continue_button: Control = null
 var _portrait_single_reward_continue_button: Control = null
 var _portrait_reward_double_context: StringName = &""
 var _portrait_reward_ad_request_id: String = ""
+var _portrait_reward_double_animation_amount: int = 0
 var _portrait_rewarded_action: StringName = &""
 var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
+var _portrait_coin_refill_animation_previous_balance: int = -1
+var _portrait_coin_refill_animation_final_balance: int = -1
 var _portrait_ad_toast: Control = null
 var _portrait_interstitial_showing: bool = false
 var _portrait_interstitial_pending_action: Callable = Callable()
@@ -2625,7 +2625,6 @@ func _show_coin_refill_popup() -> void:
 	# the parent CanvasItem would swallow negative-z extrusion layers.
 	var coin_icon := _stage_main_reward_coin_pack_transition(coin_rect)
 	coin_icon.name = "CoinRefillIcon"
-	coin_icon.add_to_group(&"coin_refill_reward_source")
 	coin_icon.z_index = 20
 	# Match the intermediate large stage reward: keep the extrusion shadow hidden
 	# throughout the grow phase, then reveal it only after the icon reaches the
@@ -2715,29 +2714,18 @@ func _on_coin_refill_ad_pressed() -> void:
 	_show_portrait_rewarded_action(&"coin_refill")
 
 func _play_coin_refill_reward_animation(previous_balance: int, final_balance: int) -> void:
-	# Capture the large x50 pack position while the refill popup still exists, then
-	# close the popup before starting the visible reward delivery. This keeps the
-	# flying coins above the returned screen instead of underneath the modal.
-	var source_visual: Control = null
-	for node: Node in get_tree().get_nodes_in_group(&"coin_refill_reward_source"):
-		var candidate := node as Control
-		if candidate != null and is_instance_valid(candidate) and candidate.is_inside_tree():
-			source_visual = candidate
-			break
-	if source_visual == null:
-		_close_coin_store()
+	if final_balance <= previous_balance:
 		return
 
-	var source_center_canvas: Vector2 = (
-		source_visual.get_global_transform_with_canvas() * (source_visual.size * 0.5)
-	)
-	_close_coin_store()
-
-	# The return action may rebuild the underlying screen and HUD. Give it a few
-	# frames to expose a valid destination coin icon before starting the animation.
-	for _frame_index in range(8):
+	# Rewarded callbacks arrive while the native fullscreen ad can still cover the
+	# game. This function is therefore called only after the ad-close callback.
+	# Keep the refill popup alive and make the delivery independent from any popup
+	# artwork: the flying coins always start at the center of the current viewport.
+	for _frame_index: int in range(8):
 		if (
-			_portrait_currency_coin_icon_visual != null
+			ui != null
+			and is_instance_valid(ui)
+			and _portrait_currency_coin_icon_visual != null
 			and is_instance_valid(_portrait_currency_coin_icon_visual)
 			and _portrait_currency_coin_icon_visual.is_inside_tree()
 		):
@@ -2752,25 +2740,29 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 	):
 		return
 
-	# Recreate an invisible one-pixel source at the popup coin pack's former canvas
-	# position. The shared reward animation reads this point synchronously, while
-	# the actual popup is already gone.
 	var source_stub := Control.new()
-	source_stub.name = "CoinRefillRewardSourceStub"
+	source_stub.name = "CoinRefillCenterRewardSource"
 	source_stub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	source_stub.size = Vector2.ONE
 	ui.add_child(source_stub)
 	var source_center_ui: Vector2 = (
-		ui.get_global_transform_with_canvas().affine_inverse() * source_center_canvas
+		ui.get_global_transform_with_canvas().affine_inverse()
+		* (get_viewport_rect().size * 0.5)
 	)
 	source_stub.position = source_center_ui - source_stub.size * 0.5
 
-	# add_soft_currency() has already emitted the final balance to every HUD label.
-	# Restore the pre-reward number after the returned screen has been built, then
-	# animate the visible count alongside the flying coins.
+	# The balance is already durable by the time the native ad closes. Rewind only
+	# the visible counter, then roll it to the persisted value while the coins fly.
 	_set_home_reward_animated_balance(float(previous_balance))
-	_play_single_player_reward_coin_collection(source_stub)
-
+	# The coin-refill popup lives on CanvasLayer 170. Render the flying coins on a
+	# dedicated higher layer so they stay visible above the open modal instead of
+	# disappearing behind its dimmer/body. The overlay ignores input.
+	_play_single_player_reward_coin_collection(
+		source_stub,
+		null,
+		Callable(),
+		180
+	)
 	var count_tween := source_stub.create_tween()
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
@@ -2778,6 +2770,74 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 		float(previous_balance),
 		float(final_balance),
 		PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION
+	)
+	roll.set_trans(Tween.TRANS_QUAD)
+	roll.set_ease(Tween.EASE_OUT)
+	count_tween.tween_callback(Callable(source_stub, "queue_free"))
+
+func _play_centered_rewarded_double_coin_animation(
+	previous_balance: int,
+	final_balance: int,
+	overlay_layer_index: int = 100
+) -> void:
+	if final_balance <= previous_balance:
+		return
+
+	# The reward screen is already gone by the time a normal rewarded-x2 flow
+	# becomes visible again. Wait for the destination HUD to settle, then launch
+	# the extra coins from the center of the returned screen instead of depending
+	# on a reward visual that no longer exists.
+	for _frame_index: int in range(8):
+		if (
+			ui != null
+			and is_instance_valid(ui)
+			and _portrait_currency_coin_icon_visual != null
+			and is_instance_valid(_portrait_currency_coin_icon_visual)
+			and _portrait_currency_coin_icon_visual.is_inside_tree()
+		):
+			break
+		await get_tree().process_frame
+	if (
+		ui == null
+		or !is_instance_valid(ui)
+		or _portrait_currency_coin_icon_visual == null
+		or !is_instance_valid(_portrait_currency_coin_icon_visual)
+		or !_portrait_currency_coin_icon_visual.is_inside_tree()
+	):
+		return
+
+	var source_stub := Control.new()
+	source_stub.name = "RewardedDoubleCenterSource"
+	source_stub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	source_stub.size = Vector2.ONE
+	ui.add_child(source_stub)
+	var source_center_ui: Vector2 = (
+		ui.get_global_transform_with_canvas().affine_inverse()
+		* (get_viewport_rect().size * 0.5)
+	)
+	source_stub.position = source_center_ui - source_stub.size * 0.5
+
+	# GameState has already persisted the bonus. Roll the visible counter from the
+	# pre-x2 balance while the flying coins travel into the HUD.
+	_set_stage_reward_animated_balance(
+		float(previous_balance),
+		GameState.STAGE_REWARD_COINS
+	)
+	_play_single_player_reward_coin_collection(
+		source_stub,
+		null,
+		Callable(),
+		overlay_layer_index
+	)
+	var count_tween := source_stub.create_tween()
+	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var roll := count_tween.tween_method(
+		Callable(self, "_set_stage_reward_animated_balance").bind(
+			GameState.STAGE_REWARD_COINS
+		),
+		float(previous_balance),
+		float(final_balance),
+		_single_player_reward_collection_duration()
 	)
 	roll.set_trans(Tween.TRANS_QUAD)
 	roll.set_ease(Tween.EASE_OUT)
@@ -13662,20 +13722,23 @@ func _set_portrait_flying_reward_resource_progress(
 func _play_single_player_reward_coin_collection(
 	source_visual: Control,
 	continue_button: Control = null,
-	finished_callback: Callable = Callable()
+	finished_callback: Callable = Callable(),
+	overlay_layer_index: int = 100
 ) -> void:
 	_play_single_player_reward_resource_collection(
 		source_visual,
 		GameState.STAGE_REWARD_COINS,
 		continue_button,
-		finished_callback
+		finished_callback,
+		overlay_layer_index
 	)
 
 func _play_single_player_reward_resource_collection(
 	source_visual: Control,
 	reward_currency: String,
 	continue_button: Control = null,
-	finished_callback: Callable = Callable()
+	finished_callback: Callable = Callable(),
+	overlay_layer_index: int = 100
 ) -> void:
 	if ui == null or !is_instance_valid(ui):
 		if finished_callback.is_valid():
@@ -13700,7 +13763,7 @@ func _play_single_player_reward_resource_collection(
 		return
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.name = "SinglePlayerRewardResourceCanvas"
-	overlay_layer.layer = 100
+	overlay_layer.layer = overlay_layer_index
 	add_child(overlay_layer)
 	var overlay := Control.new()
 	overlay.name = "SinglePlayerRewardResourceOverlay"
@@ -15473,14 +15536,16 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 					true
 				)
 		&"coin_refill":
-			# Count only successfully rewarded ads. Persist the coin grant and the
-			# remaining-view/cooldown state together in the same save write, then keep
-			# the popup alive long enough to visibly deliver the coins into the HUD.
+			# Persist the earned coins immediately on the SDK reward callback, but do
+			# not start visuals yet: this signal normally arrives while the native ad
+			# still covers the game. The ad-close callback will animate the durable
+			# balance change while keeping the refill popup open.
 			var previous_balance: int = GameState.get_soft_currency()
 			GameState.add_soft_currency(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT, false)
 			GameState.consume_coin_refill_ad_view(true)
 			var final_balance: int = GameState.get_soft_currency()
-			_play_coin_refill_reward_animation(previous_balance, final_balance)
+			_portrait_coin_refill_animation_previous_balance = previous_balance
+			_portrait_coin_refill_animation_final_balance = final_balance
 		&"extra_attempt":
 			if GameSession.has_deferred_loss():
 				_remove_single_player_last_chance_popup()
@@ -15510,7 +15575,20 @@ func _on_portrait_rewarded_action_closed() -> void:
 	_portrait_rewarded_action_earned = false
 	if earned_reward and action == &"theme_reroll":
 		_present_pending_single_player_theme_ad_reroll(level_index)
+	elif earned_reward and action == &"coin_refill":
+		# The popup intentionally stays open after the ad. Refresh its button for
+		# the new remaining-view/cooldown state, then present the already persisted
+		# coin grant now that the fullscreen ad is actually gone.
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
+		var previous_balance: int = _portrait_coin_refill_animation_previous_balance
+		var final_balance: int = _portrait_coin_refill_animation_final_balance
+		_portrait_coin_refill_animation_previous_balance = -1
+		_portrait_coin_refill_animation_final_balance = -1
+		if previous_balance >= 0 and final_balance > previous_balance:
+			_play_coin_refill_reward_animation(previous_balance, final_balance)
 	elif !earned_reward:
+		_portrait_coin_refill_animation_previous_balance = -1
+		_portrait_coin_refill_animation_final_balance = -1
 		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 
 func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
@@ -15522,6 +15600,8 @@ func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	_portrait_rewarded_action = &""
 	_portrait_rewarded_action_level_index = -1
 	_portrait_rewarded_action_earned = false
+	_portrait_coin_refill_animation_previous_balance = -1
+	_portrait_coin_refill_animation_final_balance = -1
 	if action == &"theme_reroll":
 		_portrait_pending_theme_reroll_presentation = {}
 	_set_portrait_rewarded_action_control_enabled(action, level_index, true)
@@ -15719,6 +15799,7 @@ func _finish_single_player_stage_coin_reward_offer() -> void:
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
+	_portrait_reward_double_animation_amount = 0
 	_portrait_reward_double_context = &""
 	if bool(last_result_data.get("single_player_level_completed", false)):
 		var level_index: int = int(last_result_data.get(
@@ -15778,6 +15859,7 @@ func _on_final_reward_double_pressed() -> void:
 	_portrait_final_reward_waiting_for_ad = true
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
+	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(false)
 	if !bool(ads_service.call("show_rewarded_video", _portrait_reward_ad_request_id)):
 		GameState.cancel_rewarded_double_request(_portrait_reward_ad_request_id)
@@ -15787,6 +15869,7 @@ func _on_final_reward_double_pressed() -> void:
 		_portrait_final_reward_waiting_for_ad = false
 		_portrait_final_reward_earned_ad_reward = false
 		_portrait_final_reward_ad_close_pending = false
+		_portrait_reward_double_animation_amount = 0
 		_set_final_reward_double_button_enabled(true)
 		_show_portrait_ad_not_ready_toast()
 		return
@@ -15843,22 +15926,50 @@ func _on_final_reward_ad_failed_to_load(_error_code: int) -> void:
 func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount: int) -> void:
 	# A receipt survives dismissal and navigation. Only its original target can
 	# receive this bonus; repeated callbacks (or retries for it) grant it once.
+	# Animation is reserved for an on-time reward signal while this exact ad show
+	# is still open. A late receipt remains durable but is intentionally silent.
+	var reward_was_on_time: bool = (
+		request_id == _portrait_reward_ad_request_id
+		and _portrait_final_reward_waiting_for_ad
+	)
 	var receipt: Dictionary = GameState.claim_rewarded_double_request(request_id)
 	if receipt.is_empty():
 		return
-	_set_stage_reward_animated_balance(float(GameState.get_soft_currency()), GameState.STAGE_REWARD_COINS)
-	GameState.reset_interstitial_timer(true)
-	if (
-		!bool(receipt.get("is_current", false))
-		or str(receipt.get("context", "")) != String(_portrait_reward_double_context)
-	):
+	var receipt_is_current: bool = bool(receipt.get("is_current", false))
+	var receipt_context: String = str(receipt.get("context", ""))
+	var receipt_amount: int = maxi(int(receipt.get("amount", 0)), 0)
+	var matches_visible_reward: bool = (
+		receipt_is_current
+		and receipt_context == String(_portrait_reward_double_context)
+	)
+	if !matches_visible_reward:
+		_set_stage_reward_animated_balance(
+			float(GameState.get_soft_currency()),
+			GameState.STAGE_REWARD_COINS
+		)
+		GameState.reset_interstitial_timer(true)
 		return
+
+	_portrait_reward_double_animation_amount = (
+		receipt_amount if reward_was_on_time else 0
+	)
+	if !reward_was_on_time:
+		# Late receipt: present the already-persisted balance immediately and skip
+		# all flying-coin/count-roll presentation by design.
+		_set_stage_reward_animated_balance(
+			float(GameState.get_soft_currency()),
+			GameState.STAGE_REWARD_COINS
+		)
+	GameState.reset_interstitial_timer(true)
 	_portrait_final_reward_earned_ad_reward = true
 	if !_portrait_final_reward_waiting_for_ad and _portrait_rewarded_action == &"":
 		if _portrait_reward_double_context == &"stage_coin":
 			_finish_single_player_stage_coin_reward_offer()
 		else:
-			_finish_single_player_final_reward_claim()
+			# The ad is already closed, so a late-but-still-visible main-prize receipt
+			# finishes silently on Home. If the player has left this reward context,
+			# `matches_visible_reward` above prevents any navigation side effect.
+			_finish_single_player_final_reward_claim(-1, true)
 
 func _on_final_reward_ad_closed(request_id: String) -> void:
 	if request_id != _portrait_reward_ad_request_id or !_portrait_final_reward_waiting_for_ad:
@@ -15867,12 +15978,35 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_ad_close_pending = true
 	if _portrait_final_reward_earned_ad_reward:
-		if _portrait_reward_double_context == &"stage_coin":
+		var animation_amount: int = maxi(_portrait_reward_double_animation_amount, 0)
+		var final_balance: int = GameState.get_soft_currency()
+		var previous_balance: int = maxi(final_balance - animation_amount, 0)
+		_portrait_reward_double_animation_amount = 0
+		if animation_amount > 0:
+			# Hide the already-credited bonus before removing the reward screen. The
+			# deferred center-source animation restores it visibly on the returned UI.
+			_set_stage_reward_animated_balance(
+				float(previous_balance),
+				GameState.STAGE_REWARD_COINS
+			)
+		var reward_context: StringName = _portrait_reward_double_context
+		if reward_context == &"stage_coin":
 			_finish_single_player_stage_coin_reward_offer()
 		else:
-			_finish_single_player_final_reward_claim()
+			# A successful x2 of the main level prize intentionally returns to Home.
+			# `No Thanks` keeps the direct-next-theme flow, but after a fullscreen ad
+			# the player should first land on the main screen and see the bonus arrive.
+			_finish_single_player_final_reward_claim(-1, true)
+		if animation_amount > 0:
+			call_deferred(
+				"_play_centered_rewarded_double_coin_animation",
+				previous_balance,
+				final_balance,
+				180 if reward_context == &"final" else 100
+			)
 		return
 	# Release the UI immediately, but keep the receipt for a late confirmation.
+	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(true)
 
 func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) -> void:
@@ -15883,6 +16017,7 @@ func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) ->
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
+	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(true)
 	_show_portrait_ad_not_ready_toast()
 
@@ -15957,18 +16092,33 @@ func _complete_single_player_final_reward(
 		_finish_single_player_final_reward_claim()
 	return credited_reward_amount
 
-func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) -> void:
+func _finish_single_player_final_reward_claim(
+	next_theme_level_index: int = -1,
+	force_home: bool = false
+) -> void:
 	_stop_final_reward_continue_attention()
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_final_reward_ad_close_pending = false
+	_portrait_reward_double_animation_amount = 0
 	_portrait_reward_double_context = &""
 	# Stars are now part of this same reward presentation and are credited before
 	# the x2 / No Thanks actions appear. Keep this finalization idempotent for old
 	# or interrupted saves, then clear the durable level-reward snapshot.
 	GameState.claim_pending_single_player_level_stars(false)
 	GameState.clear_pending_single_player_reward(true)
+	if force_home:
+		# Do not let the generic final-reward path reopen the next-theme popup.
+		# A timely rewarded-x2 callback owns the following Home animation; a late
+		# callback uses the same navigation but intentionally stays visually silent.
+		GameSession.discard_current_round()
+		game_finished = false
+		last_result_data = {}
+		single_player_active_word_slot = -1
+		_portrait_pending_home_reward_amount = 0
+		show_menu()
+		return
 	if next_theme_level_index < 0:
 		var completed_level_index: int = int(last_result_data.get(
 			"single_player_level_index",
@@ -15982,7 +16132,7 @@ func _finish_single_player_final_reward_claim(next_theme_level_index: int = -1) 
 	last_result_data = {}
 	single_player_active_word_slot = -1
 	if next_theme_level_index >= 0:
-		# Levels 1 and 2 continue directly from the final-reward presentation. Keep
+		# Continue directly from the final-reward presentation on every level. Keep
 		# that screen alive as the dimmed backdrop instead of briefly rebuilding Home.
 		# The balance label has already been updated by GameState, so this reward must
 		# not be replayed later as a delayed Home collection animation.
@@ -16185,6 +16335,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		_portrait_final_reward_waiting_for_ad = false
 		_portrait_final_reward_earned_ad_reward = false
 		_portrait_final_reward_ad_close_pending = false
+		_portrait_reward_double_animation_amount = 0
 	if is_final_reward:
 		_portrait_final_reward_claim_in_progress = false
 		_portrait_reward_double_context = &"final"
@@ -17069,12 +17220,7 @@ func _continue_single_player_stage_after_refill(level_index: int) -> void:
 	_start_next_single_player_word(level_index)
 
 func _direct_theme_level_after_completed_level(level_index: int) -> int:
-	if (
-		level_index >= 0
-		and level_index + 1 <= PORTRAIT_FINAL_REWARD_DIRECT_THEME_THROUGH_LEVEL
-	):
-		return level_index + 1
-	return -1
+	return level_index + 1 if level_index >= 0 else -1
 
 func _finish_legacy_single_player_level_stars_state() -> void:
 	# Pre-merged saves may still contain the old separate stars-result snapshot.

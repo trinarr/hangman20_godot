@@ -26,7 +26,6 @@
         {"after_level": 30, "theme_id": 7}
       ]
     },
-    "direct_theme_selection_after_reward_through_level": 2,
     "guided_onboarding": {
       "required_start_level": 3
     },

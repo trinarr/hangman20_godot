@@ -127,21 +127,12 @@ def main() -> None:
         int(resolve(config, "progression.quiz.onboarding_slot")) == 1,
         "Levels 3 and 4 must keep their quiz in the middle slot",
     )
-    require(
-        int(resolve(config, "progression.direct_theme_selection_after_reward_through_level")) == 2,
-        "The first two final rewards must continue directly to theme selection",
-    )
     guided_required_start = int(
         resolve(config, "progression.guided_onboarding.required_start_level")
     )
     require(
         guided_required_start == 3,
         "Guided onboarding must remain mandatory until level 3 starts",
-    )
-    require(
-        int(resolve(config, "progression.direct_theme_selection_after_reward_through_level"))
-        == guided_required_start - 1,
-        "Direct theme flow and guided onboarding boundaries have diverged",
     )
     for level in range(1, 1001):
         require(stage_count(config, level) > 0, f"Invalid stage count for level {level}")
