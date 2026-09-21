@@ -232,8 +232,22 @@ func _ready() -> void:
 	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
 		GameState.hearts_changed.connect(_on_hearts_changed)
 	_last_heart_count_for_animation = GameState.get_hearts()
+	_initialize_yandex_ads_from_saved_consent()
 	show_menu()
 	_prewarm_runtime_assets()
+
+func _initialize_yandex_ads_from_saved_consent() -> bool:
+	if !GameState.has_answered_ad_personalization_choice():
+		return false
+	var ads_service: Node = get_node_or_null("/root/YandexAdsService")
+	if ads_service == null or !is_instance_valid(ads_service):
+		return false
+	if !ads_service.has_method("initialize_after_consent"):
+		return false
+	return bool(ads_service.call(
+		"initialize_after_consent",
+		GameState.allows_ad_personalization()
+	))
 
 func _persist_active_single_player_word_session() -> void:
 	if (

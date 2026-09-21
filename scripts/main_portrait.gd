@@ -849,7 +849,10 @@ func _optional_node_meta(node: Object, key: StringName) -> Variant:
 	return node.get_meta(key) if node.has_meta(key) else null
 
 func _portrait_ads_enabled() -> bool:
-	return GameState.are_ads_enabled()
+	return (
+		GameState.are_ads_enabled()
+		and GameState.has_answered_ad_personalization_choice()
+	)
 
 func _portrait_ad_not_ready_message() -> String:
 	var translated: String = tr(&"TOAST_AD_NOT_READY")
@@ -3901,14 +3904,15 @@ func _remove_user_consent_popup() -> void:
 func _resolve_user_consent_popup(accepted: bool) -> void:
 	if !GameState.set_ad_personalization_choice(accepted):
 		return
+	_initialize_yandex_ads_from_saved_consent()
 	_remove_user_consent_popup()
-	_check_startup_guided_resume()
+	# The popup is first shown on the live level-3 word screen. Stage the banner
+	# only after the choice has been persisted and SDK initialization requested.
+	if game_screen_visible and !_quiz_screen_active and _portrait_ads_enabled():
+		_stage_portrait_ad_banner()
 
 func _check_startup_guided_resume() -> void:
 	if !GameState.has_accepted_legal_documents():
-		return
-	if !GameState.has_answered_ad_personalization_choice():
-		call_deferred("_show_user_consent_popup")
 		return
 	if !_startup_guided_resume_checked:
 		_startup_guided_resume_checked = true
@@ -6973,6 +6977,10 @@ func _show_single_player_level_popup(
 	retry_after_loss: bool = false,
 	return_to_menu_on_close: bool = false
 ) -> void:
+	# The final-reward screen stays visible as the dimmed backdrop while the next
+	# theme popup opens. Stop its Continue attention loop immediately so the CTA
+	# does not keep bouncing behind the modal.
+	_stop_final_reward_continue_attention()
 	_quiz_single_player_embedded = false
 	_quiz_single_player_target_difficulty = 0.5
 	_remove_single_player_theme_popup()
@@ -9150,6 +9158,26 @@ func show_game_screen() -> void:
 	# animation. Regular GameSession.changed rebuilds must stay visually stable.
 	_portrait_game_entrance_pending = !game_finished
 	super.show_game_screen()
+	call_deferred("_show_user_consent_on_single_player_word_if_needed")
+
+func _show_user_consent_on_single_player_word_if_needed() -> void:
+	# The first consent prompt belongs to the completed gameplay composition, not
+	# the entrance choreography. show_game_screen() also schedules this check while
+	# the entrance is still active, so ignore that early pass and retry from
+	# _finish_portrait_game_entrance() once every element has settled.
+	if _portrait_game_entrance_active:
+		return
+	if GameState.has_answered_ad_personalization_choice():
+		return
+	if GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+		return
+	if single_player_active_level_index + 1 < GameState.ADS_UNLOCK_LEVEL:
+		return
+	if !game_screen_visible or game_finished or !GameSession.is_active:
+		return
+	if _quiz_screen_active:
+		return
+	_show_user_consent_popup()
 
 func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var alphabet: PackedStringArray = _active_game_alphabet()
@@ -11849,6 +11877,9 @@ func _finish_portrait_game_entrance() -> void:
 		hint_button.remove_meta(&"portrait_entrance_rest_disabled")
 	_portrait_game_entrance_active = false
 	_sync_portrait_attempts_attention_bounce()
+	# Level 3 is the first ad-enabled level. If consent is still unanswered, open
+	# it only now, after the complete word-screen entrance animation has finished.
+	call_deferred("_show_user_consent_on_single_player_word_if_needed")
 
 func _on_timer_heart_recovered() -> void:
 	if (
@@ -16805,6 +16836,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			)
 			action_button.name = "StageCoinRewardContinueButton"
 			action_button.set("drop_shadow_enabled", true)
+			action_button.set_meta(&"attention_after_reveal", true)
 		action_button.modulate.a = 0.0
 		action_button.z_index = 120
 		action_button.set("button_disabled", true)
@@ -16949,7 +16981,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				final_action_button.set("drop_shadow_enabled", true)
 				_portrait_final_reward_continue_button = final_action_button
 				final_action_button.set("attention_bounce_enabled", false)
-				final_action_button.set_meta(&"attention_after_reveal", false)
+				final_action_button.set_meta(&"attention_after_reveal", true)
 			final_action_button.modulate.a = 0.0
 			final_action_button.z_index = 120
 			final_action_button.set("button_disabled", true)

@@ -36,6 +36,7 @@ var logging_enabled: bool = false
 
 var _native: Object = null
 var _sdk_ready: bool = false
+var _sdk_initialization_requested: bool = false
 var _banner_wanted: bool = false
 var _banner_loading: bool = false
 var _banner_loaded: bool = false
@@ -50,7 +51,7 @@ var _rewarded_show_tagged_legacy_bridge: bool = false
 
 func _enter_tree() -> void:
 	_read_project_settings()
-	_initialize_native_plugin()
+	_bind_native_plugin()
 
 func _exit_tree() -> void:
 	if is_native_available():
@@ -73,11 +74,26 @@ func _read_project_settings() -> void:
 		OS.is_debug_build()
 	))
 
-func _initialize_native_plugin() -> bool:
+func _bind_native_plugin() -> bool:
 	if !Engine.has_singleton(PLUGIN_SINGLETON):
 		return false
 	_native = Engine.get_singleton(PLUGIN_SINGLETON)
 	_connect_native_signals()
+	return true
+
+func initialize_after_consent(consent_value: bool) -> bool:
+	user_consent = consent_value
+	if !is_native_available() and !_bind_native_plugin():
+		return false
+	# Consent must reach Yandex before initialize(). The native configure() method
+	# applies the privacy flags first and only then requests SDK initialization.
+	if _sdk_ready:
+		_native.setUserConsent(user_consent)
+		return true
+	if _sdk_initialization_requested:
+		_native.setUserConsent(user_consent)
+		return true
+	_sdk_initialization_requested = true
 	_native.configure(age_restricted_user, user_consent, logging_enabled)
 	return true
 
@@ -127,6 +143,10 @@ func _connect_native(signal_name: StringName, callback: Callable) -> void:
 		_native.connect(signal_name, callback)
 
 func show_banner() -> void:
+	# Do not even queue a banner request before the app has explicitly started the
+	# SDK after the user's personalization choice.
+	if !_sdk_initialization_requested:
+		return
 	_banner_wanted = true
 	if !is_native_available() or !_sdk_ready:
 		return
