@@ -97,3 +97,12 @@ QUIZ_FEEDBACK_CORRECT,ВЕРНО!,CORRECT!
 LEVEL_COMPLETED_TITLE,УРОВЕНЬ ПРОЙДЕН,LEVEL COMPLETED
 AD_BANNER_PLACEHOLDER,YANDEX ADS • ADAPTIVE STICKY,YANDEX ADS • ADAPTIVE STICKY
 THEME_NEW_BADGE,НОВАЯ,NEW
+
+USER_CONSENT_TITLE,Лучший опыт,Better Experience
+USER_CONSENT_ACCEPT,Принять,Accept
+USER_CONSENT_DENY,Отклонить,Deny
+USER_CONSENT_DESCRIPTION,"Разрешите нам использовать данные рекламного сервиса, чтобы показывать более полезную и подходящую вам рекламу.
+
+Это помогает поддерживать игру бесплатной и делать игровой опыт комфортнее.","Allow us to use ad-service data to show ads that are more useful and relevant to you.
+
+This helps keep the game free and makes the overall experience smoother."

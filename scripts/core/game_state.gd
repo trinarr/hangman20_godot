@@ -110,6 +110,12 @@ enum HintPayment {
 	SOFT_CURRENCY,
 }
 
+enum AdPersonalizationChoice {
+	UNKNOWN,
+	ACCEPTED,
+	DENIED,
+}
+
 var interface_language: String = "ru"
 var word_language: String = "ru"
 var player_name: String = ""
@@ -123,6 +129,7 @@ var ads_unlocked: bool = false
 var guided_onboarding_completed: bool = false
 var interstitial_active_elapsed_seconds: float = 0.0
 var accepted_legal_documents_version: int = 0
+var ad_personalization_choice: int = AdPersonalizationChoice.UNKNOWN
 var _heart_tick_timer: Timer = null
 var _last_emitted_hearts: int = -1
 var _last_emitted_heart_seconds: int = -1
@@ -305,6 +312,11 @@ func load_game() -> void:
 		int(parsed.get("accepted_legal_documents_version", 0)),
 		0
 	)
+	ad_personalization_choice = clampi(
+		int(parsed.get("ad_personalization_choice", AdPersonalizationChoice.UNKNOWN)),
+		AdPersonalizationChoice.UNKNOWN,
+		AdPersonalizationChoice.DENIED
+	)
 
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
@@ -462,6 +474,7 @@ func save_game() -> bool:
 		"guided_onboarding_completed": guided_onboarding_completed,
 		"interstitial_active_elapsed_seconds": interstitial_active_elapsed_seconds,
 		"accepted_legal_documents_version": accepted_legal_documents_version,
+		"ad_personalization_choice": ad_personalization_choice,
 	}
 	var file := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
 	if file == null:
@@ -515,6 +528,25 @@ func accept_legal_documents() -> bool:
 	if save_game():
 		return true
 	accepted_legal_documents_version = previous_version
+	return false
+
+func has_answered_ad_personalization_choice() -> bool:
+	return ad_personalization_choice != AdPersonalizationChoice.UNKNOWN
+
+func allows_ad_personalization() -> bool:
+	return ad_personalization_choice == AdPersonalizationChoice.ACCEPTED
+
+func set_ad_personalization_choice(accepted: bool) -> bool:
+	var next_choice: int = (
+		AdPersonalizationChoice.ACCEPTED if accepted else AdPersonalizationChoice.DENIED
+	)
+	if ad_personalization_choice == next_choice:
+		return true
+	var previous_choice: int = ad_personalization_choice
+	ad_personalization_choice = next_choice
+	if save_game():
+		return true
+	ad_personalization_choice = previous_choice
 	return false
 
 func _normalize_active_single_player_session(source: Variant) -> Dictionary:

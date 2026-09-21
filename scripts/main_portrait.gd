@@ -123,6 +123,7 @@ const PORTRAIT_THEME_NEW_BADGE_FOLD := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
+const PORTRAIT_USER_CONSENT_POPUP_GROUP: StringName = &"user_consent_popup"
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
 # Primary bottom CTA width is based on the current two-player Start button after
@@ -3771,8 +3772,128 @@ func _accept_legal_documents() -> void:
 	_remove_legal_consent_popup()
 	_check_startup_guided_resume()
 
+func _show_user_consent_popup() -> void:
+	if GameState.has_answered_ad_personalization_choice():
+		return
+	_remove_user_consent_popup()
+	_hide_portrait_ad_banner()
+	var popup_size := Vector2(424.0, 0.0)
+	var popup_top_y := 165.0
+	var description_side_margin := 30.0
+	var description_top_offset := 84.0
+	var button_top_gap := 32.0
+	var button_height := 56.0
+	var button_bottom_padding := 28.0
+	var button_gap := 26.0
+	var button_width := 145.0
+	var description_text := tr("USER_CONSENT_DESCRIPTION")
+	var description_width := popup_size.x - description_side_margin * 2.0
+	var description_text_size := UI_QUESTION_COMMENT_FONT.get_multiline_string_size(
+		description_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		description_width,
+		22
+	)
+	# The display shader/outline slightly exceeds the raw font metrics, so keep a
+	# small safety strip while still deriving the popup height from the actual copy.
+	var description_text_safety_height := maxf(12.0, UI_QUESTION_COMMENT_FONT.get_height(22) * 0.5)
+	var description_height := description_text_size.y + description_text_safety_height
+	var popup_height := (
+		description_top_offset
+		+ description_height
+		+ button_top_gap
+		+ button_height
+		+ button_bottom_padding
+	)
+	var rect := Rect2(28.0, popup_top_y, popup_size.x, popup_height)
+	var previous_content := _portrait_popup_begin(
+		"UserConsentPopup",
+		str(PORTRAIT_USER_CONSENT_POPUP_GROUP),
+		510,
+		Callable(),
+		rect.position.y,
+		rect.end.y,
+		false,
+		Callable(),
+		false
+	)
+	_portrait_popup_shell(
+		rect,
+		tr("USER_CONSENT_TITLE"),
+		Callable(),
+		27,
+		PORTRAIT_BLUE,
+		PORTRAIT_DARK_BLUE,
+		PORTRAIT_ORANGE,
+		"",
+		false
+	)
+	var description_rect := Rect2(
+		rect.position.x + description_side_margin,
+		rect.position.y + description_top_offset,
+		description_width,
+		description_height
+	)
+	var description := _stage_label(
+		description_rect,
+		description_text,
+		22,
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_LEFT
+	)
+	description.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
+	description.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	description.clip_text = false
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.z_index = 9
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(description)
+	var button_y := description_rect.end.y + button_top_gap
+	var buttons_total_width := button_width * 2.0 + button_gap
+	var first_button_x := rect.get_center().x - buttons_total_width * 0.5
+	var deny_button := _stage_portrait_popup_main_button(
+		Rect2(first_button_x, button_y, button_width, button_height),
+		Callable(self, "_resolve_user_consent_popup").bind(false),
+		tr("USER_CONSENT_DENY"),
+		23,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_BLUE
+	)
+	deny_button.set("drop_shadow_enabled", true)
+	var accept_button := _stage_portrait_popup_main_button(
+		Rect2(first_button_x + button_width + button_gap, button_y, button_width, button_height),
+		Callable(self, "_resolve_user_consent_popup").bind(true),
+		tr("USER_CONSENT_ACCEPT"),
+		23,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	accept_button.set("drop_shadow_enabled", true)
+	content = previous_content
+
+func _remove_user_consent_popup() -> void:
+	_remove_popup_group_with_dimmer_fade(PORTRAIT_USER_CONSENT_POPUP_GROUP)
+
+func _resolve_user_consent_popup(accepted: bool) -> void:
+	if !GameState.set_ad_personalization_choice(accepted):
+		return
+	_remove_user_consent_popup()
+	_check_startup_guided_resume()
+
 func _check_startup_guided_resume() -> void:
-	if !_startup_guided_resume_checked and GameState.has_accepted_legal_documents():
+	if !GameState.has_accepted_legal_documents():
+		return
+	if !GameState.has_answered_ad_personalization_choice():
+		call_deferred("_show_user_consent_popup")
+		return
+	if !_startup_guided_resume_checked:
 		_startup_guided_resume_checked = true
 		if _should_auto_resume_guided_single_player():
 			call_deferred("_resume_saved_single_player_level")
