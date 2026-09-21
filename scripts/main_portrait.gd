@@ -7300,7 +7300,7 @@ func _stage_single_player_popup_theme_cards(
 			new_badge_label.position = Vector2(new_badge_side_padding - new_badge_ink_bounds.x, -1.0)
 			var new_badge_local_position := Vector2(
 				-8.0,
-				theme_name_rect.position.y - card_rect.position.y + 13.0
+				card_rect.size.y * 0.10
 			)
 			new_badge = Control.new()
 			new_badge.name = "ThemeNewBadge"
@@ -8092,6 +8092,12 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		)
 		icon_grow_position.set_trans(Tween.TRANS_QUAD)
 		icon_grow_position.set_ease(Tween.EASE_OUT)
+		# Reveal this card's ribbon at its own peak, including staggered bounces.
+		reveal_tween.tween_callback(
+			Callable(self, "_reveal_single_player_theme_new_badge").bind(
+				reveal_visual, animation_generation
+			)
+		)
 		var icon_settle: PropertyTweener = reveal_tween.tween_property(
 			theme_icon,
 			"scale",
@@ -8108,6 +8114,11 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 		)
 		icon_settle_position.set_trans(Tween.TRANS_BOUNCE)
 		icon_settle_position.set_ease(Tween.EASE_OUT)
+		reveal_tween.tween_callback(
+			Callable(self, "_play_single_player_theme_new_badge_shine").bind(
+				reveal_visual, animation_generation
+			)
+		)
 		_single_player_theme_slot_tweens.append(reveal_tween)
 
 	# Start the text and counter fade exactly when the icons reach their maximum
@@ -8129,6 +8140,46 @@ func _start_single_player_theme_slot_reveal(animation_generation: int) -> void:
 	)
 	_single_player_theme_slot_tweens.append(label_trigger_tween)
 
+func _reveal_single_player_theme_new_badge(visual: Dictionary, animation_generation: int) -> void:
+	if animation_generation != _single_player_theme_slot_generation:
+		return
+	var badge := visual.get("new_badge") as Control
+	if badge == null or !is_instance_valid(badge) or !badge.is_inside_tree():
+		return
+	var label := visual.get("new_badge_label") as Control
+	if label != null and is_instance_valid(label):
+		label.visible = true
+		label.modulate = Color.WHITE
+	# Fade the parent once: label, face and fold inherit the same opacity.
+	badge.visible = true
+	badge.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var fade_tween: Tween = badge.create_tween()
+	fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	fade_tween.tween_property(
+		badge, "modulate:a", 1.0,
+		minf(PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION, PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION)
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_single_player_theme_slot_tweens.append(fade_tween)
+
+func _play_single_player_theme_new_badge_shine(visual: Dictionary, animation_generation: int) -> void:
+	if animation_generation != _single_player_theme_slot_generation:
+		return
+	var badge := visual.get("new_badge") as Control
+	if badge == null or !is_instance_valid(badge) or !badge.is_inside_tree():
+		return
+	var panel := badge.get_node_or_null("ThemeNewBadgePanel") as ColorRect
+	if panel == null:
+		return
+	var material := panel.material as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("shine_progress", -0.35)
+	var shine_tween: Tween = badge.create_tween()
+	shine_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	# One traversal, ending beyond the right edge; no looping or idle shimmer.
+	shine_tween.tween_property(material, "shader_parameter/shine_progress", 1.55, 0.45)
+	_single_player_theme_slot_tweens.append(shine_tween)
+
 func _start_single_player_theme_slot_labels_reveal(animation_generation: int) -> void:
 	if animation_generation != _single_player_theme_slot_generation:
 		return
@@ -8140,9 +8191,8 @@ func _start_single_player_theme_slot_labels_reveal(animation_generation: int) ->
 		var theme_label := visual.get("theme_label") as Control
 		var badge_panel := visual.get("word_badge") as Control
 		var badge_label := visual.get("word_badge_label") as Control
-		var new_badge := visual.get("new_badge") as Control
-		var new_badge_label := visual.get("new_badge_label") as Control
-		for control_variant: Variant in [theme_label, badge_panel, badge_label, new_badge, new_badge_label]:
+		# Ribbon opacity is driven separately by its own icon's bounce.
+		for control_variant: Variant in [theme_label, badge_panel, badge_label]:
 			var reveal_control := control_variant as Control
 			if reveal_control != null and is_instance_valid(reveal_control):
 				reveal_control.visible = true
@@ -8165,6 +8215,17 @@ func _start_single_player_theme_slot_labels_reveal(animation_generation: int) ->
 		)
 		fade.set_trans(Tween.TRANS_SINE)
 		fade.set_ease(Tween.EASE_OUT)
+	# Do not restore icon transforms or force ribbons opaque before the last
+	# bounce finishes. The old completion cut the settle animation short.
+	var remaining_bounce: float = maxf(
+		float(maxi(_single_player_popup_theme_card_visuals.size() - 1, 0))
+		* PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER
+		+ PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
+		- PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION,
+		0.0
+	)
+	if remaining_bounce > 0.0:
+		fade_tween.chain().tween_interval(remaining_bounce)
 	_single_player_theme_slot_tweens.append(fade_tween)
 	fade_tween.finished.connect(
 		Callable(self, "_finish_single_player_theme_slot_reveal").bind(
@@ -8196,7 +8257,7 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 	if animation_generation != _single_player_theme_slot_generation:
 		return
 	_single_player_theme_slot_animating = false
-	_single_player_theme_slot_tweens.clear()
+	# Keep the one-shot ribbon shine tracked for cancellation on popup close.
 	for visual_variant: Variant in _single_player_popup_theme_card_visuals:
 		if !(visual_variant is Dictionary):
 			continue
@@ -8244,29 +8305,7 @@ func _finish_single_player_theme_slot_reveal(animation_generation: int) -> void:
 	if single_player_popup_play_button != null and is_instance_valid(single_player_popup_play_button):
 		single_player_popup_play_button.set("button_disabled", false)
 		single_player_popup_play_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		# The label fade can finish a fraction before the icon bounce settles. Delay
-		# the one-shot Play shine just enough to start after the last card animation.
-		var last_card_stagger: float = (
-			float(maxi(_single_player_popup_theme_card_visuals.size() - 1, 0))
-			* PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER
-		)
-		var play_shine_delay: float = maxf(
-			last_card_stagger
-			+ PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION
-			- PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION,
-			0.0
-		)
-		if play_shine_delay > 0.0:
-			var play_shine_tween: Tween = single_player_popup_play_button.create_tween()
-			play_shine_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-			play_shine_tween.tween_interval(play_shine_delay)
-			play_shine_tween.tween_callback(
-				Callable(self, "_play_single_player_theme_play_button_shine").bind(
-					single_player_popup_play_button
-				)
-			)
-		else:
-			_play_single_player_theme_play_button_shine(single_player_popup_play_button)
+		_play_single_player_theme_play_button_shine(single_player_popup_play_button)
 	if single_player_popup_refresh_button != null and is_instance_valid(single_player_popup_refresh_button):
 		single_player_popup_refresh_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_single_player_theme_reroll_button_state()
