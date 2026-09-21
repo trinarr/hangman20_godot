@@ -3784,8 +3784,9 @@ func _show_user_consent_popup() -> void:
 	var button_top_gap := 32.0
 	var button_height := 56.0
 	var button_bottom_padding := 28.0
-	var button_gap := 26.0
-	var button_width := 145.0
+	var button_side_margin := 30.0
+	var button_gap := 16.0
+	var button_width := (popup_size.x - button_side_margin * 2.0 - button_gap) * 0.5
 	var description_text := tr("USER_CONSENT_DESCRIPTION")
 	var description_width := popup_size.x - description_side_margin * 2.0
 	var description_text_size := UI_QUESTION_COMMENT_FONT.get_multiline_string_size(
@@ -3848,8 +3849,7 @@ func _show_user_consent_popup() -> void:
 	description.z_index = 9
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(description)
 	var button_y := description_rect.end.y + button_top_gap
-	var buttons_total_width := button_width * 2.0 + button_gap
-	var first_button_x := rect.get_center().x - buttons_total_width * 0.5
+	var first_button_x := rect.position.x + button_side_margin
 	var deny_button := _stage_portrait_popup_main_button(
 		Rect2(first_button_x, button_y, button_width, button_height),
 		Callable(self, "_resolve_user_consent_popup").bind(false),
