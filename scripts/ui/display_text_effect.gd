@@ -92,6 +92,14 @@ func configure(
 	if is_inside_tree():
 		_queue_sync()
 
+# Extra visible width outside a glyph's ink bounds, in target-local units.
+# Reuse the rendering metrics so callers need no copies of the style constants.
+func get_horizontal_ink_padding() -> Vector2:
+	_sync_effect_metrics()
+	var left: float = maxf(float(_outline_size), float(_shadow_spread))
+	var right: float = maxf(float(_outline_size), float(_shadow_spread) + _shadow_offset_x)
+	return Vector2(left, right)
+
 func _disconnect_target() -> void:
 	for signal_name: StringName in [&"resized", &"minimum_size_changed", &"theme_changed", &"draw", &"visibility_changed"]:
 		if _target.is_connected(signal_name, _queue_sync):

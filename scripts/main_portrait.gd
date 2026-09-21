@@ -7387,6 +7387,45 @@ func _show_single_player_level_popup(
 		)
 	content = previous_content
 
+# Return the left/right ink bounds relative to a left-aligned text origin.
+# Shape the full string so kerning, ligatures, RTL and fallback fonts agree
+# with Label; individual character widths are not sufficient here.
+func _theme_badge_text_horizontal_bounds(
+	text: String, font: Font, font_size: int, language: String
+) -> Vector2:
+	var line := TextLine.new()
+	line.direction = TextServer.DIRECTION_AUTO
+	line.add_string(text, font, font_size, language)
+	var line_width: float = line.get_size().x
+	var text_server: TextServer = TextServerManager.get_primary_interface()
+	var left: float = INF
+	var right: float = -INF
+	var pen_x: float = 0.0
+	for glyph: Dictionary in text_server.shaped_text_get_glyphs(line.get_rid()):
+		var glyph_font: RID = glyph["font_rid"]
+		var points := PackedVector3Array()
+		if glyph_font.is_valid():
+			var contours: Dictionary = text_server.font_get_glyph_contours(
+				glyph_font, int(glyph["font_size"]), int(glyph["index"])
+			)
+			points = contours.get("points", PackedVector3Array())
+		var glyph_offset: Vector2 = glyph["offset"]
+		for _repeat_index: int in range(int(glyph["repeat"])):
+			var origin_x: float = pen_x + glyph_offset.x
+			if points.is_empty():
+				# Bitmap/missing glyphs have no vector outline. Reserve their
+				# advance rather than dropping them from the ribbon's width.
+				left = minf(left, origin_x)
+				right = maxf(right, origin_x + float(glyph["advance"]))
+			else:
+				for point: Vector3 in points:
+					left = minf(left, origin_x + point.x)
+					right = maxf(right, origin_x + point.x)
+			pen_x += float(glyph["advance"])
+	if left == INF:
+		return Vector2(0.0, line_width)
+	return Vector2(left, right)
+
 func _stage_single_player_popup_theme_cards(
 	level_index: int,
 	options: Array,
@@ -7550,7 +7589,51 @@ func _stage_single_player_popup_theme_cards(
 		theme_label.clip_text = false
 		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(theme_label)
 		if theme_index == first_offer_theme:
-			var new_badge_size := Vector2(55.0, 20.0)
+			var new_badge_text: String = tr("THEME_NEW_BADGE")
+			var new_badge_font_size: int = 12
+			var new_badge_font: Font = UI_REGULAR_FONT
+			# Measure the same weight and width axes that will render the caption.
+			var new_badge_font_variation := UI_REGULAR_FONT.duplicate() as FontVariation
+			if new_badge_font_variation != null:
+				var new_badge_font_axes: Dictionary = new_badge_font_variation.variation_opentype.duplicate()
+				new_badge_font_axes[TextServerManager.get_primary_interface().name_to_tag("wght")] = 700.0
+				new_badge_font_variation.variation_opentype = new_badge_font_axes
+				new_badge_font = new_badge_font_variation
+			new_badge_label = Label.new()
+			new_badge_label.name = "ThemeNewBadgeLabel"
+			new_badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			new_badge_label.text = new_badge_text
+			new_badge_label.language = TranslationServer.get_locale()
+			new_badge_label.text_direction = Control.TEXT_DIRECTION_AUTO
+			# Keep the layout origin on the physical left, including RTL locales.
+			new_badge_label.layout_direction = Control.LAYOUT_DIRECTION_LTR
+			new_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			new_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			new_badge_label.add_theme_font_override("font", new_badge_font)
+			new_badge_label.add_theme_font_size_override("font_size", new_badge_font_size)
+			new_badge_label.add_theme_color_override("font_color", Color.WHITE)
+			BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(new_badge_label)
+			var new_badge_ink_bounds: Vector2 = _theme_badge_text_horizontal_bounds(
+				new_badge_text, new_badge_font, new_badge_font_size, new_badge_label.language
+			)
+			var new_badge_text_effect := new_badge_label.get_node("DisplayTextShaderEffect") as DisplayTextEffect
+			var new_badge_effect_padding: Vector2 = new_badge_text_effect.get_horizontal_ink_padding()
+			new_badge_ink_bounds.x -= new_badge_effect_padding.x
+			new_badge_ink_bounds.y += new_badge_effect_padding.y
+			var new_badge_padding: float = 6.0
+			var new_badge_slant: float = 5.0
+			# Pad the visible glyphs and their effect, not the font's advance box.
+			# The diagonal is measured at the caption's midline, as before.
+			var new_badge_ink_width: float = new_badge_ink_bounds.y - new_badge_ink_bounds.x
+			var new_badge_size := Vector2(
+				ceilf(new_badge_ink_width + new_badge_padding * 2.0 + new_badge_slant * 0.5),
+				20.0
+			)
+			var new_badge_side_padding: float = (
+				new_badge_size.x - new_badge_slant * 0.5 - new_badge_ink_width
+			) * 0.5
+			new_badge_label.size = Vector2(new_badge_size.x, new_badge_size.y)
+			new_badge_label.position = Vector2(new_badge_side_padding - new_badge_ink_bounds.x, -1.0)
 			var new_badge_local_position := Vector2(
 				-8.0,
 				theme_name_rect.position.y - card_rect.position.y + 13.0
@@ -7573,6 +7656,7 @@ func _stage_single_player_popup_theme_cards(
 			var new_badge_material := ShaderMaterial.new()
 			new_badge_material.shader = THEME_NEW_BADGE_SHADER
 			new_badge_material.set_shader_parameter("panel_size", new_badge_size)
+			new_badge_material.set_shader_parameter("right_slant", new_badge_slant)
 			new_badge_material.set_shader_parameter("top_color", PORTRAIT_THEME_NEW_BADGE_FILL.lightened(0.08))
 			new_badge_material.set_shader_parameter("bottom_color", PORTRAIT_THEME_NEW_BADGE_FILL.darkened(0.08))
 			new_badge_panel.material = new_badge_material
@@ -7607,6 +7691,7 @@ func _stage_single_player_popup_theme_cards(
 					# Match the diagonal silhouette while retaining the standard shadow profile.
 					new_badge_shadow_material.shader = THEME_NEW_BADGE_SHADER
 					new_badge_shadow_material.set_shader_parameter("panel_size", new_badge_size)
+					new_badge_shadow_material.set_shader_parameter("right_slant", new_badge_slant)
 					new_badge_shadow_material.set_shader_parameter("shadow_pass", true)
 					new_badge_shadow_material.set_shader_parameter(
 						"shadow_color",
@@ -7632,36 +7717,6 @@ func _stage_single_player_popup_theme_cards(
 			new_badge_fold.z_index = -new_badge.z_index - 1
 			new_badge.add_child(new_badge_fold)
 
-			new_badge_label = Label.new()
-			new_badge_label.name = "ThemeNewBadgeLabel"
-			new_badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			new_badge_label.text = tr("THEME_NEW_BADGE")
-			new_badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			new_badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			new_badge_label.add_theme_font_override("font", UI_REGULAR_FONT)
-			# Slightly heavier letters on this badge only; preserve the regular axes.
-			var new_badge_font := UI_REGULAR_FONT.duplicate() as FontVariation
-			if new_badge_font != null:
-				var new_badge_font_axes: Dictionary = new_badge_font.variation_opentype.duplicate()
-				new_badge_font_axes[TextServerManager.get_primary_interface().name_to_tag("wght")] = 700.0
-				new_badge_font.variation_opentype = new_badge_font_axes
-				new_badge_label.add_theme_font_override("font", new_badge_font)
-			new_badge_label.add_theme_font_size_override("font_size", 12)
-			# Set bounds after the font, so the default font's minimum height
-			# cannot enlarge this compact label. Balance the lower text extrusion.
-			# Extend only the right edge of the ribbon; keep the text in place.
-			new_badge_label.size = Vector2(49.0, new_badge_size.y)
-			new_badge_label.position = Vector2(-3.0, -1.0)
-			new_badge_label.add_theme_color_override("font_color", Color.WHITE)
-			BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(new_badge_label)
-			new_badge_label.add_theme_color_override(
-				"font_shadow_color",
-				Color(0.0, 0.0, 0.0, 0.0)
-			)
-			new_badge_label.add_theme_constant_override("shadow_offset_x", 0)
-			new_badge_label.add_theme_constant_override("shadow_offset_y", 0)
-			new_badge_label.add_theme_constant_override("shadow_outline_size", 0)
-			new_badge_label.add_theme_constant_override("outline_size", 0)
 			new_badge.add_child(new_badge_label)
 		var theme_button := _stage_button(
 			card_rect,
