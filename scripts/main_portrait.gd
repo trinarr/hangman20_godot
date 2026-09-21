@@ -3779,16 +3779,18 @@ func _show_user_consent_popup() -> void:
 	_hide_portrait_ad_banner()
 	var popup_size := Vector2(424.0, 0.0)
 	var popup_top_y := 165.0
-	var description_side_margin := 30.0
+	var description_panel_side_margin := 20.0
 	var description_top_offset := 84.0
+	var description_panel_padding := 18.0
 	var button_top_gap := 32.0
-	var button_height := 56.0
-	var button_bottom_padding := 28.0
-	var button_side_margin := 30.0
+	var button_height := 56.0 * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
+	var button_bottom_padding := PORTRAIT_POPUP_BOTTOM_BUTTON_GAP
+	var button_side_margin := 16.0
 	var button_gap := 16.0
 	var button_width := (popup_size.x - button_side_margin * 2.0 - button_gap) * 0.5
 	var description_text := tr("USER_CONSENT_DESCRIPTION")
-	var description_width := popup_size.x - description_side_margin * 2.0
+	var description_panel_width := popup_size.x - description_panel_side_margin * 2.0
+	var description_width := description_panel_width - description_panel_padding * 2.0
 	var description_text_size := UI_QUESTION_COMMENT_FONT.get_multiline_string_size(
 		description_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
@@ -3799,9 +3801,10 @@ func _show_user_consent_popup() -> void:
 	# small safety strip while still deriving the popup height from the actual copy.
 	var description_text_safety_height := maxf(12.0, UI_QUESTION_COMMENT_FONT.get_height(22) * 0.5)
 	var description_height := description_text_size.y + description_text_safety_height
+	var description_panel_height := description_height + description_panel_padding * 2.0
 	var popup_height := (
 		description_top_offset
-		+ description_height
+		+ description_panel_height
 		+ button_top_gap
 		+ button_height
 		+ button_bottom_padding
@@ -3829,9 +3832,21 @@ func _show_user_consent_popup() -> void:
 		"",
 		false
 	)
-	var description_rect := Rect2(
-		rect.position.x + description_side_margin,
+	var description_panel_rect := Rect2(
+		rect.position.x + description_panel_side_margin,
 		rect.position.y + description_top_offset,
+		description_panel_width,
+		description_panel_height
+	)
+	var description_panel := _stage_panel(
+		description_panel_rect,
+		PORTRAIT_UI_PALETTE.THEME_CARD,
+		22.0
+	)
+	description_panel.z_index = 8
+	var description_rect := Rect2(
+		description_panel_rect.position.x + description_panel_padding,
+		description_panel_rect.position.y + description_panel_padding,
 		description_width,
 		description_height
 	)
@@ -3848,13 +3863,13 @@ func _show_user_consent_popup() -> void:
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.z_index = 9
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(description)
-	var button_y := description_rect.end.y + button_top_gap
+	var button_y := description_panel_rect.end.y + button_top_gap
 	var first_button_x := rect.position.x + button_side_margin
-	var deny_button := _stage_portrait_popup_main_button(
+	var deny_button := _stage_main_button(
 		Rect2(first_button_x, button_y, button_width, button_height),
 		Callable(self, "_resolve_user_consent_popup").bind(false),
 		tr("USER_CONSENT_DENY"),
-		23,
+		_portrait_popup_font_size(18),
 		false,
 		0.32,
 		false,
@@ -3863,11 +3878,12 @@ func _show_user_consent_popup() -> void:
 		LONG_BUTTON_COLOR_BLUE
 	)
 	deny_button.set("drop_shadow_enabled", true)
-	var accept_button := _stage_portrait_popup_main_button(
+	deny_button.set("attention_bounce_enabled", false)
+	var accept_button := _stage_main_button(
 		Rect2(first_button_x + button_width + button_gap, button_y, button_width, button_height),
 		Callable(self, "_resolve_user_consent_popup").bind(true),
 		tr("USER_CONSENT_ACCEPT"),
-		23,
+		_portrait_popup_font_size(18),
 		false,
 		0.32,
 		false,
@@ -3876,6 +3892,7 @@ func _show_user_consent_popup() -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	accept_button.set("drop_shadow_enabled", true)
+	accept_button.set("attention_bounce_enabled", false)
 	content = previous_content
 
 func _remove_user_consent_popup() -> void:
