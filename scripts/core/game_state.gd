@@ -37,7 +37,6 @@ var HEART_STATE_POLL_SECONDS: float = GAME_DESIGN.get_float_range(
 	"timings.heart_state_poll_seconds", 1.0, 0.05, 60.0
 )
 var WORD_REWARD_COINS: int = GAME_DESIGN.get_int("economy.rewards.word_coins", 10)
-var WORD_REWARD_STARS: int = GAME_DESIGN.get_int("economy.rewards.word_stars", 10)
 var QUIZ_STAGE_REWARD_COIN_MULTIPLIER: float = GAME_DESIGN.get_float_range(
 	"economy.rewards.quiz_stage_coin_multiplier", 1.5, 0.0, 100.0
 )
@@ -254,14 +253,6 @@ func reset_interstitial_timer(persist: bool = true) -> void:
 func set_fullscreen_ad_active(active: bool) -> void:
 	_fullscreen_ad_active = active
 	_sync_interstitial_process_state()
-
-func get_interstitial_remaining_seconds() -> float:
-	if !ads_unlocked:
-		return INTERSTITIAL_INTERVAL_SECONDS
-	return maxf(
-		INTERSTITIAL_INTERVAL_SECONDS - interstitial_active_elapsed_seconds,
-		0.0
-	)
 
 func _normalize_game_design_values() -> void:
 	SINGLE_PLAYER_DIFFICULTY_MAX = maxf(
@@ -1657,13 +1648,6 @@ func _single_player_question_theme_stats(lang: String, theme_index: int) -> Dict
 	bucket["question_stats"] = question_stats
 	single_player[lang_key] = bucket
 	return theme_stats
-
-func has_single_player_question_been_seen(lang: String, theme_index: int, question_id: int) -> bool:
-	if theme_index < 0 or question_id < 0:
-		return false
-	var theme_stats := _single_player_question_theme_stats(lang, theme_index)
-	var seen: Dictionary = theme_stats["seen"]
-	return bool(seen.get(str(question_id), false))
 
 func get_single_player_question_history(lang: String, theme_index: int) -> Dictionary:
 	return _single_player_question_theme_stats(lang, theme_index).duplicate(true)

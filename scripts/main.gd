@@ -90,8 +90,6 @@ var SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT: int = GAME_DESIGN.get_int(
 var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
 	"progression.quiz.onboarding_slot", 1
 )
-const DIFFICULTY_MODE_HARD: int = 1
-const DIFFICULTY_MODE_NORMAL: int = 2
 const DIFFICULTY_HARD_NORMAL_TINT := UI_PALETTE.CHALLENGE_NORMAL
 const DIFFICULTY_HARD_PRESSED_TINT := UI_PALETTE.CHALLENGE_PRESSED
 const DIFFICULTY_HARD_SELECTED_TINT := UI_PALETTE.CHALLENGE_SELECTED
@@ -938,9 +936,6 @@ func _single_player_level_failed_label() -> String:
 
 func _single_player_level_completed_reward_label(bonus_coins: int) -> String:
 	return tr("LEVEL_COMPLETED_BONUS") % maxi(bonus_coins, 0)
-
-func _single_player_chain_failed_label() -> String:
-	return tr("CHAIN_TRY_BETTER")
 
 func _single_player_choose_theme_label() -> String:
 	return tr("CHOOSE_THEME")
@@ -2112,9 +2107,6 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 
 func _remove_exit_game_popup() -> void:
 	_remove_popup_group_with_dimmer_fade(&"exit_game_popup")
-func _custom_word_random_label() -> String:
-	return tr("RANDOM_WORD")
-
 func _custom_word_start_label() -> String:
 	return Database.tr_text(77, "Start game")
 
@@ -2735,19 +2727,6 @@ func _finish_round(is_win: bool) -> void:
 	# Single Player victories follow Classic exactly instead of entering the old
 	# dedicated win transition after the final letter feedback delay.
 	_show_in_place_round_result(is_win)
-
-func _open_single_player_retry_theme_popup() -> void:
-	var level_index: int = single_player_active_level_index
-	if level_index < 0:
-		show_menu()
-		return
-	GameState.reset_single_level_attempt(Database.current_language, level_index)
-	_invalidate_single_player_level_cache()
-	GameSession.discard_current_round()
-	game_finished = false
-	last_result_data = {}
-	single_player_active_word_slot = -1
-	_show_single_player_level_popup(level_index, -1, true)
 
 func _result_continue_button_text() -> String:
 	return Database.tr_text(3, "Continue")

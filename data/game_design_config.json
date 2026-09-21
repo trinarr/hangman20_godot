@@ -108,7 +108,6 @@
     },
     "rewards": {
       "word_coins": 10,
-      "word_stars": 10,
       "quiz_stage_coin_multiplier": 1.5,
       "level_completion_base_coins": 25,
       "level_completion_per_win_coins": 10,
@@ -141,7 +140,6 @@
     "quiz_fast_answer_window_ms": 5000,
     "menu_logo_shine_duration_seconds": 0.72,
     "quiz_wrong_answer_shake_step_seconds": 0.065,
-    "rewarded_ad_close_guard_seconds": 0.3,
     "animations": {
       "back_entrance_seconds": 0.24,
       "counter_press_seconds": 0.055,
@@ -248,8 +246,6 @@
         "gap_seconds": 0.0094,
         "reference_length": 5.0,
         "maximum_speed_multiplier": 2.2,
-        "neighbor_strength": 0.42,
-        "neighbor_radius": 2,
         "search_appear_seconds": 0.18
       },
       "attempt_reward": {

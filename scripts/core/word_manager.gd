@@ -69,8 +69,5 @@ func normalize_word(text: String) -> String:
 	result = result.replace("Ё", "Е")
 	return result
 
-func clear_the_theme(theme_index: int) -> void:
-	GameState.clear_theme(Database.current_language, theme_index, _real_word_count(theme_index))
-
 func _real_word_count(theme_index: int) -> int:
 	return Database.get_words_by_index(theme_index, 0).size()

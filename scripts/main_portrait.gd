@@ -16,15 +16,7 @@ const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
 const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
 var _reward_chest_closed_texture_cache: Texture2D = null
 var _reward_chest_open_texture_cache: Texture2D = null
-const REWARD_CHEST_FLASH_SHADER_CODE: String = """
-shader_type canvas_item;
-render_mode unshaded;
-
-void fragment() {
-	// Preserve texture alpha and CanvasItem modulation without sampling twice.
-	COLOR.rgb = vec3(1.0);
-}
-"""
+const REWARD_CHEST_FLASH_SHADER: Shader = preload("res://shaders/reward_chest_flash.gdshader")
 var _reward_chest_flash_material_cache: ShaderMaterial = null
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
@@ -67,9 +59,6 @@ const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_AD_BANNER_FALLBACK_HEIGHT: float = 50.0
 const PORTRAIT_AD_BANNER_HEIGHT_DP: float = 50.0
 const PORTRAIT_ANDROID_BASE_DPI: float = 160.0
-const PORTRAIT_AD_TOAST_ANCHOR_Y: float = (
-	PORTRAIT_STAGE_SIZE.y - PORTRAIT_AD_BANNER_FALLBACK_HEIGHT - 8.0
-)
 const PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT: float = 24.0
 const PORTRAIT_LONG_BUTTON_SIZE := Vector2(300.0, 64.0)
 const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
@@ -343,51 +332,8 @@ const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 4.0
 # Authored at 480 px; the 960 px viewport renders a 5/5/5/9 px rim.
 const PORTRAIT_THEME_BAR_INSET := Vector2(2.0, 2.0)
 const PORTRAIT_THEME_BAR_BOTTOM_INSET: float = 4.5
-const THEME_UNLOCK_ICON_GRAYSCALE_SHADER_CODE: String = """
-shader_type canvas_item;
-render_mode unshaded;
-
-uniform float saturation : hint_range(0.0, 1.0) = 0.0;
-uniform vec4 shadow_tint : source_color = vec4(0.25, 0.43, 0.92, 1.0);
-uniform vec4 highlight_tint : source_color = vec4(0.62, 0.82, 1.0, 1.0);
-varying vec4 canvas_modulate;
-
-void vertex() {
-	canvas_modulate = COLOR;
-}
-
-void fragment() {
-	vec4 source = texture(TEXTURE, UV);
-	float luminance = dot(source.rgb, vec3(0.299, 0.587, 0.114));
-	vec3 neutral = vec3(luminance);
-	vec3 tinted = mix(shadow_tint.rgb, highlight_tint.rgb, luminance);
-	vec3 locked = mix(neutral, tinted, 0.42);
-	COLOR = vec4(mix(locked, source.rgb, saturation), source.a) * canvas_modulate;
-}
-"""
-const THEME_UNLOCK_FILL_SHADER_CODE: String = """
-shader_type canvas_item;
-render_mode unshaded;
-
-uniform vec2 fill_size = vec2(1.0, 30.0);
-uniform vec4 base_color : source_color;
-uniform vec4 highlight_color : source_color;
-
-void fragment() {
-	// Always render one full-size rounded pill. Progress is revealed by the parent
-	// clip mask, so the artwork slides out from the left instead of collapsing into
-	// a tiny/deformed capsule at the start of the animation.
-	vec2 half_shape = fill_size * 0.5;
-	float radius = min(half_shape.x, half_shape.y);
-	vec2 q = abs(UV * fill_size - half_shape) - (half_shape - vec2(radius));
-	float distance = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
-	float feather = max(fwidth(distance), 0.001);
-	float mask = 1.0 - smoothstep(-feather, 0.0, distance);
-	float highlight_mix = 1.0 - smoothstep(0.092, 0.108, UV.y);
-	vec4 fill = mix(base_color, highlight_color, highlight_mix);
-	COLOR *= vec4(fill.rgb, fill.a * mask);
-}
-"""
+const THEME_UNLOCK_ICON_GRAYSCALE_SHADER: Shader = preload("res://shaders/theme_unlock_icon_grayscale.gdshader")
+const THEME_UNLOCK_FILL_SHADER: Shader = preload("res://shaders/theme_unlock_fill.gdshader")
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE: float = 1.14
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION: float = 0.16
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION: float = 0.20
@@ -503,7 +449,6 @@ const PORTRAIT_RESULT_SEARCH_PEAK_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VI
 const PORTRAIT_RESULT_WORD_SEARCH_GAP: float = 10.0
 const PORTRAIT_RESULT_SEARCH_SAFE_MARGIN: float = 14.0
 const PORTRAIT_RESULT_WORD_Y_OFFSET: float = 4.0
-const PORTRAIT_RESULT_LETTER_SPACING: int = 2
 const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(24.0, 31.0)
 var PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.result_letters.grow_seconds", 0.068
@@ -519,12 +464,6 @@ var PORTRAIT_RESULT_LETTER_BOUNCE_REFERENCE_LENGTH: float = PORTRAIT_GAME_DESIGN
 )
 var PORTRAIT_RESULT_LETTER_BOUNCE_MAX_SPEED_MULTIPLIER: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.result_letters.maximum_speed_multiplier", 2.2
-)
-var PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_STRENGTH: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.neighbor_strength", 0.42
-)
-var PORTRAIT_RESULT_LETTER_BOUNCE_NEIGHBOR_RADIUS: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.animations.result_letters.neighbor_radius", 2
 )
 var PORTRAIT_RESULT_SEARCH_APPEAR_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.result_letters.search_appear_seconds", 0.18
@@ -758,9 +697,6 @@ const PORTRAIT_FINAL_REWARD_SPARKLE_PEAK_SCALE: float = 1.00
 var PORTRAIT_QUIZ_WRONG_ANSWER_SHAKE_STEP_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.quiz_wrong_answer_shake_step_seconds", 0.065
 )
-var PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.rewarded_ad_close_guard_seconds", 0.30
-)
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.attempts_popup.counter_peak_scale", 1.12
 )
@@ -827,8 +763,6 @@ var _portrait_word_letter_bounce_active_count: int = 0
 var _portrait_word_letter_bounce_generation: int = 0
 var _portrait_round_end_waiting_for_letter_bounce: bool = false
 var _portrait_inline_result_search_button: Control = null
-var _portrait_inline_result_word_holder: Control = null
-var _portrait_inline_result_marker_holder: Control = null
 var _portrait_inline_result_continue_button: Control = null
 var _portrait_in_place_result_active: bool = false
 var _portrait_in_place_result_is_win: bool = false
@@ -847,7 +781,6 @@ var _portrait_popup_resume_without_intro: bool = false
 var _portrait_final_reward_claim_in_progress: bool = false
 var _portrait_final_reward_waiting_for_ad: bool = false
 var _portrait_final_reward_earned_ad_reward: bool = false
-var _portrait_final_reward_ad_close_pending: bool = false
 var _portrait_final_reward_double_button: Control = null
 var _portrait_final_reward_continue_button: Control = null
 var _portrait_single_reward_continue_button: Control = null
@@ -865,6 +798,8 @@ var _portrait_interstitial_pending_action: Callable = Callable()
 var _portrait_pending_theme_reroll_presentation: Dictionary = {}
 var _portrait_pending_home_reward_amount: int = 0
 var _portrait_pending_home_reward_animation_running: bool = false
+var _portrait_reward_effects: Node = null
+var _portrait_reward_tweens: Array[Tween] = []
 var _portrait_hint_counter_animation_active: bool = false
 var _portrait_hint_counter_refresh_requested: bool = false
 const PORTRAIT_BUTTON_BADGE_STATE_COINS := "coins"
@@ -927,22 +862,6 @@ func _portrait_ad_not_ready_message() -> String:
 		if Database.interface_language == "ru"
 		else "The ad isn't ready yet"
 	)
-
-func _portrait_ad_toast_anchor_y() -> float:
-	# On reward screens, attach the toast to the rewarded-ad button itself.
-	# StageToast already places its panel one TOAST_PARENT_GAP above its anchor,
-	# so using the button's top edge gives a small, consistent visual gap.
-	if (
-		_portrait_final_reward_double_button != null
-		and is_instance_valid(_portrait_final_reward_double_button)
-		and _portrait_final_reward_double_button.is_inside_tree()
-		and _portrait_final_reward_double_button.visible
-	):
-		var button_stage_rect: Variant = _portrait_final_reward_double_button.get("stage_rect")
-		if button_stage_rect is Rect2:
-			var resolved_button_rect: Rect2 = button_stage_rect
-			return resolved_button_rect.position.y
-	return PORTRAIT_AD_TOAST_ANCHOR_Y
 
 func _show_portrait_ad_not_ready_toast() -> void:
 	if _portrait_ad_toast == null or !is_instance_valid(_portrait_ad_toast):
@@ -1095,6 +1014,7 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
+	_cancel_portrait_reward_presentation()
 	_hide_portrait_ad_banner()
 	_quiz_screen_active = false
 	_quiz_question_ready_at_msec = 0
@@ -1137,8 +1057,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_star_counter_visual = null
 	_portrait_star_icon_visual = null
 	_portrait_inline_result_search_button = null
-	_portrait_inline_result_word_holder = null
-	_portrait_inline_result_marker_holder = null
 	_portrait_inline_result_continue_button = null
 	_portrait_game_runtime_ready = false
 	_portrait_word_letter_bounce_active_count = 0
@@ -1970,262 +1888,54 @@ func _set_currency_counter_pressed(
 	scale_tweener.set_ease(Tween.EASE_OUT)
 	counter_visual.set_meta(&"press_tween", press_tween)
 
-func _set_portrait_resource_counter_collection_active_legacy(
-	reward_currency: String,
-	active: bool
-) -> void:
-	var icon_visual: Control = (
-		_portrait_star_icon_visual
-		if reward_currency == GameState.STAGE_REWARD_STARS
-		else _portrait_currency_coin_icon_visual
-	)
-	var counter_visual: Control = (
-		_portrait_star_counter_visual
-		if reward_currency == GameState.STAGE_REWARD_STARS
-		else _portrait_currency_counter_visual
-	)
-	if (
-		icon_visual == null
-		or !is_instance_valid(icon_visual)
-		or !icon_visual.is_inside_tree()
-	):
-		return
-	var resource_icon: Control = icon_visual
-	resource_icon.pivot_offset = Vector2.ZERO
-	var rest_scale: Vector2 = resource_icon.get_meta(&"reward_icon_rest_scale", Vector2.ZERO)
-	var rest_position: Vector2 = resource_icon.position
-	if rest_scale == Vector2.ZERO:
-		rest_scale = resource_icon.scale
-		if rest_scale == Vector2.ZERO:
-			rest_scale = Vector2.ONE
-		resource_icon.set_meta(&"reward_icon_rest_scale", rest_scale)
-	if resource_icon.has_meta(&"reward_icon_rest_position"):
-		rest_position = resource_icon.get_meta(&"reward_icon_rest_position", resource_icon.position)
-	else:
-		resource_icon.set_meta(&"reward_icon_rest_position", rest_position)
-	var counter_can_scale: bool = (
-		counter_visual != null
-		and is_instance_valid(counter_visual)
-		and counter_visual.is_inside_tree()
-	)
-	var counter_rest_scale := Vector2.ONE
-	if counter_can_scale:
-		counter_rest_scale = counter_visual.get_meta(
-			&"reward_counter_rest_scale",
-			Vector2.ZERO
-		)
-		if counter_rest_scale == Vector2.ZERO:
-			counter_rest_scale = counter_visual.scale
-			if counter_rest_scale == Vector2.ZERO:
-				counter_rest_scale = Vector2.ONE
-			counter_visual.set_meta(&"reward_counter_rest_scale", counter_rest_scale)
-		var previous_counter_tween: Tween = _optional_node_meta(
-			counter_visual, &"reward_counter_hold_tween"
-		) as Tween
-		if previous_counter_tween != null and previous_counter_tween.is_valid():
-			previous_counter_tween.kill()
-		counter_visual.set_meta(&"reward_counter_collection_active", active)
-	var previous_icon_hold_tween: Tween = _optional_node_meta(
-		resource_icon, &"reward_counter_icon_hold_tween"
-	) as Tween
-	if previous_icon_hold_tween != null and previous_icon_hold_tween.is_valid():
-		previous_icon_hold_tween.kill()
-	if !active:
-		var previous_impact_tween: Tween = _optional_node_meta(
-			resource_icon, &"reward_icon_impact_tween"
-		) as Tween
-		if previous_impact_tween != null and previous_impact_tween.is_valid():
-			previous_impact_tween.kill()
+func _reward_presentation_effects() -> Node:
+	if !is_instance_valid(_portrait_reward_effects):
+		_portrait_reward_effects = Node.new()
+		_portrait_reward_effects.name = "RewardPresentationEffects"
+		add_child(_portrait_reward_effects)
+	return _portrait_reward_effects
 
-	# The icon is a child of the complete counter visual. While the plate is held
-	# enlarged, counteract that parent transform so the icon keeps its normal
-	# visible size between impacts. Impact bounces are handled separately below.
-	var counter_peak: float = maxf(
-		PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE,
-		0.001
-	)
-	var target_icon_scale: Vector2 = rest_scale / counter_peak if active else rest_scale
-	var target_icon_position: Vector2 = (
-		rest_position - resource_icon.size * (target_icon_scale - rest_scale) * 0.5
-	)
-	var duration: float = (
-		PORTRAIT_CURRENCY_COUNTER_REWARD_GROW_DURATION
-		if active
-		else PORTRAIT_CURRENCY_COUNTER_REWARD_SETTLE_DURATION
-	)
+func _create_reward_presentation_tween(owner: Node = null) -> Tween:
+	# Keep normal node ownership, but also stop presentation synchronously on
+	# screen clear, before queue_free and before a retained header is reused.
+	for index: int in range(_portrait_reward_tweens.size() - 1, -1, -1):
+		if !_portrait_reward_tweens[index].is_valid():
+			_portrait_reward_tweens.remove_at(index)
+	var tween: Tween = owner.create_tween() if owner != null else create_tween()
+	_portrait_reward_tweens.append(tween)
+	return tween
 
-	# During the final settle, do not try to cancel the parent's movement with a
-	# second transform on the icon. Even mathematically inverse transforms can
-	# land on different process frames and produce a one-frame horizontal snap.
-	# Temporarily move the icon next to the counter while preserving its global
-	# transform, let the plate settle on its own, then put the icon back once the
-	# parent has returned exactly to its resting transform.
-	if !active and counter_can_scale and resource_icon.get_parent() == counter_visual:
-		var counter_parent: Node = counter_visual.get_parent()
-		if counter_parent != null:
-			resource_icon.reparent(counter_parent, true)
-			var settle_tween := counter_visual.create_tween()
-			settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-			var counter_scale_tweener := settle_tween.tween_property(
-				counter_visual,
-				"scale",
-				counter_rest_scale,
-				duration
-			)
-			counter_scale_tweener.set_trans(Tween.TRANS_SINE)
-			counter_scale_tweener.set_ease(Tween.EASE_IN_OUT)
-			settle_tween.tween_callback(
-				Callable(self, "_finish_portrait_resource_counter_collection_settle").bind(
-					resource_icon,
-					counter_visual,
-					rest_scale,
-					rest_position,
-					counter_rest_scale
-				)
-			)
-			resource_icon.set_meta(&"reward_counter_icon_hold_tween", settle_tween)
-			counter_visual.set_meta(&"reward_counter_hold_tween", settle_tween)
-			return
-
-	var collection_tween := resource_icon.create_tween()
-	collection_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var icon_scale_tweener := collection_tween.tween_property(
-		resource_icon,
-		"scale",
-		target_icon_scale,
-		duration
-	)
-	icon_scale_tweener.set_trans(Tween.TRANS_SINE)
-	icon_scale_tweener.set_ease(Tween.EASE_IN_OUT)
-	var icon_position_tweener := collection_tween.parallel().tween_property(
-		resource_icon,
-		"position",
-		target_icon_position,
-		duration
-	)
-	icon_position_tweener.set_trans(Tween.TRANS_SINE)
-	icon_position_tweener.set_ease(Tween.EASE_IN_OUT)
-	resource_icon.set_meta(&"reward_counter_icon_hold_tween", collection_tween)
-	if counter_can_scale:
-		var target_counter_scale: Vector2 = (
-			counter_rest_scale * PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE
-			if active
-			else counter_rest_scale
-		)
-		var counter_scale_tweener := collection_tween.parallel().tween_property(
-			counter_visual,
-			"scale",
-			target_counter_scale,
-			duration
-		)
-		counter_scale_tweener.set_trans(Tween.TRANS_SINE)
-		counter_scale_tweener.set_ease(Tween.EASE_IN_OUT)
-		counter_visual.set_meta(&"reward_counter_hold_tween", collection_tween)
-
-func _finish_portrait_resource_counter_collection_settle(
-	resource_icon: Control,
-	counter_visual: Control,
-	icon_rest_scale: Vector2,
-	icon_rest_position: Vector2,
-	counter_rest_scale: Vector2
-) -> void:
-	if (
-		resource_icon == null
-		or !is_instance_valid(resource_icon)
-		or !resource_icon.is_inside_tree()
-		or counter_visual == null
-		or !is_instance_valid(counter_visual)
-		or !counter_visual.is_inside_tree()
-	):
-		return
-	counter_visual.scale = counter_rest_scale
-	if resource_icon.get_parent() != counter_visual:
-		resource_icon.reparent(counter_visual, true)
-	resource_icon.scale = icon_rest_scale
-	resource_icon.position = icon_rest_position
-
-func _bounce_portrait_resource_counter_icon_legacy(reward_currency: String) -> void:
-	var resource_icon: Control = (
-		_portrait_star_icon_visual
-		if reward_currency == GameState.STAGE_REWARD_STARS
-		else _portrait_currency_coin_icon_visual
-	)
-	var counter_visual: Control = (
-		_portrait_star_counter_visual
-		if reward_currency == GameState.STAGE_REWARD_STARS
-		else _portrait_currency_counter_visual
-	)
-	if (
-		resource_icon == null
-		or !is_instance_valid(resource_icon)
-		or !resource_icon.is_inside_tree()
-	):
-		return
-	var previous_tween: Tween = _optional_node_meta(resource_icon, &"reward_icon_impact_tween") as Tween
-	if previous_tween != null and previous_tween.is_valid():
-		previous_tween.kill()
-	var rest_scale: Vector2 = resource_icon.get_meta(&"reward_icon_rest_scale", Vector2.ONE)
-	var rest_position: Vector2 = resource_icon.get_meta(
-		&"reward_icon_rest_position",
-		resource_icon.position
-	)
-	var counter_is_held: bool = (
-		counter_visual != null
-		and is_instance_valid(counter_visual)
-		and bool(counter_visual.get_meta(&"reward_counter_collection_active", false))
-	)
-	var parent_scale: float = (
-		maxf(PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE, 0.001)
-		if counter_is_held
-		else 1.0
-	)
-	var local_rest_scale: Vector2 = rest_scale / parent_scale
-	var local_peak_scale: Vector2 = (
-		rest_scale * PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE / parent_scale
-	)
-	var local_rest_position: Vector2 = (
-		rest_position - resource_icon.size * (local_rest_scale - rest_scale) * 0.5
-	)
-	var local_peak_position: Vector2 = (
-		rest_position - resource_icon.size * (local_peak_scale - rest_scale) * 0.5
-	)
-	resource_icon.scale = local_rest_scale
-	resource_icon.position = local_rest_position
-	var impact_tween := resource_icon.create_tween()
-	impact_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow_scale := impact_tween.tween_property(
-		resource_icon,
-		"scale",
-		local_peak_scale,
-		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION
-	)
-	grow_scale.set_trans(Tween.TRANS_BACK)
-	grow_scale.set_ease(Tween.EASE_OUT)
-	var grow_position := impact_tween.parallel().tween_property(
-		resource_icon,
-		"position",
-		local_peak_position,
-		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION
-	)
-	grow_position.set_trans(Tween.TRANS_BACK)
-	grow_position.set_ease(Tween.EASE_OUT)
-	var settle_scale := impact_tween.tween_property(
-		resource_icon,
-		"scale",
-		local_rest_scale,
-		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION
-	)
-	settle_scale.set_trans(Tween.TRANS_BOUNCE)
-	settle_scale.set_ease(Tween.EASE_OUT)
-	var settle_position := impact_tween.parallel().tween_property(
-		resource_icon,
-		"position",
-		local_rest_position,
-		PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION
-	)
-	settle_position.set_trans(Tween.TRANS_BOUNCE)
-	settle_position.set_ease(Tween.EASE_OUT)
-	resource_icon.set_meta(&"reward_icon_impact_tween", impact_tween)
+func _cancel_portrait_reward_presentation() -> void:
+	for tween: Tween in _portrait_reward_tweens:
+		if tween.is_valid():
+			tween.kill()
+	_portrait_reward_tweens.clear()
+	if is_instance_valid(_portrait_reward_effects):
+		remove_child(_portrait_reward_effects)
+		_portrait_reward_effects.queue_free()
+	_portrait_reward_effects = null
+	_portrait_pending_home_reward_animation_running = false
+	# The result can retain its actual top bar across the body rebuild. Reset
+	# held/impact scales now; killing a tween alone would leave its current pose.
+	for icon: Control in [_portrait_currency_coin_icon_visual, _portrait_star_icon_visual]:
+		if !is_instance_valid(icon):
+			continue
+		var impact := _optional_node_meta(icon, &"reward_icon_impact_tween") as Tween
+		if impact != null and impact.is_valid():
+			impact.kill()
+		icon.scale = icon.get_meta(&"reward_icon_rest_scale", icon.scale)
+		icon.position = icon.get_meta(&"reward_icon_rest_position", icon.position)
+	for counter: Control in [_portrait_currency_counter_visual, _portrait_star_counter_visual]:
+		if !is_instance_valid(counter):
+			continue
+		var hold := _optional_node_meta(counter, &"reward_counter_hold_tween") as Tween
+		if hold != null and hold.is_valid():
+			hold.kill()
+		counter.scale = counter.get_meta(&"reward_counter_rest_scale", counter.scale)
+		counter.set_meta(&"reward_counter_collection_active", false)
+	# Cancellation changes presentation only. Claims and ad receipts stay durable.
+	_set_stage_reward_animated_balance(float(GameState.get_soft_currency()), GameState.STAGE_REWARD_COINS)
+	_set_stage_reward_animated_balance(float(GameState.get_stars()), GameState.STAGE_REWARD_STARS)
 
 func _set_portrait_resource_counter_collection_active(
 	reward_currency: String,
@@ -2290,11 +2000,6 @@ func _set_portrait_resource_counter_collection_active(
 	) as Tween
 	if previous_counter_tween != null and previous_counter_tween.is_valid():
 		previous_counter_tween.kill()
-	var previous_icon_hold_tween: Tween = _optional_node_meta(
-		resource_icon, &"reward_counter_icon_hold_tween"
-	) as Tween
-	if previous_icon_hold_tween != null and previous_icon_hold_tween.is_valid():
-		previous_icon_hold_tween.kill()
 
 	# Collection starts and ends only with the icon at its normal LOCAL size.
 	# This gives the exact order: whole counter grows -> icon impacts -> icon
@@ -2405,34 +2110,6 @@ func _bounce_portrait_resource_counter_icon(reward_currency: String) -> void:
 	settle_position.set_trans(Tween.TRANS_BOUNCE)
 	settle_position.set_ease(Tween.EASE_OUT)
 	resource_icon.set_meta(&"reward_icon_impact_tween", impact_tween)
-
-func _apply_portrait_standard_text_outline(target: Control, alpha: float = 0.82, outline_size: int = 2) -> void:
-	if target == null or !is_instance_valid(target):
-		return
-	var effect_color := Color(
-		0.26,
-		0.34,
-		0.68,
-		alpha
-	)
-	target.add_theme_color_override("font_outline_color", effect_color)
-	target.add_theme_constant_override("outline_size", outline_size)
-	target.add_theme_color_override("font_shadow_color", effect_color)
-	target.add_theme_constant_override("shadow_offset_x", 2)
-	target.add_theme_constant_override("shadow_offset_y", 2)
-	target.add_theme_constant_override("shadow_outline_size", 0)
-
-func _apply_portrait_reward_header_text_effect(target: Control, outline_size: int = 2) -> void:
-	if target == null or !is_instance_valid(target):
-		return
-	var outline_color: Color = PORTRAIT_UI_PALETTE.NAV_TEXT_OUTLINE
-	var shadow_color: Color = PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
-	target.add_theme_color_override("font_outline_color", outline_color)
-	target.add_theme_constant_override("outline_size", outline_size)
-	target.add_theme_color_override("font_shadow_color", shadow_color)
-	target.add_theme_constant_override("shadow_offset_x", 2)
-	target.add_theme_constant_override("shadow_offset_y", 2)
-	target.add_theme_constant_override("shadow_outline_size", 0)
 
 func show_coin_store() -> void:
 	if !_portrait_ads_enabled():
@@ -2718,6 +2395,7 @@ func _on_coin_refill_ad_pressed() -> void:
 	_show_portrait_rewarded_action(&"coin_refill")
 
 func _play_coin_refill_reward_animation(previous_balance: int, final_balance: int) -> void:
+	var generation: int = result_transition_generation
 	if final_balance <= previous_balance:
 		return
 
@@ -2735,6 +2413,8 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 		):
 			break
 		await get_tree().process_frame
+		if generation != result_transition_generation:
+			return
 	if (
 		ui == null
 		or !is_instance_valid(ui)
@@ -2767,7 +2447,7 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 		Callable(),
 		180
 	)
-	var count_tween := source_stub.create_tween()
+	var count_tween := _create_reward_presentation_tween(source_stub)
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
 		Callable(self, "_set_home_reward_animated_balance"),
@@ -2782,9 +2462,12 @@ func _play_coin_refill_reward_animation(previous_balance: int, final_balance: in
 func _play_centered_rewarded_double_coin_animation(
 	previous_balance: int,
 	final_balance: int,
-	overlay_layer_index: int = 100
+	overlay_layer_index: int = 100,
+	generation: int = -1
 ) -> void:
-	if final_balance <= previous_balance:
+	if generation < 0:
+		generation = result_transition_generation
+	if generation != result_transition_generation or final_balance <= previous_balance:
 		return
 
 	# The reward screen is already gone by the time a normal rewarded-x2 flow
@@ -2801,6 +2484,8 @@ func _play_centered_rewarded_double_coin_animation(
 		):
 			break
 		await get_tree().process_frame
+		if generation != result_transition_generation:
+			return
 	if (
 		ui == null
 		or !is_instance_valid(ui)
@@ -2833,7 +2518,7 @@ func _play_centered_rewarded_double_coin_animation(
 		Callable(),
 		overlay_layer_index
 	)
-	var count_tween := source_stub.create_tween()
+	var count_tween := _create_reward_presentation_tween(source_stub)
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(
@@ -2966,12 +2651,6 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	theme_line_label.z_index = 12
 	_portrait_game_attempts_controls.append(theme_caption)
 	_portrait_game_attempts_controls.append(theme_line_label)
-
-func _portrait_game_is_challenge_level() -> bool:
-	return (
-		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
-		and _single_player_is_bonus_level(single_player_active_level_index)
-	)
 
 func _portrait_game_header_color() -> Color:
 	return PORTRAIT_BLUE
@@ -3620,7 +3299,7 @@ func _show_menu_screen() -> void:
 	content.add_child(logo_reveal)
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
-		call_deferred("_play_pending_home_reward_animation")
+		call_deferred("_play_pending_home_reward_animation", result_transition_generation)
 	if !GameState.has_accepted_legal_documents():
 		call_deferred("_show_legal_consent_popup")
 	else:
@@ -3897,21 +3576,6 @@ func _create_portrait_legal_link(
 	link.add_theme_color_override("font_outline_color", PORTRAIT_UI_PALETTE.UI_BLUE_DARK)
 	link.add_theme_constant_override("outline_size", 2)
 	_connect_stage_button_action(link, Callable(self, "_open_legal_document").bind(document_type))
-	return link
-
-func _stage_portrait_legal_link(
-	rect: Rect2,
-	text: String,
-	document_type: String,
-	font_size: int = 21
-) -> LinkButton:
-	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
-	var center := CenterContainer.new()
-	center.mouse_filter = Control.MOUSE_FILTER_PASS
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	holder.add_child(center)
-	var link := _create_portrait_legal_link(text, document_type, font_size)
-	center.add_child(link)
 	return link
 
 func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
@@ -4773,7 +4437,7 @@ func _play_quiz_fast_answer_star_collection(
 		null,
 		Callable(self, "_finish_quiz_fast_answer_star_collection")
 	)
-	var balance_tween := create_tween()
+	var balance_tween := _create_reward_presentation_tween()
 	balance_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var balance_roll := balance_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(
@@ -9389,7 +9053,6 @@ func _refresh_game_screen() -> void:
 	_portrait_word_letter_bounce_generation += 1
 	_portrait_round_end_waiting_for_letter_bounce = false
 	_portrait_inline_result_search_button = null
-	_portrait_inline_result_word_holder = null
 	_portrait_inline_result_continue_button = null
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
@@ -10752,7 +10415,7 @@ func _launch_portrait_attempt_star_collection(
 	_portrait_game_attempts_displayed_value = 0
 	source_label.text = "0"
 
-	var balance_tween := source_label.create_tween()
+	var balance_tween := _create_reward_presentation_tween(source_label)
 	balance_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var balance_roll := balance_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(
@@ -12097,8 +11760,6 @@ func _stage_portrait_inline_result_word(
 		bounce_start_delay
 	)
 	content = previous_content
-	_portrait_inline_result_word_holder = result_controls.get("word_holder") as Control
-	_portrait_inline_result_marker_holder = result_controls.get("marker_holder") as Control
 	return result_controls
 
 func _portrait_result_word_effect_colors(color: Color) -> Dictionary:
@@ -12324,11 +11985,8 @@ func _single_player_level_completed_label() -> String:
 
 func _reward_chest_flash_material() -> ShaderMaterial:
 	if _reward_chest_flash_material_cache == null:
-		# Build once on first use; no separate shader file is required to parse Main.
-		var shader := Shader.new()
-		shader.code = REWARD_CHEST_FLASH_SHADER_CODE
 		_reward_chest_flash_material_cache = ShaderMaterial.new()
-		_reward_chest_flash_material_cache.shader = shader
+		_reward_chest_flash_material_cache.shader = REWARD_CHEST_FLASH_SHADER
 	return _reward_chest_flash_material_cache
 
 func _attach_main_reward_icon_shadow(
@@ -12552,7 +12210,6 @@ func _reward_chest_flash_overlay(chest_icon: Control) -> TextureRect:
 func _play_level_completion_chest_pressure_burst(
 	pack: Control,
 	glow: Control,
-	summary_panel: Control,
 	amount_label: Label,
 	open_callback: Callable = Callable()
 ) -> void:
@@ -12620,7 +12277,7 @@ func _play_level_completion_chest_pressure_burst(
 	if pack == null or !is_instance_valid(pack) or !pack.is_inside_tree():
 		return
 
-	_reveal_level_summary_open_chest(pack, glow, summary_panel, amount_label, open_callback)
+	_reveal_level_summary_open_chest(pack, glow, amount_label, open_callback)
 
 	var settle_tween := pack.create_tween()
 	settle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -12662,7 +12319,6 @@ func _play_level_completion_chest_pressure_burst(
 func _reveal_level_summary_open_chest(
 	chest_icon: Control,
 	glow: Control,
-	summary_panel: Control,
 	amount_label: Label,
 	extra_callback: Callable = Callable()
 ) -> void:
@@ -12675,15 +12331,6 @@ func _reveal_level_summary_open_chest(
 			glow,
 			"modulate:a",
 			PORTRAIT_FINAL_REWARD_GLOW_ALPHA,
-			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
-		)
-	if summary_panel != null and is_instance_valid(summary_panel):
-		var summary_tween := summary_panel.create_tween()
-		summary_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		summary_tween.tween_property(
-			summary_panel,
-			"modulate:a",
-			1.0,
 			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 		)
 	if amount_label != null and is_instance_valid(amount_label):
@@ -12978,7 +12625,10 @@ func _play_level_star_award_panel_bounce(
 func _set_level_star_award_remaining(value: float, value_label: Label) -> void:
 	if value_label == null or !is_instance_valid(value_label):
 		return
-	value_label.text = str(maxi(int(round(value)), 0))
+	var text: String = str(maxi(int(round(value)), 0))
+	if value_label.text == text:
+		return
+	value_label.text = text
 	_layout_level_star_award_value(value_label)
 
 func _start_level_summary_coin_and_star_sequence(
@@ -13156,7 +12806,7 @@ func _launch_level_summary_star_collection(
 	source_count_tween.tween_callback(
 		Callable(self, "_reset_level_star_award_panel_after_source_empty").bind(star_panel)
 	)
-	var hud_count_tween := create_tween()
+	var hud_count_tween := _create_reward_presentation_tween()
 	hud_count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var hud_roll := hud_count_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(GameState.STAGE_REWARD_STARS),
@@ -13392,10 +13042,8 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	fill_panel.position = Vector2.ZERO
 	fill_panel.size = bar.size
 	fill_panel.color = Color.WHITE
-	var fill_shader := Shader.new()
-	fill_shader.code = THEME_UNLOCK_FILL_SHADER_CODE
 	var fill_material := ShaderMaterial.new()
-	fill_material.shader = fill_shader
+	fill_material.shader = THEME_UNLOCK_FILL_SHADER
 	fill_material.set_shader_parameter("fill_size", fill_panel.size)
 	fill_material.set_shader_parameter("base_color", PORTRAIT_UI_PALETTE.BUTTON_BLUE)
 	fill_material.set_shader_parameter("highlight_color", Color("#96A9FF"))
@@ -13459,10 +13107,8 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	artwork.z_index = 1
-	var icon_shader := Shader.new()
-	icon_shader.code = THEME_UNLOCK_ICON_GRAYSCALE_SHADER_CODE
 	var icon_material := ShaderMaterial.new()
-	icon_material.shader = icon_shader
+	icon_material.shader = THEME_UNLOCK_ICON_GRAYSCALE_SHADER
 	icon_material.set_shader_parameter("saturation", 0.0)
 	icon_material.set_shader_parameter("shadow_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE_SELECTED)
 	icon_material.set_shader_parameter("highlight_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE.lightened(0.10))
@@ -13623,7 +13269,6 @@ func _single_player_reward_chain_center_y() -> float:
 func _stage_single_player_reward_tile(
 	parent: Control,
 	node_size: float,
-	level_index: int,
 	is_claimed_or_current: bool,
 	is_current: bool,
 	is_failed: bool,
@@ -13775,11 +13420,9 @@ func _animate_single_player_failed_reward_marker(
 func _stage_single_player_reward_count(
 	parent: Control,
 	node_rect: Rect2,
-	icon_rect: Rect2,
 	amount: int,
 	font_size: int,
-	count_color: Color,
-	compact_side_tile: bool = false
+	count_color: Color
 ) -> Label:
 	# All reward tiles use the same xN notation as the large reward. Small chain
 	# cards keep the counter on their lower line, but center it across the full
@@ -13966,7 +13609,7 @@ func _play_single_player_reward_resource_collection(
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.name = "SinglePlayerRewardResourceCanvas"
 	overlay_layer.layer = overlay_layer_index
-	add_child(overlay_layer)
+	_reward_presentation_effects().add_child(overlay_layer)
 	var overlay := Control.new()
 	overlay.name = "SinglePlayerRewardResourceOverlay"
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -14015,6 +13658,19 @@ func _play_single_player_reward_resource_collection(
 	# Grow the destination once and keep it at peak scale for the complete stream.
 	# Repeated impact bounces briefly returned the counter to rest between units.
 	_set_portrait_resource_counter_collection_active(reward_currency, true)
+	var counter_hit_rect: Rect2 = _portrait_reward_counter_rect_in_control_space(
+		reward_currency,
+		overlay
+	)
+	# Expand by half the flying icon: fading begins when the icon itself first
+	# touches/crosses the counter boundary, not only when its center gets inside.
+	var hit_margin: float = maxf(resource_size.x, resource_size.y) * 0.5
+	if counter_hit_rect.size.x > 0.0 and counter_hit_rect.size.y > 0.0:
+		counter_hit_rect = counter_hit_rect.grow(hit_margin)
+	var icon_bounce_callback := Callable(
+		self,
+		"_bounce_portrait_resource_counter_icon"
+	).bind(reward_currency)
 	for resource_index in range(PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT):
 		var resource_icon := TextureRect.new()
 		resource_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -14040,15 +13696,6 @@ func _play_single_player_reward_resource_collection(
 		)
 		var flight_start := source_viewport_center + start_offset - resource_size * 0.5
 		var flight_end := target_center - resource_size * 0.5
-		var counter_hit_rect: Rect2 = _portrait_reward_counter_rect_in_control_space(
-			reward_currency,
-			overlay
-		)
-		# Expand by half the flying icon: fading begins when the icon itself first
-		# touches/crosses the counter boundary, not only when its center gets inside.
-		var hit_margin: float = maxf(resource_size.x, resource_size.y) * 0.5
-		if counter_hit_rect.size.x > 0.0 and counter_hit_rect.size.y > 0.0:
-			counter_hit_rect = counter_hit_rect.grow(hit_margin)
 		var flight_start_center: Vector2 = flight_start + resource_size * 0.5
 		var flight_end_center: Vector2 = flight_end + resource_size * 0.5
 		var fade_start: float = 1.0
@@ -14066,7 +13713,7 @@ func _play_single_player_reward_resource_collection(
 		)
 		var fade_end: float = minf(1.0, fade_start + fade_span)
 
-		var tween := resource_icon.create_tween()
+		var tween := _create_reward_presentation_tween(resource_icon)
 		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween.tween_interval(
 			PORTRAIT_SINGLE_REWARD_FLY_START_DELAY
@@ -14090,10 +13737,6 @@ func _play_single_player_reward_resource_collection(
 		)
 		fly.set_trans(Tween.TRANS_CUBIC)
 		fly.set_ease(Tween.EASE_IN)
-		var icon_bounce_callback := Callable(
-			self,
-			"_bounce_portrait_resource_counter_icon"
-		).bind(reward_currency)
 		tween.tween_callback(icon_bounce_callback)
 		if resource_index == PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT - 1:
 			# Let the last icon impact finish before the plate returns to rest.
@@ -14116,7 +13759,7 @@ func _play_single_player_reward_resource_collection(
 		tween.tween_callback(Callable(resource_icon, "queue_free"))
 
 	var cleanup_delay: float = _single_player_reward_collection_duration() + 0.04
-	var cleanup_tween := overlay.create_tween()
+	var cleanup_tween := _create_reward_presentation_tween(overlay)
 	cleanup_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	cleanup_tween.tween_interval(cleanup_delay)
 	cleanup_tween.tween_callback(Callable(overlay_layer, "queue_free"))
@@ -14270,8 +13913,9 @@ func _start_single_player_reward_claim_animation_deferred(
 	# Let stage-layout controls resolve their final size/pivot before animating.
 	# Flying resource copies and the source icon fade begin together; the claimed check then
 	# pops into the same reward slot with a centered bounce.
+	var generation: int = result_transition_generation
 	await get_tree().process_frame
-	if !is_inside_tree():
+	if !is_inside_tree() or generation != result_transition_generation:
 		return
 	if resource_visual == null or !is_instance_valid(resource_visual) or !resource_visual.is_inside_tree():
 		if finished_callback.is_valid():
@@ -14313,7 +13957,7 @@ func _start_single_player_reward_claim_animation_deferred(
 		resolved_currency,
 		null if finished_callback.is_valid() else continue_button
 	)
-	var count_tween := count_visual.create_tween()
+	var count_tween := _create_reward_presentation_tween(count_visual)
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var count_roll := count_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(resolved_currency),
@@ -14772,12 +14416,6 @@ func _portrait_final_reward_center_rect(size: Vector2) -> Rect2:
 		size
 	)
 
-func _portrait_level_reward_prize_rect(size: Vector2, _has_level_stars: bool) -> Rect2:
-	# The merged stars flow no longer pushes the main reward upward. Keep the chest
-	# or coin pack on the true screen center and attach the compact star plaque
-	# below its amount instead.
-	return _portrait_final_reward_center_rect(size)
-
 func _portrait_final_reward_amount_rect(coin_rect: Rect2) -> Rect2:
 	return Rect2(
 		Vector2(
@@ -15193,12 +14831,6 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 	var built_in_icon := button.get_node_or_null("Icon") as TextureRect
 	if built_in_icon != null and is_instance_valid(built_in_icon):
 		built_in_icon.visible = true
-	# Legacy final-reward overlay icons are no longer used; the standard button
-	# owns its icon through the built-in Icon node.
-	for child_name: String in ["AdIcon", "BonusCoinIcon"]:
-		var child := button.get_node_or_null(child_name) as CanvasItem
-		if child != null and is_instance_valid(child):
-			child.visible = false
 
 func _prepare_final_reward_rewarded_ad() -> void:
 	if !_portrait_ads_enabled():
@@ -15219,7 +14851,7 @@ func _prepare_final_reward_rewarded_ad() -> void:
 	if ads_service.has_method("load_rewarded_video"):
 		ads_service.call("load_rewarded_video")
 
-func _configure_final_reward_double_button(button: Control, bonus_amount: int) -> void:
+func _configure_final_reward_double_button(button: Control) -> void:
 	if button == null or !is_instance_valid(button):
 		return
 	_prepare_final_reward_rewarded_ad()
@@ -15339,42 +14971,19 @@ func _stop_single_reward_continue_attention() -> void:
 		return
 	_portrait_single_reward_continue_button.set("attention_bounce_enabled", false)
 
-func _start_early_final_reward_claim_at_pack_peak(
-	transition_pack: Control,
-	double_button: Control,
-	collect_holder: Control,
-	collect_button: Button,
-	reveal_actions_at_peak: bool
-) -> void:
-	# The base main reward is credited exactly at the maximum scale of the large
-	# reward pack. This keeps the flying-coin animation visually attached to the
-	# peak of the pack bounce on every level, including levels with the x2 ad CTA.
-	_play_early_final_reward_coin_claim(transition_pack)
-	if reveal_actions_at_peak:
-		_reveal_final_reward_actions(double_button, collect_holder, collect_button)
-
 func _start_single_player_level_summary_transition_deferred(
-	chain_holder: Control,
-	hero_texture: TextureRect,
 	transition_prize: Control,
 	background_overlay: Control,
 	title_panel: Panel,
 	glow: Control,
-	summary_panel: Control,
 	amount_label: Label,
 	actions_reveal_callback: Callable = Callable(),
 	bounce_peak_callback: Callable = Callable(),
 	use_chest_animation: bool = true,
-	bounce_finished_callback: Callable = Callable(),
-	has_level_stars: bool = false
+	bounce_finished_callback: Callable = Callable()
 ) -> void:
-	# The stage chain remains hidden on the whole-level reward step, but the closed
-	# chest now uses the standard large-reward flight and bounce. It opens exactly
-	# at the bounce peak, together with the level results and chest coin counter.
-	if chain_holder != null and is_instance_valid(chain_holder):
-		chain_holder.visible = false
-	if hero_texture != null and is_instance_valid(hero_texture):
-		hero_texture.modulate.a = 0.0
+	# The closed chest uses the large-reward flight and bounce, then opens at the
+	# pressure peak together with its amount and payout callback.
 	if background_overlay != null and is_instance_valid(background_overlay):
 		# Match the quiz entrance: reveal the patterned blue destination backdrop
 		# through the same short sine fade instead of switching it on in one frame.
@@ -15417,13 +15026,12 @@ func _start_single_player_level_summary_transition_deferred(
 	if use_chest_animation:
 		_set_reward_chest_icon_open_state(transition_prize, false)
 	transition_prize.modulate.a = 1.0
-	var target_prize_rect: Rect2 = _portrait_level_reward_prize_rect(
+	var target_prize_rect: Rect2 = _portrait_final_reward_center_rect(
 		(
 			PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
 			if use_chest_animation
 			else PORTRAIT_FINAL_REWARD_COIN_SIZE
-		),
-		has_level_stars
+		)
 	)
 	var flight_tween := transition_prize.create_tween()
 	flight_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -15440,7 +15048,6 @@ func _start_single_player_level_summary_transition_deferred(
 		await _play_level_completion_chest_pressure_burst(
 			transition_prize,
 			glow,
-			summary_panel,
 			amount_label,
 			bounce_peak_callback
 		)
@@ -15451,7 +15058,6 @@ func _start_single_player_level_summary_transition_deferred(
 		).bind(
 			null,
 			glow,
-			summary_panel,
 			amount_label,
 			bounce_peak_callback
 		)
@@ -15572,7 +15178,13 @@ func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array
 	motion.position = Vector2.ZERO
 	clip_root.add_child(motion)
 	clip_root.resized.connect(Callable(self, "_layout_multi_theme_pattern").bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio))
-	call_deferred("_layout_multi_theme_pattern", clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio)
+	call_deferred(
+		"_run_for_live_control",
+		weakref(clip_root),
+		Callable(self, "_layout_multi_theme_pattern"),
+		[motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale,
+			move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio]
+	)
 
 func _add_full_rect_gradient_overlay(background_overlay: Control, top_color: Color, bottom_color: Color, overlay_name: String = "GradientOverlay") -> void:
 	if background_overlay == null or !is_instance_valid(background_overlay):
@@ -15821,7 +15433,7 @@ func _play_early_stage_coin_reward_claim(source_visual: Control) -> void:
 		GameState.STAGE_REWARD_COINS
 	)
 	_play_single_player_reward_coin_collection(source_visual)
-	var count_tween := create_tween()
+	var count_tween := _create_reward_presentation_tween()
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(
@@ -16000,7 +15612,6 @@ func _finish_single_player_stage_coin_reward_offer() -> void:
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
-	_portrait_final_reward_ad_close_pending = false
 	_portrait_reward_double_animation_amount = 0
 	_portrait_reward_double_context = &""
 	if bool(last_result_data.get("single_player_level_completed", false)):
@@ -16060,7 +15671,6 @@ func _on_final_reward_double_pressed() -> void:
 		return
 	_portrait_final_reward_waiting_for_ad = true
 	_portrait_final_reward_earned_ad_reward = false
-	_portrait_final_reward_ad_close_pending = false
 	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(false)
 	if !bool(ads_service.call("show_rewarded_video", _portrait_reward_ad_request_id)):
@@ -16070,7 +15680,6 @@ func _on_final_reward_double_pressed() -> void:
 		# restore interaction, and let the newly preloaded ad be used on the next tap.
 		_portrait_final_reward_waiting_for_ad = false
 		_portrait_final_reward_earned_ad_reward = false
-		_portrait_final_reward_ad_close_pending = false
 		_portrait_reward_double_animation_amount = 0
 		_set_final_reward_double_button_enabled(true)
 		_show_portrait_ad_not_ready_toast()
@@ -16178,7 +15787,6 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 		return
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
-	_portrait_final_reward_ad_close_pending = true
 	if _portrait_final_reward_earned_ad_reward:
 		var animation_amount: int = maxi(_portrait_reward_double_animation_amount, 0)
 		var final_balance: int = GameState.get_soft_currency()
@@ -16204,7 +15812,8 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 				"_play_centered_rewarded_double_coin_animation",
 				previous_balance,
 				final_balance,
-				180 if reward_context == &"final" else 100
+				180 if reward_context == &"final" else 100,
+				result_transition_generation
 			)
 		return
 	# Release the UI immediately, but keep the receipt for a late confirmation.
@@ -16218,7 +15827,6 @@ func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) ->
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
-	_portrait_final_reward_ad_close_pending = false
 	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(true)
 	_show_portrait_ad_not_ready_toast()
@@ -16237,6 +15845,7 @@ func _play_early_final_reward_coin_claim(
 	source_visual: Control,
 	finished_callback: Callable = Callable()
 ) -> void:
+	var generation: int = result_transition_generation
 	var previous_balance: int = GameState.get_soft_currency()
 	var credited_reward_amount: int = _complete_single_player_final_reward(
 		1,
@@ -16257,7 +15866,9 @@ func _play_early_final_reward_coin_claim(
 		null,
 		finished_callback
 	)
-	var count_tween := create_tween()
+	if generation != result_transition_generation:
+		return
+	var count_tween := _create_reward_presentation_tween()
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(
@@ -16302,7 +15913,6 @@ func _finish_single_player_final_reward_claim(
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	_portrait_final_reward_earned_ad_reward = false
-	_portrait_final_reward_ad_close_pending = false
 	_portrait_reward_double_animation_amount = 0
 	_portrait_reward_double_context = &""
 	# Stars are now part of this same reward presentation and are credited before
@@ -16350,8 +15960,8 @@ func _set_home_reward_animated_balance(value: float) -> void:
 		if balance_label != null and is_instance_valid(balance_label):
 			balance_label.text = balance_text
 
-func _play_pending_home_reward_animation() -> void:
-	if _portrait_pending_home_reward_animation_running:
+func _play_pending_home_reward_animation(generation: int) -> void:
+	if generation != result_transition_generation or _portrait_pending_home_reward_animation_running:
 		return
 	if _portrait_pending_home_reward_amount <= 0:
 		return
@@ -16365,6 +15975,8 @@ func _play_pending_home_reward_animation() -> void:
 	var destination_ready: bool = false
 	for _frame_index: int in range(8):
 		await get_tree().process_frame
+		if generation != result_transition_generation:
+			return
 		if (
 			_portrait_currency_coin_icon_visual != null
 			and is_instance_valid(_portrait_currency_coin_icon_visual)
@@ -16393,7 +16005,7 @@ func _play_pending_home_reward_animation() -> void:
 	)
 	source.modulate.a = 0.0
 	_play_single_player_reward_coin_collection(source)
-	var count_tween := source.create_tween()
+	var count_tween := _create_reward_presentation_tween(source)
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
 		Callable(self, "_set_home_reward_animated_balance"),
@@ -16410,7 +16022,11 @@ func _auto_advance_final_stage_reward() -> void:
 	# Defer navigation so this callback can safely run from tween completion.
 	if !bool(last_result_data.get("single_player_level_completed", false)):
 		return
-	call_deferred("_continue_from_single_player_reward_chain")
+	call_deferred("_continue_final_stage_reward_if_current", result_transition_generation)
+
+func _continue_final_stage_reward_if_current(generation: int) -> void:
+	if generation == result_transition_generation:
+		_continue_from_single_player_reward_chain()
 
 func _retain_level_reward_header(level_index: int) -> Dictionary:
 	# Keep the actual rendered nodes alive across the body rebuild, including
@@ -16536,7 +16152,6 @@ func _show_single_player_reward_chain_screen() -> void:
 	if is_final_reward or is_quiz_coin_reward:
 		_portrait_final_reward_waiting_for_ad = false
 		_portrait_final_reward_earned_ad_reward = false
-		_portrait_final_reward_ad_close_pending = false
 		_portrait_reward_double_animation_amount = 0
 	if is_final_reward:
 		_portrait_final_reward_claim_in_progress = false
@@ -16569,7 +16184,6 @@ func _show_single_player_reward_chain_screen() -> void:
 		title_block = retained_header["title_block"] as Control
 		title_visual = title_block.get_node("SinglePlayerRewardTitleVisual") as Control
 		title_panel = title_visual.get_node("RewardTitlePanel") as Panel
-		title_panel.set_meta(&"retained_reward_header", true)
 	else:
 		title_block = _stage_holder(
 			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
@@ -16660,9 +16274,6 @@ func _show_single_player_reward_chain_screen() -> void:
 	# Keep the persistent HUD and the celebratory title visible independently.
 	# Reward content itself is revealed only after the title finishes its first
 	# bounce, making the success/failure title the first screen element shown.
-	# Render the hero into a transparent viewport and reveal only the portion below
-	# the moving title block. This is a real clip: no covering texture or color is
-	# drawn over the paper background.
 	var final_reward_background_overlay: Control = null
 	if is_level_summary or is_quiz_coin_reward:
 		# Reuse the same backdrop treatment as Home and quiz gameplay. The main
@@ -16696,6 +16307,7 @@ func _show_single_player_reward_chain_screen() -> void:
 		)
 	var masked_hero: Dictionary = {}
 	if !is_level_summary:
+		# Only stage results need the hero viewport and moving-title clip.
 		masked_hero = _create_single_player_reward_masked_hero(
 			reward_screen_content,
 			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT,
@@ -16742,73 +16354,70 @@ func _show_single_player_reward_chain_screen() -> void:
 	var chain_center_y: float = _single_player_reward_chain_center_y()
 	var node_sizes: Array = []
 	var node_positions_x: Array = []
-	for word_slot in range(word_count):
-		var is_current_slot: bool = word_slot == current_slot
-		var slot_size: float = current_node_size if is_current_slot else normal_node_size
-		var slot_x: float = PORTRAIT_STAGE_SIZE.x * 0.5 - slot_size * 0.5
-		if word_slot < current_slot:
-			var left_distance: int = current_slot - word_slot
-			slot_x = (
-				PORTRAIT_STAGE_SIZE.x * 0.5
-				- current_node_size * 0.5
-				- float(left_distance) * node_gap
-				- float(left_distance) * normal_node_size
-			)
-		elif word_slot > current_slot:
-			var right_distance: int = word_slot - current_slot
-			slot_x = (
-				PORTRAIT_STAGE_SIZE.x * 0.5
-				+ current_node_size * 0.5
-				+ float(right_distance) * node_gap
-				+ float(right_distance - 1) * normal_node_size
-			)
-		node_sizes.append(slot_size)
-		node_positions_x.append(slot_x)
+	var chain_holder: Control = null
+	if !is_level_summary:
+		for word_slot in range(word_count):
+			var is_current_slot: bool = word_slot == current_slot
+			var slot_size: float = current_node_size if is_current_slot else normal_node_size
+			var slot_x: float = PORTRAIT_STAGE_SIZE.x * 0.5 - slot_size * 0.5
+			if word_slot < current_slot:
+				var left_distance: int = current_slot - word_slot
+				slot_x = (
+					PORTRAIT_STAGE_SIZE.x * 0.5
+					- current_node_size * 0.5
+					- float(left_distance) * node_gap
+					- float(left_distance) * normal_node_size
+				)
+			elif word_slot > current_slot:
+				var right_distance: int = word_slot - current_slot
+				slot_x = (
+					PORTRAIT_STAGE_SIZE.x * 0.5
+					+ current_node_size * 0.5
+					+ float(right_distance) * node_gap
+					+ float(right_distance - 1) * normal_node_size
+				)
+			node_sizes.append(slot_size)
+			node_positions_x.append(slot_x)
 
-	# Chain pieces share one fixed-stage parent. Its stage Y stays at zero while
-	# children use local coordinates, preventing connectors from jumping to the
-	# physical bottom when their midpoint crosses the y=688 layout threshold on
-	# tall phones. Tiles and links now remain one inseparable composition.
-	var chain_holder := _stage_holder(
-		Rect2(Vector2.ZERO, PORTRAIT_STAGE_SIZE),
-		Control.MOUSE_FILTER_IGNORE
-	)
-	chain_holder.name = "SinglePlayerRewardChain"
-	chain_holder.z_index = 0
-	# The whole-level result is now a dedicated final screen. Keep the stage chain
-	# out of that presentation entirely instead of showing it as an intermediate
-	# state before the summary.
-	chain_holder.visible = !is_level_summary
+		# Chain pieces share one fixed-stage parent. Its stage Y stays at zero while
+		# children use local coordinates, preventing connectors from jumping to the
+		# physical bottom when their midpoint crosses the y=688 layout threshold on
+		# tall phones. Tiles and links now remain one inseparable composition.
+		chain_holder = _stage_holder(
+			Rect2(Vector2.ZERO, PORTRAIT_STAGE_SIZE),
+			Control.MOUSE_FILTER_IGNORE
+		)
+		chain_holder.name = "SinglePlayerRewardChain"
+		chain_holder.z_index = 0
 
-	for link_slot in range(0 if is_level_summary else maxi(word_count - 1, 0)):
-		var left_size: float = float(node_sizes[link_slot])
-		var right_size: float = float(node_sizes[link_slot + 1])
-		var left_rect := Rect2(
-			float(node_positions_x[link_slot]),
-			chain_center_y - left_size * 0.5,
-			left_size,
-			left_size
-		)
-		var right_rect := Rect2(
-			float(node_positions_x[link_slot + 1]),
-			chain_center_y - right_size * 0.5,
-			right_size,
-			right_size
-		)
-		var link_start_x: float = left_rect.position.x + left_rect.size.x - PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP
-		var link_end_x: float = right_rect.position.x + PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP
-		var link_rect := Rect2(
-			link_start_x,
-			chain_center_y - PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS * 0.5,
-			maxf(1.0, link_end_x - link_start_x),
-			PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS
-		)
-		# Visually connect adjacent rewards into one continuous chain. A link is
-		# considered active as soon as the path reaches the reward on its right.
-		_stage_single_player_reward_chain_link(
-			chain_holder,
-			link_rect
-		)
+		for link_slot in range(maxi(word_count - 1, 0)):
+			var left_size: float = float(node_sizes[link_slot])
+			var right_size: float = float(node_sizes[link_slot + 1])
+			var left_rect := Rect2(
+				float(node_positions_x[link_slot]),
+				chain_center_y - left_size * 0.5,
+				left_size,
+				left_size
+			)
+			var right_rect := Rect2(
+				float(node_positions_x[link_slot + 1]),
+				chain_center_y - right_size * 0.5,
+				right_size,
+				right_size
+			)
+			var link_start_x: float = left_rect.position.x + left_rect.size.x - PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP
+			var link_end_x: float = right_rect.position.x + PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP
+			var link_rect := Rect2(
+				link_start_x,
+				chain_center_y - PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS * 0.5,
+				maxf(1.0, link_end_x - link_start_x),
+				PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS
+			)
+			# Visually connect adjacent rewards into one continuous chain.
+			_stage_single_player_reward_chain_link(
+				chain_holder,
+				link_rect
+			)
 
 	var current_reward_resource_visual: Control = null
 	var current_reward_count_visual: Label = null
@@ -16858,7 +16467,6 @@ func _show_single_player_reward_chain_screen() -> void:
 		_stage_single_player_reward_tile(
 			node_holder,
 			node_size,
-			level_index,
 			word_slot <= current_slot,
 			is_current,
 			is_failed_slot,
@@ -16917,17 +16525,13 @@ func _show_single_player_reward_chain_screen() -> void:
 			* 1.20
 			* (1.12 if is_current else 1.0)
 		))
-		# Every reward shown inside the chain tile uses the compact badge counter.
-		# The level-summary reward screen uses its own totals panel underneath the gift.
-		var compact_reward_count: bool = true
+		# Chain tiles keep the compact counter below their resource icon.
 		count_visual = _stage_single_player_reward_count(
 			node_holder,
 			local_node_rect,
-			resource_rect,
 			reward_amount,
 			count_font_size,
-			count_color,
-			compact_reward_count
+			count_color
 		)
 		if is_claimed or is_failed_slot:
 			# Claimed and failed rewards keep both the icon and xN inactive.
@@ -17000,7 +16604,7 @@ func _show_single_player_reward_chain_screen() -> void:
 			)
 			action_button.name = "StageCoinRewardDoubleButton"
 			action_button.set_meta(&"single_shine_after_reveal", true)
-			_configure_final_reward_double_button(action_button, reward_amount)
+			_configure_final_reward_double_button(action_button)
 			_portrait_final_reward_double_button = action_button
 			var collect_controls: Dictionary = _stage_final_reward_collect_text(
 				PORTRAIT_FINAL_REWARD_COLLECT_RECT,
@@ -17053,13 +16657,12 @@ func _show_single_player_reward_chain_screen() -> void:
 		# One-stage levels use the ordinary large-coin x2 presentation instead of
 		# the special completion chest. The whole-level bonus amount is unchanged.
 		var use_completion_chest: bool = word_count > 1
-		var prize_rect: Rect2 = _portrait_level_reward_prize_rect(
+		var prize_rect: Rect2 = _portrait_final_reward_center_rect(
 			(
 				PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
 				if use_completion_chest
 				else PORTRAIT_FINAL_REWARD_COIN_SIZE
-			),
-			has_level_star_reward
+			)
 		)
 		var final_reward_glow_size: Vector2 = PORTRAIT_FINAL_REWARD_GLOW_SIZE * 1.30
 		var target_glow_rect: Rect2 = Rect2(
@@ -17077,7 +16680,6 @@ func _show_single_player_reward_chain_screen() -> void:
 				current_reward_resource_stage_rect
 			)
 		transition_pack.modulate.a = 0.0
-		var summary_panel: Control = null
 		var completion_amount_label := _stage_label(
 			(
 				_portrait_level_completion_amount_rect(prize_rect)
@@ -17131,7 +16733,6 @@ func _show_single_player_reward_chain_screen() -> void:
 			var collect_holder: Control = null
 			var collect_button: Button = null
 			if _portrait_ads_enabled():
-				var deferred_reward_amount: int = completion_reward_amount
 				final_action_button = _stage_main_button(
 					_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 					Callable(self, "_on_final_reward_double_pressed"),
@@ -17146,7 +16747,7 @@ func _show_single_player_reward_chain_screen() -> void:
 				)
 				final_action_button.name = "FinalRewardDoubleButton"
 				final_action_button.set_meta(&"single_shine_after_reveal", true)
-				_configure_final_reward_double_button(final_action_button, deferred_reward_amount)
+				_configure_final_reward_double_button(final_action_button)
 				_portrait_final_reward_double_button = final_action_button
 				var collect_controls: Dictionary = _stage_final_reward_collect_text(
 					PORTRAIT_FINAL_REWARD_COLLECT_RECT,
@@ -17194,14 +16795,8 @@ func _show_single_player_reward_chain_screen() -> void:
 			else:
 				pack_peak_callback = Callable(
 					self,
-					"_start_early_final_reward_claim_at_pack_peak"
-				).bind(
-					transition_pack,
-					final_action_button,
-					collect_holder,
-					collect_button,
-					false
-				)
+					"_play_early_final_reward_coin_claim"
+				).bind(transition_pack)
 			var reward_sparkles_callback := Callable()
 			if collect_holder != null and is_instance_valid(collect_holder):
 				reward_sparkles_callback = Callable(
@@ -17212,19 +16807,15 @@ func _show_single_player_reward_chain_screen() -> void:
 				self,
 				"_start_single_player_level_summary_transition_deferred"
 			).bind(
-				chain_holder,
-				hero_texture,
 				transition_pack,
 				final_reward_background_overlay,
 				title_panel,
 				glow,
-				summary_panel,
 				completion_amount_label,
 				Callable() if has_level_star_reward else action_reveal_callback,
 				pack_peak_callback,
 				use_completion_chest,
-				reward_sparkles_callback,
-				has_level_star_reward
+				reward_sparkles_callback
 			)
 		else:
 			var reward_content: Control = _portrait_begin_bottom_attached_group()
@@ -17254,19 +16845,15 @@ func _show_single_player_reward_chain_screen() -> void:
 				self,
 				"_start_single_player_level_summary_transition_deferred"
 			).bind(
-				chain_holder,
-				hero_texture,
 				transition_pack,
 				final_reward_background_overlay,
 				title_panel,
 				glow,
-				summary_panel,
 				completion_amount_label,
 				action_reveal_callback,
 				Callable(),
 				use_completion_chest,
-				Callable(),
-				false
+				Callable()
 			)
 	else:
 		# Intermediate stages keep the manual CTA. The ordinary reward screen for

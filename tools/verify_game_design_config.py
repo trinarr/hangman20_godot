@@ -265,15 +265,14 @@ def main() -> None:
         "Level 2 does not force quiz-first ordering",
     )
     require(
-        "PORTRAIT_REWARDED_AD_CLOSE_GUARD_SECONDS" in portrait_source
-        and "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in portrait_source
+        "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in portrait_source
         and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in portrait_source,
         "Gameplay timers are not connected to the game-design config",
     )
     require(
         'set_meta(&"reward_counter_collection_active", active)' in portrait_source
         and "_bounce_portrait_resource_counter_icon" in portrait_source
-        and "counter_scale_tweener.set_trans(Tween.TRANS_SINE)" in portrait_source
+        and "scale_tweener.set_trans(Tween.TRANS_SINE)" in portrait_source
         and "icon_bounce_callback" in portrait_source,
         "Currency plate hold and per-impact icon bounces are not connected",
     )

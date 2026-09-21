@@ -209,14 +209,19 @@ def main() -> None:
     require(
         '"guided_onboarding_completed": guided_onboarding_completed' in game_state
         and 'parsed.get(\n\t\t"guided_onboarding_completed",\n\t\tads_unlocked' in game_state
+        and "_clear_guided_theme_resume_state_for_language(word_language)"
+        in function_body(game_state, "complete_single_player_guided_onboarding")
         and 'str(active_single_player_session.get("kind", "")) == "theme"'
-        in function_body(game_state, "complete_single_player_guided_onboarding"),
+        in function_body(game_state, "_clear_guided_theme_resume_state_for_language"),
         "Guided completion is not durable or cannot repair the old level-3 popup state",
     )
     guided_home_screen = function_body(portrait, "_show_menu_screen")
+    guided_startup = function_body(portrait, "_check_startup_guided_resume")
     require(
-        "_startup_guided_resume_checked" in guided_home_screen
-        and 'call_deferred("_resume_saved_single_player_level")' in guided_home_screen,
+        "_check_startup_guided_resume()" in guided_home_screen
+        and "_startup_guided_resume_checked" in guided_startup
+        and "has_accepted_legal_documents()" in guided_startup
+        and 'call_deferred("_resume_saved_single_player_level")' in guided_startup,
         "Home does not auto-resume guided onboarding exactly once at startup",
     )
     portrait_resume = function_body(portrait, "_resume_saved_single_player_level")
@@ -358,10 +363,9 @@ def main() -> None:
         and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in quiz_speed_tier
         and "PORTRAIT_QUIZ_LIGHTNING_REWARD_STARS" in quiz_speed_reward
         and "PORTRAIT_QUIZ_FAST_REWARD_STARS" in quiz_speed_reward
-        and 'return "МОЛНИЕНОСНО!"' in quiz_feedback_text
-        and 'return "LIGHTNING FAST!"' in quiz_feedback_text
-        and 'return "ВОТ ЭТО СКОРОСТЬ!" if speed_tier == PORTRAIT_QUIZ_SPEED_FAST else "ВЕРНО!"'
-        in quiz_feedback_text
+        and all(f'tr("{key}")' in quiz_feedback_text for key in (
+            "QUIZ_FEEDBACK_LIGHTNING", "QUIZ_FEEDBACK_FAST", "QUIZ_FEEDBACK_CORRECT"
+        ))
         and "BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)"
         in function_body(portrait, "_style_quiz_feedback_label")
         and "speed_reward_amount" in quiz_answer_selected,
@@ -382,7 +386,7 @@ def main() -> None:
     )
     require(
         "_complete_single_player_final_reward(" in early_final_claim
-        and "_play_single_player_reward_coin_collection(source_visual)"
+        and "_play_single_player_reward_coin_collection("
         in early_final_claim
         and "_set_stage_reward_animated_balance" in early_final_claim
         and "await count_tween.finished" not in early_final_claim,
@@ -401,15 +405,17 @@ def main() -> None:
         < final_pack_bounce.index("var settle := bounce_tween.tween_property"),
         "Final reward peak callback does not run before the prize settles",
     )
-    peak_claim = function_body(
-        portrait, "_start_early_final_reward_claim_at_pack_peak"
-    )
+    merged_sequence = function_body(portrait, "_start_level_summary_coin_and_star_sequence")
     require(
-        "_play_early_final_reward_coin_claim(transition_pack)" in peak_claim
-        and "_reveal_final_reward_actions(" in peak_claim
-        and peak_claim.index("_play_early_final_reward_coin_claim")
-        < peak_claim.index("_reveal_final_reward_actions"),
-        "Coin crediting and Continue do not start together at the prize peak",
+        "_play_early_final_reward_coin_claim(" in merged_sequence
+        and "_on_level_summary_coin_collection_finished" in merged_sequence
+        and "_try_start_level_summary_star_sequence" in function_body(
+            portrait, "_on_level_summary_coin_collection_finished"
+        )
+        and "_launch_level_summary_star_collection" in function_body(
+            portrait, "_try_start_level_summary_star_sequence"
+        ),
+        "Merged summary must collect coins before launching its level stars",
     )
     final_action_reveal = function_body(
         portrait, "_finish_final_reward_action_reveal"
@@ -430,7 +436,7 @@ def main() -> None:
     require("_grant_portrait_rewarded_action" not in rewarded_close, "Reward still waits for ad close")
     final_rewarded = function_body(portrait, "_on_final_reward_ad_rewarded")
     require(
-        "GameState.claim_pending_single_player_reward(2)" in final_rewarded,
+        "GameState.claim_rewarded_double_request(request_id)" in final_rewarded,
         "Final x2 reward is not claimed on rewarded callback",
     )
     require(
@@ -439,7 +445,7 @@ def main() -> None:
     )
     final_reward_closed = function_body(portrait, "_on_final_reward_ad_closed")
     require(
-        "_finish_single_player_final_reward_claim()" in final_reward_closed,
+        "_finish_single_player_final_reward_claim(-1, true)" in final_reward_closed,
         "Final reward presentation does not wait for the ad close callback",
     )
     final_reward_finish = function_body(portrait, "_finish_single_player_final_reward_claim")
@@ -454,7 +460,7 @@ def main() -> None:
         "Early final rewards do not stop Continue attention or still rebuild Home",
     )
     require(
-        'call_deferred("_play_pending_home_reward_animation")' in portrait,
+        'call_deferred("_play_pending_home_reward_animation", result_transition_generation)' in portrait,
         "Home does not schedule the animated coin delivery",
     )
 
@@ -473,7 +479,8 @@ def main() -> None:
     )
     require(
         "GameState.accept_legal_documents()" in legal_accept
-        and "_show_menu_screen()" in legal_accept,
+        and "_remove_legal_consent_popup()" in legal_accept
+        and "_check_startup_guided_resume()" in legal_accept,
         "Legal acceptance is not persisted before returning to Home",
     )
     require(
@@ -552,7 +559,7 @@ def main() -> None:
         'tr("REWARD_STAGE_COMPLETED")' in reward_screen
         and 'tr("REWARD_STAGE_FAILED")' in reward_screen
         and "_single_player_level_completed_label()" in reward_screen
-        and "is_failure_reward and !is_level_summary" in reward_screen
+        and "is_failure_reward and !final_stage_completed" in reward_screen
         and "PORTRAIT_SINGLE_REWARD_SUCCESS_TITLE_COLOR" in reward_screen
         and "GameState.get_hearts() <= 0" in reward_continue
         and "_show_heart_refill_popup" in reward_continue

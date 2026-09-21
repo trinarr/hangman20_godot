@@ -235,16 +235,11 @@ var _trailing_icon_rect: TextureRect = null
 # Disabled long buttons are translucent. Composite the three background slices
 # first, then fade the completed face as one CanvasGroup so the 1.5 px overlap
 # cannot double-blend at the left/center and center/right seams.
-var _disabled_face_group: CanvasGroup = null
-var _disabled_face_center: Sprite2D = null
-var _disabled_face_left: Sprite2D = null
-var _disabled_face_right: Sprite2D = null
 var _attention_bounce_tween: Tween = null
 var _single_attention_shine_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
-	_ensure_disabled_face_group()
 	_ensure_label()
 	_ensure_icon_shadow_layers()
 	_ensure_icon()
@@ -404,7 +399,6 @@ func _draw() -> void:
 		# This avoids the extra circular shadow bulges that the full capsule shadow
 		# created under the rounded end caps of long buttons.
 		_draw_exposed_capsule_shadow(visual_rect, shadow_offset_y, shadow_color)
-	_hide_disabled_face_group()
 	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect, background_tint)
 
 func _draw_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
@@ -503,62 +497,6 @@ func _draw_exposed_capsule_shadow(rect: Rect2, offset_y: float, color: Color) ->
 		polygon.append(inner_contour[index] + Vector2(0.0, offset_y))
 	draw_colored_polygon(polygon, color)
 
-func _ensure_disabled_face_group() -> void:
-	if _disabled_face_group != null and is_instance_valid(_disabled_face_group):
-		return
-	_disabled_face_group = CanvasGroup.new()
-	_disabled_face_group.name = "DisabledFaceGroup"
-	_disabled_face_group.visible = false
-	add_child(_disabled_face_group)
-
-	_disabled_face_center = Sprite2D.new()
-	_disabled_face_center.name = "Center"
-	_disabled_face_center.centered = false
-	_disabled_face_center.z_index = 0
-	_disabled_face_group.add_child(_disabled_face_center)
-
-	_disabled_face_left = Sprite2D.new()
-	_disabled_face_left.name = "Left"
-	_disabled_face_left.centered = false
-	_disabled_face_left.z_index = 1
-	_disabled_face_group.add_child(_disabled_face_left)
-
-	_disabled_face_right = Sprite2D.new()
-	_disabled_face_right.name = "Right"
-	_disabled_face_right.centered = false
-	_disabled_face_right.z_index = 1
-	_disabled_face_group.add_child(_disabled_face_right)
-
-func _hide_disabled_face_group() -> void:
-	if _disabled_face_group != null and is_instance_valid(_disabled_face_group):
-		_disabled_face_group.visible = false
-
-func _layout_face_sprite(
-	sprite: Sprite2D,
-	texture: Texture2D,
-	rect: Rect2,
-	tint_rgb: Color,
-	source_region: Rect2 = Rect2()
-) -> void:
-	if sprite == null or !is_instance_valid(sprite) or texture == null:
-		return
-	var texture_size: Vector2 = texture.get_size()
-	var region: Rect2 = source_region
-	if region.size == Vector2.ZERO:
-		region = Rect2(Vector2.ZERO, texture_size)
-	if region.size.x <= 0.0 or region.size.y <= 0.0 or rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		sprite.visible = false
-		return
-	sprite.visible = true
-	sprite.texture = texture
-	sprite.region_enabled = true
-	sprite.region_rect = region
-	sprite.position = rect.position
-	sprite.scale = Vector2(rect.size.x / region.size.x, rect.size.y / region.size.y)
-	# Keep every slice fully opaque inside the CanvasGroup. The group alpha is
-	# applied once after composition, which prevents overlap from darkening seams.
-	sprite.self_modulate = Color(tint_rgb.r, tint_rgb.g, tint_rgb.b, 1.0)
-
 func _build_slice_layout(
 	left_texture: Texture2D,
 	center_texture: Texture2D,
@@ -618,44 +556,6 @@ func _build_slice_layout(
 		"left_region": left_region,
 		"right_region": right_region,
 	}
-
-func _sync_disabled_face_group(
-	left_texture: Texture2D,
-	center_texture: Texture2D,
-	right_texture: Texture2D,
-	rect: Rect2,
-	tint: Color
-) -> void:
-	_ensure_disabled_face_group()
-	if _disabled_face_group == null or !is_instance_valid(_disabled_face_group):
-		return
-	var layout: Dictionary = _build_slice_layout(left_texture, center_texture, right_texture, rect)
-	var center_rect: Rect2 = layout.get("center_rect", Rect2())
-	if center_rect.size.x > 0.0:
-		_layout_face_sprite(
-			_disabled_face_center,
-			center_texture,
-			center_rect,
-			tint
-		)
-	else:
-		_disabled_face_center.visible = false
-	_layout_face_sprite(
-		_disabled_face_left,
-		left_texture,
-		layout.get("left_rect", Rect2()),
-		tint,
-		layout.get("left_region", Rect2())
-	)
-	_layout_face_sprite(
-		_disabled_face_right,
-		right_texture,
-		layout.get("right_rect", Rect2()),
-		tint,
-		layout.get("right_region", Rect2())
-	)
-	_disabled_face_group.modulate = Color(1.0, 1.0, 1.0, tint.a)
-	_disabled_face_group.visible = true
 
 func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:

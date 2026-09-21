@@ -499,14 +499,6 @@ func get_quiz_questions_by_theme_index(theme_index: int) -> Array:
 	# shared without copying all four answers of every question in the theme.
 	return Array(cached).duplicate()
 
-func get_quiz_question_count_by_theme_index(theme_index: int) -> int:
-	_ensure_quiz_data_loaded()
-	var theme_id: int = get_theme_id(theme_index)
-	if theme_id <= 0:
-		return 0
-	var cached: Variant = _quiz_questions_by_theme_cache.get(theme_id, [])
-	return Array(cached).size() if cached is Array else 0
-
 func get_quiz_question_by_id(theme_index: int, question_id: int) -> Dictionary:
 	if question_id < 0:
 		return {}

@@ -89,10 +89,6 @@ func set_display_text(value: String) -> void:
 	_visual_text = value.substr(0, max_input_length)
 	_rebuild_visuals()
 
-func refresh_display() -> void:
-	# A visual refresh must never move the native caret while an IME is composing.
-	_rebuild_visuals()
-
 func play_word_bounce() -> void:
 	_play_letter_bounce_from_slot(0)
 
