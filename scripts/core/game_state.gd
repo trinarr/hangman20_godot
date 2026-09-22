@@ -130,6 +130,13 @@ var guided_onboarding_completed: bool = false
 var interstitial_active_elapsed_seconds: float = 0.0
 var accepted_legal_documents_version: int = 0
 var ad_personalization_choice: int = AdPersonalizationChoice.UNKNOWN
+# Explicit choice is persistent; region permission is valid only for this lookup.
+var ad_personalization_choice_at: int = 0
+var ad_personalization_choice_source: String = ""
+var ad_region_country: String = ""
+var ad_region_rule: String = "unknown"
+var ad_region_policy_version: String = ""
+var ad_region_checked_at: int = 0
 var _heart_tick_timer: Timer = null
 var _last_emitted_hearts: int = -1
 var _last_emitted_heart_seconds: int = -1
@@ -318,6 +325,13 @@ func load_game() -> void:
 		AdPersonalizationChoice.DENIED
 	)
 
+	ad_personalization_choice_at = maxi(int(parsed.get("ad_personalization_choice_at", 0)), 0)
+	ad_personalization_choice_source = (
+		str(parsed.get("ad_personalization_choice_source", "legacy_user"))
+		if has_answered_ad_personalization_choice() else ""
+	)
+	# Never restore a previous IP lookup as permission on a new launch.
+
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
 	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
@@ -475,6 +489,14 @@ func save_game() -> bool:
 		"interstitial_active_elapsed_seconds": interstitial_active_elapsed_seconds,
 		"accepted_legal_documents_version": accepted_legal_documents_version,
 		"ad_personalization_choice": ad_personalization_choice,
+		"ad_personalization_choice_at": ad_personalization_choice_at,
+		"ad_personalization_choice_source": ad_personalization_choice_source,
+		"ad_region_last_observation": {
+			"country": ad_region_country,
+			"rule": ad_region_rule,
+			"policy_version": ad_region_policy_version,
+			"checked_at": ad_region_checked_at,
+		},
 	}
 	var file := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
 	if file == null:
@@ -534,19 +556,46 @@ func has_answered_ad_personalization_choice() -> bool:
 	return ad_personalization_choice != AdPersonalizationChoice.UNKNOWN
 
 func allows_ad_personalization() -> bool:
-	return ad_personalization_choice == AdPersonalizationChoice.ACCEPTED
+	if has_answered_ad_personalization_choice():
+		return ad_personalization_choice == AdPersonalizationChoice.ACCEPTED
+	return ad_region_rule == "automatic"
 
-func set_ad_personalization_choice(accepted: bool) -> bool:
+func has_ad_personalization_decision() -> bool:
+	return has_answered_ad_personalization_choice() or ad_region_rule == "automatic"
+
+func needs_ad_personalization_consent() -> bool:
+	return !has_answered_ad_personalization_choice() and ad_region_rule == "required"
+
+func get_ad_personalization_source() -> String:
+	if has_answered_ad_personalization_choice():
+		return ad_personalization_choice_source
+	return "region" if ad_region_rule == "automatic" else "unknown"
+
+func set_ad_region(country: String, rule: String, policy_version: String) -> void:
+	ad_region_country = country
+	ad_region_rule = rule if rule in ["required", "automatic"] else "unknown"
+	ad_region_policy_version = policy_version
+	ad_region_checked_at = int(Time.get_unix_time_from_system())
+	# A failed diagnostic save must not restore an expired regional permission.
+	save_game()
+
+func set_ad_personalization_choice(accepted: bool, source: String = "user_popup") -> bool:
 	var next_choice: int = (
 		AdPersonalizationChoice.ACCEPTED if accepted else AdPersonalizationChoice.DENIED
 	)
 	if ad_personalization_choice == next_choice:
 		return true
 	var previous_choice: int = ad_personalization_choice
+	var previous_at: int = ad_personalization_choice_at
+	var previous_source: String = ad_personalization_choice_source
 	ad_personalization_choice = next_choice
+	ad_personalization_choice_at = int(Time.get_unix_time_from_system())
+	ad_personalization_choice_source = source
 	if save_game():
 		return true
 	ad_personalization_choice = previous_choice
+	ad_personalization_choice_at = previous_at
+	ad_personalization_choice_source = previous_source
 	return false
 
 func _normalize_active_single_player_session(source: Variant) -> Dictionary:

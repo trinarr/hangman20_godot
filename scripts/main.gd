@@ -232,14 +232,22 @@ func _ready() -> void:
 	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
 		GameState.hearts_changed.connect(_on_hearts_changed)
 	_last_heart_count_for_animation = GameState.get_hearts()
+	ConsentRegion.changed.connect(_on_ad_region_changed)
+	ConsentRegion.refresh()
 	_initialize_yandex_ads_from_saved_consent()
 	show_menu()
 	_prewarm_runtime_assets()
 
+func _on_ad_region_changed() -> void:
+	_initialize_yandex_ads_from_saved_consent()
+
 func _initialize_yandex_ads_from_saved_consent() -> bool:
-	if !GameState.has_answered_ad_personalization_choice():
-		return false
 	var ads_service: Node = get_node_or_null("/root/YandexAdsService")
+	if !GameState.has_accepted_legal_documents() or !GameState.has_ad_personalization_decision():
+		# Expiry/failure also invalidates previously personalized cached ads.
+		if ads_service != null and ads_service.has_method("set_user_consent"):
+			ads_service.call("set_user_consent", false)
+		return false
 	if ads_service == null or !is_instance_valid(ads_service):
 		return false
 	if !ads_service.has_method("initialize_after_consent"):

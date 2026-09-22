@@ -8,6 +8,11 @@
 
 config_version=5
 
+[ad_privacy]
+
+ipinfo_lite_country_endpoint="https://api.ipinfo.io/lite/me/country_code"
+ipinfo_lite_token="73d4840e6e08dd"
+
 [application]
 
 config/name="Hangman 2.0"
@@ -25,6 +30,7 @@ WordManager="*res://scripts/core/word_manager.gd"
 GameState="*res://scripts/core/game_state.gd"
 GameSession="*res://scripts/core/game_session.gd"
 YandexAdsService="*res://addons/GodotAndroidYandexAds/yandex_ads.gd"
+ConsentRegion="*res://scripts/services/consent_region.gd"
 
 [display]
 

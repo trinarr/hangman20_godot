@@ -851,10 +851,40 @@ func _optional_node_meta(node: Object, key: StringName) -> Variant:
 	# Animation metadata is deliberately absent before the first interaction.
 	return node.get_meta(key) if node.has_meta(key) else null
 
+func _on_ad_region_changed() -> void:
+	super._on_ad_region_changed()
+	if OS.is_debug_build():
+		var debug_country: String = GameState.ad_region_country.strip_edges()
+		var debug_rule: String = GameState.ad_region_rule
+		var debug_result: String = "UNKNOWN"
+		if !debug_country.is_empty():
+			debug_result = "%s (%s)" % [debug_country, debug_rule]
+		_show_portrait_status_toast("IPinfo: %s" % debug_result)
+	_refresh_settings_ad_consent_button()
+	if !_portrait_ads_enabled():
+		_hide_portrait_ad_banner()
+	# A delayed response must not interrupt another modal or entrance animation.
+	call_deferred("_show_user_consent_on_single_player_word_if_needed")
+	if (
+		_portrait_ads_enabled() and game_screen_visible and !_quiz_screen_active
+		and get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty()
+	):
+		if get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty():
+			_stage_portrait_ad_banner()
+		else:
+			var ads_service: Node = _portrait_ads_service()
+			if ads_service != null and ads_service.has_method("show_banner"):
+				ads_service.call("show_banner")
+
+func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
+	super._remove_popup_group_with_dimmer_fade(group_name)
+	if !GameState.has_answered_ad_personalization_choice():
+		call_deferred("_show_user_consent_on_single_player_word_if_needed")
+
 func _portrait_ads_enabled() -> bool:
 	return (
 		GameState.are_ads_enabled()
-		and GameState.has_answered_ad_personalization_choice()
+		and GameState.has_ad_personalization_decision()
 	)
 
 func _portrait_ad_not_ready_message() -> String:
@@ -3779,11 +3809,21 @@ func _accept_legal_documents() -> void:
 	if !GameState.accept_legal_documents():
 		return
 	_remove_legal_consent_popup()
+	ConsentRegion.refresh()
 	_check_startup_guided_resume()
 
-func _show_user_consent_popup(from_settings: bool = false) -> void:
-	if !from_settings and GameState.has_answered_ad_personalization_choice():
-		return
+func _show_user_consent_popup(
+	from_settings: bool = false,
+	force_unknown_region: bool = false
+) -> void:
+	if !from_settings:
+		if GameState.has_answered_ad_personalization_choice():
+			return
+		if (
+			!GameState.needs_ad_personalization_consent()
+			and !(force_unknown_region and GameState.ad_region_rule == "unknown")
+		):
+			return
 	_remove_user_consent_popup()
 	_hide_portrait_ad_banner()
 	var popup_size := Vector2(424.0, 0.0)
@@ -4056,16 +4096,17 @@ func _show_settings_popup() -> void:
 	content = previous_content
 
 func _toggle_settings_ad_consent() -> void:
-	if GameState.allows_ad_personalization():
-		# Confirm the choice before changing the currently enabled preference:
-		# Accept keeps it enabled; Deny saves the refusal and applies it to the SDK.
+	var enabled: bool = GameState.allows_ad_personalization()
+	if enabled and GameState.ad_region_rule == "required":
+		# In consent-required regions, disabling keeps the existing confirmation popup.
 		_show_user_consent_popup(true)
+		return
+	# Explicit settings always outrank the regional default, including late IP replies.
+	if GameState.set_ad_personalization_choice(!enabled, "user_settings"):
+		_initialize_yandex_ads_from_saved_consent()
+		_refresh_settings_ad_consent_button()
 	else:
-		if GameState.set_ad_personalization_choice(true):
-			_initialize_yandex_ads_from_saved_consent()
-			_refresh_settings_ad_consent_button()
-		else:
-			_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
+		_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
 
 func _refresh_settings_ad_consent_button() -> void:
 	if _settings_ad_consent_button == null or !is_instance_valid(_settings_ad_consent_button):
@@ -8846,6 +8887,14 @@ func _start_single_player_popup_level(level_index: int) -> void:
 			restore_action
 		)
 		return
+	if (
+		level_index + 1 == GameState.ADS_UNLOCK_LEVEL
+		and !GameState.has_answered_ad_personalization_choice()
+		and GameState.ad_region_rule == "unknown"
+	):
+		# Start/continue regional resolution in the background. Never delay the
+		# level transition or disable Play because of a network request.
+		ConsentRegion.request_ads_unlock_resolution()
 	_single_player_theme_reroll_used = false
 	_single_player_theme_ad_reroll_used = false
 	super._start_single_player_popup_level(level_index)
@@ -9193,13 +9242,12 @@ func show_game_screen() -> void:
 	call_deferred("_show_user_consent_on_single_player_word_if_needed")
 
 func _show_user_consent_on_single_player_word_if_needed() -> void:
-	# The first consent prompt belongs to the completed gameplay composition, not
-	# the entrance choreography. show_game_screen() also schedules this check while
-	# the entrance is still active, so ignore that early pass and retry from
-	# _finish_portrait_game_entrance() once every element has settled.
+	# The first consent prompt has two independent gates. Gameplay itself never
+	# waits: the popup appears only after both the entrance animation and the
+	# level-3 regional resolution (including its fallback attempt) have finished.
 	if _portrait_game_entrance_active:
 		return
-	if GameState.has_answered_ad_personalization_choice():
+	if !get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty():
 		return
 	if GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
 		return
@@ -9209,7 +9257,14 @@ func _show_user_consent_on_single_player_word_if_needed() -> void:
 		return
 	if _quiz_screen_active:
 		return
-	_show_user_consent_popup()
+	if GameState.has_answered_ad_personalization_choice():
+		return
+	var force_unknown_region: bool = GameState.ad_region_rule == "unknown"
+	if force_unknown_region and !ConsentRegion.is_ads_unlock_resolution_finished():
+		return
+	if !force_unknown_region and !GameState.needs_ad_personalization_consent():
+		return
+	_show_user_consent_popup(false, force_unknown_region)
 
 func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var alphabet: PackedStringArray = _active_game_alphabet()
@@ -11909,8 +11964,9 @@ func _finish_portrait_game_entrance() -> void:
 		hint_button.remove_meta(&"portrait_entrance_rest_disabled")
 	_portrait_game_entrance_active = false
 	_sync_portrait_attempts_attention_bounce()
-	# Level 3 is the first ad-enabled level. If consent is still unanswered, open
-	# it only now, after the complete word-screen entrance animation has finished.
+	# This satisfies the animation side of the consent gate. If region resolution
+	# is also complete, the deferred check may open the popup; otherwise the region
+	# callback will make the same check later without delaying gameplay.
 	call_deferred("_show_user_consent_on_single_player_word_if_needed")
 
 func _on_timer_heart_recovered() -> void:
