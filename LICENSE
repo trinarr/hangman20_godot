@@ -1,0 +1,49 @@
+Hangman 2.0 — Proprietary License and Copyright Notice
+
+Copyright (c) 2026 Nikita Lukanin. All rights reserved.
+Contact: trinarr@mail.ru
+
+1. Scope and ownership
+
+This notice applies only to the original material in this repository for which
+Nikita Lukanin holds the relevant rights, including source code, scripts, shaders,
+original game data and text, documentation, graphics, animation and audio.
+It does not assert ownership of third-party material, public-domain material,
+unprotectable facts, ideas or game mechanics.
+
+2. No general permission to reuse
+
+Except as provided in Section 3, no permission is granted to copy, modify,
+redistribute, publish, sublicense, sell or incorporate covered material into
+another project, or to create derivative works from it, for commercial or
+non-commercial purposes, without prior written authorization from Nikita Lukanin.
+Access to the repository or receipt of a copy does not by itself grant these
+permissions. Permission to perform a particular task does not grant permission
+to reuse the material beyond the scope of that authorization.
+
+3. Rights and permissions that remain unaffected
+
+This notice does not restrict:
+- rights that cannot be excluded under applicable law;
+- permissions expressly granted in a separate agreement by the rights holder;
+- permissions already validly granted under an applicable license;
+- rights granted by the applicable licenses of third-party components; or
+- the limited hosting, viewing and forking rights granted under GitHub's Terms
+  of Service to the extent those terms apply to this repository.
+
+In particular, public visibility does not grant a general license to reuse the
+covered material outside those permissions. This notice does not revoke earlier
+licenses or replace third-party licenses. See THIRD_PARTY_NOTICES.md and the
+license notices supplied with individual components.
+
+4. Released game
+
+Use of an authorized released copy of Hangman 2.0 by a player is governed by the
+game's Terms of Service and applicable distribution-platform terms. This notice
+does not withdraw the player's rights under those terms and does not grant
+access to or reuse rights in the game's source materials.
+
+5. Languages
+
+LICENSE.ru.txt is a Russian translation for convenience. In case of a discrepancy,
+the English text in LICENSE prevails to the extent permitted by applicable law.
