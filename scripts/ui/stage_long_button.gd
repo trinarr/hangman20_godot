@@ -81,10 +81,11 @@ const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
 const BUTTON_DROP_SHADOW_OFFSET_Y: float = 3.5
 const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
 const BUTTON_DROP_SHADOW_UNDERLAP_Y: float = 1.5
-# Let the stretchable center run slightly underneath both end caps. The caps are
-# drawn afterwards, so this only fills their translucent inner seam pixels and
-# prevents the three-slice construction from showing through on faded buttons.
-const BUTTON_SLICE_OVERLAP: float = 1.5
+# Keep the three slices edge-to-edge. Their destination rectangles are snapped
+# to whole pixels below, so an overlap is not needed to hide a gap. More
+# importantly, overlapping translucent slices are alpha-composited twice while
+# a long button fades in/out, which exposes the joins as brighter vertical bars.
+const BUTTON_SLICE_OVERLAP: float = 0.0
 const BUTTON_CAP_INNER_TRIM: float = 2.0
 
 var drop_shadow_enabled: bool = false:
@@ -232,9 +233,8 @@ var _icon_rect: TextureRect = null
 var _trailing_icon_shadow_layers: Array[TextureRect] = []
 var _trailing_icon_shadow_material: ShaderMaterial = null
 var _trailing_icon_rect: TextureRect = null
-# Disabled long buttons are translucent. Composite the three background slices
-# first, then fade the completed face as one CanvasGroup so the 1.5 px overlap
-# cannot double-blend at the left/center and center/right seams.
+# Long-button artwork is assembled from three slices. Keep their geometry
+# seam-safe because the complete button can be faded through CanvasItem.modulate.
 var _attention_bounce_tween: Tween = null
 var _single_attention_shine_tween: Tween = null
 
