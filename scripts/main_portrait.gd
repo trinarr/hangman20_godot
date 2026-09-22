@@ -9744,25 +9744,50 @@ func _stop_portrait_attempts_attention_bounce(reset_scale: bool) -> void:
 	):
 		_portrait_game_attempts_value_label.scale = Vector2.ONE
 
-func _rebuild_portrait_game_word_slots() -> void:
-	# Rebuilding replaces all gameplay-letter labels. Advance the generation so
-	# callbacks from a tween attached to a discarded label cannot decrement the
-	# active count of a newer guess.
-	if !_portrait_in_place_result_active:
-		_portrait_word_letter_bounce_generation += 1
-		_portrait_word_letter_bounce_active_count = 0
+func _rebuild_portrait_game_word_slots(font_size: int = 34) -> void:
 	if (
 		_portrait_game_word_slots_root == null
 		or !is_instance_valid(_portrait_game_word_slots_root)
 		or _portrait_game_word_rect.size.x <= 0.0
 	):
 		return
+	# The cache belongs to this display, so navigation releases its nodes and data
+	# together. Guesses only change visibility; word/geometry changes rebuild it.
+	var cache: Dictionary = _portrait_game_word_slots_root.get_meta("word_slots_cache", {})
+	if (
+		cache.get("letters") == GameSession.letters
+		and cache.get("rect") == _portrait_game_word_rect
+		and cache.get("font_size") == font_size
+	):
+		var slots: Array = cache["slots"]
+		for i: int in range(slots.size()):
+			var slot: Dictionary = slots[i]
+			var revealed: bool = bool(GameSession.revealed[i])
+			if revealed == bool(slot["revealed"]):
+				continue
+			slot["revealed"] = revealed
+			var underline: Control = slot["underline"]
+			var letter_label: Label = slot["label"]
+			if underline != null:
+				underline.visible = !revealed
+			if letter_label != null and !bool(slot["is_dash"]):
+				letter_label.visible = revealed
+				if revealed and pending_letter_marker_is_correct and pending_letter_markers.has(slot["letter"]):
+					_prepare_portrait_word_letter_bounce(letter_label)
+		return
+
+	# Only discarded labels invalidate bounce callbacks. An unrelated refresh
+	# must not reset the count while the last correct letter is still animating.
+	if !_portrait_in_place_result_active:
+		_portrait_word_letter_bounce_generation += 1
+		_portrait_word_letter_bounce_active_count = 0
+	_portrait_game_word_slots_root.remove_meta("word_slots_cache")
 	for child: Node in _portrait_game_word_slots_root.get_children():
 		_portrait_game_word_slots_root.remove_child(child)
 		child.queue_free()
 	var previous_content: Control = content
 	content = _portrait_game_word_slots_root
-	_stage_portrait_word_slots(_portrait_game_word_rect, 34, false, false)
+	_stage_portrait_word_slots(_portrait_game_word_rect, font_size, false, false)
 	content = previous_content
 
 func _refresh_portrait_game_keyboard() -> void:
@@ -9981,10 +10006,8 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 	content.add_child(slots_root)
 	slots_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_portrait_game_word_slots_root = slots_root
-	var previous_content: Control = content
-	content = slots_root
-	_stage_portrait_word_slots(rect, font_size, false, false)
-	content = previous_content
+	_portrait_game_word_rect = rect
+	_rebuild_portrait_game_word_slots(font_size)
 
 func _portrait_display_word_text(text: String) -> String:
 	# Keep stored/session separators untouched, but render compound-word separators
@@ -10363,6 +10386,8 @@ func _stage_portrait_word_slots(
 	collect_result_letters: bool
 ) -> Dictionary:
 	var animated_letters: Array = []
+	var slots: Array = []
+	var retain_slots: bool = content == _portrait_game_word_slots_root and !reveal_all and !collect_result_letters
 	if GameSession.letters.is_empty():
 		return {
 			"bounds": Rect2(rect.position, Vector2.ZERO),
@@ -10391,15 +10416,18 @@ func _stage_portrait_word_slots(
 		var is_space: bool = bool(item["is_space"])
 		var is_dash: bool = bool(item["is_dash"])
 		var revealed: bool = reveal_all or bool(GameSession.revealed[i])
-		if !revealed and !is_space and !is_dash:
-			_stage_panel(Rect2(
+		var underline: Control = null
+		var letter_label: Label = null
+		if (retain_slots or !revealed) and !is_space and !is_dash:
+			underline = _stage_panel(Rect2(
 				start_x + item_center - shared_underline_width * 0.5,
 				baseline_y,
 				shared_underline_width,
 				underline_height
 			), PORTRAIT_ORANGE)
-		if (revealed and !is_space) or is_dash:
-			var letter_label := _stage_label(
+			underline.visible = !revealed
+		if ((retain_slots or revealed) and !is_space) or is_dash:
+			letter_label = _stage_label(
 				Rect2(
 					start_x + item_left,
 					rect.position.y,
@@ -10421,6 +10449,7 @@ func _stage_portrait_word_slots(
 				else VERTICAL_ALIGNMENT_BOTTOM
 			)
 			letter_label.clip_text = false
+			letter_label.visible = revealed or is_dash
 			var animate_reveal: bool = (
 				!collect_result_letters
 				and revealed
@@ -10436,6 +10465,17 @@ func _stage_portrait_word_slots(
 					letter_holder.z_index = 20
 				animated_letters.append(letter_label)
 
+		if retain_slots:
+			slots.append({
+				"letter": letter, "label": letter_label, "underline": underline,
+				"revealed": revealed, "is_dash": is_dash,
+			})
+
+	if retain_slots:
+		_portrait_game_word_slots_root.set_meta("word_slots_cache", {
+			"letters": GameSession.letters.duplicate(), "rect": rect,
+			"font_size": font_size, "slots": slots,
+		})
 	return {
 		"bounds": Rect2(start_x, rect.position.y, total_width, rect.size.y),
 		"animated_letters": animated_letters,
@@ -15389,18 +15429,30 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 	if clip_size.x <= 0.0 or clip_size.y <= 0.0:
 		return
 
+	var signature: Array = [clip_size, theme_textures.duplicate(), icon_modulate,
+		spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha,
+		full_alpha_screen_ratio]
 	var existing_tween: Tween = _optional_node_meta(motion, "pattern_move_tween") as Tween
-	if existing_tween != null and is_instance_valid(existing_tween):
-		existing_tween.kill()
-	for child: Node in motion.get_children():
-		child.free()
+	var tween_running: bool = existing_tween != null and existing_tween.is_valid()
+	if motion.get_meta("pattern_layout_signature", []) == signature and tween_running:
+		return
 
 	var spacing: float = PORTRAIT_THEME_PATTERN_SPACING * maxf(spacing_multiplier, 0.05)
+	var move_duration: float = PORTRAIT_THEME_PATTERN_MOVE_DURATION * maxf(move_duration_multiplier, 0.01)
+	var motion_signature: Vector2 = Vector2(spacing, move_duration)
+	var restart_motion: bool = !tween_running or motion.get_meta("pattern_motion_signature", Vector2.ZERO) != motion_signature
+	if restart_motion:
+		if tween_running:
+			existing_tween.kill()
+		motion.position = Vector2.ZERO
 	var overscan: float = spacing * 2.0
-	motion.position = Vector2.ZERO
 	motion.size = clip_size + Vector2.ONE * overscan * 2.0
 	var cols: int = int(ceil((clip_size.x + overscan * 2.0) / spacing)) + 2
 	var rows: int = int(ceil((clip_size.y + overscan * 2.0) / spacing)) + 2
+	# Keep the existing prefix on resize; allocate/release only the difference.
+	var icon_count: int = rows * cols
+	while motion.get_child_count() > icon_count:
+		motion.get_child(motion.get_child_count() - 1).free()
 	var texture_count: int = theme_textures.size()
 	var gradient_height: float = maxf(clip_size.y + overscan * 2.0, 1.0)
 	var top_alpha: float = icon_modulate.a
@@ -15408,7 +15460,13 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 	var clamped_full_alpha_ratio: float = clampf(full_alpha_screen_ratio, 0.0, 1.0)
 	for row: int in range(rows):
 		for col: int in range(cols):
-			var icon := TextureRect.new()
+			var index: int = row * cols + col
+			var icon: TextureRect
+			if index < motion.get_child_count():
+				icon = motion.get_child(index) as TextureRect
+			else:
+				icon = TextureRect.new()
+				motion.add_child(icon)
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			icon.texture = theme_textures[(row * cols + col) % texture_count] as Texture2D
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -15438,8 +15496,11 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 					icon_alpha = lerpf(top_alpha, effective_bottom_alpha, screen_y_ratio)
 			icon.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_alpha)
 			icon.rotation_degrees = -18.0
-			motion.add_child(icon)
 
+	motion.set_meta("pattern_layout_signature", signature)
+	if !restart_motion:
+		return
+	motion.set_meta("pattern_motion_signature", motion_signature)
 	var move_tween := motion.create_tween()
 	move_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	move_tween.set_loops()
@@ -15448,7 +15509,7 @@ func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_text
 		motion,
 		"position",
 		repeat_offset,
-		PORTRAIT_THEME_PATTERN_MOVE_DURATION * maxf(move_duration_multiplier, 0.01)
+		move_duration
 	)
 	move.from(Vector2.ZERO)
 	move.set_trans(Tween.TRANS_LINEAR)

@@ -72,7 +72,8 @@ def main() -> None:
         in portrait
         and "func _show_portrait_ad_not_ready_toast()" in portrait
         and portrait.count("_show_portrait_ad_not_ready_toast()") >= 6
-        and 'call("show_message", _portrait_ad_not_ready_message(), false)' in portrait,
+        and "_show_portrait_status_toast(_portrait_ad_not_ready_message())" in portrait
+        and 'call("show_message", message, false)' in portrait,
         "Rewarded-ad failures must show the standard red-cross toast",
     )
     require(

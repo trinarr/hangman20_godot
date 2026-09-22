@@ -1117,15 +1117,18 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	var current: Dictionary = _rewarded_double_target(context)
 	var is_current: bool = !current.is_empty() and current.get("target") == request.get("target")
 	var already_granted: bool = is_current and bool(current.get("granted", false))
-	# Mark every retry for this reward as paid in the same save as the balance.
+	# Keep only unresolved receipts. Unknown ids cannot create a payout, so
+	# removing ALL retries of a paid target is its compact, idempotent state.
+	var completed_requests: Dictionary = {}
 	for other_id: Variant in rewarded_double_requests:
 		var other: Dictionary = rewarded_double_requests[other_id]
 		if other.get("target") == request.get("target"):
 			already_granted = already_granted or bool(other.get("granted", false))
-	for other_id: Variant in rewarded_double_requests:
-		var other: Dictionary = rewarded_double_requests[other_id]
-		if other.get("target") == request.get("target"):
-			other["granted"] = true
+			completed_requests[other_id] = other
+	for other_id: Variant in completed_requests:
+		rewarded_double_requests.erase(other_id)
+	var previous_pending: Dictionary = pending_single_player_reward.duplicate(true)
+	var previous_session: Dictionary = active_single_player_session.duplicate(true)
 	if is_current:
 		if context == "final":
 			pending_single_player_reward["double_resolved"] = true
@@ -1136,8 +1139,19 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 			data["reward_double_claimed"] = true
 	var before: int = get_soft_currency()
 	if !already_granted:
-		add_soft_currency(int(request["amount"]), false)
-	save_game()
+		soft_currency = clampi(before + int(request["amount"]), 0, MAX_CURRENCY_BALANCE)
+	if !save_game():
+		# Balance, offer flags and receipt removal must commit together. Keep the
+		# receipt retryable if the durable write fails.
+		soft_currency = before
+		pending_single_player_reward = previous_pending
+		active_single_player_session = previous_session
+		rewarded_double_requests.merge(completed_requests)
+		_store_current_single_player_resume_state()
+		return {}
+	# Notify UI only after the balance and receipt removal are durable.
+	if !already_granted:
+		soft_currency_changed.emit(soft_currency)
 	return {"context": context, "is_current": is_current, "amount": get_soft_currency() - before}
 
 func _load_rewarded_double_requests(source: Variant) -> void:
@@ -1157,6 +1171,16 @@ func _load_rewarded_double_requests(source: Variant) -> void:
 			"context": context, "target": target, "amount": amount,
 			"granted": bool(item.get("granted", false)),
 		}
+
+	# Migrate older saves, including mixed granted/ungranted retries for one
+	# target. Never discard an unrelated unresolved receipt, regardless of age.
+	var completed_targets: Dictionary = {}
+	for item: Dictionary in rewarded_double_requests.values():
+		if bool(item.get("granted", false)):
+			completed_targets[item["target"]] = true
+	for request_id: Variant in rewarded_double_requests.keys():
+		if completed_targets.has(rewarded_double_requests[request_id]["target"]):
+			rewarded_double_requests.erase(request_id)
 
 func _normalize_single_player_buckets() -> void:
 	if !(single_player is Dictionary):
