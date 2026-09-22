@@ -3831,7 +3831,7 @@ func _show_user_consent_popup(
 	var description_panel_side_margin := 20.0
 	var description_top_offset := 84.0
 	var description_panel_padding := 18.0
-	var button_top_gap := 32.0
+	var button_top_gap: float = 32.0
 	var button_height := 56.0 * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
 	var button_bottom_padding := PORTRAIT_POPUP_BOTTOM_BUTTON_GAP
 	var button_side_margin := 16.0
