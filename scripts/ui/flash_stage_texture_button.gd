@@ -122,7 +122,7 @@ func _gui_input(event: InputEvent) -> void:
 				pressed.emit()
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_MOUSE_EXIT and _is_down:
+	if what in [NOTIFICATION_MOUSE_EXIT, NOTIFICATION_SCROLL_BEGIN] and _is_down:
 		_is_down = false
 		_set_press_scale(false)
 		queue_redraw()

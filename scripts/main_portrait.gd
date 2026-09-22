@@ -9,6 +9,8 @@ const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portr
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
+const SETTINGS_SCROLL_SCRIPT: GDScript = preload("res://scripts/ui/settings_scroll.gd")
+
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
 	"res://scripts/ui/rounded_rect_texture_mask.gdshader"
@@ -794,6 +796,7 @@ var _portrait_rewarded_action_level_index: int = -1
 var _portrait_coin_refill_animation_previous_balance: int = -1
 var _portrait_coin_refill_animation_final_balance: int = -1
 var _portrait_ad_toast: Control = null
+var _settings_ad_consent_button: Control = null
 var _portrait_interstitial_showing: bool = false
 var _portrait_interstitial_pending_action: Callable = Callable()
 var _portrait_pending_theme_reroll_presentation: Dictionary = {}
@@ -868,6 +871,9 @@ func _portrait_ad_not_ready_message() -> String:
 	)
 
 func _show_portrait_ad_not_ready_toast() -> void:
+	_show_portrait_status_toast(_portrait_ad_not_ready_message())
+
+func _show_portrait_status_toast(message: String) -> void:
 	if _portrait_ad_toast == null or !is_instance_valid(_portrait_ad_toast):
 		var toast_layer := CanvasLayer.new()
 		toast_layer.name = "AdStatusToastCanvas"
@@ -917,7 +923,7 @@ func _show_portrait_ad_not_ready_toast() -> void:
 		current_anchor.scale = Vector2.ONE * fit_scale
 		current_anchor.size = Vector2(PORTRAIT_STAGE_SIZE.x, 0.0)
 		_portrait_ad_toast.call("set_available_width", PORTRAIT_STAGE_SIZE.x)
-	_portrait_ad_toast.call("show_message", _portrait_ad_not_ready_message(), false)
+	_portrait_ad_toast.call("show_message", message, false)
 
 func _connect_portrait_interstitial_signals(ads_service: Node) -> void:
 	var shown_callback := Callable(self, "_on_portrait_interstitial_shown")
@@ -3775,8 +3781,8 @@ func _accept_legal_documents() -> void:
 	_remove_legal_consent_popup()
 	_check_startup_guided_resume()
 
-func _show_user_consent_popup() -> void:
-	if GameState.has_answered_ad_personalization_choice():
+func _show_user_consent_popup(from_settings: bool = false) -> void:
+	if !from_settings and GameState.has_answered_ad_personalization_choice():
 		return
 	_remove_user_consent_popup()
 	_hide_portrait_ad_banner()
@@ -3903,8 +3909,10 @@ func _remove_user_consent_popup() -> void:
 
 func _resolve_user_consent_popup(accepted: bool) -> void:
 	if !GameState.set_ad_personalization_choice(accepted):
+		_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
 		return
 	_initialize_yandex_ads_from_saved_consent()
+	_refresh_settings_ad_consent_button()
 	_remove_user_consent_popup()
 	# The popup is first shown on the live level-3 word screen. Stage the banner
 	# only after the choice has been persisted and SDK initialization requested.
@@ -3967,36 +3975,36 @@ func _show_settings_popup() -> void:
 		28
 	)
 
-	var controls_y_offset: float = rect.position.y - 120.0
+	# Keep the shell/title/close button fixed. All rows and footer links share
+	# one clipped scroll area; its height fits both existing popup sizes.
+	var scroll: SETTINGS_SCROLL_SCRIPT = SETTINGS_SCROLL_SCRIPT.new()
+	scroll.name = "SettingsScroll"
+	scroll.stage_rect = Rect2(40.0, rect.position.y + 86.0, 400.0, rect.size.y - 108.0)
+	scroll.content_origin_y = 206.0
+	scroll.content_height = 520.0 if !compact_layout else 420.0
+	content.add_child(scroll)
+	content = scroll.stage_content
+
 	var sound_label := _stage_label(
-		Rect2(56.0, 218.0 + controls_y_offset, 250.0, 42.0),
-		_settings_sound_label(),
-		22,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_LEFT
+		Rect2(56.0, 218.0, 250.0, 42.0),
+		_settings_sound_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 	)
 	sound_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(sound_label)
-	_stage_settings_toggle_button(Rect2(330.0, 214.0 + controls_y_offset, 102.0, 49.0), 3)
+	_stage_settings_toggle_button(Rect2(330.0, 214.0, 102.0, 49.0), 3)
 	var vibration_label := _stage_label(
-		Rect2(56.0, 286.0 + controls_y_offset, 250.0, 42.0),
-		_settings_vibration_label(),
-		22,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_LEFT
+		Rect2(56.0, 286.0, 250.0, 42.0),
+		_settings_vibration_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 	)
 	vibration_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(vibration_label)
-	_stage_settings_toggle_button(Rect2(330.0, 282.0 + controls_y_offset, 102.0, 49.0), 4)
+	_stage_settings_toggle_button(Rect2(330.0, 282.0, 102.0, 49.0), 4)
+	_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
 
 	if !compact_layout:
-		_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
 		var word_base_label := _stage_label(
 			Rect2(56.0, 374.0, 150.0, 42.0),
-			_settings_word_base_label(),
-			22,
-			Color.WHITE,
-			HORIZONTAL_ALIGNMENT_LEFT
+			_settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 		)
 		word_base_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(word_base_label)
@@ -4004,48 +4012,72 @@ func _show_settings_popup() -> void:
 		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
 
-	# Anchor the contact buttons, legal links, and version to the shell bottom instead of
-	# leaving the footer floating beneath the settings controls.
-	var footer_bottom_y: float = rect.end.y
-	var social_buttons_y: float = footer_bottom_y - 142.0
-	var legal_links_y: float = footer_bottom_y - 76.0
-	var version_y: float = footer_bottom_y - 39.0
-	if !compact_layout:
-		var vk_button := _stage_round_icon_button(
-			Rect2(174.0, social_buttons_y, 58.0, 58.0),
-			Callable(self, "_about_contact_action").bind("vk"),
-			ABOUT_VK_ICON,
-			ABOUT_VK_ICON_SIZE
-		)
-		vk_button.set("drop_shadow_enabled", true)
-		vk_button.set("drop_shadow_offset_y", 2.0)
-		vk_button.set("drop_shadow_pressed_offset_y", 1.0)
-		var mail_button := _stage_round_icon_button(
-			Rect2(248.0, social_buttons_y, 58.0, 58.0),
-			Callable(self, "_about_contact_action").bind("mail"),
-			ABOUT_MAIL_ICON,
-			ABOUT_MAIL_ICON_SIZE
-		)
-		mail_button.set("drop_shadow_enabled", true)
-		mail_button.set("drop_shadow_offset_y", 2.0)
-		mail_button.set("drop_shadow_pressed_offset_y", 1.0)
-		_stage_portrait_legal_links_row(
-			Rect2(rect.position.x, legal_links_y, rect.size.x, 30.0),
-			17
-		)
-		var version_label := _stage_label(
-			Rect2(40.0, version_y, 400.0, 28.0),
-			_about_version_text(),
-			14,
-			PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		version_label.add_theme_font_override("font", UI_REGULAR_FONT)
-		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		version_label.clip_text = false
+	var extra_y: float = -100.0 if compact_layout else 0.0
+	var ads_label := _stage_label(
+		Rect2(56.0, 468.0 + extra_y, 256.0, 66.0),
+		tr("SETTINGS_PERSONALIZED_ADS"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
+	)
+	ads_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(ads_label)
+	var enabled: bool = GameState.allows_ad_personalization()
+	_settings_ad_consent_button = _stage_portrait_popup_main_button(
+		Rect2(330.0, 476.0 + extra_y, 102.0, 49.0),
+		Callable(self, "_toggle_settings_ad_consent"),
+		_settings_on_label() if enabled else _settings_off_label(),
+		18, false, 0.0, false, enabled, false, LONG_BUTTON_COLOR_ORANGE
+	)
+	_apply_settings_compact_toggle_font_size(_settings_ad_consent_button)
+	_settings_ad_consent_button.set("drop_shadow_enabled", true)
+	_settings_ad_consent_button.set("drop_shadow_selected_uses_pressed_state", true)
+	_stage_panel(Rect2(56.0, 552.0 + extra_y, 368.0, 2.0), PORTRAIT_RULE)
+
+	var vk_button := _stage_round_icon_button(
+		Rect2(174.0, 574.0 + extra_y, 58.0, 58.0),
+		Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE
+	)
+	vk_button.set("drop_shadow_enabled", true)
+	vk_button.set("drop_shadow_offset_y", 2.0)
+	vk_button.set("drop_shadow_pressed_offset_y", 1.0)
+	var mail_button := _stage_round_icon_button(
+		Rect2(248.0, 574.0 + extra_y, 58.0, 58.0),
+		Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE
+	)
+	mail_button.set("drop_shadow_enabled", true)
+	mail_button.set("drop_shadow_offset_y", 2.0)
+	mail_button.set("drop_shadow_pressed_offset_y", 1.0)
+	_stage_portrait_legal_links_row(Rect2(40.0, 642.0 + extra_y, 392.0, 30.0), 17)
+	var version_label := _stage_label(
+		Rect2(40.0, 686.0 + extra_y, 392.0, 28.0), _about_version_text(),
+		14, PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, HORIZONTAL_ALIGNMENT_CENTER
+	)
+	version_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+
 	content = previous_content
 
+func _toggle_settings_ad_consent() -> void:
+	if GameState.allows_ad_personalization():
+		# Confirm the choice before changing the currently enabled preference:
+		# Accept keeps it enabled; Deny saves the refusal and applies it to the SDK.
+		_show_user_consent_popup(true)
+	else:
+		if GameState.set_ad_personalization_choice(true):
+			_initialize_yandex_ads_from_saved_consent()
+			_refresh_settings_ad_consent_button()
+		else:
+			_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
+
+func _refresh_settings_ad_consent_button() -> void:
+	if _settings_ad_consent_button == null or !is_instance_valid(_settings_ad_consent_button):
+		return
+	var enabled: bool = GameState.allows_ad_personalization()
+	_settings_ad_consent_button.set("selected", enabled)
+	_settings_ad_consent_button.set(
+		"button_text", _settings_on_label() if enabled else _settings_off_label()
+	)
+
 func _remove_settings_popup() -> void:
+	_settings_ad_consent_button = null
 	var had_settings_popup: bool = !get_tree().get_nodes_in_group("settings_popup").is_empty()
 	_remove_popup_group_with_dimmer_fade(&"settings_popup")
 	settings_toggle_buttons.clear()

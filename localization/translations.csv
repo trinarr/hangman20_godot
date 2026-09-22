@@ -105,3 +105,5 @@ USER_CONSENT_DESCRIPTION,"Разрешите  использовать данн�
 Это помогает поддерживать игру бесплатной и делать игровой опыт комфортнее.","Allow to use ad-service data to show ads that are more useful and relevant to you.
 
 This helps keep the game free and makes the overall experience smoother."
+SETTINGS_PERSONALIZED_ADS,Персонализированная реклама,Personalized Ads
+CONSENT_SAVE_ERROR,Не удалось сохранить выбор. Попробуйте ещё раз.,Could not save your choice. Please try again.

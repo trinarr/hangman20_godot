@@ -44,6 +44,12 @@ var _interstitial_loading: bool = false
 var _interstitial_loaded: bool = false
 var _rewarded_loading: bool = false
 var _rewarded_loaded: bool = false
+# Drain an in-flight request after a privacy change without exposing its ad.
+# The bundled native bridge has untagged load callbacks: serializing each
+# replacement avoids confusing an old callback with the replacement request.
+var _discard_banner_load: bool = false
+var _discard_interstitial_load: bool = false
+var _discard_rewarded_load: bool = false
 var _rewarded_show_id: String = ""
 var _rewarded_show_open: bool = false
 var _rewarded_show_legacy: bool = false
@@ -82,17 +88,15 @@ func _bind_native_plugin() -> bool:
 	return true
 
 func initialize_after_consent(consent_value: bool) -> bool:
-	user_consent = consent_value
 	if !is_native_available() and !_bind_native_plugin():
+		user_consent = consent_value
 		return false
 	# Consent must reach Yandex before initialize(). The native configure() method
 	# applies the privacy flags first and only then requests SDK initialization.
-	if _sdk_ready:
-		_native.setUserConsent(user_consent)
+	if _sdk_ready or _sdk_initialization_requested:
+		set_user_consent(consent_value)
 		return true
-	if _sdk_initialization_requested:
-		_native.setUserConsent(user_consent)
-		return true
+	user_consent = consent_value
 	_sdk_initialization_requested = true
 	_native.configure(age_restricted_user, user_consent, logging_enabled)
 	return true
@@ -269,11 +273,42 @@ func _on_rewarded_failed_for_request(request_id: String, message: String) -> voi
 	rewarded_video_failed_to_show_for_request.emit(request_id, message)
 
 func set_user_consent(value: bool) -> void:
+	var changed: bool = user_consent != value
 	user_consent = value
-	if is_native_available():
-		_native.setUserConsent(value)
+	if !is_native_available():
+		return
+	_native.setUserConsent(value)
+	if !changed or !_sdk_ready:
+		return
+	# Never show a cached ad loaded with the previous choice. Do not revoke
+	# reward callbacks for an already shown ad: earned rewards remain valid.
+	_discard_banner_load = _banner_loading
+	_discard_interstitial_load = _interstitial_loading
+	_discard_rewarded_load = _rewarded_loading
+	_banner_loaded = false
+	_interstitial_loaded = false
+	_rewarded_loaded = false
+	_native.hideBanner()
+	if !_banner_loading:
+		_native.removeBanner()
+		if _banner_wanted:
+			load_banner()
+	if !_interstitial_loading:
+		load_interstitial()
+	if !_rewarded_loading:
+		load_rewarded_video()
+
+func _finish_discarded_banner_load() -> void:
+	_discard_banner_load = false
+	_banner_loaded = false
+	_native.removeBanner()
+	if _banner_wanted:
+		load_banner()
 
 func _on_sdk_initialized() -> void:
+	# configure() runs on Android UI thread. Re-apply the latest choice if it
+	# changed while initialization was in flight, before any load/listener runs.
+	_native.setUserConsent(user_consent)
 	_sdk_ready = true
 	sdk_initialized.emit()
 	if _banner_wanted:
@@ -283,6 +318,9 @@ func _on_sdk_initialized() -> void:
 
 func _on_banner_loaded() -> void:
 	_banner_loading = false
+	if _discard_banner_load:
+		_finish_discarded_banner_load()
+		return
 	_banner_loaded = true
 	if _banner_wanted:
 		_native.showBanner()
@@ -292,16 +330,27 @@ func _on_banner_loaded() -> void:
 
 func _on_banner_failed_to_load(error_code: int) -> void:
 	_banner_loading = false
+	if _discard_banner_load:
+		_finish_discarded_banner_load()
+		return
 	_banner_loaded = false
 	banner_failed_to_load.emit(error_code)
 
 func _on_interstitial_loaded() -> void:
 	_interstitial_loading = false
+	if _discard_interstitial_load:
+		_discard_interstitial_load = false
+		load_interstitial()
+		return
 	_interstitial_loaded = true
 	interstitial_loaded.emit()
 
 func _on_interstitial_failed_to_load(error_code: int) -> void:
 	_interstitial_loading = false
+	if _discard_interstitial_load:
+		_discard_interstitial_load = false
+		load_interstitial()
+		return
 	_interstitial_loaded = false
 	interstitial_failed_to_load.emit(error_code)
 
@@ -326,11 +375,19 @@ func _on_rewarded(currency: String, amount: int) -> void:
 
 func _on_rewarded_video_ad_loaded() -> void:
 	_rewarded_loading = false
+	if _discard_rewarded_load:
+		_discard_rewarded_load = false
+		load_rewarded_video()
+		return
 	_rewarded_loaded = true
 	rewarded_video_loaded.emit()
 
 func _on_rewarded_video_ad_failed_to_load(error_code: int) -> void:
 	_rewarded_loading = false
+	if _discard_rewarded_load:
+		_discard_rewarded_load = false
+		load_rewarded_video()
+		return
 	_rewarded_loaded = false
 	rewarded_video_failed_to_load.emit(error_code)
 
