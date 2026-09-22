@@ -232,6 +232,7 @@ func _ready() -> void:
 	if !GameState.hearts_changed.is_connected(_on_hearts_changed):
 		GameState.hearts_changed.connect(_on_hearts_changed)
 	_last_heart_count_for_animation = GameState.get_hearts()
+	GameState.ads_became_available.connect(_on_ads_became_available)
 	ConsentRegion.changed.connect(_on_ad_region_changed)
 	ConsentRegion.refresh()
 	_initialize_yandex_ads_from_saved_consent()
@@ -241,7 +242,14 @@ func _ready() -> void:
 func _on_ad_region_changed() -> void:
 	_initialize_yandex_ads_from_saved_consent()
 
+func _on_ads_became_available() -> void:
+	_initialize_yandex_ads_from_saved_consent()
+
 func _initialize_yandex_ads_from_saved_consent() -> bool:
+	# A regional default or a saved choice is not a request to start advertising.
+	# Keep SDK initialization (and its automatic preloads) behind the game gate.
+	if !GameState.are_ads_enabled():
+		return false
 	var ads_service: Node = get_node_or_null("/root/YandexAdsService")
 	if !GameState.has_accepted_legal_documents() or !GameState.has_ad_personalization_decision():
 		# Expiry/failure also invalidates previously personalized cached ads.

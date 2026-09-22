@@ -2,6 +2,9 @@ extends Node
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
+signal ads_became_available
+signal ad_personalization_choice_changed
+
 signal soft_currency_changed(balance: int)
 signal stars_changed(balance: int)
 signal hearts_changed(hearts: int, recovery_seconds: int)
@@ -228,6 +231,7 @@ func activate_ads_for_level(level_index: int, persist: bool = true) -> bool:
 	_sync_interstitial_process_state()
 	if persist:
 		save_game()
+	ads_became_available.emit()
 	return true
 
 func is_single_player_guided_onboarding_completed() -> bool:
@@ -592,6 +596,7 @@ func set_ad_personalization_choice(accepted: bool, source: String = "user_popup"
 	ad_personalization_choice_at = int(Time.get_unix_time_from_system())
 	ad_personalization_choice_source = source
 	if save_game():
+		ad_personalization_choice_changed.emit()
 		return true
 	ad_personalization_choice = previous_choice
 	ad_personalization_choice_at = previous_at

@@ -3916,7 +3916,7 @@ func _show_user_consent_popup(
 	var first_button_x := rect.position.x + button_side_margin
 	var deny_button := _stage_main_button(
 		Rect2(first_button_x, button_y, button_width, button_height),
-		Callable(self, "_resolve_user_consent_popup").bind(false),
+		Callable(self, "_resolve_user_consent_popup").bind(false, from_settings),
 		tr("USER_CONSENT_DENY"),
 		_portrait_popup_font_size(18),
 		false,
@@ -3930,7 +3930,7 @@ func _show_user_consent_popup(
 	deny_button.set("attention_bounce_enabled", false)
 	var accept_button := _stage_main_button(
 		Rect2(first_button_x + button_width + button_gap, button_y, button_width, button_height),
-		Callable(self, "_resolve_user_consent_popup").bind(true),
+		Callable(self, "_resolve_user_consent_popup").bind(true, from_settings),
 		tr("USER_CONSENT_ACCEPT"),
 		_portrait_popup_font_size(18),
 		false,
@@ -3947,8 +3947,9 @@ func _show_user_consent_popup(
 func _remove_user_consent_popup() -> void:
 	_remove_popup_group_with_dimmer_fade(PORTRAIT_USER_CONSENT_POPUP_GROUP)
 
-func _resolve_user_consent_popup(accepted: bool) -> void:
-	if !GameState.set_ad_personalization_choice(accepted):
+func _resolve_user_consent_popup(accepted: bool, from_settings: bool = false) -> void:
+	var choice_source: String = "user_settings" if from_settings else "user_popup"
+	if !GameState.set_ad_personalization_choice(accepted, choice_source):
 		_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
 		return
 	_initialize_yandex_ads_from_saved_consent()
@@ -4097,8 +4098,9 @@ func _show_settings_popup() -> void:
 
 func _toggle_settings_ad_consent() -> void:
 	var enabled: bool = GameState.allows_ad_personalization()
-	if enabled and GameState.ad_region_rule == "required":
-		# In consent-required regions, disabling keeps the existing confirmation popup.
+	if enabled:
+		# Disabling personalized ads from Settings is always a confirmed action,
+		# regardless of the current level or whether the regional default was automatic.
 		_show_user_consent_popup(true)
 		return
 	# Explicit settings always outrank the regional default, including late IP replies.
