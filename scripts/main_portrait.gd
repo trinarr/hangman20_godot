@@ -19,6 +19,7 @@ const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04
 var _reward_chest_closed_texture_cache: Texture2D = null
 var _reward_chest_open_texture_cache: Texture2D = null
 const REWARD_CHEST_FLASH_SHADER: Shader = preload("res://shaders/reward_chest_flash.gdshader")
+const REWARD_CONFETTI_SCRIPT: GDScript = preload("res://scripts/ui/reward_confetti.gd")
 var _reward_chest_flash_material_cache: ShaderMaterial = null
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
@@ -12670,6 +12671,7 @@ func _reveal_level_summary_open_chest(
 	extra_callback: Callable = Callable()
 ) -> void:
 	_set_reward_chest_icon_open_state(chest_icon, true)
+	_play_level_reward_confetti(chest_icon)
 	if glow != null and is_instance_valid(glow):
 		_start_final_reward_glow_rotation(glow)
 		var glow_tween := glow.create_tween()
@@ -12691,6 +12693,26 @@ func _reveal_level_summary_open_chest(
 		)
 	if extra_callback.is_valid():
 		extra_callback.call()
+
+func _play_level_reward_confetti(chest_icon: Control) -> void:
+	# The one-stage large coin also uses the reveal callback, with a null chest.
+	if chest_icon == null or !is_instance_valid(chest_icon) or !chest_icon.is_inside_tree():
+		return
+	if chest_icon.has_meta(&"reward_confetti_started"):
+		return
+	chest_icon.set_meta(&"reward_confetti_started", true)
+	var confetti: Node2D = REWARD_CONFETTI_SCRIPT.new() as Node2D
+	confetti.name = "LevelRewardConfetti"
+	# Sibling ownership keeps flying paper independent of the chest's settle scale,
+	# and screen cleanup removes it. Node2D cannot intercept UI input.
+	chest_icon.get_parent().add_child(confetti)
+	# Glow = 10, paper = 15, chest = 20, star award = 24.
+	confetti.z_index = 15
+	var emission_origin: Vector2 = chest_icon.get_global_transform() * (chest_icon.size * Vector2(0.5, 0.48))
+	var stage_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(get_viewport_rect().size)
+	confetti.global_transform = Transform2D(0.0, Vector2.ONE * stage_scale, 0.0, emission_origin)
+	chest_icon.tree_exiting.connect(Callable(confetti, "queue_free"), CONNECT_ONE_SHOT)
+	confetti.call("burst")
 
 func _level_star_text_bounds(text: String, font: Font, font_size: int) -> Rect2:
 	# Glyph advances include side bearings; center the actual glyph bounds instead.
