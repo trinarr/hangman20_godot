@@ -146,7 +146,6 @@ const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
 # independent upper and lower groups so the keyboard can stay width-safe while
 # moving toward the thumb zone.
 const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
-const PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET: float = 64.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
@@ -9294,12 +9293,9 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var keyboard_start_y: float = (
 		PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage()
 	) - 24.0 - keyboard_height
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		keyboard_start_y += PORTRAIT_TWO_PLAYER_KEYBOARD_Y_OFFSET
-	else:
-		# Keyboard, word and hints share one bottom-attached block. Move the whole
-		# block down together so the hint row sits closer to the banner reserve.
-		keyboard_start_y += PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
+	# Both guessing modes share the single-player layout, including the action
+	# row position derived from these metrics, even when no hints are shown.
+	keyboard_start_y += PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
 	return {
 		"columns": columns,
 		"step_x": keyboard_step_x,
@@ -9416,7 +9412,7 @@ func _refresh_game_screen() -> void:
 	var keyboard_start_x: float = (PORTRAIT_STAGE_SIZE.x - keyboard_total_width) * 0.5
 	var keyboard_start_y: float = float(keyboard_metrics["start_y"])
 	var game_word_rect: Rect2 = keyboard_metrics["word_rect"]
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
+	if GameState.current_mode in [GameState.GameMode.SINGLE_PLAYER, GameState.GameMode.TWO_PLAYER]:
 		keyboard_start_y -= PORTRAIT_STAGE_SIZE.y * 0.01
 
 	# Word, keyboard and hints deliberately live in ONE bottom-attached group.

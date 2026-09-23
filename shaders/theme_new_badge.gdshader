@@ -24,7 +24,7 @@ void fragment() {
 	vec2 q = abs(p) - (half_size - vec2(radius));
 	float dist = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
 	float coverage = 1.0 - smoothstep(-1.0, 1.0, dist);
-	vec4 fill = shadow_pass ? shadow_color : mix(top_color, bottom_color, UV.y);
+	vec4 fill = shadow_pass ? shadow_color : mix(top_color, bottom_color, UV.x);
 	if (!shadow_pass) {
 		float diagonal = UV.x + UV.y * 0.20;
 		float band = 1.0 - smoothstep(0.056, 0.16, abs(diagonal - shine_progress));
