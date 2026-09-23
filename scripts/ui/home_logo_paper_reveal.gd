@@ -4,7 +4,7 @@ signal buttons_appearance_changed(opacity: float, visual_scale: float)
 signal buttons_bounce_finished
 
 const REVEAL_SHADER: Shader = preload("res://shaders/home_logo_paper_reveal.gdshader")
-const PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
+const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const PEEL_SPEED_MULTIPLIER: float = 1.30
 const BADGE_BOUNCE_SPEED: float = 1.20
 const BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
@@ -25,6 +25,7 @@ var _entrance_tween: Tween
 var _buttons_opacity: float = 0.0
 var _buttons_tween: Tween
 var _buttons_started: bool = false
+var _departing: bool = false
 
 func _ready() -> void:
 	name = "HomeLogoPaperReveal"
@@ -36,7 +37,6 @@ func _ready() -> void:
 	_reveal_material.set_shader_parameter("logo_texture", logo_texture)
 	_reveal_material.set_shader_parameter("title_texture", title_texture if title_texture != null else logo_texture)
 	_reveal_material.set_shader_parameter("title_chroma_key", title_chroma_key)
-	_reveal_material.set_shader_parameter("paper_texture", PAPER_TEXTURE)
 	_reveal_material.set_shader_parameter("backside_texture", BACKSIDE_TEXTURE)
 	# Initialize before the first draw: only the normal blue background is visible.
 	_reveal_material.set_shader_parameter("reveal_progress", 0.0)
@@ -67,13 +67,14 @@ func _sync_layout() -> void:
 	size = get_viewport_rect().size
 	var logo_rect: Rect2 = logo_anchor.get_global_rect()
 	logo_rect.position -= get_global_rect().position
+	PAPER_BACKGROUND_SCRIPT.configure_material(_reveal_material, size)
 	_reveal_material.set_shader_parameter("canvas_size", size)
 	_reveal_material.set_shader_parameter("logo_rect", Vector4(
 		logo_rect.position.x, logo_rect.position.y, logo_rect.size.x, logo_rect.size.y
 	))
 
 func _start_entrance() -> void:
-	if !is_inside_tree():
+	if !is_inside_tree() or _departing:
 		return
 	_sync_layout()
 	_entrance_tween = create_tween()
@@ -140,3 +141,15 @@ func _set_buttons_appearance(value: float) -> void:
 
 func _set_buttons_scale(value: float) -> void:
 	buttons_appearance_changed.emit(_buttons_opacity, value)
+
+func prepare_departure() -> void:
+	_departing = true
+	if _entrance_tween != null and _entrance_tween.is_valid():
+		_entrance_tween.kill()
+	if _buttons_tween != null and _buttons_tween.is_valid():
+		_buttons_tween.kill()
+	_reveal_material.set_shader_parameter("reveal_progress", 1.0)
+	_sync_layout()
+
+func set_foreground_opacity(value: float) -> void:
+	_reveal_material.set_shader_parameter("foreground_opacity", value)

@@ -11,7 +11,6 @@ uniform vec4 localized_shadow_color : source_color = vec4(0.792, 0.902, 0.992, 1
 uniform vec4 original_shadow_color : source_color = vec4(0.604, 0.776, 0.988, 1.0);
 // Red/green encode the two thresholds, converted along with the texture colors.
 uniform vec4 localized_shadow_range : source_color = vec4(0.32, 0.65, 0.0, 1.0);
-uniform sampler2D paper_texture : source_color, filter_linear, repeat_disable;
 uniform sampler2D backside_texture : source_color, filter_linear, repeat_disable;
 uniform vec2 canvas_size = vec2(480.0, 800.0);
 uniform vec4 logo_rect = vec4(87.936, 142.8, 304.128, 304.128);
@@ -19,11 +18,13 @@ uniform float reveal_progress : hint_range(0.0, 1.0) = 0.0;
 uniform float shine_progress = -0.30;
 uniform float badge_alpha : hint_range(0.0, 1.0) = 0.0;
 uniform float badge_scale = 0.65;
+uniform float foreground_opacity : hint_range(0.0, 1.0) = 1.0;
 // Match the blue outline of the original torn-paper logo. Width is in stage pixels.
 uniform vec4 tear_outline_color : source_color = vec4(0.2353, 0.3059, 0.6235, 1.0);
 uniform float tear_outline_width : hint_range(0.0, 5.0) = 2.0;
 
 #include "res://shaders/paper_edge.gdshaderinc"
+#include "res://shaders/portrait_grid_paper.gdshaderinc"
 
 // Split the existing foreground atlas through its transparent gap. The sloped
 // boundary follows the tilted badge without cutting the M or the right-hand N.
@@ -149,22 +150,15 @@ void fragment() {
 	float exposed = 1.0 - smoothstep(front - aa, front + aa, pixel.x);
 
 	if (sheet_mask > 0.0 && exposed > 0.0 && reveal_progress > 0.0) {
-		float band_y = clamp((pixel.y - top) / (bottom - top), 0.0, 1.0);
-		vec3 paper = texture(paper_texture, vec2(
-			mix(0.05, 0.95, pixel.x / canvas_size.x), mix(0.12, 0.82, band_y)
-		)).rgb;
-		vec2 grid_pos = pixel / (15.0 * unit);
-		vec2 grid_distance = abs(fract(grid_pos + 0.5) - 0.5) * (15.0 * unit);
-		float grid = 1.0 - smoothstep(0.30 * unit, 0.80 * unit,
-			min(grid_distance.x, grid_distance.y));
-		paper = mix(paper, vec3(0.61, 0.66, 0.85), grid * 0.40);
+		// Original Home paper style, shared with the destination page.
+		vec3 paper = portrait_grid_paper(pixel);
 		// The upper lip casts inward; the lower edge has an outline, not an inner shadow.
 		float outline_width = tear_outline_width * unit;
 		float upper_lip = max(0.0, pixel.y - top - outline_width);
 		paper *= 1.0 - 0.17 * (1.0 - smoothstep(0.0, 3.0 * unit, upper_lip));
 
 		vec4 ink = sample_title(logo_uv);
-		ink.a *= 1.0 - badge_region(logo_uv);
+		ink.a *= (1.0 - badge_region(logo_uv)) * foreground_opacity;
 		vec3 result = mix(paper, ink.rgb, ink.a);
 
 		float shadow = (1.0 - smoothstep(0.0, 9.0 * unit, front - pixel.x)) * 0.24;
@@ -208,7 +202,7 @@ void fragment() {
 		float diagonal = badge_local.x + badge_local.y * 0.28;
 		float shine = (1.0 - smoothstep(0.0, 0.12, abs(diagonal - shine_progress))) * 0.46;
 		badge.rgb = mix(badge.rgb, vec3(1.0), shine * badge.a);
-		badge.a *= badge_region(badge_uv) * badge_alpha;
+		badge.a *= badge_region(badge_uv) * badge_alpha * foreground_opacity;
 		float combined_alpha = badge.a + layer.a * (1.0 - badge.a);
 		vec3 combined_rgb = badge.rgb * badge.a + layer.rgb * layer.a * (1.0 - badge.a);
 		layer = vec4(combined_rgb / max(0.0001, combined_alpha), combined_alpha);

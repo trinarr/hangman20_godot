@@ -115,7 +115,6 @@ const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const THEME_ASSET_CACHE: GDScript = preload("res://scripts/core/theme_asset_cache.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
-const FLASH_STAGE_TEXTURE_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture_fill.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const UI_SECONDARY_BOLD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
@@ -137,7 +136,6 @@ const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
 const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
-const MENU_PAPER_COVER: Texture2D = preload("res://flash_assets/fon_png.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
 const WRONG_LETTER_SOUND: AudioStream = preload("res://audio/No_New.wav")
 const LUCKY_DEFEAT_SOUND: AudioStream = preload("res://audio/LuckyDefeat.wav")
@@ -716,15 +714,6 @@ func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -
 	var node: Control = FLASH_STAGE_HORIZONTAL_FILL_SCRIPT.new() as Control
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.set("fill_color", color)
-	content.add_child(node)
-	node.set("stage_y", stage_y)
-	node.set("stage_height", stage_height)
-	return node
-
-func _stage_texture_fill(stage_y: float, stage_height: float, texture: Texture2D) -> Control:
-	var node: Control = FLASH_STAGE_TEXTURE_FILL_SCRIPT.new() as Control
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.set("texture", texture)
 	content.add_child(node)
 	node.set("stage_y", stage_y)
 	node.set("stage_height", stage_height)

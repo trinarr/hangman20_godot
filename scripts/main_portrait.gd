@@ -29,6 +29,12 @@ const MAIN_MENU_LOGO_RU_TEXTURE: Texture2D = preload("res://flash_assets/main_me
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
 )
+const PORTRAIT_PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
+const HOME_PAPER_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_paper_transition.gd")
+var _home_paper_transition: CanvasLayer
+var _home_logo_reveal: Control
+var _home_start_buttons: Array[Control] = []
+
 const HOME_LOGO_PAPER_REVEAL_SCRIPT: GDScript = preload(
 	"res://scripts/ui/home_logo_paper_reveal.gd"
 )
@@ -123,7 +129,6 @@ const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_THEME_NEW_BADGE_FILL := PORTRAIT_UI_PALETTE.SUCCESS
 const PORTRAIT_THEME_NEW_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_PRESSED
 const PORTRAIT_THEME_NEW_BADGE_FOLD := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
-const PORTRAIT_PAPER_GRID_SCALE: float = 1.35
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
 const PORTRAIT_USER_CONSENT_POPUP_GROUP: StringName = &"user_consent_popup"
@@ -141,7 +146,7 @@ const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH: float = (
 )
 const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95
-const PORTRAIT_MENU_TITLE_MAX_SCALE: float = 1.15
+const PORTRAIT_MENU_TITLE_MAX_SCALE: float = PORTRAIT_PAPER_BACKGROUND_SCRIPT.MAX_PAPER_SCALE
 # Dense screens may grow moderately on tall phones, but gameplay is split into
 # independent upper and lower groups so the keyboard can stay width-safe while
 # moving toward the thumb zone.
@@ -1054,6 +1059,11 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
+	if is_instance_valid(_home_paper_transition) and !bool(_home_paper_transition.get("committing")):
+		_home_paper_transition.free()
+		_home_paper_transition = null
+	_home_logo_reveal = null
+	_home_start_buttons.clear()
 	_cancel_portrait_reward_presentation()
 	_hide_portrait_ad_banner()
 	_quiz_screen_active = false
@@ -1183,9 +1193,9 @@ func _portrait_screen(
 	footer_y: float = -1.0,
 	header_color: Color = PORTRAIT_BLUE
 ) -> void:
-	var paper_background := _stage_texture_fill(0.0, PORTRAIT_STAGE_SIZE.y, MENU_PAPER_COVER)
-	paper_background.set("tile_scale", PORTRAIT_PAPER_GRID_SCALE)
+	var paper_background: Control = PORTRAIT_PAPER_BACKGROUND_SCRIPT.new() as Control
 	paper_background.z_index = -2
+	content.add_child(paper_background)
 	var screen_content: Control = content
 	content = _portrait_create_top_bar_group()
 	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
@@ -1957,17 +1967,21 @@ func _cancel_portrait_reward_presentation() -> void:
 	_portrait_pending_home_reward_animation_running = false
 	# The result can retain its actual top bar across the body rebuild. Reset
 	# held/impact scales now; killing a tween alone would leave its current pose.
-	for icon: Control in [_portrait_currency_coin_icon_visual, _portrait_star_icon_visual]:
-		if !is_instance_valid(icon):
+	# A dismissed theme popup can already have freed its temporary coin HUD
+	# while the Home transition is still running. Validate before typed binding.
+	for icon_value: Variant in [_portrait_currency_coin_icon_visual, _portrait_star_icon_visual]:
+		if !is_instance_valid(icon_value):
 			continue
+		var icon: Control = icon_value
 		var impact := _optional_node_meta(icon, &"reward_icon_impact_tween") as Tween
 		if impact != null and impact.is_valid():
 			impact.kill()
 		icon.scale = icon.get_meta(&"reward_icon_rest_scale", icon.scale)
 		icon.position = icon.get_meta(&"reward_icon_rest_position", icon.position)
-	for counter: Control in [_portrait_currency_counter_visual, _portrait_star_counter_visual]:
-		if !is_instance_valid(counter):
+	for counter_value: Variant in [_portrait_currency_counter_visual, _portrait_star_counter_visual]:
+		if !is_instance_valid(counter_value):
 			continue
+		var counter: Control = counter_value
 		var hold := _optional_node_meta(counter, &"reward_counter_hold_tween") as Tween
 		if hold != null and hold.is_valid():
 			hold.kill()
@@ -3316,13 +3330,13 @@ func _show_menu_screen() -> void:
 	logo_reveal.set("reveal_duration", PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER)
 	logo_reveal.set("shine_duration", PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS)
 
-	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "show_custom_word"), Database.tr_text(2, "Two Player").to_upper(), 22)
+	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home_on_paper").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_action := Callable(self, "_open_next_single_player_level")
 	if GameState.has_resumable_single_player_level():
 		single_player_action = Callable(self, "_resume_saved_single_player_level")
 	var single_player_button := _stage_single_player_menu_button(
 		Rect2(33.0, 670.0, 414.0, 88.32),
-		single_player_action
+		Callable(self, "_open_single_player_from_home").bind(single_player_action)
 	)
 	var home_buttons: Array[Control] = [two_player_button, single_player_button]
 	two_player_button.name = "HomeTwoPlayerButton"
@@ -3336,6 +3350,8 @@ func _show_menu_screen() -> void:
 	# It owns both tweens, so leaving Home cancels the whole entrance.
 	logo_reveal.connect("buttons_appearance_changed", _sync_home_button_entrance.bind(home_buttons))
 	logo_reveal.connect("buttons_bounce_finished", _finish_home_button_entrance.bind(home_buttons))
+	_home_logo_reveal = logo_reveal
+	_home_start_buttons = home_buttons
 	content.add_child(logo_reveal)
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
@@ -3344,6 +3360,32 @@ func _show_menu_screen() -> void:
 		call_deferred("_show_legal_consent_popup")
 	else:
 		_check_startup_guided_resume()
+
+func _leave_home_on_paper(action: Callable) -> void:
+	if is_instance_valid(_home_paper_transition):
+		return
+	if !is_instance_valid(_home_logo_reveal):
+		action.call()
+		return
+	_hide_portrait_ad_banner()
+	_home_paper_transition = HOME_PAPER_TRANSITION_SCRIPT.new() as CanvasLayer
+	_home_paper_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
+	_home_paper_transition.set("header_color", PORTRAIT_BLUE)
+	add_child(_home_paper_transition)
+	_home_paper_transition.call("start", _home_logo_reveal, _home_start_buttons.duplicate(), action)
+
+func _open_single_player_from_home(action: Callable) -> void:
+	if is_instance_valid(_home_paper_transition):
+		return
+	# Keep Home behind the theme picker. Only an already-started saved round
+	# skips selection and can leave Home immediately.
+	if (
+		action.get_method() == &"_resume_saved_single_player_level"
+		and str(GameState.get_active_single_player_session().get("kind", "")) != "theme"
+	):
+		_leave_home_on_paper(action)
+		return
+	action.call()
 
 func _sync_home_button_entrance(opacity: float, visual_scale: float, buttons: Array[Control]) -> void:
 	for button: Control in buttons:
@@ -7061,6 +7103,8 @@ func _show_single_player_level_popup(
 	retry_after_loss: bool = false,
 	return_to_menu_on_close: bool = false
 ) -> void:
+	if is_instance_valid(_home_logo_reveal):
+		return_to_menu_on_close = true
 	# The final-reward screen stays visible as the dimmed backdrop while the next
 	# theme popup opens. Stop its Continue attention loop immediately so the CTA
 	# does not keep bouncing behind the modal.
@@ -8908,7 +8952,22 @@ func _start_single_player_popup_level(level_index: int) -> void:
 		ConsentRegion.request_ads_unlock_resolution()
 	_single_player_theme_reroll_used = false
 	_single_player_theme_ad_reroll_used = false
+	if is_instance_valid(_home_logo_reveal):
+		var selected_theme: int = single_player_popup_selected_theme
+		if !_single_player_level_theme_options(level_index).has(selected_theme):
+			return
+		# Closing the picker resets its indices. Capture the selection first and
+		# commit it only once the paper covers Home.
+		_remove_single_player_theme_popup()
+		_leave_home_on_paper(
+			Callable(self, "_start_home_single_player_level").bind(level_index, selected_theme)
+		)
+		return
 	super._start_single_player_popup_level(level_index)
+
+func _start_home_single_player_level(level_index: int, theme_index: int) -> void:
+	single_player_retry_after_loss = false
+	_confirm_single_player_theme_selection(level_index, theme_index)
 
 func _show_exit_game_popup() -> void:
 	# An in-place result has already been recorded and has no live progress left to

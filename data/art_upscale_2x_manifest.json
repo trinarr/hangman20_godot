@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 160,
+  "file_count": 159,
   "files": [
     {
       "path": "icon.png",
@@ -118,20 +118,6 @@
       "source_sha256": "7c6db8331cbd63dbb051bf17af9f0d745723d3afd0ebcd6a54ecccd8ed5ab08a",
       "target_sha256": "28baaa121fe5b4e2e0bb33132fb66fda58db1ca6159e5cf1b30e2892f5ab044a",
       "native_2x": true
-    },
-    {
-      "path": "flash_assets/fon_png.png",
-      "source_size": [
-        900,
-        575
-      ],
-      "target_size": [
-        1800,
-        1150
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "f42783bb5adc1b30b1afdfece82c719a066008230f4e18660f1d37e3742fc754",
-      "target_sha256": "1057439f2e0925f2a6a274d5e1fd30fa6fbb3574fb5580a2881cd352a79b387a"
     },
     {
       "path": "flash_assets/hint_comment_unlock_doodle.png",
