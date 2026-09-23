@@ -1054,6 +1054,9 @@ func _portrait_ad_banner_rect() -> Rect2:
 	)
 
 func _hide_portrait_ad_banner() -> void:
+	# Home departure preserves the native banner, including destination _clear().
+	if is_instance_valid(_home_paper_transition):
+		return
 	var ads_service: Node = _portrait_ads_service()
 	if ads_service != null and ads_service.has_method("hide_banner"):
 		ads_service.call("hide_banner")
@@ -3353,6 +3356,7 @@ func _show_menu_screen() -> void:
 	_home_logo_reveal = logo_reveal
 	_home_start_buttons = home_buttons
 	content.add_child(logo_reveal)
+	HOME_PAPER_TRANSITION_SCRIPT.warm_up(self)
 	_stage_portrait_ad_banner()
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation", result_transition_generation)
@@ -3367,7 +3371,6 @@ func _leave_home_on_paper(action: Callable) -> void:
 	if !is_instance_valid(_home_logo_reveal):
 		action.call()
 		return
-	_hide_portrait_ad_banner()
 	_home_paper_transition = HOME_PAPER_TRANSITION_SCRIPT.new() as CanvasLayer
 	_home_paper_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
 	add_child(_home_paper_transition)
@@ -10019,7 +10022,7 @@ func _stage_portrait_ad_banner() -> void:
 	if ads_service != null:
 		if ads_service.has_method("is_native_available"):
 			native_ads_available = bool(ads_service.call("is_native_available"))
-		if ads_service.has_method("show_banner"):
+		if !is_instance_valid(_home_paper_transition) and ads_service.has_method("show_banner"):
 			ads_service.call("show_banner")
 	if native_ads_available:
 		return

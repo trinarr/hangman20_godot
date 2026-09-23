@@ -156,3 +156,6 @@ func prepare_departure() -> void:
 
 func set_foreground_opacity(value: float) -> void:
 	_reveal_material.set_shader_parameter("foreground_opacity", value)
+
+func set_departure_inset(stage_distance: float) -> void:
+	_reveal_material.set_shader_parameter("departure_inset", stage_distance)

@@ -20,6 +20,7 @@ uniform float badge_alpha : hint_range(0.0, 1.0) = 0.0;
 uniform float badge_scale = 0.65;
 uniform float foreground_opacity : hint_range(0.0, 1.0) = 1.0;
 uniform bool foreground_only = false;
+uniform float departure_inset = 0.0;
 // Match the blue outline of the original torn-paper logo. Width is in stage pixels.
 uniform vec4 tear_outline_color : source_color = vec4(0.2353, 0.3059, 0.6235, 1.0);
 uniform float tear_outline_width : hint_range(0.0, 5.0) = 2.0;
@@ -192,6 +193,15 @@ void fragment() {
 			float alpha = layer.a + detached_mask;
 			layer = vec4((layer.rgb * layer.a + backside * detached_mask) / max(0.0001, alpha), alpha);
 		}
+	}
+
+	// The title sits under the closing blue pieces. The badge is composited
+	// afterwards, above them. The foreground finishes fading before reopening.
+	if (foreground_only) {
+		float inset = departure_inset * unit;
+		float visible_title = smoothstep(top + inset - aa, top + inset + aa, pixel.y)
+			* (1.0 - smoothstep(bottom - inset - aa, bottom - inset + aa, pixel.y));
+		layer.a *= visible_title;
 	}
 
 	// The badge is independent of both the paper mask and the moving fold.
