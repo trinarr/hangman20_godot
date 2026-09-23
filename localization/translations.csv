@@ -100,10 +100,10 @@ THEME_NEW_BADGE,НОВАЯ,NEW
 USER_CONSENT_TITLE,Настройка рекламы,Personalized Ads
 USER_CONSENT_ACCEPT,Принять,Accept
 USER_CONSENT_DENY,Отклонить,Deny
-USER_CONSENT_DESCRIPTION,"Разрешите сбор данных о рекламном идентификаторе и сведений о взаимодействии с рекламой.
+USER_CONSENT_DESCRIPTION,"Мы и наши рекламные партнёры можем использовать данные об устройстве и взаимодействии с рекламой, чтобы подбирать более подходящие объявления и измерять их эффективность.
 
-Это позволит поддерживать игру бесплатной и показывать вам более полезную и подходящую рекламу.","Allow the collection of your device’s advertising ID and information about how you interact with ads.
+Вы можете отказаться — игра останется доступна, но реклама может быть менее персонализированной.","We and our advertising partners may use device data and information about how you interact with ads to show you more relevant ads and measure their effectiveness.
 
-This helps keep the game free and show you ads that are more relevant to your interests."
+You can decline — the game will remain available, but the ads you see may be less personalized."
 SETTINGS_PERSONALIZED_ADS,Персонализированная реклама,Personalized Ads
 CONSENT_SAVE_ERROR,Не удалось сохранить выбор. Попробуйте ещё раз.,Could not save your choice. Please try again.
