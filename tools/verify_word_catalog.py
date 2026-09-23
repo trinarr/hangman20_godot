@@ -7,6 +7,27 @@ import re
 from curate_word_database import ROOT, difficulty, export, rendered, validate
 
 
+# (term, place name, original term score, original place score).
+# Swapping preserves the complete geography difficulty distribution.
+GEOGRAPHY_REBALANCE_PAIRS = (
+    ('БАССЕЙН', 'ГЕРМАНИЯ', 0.1374, 0.2609),
+    ('ЭКВАТОР', 'ГРЕЦИЯ', 0.14, 0.2505),
+    ('ПАРАЛЛЕЛЬ', 'ФРАНЦИЯ', 0.1715, 0.2813),
+    ('МЕРИДИАН', 'ВЕНЕЦИЯ', 0.18, 0.355),
+    ('ШИРОТА', 'СТАМБУЛ', 0.18, 0.3792),
+    ('ДОЛГОТА', 'БАРСЕЛОНА', 0.18, 0.3813),
+    ('ЛИТОСФЕРА', 'ПЕКИН', 0.24, 0.4633),
+    ('ИЗОТЕРМА', 'ПАНАМСКИЙ КАНАЛ', 0.28, 0.5589),
+    ('ИЗОБАРА', 'СУЭЦКИЙ КАНАЛ', 0.28, 0.5978),
+    ('ЭСТУАРИЙ', 'ФЛОРЕНЦИЯ', 0.2877, 0.7043),
+)
+GEOGRAPHY_ORIGINAL_SCORES = {
+    word: score
+    for term, place, term_score, place_score in GEOGRAPHY_REBALANCE_PAIRS
+    for word, score in ((term, term_score), (place, place_score))
+}
+
+
 def verify_expansion(catalog, language, batch, band_key, bounds, quota):
     additions = [e for e in catalog['entries']
                  if e.get('assessment') == batch]
@@ -27,7 +48,11 @@ def verify_expansion(catalog, language, batch, band_key, bounds, quota):
         used.add(answer)
         assert answer not in normalized(entry['hint']), ('Hint reveals answer', entry['answer'])
         low, high = bounds[entry[band_key]]
-        assert low <= difficulty(entry, language) < high, entry['answer']
+        # Expansion bands record the original batch, before later rebalancing.
+        score = difficulty(entry, language)
+        if language == 'ru':
+            score = GEOGRAPHY_ORIGINAL_SCORES.get(entry['answer'], score)
+        assert low <= score < high, entry['answer']
     # Editorial metadata must not increase the runtime payload.
     words, hints = rendered(catalog)
     assert not {'entries', 'difficulty_band', 'central_band', 'assessment'} & words.keys()
@@ -64,6 +89,10 @@ def main():
         assert difficulty(edited, language) == scores[edited['id']]
         if language == 'ru':
             byword = {e['answer']: e for e in catalog['entries']}
+            for term, place, term_score, place_score in GEOGRAPHY_REBALANCE_PAIRS:
+                assert byword[term]['theme_id'] == byword[place]['theme_id'] == 2
+                assert difficulty(byword[term], language) == place_score, term
+                assert difficulty(byword[place], language) == term_score, place
             assert len(byword) == 5002
             assert difficulty(byword['ПОДСОЛНУХ'], language) < .3
             assert difficulty(byword['БЕГОВАЯ ДОРОЖКА'], language) < .3

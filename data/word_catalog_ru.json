@@ -4388,7 +4388,7 @@
       "theme_id": 2,
       "answer": "ФЛОРЕНЦИЯ",
       "hint": "Этот итальянский город считается родиной путешественника Америго Веспуччи",
-      "concept_score": 0.9264661,
+      "concept_score": 0.14573146,
       "assessment": "legacy_calibration"
     },
     {
@@ -5246,46 +5246,40 @@
       "theme_id": 2,
       "answer": "ЭКВАТОР",
       "hint": "Эта условная линия делит Землю на Северное и Южное полушария",
-      "concept_score": 0.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": -0.0422,
-      "maximum": 0.14
+      "concept_score": 0.12805463,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-4211442f40e5b8c7",
       "theme_id": 2,
       "answer": "МЕРИДИАН",
       "hint": "Эта условная линия соединяет географические полюса",
-      "concept_score": 0.06763408,
-      "assessment": "legacy_calibration",
-      "maximum": 0.18
+      "concept_score": 0.3955951,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-4872fddc939f1969",
       "theme_id": 2,
       "answer": "ПАРАЛЛЕЛЬ",
       "hint": "Условная окружность вокруг Земли, идущая в одном направлении с экватором",
-      "concept_score": 0.05617484,
-      "assessment": "legacy_calibration",
-      "maximum": 0.18
+      "concept_score": 0.26194696,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-6d8cd52edaeb5d33",
       "theme_id": 2,
       "answer": "ШИРОТА",
       "hint": "Эта координата показывает расстояние к северу или югу от экватора",
-      "concept_score": 0.05820751,
-      "assessment": "legacy_calibration",
-      "maximum": 0.18
+      "concept_score": 0.43152085,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-be213bb2415930d6",
       "theme_id": 2,
       "answer": "ДОЛГОТА",
       "hint": "Эта координата показывает положение к востоку или западу от нулевой линии",
-      "concept_score": 0.0632428,
-      "assessment": "legacy_calibration",
-      "maximum": 0.18
+      "concept_score": 0.44049168,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-ad25d652357106b6",
@@ -5395,7 +5389,7 @@
       "theme_id": 2,
       "answer": "ЭСТУАРИЙ",
       "hint": "Это воронкообразное устье реки, расширяющееся к морю",
-      "concept_score": 0.19075818,
+      "concept_score": 0.97149281,
       "assessment": "legacy_calibration"
     },
     {
@@ -5411,9 +5405,8 @@
       "theme_id": 2,
       "answer": "БАССЕЙН",
       "hint": "Так называется территория, с которой вода стекает в одну реку",
-      "concept_score": 0.0,
+      "concept_score": 0.18109333,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0269,
       "aliases": [
         "РЕЧНОЙ БАССЕЙН"
       ]
@@ -5848,18 +5841,16 @@
       "theme_id": 2,
       "answer": "ИЗОБАРА",
       "hint": "Эта линия на карте соединяет точки одинакового давления.",
-      "concept_score": 0.29577543,
-      "assessment": "legacy_calibration",
-      "maximum": 0.28
+      "concept_score": 0.89135264,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-00ae70b8a3a1d873",
       "theme_id": 2,
       "answer": "ИЗОТЕРМА",
       "hint": "Эта линия соединяет точки с одинаковой температурой.",
-      "concept_score": 0.20668417,
-      "assessment": "legacy_calibration",
-      "maximum": 0.28
+      "concept_score": 0.72936033,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-6e9f692b36984d0e",
@@ -5892,9 +5883,8 @@
       "theme_id": 2,
       "answer": "ЛИТОСФЕРА",
       "hint": "Эта твёрдая оболочка включает земную кору и верх мантии.",
-      "concept_score": 0.07889859,
-      "assessment": "legacy_calibration",
-      "maximum": 0.24
+      "concept_score": 0.49737686,
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-d66c81ecca7362ee",
@@ -33875,18 +33865,20 @@
       "theme_id": 2,
       "answer": "ФРАНЦИЯ",
       "hint": "Европейская страна со столицей в Париже.",
-      "concept_score": 0.16,
+      "concept_score": 0,
       "assessment": "editorial_expansion_patch09",
-      "difficulty_band": 1
+      "difficulty_band": 1,
+      "score_adjustment": -0.0245
     },
     {
       "id": "ru-e108d581aeed4eea",
       "theme_id": 2,
       "answer": "ГЕРМАНИЯ",
       "hint": "Европейская страна со столицей в Берлине.",
-      "concept_score": 0.16,
+      "concept_score": 0,
       "assessment": "editorial_expansion_patch09",
-      "difficulty_band": 1
+      "difficulty_band": 1,
+      "score_adjustment": -0.0381
     },
     {
       "id": "ru-758f49a1fbc917a8",
@@ -33911,9 +33903,10 @@
       "theme_id": 2,
       "answer": "ГРЕЦИЯ",
       "hint": "Страна на юге Европы, где находятся Афины и остров Крит.",
-      "concept_score": 0.16,
+      "concept_score": 0,
       "assessment": "editorial_expansion_patch09",
-      "difficulty_band": 1
+      "difficulty_band": 1,
+      "score_adjustment": -0.0252
     },
     {
       "id": "ru-5440a17286178179",
@@ -34199,9 +34192,10 @@
       "theme_id": 2,
       "answer": "СТАМБУЛ",
       "hint": "Турецкий город на двух берегах Босфора, прежде называвшийся Константинополем.",
-      "concept_score": 0.36,
+      "concept_score": 0,
       "assessment": "editorial_expansion_patch09",
-      "difficulty_band": 2
+      "difficulty_band": 2,
+      "score_adjustment": -0.0071
     },
     {
       "id": "ru-2c2758b82cfe79cd",
@@ -38366,7 +38360,7 @@
       "theme_id": 2,
       "answer": "ВЕНЕЦИЯ",
       "hint": "Итальянский город на островах, известный каналами и гондолами.",
-      "concept_score": 0.422959,
+      "concept_score": 0.09499775,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
     },
@@ -38393,7 +38387,7 @@
       "theme_id": 2,
       "answer": "БАРСЕЛОНА",
       "hint": "Испанский город с храмом Саграда-Фамилия и архитектурой Гауди.",
-      "concept_score": 0.4,
+      "concept_score": 0.02284025,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
     },
@@ -38609,7 +38603,7 @@
       "theme_id": 2,
       "answer": "ПЕКИН",
       "hint": "Столица Китая с площадью Тяньаньмэнь и бывшим императорским дворцом.",
-      "concept_score": 0.56,
+      "concept_score": 0.14143087,
       "assessment": "editorial_expansion_patch10",
       "central_band": "core"
     },
@@ -38726,7 +38720,7 @@
       "theme_id": 2,
       "answer": "СУЭЦКИЙ КАНАЛ",
       "hint": "Искусственный водный путь в Египте между Средиземным и Красным морями.",
-      "concept_score": 0.74,
+      "concept_score": 0.14434237,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
     },
@@ -38735,7 +38729,7 @@
       "theme_id": 2,
       "answer": "ПАНАМСКИЙ КАНАЛ",
       "hint": "Искусственный водный путь через Центральную Америку между Атлантическим и Тихим океанами.",
-      "concept_score": 0.74,
+      "concept_score": 0.21731519,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
     },
