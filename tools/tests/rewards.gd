@@ -188,6 +188,32 @@ func run() -> void:
 		await settle()
 		check(GameState.get_soft_currency() == 100 + 2 * stage_amount, "Close-before-reward lost or duplicated payout")
 		check(GameState.get_stars() == 100 and GameState.get_pending_single_player_reward().is_empty(), "Stage offer created a level bonus")
+	# Relaunching after the large stage-coin reward has appeared skips that offer.
+	# The base payout is settled exactly once and Continue resumes on the chain.
+	await setup_level(1, [])
+	record_stage(true, false)
+	main._show_single_player_reward_chain_screen()
+	check(
+		GameState.get_active_single_player_stage_reward().get("presentation_started", false),
+		"Large stage reward did not persist its presentation marker"
+	)
+	# Leave before the deferred pack bounce reaches the base-claim callback.
+	main.show_menu()
+	reload_save()
+	main._resume_saved_single_player_level()
+	var resumed_stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
+	check(GameState.get_soft_currency() == 115, "Interrupted stage reward lost or duplicated base payout")
+	check(
+		bool(resumed_stage_reward.get("claimed", false))
+		and bool(resumed_stage_reward.get("double_resolved", false))
+		and !bool(resumed_stage_reward.get("double_claimed", false)),
+		"Interrupted stage reward did not settle the skipped x2 offer"
+	)
+	check(main.find_child("StageCoinLargeReward", true, false) == null, "Interrupted stage reward reopened the large reward screen")
+	check(main.find_child("SinglePlayerRewardChain", true, false) != null, "Interrupted stage reward did not resume on the chain")
+	reload_save()
+	main._resume_saved_single_player_level()
+	check(GameState.get_soft_currency() == 115, "Repeated resume credited interrupted stage reward twice")
 	# A late receipt pays the old target, even while a new offer exists.
 	await setup_level(0, [])
 	record_stage(true)

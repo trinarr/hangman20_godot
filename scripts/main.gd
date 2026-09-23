@@ -1614,6 +1614,7 @@ func _single_player_mark_current_word_finished(
 				)
 			),
 			"reward_double_claimed": false,
+			"reward_presentation_started": false,
 		},
 	}, false)
 	if persist:

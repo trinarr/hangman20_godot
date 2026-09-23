@@ -798,6 +798,59 @@ func get_active_single_player_stage_reward() -> Dictionary:
 		# explicitly. New coin-stage snapshots store false until the player chooses.
 		"double_resolved": bool(data.get("reward_double_resolved", claimed)),
 		"double_claimed": bool(data.get("reward_double_claimed", false)),
+		"presentation_started": bool(data.get("reward_presentation_started", false)),
+	}
+
+func mark_active_single_player_stage_reward_presented(persist: bool = true) -> bool:
+	var reward: Dictionary = get_active_single_player_stage_reward()
+	if reward.is_empty():
+		return false
+	if bool(reward.get("presentation_started", false)):
+		return true
+	var session: Dictionary = active_single_player_session.duplicate(true)
+	var data: Dictionary = Dictionary(session.get("data", {})).duplicate(true)
+	data["reward_presentation_started"] = true
+	session["data"] = data
+	active_single_player_session = session
+	if persist:
+		save_game()
+	return true
+
+func settle_presented_active_single_player_stage_reward(persist: bool = true) -> Dictionary:
+	var reward: Dictionary = get_active_single_player_stage_reward()
+	if reward.is_empty() or !bool(reward.get("presentation_started", false)):
+		return {}
+	var session: Dictionary = active_single_player_session.duplicate(true)
+	var data: Dictionary = Dictionary(session.get("data", {})).duplicate(true)
+	var currency: String = str(reward.get("currency", ""))
+	var credited_amount: int = 0
+	if !bool(reward.get("claimed", false)):
+		data["reward_claimed"] = true
+		var requested_amount: int = int(reward.get("amount", 0))
+		var previous_balance: int = (
+			get_stars() if currency == STAGE_REWARD_STARS else get_soft_currency()
+		)
+		var final_balance: int = (
+			add_stars(requested_amount, false)
+			if currency == STAGE_REWARD_STARS
+			else add_soft_currency(requested_amount, false)
+		)
+		credited_amount = maxi(final_balance - previous_balance, 0)
+	# Reopening after the large reward was already presented must not resurrect
+	# its optional x2 offer. Preserve a bonus that was already granted before the
+	# interruption; otherwise treat the choice as skipped.
+	if currency == STAGE_REWARD_COINS and !bool(reward.get("double_resolved", false)):
+		data["reward_double_resolved"] = true
+		data["reward_double_claimed"] = false
+	session["data"] = data
+	active_single_player_session = session
+	if persist:
+		save_game()
+	return {
+		"currency": currency,
+		"amount": credited_amount,
+		"double_resolved": bool(data.get("reward_double_resolved", true)),
+		"double_claimed": bool(data.get("reward_double_claimed", false)),
 	}
 
 func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary:

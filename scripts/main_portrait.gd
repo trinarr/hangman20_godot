@@ -3570,6 +3570,16 @@ func _resume_saved_single_player_level() -> void:
 		"next":
 			var next_data_variant: Variant = session.get("data", {})
 			var stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
+			var interrupted_stage_coin_reward_offer: bool = (
+				bool(stage_reward.get("presentation_started", false))
+				and str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
+			)
+			if interrupted_stage_coin_reward_offer:
+				# The large stage reward was already on screen when the previous process
+				# stopped. Settle its base claim and treat an unresolved x2 as skipped so
+				# Continue resumes from the chain instead of replaying the large reward.
+				GameState.settle_presented_active_single_player_stage_reward(true)
+				stage_reward = GameState.get_active_single_player_stage_reward()
 			if next_data_variant is Dictionary:
 				var next_data: Dictionary = next_data_variant
 				var result_variant: Variant = next_data.get("result", {})
@@ -3582,6 +3592,9 @@ func _resume_saved_single_player_level() -> void:
 						"single_player_stage_won",
 						true
 					))
+					if interrupted_stage_coin_reward_offer:
+						_finish_single_player_stage_coin_reward_offer()
+						return
 					_portrait_single_reward_resume_without_intro = bool(
 						!last_result_is_win
 						or (
@@ -16490,6 +16503,11 @@ func _show_single_player_reward_chain_screen() -> void:
 		and str(active_stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
 		and !bool(active_stage_reward.get("double_resolved", true))
 	)
+	if is_quiz_coin_reward:
+		# Mirror the durable main-reward presentation marker. Once the large stage
+		# coin reward starts presenting, a relaunch must continue from the chain
+		# rather than replaying this optional x2 screen.
+		GameState.mark_active_single_player_stage_reward_presented(true)
 	var auto_advance_final_stage_reward: bool = (
 		final_stage_completed
 		and !is_level_summary
