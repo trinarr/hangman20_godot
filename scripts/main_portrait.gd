@@ -3828,9 +3828,11 @@ func _show_user_consent_popup(
 	_hide_portrait_ad_banner()
 	var popup_size := Vector2(424.0, 0.0)
 	var popup_top_y := 165.0
-	var description_panel_side_margin := 20.0
-	var description_top_offset := 84.0
-	var description_panel_padding := 18.0
+	# Keep the wider consent copy, but match the title-to-copy breathing room
+	# used by the legal-consent popup.
+	var description_panel_side_margin := 12.0
+	var description_top_offset := 80.0
+	var description_panel_padding := 12.0
 	var button_top_gap: float = 32.0
 	var button_height := 56.0 * PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE
 	var button_bottom_padding := PORTRAIT_POPUP_BOTTOM_BUTTON_GAP
@@ -3842,7 +3844,7 @@ func _show_user_consent_popup(
 	var description_width := description_panel_width - description_panel_padding * 2.0
 	var description_text_size := UI_QUESTION_COMMENT_FONT.get_multiline_string_size(
 		description_text,
-		HORIZONTAL_ALIGNMENT_LEFT,
+		HORIZONTAL_ALIGNMENT_CENTER,
 		description_width,
 		22
 	)
@@ -3887,12 +3889,6 @@ func _show_user_consent_popup(
 		description_panel_width,
 		description_panel_height
 	)
-	var description_panel := _stage_panel(
-		description_panel_rect,
-		PORTRAIT_UI_PALETTE.THEME_CARD,
-		22.0
-	)
-	description_panel.z_index = 8
 	var description_rect := Rect2(
 		description_panel_rect.position.x + description_panel_padding,
 		description_panel_rect.position.y + description_panel_padding,
@@ -3904,7 +3900,7 @@ func _show_user_consent_popup(
 		description_text,
 		22,
 		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_LEFT
+		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	description.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
 	description.vertical_alignment = VERTICAL_ALIGNMENT_TOP
