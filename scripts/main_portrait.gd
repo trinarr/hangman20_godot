@@ -3636,6 +3636,17 @@ func _resume_saved_single_player_level() -> void:
 						"single_player_stage_won",
 						true
 					))
+					# A relaunched completed multi-stage level should stop on the settled
+					# reward-chain checkpoint instead of immediately auto-advancing into
+					# the main-prize transition. The saved `next` snapshot already proves
+					# that the final stage was completed; this transient marker changes only
+					# resume presentation and does not require a save-format migration.
+					if (
+						bool(last_result_data.get("single_player_level_completed", false))
+						and !bool(last_result_data.get("single_player_level_summary_view", false))
+						and !pending.is_empty()
+					):
+						last_result_data["single_player_resume_chain_checkpoint"] = true
 					if interrupted_stage_coin_reward_offer:
 						_finish_single_player_stage_coin_reward_offer()
 						return
@@ -16047,6 +16058,9 @@ func _persist_single_player_level_summary_view() -> void:
 func _show_completed_single_player_level_summary() -> void:
 	if !bool(last_result_data.get("single_player_level_completed", false)):
 		return
+	# The resume-only checkpoint has done its job once the player explicitly
+	# continues. Do not carry the transient presentation flag into the summary.
+	last_result_data.erase("single_player_resume_chain_checkpoint")
 	_persist_single_player_level_summary_view()
 	# The final-stage reward screen has already presented and moved the shared
 	# result header into its top resting position. Rebuilding the level-summary
@@ -16587,10 +16601,14 @@ func _show_single_player_reward_chain_screen() -> void:
 		# coin reward starts presenting, a relaunch must continue from the chain
 		# rather than replaying this optional x2 screen.
 		GameState.mark_active_single_player_stage_reward_presented(true)
+	var resumed_final_chain_checkpoint: bool = bool(
+		last_result_data.get("single_player_resume_chain_checkpoint", false)
+	)
 	var auto_advance_final_stage_reward: bool = (
 		final_stage_completed
 		and !is_level_summary
 		and !is_quiz_coin_reward
+		and !resumed_final_chain_checkpoint
 	)
 	var stage_finished_callback := Callable()
 	if auto_advance_final_stage_reward:
