@@ -19,6 +19,7 @@ uniform float shine_progress = -0.30;
 uniform float badge_alpha : hint_range(0.0, 1.0) = 0.0;
 uniform float badge_scale = 0.65;
 uniform float foreground_opacity : hint_range(0.0, 1.0) = 1.0;
+uniform bool foreground_only = false;
 // Match the blue outline of the original torn-paper logo. Width is in stage pixels.
 uniform vec4 tear_outline_color : source_color = vec4(0.2353, 0.3059, 0.6235, 1.0);
 uniform float tear_outline_width : hint_range(0.0, 5.0) = 2.0;
@@ -167,7 +168,9 @@ void fragment() {
 		float edge_distance = min(pixel.y - top, bottom - pixel.y);
 		float outline = 1.0 - smoothstep(outline_width - aa, outline_width + aa, edge_distance);
 		result = mix(result, tear_outline_color.rgb, outline * tear_outline_color.a);
-		layer = vec4(result, sheet_mask * exposed);
+		layer = foreground_only
+			? vec4(ink.rgb, ink.a * sheet_mask * exposed)
+			: vec4(result, sheet_mask * exposed);
 	}
 
 	// Keep most of the detached face flat. Only its final 35% widens gently,

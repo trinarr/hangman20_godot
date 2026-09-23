@@ -149,6 +149,9 @@ func prepare_departure() -> void:
 	if _buttons_tween != null and _buttons_tween.is_valid():
 		_buttons_tween.kill()
 	_reveal_material.set_shader_parameter("reveal_progress", 1.0)
+	# During departure the moving blue pieces reveal the destination directly.
+	# Keep only the fading lettering/badge above that opening, without Home paper.
+	_reveal_material.set_shader_parameter("foreground_only", true)
 	_sync_layout()
 
 func set_foreground_opacity(value: float) -> void:

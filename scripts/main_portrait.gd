@@ -3370,9 +3370,8 @@ func _leave_home_on_paper(action: Callable) -> void:
 	_hide_portrait_ad_banner()
 	_home_paper_transition = HOME_PAPER_TRANSITION_SCRIPT.new() as CanvasLayer
 	_home_paper_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
-	_home_paper_transition.set("header_color", PORTRAIT_BLUE)
 	add_child(_home_paper_transition)
-	_home_paper_transition.call("start", _home_logo_reveal, _home_start_buttons.duplicate(), action)
+	_home_paper_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
 
 func _open_single_player_from_home(action: Callable) -> void:
 	if is_instance_valid(_home_paper_transition):
