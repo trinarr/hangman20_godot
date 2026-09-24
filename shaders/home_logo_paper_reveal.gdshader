@@ -21,11 +21,8 @@ uniform float badge_scale = 0.65;
 uniform float foreground_opacity : hint_range(0.0, 1.0) = 1.0;
 uniform bool foreground_only = false;
 uniform float departure_inset = 0.0;
-// Match the blue outline of the original torn-paper logo. Width is in stage pixels.
-uniform vec4 tear_outline_color : source_color = vec4(0.2353, 0.3059, 0.6235, 1.0);
-uniform float tear_outline_width : hint_range(0.0, 5.0) = 2.0;
-
 #include "res://shaders/paper_edge.gdshaderinc"
+#include "res://shaders/home_torn_blue_edge.gdshaderinc"
 #include "res://shaders/portrait_grid_paper.gdshaderinc"
 
 // Split the existing foreground atlas through its transparent gap. The sloped
@@ -132,11 +129,10 @@ void fragment() {
 	float unit = max(0.01, logo_rect.z / 304.128);
 	// Match the original paper body, excluding the badge projecting above it.
 	// Its 375 source pixels correspond to about 91 stage pixels, not 131.
-	float top = logo_rect.y + logo_rect.w * (490.0 / 1254.0);
-	float bottom = logo_rect.y + logo_rect.w * (865.0 / 1254.0);
-	float edge_x = pixel.x / unit;
-	top += (torn_edge(edge_x / 8.0) - 0.5) * 2.4 * unit;
-	bottom += (torn_edge(edge_x / 9.0 + 83.0) - 0.5) * 2.4 * unit;
+	vec2 edge_bases = logo_rect.y + logo_rect.w * vec2(490.0, 865.0) / 1254.0;
+	vec4 edges = home_torn_blue_edges(pixel.x, unit, edge_bases);
+	float top = edges.x;
+	float bottom = edges.w;
 	float aa = max(0.65, fwidth(pixel.y));
 	float sheet_mask = smoothstep(top - aa, top + aa, pixel.y)
 		* (1.0 - smoothstep(bottom - aa, bottom + aa, pixel.y));
@@ -154,10 +150,7 @@ void fragment() {
 	if (sheet_mask > 0.0 && exposed > 0.0 && reveal_progress > 0.0) {
 		// Original Home paper style, shared with the destination page.
 		vec3 paper = portrait_grid_paper(pixel);
-		// The upper lip casts inward; the lower edge has an outline, not an inner shadow.
-		float outline_width = tear_outline_width * unit;
-		float upper_lip = max(0.0, pixel.y - top - outline_width);
-		paper *= 1.0 - 0.17 * (1.0 - smoothstep(0.0, 3.0 * unit, upper_lip));
+		paper *= 1.0 - home_torn_fiber_shadow(pixel.y, edges, unit);
 
 		vec4 ink = sample_title(logo_uv);
 		ink.a *= (1.0 - badge_region(logo_uv)) * foreground_opacity;
@@ -165,10 +158,9 @@ void fragment() {
 
 		float shadow = (1.0 - smoothstep(0.0, 9.0 * unit, front - pixel.x)) * 0.24;
 		result *= 1.0 - shadow * min(1.0, reveal_progress * 10.0);
-		// Only the white face has blue torn edges; they end at the contact line.
-		float edge_distance = min(pixel.y - top, bottom - pixel.y);
-		float outline = 1.0 - smoothstep(outline_width - aa, outline_width + aa, edge_distance);
-		result = mix(result, tear_outline_color.rgb, outline * tear_outline_color.a);
+		// Exposed light fibers on both blue faces, with independently ragged borders.
+		float fiber = home_torn_fiber_mask(pixel.y, edges, aa);
+		result = mix(result, home_torn_fiber_rgb(pixel, edges, unit), fiber);
 		layer = foreground_only
 			? vec4(ink.rgb, ink.a * sheet_mask * exposed)
 			: vec4(result, sheet_mask * exposed);
@@ -199,9 +191,12 @@ void fragment() {
 	// afterwards, above them. The foreground finishes fading before reopening.
 	if (foreground_only) {
 		float inset = departure_inset * unit;
-		float visible_title = smoothstep(top + inset - aa, top + inset + aa, pixel.y)
-			* (1.0 - smoothstep(bottom - inset - aa, bottom - inset + aa, pixel.y));
-		layer.a *= visible_title;
+		vec4 moving_edges = edges + vec4(inset, inset, -inset, -inset);
+		float visible_title = smoothstep(moving_edges.x - aa, moving_edges.x + aa, pixel.y)
+			* (1.0 - smoothstep(moving_edges.w - aa, moving_edges.w + aa, pixel.y));
+		// The title is below the fiber rims as well as the blue faces; the badge
+		// is composited after this mask and stays above both, as before.
+		layer.a *= visible_title * (1.0 - home_torn_fiber_mask(pixel.y, moving_edges, aa));
 	}
 
 	// The badge is independent of both the paper mask and the moving fold.

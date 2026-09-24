@@ -11,8 +11,8 @@ uniform bool destination_ready = false;
 uniform float gather_distance = 6.0;
 uniform float gather : hint_range(0.0, 1.0) = 0.0;
 uniform float progress : hint_range(0.0, 1.0) = 0.0;
-uniform vec4 outline_color : source_color = vec4(0.2353, 0.3059, 0.6235, 1.0);
 #include "res://shaders/paper_edge.gdshaderinc"
+#include "res://shaders/home_torn_blue_edge.gdshaderinc"
 #include "res://shaders/portrait_grid_paper.gdshaderinc"
 
 void fragment() {
@@ -25,10 +25,10 @@ void fragment() {
 	float anticipation = gather_distance * unit * gather;
 	float upper_shift = max(0.0, original_top - header_bottom + 16.0 * unit) * progress - anticipation;
 	float lower_shift = (canvas_size.y - original_bottom + 16.0 * unit) * progress - anticipation;
-	float top = original_top - upper_shift
-		+ (torn_edge(pixel.x / unit / 8.0) - 0.5) * 2.4 * unit;
-	float bottom = original_bottom + lower_shift
-		+ (torn_edge(pixel.x / unit / 9.0 + 83.0) - 0.5) * 2.4 * unit;
+	vec4 edges = home_torn_blue_edges(pixel.x, unit,
+		vec2(original_top - upper_shift, original_bottom + lower_shift));
+	float top = edges.x;
+	float bottom = edges.w;
 	float aa = max(0.65, fwidth(pixel.y));
 	float opening = smoothstep(top - aa, top + aa, pixel.y)
 		* (1.0 - smoothstep(bottom - aa, bottom + aa, pixel.y));
@@ -42,12 +42,10 @@ void fragment() {
 	float reflected_y = mod(source_y / canvas_size.y - body_top, 2.0 * body_span);
 	reflected_y = body_top + body_span - abs(reflected_y - body_span);
 	vec3 blue = texture(home_texture, vec2(UV.x, reflected_y)).rgb;
-	// Match Home's original styling on the inside of the opening. These widths
-	// never depend on progress/gather, and the same bands survive navigation.
-	float edge = min(pixel.y - top, bottom - pixel.y);
-	float outline = 1.0 - smoothstep(2.0 * unit - aa, 2.0 * unit + aa, edge);
-	float lip = max(0.0, pixel.y - top - 2.0 * unit);
-	float shadow = 0.17 * (1.0 - smoothstep(0.0, 3.0 * unit, lip));
+	// The same exposed paper rim as Home, translated without changing thickness.
+	float fiber = home_torn_fiber_mask(pixel.y, edges, aa);
+	vec3 fiber_rgb = home_torn_fiber_rgb(pixel, edges, unit);
+	float shadow = home_torn_fiber_shadow(pixel.y, edges, unit);
 	if (pixel.y < header_bottom) {
 		// Crossfade the old fixed bar directly into the destination's real bar.
 		COLOR = vec4(texture(home_texture, UV).rgb, opacity * header_content_opacity);
@@ -55,17 +53,17 @@ void fragment() {
 		// Retain Home paper while the foreground fades, before navigation.
 		vec3 paper = portrait_grid_paper(pixel);
 		paper *= 1.0 - shadow;
-		paper = mix(paper, outline_color.rgb, outline);
+		paper = mix(paper, fiber_rgb, fiber);
 		COLOR = vec4(mix(blue, paper, opening), opacity);
 	} else {
-		// Draw the same outline and upper shadow over the real destination.
+		// Draw both light paper rims and their shadows over the real destination.
 		// Straight-alpha composition keeps their thickness/strength unchanged
 		// when the opaque Home paper is replaced by a transparent opening.
 		float blue_alpha = 1.0 - opening;
-		float outline_alpha = opening * outline;
-		float shadow_alpha = opening * (1.0 - outline) * shadow;
-		float alpha = blue_alpha + outline_alpha + shadow_alpha;
-		vec3 premultiplied = blue * blue_alpha + outline_color.rgb * outline_alpha;
+		float fiber_alpha = opening * fiber;
+		float shadow_alpha = opening * (1.0 - fiber) * shadow;
+		float alpha = blue_alpha + fiber_alpha + shadow_alpha;
+		vec3 premultiplied = blue * blue_alpha + fiber_rgb * fiber_alpha;
 		COLOR = vec4(premultiplied / max(alpha, 0.00001), opacity * alpha);
 	}
 }
