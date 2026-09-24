@@ -3691,6 +3691,30 @@ func _home_profile_resume_saved_single_player_level() -> void:
 					if interrupted_stage_coin_reward_offer:
 						_finish_single_player_stage_coin_reward_offer()
 						return
+					# An answered embedded quiz has already persisted its durable `next`
+					# snapshot before the on-screen Continue button is pressed. Relaunching
+					# from that checkpoint must mirror the settled Hangman result resume:
+					# credit the base stage reward now, skip an unaccepted x2 offer, and
+					# render the chain immediately in its claimed state with no intro or
+					# collection choreography. Final quiz stages are handled above by the
+					# stronger final-chain checkpoint so they cannot jump to the main prize.
+					var resumed_answered_quiz_checkpoint: bool = (
+						_single_player_stage_is_quiz(level_index, word_slot)
+						and !bool(last_result_data.get("single_player_level_completed", false))
+					)
+					if resumed_answered_quiz_checkpoint:
+						if !stage_reward.is_empty():
+							if !bool(stage_reward.get("claimed", false)):
+								GameState.claim_active_single_player_stage_reward(true)
+							stage_reward = GameState.get_active_single_player_stage_reward()
+							if (
+								str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
+								and !bool(stage_reward.get("double_resolved", true))
+							):
+								GameState.resolve_active_single_player_stage_reward_double(false, true)
+						_portrait_single_reward_resume_without_intro = true
+						_show_single_player_reward_chain_screen()
+						return
 					_portrait_single_reward_resume_without_intro = bool(
 						!last_result_is_win
 						or (
