@@ -12,6 +12,11 @@ func check(condition: bool, message: String) -> void:
 		failures.append(message)
 		push_error(message)
 
+func _process(_delta: float) -> void:
+	# Home transitions await a GPU fence that the dummy renderer never emits.
+	if DisplayServer.get_name() == "headless":
+		RenderingServer.frame_post_draw.emit()
+
 func _ready() -> void:
 	call_deferred("run")
 
@@ -22,6 +27,8 @@ func test_word_reuse() -> void:
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	GameSession.start_custom_round("АА-Б В")
 	main.game_finished = false
+	# Inspect the word immediately; Home navigation is covered by resume_flow.
+	main._clear()
 	main.show_game_screen()
 	await get_tree().create_timer(2.0).timeout
 	var initial: Array = slots().duplicate()
@@ -70,6 +77,8 @@ func test_word_reuse() -> void:
 	# references to the labels that have already been discarded.
 	GameSession.start_custom_round("ПРОВЕРКА")
 	main.game_finished = false
+	# Inspect the word immediately; Home navigation is covered by resume_flow.
+	main._clear()
 	main.show_game_screen()
 	await get_tree().process_frame
 	var old_label: Label = slots()[0].label

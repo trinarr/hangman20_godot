@@ -13,6 +13,11 @@ func check(condition: bool, message: String) -> void:
 		failures.append(message)
 		push_error(message)
 
+func _process(_delta: float) -> void:
+	# Home transitions await a GPU fence that the dummy renderer never emits.
+	if DisplayServer.get_name() == "headless":
+		RenderingServer.frame_post_draw.emit()
+
 func _ready() -> void:
 	call_deferred("run")
 
@@ -23,6 +28,8 @@ func settle() -> void:
 func setup_level(level: int, prior_wins: Array) -> int:
 	main.show_menu()
 	await get_tree().process_frame
+	# This fixture opens a reward directly, without the asynchronous Home route.
+	main._clear()
 	GameSession.discard_current_round()
 	GameState.single_player = {}
 	GameState.single_player_resume_states = {}
@@ -201,6 +208,7 @@ func run() -> void:
 	main.show_menu()
 	reload_save()
 	main._resume_saved_single_player_level()
+	await settle()
 	var resumed_stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
 	check(GameState.get_soft_currency() == 115, "Interrupted stage reward lost or duplicated base payout")
 	check(

@@ -128,7 +128,6 @@ const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS
 const PORTRAIT_FREE_HINT_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_CURRENCY_ADD_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_THEME_NEW_BADGE_FILL := PORTRAIT_UI_PALETTE.SUCCESS
-const PORTRAIT_THEME_NEW_BADGE_BORDER := PORTRAIT_UI_PALETTE.SUCCESS_PRESSED
 const PORTRAIT_THEME_NEW_BADGE_FOLD := PORTRAIT_UI_PALETTE.SUCCESS_BORDER
 const PORTRAIT_MODAL_POPUP_GROUP: StringName = &"portrait_modal_popup"
 const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
@@ -10496,13 +10495,10 @@ func _stage_portrait_result_word_display(
 	search_button.visible = !animate_result
 	if animate_result:
 		call_deferred(
-			"_play_portrait_result_word_bounce_sequence",
-			animation_duration,
-			search_button,
-			continue_button,
-			continue_text,
-			word_label,
-			bounce_holder
+			"_run_for_current_result",
+			result_transition_generation,
+			Callable(self, "_play_portrait_result_word_bounce_sequence"),
+			[animation_duration, search_button, continue_button, continue_text, word_label, bounce_holder]
 		)
 	return {
 		"word_holder": word_holder,
@@ -10738,6 +10734,16 @@ func _stage_portrait_word_slots(
 		"font_size": effective_font_size,
 		"letter_center_y": rect.position.y + (rect.size.y - 10.0) * 0.5,
 	}
+
+func _run_for_current_result(generation: int, action: Callable, args: Array) -> void:
+	# A synchronous navigation can free the result before its deferred call runs.
+	# Check before dispatch: typed Control arguments cannot accept freed objects.
+	if generation != result_transition_generation or !action.is_valid():
+		return
+	for argument: Variant in args:
+		if typeof(argument) == TYPE_OBJECT and !is_instance_valid(argument):
+			return
+	action.callv(args)
 
 func _play_portrait_result_word_bounce_sequence(
 	animation_duration: float,
@@ -12467,7 +12473,7 @@ func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:
 		return
 
 	_set_portrait_word_paper_peel_progress(0.0)
-	var flip_tween := create_tween()
+	var flip_tween := paper_layer.create_tween()
 	flip_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var mask_tweener := flip_tween.tween_method(
 		Callable(self, "_set_portrait_word_paper_peel_progress"),

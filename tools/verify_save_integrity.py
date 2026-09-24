@@ -25,7 +25,11 @@ def function_body(source: str, name: str) -> str:
     require(match is not None, f"Missing function: {name}")
     next_function = re.search(r"^func ", source[match.end() :], re.M)
     end = match.end() + next_function.start() if next_function else len(source)
-    return source[match.start() : end]
+    body = source[match.start() : end]
+    delegate = "_home_profile" + name
+    if not name.startswith("_home_profile") and re.search(rf"\b{re.escape(delegate)}\(", body):
+        body += "\n" + function_body(source, delegate)
+    return body
 
 
 def normalized_word(value: str) -> str:

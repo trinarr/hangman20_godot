@@ -301,24 +301,23 @@ func load_game() -> void:
 	_set_interface_language_from_locale()
 	word_language = interface_language
 	var parsed: Dictionary = _read_save_dictionary(SAVE_PATH)
-	var loaded_from_backup: bool = false
-	if parsed.is_empty() and FileAccess.file_exists(SAVE_PATH):
-		parsed = _read_save_dictionary(SAVE_BACKUP_PATH)
-		loaded_from_backup = !parsed.is_empty()
-	elif parsed.is_empty():
-		parsed = _read_save_dictionary(SAVE_BACKUP_PATH)
-		loaded_from_backup = !parsed.is_empty()
-	if parsed.is_empty():
-		return
-
-	var stored_version: int = int(parsed.get("save_version", 0))
-	if stored_version != SAVE_FORMAT_VERSION:
-		# This is the launch save format. Development saves from another schema are
-		# intentionally ignored instead of carrying release-only migration code.
-		if stored_version > SAVE_FORMAT_VERSION:
-			_save_blocked_by_future_version = true
+	var loaded_from_recovery: bool = false
+	var stored_version: int = int(parsed.get("save_version", -1))
+	if stored_version > SAVE_FORMAT_VERSION:
+		_save_blocked_by_future_version = true
 		push_warning("Ignoring incompatible save format: %d" % stored_version)
 		return
+	if parsed.is_empty() or stored_version != SAVE_FORMAT_VERSION:
+		# A crash between removal and rename can leave the newest complete save
+		# in .tmp. Prefer it to the older backup, but never to a valid primary.
+		for recovery_path: String in [SAVE_TMP_PATH, SAVE_BACKUP_PATH]:
+			var recovered: Dictionary = _read_save_dictionary(recovery_path)
+			if int(recovered.get("save_version", -1)) == SAVE_FORMAT_VERSION:
+				parsed = recovered
+				loaded_from_recovery = true
+				break
+		if !loaded_from_recovery:
+			return
 
 	word_language = _normalize_language(str(parsed.get("word_language", word_language)))
 	accepted_legal_documents_version = maxi(
@@ -385,7 +384,7 @@ func load_game() -> void:
 	)
 	_normalize_single_player_buckets()
 
-	if loaded_from_backup or guided_state_was_missing:
+	if loaded_from_recovery or guided_state_was_missing:
 		save_game()
 
 func _read_save_dictionary(path: String) -> Dictionary:
@@ -527,7 +526,7 @@ func _home_profile_save_game() -> bool:
 	var save_absolute: String = ProjectSettings.globalize_path(SAVE_PATH)
 	var temp_absolute: String = ProjectSettings.globalize_path(SAVE_TMP_PATH)
 	var backup_absolute: String = ProjectSettings.globalize_path(SAVE_BACKUP_PATH)
-	if !_read_save_dictionary(SAVE_PATH).is_empty():
+	if int(_read_save_dictionary(SAVE_PATH).get("save_version", -1)) == SAVE_FORMAT_VERSION:
 		var backup_error: Error = DirAccess.copy_absolute(save_absolute, backup_absolute)
 		if backup_error != OK:
 			_save_write_in_progress = false
@@ -1119,6 +1118,13 @@ func resolve_pending_single_player_reward_double(grant_bonus: bool, persist: boo
 # Each native show carries a durable request id. The receipt captures the amount
 # and target before showing, so a delayed callback cannot credit the next level.
 func _rewarded_double_target(context: String) -> Dictionary:
+	return _rewarded_double_target_from_snapshots(
+		context, active_single_player_session, pending_single_player_reward
+	)
+
+func _rewarded_double_target_from_snapshots(
+	context: String, active: Dictionary, pending: Dictionary
+) -> Dictionary:
 	var source: Dictionary = {}
 	var amount: int = 0
 	var claimed: bool = false
@@ -1126,22 +1132,22 @@ func _rewarded_double_target(context: String) -> Dictionary:
 	var granted: bool = false
 	var reward_id: String = ""
 	if context == "final":
-		source = pending_single_player_reward
+		source = pending
 		reward_id = str(source.get("ad_reward_id", ""))
 		amount = int(source.get("amount", 0))
 		claimed = bool(source.get("claimed", false))
 		resolved = bool(source.get("double_resolved", false))
 		granted = bool(source.get("double_claimed", false))
 	elif context == "stage_coin":
-		source = active_single_player_session
+		source = active
 		reward_id = str(Dictionary(source.get("data", {})).get("reward_ad_id", ""))
-		var reward: Dictionary = get_active_single_player_stage_reward()
-		if str(reward.get("currency", "")) != STAGE_REWARD_COINS:
+		var data: Dictionary = Dictionary(source.get("data", {}))
+		if str(source.get("kind", "")) != "next" or str(data.get("reward_currency", "")) != STAGE_REWARD_COINS:
 			return {}
-		amount = int(reward.get("amount", 0))
-		claimed = bool(reward.get("claimed", false))
-		resolved = bool(reward.get("double_resolved", false))
-		granted = bool(reward.get("double_claimed", false))
+		amount = clampi(int(data.get("reward_amount", 0)), 0, MAX_SINGLE_REWARD)
+		claimed = bool(data.get("reward_claimed", false))
+		resolved = bool(data.get("reward_double_resolved", claimed))
+		granted = bool(data.get("reward_double_claimed", false))
 	if source.is_empty() or amount <= 0 or !claimed:
 		return {}
 	return {
@@ -1183,6 +1189,21 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	var current: Dictionary = _rewarded_double_target(context)
 	var is_current: bool = !current.is_empty() and current.get("target") == request.get("target")
 	var already_granted: bool = is_current and bool(current.get("granted", false))
+	# A late callback can belong to the other language's saved campaign.
+	# Its offer flags must commit together with the shared coin balance.
+	var inactive_state: Dictionary = {}
+	if !is_current:
+		for language: String in single_player_resume_states:
+			if language == word_language:
+				continue
+			var candidate: Dictionary = single_player_resume_states[language]
+			var target: Dictionary = _rewarded_double_target_from_snapshots(
+				context, candidate.get("active_session", {}), candidate.get("pending_reward", {})
+			)
+			if !target.is_empty() and target.get("target") == request.get("target"):
+				inactive_state = candidate
+				already_granted = bool(target.get("granted", false))
+				break
 	# Keep only unresolved receipts. Unknown ids cannot create a payout, so
 	# removing ALL retries of a paid target is its compact, idempotent state.
 	var completed_requests: Dictionary = {}
@@ -1194,6 +1215,7 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	for other_id: Variant in completed_requests:
 		rewarded_double_requests.erase(other_id)
 	var previous_pending: Dictionary = pending_single_player_reward.duplicate(true)
+	var previous_resume_states: Dictionary = single_player_resume_states.duplicate(true)
 	var previous_session: Dictionary = active_single_player_session.duplicate(true)
 	if is_current:
 		if context == "final":
@@ -1201,6 +1223,15 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 			pending_single_player_reward["double_claimed"] = true
 		else:
 			var data: Dictionary = active_single_player_session["data"]
+			data["reward_double_resolved"] = true
+			data["reward_double_claimed"] = true
+	elif !inactive_state.is_empty():
+		if context == "final":
+			var pending: Dictionary = inactive_state["pending_reward"]
+			pending["double_resolved"] = true
+			pending["double_claimed"] = true
+		else:
+			var data: Dictionary = inactive_state["active_session"]["data"]
 			data["reward_double_resolved"] = true
 			data["reward_double_claimed"] = true
 	var before: int = get_soft_currency()
@@ -1212,6 +1243,7 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 		soft_currency = before
 		pending_single_player_reward = previous_pending
 		active_single_player_session = previous_session
+		single_player_resume_states = previous_resume_states
 		rewarded_double_requests.merge(completed_requests)
 		_store_current_single_player_resume_state()
 		return {}
