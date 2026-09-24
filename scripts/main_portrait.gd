@@ -16717,6 +16717,14 @@ func _show_single_player_reward_chain_screen() -> void:
 	BUILD_TRACE.section_end(&"screen.reward", profile_started_usec)
 
 func _home_profile_show_single_player_reward_chain_screen() -> void:
+	# Startup guided-resume can call the reward chain directly while Home is still
+	# alive. Mirror show_game_screen(): route that first reveal through the same
+	# paper transition so the blue pieces visibly open onto the restored chain
+	# instead of replacing Home in a single frame. During the transition commit
+	# _home_transition is valid, so the callback re-enters here and builds normally.
+	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
+		_leave_home(Callable(self, "_show_single_player_reward_chain_screen"))
+		return
 	var level_index: int = int(last_result_data.get(
 		"single_player_level_index",
 		single_player_active_level_index
