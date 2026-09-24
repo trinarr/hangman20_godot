@@ -1,6 +1,8 @@
 class_name DisplayTextEffect
 extends Control
 
+const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
+
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
 # Subway-style display treatment: the outline stays proportional to the text,
@@ -72,8 +74,11 @@ func configure(
 	outline_scale: float = 1.0,
 	shadow_spread_scale: float = 1.0
 ) -> void:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	if _target != target and is_instance_valid(_target):
 		_disconnect_target()
+	if _target != target:
+		_last_signature.clear()
 	_target = target
 	_outline_color = outline_color
 	_shadow_color = shadow_color
@@ -86,11 +91,14 @@ func configure(
 	for signal_name: StringName in [&"resized", &"minimum_size_changed", &"theme_changed", &"draw", &"visibility_changed"]:
 		if !_target.is_connected(signal_name, _queue_sync):
 			_target.connect(signal_name, _queue_sync)
-	_last_signature.clear()
+	# The signature already includes text, layout and every effect parameter.
+	# Reapplying an unchanged style must not rebuild all five text layers.
 	_ensure_nodes()
 	_sync_all()
 	if is_inside_tree():
 		_queue_sync()
+
+	BUILD_TRACE.section_end(&"ui.text_effect", build_started_usec)
 
 # Extra visible width outside a glyph's ink bounds, in target-local units.
 # Reuse the rendering metrics so callers need no copies of the style constants.
@@ -134,12 +142,14 @@ func _ensure_nodes() -> void:
 		shadow_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		shadow_label.z_index = 0
 		shadow_label.material = _shadow_material
+		shadow_label.begin_bulk_theme_override()
 		shadow_label.add_theme_color_override("font_color", Color.WHITE)
 		shadow_label.add_theme_color_override("font_outline_color", Color.WHITE)
 		shadow_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		shadow_label.add_theme_constant_override("shadow_offset_x", 0)
 		shadow_label.add_theme_constant_override("shadow_offset_y", 0)
 		shadow_label.add_theme_constant_override("shadow_outline_size", 0)
+		shadow_label.end_bulk_theme_override()
 		shadow_label.minimum_size_changed.connect(_queue_sync)
 		add_child(shadow_label)
 		_shadow_labels.append(shadow_label)
@@ -149,10 +159,12 @@ func _ensure_nodes() -> void:
 		_main_label.name = "DisplayTextFront"
 		_main_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_main_label.z_index = 1
+		_main_label.begin_bulk_theme_override()
 		_main_label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 		_main_label.add_theme_constant_override("shadow_offset_x", 0)
 		_main_label.add_theme_constant_override("shadow_offset_y", 0)
 		_main_label.add_theme_constant_override("shadow_outline_size", 0)
+		_main_label.end_bulk_theme_override()
 		_main_label.minimum_size_changed.connect(_queue_sync)
 		add_child(_main_label)
 
@@ -216,7 +228,6 @@ func _copy_text_layout(source: Control, destination: Label) -> void:
 	destination.add_theme_font_size_override("font_size", source.get_theme_font_size("font_size"))
 	if source is Label:
 		var label_source := source as Label
-		destination.text = label_source.text
 		destination.horizontal_alignment = label_source.horizontal_alignment
 		destination.vertical_alignment = label_source.vertical_alignment
 		destination.autowrap_mode = label_source.autowrap_mode
@@ -226,15 +237,16 @@ func _copy_text_layout(source: Control, destination: Label) -> void:
 		destination.lines_skipped = label_source.lines_skipped
 		destination.text_direction = label_source.text_direction
 		destination.language = label_source.language
+		destination.text = label_source.text
 	elif source is Button:
 		var button_source := source as Button
-		destination.text = button_source.text
 		destination.horizontal_alignment = button_source.alignment
 		destination.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		destination.autowrap_mode = TextServer.AUTOWRAP_OFF
 		destination.clip_text = button_source.clip_text
 		destination.text_direction = button_source.text_direction
 		destination.language = button_source.language
+		destination.text = button_source.text
 	else:
 		destination.text = ""
 
@@ -248,6 +260,7 @@ func _sync_from_target() -> void:
 	for index: int in range(_shadow_labels.size()):
 		var shadow_label: Label = _shadow_labels[index]
 		shadow_label.material = _shadow_material
+		shadow_label.begin_bulk_theme_override()
 		_copy_text_layout(_target, shadow_label)
 		# Pack the four silhouettes into one short lower edge. These authored
 		# depths keep the first layers close to the glyph and the last layer at
@@ -267,7 +280,9 @@ func _sync_from_target() -> void:
 		shadow_label.size = _target.size
 		shadow_label.custom_minimum_size = Vector2.ZERO
 		shadow_label.add_theme_constant_override("outline_size", _shadow_spread)
+		shadow_label.end_bulk_theme_override()
 
+	_main_label.begin_bulk_theme_override()
 	_copy_text_layout(_target, _main_label)
 	_main_label.position = base_position
 	_main_label.size = _target.size
@@ -275,6 +290,7 @@ func _sync_from_target() -> void:
 	_main_label.add_theme_color_override("font_color", _target_font_color())
 	_main_label.add_theme_color_override("font_outline_color", _outline_color)
 	_main_label.add_theme_constant_override("outline_size", _outline_size)
+	_main_label.end_bulk_theme_override()
 
 func _sync_effect_metrics() -> void:
 	if _target == null or !is_instance_valid(_target):

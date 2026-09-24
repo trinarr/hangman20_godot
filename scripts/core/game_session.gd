@@ -1,5 +1,7 @@
 extends Node
 
+const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
+
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
 signal changed
@@ -112,6 +114,12 @@ func _packed_string_array_from_save(source: Variant) -> PackedStringArray:
 	return result
 
 func restore_from_save_data(source: Dictionary) -> bool:
+	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_result: bool = _home_profile_restore_from_save_data(source)
+	BUILD_TRACE.section_end(&"resume.word_data", profile_started_usec)
+	return profile_result
+
+func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	var text: String = WordManager.normalize_word(str(source.get("word", "")))
 	var restored_theme_index: int = Database.get_theme_index_by_id(
 		int(source.get("theme_id", -1))

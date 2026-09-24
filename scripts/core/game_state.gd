@@ -1,5 +1,7 @@
 extends Node
 
+const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
+
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
 signal ads_became_available
@@ -464,6 +466,12 @@ func _normalize_language(lang: String) -> String:
 	return "ru" if lang.to_lower().begins_with("ru") else "en"
 
 func save_game() -> bool:
+	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_result: bool = _home_profile_save_game()
+	BUILD_TRACE.section_end(&"save.total", profile_started_usec)
+	return profile_result
+
+func _home_profile_save_game() -> bool:
 	if _save_blocked_by_future_version or _save_write_in_progress:
 		return false
 	_save_write_in_progress = true
@@ -666,6 +674,11 @@ func _merge_legacy_single_player_resume_state(
 		single_player_resume_states[language] = state
 
 func _store_current_single_player_resume_state() -> void:
+	var profile_started_usec: int = BUILD_TRACE.section_start()
+	_home_profile_store_current_single_player_resume_state()
+	BUILD_TRACE.section_end(&"save.snapshot", profile_started_usec)
+
+func _home_profile_store_current_single_player_resume_state() -> void:
 	var language: String = _normalize_language(word_language)
 	if active_single_player_session.is_empty() and pending_single_player_reward.is_empty():
 		single_player_resume_states.erase(language)
@@ -1251,6 +1264,11 @@ func _normalize_single_player_buckets() -> void:
 		_single_player_bucket(language)
 
 func _compact_single_player_history() -> void:
+	var profile_started_usec: int = BUILD_TRACE.section_start()
+	_home_profile_compact_single_player_history()
+	BUILD_TRACE.section_end(&"save.compact", profile_started_usec)
+
+func _home_profile_compact_single_player_history() -> void:
 	for language_variant: Variant in single_player.keys():
 		if !(single_player.get(language_variant) is Dictionary):
 			continue

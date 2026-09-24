@@ -1,5 +1,7 @@
 extends Node2D
 
+const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
+
 const QUIZ_SELECTION: GDScript = preload("res://scripts/core/quiz_selection.gd")
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
@@ -458,6 +460,7 @@ func _build_root() -> void:
 	add_child(ui_audio_player)
 
 func _clear(preserved_content: Control = null) -> void:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
@@ -493,27 +496,37 @@ func _clear(preserved_content: Control = null) -> void:
 	content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	ui.add_child(content)
+	BUILD_TRACE.section_end(&"clear.base", build_started_usec)
 
 func _stage_holder(rect: Rect2, mouse_filter: int = Control.MOUSE_FILTER_PASS) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var holder: Control = FLASH_STAGE_CONTROL_SCRIPT.new() as Control
 	holder.mouse_filter = mouse_filter
-	content.add_child(holder)
 	holder.set("stage_rect", rect)
+	content.add_child(holder)
+	BUILD_TRACE.section_end(&"ui.holder", build_started_usec)
 	return holder
 
-func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color = Color.WHITE, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
+func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color = Color.WHITE, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER, font: Font = null) -> Label:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	label.text = text
 	label.clip_text = true
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.horizontal_alignment = align
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.begin_bulk_theme_override()
+	if font != null:
+		label.add_theme_font_override("font", font)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
+	label.end_bulk_theme_override()
+	# Inherit the final theme and bounds before shaping non-empty text.
 	holder.add_child(label)
+	label.text = text
+	BUILD_TRACE.section_end(&"ui.label", build_started_usec)
 	return label
 
 func _stage_heading_label(
@@ -523,8 +536,7 @@ func _stage_heading_label(
 	color: Color = Color.WHITE,
 	align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER
 ) -> Label:
-	var label := _stage_label(rect, text, _heading_font_size(font_size), color, align)
-	label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	var label := _stage_label(rect, text, _heading_font_size(font_size), color, align, UI_DISPLAY_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(label)
 	return label
 
@@ -540,8 +552,8 @@ func _stage_button(rect: Rect2, callable: Callable, text: String = "", font_size
 	button.add_theme_font_override("font", UI_BUTTON_FONT)
 	_apply_transparent_button_style(button, text != "", UI_FONTS.display_button_font_size(font_size))
 	_connect_stage_button_action(button, callable)
-	content.add_child(button)
 	button.set("stage_rect", rect)
+	content.add_child(button)
 	return button
 
 func _connect_stage_button_action(button: Object, callable: Callable, with_click_sound: bool = true) -> void:
@@ -692,69 +704,81 @@ func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time:
 	return symbol
 
 func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, border_color: Color = Color(0.0, 0.0, 0.0, 0.0), border_width: float = 0.0) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var panel: Control = FLASH_STAGE_PANEL_SCRIPT.new() as Control
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set("fill_color", fill_color)
 	panel.set("corner_radius", corner_radius)
 	panel.set("border_color", border_color)
 	panel.set("border_width", border_width)
-	content.add_child(panel)
 	panel.set("stage_rect", rect)
+	content.add_child(panel)
+	BUILD_TRACE.section_end(&"ui.panel", build_started_usec)
 	return panel
 
 func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var node: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.set("texture", texture)
-	content.add_child(node)
 	node.set("stage_rect", rect)
+	content.add_child(node)
+	BUILD_TRACE.section_end(&"ui.texture", build_started_usec)
 	return node
 
 func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -> Control:
 	var node: Control = FLASH_STAGE_HORIZONTAL_FILL_SCRIPT.new() as Control
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.set("fill_color", color)
-	content.add_child(node)
 	node.set("stage_y", stage_y)
 	node.set("stage_height", stage_height)
+	content.add_child(node)
 	return node
 
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, UI_FONTS.display_button_font_size(font_size), disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
 	button.set("attention_bounce_enabled", attention_bounce)
 	_connect_stage_button_action(button, callable)
-	content.add_child(button)
 	button.stage_rect = rect
+	content.add_child(button)
+	BUILD_TRACE.section_end(&"ui.long_button", build_started_usec)
 	return button
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
-	content.add_child(button)
 	button.stage_rect = rect
+	content.add_child(button)
+	BUILD_TRACE.section_end(&"ui.round_button", build_started_usec)
 	return button
 
 func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
-	content.add_child(button)
 	button.stage_rect = rect
+	content.add_child(button)
+	BUILD_TRACE.section_end(&"ui.round_icon", build_started_usec)
 	return button
 
 func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
 	# Letter keys already have correct/wrong feedback and must not layer a click
 	# over those gameplay sounds.
 	_connect_stage_button_action(button, callable, false)
-	content.add_child(button)
 	button.stage_rect = rect
+	content.add_child(button)
+	BUILD_TRACE.section_end(&"ui.letter", build_started_usec)
 	return button
 
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
@@ -2235,21 +2259,36 @@ func _sync_custom_word_start_bounce() -> void:
 		custom_word_check_button.set("button_disabled", should_disable)
 
 func _set_random_custom_word() -> void:
+	var build_started_usec: int = BUILD_TRACE.section_start()
 	var theme_count: int = Database.get_theme_count()
 	if theme_count <= 0:
+		BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 		return
-	var candidates: PackedStringArray = []
-	for theme_index: int in range(theme_count):
-		# Database difficulty filter 2 is the original game's easy/simple pool.
-		var words: Array = Database.get_words_by_index(theme_index, RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER)
-		for picked: Dictionary in words:
-			var candidate: String = _normalize_custom_word_input(str(picked.get("text", "")))
-			if _is_random_custom_word_candidate(candidate):
-				candidates.append(candidate)
-	if candidates.is_empty():
-		return
+	# Sample raw records uniformly, then apply the same eligibility rules as
+	# the exhaustive pool. Avoid normalizing every word on every screen entry.
+	var selected: String = ""
+	for attempt: int in range(32):
+		var sampled: String = Database.sample_word_by_difficulty(RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER)
+		var candidate: String = _normalize_custom_word_input(sampled)
+		if _is_random_custom_word_candidate(candidate):
+			selected = candidate
+			break
+	if selected.is_empty():
+		# Bounded fallback for empty/sparse pools; never loop indefinitely.
+		# Preserve duplicate records and their original selection weights.
+		var candidates: PackedStringArray = []
+		for theme_index: int in range(theme_count):
+			var words: Array = Database.get_words_by_index(theme_index, RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER)
+			for picked: Dictionary in words:
+				var candidate: String = _normalize_custom_word_input(str(picked.get("text", "")))
+				if _is_random_custom_word_candidate(candidate):
+					candidates.append(candidate)
+		if candidates.is_empty():
+			BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
+			return
+		selected = candidates[randi() % candidates.size()]
 	_reset_custom_word_check_feedback()
-	custom_word_text = candidates[randi() % candidates.size()]
+	custom_word_text = selected
 	if custom_word_edit != null:
 		custom_word_edit.text = custom_word_text
 		custom_word_edit.caret_column = custom_word_edit.text.length()
@@ -2257,6 +2296,7 @@ func _set_random_custom_word() -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
 		custom_word_input_visual.call_deferred("play_word_bounce")
 	_sync_custom_word_start_bounce()
+	BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 
 func _is_random_custom_word_candidate(word: String) -> bool:
 	return (

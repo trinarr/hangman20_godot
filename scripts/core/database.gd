@@ -509,6 +509,35 @@ func get_quiz_question_by_id(theme_index: int, question_id: int) -> Dictionary:
 		return question.duplicate(true)
 	return {}
 
+# One uniformly sampled raw record across all themes. An empty result is a
+# rejected sample, not proof that the pool is empty. Callers bound their retries.
+func sample_word_by_difficulty(difficulty_filter: int = 0) -> String:
+	_ensure_word_language_loaded()
+	var word_groups: Dictionary = data.get("words", {})
+	var total: int = 0
+	var counts: Array[int] = []
+	var theme_count: int = get_theme_count()
+	for theme_index: int in range(theme_count):
+		var words: Array = word_groups.get(str(get_theme_id(theme_index)), [])
+		counts.append(words.size())
+		total += words.size()
+	if total == 0:
+		return ""
+	var word_index: int = randi_range(0, total - 1)
+	for theme_index: int in range(theme_count):
+		if word_index >= counts[theme_index]:
+			word_index -= counts[theme_index]
+			continue
+		var difficulty: float = get_word_difficulty(theme_index, word_index)
+		if difficulty_filter == 1 and difficulty <= DIFFICULTY_SPLIT:
+			return ""
+		if difficulty_filter == 2 and difficulty > DIFFICULTY_SPLIT:
+			return ""
+		var words: Array = word_groups.get(str(get_theme_id(theme_index)), [])
+		var word: String = normalize_loaded_word(str(words[word_index]))
+		return "" if word == "_" else word
+	return ""
+
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	_ensure_word_language_loaded()
 	var cache_key := "%d:%d" % [theme_index, difficulty_filter]

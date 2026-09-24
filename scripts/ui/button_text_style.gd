@@ -22,12 +22,14 @@ static func apply(
 	var resolved_shadow_color: Color = outline_color
 	if shadow_color.r >= 0.0:
 		resolved_shadow_color = shadow_color
+	target.begin_bulk_theme_override()
 	target.add_theme_color_override("font_outline_color", outline_color)
 	target.add_theme_constant_override("outline_size", maxi(outline_size, 0))
 	target.add_theme_color_override("font_shadow_color", resolved_shadow_color)
 	target.add_theme_constant_override("shadow_offset_x", shadow_offset)
 	target.add_theme_constant_override("shadow_offset_y", shadow_offset)
 	target.add_theme_constant_override("shadow_outline_size", 0)
+	target.end_bulk_theme_override()
 
 static func apply_display(target: Control) -> void:
 	# Reuse the exact navy treatment already present in the project: the outline
@@ -48,12 +50,14 @@ static func apply_display_tinted(
 	# Keep the exact button/display geometry; only the two authored colors differ.
 	# Native Label/Button effects stay disabled so they cannot double the shader
 	# outline or extrusion.
+	target.begin_bulk_theme_override()
 	target.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	target.add_theme_constant_override("outline_size", 0)
 	target.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	target.add_theme_constant_override("shadow_offset_x", 0)
 	target.add_theme_constant_override("shadow_offset_y", 0)
 	target.add_theme_constant_override("shadow_outline_size", 0)
+	target.end_bulk_theme_override()
 	DISPLAY_TEXT_EFFECT_SCRIPT.attach(target, outline_color, shadow_color)
 
 static func apply_regular_display(target: Control) -> void:
@@ -61,12 +65,14 @@ static func apply_regular_display(target: Control) -> void:
 		return
 	# Regular text keeps the same outline/extrusion language as display text,
 	# but the shadow sits 30% closer to the glyph than headings/buttons.
+	target.begin_bulk_theme_override()
 	target.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	target.add_theme_constant_override("outline_size", 0)
 	target.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
 	target.add_theme_constant_override("shadow_offset_x", 0)
 	target.add_theme_constant_override("shadow_offset_y", 0)
 	target.add_theme_constant_override("shadow_outline_size", 0)
+	target.end_bulk_theme_override()
 
 	var outline_color: Color = UI_PALETTE.UI_BLUE.darkened(0.40)
 	DISPLAY_TEXT_EFFECT_SCRIPT.attach(

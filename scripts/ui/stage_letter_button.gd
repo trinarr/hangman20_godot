@@ -75,6 +75,9 @@ func configure(
 	animate_marker = animate_marker_value and letter_state != LetterState.NORMAL
 	_marker_animation_pending = animate_marker
 	disabled = disabled_value
+	# Initial configuration is applied once in _ready(), with final geometry.
+	if !is_inside_tree():
+		return
 	_ensure_visual_nodes()
 	_sync_visuals()
 	_sync_layout()
@@ -101,7 +104,7 @@ func _ensure_visual_nodes() -> void:
 func _sync_visuals() -> void:
 	if _marker == null or _label == null:
 		return
-	_label.text = letter_text
+	_label.begin_bulk_theme_override()
 	_label.add_theme_font_override("font", _button_text_font)
 	_label.add_theme_font_size_override("font_size", letter_font_size)
 	_label.add_theme_color_override("font_color", _letter_color())
@@ -112,6 +115,8 @@ func _sync_visuals() -> void:
 	_label.add_theme_constant_override("shadow_offset_x", 0)
 	_label.add_theme_constant_override("shadow_offset_y", 0)
 	_label.add_theme_constant_override("shadow_outline_size", 0)
+	_label.end_bulk_theme_override()
+	_label.text = letter_text
 
 	_marker.visible = letter_state != LetterState.NORMAL
 	_marker.texture = _marker_texture()
