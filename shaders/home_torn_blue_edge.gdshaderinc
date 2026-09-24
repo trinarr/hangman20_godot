@@ -40,10 +40,10 @@ float home_torn_fiber_shadow(float y, vec4 edges, float unit) {
 	}
 	float upper_distance = y - edges.y;
 	float lower_distance = edges.z - y;
-	// Shift the upper cast shadow down, keeping its existing blur width.
+	// Shift the upper cast shadow down, with a short, crisp falloff.
 	float upper_offset = 1.5 * unit;
 	float upper = 0.15 * (1.0 - smoothstep(upper_offset,
-		upper_offset + 1.75 * unit, upper_distance));
+		upper_offset + 0.85 * unit, upper_distance));
 	// Light comes from above: tuck the lower shadow core beneath its rim.
 	// Only a short, faint falloff remains visible above the lower piece.
 	float lower = 0.08 * (1.0 - smoothstep(-0.45 * unit, 0.65 * unit, lower_distance));

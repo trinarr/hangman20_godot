@@ -4,10 +4,10 @@ const TRANSITION_SHADER: Shader = preload("res://shaders/home_paper_transition.g
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FADE_OUT_SECONDS: float = 0.20
-const MOVEMENT_SPEED: float = 0.88
-const GATHER_SECONDS: float = 0.10 / MOVEMENT_SPEED
-const GATHER_DISTANCE: float = 18.0
-const OPEN_SECONDS: float = (0.65 / 1.40 / 1.15) / MOVEMENT_SPEED
+const MOVEMENT_SPEED: float = 0.9
+const GATHER_SECONDS: float = 0.08 / MOVEMENT_SPEED
+const GATHER_DISTANCE: float = 16.0
+const OPEN_SECONDS: float = 0.35 / MOVEMENT_SPEED
 const HEADER_FADE_OUT_SECONDS: float = 0.18
 
 # _clear() runs synchronously while building the destination. Retain the
@@ -209,8 +209,8 @@ func _start_opening() -> void:
 	_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	# Swap the paper for the real destination at maximum gather, then open.
 	_material.set_shader_parameter("destination_ready", true)
-	_tween.tween_method(_set_progress, 0.0, 1.0, OPEN_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	_tween.parallel().tween_method(_set_gather, 1.0, 0.0, OPEN_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_tween.tween_method(_set_progress, 0.0, 1.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_tween.parallel().tween_method(_set_gather, 1.0, 0.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.parallel().tween_method(_set_header_content_opacity, 1.0, 0.0, HEADER_FADE_OUT_SECONDS)
 	_tween.chain().tween_callback(queue_free)
 
