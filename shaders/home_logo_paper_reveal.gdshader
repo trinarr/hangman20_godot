@@ -20,6 +20,7 @@ uniform float badge_alpha : hint_range(0.0, 1.0) = 0.0;
 uniform float badge_scale = 0.65;
 uniform float foreground_opacity : hint_range(0.0, 1.0) = 1.0;
 uniform bool foreground_only = false;
+uniform bool reverse_departure = false;
 uniform float departure_inset = 0.0;
 #include "res://shaders/paper_edge.gdshaderinc"
 #include "res://shaders/home_torn_blue_edge.gdshaderinc"
@@ -154,7 +155,7 @@ void fragment() {
 
 		vec4 ink = sample_title(logo_uv);
 		ink.a *= (1.0 - badge_region(logo_uv)) * foreground_opacity;
-		vec3 result = mix(paper, ink.rgb, ink.a);
+		vec3 result = mix(paper, ink.rgb, reverse_departure ? 0.0 : ink.a);
 
 		float shadow = (1.0 - smoothstep(0.0, 9.0 * unit, front - pixel.x)) * 0.24;
 		result *= 1.0 - shadow * min(1.0, reveal_progress * 10.0);
@@ -199,9 +200,18 @@ void fragment() {
 		layer.a *= visible_title * (1.0 - home_torn_fiber_mask(pixel.y, moving_edges, aa));
 	}
 
+	// On closing, fade the lettering independently of the moving peel edge.
+	if (reverse_departure) {
+		vec4 title = sample_title(logo_uv);
+		title.a *= (1.0 - badge_region(logo_uv)) * foreground_opacity;
+		float alpha = title.a + layer.a * (1.0 - title.a);
+		layer = vec4((title.rgb * title.a + layer.rgb * layer.a * (1.0 - title.a))
+			/ max(0.0001, alpha), alpha);
+	}
+
 	// The badge is independent of both the paper mask and the moving fold.
 	// Restore its original atlas position, overlapping the paper's upper edge.
-	if (reveal_progress >= 1.0 && badge_alpha > 0.0) {
+	if ((reveal_progress >= 1.0 || reverse_departure) && badge_alpha > 0.0) {
 		vec2 pivot = vec2(980.0, 585.0) / 1254.0;
 		vec2 badge_uv = pivot + (logo_uv - pivot) / max(0.01, badge_scale);
 		vec4 badge = sample_ink(badge_uv);

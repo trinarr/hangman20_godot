@@ -26,6 +26,7 @@ var _buttons_opacity: float = 0.0
 var _buttons_tween: Tween
 var _buttons_started: bool = false
 var _departing: bool = false
+var _reveal_progress: float = 0.0
 
 func _ready() -> void:
 	name = "HomeLogoPaperReveal"
@@ -105,8 +106,9 @@ func _start_entrance() -> void:
 	shine.set_ease(Tween.EASE_IN_OUT)
 
 func _set_reveal_progress(value: float) -> void:
+	_reveal_progress = value
 	_reveal_material.set_shader_parameter("reveal_progress", value)
-	if value >= 0.5 and !_buttons_started:
+	if value >= 0.5 and !_buttons_started and !_departing:
 		_start_buttons_entrance()
 
 func _set_shine_progress(value: float) -> void:
@@ -159,3 +161,15 @@ func set_foreground_opacity(value: float) -> void:
 
 func set_departure_inset(stage_distance: float) -> void:
 	_reveal_material.set_shader_parameter("departure_inset", stage_distance)
+
+# The blue destination closes the original peel instead of separating its edges.
+# Keep the current progress so an early click cannot jump the paper fully open.
+func prepare_reverse_departure() -> float:
+	_departing = true
+	if _entrance_tween != null and _entrance_tween.is_valid():
+		_entrance_tween.kill()
+	if _buttons_tween != null and _buttons_tween.is_valid():
+		_buttons_tween.kill()
+	_reveal_material.set_shader_parameter("reverse_departure", true)
+	_sync_layout()
+	return _reveal_progress

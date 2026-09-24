@@ -5,9 +5,9 @@ const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_pap
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FADE_OUT_SECONDS: float = 0.20
 const MOVEMENT_SPEED: float = 0.9
-const GATHER_SECONDS: float = 0.08 / MOVEMENT_SPEED
-const GATHER_DISTANCE: float = 16.0
-const OPEN_SECONDS: float = 0.35 / MOVEMENT_SPEED
+const GATHER_SECONDS: float = 0.12 / MOVEMENT_SPEED
+const GATHER_DISTANCE: float = 18.0
+const OPEN_SECONDS: float = 0.38 / MOVEMENT_SPEED
 const HEADER_FADE_OUT_SECONDS: float = 0.18
 
 # _clear() runs synchronously while building the destination. Retain the

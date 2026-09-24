@@ -31,7 +31,8 @@ const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 )
 const PORTRAIT_PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const HOME_PAPER_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_paper_transition.gd")
-var _home_paper_transition: CanvasLayer
+const HOME_BLUE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_blue_transition.gd")
+var _home_transition: CanvasLayer
 var _home_logo_reveal: Control
 var _home_start_buttons: Array[Control] = []
 
@@ -1055,16 +1056,16 @@ func _portrait_ad_banner_rect() -> Rect2:
 
 func _hide_portrait_ad_banner() -> void:
 	# Home departure preserves the native banner, including destination _clear().
-	if is_instance_valid(_home_paper_transition):
+	if is_instance_valid(_home_transition):
 		return
 	var ads_service: Node = _portrait_ads_service()
 	if ads_service != null and ads_service.has_method("hide_banner"):
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
-	if is_instance_valid(_home_paper_transition) and !bool(_home_paper_transition.get("committing")):
-		_home_paper_transition.free()
-		_home_paper_transition = null
+	if is_instance_valid(_home_transition) and !bool(_home_transition.get("committing")):
+		_home_transition.free()
+		_home_transition = null
 	_home_logo_reveal = null
 	_home_start_buttons.clear()
 	_cancel_portrait_reward_presentation()
@@ -1194,11 +1195,18 @@ func _portrait_create_top_bar_group() -> Control:
 func _portrait_screen(
 	_header_height: float = PORTRAIT_HEADER_HEIGHT,
 	footer_y: float = -1.0,
-	header_color: Color = PORTRAIT_BLUE
+	header_color: Color = PORTRAIT_BLUE,
+	paper_background_enabled: bool = true
 ) -> void:
-	var paper_background: Control = PORTRAIT_PAPER_BACKGROUND_SCRIPT.new() as Control
-	paper_background.z_index = -2
-	content.add_child(paper_background)
+	if paper_background_enabled:
+		var paper_background: Control = PORTRAIT_PAPER_BACKGROUND_SCRIPT.new() as Control
+		paper_background.z_index = -2
+		content.add_child(paper_background)
+	else:
+		# Blue pages never need a grid underneath their background or header.
+		var blue_background := _stage_horizontal_fill(0.0, PORTRAIT_STAGE_SIZE.y, header_color)
+		blue_background.name = "PortraitBlueBackground"
+		blue_background.z_index = -2
 	var screen_content: Control = content
 	content = _portrait_create_top_bar_group()
 	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
@@ -3284,7 +3292,7 @@ func _show_menu_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
 
-	_portrait_screen(0.0)
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
 	var home_background_overlay := _stage_horizontal_fill(
 		PORTRAIT_HEADER_HEIGHT,
 		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
@@ -3333,7 +3341,7 @@ func _show_menu_screen() -> void:
 	logo_reveal.set("reveal_duration", PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER)
 	logo_reveal.set("shine_duration", PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS)
 
-	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home_on_paper").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
+	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_action := Callable(self, "_open_next_single_player_level")
 	if GameState.has_resumable_single_player_level():
 		single_player_action = Callable(self, "_resume_saved_single_player_level")
@@ -3365,27 +3373,29 @@ func _show_menu_screen() -> void:
 	else:
 		_check_startup_guided_resume()
 
-func _leave_home_on_paper(action: Callable) -> void:
-	if is_instance_valid(_home_paper_transition):
+func _leave_home(action: Callable, blue_pattern: bool = false) -> void:
+	if is_instance_valid(_home_transition):
 		return
 	if !is_instance_valid(_home_logo_reveal):
 		action.call()
 		return
-	_home_paper_transition = HOME_PAPER_TRANSITION_SCRIPT.new() as CanvasLayer
-	_home_paper_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
-	add_child(_home_paper_transition)
-	_home_paper_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
+	var transition_script: GDScript = HOME_BLUE_TRANSITION_SCRIPT if blue_pattern else HOME_PAPER_TRANSITION_SCRIPT
+	_home_transition = transition_script.new() as CanvasLayer
+	if !blue_pattern:
+		_home_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
+	add_child(_home_transition)
+	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
 
 func _open_single_player_from_home(action: Callable) -> void:
-	if is_instance_valid(_home_paper_transition):
+	if is_instance_valid(_home_transition):
 		return
 	# Keep Home behind the theme picker. Only an already-started saved round
 	# skips selection and can leave Home immediately.
 	if (
 		action.get_method() == &"_resume_saved_single_player_level"
-		and str(GameState.get_active_single_player_session().get("kind", "")) != "theme"
+		and str(GameState.get_active_single_player_session().get("kind", "")) not in ["theme", "quiz"]
 	):
-		_leave_home_on_paper(action)
+		_leave_home(action)
 		return
 	action.call()
 
@@ -6120,7 +6130,11 @@ func _prepare_quiz_screen_entrance(
 	var panel_offset: float = PORTRAIT_QUIZ_ENTRANCE_PANEL_OFFSET * fit_scale
 	var slide_distance: float = maxf(viewport_size.x, PORTRAIT_STAGE_SIZE.x)
 
-	quiz_background.modulate.a = 0.0
+	# Home already supplies a complete blue backdrop. Crossfade the patterns
+	# while starting the quiz content immediately, without another backdrop wait.
+	var from_blue_home: bool = is_instance_valid(_home_transition) and _home_transition.get_script() == HOME_BLUE_TRANSITION_SCRIPT
+	quiz_background.set_meta(&"from_blue_home", from_blue_home)
+	quiz_background.modulate.a = 1.0 if from_blue_home else 0.0
 	if question_shadow != null and is_instance_valid(question_shadow):
 		question_shadow.set_meta(&"quiz_entrance_rest_y", question_shadow.position.y)
 		question_shadow.position.y -= panel_offset
@@ -6178,22 +6192,22 @@ func _play_quiz_screen_entrance(
 	if quiz_background == null or !is_instance_valid(quiz_background):
 		return
 
-	# Match the grand-prize reveal: the blue patterned backdrop fades in as one
-	# complete layer before any quiz content is introduced.
-	var background_tween := quiz_background.create_tween()
-	background_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var backdrop_fade := background_tween.tween_property(
-		quiz_background,
-		"modulate:a",
-		1.0,
-		PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION
-	)
-	backdrop_fade.set_trans(Tween.TRANS_SINE)
-	backdrop_fade.set_ease(Tween.EASE_IN_OUT)
-	await background_tween.finished
-	if !_quiz_entrance_is_current(generation):
-		return
-
+	if !bool(quiz_background.get_meta(&"from_blue_home", false)):
+		# Match the grand-prize reveal: the blue patterned backdrop fades in as one
+		# complete layer before any quiz content is introduced.
+		var background_tween := quiz_background.create_tween()
+		background_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var backdrop_fade := background_tween.tween_property(
+			quiz_background,
+			"modulate:a",
+			1.0,
+			PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION
+		)
+		backdrop_fade.set_trans(Tween.TRANS_SINE)
+		backdrop_fade.set_ease(Tween.EASE_IN_OUT)
+		await background_tween.finished
+		if !_quiz_entrance_is_current(generation):
+			return
 	# The question card descends from above while fading in. Answers enter as a
 	# short cascade from right to left: the top answer starts immediately and
 	# every lower answer follows a little later.
@@ -6353,10 +6367,13 @@ func _show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
 		show_menu()
 		return
+	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
+		_leave_home(Callable(self, "_show_quiz_game_screen"), true)
+		return
 	_clear()
 	_quiz_mode_active = true
 	_quiz_screen_active = true
-	_portrait_screen(0.0)
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
 
 	# Reuse the Home background treatment for quiz gameplay: the same body color,
 	# animated pattern tuning, alpha falloff, and dark-blue vertical gradient.
@@ -6526,7 +6543,12 @@ func _show_quiz_game_screen() -> void:
 		_quiz_entrance_generation += 1
 	_restore_quiz_answer_result_state()
 	if !should_animate_quiz_intro and !_quiz_answer_locked:
-		_mark_quiz_question_ready()
+		if is_instance_valid(_home_transition) and _home_transition.get_script() == HOME_BLUE_TRANSITION_SCRIPT:
+			# A restored question with used hints skips the regular quiz intro.
+			# Its speed bonus clock must start only after Home stops covering it.
+			_home_transition.connect("finished", _mark_quiz_question_ready, CONNECT_ONE_SHOT)
+		else:
+			_mark_quiz_question_ready()
 	_stage_portrait_ad_banner()
 
 func _remove_single_player_theme_popup() -> void:
@@ -8983,12 +9005,10 @@ func _start_single_player_popup_level(level_index: int) -> void:
 		var selected_theme: int = single_player_popup_selected_theme
 		if !_single_player_level_theme_options(level_index).has(selected_theme):
 			return
-		# Closing the picker resets its indices. Capture the selection first and
-		# commit it only once the paper covers Home.
+		# Resolve the actual next stage before choosing its background transition.
+		# Closing the picker resets its indices, so retain the selected theme.
 		_remove_single_player_theme_popup()
-		_leave_home_on_paper(
-			Callable(self, "_start_home_single_player_level").bind(level_index, selected_theme)
-		)
+		_start_home_single_player_level(level_index, selected_theme)
 		return
 	super._start_single_player_popup_level(level_index)
 
@@ -9332,6 +9352,9 @@ func _stage_portrait_custom_word_field() -> void:
 		custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
 
 func show_game_screen() -> void:
+	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
+		_leave_home(Callable(self, "show_game_screen"))
+		return
 	# Only actual navigation into the active gameplay page gets the entrance
 	# animation. Regular GameSession.changed rebuilds must stay visually stable.
 	_portrait_game_entrance_pending = !game_finished
@@ -10047,7 +10070,7 @@ func _stage_portrait_ad_banner() -> void:
 	if ads_service != null:
 		if ads_service.has_method("is_native_available"):
 			native_ads_available = bool(ads_service.call("is_native_available"))
-		if !is_instance_valid(_home_paper_transition) and ads_service.has_method("show_banner"):
+		if !is_instance_valid(_home_transition) and ads_service.has_method("show_banner"):
 			ads_service.call("show_banner")
 	if native_ads_available:
 		return
