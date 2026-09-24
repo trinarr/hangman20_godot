@@ -145,8 +145,8 @@ const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
 const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
 const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
-const MODAL_DIMMER_FADE_IN_DURATION: float = 0.20
-const MODAL_DIMMER_FADE_OUT_DURATION: float = 0.16
+const MODAL_DIMMER_FADE_IN_DURATION: float = 0.18
+const MODAL_DIMMER_FADE_OUT_DURATION: float = 0.14
 
 var ui: Control
 var content: Control
@@ -577,6 +577,9 @@ func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.5
 	dimmer.name = "ModalDimmer"
 	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
+	# A freshly opened popup owns the screen immediately, but tapping the dimmer
+	# must not dismiss it until the popup's opening bounce has fully settled.
+	dimmer.set_meta(&"modal_close_ready", false)
 	dimmer.gui_input.connect(_on_modal_dimmer_input.bind(dimmer, close_callable))
 	content.add_child(dimmer)
 	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -669,11 +672,13 @@ func _on_modal_dimmer_input(
 
 	if should_close:
 		get_viewport().set_input_as_handled()
-		if (
-			dimmer == null
-			or !is_instance_valid(dimmer)
-			or dimmer.get_meta(&"modal_close_pending", false)
-		):
+		if dimmer == null or !is_instance_valid(dimmer):
+			return
+		# Consume the touch while the popup is opening so it cannot leak through to
+		# gameplay, but ignore it as a close request until the bounce is complete.
+		if !bool(dimmer.get_meta(&"modal_close_ready", true)):
+			return
+		if dimmer.get_meta(&"modal_close_pending", false):
 			return
 		dimmer.set_meta(&"modal_close_pending", true)
 		if close_callable.is_valid():
@@ -681,6 +686,11 @@ func _on_modal_dimmer_input(
 			# Otherwise a popup restored by this close can receive the same tap and
 			# immediately close as well.
 			close_callable.call_deferred()
+
+func _set_modal_dimmer_close_ready(dimmer: ColorRect, ready: bool) -> void:
+	if dimmer == null or !is_instance_valid(dimmer):
+		return
+	dimmer.set_meta(&"modal_close_ready", ready)
 
 func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: float) -> Control:
 	var centered_content: Control = POPUP_STAGE_CENTER_SCRIPT.new() as Control

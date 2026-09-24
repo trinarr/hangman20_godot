@@ -51,6 +51,11 @@ var disabled: bool = false:
 # Long and round button components enable this behavior. Other texture buttons
 # keep their previous interaction and size.
 var press_scale_enabled: bool = false
+# Scrollable parents can opt a button into normal event bubbling. This keeps a
+# stationary tap working exactly as before, while letting ScrollContainer turn a
+# press that grows into a drag into scrolling. Keep it disabled globally so
+# gameplay buttons preserve their existing event ownership.
+var allow_parent_scroll_drag: bool = false
 var pressed_scale: Vector2 = Vector2(0.94, 0.94)
 var press_scale_duration: float = 0.055
 var release_scale_duration: float = 0.085
@@ -110,13 +115,15 @@ func _gui_input(event: InputEvent) -> void:
 		if mouse_event.pressed:
 			_is_down = true
 			_set_press_scale(true)
-			accept_event()
+			if !allow_parent_scroll_drag:
+				accept_event()
 			queue_redraw()
 		else:
 			var was_down := _is_down
 			_is_down = false
 			_set_press_scale(false)
-			accept_event()
+			if !allow_parent_scroll_drag:
+				accept_event()
 			queue_redraw()
 			if was_down and Rect2(Vector2.ZERO, size).has_point(mouse_event.position):
 				pressed.emit()

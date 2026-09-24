@@ -520,8 +520,12 @@ const PORTRAIT_RULE := PORTRAIT_UI_PALETTE.UI_BLUE_RULE
 const PORTRAIT_AD_BADGE_PURPLE := PORTRAIT_UI_PALETTE.AD_PURPLE
 const PORTRAIT_POPUP_DIM_ALPHA: float = 0.874
 const PORTRAIT_POPUP_CLOSE_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * 1.20
-const PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE: int = 39
+const PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE: int = 55
 const PORTRAIT_POPUP_CLOSE_GAP: float = 48.0
+const PORTRAIT_POPUP_CLOSE_INTRO_START_SCALE: float = 0.58
+const PORTRAIT_POPUP_CLOSE_INTRO_PEAK_SCALE: float = 1.16
+const PORTRAIT_POPUP_CLOSE_INTRO_GROW_SECONDS: float = 0.12
+const PORTRAIT_POPUP_CLOSE_INTRO_SETTLE_SECONDS: float = 0.14
 const PORTRAIT_POPUP_CORNER_RADIUS: float = 26.0
 const PORTRAIT_POPUP_TOP_TRIM: float = 51.3
 const PORTRAIT_POPUP_TITLE_SCALE: float = 1.2078
@@ -2773,9 +2777,19 @@ func _portrait_popup_begin(
 			close_callable,
 			coin_store_return_action
 		)
+	var modal_dimmer := popup_root.find_child("ModalDimmer", false, false) as ColorRect
 	content = _center_popup_content(popup_root, popup_top, popup_bottom)
 	if resume_without_intro and content.has_method(&"settle_without_open_bounce"):
 		content.call(&"settle_without_open_bounce")
+		_set_modal_dimmer_close_ready(modal_dimmer, true)
+	elif content.has_signal(&"open_bounce_finished"):
+		content.connect(
+			&"open_bounce_finished",
+			Callable(self, "_set_modal_dimmer_close_ready").bind(modal_dimmer, true),
+			CONNECT_ONE_SHOT
+		)
+	else:
+		_set_modal_dimmer_close_ready(modal_dimmer, true)
 	return previous_content
 
 func _stage_refill_status_glow(
@@ -2864,12 +2878,71 @@ func _stage_popup_coin_balance_above_dimmer(
 func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", "×", false, false, PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE, 0.32)
-	button.call("set_color_preset", ROUND_BUTTON_COLOR_BLUE)
+	button.call(
+		"set_color_palette",
+		PORTRAIT_UI_PALETTE.ERROR,
+		PORTRAIT_UI_PALETTE.ERROR.darkened(0.14),
+		PORTRAIT_UI_PALETTE.ERROR
+	)
 	button.set("drop_shadow_enabled", true)
 	_connect_stage_button_action(button, callable)
+	var popup_stage: Control = content
 	content.add_child(button)
 	button.stage_rect = rect
+	# The close affordance is intentionally absent during the popup's own opening
+	# motion. Once the shell settles, reveal it as a separate compact bounce.
+	button.visible = false
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.visual_scale = Vector2.ONE * PORTRAIT_POPUP_CLOSE_INTRO_START_SCALE
+	if (
+		popup_stage != null
+		and popup_stage.has_signal(&"open_bounce_finished")
+		and !bool(popup_stage.get("open_bounce_complete"))
+	):
+		popup_stage.connect(
+			&"open_bounce_finished",
+			Callable(self, "_play_portrait_popup_close_button_intro").bind(button),
+			CONNECT_ONE_SHOT
+		)
+	else:
+		call_deferred("_play_portrait_popup_close_button_intro", button)
 	return button
+
+func _play_portrait_popup_close_button_intro(button: FlashStageTextureButton) -> void:
+	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
+		return
+	button.visible = true
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.visual_scale = Vector2.ONE * PORTRAIT_POPUP_CLOSE_INTRO_START_SCALE
+	var intro_tween := create_tween()
+	intro_tween.bind_node(button)
+	intro_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow_tweener: PropertyTweener = intro_tween.tween_property(
+		button,
+		"visual_scale",
+		Vector2.ONE * PORTRAIT_POPUP_CLOSE_INTRO_PEAK_SCALE,
+		PORTRAIT_POPUP_CLOSE_INTRO_GROW_SECONDS
+	)
+	grow_tweener.set_trans(Tween.TRANS_BACK)
+	grow_tweener.set_ease(Tween.EASE_OUT)
+	var settle_tweener: PropertyTweener = intro_tween.tween_property(
+		button,
+		"visual_scale",
+		Vector2.ONE,
+		PORTRAIT_POPUP_CLOSE_INTRO_SETTLE_SECONDS
+	)
+	settle_tweener.set_trans(Tween.TRANS_QUAD)
+	settle_tweener.set_ease(Tween.EASE_IN_OUT)
+	intro_tween.finished.connect(
+		Callable(self, "_finish_portrait_popup_close_button_intro").bind(button),
+		CONNECT_ONE_SHOT
+	)
+
+func _finish_portrait_popup_close_button_intro(button: FlashStageTextureButton) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	button.visual_scale = Vector2.ONE
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 func _portrait_popup_shell(
 	rect: Rect2,
