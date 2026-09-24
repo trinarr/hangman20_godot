@@ -3636,17 +3636,31 @@ func _resume_saved_single_player_level() -> void:
 						"single_player_stage_won",
 						true
 					))
-					# A relaunched completed multi-stage level should stop on the settled
-					# reward-chain checkpoint instead of immediately auto-advancing into
-					# the main-prize transition. The saved `next` snapshot already proves
-					# that the final stage was completed; this transient marker changes only
-					# resume presentation and does not require a save-format migration.
-					if (
+					# A relaunched completed multi-stage level should stop on a fully settled
+					# reward-chain checkpoint instead of replaying any of the final-stage
+					# presentation. Resolve the durable stage reward before rebuilding the UI
+					# so the first rendered frame already has the final balance/check state:
+					# no resource flight, counter roll, check bounce, or extra transition.
+					var resumed_final_chain_checkpoint: bool = (
 						bool(last_result_data.get("single_player_level_completed", false))
 						and !bool(last_result_data.get("single_player_level_summary_view", false))
 						and !pending.is_empty()
-					):
+					)
+					if resumed_final_chain_checkpoint:
 						last_result_data["single_player_resume_chain_checkpoint"] = true
+						if !stage_reward.is_empty():
+							if !bool(stage_reward.get("claimed", false)):
+								GameState.claim_active_single_player_stage_reward(true)
+							stage_reward = GameState.get_active_single_player_stage_reward()
+							if (
+								str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
+								and !bool(stage_reward.get("double_resolved", true))
+							):
+								GameState.resolve_active_single_player_stage_reward_double(false, true)
+							stage_reward = GameState.get_active_single_player_stage_reward()
+						_portrait_single_reward_resume_without_intro = true
+						_show_single_player_reward_chain_screen()
+						return
 					if interrupted_stage_coin_reward_offer:
 						_finish_single_player_stage_coin_reward_offer()
 						return
