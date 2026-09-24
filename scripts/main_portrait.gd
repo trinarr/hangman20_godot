@@ -2878,12 +2878,7 @@ func _stage_popup_coin_balance_above_dimmer(
 func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", "×", false, false, PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE, 0.32)
-	button.call(
-		"set_color_palette",
-		PORTRAIT_UI_PALETTE.ERROR,
-		PORTRAIT_UI_PALETTE.ERROR.darkened(0.14),
-		PORTRAIT_UI_PALETTE.ERROR
-	)
+	button.call("set_color_preset", ROUND_BUTTON_COLOR_BLUE)
 	button.set("drop_shadow_enabled", true)
 	_connect_stage_button_action(button, callable)
 	var popup_stage: Control = content

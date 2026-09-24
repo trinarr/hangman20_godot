@@ -5,9 +5,9 @@ signal open_bounce_finished
 
 const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
-const OPEN_START_FACTOR: float = 0.90
-const OPEN_PEAK_FACTOR: float = 1.025
-const OPEN_GROW_DURATION: float = 0.15
+const OPEN_START_FACTOR: float = 0.765
+const OPEN_PEAK_FACTOR: float = 1.05
+const OPEN_GROW_DURATION: float = 0.16
 const OPEN_SETTLE_DURATION: float = 0.11
 const MAX_ADAPTIVE_POPUP_SCALE: float = 1.00
 

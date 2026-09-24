@@ -32,7 +32,7 @@ void fragment() {
 	// Match Home's upper blue piece: same offset, opacity and blur in stage pixels.
 	float shadow_offset = 1.5;
 	float shadow = 0.15 * (1.0 - smoothstep(shadow_offset,
-		shadow_offset + 0.85, distance_below));
+		shadow_offset + 2.5, distance_below));
 	// Coverage clips the shadow beneath the sheet, including its antialiased rim.
 	shadow *= smoothstep(edges.y - aa, edges.y + aa, pixel.y);
 	float alpha = mask + shadow;
