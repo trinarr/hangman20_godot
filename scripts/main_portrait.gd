@@ -903,6 +903,63 @@ func _portrait_ads_enabled() -> bool:
 		and GameState.has_ad_personalization_decision()
 	)
 
+func _portrait_handle_modal_back_request() -> bool:
+	# Back/Escape must always act on the topmost modal. Without this guard the
+	# base gameplay handler can see a lower popup that is still alive underneath
+	# another one (for example Extra Attempts below the coin store), or even open
+	# Exit Game on top of Settings/Hearts/Word Comment.
+	if !get_tree().get_nodes_in_group(PORTRAIT_USER_CONSENT_POPUP_GROUP).is_empty():
+		# Consent opened as a required decision has no close affordance. Consume Back
+		# exactly like tapping its dimmer, which is intentionally non-dismissible.
+		return true
+	if !get_tree().get_nodes_in_group(PORTRAIT_LEGAL_POPUP_GROUP).is_empty():
+		return true
+	if !get_tree().get_nodes_in_group(&"coin_refill_popup").is_empty():
+		_close_coin_store()
+		return true
+	if !get_tree().get_nodes_in_group(&"word_language_confirm_popup").is_empty():
+		_remove_settings_word_language_confirm_popup()
+		return true
+	if !get_tree().get_nodes_in_group(&"heart_refill_popup").is_empty():
+		_close_heart_refill_popup()
+		return true
+	if !get_tree().get_nodes_in_group(&"single_player_last_chance_popup").is_empty():
+		_decline_single_player_extra_attempt()
+		return true
+	if !get_tree().get_nodes_in_group(&"exit_game_popup").is_empty():
+		_remove_exit_game_popup()
+		return true
+	if !get_tree().get_nodes_in_group(&"single_player_theme_popup").is_empty():
+		if _single_player_theme_selection_is_locked(single_player_popup_level_index):
+			return true
+		if single_player_popup_return_to_menu_on_close:
+			_close_single_player_theme_popup_to_menu()
+		elif single_player_retry_after_loss:
+			_close_single_player_retry_popup()
+		else:
+			_remove_single_player_theme_popup()
+		return true
+	if !get_tree().get_nodes_in_group(&"settings_popup").is_empty():
+		_remove_settings_popup()
+		return true
+	if !get_tree().get_nodes_in_group(&"word_comment_popup").is_empty():
+		_remove_word_comment_popup()
+		return true
+	return false
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if (
+			key_event.pressed
+			and !key_event.echo
+			and key_event.keycode == KEY_ESCAPE
+			and _portrait_handle_modal_back_request()
+		):
+			get_viewport().set_input_as_handled()
+			return
+	super._unhandled_input(event)
+
 func _portrait_ad_not_ready_message() -> String:
 	var translated: String = tr(&"TOAST_AD_NOT_READY")
 	if translated != "TOAST_AD_NOT_READY":
@@ -2228,6 +2285,12 @@ func _close_coin_store() -> void:
 		_remove_coin_refill_popup()
 	else:
 		super._close_coin_store()
+	# A stacked underlay becomes interactive again only after the coin store has
+	# closed. Re-read the balance at that point instead of trusting the colors it
+	# had before the rewarded ad was shown. Every registered coin-price label is
+	# refreshed together, so heart/attempt/theme offers cannot keep a stale red
+	# price after coins were granted while covered by the store.
+	_update_single_player_refresh_price(GameState.get_soft_currency())
 	_portrait_coin_store_underlay = null
 
 func _run_for_live_control(target_ref: WeakRef, action: Callable, args: Array = []) -> void:
@@ -2918,9 +2981,6 @@ func _portrait_popup_begin(
 	if !resume_without_intro:
 		_play_popup_open_sound()
 	var previous_content: Control = content
-	var has_existing_modal_popup: bool = !get_tree().get_nodes_in_group(
-		PORTRAIT_MODAL_POPUP_GROUP
-	).is_empty()
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = name + "Canvas"
 	popup_layer.layer = layer_index
@@ -2947,7 +3007,7 @@ func _portrait_popup_begin(
 	_add_fullscreen_modal_backdrop(
 		dimmer_close_callable,
 		alpha,
-		!has_existing_modal_popup
+		true
 	)
 	if show_coin_balance:
 		_stage_popup_coin_balance_above_dimmer(
@@ -3380,6 +3440,12 @@ func _stage_portrait_popup_coin_purchase_content(
 	price_label.add_theme_font_size_override("font_size", resolved_font_size)
 	price_label.add_theme_color_override("font_color", price_color)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(price_label)
+	# Register popup purchase prices with the same live-balance refresh path used
+	# by coin price badges. The initial color may be red because the player was
+	# short on coins, but the sufficient color for these CTA rows is always white.
+	price_label.set_meta(&"portrait_coin_price", maxi(price, 0))
+	price_label.set_meta(&"portrait_coin_price_sufficient_color", Color.WHITE)
+	price_label.add_to_group(&"portrait_coin_price_badge_label")
 	price_label.z_index = 5
 	button.add_child(price_label)
 	return {
@@ -7200,7 +7266,25 @@ func _purchase_single_player_extra_attempt() -> void:
 	# grant without locking either button merely because the visual animation runs.
 	if _portrait_rewarded_action == &"extra_attempt":
 		return
-	super._purchase_single_player_extra_attempt()
+	if single_player_extra_attempt_claim_in_progress:
+		return
+	if !GameSession.has_deferred_loss():
+		_remove_single_player_last_chance_popup()
+		return
+	var free_offer: bool = _single_player_extra_attempt_is_free()
+	var purchase_cost: int = _single_player_extra_attempt_cost()
+	if !free_offer and GameState.get_soft_currency() < purchase_cost:
+		# Keep the extra-attempt popup alive underneath the coin store. Removing it
+		# here would cross-fade two dimmers and then rebuild the popup on return, the
+		# same flash that used to happen for the heart-refill stack.
+		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
+		return
+	single_player_extra_attempt_claim_in_progress = true
+	if !free_offer and !GameState.spend_soft_currency(purchase_cost, false):
+		single_player_extra_attempt_claim_in_progress = false
+		return
+	_remove_single_player_last_chance_popup()
+	_grant_single_player_extra_attempt()
 
 func _on_single_player_extra_attempt_ad_pressed() -> void:
 	if !GameSession.has_deferred_loss():
@@ -7332,8 +7416,30 @@ func _show_heart_refill_popup(
 	var popup_heart_tick := Timer.new()
 	popup_heart_tick.wait_time = PORTRAIT_HEART_POPUP_POLL_SECONDS
 	popup_heart_tick.one_shot = false
+	popup_heart_tick.set_meta(&"heart_refill_last_hearts", current_hearts)
 	popup_heart_tick.timeout.connect(func() -> void:
 		var live_hearts: int = GameState.get_hearts()
+		var previous_hearts: int = int(
+			popup_heart_tick.get_meta(&"heart_refill_last_hearts", live_hearts)
+		)
+		# Passive recovery can complete while this popup is being watched. Once the
+		# last missing heart arrives there is no refill offer left to present, so
+		# dismiss the visible popup instead of leaving two dead purchase CTAs. Do
+		# not tear a lower modal out from under the coin store: that stacked path is
+		# already resolved when the upper store closes, without changing dimmer
+		# opacity underneath it.
+		if (
+			previous_hearts < GameState.MAX_HEARTS
+			and live_hearts >= GameState.MAX_HEARTS
+		):
+			if !_portrait_coin_store_active:
+				_remove_heart_refill_popup()
+				return
+			# Preserve the pre-cap value while covered so the transition remains
+			# observable if the upper modal disappears without using its normal
+			# heart-return callback.
+			return
+		popup_heart_tick.set_meta(&"heart_refill_last_hearts", live_hearts)
 		if is_instance_valid(heart_value):
 			heart_value.text = str(live_hearts)
 		if is_instance_valid(recovery_timer_label):
@@ -7428,6 +7534,36 @@ func _on_heart_refill_ad_pressed() -> void:
 		return
 	_show_portrait_rewarded_action(&"heart_refill")
 
+func _purchase_heart_refill() -> void:
+	if GameState.get_hearts() >= GameState.MAX_HEARTS:
+		return
+	if GameState.get_soft_currency() < HEART_REFILL_COST:
+		# Keep the heart popup alive as the modal underlay. Removing it here would
+		# start its dimmer fade-out while the coin-store dimmer fades in, and the
+		# inverse pair would run again on return. That cross-fade is perceived as a
+		# flash. A real popup stack keeps the lower modal and its dimmer untouched.
+		var continue_action: Callable = heart_refill_continue_action
+		var restore_action: Callable = heart_refill_store_return_action
+		var cancel_action: Callable = heart_refill_cancel_action
+		var reward_acquired: bool = heart_refill_reward_acquired
+		heart_refill_store_is_open = true
+		_open_coin_store(
+			Callable(self, "_return_to_heart_refill_from_coin_store").bind(
+				continue_action,
+				restore_action,
+				cancel_action,
+				reward_acquired
+			)
+		)
+		return
+	if !GameState.spend_soft_currency(HEART_REFILL_COST, false):
+		return
+	var continue_action: Callable = heart_refill_continue_action
+	GameState.refill_hearts(true)
+	_remove_heart_refill_popup()
+	if continue_action.is_valid():
+		continue_action.call_deferred()
+
 func _close_heart_refill_popup() -> void:
 	var continue_action: Callable = heart_refill_continue_action
 	var cancel_action: Callable = heart_refill_cancel_action
@@ -7446,6 +7582,12 @@ func _return_to_heart_refill_from_coin_store(
 ) -> void:
 	heart_refill_store_is_open = false
 	if !get_tree().get_nodes_in_group("heart_refill_popup").is_empty():
+		# The lower popup stayed alive while the coin store covered it. Its heart
+		# state may have changed in the meantime because recovery keeps running. If
+		# the timer reached the cap, there is no offer left to show, so dismiss the
+		# heart popup together with the store instead of returning to a dead CTA.
+		if GameState.get_hearts() >= GameState.MAX_HEARTS:
+			_remove_heart_refill_popup()
 		return
 	if !_coin_store_underlay_is_live():
 		if restore_action.is_valid():
