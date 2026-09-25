@@ -1400,6 +1400,26 @@ func consume_coin_refill_ad_view(persist: bool = true) -> int:
 		save_game()
 	return coin_refill_ad_views_remaining
 
+func grant_coin_refill_ad_reward(amount: int) -> int:
+	# Balance and the consumed ad view must reach the same save snapshot.
+	_refresh_coin_refill_ad_cooldown(true)
+	if amount <= 0 or coin_refill_ad_views_remaining <= 0:
+		return -1
+	var previous_balance: int = soft_currency
+	var previous_views: int = coin_refill_ad_views_remaining
+	var previous_cooldown: int = coin_refill_ad_cooldown_until
+	soft_currency = clampi(soft_currency + amount, 0, MAX_CURRENCY_BALANCE)
+	coin_refill_ad_views_remaining -= 1
+	if coin_refill_ad_views_remaining == 0:
+		coin_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+	if !save_game():
+		soft_currency = previous_balance
+		coin_refill_ad_views_remaining = previous_views
+		coin_refill_ad_cooldown_until = previous_cooldown
+		return -1
+	soft_currency_changed.emit(soft_currency)
+	return soft_currency - previous_balance
+
 func _coin_refill_ad_now() -> int:
 	return int(floor(Time.get_unix_time_from_system()))
 
@@ -1456,6 +1476,32 @@ func consume_heart_refill_ad_view(persist: bool = true) -> int:
 	if persist:
 		save_game()
 	return heart_refill_ad_views_remaining
+
+func grant_heart_refill_ad_reward() -> bool:
+	_apply_elapsed_heart_recovery(true)
+	if hearts >= MAX_HEARTS:
+		return true
+	_refresh_heart_refill_ad_cooldown(true)
+	if heart_refill_ad_views_remaining <= 0:
+		return false
+	var previous_hearts: int = hearts
+	var previous_recovery_at: int = heart_recovery_at
+	var previous_views: int = heart_refill_ad_views_remaining
+	var previous_cooldown: int = heart_refill_ad_cooldown_until
+	hearts = mini(hearts + 1, MAX_HEARTS)
+	if hearts >= MAX_HEARTS:
+		heart_recovery_at = 0
+	heart_refill_ad_views_remaining -= 1
+	if heart_refill_ad_views_remaining == 0:
+		heart_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+	if !save_game():
+		hearts = previous_hearts
+		heart_recovery_at = previous_recovery_at
+		heart_refill_ad_views_remaining = previous_views
+		heart_refill_ad_cooldown_until = previous_cooldown
+		return false
+	_emit_heart_status_if_changed(true)
+	return true
 
 func _refresh_heart_refill_ad_cooldown(persist: bool) -> bool:
 	heart_refill_ad_views_remaining = clampi(
@@ -1579,6 +1625,25 @@ func refill_hearts(persist: bool = true) -> int:
 		save_game()
 	_emit_heart_status_if_changed(true)
 	return hearts
+
+func purchase_heart_refill(cost: int) -> bool:
+	_apply_elapsed_heart_recovery(true)
+	if cost <= 0 or hearts >= MAX_HEARTS or get_soft_currency() < cost:
+		return false
+	var previous_balance: int = soft_currency
+	var previous_hearts: int = hearts
+	var previous_recovery_at: int = heart_recovery_at
+	soft_currency -= cost
+	hearts = MAX_HEARTS
+	heart_recovery_at = 0
+	if !save_game():
+		soft_currency = previous_balance
+		hearts = previous_hearts
+		heart_recovery_at = previous_recovery_at
+		return false
+	soft_currency_changed.emit(soft_currency)
+	_emit_heart_status_if_changed(true)
+	return true
 
 func add_hearts(amount: int = 1, persist: bool = true) -> int:
 	# Rewarded lives add to the current inventory instead of filling it outright.

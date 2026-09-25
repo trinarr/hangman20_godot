@@ -811,6 +811,9 @@ var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
 var _portrait_coin_refill_animation_previous_balance: int = -1
 var _portrait_coin_refill_animation_final_balance: int = -1
+var _portrait_pending_refill_ad_rewards: Array[StringName] = []
+var _portrait_refill_reward_retry_scheduled: bool = false
+var _portrait_heart_refill_complete_after_ad: bool = false
 var _portrait_ad_toast: Control = null
 var _settings_ad_consent_button: Control = null
 var _portrait_interstitial_showing: bool = false
@@ -861,6 +864,28 @@ var _quiz_question_ready_at_msec: int = 0
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
+
+func _prepare_portrait_rewarded_placement(placement: StringName) -> void:
+	if !_portrait_ads_enabled() or placement == &"":
+		return
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !is_instance_valid(ads_service):
+		return
+	if ads_service.has_method("prepare_rewarded_placement"):
+		ads_service.call("prepare_rewarded_placement", placement)
+	elif ads_service.has_method("load_rewarded_video"):
+		ads_service.call("load_rewarded_video")
+
+func _prepare_portrait_interstitial_placement(placement: StringName) -> void:
+	if !_portrait_ads_enabled() or placement == &"":
+		return
+	var ads_service: Node = _portrait_ads_service()
+	if ads_service == null or !is_instance_valid(ads_service):
+		return
+	if ads_service.has_method("prepare_interstitial_placement"):
+		ads_service.call("prepare_interstitial_placement", placement)
+	elif ads_service.has_method("load_interstitial"):
+		ads_service.call("load_interstitial")
 
 func _optional_node_meta(node: Object, key: StringName) -> Variant:
 	# A null get_meta default still reports a missing-key error in Godot.
@@ -1048,7 +1073,10 @@ func _connect_portrait_interstitial_signals(ads_service: Node) -> void:
 	):
 		ads_service.connect(&"interstitial_failed_to_show", failed_callback)
 
-func _run_action_after_interstitial_if_ready(action: Callable) -> void:
+func _run_action_after_interstitial_if_ready(
+	action: Callable,
+	placement: StringName
+) -> void:
 	if !action.is_valid() or _portrait_interstitial_showing:
 		return
 	if !GameState.is_interstitial_ready():
@@ -1062,7 +1090,7 @@ func _run_action_after_interstitial_if_ready(action: Callable) -> void:
 	_portrait_interstitial_showing = true
 	_portrait_interstitial_pending_action = action
 	GameState.set_fullscreen_ad_active(true)
-	if !bool(ads_service.call("show_interstitial")):
+	if !bool(ads_service.call("show_interstitial", placement)):
 		GameState.set_fullscreen_ad_active(false)
 		_portrait_interstitial_showing = false
 		_portrait_interstitial_pending_action = Callable()
@@ -2667,6 +2695,8 @@ func _show_coin_refill_popup() -> void:
 	rewarded_coin_button.add_to_group(&"coin_refill_ad_button")
 	rewarded_coin_button.z_index = 22
 	rewarded_coin_button.visible = _portrait_ads_enabled()
+	if rewarded_coin_button.visible:
+		_prepare_portrait_rewarded_placement(&"coin_refill")
 	var rewarded_ad_icon_texture: Texture2D = _coin_refill_ad_icon_texture()
 	rewarded_coin_button.set_meta(&"coin_refill_ad_icon_texture", rewarded_ad_icon_texture)
 	rewarded_coin_button.set("icon_texture", rewarded_ad_icon_texture)
@@ -5681,6 +5711,8 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	if selected_button == null or !is_instance_valid(selected_button):
 		return
 	if correct_answer:
+		if GameState.is_interstitial_ready():
+			_prepare_portrait_interstitial_placement(&"quiz_correct")
 		_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
 		_play_quiz_correct_answer_bounce(selected_button)
 		_play_quiz_correct_question_feedback(
@@ -6074,7 +6106,8 @@ func _on_quiz_continue_trigger_pressed() -> void:
 	)
 	if correct_answer_selected:
 		_run_action_after_interstitial_if_ready(
-			Callable(self, "_on_quiz_continue_pressed")
+			Callable(self, "_on_quiz_continue_pressed"),
+			&"quiz_correct"
 		)
 	else:
 		_on_quiz_continue_pressed()
@@ -7096,6 +7129,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
 		rewarded_attempt_button.z_index = 16
 		rewarded_attempt_button.visible = _portrait_ads_enabled()
+		if rewarded_attempt_button.visible:
+			_prepare_portrait_rewarded_placement(&"extra_attempt")
 		var rewarded_ad_icon_texture := AtlasTexture.new()
 		rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
 		rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
@@ -7333,6 +7368,11 @@ func _show_heart_refill_popup(
 	cancel_action: Callable = Callable(),
 	reward_acquired: bool = false
 ) -> void:
+	if GameState.get_hearts() >= GameState.MAX_HEARTS and !_portrait_coin_store_active:
+		_remove_heart_refill_popup()
+		if continue_action.is_valid():
+			continue_action.call_deferred()
+		return
 	_remove_heart_refill_popup()
 	heart_refill_continue_action = continue_action
 	heart_refill_store_return_action = store_return_action
@@ -7448,30 +7488,16 @@ func _show_heart_refill_popup(
 	var popup_heart_tick := Timer.new()
 	popup_heart_tick.wait_time = PORTRAIT_HEART_POPUP_POLL_SECONDS
 	popup_heart_tick.one_shot = false
-	popup_heart_tick.set_meta(&"heart_refill_last_hearts", current_hearts)
 	popup_heart_tick.timeout.connect(func() -> void:
 		var live_hearts: int = GameState.get_hearts()
-		var previous_hearts: int = int(
-			popup_heart_tick.get_meta(&"heart_refill_last_hearts", live_hearts)
-		)
-		# Passive recovery can complete while this popup is being watched. Once the
-		# last missing heart arrives there is no refill offer left to present, so
-		# dismiss the visible popup instead of leaving two dead purchase CTAs. Do
-		# not tear a lower modal out from under the coin store: that stacked path is
-		# already resolved when the upper store closes, without changing dimmer
-		# opacity underneath it.
-		if (
-			previous_hearts < GameState.MAX_HEARTS
-			and live_hearts >= GameState.MAX_HEARTS
-		):
-			if !_portrait_coin_store_active:
-				_remove_heart_refill_popup()
+		# Check the current state, including recovery that happened before this
+		# timer's first tick or while the application was in the background.
+		if live_hearts >= GameState.MAX_HEARTS:
+			if !_portrait_coin_store_active and _portrait_rewarded_action != &"heart_refill":
+				_finish_heart_refill_when_full()
 				return
-			# Preserve the pre-cap value while covered so the transition remains
-			# observable if the upper modal disappears without using its normal
-			# heart-return callback.
+			# Keep the lower modal and its dimmer in place until the store closes.
 			return
-		popup_heart_tick.set_meta(&"heart_refill_last_hearts", live_hearts)
 		if is_instance_valid(heart_value):
 			heart_value.text = str(live_hearts)
 		if is_instance_valid(recovery_timer_label):
@@ -7501,6 +7527,8 @@ func _show_heart_refill_popup(
 	rewarded_heart_button.add_to_group(&"heart_refill_ad_button")
 	rewarded_heart_button.z_index = 16
 	rewarded_heart_button.visible = _portrait_ads_enabled()
+	if rewarded_heart_button.visible:
+		_prepare_portrait_rewarded_placement(&"heart_refill")
 	# Use StageLongButton for the complete rewarded row: leading ad icon, native
 	# caption and trailing heart are measured together and centered as one block.
 	# Crop the authored transparent margins from the ad texture so its visible
@@ -7588,13 +7616,33 @@ func _purchase_heart_refill() -> void:
 			)
 		)
 		return
-	if !GameState.spend_soft_currency(HEART_REFILL_COST, false):
+	if !GameState.purchase_heart_refill(HEART_REFILL_COST):
 		return
 	var continue_action: Callable = heart_refill_continue_action
-	GameState.refill_hearts(true)
 	_remove_heart_refill_popup()
 	if continue_action.is_valid():
 		continue_action.call_deferred()
+
+func _finish_heart_refill_when_full() -> void:
+	if get_tree().get_nodes_in_group(&"heart_refill_popup").is_empty():
+		return
+	var continue_action: Callable = heart_refill_continue_action
+	_remove_heart_refill_popup()
+	if continue_action.is_valid():
+		continue_action.call_deferred()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED:
+		call_deferred("_sync_heart_refill_after_resume")
+		call_deferred("_retry_pending_refill_ad_rewards")
+
+func _sync_heart_refill_after_resume() -> void:
+	if (
+		!_portrait_coin_store_active
+		and _portrait_rewarded_action != &"heart_refill"
+		and GameState.get_hearts() >= GameState.MAX_HEARTS
+	):
+		_finish_heart_refill_when_full()
 
 func _close_heart_refill_popup() -> void:
 	var continue_action: Callable = heart_refill_continue_action
@@ -7619,13 +7667,18 @@ func _return_to_heart_refill_from_coin_store(
 		# the timer reached the cap, there is no offer left to show, so dismiss the
 		# heart popup together with the store instead of returning to a dead CTA.
 		if GameState.get_hearts() >= GameState.MAX_HEARTS:
-			_remove_heart_refill_popup()
+			_finish_heart_refill_when_full()
 		return
 	if !_coin_store_underlay_is_live():
 		if restore_action.is_valid():
 			restore_action.call()
 		else:
 			show_menu()
+		return
+	if GameState.get_hearts() >= GameState.MAX_HEARTS:
+		if continue_action.is_valid():
+			continue_action.call_deferred()
+		return
 	_portrait_popup_resume_without_intro = true
 	_show_heart_refill_popup(
 		continue_action,
@@ -8344,6 +8397,8 @@ func _update_single_player_theme_reroll_button_state() -> void:
 		_portrait_ads_enabled()
 		and !_single_player_theme_ad_reroll_used
 	)
+	if _single_player_theme_reroll_used and ad_action_available:
+		_prepare_portrait_rewarded_placement(&"theme_reroll")
 	# Keep the reroll control in the popup after both rerolls are exhausted.
 	# Its disabled state already renders the round button in neutral gray and
 	# blocks pointer input, so removing it only makes the CTA row jump visually.
@@ -9585,6 +9640,12 @@ func _show_exit_game_popup() -> void:
 		two_player_no_button.set("drop_shadow_enabled", true)
 		content = two_player_previous_content
 		return
+	if (
+		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
+		and !game_finished
+		and GameState.is_interstitial_ready()
+	):
+		_prepare_portrait_interstitial_placement(&"forfeit")
 	var previous_content := _portrait_popup_begin(
 		"ExitGamePopup",
 		"exit_game_popup",
@@ -11776,10 +11837,12 @@ func _stage_portrait_hint_buttons() -> void:
 	# Used one-shot hints use the shared gray disabled state without a stale badge;
 	# the unlocked/used comment switches to the blue state.
 	if open_hint_ad_available:
+		_prepare_portrait_rewarded_placement(&"hint_open")
 		_stage_portrait_hint_ad_counter(open_button)
 	elif !open_hint_used:
 		_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
 	if remove_hint_ad_available:
+		_prepare_portrait_rewarded_placement(&"hint_remove")
 		_stage_portrait_hint_ad_counter(remove_button)
 	elif !remove_hint_used:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
@@ -12857,7 +12920,7 @@ func _show_single_player_forfeit_reward_screen(show_interstitial: bool = false) 
 	_portrait_single_reward_resume_without_intro = false
 	var show_reward_action := Callable(self, "_show_single_player_reward_chain_screen")
 	if show_interstitial:
-		_run_action_after_interstitial_if_ready(show_reward_action)
+		_run_action_after_interstitial_if_ready(show_reward_action, &"forfeit")
 		return
 	show_reward_action.call()
 
@@ -13049,10 +13112,11 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 	content = _portrait_game_input_group
 	var continue_action: Callable = _result_continue_action()
 	if _portrait_in_place_result_is_win:
+		_prepare_portrait_interstitial_placement(&"word_success")
 		continue_action = Callable(
 			self,
 			"_run_action_after_interstitial_if_ready"
-		).bind(continue_action)
+		).bind(continue_action, &"word_success")
 	var action_button := _stage_main_button(
 		_portrait_in_place_result_button_rect(),
 		continue_action,
@@ -15999,15 +16063,17 @@ func _prepare_final_reward_rewarded_ad() -> void:
 	if ads_service == null or !is_instance_valid(ads_service):
 		return
 	_connect_final_reward_ad_signals(ads_service)
+	if _portrait_reward_double_context == &"":
+		return
+	if ads_service.has_method("prepare_rewarded_placement"):
+		ads_service.call("prepare_rewarded_placement", _portrait_reward_double_context)
+		return
 	if (
 		ads_service.has_method("is_rewarded_video_loaded")
 		and bool(ads_service.call("is_rewarded_video_loaded"))
 	):
 		return
-	# Preload as soon as the x2 CTA is built. Loading may happen automatically,
-	# but explicitly warming it here prevents the final-reward button from being
-	# the first code path that asks the SDK for a rewarded ad. This never shows an
-	# ad automatically; a show still requires the player's button press.
+	# Legacy fallback for an older wrapper without placement-aware preloading.
 	if ads_service.has_method("load_rewarded_video"):
 		ads_service.call("load_rewarded_video")
 
@@ -16401,6 +16467,7 @@ func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -
 		or action == &""
 		or _portrait_final_reward_waiting_for_ad
 		or _portrait_rewarded_action != &""
+		or _portrait_pending_refill_ad_rewards.has(action)
 	):
 		return false
 	var ads_service: Node = _portrait_ads_service()
@@ -16414,7 +16481,7 @@ func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -
 	_portrait_rewarded_action_level_index = level_index
 	_portrait_rewarded_action_earned = false
 	_set_portrait_rewarded_action_control_enabled(action, level_index, false)
-	if !bool(ads_service.call("show_rewarded_video")):
+	if !bool(ads_service.call("show_rewarded_video", "", action)):
 		_portrait_rewarded_action = &""
 		_portrait_rewarded_action_level_index = -1
 		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
@@ -16476,6 +16543,57 @@ func _set_portrait_rewarded_action_control_enabled(
 				if attempt_ad_button != null and is_instance_valid(attempt_ad_button):
 					_refresh_extra_attempt_ad_button(attempt_ad_button, enabled)
 
+func _deliver_refill_ad_reward(action: StringName) -> bool:
+	if action == &"heart_refill":
+		if !GameState.grant_heart_refill_ad_reward():
+			return false
+		if GameState.get_hearts() >= GameState.MAX_HEARTS:
+			if _portrait_rewarded_action == &"heart_refill":
+				_portrait_heart_refill_complete_after_ad = true
+			elif !_portrait_coin_store_active:
+				_finish_heart_refill_when_full()
+		else:
+			var popup_nodes: Array = get_tree().get_nodes_in_group(&"heart_refill_popup")
+			if !popup_nodes.is_empty():
+				_show_heart_refill_popup(
+					heart_refill_continue_action,
+					heart_refill_store_return_action,
+					heart_refill_cancel_action,
+					true
+				)
+		return true
+	var previous_balance: int = GameState.get_soft_currency()
+	var credited_amount: int = GameState.grant_coin_refill_ad_reward(
+		PORTRAIT_COIN_REFILL_REWARDED_AMOUNT
+	)
+	if credited_amount < 0:
+		return false
+	var final_balance: int = GameState.get_soft_currency()
+	if _portrait_rewarded_action == &"coin_refill":
+		_portrait_coin_refill_animation_previous_balance = previous_balance
+		_portrait_coin_refill_animation_final_balance = final_balance
+	elif credited_amount > 0:
+		_play_coin_refill_reward_animation(previous_balance, final_balance)
+	return true
+
+func _schedule_refill_reward_retry() -> void:
+	if _portrait_refill_reward_retry_scheduled:
+		return
+	_portrait_refill_reward_retry_scheduled = true
+	get_tree().create_timer(2.0, true).timeout.connect(
+		Callable(self, "_retry_pending_refill_ad_rewards"), CONNECT_ONE_SHOT
+	)
+
+func _retry_pending_refill_ad_rewards() -> void:
+	_portrait_refill_reward_retry_scheduled = false
+	var pending: Array[StringName] = _portrait_pending_refill_ad_rewards.duplicate()
+	_portrait_pending_refill_ad_rewards.clear()
+	for action: StringName in pending:
+		if !_deliver_refill_ad_reward(action):
+			_portrait_pending_refill_ad_rewards.append(action)
+	if !_portrait_pending_refill_ad_rewards.is_empty():
+		_schedule_refill_reward_retry()
+
 func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> void:
 	match action:
 		&"hint_open":
@@ -16515,31 +16633,13 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 				_update_single_player_theme_reroll_badge()
 				_update_single_player_theme_reroll_button_state()
 		&"heart_refill":
-			GameState.consume_heart_refill_ad_view(true)
-			if GameState.get_hearts() < GameState.MAX_HEARTS:
-				GameState.add_hearts(1)
-			var popup_nodes: Array = get_tree().get_nodes_in_group(&"heart_refill_popup")
-			if !popup_nodes.is_empty():
-				var continue_action: Callable = heart_refill_continue_action
-				var restore_action: Callable = heart_refill_store_return_action
-				var cancel_action: Callable = heart_refill_cancel_action
-				_show_heart_refill_popup(
-					continue_action,
-					restore_action,
-					cancel_action,
-					true
-				)
+			if !_deliver_refill_ad_reward(action):
+				_portrait_pending_refill_ad_rewards.append(action)
+				_schedule_refill_reward_retry()
 		&"coin_refill":
-			# Persist the earned coins immediately on the SDK reward callback, but do
-			# not start visuals yet: this signal normally arrives while the native ad
-			# still covers the game. The ad-close callback will animate the durable
-			# balance change while keeping the refill popup open.
-			var previous_balance: int = GameState.get_soft_currency()
-			GameState.add_soft_currency(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT, false)
-			GameState.consume_coin_refill_ad_view(true)
-			var final_balance: int = GameState.get_soft_currency()
-			_portrait_coin_refill_animation_previous_balance = previous_balance
-			_portrait_coin_refill_animation_final_balance = final_balance
+			if !_deliver_refill_ad_reward(action):
+				_portrait_pending_refill_ad_rewards.append(action)
+				_schedule_refill_reward_retry()
 		&"extra_attempt":
 			GameState.consume_extra_attempt_ad_view(true)
 			if GameSession.has_deferred_loss():
@@ -16571,6 +16671,9 @@ func _on_portrait_rewarded_action_closed() -> void:
 	if earned_reward and action == &"theme_reroll":
 		_present_pending_single_player_theme_ad_reroll(level_index)
 	elif earned_reward and action == &"heart_refill":
+		if _portrait_heart_refill_complete_after_ad:
+			_portrait_heart_refill_complete_after_ad = false
+			_finish_heart_refill_when_full()
 		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 	elif earned_reward and action == &"coin_refill":
 		# The popup intentionally stays open after the ad. Refresh its button for
@@ -16847,7 +16950,10 @@ func _on_final_reward_double_pressed() -> void:
 		return
 	if (
 		ads_service.has_method("can_request_rewarded_video")
-		and !bool(ads_service.call("can_request_rewarded_video"))
+		and !bool(ads_service.call(
+			"can_request_rewarded_video",
+			_portrait_reward_double_context
+		))
 	):
 		_show_portrait_ad_not_ready_toast()
 		return
@@ -16861,7 +16967,11 @@ func _on_final_reward_double_pressed() -> void:
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(false)
-	if !bool(ads_service.call("show_rewarded_video", _portrait_reward_ad_request_id)):
+	if !bool(ads_service.call(
+		"show_rewarded_video",
+		_portrait_reward_ad_request_id,
+		_portrait_reward_double_context
+	)):
 		GameState.cancel_rewarded_double_request(_portrait_reward_ad_request_id)
 		# `show_rewarded_video()` starts preloading when no rewarded ad is ready.
 		# Do not leave the button in a silent pending state: report the miss now,
