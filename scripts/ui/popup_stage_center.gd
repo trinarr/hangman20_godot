@@ -1,6 +1,8 @@
 class_name PopupStageCenter
 extends Control
 
+signal open_bounce_grow_midpoint_reached
+signal open_bounce_peak_reached
 signal open_bounce_finished
 
 const STAGE_SIZE: Vector2 = Vector2(480.0, 800.0)
@@ -22,8 +24,11 @@ var popup_bottom: float = 0.0:
 		_sync_to_viewport()
 
 var _open_tween: Tween = null
+var _open_midpoint_tween: Tween = null
 var _rest_scale: float = 1.0
 var _skip_open_bounce: bool = false
+var open_bounce_grow_midpoint_complete: bool = false
+var open_bounce_peak_complete: bool = false
 var open_bounce_complete: bool = false
 
 func _ready() -> void:
@@ -38,6 +43,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
+	if _open_midpoint_tween != null and _open_midpoint_tween.is_valid():
+		_open_midpoint_tween.kill()
 	if get_viewport() != null and get_viewport().size_changed.is_connected(_sync_to_viewport):
 		get_viewport().size_changed.disconnect(_sync_to_viewport)
 
@@ -46,18 +53,29 @@ func _play_open_bounce() -> void:
 		return
 	if _skip_open_bounce:
 		scale = Vector2.ONE * _rest_scale
+		open_bounce_grow_midpoint_complete = true
+		open_bounce_peak_complete = true
 		open_bounce_complete = true
 		return
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
+	if _open_midpoint_tween != null and _open_midpoint_tween.is_valid():
+		_open_midpoint_tween.kill()
 
+	open_bounce_grow_midpoint_complete = false
+	open_bounce_peak_complete = false
 	open_bounce_complete = false
 	scale = Vector2.ONE * _rest_scale * OPEN_START_FACTOR
 	_open_tween = create_tween()
 	_open_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_open_midpoint_tween = create_tween()
+	_open_midpoint_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_open_midpoint_tween.tween_interval(OPEN_GROW_DURATION * 0.5)
+	_open_midpoint_tween.tween_callback(_mark_open_bounce_grow_midpoint)
 	var grow_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE * _rest_scale * OPEN_PEAK_FACTOR, OPEN_GROW_DURATION)
 	grow_tweener.set_trans(Tween.TRANS_CUBIC)
 	grow_tweener.set_ease(Tween.EASE_OUT)
+	_open_tween.tween_callback(_mark_open_bounce_peak)
 	var settle_tweener: PropertyTweener = _open_tween.tween_property(self, "scale", Vector2.ONE * _rest_scale, OPEN_SETTLE_DURATION)
 	settle_tweener.set_trans(Tween.TRANS_QUAD)
 	settle_tweener.set_ease(Tween.EASE_IN_OUT)
@@ -67,8 +85,24 @@ func settle_without_open_bounce() -> void:
 	_skip_open_bounce = true
 	if _open_tween != null and _open_tween.is_valid():
 		_open_tween.kill()
+	if _open_midpoint_tween != null and _open_midpoint_tween.is_valid():
+		_open_midpoint_tween.kill()
+	open_bounce_grow_midpoint_complete = true
+	open_bounce_peak_complete = true
 	open_bounce_complete = true
 	scale = Vector2.ONE * _rest_scale
+
+func _mark_open_bounce_grow_midpoint() -> void:
+	if !is_inside_tree() or open_bounce_grow_midpoint_complete:
+		return
+	open_bounce_grow_midpoint_complete = true
+	open_bounce_grow_midpoint_reached.emit()
+
+func _mark_open_bounce_peak() -> void:
+	if !is_inside_tree() or open_bounce_peak_complete:
+		return
+	open_bounce_peak_complete = true
+	open_bounce_peak_reached.emit()
 
 func _finish_open_bounce() -> void:
 	if !is_inside_tree():
