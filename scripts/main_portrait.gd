@@ -3113,6 +3113,36 @@ func _stage_popup_coin_balance_above_dimmer(
 	content = previous_content
 	_portrait_top_bar_content = previous_top_bar
 
+func _stage_popup_heart_balance_above_dimmer(
+	popup_root: Control,
+	next_to_coin_counter: bool = false
+) -> void:
+	if popup_root == null or !is_instance_valid(popup_root):
+		return
+	var popup_heart_layer := Control.new()
+	popup_heart_layer.name = "PopupHeartBalance"
+	popup_heart_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	popup_heart_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup_heart_layer.z_index = 200
+	popup_root.add_child(popup_heart_layer)
+
+	var previous_content: Control = content
+	var previous_top_bar: Control = _portrait_top_bar_content
+	var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect
+	var heart_rect: Rect2 = source_counter_rect
+	if next_to_coin_counter:
+		heart_rect.position.x += source_counter_rect.size.x + PORTRAIT_RESOURCE_COUNTER_GAP
+	else:
+		heart_rect.position.x = (PORTRAIT_STAGE_SIZE.x - source_counter_rect.size.x) * 0.5
+	_portrait_top_bar_content = null
+	content = popup_heart_layer
+	# This is an informational overlay for modal decisions. Keep it live so the
+	# timer/count can update, but never expose the refill action from underneath
+	# another popup.
+	_stage_heart_counter(Callable(), heart_rect, false, false)
+	content = previous_content
+	_portrait_top_bar_content = previous_top_bar
+
 func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", "×", false, false, PORTRAIT_POPUP_CLOSE_ICON_FONT_SIZE, 0.32)
@@ -6968,6 +6998,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		Callable(self, "_return_to_single_player_last_chance_from_coin_store"),
 		false
 	)
+	var popup_root := content.get_parent() as Control
+	_stage_popup_heart_balance_above_dimmer(popup_root, !free_offer)
 	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
 		rect,
@@ -9561,6 +9593,8 @@ func _show_exit_game_popup() -> void:
 		145.0,
 		582.0
 	)
+	var popup_root := content.get_parent() as Control
+	_stage_popup_heart_balance_above_dimmer(popup_root)
 	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
 	_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)
 	# Match the refill popups: keep the warning art and copy together on one
