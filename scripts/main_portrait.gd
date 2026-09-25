@@ -4752,7 +4752,10 @@ func _record_single_player_quiz_result(is_win: bool, persist: bool = true) -> vo
 	var defer_final_reward: bool = (
 		single_player_active_word_slot == word_count - 1
 	)
-	if !is_win:
+	if (
+		!is_win
+		and _single_player_hearts_enabled_for_level(single_player_active_level_index)
+	):
 		GameState.lose_heart(false)
 	last_result_data = _single_player_mark_current_word_finished(
 		result,
@@ -7032,7 +7035,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		false
 	)
 	var popup_root := content.get_parent() as Control
-	_stage_popup_heart_balance_above_dimmer(popup_root, !free_offer)
+	if single_player_active_level_index >= 2:
+		_stage_popup_heart_balance_above_dimmer(popup_root, !free_offer)
 	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
 		rect,

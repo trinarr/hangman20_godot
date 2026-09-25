@@ -1900,6 +1900,14 @@ func _single_player_extra_attempt_is_free() -> bool:
 		and single_player_active_level_index < 2
 	)
 
+func _single_player_hearts_enabled_for_level(level_index: int) -> bool:
+	# The first two levels are protected onboarding: failures still resolve the
+	# stage normally, but the persistent heart inventory starts only with Level 3.
+	return (
+		level_index >= 0
+		and level_index + 1 >= SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL
+	)
+
 func _single_player_extra_attempt_cost() -> int:
 	return maxi(single_player_extra_attempt_current_cost, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
 
@@ -2155,8 +2163,9 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 		# A naturally failed stage has already consumed its heart and saved status.
 		# Back/Exit should simply reveal that same failed node on the reward chain.
 		has_stage_failure = true
-	if should_lose_heart:
-		GameState.lose_heart(false)
+	var heart_was_consumed: bool = false
+	if should_lose_heart and _single_player_hearts_enabled_for_level(level_index):
+		heart_was_consumed = GameState.lose_heart(false)
 	if has_stage_failure:
 		GameSession.discard_current_round()
 		GameState.save_game()
@@ -2166,7 +2175,7 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 		# Only a newly forced loss should trigger the extra interstitial opportunity.
 		# A naturally failed stage has already consumed its heart and should simply
 		# reveal the existing failed node without another ad trigger.
-		_show_single_player_forfeit_reward_screen(should_lose_heart)
+		_show_single_player_forfeit_reward_screen(heart_was_consumed)
 		return
 	GameSession.discard_current_round()
 	game_finished = false
@@ -2795,7 +2804,10 @@ func _finish_round(is_win: bool) -> void:
 	last_result_data = GameSession.finish_result(is_win, award_immediate_win_coins)
 	last_result_data = _grant_remaining_attempt_star_reward(last_result_data, is_win)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		if !is_win:
+		if (
+			!is_win
+			and _single_player_hearts_enabled_for_level(single_player_active_level_index)
+		):
 			GameState.lose_heart(false)
 		last_result_data = _single_player_mark_current_word_finished(
 			last_result_data,
