@@ -2341,6 +2341,171 @@ func _on_coin_refill_ad_cooldown_tick(button: Control) -> void:
 		_portrait_rewarded_action != &"coin_refill"
 	)
 
+func _stage_heart_refill_ad_counter(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var badge_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var badge_rect := Rect2(
+		Vector2(button.size.x - badge_size.x * 0.82, -badge_size.y * 0.18),
+		badge_size
+	)
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"count": GameState.get_heart_refill_ad_views_remaining(),
+		"panel_shader_shadow": true,
+		"panel_shader_shadow_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
+		"panel_shadow_enabled": false,
+		"regular_display_text_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
+		"state": PORTRAIT_BUTTON_BADGE_STATE_FREE,
+	})
+	button.set_meta(&"heart_refill_ad_badge_component", component)
+
+func _heart_refill_ad_button_timer(button: Control) -> Timer:
+	if button == null or !is_instance_valid(button):
+		return null
+	var existing := button.get_node_or_null("HeartRefillCooldownTimer") as Timer
+	if existing != null:
+		return existing
+	var timer := Timer.new()
+	timer.name = "HeartRefillCooldownTimer"
+	timer.wait_time = PORTRAIT_COIN_REFILL_POLL_SECONDS
+	timer.one_shot = false
+	timer.timeout.connect(Callable(self, "_on_heart_refill_ad_cooldown_tick").bind(button))
+	button.add_child(timer)
+	return timer
+
+func _stop_heart_refill_ad_button_timer(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var timer := button.get_node_or_null("HeartRefillCooldownTimer") as Timer
+	if timer == null:
+		return
+	timer.stop()
+	timer.queue_free()
+
+func _refresh_heart_refill_ad_button(button: Control, interaction_enabled: bool = true) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var remaining: int = GameState.get_heart_refill_ad_views_remaining()
+	var cooldown_seconds: int = GameState.get_heart_refill_ad_cooldown_seconds()
+	var cooldown_active: bool = remaining <= 0 and cooldown_seconds > 0
+	var component_variant: Variant = button.get_meta(&"heart_refill_ad_badge_component", {})
+	var component: Dictionary = component_variant if component_variant is Dictionary else {}
+	if cooldown_active:
+		button.set("button_disabled", true)
+		button.set("button_text", _coin_refill_ad_cooldown_text(cooldown_seconds))
+		button.set("icon_texture", null)
+		button.set("trailing_icon_texture", null)
+		button.set("icon_shadow_enabled", false)
+		button.set("trailing_icon_shadow_enabled", false)
+		_set_portrait_button_badge_visible(component, false)
+		var cooldown_timer := _heart_refill_ad_button_timer(button)
+		if cooldown_timer != null and cooldown_timer.is_stopped():
+			cooldown_timer.start()
+		return
+
+	_stop_heart_refill_ad_button_timer(button)
+	var base_text_variant: Variant = _optional_node_meta(button, &"heart_refill_ad_base_text")
+	var base_text: String = (
+		str(base_text_variant) if base_text_variant != null else tr("HEART_GET_ONE")
+	)
+	button.set("button_text", base_text)
+	button.set("icon_texture", _optional_node_meta(button, &"heart_refill_ad_icon_texture"))
+	button.set("trailing_icon_texture", _optional_node_meta(button, &"heart_refill_ad_trailing_icon_texture"))
+	button.set("icon_shadow_enabled", true)
+	button.set("trailing_icon_shadow_enabled", true)
+	button.set(
+		"button_disabled",
+		!interaction_enabled or GameState.get_hearts() >= GameState.MAX_HEARTS
+	)
+	_set_portrait_button_badge_state(component, PORTRAIT_BUTTON_BADGE_STATE_FREE, {"count": remaining})
+
+func _on_heart_refill_ad_cooldown_tick(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	_refresh_heart_refill_ad_button(button, _portrait_rewarded_action != &"heart_refill")
+
+func _stage_extra_attempt_ad_counter(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var badge_size := Vector2(PORTRAIT_GAME_HINT_COUNTER_SIZE, PORTRAIT_GAME_HINT_COUNTER_SIZE)
+	var badge_rect := Rect2(
+		Vector2(button.size.x - badge_size.x * 0.82, -badge_size.y * 0.18),
+		badge_size
+	)
+	var component := _create_portrait_button_badge(button, {
+		"coin_rect": badge_rect,
+		"ad_rect": badge_rect,
+		"free_rect": badge_rect,
+		"count": GameState.get_extra_attempt_ad_views_remaining(),
+		"panel_shader_shadow": true,
+		"panel_shader_shadow_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
+		"panel_shadow_enabled": false,
+		"regular_display_text_states": [PORTRAIT_BUTTON_BADGE_STATE_FREE],
+		"state": PORTRAIT_BUTTON_BADGE_STATE_FREE,
+	})
+	button.set_meta(&"extra_attempt_ad_badge_component", component)
+
+func _extra_attempt_ad_button_timer(button: Control) -> Timer:
+	if button == null or !is_instance_valid(button):
+		return null
+	var existing := button.get_node_or_null("ExtraAttemptCooldownTimer") as Timer
+	if existing != null:
+		return existing
+	var timer := Timer.new()
+	timer.name = "ExtraAttemptCooldownTimer"
+	timer.wait_time = PORTRAIT_COIN_REFILL_POLL_SECONDS
+	timer.one_shot = false
+	timer.timeout.connect(Callable(self, "_on_extra_attempt_ad_cooldown_tick").bind(button))
+	button.add_child(timer)
+	return timer
+
+func _stop_extra_attempt_ad_button_timer(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var timer := button.get_node_or_null("ExtraAttemptCooldownTimer") as Timer
+	if timer == null:
+		return
+	timer.stop()
+	timer.queue_free()
+
+func _refresh_extra_attempt_ad_button(button: Control, interaction_enabled: bool = true) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var remaining: int = GameState.get_extra_attempt_ad_views_remaining()
+	var cooldown_seconds: int = GameState.get_extra_attempt_ad_cooldown_seconds()
+	var cooldown_active: bool = remaining <= 0 and cooldown_seconds > 0
+	var component_variant: Variant = button.get_meta(&"extra_attempt_ad_badge_component", {})
+	var component: Dictionary = component_variant if component_variant is Dictionary else {}
+	if cooldown_active:
+		button.set("button_disabled", true)
+		button.set("button_text", _coin_refill_ad_cooldown_text(cooldown_seconds))
+		button.set("icon_texture", null)
+		button.set("icon_shadow_enabled", false)
+		_set_portrait_button_badge_visible(component, false)
+		var cooldown_timer := _extra_attempt_ad_button_timer(button)
+		if cooldown_timer != null and cooldown_timer.is_stopped():
+			cooldown_timer.start()
+		return
+
+	_stop_extra_attempt_ad_button_timer(button)
+	var base_text_variant: Variant = _optional_node_meta(button, &"extra_attempt_ad_base_text")
+	var base_text: String = (
+		str(base_text_variant) if base_text_variant != null else tr("COMMON_CONTINUE")
+	)
+	button.set("button_text", base_text)
+	button.set("icon_texture", _optional_node_meta(button, &"extra_attempt_ad_icon_texture"))
+	button.set("icon_shadow_enabled", true)
+	button.set("button_disabled", !interaction_enabled or !GameSession.has_deferred_loss())
+	_set_portrait_button_badge_state(component, PORTRAIT_BUTTON_BADGE_STATE_FREE, {"count": remaining})
+
+func _on_extra_attempt_ad_cooldown_tick(button: Control) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	_refresh_extra_attempt_ad_button(button, _portrait_rewarded_action != &"extra_attempt")
+
 func _show_coin_refill_popup() -> void:
 	_remove_coin_refill_popup()
 	_portrait_coin_store_underlay = content
@@ -6829,6 +6994,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
 		rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
 		rewarded_attempt_button.set("icon_texture", rewarded_ad_icon_texture)
+		rewarded_attempt_button.set_meta(&"extra_attempt_ad_icon_texture", rewarded_ad_icon_texture)
+		rewarded_attempt_button.set_meta(&"extra_attempt_ad_base_text", tr("COMMON_CONTINUE"))
 		rewarded_attempt_button.set("icon_stage_size", Vector2(34.0, 28.0))
 		rewarded_attempt_button.set("icon_gap_stage", 9.0)
 		rewarded_attempt_button.set("icon_before_text", true)
@@ -6840,6 +7007,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 				PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
 				PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
 			)
+		_stage_extra_attempt_ad_counter(rewarded_attempt_button)
+		_refresh_extra_attempt_ad_button(rewarded_attempt_button, true)
 
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
@@ -7028,6 +7197,10 @@ func _purchase_single_player_extra_attempt() -> void:
 func _on_single_player_extra_attempt_ad_pressed() -> void:
 	if !GameSession.has_deferred_loss():
 		return
+	if !GameState.can_watch_extra_attempt_ad():
+		for node: Node in get_tree().get_nodes_in_group(&"single_player_last_chance_ad_button"):
+			_refresh_extra_attempt_ad_button(node as Control, true)
+		return
 	_show_portrait_rewarded_action(&"extra_attempt")
 
 func _show_heart_refill_popup(
@@ -7190,11 +7363,14 @@ func _show_heart_refill_popup(
 	rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
 	rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
 	rewarded_heart_button.set("icon_texture", rewarded_ad_icon_texture)
+	rewarded_heart_button.set_meta(&"heart_refill_ad_icon_texture", rewarded_ad_icon_texture)
+	rewarded_heart_button.set_meta(&"heart_refill_ad_base_text", tr("HEART_GET_ONE"))
 	rewarded_heart_button.set("icon_stage_size", Vector2(34.0, 28.0))
 	rewarded_heart_button.set("icon_gap_stage", 8.0)
 	rewarded_heart_button.set("icon_before_text", true)
 	rewarded_heart_button.set("icon_shadow_enabled", true)
 	rewarded_heart_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
+	rewarded_heart_button.set_meta(&"heart_refill_ad_trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
 	rewarded_heart_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	rewarded_heart_button.set("trailing_icon_gap_stage", 8.0)
 	rewarded_heart_button.set("trailing_icon_shadow_enabled", true)
@@ -7205,6 +7381,8 @@ func _show_heart_refill_popup(
 			PORTRAIT_UI_PALETTE.AD_PURPLE_PRESSED,
 			PORTRAIT_UI_PALETTE.AD_PURPLE_SELECTED
 		)
+	_stage_heart_refill_ad_counter(rewarded_heart_button)
+	_refresh_heart_refill_ad_button(rewarded_heart_button, true)
 
 	var purchase_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
@@ -7235,6 +7413,10 @@ func _show_heart_refill_popup(
 
 func _on_heart_refill_ad_pressed() -> void:
 	if GameState.get_hearts() >= GameState.MAX_HEARTS:
+		return
+	if !GameState.can_watch_heart_refill_ad():
+		for node: Node in get_tree().get_nodes_in_group(&"heart_refill_ad_button"):
+			_refresh_heart_refill_ad_button(node as Control, true)
 		return
 	_show_portrait_rewarded_action(&"heart_refill")
 
@@ -14236,7 +14418,7 @@ func _stage_single_player_reward_count(
 	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	count_label.add_theme_font_size_override("font_size", font_size)
 	count_label.add_theme_color_override("font_color", count_color)
-	count_label.z_index = 3
+	count_label.z_index = 4
 	parent.add_child(count_label)
 	count_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	count_label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -16095,22 +16277,20 @@ func _set_portrait_rewarded_action_control_enabled(
 			if level_index == single_player_popup_level_index:
 				_update_single_player_theme_reroll_button_state()
 		&"heart_refill":
-			var can_use_rewarded_refill: bool = enabled and GameState.get_hearts() < GameState.MAX_HEARTS
 			for node: Node in get_tree().get_nodes_in_group(&"heart_refill_ad_button"):
 				var refill_ad_button := node as Control
 				if refill_ad_button != null and is_instance_valid(refill_ad_button):
-					refill_ad_button.set("button_disabled", !can_use_rewarded_refill)
+					_refresh_heart_refill_ad_button(refill_ad_button, enabled)
 		&"coin_refill":
 			for node: Node in get_tree().get_nodes_in_group(&"coin_refill_ad_button"):
 				var coin_refill_button := node as Control
 				if coin_refill_button != null and is_instance_valid(coin_refill_button):
 					_refresh_coin_refill_ad_button(coin_refill_button, enabled)
 		&"extra_attempt":
-			var can_use_rewarded_attempt: bool = enabled and GameSession.has_deferred_loss()
 			for node: Node in get_tree().get_nodes_in_group(&"single_player_last_chance_ad_button"):
 				var attempt_ad_button := node as Control
 				if attempt_ad_button != null and is_instance_valid(attempt_ad_button):
-					attempt_ad_button.set("button_disabled", !can_use_rewarded_attempt)
+					_refresh_extra_attempt_ad_button(attempt_ad_button, enabled)
 
 func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> void:
 	match action:
@@ -16151,6 +16331,7 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 				_update_single_player_theme_reroll_badge()
 				_update_single_player_theme_reroll_button_state()
 		&"heart_refill":
+			GameState.consume_heart_refill_ad_view(true)
 			if GameState.get_hearts() < GameState.MAX_HEARTS:
 				GameState.add_hearts(1)
 			var popup_nodes: Array = get_tree().get_nodes_in_group(&"heart_refill_popup")
@@ -16176,6 +16357,7 @@ func _grant_portrait_rewarded_action(action: StringName, level_index: int) -> vo
 			_portrait_coin_refill_animation_previous_balance = previous_balance
 			_portrait_coin_refill_animation_final_balance = final_balance
 		&"extra_attempt":
+			GameState.consume_extra_attempt_ad_view(true)
 			if GameSession.has_deferred_loss():
 				_remove_single_player_last_chance_popup()
 				_grant_single_player_extra_attempt()
@@ -16204,6 +16386,8 @@ func _on_portrait_rewarded_action_closed() -> void:
 	_portrait_rewarded_action_earned = false
 	if earned_reward and action == &"theme_reroll":
 		_present_pending_single_player_theme_ad_reroll(level_index)
+	elif earned_reward and action == &"heart_refill":
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 	elif earned_reward and action == &"coin_refill":
 		# The popup intentionally stays open after the ad. Refresh its button for
 		# the new remaining-view/cooldown state, then present the already persisted
@@ -16215,6 +16399,8 @@ func _on_portrait_rewarded_action_closed() -> void:
 		_portrait_coin_refill_animation_final_balance = -1
 		if previous_balance >= 0 and final_balance > previous_balance:
 			_play_coin_refill_reward_animation(previous_balance, final_balance)
+	elif earned_reward and action == &"extra_attempt":
+		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 	elif !earned_reward:
 		_portrait_coin_refill_animation_previous_balance = -1
 		_portrait_coin_refill_animation_final_balance = -1

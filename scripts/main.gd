@@ -1486,13 +1486,17 @@ func _single_player_stage_is_quiz(level_index: int, word_slot: int) -> bool:
 	return word_slot == _single_player_level_question_slot_index(level_index)
 
 func _single_player_stage_reward_currency(
-	_level_index: int,
-	_word_slot: int,
+	level_index: int,
+	word_slot: int,
 	_word_count: int
 ) -> String:
-	# Hangman and embedded quiz stages now both pay soft currency. Quiz stages
-	# differ by amount rather than by currency.
-	return GameState.STAGE_REWARD_COINS
+	# Hangman stages pay stars; embedded quiz stages are the only stage type
+	# that pays soft currency.
+	return (
+		GameState.STAGE_REWARD_COINS
+		if _single_player_stage_is_quiz(level_index, word_slot)
+		else GameState.STAGE_REWARD_STARS
+	)
 
 func _single_player_stage_reward_amount(
 	level_index: int,

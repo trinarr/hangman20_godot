@@ -85,37 +85,37 @@
     "maximum_single_reward": 1000000000,
     "hearts": {
       "maximum": 5,
-      "recovery_seconds": 300,
-      "refill_cost": 100
+      "recovery_seconds": 600,
+      "refill_cost": 200
     },
     "hints": {
       "starting_count": 3,
       "costs": {
-        "open_letter": 20,
-        "remove_wrong": 15,
-        "comment": 10,
-        "quiz_fifty_fifty": 20,
-        "quiz_replace_question": 20
+        "open_letter": 30,
+        "remove_wrong": 20,
+        "comment": 30,
+        "quiz_fifty_fifty": 30,
+        "quiz_replace_question": 30
       }
     },
-    "theme_reroll_cost": 25,
+    "theme_reroll_cost": 20,
     "extra_attempts": {
-      "base_cost": 25,
-      "cost_step": 5,
+      "base_cost": 40,
+      "cost_step": 10,
       "base_count": 2,
       "count_step": 1,
       "count_step_interval": 1
     },
     "rewards": {
       "word_coins": 10,
-      "quiz_stage_coin_multiplier": 1.5,
-      "level_completion_base_coins": 25,
-      "level_completion_per_win_coins": 10,
-      "challenge_level_completion_base_coins": 50,
-      "challenge_level_completion_per_win_coins": 20,
+      "quiz_stage_coin_multiplier": 1.0,
+      "level_completion_base_coins": 15,
+      "level_completion_per_win_coins": 5,
+      "challenge_level_completion_base_coins": 25,
+      "challenge_level_completion_per_win_coins": 10,
       "level_completion_base_stars": 10,
       "level_completion_per_win_stars": 2,
-      "challenge_level_completion_base_stars": 15,
+      "challenge_level_completion_base_stars": 10,
       "challenge_level_completion_per_win_stars": 3,
       "quick_quiz_answer_stars": 1,
       "lightning_quiz_answer_stars": 2,
@@ -123,7 +123,7 @@
     },
     "coin_refill_ad": {
       "maximum_views": 5,
-      "cooldown_seconds": 18000
+      "cooldown_seconds": 7200
     }
   },
   "advertising": {

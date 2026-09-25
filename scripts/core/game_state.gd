@@ -43,7 +43,7 @@ var HEART_STATE_POLL_SECONDS: float = GAME_DESIGN.get_float_range(
 )
 var WORD_REWARD_COINS: int = GAME_DESIGN.get_int("economy.rewards.word_coins", 10)
 var QUIZ_STAGE_REWARD_COIN_MULTIPLIER: float = GAME_DESIGN.get_float_range(
-	"economy.rewards.quiz_stage_coin_multiplier", 1.5, 0.0, 100.0
+	"economy.rewards.quiz_stage_coin_multiplier", 1.0, 0.0, 100.0
 )
 const STAGE_REWARD_COINS: String = "coins"
 const STAGE_REWARD_STARS: String = "stars"
@@ -130,6 +130,10 @@ var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
 var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
 var coin_refill_ad_cooldown_until: int = 0
+var heart_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
+var heart_refill_ad_cooldown_until: int = 0
+var extra_attempt_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
+var extra_attempt_ad_cooldown_until: int = 0
 var ads_unlocked: bool = false
 var guided_onboarding_completed: bool = false
 var interstitial_active_elapsed_seconds: float = 0.0
@@ -369,6 +373,8 @@ func load_game() -> void:
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
 	_load_coin_refill_ad_state_from_save(parsed)
+	_load_heart_refill_ad_state_from_save(parsed)
+	_load_extra_attempt_ad_state_from_save(parsed)
 	ads_unlocked = bool(parsed.get("ads_unlocked", false))
 	var guided_state_was_missing: bool = !parsed.has("guided_onboarding_completed")
 	# Existing development saves already record the real start of level 3 by
@@ -455,6 +461,30 @@ func _load_coin_refill_ad_state_from_save(parsed: Dictionary) -> void:
 	)
 	_refresh_coin_refill_ad_cooldown(false)
 
+func _load_heart_refill_ad_state_from_save(parsed: Dictionary) -> void:
+	heart_refill_ad_views_remaining = clampi(
+		int(parsed.get("heart_refill_ad_views_remaining", COIN_REFILL_AD_MAX_VIEWS)),
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
+	heart_refill_ad_cooldown_until = maxi(
+		int(parsed.get("heart_refill_ad_cooldown_until", 0)),
+		0
+	)
+	_refresh_heart_refill_ad_cooldown(false)
+
+func _load_extra_attempt_ad_state_from_save(parsed: Dictionary) -> void:
+	extra_attempt_ad_views_remaining = clampi(
+		int(parsed.get("extra_attempt_ad_views_remaining", COIN_REFILL_AD_MAX_VIEWS)),
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
+	extra_attempt_ad_cooldown_until = maxi(
+		int(parsed.get("extra_attempt_ad_cooldown_until", 0)),
+		0
+	)
+	_refresh_extra_attempt_ad_cooldown(false)
+
 func _set_interface_language_from_locale() -> void:
 	# The interface follows the device on every launch: Russian only for a
 	# Russian locale, English for Ukrainian and every other locale.
@@ -495,6 +525,10 @@ func _home_profile_save_game() -> bool:
 		"heart_recovery_at": heart_recovery_at,
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
 		"coin_refill_ad_cooldown_until": coin_refill_ad_cooldown_until,
+		"heart_refill_ad_views_remaining": heart_refill_ad_views_remaining,
+		"heart_refill_ad_cooldown_until": heart_refill_ad_cooldown_until,
+		"extra_attempt_ad_views_remaining": extra_attempt_ad_views_remaining,
+		"extra_attempt_ad_cooldown_until": extra_attempt_ad_cooldown_until,
 		"ads_unlocked": ads_unlocked,
 		"guided_onboarding_completed": guided_onboarding_completed,
 		"interstitial_active_elapsed_seconds": interstitial_active_elapsed_seconds,
@@ -1391,6 +1425,114 @@ func _refresh_coin_refill_ad_cooldown(persist: bool) -> bool:
 		return false
 	coin_refill_ad_views_remaining = COIN_REFILL_AD_MAX_VIEWS
 	coin_refill_ad_cooldown_until = 0
+	if persist:
+		save_game()
+	return true
+
+func get_heart_refill_ad_views_remaining() -> int:
+	_refresh_heart_refill_ad_cooldown(true)
+	return clampi(heart_refill_ad_views_remaining, 0, COIN_REFILL_AD_MAX_VIEWS)
+
+func get_heart_refill_ad_cooldown_seconds() -> int:
+	_refresh_heart_refill_ad_cooldown(true)
+	if heart_refill_ad_views_remaining > 0 or heart_refill_ad_cooldown_until <= 0:
+		return 0
+	return maxi(heart_refill_ad_cooldown_until - _coin_refill_ad_now(), 0)
+
+func can_watch_heart_refill_ad() -> bool:
+	_refresh_heart_refill_ad_cooldown(true)
+	return heart_refill_ad_views_remaining > 0
+
+func consume_heart_refill_ad_view(persist: bool = true) -> int:
+	_refresh_heart_refill_ad_cooldown(false)
+	if heart_refill_ad_views_remaining <= 0:
+		return 0
+	heart_refill_ad_views_remaining -= 1
+	if heart_refill_ad_views_remaining <= 0:
+		heart_refill_ad_views_remaining = 0
+		heart_refill_ad_cooldown_until = (
+			_coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		)
+	if persist:
+		save_game()
+	return heart_refill_ad_views_remaining
+
+func _refresh_heart_refill_ad_cooldown(persist: bool) -> bool:
+	heart_refill_ad_views_remaining = clampi(
+		heart_refill_ad_views_remaining,
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
+	if heart_refill_ad_views_remaining > 0:
+		if heart_refill_ad_cooldown_until != 0:
+			heart_refill_ad_cooldown_until = 0
+			if persist:
+				save_game()
+			return true
+		return false
+	if heart_refill_ad_cooldown_until <= 0:
+		heart_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		if persist:
+			save_game()
+		return true
+	if _coin_refill_ad_now() < heart_refill_ad_cooldown_until:
+		return false
+	heart_refill_ad_views_remaining = COIN_REFILL_AD_MAX_VIEWS
+	heart_refill_ad_cooldown_until = 0
+	if persist:
+		save_game()
+	return true
+
+func get_extra_attempt_ad_views_remaining() -> int:
+	_refresh_extra_attempt_ad_cooldown(true)
+	return clampi(extra_attempt_ad_views_remaining, 0, COIN_REFILL_AD_MAX_VIEWS)
+
+func get_extra_attempt_ad_cooldown_seconds() -> int:
+	_refresh_extra_attempt_ad_cooldown(true)
+	if extra_attempt_ad_views_remaining > 0 or extra_attempt_ad_cooldown_until <= 0:
+		return 0
+	return maxi(extra_attempt_ad_cooldown_until - _coin_refill_ad_now(), 0)
+
+func can_watch_extra_attempt_ad() -> bool:
+	_refresh_extra_attempt_ad_cooldown(true)
+	return extra_attempt_ad_views_remaining > 0
+
+func consume_extra_attempt_ad_view(persist: bool = true) -> int:
+	_refresh_extra_attempt_ad_cooldown(false)
+	if extra_attempt_ad_views_remaining <= 0:
+		return 0
+	extra_attempt_ad_views_remaining -= 1
+	if extra_attempt_ad_views_remaining <= 0:
+		extra_attempt_ad_views_remaining = 0
+		extra_attempt_ad_cooldown_until = (
+			_coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		)
+	if persist:
+		save_game()
+	return extra_attempt_ad_views_remaining
+
+func _refresh_extra_attempt_ad_cooldown(persist: bool) -> bool:
+	extra_attempt_ad_views_remaining = clampi(
+		extra_attempt_ad_views_remaining,
+		0,
+		COIN_REFILL_AD_MAX_VIEWS
+	)
+	if extra_attempt_ad_views_remaining > 0:
+		if extra_attempt_ad_cooldown_until != 0:
+			extra_attempt_ad_cooldown_until = 0
+			if persist:
+				save_game()
+			return true
+		return false
+	if extra_attempt_ad_cooldown_until <= 0:
+		extra_attempt_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		if persist:
+			save_game()
+		return true
+	if _coin_refill_ad_now() < extra_attempt_ad_cooldown_until:
+		return false
+	extra_attempt_ad_views_remaining = COIN_REFILL_AD_MAX_VIEWS
+	extra_attempt_ad_cooldown_until = 0
 	if persist:
 		save_game()
 	return true
