@@ -79,7 +79,7 @@
     "quiz_pick_window": 0.08
   },
   "economy": {
-    "starting_coins": 100,
+    "starting_coins": 200,
     "starting_stars": 0,
     "maximum_balance": 2000000000,
     "maximum_single_reward": 1000000000,
@@ -107,18 +107,18 @@
       "count_step_interval": 1
     },
     "rewards": {
-      "word_coins": 10,
+      "word_coins": 15,
       "quiz_stage_coin_multiplier": 1.0,
       "level_completion_base_coins": 15,
-      "level_completion_per_win_coins": 5,
+      "level_completion_per_win_coins": 10,
       "challenge_level_completion_base_coins": 25,
-      "challenge_level_completion_per_win_coins": 10,
-      "level_completion_base_stars": 10,
-      "level_completion_per_win_stars": 2,
-      "challenge_level_completion_base_stars": 10,
-      "challenge_level_completion_per_win_stars": 3,
-      "quick_quiz_answer_stars": 1,
-      "lightning_quiz_answer_stars": 2,
+      "challenge_level_completion_per_win_coins": 15,
+      "level_completion_base_stars": 15,
+      "level_completion_per_win_stars": 5,
+      "challenge_level_completion_base_stars": 20,
+      "challenge_level_completion_per_win_stars": 10,
+      "quick_quiz_answer_stars": 2,
+      "lightning_quiz_answer_stars": 5,
       "coin_refill_ad_coins": 50
     },
     "coin_refill_ad": {
