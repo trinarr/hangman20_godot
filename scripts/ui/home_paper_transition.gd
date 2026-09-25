@@ -6,7 +6,6 @@ var _trace = TRACE_SCRIPT.new()
 const TRANSITION_SHADER: Shader = preload("res://shaders/home_paper_transition.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
-const FADE_OUT_SECONDS: float = 0.20
 const MOVEMENT_SPEED: float = 0.95
 const GATHER_SECONDS: float = 0.12 / MOVEMENT_SPEED
 const GATHER_DISTANCE: float = 10.0
@@ -166,10 +165,10 @@ func _start_gather() -> void:
 	_trace.phase("gather / first capture")
 	# Keep Home behind the pieces for the entire inward movement.
 	_fade_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	# The logo must be completely gone exactly at maximum gather. Keep the
-	# buttons on their existing fade timing so their departure remains unchanged.
+	# Fade both the logo and the Home actions during the inward gather. They must
+	# be fully gone before the blue pieces start opening onto the destination.
 	_fade_tween.tween_method(_fade_logo, 1.0, 0.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_fade_tween.parallel().tween_method(_fade_buttons, 1.0, 0.0, FADE_OUT_SECONDS)
+	_fade_tween.parallel().tween_method(_fade_buttons, 1.0, 0.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_tween.tween_method(_set_gather, 0.0, 1.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_callback(_at_gather_peak)

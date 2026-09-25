@@ -467,6 +467,7 @@ var PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.
 var PORTRAIT_RESULT_LETTER_BOUNCE_GAP: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.result_letters.gap_seconds", 0.0094
 )
+const PORTRAIT_RESULT_LETTER_NEIGHBOR_BOUNCE_STRENGTH: float = 0.40
 var PORTRAIT_RESULT_LETTER_BOUNCE_REFERENCE_LENGTH: float = PORTRAIT_GAME_DESIGN.get_float_range(
 	"timings.animations.result_letters.reference_length", 5.0, 0.01, 100.0
 )
@@ -5296,35 +5297,34 @@ func _run_quiz_feedback_after_press_return(button: Button, callback: Callable) -
 	if callback.is_valid():
 		callback.call()
 
-func _finish_quiz_answer_text_shake(
-	answer_label: Label,
+func _finish_horizontal_error_shake(
+	target: Control,
 	rest_position: Vector2,
 	finished_callback: Callable
 ) -> void:
-	if answer_label != null and is_instance_valid(answer_label):
-		answer_label.position = rest_position
+	if target != null and is_instance_valid(target):
+		target.position = rest_position
 	if finished_callback.is_valid():
 		finished_callback.call()
 
-func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = Callable()) -> void:
-	var answer_label := _quiz_answer_label(button)
-	if answer_label == null or !is_instance_valid(answer_label):
+func _play_horizontal_error_shake(target: Control, finished_callback: Callable = Callable()) -> void:
+	if target == null or !is_instance_valid(target):
 		if finished_callback.is_valid():
 			finished_callback.call()
 		return
-	var previous_tween_variant: Variant = _optional_node_meta(answer_label, &"quiz_text_shake_tween")
+	var previous_tween_variant: Variant = _optional_node_meta(target, &"horizontal_error_shake_tween")
 	if previous_tween_variant is Tween:
 		var previous_tween := previous_tween_variant as Tween
 		if previous_tween.is_valid():
 			previous_tween.kill()
-	var rest_position: Vector2 = answer_label.position
-	var shake_tween := answer_label.create_tween()
+	var rest_position: Vector2 = target.position
+	var shake_tween := target.create_tween()
 	shake_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	# Keep the error cue readable but restrained: smaller travel and a slower
-	# left/right cadence than the first implementation.
+	# Shared with the quiz wrong-answer cue: readable travel that decays toward
+	# the resting position instead of shaking the surrounding control.
 	for offset_x: float in [-5.0, 5.0, -4.0, 4.0, -2.0, 2.0, 0.0]:
 		var shake_step := shake_tween.tween_property(
-			answer_label,
+			target,
 			"position:x",
 			rest_position.x + offset_x,
 			PORTRAIT_QUIZ_WRONG_ANSWER_SHAKE_STEP_SECONDS
@@ -5332,14 +5332,18 @@ func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = 
 		shake_step.set_trans(Tween.TRANS_QUAD)
 		shake_step.set_ease(Tween.EASE_IN_OUT)
 	shake_tween.finished.connect(
-		Callable(self, "_finish_quiz_answer_text_shake").bind(
-			answer_label,
+		Callable(self, "_finish_horizontal_error_shake").bind(
+			target,
 			rest_position,
 			finished_callback
 		),
 		CONNECT_ONE_SHOT
 	)
-	answer_label.set_meta(&"quiz_text_shake_tween", shake_tween)
+	target.set_meta(&"horizontal_error_shake_tween", shake_tween)
+
+func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = Callable()) -> void:
+	var answer_label := _quiz_answer_label(button)
+	_play_horizontal_error_shake(answer_label, finished_callback)
 
 func _quiz_correct_answer_index() -> int:
 	return int(_quiz_current_question.get("correct_index", -1))
@@ -5970,7 +5974,7 @@ func _prepare_quiz_answer_for_replacement(
 	_set_quiz_answer_fill(button, Color.WHITE)
 	var answer_label := _quiz_answer_label(button)
 	if answer_label != null and is_instance_valid(answer_label):
-		var shake_tween_variant: Variant = _optional_node_meta(answer_label, &"quiz_text_shake_tween")
+		var shake_tween_variant: Variant = _optional_node_meta(answer_label, &"horizontal_error_shake_tween")
 		if shake_tween_variant is Tween:
 			var shake_tween := shake_tween_variant as Tween
 			if shake_tween.is_valid():
@@ -9402,6 +9406,17 @@ func _set_custom_word_search_orbit(angle: float, art_holder: Control, rest_posit
 	# the resting position, avoiding a jump when the repeating animation starts.
 	art_holder.position = rest_position + Vector2(cos(angle) - 1.0, sin(angle)) * PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS
 
+func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
+	super._set_custom_word_check_result(found, network_error)
+	if found or network_error:
+		return
+	if custom_word_input_visual == null or !is_instance_valid(custom_word_input_visual):
+		return
+	var display_label := custom_word_input_visual.get_node_or_null("WordSlots/InputText") as Control
+	if display_label == null or !is_instance_valid(display_label):
+		return
+	_play_horizontal_error_shake(display_label)
+
 func _portrait_custom_word_button_rect(source_rect: Rect2) -> Rect2:
 	# Resolve the original footer sizing first, then raise the result. This keeps
 	# every button's existing dimensions while moving the whole stack together.
@@ -10545,6 +10560,7 @@ func _stage_portrait_result_word_bounce_labels(
 
 	var animation_index: int = 0
 	var labels: Array = []
+	var bounce_labels: Array = []
 	var start_step: float = grow_duration + letter_gap
 	for character_index: int in range(word_text.length()):
 		var character: String = word_text.substr(character_index, 1)
@@ -10579,13 +10595,19 @@ func _stage_portrait_result_word_bounce_labels(
 		labels.append(letter_label)
 		if character != "-" and character != "—":
 			letter_label.pivot_offset = letter_label.size * 0.5
-			_play_portrait_result_letter_bounce(
-				letter_label,
-				start_delay + float(animation_index) * start_step,
-				grow_duration,
-				settle_duration
-			)
-			animation_index += 1
+			letter_label.set_meta("result_word_bounce_contributions", {})
+			bounce_labels.append(letter_label)
+
+	animation_index = bounce_labels.size()
+	for bounce_index: int in range(animation_index):
+		_play_portrait_result_letter_bounce(
+			bounce_labels,
+			bounce_index,
+			start_delay + float(bounce_index) * start_step,
+			grow_duration,
+			settle_duration,
+			letter_gap
+		)
 
 	var duration: float = 0.0
 	if animation_index > 0:
@@ -10601,35 +10623,178 @@ func _stage_portrait_result_word_bounce_labels(
 	}
 
 func _play_portrait_result_letter_bounce(
-	letter_label: Label,
+	bounce_labels: Array,
+	center_index: int,
 	delay: float,
 	grow_duration: float,
-	settle_duration: float
+	settle_duration: float,
+	letter_gap: float
 ) -> void:
-	if letter_label == null or !is_instance_valid(letter_label):
+	if center_index < 0 or center_index >= bounce_labels.size():
 		return
-	letter_label.scale = Vector2.ONE
-	var tween: Tween = letter_label.create_tween()
+	var center_label: Label = bounce_labels[center_index] as Label
+	if center_label == null or !is_instance_valid(center_label):
+		return
+	var pulse_id: int = center_index
+	var peak_scale: float = PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE.x
+	var tween: Tween = center_label.create_tween()
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.bind_node(letter_label)
+	tween.bind_node(center_label)
 	if delay > 0.0:
 		tween.tween_interval(delay)
-	var grow := tween.tween_property(
-		letter_label,
-		"scale",
-		PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE,
+	var grow := tween.tween_method(
+		Callable(self, "_apply_portrait_result_letter_bounce_pulse").bind(
+			bounce_labels, center_index, pulse_id
+		),
+		1.0,
+		peak_scale,
 		grow_duration
 	)
 	grow.set_trans(Tween.TRANS_QUAD)
 	grow.set_ease(Tween.EASE_OUT)
-	var settle := tween.tween_property(
-		letter_label,
-		"scale",
-		Vector2.ONE,
+	var settle := tween.tween_method(
+		Callable(self, "_apply_portrait_result_letter_bounce_pulse").bind(
+			bounce_labels, center_index, pulse_id
+		),
+		peak_scale,
+		1.0,
 		settle_duration
 	)
 	settle.set_trans(Tween.TRANS_BACK)
 	settle.set_ease(Tween.EASE_OUT)
+	tween.tween_callback(
+		Callable(self, "_finish_portrait_result_letter_bounce_pulse").bind(
+			bounce_labels, center_index, pulse_id
+		)
+	)
+
+	# The right-hand neighbour becomes the next central letter in the wave. If its
+	# 40% neighbour pulse settles before the next full pulse reaches its peak, the
+	# glyph visibly snaps down and immediately back up. Bridge those two peaks with
+	# one monotonic contribution: 40% at this letter's peak -> 100% exactly at the
+	# next letter's own peak. The normal next-center pulse then takes over seamlessly.
+	var right_index: int = center_index + 1
+	if right_index < bounce_labels.size():
+		var right_label: Label = bounce_labels[right_index] as Label
+		if right_label != null and is_instance_valid(right_label):
+			var bridge_id: int = -center_index - 1
+			var peak_delta: float = peak_scale - 1.0
+			var bridge_start_delta: float = (
+				peak_delta * PORTRAIT_RESULT_LETTER_NEIGHBOR_BOUNCE_STRENGTH
+			)
+			var bridge_duration: float = grow_duration + letter_gap
+			var bridge_tween: Tween = right_label.create_tween()
+			bridge_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			bridge_tween.bind_node(right_label)
+			var bridge_delay: float = delay + grow_duration
+			if bridge_delay > 0.0:
+				bridge_tween.tween_interval(bridge_delay)
+			var bridge := bridge_tween.tween_method(
+				Callable(self, "_apply_portrait_result_letter_bounce_contribution").bind(
+					right_label, bridge_id
+				),
+				bridge_start_delta,
+				peak_delta,
+				bridge_duration
+			)
+			bridge.set_trans(Tween.TRANS_SINE)
+			bridge.set_ease(Tween.EASE_IN_OUT)
+			bridge_tween.tween_callback(
+				Callable(self, "_finish_portrait_result_letter_bounce_contribution").bind(
+					right_label, bridge_id
+				)
+			)
+
+func _apply_portrait_result_letter_bounce_contribution(
+	delta: float,
+	letter_label: Label,
+	contribution_id: int
+) -> void:
+	if letter_label == null or !is_instance_valid(letter_label):
+		return
+	var contributions: Dictionary = letter_label.get_meta(
+		"result_word_bounce_contributions", {}
+	)
+	contributions[contribution_id] = delta
+	letter_label.set_meta("result_word_bounce_contributions", contributions)
+	_refresh_portrait_result_letter_bounce_scale(letter_label, contributions)
+
+func _finish_portrait_result_letter_bounce_contribution(
+	letter_label: Label,
+	contribution_id: int
+) -> void:
+	if letter_label == null or !is_instance_valid(letter_label):
+		return
+	var contributions: Dictionary = letter_label.get_meta(
+		"result_word_bounce_contributions", {}
+	)
+	contributions.erase(contribution_id)
+	letter_label.set_meta("result_word_bounce_contributions", contributions)
+	_refresh_portrait_result_letter_bounce_scale(letter_label, contributions)
+
+func _apply_portrait_result_letter_bounce_pulse(
+	scale_value: float,
+	bounce_labels: Array,
+	center_index: int,
+	pulse_id: int
+) -> void:
+	var base_delta: float = scale_value - 1.0
+	for offset: int in range(-1, 2):
+		var label_index: int = center_index + offset
+		if label_index < 0 or label_index >= bounce_labels.size():
+			continue
+		var letter_label: Label = bounce_labels[label_index] as Label
+		if letter_label == null or !is_instance_valid(letter_label):
+			continue
+		var strength: float = (
+			1.0
+			if offset == 0
+			else PORTRAIT_RESULT_LETTER_NEIGHBOR_BOUNCE_STRENGTH
+		)
+		var contributions: Dictionary = letter_label.get_meta(
+			"result_word_bounce_contributions", {}
+		)
+		contributions[pulse_id] = base_delta * strength
+		letter_label.set_meta("result_word_bounce_contributions", contributions)
+		_refresh_portrait_result_letter_bounce_scale(letter_label, contributions)
+
+func _finish_portrait_result_letter_bounce_pulse(
+	bounce_labels: Array,
+	center_index: int,
+	pulse_id: int
+) -> void:
+	for offset: int in range(-1, 2):
+		var label_index: int = center_index + offset
+		if label_index < 0 or label_index >= bounce_labels.size():
+			continue
+		var letter_label: Label = bounce_labels[label_index] as Label
+		if letter_label == null or !is_instance_valid(letter_label):
+			continue
+		var contributions: Dictionary = letter_label.get_meta(
+			"result_word_bounce_contributions", {}
+		)
+		contributions.erase(pulse_id)
+		letter_label.set_meta("result_word_bounce_contributions", contributions)
+		_refresh_portrait_result_letter_bounce_scale(letter_label, contributions)
+
+func _refresh_portrait_result_letter_bounce_scale(
+	letter_label: Label,
+	contributions: Dictionary
+) -> void:
+	if letter_label == null or !is_instance_valid(letter_label):
+		return
+	var selected_delta: float = 0.0
+	var strongest_negative_delta: float = 0.0
+	for contribution_value: Variant in contributions.values():
+		var contribution: float = float(contribution_value)
+		if contribution > selected_delta:
+			selected_delta = contribution
+		elif selected_delta <= 0.0 and contribution < strongest_negative_delta:
+			strongest_negative_delta = contribution
+	if selected_delta <= 0.0:
+		selected_delta = strongest_negative_delta
+	var combined_scale: float = maxf(1.0 + selected_delta, 0.01)
+	letter_label.scale = Vector2.ONE * combined_scale
 
 func _stage_portrait_word_slots(
 	rect: Rect2,
