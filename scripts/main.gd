@@ -565,7 +565,11 @@ func _connect_stage_button_action(button: Object, callable: Callable, with_click
 		button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))
 	button.connect(&"pressed", callable)
 
-func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.58) -> void:
+func _add_fullscreen_modal_backdrop(
+	close_callable: Callable,
+	alpha: float = 0.58,
+	animate_fade_in: bool = true
+) -> void:
 	# The fullscreen popup root must not swallow clicks before they reach the
 	# backdrop. Interactive controls inside the popup keep their own STOP filters.
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -575,7 +579,12 @@ func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.5
 	# aspect ratios. Native full-rect Controls avoid clipping to stage bounds.
 	var dimmer := ColorRect.new()
 	dimmer.name = "ModalDimmer"
-	dimmer.color = Color(0.0, 0.0, 0.0, 0.0)
+	var dimmer_target_color := Color(0.0, 0.0, 0.0, alpha)
+	dimmer.color = (
+		Color(0.0, 0.0, 0.0, 0.0)
+		if animate_fade_in
+		else dimmer_target_color
+	)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
 	# A freshly opened popup owns the screen immediately, but tapping the dimmer
 	# must not dismiss it until the popup's opening bounce has fully settled.
@@ -584,20 +593,22 @@ func _add_fullscreen_modal_backdrop(close_callable: Callable, alpha: float = 0.5
 	content.add_child(dimmer)
 	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	# Let the background darkness arrive together with the popup's opening bounce
-	# instead of snapping to the final alpha on the first frame.
-	var dimmer_target_color := Color(0.0, 0.0, 0.0, alpha)
-	var dimmer_tween := create_tween()
-	dimmer_tween.bind_node(dimmer)
-	dimmer_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var dimmer_fade_in := dimmer_tween.tween_property(
-		dimmer,
-		"color",
-		dimmer_target_color,
-		MODAL_DIMMER_FADE_IN_DURATION
-	)
-	dimmer_fade_in.set_trans(Tween.TRANS_QUAD)
-	dimmer_fade_in.set_ease(Tween.EASE_OUT)
+	# A first-level modal darkens together with the popup bounce. When another
+	# modal is already present, starting the new dimmer from transparent produces
+	# a visible flash between the two layers. A stacked popup therefore starts at
+	# its final dimmer alpha and simply overlays the existing modal backdrop.
+	if animate_fade_in:
+		var dimmer_tween := create_tween()
+		dimmer_tween.bind_node(dimmer)
+		dimmer_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var dimmer_fade_in := dimmer_tween.tween_property(
+			dimmer,
+			"color",
+			dimmer_target_color,
+			MODAL_DIMMER_FADE_IN_DURATION
+		)
+		dimmer_fade_in.set_trans(Tween.TRANS_QUAD)
+		dimmer_fade_in.set_ease(Tween.EASE_OUT)
 
 func _spawn_modal_dimmer_fade_out(popup_layer: CanvasLayer, source_dimmer: ColorRect) -> void:
 	if (

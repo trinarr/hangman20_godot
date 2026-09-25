@@ -2918,6 +2918,9 @@ func _portrait_popup_begin(
 	if !resume_without_intro:
 		_play_popup_open_sound()
 	var previous_content: Control = content
+	var has_existing_modal_popup: bool = !get_tree().get_nodes_in_group(
+		PORTRAIT_MODAL_POPUP_GROUP
+	).is_empty()
 	var popup_layer := CanvasLayer.new()
 	popup_layer.name = name + "Canvas"
 	popup_layer.layer = layer_index
@@ -2941,7 +2944,11 @@ func _portrait_popup_begin(
 	popup_layer.add_child(popup_root)
 	content = popup_root
 	var dimmer_close_callable: Callable = close_callable if close_on_dimmer else Callable()
-	_add_fullscreen_modal_backdrop(dimmer_close_callable, alpha)
+	_add_fullscreen_modal_backdrop(
+		dimmer_close_callable,
+		alpha,
+		!has_existing_modal_popup
+	)
 	if show_coin_balance:
 		_stage_popup_coin_balance_above_dimmer(
 			popup_root,
@@ -4390,7 +4397,10 @@ func _show_settings_popup() -> void:
 	scroll.name = "SettingsScroll"
 	scroll.stage_rect = Rect2(40.0, rect.position.y + 86.0, 400.0, rect.size.y - 108.0)
 	scroll.content_origin_y = 206.0
-	scroll.content_height = 520.0 if !compact_layout else 420.0
+	# Compact Settings intentionally contains only Sound and Vibration. Keep the
+	# scroll extent equal to the visible viewport so elastic edge feedback remains
+	# available without exposing rows that do not belong to this compact variant.
+	scroll.content_height = 520.0 if !compact_layout else rect.size.y - 108.0
 	content.add_child(scroll)
 	content = scroll.stage_content
 
@@ -4408,9 +4418,8 @@ func _show_settings_popup() -> void:
 	vibration_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(vibration_label)
 	_stage_settings_toggle_button(Rect2(330.0, 282.0, 102.0, 49.0), 4)
-	_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
-
 	if !compact_layout:
+		_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
 		var word_base_label := _stage_label(
 			Rect2(56.0, 374.0, 150.0, 42.0),
 			_settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
@@ -4421,46 +4430,45 @@ func _show_settings_popup() -> void:
 		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
 		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
 
-	var extra_y: float = -100.0 if compact_layout else 0.0
-	var ads_label := _stage_label(
-		Rect2(56.0, 468.0 + extra_y, 256.0, 66.0),
-		tr("SETTINGS_PERSONALIZED_ADS"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
-	)
-	ads_label.add_theme_font_override("font", UI_REGULAR_FONT)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(ads_label)
-	var enabled: bool = GameState.allows_ad_personalization()
-	_settings_ad_consent_button = _stage_portrait_popup_main_button(
-		Rect2(330.0, 476.0 + extra_y, 102.0, 49.0),
-		Callable(self, "_toggle_settings_ad_consent"),
-		_settings_on_label() if enabled else _settings_off_label(),
-		18, false, 0.0, false, enabled, false, LONG_BUTTON_COLOR_ORANGE
-	)
-	_apply_settings_compact_toggle_font_size(_settings_ad_consent_button)
-	_settings_ad_consent_button.set("drop_shadow_enabled", true)
-	_settings_ad_consent_button.set("drop_shadow_selected_uses_pressed_state", true)
-	_stage_panel(Rect2(56.0, 552.0 + extra_y, 368.0, 2.0), PORTRAIT_RULE)
+		var ads_label := _stage_label(
+			Rect2(56.0, 468.0, 256.0, 66.0),
+			tr("SETTINGS_PERSONALIZED_ADS"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
+		)
+		ads_label.add_theme_font_override("font", UI_REGULAR_FONT)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(ads_label)
+		var enabled: bool = GameState.allows_ad_personalization()
+		_settings_ad_consent_button = _stage_portrait_popup_main_button(
+			Rect2(330.0, 476.0, 102.0, 49.0),
+			Callable(self, "_toggle_settings_ad_consent"),
+			_settings_on_label() if enabled else _settings_off_label(),
+			18, false, 0.0, false, enabled, false, LONG_BUTTON_COLOR_ORANGE
+		)
+		_apply_settings_compact_toggle_font_size(_settings_ad_consent_button)
+		_settings_ad_consent_button.set("drop_shadow_enabled", true)
+		_settings_ad_consent_button.set("drop_shadow_selected_uses_pressed_state", true)
+		_stage_panel(Rect2(56.0, 552.0, 368.0, 2.0), PORTRAIT_RULE)
 
-	var vk_button := _stage_round_icon_button(
-		Rect2(174.0, 574.0 + extra_y, 58.0, 58.0),
-		Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE
-	)
-	vk_button.set("drop_shadow_enabled", true)
-	vk_button.set("drop_shadow_offset_y", 2.0)
-	vk_button.set("drop_shadow_pressed_offset_y", 1.0)
-	var mail_button := _stage_round_icon_button(
-		Rect2(248.0, 574.0 + extra_y, 58.0, 58.0),
-		Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE
-	)
-	mail_button.set("drop_shadow_enabled", true)
-	mail_button.set("drop_shadow_offset_y", 2.0)
-	mail_button.set("drop_shadow_pressed_offset_y", 1.0)
-	_stage_portrait_legal_links_row(Rect2(40.0, 642.0 + extra_y, 392.0, 30.0), 17)
-	var version_label := _stage_label(
-		Rect2(40.0, 686.0 + extra_y, 392.0, 28.0), _about_version_text(),
-		14, PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, HORIZONTAL_ALIGNMENT_CENTER
-	)
-	version_label.add_theme_font_override("font", UI_REGULAR_FONT)
-	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		var vk_button := _stage_round_icon_button(
+			Rect2(174.0, 574.0, 58.0, 58.0),
+			Callable(self, "_about_contact_action").bind("vk"), ABOUT_VK_ICON, ABOUT_VK_ICON_SIZE
+		)
+		vk_button.set("drop_shadow_enabled", true)
+		vk_button.set("drop_shadow_offset_y", 2.0)
+		vk_button.set("drop_shadow_pressed_offset_y", 1.0)
+		var mail_button := _stage_round_icon_button(
+			Rect2(248.0, 574.0, 58.0, 58.0),
+			Callable(self, "_about_contact_action").bind("mail"), ABOUT_MAIL_ICON, ABOUT_MAIL_ICON_SIZE
+		)
+		mail_button.set("drop_shadow_enabled", true)
+		mail_button.set("drop_shadow_offset_y", 2.0)
+		mail_button.set("drop_shadow_pressed_offset_y", 1.0)
+		_stage_portrait_legal_links_row(Rect2(40.0, 642.0, 392.0, 30.0), 17)
+		var version_label := _stage_label(
+			Rect2(40.0, 686.0, 392.0, 28.0), _about_version_text(),
+			14, PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, HORIZONTAL_ALIGNMENT_CENTER
+		)
+		version_label.add_theme_font_override("font", UI_REGULAR_FONT)
+		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 	content = previous_content
 
@@ -18016,7 +18024,7 @@ func _continue_from_single_player_reward_chain() -> void:
 		_show_heart_refill_popup(
 			Callable(self, "_continue_single_player_stage_after_refill").bind(level_index),
 			Callable(self, "_return_to_single_player_reward_from_coin_store"),
-			Callable(self, "_cancel_single_player_stage_heart_refill").bind(level_index)
+			Callable()
 		)
 		return
 	if level_completed:
