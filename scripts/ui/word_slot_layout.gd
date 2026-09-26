@@ -9,6 +9,42 @@ const UNDERLINE_GAP: float = 12.0
 
 var _letters: PackedStringArray
 
+static func revealed_letter_lefts(items: Array, revealed: Array, reveal_all: bool = false) -> Array[float]:
+	# Keep the original slots for hidden letters and separators. Within an open
+	# run, pin the two outer letters and distribute the interior by glyph width.
+	# Thus only letters with two revealed neighbours can change position.
+	var lefts: Array[float] = []
+	for item: Dictionary in items:
+		lefts.append(float(item["left"]))
+	var run_start: int = -1
+	for i: int in range(items.size() + 1):
+		var is_open: bool = false
+		if i < items.size():
+			var item: Dictionary = items[i]
+			is_open = (
+				!bool(item["is_space"]) and !bool(item["is_dash"])
+				and (reveal_all or (i < revealed.size() and bool(revealed[i])))
+			)
+		if is_open:
+			if run_start < 0:
+				run_start = i
+			continue
+		if run_start >= 0 and i - run_start >= 3:
+			var last: int = i - 1
+			var span: float = lefts[last] + float(items[last]["width"]) - lefts[run_start]
+			var glyph_width: float = 0.0
+			for j: int in range(run_start, i):
+				glyph_width += float(items[j]["width"])
+			var gap: float = (span - glyph_width) / float(i - run_start - 1)
+			# Do not introduce overlap if an exceptional layout cannot fit the run.
+			if gap >= 0.0:
+				var cursor: float = lefts[run_start]
+				for j: int in range(run_start + 1, last):
+					cursor += float(items[j - 1]["width"]) + gap
+					lefts[j] = cursor
+		run_start = -1
+	return lefts
+
 func _init(letters: PackedStringArray) -> void:
 	_letters = letters.duplicate()
 

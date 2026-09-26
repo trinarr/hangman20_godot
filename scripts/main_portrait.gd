@@ -10473,11 +10473,13 @@ func _rebuild_portrait_game_word_slots(font_size: int = 34) -> void:
 		and cache.get("font_size") == font_size
 	):
 		var slots: Array = cache["slots"]
+		var reveal_changed: bool = false
 		for i: int in range(slots.size()):
 			var slot: Dictionary = slots[i]
 			var revealed: bool = bool(GameSession.revealed[i])
 			if revealed == bool(slot["revealed"]):
 				continue
+			reveal_changed = true
 			slot["revealed"] = revealed
 			var underline: Control = slot["underline"]
 			var letter_label: Label = slot["label"]
@@ -10487,6 +10489,8 @@ func _rebuild_portrait_game_word_slots(font_size: int = 34) -> void:
 				letter_label.visible = revealed
 				if revealed and pending_letter_marker_is_correct and pending_letter_markers.has(slot["letter"]):
 					_prepare_portrait_word_letter_bounce(letter_label)
+		if reveal_changed:
+			_reflow_portrait_revealed_letters(cache)
 		return
 
 	# Only discarded labels invalidate bounce callbacks. An unrelated refresh
@@ -10502,6 +10506,37 @@ func _rebuild_portrait_game_word_slots(font_size: int = 34) -> void:
 	content = _portrait_game_word_slots_root
 	_stage_portrait_word_slots(_portrait_game_word_rect, font_size, false, false)
 	content = previous_content
+
+func _reflow_portrait_revealed_letters(cache: Dictionary) -> void:
+	var lefts: Array[float] = WORD_SLOT_LAYOUT_SCRIPT.revealed_letter_lefts(
+		cache["layout"], GameSession.revealed
+	)
+	var slots: Array = cache["slots"]
+	for i: int in range(slots.size()):
+		var slot: Dictionary = slots[i]
+		var label: Label = slot["label"]
+		if !is_instance_valid(label):
+			continue
+		var target_x: float = float(cache["start_x"]) + lefts[i]
+		if is_equal_approx(target_x, float(slot["target_x"])):
+			continue
+		slot["target_x"] = target_x
+		var previous_tween: Tween = slot.get("layout_tween") as Tween
+		if previous_tween != null and previous_tween.is_valid():
+			previous_tween.kill()
+		# Move the holder, leaving the existing letter bounce on the Label intact.
+		# Binding to the holder cancels this motion when the screen is discarded.
+		var holder := label.get_parent() as Control
+		# target_x is in design coordinates. FlashStageControl maps stage_rect
+		# to viewport pixels (including scale and parent transforms) in its setter.
+		# Animating Control.position would mix those coordinate systems and would
+		# also leave a stale stage_rect that snaps back on a viewport resize.
+		var target_rect: Rect2 = holder.get("stage_rect")
+		target_rect.position.x = target_x
+		var tween := holder.create_tween()
+		tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(holder, "stage_rect", target_rect, 0.12)
+		slot["layout_tween"] = tween
 
 func _refresh_portrait_game_keyboard() -> void:
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
@@ -11260,6 +11295,9 @@ func _stage_portrait_word_slots(
 
 	var resolved: Dictionary = WORD_SLOT_LAYOUT_SCRIPT.new(GameSession.letters).resolve(rect.size, font_size)
 	var layout: Array = resolved["items"]
+	var letter_lefts: Array[float] = WORD_SLOT_LAYOUT_SCRIPT.revealed_letter_lefts(
+		layout, GameSession.revealed, reveal_all
+	)
 	var word_font: Font = resolved["font"]
 	var effective_font_size: int = int(resolved["font_size"])
 	var total_width: float = float(resolved["total_width"])
@@ -11270,7 +11308,7 @@ func _stage_portrait_word_slots(
 
 	for i in range(layout.size()):
 		var item: Dictionary = layout[i]
-		var item_left: float = float(item["left"])
+		var item_left: float = letter_lefts[i]
 		var item_width: float = float(item["width"])
 		var item_center: float = float(item["center"])
 		var letter: String = str(item["letter"])
@@ -11331,12 +11369,14 @@ func _stage_portrait_word_slots(
 			slots.append({
 				"letter": letter, "label": letter_label, "underline": underline,
 				"revealed": revealed, "is_dash": is_dash,
+				"target_x": start_x + item_left,
 			})
 
 	if retain_slots:
 		_portrait_game_word_slots_root.set_meta("word_slots_cache", {
 			"letters": GameSession.letters.duplicate(), "rect": rect,
 			"font_size": font_size, "slots": slots,
+			"layout": layout, "start_x": start_x,
 		})
 	return {
 		"bounds": Rect2(start_x, rect.position.y, total_width, rect.size.y),
