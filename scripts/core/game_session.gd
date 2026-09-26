@@ -14,6 +14,7 @@ var WRONG_LETTER_VIBRATION_MS: int = GAME_DESIGN.get_int(
 )
 var MAX_MISTAKES: int = GAME_DESIGN.get_int_range("gameplay.max_mistakes", 6, 1, 64)
 
+var round_id: String = ""
 var word_index: int = -1
 var theme_id: int = -1
 var word_data: WordData = null
@@ -39,6 +40,7 @@ func get_remaining_attempts() -> int:
 	return maxi(MAX_MISTAKES - mistakes, 0)
 
 func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) -> void:
+	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
 	word_data = word
 	word_index = word.index
 	theme_id = word.theme_index
@@ -86,6 +88,7 @@ func to_save_data() -> Dictionary:
 	if word_data == null or mode != GameState.GameMode.SINGLE_PLAYER:
 		return {}
 	return {
+		"round_id": round_id,
 		"word": word_data.text,
 		"difficulty": word_data.difficulty,
 		"theme_id": Database.get_theme_id(theme_id),
@@ -159,6 +162,7 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	remove_wrong_hint_ad_reuse_available = bool(source.get("remove_wrong_hint_ad_reuse_available", false))
 	comment_hint_unlocked = bool(source.get("comment_hint_unlocked", false))
 	word_hint_text = str(source.get("word_hint_text", _resolve_word_hint()))
+	round_id = str(source.get("round_id", "%d:%d" % [Time.get_ticks_usec(), randi()]))
 	is_active = true
 	emit_signal("changed")
 	return true
@@ -472,7 +476,7 @@ func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 	if word_data == null:
 		return result
 
-	if is_win:
+	if is_win and mode != GameState.GameMode.TWO_PLAYER:
 		if award_win_coins:
 			GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
 		var reward_text: String = tr("COINS_EARNED")

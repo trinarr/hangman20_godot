@@ -66,6 +66,7 @@ var _rewarded_loaded: bool = false
 var _rewarded_loading_id: String = ""
 var _rewarded_loaded_id: String = ""
 var _rewarded_pending_show: bool = false
+var _rewarded_pending_validator: Callable = Callable()
 var _rewarded_pending_request_id: String = ""
 # Drain an in-flight request after a privacy or placement change without exposing
 # the stale ad. The bundled native bridge has untagged load callbacks, so each
@@ -275,9 +276,9 @@ func show_interstitial(placement: StringName = &"") -> bool:
 	if _interstitial_loaded and _interstitial_loaded_id == interstitial_id:
 		_start_interstitial_show()
 		return true
-	_interstitial_pending_show = true
+	# A network request must never block navigation or auto-show later.
 	load_interstitial()
-	return true
+	return false
 
 func _start_interstitial_show() -> void:
 	if !is_native_available() or !_interstitial_loaded:
@@ -342,24 +343,47 @@ func can_request_rewarded_video(placement: StringName = &"") -> bool:
 		return !rewarded_id.is_empty()
 	return !_rewarded_id_for_placement(placement).is_empty()
 
-func show_rewarded_video(request_id: String = "", placement: StringName = &"") -> bool:
+func show_rewarded_video(
+	request_id: String = "", placement: StringName = &"", validator: Callable = Callable()
+) -> bool:
 	if _rewarded_show_open or _rewarded_pending_show:
 		return false
 	if placement != &"" and !prepare_rewarded_placement(placement):
 		return false
 	if !is_native_available() or !_sdk_ready or rewarded_id.is_empty():
 		return false
-	if _rewarded_loaded and _rewarded_loaded_id == rewarded_id:
-		_start_rewarded_show(request_id)
-		return true
 	_rewarded_pending_show = true
 	_rewarded_pending_request_id = request_id
+	_rewarded_pending_validator = validator
+	if _rewarded_loaded and _rewarded_loaded_id == rewarded_id:
+		_start_rewarded_show(request_id)
+		return _rewarded_show_open
 	load_rewarded_video()
 	return true
 
+func cancel_pending_rewarded_request(request_id: String) -> bool:
+	if !_rewarded_pending_show or _rewarded_pending_request_id != request_id:
+		return false
+	_rewarded_pending_show = false
+	_rewarded_pending_request_id = ""
+	_rewarded_pending_validator = Callable()
+	return true
+
+func is_rewarded_request_pending(request_id: String) -> bool:
+	return _rewarded_pending_show and _rewarded_pending_request_id == request_id
+
 func _start_rewarded_show(request_id: String) -> void:
+	# A deferred loaded callback may belong to an already cancelled request.
+	if !_rewarded_pending_show or _rewarded_pending_request_id != request_id:
+		return
+	if !_rewarded_pending_validator.is_null() and (
+		!_rewarded_pending_validator.is_valid() or !bool(_rewarded_pending_validator.call())
+	):
+		_fail_pending_rewarded_show("Reward context changed")
+		return
 	if !is_native_available() or !_rewarded_loaded or _rewarded_show_open:
 		return
+	_rewarded_pending_validator = Callable()
 	_rewarded_pending_show = false
 	_rewarded_pending_request_id = ""
 	_rewarded_loaded = false
@@ -383,6 +407,7 @@ func _fail_pending_rewarded_show(message: String) -> void:
 	if !_rewarded_pending_show:
 		return
 	var request_id: String = _rewarded_pending_request_id
+	_rewarded_pending_validator = Callable()
 	_rewarded_pending_show = false
 	_rewarded_pending_request_id = ""
 	if request_id.is_empty():

@@ -176,6 +176,9 @@ var single_player_resume_states: Dictionary = {}
 var active_single_player_session: Dictionary = {}
 var pending_single_player_reward: Dictionary = {}
 var rewarded_double_requests: Dictionary = {}
+var rewarded_action_requests: Dictionary = {}
+var _save_batch_depth: int = 0
+var _save_retry_pending: bool = false
 var hint_counts: Dictionary = {
 	HINT_OPEN_LETTER: DEFAULT_HINT_COUNT,
 	HINT_REMOVE_WRONG: DEFAULT_HINT_COUNT,
@@ -298,6 +301,8 @@ func _normalize_game_design_values() -> void:
 	)
 
 func _on_heart_tick() -> void:
+	if _save_retry_pending and _save_batch_depth == 0:
+		save_game()
 	_apply_elapsed_heart_recovery(true)
 	_emit_heart_status_if_changed()
 
@@ -370,6 +375,15 @@ func load_game() -> void:
 	_merge_legacy_single_player_resume_state(legacy_active_session, legacy_pending_reward)
 	_restore_single_player_resume_state(word_language)
 	_load_rewarded_double_requests(parsed.get("rewarded_double_requests", {}))
+	rewarded_action_requests = {}
+	var action_requests: Variant = parsed.get("rewarded_action_requests", {})
+	if action_requests is Dictionary:
+		for request_id: Variant in action_requests:
+			var request: Variant = action_requests[request_id]
+			if request is Dictionary and request.get("context") is Dictionary:
+				# Preserve identity across reload; only an earned receipt is replayed.
+				if str(request.get("action", "")) in ["coin_refill", "heart_refill", "hint_open", "hint_remove", "extra_attempt", "theme_reroll"]:
+					rewarded_action_requests[str(request_id)] = request.duplicate(true)
 	_load_hint_counts_from_save(parsed)
 	_load_hearts_from_save(parsed)
 	_load_coin_refill_ad_state_from_save(parsed)
@@ -494,10 +508,37 @@ func _set_interface_language_from_locale() -> void:
 func _normalize_language(lang: String) -> String:
 	return "ru" if lang.to_lower().begins_with("ru") else "en"
 
+# Batches contain no await: all mutations and receipt removal reach one file.
+func begin_save_batch() -> void:
+	_save_batch_depth += 1
+
+func end_save_batch() -> bool:
+	_save_batch_depth = maxi(_save_batch_depth - 1, 0)
+	return save_game() if _save_batch_depth == 0 else true
+
+func begin_rewarded_action_request(action: String, context: Dictionary) -> String:
+	var request_id: String = "action:%d:%d" % [Time.get_ticks_usec(), randi()]
+	rewarded_action_requests[request_id] = {
+		"action": action, "context": context.duplicate(true), "earned": false,
+	}
+	if !save_game():
+		rewarded_action_requests.erase(request_id)
+		return ""
+	return request_id
+
+func cancel_rewarded_action_request(request_id: String) -> void:
+	var request: Dictionary = rewarded_action_requests.get(request_id, {})
+	if !request.is_empty() and !bool(request.get("earned", false)):
+		rewarded_action_requests.erase(request_id)
+		save_game()
+
 func save_game() -> bool:
+	if _save_batch_depth > 0:
+		return true
 	var profile_started_usec: int = BUILD_TRACE.section_start()
 	var profile_result: bool = _home_profile_save_game()
 	BUILD_TRACE.section_end(&"save.total", profile_started_usec)
+	_save_retry_pending = !profile_result
 	return profile_result
 
 func _home_profile_save_game() -> bool:
@@ -518,6 +559,7 @@ func _home_profile_save_game() -> bool:
 		"active_single_player_session": active_single_player_session,
 		"pending_single_player_reward": pending_single_player_reward,
 		"rewarded_double_requests": rewarded_double_requests,
+		"rewarded_action_requests": rewarded_action_requests,
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
 		"stars": stars,
@@ -1400,18 +1442,19 @@ func consume_coin_refill_ad_view(persist: bool = true) -> int:
 		save_game()
 	return coin_refill_ad_views_remaining
 
-func grant_coin_refill_ad_reward(amount: int) -> int:
+func grant_coin_refill_ad_reward(amount: int, earned_receipt: bool = false) -> int:
 	# Balance and the consumed ad view must reach the same save snapshot.
 	_refresh_coin_refill_ad_cooldown(true)
-	if amount <= 0 or coin_refill_ad_views_remaining <= 0:
+	if amount <= 0 or (coin_refill_ad_views_remaining <= 0 and !earned_receipt):
 		return -1
 	var previous_balance: int = soft_currency
 	var previous_views: int = coin_refill_ad_views_remaining
 	var previous_cooldown: int = coin_refill_ad_cooldown_until
 	soft_currency = clampi(soft_currency + amount, 0, MAX_CURRENCY_BALANCE)
-	coin_refill_ad_views_remaining -= 1
-	if coin_refill_ad_views_remaining == 0:
-		coin_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+	if coin_refill_ad_views_remaining > 0:
+		coin_refill_ad_views_remaining -= 1
+		if coin_refill_ad_views_remaining == 0:
+			coin_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
 	if !save_game():
 		soft_currency = previous_balance
 		coin_refill_ad_views_remaining = previous_views
@@ -1477,12 +1520,12 @@ func consume_heart_refill_ad_view(persist: bool = true) -> int:
 		save_game()
 	return heart_refill_ad_views_remaining
 
-func grant_heart_refill_ad_reward() -> bool:
+func grant_heart_refill_ad_reward(earned_receipt: bool = false) -> bool:
 	_apply_elapsed_heart_recovery(true)
 	if hearts >= MAX_HEARTS:
 		return true
 	_refresh_heart_refill_ad_cooldown(true)
-	if heart_refill_ad_views_remaining <= 0:
+	if heart_refill_ad_views_remaining <= 0 and !earned_receipt:
 		return false
 	var previous_hearts: int = hearts
 	var previous_recovery_at: int = heart_recovery_at
@@ -1491,9 +1534,10 @@ func grant_heart_refill_ad_reward() -> bool:
 	hearts = mini(hearts + 1, MAX_HEARTS)
 	if hearts >= MAX_HEARTS:
 		heart_recovery_at = 0
-	heart_refill_ad_views_remaining -= 1
-	if heart_refill_ad_views_remaining == 0:
-		heart_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+	if heart_refill_ad_views_remaining > 0:
+		heart_refill_ad_views_remaining -= 1
+		if heart_refill_ad_views_remaining == 0:
+			heart_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
 	if !save_game():
 		hearts = previous_hearts
 		heart_recovery_at = previous_recovery_at

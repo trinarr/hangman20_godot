@@ -238,6 +238,7 @@ func _ready() -> void:
 	_initialize_yandex_ads_from_saved_consent()
 	show_menu()
 	_prewarm_runtime_assets()
+	call_deferred("_start_action_reward_retry")
 
 func _on_ad_region_changed() -> void:
 	_initialize_yandex_ads_from_saved_consent()
@@ -281,8 +282,20 @@ func _persist_active_single_player_word_session() -> void:
 		"level_index": single_player_active_level_index,
 		"word_slot": single_player_active_word_slot,
 		"theme_id": Database.get_theme_id(GameSession.theme_id),
-		"data": GameSession.to_save_data(),
+		"data": _word_session_with_attempt_offer(),
 	})
+
+func _word_session_with_attempt_offer() -> Dictionary:
+	var data: Dictionary = GameSession.to_save_data()
+	data["attempt_offer_count"] = single_player_extra_attempt_offer_count
+	data["attempt_offer_cost"] = single_player_extra_attempt_current_cost
+	data["attempt_offer_size"] = single_player_extra_attempt_current_count
+	return data
+
+func _restore_attempt_offer(data: Dictionary) -> void:
+	single_player_extra_attempt_offer_count = maxi(int(data.get("attempt_offer_count", 0)), 0)
+	single_player_extra_attempt_current_cost = maxi(int(data.get("attempt_offer_cost", SINGLE_PLAYER_EXTRA_ATTEMPT_COST)), SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
+	single_player_extra_attempt_current_count = clampi(int(data.get("attempt_offer_size", SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)), SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT, GameSession.MAX_MISTAKES)
 
 func _prewarm_runtime_assets() -> void:
 	THEME_ASSET_CACHE.prewarm()
@@ -1937,6 +1950,7 @@ func _advance_single_player_extra_attempt_offer() -> int:
 		GameSession.MAX_MISTAKES
 	)
 	single_player_extra_attempt_offer_count += 1
+	_persist_active_single_player_word_session()
 	return single_player_extra_attempt_current_cost
 
 func _reset_single_player_extra_attempt_offers() -> void:
@@ -2799,7 +2813,7 @@ func _finish_round(is_win: bool) -> void:
 			== _single_player_level_word_count(single_player_active_level_index) - 1
 	)
 	var award_immediate_win_coins: bool = (
-		GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
+		GameState.current_mode == GameState.GameMode.CLASSIC
 	)
 	last_result_data = GameSession.finish_result(is_win, award_immediate_win_coins)
 	last_result_data = _grant_remaining_attempt_star_reward(last_result_data, is_win)

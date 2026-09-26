@@ -806,6 +806,10 @@ var _portrait_single_reward_continue_button: Control = null
 var _portrait_reward_double_context: StringName = &""
 var _portrait_reward_ad_request_id: String = ""
 var _portrait_reward_double_animation_amount: int = 0
+var _portrait_rewarded_request_id: String = ""
+var _portrait_rewarded_retry_scheduled: bool = false
+var _portrait_rewarded_request_started_msec: int = 0
+var _portrait_rewarded_origin: WeakRef = null
 var _portrait_rewarded_action: StringName = &""
 var _portrait_rewarded_action_earned: bool = false
 var _portrait_rewarded_action_level_index: int = -1
@@ -3963,6 +3967,8 @@ func _home_profile_resume_saved_single_player_level() -> void:
 			return
 		"word":
 			var word_data_variant: Variant = session.get("data", {})
+			if word_data_variant is Dictionary:
+				_restore_attempt_offer(Dictionary(word_data_variant))
 			if (
 				word_data_variant is Dictionary
 				and GameSession.restore_from_save_data(Dictionary(word_data_variant))
@@ -8418,6 +8424,7 @@ func _reroll_single_player_theme_options(level_index: int, previous_options: Arr
 	var next_options: Array = []
 	var require_fully_new_options: bool = _single_player_available_theme_indices(_single_player_level_word_target(level_index)).size() >= previous_options.size() * 2
 	var max_attempts: int = 16
+	GameState.begin_save_batch()
 	for _attempt_index in range(max_attempts):
 		GameState.reset_single_level_attempt(
 			Database.current_language,
@@ -8432,6 +8439,7 @@ func _reroll_single_player_theme_options(level_index: int, previous_options: Arr
 			changed = changed or !previous_options.has(option)
 		if changed and (!require_fully_new_options or _single_player_theme_options_are_fully_new(previous_options, next_options)):
 			break
+	GameState.end_save_batch()
 	return next_options
 
 func _single_player_theme_options_are_fully_new(
@@ -16481,38 +16489,207 @@ func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -
 	_connect_portrait_rewarded_action_signals(ads_service)
 	if action == &"theme_reroll":
 		_portrait_pending_theme_reroll_presentation = {}
+	for pending: Dictionary in GameState.rewarded_action_requests.values():
+		if bool(pending.get("earned", false)) and str(pending.get("action", "")) == str(action):
+			_show_portrait_ad_not_ready_toast()
+			return false
+	_portrait_rewarded_request_id = GameState.begin_rewarded_action_request(
+		str(action), _action_reward_context(action, level_index)
+	)
+	if _portrait_rewarded_request_id.is_empty():
+		_show_portrait_ad_not_ready_toast()
+		return false
+	_portrait_rewarded_request_started_msec = Time.get_ticks_msec()
+	_portrait_rewarded_origin = _action_reward_origin(action)
 	_portrait_rewarded_action = action
 	_portrait_rewarded_action_level_index = level_index
 	_portrait_rewarded_action_earned = false
 	_set_portrait_rewarded_action_control_enabled(action, level_index, false)
-	if !bool(ads_service.call("show_rewarded_video", "", action)):
+	if !bool(ads_service.call(
+		"show_rewarded_video", _portrait_rewarded_request_id, action,
+		Callable(self, "_action_request_can_show").bind(_portrait_rewarded_request_id)
+	)):
+		GameState.cancel_rewarded_action_request(_portrait_rewarded_request_id)
+		_portrait_rewarded_request_id = ""
 		_portrait_rewarded_action = &""
 		_portrait_rewarded_action_level_index = -1
 		_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 		_show_portrait_ad_not_ready_toast()
 		return false
 	GameState.set_fullscreen_ad_active(true)
+	_watch_action_request(_portrait_rewarded_request_id)
 	return true
 
 func _connect_portrait_rewarded_action_signals(ads_service: Node) -> void:
-	var rewarded_callback := Callable(self, "_on_portrait_rewarded_action_rewarded")
-	if ads_service.has_signal(&"rewarded") and !ads_service.is_connected(
-		&"rewarded",
-		rewarded_callback
-	):
-		ads_service.connect(&"rewarded", rewarded_callback)
-	var closed_callback := Callable(self, "_on_portrait_rewarded_action_closed")
-	if ads_service.has_signal(&"rewarded_video_closed") and !ads_service.is_connected(
-		&"rewarded_video_closed",
-		closed_callback
-	):
-		ads_service.connect(&"rewarded_video_closed", closed_callback)
-	var failed_callback := Callable(self, "_on_portrait_rewarded_action_failed_to_show")
-	if ads_service.has_signal(&"rewarded_video_failed_to_show") and !ads_service.is_connected(
-		&"rewarded_video_failed_to_show",
-		failed_callback
-	):
-		ads_service.connect(&"rewarded_video_failed_to_show", failed_callback)
+	var callbacks: Dictionary = {
+		&"rewarded_for_request": Callable(self, "_on_action_request_rewarded"),
+		&"rewarded_video_closed_for_request": Callable(self, "_on_action_request_closed"),
+		&"rewarded_video_failed_to_show_for_request": Callable(self, "_on_action_request_failed"),
+	}
+	for signal_name: StringName in callbacks:
+		var callback: Callable = callbacks[signal_name]
+		if ads_service.has_signal(signal_name) and !ads_service.is_connected(signal_name, callback):
+			ads_service.connect(signal_name, callback)
+
+func _action_reward_context(action: StringName, level_index: int) -> Dictionary:
+	return {
+		"round_id": GameSession.round_id,
+		"language": Database.current_language,
+		"level_index": level_index,
+		"theme_seed": GameState.get_or_create_single_level_seed(Database.current_language, level_index) if action == &"theme_reroll" else 0,
+		"cost": _single_player_extra_attempt_cost() if action == &"extra_attempt" else SINGLE_PLAYER_THEME_REFRESH_COST,
+		"attempts": _single_player_extra_attempt_count(),
+	}
+
+func _action_reward_origin(action: StringName) -> WeakRef:
+	var group_name: StringName = &""
+	match action:
+		&"coin_refill": group_name = &"coin_refill_popup"
+		&"heart_refill": group_name = &"heart_refill_popup"
+		&"extra_attempt": group_name = &"single_player_last_chance_popup"
+		&"theme_reroll": group_name = &"single_player_theme_popup"
+	if group_name != &"":
+		var nodes: Array[Node] = get_tree().get_nodes_in_group(group_name)
+		if !nodes.is_empty():
+			return weakref(nodes.back())
+	return weakref(_portrait_game_input_group) if is_instance_valid(_portrait_game_input_group) else null
+
+func _action_reward_context_matches(action: StringName, context: Dictionary) -> bool:
+	if action in [&"coin_refill", &"heart_refill"]:
+		return true
+	if str(context.get("language", "")) != Database.current_language:
+		return false
+	if action == &"theme_reroll":
+		var level_index: int = int(context.get("level_index", -1))
+		return (level_index == single_player_popup_level_index
+			and !get_tree().get_nodes_in_group(&"single_player_theme_popup").is_empty()
+			and GameState.has_single_level_seed(Database.current_language, level_index)
+			and GameState.get_or_create_single_level_seed(Database.current_language, level_index) == int(context.get("theme_seed", -1))
+			and _single_player_theme_reroll_used and !_single_player_theme_ad_reroll_used)
+	if str(context.get("round_id", "")) != GameSession.round_id or !GameSession.is_active:
+		return false
+	if action == &"extra_attempt":
+		return GameSession.has_deferred_loss()
+	if action == &"hint_open":
+		return GameSession.can_use_open_letter_hint_ad()
+	if action == &"hint_remove":
+		return GameSession.can_use_remove_wrong_hint_ad()
+	return false
+
+func _action_request_can_show(request_id: String) -> bool:
+	if request_id != _portrait_rewarded_request_id or Time.get_ticks_msec() - _portrait_rewarded_request_started_msec >= 12000:
+		return false
+	var origin: Node = _portrait_rewarded_origin.get_ref() if _portrait_rewarded_origin != null else null
+	if !is_instance_valid(origin) or origin.is_queued_for_deletion() or !origin.is_inside_tree():
+		return false
+	var request: Dictionary = GameState.rewarded_action_requests.get(request_id, {})
+	return !request.is_empty() and _action_reward_context_matches(StringName(str(request.get("action", ""))), request["context"])
+
+func _watch_action_request(request_id: String) -> void:
+	while request_id == _portrait_rewarded_request_id:
+		await get_tree().create_timer(0.1).timeout
+		var ads: Node = _portrait_ads_service()
+		if ads == null or !bool(ads.call("is_rewarded_request_pending", request_id)):
+			return
+		if !_action_request_can_show(request_id):
+			if bool(ads.call("cancel_pending_rewarded_request", request_id)):
+				_on_action_request_failed(request_id, "Cancelled pending load")
+			return
+
+func _on_action_request_rewarded(request_id: String, _currency: String, _amount: int) -> void:
+	var request: Dictionary = GameState.rewarded_action_requests.get(request_id, {})
+	if request.is_empty():
+		return
+	request["earned"] = true
+	# Journal confirmation before granting. A consumed id cannot grant twice.
+	if GameState.save_game():
+		_deliver_action_request(request_id)
+	_start_action_reward_retry()
+
+func _deliver_action_request(request_id: String) -> void:
+	var request: Dictionary = GameState.rewarded_action_requests.get(request_id, {})
+	if request.is_empty() or !bool(request.get("earned", false)):
+		return
+	var action: StringName = StringName(str(request.get("action", "")))
+	var context: Dictionary = request["context"]
+	var same_context: bool = _action_reward_context_matches(action, context)
+	var is_open: bool = request_id == _portrait_rewarded_request_id
+	var delivered: bool = true
+	GameState.begin_save_batch()
+	GameState.rewarded_action_requests.erase(request_id)
+	if action in [&"coin_refill", &"heart_refill"]:
+		if is_open:
+			delivered = _deliver_refill_ad_reward(action, true)
+		elif action == &"coin_refill":
+			delivered = GameState.grant_coin_refill_ad_reward(PORTRAIT_COIN_REFILL_REWARDED_AMOUNT, true) >= 0
+		else:
+			delivered = GameState.grant_heart_refill_ad_reward(true)
+	elif same_context:
+		if action == &"extra_attempt":
+			GameState.consume_extra_attempt_ad_view(false)
+			_remove_single_player_last_chance_popup()
+			GameSession.grant_deferred_attempt(int(context.get("attempts", SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)))
+			single_player_extra_attempt_claim_in_progress = false
+		else:
+			_grant_portrait_rewarded_action(action, int(context.get("level_index", -1)))
+	else:
+		# A late reward must not change an unrelated word. Preserve its value:
+		# hints enter inventory; attempts/theme reroll use the captured coin price.
+		if action in [&"hint_open", &"hint_remove"]:
+			var hint_key: String = GameState.HINT_OPEN_LETTER if action == &"hint_open" else GameState.HINT_REMOVE_WRONG
+			GameState.hint_counts[hint_key] = GameState.get_hint_count(hint_key) + 1
+		elif action in [&"extra_attempt", &"theme_reroll"]:
+			if action == &"extra_attempt":
+				GameState.consume_extra_attempt_ad_view(false)
+			GameState.add_soft_currency(clampi(int(context.get("cost", 0)), 0, GameState.MAX_SINGLE_REWARD), false)
+	if !delivered:
+		GameState.rewarded_action_requests[request_id] = request
+	GameState.reset_interstitial_timer(false)
+	# Receipt removal and all reward effects commit together. Failed writes are
+	# retried by GameState without replaying in-memory effects; after a crash the
+	# durable earned receipt remains available for recovery.
+	GameState.end_save_batch()
+	if delivered and is_open:
+		_portrait_rewarded_action_earned = true
+	elif delivered and action == &"theme_reroll" and same_context:
+		_present_pending_single_player_theme_ad_reroll(int(context.get("level_index", -1)))
+
+func _on_action_request_closed(request_id: String) -> void:
+	# Closing changes the UI only. Keep the receipt for an out-of-order reward.
+	if request_id != _portrait_rewarded_request_id:
+		return
+	_on_portrait_rewarded_action_closed()
+	_portrait_rewarded_request_id = ""
+	_portrait_rewarded_origin = null
+
+func _on_action_request_failed(request_id: String, message: String) -> void:
+	GameState.cancel_rewarded_action_request(request_id)
+	if request_id != _portrait_rewarded_request_id:
+		return
+	_on_portrait_rewarded_action_failed_to_show(message)
+	_portrait_rewarded_request_id = ""
+	_portrait_rewarded_origin = null
+
+func _start_action_reward_retry() -> void:
+	var ads: Node = _portrait_ads_service()
+	if ads != null:
+		_connect_portrait_rewarded_action_signals(ads)
+	if _portrait_rewarded_retry_scheduled:
+		return
+	_retry_action_rewards()
+
+func _retry_action_rewards() -> void:
+	_portrait_rewarded_retry_scheduled = false
+	var needs_retry: bool = false
+	for request_id: Variant in GameState.rewarded_action_requests.keys():
+		var request: Dictionary = GameState.rewarded_action_requests[request_id]
+		if bool(request.get("earned", false)):
+			if GameState.save_game():
+				_deliver_action_request(str(request_id))
+			needs_retry = needs_retry or GameState.rewarded_action_requests.has(request_id)
+	if needs_retry:
+		_portrait_rewarded_retry_scheduled = true
+		get_tree().create_timer(2.0).timeout.connect(_retry_action_rewards, CONNECT_ONE_SHOT)
 
 func _set_portrait_rewarded_action_control_enabled(
 	action: StringName,
@@ -16547,9 +16724,9 @@ func _set_portrait_rewarded_action_control_enabled(
 				if attempt_ad_button != null and is_instance_valid(attempt_ad_button):
 					_refresh_extra_attempt_ad_button(attempt_ad_button, enabled)
 
-func _deliver_refill_ad_reward(action: StringName) -> bool:
+func _deliver_refill_ad_reward(action: StringName, earned_receipt: bool = false) -> bool:
 	if action == &"heart_refill":
-		if !GameState.grant_heart_refill_ad_reward():
+		if !GameState.grant_heart_refill_ad_reward(earned_receipt):
 			return false
 		if GameState.get_hearts() >= GameState.MAX_HEARTS:
 			if _portrait_rewarded_action == &"heart_refill":
@@ -16568,7 +16745,7 @@ func _deliver_refill_ad_reward(action: StringName) -> bool:
 		return true
 	var previous_balance: int = GameState.get_soft_currency()
 	var credited_amount: int = GameState.grant_coin_refill_ad_reward(
-		PORTRAIT_COIN_REFILL_REWARDED_AMOUNT
+		PORTRAIT_COIN_REFILL_REWARDED_AMOUNT, earned_receipt
 	)
 	if credited_amount < 0:
 		return false
