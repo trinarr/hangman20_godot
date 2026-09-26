@@ -159,7 +159,7 @@ var _fullscreen_ad_active: bool = false
 # 3 - sound/music: 1 off, 2 on
 # 4 - vibration: 1 off, 2 on
 # 5 - hero: 1 Lucky, 2 El Tigre
-var settings: Array = [1, 1, 2, 2, 2, 1]
+var settings: Array = [1, 1, 2, 1, 2, 1]
 
 # Records:
 # 0 classic: current easy, current hard, record easy, record hard
