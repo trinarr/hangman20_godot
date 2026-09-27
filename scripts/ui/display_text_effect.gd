@@ -74,7 +74,7 @@ func configure(
 	outline_scale: float = 1.0,
 	shadow_spread_scale: float = 1.0
 ) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	if _target != target and is_instance_valid(_target):
 		_disconnect_target()
 	if _target != target:
@@ -98,7 +98,8 @@ func configure(
 	if is_inside_tree():
 		_queue_sync()
 
-	BUILD_TRACE.section_end(&"ui.text_effect", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.text_effect", build_started_usec)
 
 # Extra visible width outside a glyph's ink bounds, in target-local units.
 # Reuse the rendering metrics so callers need no copies of the style constants.

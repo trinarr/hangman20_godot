@@ -473,7 +473,7 @@ func _build_root() -> void:
 	add_child(ui_audio_player)
 
 func _clear(preserved_content: Control = null) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
@@ -509,19 +509,21 @@ func _clear(preserved_content: Control = null) -> void:
 	content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	ui.add_child(content)
-	BUILD_TRACE.section_end(&"clear.base", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"clear.base", build_started_usec)
 
 func _stage_holder(rect: Rect2, mouse_filter: int = Control.MOUSE_FILTER_PASS) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var holder: Control = FLASH_STAGE_CONTROL_SCRIPT.new() as Control
 	holder.mouse_filter = mouse_filter
 	holder.set("stage_rect", rect)
 	content.add_child(holder)
-	BUILD_TRACE.section_end(&"ui.holder", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.holder", build_started_usec)
 	return holder
 
 func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color = Color.WHITE, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER, font: Font = null) -> Label:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -539,7 +541,8 @@ func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color =
 	# Inherit the final theme and bounds before shaping non-empty text.
 	holder.add_child(label)
 	label.text = text
-	BUILD_TRACE.section_end(&"ui.label", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.label", build_started_usec)
 	return label
 
 func _stage_heading_label(
@@ -738,7 +741,7 @@ func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time:
 	return symbol
 
 func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, border_color: Color = Color(0.0, 0.0, 0.0, 0.0), border_width: float = 0.0) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var panel: Control = FLASH_STAGE_PANEL_SCRIPT.new() as Control
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set("fill_color", fill_color)
@@ -747,17 +750,19 @@ func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, bo
 	panel.set("border_width", border_width)
 	panel.set("stage_rect", rect)
 	content.add_child(panel)
-	BUILD_TRACE.section_end(&"ui.panel", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.panel", build_started_usec)
 	return panel
 
 func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var node: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.set("texture", texture)
 	node.set("stage_rect", rect)
 	content.add_child(node)
-	BUILD_TRACE.section_end(&"ui.texture", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.texture", build_started_usec)
 	return node
 
 func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -> Control:
@@ -770,7 +775,7 @@ func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -
 	return node
 
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, UI_FONTS.display_button_font_size(font_size), disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
@@ -778,33 +783,36 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect
 	content.add_child(button)
-	BUILD_TRACE.section_end(&"ui.long_button", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.long_button", build_started_usec)
 	return button
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect
 	content.add_child(button)
-	BUILD_TRACE.section_end(&"ui.round_button", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.round_button", build_started_usec)
 	return button
 
 func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect
 	content.add_child(button)
-	BUILD_TRACE.section_end(&"ui.round_icon", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.round_icon", build_started_usec)
 	return button
 
 func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
 	# Letter keys already have correct/wrong feedback and must not layer a click
@@ -812,7 +820,8 @@ func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state
 	_connect_stage_button_action(button, callable, false)
 	button.stage_rect = rect
 	content.add_child(button)
-	BUILD_TRACE.section_end(&"ui.letter", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.letter", build_started_usec)
 	return button
 
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
@@ -1592,6 +1601,18 @@ func _single_player_mark_current_word_finished(
 		stage_theme_index
 	)
 	_invalidate_single_player_level_cache()
+	if OS.is_debug_build():
+		# Persist the exact result snapshot so Continue/relaunch does not replace
+		# this stage's delta and streak with a later state.
+		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, stage_theme_index)
+		result["difficulty_debug"] = {
+			"global": float(progress.get("difficulty_after", 0.0)),
+			"delta": float(progress.get("difficulty_delta", 0.0)),
+			"intro_active": !bool(intro.get("completed", true)),
+			"intro": float(intro.get("difficulty", 0.0)),
+			"win_streak": int(progress.get("win_streak", 0)),
+			"loss_streak": int(progress.get("loss_streak", 0)),
+		}
 	if !result.has("lines") or !(result["lines"] is Array):
 		result["lines"] = []
 	result["single_player_level_index"] = single_player_active_level_index
@@ -2315,10 +2336,11 @@ func _sync_custom_word_start_bounce() -> void:
 		custom_word_check_button.set("button_disabled", should_disable)
 
 func _set_random_custom_word() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var theme_count: int = Database.get_theme_count()
 	if theme_count <= 0:
-		BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
+		if OS.is_debug_build():
+			BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 		return
 	# Sample raw records uniformly, then apply the same eligibility rules as
 	# the exhaustive pool. Avoid normalizing every word on every screen entry.
@@ -2340,7 +2362,8 @@ func _set_random_custom_word() -> void:
 				if _is_random_custom_word_candidate(candidate):
 					candidates.append(candidate)
 		if candidates.is_empty():
-			BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
+			if OS.is_debug_build():
+				BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 			return
 		selected = candidates[randi() % candidates.size()]
 	_reset_custom_word_check_feedback()
@@ -2352,7 +2375,8 @@ func _set_random_custom_word() -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
 		custom_word_input_visual.call_deferred("play_word_bounce")
 	_sync_custom_word_start_bounce()
-	BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 
 func _is_random_custom_word_candidate(word: String) -> bool:
 	return (

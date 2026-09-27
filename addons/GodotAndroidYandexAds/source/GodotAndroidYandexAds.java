@@ -104,13 +104,15 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         activity.runOnUiThread(() -> {
             YandexAds.setAgeRestricted(ageRestrictedUser);
             YandexAds.setUserConsent(userConsent);
-            YandexAds.enableLogging(loggingEnabled);
+            final boolean debugLogging = loggingEnabled &&
+                    (activity.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+            YandexAds.enableLogging(debugLogging);
             if (initializationRequested) {
                 return;
             }
             initializationRequested = true;
             YandexAds.initialize(activity.getApplicationContext(), () -> {
-                Log.d(TAG, "Yandex Mobile Ads SDK initialized");
+                if (debugLogging) Log.d(TAG, "Yandex Mobile Ads SDK initialized");
                 emitSignal("_on_sdk_initialized");
             });
         });
@@ -178,7 +180,9 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
                 bannerLoaded = true;
                 bannerWidthPixels = bannerAdSize.getWidthInPixels(activity);
                 bannerHeightPixels = bannerAdSize.getHeightInPixels(activity);
-                Log.d(TAG, "Banner loaded: " + bannerWidthPixels + "x" + bannerHeightPixels + " px");
+                if ((activity.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+                    Log.d(TAG, "Banner loaded: " + bannerWidthPixels + "x" + bannerHeightPixels + " px");
+                }
                 emitSignal("_on_banner_loaded");
             }
 

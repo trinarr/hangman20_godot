@@ -51,3 +51,11 @@ make available the notices required for the actual components they distribute.
 уведомления доступными в распространяемой игре. При выпуске необходимо отдельно
 включить или предоставить доступ к уведомлениям, требуемым для фактически
 распространяемых компонентов.
+
+## Developer Game Console
+
+Developer Game Console v1.1.1, copyright (c) 2026 cherttov. MIT License.
+Source: https://github.com/cherttov/godot-dev-console/tree/v1.1.1
+License: `addons/dev-console/LICENSE`. Includes local Hangman integration changes.
+
+Cascadia Mono font: SIL Open Font License 1.1; see `addons/dev-console/font/LICENSE.txt`.

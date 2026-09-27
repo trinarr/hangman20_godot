@@ -103,7 +103,7 @@ func _read_project_settings() -> void:
 		"yandex_ads/age_restricted_user",
 		false
 	))
-	logging_enabled = bool(ProjectSettings.get_setting(
+	logging_enabled = OS.is_debug_build() and bool(ProjectSettings.get_setting(
 		"yandex_ads/logging_enabled",
 		OS.is_debug_build()
 	))

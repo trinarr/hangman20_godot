@@ -117,9 +117,10 @@ func _packed_string_array_from_save(source: Variant) -> PackedStringArray:
 	return result
 
 func restore_from_save_data(source: Dictionary) -> bool:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var profile_result: bool = _home_profile_restore_from_save_data(source)
-	BUILD_TRACE.section_end(&"resume.word_data", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"resume.word_data", profile_started_usec)
 	return profile_result
 
 func _home_profile_restore_from_save_data(source: Dictionary) -> bool:

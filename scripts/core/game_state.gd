@@ -535,9 +535,10 @@ func cancel_rewarded_action_request(request_id: String) -> void:
 func save_game() -> bool:
 	if _save_batch_depth > 0:
 		return true
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var profile_result: bool = _home_profile_save_game()
-	BUILD_TRACE.section_end(&"save.total", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"save.total", profile_started_usec)
 	_save_retry_pending = !profile_result
 	return profile_result
 
@@ -749,9 +750,10 @@ func _merge_legacy_single_player_resume_state(
 		single_player_resume_states[language] = state
 
 func _store_current_single_player_resume_state() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_store_current_single_player_resume_state()
-	BUILD_TRACE.section_end(&"save.snapshot", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"save.snapshot", profile_started_usec)
 
 func _home_profile_store_current_single_player_resume_state() -> void:
 	var language: String = _normalize_language(word_language)
@@ -1372,9 +1374,10 @@ func _normalize_single_player_buckets() -> void:
 		_single_player_bucket(language)
 
 func _compact_single_player_history() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_compact_single_player_history()
-	BUILD_TRACE.section_end(&"save.compact", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"save.compact", profile_started_usec)
 
 func _home_profile_compact_single_player_history() -> void:
 	for language_variant: Variant in single_player.keys():

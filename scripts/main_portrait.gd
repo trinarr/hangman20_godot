@@ -1162,7 +1162,7 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	if is_instance_valid(_home_transition) and !bool(_home_transition.get("committing")):
 		_home_transition.free()
 		_home_transition = null
@@ -1223,7 +1223,8 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_attempt_star_collection_active = false
 	_portrait_attempt_star_collection_started = false
 	super._clear(preserved_content)
-	BUILD_TRACE.section_end(&"clear.portrait", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"clear.portrait", build_started_usec)
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -1321,7 +1322,7 @@ func _stage_portrait_page_header(
 	currency_return_action: Callable = Callable(),
 	show_heart_counter: bool = true
 ) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
@@ -1345,7 +1346,8 @@ func _stage_portrait_page_header(
 		_stage_menu_settings_button()
 	content = screen_content
 	_stage_portrait_page_title(title)
-	BUILD_TRACE.section_end(&"ui.page_header", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.page_header", build_started_usec)
 
 func _stage_menu_settings_button() -> void:
 	var screen_content: Control = content
@@ -2874,7 +2876,7 @@ func _play_centered_rewarded_double_coin_animation(
 	count_tween.tween_callback(Callable(source_stub, "queue_free"))
 
 func _stage_portrait_game_header() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var coin_store_return_action := Callable(self, "_return_to_game_from_coin_store")
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		_stage_centered_coin_only_counter(
@@ -2888,7 +2890,8 @@ func _stage_portrait_game_header() -> void:
 			false
 		)
 	_stage_menu_settings_button()
-	BUILD_TRACE.section_end(&"game.header", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"game.header", build_started_usec)
 
 func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	var theme_text: String = ""
@@ -3796,9 +3799,10 @@ func _finish_home_button_entrance(buttons: Array[Control]) -> void:
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if bool(button.get("disabled")) else Control.MOUSE_FILTER_STOP
 
 func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int) -> Dictionary:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var profile_result: Dictionary = _home_profile_restore_quiz_session_data(saved, theme_index, level_index)
-	BUILD_TRACE.section_end(&"resume.quiz_data", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"resume.quiz_data", profile_started_usec)
 	return profile_result
 
 func _home_profile_restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int) -> Dictionary:
@@ -3849,9 +3853,10 @@ func _single_player_resume_language_matches_current(language: String) -> bool:
 	)
 
 func _resume_saved_single_player_level() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_resume_saved_single_player_level()
-	BUILD_TRACE.section_end(&"resume.total", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"resume.total", profile_started_usec)
 
 func _home_profile_resume_saved_single_player_level() -> void:
 	# A successful final stage now has one extra ordinary stage-reward step before
@@ -4677,9 +4682,10 @@ func _single_player_embedded_question_active() -> bool:
 	return _quiz_single_player_embedded and _quiz_screen_active and !game_finished
 
 func _persist_active_single_player_quiz_session() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_persist_active_single_player_quiz_session()
-	BUILD_TRACE.section_end(&"quiz.persist", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"quiz.persist", profile_started_usec)
 
 func _home_profile_persist_active_single_player_quiz_session() -> void:
 	if (
@@ -6798,9 +6804,10 @@ func _play_quiz_screen_entrance(
 	_mark_quiz_question_ready()
 
 func _show_quiz_game_screen() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_quiz_game_screen()
-	BUILD_TRACE.section_end(&"screen.quiz", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"screen.quiz", profile_started_usec)
 
 func _home_profile_show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
@@ -7707,9 +7714,10 @@ func _show_single_player_level_popup(
 	retry_after_loss: bool = false,
 	return_to_menu_on_close: bool = false
 ) -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_single_player_level_popup(level_index, selected_theme, retry_after_loss, return_to_menu_on_close)
-	BUILD_TRACE.section_end(&"screen.themes", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"screen.themes", profile_started_usec)
 
 func _home_profile_show_single_player_level_popup(
 	level_index: int,
@@ -9745,7 +9753,7 @@ func _show_exit_game_popup() -> void:
 	content = previous_content
 
 func show_custom_word() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_clear()
 	# Two-player words do not support gameplay hints or automatic opening of edge
 	# letters. GameSession enforces that rule directly.
@@ -9809,7 +9817,8 @@ func show_custom_word() -> void:
 	custom_word_start_button.set("drop_shadow_enabled", true)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_ad_banner()
-	BUILD_TRACE.section_end(&"custom.total", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"custom.total", build_started_usec)
 
 func _set_custom_word_checking(is_checking: bool) -> void:
 	# Stop first even if navigation has already removed the previous control.
@@ -9902,11 +9911,12 @@ func _portrait_custom_word_action_rects() -> Array[Rect2]:
 	return [random_rect, check_rect]
 
 func _stage_portrait_custom_word_field() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var word_input := STAGE_WORD_INPUT_SCRIPT.new() as StageWordInput
 	if word_input == null:
 		push_error("Could not instantiate the custom-word input")
-		BUILD_TRACE.section_end(&"custom.field", build_started_usec)
+		if OS.is_debug_build():
+			BUILD_TRACE.section_end(&"custom.field", build_started_usec)
 		return
 
 	# Set authored geometry before entering the tree. The base control can then
@@ -9942,12 +9952,14 @@ func _stage_portrait_custom_word_field() -> void:
 	custom_word_edit = word_input.get_line_edit()
 	if custom_word_edit != null and !custom_word_edit.text_changed.is_connected(_on_custom_word_text_changed):
 		custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-	BUILD_TRACE.section_end(&"custom.field", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"custom.field", build_started_usec)
 
 func show_game_screen() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_game_screen()
-	BUILD_TRACE.section_end(&"screen.word", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"screen.word", profile_started_usec)
 
 func _home_profile_show_game_screen() -> void:
 	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
@@ -10747,7 +10759,7 @@ func _stage_portrait_game_word_paper(rect: Rect2) -> void:
 	paper_texture.material = paper_material
 
 func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_stage_portrait_game_word_paper(rect)
 	var slots_root := Control.new()
 	slots_root.name = "PortraitGameWordSlots"
@@ -10757,7 +10769,8 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 	_portrait_game_word_slots_root = slots_root
 	_portrait_game_word_rect = rect
 	_rebuild_portrait_game_word_slots(font_size)
-	BUILD_TRACE.section_end(&"game.word", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"game.word", build_started_usec)
 
 func _portrait_display_word_text(text: String) -> String:
 	# Keep stored/session separators untouched, but render compound-word separators
@@ -15754,7 +15767,7 @@ func _build_portrait_result_word_marker_layer(
 	return layer
 
 func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
-	var build_started_usec: int = BUILD_TRACE.section_start()
+	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	# Compose a broad base highlight plus a tighter darker pass on top.
 	# Each pass is rendered into its own CanvasGroup so opacity is applied once per
 	# layer instead of accumulating at stroke crossings.
@@ -15844,7 +15857,8 @@ func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
 	detail_layer.scale = Vector2(1.1, 1.1)
 	detail_layer.position = Vector2(detail_margin_x, detail_margin_y) - detail_size * 0.05
 	marker.add_child(detail_layer)
-	BUILD_TRACE.section_end(&"ui.marker", build_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"ui.marker", build_started_usec)
 	return marker
 
 func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: Color) -> void:
@@ -17536,7 +17550,43 @@ func _play_pending_home_reward_animation(generation: int) -> void:
 	roll.set_ease(Tween.EASE_OUT)
 	count_tween.tween_callback(Callable(source, "queue_free"))
 
+func _difficulty_debug_text(theme_index: int) -> String:
+	var info: Dictionary = Dictionary(last_result_data.get("difficulty_debug", {}))
+	var delta_text: String = "нет данных"
+	if info.is_empty():
+		# Results saved by older builds have no reliable historical delta.
+		var bucket: Dictionary = GameState._single_player_bucket(Database.current_language)
+		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, theme_index)
+		info = {
+			"global": GameState.get_single_player_adaptive_difficulty(Database.current_language),
+			"intro_active": !bool(intro.get("completed", true)),
+			"intro": float(intro.get("difficulty", 0.0)),
+			"win_streak": int(bucket.get("win_streak", 0)),
+			"loss_streak": int(bucket.get("loss_streak", 0)),
+		}
+	else:
+		delta_text = "%+.4f" % float(info.get("delta", 0.0))
+	var intro_text: String = "нет"
+	if bool(info.get("intro_active", false)):
+		intro_text = "да · %.4f" % float(info.get("intro", 0.0))
+	var wins: int = int(info.get("win_streak", 0))
+	var losses: int = int(info.get("loss_streak", 0))
+	var streak_text: String = "0"
+	if wins > 0:
+		streak_text = "победы × %d" % wins
+	elif losses > 0:
+		streak_text = "поражения × %d" % losses
+	return "Глобальная: %.4f\nВводный режим: %s\nΔ глобальной: %s\nСтрик: %s" % [
+		float(info.get("global", 0.0)), intro_text, delta_text, streak_text
+	]
+
+func _log_difficulty_debug(theme_index: int) -> void:
+	if OS.is_debug_build():
+		print("[Difficulty] " + _difficulty_debug_text(theme_index).replace("\n", " | "))
+
 func _auto_advance_final_stage_reward() -> void:
+	if OS.is_debug_build():
+		return
 	# The final stage has no manual Continue step on its ordinary reward screen.
 	# Defer navigation so this callback can safely run from tween completion.
 	if !bool(last_result_data.get("single_player_level_completed", false)):
@@ -17590,9 +17640,10 @@ func _restore_level_reward_header(retained: Dictionary) -> void:
 		set(property, retained[property])
 
 func _show_single_player_reward_chain_screen() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start()
+	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_single_player_reward_chain_screen()
-	BUILD_TRACE.section_end(&"screen.reward", profile_started_usec)
+	if OS.is_debug_build():
+		BUILD_TRACE.section_end(&"screen.reward", profile_started_usec)
 
 func _home_profile_show_single_player_reward_chain_screen() -> void:
 	# Startup guided-resume can call the reward chain directly while Home is still
@@ -17677,6 +17728,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	)
 	var auto_advance_final_stage_reward: bool = (
 		final_stage_completed
+		and !OS.is_debug_build()
 		and !is_level_summary
 		and !is_quiz_coin_reward
 		and !resumed_final_chain_checkpoint
@@ -18421,6 +18473,8 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			_portrait_single_reward_continue_button = continue_button
 			content = reward_content
 	content = reward_screen_content
+	if OS.is_debug_build() and !is_level_summary:
+		_log_difficulty_debug(reward_theme_index)
 	var failure_back_button: Control = null
 	if (
 		!is_level_summary

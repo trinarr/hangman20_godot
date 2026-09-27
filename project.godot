@@ -25,12 +25,22 @@ config/icon="res://icon.png"
 
 [autoload]
 
+DebugLogBridge="*res://scripts/debug/dev_console_log_bridge.gd"
+DevConsole="*res://addons/dev-console/script/dev-console.gd"
 Database="*res://scripts/core/database.gd"
 WordManager="*res://scripts/core/word_manager.gd"
 GameState="*res://scripts/core/game_state.gd"
 GameSession="*res://scripts/core/game_session.gd"
 YandexAdsService="*res://addons/GodotAndroidYandexAds/yandex_ads.gd"
 ConsentRegion="*res://scripts/services/consent_region.gd"
+
+[dev_console]
+
+configuration/debug_only=true
+configuration/title_label="Developer Game Console"
+configuration/keep_topmost=true
+configuration/use_default_commands=true
+configuration/close_on_escape=true
 
 [display]
 
@@ -42,7 +52,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GodotAndroidYandexAds/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotAndroidYandexAds/plugin.cfg", "res://addons/dev-console/plugin.cfg")
 
 [gui]
 
