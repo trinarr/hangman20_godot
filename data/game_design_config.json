@@ -56,7 +56,7 @@
     }
   },
   "difficulty": {
-    "default": 0.18,
+    "default": 0.08,
     "minimum": 0.08,
     "maximum": 0.86,
     "bonus_level_offset": 0.01,
@@ -68,24 +68,22 @@
     ],
     "win_streak_multipliers": [
       {"below_difficulty": 0.3, "streaks": [
-        {"from_wins": 1, "to_wins": 2, "multiplier": 1.0},
-        {"from_wins": 3, "to_wins": 5, "multiplier": 1.15},
-        {"from_wins": 6, "to_wins": 0, "multiplier": 1.25}
+        {"from_wins": 1, "to_wins": 0, "multiplier": 1.0}
       ]},
       {"below_difficulty": 0.5, "streaks": [
-        {"from_wins": 1, "to_wins": 2, "multiplier": 1.0},
-        {"from_wins": 3, "to_wins": 5, "multiplier": 1.15},
-        {"from_wins": 6, "to_wins": 0, "multiplier": 1.25}
+        {"from_wins": 1, "to_wins": 4, "multiplier": 1.0},
+        {"from_wins": 5, "to_wins": 9, "multiplier": 1.05},
+        {"from_wins": 10, "to_wins": 0, "multiplier": 1.1}
       ]},
       {"below_difficulty": 0.7, "streaks": [
-        {"from_wins": 1, "to_wins": 2, "multiplier": 1.0},
-        {"from_wins": 3, "to_wins": 5, "multiplier": 1.15},
-        {"from_wins": 6, "to_wins": 0, "multiplier": 1.25}
+        {"from_wins": 1, "to_wins": 4, "multiplier": 1.0},
+        {"from_wins": 5, "to_wins": 9, "multiplier": 1.05},
+        {"from_wins": 10, "to_wins": 0, "multiplier": 1.1}
       ]},
       {"below_difficulty": 1.01, "streaks": [
-        {"from_wins": 1, "to_wins": 2, "multiplier": 1.0},
-        {"from_wins": 3, "to_wins": 5, "multiplier": 1.15},
-        {"from_wins": 6, "to_wins": 0, "multiplier": 1.25}
+        {"from_wins": 1, "to_wins": 4, "multiplier": 1.0},
+        {"from_wins": 5, "to_wins": 9, "multiplier": 1.05},
+        {"from_wins": 10, "to_wins": 0, "multiplier": 1.1}
       ]}
     ],
     "loss_steps": [
