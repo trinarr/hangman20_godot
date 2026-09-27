@@ -1254,7 +1254,10 @@ func _single_player_words_for_theme(
 					# Completed history may contain a word removed in a content update.
 					words.append(previous)
 					continue
-		var slot_target: float = _single_player_slot_difficulty(target_difficulty, word_slot, word_count)
+		var slot_target: float = GameState.get_single_player_theme_target_difficulty(
+			Database.current_language, theme_index,
+			_single_player_slot_difficulty(target_difficulty, word_slot, word_count)
+		)
 		var picked_pool_index: int = -1
 		var picked_score: float = INF
 		for pool_index in range(candidates.size()):
@@ -1451,8 +1454,10 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	):
 		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
 		if question_slot >= 0 and question_slot < words.size():
-			var replaced_word: Dictionary = words[question_slot]
-			question_target_difficulty = float(replaced_word.get("target_difficulty", target_difficulty))
+			question_target_difficulty = GameState.get_single_player_theme_target_difficulty(
+				language, selected_theme,
+				_single_player_slot_difficulty(target_difficulty, question_slot, word_count)
+			)
 			question = _single_player_pick_level_question(
 				level_index,
 				level_seed,
@@ -1573,6 +1578,7 @@ func _single_player_mark_current_word_finished(
 		return data
 	var result: Dictionary = data.duplicate(true)
 	var level_word_count: int = _single_player_level_word_count(single_player_active_level_index)
+	var stage_theme_index: int = _single_player_level_selected_theme(single_player_active_level_index)
 	var progress: Dictionary = GameState.mark_single_level_word_played(
 		Database.current_language,
 		single_player_active_level_index,
@@ -1582,8 +1588,10 @@ func _single_player_mark_current_word_finished(
 		failure_affects_difficulty,
 		-1,
 		!defer_final_reward,
-		false
+		false,
+		stage_theme_index
 	)
+	_invalidate_single_player_level_cache()
 	if !result.has("lines") or !(result["lines"] is Array):
 		result["lines"] = []
 	result["single_player_level_index"] = single_player_active_level_index

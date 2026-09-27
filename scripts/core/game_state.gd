@@ -1947,6 +1947,7 @@ func _new_single_player_bucket() -> Dictionary:
 		"level_seeds": {},
 		"theme_reroll_states": {},
 		"word_stats": {},
+		"theme_intro": {},
 		"level_question_slots": {},
 		"level_question_ids": {},
 		"level_word_assignments": {},
@@ -1964,6 +1965,7 @@ func _single_player_bucket(lang: String) -> Dictionary:
 		"level_seeds",
 		"theme_reroll_states",
 		"word_stats",
+		"theme_intro",
 		"level_question_slots",
 		"level_question_ids",
 		"level_word_assignments",
@@ -2015,12 +2017,70 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	single_player[lang_key] = bucket
 	return item
 
+# Intro state is keyed by stable theme ID inside each language bucket. Unlike
+# word history, it survives row edits, chain resets and repeat-penalty cleanup.
+func _single_player_theme_intro(lang: String, theme_index: int) -> Dictionary:
+	var theme_key := _theme_progress_key(theme_index)
+	if theme_key.is_empty():
+		return {"completed": true}
+	var intros: Dictionary = _single_player_bucket(lang)["theme_intro"]
+	if !intros.has(theme_key) or !(intros[theme_key] is Dictionary):
+		# Existing saves: do not restart onboarding for a previously played theme.
+		var history := ensure_single_player_theme_progress(lang, theme_index, 0)
+		var question_history := get_single_player_question_history(lang, theme_index)
+		intros[theme_key] = {
+			"difficulty": SINGLE_PLAYER_DIFFICULTY_MIN,
+			"completed": !Dictionary(history.get("played", {})).is_empty()
+				or !Dictionary(history.get("guessed", {})).is_empty()
+				or !Dictionary(question_history.get("seen", {})).is_empty(),
+		}
+	var intro: Dictionary = intros[theme_key]
+	# Starter themes share global progression from the beginning. Also retire
+	# any intro state created for them by an earlier build.
+	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids", [1, 9, 2]):
+		if int(value) == int(theme_key):
+			intro["completed"] = true
+			break
+	var difficulty: float = clampf(
+		float(intro.get("difficulty", SINGLE_PLAYER_DIFFICULTY_MIN)),
+		SINGLE_PLAYER_DIFFICULTY_MIN, SINGLE_PLAYER_DIFFICULTY_MAX
+	)
+	if !is_finite(difficulty):
+		difficulty = SINGLE_PLAYER_DIFFICULTY_MIN
+	intro["difficulty"] = difficulty
+	if !bool(intro.get("completed", false)):
+		var tolerance: float = GAME_DESIGN.get_float("progression.theme_intro.completion_tolerance", 0.04)
+		# Also finish if defeats have brought global difficulty below the intro.
+		if get_single_player_adaptive_difficulty(lang) - difficulty <= maxf(tolerance, 0.0):
+			intro["completed"] = true
+	return intro
+
+func get_single_player_theme_target_difficulty(lang: String, theme_index: int, global_slot_target: float) -> float:
+	var intro := _single_player_theme_intro(lang, theme_index)
+	if bool(intro.get("completed", false)):
+		return global_slot_target
+	# No chain spread or bonus offset during the intro: the first stage starts
+	# at the minimum, independent of its slot in the chain.
+	return float(intro["difficulty"])
+
+func _advance_single_player_theme_intro(lang: String, theme_index: int) -> void:
+	var intro := _single_player_theme_intro(lang, theme_index)
+	if bool(intro.get("completed", false)):
+		return
+	var global_difficulty := get_single_player_adaptive_difficulty(lang)
+	var rate: float = clampf(GAME_DESIGN.get_float("progression.theme_intro.catch_up_rate", 0.25), 0.0, 1.0)
+	intro["difficulty"] = lerpf(float(intro["difficulty"]), global_difficulty, rate)
+	# Mark completion permanently as soon as the remaining gap is small enough.
+	_single_player_theme_intro(lang, theme_index)
+
 func mark_single_player_word_shown(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
 	if theme_index < 0 or word_index < 0:
 		return
 	var key := _word_progress_key(theme_index, word_index, word_text)
 	if key.is_empty():
 		return
+	# Initialize before recording the first display, so it is not legacy history.
+	_single_player_theme_intro(lang, theme_index)
 	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
 	(item["played"] as Dictionary)[key] = true
 	if persist:
@@ -2119,6 +2179,8 @@ func get_single_player_question_history(lang: String, theme_index: int) -> Dicti
 func mark_single_player_question_seen(lang: String, theme_index: int, question_id: int, persist: bool = true) -> void:
 	if theme_index < 0 or question_id < 0:
 		return
+	# Initialize before the first presentation becomes historical progress.
+	_single_player_theme_intro(lang, theme_index)
 	var lang_key := _normalize_language(lang)
 	var theme_key := _theme_progress_key(theme_index)
 	var theme_stats: Dictionary = _single_player_question_theme_stats(lang_key, theme_index)
@@ -2413,7 +2475,8 @@ func mark_single_level_word_played(
 	failure_affects_difficulty: bool = true,
 	difficulty: int = -1,
 	award_completion_bonus: bool = true,
-	persist: bool = true
+	persist: bool = true,
+	stage_theme_index: int = -1
 ) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
@@ -2458,6 +2521,10 @@ func mark_single_level_word_played(
 			bucket["loss_streak"] = loss_streak
 		else:
 			bucket["forfeited_attempts"] = int(bucket.get("forfeited_attempts", 0)) + 1
+	if was_unplayed and is_win and stage_theme_index >= 0:
+		# Words and quizzes share one intro and the result duplicate guard.
+		# Global difficulty has already been updated.
+		_advance_single_player_theme_intro(lang_key, stage_theme_index)
 	if was_unplayed and completed and word_count > 1:
 		var guessed_count: int = get_single_level_guessed_count(
 			lang,

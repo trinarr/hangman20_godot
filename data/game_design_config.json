@@ -14,6 +14,10 @@
   },
   "progression": {
     "theme_options_per_level": 3,
+    "theme_intro": {
+      "catch_up_rate": 0.25,
+      "completion_tolerance": 0.04
+    },
     "theme_unlocks": {
       "initial_theme_ids": [1, 9, 2],
       "milestones": [

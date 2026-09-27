@@ -143,6 +143,11 @@ def validate_difficulty(config: dict[str, Any]) -> None:
                 previous = boundary
             require(previous > maximum, f"Bands do not cover maximum difficulty: {path}")
 
+    rate = float(resolve(config, "progression.theme_intro.catch_up_rate"))
+    tolerance = float(resolve(config, "progression.theme_intro.completion_tolerance"))
+    require(0.0 < rate <= 1.0, "Theme intro catch_up_rate must be in (0, 1]")
+    require(0.0 < tolerance < maximum - minimum, "Theme intro tolerance must be positive and below the difficulty span")
+
     # Validate editable tables without pinning the designer to one launch curve.
     for difficulty in (minimum, default, maximum):
         for streak in (1, 2, 3, 6, 100):
