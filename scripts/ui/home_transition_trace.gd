@@ -1,11 +1,11 @@
 extends RefCounted
 
-# Local debug output only; no file writes, network traffic or gameplay data.
-# Compare the first and repeated visit to the same destination on the device.
+# Profiling hooks remain compatible with existing callers, but collection
+# and console output are disabled in all builds.
 static var _active_build = null
 var _build_sections: Dictionary = {}
 
-var _enabled: bool = OS.is_debug_build()
+var _enabled: bool = false
 var _route: String
 var _started_usec: int = 0
 var _last_frame_usec: int = 0
@@ -70,13 +70,3 @@ func finish() -> void:
 	if !_enabled or _finished or _started_usec == 0:
 		return
 	_finished = true
-	print("[HomeTransition] %s | build=%.1f ms | longest_frame=%.1f ms (%s) | total=%.1f ms" % [
-		_route, float(_build_usec) / 1000.0, float(_longest_frame_usec) / 1000.0,
-		_longest_frame_phase, float(Time.get_ticks_usec() - _started_usec) / 1000.0
-	])
-	if !_build_sections.is_empty():
-		var sections := PackedStringArray()
-		for name: StringName in _build_sections:
-			var entry: Vector2i = _build_sections[name]
-			sections.append("%s=%.1f ms (%d)" % [name, float(entry.x) / 1000.0, entry.y])
-		print("[HomeBuild] %s | %s" % [_route, " | ".join(sections)])
