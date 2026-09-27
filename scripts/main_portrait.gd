@@ -904,7 +904,7 @@ func _on_ad_region_changed() -> void:
 		var debug_result: String = "UNKNOWN"
 		if !debug_country.is_empty():
 			debug_result = "%s (%s)" % [debug_country, debug_rule]
-		_show_portrait_status_toast("IPinfo: %s" % debug_result)
+		print("[IPinfo] %s" % debug_result)
 	_refresh_settings_ad_consent_button()
 	if !_portrait_ads_enabled():
 		_hide_portrait_ad_banner()
