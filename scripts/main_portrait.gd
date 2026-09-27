@@ -491,6 +491,7 @@ const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULT
 const PORTRAIT_GAME_HERO_Y_LIFT: float = 42.0
 const PORTRAIT_GAME_HERO_LEFT_CENTER_X: float = PORTRAIT_STAGE_SIZE.x * 0.25
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
+const PORTRAIT_HINT_LOCKED_ICON: Texture2D = preload("res://flash_assets/hint_locked_doodle.png")
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
 const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
@@ -5970,6 +5971,8 @@ func _animate_portrait_quiz_hint_counter_roll(
 	return true
 
 func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
+	if _portrait_hint_progression_locked(hint_key):
+		return false
 	if !GameState.can_pay_for_hint(hint_key):
 		_open_coin_store(Callable(self, "_return_to_quiz_from_coin_store"))
 		return false
@@ -6060,8 +6063,8 @@ func _refresh_quiz_question_in_place() -> bool:
 		hint_button.visible = true
 		hint_button.modulate = Color.WHITE
 		hint_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		hint_button.set("button_disabled", false)
 		var hint_key: String = str(hint_button.get_meta(&"quiz_hint_key", ""))
+		hint_button.set("button_disabled", _portrait_hint_progression_locked(hint_key))
 		if !hint_key.is_empty():
 			_refresh_portrait_quiz_hint_counter(hint_button, hint_key)
 	_mark_quiz_question_ready()
@@ -6264,7 +6267,9 @@ func _set_quiz_hint_buttons_temporarily_disabled(disabled: bool) -> void:
 				(hint_index == 0 and _quiz_fifty_fifty_used)
 				or (hint_index == 1 and _quiz_replace_question_used)
 			)
-		hint_button.set("button_disabled", should_disable)
+		hint_button.set("button_disabled", should_disable or _portrait_hint_progression_locked(
+			GameState.HINT_QUIZ_FIFTY_FIFTY if hint_index == 0 else GameState.HINT_QUIZ_REPLACE_QUESTION
+		))
 
 func _prepare_quiz_answer_for_replacement(
 	button: Button,
@@ -6315,6 +6320,8 @@ func _prepare_quiz_answer_for_replacement(
 		_set_quiz_answer_shadow_pressed_state(button, shadow_panel, false)
 
 func _on_quiz_replace_question_pressed() -> void:
+	if _portrait_hint_progression_locked(GameState.HINT_QUIZ_REPLACE_QUESTION):
+		return
 	if (
 		!_quiz_screen_active
 		or _quiz_answer_locked
@@ -6487,6 +6494,7 @@ func _on_quiz_replace_question_pressed() -> void:
 func _stage_portrait_quiz_hint_buttons() -> void:
 	# Quiz uses dedicated 50/50 and question-replacement controls. Both are wired
 	# directly in this screen and keep independent per-question used states.
+	var replace_locked: bool = _portrait_hint_progression_locked(GameState.HINT_QUIZ_REPLACE_QUESTION)
 	var button_width: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.x
 	var total_width: float = button_width * 2.0 + PORTRAIT_QUIZ_HINT_GAP
 	var first_x: float = (PORTRAIT_STAGE_SIZE.x - total_width) * 0.5
@@ -6520,15 +6528,17 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	remove_button.set("disabled_visual_opacity", 1.0)
 	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
 	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
-	_stage_portrait_hint_art(remove_button, PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
+	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_LOCKED_ICON if replace_locked else PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
 	_stage_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
-	_stage_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
+	remove_button.set_meta(&"quiz_hint_key", GameState.HINT_QUIZ_REPLACE_QUESTION)
+	if !replace_locked:
+		_stage_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
 	_quiz_hint_buttons = [open_button, remove_button]
 	_refresh_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
 	_refresh_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
 	if _quiz_fifty_fifty_used:
 		open_button.set("button_disabled", true)
-	if _quiz_replace_question_used or _quiz_question_replacing:
+	if replace_locked or _quiz_replace_question_used or _quiz_question_replacing:
 		remove_button.set("button_disabled", true)
 
 func _stage_portrait_quiz_continue_button() -> Control:
@@ -11798,9 +11808,19 @@ func _portrait_stage_point_to_viewport(stage_point: Vector2, reference_node: Nod
 	)
 	return Vector2(PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * fit_scale
 
+func _portrait_hint_progression_locked(hint_key: String) -> bool:
+	if hint_key in [GameState.HINT_QUIZ_FIFTY_FIFTY, GameState.HINT_QUIZ_REPLACE_QUESTION]:
+		if !_quiz_single_player_embedded:
+			return false
+	elif GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
+		return false
+	return !GameState.is_single_player_hint_unlocked(Database.current_language, hint_key)
+
 func _stage_portrait_hint_buttons() -> void:
 	# Called while the shared game-input bottom group is active. Badges are
 	# children of the buttons, so keyboard + hints + badges translate together.
+	var open_locked: bool = _portrait_hint_progression_locked(GameState.HINT_OPEN_LETTER)
+	var remove_locked: bool = _portrait_hint_progression_locked(GameState.HINT_REMOVE_WRONG)
 	var open_hint_used: bool = GameSession.open_hint_used
 	var remove_hint_used: bool = GameSession.remove_wrong_hint_used
 	var open_hint_ad_available: bool = (
@@ -11812,11 +11832,11 @@ func _stage_portrait_hint_buttons() -> void:
 	var comment_unlocked: bool = GameSession.comment_hint_unlocked
 	var round_inactive: bool = !GameSession.is_active
 	var open_hint_disabled: bool = (
-		round_inactive
+		open_locked or round_inactive
 		or (!open_hint_ad_available if open_hint_used else !GameSession.can_use_open_letter_hint())
 	)
 	var remove_hint_disabled: bool = (
-		round_inactive
+		remove_locked or round_inactive
 		or (!remove_hint_ad_available if remove_hint_used else !GameSession.can_use_remove_wrong_hint())
 	)
 	var comment_disabled: bool = round_inactive or (!comment_unlocked and !GameSession.can_unlock_comment_hint())
@@ -11884,12 +11904,12 @@ func _stage_portrait_hint_buttons() -> void:
 
 	_stage_portrait_hint_art(
 		open_button,
-		PORTRAIT_HINT_REVEAL_LETTER_ICON,
+		PORTRAIT_HINT_LOCKED_ICON if open_locked else PORTRAIT_HINT_REVEAL_LETTER_ICON,
 		false
 	)
 	_stage_portrait_hint_art(
 		remove_button,
-		PORTRAIT_HINT_REMOVE_WRONG_ICON,
+		PORTRAIT_HINT_LOCKED_ICON if remove_locked else PORTRAIT_HINT_REMOVE_WRONG_ICON,
 		false
 	)
 	_stage_portrait_hint_art(
@@ -11904,12 +11924,12 @@ func _stage_portrait_hint_buttons() -> void:
 	if open_hint_ad_available:
 		_prepare_portrait_rewarded_placement(&"hint_open")
 		_stage_portrait_hint_ad_counter(open_button)
-	elif !open_hint_used:
+	elif !open_locked and !open_hint_used:
 		_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
 	if remove_hint_ad_available:
 		_prepare_portrait_rewarded_placement(&"hint_remove")
 		_stage_portrait_hint_ad_counter(remove_button)
-	elif !remove_hint_used:
+	elif !remove_locked and !remove_hint_used:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
 	if !comment_unlocked:
 		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
@@ -18676,6 +18696,8 @@ func _continue_single_player_result() -> void:
 	_show_single_player_reward_chain_screen()
 
 func _use_open_hint() -> void:
+	if _portrait_hint_progression_locked(GameState.HINT_OPEN_LETTER):
+		return
 	if GameSession.open_hint_used:
 		if GameSession.can_use_open_letter_hint_ad():
 			_show_portrait_rewarded_action(&"hint_open")
@@ -18694,6 +18716,8 @@ func _use_open_hint() -> void:
 	)
 
 func _use_remove_hint() -> void:
+	if _portrait_hint_progression_locked(GameState.HINT_REMOVE_WRONG):
+		return
 	if GameSession.remove_wrong_hint_used:
 		if GameSession.can_use_remove_wrong_hint_ad():
 			_show_portrait_rewarded_action(&"hint_remove")

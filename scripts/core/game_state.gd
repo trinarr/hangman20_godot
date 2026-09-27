@@ -1784,6 +1784,12 @@ func spend_stars(amount: int, persist: bool = true) -> bool:
 		save_game()
 	return true
 
+func is_single_player_hint_unlocked(lang: String, hint_key: String) -> bool:
+	if hint_key not in [HINT_OPEN_LETTER, HINT_REMOVE_WRONG, HINT_QUIZ_REPLACE_QUESTION]:
+		return true
+	var unlock_level: int = GAME_DESIGN.get_int_range("progression.hints.all_unlocked_from_level", 4, 1, 1000000)
+	return get_single_player_unlocked_level(lang) + 1 >= unlock_level
+
 func get_hint_cost(hint_key: String) -> int:
 	return maxi(int(HINT_COSTS.get(hint_key, 0)), 0)
 

@@ -243,6 +243,8 @@ func _reveal_letter(letter: String) -> bool:
 func can_use_open_letter_hint() -> bool:
 	return (
 		is_active
+		and (mode != GameState.GameMode.SINGLE_PLAYER
+			or GameState.is_single_player_hint_unlocked(Database.current_language, GameState.HINT_OPEN_LETTER))
 		and !open_hint_used
 		and _has_hidden_letter()
 		and _hints_allowed()
@@ -251,6 +253,8 @@ func can_use_open_letter_hint() -> bool:
 func can_use_remove_wrong_hint() -> bool:
 	return (
 		is_active
+		and (mode != GameState.GameMode.SINGLE_PLAYER
+			or GameState.is_single_player_hint_unlocked(Database.current_language, GameState.HINT_REMOVE_WRONG))
 		and !remove_wrong_hint_used
 		and _has_removable_wrong_letter()
 		and _hints_allowed()
@@ -259,6 +263,8 @@ func can_use_remove_wrong_hint() -> bool:
 func can_use_open_letter_hint_ad() -> bool:
 	return (
 		is_active
+		and (mode != GameState.GameMode.SINGLE_PLAYER
+			or GameState.is_single_player_hint_unlocked(Database.current_language, GameState.HINT_OPEN_LETTER))
 		and open_hint_used
 		and open_hint_ad_reuse_available
 		and _has_hidden_letter()
@@ -268,6 +274,8 @@ func can_use_open_letter_hint_ad() -> bool:
 func can_use_remove_wrong_hint_ad() -> bool:
 	return (
 		is_active
+		and (mode != GameState.GameMode.SINGLE_PLAYER
+			or GameState.is_single_player_hint_unlocked(Database.current_language, GameState.HINT_REMOVE_WRONG))
 		and remove_wrong_hint_used
 		and remove_wrong_hint_ad_reuse_available
 		and _has_removable_wrong_letter()
