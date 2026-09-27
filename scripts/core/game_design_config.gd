@@ -45,6 +45,23 @@ static func get_array(path: String, fallback: Array = []) -> Array:
 	var value: Variant = get_value(path, fallback)
 	return value.duplicate(true) if value is Array else fallback.duplicate(true)
 
+static func _difficulty_streak_ranges(path: String, current_difficulty: float) -> Array:
+	var ranges: Array = get_array(path)
+	if ranges.is_empty():
+		return []
+	# Preserve the original flat table format for configs without difficulty bands.
+	if ranges[0] is Dictionary and !ranges[0].has("below_difficulty"):
+		return ranges
+	var difficulty: float = clampf(current_difficulty, 0.0, 1.0)
+	for value: Variant in ranges:
+		if !(value is Dictionary):
+			continue
+		var band: Dictionary = value
+		if difficulty < float(band.get("below_difficulty", 1.01)):
+			var streaks: Variant = band.get("streaks", [])
+			return streaks if streaks is Array else []
+	return []
+
 static func difficulty_win_increase(current_difficulty: float, win_streak: int) -> float:
 	var resolved_difficulty: float = clampf(current_difficulty, 0.0, 1.0)
 	var increase: float = 0.01
@@ -59,7 +76,7 @@ static func difficulty_win_increase(current_difficulty: float, win_streak: int) 
 
 	var resolved_streak: int = maxi(win_streak, 1)
 	var multiplier: float = 1.0
-	for range_variant: Variant in get_array("difficulty.win_streak_multipliers"):
+	for range_variant: Variant in _difficulty_streak_ranges("difficulty.win_streak_multipliers", resolved_difficulty):
 		if !(range_variant is Dictionary):
 			continue
 		var streak_range: Dictionary = range_variant
@@ -71,10 +88,10 @@ static func difficulty_win_increase(current_difficulty: float, win_streak: int) 
 		break
 	return increase * multiplier
 
-static func difficulty_loss_decrease(loss_streak: int) -> float:
+static func difficulty_loss_decrease(loss_streak: int, current_difficulty: float) -> float:
 	var resolved_streak: int = maxi(loss_streak, 1)
 	var decrease: float = 0.012
-	for range_variant: Variant in get_array("difficulty.loss_steps"):
+	for range_variant: Variant in _difficulty_streak_ranges("difficulty.loss_steps", current_difficulty):
 		if !(range_variant is Dictionary):
 			continue
 		var loss_range: Dictionary = range_variant

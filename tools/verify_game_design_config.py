@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -47,6 +48,16 @@ def stage_count(config: dict[str, Any], level: int) -> int:
     return matches[0]
 
 
+def streak_ranges(config: dict[str, Any], path: str, difficulty: float) -> list[dict[str, Any]]:
+    ranges = resolve(config, path)
+    if ranges and "below_difficulty" not in ranges[0]:
+        return ranges
+    for band in ranges:
+        if difficulty < float(band["below_difficulty"]):
+            return band["streaks"]
+    raise SystemExit(f"No streak band covers difficulty {difficulty}: {path}")
+
+
 def win_increase(config: dict[str, Any], difficulty: float, streak: int) -> float:
     increase = None
     for band in resolve(config, "difficulty.win_steps"):
@@ -55,7 +66,7 @@ def win_increase(config: dict[str, Any], difficulty: float, streak: int) -> floa
             break
     require(increase is not None, f"No win step covers difficulty {difficulty}")
     multiplier = None
-    for streak_range in resolve(config, "difficulty.win_streak_multipliers"):
+    for streak_range in streak_ranges(config, "difficulty.win_streak_multipliers", difficulty):
         start = int(streak_range["from_wins"])
         end = int(streak_range["to_wins"])
         if streak >= start and (end == 0 or streak <= end):
@@ -65,8 +76,8 @@ def win_increase(config: dict[str, Any], difficulty: float, streak: int) -> floa
     return increase * multiplier
 
 
-def loss_decrease(config: dict[str, Any], streak: int) -> float:
-    for streak_range in resolve(config, "difficulty.loss_steps"):
+def loss_decrease(config: dict[str, Any], streak: int, difficulty: float = 0.0) -> float:
+    for streak_range in streak_ranges(config, "difficulty.loss_steps", difficulty):
         start = int(streak_range["from_losses"])
         end = int(streak_range["to_losses"])
         if streak >= start and (end == 0 or streak <= end):
@@ -96,9 +107,59 @@ def validate_open_ended_ranges(
     raise SystemExit(f"Final {label} range must be open-ended")
 
 
+def validate_difficulty(config: dict[str, Any]) -> None:
+    minimum = float(resolve(config, "difficulty.minimum"))
+    default = float(resolve(config, "difficulty.default"))
+    maximum = float(resolve(config, "difficulty.maximum"))
+    require(0.0 <= minimum <= default <= maximum <= 1.0, "Difficulty bounds are inconsistent")
+    require("quiz_target_maximum" not in config["difficulty"], "Obsolete separate quiz cap")
+    require(float(resolve(config, "difficulty.bonus_level_offset")) >= 0.0, "Bonus offset is negative")
+
+    win_steps = resolve(config, "difficulty.win_steps")
+    require(isinstance(win_steps, list) and bool(win_steps), "Win-step bands are missing")
+    previous_boundary = 0.0
+    for index, band in enumerate(win_steps):
+        boundary = float(band["below_difficulty"])
+        require(boundary > previous_boundary, f"Win-step band {index} is not ordered")
+        require(float(band["increase"]) >= 0.0, f"Win-step band {index} is negative")
+        previous_boundary = boundary
+    require(previous_boundary > maximum, "Win-step bands do not cover maximum difficulty")
+    require("adaptation_speed" not in config["difficulty"], "Remove obsolete adaptation_speed settings")
+    for path, start_key, end_key, value_key in (
+        ("difficulty.win_streak_multipliers", "from_wins", "to_wins", "multiplier"),
+        ("difficulty.loss_steps", "from_losses", "to_losses", "decrease"),
+    ):
+        ranges = resolve(config, path)
+        require(isinstance(ranges, list) and bool(ranges), f"Empty table: {path}")
+        if "below_difficulty" not in ranges[0]:
+            require(all("below_difficulty" not in row for row in ranges), f"Mixed table formats: {path}")
+            validate_open_ended_ranges(ranges, start_key, end_key, value_key, path)
+        else:
+            previous = 0.0
+            for band in ranges:
+                boundary = float(band.get("below_difficulty", 0))
+                require(previous < boundary, f"Unordered difficulty bands: {path}")
+                validate_open_ended_ranges(band.get("streaks", []), start_key, end_key, value_key, path)
+                previous = boundary
+            require(previous > maximum, f"Bands do not cover maximum difficulty: {path}")
+
+    # Validate editable tables without pinning the designer to one launch curve.
+    for difficulty in (minimum, default, maximum):
+        for streak in (1, 2, 3, 6, 100):
+            require(win_increase(config, difficulty, streak) >= 0, "Negative victory delta")
+            require(loss_decrease(config, streak, difficulty) >= 0, "Negative defeat delta")
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--difficulty-only", action="store_true", help="Validate only editable difficulty tables")
+    args = parser.parse_args()
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     require(isinstance(config, dict), "Game-design config root must be an object")
+    if args.difficulty_only:
+        validate_difficulty(config)
+        print("Difficulty tables verified")
+        return
 
     getter_pattern = re.compile(
         r"(?:GAME_DESIGN|PORTRAIT_GAME_DESIGN)\.get_(?:int|float|int_range|float_range|array)"
@@ -137,51 +198,7 @@ def main() -> None:
     for level in range(1, 1001):
         require(stage_count(config, level) > 0, f"Invalid stage count for level {level}")
 
-    minimum = float(resolve(config, "difficulty.minimum"))
-    default = float(resolve(config, "difficulty.default"))
-    maximum = float(resolve(config, "difficulty.maximum"))
-    require(0.0 <= minimum <= default <= maximum <= 1.0, "Difficulty bounds are inconsistent")
-    require("quiz_target_maximum" not in config["difficulty"], "Obsolete separate quiz cap")
-    require(float(resolve(config, "difficulty.bonus_level_offset")) >= 0.0, "Bonus offset is negative")
-
-    win_steps = resolve(config, "difficulty.win_steps")
-    require(isinstance(win_steps, list) and bool(win_steps), "Win-step bands are missing")
-    previous_boundary = 0.0
-    for index, band in enumerate(win_steps):
-        boundary = float(band["below_difficulty"])
-        require(boundary > previous_boundary, f"Win-step band {index} is not ordered")
-        require(float(band["increase"]) >= 0.0, f"Win-step band {index} is negative")
-        previous_boundary = boundary
-    require(previous_boundary > maximum, "Win-step bands do not cover maximum difficulty")
-    validate_open_ended_ranges(
-        resolve(config, "difficulty.win_streak_multipliers"),
-        "from_wins",
-        "to_wins",
-        "multiplier",
-        "win-streak",
-    )
-    validate_open_ended_ranges(
-        resolve(config, "difficulty.loss_steps"),
-        "from_losses",
-        "to_losses",
-        "decrease",
-        "loss-streak",
-    )
-
-    simulated = default
-    milestones: dict[int, float] = {}
-    for streak in range(1, 91):
-        simulated = min(simulated + win_increase(config, simulated, streak), maximum)
-        milestones[streak] = simulated
-    require(0.29 <= milestones[10] <= 0.31, "Ten-win difficulty milestone drifted")
-    require(0.49 <= milestones[30] <= 0.51, "Thirty-win difficulty milestone drifted")
-    require(0.68 <= milestones[55] <= 0.71, "Fifty-five-win difficulty milestone drifted")
-    require(abs(milestones[90] - maximum) < 1e-9, "Difficulty does not reach its configured cap")
-    require(
-        [loss_decrease(config, streak) for streak in (1, 2, 3, 10)]
-        == [0.012, 0.02, 0.03, 0.03],
-        "Loss-streak decreases differ from the intended launch curve",
-    )
+    validate_difficulty(config)
     require(int(resolve(config, "gameplay.max_mistakes")) > 0, "Maximum mistakes must be positive")
     require(int(resolve(config, "economy.extra_attempts.count_step_interval")) > 0, "Attempt interval must be positive")
     require(int(resolve(config, "economy.maximum_balance")) > 0, "Maximum balance must be positive")

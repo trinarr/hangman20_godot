@@ -2446,7 +2446,7 @@ func mark_single_level_word_played(
 	elif was_unplayed and !is_win:
 		if failure_affects_difficulty:
 			var loss_streak: int = int(bucket.get("loss_streak", 0)) + 1
-			difficulty_delta = -GAME_DESIGN.difficulty_loss_decrease(loss_streak)
+			difficulty_delta = -GAME_DESIGN.difficulty_loss_decrease(loss_streak, difficulty_before)
 			difficulty_after = clampf(
 				difficulty_before + difficulty_delta,
 				SINGLE_PLAYER_DIFFICULTY_MIN,
