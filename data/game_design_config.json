@@ -68,7 +68,7 @@
       {"below_difficulty": 1.01, "increase": 0.002}
     ],
     "win_streak_multipliers": [
-      {"below_difficulty": 0.25, "streaks": [
+      {"below_difficulty": 0.26, "streaks": [
         {"from_wins": 1, "to_wins": 0, "multiplier": 1.0}
       ]},
       {"below_difficulty": 0.5, "streaks": [
