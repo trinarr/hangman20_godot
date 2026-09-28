@@ -3799,14 +3799,14 @@ func _finish_home_button_entrance(buttons: Array[Control]) -> void:
 			continue
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if bool(button.get("disabled")) else Control.MOUSE_FILTER_STOP
 
-func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int) -> Dictionary:
+func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int, word_slot: int = -1) -> Dictionary:
 	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
-	var profile_result: Dictionary = _home_profile_restore_quiz_session_data(saved, theme_index, level_index)
+	var profile_result: Dictionary = _home_profile_restore_quiz_session_data(saved, theme_index, level_index, word_slot)
 	if OS.is_debug_build():
 		BUILD_TRACE.section_end(&"resume.quiz_data", profile_started_usec)
 	return profile_result
 
-func _home_profile_restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int) -> Dictionary:
+func _home_profile_restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int, word_slot: int = -1) -> Dictionary:
 	if theme_index < 0:
 		return {}
 	var data: Dictionary = saved.duplicate(true)
@@ -3822,7 +3822,7 @@ func _home_profile_restore_quiz_session_data(saved: Dictionary, theme_index: int
 			# stage normally; do not transfer the old fact's seen status.
 			canonical = _single_player_pick_level_question(
 				level_index, GameState.get_or_create_single_level_seed(Database.current_language, level_index),
-				theme_index, float(data.get("target_difficulty", 0.5))
+				theme_index, float(data.get("target_difficulty", 0.5)), true, word_slot
 			)
 		if canonical.is_empty():
 			return {}
@@ -3988,7 +3988,7 @@ func _home_profile_resume_saved_single_player_level() -> void:
 			if quiz_data_variant is Dictionary:
 				var theme_index: int = Database.get_theme_index_by_id(int(session.get("theme_id", -1)))
 				var data: Dictionary = _restore_quiz_session_data(
-					Dictionary(quiz_data_variant), theme_index, level_index
+					Dictionary(quiz_data_variant), theme_index, level_index, int(session.get("word_slot", -1))
 				)
 				var question_variant: Variant = data.get("question", {})
 				var question: Dictionary = (
@@ -4717,10 +4717,9 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	if _single_player_level_word_status(level_index, word_slot) != 0:
 		return
 	GameState.activate_ads_for_level(level_index)
-	var level_question_slot: int = _single_player_level_question_slot_index(level_index)
-	var question: Dictionary = _single_player_level_question(level_index)
+	var question: Dictionary = _single_player_level_question(level_index, word_slot)
 	var theme_index: int = _single_player_level_selected_theme(level_index)
-	if word_slot != level_question_slot or question.is_empty() or theme_index < 0:
+	if not _single_player_stage_is_quiz(level_index, word_slot) or question.is_empty() or theme_index < 0:
 		super._start_single_player_question(level_index, word_slot)
 		return
 
@@ -4734,7 +4733,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	_quiz_mode_active = true
 	_quiz_single_player_embedded = true
-	_quiz_single_player_target_difficulty = _single_player_level_question_target_difficulty(level_index)
+	_quiz_single_player_target_difficulty = _single_player_level_question_target_difficulty(level_index, word_slot)
 	_quiz_selected_theme_index = theme_index
 	_quiz_current_question = QUIZ_SELECTION.shuffled(question)
 	_quiz_answer_locked = false
@@ -6239,6 +6238,12 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 
 func _quiz_replacement_question() -> Dictionary:
 	var questions: Array = Database.get_quiz_questions_by_theme_index(_quiz_selected_theme_index)
+	if _quiz_single_player_embedded:
+		var other_ids: Array = []
+		for slot: int in GameState.get_single_level_question_slots(Database.current_language, single_player_active_level_index):
+			if slot != single_player_active_word_slot:
+				other_ids.append(GameState.get_single_level_question_id(Database.current_language, single_player_active_level_index, slot))
+		questions = questions.filter(func(q: Dictionary) -> bool: return not other_ids.has(int(q.get("id", -1))))
 	var target_difficulty: float = (
 		_quiz_single_player_target_difficulty
 		if _quiz_single_player_embedded
@@ -6360,7 +6365,7 @@ func _on_quiz_replace_question_pressed() -> void:
 				Database.current_language,
 				single_player_active_level_index,
 				replacement_id,
-				false
+				false, single_player_active_word_slot
 			)
 			GameState.mark_single_player_question_seen(
 				Database.current_language,

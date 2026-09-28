@@ -2138,24 +2138,13 @@ func mark_single_player_word_guessed(lang: String, theme_index: int, word_index:
 	if persist:
 		save_game()
 
-func get_single_level_question_slot(lang: String, level_index: int) -> int:
-	if level_index < 0:
-		return -1
-	var bucket := _single_player_bucket(lang)
-	var slots: Dictionary = bucket["level_question_slots"]
-	return int(slots.get(str(level_index), -1))
+func get_single_level_question_slots(lang: String, level_index: int) -> Array:
+	var slots: Array = _single_player_bucket(lang)["level_question_slots"].get(str(level_index), [])
+	return slots.map(func(slot: Variant) -> int: return int(slot))
 
-func set_single_level_question_slot(lang: String, level_index: int, question_slot: int, persist: bool = true) -> void:
-	if level_index < 0 or question_slot < 0:
-		return
-	var lang_key := _normalize_language(lang)
-	var bucket := _single_player_bucket(lang_key)
-	var slots: Dictionary = bucket["level_question_slots"]
-	slots[str(level_index)] = question_slot
-	bucket["level_question_slots"] = slots
-	single_player[lang_key] = bucket
-	if persist:
-		save_game()
+func set_single_level_question_slots(lang: String, level_index: int, slots: Array) -> void:
+	_single_player_bucket(lang)["level_question_slots"][str(level_index)] = slots.duplicate()
+	save_game()
 
 # Only the completed prefix and the currently offered stage are committed.
 # Later stages are selected again using the latest shared adaptive difficulty.
@@ -2169,20 +2158,30 @@ func set_single_level_word_assignments(lang: String, level_index: int, words: Ar
 	bucket["level_word_assignments"][str(level_index)] = words.duplicate(true)
 	save_game()
 
-func get_single_level_question_id(lang: String, level_index: int) -> int:
+func get_single_level_question_id(lang: String, level_index: int, word_slot: int = -1) -> int:
 	if level_index < 0:
 		return -1
 	var bucket := _single_player_bucket(lang)
 	var question_ids: Dictionary = bucket["level_question_ids"]
-	return int(question_ids.get(str(level_index), -1))
+	if word_slot < 0:
+		var slots: Array = get_single_level_question_slots(lang, level_index)
+		word_slot = int(slots[0]) if not slots.is_empty() else -1
+	return int(Dictionary(question_ids.get(str(level_index), {})).get(str(word_slot), -1))
 
-func set_single_level_question_id(lang: String, level_index: int, question_id: int, persist: bool = true) -> void:
+func set_single_level_question_id(lang: String, level_index: int, question_id: int, persist: bool = true, word_slot: int = -1) -> void:
 	if level_index < 0 or question_id < 0:
 		return
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var question_ids: Dictionary = bucket["level_question_ids"]
-	question_ids[str(level_index)] = question_id
+	if word_slot < 0:
+		var slots: Array = get_single_level_question_slots(lang, level_index)
+		word_slot = int(slots[0]) if not slots.is_empty() else -1
+	if word_slot < 0:
+		return
+	if not question_ids.has(str(level_index)):
+		question_ids[str(level_index)] = {}
+	question_ids[str(level_index)][str(word_slot)] = question_id
 	bucket["level_question_ids"] = question_ids
 	single_player[lang_key] = bucket
 	if persist:

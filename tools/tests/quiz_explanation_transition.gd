@@ -59,7 +59,7 @@ func exercise(main: Node, correct: bool, tier: int, campaign: bool) -> void:
 		GameState.select_single_level_theme(Database.current_language, 2, 0, main._single_player_level_word_target(2))
 		main._invalidate_single_player_level_cache()
 		var level: Dictionary = main._single_player_level_data(2)
-		main._start_single_player_question(2, int(level.question_slot))
+		main._start_single_player_question(2, int(level.question_slots[0]))
 	else:
 		main._start_quiz_theme(0)
 	await get_tree().create_timer(1.8).timeout

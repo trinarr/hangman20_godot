@@ -134,15 +134,15 @@ func run() -> void:
 	main._invalidate_single_player_level_cache()
 	var before: Dictionary = main._single_player_level_data(level).duplicate(true)
 	check(is_equal_approx(before.words[0].target_difficulty, 0.08), "Actual first word uses minimum intro difficulty")
-	check(before.question_slot == 1 and !before.question.is_empty(), "Quiz fixture available")
-	check(is_equal_approx(before.question_target_difficulty, 0.08), "Quiz uses shared theme intro target")
+	check(before.question_slots[0] == 1 and !before.questions[str(before.question_slots[0])].is_empty(), "Quiz fixture available")
+	check(is_equal_approx(before.question_targets[str(before.question_slots[0])], 0.08), "Quiz uses shared theme intro target")
 	main.single_player_active_level_index = level
 	main.single_player_active_word_slot = 0
 	main._single_player_mark_current_word_finished({}, true, true, false, false)
 	var after: Dictionary = main._single_player_level_data(level).duplicate(true)
 	check(after.words[0] == before.words[0], "Committed assignment survives intro advance")
 	check(is_equal_approx(after.words[2].target_difficulty, 0.275), "Next word target updates even at global cap")
-	check(is_equal_approx(after.question_target_difficulty, 0.275), "Word win updates the following quiz target")
+	check(is_equal_approx(after.question_targets[str(after.question_slots[0])], 0.275), "Word win updates the following quiz target")
 	var after_word: float = target()
 	main.single_player_active_word_slot = 1
 	main._single_player_mark_current_word_finished({}, true, true, false, false)

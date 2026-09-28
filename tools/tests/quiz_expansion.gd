@@ -64,21 +64,21 @@ func run() -> void:
 		GameState.select_single_level_theme(language, 2, 0, main._single_player_level_word_target(2))
 		main._invalidate_single_player_level_cache()
 		var level: Dictionary = main._single_player_level_data(2)
-		check(level.question_slot >= 0 and !level.question.is_empty(), "Missing campaign quiz fixture")
-		check(level.question_target_difficulty > .68, "Stage target was capped: " + language)
-		check(is_equal_approx(level.question_target_difficulty, level.words[level.question_slot].target_difficulty),
+		check(level.question_slots[0] >= 0 and !level.questions[str(level.question_slots[0])].is_empty(), "Missing campaign quiz fixture")
+		check(level.question_targets[str(level.question_slots[0])] > .68, "Stage target was capped: " + language)
+		check(is_equal_approx(level.question_targets[str(level.question_slots[0])], level.words[level.question_slots[0]].target_difficulty),
 			"Quiz and hangman stage targets differ: " + language)
-		check(is_equal_approx(main._single_player_level_question_target_difficulty(2), level.question_target_difficulty),
+		check(is_equal_approx(main._single_player_level_question_target_difficulty(2), level.question_targets[str(level.question_slots[0])]),
 			"Target accessor capped the stage: " + language)
-		var snapshot: Dictionary = {"question": level.question, "target_difficulty": .84,
+		var snapshot: Dictionary = {"question": level.questions[str(level.question_slots[0])], "target_difficulty": .84,
 			"fifty_fifty_used": false, "hidden_indices": [], "replace_question_used": false}
 		var restored: Dictionary = main._restore_quiz_session_data(snapshot, 0, 2)
 		check(is_equal_approx(restored.target_difficulty, .84), "Save restore capped the target: " + language)
-		for slot: int in range(int(level.question_slot)):
+		for slot: int in range(int(level.question_slots[0])):
 			GameState.mark_single_level_word_played(language, 2, slot,
 				main._single_player_level_word_target(2), true, true, -1, false, false)
 		GameState.set_active_single_player_session({"language": language, "level_index": 2,
-			"word_slot": level.question_slot, "kind": "quiz", "theme_id": theme_id, "data": snapshot})
+			"word_slot": level.question_slots[0], "kind": "quiz", "theme_id": theme_id, "data": snapshot})
 		GameState.load_game()
 		main._quiz_single_player_target_difficulty = .2
 		main._resume_saved_single_player_level()

@@ -1275,71 +1275,64 @@ func _single_player_words_for_theme(
 		GameState.set_single_level_word_assignments(Database.current_language, level_index, committed)
 	return words
 
-func _single_player_level_question_slot(level_index: int, level_seed: int, word_count: int) -> int:
+func _single_player_level_question_slots(level_index: int, level_seed: int, word_count: int) -> Array:
 	if !_single_player_level_uses_question(level_index, word_count):
-		return -1
-	var saved_slot: int = GameState.get_single_level_question_slot(
-		Database.current_language,
-		level_index
-	)
-	var level_number: int = maxi(level_index + 1, 1)
-	var first_slot: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
-	var last_slot: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
-	# Level 2 introduces the quiz first and finishes with Hangman. Levels 3 and 4
-	# keep the quiz in the middle of their new three-stage chains.
-	if level_number == 2:
-		first_slot = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
-		last_slot = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
-	elif GAME_DESIGN.is_quiz_onboarding_level(level_number):
-		first_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
-		last_slot = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
-	if saved_slot >= first_slot and saved_slot <= last_slot:
-		return saved_slot
-	if first_slot > last_slot:
-		first_slot = last_slot
-	var available_slots: Array[int] = []
-	for slot_index: int in range(first_slot, last_slot + 1):
-		if GameState.get_single_level_word_status(
-			Database.current_language,
-			level_index,
-			slot_index,
-			word_count
-		) == 0:
-			available_slots.append(slot_index)
-	if available_slots.is_empty():
-		return -1
+		return []
+	var saved: Array = GameState.get_single_level_question_slots(Database.current_language, level_index)
+	if not saved.is_empty():
+		return saved
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, 503)
-	var question_slot: int = available_slots[rng.randi_range(0, available_slots.size() - 1)]
-	GameState.set_single_level_question_slot(
-		Database.current_language,
-		level_index,
-		question_slot
-	)
-	return question_slot
+	var choices: Array = []
+	if _single_player_is_bonus_level(level_index):
+		# Uniformly choose a pair of internal, non-adjacent stages.
+		for first: int in range(1, word_count - 1):
+			for second: int in range(first + 2, word_count - 1):
+				choices.append([first, second])
+	else:
+		var level_number: int = level_index + 1
+		var first: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
+		var last: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
+		if level_number == 2:
+			first = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
+			last = first
+		elif GAME_DESIGN.is_quiz_onboarding_level(level_number):
+			first = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
+			last = first
+		for slot: int in range(mini(first, last), last + 1):
+			choices.append([slot])
+	if choices.is_empty():
+		return []
+	var selected: Array = choices[rng.randi_range(0, choices.size() - 1)]
+	GameState.set_single_level_question_slots(Database.current_language, level_index, selected)
+	return selected
 
 func _single_player_pick_level_question(
 	level_index: int,
 	level_seed: int,
 	theme_index: int,
 	target_difficulty: float,
-	persist_selection: bool = true
+	persist_selection: bool = true,
+	word_slot: int = -1,
+	excluded_ids: Array = []
 ) -> Dictionary:
 	var resolved_target_difficulty: float = clampf(target_difficulty, 0.0, 1.0)
 	var saved_question_id: int = GameState.get_single_level_question_id(
 		Database.current_language,
-		level_index
+		level_index, word_slot
 	)
 	if saved_question_id >= 0:
 		var saved_question := Database.get_quiz_question_by_id(theme_index, saved_question_id)
 		if !saved_question.is_empty():
 			return saved_question
 
-	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
+	var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index).filter(
+		func(question: Dictionary) -> bool: return not excluded_ids.has(int(question.get("id", -1)))
+	)
 	if questions.is_empty():
 		return {}
 	var rng := RandomNumberGenerator.new()
-	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 809)
+	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 809 + maxi(word_slot, 0) * 97)
 	var picked_question: Dictionary = QUIZ_SELECTION.pick(
 		questions,
 		resolved_target_difficulty,
@@ -1354,7 +1347,7 @@ func _single_player_pick_level_question(
 		GameState.set_single_level_question_id(
 			Database.current_language,
 			level_index,
-			picked_id
+			picked_id, true, word_slot
 		)
 	return picked_question
 
@@ -1421,29 +1414,26 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			word_count,
 			target_difficulty
 		)
-	var question_slot: int = -1
-	var question: Dictionary = {}
-	var question_target_difficulty: float = target_difficulty
-	if (
-		selected_theme >= 0
-		and _single_player_level_uses_question(level_index, word_count)
-		and words.size() >= word_count
-	):
-		question_slot = _single_player_level_question_slot(level_index, level_seed, word_count)
-		if question_slot >= 0 and question_slot < words.size():
-			question_target_difficulty = GameState.get_single_player_theme_target_difficulty(
-				language, selected_theme,
-				_single_player_slot_difficulty(target_difficulty, question_slot, word_count)
-			)
-			question = _single_player_pick_level_question(
-				level_index,
-				level_seed,
-				selected_theme,
-				question_target_difficulty,
-				question_slot <= _single_player_first_unplayed_slot(level_index, word_count)
-			)
-		if question.is_empty():
-			question_slot = -1
+	var questions: Dictionary = {}
+	var question_targets: Dictionary = {}
+	var question_slots: Array = []
+	if selected_theme >= 0 and words.size() >= word_count:
+		question_slots = _single_player_level_question_slots(level_index, level_seed, word_count)
+		var reserved_ids: Array = []
+		for slot: int in question_slots:
+			var saved_id: int = GameState.get_single_level_question_id(language, level_index, slot)
+			if saved_id >= 0:
+				reserved_ids.append(saved_id)
+		for slot: int in question_slots:
+			var target: float = GameState.get_single_player_theme_target_difficulty(
+				language, selected_theme, _single_player_slot_difficulty(target_difficulty, slot, word_count))
+			var question: Dictionary = _single_player_pick_level_question(
+				level_index, level_seed, selected_theme, target,
+				slot <= _single_player_first_unplayed_slot(level_index, word_count), slot, reserved_ids)
+			if not question.is_empty():
+				questions[str(slot)] = question
+				question_targets[str(slot)] = target
+				reserved_ids.append(int(question["id"]))
 	var level_data := {
 		"index": level_index,
 		"selection_stage": _single_player_first_unplayed_slot(level_index, word_count),
@@ -1451,9 +1441,9 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 		"selected_theme_index": selected_theme,
 		"word_count": word_count,
 		"words": words,
-		"question_slot": question_slot,
-		"question": question,
-		"question_target_difficulty": question_target_difficulty,
+		"question_slots": question_slots,
+		"questions": questions,
+		"question_targets": question_targets,
 		"target_difficulty": target_difficulty,
 		"is_bonus_level": _single_player_is_bonus_level(level_index),
 	}
@@ -1469,27 +1459,24 @@ func _single_player_level_selected_theme(level_index: int) -> int:
 func _single_player_level_words(level_index: int) -> Array:
 	return Array(_single_player_level_data(level_index).get("words", []))
 
-func _single_player_level_question_slot_index(level_index: int) -> int:
-	return int(_single_player_level_data(level_index).get("question_slot", -1))
+func _single_player_level_question(level_index: int, word_slot: int = -1) -> Dictionary:
+	var data: Dictionary = _single_player_level_data(level_index)
+	if word_slot < 0 and not data.get("question_slots", []).is_empty():
+		word_slot = int(data["question_slots"][0])
+	return Dictionary(data.get("questions", {}).get(str(word_slot), {})).duplicate(true)
 
-func _single_player_level_question(level_index: int) -> Dictionary:
-	var question_variant: Variant = _single_player_level_data(level_index).get("question", {})
-	if question_variant is Dictionary:
-		var question: Dictionary = question_variant
-		return question.duplicate(true)
-	return {}
-
-func _single_player_level_question_target_difficulty(level_index: int) -> float:
-	return float(_single_player_level_data(level_index).get(
-		"question_target_difficulty",
-		GameState.get_single_player_adaptive_difficulty(Database.current_language)
-	))
+func _single_player_level_question_target_difficulty(level_index: int, word_slot: int = -1) -> float:
+	var data: Dictionary = _single_player_level_data(level_index)
+	if word_slot < 0 and not data.get("question_slots", []).is_empty():
+		word_slot = int(data["question_slots"][0])
+	return float(data.get("question_targets", {}).get(str(word_slot),
+		GameState.get_single_player_adaptive_difficulty(Database.current_language)))
 
 func _single_player_level_word_count(level_index: int) -> int:
 	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
 
 func _single_player_stage_is_quiz(level_index: int, word_slot: int) -> bool:
-	return word_slot == _single_player_level_question_slot_index(level_index)
+	return _single_player_level_data(level_index).get("question_slots", []).has(word_slot)
 
 func _single_player_stage_reward_currency(
 	level_index: int,
@@ -2002,7 +1989,7 @@ func _start_next_single_player_word(level_index: int) -> void:
 	if level_index + 1 >= SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL:
 		GameState.complete_single_player_guided_onboarding(true)
 	GameState.activate_ads_for_level(level_index)
-	if next_slot == _single_player_level_question_slot_index(level_index):
+	if _single_player_stage_is_quiz(level_index, next_slot):
 		_start_single_player_question(level_index, next_slot)
 	else:
 		_start_single_player_word(level_index, next_slot)
