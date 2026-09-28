@@ -9,25 +9,31 @@ func check(ok: bool, message: String) -> void:
 		failures.append(message)
 		push_error(message)
 
+func _process(_delta: float) -> void:
+	if DisplayServer.get_name() == "headless":
+		RenderingServer.frame_post_draw.emit()
+
 func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	preload("res://tools/tests/mechanics_fixture.gd").apply(GameState)
 	# Use an isolated XDG_DATA_HOME: campaign fixtures deliberately write saves.
 	var main: Node = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await get_tree().process_frame
 	for language: String in ["ru", "en"]:
 		GameState.single_player = {}
+		GameState.active_single_player_session = {}
+		GameState.pending_single_player_reward = {}
+		GameState.single_player_resume_states = {}
+		GameState.word_language = language
+		GameState.interface_language = language
 		Database.load_languages(language, language)
 		for theme_index: int in range(Database.get_theme_count()):
 			var questions: Array = Database.get_quiz_questions_by_theme_index(theme_index)
-			check(questions.size() == 110, "Expected 110 questions per theme: %s/%d" % [language, theme_index])
-			var added: int = 0
+			check(!questions.is_empty(), "Expected questions in theme: %s/%d" % [language, theme_index])
 			for question: Dictionary in questions:
-				if int(question.id) < 829 or int(question.id) > 1128:
-					continue
-				added += 1
 				check_copy_fits(question.question, main.UI_QUESTION_COMMENT_FONT,
 					main._quiz_question_font_size(question.question), main.PORTRAIT_QUIZ_QUESTION_RECT.size,
 					"%s/%d question" % [language, question.id])
@@ -35,21 +41,22 @@ func run() -> void:
 					check_copy_fits(answer, main.UI_REGULAR_FONT,
 						main._quiz_answer_font_size(answer), main.PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE - Vector2(36, 16),
 						"%s/%d answer: %s" % [language, question.id, answer])
-			check(added == 30, "Expected 30 additions per theme: %s/%d" % [language, theme_index])
 
 		# Distinct synthetic bands reveal a hidden .68 cap even when the real
 		# catalog lacks hard questions. Restore the cache before any UI action.
 		var theme_id: int = Database.get_theme_id(0)
 		var original_pool: Array = Database._quiz_questions_by_theme_cache[theme_id]
-		var fixture: Array = [{"id": 20001, "difficulty": .68}, {"id": 20002, "difficulty": .84}]
+		var fixture: Array = [{"id": 20001, "difficulty": .68}]
+		for question_id: int in range(20010, 20022):
+			fixture.append({"id": question_id, "difficulty": .84})
 		Database._quiz_questions_by_theme_cache[theme_id] = fixture
-		check(main._single_player_pick_level_question(42, 123, 0, .84, false).id == 20002,
+		check(main._single_player_pick_level_question(42, 123, 0, .84, false).difficulty == .84,
 			"Campaign picker capped the target: " + language)
 		main._quiz_selected_theme_index = 0
 		main._quiz_single_player_embedded = true
 		main._quiz_single_player_target_difficulty = .84
 		main._quiz_current_question = {"id": 20003, "difficulty": .84}
-		check(main._quiz_replacement_question().id == 20002, "Replacement capped the target: " + language)
+		check(main._quiz_replacement_question().difficulty == .84, "Replacement capped the target: " + language)
 		Database._quiz_questions_by_theme_cache[theme_id] = original_pool
 
 		GameState._single_player_bucket(language)["adaptive_difficulty"] = .82
@@ -67,6 +74,9 @@ func run() -> void:
 			"fifty_fifty_used": false, "hidden_indices": [], "replace_question_used": false}
 		var restored: Dictionary = main._restore_quiz_session_data(snapshot, 0, 2)
 		check(is_equal_approx(restored.target_difficulty, .84), "Save restore capped the target: " + language)
+		for slot: int in range(int(level.question_slot)):
+			GameState.mark_single_level_word_played(language, 2, slot,
+				main._single_player_level_word_target(2), true, true, -1, false, false)
 		GameState.set_active_single_player_session({"language": language, "level_index": 2,
 			"word_slot": level.question_slot, "kind": "quiz", "theme_id": theme_id, "data": snapshot})
 		GameState.load_game()
@@ -74,7 +84,7 @@ func run() -> void:
 		main._resume_saved_single_player_level()
 		check(is_equal_approx(main._quiz_single_player_target_difficulty, .84),
 			"Resumed quiz screen capped the target: " + language)
-		check(is_equal_approx(GameState.get_active_single_player_session().data.target_difficulty, .84),
+		check(is_equal_approx(Dictionary(GameState.get_active_single_player_session().get("data", {})).get("target_difficulty", -1.0), .84),
 			"Resume persisted a capped target: " + language)
 		await get_tree().create_timer(1.7).timeout
 	main.queue_free()

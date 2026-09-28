@@ -60,6 +60,8 @@ def main() -> None:
             require(record["source_id"] == record["id"], "Existing fact lost its ID")
     config = json.loads((ROOT / "data/game_design_config.json").read_text())
     window = config["difficulty"]["quiz_pick_window"]
+    min_pool = config["difficulty"].get("quiz_min_pool_size", 12)
+    require(type(min_pool) is int and 1 <= min_pool <= 1000, "Invalid quiz minimum pool size")
     require(0 <= window <= 1, "Invalid quiz difficulty window")
     require("question_pick_jitter" not in config["difficulty"], "Obsolete quiz jitter setting")
     minimum = round(config["difficulty"]["minimum"] * 100)
@@ -91,10 +93,14 @@ def main() -> None:
         # Report actual gaps rather than silently claiming a window is populated.
         for theme in sorted(counts):
             grades = [q["difficulty"] for q in questions if q["theme_id"] == theme]
-            missing = [target for target in target_grid
-                       if not any(abs(d - target) <= window + 1e-6 for d in grades)]
-            if missing:
-                print(f"  nearest-grade fallback: theme {theme}, targets {min(missing):.2f}..{max(missing):.2f}")
+            sparse = [target for target in target_grid
+                      if sum(abs(d - target) <= window + 1e-6 for d in grades) < min_pool]
+            unsafe = [target for target in target_grid
+                      if not any(d <= target + window + 1e-6 for d in grades)]
+            require(not unsafe, f"No safe quiz candidates: {language}/{theme}, targets {unsafe}")
+            if sparse:
+                print(f"  downward pool expansion: theme {theme}, "
+                      f"{len(sparse)} target samples between {min(sparse):.2f} and {max(sparse):.2f}")
     exports = configparser.ConfigParser(interpolation=None)
     exports.read(ROOT / "export_presets.cfg")
     for section in exports.sections():

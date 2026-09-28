@@ -113,7 +113,8 @@
     "played_word_penalty": 0.05,
     "guessed_word_penalty": 0.12,
     "word_pick_jitter": 0.012,
-    "quiz_pick_window": 0.08
+    "quiz_pick_window": 0.08,
+    "quiz_min_pool_size": 12
   },
   "economy": {
     "starting_coins": 200,

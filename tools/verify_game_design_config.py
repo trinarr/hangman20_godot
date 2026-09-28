@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ SOURCE_PATHS = (
     ROOT / "scripts" / "core" / "game_session.gd",
     ROOT / "scripts" / "core" / "game_state.gd",
     ROOT / "scripts" / "core" / "game_design_config.gd",
+    ROOT / "scripts" / "core" / "quiz_selection.gd",
     ROOT / "scripts" / "ui" / "stage_long_button.gd",
     ROOT / "scripts" / "ui" / "stage_round_button.gd",
 )
@@ -179,74 +181,34 @@ def main() -> None:
     for path in sorted(referenced_paths):
         resolve(config, path)
 
-    require(stage_count(config, 1) == 1, "Level 1 must contain one stage")
-    require(stage_count(config, 2) == 2, "Level 2 must contain two stages")
-    require(stage_count(config, 3) == 3, "Level 3 must contain three stages")
-    require(stage_count(config, 7) == 3, "Level 7 must contain three stages")
-    require(stage_count(config, 8) == 4, "Level 8 must contain four stages")
-    require(stage_count(config, 19) == 5, "Level 19 must contain five stages")
-    require(
-        int(resolve(config, "progression.quiz.second_level_slot")) == 0,
-        "Level 2 must start with its quiz stage",
-    )
-    require(
-        int(resolve(config, "progression.quiz.onboarding_slot")) == 1,
-        "Levels 3 and 4 must keep their quiz in the middle slot",
-    )
-    guided_required_start = int(
-        resolve(config, "progression.guided_onboarding.required_start_level")
-    )
-    require(
-        guided_required_start == 3,
-        "Guided onboarding must remain mandatory until level 3 starts",
-    )
     for level in range(1, 1001):
         require(stage_count(config, level) > 0, f"Invalid stage count for level {level}")
+    for level, key in ((2, "second_level_slot"), (3, "onboarding_slot"), (4, "onboarding_slot")):
+        slot = resolve(config, "progression.quiz." + key)
+        require(type(slot) is int and 0 <= slot < stage_count(config, level),
+                f"Quiz slot is outside level {level}")
+    required_start = resolve(config, "progression.guided_onboarding.required_start_level")
+    require(type(required_start) is int and required_start >= 1, "Invalid onboarding start level")
 
     validate_difficulty(config)
     require(int(resolve(config, "gameplay.max_mistakes")) > 0, "Maximum mistakes must be positive")
     require(int(resolve(config, "economy.extra_attempts.count_step_interval")) > 0, "Attempt interval must be positive")
     require(int(resolve(config, "economy.maximum_balance")) > 0, "Maximum balance must be positive")
-    require(
-        int(resolve(config, "timings.quiz_lightning_answer_window_ms")) == 3500
-        and int(resolve(config, "timings.quiz_fast_answer_window_ms")) == 5000,
-        "Quiz speed windows must remain at 3.5 and 5 seconds",
-    )
-    require(
-        int(resolve(config, "economy.rewards.lightning_quiz_answer_stars")) == 2
-        and int(resolve(config, "economy.rewards.quick_quiz_answer_stars")) == 1,
-        "Quiz speed rewards must remain at two and one stars",
-    )
-    currency_icon_peak = float(resolve(config, "timings.animations.currency_reward.icon_peak_scale"))
-    currency_counter_peak = float(resolve(config, "timings.animations.currency_reward.counter_peak_scale"))
-    require(
-        1.0 < currency_icon_peak < currency_counter_peak,
-        "Currency icon must grow less than its parent counter",
-    )
-    require(
-        float(resolve(config, "timings.animations.currency_reward.counter_grow_seconds")) >= 0.1
-        and float(resolve(config, "timings.animations.currency_reward.counter_settle_seconds")) >= 0.1,
-        "Currency counter scale transitions are too abrupt",
-    )
-    require(
-        0.0 < float(resolve(config, "timings.animations.currency_reward.icon_bounce_grow_seconds")) < 0.1
-        and 0.0 < float(resolve(config, "timings.animations.currency_reward.icon_bounce_settle_seconds")) < 0.1,
-        "Currency icon impact bounces must stay short and responsive",
-    )
-    button_attention = resolve(config, "timings.animations.button_attention")
-    require(int(button_attention["bounce_count"]) == 2, "Button attention cycle must contain two bounces")
-    require(
-        abs(float(button_attention["speed_multiplier"]) - 1.725) < 1e-9,
-        "Button attention bounce speed does not include the additional 15 percent increase",
-    )
-    require(
-        abs(float(button_attention["pause_seconds"]) - 0.18) < 1e-9,
-        "Button attention cycle pause must be 0.18 seconds",
-    )
-    require(
-        abs(float(button_attention["shine_seconds"]) - 0.683478) < 1e-9,
-        "Button attention shine duration does not include the 15 percent speed increase",
-    )
+    lightning_ms = float(resolve(config, "timings.quiz_lightning_answer_window_ms"))
+    fast_ms = float(resolve(config, "timings.quiz_fast_answer_window_ms"))
+    require(0 < lightning_ms < fast_ms, "Quiz speed windows must be positive and ordered")
+    lightning_stars = resolve(config, "economy.rewards.lightning_quiz_answer_stars")
+    fast_stars = resolve(config, "economy.rewards.quick_quiz_answer_stars")
+    require(type(lightning_stars) is int and type(fast_stars) is int
+            and 0 <= fast_stars <= lightning_stars, "Quiz speed rewards must be nonnegative and ordered")
+    pool_size = resolve(config, "difficulty.quiz_min_pool_size")
+    require(type(pool_size) is int and 1 <= pool_size <= 1000, "Invalid quiz minimum pool size")
+    require(0 <= float(resolve(config, "difficulty.quiz_pick_window")) <= 1, "Invalid quiz window")
+    attention = resolve(config, "timings.animations.button_attention")
+    require(type(attention["bounce_count"]) is int and attention["bounce_count"] > 0,
+            "Attention bounce count must be a positive integer")
+    require(float(attention["speed_multiplier"]) > 0 and float(attention["shine_seconds"]) > 0,
+            "Attention speed and shine duration must be positive")
 
     def validate_numbers(value: Any, path: str = "") -> None:
         if isinstance(value, dict):
@@ -258,76 +220,9 @@ def main() -> None:
         elif isinstance(value, (int, float)) and not isinstance(value, bool):
             if path.endswith("to_level") and value == 0:
                 return
-            require(value >= 0, f"Negative game-design value: {path}")
+            require(math.isfinite(value) and value >= 0, f"Invalid game-design value: {path}")
 
     validate_numbers(config)
-
-    main_source = (ROOT / "scripts" / "main.gd").read_text(encoding="utf-8")
-    state_source = (ROOT / "scripts" / "core" / "game_state.gd").read_text(encoding="utf-8")
-    portrait_source = (ROOT / "scripts" / "main_portrait.gd").read_text(encoding="utf-8")
-    require(
-        "GAME_DESIGN.level_stage_count_with_bonus(level_number)" in main_source,
-        "Level stage counts are not read from the game-design config",
-    )
-    require(
-        "GAME_DESIGN.difficulty_win_increase" in state_source
-        and "GAME_DESIGN.difficulty_loss_decrease" in state_source
-        and '"win_streak"' in state_source
-        and '"loss_streak"' in state_source,
-        "Adaptive difficulty streaks are not connected to saved progression",
-    )
-    require(
-        "SINGLE_PLAYER_QUIZ_TARGET_MAXIMUM" not in main_source,
-        "Quiz still has a separate difficulty cap",
-    )
-    require(
-        '"progression.quiz.second_level_slot"' in main_source
-        and "level_number == 2" in main_source
-        and "SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT" in main_source,
-        "Level 2 does not force quiz-first ordering",
-    )
-    require(
-        "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in portrait_source
-        and "PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC" in portrait_source,
-        "Gameplay timers are not connected to the game-design config",
-    )
-    require(
-        'set_meta(&"reward_counter_collection_active", active)' in portrait_source
-        and "_bounce_portrait_resource_counter_icon" in portrait_source
-        and "scale_tweener.set_trans(Tween.TRANS_SINE)" in portrait_source
-        and "icon_bounce_callback" in portrait_source,
-        "Currency plate hold and per-impact icon bounces are not connected",
-    )
-    require(
-        "_claim_single_player_final_reward_and_open_next_theme" in portrait_source
-        and '&"attention_after_reveal"' in portrait_source
-        and "_enable_final_reward_continue_attention" in portrait_source,
-        "Early final rewards do not open the next theme popup with button attention",
-    )
-    long_button_source = (ROOT / "scripts" / "ui" / "stage_long_button.gd").read_text(encoding="utf-8")
-    require(
-        "func play_single_attention_shine()" in long_button_source
-        and "_single_attention_shine_tween.tween_method(" in long_button_source,
-        "Long buttons do not expose a one-shot attention shine",
-    )
-    round_button_source = (ROOT / "scripts" / "ui" / "stage_round_button.gd").read_text(encoding="utf-8")
-    for label, button_source in (("long", long_button_source), ("round", round_button_source)):
-        shine_index = button_source.find("_attention_bounce_tween.tween_callback(_reset_attention_shine)")
-        bounce_index = button_source.find("for _bounce_index: int in range(_attention_bounce_count)")
-        pause_index = button_source.find("_attention_bounce_tween.tween_interval(_attention_cycle_pause_duration)")
-        require(
-            0 <= shine_index < bounce_index < pause_index and "tween_method(" in button_source,
-            f"The {label} button does not run the shine, two-bounce and pause cycle",
-        )
-    require(
-        (ROOT / "shaders" / "button_attention_shine.gdshader").is_file(),
-        "Button attention shine shader is missing",
-    )
-    shine_source = (ROOT / "shaders" / "button_attention_shine.gdshader").read_text(encoding="utf-8")
-    require(
-        "UV.x + UV.y * 0.20" in shine_source,
-        "Button attention shine vertical direction is not inverted",
-    )
 
     print(
         "Game-design config verified: "

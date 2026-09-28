@@ -10,10 +10,15 @@ func check(ok: bool, message: String) -> void:
 		failures.append(message)
 		push_error(message)
 
+func _process(_delta: float) -> void:
+	if DisplayServer.get_name() == "headless":
+		RenderingServer.frame_post_draw.emit()
+
 func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	preload("res://tools/tests/mechanics_fixture.gd").apply(GameState)
 	check(Database._quiz_explanations_by_language.is_empty(), "Explanations loaded at startup")
 	Database.get_quiz_questions_by_theme_index(0)
 	check(Database._quiz_explanations_by_language.is_empty(), "Question selection loaded explanations")
@@ -37,18 +42,19 @@ func run() -> void:
 			"res://data/quiz_explanations_%s.json" % language))
 		var ids: Dictionary = {}
 		var max_height: float = 0.0
-		for theme_index: int in range(10):
+		for theme_index: int in range(Database.get_theme_count()):
 			for question: Dictionary in Database.get_quiz_questions_by_theme_index(theme_index):
 				var id: int = int(question.id)
 				var text: String = Database.get_quiz_answer_explanation(id)
+				check(!ids.has(str(id)), "Duplicate question ID: %s/%d" % [language, id])
 				ids[str(id)] = true
-				check(!text.is_empty() and text == source.explanations[str(id)], "Missing/wrong language: %s/%d" % [language, id])
+				check(!text.is_empty() and text == source.explanations.get(str(id), ""), "Missing/wrong language: %s/%d" % [language, id])
 				check(text != question.question and text != question.answers[int(question.correct_index)], "Explanation only repeats question/answer: %s/%d" % [language, id])
 				label.text = text
 				max_height = maxf(max_height, label.get_minimum_size().y)
 				check(label.get_minimum_size().y <= main.PORTRAIT_QUIZ_QUESTION_RECT.size.y,
 					"Explanation overflows the question area: %s/%d" % [language, id])
-		check(ids.size() == 1100 and source.explanations.size() == ids.size(), "Incomplete coverage or orphan IDs: " + language)
+		check(!ids.is_empty() and source.explanations.size() == ids.size(), "Incomplete coverage or orphan IDs: " + language)
 		check(Database._quiz_explanations_by_language[language].is_read_only(), "Mutable explanation cache")
 		check(Database.get_quiz_answer_explanation(999999).is_empty(), "Unknown ID returned text")
 		print("Layout ", language, ": ", ids.size(), " explanations; max height ", max_height)

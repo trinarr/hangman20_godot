@@ -28,6 +28,7 @@ func finish(slot: int, won: bool = true, theme: int = 5) -> void:
 	state.mark_single_level_word_played("ru", 0, slot, 30, won, true, -1, false, false, theme)
 
 func run() -> void:
+	preload("res://tools/tests/mechanics_fixture.gd").apply(root.get_node("GameState"))
 	state = root.get_node("GameState")
 	database = root.get_node("Database")
 	database.load_languages("ru", "ru")
@@ -67,7 +68,7 @@ func run() -> void:
 	while target() < 0.86 and wins < 30:
 		finish(wins)
 		wins += 1
-	check(wins == 11, "At fixed cap intro completes after eleven wins with defaults")
+	check(wins == 11, "At fixed cap intro completes after eleven wins with fixed fixture")
 	state._single_player_bucket("ru")["adaptive_difficulty"] = 0.3
 	check(is_equal_approx(target(), 0.3), "Completed theme follows lowered global difficulty")
 	state._single_player_bucket("ru")["adaptive_difficulty"] = 0.86

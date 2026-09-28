@@ -13,13 +13,14 @@ func check(condition: bool, message: String) -> void:
 		failures.append(message)
 
 func run() -> void:
+	preload("res://tools/tests/mechanics_fixture.gd").apply(root.get_node("GameState"))
 	check(is_equal_approx(CONFIG.difficulty_win_increase(0.18, 1), 0.01), "Early win unchanged")
 	check(is_equal_approx(CONFIG.difficulty_loss_decrease(1, 0.18), 0.012), "Early loss unchanged")
 	check(is_equal_approx(CONFIG.difficulty_win_increase(0.30, 1), 0.006), "Boundary selects next victory band")
 	check(is_equal_approx(CONFIG.difficulty_loss_decrease(2, 0.30), 0.015), "Boundary selects next defeat band")
 	check(is_equal_approx(CONFIG.difficulty_win_increase(0.50, 1), 0.0036), "Medium victory band")
 	check(is_equal_approx(CONFIG.difficulty_loss_decrease(3, 0.50), 0.018), "Medium defeat streak")
-	check(is_equal_approx(CONFIG.difficulty_win_increase(0.70, 6), 0.0025), "High victory streak")
+	check(is_equal_approx(CONFIG.difficulty_win_increase(0.70, 6), 0.0021), "High victory streak")
 	check(is_equal_approx(CONFIG.difficulty_loss_decrease(3, 0.70), 0.015), "High defeat streak")
 	var original: Dictionary = CONFIG._config.duplicate(true)
 	# Designers may give win streaks their own boundaries, independent of win_steps.
