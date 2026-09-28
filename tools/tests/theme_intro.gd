@@ -90,7 +90,7 @@ func run() -> void:
 	check(is_equal_approx(target(), 0.8), "Legacy played theme skips intro")
 	check(is_equal_approx(target(2), 0.08), "Legacy untouched theme still starts intro")
 	fresh(0.8)
-	state._single_player_question_theme_stats("ru", 5)["seen"]["1"] = true
+	state._single_player_question_theme_stats("ru", 5)["seen_count"]["1"] = 1
 	check(is_equal_approx(target(), 0.8), "Legacy quiz history skips intro")
 	fresh(0.8)
 	state.mark_single_player_question_seen("ru", 5, 1, false)

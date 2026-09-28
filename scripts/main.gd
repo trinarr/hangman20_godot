@@ -70,18 +70,6 @@ var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
 var SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET: float = GAME_DESIGN.get_float_range(
 	"difficulty.bonus_level_offset", 0.01, 0.0, 1.0
 )
-var SINGLE_PLAYER_PLAYED_WORD_PENALTY: float = GAME_DESIGN.get_float(
-	"difficulty.played_word_penalty", 0.05
-)
-var SINGLE_PLAYER_GUESSED_WORD_PENALTY: float = GAME_DESIGN.get_float(
-	"difficulty.guessed_word_penalty", 0.12
-)
-var SINGLE_PLAYER_WORD_PICK_JITTER: float = GAME_DESIGN.get_float(
-	"difficulty.word_pick_jitter", 0.012
-)
-var SINGLE_PLAYER_QUIZ_PICK_WINDOW: float = GAME_DESIGN.get_float_range(
-	"difficulty.quiz_pick_window", 0.08, 0.0, 1.0
-)
 var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
 	"progression.quiz.first_slot_ratio", 0.5, 0.0, 1.0
 )
@@ -1355,9 +1343,9 @@ func _single_player_pick_level_question(
 	var picked_question: Dictionary = QUIZ_SELECTION.pick(
 		questions,
 		resolved_target_difficulty,
-		SINGLE_PLAYER_QUIZ_PICK_WINDOW,
 		GameState.get_single_player_question_history(Database.current_language, theme_index),
-		rng
+		rng, -1,
+		not bool(GameState._single_player_theme_intro(Database.current_language, theme_index).get("completed", true))
 	)
 	if picked_question.is_empty():
 		return {}

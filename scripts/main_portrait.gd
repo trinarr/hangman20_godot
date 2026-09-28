@@ -6252,8 +6252,10 @@ func _quiz_replacement_question() -> Dictionary:
 	rng.randomize()
 	return QUIZ_SELECTION.pick(
 		questions, clampf(target_difficulty, 0.0, 1.0),
-		SINGLE_PLAYER_QUIZ_PICK_WINDOW, history, rng,
-		int(_quiz_current_question.get("id", -1))
+		history, rng,
+		int(_quiz_current_question.get("id", -1)),
+		_quiz_single_player_embedded and not bool(GameState._single_player_theme_intro(
+			Database.current_language, _quiz_selected_theme_index).get("completed", true))
 	)
 
 func _set_quiz_hint_buttons_temporarily_disabled(disabled: bool) -> void:

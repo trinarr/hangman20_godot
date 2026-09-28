@@ -59,11 +59,9 @@ def main() -> None:
         else:
             require(record["source_id"] == record["id"], "Existing fact lost its ID")
     config = json.loads((ROOT / "data/game_design_config.json").read_text())
-    window = config["difficulty"]["quiz_pick_window"]
-    min_pool = config["difficulty"].get("quiz_min_pool_size", 12)
-    require(type(min_pool) is int and 1 <= min_pool <= 1000, "Invalid quiz minimum pool size")
-    require(0 <= window <= 1, "Invalid quiz difficulty window")
-    require("question_pick_jitter" not in config["difficulty"], "Obsolete quiz jitter setting")
+    selection = config["difficulty"]["content_selection"]
+    window = selection["initial_window"]
+    harder = selection["intro_max_harder"]
     minimum = round(config["difficulty"]["minimum"] * 100)
     maximum = round(config["difficulty"]["maximum"] * 100)
     target_grid = [i / 100 for i in range(minimum, maximum + 1)]
@@ -94,12 +92,12 @@ def main() -> None:
         for theme in sorted(counts):
             grades = [q["difficulty"] for q in questions if q["theme_id"] == theme]
             sparse = [target for target in target_grid
-                      if sum(abs(d - target) <= window + 1e-6 for d in grades) < min_pool]
+                      if not any(abs(d - target) <= window + 1e-6 for d in grades)]
             unsafe = [target for target in target_grid
-                      if not any(d <= target + window + 1e-6 for d in grades)]
+                      if not any(d <= target + harder + 1e-6 for d in grades)]
             require(not unsafe, f"No safe quiz candidates: {language}/{theme}, targets {unsafe}")
             if sparse:
-                print(f"  downward pool expansion: theme {theme}, "
+                print(f"  empty initial window: theme {theme}, "
                       f"{len(sparse)} target samples between {min(sparse):.2f} and {max(sparse):.2f}")
     exports = configparser.ConfigParser(interpolation=None)
     exports.read(ROOT / "export_presets.cfg")

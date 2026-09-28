@@ -20,7 +20,7 @@ SOURCE_PATHS = (
     ROOT / "scripts" / "core" / "game_session.gd",
     ROOT / "scripts" / "core" / "game_state.gd",
     ROOT / "scripts" / "core" / "game_design_config.gd",
-    ROOT / "scripts" / "core" / "quiz_selection.gd",
+    ROOT / "scripts" / "core" / "content_selection.gd",
     ROOT / "scripts" / "ui" / "stage_long_button.gd",
     ROOT / "scripts" / "ui" / "stage_round_button.gd",
 )
@@ -201,9 +201,11 @@ def main() -> None:
     fast_stars = resolve(config, "economy.rewards.quick_quiz_answer_stars")
     require(type(lightning_stars) is int and type(fast_stars) is int
             and 0 <= fast_stars <= lightning_stars, "Quiz speed rewards must be nonnegative and ordered")
-    pool_size = resolve(config, "difficulty.quiz_min_pool_size")
-    require(type(pool_size) is int and 1 <= pool_size <= 1000, "Invalid quiz minimum pool size")
-    require(0 <= float(resolve(config, "difficulty.quiz_pick_window")) <= 1, "Invalid quiz window")
+    selection = resolve(config, "difficulty.content_selection")
+    require(0 < selection["initial_window"] <= 1, "Invalid initial selection window")
+    require(0 < selection["easier_step"] <= 1, "Invalid selection step")
+    require(0 <= selection["intro_max_harder"] <= selection["max_harder"] <= 1, "Invalid selection ceilings")
+    require(type(selection["recent_count"]) is int and 0 <= selection["recent_count"] <= 100, "Invalid recent history limit")
     attention = resolve(config, "timings.animations.button_attention")
     require(type(attention["bounce_count"]) is int and attention["bounce_count"] > 0,
             "Attention bounce count must be a positive integer")

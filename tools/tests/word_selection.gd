@@ -53,10 +53,6 @@ func _ready() -> void:
 	stats = GameState.ensure_single_player_theme_progress("ru", 5, words.size())
 	check(int(stats.seen_count[key]) == 2 and int(stats.last_seen[key]) == 2, "History persists across save reload")
 	check(GameState.ensure_single_player_theme_progress("en", 5, 0).seen_count.is_empty(), "Languages isolated")
-	stats.erase("seen_count")
-	stats.erase("last_seen")
-	stats = GameState.ensure_single_player_theme_progress("ru", 5, words.size())
-	check(int(stats.seen_count[key]) == 1, "Legacy flags migrate as previously seen")
 	var main_script: GDScript = load("res://scripts/main.gd")
 	var main: Node = main_script.new()
 	GameState.single_player = {}

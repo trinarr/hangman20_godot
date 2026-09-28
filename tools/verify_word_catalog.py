@@ -59,6 +59,32 @@ def verify_expansion(catalog, language, batch, band_key, bounds, quota):
     assert set(hints) == {'hints'}
 
 
+def verify_medium_hard_expansion(catalog, language):
+    """The 2026-09-28 batch adds 100 fresh answers to every theme."""
+    batch = 'editorial_expansion_20260928'
+    additions = [e for e in catalog['entries'] if e.get('assessment') == batch]
+    assert len(additions) == 1000, (language, 'Expansion size', len(additions))
+    assert Counter(e['theme_id'] for e in additions) == {t: 100 for t in range(1, 11)}
+
+    def normalized(text):
+        return re.sub(r'[^A-ZА-Я]', '', text.upper().replace('Ё', 'Е'))
+
+    # Uniqueness is language-wide, not per theme; legacy aliases also reserve answers.
+    used = {normalized(e['answer']) for e in catalog['entries']
+            if e.get('assessment') != batch}
+    used.update(normalized(a) for e in catalog['entries'] for a in e.get('aliases', []))
+    for entry in additions:
+        answer = normalized(entry['answer'])
+        assert answer not in used, ('Expansion duplicate', language, entry['answer'])
+        used.add(answer)
+        assert answer not in normalized(entry['hint']), ('Answer in hint', entry['answer'])
+        score = difficulty(entry, language)
+        assert .42 <= score < .78, (entry['answer'], score)
+        assert entry['expansion_band'] == ('hard' if score >= .58 else 'medium')
+    for theme in range(1, 11):
+        assert {e['expansion_band'] for e in additions if e['theme_id'] == theme} == {'medium', 'hard'}
+
+
 def main():
     for language in ('ru', 'en'):
         catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
@@ -73,6 +99,7 @@ def main():
             {'lower': (.35, .42), 'core': (.42, .54), 'upper': (.54, .65)},
             {'lower': 15, 'core': 25, 'upper': 10},
         )
+        verify_medium_hard_expansion(catalog, language)
         export(language, check=True)
         expected = rendered(catalog)
         reordered = copy.deepcopy(catalog)
@@ -93,7 +120,7 @@ def main():
                 assert byword[term]['theme_id'] == byword[place]['theme_id'] == 2
                 assert difficulty(byword[term], language) == place_score, term
                 assert difficulty(byword[place], language) == term_score, place
-            assert len(byword) == 5002
+            assert len(byword) == 6002
             assert difficulty(byword['ПОДСОЛНУХ'], language) < .3
             assert difficulty(byword['БЕГОВАЯ ДОРОЖКА'], language) < .3
             for word in ('АТОМ', 'КОЛБА', 'ПРОБИРКА'):
@@ -101,7 +128,7 @@ def main():
             assert sum(c.isalpha() for c in byword['БЕСПРОВОДНЫЕ НАУШНИКИ']['answer']) == 20
         else:
             byword = {e['answer']: e for e in catalog['entries']}
-            assert len(byword) == 4444
+            assert len(byword) == 5444
             assert 'GLUON' not in byword and 'ETERNAL SUNSHINE' not in byword
             assert "CAPTAIN ARMBAND" in byword["CAPTAIN'S ARMBAND"]['aliases']
             assert 'FILM DIRECTOR' in byword['DIRECTOR']['aliases']

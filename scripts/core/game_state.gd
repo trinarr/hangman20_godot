@@ -2021,7 +2021,7 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	var item: Dictionary = word_stats[theme_key]
 	item["played"] = _prune_word_flag_dictionary(item.get("played", {}), theme_index)
 	item["guessed"] = _prune_word_flag_dictionary(item.get("guessed", {}), theme_index)
-	# Counts survive level-history compaction and keep legacy seen flags meaningful.
+	# Counts survive level-history compaction.
 	for field: String in ["seen_count", "last_seen"]:
 		if not (item.get(field) is Dictionary):
 			item[field] = {}
@@ -2033,10 +2033,6 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	for key: Variant in last.keys():
 		last[key] = maxi(int(last[key]), 0)
 		sequence = maxi(sequence, int(last[key]))
-	for field: String in ["played", "guessed"]:
-		for key: Variant in item[field]:
-			if not counts.has(key):
-				counts[key] = 1
 	var recent: Array = []
 	if item.get("recent_words") is Array:
 		for value: Variant in item["recent_words"]:
@@ -2044,7 +2040,7 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 			if not key.is_empty():
 				recent.erase(key)
 				recent.append(key)
-	var limit: int = GAME_DESIGN.get_int_range("difficulty.word_selection.recent_count", 8, 0, 100)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 8, 0, 100)
 	item["recent_words"] = recent.slice(maxi(0, recent.size() - limit)) if limit > 0 else []
 	item["seen_sequence"] = sequence
 	word_stats[theme_key] = item
@@ -2067,7 +2063,7 @@ func _single_player_theme_intro(lang: String, theme_index: int) -> Dictionary:
 			"difficulty": SINGLE_PLAYER_DIFFICULTY_MIN,
 			"completed": !Dictionary(history.get("played", {})).is_empty()
 				or !Dictionary(history.get("guessed", {})).is_empty()
-				or !Dictionary(question_history.get("seen", {})).is_empty(),
+				or !Dictionary(question_history.get("seen_count", {})).is_empty(),
 		}
 	var intro: Dictionary = intros[theme_key]
 	# Starter themes share global progression from the beginning. Also retire
@@ -2124,7 +2120,7 @@ func mark_single_player_word_shown(lang: String, theme_index: int, word_index: i
 	var recent: Array = item["recent_words"]
 	recent.erase(key)
 	recent.append(key)
-	var limit: int = GAME_DESIGN.get_int_range("difficulty.word_selection.recent_count", 8, 0, 100)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 8, 0, 100)
 	while recent.size() > limit:
 		recent.pop_front()
 	(item["played"] as Dictionary)[key] = true
@@ -2198,21 +2194,8 @@ func _single_player_question_theme_stats(lang: String, theme_index: int) -> Dict
 	var question_stats: Dictionary = bucket["question_stats"]
 	var theme_key := _theme_progress_key(theme_index)
 	if !question_stats.has(theme_key) or !(question_stats[theme_key] is Dictionary):
-		question_stats[theme_key] = {"seen": {}}
+		question_stats[theme_key] = {"seen_count": {}, "last_seen": {}, "seen_sequence": 0, "recent": []}
 	var theme_stats: Dictionary = question_stats[theme_key]
-	if !theme_stats.has("seen") or !(theme_stats["seen"] is Dictionary):
-		theme_stats["seen"] = {}
-	# JSON numbers reload as floats; normalize IDs before Array.has/erase.
-	var recent_value: Variant = theme_stats.get("recent", [])
-	var recent: Array = []
-	if recent_value is Array:
-		for value: Variant in recent_value:
-			if value is int or value is float:
-				var question_id: int = int(value)
-				if question_id >= 0:
-					recent.erase(question_id)
-					recent.append(question_id)
-	theme_stats["recent"] = recent.slice(maxi(0, recent.size() - 8))
 	question_stats[theme_key] = theme_stats
 	bucket["question_stats"] = question_stats
 	single_player[lang_key] = bucket
@@ -2229,18 +2212,17 @@ func mark_single_player_question_seen(lang: String, theme_index: int, question_i
 	var lang_key := _normalize_language(lang)
 	var theme_key := _theme_progress_key(theme_index)
 	var theme_stats: Dictionary = _single_player_question_theme_stats(lang_key, theme_index)
-	var seen: Dictionary = theme_stats["seen"]
-	seen[str(question_id)] = true
-	theme_stats["seen"] = seen
-	# Track the last eight actual presentations, including repeats. Old saves
-	# have no recent list and retain their complete seen history unchanged.
-	var recent_value: Variant = theme_stats.get("recent", [])
-	var recent: Array = Array(recent_value).duplicate() if recent_value is Array else []
-	recent.erase(question_id)
-	recent.append(question_id)
-	while recent.size() > 8:
+	var key := str(question_id)
+	var sequence: int = int(theme_stats["seen_sequence"]) + 1
+	theme_stats["seen_sequence"] = sequence
+	theme_stats["seen_count"][key] = int(theme_stats["seen_count"].get(key, 0)) + 1
+	theme_stats["last_seen"][key] = sequence
+	var recent: Array = theme_stats["recent"]
+	recent.erase(key)
+	recent.append(key)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 8, 0, 100)
+	while recent.size() > limit:
 		recent.pop_front()
-	theme_stats["recent"] = recent
 	var bucket := _single_player_bucket(lang_key)
 	var question_stats: Dictionary = bucket["question_stats"]
 	question_stats[theme_key] = theme_stats
