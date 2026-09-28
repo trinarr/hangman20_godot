@@ -110,6 +110,13 @@
       ]}
     ],
     "chain_spread": 0.06,
+    "word_selection": {
+      "initial_window": 0.04,
+      "easier_step": 0.04,
+      "max_harder": 0.08,
+      "intro_max_harder": 0.04,
+      "recent_count": 8
+    },
     "played_word_penalty": 0.05,
     "guessed_word_penalty": 0.12,
     "word_pick_jitter": 0.012,

@@ -2021,6 +2021,32 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	var item: Dictionary = word_stats[theme_key]
 	item["played"] = _prune_word_flag_dictionary(item.get("played", {}), theme_index)
 	item["guessed"] = _prune_word_flag_dictionary(item.get("guessed", {}), theme_index)
+	# Counts survive level-history compaction and keep legacy seen flags meaningful.
+	for field: String in ["seen_count", "last_seen"]:
+		if not (item.get(field) is Dictionary):
+			item[field] = {}
+	var counts: Dictionary = item["seen_count"]
+	var last: Dictionary = item["last_seen"]
+	var sequence: int = maxi(int(item.get("seen_sequence", 0)), 0)
+	for key: Variant in counts.keys():
+		counts[key] = maxi(int(counts[key]), 1)
+	for key: Variant in last.keys():
+		last[key] = maxi(int(last[key]), 0)
+		sequence = maxi(sequence, int(last[key]))
+	for field: String in ["played", "guessed"]:
+		for key: Variant in item[field]:
+			if not counts.has(key):
+				counts[key] = 1
+	var recent: Array = []
+	if item.get("recent_words") is Array:
+		for value: Variant in item["recent_words"]:
+			var key: String = Database.word_progress_key_from_text(str(value))
+			if not key.is_empty():
+				recent.erase(key)
+				recent.append(key)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.word_selection.recent_count", 8, 0, 100)
+	item["recent_words"] = recent.slice(maxi(0, recent.size() - limit)) if limit > 0 else []
+	item["seen_sequence"] = sequence
 	word_stats[theme_key] = item
 	bucket["word_stats"] = word_stats
 	single_player[lang_key] = bucket
@@ -2091,6 +2117,16 @@ func mark_single_player_word_shown(lang: String, theme_index: int, word_index: i
 	# Initialize before recording the first display, so it is not legacy history.
 	_single_player_theme_intro(lang, theme_index)
 	var item := ensure_single_player_theme_progress(lang, theme_index, word_count)
+	var sequence: int = int(item["seen_sequence"]) + 1
+	item["seen_sequence"] = sequence
+	item["seen_count"][key] = int(item["seen_count"].get(key, 0)) + 1
+	item["last_seen"][key] = sequence
+	var recent: Array = item["recent_words"]
+	recent.erase(key)
+	recent.append(key)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.word_selection.recent_count", 8, 0, 100)
+	while recent.size() > limit:
+		recent.pop_front()
 	(item["played"] as Dictionary)[key] = true
 	if persist:
 		save_game()

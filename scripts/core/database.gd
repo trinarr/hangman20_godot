@@ -114,6 +114,44 @@ var _quiz_explanations_by_language: Dictionary = {}
 
 func _ready() -> void:
 	set_process(false)
+	if OS.is_debug_build():
+		call_deferred("_print_debug_database_summary")
+
+
+# Startup-only diagnostics. Read independently so reporting does not change the
+# selected language, warm gameplay caches or interfere with background loading.
+func _print_debug_database_summary() -> void:
+	if not OS.is_debug_build():
+		return
+	for language: String in ["ru", "en"]:
+		var words_source: Variant = JSON.parse_string(FileAccess.get_file_as_string(WORD_FILES[language]).trim_prefix("\ufeff"))
+		var quiz_source: Variant = JSON.parse_string(FileAccess.get_file_as_string(QUIZ_FILES[language]).trim_prefix("\ufeff"))
+		if not (words_source is Dictionary) or not (quiz_source is Dictionary):
+			push_warning("[Database] %s | Could not read content totals" % language.to_upper())
+			continue
+		var words_value: Variant = words_source.get("words", {})
+		var questions_value: Variant = quiz_source.get("questions", [])
+		if not (words_value is Dictionary) or not (questions_value is Array):
+			push_warning("[Database] %s | Invalid content structure" % language.to_upper())
+			continue
+		var words: Dictionary = words_value
+		var questions: Array = questions_value
+		var word_total: int = 0
+		var quiz_counts: Dictionary = {}
+		for entries: Variant in words.values():
+			if entries is Array:
+				word_total += entries.size()
+		for question: Variant in questions:
+			if question is Dictionary:
+				var theme_id: int = int(question.get("theme_id", -1))
+				quiz_counts[theme_id] = int(quiz_counts.get(theme_id, 0)) + 1
+		print("[Database] %s | TOTAL | words=%d | quiz_questions=%d" % [language.to_upper(), word_total, questions.size()])
+		for theme_id: int in THEME_IDS:
+			var entries: Array = words.get(str(theme_id), [])
+			print("[Database] %s | %d: %s | words=%d | quiz_questions=%d" % [
+				language.to_upper(), theme_id, tr(THEME_TRANSLATION_KEYS[theme_id]),
+				entries.size(), int(quiz_counts.get(theme_id, 0))
+			])
 
 func _process(_delta: float) -> void:
 	if _word_load_thread == null or _word_load_thread.is_alive():

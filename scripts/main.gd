@@ -1,5 +1,7 @@
 extends Node2D
 
+const WORD_SELECTION: GDScript = preload("res://scripts/core/word_selection.gd")
+
 const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
 
 const QUIZ_SELECTION: GDScript = preload("res://scripts/core/quiz_selection.gd")
@@ -1231,9 +1233,6 @@ func _single_player_words_for_theme(
 		theme_index,
 		candidates.size()
 	)
-	var played_keys: Dictionary = theme_progress.get("played", {})
-	var guessed_keys: Dictionary = theme_progress.get("guessed", {})
-	var progress_word_keys: Array[String] = Database.get_word_progress_keys(theme_index)
 	var words: Array = []
 	var saved: Array = GameState.get_single_level_word_assignments(Database.current_language, level_index)
 	var first_unplayed: int = _single_player_first_unplayed_slot(level_index, word_count)
@@ -1267,29 +1266,10 @@ func _single_player_words_for_theme(
 			Database.current_language, theme_index,
 			_single_player_slot_difficulty(target_difficulty, word_slot, word_count)
 		)
-		var picked_pool_index: int = -1
-		var picked_score: float = INF
-		for pool_index in range(candidates.size()):
-			var candidate: Dictionary = candidates[pool_index]
-			var candidate_word_index: int = int(candidate.get("index", -1))
-			var repeat_penalty: float = 0.0
-			var candidate_key: String = (
-				progress_word_keys[candidate_word_index]
-				if candidate_word_index >= 0 and candidate_word_index < progress_word_keys.size()
-				else ""
-			)
-			if bool(played_keys.get(candidate_key, false)):
-				repeat_penalty += SINGLE_PLAYER_PLAYED_WORD_PENALTY
-			if bool(guessed_keys.get(candidate_key, false)):
-				repeat_penalty += SINGLE_PLAYER_GUESSED_WORD_PENALTY
-			var score: float = (
-				absf(float(candidate.get("difficulty", 0.0)) - slot_target)
-				+ repeat_penalty
-				+ rng.randf_range(0.0, SINGLE_PLAYER_WORD_PICK_JITTER)
-			)
-			if score < picked_score:
-				picked_score = score
-				picked_pool_index = pool_index
+		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, theme_index)
+		var picked_pool_index: int = WORD_SELECTION.pick_index(
+			candidates, slot_target, theme_progress, not bool(intro.get("completed", true)), rng
+		)
 		if picked_pool_index < 0:
 			break
 		var picked: Dictionary = candidates[picked_pool_index]
