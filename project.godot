@@ -16,6 +16,9 @@ ipinfo_lite_token="73d4840e6e08dd"
 [application]
 
 config/name="Hangman 2.0"
+config/name_localized={
+"ru": "Виселица 2.0"
+}
 config/version="4.0"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
@@ -36,11 +39,7 @@ ConsentRegion="*res://scripts/services/consent_region.gd"
 
 [dev_console]
 
-configuration/debug_only=true
 configuration/title_label="Developer Game Console"
-configuration/keep_topmost=true
-configuration/use_default_commands=true
-configuration/close_on_escape=true
 
 [display]
 
