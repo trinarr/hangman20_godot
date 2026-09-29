@@ -63,7 +63,7 @@ func _ready() -> void:
 	var keys: Dictionary = {}
 	for row: Dictionary in selected:
 		keys[Database.word_progress_key_from_text(row.text)] = true
-		check(is_equal_approx(float(row.target_difficulty), 0.08), "Chain selector uses intro target")
+		check(is_equal_approx(float(row.target_difficulty), 0.18), "Chain selector uses intro target")
 	check(keys.size() == selected.size(), "Chain reservations prevent duplicates")
 	var selected_again: Array = main._single_player_words_for_theme(0, 123, 5, 3, 0.6)
 	check(selected[0].text == selected_again[0].text, "Saved current assignment preserved")

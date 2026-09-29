@@ -2071,8 +2071,9 @@ func _single_player_theme_intro(lang: String, theme_index: int) -> Dictionary:
 		# Existing saves: do not restart onboarding for a previously played theme.
 		var history := ensure_single_player_theme_progress(lang, theme_index, 0)
 		var question_history := get_single_player_question_history(lang, theme_index)
+		var global_difficulty: float = get_single_player_adaptive_difficulty(lang)
 		intros[theme_key] = {
-			"difficulty": SINGLE_PLAYER_DIFFICULTY_MIN,
+			"difficulty": minf(SINGLE_PLAYER_DIFFICULTY_DEFAULT, global_difficulty),
 			"completed": !Dictionary(history.get("played", {})).is_empty()
 				or !Dictionary(history.get("guessed", {})).is_empty()
 				or !Dictionary(question_history.get("seen_count", {})).is_empty(),
@@ -2092,9 +2093,9 @@ func _single_player_theme_intro(lang: String, theme_index: int) -> Dictionary:
 		difficulty = SINGLE_PLAYER_DIFFICULTY_MIN
 	intro["difficulty"] = difficulty
 	if !bool(intro.get("completed", false)):
-		var tolerance: float = GAME_DESIGN.get_float("progression.theme_intro.completion_tolerance")
-		# Also finish if defeats have brought global difficulty below the intro.
-		if get_single_player_adaptive_difficulty(lang) - difficulty <= tolerance:
+		# If defeats have pushed global difficulty below an existing intro target,
+		# retire the intro so it can never force a harder target than the player.
+		if get_single_player_adaptive_difficulty(lang) < difficulty:
 			intro["completed"] = true
 	return intro
 
@@ -2102,8 +2103,8 @@ func get_single_player_theme_target_difficulty(lang: String, theme_index: int, g
 	var intro := _single_player_theme_intro(lang, theme_index)
 	if bool(intro.get("completed", false)):
 		return global_slot_target
-	# No chain spread or bonus offset during the intro: the first stage starts
-	# at the minimum, independent of its slot in the chain.
+	# No chain spread or bonus offset during the intro: a new theme starts at
+	# the lower of default and global difficulty, independent of its chain slot.
 	return float(intro["difficulty"])
 
 func _advance_single_player_theme_intro(lang: String, theme_index: int) -> void:
@@ -2113,8 +2114,12 @@ func _advance_single_player_theme_intro(lang: String, theme_index: int) -> void:
 	var global_difficulty := get_single_player_adaptive_difficulty(lang)
 	var rate: float = GAME_DESIGN.get_float("progression.theme_intro.catch_up_rate")
 	intro["difficulty"] = lerpf(float(intro["difficulty"]), global_difficulty, rate)
-	# Mark completion permanently as soon as the remaining gap is small enough.
-	_single_player_theme_intro(lang, theme_index)
+	# Completion by tolerance is evaluated only after a real successful result.
+	# This keeps a freshly opened weak-player theme at min(default, global) for
+	# its introductory target instead of immediately restoring chain spread.
+	var tolerance: float = GAME_DESIGN.get_float("progression.theme_intro.completion_tolerance")
+	if global_difficulty - float(intro["difficulty"]) <= tolerance:
+		intro["completed"] = true
 
 func mark_single_player_word_shown(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
 	if theme_index < 0 or word_index < 0:

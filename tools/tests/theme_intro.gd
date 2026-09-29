@@ -42,11 +42,14 @@ func run() -> void:
 		check(is_equal_approx(target(theme), 0.8), "Starter intro from previous build is bypassed: %s" % theme)
 		check(bool(state._single_player_bucket("ru")["theme_intro"][key]["completed"]), "Starter intro is permanently retired")
 	check(is_equal_approx(state.get_single_player_theme_target_difficulty("ru", 0, 0.74), 0.74), "Starter preserves normal chain spread")
+	fresh(0.12)
+	check(is_equal_approx(target(), 0.12), "New theme never starts above a weak player's global difficulty")
+	check(!bool(state._single_player_theme_intro("ru", 5).get("completed", true)), "Weak-player intro remains active through initial selection")
 	fresh(0.8)
-	check(is_equal_approx(target(), 0.08), "New theme starts at minimum")
+	check(is_equal_approx(target(), 0.18), "New theme starts at the lower of default and global difficulty")
 	finish(0)
 	var first: float = target()
-	check(is_equal_approx(first, 0.08 + (0.802 - 0.08) * 0.25), "Win closes a fraction of the updated global gap")
+	check(is_equal_approx(first, 0.18 + (0.802 - 0.18) * 0.25), "Win closes a fraction of the updated global gap")
 	finish(0)
 	check(is_equal_approx(target(), first), "Duplicate result cannot advance intro")
 	finish(1, false)
@@ -55,20 +58,20 @@ func run() -> void:
 	check(is_equal_approx(target(), first), "Forfeit does not advance intro")
 	finish(2, true, -1)
 	check(is_equal_approx(target(), first), "Result without a theme does not advance intro")
-	check(is_equal_approx(target(2), 0.08), "Themes have independent intro state")
+	check(is_equal_approx(target(2), 0.18), "Themes have independent intro state")
 	state._single_player_bucket("en")["adaptive_difficulty"] = 0.8
-	check(is_equal_approx(target(5, "en"), 0.08), "Languages have independent intro state")
+	check(is_equal_approx(target(5, "en"), 0.18), "Languages have independent intro state")
 	fresh(0.4)
 	target()
 	finish(0)
-	check(target() - 0.08 < first - 0.08, "Larger gap gives larger catch-up step")
+	check(target() - 0.18 < first - 0.18, "Larger gap gives larger catch-up step")
 	fresh(0.86)
 	target()
 	var wins: int = 0
 	while target() < 0.86 and wins < 30:
 		finish(wins)
 		wins += 1
-	check(wins == 11, "At fixed cap intro completes after eleven wins with fixed fixture")
+	check(wins == 10, "At fixed cap intro completes after ten wins with fixed fixture")
 	state._single_player_bucket("ru")["adaptive_difficulty"] = 0.3
 	check(is_equal_approx(target(), 0.3), "Completed theme follows lowered global difficulty")
 	state._single_player_bucket("ru")["adaptive_difficulty"] = 0.86
@@ -88,18 +91,18 @@ func run() -> void:
 	var history: Dictionary = state.ensure_single_player_theme_progress("ru", 5, 0)
 	history["played"][database.get_word_progress_key(5, 0)] = true
 	check(is_equal_approx(target(), 0.8), "Legacy played theme skips intro")
-	check(is_equal_approx(target(2), 0.08), "Legacy untouched theme still starts intro")
+	check(is_equal_approx(target(2), 0.18), "Legacy untouched theme starts from default when global is higher")
 	fresh(0.8)
 	state._single_player_question_theme_stats("ru", 5)["seen_count"]["1"] = 1
 	check(is_equal_approx(target(), 0.8), "Legacy quiz history skips intro")
 	fresh(0.8)
 	state.mark_single_player_question_seen("ru", 5, 1, false)
-	check(is_equal_approx(target(), 0.08), "First quiz presentation initializes intro before history")
+	check(is_equal_approx(target(), 0.18), "First quiz presentation initializes intro before history")
 
 	fresh(0.8)
 	state.mark_single_player_word_shown("ru", 5, 0, 0, "", false)
 	state.mark_single_player_word_guessed("ru", 5, 0, 0, "", false)
-	check(is_equal_approx(target(), 0.08), "First display initializes before played/guessed history")
+	check(is_equal_approx(target(), 0.18), "First display initializes before played/guessed history")
 	finish(0)
 	var saved_target: float = target()
 	check(state.save_game(), "Intro save succeeds")
@@ -115,7 +118,9 @@ func run() -> void:
 	intro["difficulty"] = 0.759
 	check(is_equal_approx(target(), 0.759), "Outside tolerance remains in intro")
 	intro["difficulty"] = 0.761
-	check(is_equal_approx(target(), 0.8), "Inside tolerance switches to global")
+	check(is_equal_approx(target(), 0.761), "Inside tolerance remains intro until a successful result")
+	state._advance_single_player_theme_intro("ru", 5)
+	check(is_equal_approx(target(), 0.8), "Successful result inside tolerance switches to global")
 	var original: Dictionary = CONFIG._config.duplicate(true)
 	CONFIG._config["progression"]["theme_intro"]["catch_up_rate"] = 1.0
 	fresh(0.8)
@@ -133,16 +138,16 @@ func run() -> void:
 	state.select_single_level_theme("ru", level, 5, count)
 	main._invalidate_single_player_level_cache()
 	var before: Dictionary = main._single_player_level_data(level).duplicate(true)
-	check(is_equal_approx(before.words[0].target_difficulty, 0.08), "Actual first word uses minimum intro difficulty")
+	check(is_equal_approx(before.words[0].target_difficulty, 0.18), "Actual first word uses default intro difficulty below a higher global difficulty")
 	check(before.question_slots[0] == 1 and !before.questions[str(before.question_slots[0])].is_empty(), "Quiz fixture available")
-	check(is_equal_approx(before.question_targets[str(before.question_slots[0])], 0.08), "Quiz uses shared theme intro target")
+	check(is_equal_approx(before.question_targets[str(before.question_slots[0])], 0.18), "Quiz uses shared theme intro target")
 	main.single_player_active_level_index = level
 	main.single_player_active_word_slot = 0
 	main._single_player_mark_current_word_finished({}, true, true, false, false)
 	var after: Dictionary = main._single_player_level_data(level).duplicate(true)
 	check(after.words[0] == before.words[0], "Committed assignment survives intro advance")
-	check(is_equal_approx(after.words[2].target_difficulty, 0.275), "Next word target updates even at global cap")
-	check(is_equal_approx(after.question_targets[str(after.question_slots[0])], 0.275), "Word win updates the following quiz target")
+	check(is_equal_approx(after.words[2].target_difficulty, 0.35), "Next word target updates even at global cap")
+	check(is_equal_approx(after.question_targets[str(after.question_slots[0])], 0.35), "Word win updates the following quiz target")
 	var after_word: float = target()
 	main.single_player_active_word_slot = 1
 	main._single_player_mark_current_word_finished({}, true, true, false, false)
