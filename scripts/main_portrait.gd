@@ -638,6 +638,7 @@ const PORTRAIT_QUIZ_THEME_TITLE_RECT := Rect2(34.0, 98.0, 412.0, 44.0)
 const PORTRAIT_QUIZ_QUESTION_PANEL_RECT := Rect2(22.0, 120.0, 436.0, 260.0)
 const PORTRAIT_QUIZ_QUESTION_RECT := Rect2(40.0, 138.0, 400.0, 224.0)
 const PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE := Vector2(412.0, 68.0)
+const PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING: float = 18.0
 const PORTRAIT_QUIZ_ANSWER_BUTTON_X: float = 34.0
 const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 88.0
 const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 40.0
@@ -4858,8 +4859,8 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	normal_style.corner_radius_top_right = answer_corner_radius
 	normal_style.corner_radius_bottom_left = answer_corner_radius
 	normal_style.corner_radius_bottom_right = answer_corner_radius
-	normal_style.content_margin_left = 18.0
-	normal_style.content_margin_right = 18.0
+	normal_style.content_margin_left = PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING
+	normal_style.content_margin_right = PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING
 	normal_style.content_margin_top = 8.0
 	normal_style.content_margin_bottom = 8.0
 
@@ -4882,9 +4883,9 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	answer_label.name = "QuizAnswerText"
 	answer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	answer_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	answer_label.offset_left = 18.0
+	answer_label.offset_left = PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING
 	answer_label.offset_top = 8.0
-	answer_label.offset_right = -18.0
+	answer_label.offset_right = -PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING
 	answer_label.offset_bottom = -8.0
 	answer_label.text = text
 	answer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT

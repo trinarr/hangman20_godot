@@ -3,6 +3,8 @@ extends Node
 var failures: Array[String] = []
 var checks: int = 0
 
+const QUIZ_ANSWER_CONTENT_WIDTH: float = 376.0
+
 func check(ok: bool, message: String) -> void:
 	checks += 1
 	if !ok:
@@ -22,6 +24,17 @@ func run() -> void:
 	var main: Node = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await get_tree().process_frame
+	var quiz_answer_content_width: float = (
+		main.PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE.x
+		- main.PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING * 2.0
+	)
+	check(
+		is_equal_approx(quiz_answer_content_width, QUIZ_ANSWER_CONTENT_WIDTH),
+		"Quiz answer content width changed: %.2f px (expected %.0f px)" % [
+			quiz_answer_content_width,
+			QUIZ_ANSWER_CONTENT_WIDTH,
+		]
+	)
 	for language: String in ["ru", "en"]:
 		GameState.single_player = {}
 		GameState.active_single_player_session = {}
@@ -38,9 +51,13 @@ func run() -> void:
 					main._quiz_question_font_size(question.question), main.PORTRAIT_QUIZ_QUESTION_RECT.size,
 					"%s/%d question" % [language, question.id])
 				for answer: String in question.answers:
-					check_copy_fits(answer, main.UI_REGULAR_FONT,
-						main._quiz_answer_font_size(answer), main.PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE - Vector2(36, 16),
-						"%s/%d answer: %s" % [language, question.id, answer])
+					check_answer_fits_one_line(
+						answer,
+						main.UI_REGULAR_FONT,
+						main._quiz_answer_font_size(answer),
+						quiz_answer_content_width,
+						"%s/%d answer: %s" % [language, question.id, answer]
+					)
 
 		# Distinct synthetic bands reveal a hidden .68 cap even when the real
 		# catalog lacks hard questions. Restore the cache before any UI action.
@@ -103,3 +120,27 @@ func check_copy_fits(copy: String, font: Font, font_size: int, available: Vector
 	# Same fonts, wrap mode and authored content rectangle as the portrait UI.
 	check(label.get_minimum_size().y <= available.y, "Text overflows: " + context)
 	label.free()
+
+func check_answer_fits_one_line(
+	copy: String,
+	font: Font,
+	font_size: int,
+	available_width: float,
+	context: String
+) -> void:
+	# Quiz answer labels never wrap in the real UI. Measure the exact font
+	# variation and authored size instead of allowing the test label to wrap.
+	var required_width: float = font.get_string_size(
+		copy,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size
+	).x
+	check(
+		required_width <= available_width + 0.01,
+		"Answer exceeds %.0f px (needs %.2f px): %s" % [
+			available_width,
+			required_width,
+			context,
+		]
+	)
