@@ -28,7 +28,9 @@ var _word_load_thread_language: String = ""
 var _queued_word_load_language: String = ""
 
 var DIFFICULTY_SPLIT: float = GAME_DESIGN.get_float_range(
-	"gameplay.classic_difficulty_split", 0.5, 0.0, 1.0
+	"gameplay.classic_difficulty_split",
+	0.0,
+	1.0
 )
 
 # Stable numeric IDs are shared by data, icons, and runtime lookup. Semantic

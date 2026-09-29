@@ -1,8 +1,5 @@
 extends CanvasLayer
 
-const TRACE_SCRIPT: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
-var _trace = TRACE_SCRIPT.new() if OS.is_debug_build() else null
-
 signal finished
 
 const LOGO_SCRIPT: GDScript = preload("res://scripts/ui/home_logo_paper_reveal.gd")
@@ -24,8 +21,6 @@ var _old_pattern: Control
 var _new_pattern: Control
 
 func start(home_content: Control, logo: Control, buttons: Array[Control], action: Callable) -> void:
-	if _trace != null:
-		_trace.begin("blue -> " + str(action.get_method()))
 	layer = 1000
 	_home = home_content
 	_logo = logo
@@ -43,20 +38,11 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	add_child(_blocker)
 	_sync_layout()
 	get_viewport().size_changed.connect(_sync_layout)
-	if _trace != null:
-		_trace.phase("logo closing")
 	_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_tween.tween_method(_fade_foreground, 1.0, 0.0, FADE_OUT_SECONDS)
 	# Same geometry and easing as the entrance, played in reverse.
 	_tween.parallel().tween_method(Callable(_logo, "_set_reveal_progress"), progress, 0.0, close_seconds).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	_tween.chain().tween_callback(_navigate)
-
-func _process(_delta: float) -> void:
-	if _trace != null:
-		_trace.sample_frame()
-	if _navigated:
-		if _trace != null:
-			_trace.phase("background blend")
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey or event is InputEventJoypadButton or event is InputEventJoypadMotion:
@@ -80,14 +66,10 @@ func _navigate() -> void:
 	# pattern continues moving; neither a screenshot nor another blue fill is used.
 	_home.theme = _home.get_parent_control().theme
 	_home.reparent(self, false)
-	if _trace != null:
-		_trace.begin_build()
 	committing = true
 	if _action.is_valid():
 		_action.call()
 	committing = false
-	if _trace != null:
-		_trace.end_build()
 	_action = Callable()
 	call_deferred("_blend_destination")
 
@@ -138,8 +120,6 @@ func _finish() -> void:
 	queue_free()
 
 func _exit_tree() -> void:
-	if _trace != null:
-		_trace.finish()
 	# The old pattern was temporarily adopted by the destination. Release it on
 	# completion and cancellation, and leave the destination pattern fully shown.
 	if is_instance_valid(_old_pattern):

@@ -2,7 +2,6 @@ extends Node2D
 
 const WORD_SELECTION: GDScript = preload("res://scripts/core/word_selection.gd")
 
-const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
 
 const QUIZ_SELECTION: GDScript = preload("res://scripts/core/quiz_selection.gd")
 
@@ -20,67 +19,85 @@ const CUSTOM_WORD_MAX_LENGTH: int = 20
 const CUSTOM_WORD_LATIN_ALPHABET_TEXT: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT: String = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
 var RANDOM_CUSTOM_WORD_MAX_LENGTH: int = GAME_DESIGN.get_int_range(
-	"gameplay.random_custom_word.max_length", 7, 1, 64
+	"gameplay.random_custom_word.max_length",
+	1,
+	64
 )
 var RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = GAME_DESIGN.get_int(
-	"gameplay.random_custom_word.difficulty_filter", 2
+	"gameplay.random_custom_word.difficulty_filter"
 )
 var SETTINGS_TOGGLE_ON_VIBRATION_MS: int = GAME_DESIGN.get_int(
-	"gameplay.vibration.settings_toggle_ms", 35
+	"gameplay.vibration.settings_toggle_ms"
 )
 var CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = GAME_DESIGN.get_int(
-	"gameplay.vibration.custom_word_not_found_ms", 35
+	"gameplay.vibration.custom_word_not_found_ms"
 )
 var CUSTOM_WORD_RESULT_COLOR_DURATION: float = GAME_DESIGN.get_float(
-	"timings.custom_word_result_color_seconds", 1.81
+	"timings.custom_word_result_color_seconds"
 )
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
-	"timings.custom_word_check_dots_seconds", 0.4, 0.01, 60.0
+	"timings.custom_word_check_dots_seconds",
+	0.01,
+	60.0
 )
 const CUSTOM_WORD_FIELD_DEFAULT_TINT := UI_PALETTE.MARKER_INFO
 const SOUND_SETTING_INDEX: int = 3
 const APP_VERSION_FALLBACK: String = "3.0.0"
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
-	"progression.theme_options_per_level", 3, 1, 10
+	"progression.theme_options_per_level",
+	1,
+	10
 )
 var SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL: int = GAME_DESIGN.get_int_range(
-	"progression.guided_onboarding.required_start_level", 3, 1, 1_000_000
+	"progression.guided_onboarding.required_start_level",
+	1,
+	1_000_000
 )
-var SINGLE_PLAYER_THEME_REFRESH_COST: int = GAME_DESIGN.get_int("economy.theme_reroll_cost", 25)
+var SINGLE_PLAYER_THEME_REFRESH_COST: int = GAME_DESIGN.get_int("economy.theme_reroll_cost")
 var SINGLE_PLAYER_EXTRA_ATTEMPT_COST: int = GAME_DESIGN.get_int(
-	"economy.extra_attempts.base_cost", 25
+	"economy.extra_attempts.base_cost"
 )
 var SINGLE_PLAYER_EXTRA_ATTEMPT_COST_STEP: int = GAME_DESIGN.get_int(
-	"economy.extra_attempts.cost_step", 5
+	"economy.extra_attempts.cost_step"
 )
 var SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT: int = GAME_DESIGN.get_int(
-	"economy.extra_attempts.base_count", 2
+	"economy.extra_attempts.base_count"
 )
 var SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP: int = GAME_DESIGN.get_int(
-	"economy.extra_attempts.count_step", 1
+	"economy.extra_attempts.count_step"
 )
 var SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL: int = GAME_DESIGN.get_int_range(
-	"economy.extra_attempts.count_step_interval", 2, 1, 1000000
+	"economy.extra_attempts.count_step_interval",
+	1,
+	1000000
 )
-var HEART_REFILL_COST: int = GAME_DESIGN.get_int("economy.hearts.refill_cost", 100)
+var HEART_REFILL_COST: int = GAME_DESIGN.get_int("economy.hearts.refill_cost")
 var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
-	"difficulty.chain_spread", 0.06, 0.0, 1.0
+	"difficulty.chain_spread",
+	0.0,
+	1.0
 )
 var SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET: float = GAME_DESIGN.get_float_range(
-	"difficulty.bonus_level_offset", 0.01, 0.0, 1.0
+	"difficulty.bonus_level_offset",
+	0.0,
+	1.0
 )
 var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
-	"progression.quiz.first_slot_ratio", 0.5, 0.0, 1.0
+	"progression.quiz.first_slot_ratio",
+	0.0,
+	1.0
 )
 var SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET: int = GAME_DESIGN.get_int_range(
-	"progression.quiz.last_slot_end_offset", 2, 1, 1000
+	"progression.quiz.last_slot_end_offset",
+	1,
+	1000
 )
 var SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT: int = GAME_DESIGN.get_int(
-	"progression.quiz.second_level_slot", 0
+	"progression.quiz.second_level_slot"
 )
 var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
-	"progression.quiz.onboarding_slot", 1
+	"progression.quiz.onboarding_slot"
 )
 const DIFFICULTY_HARD_NORMAL_TINT := UI_PALETTE.CHALLENGE_NORMAL
 const DIFFICULTY_HARD_PRESSED_TINT := UI_PALETTE.CHALLENGE_PRESSED
@@ -192,7 +209,6 @@ var pending_letter_marker_is_correct: bool = false
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
-var stars_balance_label: Label = null
 var heart_count_label: Label = null
 var heart_status_label: Label = null
 var heart_add_badge_visual: Control = null
@@ -463,7 +479,6 @@ func _build_root() -> void:
 	add_child(ui_audio_player)
 
 func _clear(preserved_content: Control = null) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
@@ -474,7 +489,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_cancel_custom_word_check()
 	custom_word_check_button = null
 	custom_word_start_button = null
-	stars_balance_label = null
 	heart_count_label = null
 	heart_status_label = null
 	heart_add_badge_visual = null
@@ -499,21 +513,15 @@ func _clear(preserved_content: Control = null) -> void:
 	content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	content.mouse_filter = Control.MOUSE_FILTER_PASS
 	ui.add_child(content)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"clear.base", build_started_usec)
 
 func _stage_holder(rect: Rect2, mouse_filter: int = Control.MOUSE_FILTER_PASS) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var holder: Control = FLASH_STAGE_CONTROL_SCRIPT.new() as Control
 	holder.mouse_filter = mouse_filter
 	holder.set("stage_rect", rect)
 	content.add_child(holder)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.holder", build_started_usec)
 	return holder
 
 func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color = Color.WHITE, align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_CENTER, font: Font = null) -> Label:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -531,8 +539,6 @@ func _stage_label(rect: Rect2, text: String, font_size: int = 20, color: Color =
 	# Inherit the final theme and bounds before shaping non-empty text.
 	holder.add_child(label)
 	label.text = text
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.label", build_started_usec)
 	return label
 
 func _stage_heading_label(
@@ -731,7 +737,6 @@ func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time:
 	return symbol
 
 func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, border_color: Color = Color(0.0, 0.0, 0.0, 0.0), border_width: float = 0.0) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var panel: Control = FLASH_STAGE_PANEL_SCRIPT.new() as Control
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.set("fill_color", fill_color)
@@ -740,19 +745,14 @@ func _stage_panel(rect: Rect2, fill_color: Color, corner_radius: float = 0.0, bo
 	panel.set("border_width", border_width)
 	panel.set("stage_rect", rect)
 	content.add_child(panel)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.panel", build_started_usec)
 	return panel
 
 func _stage_texture(rect: Rect2, texture: Texture2D) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var node: Control = FLASH_STAGE_TEXTURE_SCRIPT.new() as Control
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.set("texture", texture)
 	node.set("stage_rect", rect)
 	content.add_child(node)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.texture", build_started_usec)
 	return node
 
 func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -> Control:
@@ -765,7 +765,6 @@ func _stage_horizontal_fill(stage_y: float, stage_height: float, color: Color) -
 	return node
 
 func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size: int = 20, disabled: bool = false, disabled_overlay_alpha: float = 0.32, use_normal_texture_when_disabled: bool = false, selected: bool = false, attention_bounce: bool = false, color_preset: int = LONG_BUTTON_COLOR_BLUE) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_LONG_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", text, UI_FONTS.display_button_font_size(font_size), disabled, disabled_overlay_alpha, use_normal_texture_when_disabled, selected)
 	button.call("set_color_preset", color_preset)
@@ -773,36 +772,27 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect
 	content.add_child(button)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.long_button", build_started_usec)
 	return button
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect
 	content.add_child(button)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.round_button", build_started_usec)
 	return button
 
 func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, icon_size: Vector2, disabled: bool = false, selected: bool = false, icon_offset: Vector2 = Vector2.ZERO, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure_texture", icon, icon_size, disabled, selected, icon_offset, disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect
 	content.add_child(button)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.round_icon", build_started_usec)
 	return button
 
 func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
 	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
 	# Letter keys already have correct/wrong feedback and must not layer a click
@@ -810,8 +800,6 @@ func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state
 	_connect_stage_button_action(button, callable, false)
 	button.stage_rect = rect
 	content.add_child(button)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.letter", build_started_usec)
 	return button
 
 func _apply_transparent_button_style(button: Button, show_text: bool = true, font_size: int = 20) -> void:
@@ -2291,11 +2279,8 @@ func _sync_custom_word_start_bounce() -> void:
 		custom_word_check_button.set("button_disabled", should_disable)
 
 func _set_random_custom_word() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var theme_count: int = Database.get_theme_count()
 	if theme_count <= 0:
-		if OS.is_debug_build():
-			BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 		return
 	# Sample raw records uniformly, then apply the same eligibility rules as
 	# the exhaustive pool. Avoid normalizing every word on every screen entry.
@@ -2317,8 +2302,6 @@ func _set_random_custom_word() -> void:
 				if _is_random_custom_word_candidate(candidate):
 					candidates.append(candidate)
 		if candidates.is_empty():
-			if OS.is_debug_build():
-				BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 			return
 		selected = candidates[randi() % candidates.size()]
 	_reset_custom_word_check_feedback()
@@ -2330,8 +2313,6 @@ func _set_random_custom_word() -> void:
 	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
 		custom_word_input_visual.call_deferred("play_word_bounce")
 	_sync_custom_word_start_bounce()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"custom.word_pick", build_started_usec)
 
 func _is_random_custom_word_candidate(word: String) -> bool:
 	return (

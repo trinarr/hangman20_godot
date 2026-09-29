@@ -1,6 +1,5 @@
 extends Node
 
-const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
@@ -25,82 +24,104 @@ const HINT_REMOVE_WRONG: String = "remove_wrong"
 const HINT_COMMENT: String = "comment"
 const HINT_QUIZ_FIFTY_FIFTY: String = "quiz_fifty_fifty"
 const HINT_QUIZ_REPLACE_QUESTION: String = "quiz_replace_question"
-var DEFAULT_HINT_COUNT: int = GAME_DESIGN.get_int("economy.hints.starting_count", 3)
-var DEFAULT_SOFT_CURRENCY: int = GAME_DESIGN.get_int("economy.starting_coins", 100)
-var DEFAULT_STARS: int = GAME_DESIGN.get_int("economy.starting_stars", 0)
+var DEFAULT_HINT_COUNT: int = GAME_DESIGN.get_int("economy.hints.starting_count")
+var DEFAULT_SOFT_CURRENCY: int = GAME_DESIGN.get_int("economy.starting_coins")
+var DEFAULT_STARS: int = GAME_DESIGN.get_int("economy.starting_stars")
 var MAX_CURRENCY_BALANCE: int = GAME_DESIGN.get_int_range(
-	"economy.maximum_balance", 2_000_000_000, 1, 2_000_000_000
+	"economy.maximum_balance",
+	1,
+	2_000_000_000
 )
 var MAX_SINGLE_REWARD: int = GAME_DESIGN.get_int_range(
-	"economy.maximum_single_reward", 1_000_000_000, 1, MAX_CURRENCY_BALANCE
+	"economy.maximum_single_reward",
+	1,
+	MAX_CURRENCY_BALANCE
 )
-var MAX_HEARTS: int = GAME_DESIGN.get_int_range("economy.hearts.maximum", 5, 1, 1000)
+var MAX_HEARTS: int = GAME_DESIGN.get_int_range("economy.hearts.maximum", 1, 1000)
 var HEART_RECOVERY_SECONDS: int = GAME_DESIGN.get_int_range(
-	"economy.hearts.recovery_seconds", 300, 1, 31536000
+	"economy.hearts.recovery_seconds",
+	1,
+	31536000
 )
 var HEART_STATE_POLL_SECONDS: float = GAME_DESIGN.get_float_range(
-	"timings.heart_state_poll_seconds", 1.0, 0.05, 60.0
+	"timings.heart_state_poll_seconds",
+	0.05,
+	60.0
 )
-var WORD_REWARD_COINS: int = GAME_DESIGN.get_int("economy.rewards.word_coins", 10)
+var WORD_REWARD_COINS: int = GAME_DESIGN.get_int("economy.rewards.word_coins")
 var QUIZ_STAGE_REWARD_COIN_MULTIPLIER: float = GAME_DESIGN.get_float_range(
-	"economy.rewards.quiz_stage_coin_multiplier", 1.0, 0.0, 100.0
+	"economy.rewards.quiz_stage_coin_multiplier",
+	0.0,
+	100.0
 )
 const STAGE_REWARD_COINS: String = "coins"
 const STAGE_REWARD_STARS: String = "stars"
 var COIN_REFILL_AD_MAX_VIEWS: int = GAME_DESIGN.get_int_range(
-	"economy.coin_refill_ad.maximum_views", 5, 1, 1000
+	"economy.coin_refill_ad.maximum_views",
+	1,
+	1000
 )
 var COIN_REFILL_AD_COOLDOWN_SECONDS: int = GAME_DESIGN.get_int(
-	"economy.coin_refill_ad.cooldown_seconds", 18000
+	"economy.coin_refill_ad.cooldown_seconds"
 )
 var ADS_UNLOCK_LEVEL: int = GAME_DESIGN.get_int_range(
-	"advertising.unlock_level", 3, 1, 1_000_000
+	"advertising.unlock_level",
+	1,
+	1_000_000
 )
 var INTERSTITIAL_INTERVAL_SECONDS: float = GAME_DESIGN.get_float_range(
-	"advertising.interstitial_interval_seconds", 300.0, 1.0, 86_400.0
+	"advertising.interstitial_interval_seconds",
+	1.0,
+	86_400.0
 )
 var SINGLE_PLAYER_DIFFICULTY_DEFAULT: float = GAME_DESIGN.get_float_range(
-	"difficulty.default", 0.18, 0.0, 1.0
+	"difficulty.default",
+	0.0,
+	1.0
 )
 var SINGLE_PLAYER_DIFFICULTY_MIN: float = GAME_DESIGN.get_float_range(
-	"difficulty.minimum", 0.08, 0.0, 1.0
+	"difficulty.minimum",
+	0.0,
+	1.0
 )
 var SINGLE_PLAYER_DIFFICULTY_MAX: float = GAME_DESIGN.get_float_range(
-	"difficulty.maximum", 0.86, 0.0, 1.0
+	"difficulty.maximum",
+	0.0,
+	1.0
 )
 var SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS: int = GAME_DESIGN.get_int(
-	"economy.rewards.level_completion_base_coins", 25
+	"economy.rewards.level_completion_base_coins"
 )
 var SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS: int = GAME_DESIGN.get_int(
-	"economy.rewards.level_completion_per_win_coins", 10
+	"economy.rewards.level_completion_per_win_coins"
 )
 var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS: int = GAME_DESIGN.get_int(
-	"economy.rewards.challenge_level_completion_base_coins", 50
+	"economy.rewards.challenge_level_completion_base_coins"
 )
 var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS: int = GAME_DESIGN.get_int(
-	"economy.rewards.challenge_level_completion_per_win_coins", 20
+	"economy.rewards.challenge_level_completion_per_win_coins"
 )
 var SINGLE_PLAYER_LEVEL_COMPLETION_BASE_STARS: int = GAME_DESIGN.get_int(
-	"economy.rewards.level_completion_base_stars", 10
+	"economy.rewards.level_completion_base_stars"
 )
 var SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_STARS: int = GAME_DESIGN.get_int(
-	"economy.rewards.level_completion_per_win_stars", 2
+	"economy.rewards.level_completion_per_win_stars"
 )
 var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_STARS: int = GAME_DESIGN.get_int(
-	"economy.rewards.challenge_level_completion_base_stars", 15
+	"economy.rewards.challenge_level_completion_base_stars"
 )
 var SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_STARS: int = GAME_DESIGN.get_int(
-	"economy.rewards.challenge_level_completion_per_win_stars", 3
+	"economy.rewards.challenge_level_completion_per_win_stars"
 )
 const SINGLE_LEVEL_THEME_REROLL_AVAILABLE: int = 0
 const SINGLE_LEVEL_THEME_REROLL_COIN_USED: int = 1
 const SINGLE_LEVEL_THEME_REROLL_AD_USED: int = 2
 var HINT_COSTS: Dictionary = {
-	HINT_OPEN_LETTER: GAME_DESIGN.get_int("economy.hints.costs.open_letter", 20),
-	HINT_REMOVE_WRONG: GAME_DESIGN.get_int("economy.hints.costs.remove_wrong", 15),
-	HINT_COMMENT: GAME_DESIGN.get_int("economy.hints.costs.comment", 10),
-	HINT_QUIZ_FIFTY_FIFTY: GAME_DESIGN.get_int("economy.hints.costs.quiz_fifty_fifty", 20),
-	HINT_QUIZ_REPLACE_QUESTION: GAME_DESIGN.get_int("economy.hints.costs.quiz_replace_question", 20),
+	HINT_OPEN_LETTER: GAME_DESIGN.get_int("economy.hints.costs.open_letter"),
+	HINT_REMOVE_WRONG: GAME_DESIGN.get_int("economy.hints.costs.remove_wrong"),
+	HINT_COMMENT: GAME_DESIGN.get_int("economy.hints.costs.comment"),
+	HINT_QUIZ_FIFTY_FIFTY: GAME_DESIGN.get_int("economy.hints.costs.quiz_fifty_fifty"),
+	HINT_QUIZ_REPLACE_QUESTION: GAME_DESIGN.get_int("economy.hints.costs.quiz_replace_question"),
 }
 
 enum GameMode {
@@ -535,10 +556,7 @@ func cancel_rewarded_action_request(request_id: String) -> void:
 func save_game() -> bool:
 	if _save_batch_depth > 0:
 		return true
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var profile_result: bool = _home_profile_save_game()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"save.total", profile_started_usec)
 	_save_retry_pending = !profile_result
 	return profile_result
 
@@ -750,10 +768,7 @@ func _merge_legacy_single_player_resume_state(
 		single_player_resume_states[language] = state
 
 func _store_current_single_player_resume_state() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_store_current_single_player_resume_state()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"save.snapshot", profile_started_usec)
 
 func _home_profile_store_current_single_player_resume_state() -> void:
 	var language: String = _normalize_language(word_language)
@@ -1374,10 +1389,7 @@ func _normalize_single_player_buckets() -> void:
 		_single_player_bucket(language)
 
 func _compact_single_player_history() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_compact_single_player_history()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"save.compact", profile_started_usec)
 
 func _home_profile_compact_single_player_history() -> void:
 	for language_variant: Variant in single_player.keys():
@@ -1787,7 +1799,7 @@ func spend_stars(amount: int, persist: bool = true) -> bool:
 func is_single_player_hint_unlocked(lang: String, hint_key: String) -> bool:
 	if hint_key not in [HINT_OPEN_LETTER, HINT_REMOVE_WRONG, HINT_QUIZ_REPLACE_QUESTION]:
 		return true
-	var unlock_level: int = GAME_DESIGN.get_int_range("progression.hints.all_unlocked_from_level", 4, 1, 1000000)
+	var unlock_level: int = GAME_DESIGN.get_int_range("progression.hints.all_unlocked_from_level", 1, 1000000)
 	return get_single_player_unlocked_level(lang) + 1 >= unlock_level
 
 func get_hint_cost(hint_key: String) -> int:
@@ -2040,7 +2052,7 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 			if not key.is_empty():
 				recent.erase(key)
 				recent.append(key)
-	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 8, 0, 100)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 0, 100)
 	item["recent_words"] = recent.slice(maxi(0, recent.size() - limit)) if limit > 0 else []
 	item["seen_sequence"] = sequence
 	word_stats[theme_key] = item
@@ -2068,7 +2080,7 @@ func _single_player_theme_intro(lang: String, theme_index: int) -> Dictionary:
 	var intro: Dictionary = intros[theme_key]
 	# Starter themes share global progression from the beginning. Also retire
 	# any intro state created for them by an earlier build.
-	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids", [1, 9, 2]):
+	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids"):
 		if int(value) == int(theme_key):
 			intro["completed"] = true
 			break
@@ -2080,9 +2092,9 @@ func _single_player_theme_intro(lang: String, theme_index: int) -> Dictionary:
 		difficulty = SINGLE_PLAYER_DIFFICULTY_MIN
 	intro["difficulty"] = difficulty
 	if !bool(intro.get("completed", false)):
-		var tolerance: float = GAME_DESIGN.get_float("progression.theme_intro.completion_tolerance", 0.04)
+		var tolerance: float = GAME_DESIGN.get_float("progression.theme_intro.completion_tolerance")
 		# Also finish if defeats have brought global difficulty below the intro.
-		if get_single_player_adaptive_difficulty(lang) - difficulty <= maxf(tolerance, 0.0):
+		if get_single_player_adaptive_difficulty(lang) - difficulty <= tolerance:
 			intro["completed"] = true
 	return intro
 
@@ -2099,7 +2111,7 @@ func _advance_single_player_theme_intro(lang: String, theme_index: int) -> void:
 	if bool(intro.get("completed", false)):
 		return
 	var global_difficulty := get_single_player_adaptive_difficulty(lang)
-	var rate: float = clampf(GAME_DESIGN.get_float("progression.theme_intro.catch_up_rate", 0.25), 0.0, 1.0)
+	var rate: float = GAME_DESIGN.get_float("progression.theme_intro.catch_up_rate")
 	intro["difficulty"] = lerpf(float(intro["difficulty"]), global_difficulty, rate)
 	# Mark completion permanently as soon as the remaining gap is small enough.
 	_single_player_theme_intro(lang, theme_index)
@@ -2120,7 +2132,7 @@ func mark_single_player_word_shown(lang: String, theme_index: int, word_index: i
 	var recent: Array = item["recent_words"]
 	recent.erase(key)
 	recent.append(key)
-	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 8, 0, 100)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 0, 100)
 	while recent.size() > limit:
 		recent.pop_front()
 	(item["played"] as Dictionary)[key] = true
@@ -2219,7 +2231,7 @@ func mark_single_player_question_seen(lang: String, theme_index: int, question_i
 	var recent: Array = theme_stats["recent"]
 	recent.erase(key)
 	recent.append(key)
-	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 8, 0, 100)
+	var limit: int = GAME_DESIGN.get_int_range("difficulty.content_selection.recent_count", 0, 100)
 	while recent.size() > limit:
 		recent.pop_front()
 	var bucket := _single_player_bucket(lang_key)
@@ -2385,7 +2397,7 @@ func get_theme_unlock_completed_levels(lang: String) -> int:
 
 func get_unlocked_theme_ids(lang: String) -> Array[int]:
 	var result: Array[int] = []
-	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids", [1, 9, 2]):
+	for value: Variant in GAME_DESIGN.get_array("progression.theme_unlocks.initial_theme_ids"):
 		var theme_id: int = int(value)
 		if Database.THEME_IDS.has(theme_id) and !result.has(theme_id):
 			result.append(theme_id)
@@ -2397,12 +2409,9 @@ func get_unlocked_theme_ids(lang: String) -> Array[int]:
 	return result
 
 func _theme_unlock_milestones() -> Array:
-	return GAME_DESIGN.get_array("progression.theme_unlocks.milestones", [
-		{"after_level": 3, "theme_id": 6}, {"after_level": 6, "theme_id": 3},
-		{"after_level": 10, "theme_id": 10}, {"after_level": 14, "theme_id": 5},
-		{"after_level": 18, "theme_id": 8}, {"after_level": 25, "theme_id": 4},
-		{"after_level": 30, "theme_id": 7},
-	])
+	return GAME_DESIGN.get_array(
+		"progression.theme_unlocks.milestones"
+	)
 
 func get_theme_unlock_reward_progress(before: int, after: int) -> Dictionary:
 	before = maxi(before, 0)

@@ -22,31 +22,41 @@ const PRESSED_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_
 const PRESSED_RIGHT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_23_right.png")
 
 var _attention_bounce_scale_value: float = GAME_DESIGN.get_float_range(
-	"timings.animations.button_attention.long.scale", 1.07, 1.0, 1.5
+	"timings.animations.button_attention.long.scale",
+	1.0,
+	1.5
 )
 var _attention_bounce_grow_duration: float = GAME_DESIGN.get_float(
-	"timings.animations.button_attention.long.grow_seconds", 0.8
+	"timings.animations.button_attention.long.grow_seconds"
 )
 var _attention_bounce_settle_duration: float = GAME_DESIGN.get_float(
-	"timings.animations.button_attention.long.settle_seconds", 0.85
+	"timings.animations.button_attention.long.settle_seconds"
 )
 var _attention_bounce_count: int = GAME_DESIGN.get_int_range(
-	"timings.animations.button_attention.bounce_count", 2, 1, 8
+	"timings.animations.button_attention.bounce_count",
+	1,
+	8
 )
 var _attention_bounce_speed_multiplier: float = GAME_DESIGN.get_float_range(
-	"timings.animations.button_attention.speed_multiplier", 1.5, 0.1, 10.0
+	"timings.animations.button_attention.speed_multiplier",
+	0.1,
+	10.0
 )
 var _attention_shine_duration: float = GAME_DESIGN.get_float(
-	"timings.animations.button_attention.shine_seconds", 0.55
+	"timings.animations.button_attention.shine_seconds"
 )
 var _attention_cycle_pause_duration: float = GAME_DESIGN.get_float(
-	"timings.animations.button_attention.pause_seconds", 0.1
+	"timings.animations.button_attention.pause_seconds"
 )
 var _attention_shine_width: float = GAME_DESIGN.get_float_range(
-	"timings.animations.button_attention.shine_width", 0.16, 0.01, 1.0
+	"timings.animations.button_attention.shine_width",
+	0.01,
+	1.0
 )
 var _attention_shine_strength: float = GAME_DESIGN.get_float_range(
-	"timings.animations.button_attention.shine_strength", 0.42, 0.0, 1.0
+	"timings.animations.button_attention.shine_strength",
+	0.0,
+	1.0
 )
 
 enum ColorPreset {

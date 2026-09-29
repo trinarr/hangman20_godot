@@ -1,6 +1,5 @@
 extends Node
 
-const BUILD_TRACE: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
@@ -10,9 +9,9 @@ signal round_lost
 signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
 
 var WRONG_LETTER_VIBRATION_MS: int = GAME_DESIGN.get_int(
-	"gameplay.vibration.wrong_letter_ms", 35
+	"gameplay.vibration.wrong_letter_ms"
 )
-var MAX_MISTAKES: int = GAME_DESIGN.get_int_range("gameplay.max_mistakes", 6, 1, 64)
+var MAX_MISTAKES: int = GAME_DESIGN.get_int_range("gameplay.max_mistakes", 1, 64)
 
 var round_id: String = ""
 var word_index: int = -1
@@ -117,10 +116,7 @@ func _packed_string_array_from_save(source: Variant) -> PackedStringArray:
 	return result
 
 func restore_from_save_data(source: Dictionary) -> bool:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var profile_result: bool = _home_profile_restore_from_save_data(source)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"resume.word_data", profile_started_usec)
 	return profile_result
 
 func _home_profile_restore_from_save_data(source: Dictionary) -> bool:

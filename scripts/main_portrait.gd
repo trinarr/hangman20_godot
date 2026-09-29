@@ -80,7 +80,7 @@ const PORTRAIT_MENU_SETTINGS_BUTTON_RECT := Rect2(410.4, 15.4, PORTRAIT_PAGE_BAC
 const PORTRAIT_MENU_SETTINGS_ICON_SIZE := Vector2(29.0, 29.0)
 const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.back_entrance_seconds", 0.24
+	"timings.animations.back_entrance_seconds"
 )
 const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
 # Compact text-only gameplay HUD placed in the free space to the right of the
@@ -118,10 +118,10 @@ const PORTRAIT_HEART_ICON_ASPECT_RATIO: float = 1.0
 const PORTRAIT_HEART_ICON_LEFT_INSET: float = 2.0
 const PORTRAIT_CURRENCY_COUNTER_PRESSED_SCALE: float = 0.94
 var PORTRAIT_CURRENCY_COUNTER_PRESS_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.counter_press_seconds", 0.055
+	"timings.animations.counter_press_seconds"
 )
 var PORTRAIT_CURRENCY_COUNTER_RELEASE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.counter_release_seconds", 0.085
+	"timings.animations.counter_release_seconds"
 )
 const PORTRAIT_CURRENCY_ADD_BADGE_SIZE: float = 20.0
 const PORTRAIT_CURRENCY_ADD_BADGE_GREEN := PORTRAIT_UI_PALETTE.SUCCESS
@@ -159,57 +159,59 @@ const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0 * 0.85
 const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0 + (118.0 - PORTRAIT_GAME_WORD_PAPER_HEIGHT) * 0.5
 const PORTRAIT_GAME_WORD_PAPER_SHADOW_SPACE: float = 6.0
 var PORTRAIT_ROUND_END_KEY_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.key_fade_seconds", 0.22
+	"timings.animations.round_end.key_fade_seconds"
 )
 var PORTRAIT_ROUND_END_KEY_WAVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.key_wave_seconds", 0.48
+	"timings.animations.round_end.key_wave_seconds"
 )
 var PORTRAIT_ROUND_END_KEY_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.key_scale", 1.28
+	"timings.animations.round_end.key_scale"
 )
 var PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.paper_flip_seconds", 0.5
+	"timings.animations.round_end.paper_flip_seconds"
 )
 const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
 var PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.attempts_fade_seconds", 0.20
+	"timings.animations.round_end.attempts_fade_seconds"
 )
 var PORTRAIT_ROUND_END_HINTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.hints_fade_seconds", 0.18
+	"timings.animations.round_end.hints_fade_seconds"
 )
 const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70
 var PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.animations.attempts_warning.threshold", 2
+	"timings.animations.attempts_warning.threshold"
 )
 var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.bounce_scale", 1.18
+	"timings.animations.attempts_warning.bounce_scale"
 )
 var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.grow_seconds", 0.48
+	"timings.animations.attempts_warning.grow_seconds"
 )
 var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.settle_seconds", 0.55
+	"timings.animations.attempts_warning.settle_seconds"
 )
 var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_PAUSE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.pause_seconds", 0.12
+	"timings.animations.attempts_warning.pause_seconds"
 )
 var PORTRAIT_ATTEMPTS_COUNTER_ROLL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.counter_roll_seconds", 0.20
+	"timings.animations.attempts_warning.counter_roll_seconds"
 )
 var PORTRAIT_GAME_ENTRANCE_START_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.game_entrance.start_delay_seconds", 0.05
+	"timings.animations.game_entrance.start_delay_seconds"
 )
 var PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER: float = PORTRAIT_GAME_DESIGN.get_float_range(
-	"timings.animations.game_entrance.speed_multiplier", 1.30, 0.01, 100.0
+	"timings.animations.game_entrance.speed_multiplier",
+	0.01,
+	100.0
 )
 var PORTRAIT_GAME_PAPER_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.game_entrance.paper_reveal_seconds", 0.92
+	"timings.animations.game_entrance.paper_reveal_seconds"
 )
 var PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.game_entrance.hero_fade_seconds", 0.26
+	"timings.animations.game_entrance.hero_fade_seconds"
 )
 var PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.game_entrance.continue_grow_seconds", 0.12
+	"timings.animations.game_entrance.continue_grow_seconds"
 )
 # Reward-screen hero is deliberately only 17% larger than the in-round hero.
 # The X offset scales with the hero so the visible artwork (not the Flash origin)
@@ -230,60 +232,64 @@ const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_THICKNESS: float = 6.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_OVERLAP: float = 10.0
 const PORTRAIT_SINGLE_REWARD_CHAIN_LINK_COLOR := PORTRAIT_UI_PALETTE.REWARD_CHAIN
 var PORTRAIT_SINGLE_REWARD_CURRENT_NODE_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.current_node_scale", 1.20
+	"timings.animations.reward_chain.current_node_scale"
 )
 var PORTRAIT_SINGLE_REWARD_SIDE_NODE_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.side_node_scale", 0.90
+	"timings.animations.reward_chain.side_node_scale"
 )
 var PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.chain_icon_scale", 0.612
+	"timings.animations.reward_chain.chain_icon_scale"
 )
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_FONT_SIZE: int = 22
 const PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE: int = 15
 var PORTRAIT_SINGLE_REWARD_STATUS_ICON_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.status_icon_scale", 0.574
+	"timings.animations.reward_chain.status_icon_scale"
 )
 var PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA: float = PORTRAIT_GAME_DESIGN.get_float_range(
-	"timings.animations.reward_chain.coin_dim_alpha", 0.45, 0.0, 1.0
+	"timings.animations.reward_chain.coin_dim_alpha",
+	0.0,
+	1.0
 )
 var PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.check_start_scale", 0.42
+	"timings.animations.reward_chain.check_start_scale"
 )
 var PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.check_peak_scale", 1.16
+	"timings.animations.reward_chain.check_peak_scale"
 )
 var PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.check_grow_seconds", 0.15
+	"timings.animations.reward_chain.check_grow_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.check_settle_seconds", 0.20
+	"timings.animations.reward_chain.check_settle_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_FLY_COIN_COUNT: int = PORTRAIT_GAME_DESIGN.get_int_range(
-	"timings.animations.reward_chain.flying_icon_count", 9, 1, 100
+	"timings.animations.reward_chain.flying_icon_count",
+	1,
+	100
 )
 var PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.flying_icon_size", 66.0
+	"timings.animations.reward_chain.flying_icon_size"
 )
 var PORTRAIT_SINGLE_REWARD_FLY_STAR_SIZE: float = (
 	PORTRAIT_SINGLE_REWARD_FLY_COIN_SIZE
 	* PORTRAIT_GAME_DESIGN.get_float(
-		"timings.animations.reward_chain.flying_star_size_multiplier", 1.10
+		"timings.animations.reward_chain.flying_star_size_multiplier"
 	)
 )
 var PORTRAIT_SINGLE_REWARD_FLY_SPREAD_X: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.spread_x", 30.0
+	"timings.animations.reward_chain.spread_x"
 )
 var PORTRAIT_SINGLE_REWARD_FLY_SPREAD_Y: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.spread_y", 18.0
+	"timings.animations.reward_chain.spread_y"
 )
 var PORTRAIT_SINGLE_REWARD_FLY_START_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.start_delay_seconds", 0.02
+	"timings.animations.reward_chain.start_delay_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_FLY_STAGGER: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.stagger_seconds", 0.09
+	"timings.animations.reward_chain.stagger_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_FLY_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.flight_seconds", 0.52
+	"timings.animations.reward_chain.flight_seconds"
 )
 const PORTRAIT_SINGLE_REWARD_TITLE_FONT_SIZE: int = 46
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE: int = 24
@@ -311,22 +317,22 @@ const PORTRAIT_SINGLE_REWARD_TITLE_HEIGHT: float = 52.0
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_TOP: float = 10.0
 const PORTRAIT_SINGLE_REWARD_SUBTITLE_HEIGHT: float = 32.0
 var PORTRAIT_SINGLE_REWARD_TITLE_START_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.title_start_scale", 0.52
+	"timings.animations.reward_chain.title_start_scale"
 )
 var PORTRAIT_SINGLE_REWARD_TITLE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.title_peak_scale", 1.14
+	"timings.animations.reward_chain.title_peak_scale"
 )
 var PORTRAIT_SINGLE_REWARD_TITLE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.title_grow_seconds", 0.16
+	"timings.animations.reward_chain.title_grow_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_TITLE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.title_settle_seconds", 0.20
+	"timings.animations.reward_chain.title_settle_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_TITLE_MOVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.title_move_seconds", 0.28
+	"timings.animations.reward_chain.title_move_seconds"
 )
 var PORTRAIT_SINGLE_REWARD_BODY_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.reward_chain.body_fade_seconds", 0.16
+	"timings.animations.reward_chain.body_fade_seconds"
 )
 const PORTRAIT_FINAL_REWARD_GLOW_SIZE := Vector2(316.0, 316.0)
 const PORTRAIT_FINAL_REWARD_COIN_SIZE := Vector2(172.8, 172.8)
@@ -358,38 +364,38 @@ const PORTRAIT_FINAL_REWARD_COLLECT_RECT := Rect2(
 	45.0
 )
 var PORTRAIT_FINAL_REWARD_CHAIN_HOLD_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.chain_hold_seconds", 0.252
+	"timings.animations.final_reward.chain_hold_seconds"
 )
 var PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.icon_crossfade_seconds", 0.162
+	"timings.animations.final_reward.icon_crossfade_seconds"
 )
 var PORTRAIT_FINAL_REWARD_REPLACE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.replace_seconds", 0.414
+	"timings.animations.final_reward.replace_seconds"
 )
 var PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.background_fade_seconds", 0.558
+	"timings.animations.final_reward.background_fade_seconds"
 )
 var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.pack_bounce_scale", 1.18
+	"timings.animations.final_reward.pack_bounce_scale"
 )
 var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.pack_bounce_grow_seconds", 0.162
+	"timings.animations.final_reward.pack_bounce_grow_seconds"
 )
 var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.pack_bounce_settle_seconds", 0.27
+	"timings.animations.final_reward.pack_bounce_settle_seconds"
 )
 var PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.glow_rotation_seconds", 14.0
+	"timings.animations.final_reward.glow_rotation_seconds"
 )
 var PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.action_reveal_seconds", 0.162
+	"timings.animations.final_reward.action_reveal_seconds"
 )
 var PORTRAIT_FINAL_REWARD_COLLECT_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.collect_delay_seconds", 0.9
+	"timings.animations.final_reward.collect_delay_seconds"
 )
 const PORTRAIT_FINAL_REWARD_GLOW_ALPHA: float = 0.7
 var PORTRAIT_COIN_REFILL_REWARDED_AMOUNT: int = PORTRAIT_GAME_DESIGN.get_int(
-	"economy.rewards.coin_refill_ad_coins", 50
+	"economy.rewards.coin_refill_ad_coins"
 )
 const PORTRAIT_COIN_REFILL_GLOW_SIZE := PORTRAIT_FINAL_REWARD_GLOW_SIZE * 0.80
 const PORTRAIT_COIN_REFILL_ICON_SIZE := PORTRAIT_FINAL_REWARD_COIN_SIZE * 0.80
@@ -398,8 +404,7 @@ var PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION: float = (
 	PORTRAIT_FINAL_REWARD_GLOW_ROTATION_DURATION
 	/ maxf(
 		PORTRAIT_GAME_DESIGN.get_float(
-			"timings.animations.final_reward.coin_refill_glow_rotation_speed_multiplier",
-			0.70
+			"timings.animations.final_reward.coin_refill_glow_rotation_speed_multiplier"
 		),
 		0.01
 	)
@@ -407,47 +412,47 @@ var PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION: float = (
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
 const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 var PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.home_count_seconds", 1.36
+	"timings.animations.final_reward.home_count_seconds"
 )
 const PORTRAIT_THEME_PATTERN_ICON_SIZE: float = 133.12
 const PORTRAIT_THEME_PATTERN_SPACING: float = 218.7
 # A half-cell right plus one cell up is a seamless staggered-lattice vector.
 # This duration preserves the current screen-space speed for diagonal motion.
 var PORTRAIT_THEME_PATTERN_MOVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.pattern_move_seconds", 22.17
+	"timings.animations.final_reward.pattern_move_seconds"
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.icon_peak_scale", 1.05
+	"timings.animations.currency_reward.icon_peak_scale"
 )
 var PORTRAIT_CURRENCY_COUNTER_REWARD_BOUNCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.counter_peak_scale", 1.10
+	"timings.animations.currency_reward.counter_peak_scale"
 )
 var PORTRAIT_CURRENCY_COUNTER_REWARD_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.counter_grow_seconds", 0.14
+	"timings.animations.currency_reward.counter_grow_seconds"
 )
 var PORTRAIT_CURRENCY_COUNTER_REWARD_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.counter_settle_seconds", 0.16
+	"timings.animations.currency_reward.counter_settle_seconds"
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.icon_bounce_grow_seconds", 0.035
+	"timings.animations.currency_reward.icon_bounce_grow_seconds"
 )
 var PORTRAIT_CURRENCY_ICON_REWARD_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.currency_reward.icon_bounce_settle_seconds", 0.05
+	"timings.animations.currency_reward.icon_bounce_settle_seconds"
 )
 var PORTRAIT_HINT_COUNTER_ROLL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.hint.counter_roll_seconds", 0.18
+	"timings.animations.hint.counter_roll_seconds"
 )
 var PORTRAIT_GAME_HINT_ENTRANCE_START_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.hint.entrance_start_scale", 0.72
+	"timings.animations.hint.entrance_start_scale"
 )
 var PORTRAIT_GAME_HINT_ENTRANCE_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.hint.entrance_peak_scale", 1.12
+	"timings.animations.hint.entrance_peak_scale"
 )
 var PORTRAIT_GAME_HINT_ENTRANCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.hint.entrance_grow_seconds", 0.13
+	"timings.animations.hint.entrance_grow_seconds"
 )
 var PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.hint.entrance_settle_seconds", 0.16
+	"timings.animations.hint.entrance_settle_seconds"
 )
 const PORTRAIT_GAME_HINT_BADGE_FADE_DURATION: float = 0.16
 const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 44.0
@@ -459,32 +464,34 @@ const PORTRAIT_RESULT_SEARCH_SAFE_MARGIN: float = 14.0
 const PORTRAIT_RESULT_WORD_Y_OFFSET: float = 4.0
 const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(24.0, 31.0)
 var PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.grow_seconds", 0.068
+	"timings.animations.result_letters.grow_seconds"
 )
 var PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.settle_seconds", 0.072
+	"timings.animations.result_letters.settle_seconds"
 )
 var PORTRAIT_RESULT_LETTER_BOUNCE_GAP: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.gap_seconds", 0.0094
+	"timings.animations.result_letters.gap_seconds"
 )
 const PORTRAIT_RESULT_LETTER_NEIGHBOR_BOUNCE_STRENGTH: float = 0.40
 var PORTRAIT_RESULT_LETTER_BOUNCE_REFERENCE_LENGTH: float = PORTRAIT_GAME_DESIGN.get_float_range(
-	"timings.animations.result_letters.reference_length", 5.0, 0.01, 100.0
+	"timings.animations.result_letters.reference_length",
+	0.01,
+	100.0
 )
 var PORTRAIT_RESULT_LETTER_BOUNCE_MAX_SPEED_MULTIPLIER: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.maximum_speed_multiplier", 2.2
+	"timings.animations.result_letters.maximum_speed_multiplier"
 )
 var PORTRAIT_RESULT_SEARCH_APPEAR_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.search_appear_seconds", 0.18
+	"timings.animations.result_letters.search_appear_seconds"
 )
 var PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempt_reward.bounce_scale", 1.32
+	"timings.animations.attempt_reward.bounce_scale"
 )
 var PORTRAIT_ATTEMPT_REWARD_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempt_reward.grow_seconds", 0.18
+	"timings.animations.attempt_reward.grow_seconds"
 )
 var PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempt_reward.settle_seconds", 0.24
+	"timings.animations.attempt_reward.settle_seconds"
 )
 const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.32
@@ -556,44 +563,44 @@ const PORTRAIT_SINGLE_PLAYER_THEME_CARD_PRESS_SCALE: float = 0.94
 const PORTRAIT_REFILL_STATUS_GLOW_ALPHA: float = PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_ALPHA * 0.8
 const PORTRAIT_SINGLE_PLAYER_SLOT_ICON_GAP: float = 8.0
 var PORTRAIT_SINGLE_PLAYER_SLOT_BASE_SPINS: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.animations.theme_reels.base_spins", 7
+	"timings.animations.theme_reels.base_spins"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_SPINS_PER_REEL: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.animations.theme_reels.spins_per_reel", 2
+	"timings.animations.theme_reels.spins_per_reel"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_BASE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.base_seconds", 0.34
+	"timings.animations.theme_reels.base_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_DURATION_STEP: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.step_seconds", 0.06
+	"timings.animations.theme_reels.step_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_ACCELERATION_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.acceleration_seconds", 0.055
+	"timings.animations.theme_reels.acceleration_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_LANDING_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.landing_seconds", 0.006
+	"timings.animations.theme_reels.landing_seconds"
 )
 const PORTRAIT_SINGLE_PLAYER_SLOT_SPIN_ICON_ALPHA: float = 0.90
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_STAGGER: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.reveal_stagger_seconds", 0.0
+	"timings.animations.theme_reels.reveal_stagger_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_START_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.reveal_start_delay_seconds", 0.0
+	"timings.animations.theme_reels.reveal_start_delay_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.reveal_peak_scale", 1.38
+	"timings.animations.theme_reels.reveal_peak_scale"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.reveal_grow_seconds", 0.08
+	"timings.animations.theme_reels.reveal_grow_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_REVEAL_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.reveal_settle_seconds", 0.14
+	"timings.animations.theme_reels.reveal_settle_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_SLOT_LABEL_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.label_fade_seconds", 0.14
+	"timings.animations.theme_reels.label_fade_seconds"
 )
 var PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.theme_reels.selection_outline_seconds", 0.16
+	"timings.animations.theme_reels.selection_outline_seconds"
 )
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
@@ -605,16 +612,16 @@ const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(298.608, PORTRAIT_GAME_HIN
 const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 var PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.start_scale", 0.58
+	"timings.animations.word_letters.start_scale"
 )
 var PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.peak_scale", 1.24
+	"timings.animations.word_letters.peak_scale"
 )
 var PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.grow_seconds", 0.18
+	"timings.animations.word_letters.grow_seconds"
 )
 var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.settle_seconds", 0.24
+	"timings.animations.word_letters.settle_seconds"
 )
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(8.0, 0.0, 464.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
@@ -639,75 +646,79 @@ const PORTRAIT_QUIZ_SPEED_NONE: int = 0
 const PORTRAIT_QUIZ_SPEED_FAST: int = 1
 const PORTRAIT_QUIZ_SPEED_LIGHTNING: int = 2
 var PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.entrance_background_fade_seconds", 0.34
+	"timings.animations.quiz.entrance_background_fade_seconds"
 )
 var PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.entrance_content_seconds", 0.34
+	"timings.animations.quiz.entrance_content_seconds"
 )
 var PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION: float = (
 	PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION
 	* PORTRAIT_GAME_DESIGN.get_float(
-		"timings.animations.quiz.entrance_panel_ratio", 0.80
+		"timings.animations.quiz.entrance_panel_ratio"
 	)
 )
 var PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.entrance_answer_stagger_seconds", 0.045
+	"timings.animations.quiz.entrance_answer_stagger_seconds"
 )
 var PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.entrance_question_fade_seconds", 0.112
+	"timings.animations.quiz.entrance_question_fade_seconds"
 )
 var PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.quiz_lightning_answer_window_ms", 3500
+	"timings.quiz_lightning_answer_window_ms"
 )
 var PORTRAIT_QUIZ_FAST_ANSWER_WINDOW_MSEC: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.quiz_fast_answer_window_ms", 5000
+	"timings.quiz_fast_answer_window_ms"
 )
 var PORTRAIT_QUIZ_FAST_REWARD_STARS: int = PORTRAIT_GAME_DESIGN.get_int(
-	"economy.rewards.quick_quiz_answer_stars", 1
+	"economy.rewards.quick_quiz_answer_stars"
 )
 var PORTRAIT_QUIZ_LIGHTNING_REWARD_STARS: int = PORTRAIT_GAME_DESIGN.get_int(
-	"economy.rewards.lightning_quiz_answer_stars", 2
+	"economy.rewards.lightning_quiz_answer_stars"
 )
 var PORTRAIT_QUIZ_FEEDBACK_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_start_scale", 0.64
+	"timings.animations.quiz.feedback_start_scale"
 )
 var PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_peak_scale", 1.14
+	"timings.animations.quiz.feedback_peak_scale"
 )
 var PORTRAIT_QUIZ_FEEDBACK_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_grow_seconds", 0.16
+	"timings.animations.quiz.feedback_grow_seconds"
 )
 var PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_settle_seconds", 0.22
+	"timings.animations.quiz.feedback_settle_seconds"
 )
 var PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.fast_reward_fade_seconds", 0.18
+	"timings.animations.quiz.fast_reward_fade_seconds"
 )
 var PORTRAIT_QUIZ_FEEDBACK_HOLD_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_hold_seconds", 0.7
+	"timings.animations.quiz.feedback_hold_seconds"
 )
 var PORTRAIT_QUIZ_FEEDBACK_EXIT_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_exit_peak_scale", 1.08
+	"timings.animations.quiz.feedback_exit_peak_scale"
 )
 var PORTRAIT_QUIZ_FEEDBACK_EXIT_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_exit_grow_seconds", 0.10
+	"timings.animations.quiz.feedback_exit_grow_seconds"
 )
 var PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.feedback_exit_hide_seconds", 0.16
+	"timings.animations.quiz.feedback_exit_hide_seconds"
 )
 var PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.quiz.question_restore_fade_seconds", 0.20
+	"timings.animations.quiz.question_restore_fade_seconds"
 )
 const PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE: float = 42.0
 
 var PORTRAIT_COIN_REFILL_POLL_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float_range(
-	"timings.coin_refill_poll_seconds", 1.0, 0.05, 60.0
+	"timings.coin_refill_poll_seconds",
+	0.05,
+	60.0
 )
 var PORTRAIT_HEART_POPUP_POLL_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float_range(
-	"timings.heart_popup_poll_seconds", 1.0, 0.05, 60.0
+	"timings.heart_popup_poll_seconds",
+	0.05,
+	60.0
 )
 var PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.menu_logo_shine_duration_seconds", 0.72
+	"timings.menu_logo_shine_duration_seconds"
 )
 const PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION: float = 0.23
 const PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION: float = 0.44
@@ -715,40 +726,40 @@ const PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY: float = 1.43
 const PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE: float = 0.82
 const PORTRAIT_FINAL_REWARD_SPARKLE_PEAK_SCALE: float = 1.00
 var PORTRAIT_QUIZ_WRONG_ANSWER_SHAKE_STEP_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.quiz_wrong_answer_shake_step_seconds", 0.065
+	"timings.quiz_wrong_answer_shake_step_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_peak_scale", 1.12
+	"timings.animations.attempts_popup.counter_peak_scale"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_GROW_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_grow_seconds", 0.09
+	"timings.animations.attempts_popup.counter_grow_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_HIDE_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_hide_seconds", 0.15
+	"timings.animations.attempts_popup.counter_hide_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_ICON_SPIN_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.icon_spin_seconds", 0.46
+	"timings.animations.attempts_popup.icon_spin_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_DESCRIPTION_HIDE_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.description_hide_seconds", 0.16
+	"timings.animations.attempts_popup.description_hide_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_DESCRIPTION_HIDE_DELAY_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.description_hide_delay_seconds", 0.30
+	"timings.animations.attempts_popup.description_hide_delay_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_REVEAL_PEAK_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_reveal_peak_scale", 1.14
+	"timings.animations.attempts_popup.counter_reveal_peak_scale"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_REVEAL_GROW_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_reveal_grow_seconds", 0.14
+	"timings.animations.attempts_popup.counter_reveal_grow_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_DESCRIPTION_REVEAL_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.description_reveal_seconds", 0.20
+	"timings.animations.attempts_popup.description_reveal_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_SETTLE_DELAY_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_settle_delay_seconds", 0.14
+	"timings.animations.attempts_popup.counter_settle_delay_seconds"
 )
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_SETTLE_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_popup.counter_settle_seconds", 0.13
+	"timings.animations.attempts_popup.counter_settle_seconds"
 )
 var _portrait_custom_word_input: Control = null
 var _portrait_game_adaptive_group: Control = null
@@ -1163,7 +1174,6 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	if is_instance_valid(_home_transition) and !bool(_home_transition.get("committing")):
 		_home_transition.free()
 		_home_transition = null
@@ -1224,8 +1234,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_attempt_star_collection_active = false
 	_portrait_attempt_star_collection_started = false
 	super._clear(preserved_content)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"clear.portrait", build_started_usec)
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -1323,7 +1331,6 @@ func _stage_portrait_page_header(
 	currency_return_action: Callable = Callable(),
 	show_heart_counter: bool = true
 ) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
@@ -1347,8 +1354,6 @@ func _stage_portrait_page_header(
 		_stage_menu_settings_button()
 	content = screen_content
 	_stage_portrait_page_title(title)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.page_header", build_started_usec)
 
 func _stage_menu_settings_button() -> void:
 	var screen_content: Control = content
@@ -1742,7 +1747,6 @@ func _stage_star_counter(
 	balance_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(balance_label)
 	balance_label.add_to_group(&"stars_balance_label")
-	stars_balance_label = balance_label
 	balance_label.z_index = 21
 	_fit_single_line_label_to_width(
 		balance_label,
@@ -2877,7 +2881,6 @@ func _play_centered_rewarded_double_coin_animation(
 	count_tween.tween_callback(Callable(source_stub, "queue_free"))
 
 func _stage_portrait_game_header() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var coin_store_return_action := Callable(self, "_return_to_game_from_coin_store")
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
 		_stage_centered_coin_only_counter(
@@ -2891,8 +2894,6 @@ func _stage_portrait_game_header() -> void:
 			false
 		)
 	_stage_menu_settings_button()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"game.header", build_started_usec)
 
 func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	var theme_text: String = ""
@@ -3800,10 +3801,7 @@ func _finish_home_button_entrance(buttons: Array[Control]) -> void:
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if bool(button.get("disabled")) else Control.MOUSE_FILTER_STOP
 
 func _restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int, word_slot: int = -1) -> Dictionary:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var profile_result: Dictionary = _home_profile_restore_quiz_session_data(saved, theme_index, level_index, word_slot)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"resume.quiz_data", profile_started_usec)
 	return profile_result
 
 func _home_profile_restore_quiz_session_data(saved: Dictionary, theme_index: int, level_index: int, word_slot: int = -1) -> Dictionary:
@@ -3854,10 +3852,7 @@ func _single_player_resume_language_matches_current(language: String) -> bool:
 	)
 
 func _resume_saved_single_player_level() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_resume_saved_single_player_level()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"resume.total", profile_started_usec)
 
 func _home_profile_resume_saved_single_player_level() -> void:
 	# A successful final stage now has one extra ordinary stage-reward step before
@@ -4683,10 +4678,7 @@ func _single_player_embedded_question_active() -> bool:
 	return _quiz_single_player_embedded and _quiz_screen_active and !game_finished
 
 func _persist_active_single_player_quiz_session() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_persist_active_single_player_quiz_session()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"quiz.persist", profile_started_usec)
 
 func _home_profile_persist_active_single_player_quiz_session() -> void:
 	if (
@@ -6821,10 +6813,7 @@ func _play_quiz_screen_entrance(
 	_mark_quiz_question_ready()
 
 func _show_quiz_game_screen() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_quiz_game_screen()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"screen.quiz", profile_started_usec)
 
 func _home_profile_show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
@@ -7731,10 +7720,7 @@ func _show_single_player_level_popup(
 	retry_after_loss: bool = false,
 	return_to_menu_on_close: bool = false
 ) -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_single_player_level_popup(level_index, selected_theme, retry_after_loss, return_to_menu_on_close)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"screen.themes", profile_started_usec)
 
 func _home_profile_show_single_player_level_popup(
 	level_index: int,
@@ -9770,7 +9756,6 @@ func _show_exit_game_popup() -> void:
 	content = previous_content
 
 func show_custom_word() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_clear()
 	# Two-player words do not support gameplay hints or automatic opening of edge
 	# letters. GameSession enforces that rule directly.
@@ -9834,8 +9819,6 @@ func show_custom_word() -> void:
 	custom_word_start_button.set("drop_shadow_enabled", true)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
 	_stage_portrait_ad_banner()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"custom.total", build_started_usec)
 
 func _set_custom_word_checking(is_checking: bool) -> void:
 	# Stop first even if navigation has already removed the previous control.
@@ -9928,12 +9911,9 @@ func _portrait_custom_word_action_rects() -> Array[Rect2]:
 	return [random_rect, check_rect]
 
 func _stage_portrait_custom_word_field() -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	var word_input := STAGE_WORD_INPUT_SCRIPT.new() as StageWordInput
 	if word_input == null:
 		push_error("Could not instantiate the custom-word input")
-		if OS.is_debug_build():
-			BUILD_TRACE.section_end(&"custom.field", build_started_usec)
 		return
 
 	# Set authored geometry before entering the tree. The base control can then
@@ -9969,14 +9949,9 @@ func _stage_portrait_custom_word_field() -> void:
 	custom_word_edit = word_input.get_line_edit()
 	if custom_word_edit != null and !custom_word_edit.text_changed.is_connected(_on_custom_word_text_changed):
 		custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"custom.field", build_started_usec)
 
 func show_game_screen() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_game_screen()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"screen.word", profile_started_usec)
 
 func _home_profile_show_game_screen() -> void:
 	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
@@ -10776,7 +10751,6 @@ func _stage_portrait_game_word_paper(rect: Rect2) -> void:
 	paper_texture.material = paper_material
 
 func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_stage_portrait_game_word_paper(rect)
 	var slots_root := Control.new()
 	slots_root.name = "PortraitGameWordSlots"
@@ -10786,8 +10760,6 @@ func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void
 	_portrait_game_word_slots_root = slots_root
 	_portrait_game_word_rect = rect
 	_rebuild_portrait_game_word_slots(font_size)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"game.word", build_started_usec)
 
 func _portrait_display_word_text(text: String) -> String:
 	# Keep stored/session separators untouched, but render compound-word separators
@@ -15794,7 +15766,6 @@ func _build_portrait_result_word_marker_layer(
 	return layer
 
 func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
-	var build_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	# Compose a broad base highlight plus a tighter darker pass on top.
 	# Each pass is rendered into its own CanvasGroup so opacity is applied once per
 	# layer instead of accumulating at stroke crossings.
@@ -15884,8 +15855,6 @@ func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
 	detail_layer.scale = Vector2(1.1, 1.1)
 	detail_layer.position = Vector2(detail_margin_x, detail_margin_y) - detail_size * 0.05
 	marker.add_child(detail_layer)
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"ui.marker", build_started_usec)
 	return marker
 
 func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: Color) -> void:
@@ -17667,10 +17636,7 @@ func _restore_level_reward_header(retained: Dictionary) -> void:
 		set(property, retained[property])
 
 func _show_single_player_reward_chain_screen() -> void:
-	var profile_started_usec: int = BUILD_TRACE.section_start() if OS.is_debug_build() else 0
 	_home_profile_show_single_player_reward_chain_screen()
-	if OS.is_debug_build():
-		BUILD_TRACE.section_end(&"screen.reward", profile_started_usec)
 
 func _home_profile_show_single_player_reward_chain_screen() -> void:
 	# Startup guided-resume can call the reward chain directly while Home is still

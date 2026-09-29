@@ -1,8 +1,5 @@
 extends CanvasLayer
 
-const TRACE_SCRIPT: GDScript = preload("res://scripts/ui/home_transition_trace.gd")
-var _trace = TRACE_SCRIPT.new() if OS.is_debug_build() else null
-
 const TRANSITION_SHADER: Shader = preload("res://shaders/home_paper_transition.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
@@ -67,8 +64,6 @@ static func warm_up(host: Node) -> void:
 	RenderingServer.frame_post_draw.connect(viewport.queue_free, CONNECT_ONE_SHOT)
 
 func start(home_content: Control, logo: Control, buttons: Array[Control], action: Callable) -> void:
-	if _trace != null:
-		_trace.begin("paper -> " + str(action.get_method()))
 	layer = 1000
 	_logo = logo
 	_buttons = buttons
@@ -122,10 +117,6 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	get_viewport().size_changed.connect(_sync_layout)
 	_start_gather()
 
-func _process(_delta: float) -> void:
-	if _trace != null:
-		_trace.sample_frame()
-
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey or event is InputEventJoypadButton or event is InputEventJoypadMotion:
 		get_viewport().set_input_as_handled()
@@ -164,8 +155,6 @@ func _set_header_content_opacity(opacity: float) -> void:
 	_material.set_shader_parameter("header_content_opacity", opacity)
 
 func _start_gather() -> void:
-	if _trace != null:
-		_trace.phase("gather / first capture")
 	# Keep Home behind the pieces for the entire inward movement.
 	_fade_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	# Fade both the logo and the Home actions during the inward gather. They must
@@ -187,14 +176,10 @@ func _navigate() -> void:
 	if _navigated:
 		return
 	_navigated = true
-	if _trace != null:
-		_trace.begin_build()
 	committing = true
 	if _action.is_valid():
 		_action.call()
 	committing = false
-	if _trace != null:
-		_trace.end_build()
 	_action = Callable()
 	# The destination's deferred layout/entrance work is queued before opening.
 	call_deferred("_reveal_destination")
@@ -215,8 +200,6 @@ func _queue_motion() -> void:
 	if _prepared_frames < 2:
 		return
 	RenderingServer.frame_post_draw.disconnect(_queue_motion)
-	if _trace != null:
-		_trace.phase("opening")
 	call_deferred("_start_opening")
 
 func _start_opening() -> void:
@@ -231,8 +214,6 @@ func _start_opening() -> void:
 	_tween.chain().tween_callback(queue_free)
 
 func _exit_tree() -> void:
-	if _trace != null:
-		_trace.finish()
 	if RenderingServer.frame_post_draw.is_connected(_queue_navigation):
 		RenderingServer.frame_post_draw.disconnect(_queue_navigation)
 	if RenderingServer.frame_post_draw.is_connected(_queue_motion):

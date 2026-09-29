@@ -60,7 +60,6 @@ var _interstitial_loading: bool = false
 var _interstitial_loaded: bool = false
 var _interstitial_loading_id: String = ""
 var _interstitial_loaded_id: String = ""
-var _interstitial_pending_show: bool = false
 var _rewarded_loading: bool = false
 var _rewarded_loaded: bool = false
 var _rewarded_loading_id: String = ""
@@ -231,10 +230,6 @@ func prepare_interstitial_placement(placement: StringName) -> bool:
 func _select_interstitial_id(placement_id: String) -> void:
 	if placement_id.is_empty():
 		return
-	# A user-triggered show owns its selected unit until it either opens or fails.
-	# Background preloads from another screen must not retarget that pending show.
-	if _interstitial_pending_show and interstitial_id != placement_id:
-		return
 	interstitial_id = placement_id
 	if _interstitial_loading:
 		if _interstitial_loading_id != interstitial_id:
@@ -267,8 +262,6 @@ func is_interstitial_loaded(placement: StringName = &"") -> bool:
 	return _interstitial_loaded and !placement_id.is_empty() and _interstitial_loaded_id == placement_id
 
 func show_interstitial(placement: StringName = &"") -> bool:
-	if _interstitial_pending_show:
-		return false
 	if placement != &"" and !prepare_interstitial_placement(placement):
 		return false
 	if !is_native_available() or !_sdk_ready or interstitial_id.is_empty():
@@ -283,7 +276,6 @@ func show_interstitial(placement: StringName = &"") -> bool:
 func _start_interstitial_show() -> void:
 	if !is_native_available() or !_interstitial_loaded:
 		return
-	_interstitial_pending_show = false
 	_interstitial_loaded = false
 	_interstitial_loaded_id = ""
 	_native.showInterstitial()
@@ -525,8 +517,6 @@ func _on_interstitial_loaded() -> void:
 	_interstitial_loaded = true
 	_interstitial_loaded_id = loaded_id
 	interstitial_loaded.emit()
-	if _interstitial_pending_show:
-		call_deferred("_start_interstitial_show")
 
 func _on_interstitial_failed_to_load(error_code: int) -> void:
 	var failed_id: String = _interstitial_loading_id
@@ -541,22 +531,17 @@ func _on_interstitial_failed_to_load(error_code: int) -> void:
 	_interstitial_loaded = false
 	_interstitial_loaded_id = ""
 	interstitial_failed_to_load.emit(error_code)
-	if _interstitial_pending_show:
-		_interstitial_pending_show = false
-		interstitial_failed_to_show.emit("Interstitial ad failed to load: %d" % error_code)
 
 func _on_interstitial_ad_show() -> void:
 	interstitial_shown.emit()
 
 func _on_interstitial_failed_to_show(message: String) -> void:
-	_interstitial_pending_show = false
 	_interstitial_loaded = false
 	_interstitial_loaded_id = ""
 	interstitial_failed_to_show.emit(message)
 	call_deferred("load_interstitial")
 
 func _on_interstitial_ad_dismissed() -> void:
-	_interstitial_pending_show = false
 	_interstitial_loaded = false
 	_interstitial_loaded_id = ""
 	interstitial_closed.emit()

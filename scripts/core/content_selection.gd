@@ -6,9 +6,13 @@ const DESIGN = preload("res://scripts/core/game_design_config.gd")
 static func pick_index(candidates: Array, target: float, history: Dictionary, intro_active: bool, rng: RandomNumberGenerator, keys: Array, allow_harder_fallback: bool = false) -> int:
 	if candidates.is_empty():
 		return -1
-	var window: float = DESIGN.get_float("difficulty.content_selection.initial_window", 0.04)
-	var step: float = maxf(DESIGN.get_float("difficulty.content_selection.easier_step", 0.04), 0.001)
-	var harder: float = DESIGN.get_float("difficulty.content_selection.intro_max_harder" if intro_active else "difficulty.content_selection.max_harder", 0.04 if intro_active else 0.08)
+	var window: float = DESIGN.get_float("difficulty.content_selection.initial_window")
+	var step: float = DESIGN.get_float("difficulty.content_selection.easier_step")
+	var harder: float = (
+		DESIGN.get_float("difficulty.content_selection.intro_max_harder")
+		if intro_active
+		else DESIGN.get_float("difficulty.content_selection.max_harder")
+	)
 	var ceiling: float = minf(target + harder, 1.0)
 	var counts: Dictionary = history.get("seen_count", {})
 	var last: Dictionary = history.get("last_seen", {})
