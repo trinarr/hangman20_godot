@@ -46836,6 +46836,2456 @@
       "concept_score": 0.84,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "hard"
+    },
+    {
+      "id": "en-902077d7915ee1db",
+      "theme_id": 9,
+      "answer": "CONUNDRUM",
+      "hint": "A puzzling problem that seems to have no easy solution.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.1841
+    },
+    {
+      "id": "en-53fad49724761403",
+      "theme_id": 9,
+      "answer": "HYPERBOLE",
+      "hint": "Deliberate exaggeration for effect, such as saying you have waited a million years.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.164
+    },
+    {
+      "id": "en-0c61ed64892b895b",
+      "theme_id": 9,
+      "answer": "ZEITGEIST",
+      "hint": "The shared spirit, attitudes, and ideas that define a particular era.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.2061
+    },
+    {
+      "id": "en-dcb99e9c82512e69",
+      "theme_id": 9,
+      "answer": "DOPPELGANGER",
+      "hint": "An unrelated person who looks uncannily like someone else.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.167
+    },
+    {
+      "id": "en-7cd115a6011434d4",
+      "theme_id": 9,
+      "answer": "BRIC-A-BRAC",
+      "hint": "Small decorative objects collected around a home, often with little practical use.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.2539
+    },
+    {
+      "id": "en-f860aae4d5426190",
+      "theme_id": 9,
+      "answer": "APHORISM",
+      "hint": "A short, memorable statement expressing a general truth about life.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1582
+    },
+    {
+      "id": "en-fe0984a2b6ddd241",
+      "theme_id": 9,
+      "answer": "PORTMANTEAU",
+      "hint": "A new word formed by blending parts of two others, as in brunch.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.1759
+    },
+    {
+      "id": "en-bb6d4ae61e9fd41b",
+      "theme_id": 9,
+      "answer": "JUXTAPOSITION",
+      "hint": "Placing contrasting things side by side to highlight their differences.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.1482
+    },
+    {
+      "id": "en-c41107c902294b51",
+      "theme_id": 9,
+      "answer": "SCHADENFREUDE",
+      "hint": "The pleasure someone feels at another person's misfortune.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.158
+    },
+    {
+      "id": "en-e4f66ebadff7e1df",
+      "theme_id": 9,
+      "answer": "ONOMATOPOEIA",
+      "hint": "Words whose sounds imitate what they describe, such as buzz or hiss.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.2481
+    },
+    {
+      "id": "en-2581a748607eb216",
+      "theme_id": 9,
+      "answer": "SOLILOQUY",
+      "hint": "A speech in which a character alone on stage voices private thoughts.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.1819
+    },
+    {
+      "id": "en-b70b64f932dd6965",
+      "theme_id": 9,
+      "answer": "ANTITHESIS",
+      "hint": "A direct opposite, or a contrast between sharply opposed ideas.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.2137
+    },
+    {
+      "id": "en-8ef6ba883226ef09",
+      "theme_id": 9,
+      "answer": "SPOONERISM",
+      "hint": "An accidental swap of sounds between words, producing a comic phrase.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.1844
+    },
+    {
+      "id": "en-7ce526f9a778dea3",
+      "theme_id": 9,
+      "answer": "MALAPROPISM",
+      "hint": "Mistakenly using a similar-sounding word, often with a funny result.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.1864
+    },
+    {
+      "id": "en-b4368a4cbf45a6d5",
+      "theme_id": 9,
+      "answer": "IDIOSYNCRASY",
+      "hint": "An unusual personal habit or feature that makes someone distinctive.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.1753
+    },
+    {
+      "id": "en-4e2403f605ee5316",
+      "theme_id": 9,
+      "answer": "PARAPHERNALIA",
+      "hint": "The collection of equipment or accessories associated with an activity.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.216
+    },
+    {
+      "id": "en-334384f6772e63ff",
+      "theme_id": 9,
+      "answer": "QUINTESSENCE",
+      "hint": "The purest or most perfect example of a particular quality.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.1891
+    },
+    {
+      "id": "en-100056be8fb45a9f",
+      "theme_id": 9,
+      "answer": "EQUANIMITY",
+      "hint": "Mental calm and balance, especially when facing stress or disappointment.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1727
+    },
+    {
+      "id": "en-47e9e096c338aae6",
+      "theme_id": 9,
+      "answer": "MAGNANIMITY",
+      "hint": "Generosity toward a rival or someone you have the power to punish.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.2106
+    },
+    {
+      "id": "en-d6fd69b4bcd0f7f7",
+      "theme_id": 9,
+      "answer": "ACQUIESCENCE",
+      "hint": "Accepting something without protest, even without strong enthusiasm.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.2061
+    },
+    {
+      "id": "en-d17fae124ee26da5",
+      "theme_id": 9,
+      "answer": "CHUTZPAH",
+      "hint": "Bold nerve or shameless confidence, borrowed into English from Yiddish.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.1662
+    },
+    {
+      "id": "en-728b539eaf31a244",
+      "theme_id": 9,
+      "answer": "EPHEMERA",
+      "hint": "Printed items made for short-term use, such as tickets or flyers, later collected.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.2414
+    },
+    {
+      "id": "en-c5e0950528cf9e1e",
+      "theme_id": 9,
+      "answer": "OBFUSCATION",
+      "hint": "Making an explanation unnecessarily unclear or difficult to understand.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.1639
+    },
+    {
+      "id": "en-ea42976c3145bdb6",
+      "theme_id": 9,
+      "answer": "CIRCUMLOCUTION",
+      "hint": "Using many words to avoid saying something directly.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.1932
+    },
+    {
+      "id": "en-6cfb2982de85b3cc",
+      "theme_id": 9,
+      "answer": "QUIXOTIC",
+      "hint": "Idealistic in a romantic but impractical way, like a famous would-be knight.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.1846
+    },
+    {
+      "id": "en-71a761f43607f7b8",
+      "theme_id": 9,
+      "answer": "VICISSITUDE",
+      "hint": "An unexpected change of fortune or circumstance in life.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.2059
+    },
+    {
+      "id": "en-9df9fd3dd1c664a6",
+      "theme_id": 9,
+      "answer": "VERISIMILITUDE",
+      "hint": "The appearance of truth or realism in a fictional story.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.1914
+    },
+    {
+      "id": "en-6f2de4aab797b204",
+      "theme_id": 9,
+      "answer": "PALIMPSEST",
+      "hint": "A reused manuscript page on which traces of earlier writing remain.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.1897
+    },
+    {
+      "id": "en-50f8d3813c605773",
+      "theme_id": 9,
+      "answer": "HEURISTIC",
+      "hint": "A practical rule of thumb that helps solve a problem without guaranteeing the best answer.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.2007
+    },
+    {
+      "id": "en-486eafe72601a688",
+      "theme_id": 9,
+      "answer": "SYLLOGISM",
+      "hint": "A logical argument in which a conclusion follows from two stated premises.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.1941
+    },
+    {
+      "id": "en-e822f55fd4e42500",
+      "theme_id": 9,
+      "answer": "SOPHISTRY",
+      "hint": "Reasoning that sounds clever and convincing but is misleading.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.1832
+    },
+    {
+      "id": "en-b11d41a91b006236",
+      "theme_id": 9,
+      "answer": "METONYMY",
+      "hint": "Referring to something by a closely associated name, as in the crown for a monarch.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.2204
+    },
+    {
+      "id": "en-47b037870cd4015f",
+      "theme_id": 9,
+      "answer": "PLEONASM",
+      "hint": "Using unnecessary extra words, as in free gift or true fact.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.1784
+    },
+    {
+      "id": "en-f85572a334673de4",
+      "theme_id": 9,
+      "answer": "SOLIPSISM",
+      "hint": "The philosophical view that only one's own mind is certain to exist.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.2276
+    },
+    {
+      "id": "en-af55a25895dcdafb",
+      "theme_id": 9,
+      "answer": "SYNECDOCHE",
+      "hint": "Using a part to stand for the whole, as in wheels for a car.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.2012
+    },
+    {
+      "id": "en-d55cd55739d96be5",
+      "theme_id": 10,
+      "answer": "BOHEMIAN RHAPSODY",
+      "hint": "Queen's song that moves from a ballad through an operatic section into hard rock.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.1407
+    },
+    {
+      "id": "en-50fb4cbff67fac09",
+      "theme_id": 10,
+      "answer": "RUMOURS",
+      "hint": "Fleetwood Mac's album featuring Dreams and Go Your Own Way.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.2212
+    },
+    {
+      "id": "en-887a6a1b0d616908",
+      "theme_id": 10,
+      "answer": "AMADEUS",
+      "hint": "The film in which Salieri recounts his rivalry with Mozart.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.2301
+    },
+    {
+      "id": "en-72c99c248554ffcf",
+      "theme_id": 10,
+      "answer": "GATTACA",
+      "hint": "A science-fiction film about a man hiding his genetic identity to pursue space travel.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.2524
+    },
+    {
+      "id": "en-aba1ce00bed1dd80",
+      "theme_id": 10,
+      "answer": "PRINCESS MONONOKE",
+      "hint": "A Miyazaki film about a struggle between forest spirits and an ironworking town.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.1684
+    },
+    {
+      "id": "en-3d704e0ea62bd38a",
+      "theme_id": 10,
+      "answer": "FANTASTIC MR FOX",
+      "hint": "Wes Anderson's stop-motion film about a clever animal stealing from three farmers.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1558
+    },
+    {
+      "id": "en-0e64c88e0b7ace9b",
+      "theme_id": 10,
+      "answer": "DJANGO UNCHAINED",
+      "hint": "Tarantino's western about a freed slave trying to rescue his wife.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.1427
+    },
+    {
+      "id": "en-6fc647ed78075451",
+      "theme_id": 10,
+      "answer": "CHINATOWN",
+      "hint": "The noir film in which detective Jake Gittes uncovers a Los Angeles water conspiracy.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.1706
+    },
+    {
+      "id": "en-583fb508452e34a3",
+      "theme_id": 10,
+      "answer": "VERTIGO",
+      "hint": "Hitchcock's thriller about a former detective whose fear of heights becomes crucial.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.1771
+    },
+    {
+      "id": "en-0136578872550891",
+      "theme_id": 10,
+      "answer": "NOSFERATU",
+      "hint": "The silent vampire film featuring the eerie Count Orlok.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.1634
+    },
+    {
+      "id": "en-07dbd11b236a91dc",
+      "theme_id": 10,
+      "answer": "METROPOLIS",
+      "hint": "Fritz Lang's silent film about a futuristic city divided between workers and rulers.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.1639
+    },
+    {
+      "id": "en-1807a67babae4f4e",
+      "theme_id": 10,
+      "answer": "SUNSET BOULEVARD",
+      "hint": "The film about faded silent-screen star Norma Desmond and a struggling screenwriter.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.1517
+    },
+    {
+      "id": "en-fb2e61cef523e5a9",
+      "theme_id": 10,
+      "answer": "THE MALTESE FALCON",
+      "hint": "The noir film in which detective Sam Spade becomes involved in a hunt for a valuable statuette.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.179
+    },
+    {
+      "id": "en-d24568d958855ee7",
+      "theme_id": 10,
+      "answer": "BICYCLE THIEVES",
+      "hint": "The Italian film about a father and son searching for a stolen vehicle needed for work.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.1731
+    },
+    {
+      "id": "en-20b65d5cfe2b15e2",
+      "theme_id": 10,
+      "answer": "DAS BOOT",
+      "hint": "The German film following a submarine crew during the Second World War.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.2269
+    },
+    {
+      "id": "en-062dd63e94f7f062",
+      "theme_id": 10,
+      "answer": "THE SEVENTH SEAL",
+      "hint": "Bergman's film in which a medieval knight plays chess with Death.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.2327
+    },
+    {
+      "id": "en-7866b36b9ca25e78",
+      "theme_id": 10,
+      "answer": "RASHOMON",
+      "hint": "Kurosawa's film that presents conflicting accounts of the same violent encounter.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.1987
+    },
+    {
+      "id": "en-5f2520eae293b716",
+      "theme_id": 10,
+      "answer": "MULHOLLAND DRIVE",
+      "hint": "David Lynch's dreamlike Hollywood mystery involving an aspiring actress and an amnesiac woman.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1502
+    },
+    {
+      "id": "en-95deb61f91cdd4b3",
+      "theme_id": 10,
+      "answer": "PERSEPOLIS",
+      "hint": "The animated film adapted from Marjane Satrapi's memoir of growing up in Iran.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.209
+    },
+    {
+      "id": "en-239d918279190c2a",
+      "theme_id": 10,
+      "answer": "KOYAANISQATSI",
+      "hint": "A dialogue-free film pairing images of nature and modern life with a Philip Glass score.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.1815
+    },
+    {
+      "id": "en-9e9f897dcfa99e74",
+      "theme_id": 10,
+      "answer": "SYNECDOCHE NEW YORK",
+      "hint": "Charlie Kaufman's film about a theatre director building an enormous replica of a city for a play.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.1797
+    },
+    {
+      "id": "en-a14f85ef4ad0cb67",
+      "theme_id": 10,
+      "answer": "WUTHERING HEIGHTS",
+      "hint": "Kate Bush's debut single, inspired by an Emily Bronte novel.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.186
+    },
+    {
+      "id": "en-06dca71b5637c3c8",
+      "theme_id": 10,
+      "answer": "KASHMIR",
+      "hint": "Led Zeppelin's song with an orchestral sound, named after a Himalayan region.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.1764
+    },
+    {
+      "id": "en-c6499baa777cd704",
+      "theme_id": 10,
+      "answer": "DISINTEGRATION",
+      "hint": "The Cure's album featuring Pictures of You and Lovesong.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.1816
+    },
+    {
+      "id": "en-2815027253bbcfc7",
+      "theme_id": 10,
+      "answer": "ZIGGY STARDUST",
+      "hint": "David Bowie's fictional rock-star alter ego with an extraterrestrial backstory.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.1588
+    },
+    {
+      "id": "en-9c86f05e181989e7",
+      "theme_id": 10,
+      "answer": "HYSTERIA",
+      "hint": "Def Leppard's album featuring Pour Some Sugar on Me and Love Bites.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.1796
+    },
+    {
+      "id": "en-5bf9da82fcbef12f",
+      "theme_id": 10,
+      "answer": "MEZZANINE",
+      "hint": "Massive Attack's album featuring Teardrop and Angel.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.2186
+    },
+    {
+      "id": "en-0f3b00ff069a82ec",
+      "theme_id": 10,
+      "answer": "HOMOGENIC",
+      "hint": "Bjork's album combining electronic beats with strings, featuring Joga.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.1947
+    },
+    {
+      "id": "en-2a95411c2f7cad24",
+      "theme_id": 10,
+      "answer": "VESPERTINE",
+      "hint": "Bjork's intimate, wintry album featuring Hidden Place and Pagan Poetry.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.198
+    },
+    {
+      "id": "en-b87635c40eb040e1",
+      "theme_id": 10,
+      "answer": "DUMMY",
+      "hint": "Portishead's debut album, featuring Glory Box and Sour Times.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.2083
+    },
+    {
+      "id": "en-7b4c38a13b17a239",
+      "theme_id": 10,
+      "answer": "INNUENDO",
+      "hint": "Queen's album featuring The Show Must Go On.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.2432
+    },
+    {
+      "id": "en-f79018f1f64c29d1",
+      "theme_id": 10,
+      "answer": "POLYRHYTHM",
+      "hint": "Two or more contrasting rhythmic patterns performed at the same time.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.1842
+    },
+    {
+      "id": "en-03ebfcc3b643a19c",
+      "theme_id": 10,
+      "answer": "APPOGGIATURA",
+      "hint": "An ornamental note that leans on a main note before resolving to it.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.2243
+    },
+    {
+      "id": "en-b36db58f7882eaa6",
+      "theme_id": 10,
+      "answer": "SFORZANDO",
+      "hint": "A musical instruction to give a note or chord a sudden strong emphasis.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.1787
+    },
+    {
+      "id": "en-424636c91565cc9e",
+      "theme_id": 10,
+      "answer": "PASSACAGLIA",
+      "hint": "A musical form built from variations over a recurring bass pattern.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.2308
+    },
+    {
+      "id": "en-960e1f04ba78d4da",
+      "theme_id": 8,
+      "answer": "PRAGUE SPRING",
+      "hint": "The 1968 period of political liberalisation in Czechoslovakia, ended by a Soviet-led invasion.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.173
+    },
+    {
+      "id": "en-8d98e7328c9a7b0b",
+      "theme_id": 8,
+      "answer": "TULIP MANIA",
+      "hint": "The seventeenth-century Dutch episode in which flower bulbs became objects of intense speculation.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.207
+    },
+    {
+      "id": "en-ca1d9b441d323cc7",
+      "theme_id": 8,
+      "answer": "MANHATTAN PROJECT",
+      "hint": "The secret wartime programme that developed the first atomic bombs.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.147
+    },
+    {
+      "id": "en-b8b3f9b1af64d64a",
+      "theme_id": 8,
+      "answer": "PAX ROMANA",
+      "hint": "The long period of relative stability across the Roman Empire beginning under Augustus.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.1995
+    },
+    {
+      "id": "en-3f3ba52469944fdd",
+      "theme_id": 8,
+      "answer": "OPERATION OVERLORD",
+      "hint": "The Allied operation that began with the Normandy landings in June 1944.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.1729
+    },
+    {
+      "id": "en-8436f7e28ad433ba",
+      "theme_id": 8,
+      "answer": "OPERATION BARBAROSSA",
+      "hint": "The code name for Germany's invasion of the Soviet Union in 1941.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1949
+    },
+    {
+      "id": "en-7d3059b49d52213c",
+      "theme_id": 8,
+      "answer": "BOXER REBELLION",
+      "hint": "The anti-foreign uprising in China around 1900, named after its martial-arts-practising supporters.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.202
+    },
+    {
+      "id": "en-a4ed33e0a350b376",
+      "theme_id": 8,
+      "answer": "SUTTON HOO",
+      "hint": "The English site of an Anglo-Saxon ship burial containing a famous decorated helmet.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.2451
+    },
+    {
+      "id": "en-964d3e88228a8e89",
+      "theme_id": 8,
+      "answer": "HAGIA SOPHIA",
+      "hint": "The great domed monument in Istanbul built as a Byzantine cathedral under Justinian.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.2482
+    },
+    {
+      "id": "en-7f9b346cbdfec2cd",
+      "theme_id": 8,
+      "answer": "DANELAW",
+      "hint": "The part of medieval England where Danish legal customs held sway.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.2111
+    },
+    {
+      "id": "en-854d5c6e0d0d1499",
+      "theme_id": 8,
+      "answer": "PHONEY WAR",
+      "hint": "The early phase of the Second World War with little major land fighting on the Western Front.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.1622
+    },
+    {
+      "id": "en-974ad50851efce21",
+      "theme_id": 8,
+      "answer": "SOUTH SEA BUBBLE",
+      "hint": "The British financial crash of 1720 following speculation in a trading company's shares.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.2126
+    },
+    {
+      "id": "en-427e2b9e54965322",
+      "theme_id": 8,
+      "answer": "OPERATION PAPERCLIP",
+      "hint": "The US programme that recruited German scientists after the Second World War.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.1937
+    },
+    {
+      "id": "en-7af1065894b7ffdc",
+      "theme_id": 8,
+      "answer": "ZIMMERMANN TELEGRAM",
+      "hint": "Germany's 1917 proposal for an alliance with Mexico against the United States.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.171
+    },
+    {
+      "id": "en-d6e754d81a526c06",
+      "theme_id": 8,
+      "answer": "TAIPING REBELLION",
+      "hint": "The vast nineteenth-century Chinese uprising led by Hong Xiuquan against the Qing dynasty.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.1704
+    },
+    {
+      "id": "en-5d38d7bfb9bdf071",
+      "theme_id": 8,
+      "answer": "PAX MONGOLICA",
+      "hint": "The period when Mongol rule helped make trade across much of Eurasia safer.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.1599
+    },
+    {
+      "id": "en-eb8395f41ae6b417",
+      "theme_id": 8,
+      "answer": "GREAT SCHISM",
+      "hint": "The split conventionally dated to 1054 between the Eastern Orthodox and Roman Catholic churches.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.1634
+    },
+    {
+      "id": "en-53fab4873b4c4b97",
+      "theme_id": 8,
+      "answer": "AVIGNON PAPACY",
+      "hint": "The period when the popes resided in a French city rather than Rome, from 1309 to 1377.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1827
+    },
+    {
+      "id": "en-a39c288d69f02854",
+      "theme_id": 8,
+      "answer": "HABEAS CORPUS",
+      "hint": "A legal safeguard allowing a court to examine whether a person's detention is lawful.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.1721
+    },
+    {
+      "id": "en-4df9910ad9f145a8",
+      "theme_id": 8,
+      "answer": "TRIAL BY ORDEAL",
+      "hint": "A medieval way of judging guilt through a dangerous physical test believed to reveal divine judgement.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.1897
+    },
+    {
+      "id": "en-ca2ee1c6d268870e",
+      "theme_id": 8,
+      "answer": "SUMPTUARY LAW",
+      "hint": "A historical rule restricting clothing or luxury spending according to social rank.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.1711
+    },
+    {
+      "id": "en-9e10f32347398301",
+      "theme_id": 8,
+      "answer": "LONG PARLIAMENT",
+      "hint": "The English assembly summoned in 1640 that became central to the conflict with Charles I.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.1623
+    },
+    {
+      "id": "en-b0a4a454f7031204",
+      "theme_id": 8,
+      "answer": "PETITION OF RIGHT",
+      "hint": "The 1628 English document challenging forced loans and imprisonment without legal cause.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.2
+    },
+    {
+      "id": "en-c748665cab5e545c",
+      "theme_id": 8,
+      "answer": "FIELD OF CLOTH OF GOLD",
+      "hint": "The lavish 1520 meeting between Henry VIII of England and Francis I of France.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.2011
+    },
+    {
+      "id": "en-f59c09927d26526b",
+      "theme_id": 8,
+      "answer": "DEFENESTRATION",
+      "hint": "Throwing someone out of a window, notably in episodes of Prague's political history.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.1826
+    },
+    {
+      "id": "en-fdb5f2d2215840ad",
+      "theme_id": 8,
+      "answer": "DIET OF WORMS",
+      "hint": "The 1521 imperial assembly where Martin Luther was asked to recant his writings.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.1868
+    },
+    {
+      "id": "en-34fb29e093b15cb1",
+      "theme_id": 8,
+      "answer": "BOSHIN WAR",
+      "hint": "The Japanese civil conflict of 1868-1869 between imperial supporters and the Tokugawa shogunate.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.1745
+    },
+    {
+      "id": "en-9f87f6221d835c07",
+      "theme_id": 8,
+      "answer": "ANTIKYTHERA MECHANISM",
+      "hint": "An ancient Greek geared device recovered from a shipwreck, used to model astronomical cycles.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.1709
+    },
+    {
+      "id": "en-070fe5e978bfa460",
+      "theme_id": 8,
+      "answer": "NEBRA SKY DISC",
+      "hint": "A Bronze Age object found in Germany, decorated with gold celestial symbols.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.1639
+    },
+    {
+      "id": "en-caf4d9f2c197f211",
+      "theme_id": 8,
+      "answer": "VINDOLANDA TABLETS",
+      "hint": "Thin wooden letters from a Roman fort near Hadrian's Wall, preserving everyday messages.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.1732
+    },
+    {
+      "id": "en-674f0a52766a5f87",
+      "theme_id": 8,
+      "answer": "BEHISTUN INSCRIPTION",
+      "hint": "Darius I's multilingual rock text in Iran that helped scholars decipher cuneiform.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.172
+    },
+    {
+      "id": "en-2972755b028192b3",
+      "theme_id": 8,
+      "answer": "LINDISFARNE",
+      "hint": "The island monastery off Northumberland attacked by Viking raiders in 793.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.1861
+    },
+    {
+      "id": "en-d5fd7f9c464a2afa",
+      "theme_id": 8,
+      "answer": "DANCING PLAGUE",
+      "hint": "The historical outbreak in Strasbourg in 1518 when groups of people danced uncontrollably.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.1797
+    },
+    {
+      "id": "en-d1f4c5a51d917019",
+      "theme_id": 8,
+      "answer": "CADAVER SYNOD",
+      "hint": "The notorious 897 church trial in Rome conducted over the exhumed body of Pope Formosus.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.1811
+    },
+    {
+      "id": "en-f2fd5fb763fbaa9c",
+      "theme_id": 8,
+      "answer": "SCUTAGE",
+      "hint": "A medieval payment made to a lord in place of providing military service.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.1966
+    },
+    {
+      "id": "en-308daae92e96dd4f",
+      "theme_id": 2,
+      "answer": "TRANSYLVANIA",
+      "hint": "The Romanian historical region closely associated with Dracula stories.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.1675
+    },
+    {
+      "id": "en-f6cf0c1e29daeca1",
+      "theme_id": 2,
+      "answer": "HINDU KUSH",
+      "hint": "A major mountain range stretching across Afghanistan and into Pakistan.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.1966
+    },
+    {
+      "id": "en-be347c486a0eddda",
+      "theme_id": 2,
+      "answer": "SASKATCHEWAN",
+      "hint": "The Canadian prairie province whose capital is Regina.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.1696
+    },
+    {
+      "id": "en-754b3d76600b84fc",
+      "theme_id": 2,
+      "answer": "TANGANYIKA",
+      "hint": "The long East African lake shared by Tanzania, the Democratic Republic of the Congo, Burundi, and Zambia.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.1906
+    },
+    {
+      "id": "en-f84231248743de32",
+      "theme_id": 2,
+      "answer": "KARAKORAM",
+      "hint": "The Asian mountain range containing K2.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.2338
+    },
+    {
+      "id": "en-a9ad5033bccfec6b",
+      "theme_id": 2,
+      "answer": "SPITSBERGEN",
+      "hint": "The largest island of Norway's Svalbard archipelago.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1642
+    },
+    {
+      "id": "en-bde57942f54b1fdc",
+      "theme_id": 2,
+      "answer": "LESOTHO",
+      "hint": "The mountainous southern African country entirely surrounded by South Africa.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.2171
+    },
+    {
+      "id": "en-c14a544abca9fef2",
+      "theme_id": 2,
+      "answer": "ESWATINI",
+      "hint": "The southern African kingdom formerly known as Swaziland.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.2146
+    },
+    {
+      "id": "en-932b0f0d3c31a04f",
+      "theme_id": 2,
+      "answer": "TUVALU",
+      "hint": "The low-lying Pacific island country whose capital is Funafuti.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.2269
+    },
+    {
+      "id": "en-9da5a92ec7934dcd",
+      "theme_id": 2,
+      "answer": "KURDISTAN",
+      "hint": "The historical region associated with the Kurdish people, spanning parts of several Middle Eastern countries.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.1467
+    },
+    {
+      "id": "en-f3365a3583672772",
+      "theme_id": 2,
+      "answer": "TIMBUKTU",
+      "hint": "The Malian city famed for historic centres of Islamic learning and manuscripts.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.1923
+    },
+    {
+      "id": "en-4b7b46d58c653f1c",
+      "theme_id": 2,
+      "answer": "ISFAHAN",
+      "hint": "The Iranian city known for its grand central square and blue-tiled mosques.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.2133
+    },
+    {
+      "id": "en-35f19a2c90ad61e5",
+      "theme_id": 2,
+      "answer": "DRAKENSBERG",
+      "hint": "The high mountain escarpment whose name means dragon mountains in Afrikaans.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.1639
+    },
+    {
+      "id": "en-044da29274362ba9",
+      "theme_id": 2,
+      "answer": "OKAVANGO DELTA",
+      "hint": "The vast inland wetland in Botswana fed by a river that does not reach the sea.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.182
+    },
+    {
+      "id": "en-f28d54618cd04429",
+      "theme_id": 2,
+      "answer": "SKELETON COAST",
+      "hint": "Namibia's foggy Atlantic shoreline known for shipwrecks and desert landscapes.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.1936
+    },
+    {
+      "id": "en-7f40d7f2cfbcb630",
+      "theme_id": 2,
+      "answer": "TAKLAMAKAN",
+      "hint": "The great desert in China's Tarim Basin, bordered by historic Silk Road routes.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.2246
+    },
+    {
+      "id": "en-371430dc8029f4b9",
+      "theme_id": 2,
+      "answer": "LOESS",
+      "hint": "A wind-deposited sediment of fine particles that can form fertile soils.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.2286
+    },
+    {
+      "id": "en-3c4ded6aae6b4c79",
+      "theme_id": 2,
+      "answer": "DRUMLIN",
+      "hint": "An elongated hill of glacial deposits, often shaped like a smooth half-buried egg.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1742
+    },
+    {
+      "id": "en-bb5aaeecf71d360c",
+      "theme_id": 2,
+      "answer": "CHERNOZEM",
+      "hint": "A dark, humus-rich soil associated with fertile grassland regions.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.1683
+    },
+    {
+      "id": "en-947557362a5ab001",
+      "theme_id": 2,
+      "answer": "VALPARAISO",
+      "hint": "The Chilean Pacific port known for steep hills, colourful houses, and hillside lifts.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.2048
+    },
+    {
+      "id": "en-5ea1611b072192d5",
+      "theme_id": 2,
+      "answer": "GUAYAQUIL",
+      "hint": "The large Ecuadorian port on the Guayas River.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.2091
+    },
+    {
+      "id": "en-5d9b5e1afdd74ef2",
+      "theme_id": 2,
+      "answer": "USHUAIA",
+      "hint": "The Argentine city on the Beagle Channel often called a gateway to Antarctica.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.2871
+    },
+    {
+      "id": "en-02b359e8bc51f282",
+      "theme_id": 2,
+      "answer": "PUNTA ARENAS",
+      "hint": "The Chilean city on the Strait of Magellan, serving southern Patagonia.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.2254
+    },
+    {
+      "id": "en-4df3e9cad2330aa6",
+      "theme_id": 2,
+      "answer": "TEGUCIGALPA",
+      "hint": "The Honduran capital that forms a twin-city municipality with Comayaguela.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.1826
+    },
+    {
+      "id": "en-d1fec336e632f56b",
+      "theme_id": 2,
+      "answer": "OUAGADOUGOU",
+      "hint": "The capital of Burkina Faso, often shortened informally to Ouaga.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.3017
+    },
+    {
+      "id": "en-912069d9e4bb9b4b",
+      "theme_id": 2,
+      "answer": "YAMOUSSOUKRO",
+      "hint": "The political capital of Ivory Coast, known for its enormous basilica.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.2133
+    },
+    {
+      "id": "en-714c62a0c9c0b704",
+      "theme_id": 2,
+      "answer": "NOUAKCHOTT",
+      "hint": "The capital of Mauritania near the Atlantic coast.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.1874
+    },
+    {
+      "id": "en-2b7e893560b08780",
+      "theme_id": 2,
+      "answer": "N'DJAMENA",
+      "hint": "The capital of Chad, located near the border with Cameroon.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.2085
+    },
+    {
+      "id": "en-5ba17e2147aed70f",
+      "theme_id": 2,
+      "answer": "OUARZAZATE",
+      "hint": "The Moroccan city known for film studios and as a gateway to the Sahara.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.2431
+    },
+    {
+      "id": "en-5726e18dc07191ac",
+      "theme_id": 2,
+      "answer": "DJENNE",
+      "hint": "The Malian town known for its monumental mosque built from earth.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.2425
+    },
+    {
+      "id": "en-408483c8f6472ddd",
+      "theme_id": 2,
+      "answer": "BOBO-DIOULASSO",
+      "hint": "Burkina Faso's major southwestern city, known for its earthen mosque and musical traditions.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.2464
+    },
+    {
+      "id": "en-f7f6ed8e33dd06c6",
+      "theme_id": 2,
+      "answer": "QUETZALTENANGO",
+      "hint": "The highland Guatemalan city also known as Xela.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.1573
+    },
+    {
+      "id": "en-8035f9befde80a0a",
+      "theme_id": 2,
+      "answer": "DANAKIL DEPRESSION",
+      "hint": "The exceptionally hot, low-lying region of the Afar area, known for salt flats and colourful springs.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.178
+    },
+    {
+      "id": "en-2c6eaa302ed86693",
+      "theme_id": 2,
+      "answer": "TSINGY",
+      "hint": "The sharp limestone pinnacles that form dramatic stone forests in Madagascar.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.1996
+    },
+    {
+      "id": "en-57b3bf1c9bae0fa8",
+      "theme_id": 2,
+      "answer": "NAZCA DESERT",
+      "hint": "The arid Peruvian landscape containing enormous ancient geoglyphs visible from above.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.1945
+    },
+    {
+      "id": "en-4e6634025ba95852",
+      "theme_id": 3,
+      "answer": "GILA MONSTER",
+      "hint": "A venomous, bead-scaled lizard of the southwestern United States and northwestern Mexico.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.136
+    },
+    {
+      "id": "en-1b5e9a27910d9bed",
+      "theme_id": 3,
+      "answer": "THORNY DEVIL",
+      "hint": "An Australian lizard covered in spikes that channels water along grooves in its skin.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.1321
+    },
+    {
+      "id": "en-2ab1b5cd52cc918c",
+      "theme_id": 3,
+      "answer": "BASILISK LIZARD",
+      "hint": "A Central American reptile known for running across water for short distances.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.1671
+    },
+    {
+      "id": "en-00e5be58f04ece31",
+      "theme_id": 3,
+      "answer": "GHARIAL",
+      "hint": "A fish-eating crocodilian with an exceptionally long, narrow snout.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.2042
+    },
+    {
+      "id": "en-61e97291dffee0a7",
+      "theme_id": 3,
+      "answer": "NUMBAT",
+      "hint": "A striped Australian marsupial that feeds mainly on termites.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.1751
+    },
+    {
+      "id": "en-21023535ea815d44",
+      "theme_id": 3,
+      "answer": "QUOLL",
+      "hint": "A spotted carnivorous marsupial found in Australia or New Guinea.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1765
+    },
+    {
+      "id": "en-8443538f8f468b58",
+      "theme_id": 3,
+      "answer": "MARKHOR",
+      "hint": "A wild goat of Central and South Asia with striking spiral horns.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.1856
+    },
+    {
+      "id": "en-1558065e1ab54471",
+      "theme_id": 3,
+      "answer": "ARAPAIMA",
+      "hint": "A giant freshwater fish of the Amazon region that regularly breathes air.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.2739
+    },
+    {
+      "id": "en-be08e0314efa70f4",
+      "theme_id": 3,
+      "answer": "OARFISH",
+      "hint": "A very long, ribbon-shaped marine fish sometimes linked to sea-serpent legends.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.1821
+    },
+    {
+      "id": "en-1de5ecaad7aed97c",
+      "theme_id": 3,
+      "answer": "VAMPIRE SQUID",
+      "hint": "A deep-sea cephalopod with cloak-like webbing between its arms, feeding largely on drifting organic matter.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.1343
+    },
+    {
+      "id": "en-7c9109c4da0e7dc1",
+      "theme_id": 3,
+      "answer": "COLUGO",
+      "hint": "A Southeast Asian mammal that glides between trees using a broad skin membrane.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.225
+    },
+    {
+      "id": "en-200943de2703891f",
+      "theme_id": 3,
+      "answer": "GERENUK",
+      "hint": "A long-necked African antelope that often stands on its hind legs to browse.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.1992
+    },
+    {
+      "id": "en-811117b9ba20ed16",
+      "theme_id": 3,
+      "answer": "KLIPSPRINGER",
+      "hint": "A small African antelope adapted to moving over rocky slopes on the tips of its hooves.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.1688
+    },
+    {
+      "id": "en-a846d25edbeb9584",
+      "theme_id": 3,
+      "answer": "SEROW",
+      "hint": "A shaggy goat-antelope found in mountainous parts of Asia.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.1961
+    },
+    {
+      "id": "en-ec8b3c680f9ecbd8",
+      "theme_id": 3,
+      "answer": "TENREC",
+      "hint": "A member of a diverse mammal family found mainly in Madagascar, some resembling hedgehogs.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.2361
+    },
+    {
+      "id": "en-7508e506d57569c4",
+      "theme_id": 3,
+      "answer": "SOLENODON",
+      "hint": "A nocturnal Caribbean mammal with a long snout and venomous saliva.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.239
+    },
+    {
+      "id": "en-f18380e4f22c9400",
+      "theme_id": 3,
+      "answer": "HOATZIN",
+      "hint": "A South American bird whose chicks have wing claws and whose digestive system ferments leaves.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.1745
+    },
+    {
+      "id": "en-a678a009d143b44d",
+      "theme_id": 3,
+      "answer": "KAGU",
+      "hint": "A pale, crested bird native to New Caledonia, with bright orange-red legs.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1927
+    },
+    {
+      "id": "en-196cb703d235698b",
+      "theme_id": 3,
+      "answer": "OILBIRD",
+      "hint": "A nocturnal, fruit-eating South American bird that navigates caves using echolocation.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.2108
+    },
+    {
+      "id": "en-bbc64e60bfe02850",
+      "theme_id": 3,
+      "answer": "BEE-EATER",
+      "hint": "A brightly coloured bird that catches flying insects and removes stings before swallowing some of them.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.3063
+    },
+    {
+      "id": "en-a4e01a89745329bc",
+      "theme_id": 3,
+      "answer": "JACANA",
+      "hint": "A tropical wetland bird with very long toes that help it walk on floating vegetation.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.2495
+    },
+    {
+      "id": "en-c72802109446ae9b",
+      "theme_id": 3,
+      "answer": "TROGON",
+      "hint": "A colourful forest bird belonging to the same group as the quetzals.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.2357
+    },
+    {
+      "id": "en-a589716f0838161c",
+      "theme_id": 3,
+      "answer": "HELLBENDER",
+      "hint": "A large, flattened salamander living in cool, rocky streams of the eastern United States.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.218
+    },
+    {
+      "id": "en-4c076b8fa03f0b57",
+      "theme_id": 3,
+      "answer": "MUDPUPPY",
+      "hint": "An aquatic North American salamander that keeps feathery external gills as an adult.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.2271
+    },
+    {
+      "id": "en-498f058ccf9b3882",
+      "theme_id": 3,
+      "answer": "CAECILIAN",
+      "hint": "A limbless amphibian that can resemble a worm or snake.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.2638
+    },
+    {
+      "id": "en-32607f71837c3f34",
+      "theme_id": 3,
+      "answer": "MATAMATA",
+      "hint": "A South American freshwater turtle with a flattened head and leaf-like skin flaps.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.3148
+    },
+    {
+      "id": "en-c243667105de48ff",
+      "theme_id": 3,
+      "answer": "WELWITSCHIA",
+      "hint": "A Namib Desert plant that keeps the same two main leaves throughout its long life.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.1824
+    },
+    {
+      "id": "en-dfe41b274d321f51",
+      "theme_id": 3,
+      "answer": "RAFFLESIA",
+      "hint": "A Southeast Asian parasitic plant known for enormous flowers that smell like rotting flesh.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.2199
+    },
+    {
+      "id": "en-c346b3eb29468f5b",
+      "theme_id": 3,
+      "answer": "WOLFFIA",
+      "hint": "A genus of tiny floating aquatic plants that includes some of the smallest flowering plants.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.2108
+    },
+    {
+      "id": "en-44c1632a3dfda1c7",
+      "theme_id": 3,
+      "answer": "WOLLEMI PINE",
+      "hint": "An ancient conifer discovered alive in an Australian canyon in 1994 after being known only through fossil relatives.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.2231
+    },
+    {
+      "id": "en-2526eb03a0f460a0",
+      "theme_id": 3,
+      "answer": "BLADDERWORT",
+      "hint": "A carnivorous plant that catches tiny prey in small suction traps.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.1767
+    },
+    {
+      "id": "en-4fa008c313b61128",
+      "theme_id": 3,
+      "answer": "BANYAN",
+      "hint": "A fig tree whose hanging aerial roots can grow into supporting trunks.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.2523
+    },
+    {
+      "id": "en-e7137703bad06fa1",
+      "theme_id": 3,
+      "answer": "KAURI",
+      "hint": "A large conifer strongly associated with the ancient forests of northern New Zealand.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.2342
+    },
+    {
+      "id": "en-20cf2ec47cd13ac0",
+      "theme_id": 3,
+      "answer": "DURIAN TREE",
+      "hint": "The tropical plant that produces large, spiky fruit famous for its powerful smell.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.2369
+    },
+    {
+      "id": "en-e4b111edab1d6190",
+      "theme_id": 3,
+      "answer": "BOTTLEBRUSH",
+      "hint": "A shrub whose cylindrical flower spikes resemble tools used to clean narrow containers.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.1805
+    },
+    {
+      "id": "en-75a07300d6882151",
+      "theme_id": 4,
+      "answer": "REGENERATIVE BRAKING",
+      "hint": "A vehicle system that recovers energy during slowing and returns it to a battery or other store.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.1695
+    },
+    {
+      "id": "en-88496a763f62f38b",
+      "theme_id": 4,
+      "answer": "ANAMORPHIC LENS",
+      "hint": "A camera optic that squeezes a wide image for recording, then requires it to be expanded for viewing.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.1436
+    },
+    {
+      "id": "en-faa605fc41e66d86",
+      "theme_id": 4,
+      "answer": "PERISCOPE LENS",
+      "hint": "A folded camera optical system that uses a prism to fit a longer focal length into a thin phone.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.1864
+    },
+    {
+      "id": "en-f8a759d39de92ec2",
+      "theme_id": 4,
+      "answer": "GIMBAL",
+      "hint": "A pivoted support used to keep a camera or instrument steady as its surroundings move.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.1687
+    },
+    {
+      "id": "en-88027d4f81a3ef38",
+      "theme_id": 4,
+      "answer": "ORNITHOPTER",
+      "hint": "An aircraft that flies by flapping its wings.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.1888
+    },
+    {
+      "id": "en-86260e6070195d21",
+      "theme_id": 4,
+      "answer": "TURBOFAN",
+      "hint": "A jet engine whose large front fan sends some air around the engine core.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1551
+    },
+    {
+      "id": "en-33932b2cc78a2fb6",
+      "theme_id": 4,
+      "answer": "TURBOPROP",
+      "hint": "A gas-turbine aircraft engine that drives a propeller.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.2052
+    },
+    {
+      "id": "en-c38adb847db45e62",
+      "theme_id": 4,
+      "answer": "RAMJET",
+      "hint": "A jet engine that compresses incoming air through forward speed rather than a rotating compressor.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.1726
+    },
+    {
+      "id": "en-e5351e3a7ea12627",
+      "theme_id": 4,
+      "answer": "SCRAMJET",
+      "hint": "A high-speed air-breathing engine in which airflow remains supersonic during combustion.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.1504
+    },
+    {
+      "id": "en-b508f30bbf4c1016",
+      "theme_id": 4,
+      "answer": "GYROCOMPASS",
+      "hint": "A navigation instrument that uses a spinning rotor and Earth's rotation to find true north.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.1591
+    },
+    {
+      "id": "en-72ae48d3ca6b7048",
+      "theme_id": 4,
+      "answer": "INERTIAL GUIDANCE",
+      "hint": "Navigation that tracks motion using onboard acceleration and rotation sensors rather than external signals.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.1824
+    },
+    {
+      "id": "en-43e58bafb26947d1",
+      "theme_id": 4,
+      "answer": "WANKEL ENGINE",
+      "hint": "A rotary engine using a roughly triangular rotor instead of reciprocating pistons.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.203
+    },
+    {
+      "id": "en-7a94a0314711d8b9",
+      "theme_id": 4,
+      "answer": "STIRLING ENGINE",
+      "hint": "An engine that repeatedly heats and cools a sealed working gas using an external heat source.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.2193
+    },
+    {
+      "id": "en-37eec4feb362fb7d",
+      "theme_id": 4,
+      "answer": "FLYWHEEL STORAGE",
+      "hint": "Keeping energy in a rapidly spinning rotor so it can later be recovered.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.1549
+    },
+    {
+      "id": "en-87dcd63ee6a5540d",
+      "theme_id": 4,
+      "answer": "EDDY CURRENT BRAKE",
+      "hint": "A contactless slowing device that uses currents induced in a conductor by a magnetic field.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.1684
+    },
+    {
+      "id": "en-ada77e49dfedc523",
+      "theme_id": 4,
+      "answer": "CARDAN JOINT",
+      "hint": "A coupling that transmits rotation between shafts whose axes meet at an angle.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.1771
+    },
+    {
+      "id": "en-d507bc3108b31bd6",
+      "theme_id": 4,
+      "answer": "WORM GEAR",
+      "hint": "A drive in which a screw-like shaft turns a toothed wheel, often giving a large speed reduction.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.198
+    },
+    {
+      "id": "en-16c4fcb6c5658d85",
+      "theme_id": 4,
+      "answer": "HARMONIC DRIVE",
+      "hint": "A compact precision gear system that uses a flexible toothed component to achieve a high reduction ratio.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1553
+    },
+    {
+      "id": "en-a9873cbbbde692e7",
+      "theme_id": 4,
+      "answer": "HYDRAULIC RAM",
+      "hint": "A pump that uses the pressure surge of flowing water to lift some of that water higher.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.1666
+    },
+    {
+      "id": "en-7061db15e530f081",
+      "theme_id": 4,
+      "answer": "SCOTCH YOKE",
+      "hint": "A mechanism that converts rotary motion into reciprocating motion using a pin in a sliding slot.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.1987
+    },
+    {
+      "id": "en-c669900e296cfdbd",
+      "theme_id": 4,
+      "answer": "MAGNETRON",
+      "hint": "The microwave-generating vacuum tube used in many kitchen ovens.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.1809
+    },
+    {
+      "id": "en-402abebd53cc589f",
+      "theme_id": 4,
+      "answer": "WAVEGUIDE",
+      "hint": "A structure that directs electromagnetic waves along a defined path.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.2028
+    },
+    {
+      "id": "en-c159dc8c32d5f412",
+      "theme_id": 4,
+      "answer": "PIEZOELECTRIC SENSOR",
+      "hint": "A device that measures force or pressure through electric charge produced by a deformed material.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.1693
+    },
+    {
+      "id": "en-284bf74eb87c1048",
+      "theme_id": 4,
+      "answer": "THERMISTOR",
+      "hint": "An electronic component whose resistance changes strongly with temperature.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.1926
+    },
+    {
+      "id": "en-ff915feb9b6e44d3",
+      "theme_id": 4,
+      "answer": "VARISTOR",
+      "hint": "A voltage-dependent resistor commonly used to protect circuits from surges.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.1945
+    },
+    {
+      "id": "en-15cc634388537d29",
+      "theme_id": 4,
+      "answer": "CAPACITOR BANK",
+      "hint": "A group of electrical components connected to store charge or support power-system operation.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.1757
+    },
+    {
+      "id": "en-e67598e94bff12be",
+      "theme_id": 4,
+      "answer": "BUCK CONVERTER",
+      "hint": "A switching power circuit that reduces a direct-current voltage.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.1702
+    },
+    {
+      "id": "en-9808b439f03febf5",
+      "theme_id": 4,
+      "answer": "BOOST CONVERTER",
+      "hint": "A switching power circuit that raises a direct-current voltage.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.2045
+    },
+    {
+      "id": "en-526ecdfe55405e1d",
+      "theme_id": 4,
+      "answer": "PHOTOCOUPLER",
+      "hint": "An electronic device that transfers a signal using light while keeping circuits electrically isolated.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.1901
+    },
+    {
+      "id": "en-3ecee67edcb272ba",
+      "theme_id": 4,
+      "answer": "PHOTOMULTIPLIER",
+      "hint": "A highly sensitive detector that amplifies an electrical signal produced by incoming light.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.1745
+    },
+    {
+      "id": "en-250f56c37bffacba",
+      "theme_id": 4,
+      "answer": "BAYER FILTER",
+      "hint": "A red, green, and blue mosaic placed over many digital camera sensors to record colour.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.1923
+    },
+    {
+      "id": "en-f0b2404672dcb3a4",
+      "theme_id": 4,
+      "answer": "LIQUID LENS",
+      "hint": "An optical element that changes focus by altering the shape of a fluid surface.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.1965
+    },
+    {
+      "id": "en-6c9982d655d2ccf1",
+      "theme_id": 4,
+      "answer": "HALBACH ARRAY",
+      "hint": "An arrangement of magnets that strengthens the field on one side while reducing it on the other.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.2374
+    },
+    {
+      "id": "en-15d8f2e403d4b5ba",
+      "theme_id": 4,
+      "answer": "TOKAMAK",
+      "hint": "A doughnut-shaped machine that uses magnetic fields to confine hot plasma for fusion research.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.24
+    },
+    {
+      "id": "en-e9cdb22726dafca5",
+      "theme_id": 4,
+      "answer": "STELLARATOR",
+      "hint": "A fusion-research device that confines plasma using complex, twisted magnetic coils.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.2323
+    },
+    {
+      "id": "en-0ce66a2aa25b6d66",
+      "theme_id": 5,
+      "answer": "HEDY LAMARR",
+      "hint": "The Hollywood actress who co-developed a frequency-hopping communication idea with George Antheil.",
+      "concept_score": 0.8,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.78,
+      "score_adjustment": 0.1883
+    },
+    {
+      "id": "en-ff61e4c44813c038",
+      "theme_id": 5,
+      "answer": "CHARLES BABBAGE",
+      "hint": "The British inventor who designed the Difference Engine and the Analytical Engine.",
+      "concept_score": 0.80529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7835,
+      "score_adjustment": 0.1857
+    },
+    {
+      "id": "en-9e5b7c717ba25a48",
+      "theme_id": 5,
+      "answer": "ROSALIND FRANKLIN",
+      "hint": "The chemist whose X-ray work helped reveal the structure of DNA.",
+      "concept_score": 0.81058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7871,
+      "score_adjustment": 0.1675
+    },
+    {
+      "id": "en-9414c336ba9b749c",
+      "theme_id": 5,
+      "answer": "ANTONI GAUDI",
+      "hint": "The Catalan architect behind the Sagrada Familia and Park Guell.",
+      "concept_score": 0.81588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7906,
+      "score_adjustment": 0.2259
+    },
+    {
+      "id": "en-87a68a09a5d4ec12",
+      "theme_id": 5,
+      "answer": "ZAHA HADID",
+      "hint": "The Iraqi-born architect known for flowing forms and the first woman to win the Pritzker Prize.",
+      "concept_score": 0.82117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7941,
+      "score_adjustment": 0.2355
+    },
+    {
+      "id": "en-01d36ff6ca69f4d4",
+      "theme_id": 5,
+      "answer": "FRANK GEHRY",
+      "hint": "The architect of the Guggenheim Museum in Bilbao, known for sculptural building forms.",
+      "concept_score": 0.82647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.7976,
+      "score_adjustment": 0.1576
+    },
+    {
+      "id": "en-782d5f183c28d11f",
+      "theme_id": 5,
+      "answer": "LE CORBUSIER",
+      "hint": "The Swiss-born modernist architect associated with the Villa Savoye and the planning of Chandigarh.",
+      "concept_score": 0.83176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8012,
+      "score_adjustment": 0.1855
+    },
+    {
+      "id": "en-5bdf458b262efefc",
+      "theme_id": 5,
+      "answer": "OSCAR NIEMEYER",
+      "hint": "The Brazilian architect known for many of Brasilia's landmark civic buildings.",
+      "concept_score": 0.83705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8047,
+      "score_adjustment": 0.183
+    },
+    {
+      "id": "en-b38c98a6b6009be3",
+      "theme_id": 5,
+      "answer": "BUCKMINSTER FULLER",
+      "hint": "The American designer widely associated with geodesic domes and the idea of Spaceship Earth.",
+      "concept_score": 0.84235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8082,
+      "score_adjustment": 0.1432
+    },
+    {
+      "id": "en-57684f9675e2dd65",
+      "theme_id": 5,
+      "answer": "ALVAR AALTO",
+      "hint": "The Finnish architect and designer associated with the Paimio Sanatorium and a famous wavy glass vase.",
+      "concept_score": 0.84764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8118,
+      "score_adjustment": 0.2568
+    },
+    {
+      "id": "en-dbda884efaf073bd",
+      "theme_id": 5,
+      "answer": "EERO SAARINEN",
+      "hint": "The Finnish-American architect behind the Gateway Arch and the TWA Flight Center.",
+      "concept_score": 0.85294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8153,
+      "score_adjustment": 0.2731
+    },
+    {
+      "id": "en-a7c6e1a227476bb5",
+      "theme_id": 5,
+      "answer": "ALBERT CAMUS",
+      "hint": "The French-language author of The Stranger and The Plague, associated with the philosophy of the absurd.",
+      "concept_score": 0.85823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8188,
+      "score_adjustment": 0.1599
+    },
+    {
+      "id": "en-9cad6eec5be88c80",
+      "theme_id": 5,
+      "answer": "JEAN-PAUL SARTRE",
+      "hint": "The French existentialist philosopher who wrote Nausea and declined the Nobel Prize in Literature.",
+      "concept_score": 0.86352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8224,
+      "score_adjustment": 0.1886
+    },
+    {
+      "id": "en-e68a66a669ba55a0",
+      "theme_id": 5,
+      "answer": "SIMONE DE BEAUVOIR",
+      "hint": "The French writer and philosopher whose book The Second Sex became a landmark of feminist thought.",
+      "concept_score": 0.86882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8259,
+      "score_adjustment": 0.2004
+    },
+    {
+      "id": "en-cc1af679340837d0",
+      "theme_id": 5,
+      "answer": "FRIEDRICH NIETZSCHE",
+      "hint": "The German philosopher who wrote Thus Spoke Zarathustra and Beyond Good and Evil.",
+      "concept_score": 0.87411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8294,
+      "score_adjustment": 0.1604
+    },
+    {
+      "id": "en-f71f70d82de485cc",
+      "theme_id": 5,
+      "answer": "ARTHUR SCHOPENHAUER",
+      "hint": "The German philosopher known for The World as Will and Representation.",
+      "concept_score": 0.87941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8329,
+      "score_adjustment": 0.1685
+    },
+    {
+      "id": "en-6a675578eef91b0c",
+      "theme_id": 5,
+      "answer": "HANNAH ARENDT",
+      "hint": "The political thinker who wrote The Origins of Totalitarianism and reported on the Eichmann trial.",
+      "concept_score": 0.88470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8365,
+      "score_adjustment": 0.2416
+    },
+    {
+      "id": "en-ce86af008037e010",
+      "theme_id": 5,
+      "answer": "SOREN KIERKEGAARD",
+      "hint": "The Danish philosopher whose works include Fear and Trembling.",
+      "concept_score": 0.89,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.84,
+      "score_adjustment": 0.1889
+    },
+    {
+      "id": "en-fd0c5703e771c539",
+      "theme_id": 5,
+      "answer": "LUDWIG WITTGENSTEIN",
+      "hint": "The philosopher who wrote the Tractatus and later Philosophical Investigations.",
+      "concept_score": 0.89529412,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8435,
+      "score_adjustment": 0.184
+    },
+    {
+      "id": "en-5f6b51e0c05ac62a",
+      "theme_id": 5,
+      "answer": "MICHEL FOUCAULT",
+      "hint": "The French thinker who explored power and institutions in Discipline and Punish.",
+      "concept_score": 0.90058824,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8471,
+      "score_adjustment": 0.1648
+    },
+    {
+      "id": "en-c5ec08412fef7649",
+      "theme_id": 5,
+      "answer": "JORGE LUIS BORGES",
+      "hint": "The Argentine writer known for labyrinths, imaginary books, and the collection Ficciones.",
+      "concept_score": 0.90588235,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8506,
+      "score_adjustment": 0.1811
+    },
+    {
+      "id": "en-96614b67496f2b7c",
+      "theme_id": 5,
+      "answer": "GABRIEL GARCIA MARQUEZ",
+      "hint": "The Colombian novelist who wrote One Hundred Years of Solitude.",
+      "concept_score": 0.91117647,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8541,
+      "score_adjustment": 0.1645
+    },
+    {
+      "id": "en-6060ef6025853ed9",
+      "theme_id": 5,
+      "answer": "HARUKI MURAKAMI",
+      "hint": "The Japanese novelist whose works include Norwegian Wood and Kafka on the Shore.",
+      "concept_score": 0.91647059,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8576,
+      "score_adjustment": 0.2476
+    },
+    {
+      "id": "en-ac056cf135b92ff8",
+      "theme_id": 5,
+      "answer": "KAZUO ISHIGURO",
+      "hint": "The Nobel-winning novelist who wrote The Remains of the Day and Never Let Me Go.",
+      "concept_score": 0.92176471,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8612,
+      "score_adjustment": 0.1913
+    },
+    {
+      "id": "en-dbb840e991e7613b",
+      "theme_id": 5,
+      "answer": "UMBERTO ECO",
+      "hint": "The Italian scholar and novelist who wrote The Name of the Rose.",
+      "concept_score": 0.92705882,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8647,
+      "score_adjustment": 0.2223
+    },
+    {
+      "id": "en-e3b18dba7a3a794d",
+      "theme_id": 5,
+      "answer": "MILAN KUNDERA",
+      "hint": "The Czech-born novelist who wrote The Unbearable Lightness of Being.",
+      "concept_score": 0.93235294,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8682,
+      "score_adjustment": 0.1757
+    },
+    {
+      "id": "en-60532b5052c93ecb",
+      "theme_id": 5,
+      "answer": "JOSE SARAMAGO",
+      "hint": "The Portuguese Nobel laureate whose novels include Blindness.",
+      "concept_score": 0.93764706,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8718,
+      "score_adjustment": 0.2272
+    },
+    {
+      "id": "en-99df43f065fa3c39",
+      "theme_id": 5,
+      "answer": "ITALO CALVINO",
+      "hint": "The Italian writer of Invisible Cities and If on a Winter's Night a Traveller.",
+      "concept_score": 0.94294118,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8753,
+      "score_adjustment": 0.238
+    },
+    {
+      "id": "en-48716dbcab784b13",
+      "theme_id": 5,
+      "answer": "JULIO CORTAZAR",
+      "hint": "The Argentine writer known for the novel Hopscotch and experimental short fiction.",
+      "concept_score": 0.94823529,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8788,
+      "score_adjustment": 0.1735
+    },
+    {
+      "id": "en-08dfbff583dc09b2",
+      "theme_id": 5,
+      "answer": "CHINUA ACHEBE",
+      "hint": "The Nigerian novelist who wrote Things Fall Apart.",
+      "concept_score": 0.95352941,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8824,
+      "score_adjustment": 0.237
+    },
+    {
+      "id": "en-62391f2f7c29ce52",
+      "theme_id": 5,
+      "answer": "WOLE SOYINKA",
+      "hint": "The Nigerian playwright who became the first African winner of the Nobel Prize in Literature.",
+      "concept_score": 0.95882353,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8859,
+      "score_adjustment": 0.1824
+    },
+    {
+      "id": "en-4c723706449c3482",
+      "theme_id": 5,
+      "answer": "DOROTHY HODGKIN",
+      "hint": "The British chemist who used X-ray crystallography to determine structures including vitamin B12.",
+      "concept_score": 0.96411765,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8894,
+      "score_adjustment": 0.1858
+    },
+    {
+      "id": "en-f3b62d93ab528d0d",
+      "theme_id": 5,
+      "answer": "LISE MEITNER",
+      "hint": "The physicist who, with Otto Frisch, explained nuclear fission after experimental work by Hahn and Strassmann.",
+      "concept_score": 0.96941176,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8929,
+      "score_adjustment": 0.238
+    },
+    {
+      "id": "en-e20e1d71b82ac74e",
+      "theme_id": 5,
+      "answer": "CHIEN-SHIUNG WU",
+      "hint": "The Chinese-American physicist whose experiment demonstrated that parity is not conserved in beta decay.",
+      "concept_score": 0.97470588,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.8965,
+      "score_adjustment": 0.2166
+    },
+    {
+      "id": "en-9fb506eb6be6b293",
+      "theme_id": 5,
+      "answer": "SRINIVASA RAMANUJAN",
+      "hint": "The Indian mathematician known for remarkable work on number theory and collaboration with G. H. Hardy.",
+      "concept_score": 0.98,
+      "assessment": "editorial_hard_expansion_20260929",
+      "target_difficulty": 0.9,
+      "score_adjustment": 0.2056
     }
   ]
 }

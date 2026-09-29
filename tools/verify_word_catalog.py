@@ -85,6 +85,33 @@ def verify_medium_hard_expansion(catalog, language):
         assert {e['expansion_band'] for e in additions if e['theme_id'] == theme} == {'medium', 'hard'}
 
 
+def verify_high_difficulty_en_expansion(catalog, language):
+    """245 English additions, with equal coverage of the requested hard range."""
+    batch = 'editorial_hard_expansion_20260929'
+    additions = [e for e in catalog['entries'] if e.get('assessment') == batch]
+    if language != 'en':
+        assert not additions, 'English expansion must not change Russian content'
+        return
+    themes = {2, 3, 4, 5, 8, 9, 10}
+    assert Counter(e['theme_id'] for e in additions) == {t: 35 for t in themes}
+    expected_scores = [round(.78 + .12 * i / 34, 4) for i in range(35)]
+    for theme in themes:
+        actual = sorted(difficulty(e, language) for e in additions if e['theme_id'] == theme)
+        assert actual == expected_scores, ('Hard range distribution', theme, actual)
+    def normalized(text):
+        return re.sub(r'[^A-Z]', '', text.upper())
+    used = {normalized(e['answer']) for e in catalog['entries']
+            if e.get('assessment') != batch}
+    used.update(normalized(a) for e in catalog['entries'] for a in e.get('aliases', []))
+    for entry in additions:
+        answer = normalized(entry['answer'])
+        assert answer not in used, ('Hard expansion duplicate', entry['answer'])
+        used.add(answer)
+        assert answer not in normalized(entry['hint']), ('Answer in hint', entry['answer'])
+        assert difficulty(entry, language) == entry['target_difficulty'], entry['answer']
+        assert 'minimum' not in entry and 'maximum' not in entry, entry['answer']
+
+
 def main():
     for language in ('ru', 'en'):
         catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
@@ -100,6 +127,7 @@ def main():
             {'lower': 15, 'core': 25, 'upper': 10},
         )
         verify_medium_hard_expansion(catalog, language)
+        verify_high_difficulty_en_expansion(catalog, language)
         export(language, check=True)
         expected = rendered(catalog)
         reordered = copy.deepcopy(catalog)
@@ -128,7 +156,7 @@ def main():
             assert sum(c.isalpha() for c in byword['БЕСПРОВОДНЫЕ НАУШНИКИ']['answer']) == 20
         else:
             byword = {e['answer']: e for e in catalog['entries']}
-            assert len(byword) == 5444
+            assert len(byword) == 5689
             assert 'GLUON' not in byword and 'ETERNAL SUNSHINE' not in byword
             assert "CAPTAIN ARMBAND" in byword["CAPTAIN'S ARMBAND"]['aliases']
             assert 'FILM DIRECTOR' in byword['DIRECTOR']['aliases']
