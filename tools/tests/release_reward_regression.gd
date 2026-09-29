@@ -120,7 +120,8 @@ func run_tests() -> void:
 	check(GameState.get_soft_currency() == before_coins and GameState.get_stars() == before_stars, "two-player awards no currency even with award flag")
 	check(Array(result["lines"]).is_empty(), "two-player result does not promise coins")
 
-	GameState.coin_refill_ad_views_remaining = 5
+	var coin_refill_reward: int = ui.PORTRAIT_COIN_REFILL_REWARDED_AMOUNT
+	GameState.coin_refill_ad_views_remaining = GameState.COIN_REFILL_AD_MAX_VIEWS
 	GameState.coin_refill_ad_cooldown_until = 0
 	request_id = GameState.begin_rewarded_action_request("coin_refill", {})
 	GameState.rewarded_action_requests[request_id]["earned"] = true
@@ -129,10 +130,10 @@ func run_tests() -> void:
 	GameState.load_game()
 	check(GameState.rewarded_action_requests.has(request_id), "earned receipt survives save/load")
 	ui._retry_action_rewards()
-	check(GameState.get_soft_currency() == before_coins + 50, "recovered receipt awards exactly 50")
+	check(GameState.get_soft_currency() == before_coins + coin_refill_reward, "recovered receipt awards configured coin-refill amount")
 	GameState.load_game()
 	ui._on_action_request_rewarded(request_id, "", 1)
-	check(GameState.get_soft_currency() == before_coins + 50, "consumed receipt stays consumed after reload")
+	check(GameState.get_soft_currency() == before_coins + coin_refill_reward, "consumed receipt stays consumed after reload")
 
 	var counted := CountedState.new()
 	counted.begin_save_batch()
@@ -208,14 +209,14 @@ func run_tests() -> void:
 	check(GameState.get_soft_currency() == before_coins and GameState.rewarded_action_requests.has(request_id), "save failure retains earned receipt without crediting")
 	GameState._save_blocked_by_future_version = false
 	ui._retry_action_rewards()
-	check(GameState.get_soft_currency() == before_coins + 50 and !GameState.rewarded_action_requests.has(request_id), "retry credits retained receipt once")
+	check(GameState.get_soft_currency() == before_coins + coin_refill_reward and !GameState.rewarded_action_requests.has(request_id), "retry credits retained receipt once")
 	before_coins = GameState.get_soft_currency()
 	request_id = GameState.begin_rewarded_action_request("coin_refill", {})
 	GameState.coin_refill_ad_views_remaining = 0
 	GameState.coin_refill_ad_cooldown_until = int(Time.get_unix_time_from_system()) + 3600
 	var cooldown: int = GameState.coin_refill_ad_cooldown_until
 	ui._on_action_request_rewarded(request_id, "", 1)
-	check(GameState.get_soft_currency() == before_coins + 50, "earned reward honoured after quota runs out")
+	check(GameState.get_soft_currency() == before_coins + coin_refill_reward, "earned reward honoured after quota runs out")
 	check(GameState.coin_refill_ad_views_remaining == 0 and GameState.coin_refill_ad_cooldown_until == cooldown, "late grant neither makes quota negative nor extends cooldown")
 	await get_tree().create_timer(2.1).timeout
 	ads.free()

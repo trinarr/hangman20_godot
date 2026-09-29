@@ -88,6 +88,17 @@ func run() -> void:
 	cross_language_receipt("final")
 	cross_language_receipt("stage_coin")
 	reset()
+	var current_payload: Dictionary = {"save_version": state.SAVE_FORMAT_VERSION, "soft_currency": 321}
+	var current_migrated: Dictionary = state._migrate_save_payload(current_payload)
+	check(
+		int(current_migrated.get("save_version", -1)) == state.SAVE_FORMAT_VERSION
+		and int(current_migrated.get("soft_currency", -1)) == 321,
+		"Current save format passes migration pipeline unchanged"
+	)
+	check(
+		state._migrate_save_payload({"save_version": state.SAVE_MIGRATION_BASE_VERSION - 1}).is_empty(),
+		"Pre-release save formats below the migration baseline stay rejected"
+	)
 	check(state.save_game(), "Initial save")
 	state.soft_currency = 125
 	check(state.save_game(), "Newer save")

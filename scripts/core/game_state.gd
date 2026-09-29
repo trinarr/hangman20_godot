@@ -14,6 +14,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const SAVE_FORMAT_VERSION: int = 2
+const SAVE_MIGRATION_BASE_VERSION: int = 2
 # Content aliases change independently of the word difficulty model version.
 const WORD_PROGRESS_ALIAS_REVISION: int = 4
 const LEGAL_DOCUMENTS_VERSION: int = 1
@@ -63,6 +64,22 @@ var COIN_REFILL_AD_MAX_VIEWS: int = GAME_DESIGN.get_int_range(
 )
 var COIN_REFILL_AD_COOLDOWN_SECONDS: int = GAME_DESIGN.get_int(
 	"economy.coin_refill_ad.cooldown_seconds"
+)
+var HEART_REFILL_AD_MAX_VIEWS: int = GAME_DESIGN.get_int_range(
+	"economy.heart_refill_ad.maximum_views",
+	1,
+	1000
+)
+var HEART_REFILL_AD_COOLDOWN_SECONDS: int = GAME_DESIGN.get_int(
+	"economy.heart_refill_ad.cooldown_seconds"
+)
+var EXTRA_ATTEMPT_AD_MAX_VIEWS: int = GAME_DESIGN.get_int_range(
+	"economy.extra_attempt_ad.maximum_views",
+	1,
+	1000
+)
+var EXTRA_ATTEMPT_AD_COOLDOWN_SECONDS: int = GAME_DESIGN.get_int(
+	"economy.extra_attempt_ad.cooldown_seconds"
 )
 var ADS_UNLOCK_LEVEL: int = GAME_DESIGN.get_int_range(
 	"advertising.unlock_level",
@@ -151,9 +168,9 @@ var hearts: int = MAX_HEARTS
 var heart_recovery_at: int = 0
 var coin_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
 var coin_refill_ad_cooldown_until: int = 0
-var heart_refill_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
+var heart_refill_ad_views_remaining: int = HEART_REFILL_AD_MAX_VIEWS
 var heart_refill_ad_cooldown_until: int = 0
-var extra_attempt_ad_views_remaining: int = COIN_REFILL_AD_MAX_VIEWS
+var extra_attempt_ad_views_remaining: int = EXTRA_ATTEMPT_AD_MAX_VIEWS
 var extra_attempt_ad_cooldown_until: int = 0
 var ads_unlocked: bool = false
 var guided_onboarding_completed: bool = false
@@ -320,6 +337,16 @@ func _normalize_game_design_values() -> void:
 		0,
 		COIN_REFILL_AD_MAX_VIEWS
 	)
+	heart_refill_ad_views_remaining = clampi(
+		heart_refill_ad_views_remaining,
+		0,
+		HEART_REFILL_AD_MAX_VIEWS
+	)
+	extra_attempt_ad_views_remaining = clampi(
+		extra_attempt_ad_views_remaining,
+		0,
+		EXTRA_ATTEMPT_AD_MAX_VIEWS
+	)
 
 func _on_heart_tick() -> void:
 	if _save_retry_pending and _save_batch_depth == 0:
@@ -330,22 +357,31 @@ func _on_heart_tick() -> void:
 func load_game() -> void:
 	_set_interface_language_from_locale()
 	word_language = interface_language
-	var parsed: Dictionary = _read_save_dictionary(SAVE_PATH)
-	var loaded_from_recovery: bool = false
-	var stored_version: int = int(parsed.get("save_version", -1))
-	if stored_version > SAVE_FORMAT_VERSION:
+	var primary_payload: Dictionary = _read_save_dictionary(SAVE_PATH)
+	var primary_version: int = _save_payload_version(primary_payload)
+	if primary_version > SAVE_FORMAT_VERSION:
 		_save_blocked_by_future_version = true
-		push_warning("Ignoring incompatible save format: %d" % stored_version)
+		push_warning("Ignoring incompatible save format: %d" % primary_version)
 		return
-	if parsed.is_empty() or stored_version != SAVE_FORMAT_VERSION:
+
+	var parsed: Dictionary = _migrate_save_payload(primary_payload)
+	var loaded_from_recovery: bool = false
+	var save_needs_rewrite: bool = !parsed.is_empty() and primary_version < SAVE_FORMAT_VERSION
+	if parsed.is_empty():
 		# A crash between removal and rename can leave the newest complete save
 		# in .tmp. Prefer it to the older backup, but never to a valid primary.
 		for recovery_path: String in [SAVE_TMP_PATH, SAVE_BACKUP_PATH]:
-			var recovered: Dictionary = _read_save_dictionary(recovery_path)
-			if int(recovered.get("save_version", -1)) == SAVE_FORMAT_VERSION:
-				parsed = recovered
-				loaded_from_recovery = true
-				break
+			var recovered_payload: Dictionary = _read_save_dictionary(recovery_path)
+			var recovered_version: int = _save_payload_version(recovered_payload)
+			if recovered_version > SAVE_FORMAT_VERSION:
+				continue
+			var recovered: Dictionary = _migrate_save_payload(recovered_payload)
+			if recovered.is_empty():
+				continue
+			parsed = recovered
+			loaded_from_recovery = true
+			save_needs_rewrite = true
+			break
 		if !loaded_from_recovery:
 			return
 
@@ -425,8 +461,47 @@ func load_game() -> void:
 	)
 	_normalize_single_player_buckets()
 
-	if loaded_from_recovery or guided_state_was_missing:
+	if loaded_from_recovery or save_needs_rewrite or guided_state_was_missing:
 		save_game()
+
+func _save_payload_version(payload: Dictionary) -> int:
+	if payload.is_empty():
+		return -1
+	var raw_version: Variant = payload.get("save_version", -1)
+	if !(raw_version is int or raw_version is float):
+		return -1
+	var numeric_version: float = float(raw_version)
+	if numeric_version != floor(numeric_version):
+		return -1
+	return int(numeric_version)
+
+func _migrate_save_payload(source: Dictionary) -> Dictionary:
+	if source.is_empty():
+		return {}
+	var migrated: Dictionary = source.duplicate(true)
+	var version: int = _save_payload_version(migrated)
+	if version < SAVE_MIGRATION_BASE_VERSION or version > SAVE_FORMAT_VERSION:
+		return {}
+	while version < SAVE_FORMAT_VERSION:
+		if !_apply_save_migration_step(migrated, version):
+			return {}
+		var next_version: int = _save_payload_version(migrated)
+		if next_version != version + 1:
+			push_error(
+				"Save migration %d must advance exactly one version, got %d"
+				% [version, next_version]
+			)
+			return {}
+		version = next_version
+	return migrated
+
+func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool:
+	# Add one explicit case for every released save-format transition. Each step
+	# mutates _payload in place and must set save_version = from_version + 1.
+	match from_version:
+		_:
+			push_error("Missing save migration step from version %d" % from_version)
+			return false
 
 func _read_save_dictionary(path: String) -> Dictionary:
 	if !FileAccess.file_exists(path):
@@ -498,9 +573,9 @@ func _load_coin_refill_ad_state_from_save(parsed: Dictionary) -> void:
 
 func _load_heart_refill_ad_state_from_save(parsed: Dictionary) -> void:
 	heart_refill_ad_views_remaining = clampi(
-		int(parsed.get("heart_refill_ad_views_remaining", COIN_REFILL_AD_MAX_VIEWS)),
+		int(parsed.get("heart_refill_ad_views_remaining", HEART_REFILL_AD_MAX_VIEWS)),
 		0,
-		COIN_REFILL_AD_MAX_VIEWS
+		HEART_REFILL_AD_MAX_VIEWS
 	)
 	heart_refill_ad_cooldown_until = maxi(
 		int(parsed.get("heart_refill_ad_cooldown_until", 0)),
@@ -510,9 +585,9 @@ func _load_heart_refill_ad_state_from_save(parsed: Dictionary) -> void:
 
 func _load_extra_attempt_ad_state_from_save(parsed: Dictionary) -> void:
 	extra_attempt_ad_views_remaining = clampi(
-		int(parsed.get("extra_attempt_ad_views_remaining", COIN_REFILL_AD_MAX_VIEWS)),
+		int(parsed.get("extra_attempt_ad_views_remaining", EXTRA_ATTEMPT_AD_MAX_VIEWS)),
 		0,
-		COIN_REFILL_AD_MAX_VIEWS
+		EXTRA_ATTEMPT_AD_MAX_VIEWS
 	)
 	extra_attempt_ad_cooldown_until = maxi(
 		int(parsed.get("extra_attempt_ad_cooldown_until", 0)),
@@ -621,7 +696,9 @@ func _home_profile_save_game() -> bool:
 	var save_absolute: String = ProjectSettings.globalize_path(SAVE_PATH)
 	var temp_absolute: String = ProjectSettings.globalize_path(SAVE_TMP_PATH)
 	var backup_absolute: String = ProjectSettings.globalize_path(SAVE_BACKUP_PATH)
-	if int(_read_save_dictionary(SAVE_PATH).get("save_version", -1)) == SAVE_FORMAT_VERSION:
+	var existing_primary: Dictionary = _read_save_dictionary(SAVE_PATH)
+	var existing_version: int = _save_payload_version(existing_primary)
+	if existing_version >= SAVE_MIGRATION_BASE_VERSION and existing_version <= SAVE_FORMAT_VERSION:
 		var backup_error: Error = DirAccess.copy_absolute(save_absolute, backup_absolute)
 		if backup_error != OK:
 			_save_write_in_progress = false
@@ -1509,7 +1586,7 @@ func _refresh_coin_refill_ad_cooldown(persist: bool) -> bool:
 
 func get_heart_refill_ad_views_remaining() -> int:
 	_refresh_heart_refill_ad_cooldown(true)
-	return clampi(heart_refill_ad_views_remaining, 0, COIN_REFILL_AD_MAX_VIEWS)
+	return clampi(heart_refill_ad_views_remaining, 0, HEART_REFILL_AD_MAX_VIEWS)
 
 func get_heart_refill_ad_cooldown_seconds() -> int:
 	_refresh_heart_refill_ad_cooldown(true)
@@ -1529,7 +1606,7 @@ func consume_heart_refill_ad_view(persist: bool = true) -> int:
 	if heart_refill_ad_views_remaining <= 0:
 		heart_refill_ad_views_remaining = 0
 		heart_refill_ad_cooldown_until = (
-			_coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+			_coin_refill_ad_now() + HEART_REFILL_AD_COOLDOWN_SECONDS
 		)
 	if persist:
 		save_game()
@@ -1552,7 +1629,7 @@ func grant_heart_refill_ad_reward(earned_receipt: bool = false) -> bool:
 	if heart_refill_ad_views_remaining > 0:
 		heart_refill_ad_views_remaining -= 1
 		if heart_refill_ad_views_remaining == 0:
-			heart_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+			heart_refill_ad_cooldown_until = _coin_refill_ad_now() + HEART_REFILL_AD_COOLDOWN_SECONDS
 	if !save_game():
 		hearts = previous_hearts
 		heart_recovery_at = previous_recovery_at
@@ -1566,7 +1643,7 @@ func _refresh_heart_refill_ad_cooldown(persist: bool) -> bool:
 	heart_refill_ad_views_remaining = clampi(
 		heart_refill_ad_views_remaining,
 		0,
-		COIN_REFILL_AD_MAX_VIEWS
+		HEART_REFILL_AD_MAX_VIEWS
 	)
 	if heart_refill_ad_views_remaining > 0:
 		if heart_refill_ad_cooldown_until != 0:
@@ -1576,13 +1653,13 @@ func _refresh_heart_refill_ad_cooldown(persist: bool) -> bool:
 			return true
 		return false
 	if heart_refill_ad_cooldown_until <= 0:
-		heart_refill_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		heart_refill_ad_cooldown_until = _coin_refill_ad_now() + HEART_REFILL_AD_COOLDOWN_SECONDS
 		if persist:
 			save_game()
 		return true
 	if _coin_refill_ad_now() < heart_refill_ad_cooldown_until:
 		return false
-	heart_refill_ad_views_remaining = COIN_REFILL_AD_MAX_VIEWS
+	heart_refill_ad_views_remaining = HEART_REFILL_AD_MAX_VIEWS
 	heart_refill_ad_cooldown_until = 0
 	if persist:
 		save_game()
@@ -1590,7 +1667,7 @@ func _refresh_heart_refill_ad_cooldown(persist: bool) -> bool:
 
 func get_extra_attempt_ad_views_remaining() -> int:
 	_refresh_extra_attempt_ad_cooldown(true)
-	return clampi(extra_attempt_ad_views_remaining, 0, COIN_REFILL_AD_MAX_VIEWS)
+	return clampi(extra_attempt_ad_views_remaining, 0, EXTRA_ATTEMPT_AD_MAX_VIEWS)
 
 func get_extra_attempt_ad_cooldown_seconds() -> int:
 	_refresh_extra_attempt_ad_cooldown(true)
@@ -1610,7 +1687,7 @@ func consume_extra_attempt_ad_view(persist: bool = true) -> int:
 	if extra_attempt_ad_views_remaining <= 0:
 		extra_attempt_ad_views_remaining = 0
 		extra_attempt_ad_cooldown_until = (
-			_coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+			_coin_refill_ad_now() + EXTRA_ATTEMPT_AD_COOLDOWN_SECONDS
 		)
 	if persist:
 		save_game()
@@ -1620,7 +1697,7 @@ func _refresh_extra_attempt_ad_cooldown(persist: bool) -> bool:
 	extra_attempt_ad_views_remaining = clampi(
 		extra_attempt_ad_views_remaining,
 		0,
-		COIN_REFILL_AD_MAX_VIEWS
+		EXTRA_ATTEMPT_AD_MAX_VIEWS
 	)
 	if extra_attempt_ad_views_remaining > 0:
 		if extra_attempt_ad_cooldown_until != 0:
@@ -1630,13 +1707,13 @@ func _refresh_extra_attempt_ad_cooldown(persist: bool) -> bool:
 			return true
 		return false
 	if extra_attempt_ad_cooldown_until <= 0:
-		extra_attempt_ad_cooldown_until = _coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
+		extra_attempt_ad_cooldown_until = _coin_refill_ad_now() + EXTRA_ATTEMPT_AD_COOLDOWN_SECONDS
 		if persist:
 			save_game()
 		return true
 	if _coin_refill_ad_now() < extra_attempt_ad_cooldown_until:
 		return false
-	extra_attempt_ad_views_remaining = COIN_REFILL_AD_MAX_VIEWS
+	extra_attempt_ad_views_remaining = EXTRA_ATTEMPT_AD_MAX_VIEWS
 	extra_attempt_ad_cooldown_until = 0
 	if persist:
 		save_game()

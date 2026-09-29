@@ -85,6 +85,10 @@ def main() -> None:
 
     for token in (
         "SAVE_FORMAT_VERSION: int = 2",
+        "SAVE_MIGRATION_BASE_VERSION: int = 2",
+        "func _migrate_save_payload",
+        "func _apply_save_migration_step",
+        "save_needs_rewrite",
         "SAVE_TMP_PATH",
         "SAVE_BACKUP_PATH",
         "file.flush()",
@@ -109,13 +113,55 @@ def main() -> None:
 
     for obsolete_migration_token in (
         "SAVE_V1_REMOVED_WORD_KEYS",
-        "func _migrate_save_payload",
         "func _migrate_v1_",
     ):
         require(
             obsolete_migration_token not in game_state,
             f"Pre-launch migration code is still present: {obsolete_migration_token}",
         )
+
+    migration_body = function_body(game_state, "_migrate_save_payload")
+    load_body = function_body(game_state, "load_game")
+    save_body = function_body(game_state, "_home_profile_save_game")
+    require(
+        "while version < SAVE_FORMAT_VERSION" in migration_body
+        and "_apply_save_migration_step" in migration_body
+        and "next_version != version + 1" in migration_body,
+        "Save migration pipeline must advance one explicit version at a time",
+    )
+    require(
+        "_migrate_save_payload(primary_payload)" in load_body
+        and "_migrate_save_payload(recovered_payload)" in load_body
+        and "primary_version > SAVE_FORMAT_VERSION" in load_body
+        and "save_needs_rewrite" in load_body,
+        "Primary/recovery saves are not routed through migration with future-version protection",
+    )
+    require(
+        "existing_version >= SAVE_MIGRATION_BASE_VERSION" in save_body
+        and "existing_version <= SAVE_FORMAT_VERSION" in save_body,
+        "First post-migration rewrite does not preserve the compatible primary as backup",
+    )
+
+    for token in (
+        "HEART_REFILL_AD_MAX_VIEWS",
+        "HEART_REFILL_AD_COOLDOWN_SECONDS",
+        "EXTRA_ATTEMPT_AD_MAX_VIEWS",
+        "EXTRA_ATTEMPT_AD_COOLDOWN_SECONDS",
+        '"economy.heart_refill_ad.maximum_views"',
+        '"economy.heart_refill_ad.cooldown_seconds"',
+        '"economy.extra_attempt_ad.maximum_views"',
+        '"economy.extra_attempt_ad.cooldown_seconds"',
+    ):
+        require(token in game_state, f"Independent rewarded-ad limit missing: {token}")
+    heart_refill_state = function_body(game_state, "_refresh_heart_refill_ad_cooldown")
+    extra_attempt_state = function_body(game_state, "_refresh_extra_attempt_ad_cooldown")
+    require(
+        "COIN_REFILL_AD_MAX_VIEWS" not in heart_refill_state
+        and "COIN_REFILL_AD_COOLDOWN_SECONDS" not in heart_refill_state
+        and "COIN_REFILL_AD_MAX_VIEWS" not in extra_attempt_state
+        and "COIN_REFILL_AD_COOLDOWN_SECONDS" not in extra_attempt_state,
+        "Heart/attempt rewarded quotas are still coupled to coin-refill settings",
+    )
 
     require("word_progress_key_from_text" in database, "Stable word identity is missing")
     require('"%s::%d"' in database, "Duplicate words do not receive stable occurrence keys")
@@ -518,11 +564,13 @@ def main() -> None:
     )
     stage_currency = function_body(main_source, "_single_player_stage_reward_currency")
     require(
-        "return GameState.STAGE_REWARD_COINS" in stage_currency
+        "GameState.STAGE_REWARD_COINS" in stage_currency
+        and "GameState.STAGE_REWARD_STARS" in stage_currency
+        and "_single_player_stage_is_quiz" in stage_currency
         and "QUIZ_STAGE_REWARD_COIN_MULTIPLIER" in function_body(
             main_source, "_single_player_stage_reward_amount"
         ),
-        "Hangman and embedded quiz must pay coins with distinct amounts",
+        "Hangman stages must pay stars while embedded quiz stages pay coins",
     )
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(

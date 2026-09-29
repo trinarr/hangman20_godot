@@ -313,6 +313,17 @@ def main() -> None:
     require(require_int(resolve(config, "economy.extra_attempts.count_step_interval"),
                         "economy.extra_attempts.count_step_interval") > 0,
             "Attempt interval must be positive")
+    for ad_path in ("coin_refill_ad", "heart_refill_ad", "extra_attempt_ad"):
+        maximum_views = require_int(
+            resolve(config, f"economy.{ad_path}.maximum_views"),
+            f"economy.{ad_path}.maximum_views",
+        )
+        cooldown_seconds = require_int(
+            resolve(config, f"economy.{ad_path}.cooldown_seconds"),
+            f"economy.{ad_path}.cooldown_seconds",
+        )
+        require(maximum_views > 0, f"economy.{ad_path}.maximum_views must be positive")
+        require(cooldown_seconds > 0, f"economy.{ad_path}.cooldown_seconds must be positive")
     maximum_balance = require_int(resolve(config, "economy.maximum_balance"), "economy.maximum_balance")
     maximum_reward = require_int(resolve(config, "economy.maximum_single_reward"), "economy.maximum_single_reward")
     require(maximum_balance > 0 and maximum_reward <= maximum_balance,

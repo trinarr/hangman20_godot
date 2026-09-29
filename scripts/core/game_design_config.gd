@@ -202,6 +202,15 @@ static func _validate_loaded_config() -> void:
 		_fatal_config_error("economy.maximum_single_reward must not exceed economy.maximum_balance")
 	if get_int("economy.extra_attempts.count_step_interval") <= 0:
 		_fatal_config_error("economy.extra_attempts.count_step_interval must be greater than zero")
+	for ad_path: String in [
+		"economy.coin_refill_ad",
+		"economy.heart_refill_ad",
+		"economy.extra_attempt_ad",
+	]:
+		if get_int(ad_path + ".maximum_views") <= 0:
+			_fatal_config_error(ad_path + ".maximum_views must be greater than zero")
+		if get_int(ad_path + ".cooldown_seconds") <= 0:
+			_fatal_config_error(ad_path + ".cooldown_seconds must be greater than zero")
 	if get_int("gameplay.max_mistakes") <= 0:
 		_fatal_config_error("gameplay.max_mistakes must be greater than zero")
 

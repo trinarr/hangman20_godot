@@ -164,6 +164,14 @@
     "coin_refill_ad": {
       "maximum_views": 5,
       "cooldown_seconds": 7200
+    },
+    "heart_refill_ad": {
+      "maximum_views": 5,
+      "cooldown_seconds": 7200
+    },
+    "extra_attempt_ad": {
+      "maximum_views": 5,
+      "cooldown_seconds": 7200
     }
   },
   "advertising": {
