@@ -17,16 +17,13 @@
       "answer": "RACKET",
       "hint": "A framed tool with strings used in tennis, badminton, and squash",
       "concept_score": 0.03782997,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "RACQUET"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-285570864175cd9d",
       "theme_id": 1,
       "answer": "SPORTSWOMAN",
-      "hint": "A female athlete trained to compete at a high level",
+      "hint": "A woman who takes part in sport.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0424
@@ -85,7 +82,7 @@
       "id": "en-afeb53092a26ee8f",
       "theme_id": 1,
       "answer": "GRANDMASTER",
-      "hint": "A chess player regarded as having the highest level of ability",
+      "hint": "A top lifetime title awarded to chess players who meet demanding performance standards.",
       "concept_score": 0.06508296,
       "assessment": "legacy_calibration"
     },
@@ -222,10 +219,7 @@
       "answer": "ATHLETICS",
       "hint": "A group of sports that includes running, jumping, and throwing.",
       "concept_score": 0.18,
-      "assessment": "individual_editorial_2026_09",
-      "aliases": [
-        "TRACK-AND-FIELD"
-      ]
+      "assessment": "individual_editorial_2026_09"
     },
     {
       "id": "en-fccd963454e556a1",
@@ -471,10 +465,7 @@
       "hint": "A sport in which two teams of eleven try to kick a ball into the opposing goal.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0751,
-      "aliases": [
-        "SOCCER"
-      ]
+      "score_adjustment": -0.0751
     },
     {
       "id": "en-7270ef7c1004a1ee",
@@ -1384,10 +1375,7 @@
       "answer": "HEADGUARD",
       "hint": "This padded helmet reduces impacts around the head during training",
       "concept_score": 0.43443396,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "BOXING HEADGUARD"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-ecd7b1233dfde4ca",
@@ -1412,10 +1400,7 @@
       "answer": "PUNCH MITT",
       "hint": "This padded handheld target lets a coach receive practiced strikes",
       "concept_score": 0.03415455,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FOCUS MITT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-5b8a1a336e88ef56",
@@ -1423,10 +1408,7 @@
       "answer": "PUNCHING BAG",
       "hint": "This suspended padded bag is hit during boxing practice",
       "concept_score": 0.87804213,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "HEAVY BAG"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-b3aee57f08a93f70",
@@ -1434,10 +1416,7 @@
       "answer": "GRAPPLING DUMMY",
       "hint": "This human-shaped training prop is used to rehearse throws and holds",
       "concept_score": 0.92050499,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "WRESTLING DUMMY"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-20243f646b573750",
@@ -1746,10 +1725,7 @@
       "answer": "WEIGHTED VEST",
       "hint": "A sleeveless garment with added weights that makes exercise harder.",
       "concept_score": 0.25,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "WEIGHT VEST"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-adee499e906874f5",
@@ -1890,10 +1866,7 @@
       "answer": "CAPTAIN'S ARMBAND",
       "hint": "A band worn on the upper arm to identify a team's leader.",
       "concept_score": 0.2,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "CAPTAIN ARMBAND"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-55ac6e3e7d6598b5",
@@ -1901,10 +1874,7 @@
       "answer": "REFEREE WHISTLE",
       "hint": "A referee uses this item to stop or restart play.",
       "concept_score": 0.90992968,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "COACH WHISTLE"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-7ff8a59b50c53c45",
@@ -1937,10 +1907,7 @@
       "answer": "BALL NET",
       "hint": "A mesh bag used to carry several sports balls.",
       "concept_score": 0.16,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "BALL CARRY NET"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-c006ee7a74c10e11",
@@ -2015,10 +1982,7 @@
       "answer": "ASSISTANT REFEREE",
       "hint": "A football official on the touchline who uses a flag to signal offside and other decisions.",
       "concept_score": 0.18,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "LINESMAN FLAG"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-c3d53f2383ddb6ab",
@@ -2058,10 +2022,7 @@
       "answer": "DISCUS",
       "hint": "A heavy disc thrown for distance in an athletics event.",
       "concept_score": 0.3,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "THROWING DISC"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-ac48c983899bc92c",
@@ -2069,10 +2030,7 @@
       "answer": "SKIPPING",
       "hint": "An exercise in which a rope passes over the head and under the feet with each jump.",
       "concept_score": 0.08,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "JUMP ROPE SESSION"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-9d0001855273187e",
@@ -2408,10 +2366,7 @@
       "answer": "OFFICIATING CREW",
       "hint": "Several rule enforcers work together during a match",
       "concept_score": 0.37995768,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "OFFICIATING PANEL"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-c97d696d0e064f08",
@@ -2769,10 +2724,7 @@
       "answer": "MAN-MARKING",
       "hint": "A defensive tactic in which a player follows one particular opponent.",
       "concept_score": 0.45,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "PERSONAL MAN-MARKING"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-f7e4bcff918bc9a1",
@@ -3077,10 +3029,7 @@
       "answer": "HALF-TIME",
       "hint": "An interval divides a match into two parts",
       "concept_score": 0.05998327,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "HALF-TIME BREAK"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-b248be2f7497ec05",
@@ -3112,10 +3061,7 @@
       "answer": "SPRINT FINISH",
       "hint": "A burst of speed at the end of a race to reach the line ahead of other competitors.",
       "concept_score": 0.06009365,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FINISHING SPRINT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-8f516e9a5fc5f39d",
@@ -3722,10 +3668,7 @@
       "hint": "The world's deepest lake, in Siberia, famous for its clear winter ice.",
       "concept_score": 0.37703182,
       "assessment": "legacy_calibration",
-      "minimum": 0.34,
-      "aliases": [
-        "LAKE BAIKAL"
-      ]
+      "minimum": 0.34
     },
     {
       "id": "en-8125d6165d5212c4",
@@ -3752,10 +3695,7 @@
       "hint": "A major European river that flows through Vienna, Budapest and Belgrade.",
       "concept_score": 0.04490081,
       "assessment": "legacy_calibration",
-      "maximum": 0.18,
-      "aliases": [
-        "RIVER DANUBE"
-      ]
+      "maximum": 0.18
     },
     {
       "id": "en-afcd715c3eb4142b",
@@ -4594,10 +4534,7 @@
       "answer": "COASTAL SPIT",
       "hint": "This narrow sand deposit extends outward from a shoreline",
       "concept_score": 0.90484052,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "SAND SPIT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-9f260ca3471b6e6b",
@@ -4606,10 +4543,7 @@
       "hint": "A pile or ridge of rocks and soil left behind by a glacier.",
       "concept_score": 0.11025795,
       "assessment": "legacy_calibration",
-      "maximum": 0.22,
-      "aliases": [
-        "MORAINE RIDGE"
-      ]
+      "maximum": 0.22
     },
     {
       "id": "en-0208289baa8b6273",
@@ -4700,11 +4634,7 @@
       "hint": "A hollow in the ground formed when the surface collapses into a space below.",
       "concept_score": 0.04165188,
       "assessment": "legacy_calibration",
-      "maximum": 0.22,
-      "aliases": [
-        "DOLINE",
-        "KARST SINKHOLE"
-      ]
+      "maximum": 0.22
     },
     {
       "id": "en-8babe106e80429c9",
@@ -4857,10 +4787,7 @@
       "answer": "DEFLATION",
       "hint": "This process removes loose sediment through wind action.",
       "concept_score": 0.95601215,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "AEOLIAN DEFLATION"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-bd3b90b519520ce5",
@@ -4887,10 +4814,7 @@
       "hint": "This map line joins points at the same elevation.",
       "concept_score": 0.2147357,
       "assessment": "legacy_calibration",
-      "maximum": 0.28,
-      "aliases": [
-        "HYPSOMETRIC CONTOUR"
-      ]
+      "maximum": 0.28
     },
     {
       "id": "en-de46e0fbb1df919e",
@@ -5093,10 +5017,7 @@
       "answer": "MOUNTAIN VALLEY",
       "hint": "Low land lies between high ranges",
       "concept_score": 0.08001324,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "HIGHLAND VALLEY"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-10c7cd57ac4b169f",
@@ -5424,10 +5345,7 @@
       "answer": "STRAIT",
       "hint": "A narrow waterway connecting two larger bodies of water.",
       "concept_score": 0.18,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "SEA STRAIT"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-8acb8323d73660c5",
@@ -5539,10 +5457,7 @@
       "answer": "PLATEAU",
       "hint": "A large area of flat land raised above the surrounding countryside.",
       "concept_score": 0.28,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "HIGH PLATEAU"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-bad3bcf9741c7462",
@@ -5606,10 +5521,7 @@
       "answer": "MIGRATION",
       "hint": "The movement of people from one region or country to another to live.",
       "concept_score": 0.2,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "POPULATION MIGRATION"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-304a35dbeb8147b6",
@@ -6080,10 +5992,7 @@
       "answer": "HEDGEHOG",
       "hint": "A small mammal with a spiny back that curls into a ball when threatened.",
       "concept_score": 0.09639638,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "WOODLAND HEDGEHOG"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-df9cbdf96b0391ec",
@@ -7315,10 +7224,7 @@
       "answer": "NECTAR",
       "hint": "This sugary liquid is produced by flowers to attract animals",
       "concept_score": 0.06030033,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FLOWER NECTAR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-b194d090ca899692",
@@ -7450,10 +7356,7 @@
       "answer": "MOSS",
       "hint": "This small nonvascular plant forms soft mats in damp places",
       "concept_score": 0.01241043,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "MOSS CUSHION"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-ac00af03e9acae27",
@@ -7461,10 +7364,7 @@
       "answer": "ALGAE",
       "hint": "Simple organisms that mostly live in water and use sunlight to make food.",
       "concept_score": 0.05041085,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "COASTAL ALGAE"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-34c0c1590a055646",
@@ -7472,10 +7372,7 @@
       "answer": "PLANKTON",
       "hint": "These drifting organisms are carried by currents in water",
       "concept_score": 0.06184455,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "MARINE PLANKTON"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-8a90c5eafc91d6e7",
@@ -7542,10 +7439,7 @@
       "answer": "CHROMOSOME",
       "hint": "A structure inside a cell that carries DNA and inherited information.",
       "concept_score": 0.03516664,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "CHROMOSOMES"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-db2c6f19d844af7d",
@@ -8149,7 +8043,7 @@
       "id": "en-ea073023ccb47e17",
       "theme_id": 3,
       "answer": "FOREST FLOOR",
-      "hint": "Fallen leaves and twigs cover the ground beneath trees",
+      "hint": "The ground layer beneath woodland trees, often covered with fallen leaves and other organic matter.",
       "concept_score": 0.39991538,
       "assessment": "legacy_calibration"
     },
@@ -8175,10 +8069,7 @@
       "answer": "SEASONAL MOLTING",
       "hint": "An animal replaces fur or feathers during part of the year",
       "concept_score": 0.45001088,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "SPRING MOULT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-47ca1d7845b77892",
@@ -8290,10 +8181,7 @@
       "answer": "HERON",
       "hint": "A long-legged bird that stands in shallow water to catch fish with its pointed bill.",
       "concept_score": 0.25,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "MARSH HERON"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-62455d8be7bfc096",
@@ -8631,10 +8519,7 @@
       "answer": "DAISY",
       "hint": "A small flower with white petals around a yellow centre, often found on lawns.",
       "concept_score": 0.08,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "FIELD DAISY"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-78322681680c0f6a",
@@ -8770,10 +8655,7 @@
       "answer": "MARINE LIFE",
       "hint": "The animals and plants that live in the sea.",
       "concept_score": 0.1,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "UNDERWATER WORLD"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-0a1fb0023a5ae92b",
@@ -8841,10 +8723,7 @@
       "hint": "An engine part that mixes air with fuel before combustion.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.043,
-      "aliases": [
-        "CARBURETOR"
-      ]
+      "score_adjustment": 0.043
     },
     {
       "id": "en-eda06c9cfd155b80",
@@ -9170,7 +9049,7 @@
       "id": "en-822167b0e8af30bc",
       "theme_id": 4,
       "answer": "MISSILE",
-      "hint": "A rocket-propelled weapon",
+      "hint": "A weapon designed to fly towards a target, often with a guidance system.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0078
@@ -9282,10 +9161,7 @@
       "hint": "An urban train system that runs largely, but not always entirely, underground.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0329,
-      "aliases": [
-        "UNDERGROUND"
-      ]
+      "score_adjustment": -0.0329
     },
     {
       "id": "en-92c18e85002b5d65",
@@ -9461,10 +9337,7 @@
       "answer": "GPS NAVIGATOR",
       "hint": "A dashboard device uses satellites to guide a driver along a route",
       "concept_score": 0.02183128,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "NAVIGATOR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-ea07fa208a16bb46",
@@ -9523,10 +9396,7 @@
       "hint": "In robots, this mechanism turns a part to a precise angle",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.0051,
-      "aliases": [
-        "SERVOMOTOR"
-      ]
+      "score_adjustment": 0.0051
     },
     {
       "id": "en-81f4195b974cbfde",
@@ -9586,10 +9456,7 @@
       "answer": "ELECTRIC SCOOTER",
       "hint": "A compact city vehicle uses a motor, handlebar, and narrow deck",
       "concept_score": 0.04174591,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "E-SCOOTER"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-e8e5553698a52c7e",
@@ -9632,10 +9499,7 @@
       "answer": "BRAIN IMPLANT",
       "hint": "An electronic device placed in the brain to record or stimulate nerve activity.",
       "concept_score": 0.38,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "NEURAL CHIP"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-b09d8c45a38daf0f",
@@ -9735,10 +9599,7 @@
       "answer": "AERIAL CAMERA",
       "hint": "A camera mounted on an aircraft to take pictures of the ground below.",
       "concept_score": 0.18,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "DRONE CAM"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-2dc6407a3e1c8234",
@@ -9795,10 +9656,7 @@
       "answer": "TWO-STEP VERIFICATION",
       "hint": "A sign-in process that requires an extra check, such as a code, after entering a password.",
       "concept_score": 0.16,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "TWO-FACTOR AUTH"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-895f4dec7ef5d23c",
@@ -9954,10 +9812,7 @@
       "answer": "DASHCAM",
       "hint": "This camera records the road from inside a moving vehicle.",
       "concept_score": 0.15880849,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "DASHBOARD CAMERA"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-f11a94d2052aff28",
@@ -10425,10 +10280,7 @@
       "answer": "DIFFERENTIAL",
       "hint": "This drivetrain unit lets powered wheels rotate at different speeds",
       "concept_score": 0.86202901,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "DIFFERENTIAL GEAR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-fa9c89707a2e932b",
@@ -10668,10 +10520,7 @@
       "answer": "LANDING GEAR",
       "hint": "This support system allows an aircraft to take off and land.",
       "concept_score": 0.85259023,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "UNDERCARRIAGE"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-2233b6bbecddc672",
@@ -10885,10 +10734,7 @@
       "answer": "BATTERY",
       "hint": "A small removable cell supplies energy to portable devices",
       "concept_score": 0.0499701,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ACCUMULATOR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-48d310d446df4d4f",
@@ -11136,10 +10982,7 @@
       "answer": "NOISE CANCELLATION",
       "hint": "Audio processing reduces steady background sound",
       "concept_score": 0.42007686,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "NOISE CANCELLING"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-a40b3e474d91dd89",
@@ -11275,10 +11118,7 @@
       "answer": "HYBRID CAR",
       "hint": "A vehicle that uses both a fuel-burning engine and an electric motor.",
       "concept_score": 0.16,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "HYBRID ENGINE"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-d86b98c26a3c2271",
@@ -11922,10 +11762,7 @@
       "answer": "GENGHIS KHAN",
       "hint": "The ruler who united Mongol tribes and founded a vast empire in the thirteenth century.",
       "concept_score": 0.23,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "TEMUJIN"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-8874e0deceb5514d",
@@ -12073,10 +11910,7 @@
       "answer": "LEONARDO DA VINCI",
       "hint": "Painter of the famed \"The Last Supper\"",
       "concept_score": 0.05967957,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "DA VINCI"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-af83b3b65d987d35",
@@ -12272,10 +12106,7 @@
       "answer": "FORENSIC SCIENTIST",
       "hint": "At a crime scene, this specialist examines traces to reconstruct what happened",
       "concept_score": 0.01215072,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FORENSIC EXPERT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-926b3b1e6d9a5af8",
@@ -12300,10 +12131,7 @@
       "answer": "INTERPRETER",
       "hint": "A person who translates spoken or signed language live.",
       "concept_score": 0.14,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "SIGN INTERPRETER"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-8a02a2331ffbbb37",
@@ -12571,7 +12399,7 @@
       "id": "en-a1dfcf014c9c871d",
       "theme_id": 5,
       "answer": "RYAN GOSLING",
-      "hint": "The actor played a jazz pianist in La La Land and Ken in a bright comedy",
+      "hint": "The actor who played a jazz pianist in La La Land and Ken in Barbie.",
       "concept_score": 0.06354997,
       "assessment": "legacy_calibration"
     },
@@ -13414,10 +13242,7 @@
       "answer": "FRONT-END DEVELOPER",
       "hint": "A programmer who builds the visible, interactive parts of websites.",
       "concept_score": 0.38,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "WEB LAYOUT DESIGNER"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-78b282be9140886e",
@@ -13622,10 +13447,7 @@
       "answer": "CONTENT CREATOR",
       "hint": "This professional produces material for an online audience.",
       "concept_score": 0.88429267,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "CREATOR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-1887595cbeb86a8f",
@@ -14035,10 +13857,7 @@
       "answer": "TECHNICIAN",
       "hint": "Maintains, adjusts, and repairs equipment",
       "concept_score": 0.37997252,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "SERVICE TECHNICIAN"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-cc5d7acb1d96472e",
@@ -14158,10 +13977,7 @@
       "answer": "JEWELLER",
       "hint": "Makes and repairs rings, necklaces, and precious ornaments",
       "concept_score": 0.37983208,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "JEWELER"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-480786737a00c3ae",
@@ -14273,10 +14089,7 @@
       "answer": "LINGUIST",
       "hint": "Studies the structure, development, and use of languages",
       "concept_score": 0.37997006,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "LANGUAGE SCHOLAR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-199b441d73c065e7",
@@ -14404,10 +14217,7 @@
       "answer": "COIN COLLECTOR",
       "hint": "A person who gathers old or unusual money as a hobby.",
       "concept_score": 0.12,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "ANCIENT NUMISMATIST"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-dd939187e1b54830",
@@ -14862,10 +14672,7 @@
       "answer": "SHORTBREAD",
       "hint": "A rich, crumbly biscuit made mainly from butter, flour, and sugar.",
       "concept_score": 0.10708122,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "SHORTBREAD BISCUIT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-c282b8c7a535be71",
@@ -14889,10 +14696,7 @@
       "answer": "BUTTERNUT SQUASH",
       "hint": "A pear-shaped winter vegetable with beige skin, orange flesh and a sweet, nutty taste.",
       "concept_score": 0.2,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "BUTTERNUT"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-756f011eb737fad4",
@@ -14956,10 +14760,7 @@
       "answer": "DOUGHNUT",
       "hint": "A small ring-shaped cake",
       "concept_score": 0.05331578,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "DONUT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-5545fa8f4949f1aa",
@@ -15538,10 +15339,7 @@
       "answer": "SORBET",
       "hint": "This frozen dessert uses fruit and sugar but usually no dairy",
       "concept_score": 0.12717495,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FRUIT SORBET"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-876932fce8dcc9fc",
@@ -16234,10 +16032,7 @@
       "hint": "This quiet venue serves tea with light food or pastries",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0405,
-      "aliases": [
-        "TEA HOUSE"
-      ]
+      "score_adjustment": -0.0405
     },
     {
       "id": "en-766f975cfcf8383a",
@@ -16451,10 +16246,7 @@
       "answer": "CHEF'S KNIFE",
       "hint": "A large all-purpose kitchen blade used for chopping and slicing.",
       "concept_score": 0.08,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "CHEF KNIFE"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-252b72c0016c3d9e",
@@ -16579,10 +16371,7 @@
       "answer": "WHISK",
       "hint": "This wire utensil beats eggs, cream, or sauces.",
       "concept_score": 0.05447095,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "BALLOON WHISK"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-0285a419b0ba7725",
@@ -16700,10 +16489,7 @@
       "hint": "Bread and other baked goods are produced in this place.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.008,
-      "aliases": [
-        "BAKESHOP"
-      ]
+      "score_adjustment": -0.008
     },
     {
       "id": "en-93299ac7a316314b",
@@ -16728,10 +16514,7 @@
       "answer": "SIEVE",
       "hint": "This fine mesh separates particles or strains liquid.",
       "concept_score": 0.10989498,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FINE STRAINER"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-a8e2ac6e1f488e63",
@@ -16945,10 +16728,7 @@
       "answer": "TOAST",
       "hint": "Bread browned until crisp using a grill or a small electric appliance.",
       "concept_score": 0.03,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "TOASTED BREAD"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-78328f4b651c044e",
@@ -17076,10 +16856,7 @@
       "answer": "VEGETABLE STEW",
       "hint": "Mixed garden produce is slowly cooked together in one pot",
       "concept_score": 0.0400442,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "STEWED VEGETABLES"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-424ff5f5e2ff8390",
@@ -17095,10 +16872,7 @@
       "answer": "MEATBALL",
       "hint": "A sphere of seasoned mince is cooked in sauce or soup",
       "concept_score": 0.03997622,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "SMALL MEATBALL"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-fd10a65145dd84c9",
@@ -17122,10 +16896,7 @@
       "answer": "KVASS",
       "hint": "A lightly fermented drink traditionally made from rye bread.",
       "concept_score": 0.5,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "BREAD DRINK"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-d9b2f92ba3236d51",
@@ -17181,10 +16952,7 @@
       "answer": "WHOLEGRAIN BREAD",
       "hint": "Bread made with whole cereal grains, including their outer layers.",
       "concept_score": 0.12,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "GRAIN LOAF"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-bdbdfa540929ac4d",
@@ -17416,10 +17184,7 @@
       "answer": "CIDER VINEGAR",
       "hint": "A sour liquid made from fermented apple juice, used in dressings and cooking.",
       "concept_score": 0.16,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "APPLE VINEGAR"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-95f5142bbbfb15cb",
@@ -17633,10 +17398,7 @@
       "answer": "GELLING",
       "hint": "The process of making a liquid set into a jelly-like consistency.",
       "concept_score": 0.35,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "GELIFICATION"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-0a446be658b2a84f",
@@ -17929,10 +17691,7 @@
       "answer": "FERMENTED MILK",
       "hint": "Helpful bacteria give this dairy drink a tangy taste",
       "concept_score": 0.13993223,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "CULTURED MILK DRINK"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-d018bf6f4d695bb9",
@@ -18080,10 +17839,7 @@
       "hint": "A proposed explanation that can be tested against evidence.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0171,
-      "aliases": [
-        "TESTABLE IDEA"
-      ]
+      "score_adjustment": -0.0171
     },
     {
       "id": "en-fb4dcf2e21e1dd74",
@@ -18692,10 +18448,7 @@
       "answer": "NEURON",
       "hint": "This cell carries signals through the brain and nervous system",
       "concept_score": 0.09565909,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "NERVE CELL"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-ea0dbcdf47c52225",
@@ -19181,10 +18934,7 @@
       "answer": "CHEMICAL INDICATOR",
       "hint": "A substance changes appearance to reveal a condition in a mixture",
       "concept_score": 0.45,
-      "assessment": "individual_chemistry",
-      "aliases": [
-        "INDICATOR"
-      ]
+      "assessment": "individual_chemistry"
     },
     {
       "id": "en-fafa681faa19da2c",
@@ -19496,10 +19246,7 @@
       "answer": "REFLECTION",
       "hint": "Light, sound, or another wave returns from a surface",
       "concept_score": 0.09999504,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "LIGHT REFLECTION"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-f8ce5d1f51408ee3",
@@ -19523,10 +19270,7 @@
       "answer": "FRICTION",
       "hint": "A force resists sliding between touching surfaces",
       "concept_score": 0.12004083,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "FRICTION FORCE"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-4ec741db67c30489",
@@ -20079,10 +19823,7 @@
       "answer": "SOLID",
       "hint": "A state of matter that keeps its own shape and volume, such as ice or stone.",
       "concept_score": 0.06,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "SOLID BODY"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-5d84bf961ca81640",
@@ -20090,10 +19831,7 @@
       "answer": "LIQUID",
       "hint": "A state of matter that keeps its volume but takes the shape of its container.",
       "concept_score": 0.06,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "LIQUID STATE"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-be3b985ff1fd9f58",
@@ -20157,10 +19895,7 @@
       "answer": "DENSITY",
       "hint": "How much mass a material has for a given amount of space.",
       "concept_score": 0.23,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "MATERIAL DENSITY"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-b68ec903f0773842",
@@ -20168,10 +19903,7 @@
       "answer": "CELL",
       "hint": "The smallest living unit of an organism",
       "concept_score": 0.05992453,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "LIVING CELL"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-039d01ce10ad89a7",
@@ -20332,10 +20064,7 @@
       "hint": "A succession of rulers from the same family or line",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.005,
-      "aliases": [
-        "RULING DYNASTY"
-      ]
+      "score_adjustment": -0.005
     },
     {
       "id": "en-baee2c17926b2ceb",
@@ -20360,10 +20089,7 @@
       "answer": "RENAISSANCE",
       "hint": "A period of European art and learning, roughly from the fourteenth to seventeenth centuries, inspired by ancient Greece and Rome.",
       "concept_score": 0.00101738,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "RENAISSANCE ERA"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-66bca00826d28223",
@@ -20399,10 +20125,7 @@
       "hint": "A character of the ancient Egyptian writing system",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.0382,
-      "aliases": [
-        "HIEROGLYPHICS"
-      ]
+      "score_adjustment": 0.0382
     },
     {
       "id": "en-9ded3eb7981f2b2f",
@@ -20437,10 +20160,7 @@
       "hint": "A book, document, or other composition written by hand",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0472,
-      "aliases": [
-        "HANDWRITTEN BOOK"
-      ]
+      "score_adjustment": -0.0472
     },
     {
       "id": "en-a2c330064588ac5a",
@@ -20672,10 +20392,7 @@
       "hint": "The legislative council of ancient Rome",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0464,
-      "aliases": [
-        "ROMAN SENATE"
-      ]
+      "score_adjustment": -0.0464
     },
     {
       "id": "en-18a4a8107301a44c",
@@ -20743,10 +20460,7 @@
       "answer": "AQUEDUCT",
       "hint": "Water travelled into ancient cities along this engineered route",
       "concept_score": 0.06571384,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ROMAN AQUEDUCT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-d835a68f7fc549d1",
@@ -20806,10 +20520,7 @@
       "hint": "Medieval craftspeople formed these groups to protect their trade",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.021,
-      "aliases": [
-        "GUILD CRAFT"
-      ]
+      "score_adjustment": -0.021
     },
     {
       "id": "en-fcfd0da9545b76bb",
@@ -20882,10 +20593,7 @@
       "answer": "OLYMPIA",
       "hint": "The ancient Greek sanctuary where games were held in honour of Zeus.",
       "concept_score": 0.38,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "ANCIENT OLYMPIA"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-0f9eb76b93fc3c63",
@@ -21346,10 +21054,7 @@
       "answer": "SUFFRAGE",
       "hint": "The right to vote in political elections.",
       "concept_score": 0.02711257,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "VOTING RIGHTS"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-bc94dceedea09d6e",
@@ -21398,10 +21103,7 @@
       "answer": "DOUBLE HELIX",
       "hint": "The shape of DNA, resembling a twisted ladder, whose structure was established in 1953.",
       "concept_score": 0.35,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "DNA DISCOVERY"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-aa8efe2659bedd6a",
@@ -21514,10 +21216,7 @@
       "answer": "BOLAS",
       "hint": "This throwing weapon tangles a target with weighted cords.",
       "concept_score": 0.18314163,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "BOLA"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-1edf483792242150",
@@ -21769,10 +21468,7 @@
       "answer": "JOUSTING",
       "hint": "A medieval contest in which riders charged at each other with lances.",
       "concept_score": 0.28,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "KNIGHTLY TOURNAMENT"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-6e1bb325d0592acd",
@@ -21788,10 +21484,7 @@
       "answer": "COIN",
       "hint": "A small flat piece of metal used as money, often stamped with a ruler's portrait.",
       "concept_score": 0.02,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "OLD COIN"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-54a601672fd86433",
@@ -21863,10 +21556,7 @@
       "answer": "STEAM TRAIN",
       "hint": "A locomotive used hot vapour from a boiler to move along rails",
       "concept_score": 0.09986146,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "EARLY LOCOMOTIVE"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-c16f491aa16885d0",
@@ -21970,10 +21660,7 @@
       "answer": "SCROLL",
       "hint": "A long sheet of paper or parchment rolled up for storage, used for written texts.",
       "concept_score": 0.2,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "HANDWRITTEN SCROLL"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-48a0c390596efa9f",
@@ -22005,10 +21692,7 @@
       "answer": "DECREE",
       "hint": "An official order issued by a ruler or government.",
       "concept_score": 0.3,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "ROYAL DECREE"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-147d06adaa5edbfe",
@@ -22128,11 +21812,7 @@
       "answer": "CENSUS",
       "hint": "An official count of the people living in a country, often recording household details.",
       "concept_score": 0.27,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "CENSUS RECORD",
-        "POPULATION CENSUS"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-8fafbcf963c178db",
@@ -22231,10 +21911,7 @@
       "answer": "SUFFRAGETTE",
       "hint": "A woman who campaigned for the right to vote, especially in Britain in the early twentieth century.",
       "concept_score": 0.4,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "SUFFRAGISM"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-8751f8e4da28f41b",
@@ -22284,10 +21961,7 @@
       "answer": "EMANCIPATION",
       "hint": "The act of freeing people from slavery or other legal restrictions.",
       "concept_score": 0.38,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "SLAVERY ABOLITION"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-e99a896a93f94cd7",
@@ -22311,10 +21985,7 @@
       "answer": "YURI GAGARIN",
       "hint": "The Soviet cosmonaut who became the first person in space in 1961.",
       "concept_score": 0.3,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "GAGARIN FLIGHT"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-c70069fd6a4521f9",
@@ -22362,10 +22033,7 @@
       "answer": "PYRAMID",
       "hint": "A huge ancient Egyptian tomb with triangular sides meeting at a point.",
       "concept_score": 0.1,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "EGYPTIAN PYRAMID"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-29f7b545d7c50f63",
@@ -22413,10 +22081,7 @@
       "answer": "MOAT",
       "hint": "A deep defensive ditch around a fortress, often filled with water.",
       "concept_score": 0.2,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "CASTLE MOAT"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-e149391cf1a898a2",
@@ -22528,10 +22193,7 @@
       "answer": "HUNDRED YEARS' WAR",
       "hint": "England and France fought a long medieval conflict",
       "concept_score": 0.13995837,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "HUNDRED YEARS WAR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-83577c70e64c56c4",
@@ -22681,10 +22343,7 @@
       "answer": "BINOCULARS",
       "hint": "An optical device held to both eyes to make distant objects look closer.",
       "concept_score": 0.12,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "BINOCULAR"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-9229dab161d4d3f9",
@@ -23410,10 +23069,7 @@
       "answer": "RUBIK'S CUBE",
       "hint": "This twisty puzzle has six coloured faces that turn in layers",
       "concept_score": 0.21739461,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "RUBIKS CUBE"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-43c5d8cea08f3aac",
@@ -23497,10 +23153,7 @@
       "answer": "PUSH NOTIFICATION",
       "hint": "A short app message appears over the screen without opening the programme",
       "concept_score": 0.83389846,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "PUSH ALERT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-1eda519a7154137b",
@@ -23951,10 +23604,7 @@
       "answer": "WEBCAM",
       "hint": "This small camera sends live video to a computer",
       "concept_score": 0.00934826,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "WEB CAMERA"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-083462e6b27e9741",
@@ -24195,10 +23845,7 @@
       "answer": "CLOTHES HANGER",
       "hint": "This shaped frame supports a garment inside a wardrobe",
       "concept_score": 0.90728405,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "COAT HANGER"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-ba5024d96f6ca23a",
@@ -24206,10 +23853,7 @@
       "answer": "LAUNDRY BASKET",
       "hint": "This open container holds clothing before or after washing",
       "concept_score": 0.8305874,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "CLOTHES HAMPER"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-c64b159d96730bb4",
@@ -24348,10 +23992,7 @@
       "hint": "This personal record provides access to a digital service.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0753,
-      "aliases": [
-        "ONLINE ACCOUNT"
-      ]
+      "score_adjustment": -0.0753
     },
     {
       "id": "en-38cbf9424447547d",
@@ -24383,10 +24024,7 @@
       "answer": "KEYRING",
       "hint": "This small holder keeps several keys together.",
       "concept_score": 0.14300636,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "KEY RING"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-edc035f1e038077b",
@@ -24420,10 +24058,7 @@
       "hint": "This service carries an order to a chosen address.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.064,
-      "aliases": [
-        "DELIVERY SERVICE"
-      ]
+      "score_adjustment": -0.064
     },
     {
       "id": "en-f1127a7fd8a5697b",
@@ -24474,10 +24109,7 @@
       "answer": "MESSAGING APP",
       "hint": "Software for sending instant text messages, photos and voice recordings to other people.",
       "concept_score": 0.04,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "MESSENGER"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-bfd3e1a03f096699",
@@ -24486,10 +24118,7 @@
       "hint": "This newer release fixes or adds features to software.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0631,
-      "aliases": [
-        "SYSTEM UPDATE"
-      ]
+      "score_adjustment": -0.0631
     },
     {
       "id": "en-b6159d32b53beaca",
@@ -24507,10 +24136,7 @@
       "hint": "This secret string protects access to an account.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0283,
-      "aliases": [
-        "SECURE PASSWORD"
-      ]
+      "score_adjustment": -0.0283
     },
     {
       "id": "en-cb13f17186bf029c",
@@ -24769,10 +24395,7 @@
       "answer": "SHOPPING LIST",
       "hint": "A written reminder records items to buy",
       "concept_score": 0.03003228,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "GROCERY LIST"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-b9fcd3e58226d2dc",
@@ -24972,10 +24595,7 @@
       "answer": "PEEPHOLE",
       "hint": "A small opening or lens in a door that lets someone inside see a visitor outside.",
       "concept_score": 0.15,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "DOOR VIEWER"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-65fc507aadc5a9aa",
@@ -25007,10 +24627,7 @@
       "answer": "PAYMENT RECEIPT",
       "hint": "A document confirms money paid for a service or product",
       "concept_score": 0.38013966,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "SALES RECEIPT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-dcd45a8a71c31f9c",
@@ -25050,10 +24667,7 @@
       "answer": "USER MANUAL",
       "hint": "A document explains safe operation and care of a device",
       "concept_score": 0.38002566,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "INSTRUCTION MANUAL"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-3e8ea488d17811ab",
@@ -25633,10 +25247,7 @@
       "answer": "LIBRARY CARD",
       "hint": "A document allows someone to borrow books",
       "concept_score": 0.05997408,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "LIBRARY MEMBERSHIP"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-d426bb4458e83bcd",
@@ -25671,10 +25282,7 @@
       "hint": "The person who guides how a film is made",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0809,
-      "aliases": [
-        "FILM DIRECTOR"
-      ]
+      "score_adjustment": -0.0809
     },
     {
       "id": "en-5179160772eddcfd",
@@ -25692,10 +25300,7 @@
       "hint": "On a film set, this device records the action through a lens",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0596,
-      "aliases": [
-        "MOVIE CAMERA"
-      ]
+      "score_adjustment": -0.0596
     },
     {
       "id": "en-e722bc43c15e2a6a",
@@ -25704,10 +25309,7 @@
       "hint": "Moving images appear on this surface in a cinema",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0554,
-      "aliases": [
-        "MOVIE SCREEN"
-      ]
+      "score_adjustment": -0.0554
     },
     {
       "id": "en-b5aec621f94851f8",
@@ -25734,10 +25336,7 @@
       "hint": "The first public showing of a new film or stage production",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0082,
-      "aliases": [
-        "FILM PREMIERE"
-      ]
+      "score_adjustment": -0.0082
     },
     {
       "id": "en-310cb6b5b7377fd9",
@@ -25839,10 +25438,7 @@
       "hint": "After filming, a specialist joins separate recordings into one clear story",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0282,
-      "aliases": [
-        "FILM EDITING"
-      ]
+      "score_adjustment": -0.0282
     },
     {
       "id": "en-b7b4b9c6f7b0c0b0",
@@ -25867,10 +25463,7 @@
       "hint": "This cinema term counts how much money ticket sales earn",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0778,
-      "aliases": [
-        "BOX OFFICE REVENUE"
-      ]
+      "score_adjustment": -0.0778
     },
     {
       "id": "en-de3cf9d397f4827b",
@@ -25949,10 +25542,7 @@
       "hint": "The pattern of long and short sounds and pauses in music that helps give a tune its pulse.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0121,
-      "aliases": [
-        "MUSICAL RHYTHM"
-      ]
+      "score_adjustment": -0.0121
     },
     {
       "id": "en-667936a67c3a4812",
@@ -26031,10 +25621,7 @@
       "hint": "A musician releases this collection of tracks as one work",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0907,
-      "aliases": [
-        "MUSIC ALBUM"
-      ]
+      "score_adjustment": -0.0907
     },
     {
       "id": "en-b74791f97a2606d2",
@@ -26121,10 +25708,7 @@
       "hint": "In an orchestra, this written page shows all the instrumental parts together",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0669,
-      "aliases": [
-        "MUSICAL SCORE"
-      ]
+      "score_adjustment": -0.0669
     },
     {
       "id": "en-5464672e1695f6cf",
@@ -26269,10 +25853,7 @@
       "answer": "THE TERMINATOR",
       "hint": "A film in which a machine from the future hunts the mother of a future leader",
       "concept_score": 0.01976205,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "TERMINATOR"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-fb90fcc382fa97c1",
@@ -26800,10 +26381,7 @@
       "hint": "This nonfiction film form explores real people, events, or subjects.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0778,
-      "aliases": [
-        "DOCUMENTARY FILM"
-      ]
+      "score_adjustment": -0.0778
     },
     {
       "id": "en-6d023bb328b0e669",
@@ -27483,10 +27061,7 @@
       "answer": "PAN'S LABYRINTH",
       "hint": "This dark fantasy film follows a girl entering a dangerous mythical world",
       "concept_score": 0.92373717,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "PANS LABYRINTH"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-32313e674c351e95",
@@ -27779,10 +27354,7 @@
       "answer": "THE QUEEN'S GAMBIT",
       "hint": "This miniseries follows a gifted competitive chess player.",
       "concept_score": 0.85757476,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "THE QUEENS GAMBIT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-58e1a5993298364b",
@@ -27942,10 +27514,7 @@
       "answer": "END CREDITS",
       "hint": "A list names the people involved in creating the production",
       "concept_score": 0.07996624,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "CLOSING CREDITS"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-e84cb6b01c2028ae",
@@ -27977,10 +27546,7 @@
       "answer": "DIRECTOR'S CHAIR",
       "hint": "A folding seat with a fabric back and seat, traditionally associated with the person leading a film shoot.",
       "concept_score": 0.16,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "DIRECTOR CHAIR"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-9d368e245d0f8f98",
@@ -28244,10 +27810,7 @@
       "answer": "WIDE SHOT",
       "hint": "A frame shows characters together with their surroundings",
       "concept_score": 0.44991278,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "LONG SHOT"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "en-97b32d0a1b06d7c6",
@@ -28660,10 +28223,7 @@
       "answer": "JUMP CUT",
       "hint": "A film edit that skips ahead within a similar shot, making the action appear to jump forward.",
       "concept_score": 0.45,
-      "assessment": "editorial_en_2026_09",
-      "aliases": [
-        "SHOT CHANGE"
-      ]
+      "assessment": "editorial_en_2026_09"
     },
     {
       "id": "en-4514d2b48eced902",

@@ -5751,7 +5751,7 @@
           "id": 137,
           "theme_id": 10,
           "difficulty": 0.12,
-          "question": "Which instrument is the largest?",
+          "question": "Which of these musical instruments is usually the largest?",
           "answers": [
             "Cello",
             "Violin",
@@ -38235,7 +38235,7 @@
           "difficulty": 0.4,
           "question": "Why are small gaps left between sections of a bridge?",
           "answers": [
-            "To allow thermal expansion and shrinking",
+            "To allow expansion and contraction",
             "To strengthen gravitational attraction",
             "To increase friction",
             "To reduce air pressure"
@@ -43224,7 +43224,7 @@
           "difficulty": 0.8,
           "question": "Какой результат называют календарным «Золотым шлемом» в теннисе?",
           "answers": [
-            "4 мейджора и Олимпиада за один год",
+            "4 мейджора и победа на Олимпиаде",
             "Победу в одиночном и парном финалах",
             "Пять побед на Уимблдоне подряд",
             "Победу во всех матчах сезона"
@@ -43237,7 +43237,7 @@
           "difficulty": 0.8,
           "question": "What is a calendar Golden Slam in tennis?",
           "answers": [
-            "All four majors plus the Olympics",
+            "All four majors and an Olympic win",
             "Winning singles and doubles finals",
             "Five straight Wimbledon titles",
             "Winning every match of a season"
@@ -44960,7 +44960,7 @@
           "id": 1185,
           "theme_id": 3,
           "difficulty": 0.83,
-          "question": "Зачем грифам удобны почти голые голова и шея?",
+          "question": "Почему грифам удобны почти голые голова и шея?",
           "answers": [
             "Их проще очищать после кормления",
             "Они заменяют органы обоняния",
@@ -45352,7 +45352,7 @@
           "id": 1195,
           "theme_id": 4,
           "difficulty": 0.72,
-          "question": "Что такое двухдиапазонный Wi-Fi-роутер в обычной домашней сети?",
+          "question": "Что характерно для двухдиапазонного Wi-Fi-роутера в домашней сети?",
           "answers": [
             "Всегда удваивает скорость интернета",
             "Поддерживает только два устройства",
@@ -47924,9 +47924,9 @@
           "id": 1260,
           "theme_id": 7,
           "difficulty": 0.79,
-          "question": "What drives the random motion of tiny particles in Brownian motion?",
+          "question": "What drives the random motion of tiny particles suspended in a liquid?",
           "answers": [
-            "Collisions with liquid molecules",
+            "Collisions with surrounding molecules",
             "Only the Moon's gravity",
             "Continuous splitting of the particles",
             "Their own electric motors"
@@ -49016,7 +49016,7 @@
           "question": "Чем исторически была «Великая игра» XIX века?",
           "answers": [
             "Серией шахматных чемпионатов",
-            "Соперничество Британии и России",
+            "Соперничеством Британии и России",
             "Системой римских гладиаторских боёв",
             "Спором Франции и Испании за Америку"
           ],
@@ -49486,7 +49486,7 @@
             "Знакомые слова кажутся незнакомыми",
             "Случайные числа запоминаются лучше",
             "Яркие цвета кажутся громкими",
-            "Общие описания кажутся лично точными"
+            "Общие описания кажутся вам точными"
           ],
           "correct_index": 3
         },
@@ -50343,7 +50343,7 @@
           "difficulty": 0.8,
           "question": "Что обычно означает фермата над нотой?",
           "answers": [
-            "Удержать её дольше записи",
+            "Звучать дольше указанной длительности",
             "Заменить её паузой",
             "Играть её на октаву выше",
             "Повторить весь такт дважды"
@@ -50462,7 +50462,7 @@
           "answers": [
             "Рисуют каждый кадр на песке",
             "Снимают непрерывный танец кукол",
-            "Только компьютерную анимацию",
+            "Создают все кадры на компьютере",
             "Двигают объекты между кадрами"
           ],
           "correct_index": 3
@@ -50578,7 +50578,7 @@
           "question": "Что показывает эффект Кулешова?",
           "answers": [
             "Частый монтаж ухудшает слух",
-            "Соседние кадры меняют смысл лица",
+            "Монтаж меняет восприятие мимики",
             "Яркий свет всегда делает лицо добрее",
             "Цвет фильма определяет его жанр"
           ],
@@ -50591,7 +50591,7 @@
           "question": "What does the Kuleshov effect demonstrate?",
           "answers": [
             "Fast editing damages hearing",
-            "Adjacent shots change a face's meaning",
+            "Editing changes how an expression is read",
             "Bright light makes faces seem kinder",
             "A film's colour determines its genre"
           ],

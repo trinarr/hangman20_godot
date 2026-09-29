@@ -47,7 +47,7 @@ VOWEL_EASE_FULL_RATIO = 0.65
 VOWEL_DENSITY_DISCOUNT = 0.13
 VOWEL_REPETITION_DISCOUNT = 0.04
 
-# Playable answers and progress aliases must use the ASCII apostrophe.
+# Playable answers must use the ASCII apostrophe.
 # Curly/typographic apostrophes are visually similar but are not treated as
 # separators by the runtime game session.
 TYPOGRAPHIC_APOSTROPHES = frozenset("’‘ʼ＇")
@@ -131,7 +131,7 @@ def difficulty(entry: dict, language: str) -> float:
 def validate(catalog: dict) -> None:
     language = catalog["language"]
     assert catalog["schema_version"] == 1 and language in LANGUAGES
-    seen_ids, seen_answers, aliases = set(), set(), {}
+    seen_ids, seen_answers = set(), set()
     alphabet = set(catalog["alphabet"])
     for entry in catalog["entries"]:
         word, hint, eid = entry["answer"], entry["hint"], entry["id"]
@@ -154,13 +154,7 @@ def validate(catalog: dict) -> None:
         assert 0 <= entry["concept_score"] <= 1, eid
         assert entry.get("minimum", 0) <= entry.get("maximum", 1), eid
         assert 0 <= difficulty(entry, language) <= 1, eid
-        for alias in entry.get("aliases", []):
-            assert not (set(alias) & TYPOGRAPHIC_APOSTROPHES), (
-                "Use ASCII apostrophe (') in alias", eid, alias
-            )
-            assert alias not in aliases or aliases[alias] == eid, alias
-            aliases[alias] = eid
-    assert not (set(aliases) & seen_answers), "Alias shadows a live answer"
+        assert "aliases" not in entry, ("Legacy aliases are not allowed before first public release", eid)
     assert {e["theme_id"] for e in catalog["entries"]} == set(range(1, 11))
 
 
@@ -168,7 +162,7 @@ def rendered(catalog: dict) -> tuple[dict, dict]:
     validate(catalog)
     language = catalog["language"]
     words = {"alphabet": catalog["alphabet"], "words": {}, "difficulty": {},
-             "difficulty_model_version": DIFFICULTY_MODEL_VERSION, "ids": {}, "progress_aliases": {}, "progress_alias_themes": {}}
+             "difficulty_model_version": DIFFICULTY_MODEL_VERSION, "ids": {}}
     hints = {"hints": {}}
     # Sorting by persistent ID also makes exported order independent of source ordering.
     for theme in range(1, 11):
@@ -178,10 +172,6 @@ def rendered(catalog: dict) -> tuple[dict, dict]:
         words["difficulty"][key] = [difficulty(e, language) for e in entries]
         words["ids"][key] = [e["id"] for e in entries]
         hints["hints"][key] = [e["hint"] for e in entries]
-        for entry in entries:
-            for alias in entry.get("aliases", []):
-                words["progress_alias_themes"][alias.upper().replace("Ё", "Е").replace("-", "—")] = entry["theme_id"]
-                words["progress_aliases"][alias.upper().replace("Ё", "Е").replace("-", "—")] = entry["answer"].replace("Ё", "Е").replace("-", "—")
     return words, hints
 
 

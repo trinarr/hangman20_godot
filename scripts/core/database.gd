@@ -670,14 +670,10 @@ func get_word_progress_key_set(theme_index: int) -> Dictionary:
 	get_word_progress_keys(theme_index)
 	return _word_progress_key_sets[theme_index]
 
-func get_word_progress_alias_themes() -> Dictionary:
-	_ensure_word_language_loaded()
-	return data.get("progress_alias_themes", {})
 
 func word_progress_key_from_text(word: String) -> String:
 	_ensure_word_language_loaded()
-	var normalized: String = normalize_loaded_word(word)
-	return str(data.get("progress_aliases", {}).get(normalized, normalized))
+	return normalize_loaded_word(word)
 
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	_ensure_word_language_loaded()

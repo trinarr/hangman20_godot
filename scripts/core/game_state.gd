@@ -15,8 +15,6 @@ const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const SAVE_FORMAT_VERSION: int = 2
 const SAVE_MIGRATION_BASE_VERSION: int = 2
-# Content aliases change independently of the word difficulty model version.
-const WORD_PROGRESS_ALIAS_REVISION: int = 4
 const LEGAL_DOCUMENTS_VERSION: int = 1
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
 const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
@@ -1956,38 +1954,11 @@ func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionar
 			normalized.erase(key_variant)
 	return normalized
 
-func _migrate_word_aliases_in_stats(stats: Dictionary) -> void:
-	if int(stats.get("_word_catalog_version", 0)) >= WORD_PROGRESS_ALIAS_REVISION:
-		return
-	var aliases: Dictionary = Database.get_word_progress_alias_themes()
-	for theme_key: Variant in stats.keys():
-		if !(stats[theme_key] is Dictionary):
-			continue
-		var source: Dictionary = stats[theme_key]
-		for field: String in ["played", "guessed"]:
-			if !(source.get(field) is Dictionary):
-				continue
-			var flags: Dictionary = source[field]
-			for old_key: Variant in flags.keys():
-				var normalized: String = Database.normalize_loaded_word(str(old_key))
-				if !aliases.has(normalized):
-					continue
-				if bool(flags[old_key]):
-					var target_theme: String = str(int(aliases[normalized]))
-					if !(stats.get(target_theme) is Dictionary):
-						stats[target_theme] = {}
-					var target: Dictionary = stats[target_theme]
-					if !(target.get(field) is Dictionary):
-						target[field] = {}
-					target[field][Database.word_progress_key_from_text(normalized)] = true
-				flags.erase(old_key)
-	stats["_word_catalog_version"] = WORD_PROGRESS_ALIAS_REVISION
 
 func ensure_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
 	var lang_key := _normalize_language(lang)
 	if !progress.has(lang_key) or !(progress[lang_key] is Dictionary):
 		progress[lang_key] = {}
-	_migrate_word_aliases_in_stats(progress[lang_key])
 	var theme_key := _theme_progress_key(theme_index)
 	if theme_key.is_empty():
 		return {"played": {}, "guessed": {}}
@@ -2103,7 +2074,6 @@ func ensure_single_player_theme_progress(lang: String, theme_index: int, _word_c
 	var lang_key := _normalize_language(lang)
 	var bucket := _single_player_bucket(lang_key)
 	var word_stats: Dictionary = bucket["word_stats"]
-	_migrate_word_aliases_in_stats(word_stats)
 	var theme_key := _theme_progress_key(theme_index)
 	if theme_key.is_empty():
 		return {"played": {}, "guessed": {}}

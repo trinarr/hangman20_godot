@@ -41,7 +41,6 @@ def verify_expansion(catalog, language, batch, band_key, bounds, quota):
     added_ids = {e['id'] for e in additions}
     old = [e for e in catalog['entries'] if e['id'] not in added_ids]
     used = {normalized(e['answer']) for e in old}
-    used.update(normalized(a) for e in catalog['entries'] for a in e.get('aliases', []))
     for entry in additions:
         answer = normalized(entry['answer'])
         assert answer not in used, ('Duplicate expansion answer', entry['answer'])
@@ -69,10 +68,9 @@ def verify_medium_hard_expansion(catalog, language):
     def normalized(text):
         return re.sub(r'[^A-ZА-Я]', '', text.upper().replace('Ё', 'Е'))
 
-    # Uniqueness is language-wide, not per theme; legacy aliases also reserve answers.
+    # Uniqueness is language-wide, not per theme.
     used = {normalized(e['answer']) for e in catalog['entries']
             if e.get('assessment') != batch}
-    used.update(normalized(a) for e in catalog['entries'] for a in e.get('aliases', []))
     for entry in additions:
         answer = normalized(entry['answer'])
         assert answer not in used, ('Expansion duplicate', language, entry['answer'])
@@ -102,7 +100,6 @@ def verify_high_difficulty_en_expansion(catalog, language):
         return re.sub(r'[^A-Z]', '', text.upper())
     used = {normalized(e['answer']) for e in catalog['entries']
             if e.get('assessment') != batch}
-    used.update(normalized(a) for e in catalog['entries'] for a in e.get('aliases', []))
     for entry in additions:
         answer = normalized(entry['answer'])
         assert answer not in used, ('Hard expansion duplicate', entry['answer'])
@@ -163,6 +160,7 @@ def main():
         assert difficulty(edited, language) == scores[edited['id']]
         if language == 'ru':
             byword = {e['answer']: e for e in catalog['entries']}
+            assert all('aliases' not in entry for entry in catalog['entries'])
             for term, place, term_score, place_score in GEOGRAPHY_REBALANCE_PAIRS:
                 assert byword[term]['theme_id'] == byword[place]['theme_id'] == 2
                 assert difficulty(byword[term], language) == place_score, term
@@ -180,8 +178,6 @@ def main():
             byword = {e['answer']: e for e in catalog['entries']}
             assert len(byword) == 5689
             assert 'GLUON' not in byword and 'ETERNAL SUNSHINE' not in byword
-            assert "CAPTAIN ARMBAND" in byword["CAPTAIN'S ARMBAND"]['aliases']
-            assert 'FILM DIRECTOR' in byword['DIRECTOR']['aliases']
             renamed_apostrophe_answers = {
                 "RUBIK'S CUBE": 'RUBIKS CUBE',
                 "PAN'S LABYRINTH": 'PANS LABYRINTH',
@@ -190,7 +186,7 @@ def main():
             }
             for current, legacy in renamed_apostrophe_answers.items():
                 assert current in byword and legacy not in byword
-                assert legacy in byword[current].get('aliases', [])
+            assert all('aliases' not in entry for entry in catalog['entries'])
             assert difficulty(byword["CAPTAIN'S ARMBAND"], language) < .4
             assert 'crustacean' not in byword['GROUPER']['hint'].lower()
         print(f'{language}: export, stable IDs, reorder/delete invariance, editorial calibration OK')

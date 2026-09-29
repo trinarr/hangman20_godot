@@ -107,10 +107,7 @@
       "hint": "За два дня участник успевает побыть бегуном, прыгуном и метателем",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.0362,
-      "aliases": [
-        "ДЕКАТЛОН"
-      ]
+      "score_adjustment": 0.0362
     },
     {
       "id": "ru-8425bce42acb82e8",
@@ -263,10 +260,7 @@
       "answer": "НАСТОЛЬНЫЙ ТЕННИС",
       "hint": "Два соперника перебрасывают лёгкий мяч маленькими ракетками через сетку",
       "concept_score": 0.04999042,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПИНГ-ПОНГ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-626f781e48e41150",
@@ -1831,10 +1825,7 @@
       "answer": "СТАРТОВЫЕ КОЛОДКИ",
       "hint": "Два регулируемых упора помогают спринтеру резко оттолкнуться",
       "concept_score": 0.97576001,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "СТАРТОВАЯ КОЛОДКА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-7ae229290043a6c8",
@@ -1850,10 +1841,7 @@
       "answer": "КАПА",
       "hint": "Эта накладка защищает зубы спортсмена во время контакта",
       "concept_score": 0.15999849,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЗАЩИТНАЯ КАПА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-82c88223e8d1929d",
@@ -2091,10 +2079,7 @@
       "answer": "БОКСЕРСКИЙ МЕШОК",
       "hint": "По этому подвесному снаряду отрабатывают серии ударов",
       "concept_score": 0.98548478,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "МЕШОК БОКСЕРСКИЙ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-0053d96f4651fb20",
@@ -2152,10 +2137,7 @@
       "hint": "Спортивная одежда без рукавов с дополнительными грузами для увеличения нагрузки.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ЖИЛЕТ УТЯЖЕЛИТЕЛЬ"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-1844c621c63ba048",
@@ -2323,10 +2305,7 @@
       "hint": "Этим предметом судья останавливает и возобновляет игру.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.0098,
-      "aliases": [
-        "ТРЕНЕРСКИЙ СВИСТОК"
-      ]
+      "score_adjustment": 0.0098
     },
     {
       "id": "ru-b95e2a7e13918d62",
@@ -2786,10 +2765,7 @@
       "answer": "ШТРАФНОЙ УДАР",
       "hint": "Наказание в футболе исполняют с особой отметки перед воротами",
       "concept_score": 0.37982013,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ВОЛЬНЫЙ УДАР"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-582eea8b0bdc7f86",
@@ -4499,10 +4475,7 @@
       "hint": "Это озеро зимой покрывается прозрачным льдом с длинными голубыми трещинами",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0035,
-      "aliases": [
-        "ОЗЕРО БАЙКАЛ"
-      ]
+      "score_adjustment": -0.0035
     },
     {
       "id": "ru-80cc0a0263c6c6a2",
@@ -4993,10 +4966,7 @@
       "answer": "КАМЧАТКА",
       "hint": "Российский полуостров известен действующими вулканами, гейзерами и медведями",
       "concept_score": 0.07591618,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПОЛУОСТРОВ КАМЧАТКА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-3d5bca83b5cd3772",
@@ -5332,10 +5302,7 @@
       "hint": "Эта узкая полоса суши соединяет две более крупные территории",
       "concept_score": 0.15010012,
       "assessment": "legacy_calibration",
-      "maximum": 0.22,
-      "aliases": [
-        "СУХОПУТНЫЙ ПЕРЕШЕЕК"
-      ]
+      "maximum": 0.22
     },
     {
       "id": "ru-866006845b688080",
@@ -5345,10 +5312,7 @@
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.007,
-      "maximum": 0.16,
-      "aliases": [
-        "МОРСКОЙ ПРОЛИВ"
-      ]
+      "maximum": 0.16
     },
     {
       "id": "ru-ae1e2969c187af17",
@@ -5366,10 +5330,7 @@
       "answer": "ЛАГУНА",
       "hint": "Этот мелкий прибрежный водоем отделен от моря косой или рифом",
       "concept_score": 0.0809622,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПРИБРЕЖНАЯ ЛАГУНА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-5fa4ba5dc542d57c",
@@ -5379,10 +5340,7 @@
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0108,
-      "maximum": 0.16,
-      "aliases": [
-        "РЕЧНАЯ ДЕЛЬТА"
-      ]
+      "maximum": 0.16
     },
     {
       "id": "ru-465e50638672bfa5",
@@ -5406,10 +5364,7 @@
       "answer": "БАССЕЙН",
       "hint": "Так называется территория, с которой вода стекает в одну реку",
       "concept_score": 0.18109333,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "РЕЧНОЙ БАССЕЙН"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-7e8ce03a3ce42327",
@@ -5418,10 +5373,7 @@
       "hint": "Это место, где начинается река",
       "concept_score": 0.0008148,
       "assessment": "legacy_calibration",
-      "maximum": 0.16,
-      "aliases": [
-        "ИСТОК РЕКИ"
-      ]
+      "maximum": 0.16
     },
     {
       "id": "ru-128888e4b1f7784f",
@@ -5431,10 +5383,7 @@
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0111,
-      "maximum": 0.16,
-      "aliases": [
-        "УСТЬЕ РЕКИ"
-      ]
+      "maximum": 0.16
     },
     {
       "id": "ru-ffeeab0b271b02bc",
@@ -5452,10 +5401,7 @@
       "answer": "ПОЙМА",
       "hint": "Эта низкая часть речной долины затапливается во время разлива",
       "concept_score": 0.09912883,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПОЙМА РЕКИ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-83dc467589e69bc5",
@@ -5545,10 +5491,7 @@
       "hint": "Это пониженное место в горном хребте используют для перехода",
       "concept_score": 0.05432587,
       "assessment": "legacy_calibration",
-      "maximum": 0.18,
-      "aliases": [
-        "ГОРНЫЙ ПЕРЕВАЛ"
-      ]
+      "maximum": 0.18
     },
     {
       "id": "ru-5c7b436d29985209",
@@ -5698,10 +5641,7 @@
       "answer": "МЕАНДР",
       "hint": "Так называется плавный изгиб речного русла",
       "concept_score": 0.20543904,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "МЕАНДР РЕКИ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-8d5d9ce19c7eb79f",
@@ -6148,10 +6088,7 @@
       "hint": "Станция, с которой отправляются междугородние автобусы.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "АВТОБУСНЫЙ ВОКЗАЛ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-c2c99199b1da4700",
@@ -6952,7 +6889,7 @@
       "id": "ru-4d6ba4855deacc81",
       "theme_id": 3,
       "answer": "ОЦЕЛОТ",
-      "hint": "Хищное млекопитающее из семейства кошачьих",
+      "hint": "Небольшая пятнистая дикая кошка, обитающая в Центральной и Южной Америке.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0715
@@ -7304,10 +7241,7 @@
       "hint": "Огромная морская рыба с плоским округлым телом, похожим на диск.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ЛУНА-РЫБА"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-8e0a974ffd6c3c7f",
@@ -7350,10 +7284,7 @@
       "answer": "ПЛАНКТОН",
       "hint": "Мелкие организмы, которые дрейфуют в толще воды",
       "concept_score": 0.09663384,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "МОРСКОЙ ПЛАНКТОН"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-13360989273a999a",
@@ -7483,10 +7414,7 @@
       "hint": "Морская рыба с тёмными волнистыми полосами на спине, которую часто продают копчёной.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "МАКРЕЛЬ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-152b0e979ee7a2ff",
@@ -7508,7 +7436,7 @@
       "id": "ru-7c3c524aec8da1ef",
       "theme_id": 3,
       "answer": "ЛЕБЕДЬ-ШИПУН",
-      "hint": "Птица из семейства утиных",
+      "hint": "Крупная белая водоплавающая птица с изогнутой шеей, оранжевым клювом и чёрным наростом у его основания.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0516
@@ -7562,10 +7490,7 @@
       "hint": "Небольшой грызун, который переносит корм в защёчных мешках и часто живёт дома.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ХОМЯЧОК"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-056c0db303f4e9e6",
@@ -7664,7 +7589,7 @@
       "id": "ru-c61c90ed27ac57a1",
       "theme_id": 3,
       "answer": "БЕЛКА",
-      "hint": "Обитатель лесов и парков",
+      "hint": "Древесный грызун с пушистым хвостом, который запасает орехи и семена.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0241
@@ -7842,7 +7767,7 @@
       "id": "ru-c1098c146a4c713c",
       "theme_id": 3,
       "answer": "ДРОФА",
-      "hint": "Крупная птица",
+      "hint": "Тяжёлая степная птица с длинными ногами; самцы заметно крупнее самок.",
       "concept_score": 0.9954756,
       "assessment": "legacy_calibration"
     },
@@ -8297,10 +8222,7 @@
       "answer": "ЛАМАНТИН",
       "hint": "Медлительное морское млекопитающее питается водной растительностью в теплых реках и заливах",
       "concept_score": 0.24136813,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "МАНАТИ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-88970e0a5aac132b",
@@ -8351,10 +8273,7 @@
       "answer": "ИРБИС",
       "hint": "Редкая снежная кошка живет высоко в горах Центральной Азии",
       "concept_score": 0.15445738,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "СНЕЖНЫЙ БАРС"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-ca3755c7014aa8e8",
@@ -8607,10 +8526,7 @@
       "answer": "ОПЫЛЕНИЕ",
       "hint": "При этом процессе пыльца переносится на часть цветка, принимающую ее",
       "concept_score": 0.13457519,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ОПЫЛЕНИЕ РАСТЕНИЙ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-43ee3598a468a77b",
@@ -8618,10 +8534,7 @@
       "answer": "ПЫЛЬЦА",
       "hint": "Эти мелкие зерна участвуют в размножении цветковых растений",
       "concept_score": 0.05500404,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЦВЕТОЧНАЯ ПЫЛЬЦА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-d0758dcdcf74b38c",
@@ -8697,10 +8610,7 @@
       "answer": "МИЦЕЛИЙ",
       "hint": "Эта сеть тонких нитей образует вегетативное тело гриба",
       "concept_score": 0.10948562,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ГРИБНАЯ СЕТЬ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-1ad86bf04300a1dc",
@@ -9271,10 +9181,7 @@
       "answer": "ПОПУЛЯЦИЯ",
       "hint": "Это группа особей одного вида на общей территории.",
       "concept_score": 0.04821694,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПОПУЛЯЦИЯ ОРГАНИЗМОВ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-08d4c3a1cc46cee4",
@@ -10043,10 +9950,7 @@
       "hint": "Крупный заяц открытых полей, который зимой не становится полностью белым.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ЕВРОПЕЙСКИЙ ЗАЯЦ"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-ac8478f66c41b9a0",
@@ -10151,10 +10055,7 @@
       "hint": "Лес, в котором преобладают деревья с жёлудями.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ЛЕСНОЙ ДУБ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-0d10d490fb541d37",
@@ -10251,10 +10152,7 @@
       "hint": "Ежегодное чередование весны, лета, осени и зимы.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "СМЕНА ВРЕМЕН"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-caa8391dc3ba07d4",
@@ -10455,10 +10353,7 @@
       "hint": "Телефон с расширенными возможностями и операционной системой",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0317,
-      "aliases": [
-        "ПЕРВЫЙ СМАРТФОН"
-      ]
+      "score_adjustment": -0.0317
     },
     {
       "id": "ru-292e67867ef2295d",
@@ -10704,7 +10599,7 @@
       "id": "ru-973d9a019d18a11a",
       "theme_id": 4,
       "answer": "БОМБАРДИРОВЩИК",
-      "hint": "Военный самолет",
+      "hint": "Военный самолёт, предназначенный для поражения целей сбрасываемыми бомбами.",
       "concept_score": 0.91120549,
       "assessment": "legacy_calibration"
     },
@@ -10763,7 +10658,7 @@
       "id": "ru-383bc943be7c340e",
       "theme_id": 4,
       "answer": "ГРЕЙДЕР",
-      "hint": "Землеройная машина",
+      "hint": "Дорожная машина с длинным регулируемым отвалом для выравнивания грунта.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0662
@@ -10780,7 +10675,7 @@
       "id": "ru-9b7c011dc834ed0e",
       "theme_id": 4,
       "answer": "ДРАГЛАЙН",
-      "hint": "Одноковшовый экскаватор",
+      "hint": "Экскаватор с ковшом, подвешенным на канатах к длинной стреле.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0979
@@ -10831,7 +10726,7 @@
       "id": "ru-07f45654fe5301ba",
       "theme_id": 4,
       "answer": "АВИАНОСЕЦ",
-      "hint": "Класс военных кораблей",
+      "hint": "Военный корабль с палубой для взлёта и посадки самолётов.",
       "concept_score": 0.9272919,
       "assessment": "legacy_calibration"
     },
@@ -10847,7 +10742,7 @@
       "id": "ru-0ace965fa0f3b6d0",
       "theme_id": 4,
       "answer": "ТАНКЕР",
-      "hint": "Морское или речное грузовое судно",
+      "hint": "Грузовое судно с цистернами для перевозки нефти и других жидкостей наливом.",
       "concept_score": 0.06334583,
       "assessment": "legacy_calibration"
     },
@@ -11048,10 +10943,7 @@
       "hint": "Позволяет людям говорить друг с другом на расстоянии",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.074,
-      "aliases": [
-        "ПЕРВЫЙ ТЕЛЕФОН"
-      ]
+      "score_adjustment": -0.074
     },
     {
       "id": "ru-043693e7a7fcf0fd",
@@ -11266,10 +11158,7 @@
       "answer": "ЭЛЕКТРОМОБИЛЬ",
       "hint": "Эта машина едет на энергии аккумулятора и не использует бензиновый двигатель",
       "concept_score": 0.02139012,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЭЛЕКТРОКАР"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-08be0df21857aaa6",
@@ -11278,10 +11167,7 @@
       "hint": "Панель на крыше превращает свет в электричество",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0015,
-      "aliases": [
-        "СОЛНЕЧНАЯ ПАНЕЛЬ"
-      ]
+      "score_adjustment": -0.0015
     },
     {
       "id": "ru-5cc426cd3b88441f",
@@ -11306,10 +11192,7 @@
       "answer": "ПРОЕКТОР",
       "hint": "В классе или кинозале это устройство выводит большое изображение на экран",
       "concept_score": 0.10859452,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПРОЕКЦИОННЫЙ АППАРАТ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-e54db0127a7835ee",
@@ -11401,10 +11284,7 @@
       "answer": "УМНАЯ КОЛОНКА",
       "hint": "Дома это устройство отвечает голосом, включает музыку и управляет техникой",
       "concept_score": 0.06194105,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "СМАРТ-КОЛОНКА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-f7760482ed14aa2f",
@@ -11456,10 +11336,7 @@
       "hint": "Парное устройство для прослушивания звука, которое соединяется с телефоном без кабеля.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "РАДИОНАУШНИКИ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-5900ca4620a862fc",
@@ -11601,10 +11478,7 @@
       "hint": "Устройство с экранами перед глазами, которое надевают на голову для погружения в компьютерный мир.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ВИРТУАЛЬНЫЙ ШЛЕМ"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-26b4ef908ef6421c",
@@ -11679,10 +11553,7 @@
       "answer": "ВЕТРОГЕНЕРАТОР",
       "hint": "Большие лопасти превращают движение воздуха в электричество",
       "concept_score": 0.22690814,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ВЕТРОВОЙ ГЕНЕРАТОР"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-b4efbec8f53e6f25",
@@ -11830,10 +11701,7 @@
       "answer": "БЕСКОНТАКТНАЯ ОПЛАТА",
       "hint": "Карту или телефон достаточно поднести к терминалу",
       "concept_score": 0.14909842,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "БЕСКОНТАКТНЫЙ ПЛАТЕЖ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-b993daa0ea913be7",
@@ -12183,10 +12051,7 @@
       "hint": "Круглая часть машины, которой водитель меняет путь",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0293,
-      "aliases": [
-        "РУЛЕВОЕ КОЛЕСО"
-      ]
+      "score_adjustment": -0.0293
     },
     {
       "id": "ru-488e5e0ab752dac0",
@@ -12526,10 +12391,7 @@
       "answer": "ПАРКТРОНИК",
       "hint": "Эта система предупреждает о препятствиях при парковке.",
       "concept_score": 0.19807302,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПАРКОВОЧНЫЙ РАДАР"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-93bd03598bc33dd7",
@@ -12991,10 +12853,7 @@
       "hint": "Устройство или режим телефона, через который другие устройства подключаются к беспроводной сети.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "МОБИЛЬНАЯ ТОЧКА"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-8533bb43d1c4dfac",
@@ -13178,10 +13037,7 @@
       "answer": "РЕМЕННОЙ ПРИВОД",
       "hint": "Гибкая замкнутая лента передаёт вращение между шкивами",
       "concept_score": 0.4200407,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "РЕМЕННАЯ ПЕРЕДАЧА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-49efd12ffdbbab6a",
@@ -13294,10 +13150,7 @@
       "hint": "Устройство для чистки зубов, у которого щетинки двигаются с помощью мотора.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ЭЛЕКТРИЧЕСКАЯ ЩЕТКА"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-5b84ac9be7bc623e",
@@ -13738,7 +13591,7 @@
       "id": "ru-9127ec60a2ea94ef",
       "theme_id": 5,
       "answer": "СТАЛЛОНЕ",
-      "hint": "Американский актер, режиссер, сценарист и продюсер",
+      "hint": "Американский актёр, сыгравший Рокки Бальбоа и Джона Рэмбо.",
       "concept_score": 0.07714815,
       "assessment": "legacy_calibration"
     },
@@ -13770,7 +13623,7 @@
       "id": "ru-c3040695aedbc473",
       "theme_id": 5,
       "answer": "НЬЮТОН",
-      "hint": "Один из основоположников современного естествознания",
+      "hint": "Английский учёный, сформулировавший три закона движения и закон всемирного тяготения.",
       "concept_score": 0.04558251,
       "assessment": "legacy_calibration"
     },
@@ -13786,7 +13639,7 @@
       "id": "ru-f9fc876bad1457e3",
       "theme_id": 5,
       "answer": "ДАРВИН",
-      "hint": "Английский натуралист и путешественник",
+      "hint": "Английский натуралист, объяснивший эволюцию действием естественного отбора.",
       "concept_score": 0.04595295,
       "assessment": "legacy_calibration"
     },
@@ -13827,7 +13680,7 @@
       "id": "ru-9d6699261bb90604",
       "theme_id": 5,
       "answer": "ПУШКИН",
-      "hint": "Русский поэт, драматург и прозаик",
+      "hint": "Русский поэт, автор романа в стихах «Евгений Онегин».",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0323
@@ -13836,7 +13689,7 @@
       "id": "ru-7021b880561f49b0",
       "theme_id": 5,
       "answer": "ЛЕРМОНТОВ",
-      "hint": "Русский поэт, прозаик, драматург, художник",
+      "hint": "Русский поэт и прозаик, автор романа «Герой нашего времени».",
       "concept_score": 0.00413771,
       "assessment": "legacy_calibration"
     },
@@ -13844,7 +13697,7 @@
       "id": "ru-376407553ca2adbb",
       "theme_id": 5,
       "answer": "ВЕСПАСИАН",
-      "hint": "Римский император",
+      "hint": "Римский император, основатель династии Флавиев, при котором началось строительство Колизея.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0607
@@ -13921,7 +13774,7 @@
       "id": "ru-1cb5ff482f66877e",
       "theme_id": 5,
       "answer": "САВРАСОВ",
-      "hint": "Русский художник-пейзажист",
+      "hint": "Русский художник-пейзажист, автор картины «Грачи прилетели».",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0714
@@ -15817,10 +15670,7 @@
       "answer": "МЕДСЕСТРА",
       "hint": "Помогает врачу, ухаживает за пациентами и выполняет лечебные процедуры",
       "concept_score": 0.04991424,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "МЕДИЦИНСКАЯ СЕСТРА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-f1824b969409eaff",
@@ -16108,10 +15958,7 @@
       "answer": "ВОСПИТАТЕЛЬ",
       "hint": "Заботится о дошкольниках и проводит с ними развивающие занятия",
       "concept_score": 0.06997824,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ДЕТСКИЙ ВОСПИТАТЕЛЬ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-a21c1fa9a15550e0",
@@ -16119,10 +15966,7 @@
       "answer": "УЧИТЕЛЬ",
       "hint": "Объясняет учебный материал и проверяет знания школьников",
       "concept_score": 0.0700245,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "НАЧАЛЬНЫЙ УЧИТЕЛЬ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-40781a2499a0a349",
@@ -16354,10 +16198,7 @@
       "answer": "СТОМАТОЛОГ",
       "hint": "Лечит зубы и заболевания полости рта",
       "concept_score": 0.38002448,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЗУБНОЙ ВРАЧ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-d7d510f336980ac5",
@@ -16373,10 +16214,7 @@
       "answer": "ХИРУРГ",
       "hint": "Проводит операции для лечения травм и заболеваний",
       "concept_score": 0.37992589,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ВРАЧ-ХИРУРГ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-b34f77c4aa46d260",
@@ -16632,10 +16470,7 @@
       "answer": "ЛИНГВИСТ",
       "hint": "Исследует устройство, развитие и использование языков",
       "concept_score": 0.37987588,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЯЗЫКОВЕД"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-1a532d655fe4e3fd",
@@ -16857,10 +16692,7 @@
       "hint": "Врач, который следит за здоровьем детей и лечит их болезни.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ДЕТСКИЙ ВРАЧ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-2f99ba373b688e12",
@@ -16997,10 +16829,7 @@
       "hint": "Врач, который проверяет зрение и лечит заболевания глаз.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ГЛАЗНОЙ ВРАЧ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-1cdc9c94ca563fd1",
@@ -17584,7 +17413,7 @@
       "id": "ru-efc5e4be84c642d8",
       "theme_id": 6,
       "answer": "КОРОККЭ",
-      "hint": "Блюдо японской кухни",
+      "hint": "Японская жареная котлета в панировке, часто из картофеля с мясом или овощами.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.215
@@ -17734,7 +17563,7 @@
       "id": "ru-b6148494fae71292",
       "theme_id": 6,
       "answer": "СБИТЕНЬ",
-      "hint": "Один из старинных русских напитков",
+      "hint": "Старинный русский горячий напиток из воды, мёда и пряностей.",
       "concept_score": 0.16306196,
       "assessment": "legacy_calibration"
     },
@@ -17903,7 +17732,7 @@
       "id": "ru-3d8f79c253170439",
       "theme_id": 6,
       "answer": "ЧАХОХБИЛИ",
-      "hint": "Известное блюдо грузинской кухни",
+      "hint": "Грузинское блюдо из тушёной птицы с помидорами, луком и пряной зеленью.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0791
@@ -17945,7 +17774,7 @@
       "id": "ru-d3d2529b02920292",
       "theme_id": 6,
       "answer": "ЛАГМАН",
-      "hint": "Одно из любимых блюд Средней Азии",
+      "hint": "Среднеазиатское блюдо из лапши с мясом и овощами.",
       "concept_score": 0.2054176,
       "assessment": "legacy_calibration"
     },
@@ -17961,7 +17790,7 @@
       "id": "ru-16b5be6edee2a441",
       "theme_id": 6,
       "answer": "СВИНИНА",
-      "hint": "Один из основных видов мяса",
+      "hint": "Мясо домашней свиньи, используемое в кулинарии.",
       "concept_score": 0.09020024,
       "assessment": "legacy_calibration"
     },
@@ -17995,10 +17824,7 @@
       "answer": "КОМПОТ",
       "hint": "Сладкий напиток, сваренный из фруктов или ягод в воде",
       "concept_score": 0.11151083,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ФРУКТОВЫЙ КОМПОТ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-969052544292115a",
@@ -18204,10 +18030,7 @@
       "hint": "Вьетнамский суп с говядиной, рисовой лапшой и зеленью.",
       "concept_score": 0.28,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ФО-БО"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-8e3781787a85fd4d",
@@ -18978,10 +18801,7 @@
       "answer": "ЩИПЦЫ",
       "hint": "Этим кухонным инструментом захватывают горячие или скользкие продукты",
       "concept_score": 0.06234298,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "КУХОННЫЕ ЩИПЦЫ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-c9202439f48f11b6",
@@ -19145,10 +18965,7 @@
       "answer": "ТАЙМЕР",
       "hint": "Этот прибор подает сигнал после заданного времени готовки",
       "concept_score": 0.04751236,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЭЛЕКТРОННЫЙ ТАЙМЕР"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-67249477747f3e5b",
@@ -19757,10 +19574,7 @@
       "answer": "МОРС",
       "hint": "Кисло-сладкий напиток готовят из лесных или садовых плодов",
       "concept_score": 0.10000622,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЯГОДНЫЙ МОРС"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-46aa5705244de5c9",
@@ -20908,7 +20722,7 @@
       "id": "ru-efc577f41c80f9b4",
       "theme_id": 7,
       "answer": "ТРИГОНОМЕТРИЯ",
-      "hint": "Раздел математики",
+      "hint": "Раздел математики о связях между сторонами и углами треугольников.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0215
@@ -21265,10 +21079,7 @@
       "answer": "СИНОПСИС",
       "hint": "Изложение некой темы в сильно сжатом и обобщенном виде",
       "concept_score": 0.2090415,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ОПИСАНИЕ СЮЖЕТА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-3eb0a7c7586483a0",
@@ -21401,10 +21212,7 @@
       "hint": "Движение огромных плит медленно перестраивает поверхность планеты",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.021,
-      "aliases": [
-        "ТЕКТОНИКА ПЛИТ"
-      ]
+      "score_adjustment": 0.021
     },
     {
       "id": "ru-04867aa45dfc6db2",
@@ -21517,10 +21325,7 @@
       "answer": "НЕЙРОН",
       "hint": "Эта клетка передает сигналы в мозге и нервной системе",
       "concept_score": 0.167581,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "НЕРВНАЯ КЛЕТКА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-4cc840bb988a4e5f",
@@ -22883,10 +22688,7 @@
       "answer": "ОТРАЖЕНИЕ",
       "hint": "Возвращение света, звука или волны от поверхности",
       "concept_score": 0.10001337,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ОТРАЖЕНИЕ СВЕТА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-68ee63648cc6a903",
@@ -22910,10 +22712,7 @@
       "answer": "ТРЕНИЕ",
       "hint": "Сила мешает двум соприкасающимся поверхностям скользить",
       "concept_score": 0.11999435,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "СИЛА ТРЕНИЯ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-1ed6f8db6bfd5fa6",
@@ -23565,10 +23364,7 @@
       "hint": "Сила, с которой растянутая пружина или резинка стремится вернуть прежнюю форму.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "УПРУГАЯ СИЛА"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-e22d308cfc5a58e2",
@@ -23648,10 +23444,7 @@
       "answer": "КЛЕТКА",
       "hint": "Мельчайшая живая единица организма",
       "concept_score": 0.06000091,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЖИВАЯ КЛЕТКА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-a9074e797555fc66",
@@ -24213,10 +24006,7 @@
       "answer": "САМУРАЙ",
       "hint": "С этими воинами традиционно связывают кодекс бусидо",
       "concept_score": 0.0527843,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "САМУРАИ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-b935c1c6959d53f3",
@@ -24272,10 +24062,7 @@
       "answer": "ДИНАСТИЯ",
       "hint": "Ряд последовательно правящих монархов из одного и того же рода",
       "concept_score": 0.0500707,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПРАВЯЩАЯ ДИНАСТИЯ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-7b7a493b928ec2d8",
@@ -24570,10 +24357,7 @@
       "answer": "ВИКИНГ",
       "hint": "Северный мореход раннего Средневековья отправлялся в торговые и военные походы",
       "concept_score": 0.08241807,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ВИКИНГИ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-b401dc44a2de63e9",
@@ -24597,11 +24381,7 @@
       "answer": "РЕНЕССАНС",
       "hint": "Эпоха европейской культуры вернула интерес к искусству и знаниям Античности",
       "concept_score": 0.09852587,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЭПОХА ВОЗРОЖДЕНИЯ",
-        "ВОЗРОЖДЕНИЕ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-5bdc64095b34c397",
@@ -25039,10 +24819,7 @@
       "answer": "ТЕЛЕГРАФ",
       "hint": "Сообщения впервые начали быстро передавать на большие расстояния электрическими сигналами",
       "concept_score": 0.03200178,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ПЕРВЫЙ ТЕЛЕГРАФ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-47b97759ebe6de59",
@@ -25931,10 +25708,7 @@
       "hint": "Локомотив, который приводит в движение сила пара из котла.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ПАРОВОЙ ПОЕЗД"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-86a460ffe7e38027",
@@ -25943,10 +25717,7 @@
       "hint": "Периодическое печатное издание с новостями и статьями.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ПЕРВАЯ ГАЗЕТА"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-9fdf12de7da05135",
@@ -26371,10 +26142,7 @@
       "answer": "ДИНАСТИЧЕСКИЙ БРАК",
       "hint": "Союз наследников укреплял отношения между правящими семьями",
       "concept_score": 0.49999227,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ДИНАСТИЧЕСКИЙ СОЮЗ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-bfa7cdf8f746d86b",
@@ -26525,10 +26293,7 @@
       "answer": "КИЕВСКАЯ РУСЬ",
       "hint": "Средневековое государство с главным городом на Днепре",
       "concept_score": 0.05995926,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ДРЕВНЯЯ РУСЬ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-609b73b959cf614e",
@@ -26617,10 +26382,7 @@
       "hint": "Праздник 9 мая в память о победе над нацистской Германией в 1945 году.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "ВЕЛИКАЯ ПОБЕДА"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-41334b58d7fe57bc",
@@ -28122,10 +27884,7 @@
       "answer": "ХЕШТЕГ",
       "hint": "Слово с решеткой объединяет публикации по одной теме",
       "concept_score": 0.1383489,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ХЭШТЕГ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-bd01fa6f62242364",
@@ -28273,10 +28032,7 @@
       "answer": "ЧЕК-ЛИСТ",
       "hint": "Короткий перечень помогает не пропустить обязательные шаги задачи",
       "concept_score": 0.00967471,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЧЕКЛИСТ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-467de207e6bce627",
@@ -28867,10 +28623,7 @@
       "answer": "АККАУНТ",
       "hint": "Это личная учётная запись в цифровом сервисе.",
       "concept_score": 0.03902985,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "УЧЕТНАЯ ЗАПИСЬ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-dee02fde5ea5a231",
@@ -28926,10 +28679,7 @@
       "answer": "КЕШБЭК",
       "hint": "Это возврат части потраченной суммы после покупки.",
       "concept_score": 0.42670666,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "КЭШБЭК"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-7a279abc249114d2",
@@ -29726,10 +29476,7 @@
       "hint": "Автомат со шкафчиками, из которого забирают заказ, введя код.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "АВТОМАТ ВЫДАЧИ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-8b6734bd44efedb4",
@@ -30281,10 +30028,7 @@
       "hint": "Текст фильма с описанием действий персонажей и их репликами.",
       "concept_score": 0.0,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "КИНОСЦЕНАРИЙ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-5ad6f499e1431daf",
@@ -30293,10 +30037,7 @@
       "hint": "Устройство, которым на съёмках записывают изображение для фильма.",
       "concept_score": 0.0,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "КИНОКАМЕРА"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-20d54b535db8bf08",
@@ -30305,10 +30046,7 @@
       "hint": "На этой поверхности появляется изображение в кинозале",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0366,
-      "aliases": [
-        "КИНОЭКРАН"
-      ]
+      "score_adjustment": -0.0366
     },
     {
       "id": "ru-4e9eece62c943552",
@@ -30335,10 +30073,7 @@
       "hint": "Первый показ нового фильма или спектакля перед публикой",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": -0.0521,
-      "aliases": [
-        "ПРЕМЬЕРА ФИЛЬМА"
-      ]
+      "score_adjustment": -0.0521
     },
     {
       "id": "ru-d1db23429d30c91e",
@@ -30534,10 +30269,7 @@
       "hint": "Чередование коротких и длинных звуков и пауз в музыке.",
       "concept_score": 0.0,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "МУЗЫКАЛЬНЫЙ РИТМ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-75770ec9f8c47da5",
@@ -30613,10 +30345,7 @@
       "hint": "Сборник музыкальных записей, выпущенных вместе под одним названием.",
       "concept_score": 0.0,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "МУЗЫКАЛЬНЫЙ АЛЬБОМ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-64533f31d8459092",
@@ -30632,10 +30361,7 @@
       "answer": "АККОРД",
       "hint": "В музыке несколько звуков звучат одновременно и создают гармонию",
       "concept_score": 0.09623727,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "МУЗЫКАЛЬНЫЙ АККОРД"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-9499c4c419efcc1e",
@@ -30702,10 +30428,7 @@
       "hint": "В оркестре эта запись показывает, что должен играть каждый инструмент",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
-      "score_adjustment": 0.0232,
-      "aliases": [
-        "ЗВУКОВАЯ ПАРТИТУРА"
-      ]
+      "score_adjustment": 0.0232
     },
     {
       "id": "ru-878b893210c064f3",
@@ -31130,10 +30853,7 @@
       "hint": "Фильм или сериал о второстепенном герое либо части мира уже известной истории.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ОТВЕТВЛЕНИЕ"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-8dff4de17d08e0dd",
@@ -31142,10 +30862,7 @@
       "hint": "Фильм или сериал, выпущенный позже оригинала, но рассказывающий о более ранних событиях.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ПРЕДЫСТОРИЯ"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-140aea2b20b29233",
@@ -31154,10 +30871,7 @@
       "hint": "Следующий фильм, который продолжает события предыдущей картины.",
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
-      "audience": "B",
-      "aliases": [
-        "ПРОДОЛЖЕНИЕ"
-      ]
+      "audience": "B"
     },
     {
       "id": "ru-8335eec0a3c7a22e",
@@ -31174,10 +30888,7 @@
       "hint": "Фильм, заново снятый по сюжету уже существующей картины.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "НОВАЯ ВЕРСИЯ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-6e4a2ffadbfb3362",
@@ -32346,10 +32057,7 @@
       "answer": "ВТОРОСТЕПЕННАЯ РОЛЬ",
       "hint": "Важный, но не центральный персонаж дополняет сюжет",
       "concept_score": 0.08008451,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "РОЛЬ ВТОРОГО ПЛАНА"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-af8d3bc51f189840",
@@ -32520,10 +32228,7 @@
       "hint": "Перерыв между частями спектакля или концерта.",
       "concept_score": 0.18,
       "assessment": "editorial_2026_09",
-      "audience": "A",
-      "aliases": [
-        "МУЗЫКАЛЬНЫЙ АНТРАКТ"
-      ]
+      "audience": "A"
     },
     {
       "id": "ru-14dc109a0048f810",
@@ -32739,10 +32444,7 @@
       "answer": "КОНЦЕРТНАЯ ЗАПИСЬ",
       "hint": "Выступление перед публикой сохраняют в аудио или видео",
       "concept_score": 0.44997768,
-      "assessment": "legacy_calibration",
-      "aliases": [
-        "ЖИВОЙ АЛЬБОМ"
-      ]
+      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-b886137e69ba8cb1",
