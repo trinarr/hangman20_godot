@@ -5001,10 +5001,49 @@ func _hide_quiz_exit_button() -> void:
 	_quiz_exit_button.set("disabled", true)
 	_portrait_back_button_visible = false
 
-func _hide_quiz_hint_buttons() -> void:
+func _hide_quiz_hint_buttons(animated: bool = false) -> void:
 	for hint_button: Control in _quiz_hint_buttons:
-		if hint_button != null and is_instance_valid(hint_button):
-			hint_button.visible = false
+		if hint_button == null or !is_instance_valid(hint_button):
+			continue
+		hint_button.set("disabled", true)
+		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if !animated:
+			_finalize_quiz_hint_button_hide(hint_button)
+			continue
+		if bool(hint_button.get_meta(&"quiz_hint_hide_active", false)):
+			continue
+		if !hint_button.visible or hint_button.modulate.a <= 0.001:
+			_finalize_quiz_hint_button_hide(hint_button)
+			continue
+
+		hint_button.set_meta(&"quiz_hint_hide_active", true)
+		_fade_out_portrait_hint_button_badge(
+			hint_button,
+			PORTRAIT_ROUND_END_HINT_BADGES_FADE_DURATION
+		)
+		var fade_tween := hint_button.create_tween()
+		fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var fade_tweener := fade_tween.tween_property(
+			hint_button,
+			"modulate:a",
+			0.0,
+			PORTRAIT_ROUND_END_HINTS_FADE_DURATION
+		)
+		fade_tweener.set_trans(Tween.TRANS_QUAD)
+		fade_tweener.set_ease(Tween.EASE_IN)
+		fade_tween.finished.connect(
+			Callable(self, "_finalize_quiz_hint_button_hide").bind(hint_button),
+			CONNECT_ONE_SHOT
+		)
+
+func _finalize_quiz_hint_button_hide(hint_button: Control) -> void:
+	if hint_button == null or !is_instance_valid(hint_button):
+		return
+	hint_button.modulate.a = 0.0
+	hint_button.visible = false
+	hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_button.set("disabled", true)
+	hint_button.set_meta(&"quiz_hint_hide_active", false)
 
 func _set_quiz_answer_explanation() -> void:
 	if !_quiz_screen_active or !_quiz_answer_locked or !is_instance_valid(_quiz_question_label):
@@ -5023,7 +5062,7 @@ func _show_quiz_continue_button(animated: bool) -> void:
 	if is_instance_valid(_quiz_question_label):
 		_quiz_question_label.visible = true
 		_quiz_question_label.modulate = Color.WHITE
-	_hide_quiz_hint_buttons()
+	_hide_quiz_hint_buttons(animated)
 	if _quiz_continue_button == null or !is_instance_valid(_quiz_continue_button):
 		return
 	_quiz_continue_button.visible = true
@@ -5732,7 +5771,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	# One atomic save contains the bonus, answered stage and reward snapshot.
 	GameState.save_game()
 	_disable_quiz_answer_buttons()
-	_hide_quiz_hint_buttons()
+	_hide_quiz_hint_buttons(true)
 
 	var selected_button := _quiz_answer_buttons[answer_index] as Button
 	if selected_button == null or !is_instance_valid(selected_button):
