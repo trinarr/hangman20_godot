@@ -193,6 +193,7 @@ func test_ad_readiness() -> void:
 	root.add_child(controller)
 	state.ads_became_available.connect(controller._on_ads_became_available)
 	state.ads_unlocked = false
+	state.interstitial_active_elapsed_seconds = 0.0
 	state.ad_personalization_choice = 0
 	state.set_ad_region("BR", "automatic", region.POLICY_VERSION)
 	check(!controller._initialize_yandex_ads_from_saved_consent(), "regional permission initialized SDK before threshold")
@@ -203,6 +204,14 @@ func test_ad_readiness() -> void:
 	check(fake.initializations.is_empty(), "SDK initialized one level too early")
 	state.activate_ads_for_level(state.ADS_UNLOCK_LEVEL - 1, false)
 	check(fake.initializations == [false], "unlock did not initialize non-personalized ads")
+	check(state.is_interstitial_ready(), "first interstitial was not armed immediately on unlock")
+	check(
+		is_equal_approx(
+			state.interstitial_active_elapsed_seconds,
+			state.INTERSTITIAL_INTERVAL_SECONDS
+		),
+		"first interstitial timer was not saturated on unlock"
+	)
 	state.activate_ads_for_level(state.ADS_UNLOCK_LEVEL, false)
 	check(fake.initializations.size() == 1, "repeated activation emitted another unlock")
 	state.ad_personalization_choice = 0

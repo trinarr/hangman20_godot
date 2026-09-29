@@ -176,7 +176,7 @@
   },
   "advertising": {
     "unlock_level": 3,
-    "interstitial_interval_seconds": 300
+    "interstitial_interval_seconds": 240
   },
   "timings": {
     "heart_state_poll_seconds": 1.0,

@@ -274,7 +274,9 @@ func activate_ads_for_level(level_index: int, persist: bool = true) -> bool:
 	if ads_unlocked or level_index + 1 < ADS_UNLOCK_LEVEL:
 		return ads_unlocked
 	ads_unlocked = true
-	interstitial_active_elapsed_seconds = 0.0
+	# Arm the very first interstitial immediately. The interval applies only
+	# after a fullscreen ad has actually been shown (or a rewarded ad resets it).
+	interstitial_active_elapsed_seconds = INTERSTITIAL_INTERVAL_SECONDS
 	_sync_interstitial_process_state()
 	if persist:
 		save_game()
