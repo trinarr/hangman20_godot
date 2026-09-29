@@ -47,6 +47,11 @@ VOWEL_EASE_FULL_RATIO = 0.65
 VOWEL_DENSITY_DISCOUNT = 0.13
 VOWEL_REPETITION_DISCOUNT = 0.04
 
+# Playable answers and progress aliases must use the ASCII apostrophe.
+# Curly/typographic apostrophes are visually similar but are not treated as
+# separators by the runtime game session.
+TYPOGRAPHIC_APOSTROPHES = frozenset("’‘ʼ＇")
+
 def clamp(value: float, minimum: float = 0.0, maximum: float = 1.0) -> float:
     return max(minimum, min(maximum, value))
 
@@ -139,6 +144,9 @@ def validate(catalog: dict) -> None:
         letters = [c for c in word.replace("Ё", "Е") if c.isalpha()]
         assert 4 <= len(letters) <= 20, (eid, word, len(letters))
         assert all(c in alphabet for c in letters), word
+        assert not (set(word) & TYPOGRAPHIC_APOSTROPHES), (
+            "Use ASCII apostrophe (') in answer", eid, word
+        )
         assert all(c.isalpha() or c in " -—'" for c in word), word
         conjunctions = {"И", "ИЛИ", "НО", "ЛИБО", "А"} if language == "ru" else {"AND", "OR", "BUT"}
         assert not set(re.findall(r"[A-ZА-ЯЁ]+", word)) & conjunctions, word
@@ -147,6 +155,9 @@ def validate(catalog: dict) -> None:
         assert entry.get("minimum", 0) <= entry.get("maximum", 1), eid
         assert 0 <= difficulty(entry, language) <= 1, eid
         for alias in entry.get("aliases", []):
+            assert not (set(alias) & TYPOGRAPHIC_APOSTROPHES), (
+                "Use ASCII apostrophe (') in alias", eid, alias
+            )
             assert alias not in aliases or aliases[alias] == eid, alias
             aliases[alias] = eid
     assert not (set(aliases) & seen_answers), "Alias shadows a live answer"

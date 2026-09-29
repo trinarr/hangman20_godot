@@ -112,10 +112,29 @@ def verify_high_difficulty_en_expansion(catalog, language):
         assert 'minimum' not in entry and 'maximum' not in entry, entry['answer']
 
 
+
+def verify_apostrophe_policy(catalog, language):
+    """ASCII apostrophe is valid; typographic lookalikes must fail validation."""
+    if language != 'en':
+        return
+    ascii_entries = [e for e in catalog['entries'] if "'" in e['answer']]
+    assert ascii_entries, 'Expected at least one English answer with an ASCII apostrophe'
+    broken = copy.deepcopy(catalog)
+    target_id = ascii_entries[0]['id']
+    target = next(e for e in broken['entries'] if e['id'] == target_id)
+    target['answer'] = target['answer'].replace("'", "’", 1)
+    try:
+        validate(broken)
+    except AssertionError as exc:
+        assert 'Use ASCII apostrophe' in str(exc), exc
+    else:
+        raise AssertionError('Typographic apostrophe unexpectedly passed word validation')
+
 def main():
     for language in ('ru', 'en'):
         catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
         validate(catalog)
+        verify_apostrophe_policy(catalog, language)
         verify_expansion(
             catalog, language, 'editorial_expansion_patch09', 'difficulty_band',
             {1: (0.0, .30), 2: (.30, .42), 3: (.42, .52), 4: (.52, 1.0)},
@@ -148,18 +167,30 @@ def main():
                 assert byword[term]['theme_id'] == byword[place]['theme_id'] == 2
                 assert difficulty(byword[term], language) == place_score, term
                 assert difficulty(byword[place], language) == term_score, place
-            assert len(byword) == 6002
+            assert len(byword) == 5999
             assert difficulty(byword['ПОДСОЛНУХ'], language) < .3
             assert difficulty(byword['БЕГОВАЯ ДОРОЖКА'], language) < .3
             for word in ('АТОМ', 'КОЛБА', 'ПРОБИРКА'):
                 assert difficulty(byword[word], language) < .4
             assert sum(c.isalpha() for c in byword['БЕСПРОВОДНЫЕ НАУШНИКИ']['answer']) == 20
+            assert 'ПОЛОВИННАЯ НОТА' in byword
+            for removed_note in ('ЦЕЛАЯ НОТА', 'ЧЕТВЕРТНАЯ НОТА', 'ВОСЬМАЯ НОТА'):
+                assert removed_note not in byword
         else:
             byword = {e['answer']: e for e in catalog['entries']}
             assert len(byword) == 5689
             assert 'GLUON' not in byword and 'ETERNAL SUNSHINE' not in byword
             assert "CAPTAIN ARMBAND" in byword["CAPTAIN'S ARMBAND"]['aliases']
             assert 'FILM DIRECTOR' in byword['DIRECTOR']['aliases']
+            renamed_apostrophe_answers = {
+                "RUBIK'S CUBE": 'RUBIKS CUBE',
+                "PAN'S LABYRINTH": 'PANS LABYRINTH',
+                "THE QUEEN'S GAMBIT": 'THE QUEENS GAMBIT',
+                "HUNDRED YEARS' WAR": 'HUNDRED YEARS WAR',
+            }
+            for current, legacy in renamed_apostrophe_answers.items():
+                assert current in byword and legacy not in byword
+                assert legacy in byword[current].get('aliases', [])
             assert difficulty(byword["CAPTAIN'S ARMBAND"], language) < .4
             assert 'crustacean' not in byword['GROUPER']['hint'].lower()
         print(f'{language}: export, stable IDs, reorder/delete invariance, editorial calibration OK')

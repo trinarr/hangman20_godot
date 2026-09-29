@@ -14860,7 +14860,7 @@
       "id": "en-bb10773886b5a7a9",
       "theme_id": 6,
       "answer": "SHORTBREAD",
-      "hint": "A cookie made of flour, sugar, and much butter",
+      "hint": "A rich, crumbly biscuit made mainly from butter, flour, and sugar.",
       "concept_score": 0.10708122,
       "assessment": "legacy_calibration",
       "aliases": [
@@ -14879,7 +14879,7 @@
       "id": "en-1dafeba140bf0f52",
       "theme_id": 6,
       "answer": "TENDERLOIN",
-      "hint": "The tenderest part of a loin of beef, pork",
+      "hint": "A tender cut of meat from a muscle along the spine, often from beef or pork.",
       "concept_score": 0.1260964,
       "assessment": "legacy_calibration"
     },
@@ -14938,7 +14938,7 @@
       "id": "en-4ee57e8e5af32311",
       "theme_id": 6,
       "answer": "BREADCRUMB",
-      "hint": "Little bits of loaves",
+      "hint": "A small fragment of bread, often dried and used to coat food.",
       "concept_score": 0.16874425,
       "assessment": "legacy_calibration"
     },
@@ -17112,7 +17112,7 @@
       "id": "en-71669902eb66bf6d",
       "theme_id": 6,
       "answer": "BERRY DRINK",
-      "hint": "A tart beverage is prepared from soft forest or garden produce",
+      "hint": "A drink made from berries and water, often sweetened.",
       "concept_score": 0.09996391,
       "assessment": "legacy_calibration"
     },
@@ -18034,7 +18034,7 @@
       "id": "en-e64bc20126a6ae20",
       "theme_id": 7,
       "answer": "PHILOSOPHY",
-      "hint": "A way of thinking about the world, the universe",
+      "hint": "The study of fundamental questions about existence, knowledge, and morality.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0487
@@ -18077,7 +18077,7 @@
       "id": "en-e821b3eefd0404a0",
       "theme_id": 7,
       "answer": "HYPOTHESIS",
-      "hint": "A tentative explanation for an observation, phenomenon",
+      "hint": "A proposed explanation that can be tested against evidence.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0171,
@@ -18125,7 +18125,7 @@
       "id": "en-d9fe6703f623c3a5",
       "theme_id": 7,
       "answer": "UNDERGRADUATE",
-      "hint": "A university student who has not yet received a degree",
+      "hint": "A university or college student studying for a bachelor's degree.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0091
@@ -22525,10 +22525,13 @@
     {
       "id": "en-0000e8724502eb75",
       "theme_id": 8,
-      "answer": "HUNDRED YEARS WAR",
+      "answer": "HUNDRED YEARS' WAR",
       "hint": "England and France fought a long medieval conflict",
       "concept_score": 0.13995837,
-      "assessment": "legacy_calibration"
+      "assessment": "legacy_calibration",
+      "aliases": [
+        "HUNDRED YEARS WAR"
+      ]
     },
     {
       "id": "en-83577c70e64c56c4",
@@ -23404,10 +23407,13 @@
     {
       "id": "en-d92de0b06dff20bd",
       "theme_id": 9,
-      "answer": "RUBIKS CUBE",
+      "answer": "RUBIK'S CUBE",
       "hint": "This twisty puzzle has six coloured faces that turn in layers",
       "concept_score": 0.21739461,
-      "assessment": "legacy_calibration"
+      "assessment": "legacy_calibration",
+      "aliases": [
+        "RUBIKS CUBE"
+      ]
     },
     {
       "id": "en-43c5d8cea08f3aac",
@@ -27474,10 +27480,13 @@
     {
       "id": "en-8ce1710eccf98e13",
       "theme_id": 10,
-      "answer": "PANS LABYRINTH",
+      "answer": "PAN'S LABYRINTH",
       "hint": "This dark fantasy film follows a girl entering a dangerous mythical world",
       "concept_score": 0.92373717,
-      "assessment": "legacy_calibration"
+      "assessment": "legacy_calibration",
+      "aliases": [
+        "PANS LABYRINTH"
+      ]
     },
     {
       "id": "en-32313e674c351e95",
@@ -27767,10 +27776,13 @@
     {
       "id": "en-1223776f4bdb7287",
       "theme_id": 10,
-      "answer": "THE QUEENS GAMBIT",
+      "answer": "THE QUEEN'S GAMBIT",
       "hint": "This miniseries follows a gifted competitive chess player.",
       "concept_score": 0.85757476,
-      "assessment": "legacy_calibration"
+      "assessment": "legacy_calibration",
+      "aliases": [
+        "THE QUEENS GAMBIT"
+      ]
     },
     {
       "id": "en-58e1a5993298364b",
