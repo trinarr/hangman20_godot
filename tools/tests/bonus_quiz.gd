@@ -87,6 +87,39 @@ func run() -> void:
 		GameState.reset_single_level_attempt("ru", level, true, true, false)
 		check(GameState.get_single_level_question_slots("ru", level).is_empty(), "Retry clears quiz positions")
 		check(GameState.get_single_level_question_id("ru", level, int(slots[0])) == -1 and GameState.get_single_level_question_id("ru", level, int(slots[1])) == -1, "Retry clears both question IDs")
+
+	# A quiz with no selectable/restorable content becomes Hangman permanently.
+	# The explicit empty slot assignment must survive cache rebuilds instead of
+	# generating a fresh quiz position on the next query.
+	GameState.single_player = {}
+	GameState.active_single_player_session = {}
+	GameState.pending_single_player_reward = {}
+	var fallback_level: int = 2
+	var fallback_count: int = main._single_player_level_word_target(fallback_level)
+	GameState._single_player_bucket("ru")["unlocked_level"] = fallback_level
+	GameState.select_single_level_theme("ru", fallback_level, 0, fallback_count)
+	var fallback_slots: Array = main._single_player_level_question_slots(fallback_level, 777, fallback_count)
+	check(fallback_slots.size() == 1, "Fallback fixture must start as quiz")
+	var fallback_slot: int = int(fallback_slots[0])
+	GameState.set_single_level_question_id("ru", fallback_level, 123456, false, fallback_slot)
+	GameState.set_active_single_player_session({
+		"kind": "quiz", "language": "ru", "level_index": fallback_level,
+		"word_slot": fallback_slot, "theme_id": Database.get_theme_id(0),
+		"data": {"question": {"id": 123456}},
+	}, false)
+	check(main._single_player_convert_quiz_slot_to_word(fallback_level, fallback_slot, "test", false), "Quiz fallback conversion failed")
+	check(GameState.has_single_level_question_slots_assignment("ru", fallback_level), "Empty fallback assignment was not persisted")
+	check(GameState.get_single_level_question_slots("ru", fallback_level).is_empty(), "Converted quiz slot still persisted")
+	check(GameState.get_single_level_question_id("ru", fallback_level, fallback_slot) == -1, "Converted quiz ID was not cleared")
+	check(GameState.get_active_single_player_session().is_empty(), "Obsolete quiz resume snapshot was not cleared")
+	GameState.save_game()
+	GameState.load_game()
+	check(GameState.has_single_level_question_slots_assignment("ru", fallback_level), "Empty fallback assignment did not survive reload")
+	check(GameState.get_single_level_question_slots("ru", fallback_level).is_empty(), "Reload regenerated a converted quiz slot")
+	main._invalidate_single_player_level_cache()
+	check(main._single_player_level_question_slots(fallback_level, 778, fallback_count).is_empty(), "Converted quiz regenerated after cache rebuild")
+	check(!main._single_player_stage_is_quiz(fallback_level, fallback_slot), "Converted stage still reports quiz type")
+	check(main._single_player_stage_reward_currency(fallback_level, fallback_slot, fallback_count) == GameState.STAGE_REWARD_STARS, "Converted stage did not switch to Hangman reward")
 	main.queue_free()
 	await get_tree().process_frame
 	print("BONUS_QUIZ checks=", checks, " failures=", failures)

@@ -216,7 +216,8 @@
         "key_scale": 1.28,
         "paper_flip_seconds": 0.5,
         "attempts_fade_seconds": 0.2,
-        "hints_fade_seconds": 0.18
+        "hints_fade_seconds": 0.18,
+        "hint_badges_fade_seconds": 0.06
       },
       "attempts_warning": {
         "threshold": 2,

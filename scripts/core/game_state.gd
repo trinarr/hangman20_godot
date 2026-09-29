@@ -2232,6 +2232,12 @@ func mark_single_player_word_guessed(lang: String, theme_index: int, word_index:
 	if persist:
 		save_game()
 
+func has_single_level_question_slots_assignment(lang: String, level_index: int) -> bool:
+	if level_index < 0:
+		return false
+	var slots_by_level: Dictionary = _single_player_bucket(lang)["level_question_slots"]
+	return slots_by_level.has(str(level_index))
+
 func get_single_level_question_slots(lang: String, level_index: int) -> Array:
 	var slots: Array = _single_player_bucket(lang)["level_question_slots"].get(str(level_index), [])
 	return slots.map(func(slot: Variant) -> int: return int(slot))
@@ -2239,6 +2245,62 @@ func get_single_level_question_slots(lang: String, level_index: int) -> Array:
 func set_single_level_question_slots(lang: String, level_index: int, slots: Array) -> void:
 	_single_player_bucket(lang)["level_question_slots"][str(level_index)] = slots.duplicate()
 	save_game()
+
+func convert_single_level_question_slot_to_word(
+	lang: String,
+	level_index: int,
+	word_slot: int,
+	persist: bool = true
+) -> bool:
+	if level_index < 0 or word_slot < 0:
+		return false
+	var lang_key := _normalize_language(lang)
+	var bucket := _single_player_bucket(lang_key)
+	var level_key := str(level_index)
+	var slots_by_level: Dictionary = bucket["level_question_slots"]
+	if !slots_by_level.has(level_key):
+		return false
+	var source_variant: Variant = slots_by_level.get(level_key, [])
+	var source_slots: Array = Array(source_variant) if source_variant is Array else []
+	var resolved_slots: Array = []
+	var changed: bool = false
+	for slot_variant: Variant in source_slots:
+		var slot: int = int(slot_variant)
+		if slot == word_slot:
+			changed = true
+			continue
+		resolved_slots.append(slot)
+	if !changed:
+		return false
+	# Keep an explicit empty assignment. The campaign uses presence of this key to
+	# distinguish a deliberately downgraded no-quiz level from a level whose quiz
+	# positions have not been generated yet.
+	slots_by_level[level_key] = resolved_slots
+	var question_ids: Dictionary = bucket["level_question_ids"]
+	var per_level_variant: Variant = question_ids.get(level_key, {})
+	if per_level_variant is Dictionary:
+		var per_level: Dictionary = per_level_variant
+		per_level.erase(str(word_slot))
+		if per_level.is_empty():
+			question_ids.erase(level_key)
+		else:
+			question_ids[level_key] = per_level
+	bucket["level_question_slots"] = slots_by_level
+	bucket["level_question_ids"] = question_ids
+	single_player[lang_key] = bucket
+	# If the downgrade repairs a resumable quiz that can no longer restore its
+	# content, remove that obsolete quiz snapshot in the same save transaction.
+	# The caller immediately starts/persists the replacement Hangman stage.
+	if (
+		str(active_single_player_session.get("kind", "")) == "quiz"
+		and _normalize_language(str(active_single_player_session.get("language", lang_key))) == lang_key
+		and int(active_single_player_session.get("level_index", -1)) == level_index
+		and int(active_single_player_session.get("word_slot", -1)) == word_slot
+	):
+		active_single_player_session = {}
+	if persist:
+		save_game()
+	return true
 
 # Only the completed prefix and the currently offered stage are committed.
 # Later stages are selected again using the latest shared adaptive difficulty.

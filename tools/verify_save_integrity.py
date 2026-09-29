@@ -572,6 +572,24 @@ def main() -> None:
         ),
         "Hangman stages must pay stars while embedded quiz stages pay coins",
     )
+    quiz_fallback = function_body(main_source, "_single_player_convert_quiz_slot_to_word")
+    quiz_slots = function_body(main_source, "_single_player_level_question_slots")
+    quiz_slot_conversion = function_body(
+        game_state, "convert_single_level_question_slot_to_word"
+    )
+    quiz_start = function_body(portrait, "_start_single_player_question")
+    quiz_resume = function_body(portrait, "_home_profile_resume_saved_single_player_level")
+    require(
+        "GameState.convert_single_level_question_slot_to_word" in quiz_fallback
+        and "has_single_level_question_slots_assignment" in quiz_slots
+        and "slots_by_level[level_key] = resolved_slots" in quiz_slot_conversion
+        and 'active_single_player_session = {}' in quiz_slot_conversion
+        and "question.is_empty()" in quiz_start
+        and "_single_player_convert_quiz_slot_to_word" in quiz_start
+        and '"saved quiz could not be restored"' in quiz_resume,
+        "Missing atomic quiz-to-Hangman fallback for unavailable campaign questions",
+    )
+
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(
         '"reward_currency": stage_reward_currency' in stage_result

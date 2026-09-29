@@ -177,6 +177,9 @@ var PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_
 var PORTRAIT_ROUND_END_HINTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.hints_fade_seconds"
 )
+var PORTRAIT_ROUND_END_HINT_BADGES_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
+	"timings.animations.round_end.hint_badges_fade_seconds"
+)
 const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70
 var PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = PORTRAIT_GAME_DESIGN.get_int(
 	"timings.animations.attempts_warning.threshold"
@@ -4017,6 +4020,15 @@ func _home_profile_resume_saved_single_player_level() -> void:
 					_persist_active_single_player_quiz_session()
 					_show_quiz_game_screen()
 					return
+			# The saved quiz itself is no longer restorable and no replacement question
+			# could be selected. Permanently downgrade this unplayed slot before opening
+			# the replacement word so reward type and future resumes cannot drift back.
+			_single_player_convert_quiz_slot_to_word(
+				level_index, word_slot, "saved quiz could not be restored", true
+			)
+			GameSession.discard_current_round()
+			_start_single_player_word(level_index, word_slot)
+			return
 		"next":
 			var next_data_variant: Variant = session.get("data", {})
 			var stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
@@ -4711,8 +4723,16 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	GameState.activate_ads_for_level(level_index)
 	var question: Dictionary = _single_player_level_question(level_index, word_slot)
 	var theme_index: int = _single_player_level_selected_theme(level_index)
-	if not _single_player_stage_is_quiz(level_index, word_slot) or question.is_empty() or theme_index < 0:
-		super._start_single_player_question(level_index, word_slot)
+	if not _single_player_stage_is_quiz(level_index, word_slot):
+		_start_single_player_word(level_index, word_slot)
+		return
+	if question.is_empty() or theme_index < 0:
+		_single_player_convert_quiz_slot_to_word(
+			level_index, word_slot,
+			"quiz question unavailable at stage start" if question.is_empty() else "quiz theme unavailable",
+			true
+		)
+		_start_single_player_word(level_index, word_slot)
 		return
 
 	GameSession.discard_current_round()
@@ -12528,6 +12548,50 @@ func _fade_in_portrait_hint_button_badge(
 		)
 	)
 
+func _fade_out_portrait_hint_button_badge(
+	button: Control,
+	duration: float
+) -> void:
+	if button == null or !is_instance_valid(button):
+		return
+	var component_variant: Variant = button.get_meta(
+		&"portrait_button_badge_component",
+		{}
+	)
+	if !(component_variant is Dictionary):
+		return
+	var component: Dictionary = component_variant
+	var badge := component.get("badge") as CanvasItem
+	var shadow := component.get("shadow") as CanvasItem
+	if badge == null or !is_instance_valid(badge) or !badge.visible:
+		return
+
+	var fade_duration: float = maxf(duration, 0.001)
+	var badge_tween := button.create_tween()
+	badge_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	badge_tween.set_parallel(true)
+	var badge_fade := badge_tween.tween_property(
+		badge,
+		"modulate:a",
+		0.0,
+		fade_duration
+	)
+	badge_fade.set_trans(Tween.TRANS_QUAD)
+	badge_fade.set_ease(Tween.EASE_IN)
+	if shadow != null and is_instance_valid(shadow) and shadow.visible:
+		var shadow_fade := badge_tween.tween_property(
+			shadow,
+			"modulate:a",
+			0.0,
+			fade_duration
+		)
+		shadow_fade.set_trans(Tween.TRANS_QUAD)
+		shadow_fade.set_ease(Tween.EASE_IN)
+	badge_tween.finished.connect(
+		Callable(self, "_set_portrait_hint_button_badge_alpha").bind(button, 0.0),
+		CONNECT_ONE_SHOT
+	)
+
 func _create_portrait_hint_counter_badge_label(parent: Control, text: String) -> Label:
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -18734,6 +18798,10 @@ func _hide_portrait_hints_for_round_end(animated: bool) -> void:
 		if !animated:
 			_finalize_portrait_hint_for_round_end(hint_button)
 			continue
+		_fade_out_portrait_hint_button_badge(
+			hint_button,
+			PORTRAIT_ROUND_END_HINT_BADGES_FADE_DURATION
+		)
 		var fade_tween := hint_button.create_tween()
 		fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		var fade_tweener := fade_tween.tween_property(

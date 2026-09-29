@@ -214,6 +214,17 @@ static func _validate_loaded_config() -> void:
 	if get_int("gameplay.max_mistakes") <= 0:
 		_fatal_config_error("gameplay.max_mistakes must be greater than zero")
 
+	var hint_fade_seconds: float = get_float("timings.animations.round_end.hints_fade_seconds")
+	var hint_badge_fade_seconds: float = get_float(
+		"timings.animations.round_end.hint_badges_fade_seconds"
+	)
+	if hint_fade_seconds <= 0.0:
+		_fatal_config_error("timings.animations.round_end.hints_fade_seconds must be greater than zero")
+	if hint_badge_fade_seconds <= 0.0 or hint_badge_fade_seconds >= hint_fade_seconds:
+		_fatal_config_error(
+			"timings.animations.round_end.hint_badges_fade_seconds must be greater than zero and shorter than hints_fade_seconds"
+		)
+
 	var lightning_ms: int = get_int("timings.quiz_lightning_answer_window_ms")
 	var fast_ms: int = get_int("timings.quiz_fast_answer_window_ms")
 	if lightning_ms <= 0.0 or lightning_ms >= fast_ms:

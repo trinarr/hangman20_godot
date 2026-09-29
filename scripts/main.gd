@@ -1266,8 +1266,13 @@ func _single_player_words_for_theme(
 func _single_player_level_question_slots(level_index: int, level_seed: int, word_count: int) -> Array:
 	if !_single_player_level_uses_question(level_index, word_count):
 		return []
+	var has_saved_assignment: bool = GameState.has_single_level_question_slots_assignment(
+		Database.current_language, level_index
+	)
 	var saved: Array = GameState.get_single_level_question_slots(Database.current_language, level_index)
-	if not saved.is_empty():
+	if has_saved_assignment:
+		# An explicit empty array is meaningful: all configured quiz slots for this
+		# level were downgraded to Hangman after content selection failed.
 		return saved
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, 503)
@@ -1339,6 +1344,42 @@ func _single_player_pick_level_question(
 		)
 	return picked_question
 
+func _single_player_has_active_quiz_snapshot(level_index: int, word_slot: int) -> bool:
+	var session: Dictionary = GameState.get_active_single_player_session()
+	if (
+		str(session.get("kind", "")) != "quiz"
+		or str(session.get("language", "")) != Database.current_language
+		or int(session.get("level_index", -1)) != level_index
+		or int(session.get("word_slot", -1)) != word_slot
+	):
+		return false
+	var data_variant: Variant = session.get("data", {})
+	if !(data_variant is Dictionary):
+		return false
+	var question_variant: Variant = Dictionary(data_variant).get("question", {})
+	return question_variant is Dictionary and !Dictionary(question_variant).is_empty()
+
+func _single_player_convert_quiz_slot_to_word(
+	level_index: int,
+	word_slot: int,
+	reason: String = "quiz content unavailable",
+	persist: bool = true
+) -> bool:
+	var changed: bool = GameState.convert_single_level_question_slot_to_word(
+		Database.current_language, level_index, word_slot, persist
+	)
+	if !changed:
+		return false
+	# The reward type, resume path and next-stage routing all derive from the
+	# persisted quiz-slot list. Drop this level's cached definition immediately so
+	# every subsequent query observes the Hangman stage atomically.
+	single_player_level_definitions_cache.erase(str(level_index))
+	push_warning(
+		"[SinglePlayer] Quiz slot %d on level %d downgraded to Hangman: %s"
+		% [word_slot, level_index + 1, reason]
+	)
+	return true
+
 func _single_player_level_data(level_index: int) -> Dictionary:
 	if level_index < 0:
 		return {}
@@ -1407,6 +1448,8 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var question_slots: Array = []
 	if selected_theme >= 0 and words.size() >= word_count:
 		question_slots = _single_player_level_question_slots(level_index, level_seed, word_count)
+		var resolved_question_slots: Array = question_slots.duplicate()
+		var first_unplayed_slot: int = _single_player_first_unplayed_slot(level_index, word_count)
 		var reserved_ids: Array = []
 		for slot: int in question_slots:
 			var saved_id: int = GameState.get_single_level_question_id(language, level_index, slot)
@@ -1417,11 +1460,26 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 				language, selected_theme, _single_player_slot_difficulty(target_difficulty, slot, word_count))
 			var question: Dictionary = _single_player_pick_level_question(
 				level_index, level_seed, selected_theme, target,
-				slot <= _single_player_first_unplayed_slot(level_index, word_count), slot, reserved_ids)
+				slot <= first_unplayed_slot, slot, reserved_ids)
 			if not question.is_empty():
 				questions[str(slot)] = question
 				question_targets[str(slot)] = target
 				reserved_ids.append(int(question["id"]))
+				continue
+			# Never rewrite metadata for an already-finished quiz: its durable result
+			# and reward snapshot may still need that stage type during resume. An active
+			# quiz snapshot is also allowed to restore itself before we decide it has no
+			# usable content. Only an unplayed, unresolved slot is downgraded.
+			var stage_status: int = GameState.get_single_level_word_status(
+				language, level_index, slot, word_count
+			)
+			if stage_status != 0 or _single_player_has_active_quiz_snapshot(level_index, slot):
+				continue
+			if _single_player_convert_quiz_slot_to_word(
+				level_index, slot, "no eligible quiz question", true
+			):
+				resolved_question_slots.erase(slot)
+		question_slots = resolved_question_slots
 	var level_data := {
 		"index": level_index,
 		"selection_stage": _single_player_first_unplayed_slot(level_index, word_count),
@@ -1959,8 +2017,12 @@ func _single_player_embedded_question_active() -> bool:
 	return false
 
 func _start_single_player_question(level_index: int, word_slot: int) -> void:
-	# Landscape/base implementations that do not provide the quiz UI can still
-	# play the replaced word instead of getting stuck on the level slot.
+	# Landscape/base implementations do not provide the embedded quiz UI. Convert
+	# the stage itself, not just its screen, so rewards/resume/progress all agree
+	# that this slot is now ordinary Hangman.
+	_single_player_convert_quiz_slot_to_word(
+		level_index, word_slot, "embedded quiz UI unavailable", true
+	)
 	_start_single_player_word(level_index, word_slot)
 
 func _start_next_single_player_word(level_index: int) -> void:

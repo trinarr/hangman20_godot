@@ -329,6 +329,20 @@ def main() -> None:
     require(maximum_balance > 0 and maximum_reward <= maximum_balance,
             "Maximum balance/reward values are inconsistent")
 
+    hint_fade_seconds = require_number(
+        resolve(config, "timings.animations.round_end.hints_fade_seconds"),
+        "timings.animations.round_end.hints_fade_seconds",
+    )
+    hint_badge_fade_seconds = require_number(
+        resolve(config, "timings.animations.round_end.hint_badges_fade_seconds"),
+        "timings.animations.round_end.hint_badges_fade_seconds",
+    )
+    require(hint_fade_seconds > 0, "Hint-button fade duration must be positive")
+    require(
+        0 < hint_badge_fade_seconds < hint_fade_seconds,
+        "Hint badge fade must be positive and shorter than the hint-button fade",
+    )
+
     lightning_ms = require_number(resolve(config, "timings.quiz_lightning_answer_window_ms"),
                                   "timings.quiz_lightning_answer_window_ms")
     fast_ms = require_number(resolve(config, "timings.quiz_fast_answer_window_ms"),
