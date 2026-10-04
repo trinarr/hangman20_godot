@@ -1,7 +1,7 @@
 {
   "gameplay": {
     "max_mistakes": 6,
-    "classic_difficulty_split": 0.5,
+    "word_difficulty_split": 0.5,
     "random_custom_word": {
       "max_length": 7,
       "difficulty_filter": 2

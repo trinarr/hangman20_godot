@@ -25,7 +25,7 @@ var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
 var is_active: bool = false
 var loss_deferred: bool = false
-var mode: int = GameState.GameMode.CLASSIC
+var mode: int = GameState.GameMode.SINGLE_PLAYER
 var open_hint_used: bool = false
 var remove_wrong_hint_used: bool = false
 var open_hint_ad_reuse_available: bool = false
@@ -38,7 +38,7 @@ func get_remaining_attempts() -> int:
 		return 0
 	return maxi(MAX_MISTAKES - mistakes, 0)
 
-func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) -> void:
+func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER) -> void:
 	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
 	word_data = word
 	if word_data.id.is_empty() and word.theme_index >= 0:
@@ -64,10 +64,6 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) ->
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
 	emit_signal("changed")
-
-func start_new_round(theme_index: int) -> void:
-	var word := WordManager.select_new_word(theme_index)
-	start_round(word, GameState.GameMode.CLASSIC)
 
 func start_custom_round(text: String) -> void:
 	var word := WordManager.set_custom_word(text)
@@ -472,7 +468,7 @@ func discard_current_round() -> void:
 	mistakes = 0
 	loss_deferred = false
 	is_active = false
-	mode = GameState.GameMode.CLASSIC
+	mode = GameState.GameMode.SINGLE_PLAYER
 	open_hint_used = false
 	remove_wrong_hint_used = false
 	open_hint_ad_reuse_available = false
@@ -481,7 +477,7 @@ func discard_current_round() -> void:
 	word_hint_text = ""
 	GameState.reset_current_game()
 
-func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
+func finish_result(is_win: bool) -> Dictionary:
 	var result := {
 		"title": Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT"),
 		"lines": []
@@ -489,39 +485,7 @@ func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 	if word_data == null:
 		return result
 
-	if is_win and mode != GameState.GameMode.TWO_PLAYER:
-		if award_win_coins:
-			GameState.add_soft_currency(GameState.WORD_REWARD_COINS, false)
-		var reward_text: String = tr("COINS_EARNED")
-		if reward_text == "COINS_EARNED":
-			reward_text = "Coins: +%d"
-		result["lines"].append(reward_text % GameState.WORD_REWARD_COINS)
-
-	var diff: int = 1 if word_data.difficulty > Database.DIFFICULTY_SPLIT else 0
-
-	# Only Classic category words update the Classic difficulty streak. Level
-	# rounds keep their word statistics and progression in a separate bucket.
-	if mode == GameState.GameMode.CLASSIC and theme_id >= 0:
-		if is_win:
-			GameState.records[0][diff] = int(GameState.records[0][diff]) + 1
-			if int(GameState.records[0][diff]) > int(GameState.records[0][2 + diff]):
-				GameState.records[0][2 + diff] = int(GameState.records[0][diff])
-		else:
-			GameState.records[0][diff] = 0
-
-	if mode == GameState.GameMode.CLASSIC:
-		if is_win and theme_id >= 0:
-			GameState.mark_guessed(
-				Database.current_language,
-				theme_id,
-				word_index,
-				Database.get_words_by_index(theme_id, 0).size(),
-				word_data.text,
-				false
-			)
-			if _is_theme_completed(theme_id):
-				result["lines"].append(Database.tr_text(57, "Category is completed!"))
-	elif mode == GameState.GameMode.SINGLE_PLAYER:
+	if mode == GameState.GameMode.SINGLE_PLAYER:
 		if is_win and theme_id >= 0:
 			GameState.mark_single_player_word_guessed(
 				Database.current_language,
@@ -542,6 +506,3 @@ func finish_result(is_win: bool, award_win_coins: bool = true) -> Dictionary:
 	if mode != GameState.GameMode.SINGLE_PLAYER:
 		GameState.save_game()
 	return result
-
-func _is_theme_completed(theme_index: int) -> bool:
-	return Database.get_number_of_all_words(theme_index, true) - Database.get_number_of_guessed_words(theme_index, true) == 0

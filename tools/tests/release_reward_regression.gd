@@ -119,9 +119,9 @@ func run_tests() -> void:
 	var before_stars: int = GameState.get_stars()
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	GameSession.start_custom_round("TEST")
-	var result: Dictionary = GameSession.finish_result(true, true)
+	var result: Dictionary = GameSession.finish_result(true)
 	ui._grant_remaining_attempt_star_reward(result, true)
-	check(GameState.get_soft_currency() == before_coins and GameState.get_stars() == before_stars, "two-player awards no currency even with award flag")
+	check(GameState.get_soft_currency() == before_coins and GameState.get_stars() == before_stars, "two-player awards no currency")
 	check(Array(result["lines"]).is_empty(), "two-player result does not promise coins")
 
 	var coin_refill_reward: int = ui.PORTRAIT_COIN_REFILL_REWARDED_AMOUNT

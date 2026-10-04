@@ -1981,15 +1981,6 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
 	show_game_screen()
 
-func start_classic_game(theme_index: int) -> void:
-	game_finished = false
-	last_result_data = {}
-	single_player_active_level_index = -1
-	single_player_active_word_slot = -1
-	GameState.current_mode = GameState.GameMode.CLASSIC
-	GameSession.start_new_round(theme_index)
-	show_game_screen()
-
 func _exit_game_warning_text() -> String:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		return tr("EXIT_LEVEL_HEART_WARNING")
@@ -2721,7 +2712,7 @@ func _on_round_lost() -> void:
 
 func _grant_remaining_attempt_star_reward(result: Dictionary, is_win: bool) -> Dictionary:
 	var rewarded_result: Dictionary = result.duplicate(true)
-	if !is_win or GameState.current_mode == GameState.GameMode.TWO_PLAYER:
+	if !is_win or GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
 		return rewarded_result
 	var remaining_attempts: int = GameSession.get_remaining_attempts()
 	if remaining_attempts <= 0:
@@ -2751,10 +2742,7 @@ func _finish_round(is_win: bool) -> void:
 		and single_player_active_word_slot
 			== _single_player_level_word_count(single_player_active_level_index) - 1
 	)
-	var award_immediate_win_coins: bool = (
-		GameState.current_mode == GameState.GameMode.CLASSIC
-	)
-	last_result_data = GameSession.finish_result(is_win, award_immediate_win_coins)
+	last_result_data = GameSession.finish_result(is_win)
 	last_result_data = _grant_remaining_attempt_star_reward(last_result_data, is_win)
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
 		if (
@@ -2768,14 +2756,7 @@ func _finish_round(is_win: bool) -> void:
 			true,
 			defer_single_player_final_reward
 		)
-	elif last_result_data.has("remaining_attempt_star_reward_amount"):
-		# Classic finish_result() saves its own progress before this bonus is added.
-		# Commit the star balance separately so closing during the result animation
-		# cannot lose or repeat the reward.
-		GameState.save_game()
-	# All round results now use the same in-place presentation. In particular,
-	# Single Player victories follow Classic exactly instead of entering the old
-	# dedicated win transition after the final letter feedback delay.
+	# Present both supported modes in place after the final letter feedback.
 	_show_in_place_round_result(is_win)
 
 func _result_continue_button_text() -> String:
@@ -2788,7 +2769,7 @@ func _result_continue_action() -> Callable:
 		GameState.GameMode.SINGLE_PLAYER:
 			return Callable(self, "_continue_single_player_result")
 		_:
-			return Callable(self, "_continue_classic_result")
+			return Callable(self, "_result_back_action")
 
 func _result_back_action() -> void:
 	if (
@@ -2811,9 +2792,6 @@ func _result_back_action() -> void:
 		_show_exit_game_popup()
 		return
 	_confirm_exit_game()
-
-func _continue_classic_result() -> void:
-	start_classic_game(max(0, GameSession.theme_id))
 
 func _continue_two_player_result() -> void:
 	show_custom_word()

@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "supported_game_modes": (False, r'SUPPORTED_GAME_MODES .*"failures":\[\]'),
     "portrait_stage_reward": (True, r'PORTRAIT_STAGE_REWARD .*"failures":\[\]'),
     "portrait_round_result": (True, r'PORTRAIT_ROUND_RESULT .*"failures":\[\]'),
     "portrait_popup_component": (True, r'PORTRAIT_POPUP_COMPONENT .*"failures":\[\]'),

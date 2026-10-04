@@ -1,63 +1,5 @@
 extends Node
 
-func select_new_word(theme_index: int) -> WordData:
-	if Database.get_theme_count() == 0:
-		return WordData.new("")
-
-	var selected_theme := theme_index
-	if selected_theme < 0:
-		selected_theme = randi() % Database.get_theme_count()
-
-	var words := Database.get_words_by_index(selected_theme, GameState.settings[2])
-	if words.is_empty():
-		# Fallback to all words if current difficulty has no words in a category.
-		words = Database.get_words_by_index(selected_theme, 0)
-	if words.is_empty():
-		return WordData.new("")
-
-	var progress := GameState.ensure_theme_progress(
-		Database.current_language,
-		selected_theme,
-		_real_word_count(selected_theme)
-	)
-	var guessed_keys: Dictionary = progress.get("guessed", {})
-	var played_keys: Dictionary = progress.get("played", {})
-	var word_keys: Array[String] = Database.get_word_progress_keys(selected_theme)
-	var available: Array = []
-	for item in words:
-		var index: int = int(item.get("index", -1))
-		var word_key: String = word_keys[index] if index >= 0 and index < word_keys.size() else ""
-		var already_guessed := bool(guessed_keys.get(word_key, false))
-		var already_played := bool(played_keys.get(word_key, false))
-		# Prefer words that have not been guessed or played recently.
-		if !already_guessed and !already_played:
-			available.append(item)
-
-	if available.is_empty():
-		# Reset the recently-played flags when all eligible words were exhausted.
-		GameState.reset_theme_played_flags(Database.current_language, selected_theme, false)
-		for item in words:
-			var index: int = int(item.get("index", -1))
-			var word_key: String = word_keys[index] if index >= 0 and index < word_keys.size() else ""
-			var already_guessed := bool(guessed_keys.get(word_key, false))
-			if !already_guessed:
-				available.append(item)
-
-	if available.is_empty():
-		# All words in this difficulty are guessed. Let the player still replay the category.
-		available = words
-
-	var picked: Dictionary = available[randi() % available.size()]
-	var selected_word := WordData.new(str(picked["text"]), float(picked["difficulty"]), selected_theme, int(picked["index"]))
-	GameState.mark_played(
-		Database.current_language,
-		selected_theme,
-		selected_word.index,
-		_real_word_count(selected_theme),
-		selected_word.text
-	)
-	return selected_word
-
 func set_custom_word(text: String) -> WordData:
 	var normalized := normalize_word(text)
 	var custom_word := WordData.new(normalized, 0.0, -1, -1)
@@ -68,6 +10,3 @@ func normalize_word(text: String) -> String:
 	result = result.replace("-", "—")
 	result = result.replace("Ё", "Е")
 	return result
-
-func _real_word_count(theme_index: int) -> int:
-	return Database.get_words_by_index(theme_index, 0).size()

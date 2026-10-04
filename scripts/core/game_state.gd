@@ -140,10 +140,10 @@ var HINT_COSTS: Dictionary = {
 	HINT_QUIZ_REPLACE_QUESTION: GAME_DESIGN.get_int("economy.hints.costs.quiz_replace_question"),
 }
 
+# Keep published numeric values stable for saved references.
 enum GameMode {
-	CLASSIC,
-	TWO_PLAYER,
-	SINGLE_PLAYER,
+	TWO_PLAYER = 1,
+	SINGLE_PLAYER = 2,
 }
 
 enum HintPayment {
@@ -192,17 +192,18 @@ var _fullscreen_ad_active: bool = false
 # Settings:
 # 0 - reserved
 # 1 - reserved
-# 2 - Classic word pool: 1 hard mode, 2 normal mode (easy words)
+# 2 - reserved; retained for released-save compatibility
 # 3 - sound/music: 1 off, 2 on
 # 4 - vibration: 1 off, 2 on
 # 5 - hero: 1 Lucky, 2 El Tigre
 var settings: Array = [1, 1, 2, 1, 2, 1]
 
 # Records:
-# 0 classic: current easy, current hard, record easy, record hard
+# 0 - archived counters; retained for released-save compatibility
 # 1 two-player: wins, defeats
 var records: Array = [[0, 0, 0, 0], [0, 0]]
 
+# Archived word flags are carried through save/load only.
 var progress: Dictionary = {}
 var single_player: Dictionary = {}
 # Resumable level UI/state is independent for each word-base language. The two
@@ -223,7 +224,7 @@ var hint_counts: Dictionary = {
 	HINT_QUIZ_FIFTY_FIFTY: DEFAULT_HINT_COUNT,
 	HINT_QUIZ_REPLACE_QUESTION: DEFAULT_HINT_COUNT,
 }
-var current_mode: int = GameMode.CLASSIC
+var current_mode: int = GameMode.SINGLE_PLAYER
 var _save_write_in_progress: bool = false
 var _save_blocked_by_future_version: bool = false
 
@@ -1906,7 +1907,7 @@ func pay_for_hint(hint_key: String, persist: bool = true) -> int:
 	return HintPayment.SOFT_CURRENCY
 
 func reset_current_game() -> void:
-	current_mode = GameMode.CLASSIC
+	current_mode = GameMode.SINGLE_PLAYER
 
 func set_word_language(lang: String) -> void:
 	var normalized_language: String = _normalize_language(lang)
@@ -1958,65 +1959,6 @@ func _prune_word_flag_dictionary(source: Variant, theme_index: int) -> Dictionar
 			normalized.erase(key_variant)
 	return normalized
 
-
-func ensure_theme_progress(lang: String, theme_index: int, _word_count: int) -> Dictionary:
-	var lang_key := _normalize_language(lang)
-	if !progress.has(lang_key) or !(progress[lang_key] is Dictionary):
-		progress[lang_key] = {}
-	var theme_key := _theme_progress_key(theme_index)
-	if theme_key.is_empty():
-		return {"played": {}, "guessed": {}}
-	if !progress[lang_key].has(theme_key) or !(progress[lang_key][theme_key] is Dictionary):
-		progress[lang_key][theme_key] = {"played": {}, "guessed": {}}
-	var item: Dictionary = progress[lang_key][theme_key]
-	item["played"] = _prune_word_flag_dictionary(item.get("played", {}), theme_index)
-	item["guessed"] = _prune_word_flag_dictionary(item.get("guessed", {}), theme_index)
-	progress[lang_key][theme_key] = item
-	return item
-
-func reset_theme_played_flags(lang: String, theme_index: int, persist: bool = true) -> void:
-	var item := ensure_theme_progress(lang, theme_index, 0)
-	item["played"] = {}
-	if persist:
-		save_game()
-
-func mark_played(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
-	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
-		return
-	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
-	if !redirected.is_empty():
-		theme_index = Database.get_theme_index_by_id(int(redirected["theme_id"]))
-		word_text = str(redirected["text"])
-		word_index = -1
-	var key := _word_progress_key(theme_index, word_index, word_text)
-	if key.is_empty():
-		return
-	var item := ensure_theme_progress(lang, theme_index, word_count)
-	(item["played"] as Dictionary)[key] = true
-	if persist:
-		save_game()
-
-func mark_guessed(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
-	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
-		return
-	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
-	if !redirected.is_empty():
-		theme_index = Database.get_theme_index_by_id(int(redirected["theme_id"]))
-		word_text = str(redirected["text"])
-		word_index = -1
-	var key := _word_progress_key(theme_index, word_index, word_text)
-	if key.is_empty():
-		return
-	var item := ensure_theme_progress(lang, theme_index, word_count)
-	(item["guessed"] as Dictionary)[key] = true
-	if persist:
-		save_game()
-
-func clear_theme(lang: String, theme_index: int, word_count: int) -> void:
-	var item := ensure_theme_progress(lang, theme_index, word_count)
-	item["played"] = {}
-	item["guessed"] = {}
-	save_game()
 
 func _new_single_player_bucket() -> Dictionary:
 	return {

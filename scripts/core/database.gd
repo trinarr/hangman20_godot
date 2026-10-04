@@ -29,7 +29,7 @@ var _word_load_thread_language: String = ""
 var _queued_word_load_language: String = ""
 
 var DIFFICULTY_SPLIT: float = GAME_DESIGN.get_float_range(
-	"gameplay.classic_difficulty_split",
+	"gameplay.word_difficulty_split",
 	0.0,
 	1.0
 )
@@ -72,15 +72,12 @@ const TRANSLATION_KEYS := {
 	3: &"COMMON_CONTINUE",
 	12: &"WORD_DATABASE_LABEL",
 	19: &"VERSION_LABEL",
-	25: &"CLEAR_THEME_CONFIRM",
 	26: &"YES",
 	27: &"NO",
-	30: &"GUESSED",
 	33: &"RESULT_VICTORY",
 	34: &"RESULT_DEFEAT",
 	37: &"INPUT_WORD",
 	40: &"NO_CATEGORY",
-	57: &"CATEGORY_COMPLETED",
 	60: &"CHECK_WORD",
 	61: &"VIBRATION",
 	64: &"ERROR_GENERIC",
@@ -600,7 +597,7 @@ func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 			continue
 		var diff: float = get_word_difficulty(theme_index, i)
 		if difficulty_filter != 0:
-			# AS3 Settings[2]: 0 = all/general, 1 = hard only, 2 = easy only.
+			# Filter: 0 = all words, 1 = hard only, 2 = easy only.
 			# Scores up to and including 0.5 are easy; scores above 0.5 are hard.
 			if difficulty_filter == 1 and diff <= DIFFICULTY_SPLIT:
 				continue
@@ -724,34 +721,3 @@ func get_hint(theme_index: int, word_index: int) -> String:
 	if word_index >= 0 and word_index < theme_hints.size():
 		return str(theme_hints[word_index]).strip_edges()
 	return ""
-
-func get_number_of_all_words(theme_index: int = -1, difficulty_is_enabled: bool = false) -> int:
-	var count := 0
-	var difficulty_filter: int = int(GameState.settings[2]) if difficulty_is_enabled and has_node("/root/GameState") else 0
-	if theme_index < 0:
-		for i in range(get_theme_count()):
-			count += get_words_by_index(i, difficulty_filter).size()
-	else:
-		count = get_words_by_index(theme_index, difficulty_filter).size()
-	return count
-
-func get_number_of_guessed_words(theme_index: int = -1, difficulty_is_enabled: bool = false) -> int:
-	var count := 0
-	if theme_index < 0:
-		for i in range(get_theme_count()):
-			count += get_number_of_guessed_words(i, difficulty_is_enabled)
-		return count
-	var progress := GameState.ensure_theme_progress(
-		current_language,
-		theme_index,
-		get_words_by_index(theme_index, 0).size()
-	)
-	var guessed_keys: Dictionary = progress.get("guessed", {})
-	var word_keys: Array[String] = get_word_progress_keys(theme_index)
-	var difficulty_filter: int = int(GameState.settings[2]) if difficulty_is_enabled else 0
-	for item in get_words_by_index(theme_index, difficulty_filter):
-		var index: int = int(item.get("index", -1))
-		var word_key: String = word_keys[index] if index >= 0 and index < word_keys.size() else ""
-		if bool(guessed_keys.get(word_key, false)):
-			count += 1
-	return count

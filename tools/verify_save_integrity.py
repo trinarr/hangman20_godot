@@ -167,7 +167,7 @@ def main() -> None:
     require("word_progress_key_from_text" in database, "Stable word identity is missing")
     require('"%s::%d"' in database, "Duplicate words do not receive stable occurrence keys")
     require("get_theme_index_by_id" in database, "Stable theme identity is missing")
-    require('item["played"] = {}' in game_state, "Played-word dictionary reset is missing")
+    require("func mark_single_player_word_shown" in game_state, "Campaign word presentation history is missing")
     require(
         not re.search(r'\["(?:played|guessed)"\]\[[^\]]+\]', "\n".join((game_state, session, main_source, portrait))),
         "Runtime still indexes played/guessed progress by array position",
@@ -607,10 +607,9 @@ def main() -> None:
         and "is_single_level_failed" not in level_prepare,
         "A failed stage can still terminate or reset the whole level",
     )
-    classic_attempt_reward = function_body(main_source, "_grant_remaining_attempt_star_reward")
+    campaign_attempt_reward = function_body(main_source, "_grant_remaining_attempt_star_reward")
     require(
-        "GameState.current_mode == GameState.GameMode.TWO_PLAYER" in classic_attempt_reward
-        and "GameState.current_mode != GameState.GameMode.CLASSIC" not in classic_attempt_reward,
+        "GameState.current_mode != GameState.GameMode.SINGLE_PLAYER" in campaign_attempt_reward,
         "Single-player Hangman no longer grants stars for its remaining attempts",
     )
     reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")

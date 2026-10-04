@@ -1,5 +1,4 @@
 keys,ru,en
-MENU_CLASSIC,Классика,Classic
 MENU_TWO_PLAYER,Два игрока,Two players
 COMMON_CONTINUE,Продолжить,Continue
 COMMON_FREE,Бесплатно,Free
@@ -7,11 +6,9 @@ SETTINGS_TITLE,Настройки,Settings
 COMMON_EXIT,Выйти,Exit
 WORD_DATABASE_LABEL,База слов:,Database:
 VERSION_LABEL,Версия:,Version:
-CLEAR_THEME_CONFIRM,Очистить тему?,Clear the category?
 YES,Да,Yes
 NO,Нет,No
 EXIT_GAME_CONFIRM,Хотите выйти?,Do you want to quit?
-GUESSED,Отгадано,Guessed
 RESULT_VICTORY,ПОБЕДА,VICTORY
 RESULT_DEFEAT,ПОРАЖЕНИЕ,DEFEAT
 INPUT_WORD,Введите слово,Input the word
@@ -26,7 +23,6 @@ THEME_SCIENCE,НАУКА,SCIENCE
 THEME_HISTORY,ИСТОРИЯ,HISTORY
 THEME_GENERAL,ОБЩЕЕ,GENERAL
 THEME_FILM_MUSIC,КИНО И МУЗЫКА,FILM AND MUSIC
-CATEGORY_COMPLETED,Тема завершена!,Category is completed!
 CHECK_WORD,Проверить слово,Check the word
 VIBRATION,Вибрация,Vibration
 ERROR_GENERIC,Ошибка! Что-то пошло не так.,Error! Something goes wrong.
@@ -42,7 +38,6 @@ TOAST_WORD_NOT_FOUND,Слово не найдено,Word not found
 TOAST_ERROR,Ошибка сети,Error
 TOAST_AD_NOT_READY,Реклама еще не готова,The ad isn't ready yet
 COIN_STORE_TITLE,МОНЕТЫ,COINS
-COINS_EARNED,Монеты: +%d,Coins: +%d
 LEVEL_LABEL,Уровень,Level
 CHALLENGE_SHORT_LABEL,Сложный,Hard
 LEVEL_FAILURE,НЕУДАЧА,FAILURE

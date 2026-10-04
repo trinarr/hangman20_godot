@@ -83,8 +83,8 @@ func run() -> void:
 	check(state.is_single_player_hint_unlocked("ru", state.HINT_QUIZ_REPLACE_QUESTION), "Unlock survives restart")
 	check(!state.is_single_player_hint_unlocked("en", state.HINT_QUIZ_REPLACE_QUESTION), "New language retains onboarding")
 	state.single_player = {}
-	session.start_round(WordData.new("КОШКА", 0.1, 0, 0), state.GameMode.CLASSIC)
-	check(session.can_use_open_letter_hint(), "Classic mode is unchanged")
+	session.start_custom_round("КОШКА")
+	check(!session.can_use_open_letter_hint() and !session.can_use_remove_wrong_hint() and !session.can_unlock_comment_hint(), "Custom two-player words remain without hints")
 	main._quiz_single_player_embedded = false
 	check(!main._portrait_hint_progression_locked(state.HINT_QUIZ_REPLACE_QUESTION), "Standalone quiz is unchanged")
 	main.queue_free()

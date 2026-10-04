@@ -17,7 +17,7 @@ Save format advances from 2 to 3; content version advances from 1 to 2. This is 
 
 `word_content_migration.gd` migrates before normal save normalization:
 
-- Classic played/guessed flags are OR-merged into the retained record.
+- Archived played/guessed flags are OR-merged into the retained record.
 - Level history merges counts, guessed/played flags and recent keys; old keys are removed. New replacement words receive no inherited history.
 - Same-theme last_seen values share a sequence and can use max. Cross-theme sequences cannot be compared: the imported display is conservatively appended to the destination sequence, without treating the source sequence as a timestamp.
 - Completed/assigned words and active snapshots get stable identities and current indices for surviving entries. Retired snapshots get index -1 and their original identity; the runtime accepts them from the compatibility archive only.
@@ -85,7 +85,7 @@ All content exports and the word, quiz, theme, game-design, optimization/resourc
 
 Godot 4.6 stable, Linux headless, disposable user-data directories:
 
-- `word_content_migration`: 1059 checks, 0 failures, no script errors. Covers all 44 merges, classic/level flags, counters, recency, repeated loads, archived rounds, stable IDs, surviving indices, paid hints, attempt offers, untouched economy/receipts and recovery from a v2 backup.
+- `word_content_migration`: 1059 checks, 0 failures, no script errors. Covers all 44 merges, archived/level flags, counters, recency, repeated loads, archived rounds, stable IDs, surviving indices, paid hints, attempt offers, untouched economy/receipts and recovery from a v2 backup.
 - `word_selection`: 23 checks, 0 failures.
 - `save_recovery`: 51 checks across independent processes, 0 failures.
 

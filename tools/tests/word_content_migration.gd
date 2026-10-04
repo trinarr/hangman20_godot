@@ -52,7 +52,7 @@ func run() -> void:
 		check(!migrated["single_player"][language]["word_stats"][source_theme]["seen_count"].has(old_key), label + "retired count removed")
 		check(history["recent_words"].count(new_key) == 1, label + "recent canonical once")
 		check(int(history["last_seen"][new_key]) == (40 if source_theme == target_theme else 6), label + "theme sequence semantics")
-		check(bool(migrated["progress"][language][target_theme]["guessed"][new_key]), label + "classic flag merged")
+		check(bool(migrated["progress"][language][target_theme]["guessed"][new_key]), label + "archived flag merged")
 		check(!history["seen_count"].has(CONTENT.normalize(str(merge["replacement_answer"]))), label + "replacement starts unseen")
 		check(state._migrate_save_payload(migrated) == migrated, label + "second load idempotent")
 		check(int(migrated["soft_currency"]) == 777 and int(migrated["stars"]) == 888 and int(migrated["hearts"]) == 4, label + "economy untouched")

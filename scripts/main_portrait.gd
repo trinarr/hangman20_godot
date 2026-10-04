@@ -12214,7 +12214,7 @@ func show_result_screen(is_win: bool, _data: Dictionary = {}) -> void:
 	if !game_screen_visible or _portrait_game_input_group == null or !is_instance_valid(_portrait_game_input_group):
 		show_game_screen()
 		return
-	# Single Player wins now deliberately follow the Classic victory flow too:
+	# Single-player victories reveal the solved word on the gameplay screen:
 	# the paper peels away in place and the solved word is shown in green.
 	_show_in_place_round_result(is_win, true)
 
