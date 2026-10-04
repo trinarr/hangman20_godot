@@ -25,7 +25,7 @@
       "id": "ru-f419305d47885116",
       "theme_id": 1,
       "answer": "КАПОЭЙРА",
-      "hint": "Бразильское национальное боевое искусство",
+      "hint": "Бразильское боевое искусство, сочетающее поединок, танцевальные движения и музыку.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0265
@@ -1350,14 +1350,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "ru-71cb8dab82f02224",
-      "theme_id": 1,
-      "answer": "СТРЕТЧИНГ",
-      "hint": "Комплекс упражнений развивает гибкость и подвижность суставов",
-      "concept_score": 0.25144915,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "ru-c51893f8bcfb79e3",
       "theme_id": 1,
       "answer": "ЗУМБА",
@@ -2297,15 +2289,6 @@
       "hint": "Этот знак на руке обозначает лидера команды",
       "concept_score": 0.99506574,
       "assessment": "legacy_calibration"
-    },
-    {
-      "id": "ru-6fd50aedcb5dd2a0",
-      "theme_id": 1,
-      "answer": "СУДЕЙСКИЙ СВИСТОК",
-      "hint": "Этим предметом судья останавливает и возобновляет игру.",
-      "concept_score": 1.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": 0.0098
     },
     {
       "id": "ru-b95e2a7e13918d62",
@@ -4908,15 +4891,6 @@
       "score_adjustment": 0.1839
     },
     {
-      "id": "ru-b58ddb237ccb8891",
-      "theme_id": 2,
-      "answer": "АЗОРЫ",
-      "hint": "Португальский архипелаг посреди Атлантики состоит из вулканических островов",
-      "concept_score": 0.57918413,
-      "assessment": "legacy_calibration",
-      "minimum": 0.44
-    },
-    {
       "id": "ru-004e2cf8e1de5519",
       "theme_id": 2,
       "answer": "ТЕНЕРИФЕ",
@@ -6749,14 +6723,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "ru-4b494c57b5dbf507",
-      "theme_id": 2,
-      "answer": "ГОРА ЭВЕРЕСТ",
-      "hint": "Высочайшая вершина всей планеты",
-      "concept_score": 0.06002379,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "ru-86df4ab1d117fef3",
       "theme_id": 2,
       "answer": "РЕКА НИЛ",
@@ -8067,14 +8033,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "ru-007117225cfcee6b",
-      "theme_id": 3,
-      "answer": "ГРИВАСТЫЙ ВОЛК",
-      "hint": "Высокий южноамериканский хищник напоминает лису на очень длинных ногах",
-      "concept_score": 0.31747158,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "ru-6bda14a1a980090d",
       "theme_id": 3,
       "answer": "КРАБ-ЙЕТИ",
@@ -8603,14 +8561,6 @@
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.1792
-    },
-    {
-      "id": "ru-5bf5c42a33cd859c",
-      "theme_id": 3,
-      "answer": "МИЦЕЛИЙ",
-      "hint": "Эта сеть тонких нитей образует вегетативное тело гриба",
-      "concept_score": 0.10948562,
-      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-1ad86bf04300a1dc",
@@ -9530,14 +9480,6 @@
       "answer": "ЛЕСНОЙ ПОДЛЕСОК",
       "hint": "Кустарники и молодые деревья растут под верхним ярусом",
       "concept_score": 0.49995992,
-      "assessment": "legacy_calibration"
-    },
-    {
-      "id": "ru-7c6032bb707780c3",
-      "theme_id": 3,
-      "answer": "ДРЕВЕСНАЯ КРОНА",
-      "hint": "Ветви и листья образуют верхний слой дерева",
-      "concept_score": 0.40013468,
       "assessment": "legacy_calibration"
     },
     {
@@ -12078,14 +12020,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "ru-f13c215e9bca52ac",
-      "theme_id": 4,
-      "answer": "КАРДАН",
-      "hint": "Этот вращающийся вал передает крутящий момент между узлами автомобиля",
-      "concept_score": 0.21375112,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "ru-42b80ffbb322bc39",
       "theme_id": 4,
       "answer": "ПОЛУОСЬ",
@@ -12854,14 +12788,6 @@
       "concept_score": 0.42,
       "assessment": "editorial_2026_09",
       "audience": "B"
-    },
-    {
-      "id": "ru-8533bb43d1c4dfac",
-      "theme_id": 4,
-      "answer": "ОПТИЧЕСКИЙ КАБЕЛЬ",
-      "hint": "Тонкие стеклянные нити передают данные световыми импульсами",
-      "concept_score": 0.41995725,
-      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-631712b43adfd685",
@@ -20328,14 +20254,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "ru-ef7e8eccd23edc3f",
-      "theme_id": 6,
-      "answer": "ГРЕЧНЕВАЯ КРУПА",
-      "hint": "Коричневые зёрна становятся рассыпчатым гарниром",
-      "concept_score": 0.06006379,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "ru-a9a635e7004cc2dc",
       "theme_id": 6,
       "answer": "ПШЕНИЧНЫЙ ХЛЕБ",
@@ -22371,14 +22289,6 @@
       "assessment": "individual_chemistry"
     },
     {
-      "id": "ru-afa3e3d17847b43a",
-      "theme_id": 7,
-      "answer": "РЕАКТИВ",
-      "hint": "Это вещество используют для проведения или обнаружения реакции.",
-      "concept_score": 0.45,
-      "assessment": "individual_chemistry"
-    },
-    {
       "id": "ru-ed10f63dc8cbd0b8",
       "theme_id": 7,
       "answer": "СОРБЕНТ",
@@ -23907,15 +23817,6 @@
       "hint": "В этом стиле архитектура любит пышность, движение и изогнутые линии",
       "concept_score": 0.0700321,
       "assessment": "legacy_calibration"
-    },
-    {
-      "id": "ru-69a8e34d23a9cf2e",
-      "theme_id": 8,
-      "answer": "БОЛЕАДОРАС",
-      "hint": "Охотничье метательное оружие",
-      "concept_score": 1.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": 0.1873
     },
     {
       "id": "ru-a0ffe4b202a7e779",
@@ -28764,14 +28665,6 @@
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0185
-    },
-    {
-      "id": "ru-4d011be3312195b5",
-      "theme_id": 9,
-      "answer": "РОУТЕР",
-      "hint": "Это устройство распределяет сетевое соединение между приборами.",
-      "concept_score": 0.17351541,
-      "assessment": "legacy_calibration"
     },
     {
       "id": "ru-a5e51fecd2f316f5",
@@ -36612,24 +36505,6 @@
       "difficulty_band": 3
     },
     {
-      "id": "ru-231b565dba2ce5bb",
-      "theme_id": 8,
-      "answer": "ДЕКАБРИСТЫ",
-      "hint": "Участники выступления на Сенатской площади в Петербурге в декабре 1825 года.",
-      "concept_score": 0.56,
-      "assessment": "editorial_expansion_patch09",
-      "difficulty_band": 3
-    },
-    {
-      "id": "ru-51a2e3cb7d802475",
-      "theme_id": 8,
-      "answer": "СТРЕЛЬЦЫ",
-      "hint": "Пешие воины Русского государства, вооружённые огнестрельным оружием и бердышами.",
-      "concept_score": 0.56,
-      "assessment": "editorial_expansion_patch09",
-      "difficulty_band": 3
-    },
-    {
       "id": "ru-c7f39f7e79e339ff",
       "theme_id": 8,
       "answer": "ЗЕМСТВО",
@@ -39370,15 +39245,6 @@
       "theme_id": 4,
       "answer": "ВЫДЕРЖКА",
       "hint": "Время, в течение которого свет попадает на матрицу или плёнку при съёмке одного кадра.",
-      "concept_score": 0.74,
-      "assessment": "editorial_expansion_patch10",
-      "central_band": "upper"
-    },
-    {
-      "id": "ru-87bf5f420aa8fd67",
-      "theme_id": 4,
-      "answer": "СХОД-РАЗВАЛ",
-      "hint": "Проверка и регулировка углов установки колёс автомобиля.",
       "concept_score": 0.74,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
@@ -42390,15 +42256,6 @@
       "expansion_band": "medium"
     },
     {
-      "answer": "ВНЕ ИГРЫ",
-      "hint": "Положение атакующего за допустимой линией обороны.",
-      "theme_id": 1,
-      "id": "ru-314c314238e24962",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "ДОБИВАНИЕ",
       "hint": "Повторный удар или бросок после отскока от цели.",
       "theme_id": 1,
@@ -42521,15 +42378,6 @@
       "theme_id": 1,
       "id": "ru-0e8afa4bab64fde4",
       "concept_score": 0.5,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
-      "answer": "КРУГОВОЙ ТУРНИР",
-      "hint": "Формат, в котором каждый участник встречается со всеми остальными.",
-      "theme_id": 1,
-      "id": "ru-24e27660c1ebe5d1",
-      "concept_score": 0.64,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
     },
@@ -43276,15 +43124,6 @@
       "hint": "Альпийский край по обе стороны австрийско-итальянской границы.",
       "theme_id": 2,
       "id": "ru-8842cd7ae7e4899c",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
-      "answer": "ДОЛОМИТОВЫЕ АЛЬПЫ",
-      "hint": "Итальянский горный район с бледными зубчатыми вершинами.",
-      "theme_id": 2,
-      "id": "ru-372457010ee5c470",
       "concept_score": 0.64,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
@@ -45171,15 +45010,6 @@
       "expansion_band": "medium"
     },
     {
-      "answer": "КОЛЕНВАЛ",
-      "hint": "Вал, превращающий движение поршней во вращение.",
-      "theme_id": 4,
-      "id": "ru-ea477e56e370f96e",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "ГИДРОУСИЛИТЕЛЬ",
       "hint": "Система, облегчающая поворот руля давлением жидкости.",
       "theme_id": 4,
@@ -45810,15 +45640,6 @@
       "expansion_band": "hard"
     },
     {
-      "answer": "РЕЧЕВОЙ ТЕРАПЕВТ",
-      "hint": "Специалист, помогающий при нарушениях речи.",
-      "theme_id": 5,
-      "id": "ru-59c2f45c913d9927",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "ЭРГОТЕРАПЕВТ",
       "hint": "Специалист, помогающий вернуть навыки повседневной самостоятельности.",
       "theme_id": 5,
@@ -46341,15 +46162,6 @@
       "expansion_band": "medium"
     },
     {
-      "answer": "ПРОДУКТ-МЕНЕДЖЕР",
-      "hint": "Специалист, определяющий развитие продукта с учетом потребностей пользователей.",
-      "theme_id": 5,
-      "id": "ru-63d802b7bc36efae",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "СКРАМ-МАСТЕР",
       "hint": "Участник команды, помогающий соблюдать выбранный гибкий процесс работы.",
       "theme_id": 5,
@@ -46364,15 +46176,6 @@
       "theme_id": 5,
       "id": "ru-457b1669fdd7b587",
       "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
-      "answer": "МЕНТОР",
-      "hint": "Опытный человек, помогающий другому развиваться.",
-      "theme_id": 5,
-      "id": "ru-9ba907460980e0f7",
-      "concept_score": 0.5,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
     },
@@ -47182,15 +46985,6 @@
       "hint": "Красноватая кислая приправа из высушенных ягод.",
       "theme_id": 6,
       "id": "ru-d526559f2650b61a",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
-      "answer": "ТХИНА",
-      "hint": "Паста из перемолотого кунжута.",
-      "theme_id": 6,
-      "id": "ru-7e1a2ab097e3a9d8",
       "concept_score": 0.64,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
@@ -49698,15 +49492,6 @@
       "expansion_band": "medium"
     },
     {
-      "answer": "ГИБРИДНЫЙ ГРАФИК",
-      "hint": "Режим, совмещающий работу из офиса и других мест.",
-      "theme_id": 9,
-      "id": "ru-a2bd11075ffe13bb",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "ГИБКИЙ ГРАФИК",
       "hint": "Режим с возможностью выбирать часть рабочих часов.",
       "theme_id": 9,
@@ -51082,6 +50867,258 @@
       "concept_score": 0.5,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
+    },
+    {
+      "id": "ru-38353a0006c4b8c0",
+      "theme_id": 3,
+      "answer": "ЛЕЖБИЩЕ",
+      "hint": "Место на берегу, где тюлени или моржи собираются для отдыха и размножения.",
+      "concept_score": 0.41029652,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.3865,
+      "replaces_retired_id": "ru-007117225cfcee6b"
+    },
+    {
+      "id": "ru-2f76e38599cb9220",
+      "theme_id": 2,
+      "answer": "КУРОСИО",
+      "hint": "Тёплое океаническое течение, которое проходит вдоль восточных берегов Японии.",
+      "concept_score": 0.60345512,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.44,
+      "replaces_retired_id": "ru-b58ddb237ccb8891"
+    },
+    {
+      "id": "ru-58dc3f1871aa172e",
+      "theme_id": 2,
+      "answer": "ПУНА",
+      "hint": "Высокогорная природная область Анд с холодным сухим климатом и травянистой растительностью.",
+      "concept_score": 0.70636842,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5238,
+      "replaces_retired_id": "ru-372457010ee5c470"
+    },
+    {
+      "id": "ru-9d913b59e80be474",
+      "theme_id": 2,
+      "answer": "АТЛАС",
+      "hint": "Горная система на северо-западе Африки, проходящая через Марокко, Алжир и Тунис.",
+      "concept_score": 0.15352568,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2018,
+      "replaces_retired_id": "ru-4b494c57b5dbf507"
+    },
+    {
+      "id": "ru-bbe78827b28dd34c",
+      "theme_id": 3,
+      "answer": "ТРАВИНКА",
+      "hint": "Отдельный тонкий стебелёк небольшого зелёного растения на лугу или газоне.",
+      "concept_score": 0.11135283,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.22,
+      "replaces_retired_id": "ru-5bf5c42a33cd859c"
+    },
+    {
+      "id": "ru-b3efc5b29b41bee2",
+      "theme_id": 1,
+      "answer": "БРОСОК С ОТКЛОНЕНИЕМ",
+      "hint": "Баскетболист посылает мяч в кольцо, в прыжке отклоняя корпус назад от защитника.",
+      "concept_score": 1,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.7274,
+      "replaces_retired_id": "ru-6fd50aedcb5dd2a0",
+      "score_adjustment": 0.0182
+    },
+    {
+      "id": "ru-6d3efde60e5a3762",
+      "theme_id": 1,
+      "answer": "НАПУЛЬСНИК",
+      "hint": "Эластичная повязка на запястье, которая впитывает пот во время занятий спортом.",
+      "concept_score": 0.22401993,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.3222,
+      "replaces_retired_id": "ru-71cb8dab82f02224"
+    },
+    {
+      "id": "ru-ef7fd305bf997cda",
+      "theme_id": 1,
+      "answer": "ПЕРЕИГРОВКА",
+      "hint": "Новый матч между теми же соперниками, назначенный вместо завершённой или отменённой встречи.",
+      "concept_score": 0.61779468,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5069,
+      "replaces_retired_id": "ru-314c314238e24962"
+    },
+    {
+      "id": "ru-48e87ca4f06f6b3a",
+      "theme_id": 1,
+      "answer": "ПРИЕМ ПОДАЧИ",
+      "hint": "Волейболист встречает мяч соперника после его ввода в игру и направляет его связующему.",
+      "concept_score": 0.67620923,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5267,
+      "replaces_retired_id": "ru-24e27660c1ebe5d1"
+    },
+    {
+      "id": "ru-dbccac7d9b2a5f42",
+      "theme_id": 4,
+      "answer": "ШАРНИР",
+      "hint": "Подвижное соединение деталей, позволяющее им поворачиваться относительно друг друга.",
+      "concept_score": 0.17761468,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2444,
+      "replaces_retired_id": "ru-f13c215e9bca52ac"
+    },
+    {
+      "id": "ru-353ce5980852f97d",
+      "theme_id": 4,
+      "answer": "ОБГОННАЯ МУФТА",
+      "hint": "Узел, передающий вращение в одном направлении и допускающий свободный ход в обратном.",
+      "concept_score": 0.60151405,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5072,
+      "replaces_retired_id": "ru-ea477e56e370f96e"
+    },
+    {
+      "id": "ru-cc937f9da6e77a9d",
+      "theme_id": 4,
+      "answer": "ОПТОПАРА",
+      "hint": "Электронный компонент, в котором светодиод передаёт сигнал фотоприёмнику, изолируя две электрические цепи.",
+      "concept_score": 0.90587972,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5784,
+      "replaces_retired_id": "ru-87bf5f420aa8fd67"
+    },
+    {
+      "id": "ru-8a2135b060fbfbcc",
+      "theme_id": 4,
+      "answer": "ЗАКЛЕПОЧНИК",
+      "hint": "Ручной инструмент, который соединяет детали металлическими креплениями с формируемой головкой.",
+      "concept_score": 0.4167256,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.4356,
+      "replaces_retired_id": "ru-8533bb43d1c4dfac"
+    },
+    {
+      "id": "ru-97a34f0e50da5c80",
+      "theme_id": 9,
+      "answer": "ВИЗИТКА",
+      "hint": "Небольшая карточка с именем человека, его должностью и контактами.",
+      "concept_score": 0.12197369,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2125,
+      "replaces_retired_id": "ru-4d011be3312195b5"
+    },
+    {
+      "id": "ru-a405266567a97da2",
+      "theme_id": 5,
+      "answer": "ЛОКАЛИЗАТОР",
+      "hint": "Специалист, который адаптирует тексты и интерфейс продукта для другого языка и культуры.",
+      "concept_score": 0.72825058,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5428,
+      "replaces_retired_id": "ru-63d802b7bc36efae"
+    },
+    {
+      "id": "ru-653be5467ab33418",
+      "theme_id": 5,
+      "answer": "КИНОМЕХАНИК",
+      "hint": "Работник, который обслуживает проекционное оборудование и обеспечивает показ фильма в зале.",
+      "concept_score": 0.5062099,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.4289,
+      "replaces_retired_id": "ru-9ba907460980e0f7"
+    },
+    {
+      "id": "ru-dec3cd56915b0587",
+      "theme_id": 5,
+      "answer": "ПРОТЕЗИСТ",
+      "hint": "Специалист, который изготавливает и подгоняет искусственные заменители утраченных частей тела.",
+      "concept_score": 0.60319108,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5058,
+      "replaces_retired_id": "ru-59c2f45c913d9927"
+    },
+    {
+      "id": "ru-358dc7558c728116",
+      "theme_id": 6,
+      "answer": "МИРИН",
+      "hint": "Сладкое японское рисовое вино, используемое как приправа для соусов и маринадов.",
+      "concept_score": 0.72294121,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5091,
+      "replaces_retired_id": "ru-7e1a2ab097e3a9d8"
+    },
+    {
+      "id": "ru-191c921806af40e1",
+      "theme_id": 9,
+      "answer": "ОТЛОЖЕННЫЙ СПРОС",
+      "hint": "Потребность в покупке, которую люди собираются удовлетворить позже, когда появится возможность.",
+      "concept_score": 0.66195231,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5557,
+      "replaces_retired_id": "ru-a2bd11075ffe13bb"
+    },
+    {
+      "id": "ru-ac44791407bc8432",
+      "theme_id": 6,
+      "answer": "МЯКИШ",
+      "hint": "Мягкая пористая часть хлеба, находящаяся под коркой.",
+      "concept_score": 0.0922376,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2341,
+      "replaces_retired_id": "ru-ef7e8eccd23edc3f"
+    },
+    {
+      "id": "ru-fc7fb61f99801a5f",
+      "theme_id": 3,
+      "answer": "КОМЕЛЬ",
+      "hint": "Нижняя, обычно более толстая часть ствола дерева у основания.",
+      "concept_score": 0.40564926,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.3882,
+      "replaces_retired_id": "ru-7c6032bb707780c3"
+    },
+    {
+      "id": "ru-9c56f84140fcf3ad",
+      "theme_id": 7,
+      "answer": "БУФЕРНЫЙ РАСТВОР",
+      "hint": "Жидкая смесь, которая сопротивляется изменению кислотности при добавлении небольшого количества кислоты или щёлочи.",
+      "concept_score": 0.35165827,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.4104,
+      "replaces_retired_id": "ru-afa3e3d17847b43a"
+    },
+    {
+      "id": "ru-75243d8aa39f9954",
+      "theme_id": 8,
+      "answer": "МЕСТНИЧЕСТВО",
+      "hint": "Порядок назначения на должности в Русском государстве с учётом знатности рода и службы предков.",
+      "concept_score": 0.63528857,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5195,
+      "replaces_retired_id": "ru-231b565dba2ce5bb"
+    },
+    {
+      "id": "ru-237a3117addb02c8",
+      "theme_id": 8,
+      "answer": "ЗАСЕЧНАЯ ЧЕРТА",
+      "hint": "Оборонительная линия Русского государства из лесных завалов, укреплений и сторожевых пунктов.",
+      "concept_score": 0.65461127,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5049,
+      "replaces_retired_id": "ru-51a2e3cb7d802475"
+    },
+    {
+      "id": "ru-6a9b0335e400767a",
+      "theme_id": 8,
+      "answer": "СФРАГИСТИКА",
+      "hint": "Вспомогательная историческая дисциплина, изучающая печати на документах.",
+      "concept_score": 1,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.8717,
+      "replaces_retired_id": "ru-69a8e34d23a9cf2e",
+      "score_adjustment": 0.1629
     }
   ]
 }

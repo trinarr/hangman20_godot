@@ -13,7 +13,8 @@ signal hearts_changed(hearts: int, recovery_seconds: int)
 const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
-const SAVE_FORMAT_VERSION: int = 2
+const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
+const SAVE_FORMAT_VERSION: int = 3
 const SAVE_MIGRATION_BASE_VERSION: int = 2
 const LEGAL_DOCUMENTS_VERSION: int = 1
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
@@ -499,6 +500,8 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 	# Add one explicit case for every released save-format transition. Each step
 	# mutates _payload in place and must set save_version = from_version + 1.
 	match from_version:
+		2:
+			return WORD_CONTENT.migrate_v2_to_v3(_payload)
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
 			return false
@@ -643,6 +646,7 @@ func _home_profile_save_game() -> bool:
 	_store_current_single_player_resume_state()
 	var payload: Dictionary = {
 		"save_version": SAVE_FORMAT_VERSION,
+		"word_content_version": WORD_CONTENT.CONTENT_VERSION,
 		"word_language": word_language,
 		"player_name": player_name,
 		"settings": settings,
@@ -1977,8 +1981,13 @@ func reset_theme_played_flags(lang: String, theme_index: int, persist: bool = tr
 		save_game()
 
 func mark_played(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
-	if theme_index < 0 or word_index < 0:
+	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
 		return
+	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
+	if !redirected.is_empty():
+		theme_index = Database.get_theme_index_by_id(int(redirected["theme_id"]))
+		word_text = str(redirected["text"])
+		word_index = -1
 	var key := _word_progress_key(theme_index, word_index, word_text)
 	if key.is_empty():
 		return
@@ -1988,8 +1997,13 @@ func mark_played(lang: String, theme_index: int, word_index: int, word_count: in
 		save_game()
 
 func mark_guessed(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
-	if theme_index < 0 or word_index < 0:
+	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
 		return
+	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
+	if !redirected.is_empty():
+		theme_index = Database.get_theme_index_by_id(int(redirected["theme_id"]))
+		word_text = str(redirected["text"])
+		word_index = -1
 	var key := _word_progress_key(theme_index, word_index, word_text)
 	if key.is_empty():
 		return
@@ -2171,8 +2185,13 @@ func _advance_single_player_theme_intro(lang: String, theme_index: int) -> void:
 		intro["completed"] = true
 
 func mark_single_player_word_shown(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
-	if theme_index < 0 or word_index < 0:
+	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
 		return
+	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
+	if !redirected.is_empty():
+		theme_index = Database.get_theme_index_by_id(int(redirected["theme_id"]))
+		word_text = str(redirected["text"])
+		word_index = -1
 	var key := _word_progress_key(theme_index, word_index, word_text)
 	if key.is_empty():
 		return
@@ -2194,8 +2213,13 @@ func mark_single_player_word_shown(lang: String, theme_index: int, word_index: i
 		save_game()
 
 func mark_single_player_word_guessed(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
-	if theme_index < 0 or word_index < 0:
+	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
 		return
+	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
+	if !redirected.is_empty():
+		theme_index = Database.get_theme_index_by_id(int(redirected["theme_id"]))
+		word_text = str(redirected["text"])
+		word_index = -1
 	var key := _word_progress_key(theme_index, word_index, word_text)
 	if key.is_empty():
 		return

@@ -61,6 +61,10 @@ func check(value: bool, label: String) -> void:
 func _ready() -> void:
 	call_deferred("run_tests")
 
+func fixture_word() -> WordData:
+	var candidate: Dictionary = Database.get_words_by_index(0, 0)[0]
+	return WordData.new(str(candidate["text"]), float(candidate["difficulty"]), 0, int(candidate["index"]), str(candidate["id"]))
+
 func run_tests() -> void:
 	var root: Node = get_tree().root
 	var ui := TestUI.new()
@@ -70,7 +74,7 @@ func run_tests() -> void:
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	ui.single_player_active_level_index = 4
 	ui.single_player_active_word_slot = 0
-	GameSession.start_round(WordData.new("TEST", 0.3, 0, 0), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
 	GameSession.mistakes = 5
 	GameSession.loss_deferred = true
 	ui._advance_single_player_extra_attempt_offer()
@@ -102,7 +106,7 @@ func run_tests() -> void:
 	GameSession.open_hint_ad_reuse_available = true
 	request_id = GameState.begin_rewarded_action_request("hint_open", ui._action_reward_context(&"hint_open", -1))
 	var old_round: String = GameSession.round_id
-	GameSession.start_round(WordData.new("WORD", 0.3, 0, 0), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
 	var revealed_before: Array = GameSession.revealed.duplicate()
 	var hints_before: int = GameState.get_hint_count(GameState.HINT_OPEN_LETTER)
 	ui._on_action_request_rewarded(request_id, "", 1)
@@ -171,7 +175,7 @@ func run_tests() -> void:
 	ads._rewarded_loaded_id = ads.rewarded_id
 	ui.test_ads = ads
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
-	GameSession.start_round(WordData.new("TEST", 0.3, 0, 0), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
 	GameSession.open_hint_used = true
 	GameSession.open_hint_ad_reuse_available = true
 	var origin := Control.new()

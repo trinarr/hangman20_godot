@@ -1,6 +1,7 @@
 extends Node
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
 
 var data: Dictionary = {}
 var hints: Dictionary = {}
@@ -674,6 +675,21 @@ func get_word_progress_key_set(theme_index: int) -> Dictionary:
 func word_progress_key_from_text(word: String) -> String:
 	_ensure_word_language_loaded()
 	return normalize_loaded_word(word)
+
+# Resolve identity from the saved text, never from a shifted array index alone.
+# Archived records are available for resume only; get_words_by_index stays active-only.
+func resolve_saved_word(theme_id: int, text: String, word_id: String = "") -> Dictionary:
+	var theme_index: int = get_theme_index_by_id(theme_id)
+	if theme_index < 0:
+		return {}
+	var normalized: String = normalize_loaded_word(text)
+	var archived: Dictionary = WORD_CONTENT.retired_record(current_language, word_id, text)
+	if !archived.is_empty() and int(archived["theme_id"]) == theme_id and normalize_loaded_word(str(archived["answer"])) == normalized:
+		return {"id": str(archived["id"]), "index": -1, "hint": str(archived["hint"]), "retired": true}
+	for candidate: Dictionary in get_words_by_index(theme_index, 0):
+		if str(candidate["text"]) == normalized and (word_id.is_empty() or str(candidate["id"]) == word_id):
+			return {"id": str(candidate["id"]), "index": int(candidate["index"]), "hint": get_hint(theme_index, int(candidate["index"])), "retired": false}
+	return {}
 
 func get_word_difficulty(theme_index: int, word_index: int) -> float:
 	_ensure_word_language_loaded()

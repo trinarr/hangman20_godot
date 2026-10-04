@@ -7736,14 +7736,6 @@
       "score_adjustment": 0.0715
     },
     {
-      "id": "en-abc24e86e4320b7b",
-      "theme_id": 3,
-      "answer": "FOREST CLEARING",
-      "hint": "An open grassy area appears among trees",
-      "concept_score": 0.05998626,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-9988c7789f9e1640",
       "theme_id": 3,
       "answer": "BIRD NEST",
@@ -7896,14 +7888,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-989f047f284334bd",
-      "theme_id": 3,
-      "answer": "FALLING LEAVES",
-      "hint": "Dry foliage drops from trees during autumn",
-      "concept_score": 0.06003725,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-b51612f7d9067873",
       "theme_id": 3,
       "answer": "SNOWFALL",
@@ -8024,14 +8008,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-4029f0ba675ecda8",
-      "theme_id": 3,
-      "answer": "TREE CANOPY",
-      "hint": "Branches and leaves form the upper layer of woodland",
-      "concept_score": 0.39983068,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-1a88751b65821fb6",
       "theme_id": 3,
       "answer": "ROOT SYSTEM",
@@ -8045,14 +8021,6 @@
       "answer": "FOREST FLOOR",
       "hint": "The ground layer beneath woodland trees, often covered with fallen leaves and other organic matter.",
       "concept_score": 0.39991538,
-      "assessment": "legacy_calibration"
-    },
-    {
-      "id": "en-75e365a9bf14f9df",
-      "theme_id": 3,
-      "answer": "PLANT POLLINATION",
-      "hint": "Pollen moves between blossoms so fruit can develop",
-      "concept_score": 0.39996088,
       "assessment": "legacy_calibration"
     },
     {
@@ -11265,14 +11233,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-693e0f5a97d04a00",
-      "theme_id": 4,
-      "answer": "VOLTAGE STABILIZER",
-      "hint": "A device smooths dangerous changes in the electrical supply",
-      "concept_score": 0.50003896,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-25b02636e8a12c29",
       "theme_id": 4,
       "answer": "EMERGENCY LIGHTING",
@@ -12019,14 +11979,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-3e49d96ac3fe57d0",
-      "theme_id": 5,
-      "answer": "CONSERVATOR",
-      "hint": "This specialist preserves old objects without erasing every trace of age",
-      "concept_score": 0.10010041,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-7343e431402ddf1d",
       "theme_id": 5,
       "answer": "ANIMATOR",
@@ -12115,15 +12067,6 @@
       "hint": "This specialist studies birds in the wild and in laboratories",
       "concept_score": 0.14987369,
       "assessment": "legacy_calibration"
-    },
-    {
-      "id": "en-ae981d35682e3f29",
-      "theme_id": 5,
-      "answer": "PALEONTOLOGIST",
-      "hint": "This researcher uses fossils to study life from ancient times",
-      "concept_score": 1.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": 0.0047
     },
     {
       "id": "en-65d7df1ea7517e18",
@@ -12572,14 +12515,6 @@
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0491
-    },
-    {
-      "id": "en-58975cf4e42797d7",
-      "theme_id": 5,
-      "answer": "COLORIST",
-      "hint": "This post-production specialist adjusts image colour, contrast, and visual mood.",
-      "concept_score": 0.15761869,
-      "assessment": "legacy_calibration"
     },
     {
       "id": "en-2e0ff0bf8504dbfc",
@@ -16830,7 +16765,7 @@
       "id": "en-0ce29c0ee6f97543",
       "theme_id": 6,
       "answer": "CHEESE PANCAKE",
-      "hint": "A small pan-fried cake made from soft curd cheese, often served with sour cream or jam.",
+      "hint": "A small pancake made from curd cheese, fried until golden and often served with sour cream or jam.",
       "concept_score": 0.04004765,
       "assessment": "legacy_calibration"
     },
@@ -17329,15 +17264,6 @@
       "hint": "Food is briefly placed in boiling water and then cooled quickly",
       "concept_score": 0.99995549,
       "assessment": "legacy_calibration"
-    },
-    {
-      "id": "en-4ca6a930913bb935",
-      "theme_id": 6,
-      "answer": "CARAMELIZATION",
-      "hint": "Sugar is heated until it develops a brown colour and rich aroma",
-      "concept_score": 1.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": 0.0
     },
     {
       "id": "en-d8b4df41c9cc956b",
@@ -19729,15 +19655,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-1dea8371ec81a076",
-      "theme_id": 7,
-      "answer": "WAVE INTERFERENCE",
-      "hint": "When overlapping waves combine, making the result stronger in some places and weaker in others.",
-      "concept_score": 1.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": 0.0
-    },
-    {
       "id": "en-365ca45070aa559e",
       "theme_id": 7,
       "answer": "DIFFRACTION",
@@ -21767,14 +21684,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-59e5e2ac66c9e2e4",
-      "theme_id": 8,
-      "answer": "DECOLONIZATION",
-      "hint": "Dependent territories gained independence from European powers",
-      "concept_score": 0.49994536,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-ca8711a97ffcba23",
       "theme_id": 8,
       "answer": "POSTWAR RECOVERY",
@@ -22177,14 +22086,6 @@
       "answer": "CAVE PAINTING",
       "hint": "Prehistoric people drew animals on stone walls",
       "concept_score": 0.06008046,
-      "assessment": "legacy_calibration"
-    },
-    {
-      "id": "en-e84812184191dd76",
-      "theme_id": 8,
-      "answer": "CRUSADES",
-      "hint": "Medieval religious campaigns travelled towards the eastern Mediterranean",
-      "concept_score": 0.06009318,
       "assessment": "legacy_calibration"
     },
     {
@@ -23399,14 +23300,6 @@
       "assessment": "legacy_calibration"
     },
     {
-      "id": "en-2a360ddf8e03d0dc",
-      "theme_id": 9,
-      "answer": "BRAINSTORM",
-      "hint": "This idea-generation session encourages many suggestions before evaluating them.",
-      "concept_score": 0.06399587,
-      "assessment": "legacy_calibration"
-    },
-    {
       "id": "en-4fa776b8cd03bcd6",
       "theme_id": 9,
       "answer": "PITCH DECK",
@@ -23781,15 +23674,6 @@
       "hint": "This appliance automatically washes dishes and utensils",
       "concept_score": 0.03874526,
       "assessment": "legacy_calibration"
-    },
-    {
-      "id": "en-c5b3dda3f537e20f",
-      "theme_id": 9,
-      "answer": "MICROWAVE",
-      "hint": "This appliance heats food using electromagnetic waves",
-      "concept_score": 0.0,
-      "assessment": "legacy_calibration",
-      "score_adjustment": -0.0338
     },
     {
       "id": "en-1280baa21c37755a",
@@ -24213,14 +24097,6 @@
       "answer": "FITNESS BAND",
       "hint": "This wearable records activity and basic body metrics.",
       "concept_score": 0.81207902,
-      "assessment": "legacy_calibration"
-    },
-    {
-      "id": "en-943ea7adf8eeefc1",
-      "theme_id": 9,
-      "answer": "EBOOK READER",
-      "hint": "This device is designed for reading digital books.",
-      "concept_score": 0.92668281,
       "assessment": "legacy_calibration"
     },
     {
@@ -37707,15 +37583,6 @@
       "expansion_band": "medium"
     },
     {
-      "answer": "PACEMAKER",
-      "hint": "An athlete who sets a planned speed for other racers.",
-      "theme_id": 1,
-      "id": "en-e88bcf88cb51fc9b",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "BODY CHECK",
       "hint": "A legal shoulder or torso collision in certain contact sports.",
       "theme_id": 1,
@@ -40389,15 +40256,6 @@
       "expansion_band": "medium"
     },
     {
-      "answer": "THERMAL IMAGER",
-      "hint": "A device that displays temperature differences as an image.",
-      "theme_id": 4,
-      "id": "en-9db02685dfad9b43",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
       "answer": "LASER LEVEL",
       "hint": "A device projecting straight reference lines for construction.",
       "theme_id": 4,
@@ -40768,7 +40626,7 @@
     },
     {
       "answer": "NEUTRAL DENSITY",
-      "hint": "A camera filter type that reduces incoming light without changing its colour.",
+      "hint": "The light-reducing property of a camera filter designed to preserve colour balance.",
       "theme_id": 4,
       "id": "en-5d4eeacdf4dc3be2",
       "concept_score": 0.84,
@@ -42049,15 +41907,6 @@
       "hint": "Shaping cream or batter by squeezing it through a nozzle.",
       "theme_id": 6,
       "id": "en-0e3fe1e69dbb38bf",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
-      "answer": "PASTRY BAG",
-      "hint": "A flexible container with a nozzle used to apply cream.",
-      "theme_id": 6,
-      "id": "en-5cece5d4b90af84f",
       "concept_score": 0.64,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
@@ -45073,15 +44922,6 @@
       "hint": "The relationship between professional duties and personal time.",
       "theme_id": 9,
       "id": "en-b9bd920e08491555",
-      "concept_score": 0.64,
-      "assessment": "editorial_expansion_20260928",
-      "expansion_band": "medium"
-    },
-    {
-      "answer": "HYBRID WORKING",
-      "hint": "An arrangement combining office attendance with work elsewhere.",
-      "theme_id": 9,
-      "id": "en-93fd9b137c4f5f7d",
       "concept_score": 0.64,
       "assessment": "editorial_expansion_20260928",
       "expansion_band": "medium"
@@ -48858,6 +48698,198 @@
       "assessment": "editorial_hard_expansion_20260929",
       "target_difficulty": 0.9,
       "score_adjustment": 0.2056
+    },
+    {
+      "id": "en-85e9e7a639458c49",
+      "theme_id": 8,
+      "answer": "MANOR COURT",
+      "hint": "A local tribunal that dealt with disputes and customs on a medieval estate.",
+      "concept_score": 0.53732005,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.4529,
+      "replaces_retired_id": "en-59e5e2ac66c9e2e4"
+    },
+    {
+      "id": "en-638d19d6aadf6f3a",
+      "theme_id": 6,
+      "answer": "MOTHER SAUCE",
+      "hint": "One of the basic sauces in classical French cooking from which other sauces are made.",
+      "concept_score": 1,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.7373,
+      "replaces_retired_id": "en-4ca6a930913bb935",
+      "score_adjustment": 0.0187
+    },
+    {
+      "id": "en-cfec9349d60d47d4",
+      "theme_id": 4,
+      "answer": "RING LIGHT",
+      "hint": "A circular lamp placed around a camera lens to give even illumination for close-up work.",
+      "concept_score": 0.63802069,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.4808,
+      "replaces_retired_id": "en-693e0f5a97d04a00"
+    },
+    {
+      "id": "en-d98df108202d0c6f",
+      "theme_id": 5,
+      "answer": "NUMISMATIST",
+      "hint": "A specialist who studies coins, medals, and the history of money.",
+      "concept_score": 1,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.7297,
+      "replaces_retired_id": "en-ae981d35682e3f29",
+      "score_adjustment": 0.0424
+    },
+    {
+      "id": "en-00d2970e9f499807",
+      "theme_id": 5,
+      "answer": "BUSKER",
+      "hint": "A performer who entertains people in public places and receives voluntary donations.",
+      "concept_score": 0.11887887,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2504,
+      "replaces_retired_id": "en-58975cf4e42797d7"
+    },
+    {
+      "id": "en-54ddad95a0ea733b",
+      "theme_id": 9,
+      "answer": "DOUBLE BIND",
+      "hint": "A situation in which conflicting demands make every available choice problematic.",
+      "concept_score": 0.81932891,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.6096,
+      "replaces_retired_id": "en-943ea7adf8eeefc1"
+    },
+    {
+      "id": "en-1605aac64ce0de61",
+      "theme_id": 9,
+      "answer": "BOOKEND",
+      "hint": "A support placed beside a row of books to keep them upright on a shelf.",
+      "concept_score": 0.0249135,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.1731,
+      "replaces_retired_id": "en-c5b3dda3f537e20f"
+    },
+    {
+      "id": "en-2f196702a00a9b06",
+      "theme_id": 4,
+      "answer": "LINEAR BEARING",
+      "hint": "A machine component that guides smooth motion along a straight path.",
+      "concept_score": 0.69226068,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5088,
+      "replaces_retired_id": "en-9db02685dfad9b43"
+    },
+    {
+      "id": "en-6566dfc1bb7b46c6",
+      "theme_id": 9,
+      "answer": "DECISION FATIGUE",
+      "hint": "A decline in the quality of choices after making many of them in succession.",
+      "concept_score": 0.71144074,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5592,
+      "replaces_retired_id": "en-93fd9b137c4f5f7d"
+    },
+    {
+      "id": "en-9992dde7998fed59",
+      "theme_id": 9,
+      "answer": "ERRAND",
+      "hint": "A short trip made to deliver something, collect an item, or complete a small task.",
+      "concept_score": 0.17966766,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2362,
+      "replaces_retired_id": "en-2a360ddf8e03d0dc"
+    },
+    {
+      "id": "en-a0d0fd98c3ec05a6",
+      "theme_id": 6,
+      "answer": "DOUGH SCRAPER",
+      "hint": "A flat kitchen tool used to divide a baking mixture and clean a work surface.",
+      "concept_score": 0.55384134,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5136,
+      "replaces_retired_id": "en-5cece5d4b90af84f"
+    },
+    {
+      "id": "en-6464405ef9f51f0d",
+      "theme_id": 7,
+      "answer": "MAGNETOSTRICTION",
+      "hint": "A change in the shape or size of a material when its magnetic state changes.",
+      "concept_score": 0.93421336,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.71,
+      "replaces_retired_id": "en-1dea8371ec81a076"
+    },
+    {
+      "id": "en-fea5f2459580745f",
+      "theme_id": 3,
+      "answer": "NURSE SHARK",
+      "hint": "A bottom-dwelling ocean predator with barbels beside its mouth and a broad, rounded head.",
+      "concept_score": 0.31825505,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.3419,
+      "replaces_retired_id": "en-75e365a9bf14f9df"
+    },
+    {
+      "id": "en-62b6e488fe5c5f6e",
+      "theme_id": 3,
+      "answer": "BASKING SHARK",
+      "hint": "A very large fish that swims with an open mouth near the surface to filter out plankton.",
+      "concept_score": 0.4067598,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.3973,
+      "replaces_retired_id": "en-4029f0ba675ecda8"
+    },
+    {
+      "id": "en-1c71f80204d90725",
+      "theme_id": 3,
+      "answer": "TIDE POOL",
+      "hint": "A small patch of seawater trapped among shore rocks when the sea level falls.",
+      "concept_score": 0.19863854,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2413,
+      "replaces_retired_id": "en-abc24e86e4320b7b"
+    },
+    {
+      "id": "en-c79bdf5e07d5fed6",
+      "theme_id": 3,
+      "answer": "STARLING",
+      "hint": "A songbird with glossy dark plumage and pale spots that can imitate other sounds.",
+      "concept_score": 0.02199021,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2068,
+      "replaces_retired_id": "en-989f047f284334bd"
+    },
+    {
+      "id": "en-cef9a10d163b799a",
+      "theme_id": 1,
+      "answer": "PHOTO FINISH",
+      "hint": "A very close race result decided by an image of competitors crossing the line.",
+      "concept_score": 0.65607341,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.5051,
+      "replaces_retired_id": "en-e88bcf88cb51fc9b"
+    },
+    {
+      "id": "en-f483bba201a366a4",
+      "theme_id": 5,
+      "answer": "BELLHOP",
+      "hint": "A hotel employee who carries guests' luggage to their rooms.",
+      "concept_score": 0.13904107,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2435,
+      "replaces_retired_id": "en-3e49d96ac3fe57d0"
+    },
+    {
+      "id": "en-9dbbe61275389499",
+      "theme_id": 8,
+      "answer": "CASTLE KEEP",
+      "hint": "The main fortified tower of a medieval stronghold, used as a last place of defence.",
+      "concept_score": 0.07772307,
+      "assessment": "editorial_dedup_replacement_20261004",
+      "target_difficulty": 0.2081,
+      "replaces_retired_id": "en-e84812184191dd76"
     }
   ]
 }

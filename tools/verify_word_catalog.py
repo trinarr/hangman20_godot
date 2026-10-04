@@ -132,18 +132,24 @@ def main():
         catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
         validate(catalog)
         verify_apostrophe_policy(catalog, language)
+        manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text())
+        historical = copy.deepcopy(catalog)
+        historical['entries'] = [e for e in catalog['entries']
+                                 if e.get('assessment') != 'editorial_dedup_replacement_20261004']
+        historical['entries'] += [m['retired'] for m in manifest['merges']
+                                  if m['language'] == language]
         verify_expansion(
-            catalog, language, 'editorial_expansion_patch09', 'difficulty_band',
+            historical, language, 'editorial_expansion_patch09', 'difficulty_band',
             {1: (0.0, .30), 2: (.30, .42), 3: (.42, .52), 4: (.52, 1.0)},
             {1: 25, 2: 15, 3: 7, 4: 3},
         )
         verify_expansion(
-            catalog, language, 'editorial_expansion_patch10', 'central_band',
+            historical, language, 'editorial_expansion_patch10', 'central_band',
             {'lower': (.35, .42), 'core': (.42, .54), 'upper': (.54, .65)},
             {'lower': 15, 'core': 25, 'upper': 10},
         )
-        verify_medium_hard_expansion(catalog, language)
-        verify_high_difficulty_en_expansion(catalog, language)
+        verify_medium_hard_expansion(historical, language)
+        verify_high_difficulty_en_expansion(historical, language)
         export(language, check=True)
         expected = rendered(catalog)
         reordered = copy.deepcopy(catalog)

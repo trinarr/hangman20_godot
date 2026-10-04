@@ -41,6 +41,9 @@ func get_remaining_attempts() -> int:
 func start_round(word: WordData, game_mode: int = GameState.GameMode.CLASSIC) -> void:
 	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
 	word_data = word
+	if word_data.id.is_empty() and word.theme_index >= 0:
+		var reference: Dictionary = Database.resolve_saved_word(Database.get_theme_id(word.theme_index), word.text)
+		word_data.id = str(reference.get("id", ""))
 	word_index = word.index
 	theme_id = word.theme_index
 	mode = game_mode
@@ -73,8 +76,9 @@ func start_custom_round(text: String) -> void:
 func _resolve_word_hint() -> String:
 	if word_data == null:
 		return ""
-	if theme_id >= 0 and word_index >= 0:
-		return Database.get_hint(theme_id, word_index)
+	if theme_id >= 0:
+		var reference: Dictionary = Database.resolve_saved_word(Database.get_theme_id(theme_id), word_data.text, word_data.id)
+		return str(reference.get("hint", ""))
 	return ""
 
 func _split_letters(text: String) -> PackedStringArray:
@@ -89,6 +93,8 @@ func to_save_data() -> Dictionary:
 	return {
 		"round_id": round_id,
 		"word": word_data.text,
+		"word_id": word_data.id,
+		"content_version": Database.WORD_CONTENT.CONTENT_VERSION,
 		"difficulty": word_data.difficulty,
 		"theme_id": Database.get_theme_id(theme_id),
 		"word_index": word_index,
@@ -124,8 +130,9 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	var restored_theme_index: int = Database.get_theme_index_by_id(
 		int(source.get("theme_id", -1))
 	)
-	var restored_word_index: int = int(source.get("word_index", -1))
-	if text.is_empty() or restored_theme_index < 0 or restored_word_index < 0:
+	var reference: Dictionary = Database.resolve_saved_word(int(source.get("theme_id", -1)), text, str(source.get("word_id", "")))
+	var restored_word_index: int = int(reference.get("index", -1))
+	if text.is_empty() or restored_theme_index < 0 or reference.is_empty():
 		return false
 	var restored_letters: PackedStringArray = _split_letters(text)
 	var restored_revealed_variant: Variant = source.get("revealed", [])
@@ -141,7 +148,8 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 		text,
 		clampf(float(source.get("difficulty", 0.0)), 0.0, 1.0),
 		restored_theme_index,
-		restored_word_index
+		restored_word_index,
+		str(reference["id"])
 	)
 	word_index = restored_word_index
 	theme_id = restored_theme_index
@@ -158,7 +166,7 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	open_hint_ad_reuse_available = bool(source.get("open_hint_ad_reuse_available", false))
 	remove_wrong_hint_ad_reuse_available = bool(source.get("remove_wrong_hint_ad_reuse_available", false))
 	comment_hint_unlocked = bool(source.get("comment_hint_unlocked", false))
-	word_hint_text = str(source.get("word_hint_text", _resolve_word_hint()))
+	word_hint_text = str(source.get("word_hint_text", reference.get("hint", "")))
 	round_id = str(source.get("round_id", "%d:%d" % [Time.get_ticks_usec(), randi()]))
 	is_active = true
 	emit_signal("changed")
