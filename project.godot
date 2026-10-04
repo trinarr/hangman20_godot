@@ -19,7 +19,7 @@ config/name="Hangman 2.0"
 config/name_localized={
 "ru": "Виселица 2.0"
 }
-config/version="4.1"
+config/version="4.0.1"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
