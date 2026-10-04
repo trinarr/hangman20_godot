@@ -4,9 +4,38 @@ extends RefCounted
 # never candidates for a new round. Save format 3 applies this transition once.
 const CONTENT_VERSION: int = 2
 const MANIFEST_PATH: String = "res://data/word_content_migration_v2.json"
+const RETIREMENTS_PATH: String = "res://data/word_retirements_20261004.json"
 const WORD_FILES := {"ru": "res://data/words_ru.json", "en": "res://data/words_en.json"}
 const HINT_FILES := {"ru": "res://data/hints_ru.json", "en": "res://data/hints_en.json"}
 static var _manifest: Dictionary = {}
+static var _retirements: Dictionary = {}
+static var _retired_by_id: Dictionary = {}
+static var _retired_by_text: Dictionary = {}
+static var _retirements_loaded: bool = false
+
+# Replacements have fresh identities. This archive only resumes existing rounds;
+# it never maps progress from an old answer onto an unrelated new answer.
+static func _load_retirements() -> void:
+	if !_retirements_loaded:
+		_retirements_loaded = true
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(RETIREMENTS_PATH))
+		if parsed is Dictionary:
+			_retirements = parsed
+		for lang: String in ["ru", "en"]:
+			var by_id: Dictionary = {}
+			var by_text: Dictionary = {}
+			var languages: Dictionary = _retirements.get("languages", {})
+			var bucket: Dictionary = languages.get(lang, {})
+			for item: Dictionary in bucket.get("retired", []):
+				var entry: Dictionary = item["entry"]
+				by_id[str(entry["id"])] = entry
+				by_text[normalize(str(entry["answer"]))] = entry
+			_retired_by_id[lang] = by_id
+			_retired_by_text[lang] = by_text
+
+static func retirement_records(language: String) -> Array:
+	_load_retirements()
+	return _retired_by_id.get(language, {}).values()
 
 static func manifest() -> Dictionary:
 	if _manifest.is_empty():
@@ -27,6 +56,11 @@ static func retired_record(language: String, word_id: String, text: String = "")
 			word_id.is_empty() and !text.is_empty() and normalize(text) == normalize(str(retired["answer"]))
 		):
 			return retired
+	_load_retirements()
+	if !word_id.is_empty():
+		return _retired_by_id.get(language, {}).get(word_id, {})
+	if !text.is_empty():
+		return _retired_by_text.get(language, {}).get(normalize(text), {})
 	return {}
 
 static func canonical_word(language: String, theme_id: int, text: String) -> Dictionary:
@@ -129,6 +163,8 @@ static func _current_records(language: String) -> Dictionary:
 		if str(merge["language"]) == language:
 			var retired: Dictionary = merge["retired"]
 			records[str(retired["id"])] = {"id": str(retired["id"]), "index": -1, "theme_id": int(retired["theme_id"]), "text": normalize(str(retired["answer"])), "hint": str(retired["hint"])}
+	for retired: Dictionary in retirement_records(language):
+		records[str(retired["id"])] = {"id": str(retired["id"]), "index": -1, "theme_id": int(retired["theme_id"]), "text": normalize(str(retired["answer"])), "hint": str(retired["hint"])}
 	return records
 
 static func _released_reference(language: String, theme_id: int, index: int, text: String, word_id: String, records: Dictionary) -> Dictionary:

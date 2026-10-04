@@ -18,6 +18,7 @@ SUITES = {
     "letter_feedback_sequence": (True, r'LETTER_FEEDBACK_SEQUENCE .*"failures":\[\]'),
     "portrait_visual_components": (True, r'PORTRAIT_VISUAL_COMPONENTS .*"failures":\[\]'),
     "word_content_migration": (False, r'WORD_CONTENT_MIGRATION .*"failures":\[\]'),
+    "word_rebalance": (False, r'WORD_REBALANCE .*"failures":\[\]'),
     "bonus_quiz": (True, r"BONUS_QUIZ checks=[1-9]\d* failures=0"),
     "word_selection": (True, r"WORD SELECTION: [1-9]\d* checks, 0 failures"),
     "adaptation_speed": (False, r'ADAPTATION_SPEED .*"failures":\[\]'),

@@ -5,6 +5,7 @@ from collections import Counter
 import json
 import re
 from curate_word_database import ROOT, difficulty, export, rendered, validate
+from verify_easy_word_expansion import verify as verify_easy_expansion
 
 
 # (term, place name, original term score, original place score).
@@ -132,6 +133,7 @@ def main():
         catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
         validate(catalog)
         verify_apostrophe_policy(catalog, language)
+        verify_easy_expansion(catalog, language)
         manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text())
         historical = copy.deepcopy(catalog)
         historical['entries'] = [e for e in catalog['entries']
@@ -171,7 +173,7 @@ def main():
                 assert byword[term]['theme_id'] == byword[place]['theme_id'] == 2
                 assert difficulty(byword[term], language) == place_score, term
                 assert difficulty(byword[place], language) == term_score, place
-            assert len(byword) == 5999
+            assert len(byword) == 7499
             assert difficulty(byword['ПОДСОЛНУХ'], language) < .3
             assert difficulty(byword['БЕГОВАЯ ДОРОЖКА'], language) < .3
             for word in ('АТОМ', 'КОЛБА', 'ПРОБИРКА'):
@@ -182,7 +184,7 @@ def main():
                 assert removed_note not in byword
         else:
             byword = {e['answer']: e for e in catalog['entries']}
-            assert len(byword) == 5689
+            assert len(byword) == 7189
             assert 'GLUON' not in byword and 'ETERNAL SUNSHINE' not in byword
             renamed_apostrophe_answers = {
                 "RUBIK'S CUBE": 'RUBIKS CUBE',
