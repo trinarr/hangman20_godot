@@ -206,6 +206,8 @@ var settings_word_language_buttons: Dictionary = {}
 var settings_word_language_changed: bool = false
 var pending_letter_markers := PackedStringArray()
 var pending_letter_marker_is_correct: bool = false
+var _pending_wrong_letter_feedback: Dictionary = {}
+var _wrong_letter_feedback_sequence: int = 0
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
@@ -485,6 +487,7 @@ func _clear(preserved_content: Control = null) -> void:
 	custom_word_color_generation += 1
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
+	_pending_wrong_letter_feedback.clear()
 	_clear_hero_animation_overlay()
 	_cancel_custom_word_check()
 	custom_word_check_button = null
@@ -794,6 +797,10 @@ func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, 
 
 func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
 	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
+	button.connect(
+		&"marker_reveal_started",
+		Callable(self, "_on_letter_marker_reveal_started").bind(letter, result_transition_generation)
+	)
 	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
 	# Letter keys already have correct/wrong feedback and must not layer a click
 	# over those gameplay sounds.
@@ -920,6 +927,25 @@ func _play_letter_feedback_sound(is_correct: bool) -> void:
 		letter_feedback_audio_player,
 		CORRECT_LETTER_SOUND if is_correct else WRONG_LETTER_SOUND
 	)
+
+func _queue_wrong_letter_feedback(letters: PackedStringArray) -> void:
+	if letters.is_empty():
+		return
+	_wrong_letter_feedback_sequence += 1
+	for letter: String in letters:
+		_pending_wrong_letter_feedback[letter] = _wrong_letter_feedback_sequence
+
+func _on_letter_marker_reveal_started(is_correct: bool, letter: String, screen_generation: int) -> void:
+	if is_correct or screen_generation != result_transition_generation:
+		return
+	if !_pending_wrong_letter_feedback.has(letter):
+		return
+	var action: int = int(_pending_wrong_letter_feedback[letter])
+	# A multi-letter hint produces one sound at the first actual stroke reveal.
+	for pending_letter: Variant in _pending_wrong_letter_feedback.keys():
+		if int(_pending_wrong_letter_feedback[pending_letter]) == action:
+			_pending_wrong_letter_feedback.erase(pending_letter)
+	_play_letter_feedback_sound(false)
 
 func _play_ui_click_sound() -> void:
 	_play_game_sound(ui_audio_player, UI_CLICK_SOUND)
@@ -2750,9 +2776,11 @@ func _press_letter(letter: String) -> void:
 		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and GameSession.get_remaining_attempts() == 1
 	)
+	if guess_is_available and !is_correct_letter:
+		_queue_wrong_letter_feedback(PackedStringArray([letter]))
 	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
-	if guess_is_available:
-		_play_letter_feedback_sound(guess_was_correct)
+	if guess_is_available and guess_was_correct:
+		_play_letter_feedback_sound(true)
 	if GameSession.has_deferred_loss():
 		call_deferred("_show_single_player_last_chance_popup")
 		return
@@ -2800,9 +2828,10 @@ func _on_hint_letters_selected(letters: PackedStringArray, is_correct: bool) -> 
 	pending_letter_markers = letters.duplicate()
 	pending_letter_marker_is_correct = is_correct
 	if !letters.is_empty():
-		# A remove-letter hint can cross out several keys, but it is one action
-		# and therefore produces exactly one feedback sound.
-		_play_letter_feedback_sound(is_correct)
+		if is_correct:
+			_play_letter_feedback_sound(true)
+		else:
+			_queue_wrong_letter_feedback(letters)
 
 func _on_round_won() -> void:
 	_finish_round(true)

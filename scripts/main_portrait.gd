@@ -2,6 +2,9 @@ extends "res://scripts/main.gd"
 
 const PORTRAIT_GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const PORTRAIT_THEME_PATTERN: GDScript = preload("res://scripts/ui/portrait_theme_pattern.gd")
+const PORTRAIT_REWARD_SPARKLES: GDScript = preload("res://scripts/ui/portrait_reward_sparkles.gd")
+const PORTRAIT_ICON_EXTRUSION: GDScript = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const THEME_NEW_BADGE_SHADER: Shader = preload("res://shaders/theme_new_badge.gdshader")
 const BADGE_SHADOW_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/badge_shadow_style.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
@@ -12005,30 +12008,7 @@ func _create_portrait_icon_extrusion_layers(
 	z_index: int = 0,
 	shadow_alpha: float = 1.0
 ) -> Array[TextureRect]:
-	var layers: Array[TextureRect] = []
-	if parent == null or !is_instance_valid(parent) or texture == null:
-		return layers
-	var icon_shadow_base: Color = PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
-	var shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(
-		Color(
-			icon_shadow_base.r,
-			icon_shadow_base.g,
-			icon_shadow_base.b,
-			clampf(shadow_alpha, 0.0, 1.0)
-		)
-	)
-	for layer_index: int in range(4):
-		var layer := TextureRect.new()
-		layer.name = "%sExtrusion%02d" % [prefix, layer_index + 1]
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.texture = texture
-		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		layer.material = shadow_material
-		layer.z_index = z_index
-		parent.add_child(layer)
-		layers.append(layer)
-	return layers
+	return PORTRAIT_ICON_EXTRUSION._create_portrait_icon_extrusion_layers(parent, texture, prefix, z_index, shadow_alpha)
 
 func _layout_portrait_icon_extrusion_layers(
 	layers: Array[TextureRect],
@@ -12036,47 +12016,14 @@ func _layout_portrait_icon_extrusion_layers(
 	icon_size: Vector2,
 	shadow_offset_scale: float = 1.0
 ) -> void:
-	var icon_extent: float = minf(icon_size.x, icon_size.y)
-	var resolved_offset_scale: float = maxf(shadow_offset_scale, 0.0)
-	var shadow_depth: float = (
-		clampf(icon_extent * 0.055, 1.5, 5.0)
-		* resolved_offset_scale
-	)
-	var shadow_offset_x: float = (
-		minf(icon_extent * 0.012, 1.5)
-		* resolved_offset_scale
-	)
-	for layer_index: int in range(layers.size()):
-		var layer: TextureRect = layers[layer_index]
-		if layer == null or !is_instance_valid(layer):
-			continue
-		var layer_t: float = 1.0
-		match layer_index:
-			0:
-				layer_t = 0.25
-			1:
-				layer_t = 0.55
-			2:
-				layer_t = 0.80
-		layer.position = icon_position + Vector2(
-			shadow_offset_x * layer_t,
-			shadow_depth * layer_t
-		)
-		layer.size = icon_size
+	PORTRAIT_ICON_EXTRUSION._layout_portrait_icon_extrusion_layers(layers, icon_position, icon_size, shadow_offset_scale)
 
 func _layout_portrait_icon_holder_extrusion(
 	holder: Control,
 	layers: Array[TextureRect],
 	shadow_offset_scale: float = 1.0
 ) -> void:
-	if holder == null or !is_instance_valid(holder):
-		return
-	_layout_portrait_icon_extrusion_layers(
-		layers,
-		Vector2.ZERO,
-		holder.size,
-		shadow_offset_scale
-	)
+	PORTRAIT_ICON_EXTRUSION._layout_portrait_icon_holder_extrusion(holder, layers, shadow_offset_scale)
 
 func _add_portrait_icon_with_extrusion_to_holder(
 	holder: Control,
@@ -12086,39 +12033,7 @@ func _add_portrait_icon_with_extrusion_to_holder(
 	shadow_alpha: float = 1.0,
 	shadow_offset_scale: float = 1.0
 ) -> TextureRect:
-	if holder == null or !is_instance_valid(holder) or texture == null:
-		return null
-	var layers := _create_portrait_icon_extrusion_layers(
-		holder,
-		texture,
-		prefix,
-		icon_z_index - 1,
-		shadow_alpha
-	)
-	if !holder.resized.is_connected(_layout_portrait_icon_holder_extrusion):
-		holder.resized.connect(
-			Callable(self, "_layout_portrait_icon_holder_extrusion").bind(
-				holder,
-				layers,
-				shadow_offset_scale
-			)
-		)
-	call_deferred(
-		"_run_for_live_control",
-		weakref(holder),
-		Callable(self, "_layout_portrait_icon_holder_extrusion"),
-		[layers, shadow_offset_scale]
-	)
-	var icon := TextureRect.new()
-	icon.name = prefix
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.texture = texture
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon.z_index = icon_z_index
-	holder.add_child(icon)
-	return icon
+	return PORTRAIT_ICON_EXTRUSION._add_portrait_icon_with_extrusion_to_holder(holder, texture, prefix, icon_z_index, shadow_alpha, shadow_offset_scale)
 
 func _stage_portrait_hint_art(
 	button: Control,
@@ -15987,214 +15902,22 @@ func _set_portrait_result_word_marker_color(result_controls: Dictionary, color: 
 		detail_layer.self_modulate = darker
 
 func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
-	var sparkle := Node2D.new()
-	sparkle.name = "RewardCoinSparkle"
-	sparkle.modulate = Color(1.0, 1.0, 1.0, 0.0)
-	var sparkle_size: float = base_size * 1.30
-
-	# Keep the glint close to a compact painted diamond: slightly taller than it is
-	# wide, but only by ~20%, so it does not feel stretched vertically.
-	var outer_glint := Polygon2D.new()
-	outer_glint.name = "OuterGlint"
-	outer_glint.polygon = PackedVector2Array([
-		Vector2(0.0, -sparkle_size * 0.72),
-		Vector2(sparkle_size * 0.18, -sparkle_size * 0.22),
-		Vector2(sparkle_size * 0.60, 0.0),
-		Vector2(sparkle_size * 0.18, sparkle_size * 0.22),
-		Vector2(0.0, sparkle_size * 0.72),
-		Vector2(-sparkle_size * 0.18, sparkle_size * 0.22),
-		Vector2(-sparkle_size * 0.60, 0.0),
-		Vector2(-sparkle_size * 0.18, -sparkle_size * 0.22),
-	])
-	outer_glint.color = Color(1.0, 0.91, 0.44, 0.72)
-	sparkle.add_child(outer_glint)
-
-	var inner_glint := Polygon2D.new()
-	inner_glint.name = "InnerGlint"
-	inner_glint.polygon = PackedVector2Array([
-		Vector2(0.0, -sparkle_size * 0.50),
-		Vector2(sparkle_size * 0.12, -sparkle_size * 0.16),
-		Vector2(sparkle_size * 0.42, 0.0),
-		Vector2(sparkle_size * 0.12, sparkle_size * 0.16),
-		Vector2(0.0, sparkle_size * 0.50),
-		Vector2(-sparkle_size * 0.12, sparkle_size * 0.16),
-		Vector2(-sparkle_size * 0.42, 0.0),
-		Vector2(-sparkle_size * 0.12, -sparkle_size * 0.16),
-	])
-	inner_glint.color = Color(1.0, 1.0, 1.0, 0.98)
-	sparkle.add_child(inner_glint)
-
-	var core := Polygon2D.new()
-	core.name = "DiamondCore"
-	core.polygon = PackedVector2Array([
-		Vector2(0.0, -sparkle_size * 0.24),
-		Vector2(sparkle_size * 0.20, 0.0),
-		Vector2(0.0, sparkle_size * 0.24),
-		Vector2(-sparkle_size * 0.20, 0.0),
-	])
-	core.color = Color(1.0, 1.0, 1.0, 1.0)
-	sparkle.add_child(core)
-	return sparkle
+	return PORTRAIT_REWARD_SPARKLES._build_reward_coin_sparkle(base_size)
 
 func _reward_coin_sparkle_specs(reward_visual: Control) -> Array:
-	var is_chest: bool = reward_visual.has_meta(&"reward_chest_open_visual")
-	if !is_chest and reward_visual.has_node("ChestOpenVisual"):
-		is_chest = true
-	if is_chest:
-		return [
-			{
-				"pos": Vector2(0.30, 0.50),
-				"size": 13.0,
-				"delay": 0.00,
-			},
-			{
-				"pos": Vector2(0.49, 0.44),
-				"size": 15.0,
-				"delay": 0.32,
-			},
-			{
-				"pos": Vector2(0.66, 0.51),
-				"size": 12.0,
-				"delay": 0.66,
-			},
-		]
-	return [
-		{
-			"pos": Vector2(0.36, 0.56),
-			"size": 13.0,
-			"delay": 0.00,
-		},
-		{
-			"pos": Vector2(0.53, 0.47),
-			"size": 15.0,
-			"delay": 0.30,
-		},
-		{
-			"pos": Vector2(0.67, 0.58),
-			"size": 12.0,
-			"delay": 0.62,
-		},
-	]
+	return PORTRAIT_REWARD_SPARKLES._reward_coin_sparkle_specs(reward_visual)
 
 func _ensure_reward_coin_sparkle_layer(reward_visual: Control) -> Control:
-	if reward_visual == null or !is_instance_valid(reward_visual):
-		return null
-	var layer := _optional_node_meta(
-		reward_visual,
-		&"reward_coin_sparkle_layer"
-	) as Control
-	if layer == null and reward_visual.has_node("RewardCoinSparkleLayer"):
-		layer = reward_visual.get_node("RewardCoinSparkleLayer") as Control
-	if layer == null or !is_instance_valid(layer):
-		layer = Control.new()
-		layer.name = "RewardCoinSparkleLayer"
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.z_index = 4
-		reward_visual.add_child(layer)
-		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		reward_visual.set_meta(&"reward_coin_sparkle_layer", layer)
-	if layer.get_child_count() == 0:
-		var specs: Array = _reward_coin_sparkle_specs(reward_visual)
-		for index in range(specs.size()):
-			var spec: Dictionary = specs[index]
-			var sparkle := _build_reward_coin_sparkle(float(spec.get("size", 14.0)))
-			sparkle.name = "Sparkle%d" % index
-			sparkle.position = Vector2(
-				reward_visual.size.x * float((spec.get("pos", Vector2(0.5, 0.5)) as Vector2).x),
-				reward_visual.size.y * float((spec.get("pos", Vector2(0.5, 0.5)) as Vector2).y)
-			)
-			sparkle.set_meta(&"reward_sparkle_delay", float(spec.get("delay", 0.0)))
-			layer.add_child(sparkle)
-	return layer
+	return PORTRAIT_REWARD_SPARKLES._ensure_reward_coin_sparkle_layer(reward_visual)
 
 func _reset_reward_coin_sparkle(sparkle: Node2D) -> void:
-	if sparkle == null or !is_instance_valid(sparkle):
-		return
-	sparkle.modulate.a = 0.0
-	sparkle.scale = Vector2.ONE * PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE
+	PORTRAIT_REWARD_SPARKLES._reset_reward_coin_sparkle(sparkle, PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE)
 
 func _stop_reward_coin_sparkles(reward_visual: Control) -> void:
-	if reward_visual == null or !is_instance_valid(reward_visual):
-		return
-	var layer := _optional_node_meta(
-		reward_visual,
-		&"reward_coin_sparkle_layer"
-	) as Control
-	if layer == null and reward_visual.has_node("RewardCoinSparkleLayer"):
-		layer = reward_visual.get_node("RewardCoinSparkleLayer") as Control
-	if layer == null or !is_instance_valid(layer):
-		return
-	for child in layer.get_children():
-		var sparkle := child as Node2D
-		if sparkle == null or !is_instance_valid(sparkle):
-			continue
-		var sparkle_tween := _optional_node_meta(sparkle, &"reward_sparkle_tween") as Tween
-		if sparkle_tween != null and sparkle_tween.is_valid():
-			sparkle_tween.kill()
-		sparkle.set_meta(&"reward_sparkle_tween", null)
-		_reset_reward_coin_sparkle(sparkle)
+	PORTRAIT_REWARD_SPARKLES._stop_reward_coin_sparkles(reward_visual, PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE)
 
 func _play_reward_coin_sparkles(reward_visual: Control) -> void:
-	if (
-		reward_visual == null
-		or !is_instance_valid(reward_visual)
-		or !reward_visual.is_inside_tree()
-	):
-		return
-	var layer: Control = _ensure_reward_coin_sparkle_layer(reward_visual)
-	if layer == null or !is_instance_valid(layer):
-		return
-	_stop_reward_coin_sparkles(reward_visual)
-	for child in layer.get_children():
-		var sparkle := child as Node2D
-		if sparkle == null or !is_instance_valid(sparkle):
-			continue
-		_reset_reward_coin_sparkle(sparkle)
-		var sparkle_tween := sparkle.create_tween()
-		sparkle_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		sparkle_tween.bind_node(sparkle)
-		sparkle_tween.set_loops()
-		var initial_delay: float = float(sparkle.get_meta(&"reward_sparkle_delay", 0.0)) * 1.3
-		if initial_delay > 0.0:
-			sparkle_tween.tween_interval(initial_delay)
-		var fade_in := sparkle_tween.tween_property(
-			sparkle,
-			"modulate:a",
-			0.95,
-			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION
-		)
-		fade_in.set_trans(Tween.TRANS_SINE)
-		fade_in.set_ease(Tween.EASE_OUT)
-		var scale_in := sparkle_tween.parallel().tween_property(
-			sparkle,
-			"scale",
-			Vector2.ONE * PORTRAIT_FINAL_REWARD_SPARKLE_PEAK_SCALE,
-			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION
-		)
-		scale_in.set_trans(Tween.TRANS_SINE)
-		scale_in.set_ease(Tween.EASE_OUT)
-		var fade_out := sparkle_tween.tween_property(
-			sparkle,
-			"modulate:a",
-			0.0,
-			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION
-		)
-		fade_out.set_trans(Tween.TRANS_SINE)
-		fade_out.set_ease(Tween.EASE_IN)
-		var scale_out := sparkle_tween.parallel().tween_property(
-			sparkle,
-			"scale",
-			Vector2.ONE * (PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE * 0.9),
-			PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION
-		)
-		scale_out.set_trans(Tween.TRANS_SINE)
-		scale_out.set_ease(Tween.EASE_IN)
-		sparkle_tween.tween_callback(
-			Callable(self, "_reset_reward_coin_sparkle").bind(sparkle)
-		)
-		if PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY > 0.0:
-			sparkle_tween.tween_interval(PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY)
-		sparkle.set_meta(&"reward_sparkle_tween", sparkle_tween)
+	PORTRAIT_REWARD_SPARKLES._play_reward_coin_sparkles(reward_visual, PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE, PORTRAIT_FINAL_REWARD_SPARKLE_PEAK_SCALE, PORTRAIT_FINAL_REWARD_SPARKLE_FADE_IN_DURATION, PORTRAIT_FINAL_REWARD_SPARKLE_FADE_OUT_DURATION, PORTRAIT_FINAL_REWARD_SPARKLE_LOOP_DELAY)
 
 func _sync_final_reward_double_button_content(button: Control) -> void:
 	if button == null or !is_instance_valid(button):
@@ -16472,160 +16195,13 @@ func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
 	return textures
 
 func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
-	if clip_root == null or !is_instance_valid(clip_root):
-		return
-	if motion == null or !is_instance_valid(motion):
-		return
-	if theme_textures.is_empty():
-		return
-
-	var clip_size: Vector2 = clip_root.size
-	if clip_size.x <= 0.0 or clip_size.y <= 0.0:
-		return
-
-	var signature: Array = [clip_size, theme_textures.duplicate(), icon_modulate,
-		spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha,
-		full_alpha_screen_ratio]
-	var existing_tween: Tween = _optional_node_meta(motion, "pattern_move_tween") as Tween
-	var tween_running: bool = existing_tween != null and existing_tween.is_valid()
-	if motion.get_meta("pattern_layout_signature", []) == signature and tween_running:
-		return
-
-	var spacing: float = PORTRAIT_THEME_PATTERN_SPACING * maxf(spacing_multiplier, 0.05)
-	var move_duration: float = PORTRAIT_THEME_PATTERN_MOVE_DURATION * maxf(move_duration_multiplier, 0.01)
-	var motion_signature: Vector2 = Vector2(spacing, move_duration)
-	var restart_motion: bool = !tween_running or motion.get_meta("pattern_motion_signature", Vector2.ZERO) != motion_signature
-	if restart_motion:
-		if tween_running:
-			existing_tween.kill()
-		motion.position = Vector2.ZERO
-	var overscan: float = spacing * 2.0
-	motion.size = clip_size + Vector2.ONE * overscan * 2.0
-	var cols: int = int(ceil((clip_size.x + overscan * 2.0) / spacing)) + 2
-	var rows: int = int(ceil((clip_size.y + overscan * 2.0) / spacing)) + 2
-	# Keep the existing prefix on resize; allocate/release only the difference.
-	var icon_count: int = rows * cols
-	while motion.get_child_count() > icon_count:
-		motion.get_child(motion.get_child_count() - 1).free()
-	var texture_count: int = theme_textures.size()
-	var gradient_height: float = maxf(clip_size.y + overscan * 2.0, 1.0)
-	var top_alpha: float = icon_modulate.a
-	var effective_bottom_alpha: float = top_alpha if bottom_alpha < 0.0 else clampf(bottom_alpha, 0.0, 1.0)
-	var clamped_full_alpha_ratio: float = clampf(full_alpha_screen_ratio, 0.0, 1.0)
-	for row: int in range(rows):
-		for col: int in range(cols):
-			var index: int = row * cols + col
-			var icon: TextureRect
-			if index < motion.get_child_count():
-				icon = motion.get_child(index) as TextureRect
-			else:
-				icon = TextureRect.new()
-				motion.add_child(icon)
-			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			icon.texture = theme_textures[(row * cols + col) % texture_count] as Texture2D
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.size = Vector2.ONE * PORTRAIT_THEME_PATTERN_ICON_SIZE * maxf(icon_scale, 0.05)
-			icon.position = Vector2(
-				-overscan
-					+ float(col) * spacing
-					+ (spacing * 0.5 if row % 2 == 0 else 0.0),
-				-overscan + float(row) * spacing
-			)
-			var icon_center_y: float = icon.position.y + icon.size.y * 0.5
-			var screen_y_ratio: float = clampf((icon_center_y + overscan) / gradient_height, 0.0, 1.0)
-			var icon_alpha: float = top_alpha
-			if bottom_alpha >= 0.0:
-				if clamped_full_alpha_ratio > 0.0 and clamped_full_alpha_ratio < 1.0:
-					var fade_t: float = clampf(
-						(1.0 - screen_y_ratio) / (1.0 - clamped_full_alpha_ratio),
-						0.0,
-						1.0
-					)
-					# Softer ease-in: 30% closer to linear than the previous t^2 curve,
-					# while still growing slowly at first and accelerating toward the threshold.
-					fade_t = pow(fade_t, 1.7)
-					icon_alpha = lerpf(effective_bottom_alpha, top_alpha, fade_t)
-				else:
-					icon_alpha = lerpf(top_alpha, effective_bottom_alpha, screen_y_ratio)
-			icon.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_alpha)
-			icon.rotation_degrees = -18.0
-
-	motion.set_meta("pattern_layout_signature", signature)
-	if !restart_motion:
-		return
-	motion.set_meta("pattern_motion_signature", motion_signature)
-	var move_tween := motion.create_tween()
-	move_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	move_tween.set_loops()
-	var repeat_offset := Vector2(spacing * 0.5, -spacing)
-	var move := move_tween.tween_property(
-		motion,
-		"position",
-		repeat_offset,
-		move_duration
-	)
-	move.from(Vector2.ZERO)
-	move.set_trans(Tween.TRANS_LINEAR)
-	motion.set_meta("pattern_move_tween", move_tween)
+	PORTRAIT_THEME_PATTERN._layout_multi_theme_pattern(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
 
 func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
-	if background_overlay == null or !is_instance_valid(background_overlay):
-		return
-	if theme_textures.is_empty():
-		return
-	var clip_root := Control.new()
-	clip_root.name = pattern_name
-	clip_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clip_root.clip_contents = true
-	clip_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	clip_root.offset_left = 0.0
-	clip_root.offset_top = 0.0
-	clip_root.offset_right = 0.0
-	clip_root.offset_bottom = 0.0
-	background_overlay.add_child(clip_root)
-
-	var motion := Control.new()
-	motion.name = "PatternMotion"
-	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	motion.position = Vector2.ZERO
-	clip_root.add_child(motion)
-	clip_root.resized.connect(Callable(self, "_layout_multi_theme_pattern").bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio))
-	call_deferred(
-		"_run_for_live_control",
-		weakref(clip_root),
-		Callable(self, "_layout_multi_theme_pattern"),
-		[motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale,
-			move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio]
-	)
+	PORTRAIT_THEME_PATTERN._add_multi_theme_pattern(background_overlay, theme_textures, pattern_name, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
 
 func _add_full_rect_gradient_overlay(background_overlay: Control, top_color: Color, bottom_color: Color, overlay_name: String = "GradientOverlay") -> void:
-	if background_overlay == null or !is_instance_valid(background_overlay):
-		return
-	var gradient := Gradient.new()
-	gradient.colors = PackedColorArray([top_color, bottom_color])
-	gradient.offsets = PackedFloat32Array([0.0, 1.0])
-	var gradient_texture := GradientTexture2D.new()
-	gradient_texture.gradient = gradient
-	gradient_texture.fill = GradientTexture2D.FILL_LINEAR
-	gradient_texture.fill_from = Vector2(0.5, 0.0)
-	gradient_texture.fill_to = Vector2(0.5, 1.0)
-	gradient_texture.width = 1
-	gradient_texture.height = 256
-	var overlay := TextureRect.new()
-	overlay.name = overlay_name
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.texture = gradient_texture
-	overlay.stretch_mode = TextureRect.STRETCH_SCALE
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.offset_left = 0.0
-	overlay.offset_top = 0.0
-	overlay.offset_right = 0.0
-	overlay.offset_bottom = 0.0
-	# Keep the gradient above the patterned body but below the top-bar surface
-	# and all interactive Home controls. The parent background itself sits at -1.
-	overlay.z_index = 0
-	background_overlay.add_child(overlay)
+	PORTRAIT_THEME_PATTERN._add_full_rect_gradient_overlay(background_overlay, top_color, bottom_color, overlay_name)
 
 func _show_portrait_rewarded_action(action: StringName, level_index: int = -1) -> bool:
 	if (

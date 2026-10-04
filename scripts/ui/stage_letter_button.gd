@@ -1,6 +1,8 @@
 class_name StageLetterButton
 extends "res://scripts/ui/flash_stage_texture_button.gd"
 
+signal marker_reveal_started(is_correct: bool)
+
 const KEYBOARD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
@@ -15,6 +17,7 @@ const CORRECT_MARKER_TEXTURE: Texture2D = preload("res://img/_______435______2_0
 const WRONG_MARKER_TEXTURE: Texture2D = preload("res://img/_______430______1_0_SHAPE_0_BOUNDS_3.99_8.74_SIZE_186_177.png")
 const MARKER_REVEAL_SHADER: Shader = preload("res://shaders/letter_marker_reveal.gdshader")
 const MARKER_REVEAL_DURATION: float = 0.2
+const WRONG_LETTER_FEEDBACK_SPEED: float = 1.5
 const LETTER_PRESSED_SCALE := Vector2(0.90, 0.90)
 const LETTER_MARK_BOUNCE_SCALE := Vector2(1.32, 1.32)
 const LETTER_MARK_BOUNCE_GROW_DURATION: float = 0.18
@@ -39,6 +42,9 @@ var _marker: TextureRect = null
 var _marker_tween: Tween = null
 var _letter_bounce_tween: Tween = null
 var _marker_animation_pending: bool = false
+var _marker_feedback_active: bool = false
+var _marker_reveal_has_started: bool = false
+var _marker_animation_generation: int = 0
 
 func _ready() -> void:
 	press_scale_enabled = true
@@ -68,12 +74,30 @@ func configure(
 	disabled_value: bool = false,
 	animate_marker_value: bool = false
 ) -> void:
+	var keep_feedback: bool = (
+		_marker_feedback_active
+		and !animate_marker_value
+		and letter_text == letter_value.to_upper()
+		and letter_state == clampi(state_value, LetterState.NORMAL, LetterState.CIRCLED)
+	)
+	var feedback_scale: Vector2 = _label.scale if is_instance_valid(_label) else Vector2.ONE
+	if !keep_feedback:
+		_marker_animation_generation += 1
+		_marker_reveal_has_started = false
+		if _marker_tween != null and _marker_tween.is_valid():
+			_marker_tween.kill()
+		if _letter_bounce_tween != null and _letter_bounce_tween.is_valid():
+			_letter_bounce_tween.kill()
+		if is_instance_valid(_label):
+			_label.scale = Vector2.ONE
 	letter_text = letter_value.to_upper()
 	letter_state = clampi(state_value, LetterState.NORMAL, LetterState.CIRCLED)
 	letter_font_size = font_size_value
 	marker_stage_size = marker_size_value
-	animate_marker = animate_marker_value and letter_state != LetterState.NORMAL
-	_marker_animation_pending = animate_marker
+	if !keep_feedback:
+		animate_marker = animate_marker_value and letter_state != LetterState.NORMAL
+		_marker_animation_pending = animate_marker
+		_marker_feedback_active = animate_marker
 	disabled = disabled_value
 	# Initial configuration is applied once in _ready(), with final geometry.
 	if !is_inside_tree():
@@ -81,6 +105,8 @@ func configure(
 	_ensure_visual_nodes()
 	_sync_visuals()
 	_sync_layout()
+	if keep_feedback:
+		_label.scale = feedback_scale
 	if is_inside_tree() and _marker_animation_pending:
 		call_deferred("_start_marker_reveal")
 
@@ -118,7 +144,13 @@ func _sync_visuals() -> void:
 	_label.end_bulk_theme_override()
 	_label.text = letter_text
 
-	_marker.visible = letter_state != LetterState.NORMAL
+	# Wrong-letter strokes overlay the glyph, including during its bounce.
+	_marker.z_index = 1 if letter_state == LetterState.CROSSED else 0
+	var cross_waiting_for_growth: bool = (
+		animate_marker and letter_state == LetterState.CROSSED
+		and !_marker_reveal_has_started
+	)
+	_marker.visible = letter_state != LetterState.NORMAL and !cross_waiting_for_growth
 	_marker.texture = _marker_texture()
 	if !animate_marker:
 		_marker.material = null
@@ -156,23 +188,52 @@ func _marker_texture() -> Texture2D:
 			return null
 
 func _start_marker_reveal() -> void:
+	if !_marker_animation_pending:
+		return
 	_marker_animation_pending = false
-	if !is_inside_tree() or _marker == null or !_marker.visible:
+	if !is_inside_tree() or _marker == null or letter_state == LetterState.NORMAL:
+		return
+	var generation: int = _marker_animation_generation
+	if letter_state == LetterState.CROSSED:
+		_marker.visible = false
+		_play_letter_mark_bounce()
+	else:
+		_begin_marker_reveal(generation)
+		_play_letter_mark_bounce()
+	_letter_bounce_tween.finished.connect(
+		_finish_marker_feedback.bind(generation), CONNECT_ONE_SHOT
+	)
+
+func _begin_marker_reveal(generation: int) -> void:
+	if generation != _marker_animation_generation or !is_inside_tree() or !animate_marker:
+		return
+	if _marker == null or letter_state == LetterState.NORMAL:
 		return
 	if _marker_tween != null and _marker_tween.is_valid():
 		_marker_tween.kill()
-
 	var reveal_material := ShaderMaterial.new()
 	reveal_material.shader = MARKER_REVEAL_SHADER
 	reveal_material.set_shader_parameter("progress", 0.0)
 	reveal_material.set_shader_parameter("reveal_mode", 0 if letter_state == LetterState.CIRCLED else 1)
 	_marker.material = reveal_material
-
+	_marker_reveal_has_started = true
+	_marker.visible = true
 	_marker_tween = create_tween()
 	_marker_tween.set_trans(Tween.TRANS_LINEAR)
 	_marker_tween.set_ease(Tween.EASE_IN_OUT)
-	_marker_tween.tween_method(_set_marker_reveal_progress.bind(reveal_material), 0.0, 1.0, MARKER_REVEAL_DURATION)
-	_play_letter_mark_bounce()
+	var feedback_speed: float = WRONG_LETTER_FEEDBACK_SPEED if letter_state == LetterState.CROSSED else 1.0
+	_marker_tween.tween_method(_set_marker_reveal_progress.bind(reveal_material), 0.0, 1.0, MARKER_REVEAL_DURATION / feedback_speed)
+	_marker_tween.finished.connect(_finish_marker_feedback.bind(generation), CONNECT_ONE_SHOT)
+	marker_reveal_started.emit(letter_state == LetterState.CIRCLED)
+
+func _finish_marker_feedback(generation: int) -> void:
+	if generation != _marker_animation_generation:
+		return
+	if _letter_bounce_tween != null and _letter_bounce_tween.is_running():
+		return
+	if _marker_tween != null and _marker_tween.is_running():
+		return
+	_marker_feedback_active = false
 
 func _play_letter_mark_bounce() -> void:
 	if _label == null or !is_instance_valid(_label):
@@ -180,7 +241,8 @@ func _play_letter_mark_bounce() -> void:
 	if _letter_bounce_tween != null and _letter_bounce_tween.is_valid():
 		_letter_bounce_tween.kill()
 
-	# Keep the marked letter centered while it briefly grows above the marker.
+	var feedback_speed: float = WRONG_LETTER_FEEDBACK_SPEED if letter_state == LetterState.CROSSED else 1.0
+	# Keep the marked letter centered during its bounce.
 	_label.pivot_offset = size * 0.5 - _label.position
 	_label.scale = Vector2.ONE
 	_letter_bounce_tween = create_tween()
@@ -189,15 +251,20 @@ func _play_letter_mark_bounce() -> void:
 		_label,
 		"scale",
 		LETTER_MARK_BOUNCE_SCALE,
-		LETTER_MARK_BOUNCE_GROW_DURATION
+		LETTER_MARK_BOUNCE_GROW_DURATION / feedback_speed
 	)
 	grow_tweener.set_trans(Tween.TRANS_QUAD)
 	grow_tweener.set_ease(Tween.EASE_OUT)
+	if letter_state == LetterState.CROSSED:
+		# Reveal and its sound start at the peak, as the glyph starts shrinking.
+		_letter_bounce_tween.tween_callback(
+			_begin_marker_reveal.bind(_marker_animation_generation)
+		)
 	var settle_tweener: PropertyTweener = _letter_bounce_tween.tween_property(
 		_label,
 		"scale",
 		Vector2.ONE,
-		LETTER_MARK_BOUNCE_SETTLE_DURATION
+		LETTER_MARK_BOUNCE_SETTLE_DURATION / feedback_speed
 	)
 	settle_tweener.set_trans(Tween.TRANS_BACK)
 	settle_tweener.set_ease(Tween.EASE_OUT)

@@ -11,6 +11,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "letter_feedback_sequence": (True, r'LETTER_FEEDBACK_SEQUENCE .*"failures":\[\]'),
+    "portrait_visual_components": (True, r'PORTRAIT_VISUAL_COMPONENTS .*"failures":\[\]'),
     "word_content_migration": (False, r'WORD_CONTENT_MIGRATION .*"failures":\[\]'),
     "bonus_quiz": (True, r"BONUS_QUIZ checks=[1-9]\d* failures=0"),
     "word_selection": (True, r"WORD SELECTION: [1-9]\d* checks, 0 failures"),
