@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/tests/portrait_popup_component.gd" id="1"]
+
+[node name="PortraitPopupComponent" type="Node"]
+script = ExtResource("1")

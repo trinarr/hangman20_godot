@@ -124,6 +124,7 @@ const FLASH_STAGE_SYMBOL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stag
 const THEME_ASSET_CACHE: GDScript = preload("res://scripts/core/theme_asset_cache.gd")
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
+const POPUP_COMPONENT: GDScript = preload("res://scripts/ui/portrait_popup.gd")
 const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const UI_SECONDARY_BOLD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
@@ -585,147 +586,26 @@ func _add_fullscreen_modal_backdrop(
 	alpha: float = 0.58,
 	animate_fade_in: bool = true
 ) -> void:
-	# The fullscreen popup root must not swallow clicks before they reach the
-	# backdrop. Interactive controls inside the popup keep their own STOP filters.
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	# Popup art is positioned in the original 800x480 Flash stage, but the dimmer
-	# must cover the real viewport, including letterbox/pillarbox space on other
-	# aspect ratios. Native full-rect Controls avoid clipping to stage bounds.
-	var dimmer := ColorRect.new()
-	dimmer.name = "ModalDimmer"
-	var dimmer_target_color := Color(0.0, 0.0, 0.0, alpha)
-	dimmer.color = (
-		Color(0.0, 0.0, 0.0, 0.0)
-		if animate_fade_in
-		else dimmer_target_color
-	)
-	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
-	# A freshly opened popup owns the screen immediately, but tapping the dimmer
-	# must not dismiss it until the popup's opening bounce has fully settled.
-	dimmer.set_meta(&"modal_close_ready", false)
-	dimmer.gui_input.connect(_on_modal_dimmer_input.bind(dimmer, close_callable))
-	content.add_child(dimmer)
-	dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	# A first-level modal darkens together with the popup bounce. When another
-	# modal is already present, starting the new dimmer from transparent produces
-	# a visible flash between the two layers. A stacked popup therefore starts at
-	# its final dimmer alpha and simply overlays the existing modal backdrop.
-	if animate_fade_in:
-		var dimmer_tween := create_tween()
-		dimmer_tween.bind_node(dimmer)
-		dimmer_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		var dimmer_fade_in := dimmer_tween.tween_property(
-			dimmer,
-			"color",
-			dimmer_target_color,
-			MODAL_DIMMER_FADE_IN_DURATION
-		)
-		dimmer_fade_in.set_trans(Tween.TRANS_QUAD)
-		dimmer_fade_in.set_ease(Tween.EASE_OUT)
+	POPUP_COMPONENT.add_backdrop(content, close_callable, alpha, animate_fade_in, MODAL_DIMMER_FADE_IN_DURATION)
 
 func _spawn_modal_dimmer_fade_out(popup_layer: CanvasLayer, source_dimmer: ColorRect) -> void:
-	if (
-		popup_layer == null
-		or !is_instance_valid(popup_layer)
-		or source_dimmer == null
-		or !is_instance_valid(source_dimmer)
-		or source_dimmer.color.a <= 0.001
-	):
-		return
-
-	# The popup itself disappears immediately, while a non-interactive copy of its
-	# dimmer remains for the short fade-out. This keeps navigation responsive and
-	# also lets a replacement popup cross-fade its own dimmer without blocking input.
-	var fade_layer := CanvasLayer.new()
-	fade_layer.name = "ModalDimmerFadeOutCanvas"
-	fade_layer.layer = popup_layer.layer
-	add_child(fade_layer)
-
-	var fade_root := Control.new()
-	fade_root.name = "ModalDimmerFadeOutRoot"
-	fade_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fade_layer.add_child(fade_root)
-	fade_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	var fade_dimmer := ColorRect.new()
-	fade_dimmer.name = "ModalDimmerFadeOut"
-	fade_dimmer.color = source_dimmer.color
-	fade_dimmer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fade_root.add_child(fade_dimmer)
-	fade_dimmer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	var transparent_color := fade_dimmer.color
-	transparent_color.a = 0.0
-	var fade_tween := create_tween()
-	fade_tween.bind_node(fade_layer)
-	fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var dimmer_fade_out := fade_tween.tween_property(
-		fade_dimmer,
-		"color",
-		transparent_color,
-		MODAL_DIMMER_FADE_OUT_DURATION
-	)
-	dimmer_fade_out.set_trans(Tween.TRANS_QUAD)
-	dimmer_fade_out.set_ease(Tween.EASE_OUT)
-	fade_tween.finished.connect(fade_layer.queue_free, CONNECT_ONE_SHOT)
+	POPUP_COMPONENT.spawn_fade_out(self, popup_layer, source_dimmer, MODAL_DIMMER_FADE_OUT_DURATION)
 
 func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
-	var popup_nodes: Array = get_tree().get_nodes_in_group(group_name)
-	for node: Node in popup_nodes:
-		if !is_instance_valid(node) or node.get_parent() == null:
-			continue
-		var popup_layer := node as CanvasLayer
-		if popup_layer != null:
-			var dimmer := popup_layer.find_child("ModalDimmer", true, false) as ColorRect
-			_spawn_modal_dimmer_fade_out(popup_layer, dimmer)
-		node.get_parent().remove_child(node)
-		node.queue_free()
+	POPUP_COMPONENT.remove_group(self, group_name, MODAL_DIMMER_FADE_OUT_DURATION)
 
 func _on_modal_dimmer_input(
 	event: InputEvent,
 	dimmer: Control,
 	close_callable: Callable
 ) -> void:
-	var should_close: bool = false
-	if event is InputEventMouseButton:
-		var mouse_event := event as InputEventMouseButton
-		should_close = mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed
-	elif event is InputEventScreenTouch:
-		var touch_event := event as InputEventScreenTouch
-		should_close = touch_event.pressed
-
-	if should_close:
-		get_viewport().set_input_as_handled()
-		if dimmer == null or !is_instance_valid(dimmer):
-			return
-		# Consume the touch while the popup is opening so it cannot leak through to
-		# gameplay, but ignore it as a close request until the bounce is complete.
-		if !bool(dimmer.get_meta(&"modal_close_ready", true)):
-			return
-		if dimmer.get_meta(&"modal_close_pending", false):
-			return
-		dimmer.set_meta(&"modal_close_pending", true)
-		if close_callable.is_valid():
-			# Keep the upper dimmer alive until the current input dispatch finishes.
-			# Otherwise a popup restored by this close can receive the same tap and
-			# immediately close as well.
-			close_callable.call_deferred()
+	POPUP_COMPONENT.on_dimmer_input(event, dimmer, close_callable)
 
 func _set_modal_dimmer_close_ready(dimmer: ColorRect, ready: bool) -> void:
-	if dimmer == null or !is_instance_valid(dimmer):
-		return
-	dimmer.set_meta(&"modal_close_ready", ready)
+	POPUP_COMPONENT.set_close_ready(dimmer, ready)
 
 func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: float) -> Control:
-	var centered_content: Control = POPUP_STAGE_CENTER_SCRIPT.new() as Control
-	centered_content.name = "CenteredPopupStage"
-	centered_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	centered_content.set("popup_top", popup_top)
-	centered_content.set("popup_bottom", popup_bottom)
-	popup_root.add_child(centered_content)
-	return centered_content
+	return POPUP_COMPONENT.center_content(popup_root, popup_top, popup_bottom)
 
 func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> FlashStageSymbol:
 	var symbol: FlashStageSymbol = FLASH_STAGE_SYMBOL_SCRIPT.new() as FlashStageSymbol

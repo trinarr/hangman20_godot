@@ -79,6 +79,7 @@ def main() -> None:
     session = read("scripts/core/game_session.gd")
     main_source = read("scripts/main.gd")
     portrait = read("scripts/main_portrait.gd")
+    reward_prize = read("scripts/ui/portrait_reward_prize.gd")
     localization = read("localization/translations.csv")
     export = read("export_presets.cfg")
     project = read("project.godot")
@@ -446,7 +447,7 @@ def main() -> None:
         portrait, "_start_single_player_level_summary_transition_deferred"
     )
     final_pack_bounce = function_body(
-        portrait, "_play_final_reward_pack_bounce"
+        reward_prize, "_play_final_reward_pack_bounce"
     )
     require(
         "peak_callback: Callable = Callable()" in final_pack_bounce
@@ -468,7 +469,7 @@ def main() -> None:
         "Merged summary must collect coins before launching its level stars",
     )
     final_action_reveal = function_body(
-        portrait, "_finish_final_reward_action_reveal"
+        reward_prize, "_finish_final_reward_action_reveal"
     )
     require(
         '&"single_shine_after_reveal"' in portrait
