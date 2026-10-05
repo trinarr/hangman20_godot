@@ -955,7 +955,7 @@
       "id": "en-baf007fe11a2263a",
       "theme_id": 1,
       "answer": "TRAIL RUNNING",
-      "hint": "This running discipline follows natural paths, hills, and uneven terrain.",
+      "hint": "An endurance activity that follows natural paths over hills and uneven terrain.",
       "concept_score": 0.82281913,
       "assessment": "legacy_calibration"
     },
@@ -971,7 +971,7 @@
       "id": "en-133f58d67bfe3de3",
       "theme_id": 1,
       "answer": "SIM RACING",
-      "hint": "Competing in video games that closely recreate driving real racing cars.",
+      "hint": "Competing in video games that closely recreate driving on a real circuit.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0068
@@ -1168,7 +1168,7 @@
       "id": "en-1dc6f09ff4d007ca",
       "theme_id": 1,
       "answer": "PERSONAL BEST",
-      "hint": "This result is an athlete’s best performance compared with all previous attempts.",
+      "hint": "An athlete's highest achievement compared with their own earlier results.",
       "concept_score": 0.70742864,
       "assessment": "legacy_calibration"
     },
@@ -1243,7 +1243,7 @@
       "id": "en-63aada4787b756ea",
       "theme_id": 1,
       "answer": "POWER WALKING",
-      "hint": "This brisk form of walking raises heart rate without becoming a run.",
+      "hint": "Brisk upright exercise in which one foot always remains in contact with the ground.",
       "concept_score": 0.70719279,
       "assessment": "legacy_calibration"
     },
@@ -1251,7 +1251,7 @@
       "id": "en-ceaf31b2278267e9",
       "theme_id": 1,
       "answer": "MEDICINE BALL",
-      "hint": "This weighted ball is used for throws, core drills, and strength training",
+      "hint": "A heavy sphere used for throws, core exercises and strength training.",
       "concept_score": 0.77633405,
       "assessment": "legacy_calibration"
     },
@@ -1267,7 +1267,7 @@
       "id": "en-d5c727f128c09eb2",
       "theme_id": 1,
       "answer": "PULL-UP BAR",
-      "hint": "This horizontal bar supports hanging exercises and pull-ups",
+      "hint": "A horizontal support used to raise the body with the strength of the arms.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0329
@@ -1284,7 +1284,7 @@
       "id": "en-6e45f51d84526366",
       "theme_id": 1,
       "answer": "YOGA MAT",
-      "hint": "This padded floor mat provides grip for stretching and yoga",
+      "hint": "A nonslip floor covering used for stretching, breathing exercises and held poses.",
       "concept_score": 0.01887599,
       "assessment": "legacy_calibration"
     },
@@ -1301,7 +1301,7 @@
       "id": "en-9b6893c787564fcd",
       "theme_id": 1,
       "answer": "SQUASH RACKET",
-      "hint": "This compact strung racket is designed for play inside a four-walled court",
+      "hint": "A compact strung tool used to hit a small rubber projectile in an enclosed court.",
       "concept_score": 0.92069718,
       "assessment": "legacy_calibration"
     },
@@ -1381,7 +1381,7 @@
       "id": "en-ecd7b1233dfde4ca",
       "theme_id": 1,
       "answer": "BOXING GLOVE",
-      "hint": "This padded glove protects the hand while delivering punches",
+      "hint": "A padded covering that protects the hand during a bout.",
       "concept_score": 0.87288529,
       "assessment": "legacy_calibration"
     },
@@ -1406,7 +1406,7 @@
       "id": "en-5b8a1a336e88ef56",
       "theme_id": 1,
       "answer": "PUNCHING BAG",
-      "hint": "This suspended padded bag is hit during boxing practice",
+      "hint": "A suspended padded target used to practise powerful strikes.",
       "concept_score": 0.87804213,
       "assessment": "legacy_calibration"
     },
@@ -1473,7 +1473,7 @@
       "id": "en-96a65173cb85808a",
       "theme_id": 1,
       "answer": "ICE SKATE",
-      "hint": "This boot has a metal blade for moving across ice",
+      "hint": "A boot with a metal blade for gliding across a frozen rink.",
       "concept_score": 0.00617229,
       "assessment": "legacy_calibration"
     },
@@ -1481,7 +1481,7 @@
       "id": "en-c8e14b05dac209d9",
       "theme_id": 1,
       "answer": "SKI POLE",
-      "hint": "This long planted pole helps a skier balance and push forward",
+      "hint": "A handheld aid used in pairs to improve balance and push forward on snowy terrain.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0156
@@ -1570,7 +1570,7 @@
       "id": "en-4f2f4f89bafc2f99",
       "theme_id": 1,
       "answer": "BOWLING PIN",
-      "hint": "This tall bottle-shaped target is knocked down by a bowling ball",
+      "hint": "A tall bottle-shaped target set at the end of a lane.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0167
@@ -1587,7 +1587,7 @@
       "id": "en-22b6c6971161e3cd",
       "theme_id": 1,
       "answer": "CRICKET BAT",
-      "hint": "This flat wooden bat is used to strike the ball in cricket",
+      "hint": "A flat wooden striking tool used to send a delivery away from the wicket.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0241
@@ -1596,7 +1596,7 @@
       "id": "en-a63ee6a1ffb40963",
       "theme_id": 1,
       "answer": "BASEBALL GLOVE",
-      "hint": "This leather hand mitt helps a player catch a baseball",
+      "hint": "A leather hand covering used to catch a fast-moving projectile on the diamond.",
       "concept_score": 0.90434654,
       "assessment": "legacy_calibration"
     },
@@ -1604,7 +1604,7 @@
       "id": "en-db0ba3ec034daba3",
       "theme_id": 1,
       "answer": "HOCKEY STICK",
-      "hint": "This long angled stick controls and shoots a puck or ball",
+      "hint": "A long angled tool used to control and shoot a puck.",
       "concept_score": 0.8091947,
       "assessment": "legacy_calibration"
     },
@@ -1612,7 +1612,7 @@
       "id": "en-d93e232c7ebdd38f",
       "theme_id": 1,
       "answer": "GOLF CLUB",
-      "hint": "This long-handled tool is swung to strike a golf ball",
+      "hint": "A long-handled striking tool used to send a small white sphere towards a distant hole.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0549
@@ -1621,7 +1621,7 @@
       "id": "en-0ca2ca2121a61a10",
       "theme_id": 1,
       "answer": "GOLF TEE",
-      "hint": "This small peg raises a golf ball for the opening shot",
+      "hint": "A small peg that raises the projectile before the opening stroke towards a hole.",
       "concept_score": 0.01721329,
       "assessment": "legacy_calibration"
     },
@@ -1638,7 +1638,7 @@
       "id": "en-37e6f79000244c79",
       "theme_id": 1,
       "answer": "CLIMBING ROPE",
-      "hint": "This strong rope protects and supports a climber",
+      "hint": "A strong flexible safety line that supports a person ascending a steep surface.",
       "concept_score": 0.82811871,
       "assessment": "legacy_calibration"
     },
@@ -1872,7 +1872,7 @@
       "id": "en-55ac6e3e7d6598b5",
       "theme_id": 1,
       "answer": "REFEREE WHISTLE",
-      "hint": "A referee uses this item to stop or restart play.",
+      "hint": "A small wind instrument used by an official to stop or restart play.",
       "concept_score": 0.90992968,
       "assessment": "legacy_calibration"
     },
@@ -1880,7 +1880,7 @@
       "id": "en-7ff8a59b50c53c45",
       "theme_id": 1,
       "answer": "TACTICS BOARD",
-      "hint": "A coach uses this board to show player positions and moves.",
+      "hint": "A flat surface on which a coach illustrates positions and planned moves.",
       "concept_score": 0.83442319,
       "assessment": "legacy_calibration"
     },
@@ -1888,7 +1888,7 @@
       "id": "en-90e7b824bc1b67a6",
       "theme_id": 1,
       "answer": "BALL PUMP",
-      "hint": "This hand device fills a sports ball with air.",
+      "hint": "A hand-operated device that restores air pressure inside inflatable sports equipment.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0253
@@ -1971,7 +1971,7 @@
       "id": "en-550896645e99de4c",
       "theme_id": 1,
       "answer": "CORNER FLAG",
-      "hint": "This flag stands at a corner of a football pitch.",
+      "hint": "A bright fabric marker at each meeting point of a football pitch's outer boundaries.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0536
@@ -2156,7 +2156,7 @@
       "id": "en-a77a954dfea12947",
       "theme_id": 1,
       "answer": "SWIMMING POOL",
-      "hint": "A large tank of water built for swimming, indoors or outdoors.",
+      "hint": "A large artificial basin used for aquatic exercise and recreation.",
       "concept_score": 0.06001338,
       "assessment": "legacy_calibration"
     },
@@ -3548,7 +3548,7 @@
       "id": "en-11183c3fb34e7882",
       "theme_id": 2,
       "answer": "BLACK SEA",
-      "hint": "A sea between Southeastern Europe and Western Asia",
+      "hint": "A large body of salt water between southeastern Europe and western Asia.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0777
@@ -4380,7 +4380,7 @@
       "id": "en-e9ba19e2885d238b",
       "theme_id": 2,
       "answer": "QUEBEC CITY",
-      "hint": "This fortified Canadian city is known for French heritage and old stone walls.",
+      "hint": "A fortified provincial capital in Canada known for French heritage and old stone walls.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0294
@@ -4595,7 +4595,7 @@
       "id": "en-2810d13d5845c6c5",
       "theme_id": 2,
       "answer": "HOT SPRING",
-      "hint": "This natural spring releases groundwater heated below the surface",
+      "hint": "A natural outlet of groundwater heated beneath the surface.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0792,
@@ -4649,7 +4649,7 @@
       "id": "en-3bbaf433473fa079",
       "theme_id": 2,
       "answer": "SALT FLAT",
-      "hint": "This level crust of salt remains after a shallow lake evaporates",
+      "hint": "A level white crust left behind when a shallow mineral-rich lake evaporates.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0098,
@@ -4668,7 +4668,7 @@
       "id": "en-80fad9ac2704b311",
       "theme_id": 2,
       "answer": "TREE LINE",
-      "hint": "The limit beyond which the climate is too cold or harsh for trees to grow.",
+      "hint": "The elevation or latitude beyond which the climate becomes too harsh for tall woody plants.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0425,
@@ -4811,7 +4811,7 @@
       "id": "en-a73338b140e583c0",
       "theme_id": 2,
       "answer": "CONTOUR LINE",
-      "hint": "This map line joins points at the same elevation.",
+      "hint": "A marking on a map that connects places at the same elevation.",
       "concept_score": 0.2147357,
       "assessment": "legacy_calibration",
       "maximum": 0.28
@@ -5191,7 +5191,7 @@
       "id": "en-8b2532533683e367",
       "theme_id": 2,
       "answer": "MAP SCALE",
-      "hint": "A ratio shows how much real land has been reduced on a map",
+      "hint": "A ratio showing how distances in a drawn representation relate to those on the ground.",
       "concept_score": 0.44008172,
       "assessment": "legacy_calibration"
     },
@@ -5645,7 +5645,7 @@
       "id": "en-4a48e23e8a26bc11",
       "theme_id": 2,
       "answer": "ARABIAN SEA",
-      "hint": "The part of the Indian Ocean between the Arabian Peninsula and India.",
+      "hint": "The part of the Indian Ocean between Oman and western India.",
       "concept_score": 0.14005278,
       "assessment": "legacy_calibration"
     },
@@ -6591,7 +6591,7 @@
       "id": "en-713ae91e3e4bebb7",
       "theme_id": 3,
       "answer": "MANTA RAY",
-      "hint": "This enormous ray seems to fly beneath the surface",
+      "hint": "An enormous flat-bodied marine animal that seems to fly beneath the surface.",
       "concept_score": 0.13551285,
       "assessment": "legacy_calibration"
     },
@@ -6993,7 +6993,7 @@
       "id": "en-2f997e6b401d0830",
       "theme_id": 3,
       "answer": "HORSESHOE CRAB",
-      "hint": "This ancient marine arthropod has a hard horseshoe-shaped shell and blue blood.",
+      "hint": "An ancient marine arthropod with a rounded protective shell and blue blood.",
       "concept_score": 0.99152262,
       "assessment": "legacy_calibration"
     },
@@ -7041,7 +7041,7 @@
       "id": "en-7f02271bfd34e5f3",
       "theme_id": 3,
       "answer": "SECRETARY BIRD",
-      "hint": "This tall African bird hunts snakes on foot with long, powerful legs.",
+      "hint": "A tall African raptor that hunts snakes on foot with long, powerful legs.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0628
@@ -7050,7 +7050,7 @@
       "id": "en-98786faf178b3a3f",
       "theme_id": 3,
       "answer": "SUGAR GLIDER",
-      "hint": "This small marsupial glides between trees using a skin membrane.",
+      "hint": "A small marsupial that travels between trees using a membrane stretched between its limbs.",
       "concept_score": 0.96026406,
       "assessment": "legacy_calibration"
     },
@@ -7067,7 +7067,7 @@
       "id": "en-ea24d5420e500dc0",
       "theme_id": 3,
       "answer": "DUMBO OCTOPUS",
-      "hint": "This deep-sea octopus has ear-like fins above its eyes.",
+      "hint": "A deep-water cephalopod with ear-like fins above its eyes.",
       "concept_score": 1.0,
       "assessment": "legacy_calibration",
       "score_adjustment": 0.0029
@@ -7076,7 +7076,7 @@
       "id": "en-fffedfb5c64af13f",
       "theme_id": 3,
       "answer": "GOBLIN SHARK",
-      "hint": "This deep-sea shark has a long flattened snout and jaws that shoot forward.",
+      "hint": "A deep-water predator with a long flattened snout and jaws that shoot forward.",
       "concept_score": 0.89044612,
       "assessment": "legacy_calibration"
     },
@@ -7084,7 +7084,7 @@
       "id": "en-209f4f187f861f21",
       "theme_id": 3,
       "answer": "SUN BEAR",
-      "hint": "The smallest bear, with a pale chest mark and long tongue",
+      "hint": "The smallest member of its family, with a pale chest mark and a long tongue.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0516
@@ -7551,7 +7551,7 @@
       "id": "en-2dcb0f359d8492ff",
       "theme_id": 3,
       "answer": "LEMON BALM",
-      "hint": "This herb has a lemon scent and is often brewed as tea.",
+      "hint": "An aromatic herb with a citrus scent, often brewed as tea.",
       "concept_score": 0.97530845,
       "assessment": "legacy_calibration"
     },
@@ -9034,7 +9034,7 @@
       "id": "en-358bb4a6ce2edf93",
       "theme_id": 4,
       "answer": "MACHINE GUN",
-      "hint": "A rapid-firing automatic gun",
+      "hint": "An automatic firearm capable of sustained rapid fire.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0713
@@ -9160,7 +9160,7 @@
       "id": "en-94427dc29b325d10",
       "theme_id": 4,
       "answer": "GOLF CART",
-      "hint": "A small vehicle used to carry players and their clubs around a golf course.",
+      "hint": "A small vehicle that carries players and equipment around an eighteen-hole course.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0221
@@ -9169,7 +9169,7 @@
       "id": "en-8fba2e213cb8b5b6",
       "theme_id": 4,
       "answer": "FIRE ENGINE",
-      "hint": "An emergency vehicle carrying firefighters, hoses and other rescue equipment.",
+      "hint": "An emergency vehicle carrying a rescue crew, hoses and other equipment.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0397
@@ -9202,7 +9202,7 @@
       "id": "en-2dd3b9e112fa1ec1",
       "theme_id": 4,
       "answer": "THERMAL CAMERA",
-      "hint": "A camera that shows warm and cold areas",
+      "hint": "A device that creates an image showing differences in temperature.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0088
@@ -9227,7 +9227,7 @@
       "id": "en-4c68a08e65389dcd",
       "theme_id": 4,
       "answer": "SOLAR PANEL",
-      "hint": "A flat panel that turns sunlight into electric power",
+      "hint": "A flat device that converts sunlight into electric power.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0306
@@ -12454,7 +12454,7 @@
       "id": "en-2bcacfcabfee80af",
       "theme_id": 5,
       "answer": "UX DESIGNER",
-      "hint": "This designer improves how users experience and navigate a product or service.",
+      "hint": "A professional who improves how people experience and navigate a product or service.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0013
@@ -12471,7 +12471,7 @@
       "id": "en-8633640df44180c6",
       "theme_id": 5,
       "answer": "DEVOPS ENGINEER",
-      "hint": "This engineer connects software development with automated deployment and infrastructure operations.",
+      "hint": "A specialist who connects software development with automated deployment and infrastructure operations.",
       "concept_score": 0.94985399,
       "assessment": "legacy_calibration"
     },
@@ -12479,7 +12479,7 @@
       "id": "en-741aa886d457ab30",
       "theme_id": 5,
       "answer": "GAME DESIGNER",
-      "hint": "This professional designs rules, systems, levels, and player experiences for games.",
+      "hint": "A professional who creates rules, levels and systems for interactive entertainment.",
       "concept_score": 0.80216264,
       "assessment": "legacy_calibration"
     },
@@ -12495,7 +12495,7 @@
       "id": "en-6a136b05622cdbbc",
       "theme_id": 5,
       "answer": "QA ENGINEER",
-      "hint": "This engineer tests software and helps teams prevent defects before release.",
+      "hint": "A specialist who tests software and helps prevent defects before release.",
       "concept_score": 0.03253415,
       "assessment": "legacy_calibration"
     },
@@ -12503,7 +12503,7 @@
       "id": "en-854969372904523e",
       "theme_id": 5,
       "answer": "UI DESIGNER",
-      "hint": "This designer creates the visual controls, layouts, and interactive elements of an interface.",
+      "hint": "A professional who creates visual controls, layouts and interactive elements for an interface.",
       "concept_score": 0.0175803,
       "assessment": "legacy_calibration"
     },
@@ -12632,7 +12632,7 @@
       "id": "en-ee93b8d2554ebb27",
       "theme_id": 5,
       "answer": "PRODUCT DESIGNER",
-      "hint": "This designer combines user research, interaction, and visual design for digital products.",
+      "hint": "A professional who combines user research, interaction and visual layout for digital services.",
       "concept_score": 0.77303522,
       "assessment": "legacy_calibration"
     },
@@ -20729,7 +20729,7 @@
       "id": "en-1dab3628f3dee9e7",
       "theme_id": 8,
       "answer": "MOON LANDING",
-      "hint": "This 1969 event placed human beings on the surface of the Moon for the first time.",
+      "hint": "The 1969 achievement in which Neil Armstrong and Buzz Aldrin stepped onto another world.",
       "concept_score": 0.83516056,
       "assessment": "legacy_calibration"
     },
@@ -20863,7 +20863,7 @@
       "id": "en-2b34777356c2a171",
       "theme_id": 8,
       "answer": "DEAD SEA SCROLLS",
-      "hint": "This collection of ancient Jewish texts was discovered in caves near the Dead Sea.",
+      "hint": "Ancient Jewish manuscripts discovered in caves near Qumran.",
       "concept_score": 0.95296765,
       "assessment": "legacy_calibration"
     },
@@ -20935,7 +20935,7 @@
       "id": "en-616f14f534d8758c",
       "theme_id": 8,
       "answer": "MAYAN CALENDAR",
-      "hint": "This calendar system was developed by the Maya for tracking ritual and long historical cycles.",
+      "hint": "A Mesoamerican system for tracking ritual dates and long historical cycles.",
       "concept_score": 0.96250099,
       "assessment": "legacy_calibration"
     },
@@ -21002,7 +21002,7 @@
       "id": "en-a092f6391ba0b75c",
       "theme_id": 8,
       "answer": "FIRST FLIGHT",
-      "hint": "This 1903 achievement by the Wright brothers demonstrated controlled powered flight.",
+      "hint": "The Wright brothers' 1903 achievement in controlled, powered aviation.",
       "concept_score": 0.75808974,
       "assessment": "legacy_calibration"
     },
@@ -23427,7 +23427,7 @@
       "id": "en-6112146ca6a4bf22",
       "theme_id": 9,
       "answer": "SCREEN TIME",
-      "hint": "The time spent using a phone, computer, or other screen",
+      "hint": "The amount of a day spent using devices such as phones, tablets and computers.",
       "concept_score": 0.0,
       "assessment": "legacy_calibration",
       "score_adjustment": -0.0678
@@ -31358,7 +31358,7 @@
       "id": "en-865f85affcf193ad",
       "theme_id": 7,
       "answer": "ANGLE BISECTOR",
-      "hint": "A ray that divides an angle into two equal parts.",
+      "hint": "A ray from a vertex that divides the opening there into two equal wedges.",
       "concept_score": 0.56,
       "assessment": "editorial_expansion_patch09",
       "difficulty_band": 3
@@ -34148,7 +34148,7 @@
       "id": "en-5576132d1182eb96",
       "theme_id": 4,
       "answer": "BROWSER TAB",
-      "hint": "A separate page within a web browser window that can be selected without opening another window.",
+      "hint": "A selectable page within a web window that lets several sites remain open at once.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -34175,7 +34175,7 @@
       "id": "en-67ecec2cf0f74f51",
       "theme_id": 4,
       "answer": "SIM CARD",
-      "hint": "A small chip card that identifies a subscriber to a mobile network.",
+      "hint": "A small chip that identifies a subscriber to a mobile network.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -34256,7 +34256,7 @@
       "id": "en-be29185daf5248f6",
       "theme_id": 4,
       "answer": "HAZARD LIGHTS",
-      "hint": "A vehicle's flashing warning lamps, operated together to signal a hazard or breakdown.",
+      "hint": "A vehicle's warning lamps that flash together to indicate a breakdown or danger.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -34337,7 +34337,7 @@
       "id": "en-0858eae9b0f855e0",
       "theme_id": 4,
       "answer": "SCREENCAST",
-      "hint": "A video recording of a computer or phone screen, often with spoken explanation.",
+      "hint": "A video showing activity on a computer or phone display, often with spoken explanation.",
       "concept_score": 0.56,
       "assessment": "editorial_expansion_patch10",
       "central_band": "core"
@@ -34346,7 +34346,7 @@
       "id": "en-8ca59fbd35a3855d",
       "theme_id": 4,
       "answer": "HEAT SINK",
-      "hint": "A metal component with fins that carries heat away from electronic parts.",
+      "hint": "A finned metal component that keeps electronic parts from overheating.",
       "concept_score": 0.56,
       "assessment": "editorial_expansion_patch10",
       "central_band": "core"
@@ -34355,7 +34355,7 @@
       "id": "en-bae0515a92c44c6c",
       "theme_id": 4,
       "answer": "RADIO RECEIVER",
-      "hint": "A device that picks up a radio signal and converts it into sound or data.",
+      "hint": "A device that picks up a broadcast signal and converts it into sound or data.",
       "concept_score": 0.56,
       "assessment": "editorial_expansion_patch10",
       "central_band": "core"
@@ -34724,7 +34724,7 @@
       "id": "en-500a937c66ba6851",
       "theme_id": 5,
       "answer": "PETER THE GREAT",
-      "hint": "The Russian ruler who founded Saint Petersburg and carried out major reforms in the early eighteenth century.",
+      "hint": "The Russian ruler who founded a new capital on the Neva and carried out major reforms.",
       "concept_score": 0.579581,
       "assessment": "editorial_expansion_patch10",
       "central_band": "core"
@@ -35066,7 +35066,7 @@
       "id": "en-9ffd315352dbcd46",
       "theme_id": 6,
       "answer": "CHEESECAKE",
-      "hint": "A dessert with a creamy cheese-based filling, often on a crushed-biscuit base.",
+      "hint": "A dessert with a rich dairy filling, often on a crushed-biscuit base.",
       "concept_score": 0.44324,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -35219,7 +35219,7 @@
       "id": "en-e1535aa1d9bc4d35",
       "theme_id": 6,
       "answer": "BAY LEAF",
-      "hint": "A dried aromatic leaf added whole to soups or stews and usually removed before eating.",
+      "hint": "A whole dried aromatic seasoning added to soups or stews and usually removed before eating.",
       "concept_score": 0.56,
       "assessment": "editorial_expansion_patch10",
       "central_band": "core"
@@ -35408,7 +35408,7 @@
       "id": "en-06098b8f22498c03",
       "theme_id": 6,
       "answer": "TARTARE SAUCE",
-      "hint": "A cold mayonnaise-based sauce with chopped pickles and other ingredients, often served with fish.",
+      "hint": "A cold mayonnaise-based accompaniment with chopped pickles, often served with fish.",
       "concept_score": 0.816185,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
@@ -35480,7 +35480,7 @@
       "id": "en-4d4c9c519905d94e",
       "theme_id": 6,
       "answer": "BUTTERMILK",
-      "hint": "Traditionally the liquid left after butter is churned; also sold as a cultured dairy drink.",
+      "hint": "Traditionally the liquid left after cream is churned; also sold as a cultured dairy drink.",
       "concept_score": 0.74,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
@@ -35885,7 +35885,7 @@
       "id": "en-b611d685c1208b29",
       "theme_id": 7,
       "answer": "RED BLOOD CELL",
-      "hint": "A blood cell that carries oxygen using haemoglobin.",
+      "hint": "A microscopic disc-shaped component that carries oxygen using haemoglobin.",
       "concept_score": 0.789857,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
@@ -35894,7 +35894,7 @@
       "id": "en-ecb548dcf911807c",
       "theme_id": 7,
       "answer": "WHITE BLOOD CELL",
-      "hint": "A blood cell involved in defending the body against infection and other threats.",
+      "hint": "An immune-system component that helps defend the body against infection.",
       "concept_score": 0.74,
       "assessment": "editorial_expansion_patch10",
       "central_band": "upper"
@@ -36011,7 +36011,7 @@
       "id": "en-d3f24d345a12e130",
       "theme_id": 8,
       "answer": "TAJ MAHAL",
-      "hint": "The white marble mausoleum in Agra built by Shah Jahan for Mumtaz Mahal.",
+      "hint": "The white marble mausoleum in Agra commissioned by Shah Jahan in memory of his wife.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -36020,7 +36020,7 @@
       "id": "en-703e8daeaa224e6e",
       "theme_id": 8,
       "answer": "LEANING TOWER OF PISA",
-      "hint": "The Italian bell tower famous for standing at a visible angle.",
+      "hint": "An Italian campanile famous for its conspicuous tilt.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -36029,7 +36029,7 @@
       "id": "en-11dcc02ac5afe1f0",
       "theme_id": 8,
       "answer": "GREAT WALL OF CHINA",
-      "hint": "A vast system of defensive walls built across northern China over many centuries.",
+      "hint": "A vast defensive structure stretching across the north of the world's most populous East Asian nation.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -36443,7 +36443,7 @@
       "id": "en-99cf83c0addb15cd",
       "theme_id": 9,
       "answer": "PUFFER JACKET",
-      "hint": "A warm jacket with insulation held in quilted sections.",
+      "hint": "Quilted outerwear with insulation held in separate padded sections.",
       "concept_score": 0.38045,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -36488,7 +36488,7 @@
       "id": "en-9b4497023a2130cf",
       "theme_id": 9,
       "answer": "ANKLE BOOTS",
-      "hint": "Boots that cover the foot and reach roughly to the ankle.",
+      "hint": "Footwear with short uppers, sitting higher than shoes but lower than calf-length styles.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -36497,7 +36497,7 @@
       "id": "en-55e14b2e659fe939",
       "theme_id": 9,
       "answer": "TOTE BAG",
-      "hint": "A roomy, open-style bag with two handles, often used for shopping.",
+      "hint": "A roomy open-top carryall with two handles, often used for shopping.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -36515,7 +36515,7 @@
       "id": "en-347f5463263f5aac",
       "theme_id": 9,
       "answer": "CARD HOLDER",
-      "hint": "A small case used to carry business cards or bank cards.",
+      "hint": "A small case for the plastic rectangles used for payments or printed business contact details.",
       "concept_score": 0.4,
       "assessment": "editorial_expansion_patch10",
       "central_band": "lower"
@@ -51323,7 +51323,7 @@
     },
     {
       "answer": "ORANGE JUICE",
-      "hint": "A drink squeezed from orange-coloured citrus fruits.",
+      "hint": "A citrus drink squeezed from the fruit traditionally associated with vitamin C and breakfast.",
       "theme_id": 6,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -51611,7 +51611,7 @@
     },
     {
       "answer": "ORANGE JAM",
-      "hint": "A sweet preserve made from orange-coloured citrus fruits.",
+      "hint": "A sweet preserve made from a round citrus fruit, often using its peel as well as its flesh.",
       "theme_id": 6,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -52376,7 +52376,7 @@
     },
     {
       "answer": "MAGNETIC POLE",
-      "hint": "One of the two ends of a magnet where its effect is strongest.",
+      "hint": "One of two ends where a compass needle or similar object exerts its strongest effect.",
       "theme_id": 7,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55269,7 +55269,7 @@
     },
     {
       "answer": "BAYERN MUNICH",
-      "hint": "A football club from Munich, featuring a Bavarian flag pattern on its badge.",
+      "hint": "A German football club whose badge features the blue-and-white pattern of the Bavarian flag.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55291,7 +55291,7 @@
     },
     {
       "answer": "BAYER LEVERKUSEN",
-      "hint": "A football club from Leverkusen, historically linked to a pharmaceutical company.",
+      "hint": "A German football club historically linked to a pharmaceutical company.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55335,7 +55335,7 @@
     },
     {
       "answer": "INTER MILAN",
-      "hint": "A football club from Milan, known for black-and-blue shirts.",
+      "hint": "An Italian football club nicknamed the Nerazzurri for its black-and-blue shirts.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55401,7 +55401,7 @@
     },
     {
       "answer": "PARIS SAINT GERMAIN",
-      "hint": "A football club from Paris, featuring the Eiffel Tower on its badge.",
+      "hint": "A French football club whose badge features the Eiffel Tower.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55544,7 +55544,7 @@
     },
     {
       "answer": "SPARTAK MOSCOW",
-      "hint": "A football club from Moscow, known for red-and-white shirts.",
+      "hint": "A Russian football club known for red-and-white shirts and a diamond-shaped badge.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55566,7 +55566,7 @@
     },
     {
       "answer": "LOKOMOTIV MOSCOW",
-      "hint": "A football club from Moscow, historically linked to railways.",
+      "hint": "A Russian football club historically linked to the railways.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55731,7 +55731,7 @@
     },
     {
       "answer": "SPURS",
-      "hint": "An NBA basketball team from San Antonio, featuring a spur.",
+      "hint": "The San Antonio NBA franchise associated with Tim Duncan and Gregg Popovich.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55863,7 +55863,7 @@
     },
     {
       "answer": "UTAH JAZZ",
-      "hint": "An NBA basketball team from Utah, retaining a musical name after relocation.",
+      "hint": "An NBA team based in Salt Lake City that kept its musical name after moving from New Orleans.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -55940,7 +55940,7 @@
     },
     {
       "answer": "RED BULL RACING",
-      "hint": "A Formula One racing team associated with the name of an energy drink.",
+      "hint": "A Formula One team named after an energy drink brand.",
       "theme_id": 1,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -56094,7 +56094,7 @@
     },
     {
       "answer": "SRI LANKA",
-      "hint": "A country whose capital is Sri Jayawardenepura Kotte, near Colombo.",
+      "hint": "An island country near the southern tip of India, with Colombo as a major commercial centre.",
       "theme_id": 2,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -56248,7 +56248,7 @@
     },
     {
       "answer": "EL SALVADOR",
-      "hint": "A country whose capital is San Salvador.",
+      "hint": "A small Central American country bordering Guatemala and Honduras.",
       "theme_id": 2,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -56655,7 +56655,7 @@
     },
     {
       "answer": "MEXICO CITY",
-      "hint": "A city in Mexico, its capital.",
+      "hint": "The high-altitude capital of the North American country directly south of the United States.",
       "theme_id": 2,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57227,7 +57227,7 @@
     },
     {
       "answer": "SHEPHERD DOG",
-      "hint": "A dog traditionally bred to help herd flocks.",
+      "hint": "A domestic canine traditionally bred to help herd flocks.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57403,7 +57403,7 @@
     },
     {
       "answer": "NEWFOUNDLAND DOG",
-      "hint": "The large furry dog breed known for swimming and water rescue.",
+      "hint": "A large furry breed famous for its strong swimming ability and water rescue work.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57469,7 +57469,7 @@
     },
     {
       "answer": "SPHYNX CAT",
-      "hint": "The nearly hairless cat breed.",
+      "hint": "A nearly hairless breed of domestic feline.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57480,7 +57480,7 @@
     },
     {
       "answer": "SIAMESE CAT",
-      "hint": "The blue-eyed cat breed with darker points.",
+      "hint": "A blue-eyed domestic feline breed with darker markings on the face and limbs.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57491,7 +57491,7 @@
     },
     {
       "answer": "PERSIAN CAT",
-      "hint": "The long-haired cat breed with a flat face.",
+      "hint": "A long-haired domestic feline breed with a flat face.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57502,7 +57502,7 @@
     },
     {
       "answer": "BENGAL CAT",
-      "hint": "The domestic cat breed with a leopard-like spotted coat.",
+      "hint": "A domestic feline breed with a leopard-like spotted coat.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57689,7 +57689,7 @@
     },
     {
       "answer": "SNOWDRIFT",
-      "hint": "A pile of snow built up by the wind.",
+      "hint": "A mound of frozen precipitation piled up by the wind.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -57766,7 +57766,7 @@
     },
     {
       "answer": "THUNDERSTORM",
-      "hint": "Weather featuring lightning and thunder.",
+      "hint": "Severe weather with electrical flashes, loud rumbles and often heavy rain.",
       "theme_id": 3,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -58250,7 +58250,7 @@
     },
     {
       "answer": "GAME BOY",
-      "hint": "Nintendo's handheld console famous for Pokemon games.",
+      "hint": "Nintendo's handheld console associated with early Pokemon titles.",
       "theme_id": 4,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -58679,7 +58679,7 @@
     },
     {
       "answer": "RANGE ROVER",
-      "hint": "The luxury SUV family from Land Rover.",
+      "hint": "A British luxury SUV model family associated with off-road capability.",
       "theme_id": 4,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -58943,7 +58943,7 @@
     },
     {
       "answer": "JACK NICHOLSON",
-      "hint": "The actor who played Jack Torrance in The Shining.",
+      "hint": "The actor who played the father in Stanley Kubrick's The Shining.",
       "theme_id": 5,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -60747,7 +60747,7 @@
     },
     {
       "answer": "RED BULL",
-      "hint": "The energy drink with two bulls on its logo.",
+      "hint": "An energy drink associated with extreme sports and the slogan about giving you wings.",
       "theme_id": 6,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -60813,7 +60813,7 @@
     },
     {
       "answer": "PIZZA HUT",
-      "hint": "The pizza chain with a red roof logo.",
+      "hint": "A fast-food chain known for topped Italian-style flatbreads and a red roof logo.",
       "theme_id": 6,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -60835,7 +60835,7 @@
     },
     {
       "answer": "TACO BELL",
-      "hint": "The fast food chain with a bell logo.",
+      "hint": "A fast-food chain known for Mexican-inspired dishes and a purple logo.",
       "theme_id": 6,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -62353,7 +62353,7 @@
     },
     {
       "answer": "SUIT JACKET",
-      "hint": "The upper part of a formal suit, featuring lapels.",
+      "hint": "The lapelled upper garment worn with matching formal trousers.",
       "theme_id": 9,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63211,7 +63211,7 @@
     },
     {
       "answer": "YES MAN",
-      "hint": "A man decides to accept new opportunities.",
+      "hint": "Jim Carrey plays someone who begins accepting every opportunity that comes his way.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63508,7 +63508,7 @@
     },
     {
       "answer": "BRIDGET JONES'S DIARY",
-      "hint": "A London heroine records her personal life in a diary.",
+      "hint": "A romantic comedy about a London singleton's turbulent love life and private notes.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63574,7 +63574,7 @@
     },
     {
       "answer": "INSIDE OUT",
-      "hint": "Riley's emotions appear as characters inside her head.",
+      "hint": "A Pixar story in which Riley's emotions appear as characters managing her reactions.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63739,7 +63739,7 @@
     },
     {
       "answer": "PUSS IN BOOTS",
-      "hint": "A whiskered boot-wearing adventurer seeks magic beans.",
+      "hint": "A whiskered swordsman from the Shrek universe seeks magic beans.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63772,7 +63772,7 @@
     },
     {
       "answer": "THE ADDAMS FAMILY",
-      "hint": "An unusual spooky family lives by its own rules.",
+      "hint": "A macabre household embraces everything its neighbours find strange and frightening.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63783,7 +63783,7 @@
     },
     {
       "answer": "HOTEL TRANSYLVANIA",
-      "hint": "Dracula runs a hotel for monsters.",
+      "hint": "Dracula runs a holiday retreat where monsters can hide from humans.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63827,7 +63827,7 @@
     },
     {
       "answer": "CHICKEN RUN",
-      "hint": "Chickens devise an escape from a farm.",
+      "hint": "A flock on a farm devises a plan to avoid becoming pies.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63838,7 +63838,7 @@
     },
     {
       "answer": "SONIC THE HEDGEHOG",
-      "hint": "A fast blue hedgehog arrives in the human world.",
+      "hint": "A fast blue video-game hero arrives in the human world.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",
@@ -63871,7 +63871,7 @@
     },
     {
       "answer": "HOW I MET YOUR MOTHER",
-      "hint": "Ted tells his children the long story of meeting their mother.",
+      "hint": "Ted recounts his youthful romances and friendships to his children.",
       "theme_id": 10,
       "concept_score": 0.04,
       "assessment": "editorial_easy_expansion_20261004",

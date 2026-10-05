@@ -2,6 +2,7 @@
 """Verify easy additions and the unchanged pre-expansion save identities."""
 from collections import Counter
 import hashlib
+from word_hint_revision import snapshot_before_revision, verify as verify_hint_revision
 import json
 import re
 from curate_word_database import ROOT, difficulty, rendered, validate
@@ -42,7 +43,7 @@ def verify_retirements(additions, language):
     assert all(e.get('assessment') == BATCH and 'editorial_revision' not in e for e in retired)
     original = surviving + retired
     assert len(original) == 1500 and len({e['id'] for e in original}) == 1500
-    encoded = json.dumps(sorted(original, key=lambda e: e['id']), ensure_ascii=False,
+    encoded = json.dumps(sorted(snapshot_before_revision(original, language), key=lambda e: e['id']), ensure_ascii=False,
                          sort_keys=True, separators=(',', ':')).encode()
     assert hashlib.sha256(encoded).hexdigest() == SOURCE_BATCH_DIGESTS[language]
     assert bucket['original_batch_digest'] == SOURCE_BATCH_DIGESTS[language]
@@ -60,12 +61,13 @@ def verify_retirements(additions, language):
 
 def verify(catalog, language):
     validate(catalog)
+    verify_hint_revision(catalog, language)
     additions = [e for e in catalog['entries'] if e.get('assessment') == BATCH]
     retired = verify_retirements(additions, language)
     baseline = [e for e in catalog['entries'] if e.get('assessment') != BATCH]
     assert Counter(e['theme_id'] for e in additions) == {t: 150 for t in range(1, 11)}
     assert Counter(e['theme_id'] for e in baseline) == dict(enumerate(BASE_COUNTS[language], 1))
-    encoded = json.dumps(sorted(baseline, key=lambda e: e['id']), ensure_ascii=False,
+    encoded = json.dumps(sorted(snapshot_before_revision(baseline, language), key=lambda e: e['id']), ensure_ascii=False,
                          sort_keys=True, separators=(',', ':')).encode()
     assert hashlib.sha256(encoded).hexdigest() == BASE_DIGESTS[language], (
         language, 'Pre-expansion records changed: IDs, text, hints or calibration')
@@ -101,7 +103,7 @@ def verify(catalog, language):
     scores = [difficulty(e, language) for e in additions]
     print(f'{language}: +150 in all 10 themes; {len(additions)} additions; '
           f'difficulty {min(scores):.4f}..{max(scores):.4f}; '
-          f'{len(baseline)} old records unchanged, {shifted} positions reindexed')
+          f'{len(baseline)} old identities/calibration preserved, {shifted} positions reindexed')
 
 
 def main():
