@@ -962,16 +962,28 @@ func _on_ad_region_changed() -> void:
 		_hide_portrait_ad_banner()
 	# A delayed response must not interrupt another modal or entrance animation.
 	call_deferred("_show_user_consent_on_single_player_word_if_needed")
-	if (
-		_portrait_ads_enabled() and game_screen_visible and !_quiz_screen_active
-		and get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty()
-	):
-		if get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty():
-			_stage_portrait_ad_banner()
-		else:
-			var ads_service: Node = _portrait_ads_service()
-			if ads_service != null and ads_service.has_method("show_banner"):
-				ads_service.call("show_banner")
+	call_deferred("_refresh_portrait_ad_banner_after_permission")
+
+func _refresh_portrait_ad_banner_after_permission() -> void:
+	if !_portrait_ads_enabled() or !GameState.has_accepted_legal_documents():
+		return
+	# Popups do not obstruct the native banner. Only wait for Home departure,
+	# then inspect the destination rather than refreshing the outgoing screen.
+	if is_instance_valid(_home_transition):
+		var resume: Callable = Callable(self, "_refresh_portrait_ad_banner_after_permission")
+		if !_home_transition.tree_exited.is_connected(resume):
+			_home_transition.tree_exited.connect(resume, CONNECT_DEFERRED | CONNECT_ONE_SHOT)
+		return
+	var home_visible: bool = is_instance_valid(_home_logo_reveal) and _home_logo_reveal.is_inside_tree()
+	var has_banner_slot: bool = !get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty()
+	if !home_visible and !game_screen_visible and !_quiz_screen_active and !has_banner_slot:
+		return
+	if !has_banner_slot:
+		_stage_portrait_ad_banner()
+	else:
+		var ads_service: Node = _portrait_ads_service()
+		if ads_service != null and ads_service.has_method("show_banner"):
+			ads_service.call("show_banner")
 
 func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
 	super._remove_popup_group_with_dimmer_fade(group_name)
@@ -1206,6 +1218,7 @@ func _portrait_ad_banner_rect() -> Rect2:
 	)
 
 func _hide_portrait_ad_banner() -> void:
+	_trace_ad_banner("ui_hide_banner", {"home_transition": is_instance_valid(_home_transition)})
 	# Home departure preserves the native banner, including destination _clear().
 	if is_instance_valid(_home_transition):
 		return
@@ -3645,7 +3658,7 @@ func _show_menu_screen() -> void:
 	_home_start_buttons = home_buttons
 	content.add_child(logo_reveal)
 	HOME_PAPER_TRANSITION_SCRIPT.warm_up(self)
-	_stage_portrait_ad_banner()
+	_stage_portrait_ad_banner("_show_menu_screen")
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation", result_transition_generation)
 	if !GameState.has_accepted_legal_documents():
@@ -3654,6 +3667,7 @@ func _show_menu_screen() -> void:
 		_check_startup_guided_resume()
 
 func _leave_home(action: Callable, blue_pattern: bool = false) -> void:
+	_trace_ad_banner("home_departure", {"blue_pattern": blue_pattern})
 	if is_instance_valid(_home_transition):
 		return
 	if !is_instance_valid(_home_logo_reveal):
@@ -3664,6 +3678,7 @@ func _leave_home(action: Callable, blue_pattern: bool = false) -> void:
 	if !blue_pattern:
 		_home_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
 	add_child(_home_transition)
+	_home_transition.tree_exited.connect(Callable(self, "_trace_ad_banner").bind("home_transition_exited"), CONNECT_ONE_SHOT)
 	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
 
 func _open_single_player_from_home(action: Callable) -> void:
@@ -4368,7 +4383,7 @@ func _resolve_user_consent_popup(accepted: bool, from_settings: bool = false) ->
 	# The popup is first shown on the live level-3 word screen. Stage the banner
 	# only after the choice has been persisted and SDK initialization requested.
 	if game_screen_visible and !_quiz_screen_active and _portrait_ads_enabled():
-		_stage_portrait_ad_banner()
+		_stage_portrait_ad_banner("_resolve_user_consent_popup")
 
 func _check_startup_guided_resume() -> void:
 	if !GameState.has_accepted_legal_documents():
@@ -6950,7 +6965,7 @@ func _home_profile_show_quiz_game_screen() -> void:
 			_home_transition.connect("finished", _mark_quiz_question_ready, CONNECT_ONE_SHOT)
 		else:
 			_mark_quiz_question_ready()
-	_stage_portrait_ad_banner()
+	_stage_portrait_ad_banner("_home_profile_show_quiz_game_screen")
 
 func _remove_single_player_theme_popup() -> void:
 	_cancel_single_player_theme_slot_animation()
@@ -9767,7 +9782,7 @@ func show_custom_word() -> void:
 	)
 	custom_word_start_button.set("drop_shadow_enabled", true)
 	_portrait_end_adaptive_group(custom_word_bottom_content)
-	_stage_portrait_ad_banner()
+	_stage_portrait_ad_banner("show_custom_word")
 
 func _set_custom_word_checking(is_checking: bool) -> void:
 	# Stop first even if navigation has already removed the previous control.
@@ -10197,7 +10212,7 @@ func _refresh_game_screen() -> void:
 		)
 		_portrait_game_back_button = back_button
 		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
-	_stage_portrait_ad_banner()
+	_stage_portrait_ad_banner("_refresh_game_screen")
 	_portrait_game_runtime_ready = true
 	call_deferred("_sync_portrait_attempts_attention_bounce")
 	pending_letter_markers.clear()
@@ -10640,7 +10655,13 @@ func _play_portrait_hint_spend_animation_if_needed(
 			used_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_animate_portrait_hint_counter_roll(hint_key, previous_count, current_count)
 
-func _stage_portrait_ad_banner() -> void:
+func _stage_portrait_ad_banner(source: String = "unspecified") -> void:
+	_trace_ad_banner("ui_stage_banner", {
+		"source": source,
+		"quiz_screen": _quiz_screen_active,
+		"home_transition": is_instance_valid(_home_transition),
+		"modal_count": get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).size(),
+	})
 	if !_portrait_ads_enabled():
 		_hide_portrait_ad_banner()
 		return
@@ -10658,6 +10679,8 @@ func _stage_portrait_ad_banner() -> void:
 			native_ads_available = bool(ads_service.call("is_native_available"))
 		if !is_instance_valid(_home_transition) and ads_service.has_method("show_banner"):
 			ads_service.call("show_banner")
+		else:
+			_trace_ad_banner("ui_show_skipped_transition_or_method", {"source": source, "home_transition": is_instance_valid(_home_transition)})
 	if native_ads_available:
 		return
 	var banner_panel := _stage_panel(
@@ -16015,7 +16038,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		title_block.modulate.a = 1.0
 		title_visual.scale = Vector2.ONE
 
-	_stage_portrait_ad_banner()
+	_stage_portrait_ad_banner("_home_profile_show_single_player_reward_chain_screen")
 
 	# Keep the persistent HUD and the celebratory title visible independently.
 	# Reward content itself is revealed only after the title finishes its first

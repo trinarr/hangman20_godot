@@ -255,25 +255,52 @@ func _on_ad_region_changed() -> void:
 func _on_ads_became_available() -> void:
 	_initialize_yandex_ads_from_saved_consent()
 
+func _trace_ad_banner(event: String, details: Dictionary = {}) -> void:
+	if !OS.is_debug_build():
+		return
+	var ads_service: Node = get_node_or_null("/root/YandexAdsService")
+	var state: Dictionary = details.duplicate()
+	state.merge({
+		"ads_unlocked": GameState.are_ads_enabled(),
+		"legal_accepted": GameState.has_accepted_legal_documents(),
+		"explicit_choice": GameState.has_answered_ad_personalization_choice(),
+		"decision_available": GameState.has_ad_personalization_decision(),
+		"personalization": GameState.allows_ad_personalization(),
+		"game_screen": game_screen_visible, "game_finished": game_finished,
+		"level_index": single_player_active_level_index,
+		"stage_index": single_player_active_word_slot,
+	}, true)
+	if ads_service != null and ads_service.has_method("trace_banner"):
+		ads_service.call("trace_banner", event, state)
+	else:
+		print("[BannerDiag] ", JSON.stringify(state), " event=", event, " service_missing=true")
+
 func _initialize_yandex_ads_from_saved_consent() -> bool:
+	_trace_ad_banner("app_initialize_gate")
 	# A regional default or a saved choice is not a request to start advertising.
 	# Keep SDK initialization (and its automatic preloads) behind the game gate.
 	if !GameState.are_ads_enabled():
+		_trace_ad_banner("app_initialize_blocked_ads_locked")
 		return false
 	var ads_service: Node = get_node_or_null("/root/YandexAdsService")
 	if !GameState.has_accepted_legal_documents() or !GameState.has_ad_personalization_decision():
+		_trace_ad_banner("app_initialize_blocked_legal_or_decision")
 		# Expiry/failure also invalidates previously personalized cached ads.
 		if ads_service != null and ads_service.has_method("set_user_consent"):
 			ads_service.call("set_user_consent", false)
 		return false
 	if ads_service == null or !is_instance_valid(ads_service):
+		_trace_ad_banner("app_initialize_blocked_service_missing")
 		return false
 	if !ads_service.has_method("initialize_after_consent"):
+		_trace_ad_banner("app_initialize_blocked_method_missing")
 		return false
-	return bool(ads_service.call(
+	var started: bool = bool(ads_service.call(
 		"initialize_after_consent",
 		GameState.allows_ad_personalization()
 	))
+	_trace_ad_banner("app_initialize_result", {"started": started})
+	return started
 
 func _persist_active_single_player_word_session() -> void:
 	if (

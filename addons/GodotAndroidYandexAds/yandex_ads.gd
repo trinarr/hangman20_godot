@@ -78,9 +78,34 @@ var _rewarded_show_open: bool = false
 var _rewarded_show_legacy: bool = false
 var _rewarded_show_tagged_legacy_bridge: bool = false
 
+# Temporary debug-only diagnostics. No IP, token or ad payloads.
+var _banner_diag_sequence: int = 0
+var _banner_diag_sdk_started_ms: int = -1
+var _banner_diag_load_started_ms: int = -1
+
+func trace_banner(event: String, details: Dictionary = {}) -> void:
+	if !OS.is_debug_build():
+		return
+	_banner_diag_sequence += 1
+	var now: int = Time.get_ticks_msec()
+	var state: Dictionary = details.duplicate()
+	state.merge({
+		"event": event, "seq": _banner_diag_sequence, "ms": now,
+		"native": is_native_available(),
+		"singleton": Engine.has_singleton(PLUGIN_SINGLETON),
+		"init_requested": _sdk_initialization_requested, "sdk_ready": _sdk_ready,
+		"wanted": _banner_wanted, "loading": _banner_loading, "loaded": _banner_loaded,
+		"discard_load": _discard_banner_load, "consent": user_consent,
+		"debug_build": OS.is_debug_build(),
+		"sdk_elapsed_ms": now - _banner_diag_sdk_started_ms if _banner_diag_sdk_started_ms >= 0 else -1,
+		"load_elapsed_ms": now - _banner_diag_load_started_ms if _banner_diag_load_started_ms >= 0 else -1,
+	}, true)
+	print("[BannerDiag] ", JSON.stringify(state))
+
 func _enter_tree() -> void:
 	_read_project_settings()
 	_bind_native_plugin()
+	trace_banner("service_enter_tree")
 
 func _exit_tree() -> void:
 	if is_native_available():
@@ -125,8 +150,10 @@ func _bind_native_plugin() -> bool:
 	return true
 
 func initialize_after_consent(consent_value: bool) -> bool:
+	trace_banner("initialize_called", {"requested_consent": consent_value})
 	if !is_native_available() and !_bind_native_plugin():
 		user_consent = consent_value
+		trace_banner("initialize_blocked_no_native")
 		return false
 	# Consent must reach Yandex before initialize(). The native configure() method
 	# applies the privacy flags first and only then requests SDK initialization.
@@ -135,6 +162,8 @@ func initialize_after_consent(consent_value: bool) -> bool:
 		return true
 	user_consent = consent_value
 	_sdk_initialization_requested = true
+	_banner_diag_sdk_started_ms = Time.get_ticks_msec()
+	trace_banner("native_configure")
 	_native.configure(age_restricted_user, user_consent, logging_enabled)
 	return true
 
@@ -184,31 +213,40 @@ func _connect_native(signal_name: StringName, callback: Callable) -> void:
 		_native.connect(signal_name, callback)
 
 func show_banner() -> void:
+	trace_banner("show_called")
 	# Do not even queue a banner request before the app has explicitly started the
 	# SDK after the user's personalization choice.
 	if !_sdk_initialization_requested:
+		trace_banner("show_dropped_before_initialize")
 		return
 	_banner_wanted = true
 	if !is_native_available() or !_sdk_ready:
+		trace_banner("show_queued_waiting_sdk")
 		return
 	if _banner_loaded:
+		trace_banner("native_show_cached")
 		_native.showBanner()
 		return
 	load_banner()
 
 func hide_banner() -> void:
 	_banner_wanted = false
+	trace_banner("hide_called")
 	if is_native_available():
 		_native.hideBanner()
 
 func load_banner() -> void:
 	if !is_native_available() or !_sdk_ready or banner_id.is_empty() or _banner_loading:
+		trace_banner("load_skipped", {"empty_unit": banner_id.is_empty()})
 		return
 	_banner_loading = true
 	_banner_loaded = false
+	_banner_diag_load_started_ms = Time.get_ticks_msec()
+	trace_banner("native_load", {"width_dp": banner_width_dp, "height_dp": banner_height_dp})
 	_native.loadBanner(banner_id, banner_on_top, banner_width_dp, banner_height_dp)
 
 func remove_banner() -> void:
+	trace_banner("remove_called")
 	_banner_wanted = false
 	_banner_loading = false
 	_banner_loaded = false
@@ -435,6 +473,7 @@ func _on_rewarded_failed_for_request(request_id: String, message: String) -> voi
 	rewarded_video_failed_to_show_for_request.emit(request_id, message)
 
 func set_user_consent(value: bool) -> void:
+	trace_banner("consent_update", {"requested_consent": value})
 	var changed: bool = user_consent != value
 	user_consent = value
 	if !is_native_available():
@@ -474,6 +513,7 @@ func _on_sdk_initialized() -> void:
 	# changed while initialization was in flight, before any load/listener runs.
 	_native.setUserConsent(user_consent)
 	_sdk_ready = true
+	trace_banner("sdk_initialized_callback")
 	sdk_initialized.emit()
 	if _banner_wanted:
 		load_banner()
@@ -485,11 +525,13 @@ func _on_sdk_initialized() -> void:
 		load_rewarded_video()
 
 func _on_banner_loaded() -> void:
+	trace_banner("banner_loaded_callback")
 	_banner_loading = false
 	if _discard_banner_load:
 		_finish_discarded_banner_load()
 		return
 	_banner_loaded = true
+	trace_banner("banner_visibility_after_load")
 	if _banner_wanted:
 		_native.showBanner()
 	else:
@@ -497,6 +539,7 @@ func _on_banner_loaded() -> void:
 	banner_loaded.emit(get_banner_dimension())
 
 func _on_banner_failed_to_load(error_code: int) -> void:
+	trace_banner("banner_failed_callback", {"error_code": error_code})
 	_banner_loading = false
 	if _discard_banner_load:
 		_finish_discarded_banner_load()
