@@ -4803,7 +4803,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	button.set_meta(&"quiz_answer_label", answer_label)
 
 	# Match FlashStageTextureButton's standard long-button press motion while
-	# keeping the native Button as the hit target. Scale the white face and its
+	# keeping the native Button as the hit target. Scale the button face and its
 	# shadow together around the same visual center.
 	button.pivot_offset = holder.size * 0.5
 	shadow_panel.pivot_offset = holder.size * 0.5 - shadow_panel.position
@@ -4891,6 +4891,7 @@ func _set_quiz_answer_fill(button: Button, fill_color: Color) -> void:
 		var state_style := base_style.duplicate() as StyleBoxFlat
 		state_style.bg_color = fill_color
 		button.add_theme_stylebox_override(state_name, state_style)
+	_update_quiz_statistics_fill(button)
 
 func _disable_quiz_answer_buttons() -> void:
 	for answer_control: Control in _quiz_answer_buttons:
@@ -5718,9 +5719,13 @@ func _request_quiz_statistics() -> void:
 
 func _on_quiz_statistics_ready(question_key: String, counts: Array) -> void:
 	if !_quiz_screen_active or !_quiz_answer_locked or counts.size() != 4:
+		if OS.is_debug_build():
+			print("[QuizStatistics] UI: result no longer active or invalid counter count")
 		return
 	var description: Dictionary = QuizStatistics.describe_question(_quiz_current_question, _quiz_selected_theme_index)
 	if description.get("key", "") != question_key:
+		if OS.is_debug_build():
+			print("[QuizStatistics] UI: ignored response for another question")
 		return
 	var total := 0
 	for value: Variant in counts:
@@ -5728,51 +5733,44 @@ func _on_quiz_statistics_ready(question_key: String, counts: Array) -> void:
 			return
 		total += int(value)
 	if total < maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30))):
+		if OS.is_debug_build():
+			print("[QuizStatistics] UI: hidden, total=%d minimum=%d" % [total,
+				maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30)))])
 		return
+	if OS.is_debug_build():
+		print("[QuizStatistics] UI: displaying distribution, total=%d counts=%s" % [total, str(counts)])
 	for index: int in range(_quiz_answer_buttons.size()):
 		var button := _quiz_answer_buttons[index] as Button
-		if !is_instance_valid(button) or button.has_node("QuizStatisticsPercent"):
+		if !is_instance_valid(button) or button.has_node("QuizStatisticsFill"):
 			continue
 		var fraction := float(counts[int(description["mapping"][index])]) / float(total)
-		var label := Label.new()
-		label.name = "QuizStatisticsPercent"
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		label.offset_left = button.size.x - 88.0
-		label.offset_right = -20.0
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_override("font", UI_REGULAR_FONT)
-		label.add_theme_font_size_override("font_size", 22)
-		label.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
-		label.text = "%d%%" % int(round(fraction * 100.0))
-		button.add_child(label)
-		var answer_label := _quiz_answer_label(button)
-		if is_instance_valid(answer_label):
-			answer_label.offset_right = -100.0
-			var available_width: float = maxf(1.0, button.size.x - answer_label.offset_left - 100.0)
-			var font: Font = answer_label.get_theme_font("font")
-			var font_size: int = answer_label.get_theme_font_size("font_size")
-			while font_size > 22 and font.get_string_size(answer_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > available_width:
-				font_size -= 1
-			answer_label.add_theme_font_size_override("font_size", font_size)
-		var bar := ProgressBar.new()
-		bar.name = "QuizStatisticsBar"
-		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		bar.offset_left = 28.0
-		bar.offset_right = -28.0
-		bar.offset_top = button.size.y - 12.0
-		bar.offset_bottom = -7.0
-		bar.show_percentage = false
-		var background := StyleBoxFlat.new()
-		background.bg_color = Color(0, 0, 0, 0.07)
-		var fill := StyleBoxFlat.new()
-		fill.bg_color = Color(0.12, 0.32, 0.55, 0.4)
-		bar.add_theme_stylebox_override("background", background)
-		bar.add_theme_stylebox_override("fill", fill)
-		button.add_child(bar)
-		button.create_tween().tween_property(bar, "value", fraction * 100.0, 0.4)
+		var fill := ColorRect.new()
+		fill.name = "QuizStatisticsFill"
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var material := ShaderMaterial.new()
+		material.shader = preload("res://scripts/ui/quiz_statistics_fill.gdshader")
+		material.set_shader_parameter("fraction", 0.0)
+		fill.material = material
+		button.add_child(fill)
+		button.move_child(fill, 0)
+		_update_quiz_statistics_fill(button)
+		button.resized.connect(_update_quiz_statistics_fill.bind(button))
+		var tween := button.create_tween()
+		tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(material, "shader_parameter/fraction", clampf(fraction, 0.08, 0.92), 0.8)
+		button.set_meta(&"quiz_statistics_tween", tween)
+
+func _update_quiz_statistics_fill(button: Button) -> void:
+	var fill := button.get_node_or_null("QuizStatisticsFill") as ColorRect
+	if fill == null:
+		return
+	var material := fill.material as ShaderMaterial
+	var style := button.get_theme_stylebox("normal") as StyleBoxFlat
+	var color := style.bg_color.darkened(0.15)
+	material.set_shader_parameter("fill_color", color)
+	material.set_shader_parameter("button_size", button.size)
+	material.set_shader_parameter("corner_radius", float(style.corner_radius_top_left))
 
 func _restore_quiz_answer_result_state() -> void:
 	if !_quiz_answer_locked:
@@ -6057,6 +6055,7 @@ func _refresh_quiz_question_in_place() -> bool:
 	if visible_answer_count != _quiz_answer_buttons.size():
 		return false
 
+	QuizStatistics.prefetch_question(_quiz_current_question, _quiz_selected_theme_index)
 	_quiz_entrance_generation += 1
 	var question_text: String = str(
 		_quiz_current_question.get("question", "")
@@ -6325,7 +6324,14 @@ func _prepare_quiz_answer_for_replacement(
 		if result_tween.is_valid():
 			result_tween.kill()
 
-	for widget_name: String in ["QuizStatisticsPercent", "QuizStatisticsBar"]:
+	if button.resized.is_connected(_update_quiz_statistics_fill.bind(button)):
+		button.resized.disconnect(_update_quiz_statistics_fill.bind(button))
+	var statistics_tween: Variant = _optional_node_meta(button, &"quiz_statistics_tween")
+	if statistics_tween is Tween and statistics_tween.is_valid():
+		statistics_tween.kill()
+	if button.has_meta(&"quiz_statistics_tween"):
+		button.remove_meta(&"quiz_statistics_tween")
+	for widget_name: String in ["QuizStatisticsPercent", "QuizStatisticsBar", "QuizStatisticsFill"]:
 		var widget := button.get_node_or_null(widget_name)
 		if widget != null:
 			button.remove_child(widget)
@@ -6385,6 +6391,7 @@ func _on_quiz_replace_question_pressed() -> void:
 	)
 	_quiz_question_replacing = true
 	_quiz_current_question = QUIZ_SELECTION.shuffled(next_question)
+	QuizStatistics.prefetch_question(_quiz_current_question, _quiz_selected_theme_index)
 	# Save one consistent new question before the first animation await.
 	# The old 50/50 applied to the replaced question, not its new answer order.
 	_quiz_fifty_fifty_used = false
@@ -7013,6 +7020,7 @@ func _home_profile_show_quiz_game_screen() -> void:
 		)
 		_quiz_answer_buttons.append(answer_button)
 
+	QuizStatistics.prefetch_question(_quiz_current_question, _quiz_selected_theme_index)
 	_apply_quiz_fifty_fifty_hidden_state()
 	_stage_portrait_quiz_hint_buttons()
 	_quiz_continue_button = _stage_portrait_quiz_continue_button()

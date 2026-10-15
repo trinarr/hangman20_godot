@@ -26,6 +26,8 @@ func settle(service: Node) -> void:
 	check(false, "Mock request failed to settle")
 
 func run() -> void:
+	ProjectSettings.set_setting("quiz_statistics/enabled", false)
+	ProjectSettings.set_setting("quiz_statistics/minimum_answers", 30)
 	var catalog: String = FileAccess.get_file_as_string("res://supabase/migrations/002_quiz_catalog.sql")
 	for language: String in ["ru", "en"]:
 		Database.load_languages(language, language)
@@ -61,7 +63,7 @@ func run() -> void:
 	service._flush()
 	await settle(service)
 	check(service._access_token.is_empty() and service._state.pending.size() == 1, "Expired token keeps pending vote")
-	service.replies = [{"status": 200, "body": {"access_token": "new-access", "refresh_token": "new-refresh"}}, {"status": 200, "body": {"counts": [10,20,30,40]}}]
+	service.replies = [{"status": 200, "body": {"access_token": "new-access", "refresh_token": "new-refresh"}}, {"status": 200, "body": {"ok": true, "already_answered": true, "counts": [10,20,30,40]}}]
 	service._flush()
 	await settle(service)
 	check(service._state.pending.is_empty(), "Successful retry removes pending vote")
@@ -71,7 +73,7 @@ func run() -> void:
 	service.record_answer(question, 0, 0, false)
 	await settle(service)
 	check(service._state.pending[0].p_answer == -2, "Hinted answer marks seen without a vote")
-	service.replies = [{"status": 400, "body": {}}, {"status": 200, "body": {"counts": [1,2,3,4]}}]
+	service.replies = [{"status": 400, "body": {}}, {"status": 200, "body": {"ok": true, "already_answered": true, "counts": [1,2,3,4]}}]
 	var other: Dictionary = PICK.shuffled(Database.get_quiz_questions_by_theme_index(0)[1])
 	service.record_answer(other, 0, 0, true)
 	await settle(service)
@@ -83,6 +85,53 @@ func run() -> void:
 	await settle(service)
 	check(service.calls.size() == before_calls + 1 and service.calls.back().path.contains("refresh_token"), "Invalid session must not silently create another player")
 	service.queue_free()
+	# Prefetch is read-only; a ready snapshot makes submission acknowledgement-only.
+	var prefetched: Node = MOCK.new()
+	add_child(prefetched)
+	prefetched._access_token = "test-access"
+	var key: String = prefetched.describe_question(question, 0).key
+	prefetched.replies = [{"status": 200, "body": {"ok": true, "counts": [10,20,30,40], "already_answered": false}}]
+	prefetched.prefetch_question(question, 0)
+	await settle(prefetched)
+	check(prefetched.calls[0].payload.p_answer == -1 and prefetched.calls[0].payload.p_include_counts, "Prefetch reads counters and first-attempt flag in one request")
+	check(prefetched._state.pending.is_empty() and !prefetched._answered[key], "Prefetch does not consume an attempt or add a vote")
+	var before: Array = prefetched._cache[key].duplicate()
+	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
+	prefetched.record_answer(question, 0, 1, true)
+	check(prefetched._cache[key][first] == before[first] + 1, "Cached first vote displayed immediately")
+	await settle(prefetched)
+	check(!prefetched.calls.back().payload.p_include_counts, "Cached submission requests only acknowledgement")
+	check(prefetched._state.pending.is_empty(), "Acknowledgement removes pending vote without counters")
+	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
+	prefetched.record_answer(question, 0, 2, true)
+	await settle(prefetched)
+	check(prefetched._cache[key][first] == before[first] + 1, "Repeat attempt never increments cached counts")
+	# Player answers while a prefetch request is in flight: add the queued first answer once.
+	prefetched.replies = [{"status": 200, "body": {"ok": true, "counts": [0,0,0,0], "already_answered": false}}, {"status": 200, "body": {"ok": true}}]
+	prefetched.prefetch_question(other, 0)
+	prefetched.record_answer(other, 0, 0, true)
+	await settle(prefetched)
+	var other_key: String = prefetched.describe_question(other, 0).key
+	var other_index: int = prefetched.describe_question(other, 0).mapping[0]
+	check(prefetched._cache[other_key][other_index] == 1 and prefetched._state.pending.is_empty(), "Answer during prefetch counted once and acknowledged")
+	# Reloaded snapshots must not duplicate a vote already committed remotely.
+	check(prefetched._accept_snapshot(other_key, {"counts": [2,3,4,5], "already_answered": true}), "Accept authoritative answered snapshot")
+	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
+	prefetched.record_answer(other, 0, 1, true)
+	await settle(prefetched)
+	check(prefetched._cache[other_key] == [2,3,4,5], "Server answered flag prevents local repeat vote")
+	# Offline hinted first attempts stay excluded even after later attempts without a hint.
+	prefetched._cache[other_key] = [2,3,4,5]
+	prefetched._answered[other_key] = false
+	prefetched.replies = [{}]
+	prefetched.record_answer(other, 0, 1, false)
+	await settle(prefetched)
+	check(prefetched._cache[other_key] == [2,3,4,5] and prefetched._state.pending[0].p_answer == -2, "Hinted attempt leaves cached counts unchanged")
+	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
+	prefetched.record_answer(other, 0, 1, true)
+	await settle(prefetched)
+	check(prefetched._cache[other_key] == [2,3,4,5] and prefetched._state.pending.is_empty(), "Retry retains hinted first attempt and clears on acknowledgement")
+	prefetched.queue_free()
 	# Disabled backend must not touch the network or prevent normal quiz feedback.
 	check(!QuizStatistics.is_configured(), "Backend disabled until configured")
 	var main: Node = load("res://scenes/Main.tscn").instantiate()
@@ -94,19 +143,35 @@ func run() -> void:
 	check(main._quiz_answer_locked, "Quiz completes with backend disabled")
 	var identity: Dictionary = QuizStatistics.describe_question(main._quiz_current_question, 0)
 	main._on_quiz_statistics_ready("stale-question", [10,20,30,40])
-	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsPercent"), "Late response for another question ignored")
+	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Late response for another question ignored")
 	main._on_quiz_statistics_ready(identity.key, [1,0,0,0])
-	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsPercent"), "Small sample hidden")
+	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Small sample hidden")
 	main._on_quiz_statistics_ready(identity.key, [10,20,30,40])
+	await get_tree().create_timer(0.9).timeout
 	for index: int in range(4):
 		var button: Button = main._quiz_answer_buttons[index]
-		var percent: Label = button.get_node("QuizStatisticsPercent")
-		check(percent.text == "%d%%" % ([10,20,30,40][int(identity.mapping[index])]), "UI percentage follows answer identity")
+		var fill: ColorRect = button.get_node("QuizStatisticsFill")
+		var material: ShaderMaterial = fill.material
+		check(is_equal_approx(float(material.get_shader_parameter("fraction")), [0.1,0.2,0.3,0.4][int(identity.mapping[index])]), "Fill width follows shuffled answer identity")
+		check(!button.has_node("QuizStatisticsPercent") and !button.has_node("QuizStatisticsBar"), "No percentages or thin bars")
+		var style: StyleBoxFlat = button.get_theme_stylebox("normal")
+		var expected: Color = style.bg_color.darkened(0.15)
+		check(material.get_shader_parameter("fill_color") == expected, "Distribution uses darkened button background")
 	await get_tree().create_timer(2.5).timeout
-	var reused: Button = main._quiz_answer_buttons[0]
-	main._prepare_quiz_answer_for_replacement(reused, "Next answer", 0.0)
-	check(!reused.has_node("QuizStatisticsPercent") and !reused.has_node("QuizStatisticsBar"), "Reused button clears old distribution")
-	check(main._quiz_answer_label(reused).offset_right == -main.PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING, "Reused button restores text width")
+	for button: Button in main._quiz_answer_buttons:
+		main._prepare_quiz_answer_for_replacement(button, "Next answer", 0.0)
+		check(!button.has_node("QuizStatisticsFill"), "Reused button clears old distribution")
+		check(!button.resized.is_connected(main._update_quiz_statistics_fill.bind(button)), "Reused button disconnects fill resize handler")
+	main._on_quiz_statistics_ready(identity.key, [100,0,0,0])
+	await get_tree().create_timer(0.9).timeout
+	for index: int in range(4):
+		var button: Button = main._quiz_answer_buttons[index]
+		var material: ShaderMaterial = button.get_node("QuizStatisticsFill").material
+		var expected: float = 0.92 if int(identity.mapping[index]) == 0 else 0.08
+		check(is_equal_approx(float(material.get_shader_parameter("fraction")), expected), "Single populated answer capped; zero answers remain visible")
+	var recolored: Button = main._quiz_answer_buttons[0]
+	main._set_quiz_answer_fill(recolored, main.PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
+	check(recolored.get_node("QuizStatisticsFill").material.get_shader_parameter("fill_color") == Color("#F45B77").darkened(0.15), "Late result feedback updates fill color")
 	main.queue_free()
 	await get_tree().process_frame
 	print("QUIZ_STATISTICS checks=%d failures=%d" % [checks, failures])

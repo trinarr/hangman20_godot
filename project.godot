@@ -19,19 +19,12 @@ config/name="Hangman 2.0"
 config/name_localized={
 "ru": "Виселица 2.0"
 }
-config/version="4.0.2"
+config/version="4.1.0"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
 boot_splash/show_image=false
 config/icon="res://icon.png"
-
-[quiz_statistics]
-
-enabled=false
-supabase_url="https://fstbbkeduxucxneztspt.supabase.co"
-publishable_key="sb_publishable_apZ49sDMzBk7UC3Z02wYSg_gpMql9tf"
-minimum_answers=1
 
 [autoload]
 
@@ -79,6 +72,13 @@ privacy_policy_url_en="https://trinarr.github.io/hangman20_godot/privacy-policy-
 [physics]
 
 3d/physics_engine="Jolt Physics"
+
+[quiz_statistics]
+
+enabled=true
+supabase_url="https://fstbbkeduxucxneztspt.supabase.co"
+publishable_key="sb_publishable_apZ49sDMzBk7UC3Z02wYSg_gpMql9tf"
+minimum_answers=1
 
 [rendering]
 
