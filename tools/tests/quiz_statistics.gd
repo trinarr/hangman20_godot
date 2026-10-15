@@ -139,6 +139,36 @@ func run() -> void:
 	await get_tree().process_frame
 	main._start_quiz_theme(0)
 	await get_tree().create_timer(2.0).timeout
+	# 50/50 keeps the correct answer even when it is the least popular.
+	var hint_identity: Dictionary = QuizStatistics.describe_question(main._quiz_current_question, 0)
+	var hint_correct: int = main._quiz_correct_answer_index()
+	var hint_wrong: Array = []
+	for index: int in range(4):
+		if index != hint_correct:
+			hint_wrong.append(index)
+	var hint_counts: Array = [0,0,0,0]
+	for index: int in range(3):
+		hint_counts[int(hint_identity.mapping[hint_wrong[index]])] = [5,10,100][index]
+	QuizStatistics._cache[hint_identity.key] = hint_counts
+	var ranked: Array = main._quiz_fifty_fifty_wrong_indices(hint_correct)
+	check(ranked.slice(0, 2) == hint_wrong.slice(0, 2), "50/50 removes two least popular wrong answers after mapping shuffled buttons")
+	check(!ranked.has(hint_correct) and ranked[2] == hint_wrong[2], "50/50 preserves correct and most popular wrong answer")
+	var copied: Array = QuizStatistics.cached_answer_counts(main._quiz_current_question, 0)
+	copied[hint_correct] = 999
+	check(QuizStatistics._cache[hint_identity.key] == hint_counts, "50/50 does not mutate cached counters")
+	ProjectSettings.set_setting("quiz_statistics/minimum_answers", 115)
+	seed(1234)
+	var random_order: Array = hint_wrong.duplicate()
+	random_order.shuffle()
+	seed(1234)
+	check(main._quiz_fifty_fifty_wrong_indices(hint_correct) == random_order, "Equal-to-minimum sample uses original random selection")
+	ProjectSettings.set_setting("quiz_statistics/minimum_answers", 116)
+	seed(1234)
+	check(main._quiz_fifty_fifty_wrong_indices(hint_correct) == random_order, "Below-minimum sample uses original random selection")
+	QuizStatistics._cache.erase(hint_identity.key)
+	seed(1234)
+	check(main._quiz_fifty_fifty_wrong_indices(hint_correct) == random_order, "Missing prefetch does not delay 50/50 and uses random selection")
+	ProjectSettings.set_setting("quiz_statistics/minimum_answers", 30)
 	main._on_quiz_answer_selected(main._quiz_correct_answer_index())
 	check(main._quiz_answer_locked, "Quiz completes with backend disabled")
 	var identity: Dictionary = QuizStatistics.describe_question(main._quiz_current_question, 0)
@@ -155,7 +185,7 @@ func run() -> void:
 		check(is_equal_approx(float(material.get_shader_parameter("fraction")), [0.1,0.2,0.3,0.4][int(identity.mapping[index])]), "Fill width follows shuffled answer identity")
 		check(!button.has_node("QuizStatisticsPercent") and !button.has_node("QuizStatisticsBar"), "No percentages or thin bars")
 		var style: StyleBoxFlat = button.get_theme_stylebox("normal")
-		var expected: Color = style.bg_color.darkened(0.15)
+		var expected: Color = style.bg_color.darkened(0.10)
 		check(material.get_shader_parameter("fill_color") == expected, "Distribution uses darkened button background")
 	await get_tree().create_timer(2.5).timeout
 	for button: Button in main._quiz_answer_buttons:
@@ -171,7 +201,7 @@ func run() -> void:
 		check(is_equal_approx(float(material.get_shader_parameter("fraction")), expected), "Single populated answer capped; zero answers remain visible")
 	var recolored: Button = main._quiz_answer_buttons[0]
 	main._set_quiz_answer_fill(recolored, main.PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
-	check(recolored.get_node("QuizStatisticsFill").material.get_shader_parameter("fill_color") == Color("#F45B77").darkened(0.15), "Late result feedback updates fill color")
+	check(recolored.get_node("QuizStatisticsFill").material.get_shader_parameter("fill_color") == Color("#F45B77").darkened(0.10), "Late result feedback updates fill color")
 	main.queue_free()
 	await get_tree().process_frame
 	print("QUIZ_STATISTICS checks=%d failures=%d" % [checks, failures])

@@ -65,6 +65,16 @@ func describe_question(question: Dictionary, theme_index: int) -> Dictionary:
 	var revision: String = (str(canonical["question"]) + "\n" + "\n".join(source) + "\n" + str(int(canonical["correct_index"]))).sha256_text()
 	return {"key": "%s:%d:%s" % [Database.current_language, int(canonical["id"]), revision], "mapping": mapping}
 
+func cached_answer_counts(question: Dictionary, theme_index: int) -> Array:
+	var description := describe_question(question, theme_index)
+	if description.is_empty() or !_cache.has(description["key"]):
+		return []
+	var canonical_counts: Array = _cache[description["key"]]
+	var shown_counts: Array = []
+	for source_index: int in description["mapping"]:
+		shown_counts.append(canonical_counts[source_index])
+	return shown_counts
+
 func prefetch_question(question: Dictionary, theme_index: int) -> void:
 	if !is_configured():
 		return

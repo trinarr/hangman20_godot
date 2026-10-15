@@ -5767,7 +5767,7 @@ func _update_quiz_statistics_fill(button: Button) -> void:
 		return
 	var material := fill.material as ShaderMaterial
 	var style := button.get_theme_stylebox("normal") as StyleBoxFlat
-	var color := style.bg_color.darkened(0.15)
+	var color := style.bg_color.darkened(0.10)
 	material.set_shader_parameter("fill_color", color)
 	material.set_shader_parameter("button_size", button.size)
 	material.set_shader_parameter("corner_radius", float(style.corner_radius_top_left))
@@ -6216,6 +6216,26 @@ func _apply_quiz_fifty_fifty_hidden_state() -> void:
 		if shadow_panel != null and is_instance_valid(shadow_panel):
 			shadow_panel.visible = false
 
+func _quiz_fifty_fifty_wrong_indices(correct_index: int) -> Array:
+	var wrong_indices: Array = []
+	for answer_index: int in range(_quiz_answer_buttons.size()):
+		if answer_index != correct_index:
+			wrong_indices.append(answer_index)
+	# Shuffle first so ties do not always favor the same button positions.
+	wrong_indices.shuffle()
+	var counts: Array = QuizStatistics.cached_answer_counts(_quiz_current_question, _quiz_selected_theme_index)
+	var total := 0
+	for count: Variant in counts:
+		total += int(count)
+	var minimum := maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30)))
+	if counts.size() == _quiz_answer_buttons.size() and total > minimum:
+		wrong_indices.sort_custom(func(a: int, b: int) -> bool: return int(counts[a]) < int(counts[b]))
+		if OS.is_debug_build():
+			print("[QuizStatistics] 50/50: least popular wrong answers, total=%d minimum=%d indices=%s" % [total, minimum, str(wrong_indices.slice(0, 2))])
+	elif OS.is_debug_build():
+		print("[QuizStatistics] 50/50: random wrong answers, cached=%s total=%d minimum=%d" % [!counts.is_empty(), total, minimum])
+	return wrong_indices
+
 func _on_quiz_fifty_fifty_pressed() -> void:
 	if _quiz_answer_locked or _quiz_fifty_fifty_used or !_quiz_screen_active:
 		return
@@ -6223,13 +6243,9 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 	if correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
 		return
 
-	var wrong_indices: Array = []
-	for answer_index: int in range(_quiz_answer_buttons.size()):
-		if answer_index != correct_index:
-			wrong_indices.append(answer_index)
+	var wrong_indices := _quiz_fifty_fifty_wrong_indices(correct_index)
 	if wrong_indices.size() < 2:
 		return
-	wrong_indices.shuffle()
 
 	var fifty_hint_button: Control = null
 	if !_quiz_hint_buttons.is_empty():
