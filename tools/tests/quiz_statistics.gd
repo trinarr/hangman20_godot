@@ -90,7 +90,7 @@ func run() -> void:
 	service.replies = [{"status": 400, "body": {}}]
 	service._flush()
 	await settle(service)
-	check(service.calls.size() == before_calls + 1 and service.calls.back().path.contains("refresh_token"), "Invalid session must not silently create another player")
+	check(service.calls.size() == before_calls + 1 and service.calls.back().path.contains("refresh_token"), "Unclassified auth error must not replace identity")
 	service.queue_free()
 	# Prefetch is read-only; a ready snapshot makes submission acknowledgement-only.
 	var prefetched: Node = MOCK.new()
@@ -192,7 +192,7 @@ func run() -> void:
 		check(is_equal_approx(float(material.get_shader_parameter("fraction")), [0.1,0.2,0.3,0.4][int(identity.mapping[index])]), "Fill width follows shuffled answer identity")
 		check(!button.has_node("QuizStatisticsPercent") and !button.has_node("QuizStatisticsBar"), "No percentages or thin bars")
 		var style: StyleBoxFlat = button.get_theme_stylebox("normal")
-		var expected: Color = style.bg_color.darkened(0.10)
+		var expected: Color = style.bg_color.darkened(0.12)
 		check(material.get_shader_parameter("fill_color") == expected, "Distribution uses darkened button background")
 	await get_tree().create_timer(2.5).timeout
 	for button: Button in main._quiz_answer_buttons:
@@ -208,7 +208,7 @@ func run() -> void:
 		check(is_equal_approx(float(material.get_shader_parameter("fraction")), expected), "Single populated answer capped; zero answers remain visible")
 	var recolored: Button = main._quiz_answer_buttons[0]
 	main._set_quiz_answer_fill(recolored, main.PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
-	check(recolored.get_node("QuizStatisticsFill").material.get_shader_parameter("fill_color") == Color("#F45B77").darkened(0.10), "Late result feedback updates fill color")
+	check(recolored.get_node("QuizStatisticsFill").material.get_shader_parameter("fill_color") == Color("#F45B77").darkened(0.12), "Late result feedback updates fill color")
 	main.queue_free()
 	await get_tree().process_frame
 	print("QUIZ_STATISTICS checks=%d failures=%d" % [checks, failures])

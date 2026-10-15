@@ -6,6 +6,8 @@ const SAVE_PATH := "user://quiz_statistics.json"
 const MAX_PENDING := 4000
 var _state: Dictionary = {"pending": [], "refresh_token": ""}
 var _access_token := ""
+var _access_token_refresh_at_ms: int = 0
+var _identity_generation: int = 0
 var _busy := false
 var _cache: Dictionary = {}
 var _answered: Dictionary = {}
@@ -203,40 +205,93 @@ func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dicti
 		_debug_log("Server error code=%s" % str(body.get("error_code", body.get("code", "unspecified"))))
 	return {"status": int(response[1]), "body": body}
 
+func _token_needs_refresh() -> bool:
+	return _access_token.is_empty() or (
+		_access_token_refresh_at_ms > 0 and Time.get_ticks_msec() >= _access_token_refresh_at_ms
+	)
+
+func _session_is_revoked(response: Dictionary) -> bool:
+	if int(response.get("status", 0)) not in [400, 401, 403]:
+		return false
+	var body: Variant = response.get("body")
+	if !(body is Dictionary):
+		return false
+	var code := str(body.get("error_code", body.get("code", body.get("error", ""))))
+	return code in ["refresh_token_not_found", "refresh_token_already_used",
+		"session_not_found", "session_expired", "user_not_found", "invalid_grant"]
+
+func _reset_revoked_identity() -> void:
+	_debug_log("Auth: revoked session; discarding old pending answers and cached attempt flags")
+	_identity_generation += 1
+	_access_token = ""
+	_access_token_refresh_at_ms = 0
+	_state = {"pending": [], "refresh_token": ""}
+	_cache.clear()
+	_answered.clear()
+	# Read-only prefetch requests can safely continue under the new identity.
+	_save()
+
 func _authenticate() -> bool:
 	var refresh: String = str(_state.get("refresh_token", ""))
 	var response: Dictionary
 	if !refresh.is_empty():
 		_debug_log("Auth: refreshing saved session")
 		response = await _post("/auth/v1/token?grant_type=refresh_token", {"refresh_token": refresh})
-		# Do not create a new identity after a transient network failure.
-		if response.is_empty() or int(response.get("status", 0)) >= 500:
-			return false
-		if int(response.get("status", 0)) not in [400, 401, 403] and int(response.get("status", 0)) != 200:
-			return false
-		# A lost/invalid identity requires explicit recovery, never silent replacement.
 		if int(response.get("status", 0)) != 200:
-			_debug_log("Auth refresh rejected: status=%d; keeping identity, no new account" % int(response.get("status", 0)))
-			return false
+			if !_session_is_revoked(response):
+				_debug_log("Auth refresh failed: status=%d; keeping identity and queue" % int(response.get("status", 0)))
+				return false
+			_reset_revoked_identity()
+			_debug_log("Auth: creating replacement anonymous session")
+			response = await _post("/auth/v1/signup", {})
 	else:
 		_debug_log("Auth: creating anonymous session")
 		response = await _post("/auth/v1/signup", {})
 	var body: Variant = response.get("body")
 	if int(response.get("status", 0)) != 200 or !(body is Dictionary):
-		_debug_log("Auth failed: status=%d; queue retained" % int(response.get("status", 0)))
+		_debug_log("Auth failed: status=%d; retry later" % int(response.get("status", 0)))
 		return false
-	_access_token = str(body.get("access_token", ""))
-	_state["refresh_token"] = str(body.get("refresh_token", ""))
+	var access := str(body.get("access_token", ""))
+	var next_refresh := str(body.get("refresh_token", ""))
+	if access.is_empty() or next_refresh.is_empty():
+		_debug_log("Auth failed: incomplete token pair")
+		return false
+	_access_token = access
+	_state["refresh_token"] = next_refresh
+	var lifetime_ms := maxi(0, int(body.get("expires_in", 0))) * 1000
+	_access_token_refresh_at_ms = (
+		Time.get_ticks_msec() + lifetime_ms - mini(30000, lifetime_ms / 10)
+		if lifetime_ms > 0 else 0
+	)
 	_save()
-	_debug_log("Auth complete: access_token_present=%s" % [!_access_token.is_empty()])
-	return !_access_token.is_empty()
+	_debug_log("Auth complete: access_token_present=true")
+	return true
+
+func _quiz_rpc(payload: Dictionary) -> Dictionary:
+	var generation := _identity_generation
+	if _token_needs_refresh() and !(await _authenticate()):
+		return {"identity_reset": generation != _identity_generation}
+	# An old queued vote must never be replayed under a replacement account.
+	if generation != _identity_generation and int(payload.get("p_answer", -1)) != -1:
+		return {"identity_reset": true}
+	var response := await _post("/rest/v1/rpc/quiz_answer", payload, true)
+	if int(response.get("status", 0)) != 401:
+		return response
+	_debug_log("RPC unauthorized: refreshing session and retrying once immediately")
+	_access_token = ""
+	_access_token_refresh_at_ms = 0
+	if !(await _authenticate()):
+		return {"identity_reset": generation != _identity_generation}
+	if generation != _identity_generation and int(payload.get("p_answer", -1)) != -1:
+		return {"identity_reset": true}
+	return await _post("/rest/v1/rpc/quiz_answer", payload, true)
 
 func _flush() -> void:
 	if _busy or !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
 		return
 	_busy = true
 	_debug_log("Flush: pending=%d" % (_state["pending"] as Array).size())
-	if _access_token.is_empty() and !(await _authenticate()):
+	if _token_needs_refresh() and !(await _authenticate()):
 		_busy = false
 		return
 	# Serialize reads, auth and writes so token refreshes cannot race each other.
@@ -244,8 +299,8 @@ func _flush() -> void:
 	while !_prefetch.is_empty():
 		var key: String = _prefetch.pop_front()
 		_prefetch_in_flight = key
-		var response := await _post("/rest/v1/rpc/quiz_answer", {
-			"p_key": key, "p_answer": -1, "p_include_counts": true}, true)
+		var response := await _quiz_rpc({
+			"p_key": key, "p_answer": -1, "p_include_counts": true})
 		_prefetch_in_flight = ""
 		var status := int(response.get("status", 0))
 		var body: Variant = response.get("body")
@@ -274,10 +329,16 @@ func _flush() -> void:
 		var payload := entry.duplicate(true)
 		payload["p_include_counts"] = !_cache.has(key)
 		_debug_log("Submit: include_counts=%s" % payload["p_include_counts"])
-		var response := await _post("/rest/v1/rpc/quiz_answer", payload, true)
+		var response := await _quiz_rpc(payload)
+		if bool(response.get("identity_reset", false)):
+			# The old array belongs to the discarded identity. Process only new work next.
+			_busy = false
+			if !_access_token.is_empty():
+				_flush.call_deferred()
+			return
 		var status: int = int(response.get("status", 0))
 		if status == 401:
-			_debug_log("Session expired/rejected: refresh on next retry; queue retained")
+			_debug_log("RPC still unauthorized after immediate retry; queue retained")
 			_access_token = ""
 			break
 		var body: Variant = response.get("body")

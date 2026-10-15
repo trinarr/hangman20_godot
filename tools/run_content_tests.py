@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "quiz_sessions": (True, r"QUIZ_SESSIONS checks=[1-9]\d* failures=0"),
     "quiz_statistics": (True, r"QUIZ_STATISTICS checks=[1-9]\d* failures=0"),
     "word_hint_revision": (False, r'WORD_HINT_REVISION checks=[1-9]\d* failures=0'),
     "easy_quiz_expansion": (False, r'EASY_QUIZ_EXPANSION checks=[1-9]\d* failures=0'),
