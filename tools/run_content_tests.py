@@ -50,7 +50,8 @@ def main():
         command += [path] if scene else ["--script", path]
         with tempfile.TemporaryDirectory(prefix="hangman-content-") as profile:
             try:
-                result = subprocess.run(command, env={**os.environ, "XDG_DATA_HOME": profile},
+                result = subprocess.run(command, env={**os.environ, "XDG_DATA_HOME": profile,
+                                        "HANGMAN_SUPABASE_NETWORK_DISABLED": "1"},
                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                         text=True, timeout=150)
             except subprocess.TimeoutExpired as error:

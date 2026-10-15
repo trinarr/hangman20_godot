@@ -5767,7 +5767,7 @@ func _update_quiz_statistics_fill(button: Button) -> void:
 		return
 	var material := fill.material as ShaderMaterial
 	var style := button.get_theme_stylebox("normal") as StyleBoxFlat
-	var color := style.bg_color.darkened(0.10)
+	var color := style.bg_color.darkened(0.12)
 	material.set_shader_parameter("fill_color", color)
 	material.set_shader_parameter("button_size", button.size)
 	material.set_shader_parameter("corner_radius", float(style.corner_radius_top_left))

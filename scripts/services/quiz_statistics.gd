@@ -31,6 +31,9 @@ func _ready() -> void:
 		is_configured(), ProjectSettings.get_setting("quiz_statistics/enabled", false),
 		(_state["pending"] as Array).size(), !str(_state.get("refresh_token", "")).is_empty(),
 		int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30))])
+	if !_network_allowed():
+		_debug_log("Supabase network disabled for debug/editor/test execution")
+		return
 	_retry = Timer.new()
 	_retry.wait_time = 30.0
 	_retry.timeout.connect(_flush)
@@ -38,8 +41,12 @@ func _ready() -> void:
 	_retry.start()
 	_flush()
 
+func _network_allowed() -> bool:
+	return !OS.is_debug_build() and !OS.has_feature("editor") \
+		and OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") != "1"
+
 func is_configured() -> bool:
-	return bool(ProjectSettings.get_setting("quiz_statistics/enabled", false)) \
+	return _network_allowed() and bool(ProjectSettings.get_setting("quiz_statistics/enabled", false)) \
 		and _url().begins_with("https://") and !_public_key().is_empty()
 
 func _url() -> String:
@@ -165,6 +172,11 @@ func _save() -> void:
 		_debug_log("Queue rename failed: error=%d" % error)
 
 func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dictionary:
+	# Last line of defense, including direct calls outside the normal worker.
+	# Tests replace this method with an in-memory mock; production is release-only.
+	if !_network_allowed():
+		_debug_log("HTTP blocked: Supabase disabled for this execution")
+		return {}
 	var started := Time.get_ticks_msec()
 	_debug_log("HTTP POST %s" % path)
 	var request := HTTPRequest.new()

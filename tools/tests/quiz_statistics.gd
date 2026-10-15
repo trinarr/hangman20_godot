@@ -26,6 +26,13 @@ func settle(service: Node) -> void:
 	check(false, "Mock request failed to settle")
 
 func run() -> void:
+	# Production settings must never enable the real transport in debug/test runs.
+	ProjectSettings.set_setting("quiz_statistics/enabled", true)
+	check(!QuizStatistics.is_configured(), "Production backend blocked even when enabled in debug/test settings")
+	var children_before: int = QuizStatistics.get_child_count()
+	var blocked: Dictionary = await QuizStatistics._post("/auth/v1/signup", {})
+	check(blocked.is_empty() and QuizStatistics.get_child_count() == children_before,
+		"Direct HTTP call blocked before creating a network request")
 	ProjectSettings.set_setting("quiz_statistics/enabled", false)
 	ProjectSettings.set_setting("quiz_statistics/minimum_answers", 30)
 	var catalog: String = FileAccess.get_file_as_string("res://supabase/migrations/002_quiz_catalog.sql")
