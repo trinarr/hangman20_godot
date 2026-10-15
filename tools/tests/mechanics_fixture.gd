@@ -3,7 +3,7 @@ extends RefCounted
 const CONFIG = preload("res://scripts/core/game_design_config.gd")
 
 static func apply(state: Node) -> void:
-	CONFIG.get_value("difficulty", {}) # Load other production settings first.
+	CONFIG.get_value("difficulty") # Load other production settings first.
 	var fixture: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
 		"res://tools/tests/mechanics_balance.json"))
 	for section: String in fixture:

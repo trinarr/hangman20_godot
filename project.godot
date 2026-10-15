@@ -26,6 +26,13 @@ run/max_fps=60
 boot_splash/show_image=false
 config/icon="res://icon.png"
 
+[quiz_statistics]
+
+enabled=false
+supabase_url="https://fstbbkeduxucxneztspt.supabase.co"
+publishable_key="sb_publishable_apZ49sDMzBk7UC3Z02wYSg_gpMql9tf"
+minimum_answers=1
+
 [autoload]
 
 DebugLogBridge="*res://scripts/debug/dev_console_log_bridge.gd"
@@ -36,6 +43,7 @@ GameState="*res://scripts/core/game_state.gd"
 GameSession="*res://scripts/core/game_session.gd"
 YandexAdsService="*res://addons/GodotAndroidYandexAds/yandex_ads.gd"
 ConsentRegion="*res://scripts/services/consent_region.gd"
+QuizStatistics="*res://scripts/services/quiz_statistics.gd"
 
 [dev_console]
 
