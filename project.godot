@@ -76,6 +76,7 @@ privacy_policy_url_en="https://trinarr.github.io/hangman20_godot/privacy-policy-
 [quiz_statistics]
 
 enabled=true
+dev_enabled=true
 supabase_url="https://fstbbkeduxucxneztspt.supabase.co"
 publishable_key="sb_publishable_apZ49sDMzBk7UC3Z02wYSg_gpMql9tf"
 minimum_answers=20

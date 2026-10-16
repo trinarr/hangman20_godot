@@ -3,6 +3,7 @@ extends Node
 signal statistics_ready(question_key: String, counts: Array)
 
 const SAVE_PATH := "user://quiz_statistics.json"
+const DEV_SAVE_PATH := "user://quiz_statistics_dev.json"
 const MAX_PENDING := 4000
 var _state: Dictionary = {"pending": [], "refresh_token": ""}
 var _access_token := ""
@@ -25,16 +26,17 @@ func _debug_question(key: String) -> String:
 	return ":".join(parts.slice(0, 2))
 
 func _ready() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	_debug_log("Environment=%s RPC=%s save=%s" % ["dev" if _uses_dev() else "production", _rpc_path(), _save_path()])
+	if FileAccess.file_exists(_save_path()):
+		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(_save_path()))
 		if saved is Dictionary and saved.get("pending") is Array:
 			_state = saved
 	_debug_log("Startup: configured=%s enabled=%s pending=%d saved_session=%s minimum_answers=%d" % [
-		is_configured(), ProjectSettings.get_setting("quiz_statistics/enabled", false),
+		is_configured(), ProjectSettings.get_setting("quiz_statistics/dev_enabled" if _uses_dev() else "quiz_statistics/enabled", false),
 		(_state["pending"] as Array).size(), !str(_state.get("refresh_token", "")).is_empty(),
 		int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30))])
 	if !_network_allowed():
-		_debug_log("Supabase network disabled for debug/editor/test execution")
+		_debug_log("Supabase network disabled for this execution")
 		return
 	_retry = Timer.new()
 	_retry.wait_time = 30.0
@@ -43,12 +45,27 @@ func _ready() -> void:
 	_retry.start()
 	_flush()
 
+func _uses_dev() -> bool:
+	return OS.is_debug_build() or OS.has_feature("editor")
+
+func _save_path() -> String:
+	# Never migrate a production session or pending votes into the dev environment.
+	return DEV_SAVE_PATH if _uses_dev() else SAVE_PATH
+
+func _rpc_path() -> String:
+	return "/rest/v1/rpc/quiz_answer_dev" if _uses_dev() else "/rest/v1/rpc/quiz_answer"
+
 func _network_allowed() -> bool:
-	return !OS.is_debug_build() and !OS.has_feature("editor") \
-		and OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") != "1"
+	return OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") != "1"
+
+func _path_allowed(path: String) -> bool:
+	# No caller can accidentally send a debug vote to the production RPC.
+	return path == _rpc_path() or path in [
+		"/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token"]
 
 func is_configured() -> bool:
-	return _network_allowed() and bool(ProjectSettings.get_setting("quiz_statistics/enabled", false)) \
+	var enabled_setting := "quiz_statistics/dev_enabled" if _uses_dev() else "quiz_statistics/enabled"
+	return _network_allowed() and bool(ProjectSettings.get_setting(enabled_setting, false)) \
 		and _url().begins_with("https://") and !_public_key().is_empty()
 
 func _url() -> String:
@@ -163,20 +180,20 @@ func record_answer(question: Dictionary, theme_index: int, answer_index: int, el
 
 func _save() -> void:
 	# Write then rename so termination during a write preserves the previous queue.
-	var file := FileAccess.open(SAVE_PATH + ".tmp", FileAccess.WRITE)
+	var file := FileAccess.open(_save_path() + ".tmp", FileAccess.WRITE)
 	if file == null:
 		_debug_log("Queue save failed: error=%d" % FileAccess.get_open_error())
 		return
 	file.store_string(JSON.stringify(_state))
 	file.close()
-	var error := DirAccess.rename_absolute(SAVE_PATH + ".tmp", SAVE_PATH)
+	var error := DirAccess.rename_absolute(_save_path() + ".tmp", _save_path())
 	if error != OK:
 		_debug_log("Queue rename failed: error=%d" % error)
 
 func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dictionary:
 	# Last line of defense, including direct calls outside the normal worker.
-	# Tests replace this method with an in-memory mock; production is release-only.
-	if !_network_allowed():
+	# Tests replace this method with an in-memory mock.
+	if !is_configured() or !_path_allowed(path):
 		_debug_log("HTTP blocked: Supabase disabled for this execution")
 		return {}
 	var started := Time.get_ticks_msec()
@@ -274,7 +291,7 @@ func _quiz_rpc(payload: Dictionary) -> Dictionary:
 	# An old queued vote must never be replayed under a replacement account.
 	if generation != _identity_generation and int(payload.get("p_answer", -1)) != -1:
 		return {"identity_reset": true}
-	var response := await _post("/rest/v1/rpc/quiz_answer", payload, true)
+	var response := await _post(_rpc_path(), payload, true)
 	if int(response.get("status", 0)) != 401:
 		return response
 	_debug_log("RPC unauthorized: refreshing session and retrying once immediately")
@@ -284,7 +301,7 @@ func _quiz_rpc(payload: Dictionary) -> Dictionary:
 		return {"identity_reset": generation != _identity_generation}
 	if generation != _identity_generation and int(payload.get("p_answer", -1)) != -1:
 		return {"identity_reset": true}
-	return await _post("/rest/v1/rpc/quiz_answer", payload, true)
+	return await _post(_rpc_path(), payload, true)
 
 func _flush() -> void:
 	if _busy or !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
@@ -324,7 +341,7 @@ func _flush() -> void:
 		if pending.is_empty() or !is_configured():
 			break
 		var entry: Dictionary = pending[0].duplicate(true)
-		_debug_log("RPC quiz_answer: question=%s answer=%d" % [_debug_question(str(entry["p_key"])), int(entry["p_answer"])])
+		_debug_log("RPC %s: question=%s answer=%d" % [_rpc_path(), _debug_question(str(entry["p_key"])), int(entry["p_answer"])])
 		var key: String = str(entry["p_key"])
 		var payload := entry.duplicate(true)
 		payload["p_include_counts"] = !_cache.has(key)

@@ -916,6 +916,9 @@ var _quiz_question_label: Label = null
 var _quiz_single_player_embedded: bool = false
 var _quiz_single_player_target_difficulty: float = 0.5
 var _quiz_entrance_generation: int = 0
+var _quiz_answer_feedback_generation: int = 0
+var _quiz_statistics_feedback_pending: bool = false
+var _quiz_statistics_waiting_snapshot: Dictionary = {}
 var _quiz_question_ready_at_msec: int = 0
 
 func _portrait_ads_service() -> Node:
@@ -5625,10 +5628,26 @@ func _play_quiz_answer_text_shake(button: Button, finished_callback: Callable = 
 func _quiz_correct_answer_index() -> int:
 	return int(_quiz_current_question.get("correct_index", -1))
 
+func _finish_quiz_answer_feedback(generation: int, button: Button, show_continue: bool = false) -> void:
+	if generation != _quiz_answer_feedback_generation or !_quiz_screen_active or !_quiz_answer_locked:
+		return
+	if !is_instance_valid(button) or !_quiz_answer_buttons.has(button):
+		return
+	_quiz_statistics_feedback_pending = false
+	var snapshot := _quiz_statistics_waiting_snapshot
+	_quiz_statistics_waiting_snapshot = {}
+	if !snapshot.is_empty():
+		_on_quiz_statistics_ready(str(snapshot["key"]), snapshot["counts"])
+	if show_continue:
+		_show_quiz_continue_button(true)
+
 func _reveal_quiz_correct_answer(
 	correct_index: int,
-	show_continue_after_bounce: bool = true
+	show_continue_after_bounce: bool = true,
+	feedback_generation: int = -1
 ) -> void:
+	if feedback_generation >= 0 and feedback_generation != _quiz_answer_feedback_generation:
+		return
 	if !_quiz_screen_active or correct_index < 0 or correct_index >= _quiz_answer_buttons.size():
 		return
 	var correct_button := _quiz_answer_buttons[correct_index] as Button
@@ -5636,7 +5655,11 @@ func _reveal_quiz_correct_answer(
 		return
 	_set_quiz_answer_fill(correct_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
 	var finished_callback := Callable()
-	if show_continue_after_bounce:
+	if feedback_generation >= 0:
+		finished_callback = Callable(self, "_finish_quiz_answer_feedback").bind(
+			feedback_generation, correct_button, show_continue_after_bounce
+		)
+	elif show_continue_after_bounce:
 		finished_callback = Callable(self, "_show_quiz_continue_button").bind(true)
 	_play_quiz_correct_answer_bounce(
 		correct_button,
@@ -5671,6 +5694,9 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		)
 	_quiz_answer_locked = true
 	_quiz_selected_answer_index = answer_index
+	_quiz_answer_feedback_generation += 1
+	_quiz_statistics_feedback_pending = true
+	_quiz_statistics_waiting_snapshot = {}
 	_request_quiz_statistics()
 	_hide_quiz_exit_button()
 	if _quiz_single_player_embedded:
@@ -5687,7 +5713,10 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		if GameState.is_interstitial_ready():
 			_prepare_portrait_interstitial_placement(&"quiz_correct")
 		_set_quiz_answer_fill(selected_button, PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR)
-		_play_quiz_correct_answer_bounce(selected_button)
+		_play_quiz_correct_answer_bounce(
+			selected_button,
+			Callable(self, "_finish_quiz_answer_feedback").bind(_quiz_answer_feedback_generation, selected_button)
+		)
 		_play_quiz_correct_question_feedback(
 			speed_tier,
 			previous_star_balance,
@@ -5704,7 +5733,8 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 			selected_button,
 			Callable(self, "_reveal_quiz_correct_answer").bind(
 				correct_index,
-				!_quiz_single_player_embedded
+				!_quiz_single_player_embedded,
+				_quiz_answer_feedback_generation
 			)
 		)
 	)
@@ -5732,6 +5762,11 @@ func _on_quiz_statistics_ready(question_key: String, counts: Array) -> void:
 		if !(value is float or value is int) or float(value) < 0.0:
 			return
 		total += int(value)
+	if _quiz_statistics_feedback_pending:
+		_quiz_statistics_waiting_snapshot = {"key": question_key, "counts": counts.duplicate()}
+		if OS.is_debug_build():
+			print("[QuizStatistics] UI: snapshot held until answer feedback finishes")
+		return
 	if total < maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30))):
 		if OS.is_debug_build():
 			print("[QuizStatistics] UI: hidden, total=%d minimum=%d" % [total,
@@ -5775,6 +5810,10 @@ func _update_quiz_statistics_fill(button: Button) -> void:
 func _restore_quiz_answer_result_state() -> void:
 	if !_quiz_answer_locked:
 		return
+	# Restored results have no answer animation to wait for.
+	_quiz_answer_feedback_generation += 1
+	_quiz_statistics_feedback_pending = false
+	_quiz_statistics_waiting_snapshot = {}
 	_hide_quiz_exit_button()
 	var correct_index: int = _quiz_correct_answer_index()
 	if correct_index < 0 or correct_index >= _quiz_answer_buttons.size():

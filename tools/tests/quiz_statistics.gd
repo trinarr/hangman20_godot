@@ -28,11 +28,44 @@ func settle(service: Node) -> void:
 func run() -> void:
 	# Production settings must never enable the real transport in debug/test runs.
 	ProjectSettings.set_setting("quiz_statistics/enabled", true)
-	check(!QuizStatistics.is_configured(), "Production backend blocked even when enabled in debug/test settings")
+	check(!QuizStatistics.is_configured(), "Test runner blocks all real transport even when enabled")
 	var children_before: int = QuizStatistics.get_child_count()
 	var blocked: Dictionary = await QuizStatistics._post("/auth/v1/signup", {})
 	check(blocked.is_empty() and QuizStatistics.get_child_count() == children_before,
 		"Direct HTTP call blocked before creating a network request")
+	var environment: Node = load("res://tools/tests/quiz_environment_mock.gd").new()
+	check(environment._rpc_path() == "/rest/v1/rpc/quiz_answer_dev", "Debug uses dev RPC")
+	check(environment._save_path() == "user://quiz_statistics_dev.json", "Debug uses separate session and queue")
+	check(!environment._path_allowed("/rest/v1/rpc/quiz_answer"), "Debug rejects direct production RPC")
+	check(environment._path_allowed("/rest/v1/rpc/quiz_answer_dev"), "Debug accepts dev RPC")
+	check(!environment._path_allowed("/rest/v1/rpc/quiz_answer_dev?unexpected=1"), "No arbitrary RPC variants")
+	# Inspect configuration without allowing a real HTTP request to start.
+	var disabled_env := OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED")
+	OS.set_environment("HANGMAN_SUPABASE_NETWORK_DISABLED", "")
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", false)
+	check(!environment.is_configured(), "Missing dev enablement never falls back to enabled production")
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", true)
+	check(environment.is_configured(), "Explicit dev configuration enables debug backend")
+	var direct_production: Dictionary = await environment._post("/rest/v1/rpc/quiz_answer", {"p_key":"blocked","p_answer":0}, true)
+	check(direct_production.is_empty() and environment.get_child_count() == 0, "Direct production RPC rejected before creating HTTPRequest even with dev enabled")
+	ProjectSettings.set_setting("quiz_statistics/enabled", false)
+	check(environment.is_configured(), "Dev enablement is independent of release enablement")
+	var production_path: String = "user://quiz_statistics.json"
+	var production_file := FileAccess.open(production_path, FileAccess.WRITE)
+	production_file.store_string('{"pending":[],"refresh_token":"production-sentinel"}')
+	production_file.close()
+	environment._state = {"pending":[{"p_key":"dev-only","p_answer":1}],"refresh_token":"dev-sentinel"}
+	environment._save()
+	check(FileAccess.get_file_as_string(production_path).contains("production-sentinel"), "Dev save cannot overwrite production session")
+	check(FileAccess.get_file_as_string(environment._save_path()).contains("dev-sentinel"), "Dev session persisted separately")
+	environment.dev = false
+	check(environment._rpc_path() == "/rest/v1/rpc/quiz_answer", "Release uses production RPC")
+	check(environment._save_path() == production_path, "Release preserves existing production save path")
+	check(!environment._path_allowed("/rest/v1/rpc/quiz_answer_dev"), "Release rejects dev RPC")
+	check(!environment.is_configured(), "Dev enablement cannot enable disabled release transport")
+	OS.set_environment("HANGMAN_SUPABASE_NETWORK_DISABLED", disabled_env)
+	environment.free()
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", false)
 	ProjectSettings.set_setting("quiz_statistics/enabled", false)
 	ProjectSettings.set_setting("quiz_statistics/minimum_answers", 30)
 	var catalog: String = FileAccess.get_file_as_string("res://supabase/migrations/002_quiz_catalog.sql")
@@ -66,6 +99,7 @@ func run() -> void:
 	check(reloaded._state.pending.size() == 1 and reloaded._state.pending[0].p_answer == first, "Offline queue survives process restart")
 	reloaded.queue_free()
 	check(service.calls[0].path == "/auth/v1/signup", "New installation uses anonymous signup")
+	check(service.calls[1].path == "/rest/v1/rpc/quiz_answer_dev", "Debug worker submits only to dev RPC")
 	service.replies = [{"status": 401, "body": {}}]
 	service._flush()
 	await settle(service)
@@ -184,6 +218,10 @@ func run() -> void:
 	main._on_quiz_statistics_ready(identity.key, [1,0,0,0])
 	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Small sample hidden")
 	main._on_quiz_statistics_ready(identity.key, [10,20,30,40])
+	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Early statistics waits for answer button feedback")
+	var feedback_tween: Tween = main._quiz_answer_buttons[main._quiz_correct_answer_index()].get_meta("quiz_result_bounce_tween")
+	if feedback_tween.is_running():
+		await feedback_tween.finished
 	await get_tree().create_timer(0.9).timeout
 	for index: int in range(4):
 		var button: Button = main._quiz_answer_buttons[index]
@@ -209,6 +247,47 @@ func run() -> void:
 	var recolored: Button = main._quiz_answer_buttons[0]
 	main._set_quiz_answer_fill(recolored, main.PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
 	check(recolored.get_node("QuizStatisticsFill").material.get_shader_parameter("fill_color") == Color("#F45B77").darkened(0.12), "Late result feedback updates fill color")
+	# Wrong answer: hold snapshots through text shake AND the correct button bounce.
+	main._start_quiz_theme(0)
+	await get_tree().create_timer(2.0).timeout
+	var correct_index: int = main._quiz_correct_answer_index()
+	var wrong_index: int = (correct_index + 1) % 4
+	main._on_quiz_answer_selected(wrong_index)
+	var wrong_identity: Dictionary = QuizStatistics.describe_question(main._quiz_current_question, 0)
+	main._on_quiz_statistics_ready(wrong_identity.key, [10,20,30,40])
+	check(main._quiz_statistics_feedback_pending and !main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Wrong answer holds cached statistics before shake finishes")
+	var wrong_label: Label = main._quiz_answer_label(main._quiz_answer_buttons[wrong_index])
+	var shake: Tween = wrong_label.get_meta("horizontal_error_shake_tween")
+	if shake.is_running():
+		await shake.finished
+	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Statistics still hidden after shake while correct answer bounces")
+	main._on_quiz_statistics_ready(wrong_identity.key, [40,30,20,10])
+	var correct_bounce: Tween = main._quiz_answer_buttons[correct_index].get_meta("quiz_result_bounce_tween")
+	if correct_bounce.is_running():
+		await correct_bounce.finished
+	check(!main._quiz_statistics_feedback_pending and main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Latest held snapshot appears at the end of the final bounce")
+	await get_tree().create_timer(0.9).timeout
+	for index: int in range(4):
+		var fill_material: ShaderMaterial = main._quiz_answer_buttons[index].get_node("QuizStatisticsFill").material
+		check(is_equal_approx(float(fill_material.get_shader_parameter("fraction")), [0.4,0.3,0.2,0.1][int(wrong_identity.mapping[index])]), "Only latest snapshot received during feedback is displayed")
+	var old_generation: int = main._quiz_answer_feedback_generation
+	# Late response: no artificial delay after button feedback has already finished.
+	main._start_quiz_theme(0)
+	await get_tree().create_timer(2.0).timeout
+	main._on_quiz_answer_selected(main._quiz_correct_answer_index())
+	var late_identity: Dictionary = QuizStatistics.describe_question(main._quiz_current_question, 0)
+	var current_button: Button = main._quiz_answer_buttons[main._quiz_correct_answer_index()]
+	main._finish_quiz_answer_feedback(old_generation, current_button)
+	check(main._quiz_statistics_feedback_pending, "Old completion callback cannot unlock statistics on the next question")
+	var late_bounce: Tween = current_button.get_meta("quiz_result_bounce_tween")
+	if late_bounce.is_running():
+		await late_bounce.finished
+	check(!main._quiz_statistics_feedback_pending and !current_button.has_node("QuizStatisticsFill"), "Animation can finish before network statistics arrives")
+	main._on_quiz_statistics_ready(late_identity.key, [10,20,30,40])
+	check(current_button.has_node("QuizStatisticsFill"), "Late network statistics displays immediately after finished animation")
+	# Restored answered screen has no result animation to replay or wait for.
+	main._restore_quiz_answer_result_state()
+	check(!main._quiz_statistics_feedback_pending, "Restored result does not wait for a nonexistent animation")
 	main.queue_free()
 	await get_tree().process_frame
 	print("QUIZ_STATISTICS checks=%d failures=%d" % [checks, failures])
