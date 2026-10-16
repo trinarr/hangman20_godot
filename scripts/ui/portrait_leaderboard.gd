@@ -5,6 +5,8 @@ const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const STAR = preload("res://flash_assets/star_currency_icon.png")
+const ELASTIC_SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
+const LIST_TOP_PADDING := 12.0
 const ROW_HEIGHT := 80.0
 const CARD_SIDE_MARGIN := 18.4
 const CARD_WIDTH := 480.0 - CARD_SIDE_MARGIN * 2.0
@@ -34,7 +36,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_players = _tab(0, localized("LEADERBOARD_PLAYERS", "Игроки", "Players"), false)
 	_weekly = _tab(1, localized("LEADERBOARD_WEEKLY", "Недельные", "Weekly"), true)
-	scroll = ScrollContainer.new()
+	scroll = ELASTIC_SCROLL.new()
 	scroll.name = "LeaderboardScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
@@ -43,7 +45,8 @@ func _ready() -> void:
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", 0)
 	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	scroll.add_child(rows)
+	scroll.set_list(rows)
+	scroll.visual_offset_changed.connect(func(): _update_pin.call_deferred())
 	scroll.get_v_scroll_bar().value_changed.connect(func(_value: float): _update_pin.call_deferred())
 	_status = _label(self, Rect2(35, 172, 410, 80), "", 21, Color.WHITE)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -115,6 +118,7 @@ func _failed() -> void:
 func set_snapshot(snapshot: Dictionary) -> void:
 	if !_live:
 		return
+	scroll.reset_scroll_effect()
 	_snapshot = snapshot.duplicate(true)
 	_has_error = false
 	_status.hide()
@@ -127,6 +131,12 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		child.free()
 	var me: Dictionary = snapshot.get("me") if snapshot.get("me") is Dictionary else {}
 	var top: Array = snapshot.get("top", [])
+	if !top.is_empty():
+		var top_padding := Control.new()
+		top_padding.name = "LeaderboardTopPadding"
+		top_padding.custom_minimum_size.y = LIST_TOP_PADDING
+		top_padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rows.add_child(top_padding)
 	for entry: Dictionary in top:
 		var mine := !me.is_empty() and str(entry.get("player_id", "")) == str(me.get("player_id", ""))
 		var row := _card(entry, mine)

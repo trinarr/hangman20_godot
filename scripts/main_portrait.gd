@@ -1490,29 +1490,26 @@ func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> 
 	)
 
 func _stage_portrait_custom_word_title(title: String) -> void:
-	# Keep the original authored title position, only 30 px lower. The two-player
-	# word-entry heading intentionally uses the secondary UI typeface without the
-	# display/button shader treatment or the marker background.
-	const TITLE_Y_OFFSET: float = 30.0
-	var custom_word_title_rect: Rect2 = PORTRAIT_PAGE_TITLE_RECT
-	custom_word_title_rect.position.y += TITLE_Y_OFFSET
-	var title_label := _stage_label(
-		custom_word_title_rect,
-		title,
-		_heading_font_size(30),
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	title_label.name = "CustomWordTitleLabel"
-	title_label.add_theme_font_override("font", UI_SECONDARY_BOLD_FONT)
-	title_label.clip_text = false
-	_fit_single_line_label_to_width(
-		title_label,
-		title,
-		custom_word_title_rect.size.x,
-		_heading_font_size(30),
-		_heading_font_size(20)
-	)
+	if !is_instance_valid(_portrait_custom_word_input):
+		return
+	# A native child inherits both stage scaling and the field's keyboard lift.
+	# Keep the user's authored 55-unit offset when the IME opens or closes.
+	var caption := Label.new()
+	caption.name = "CustomWordTitleLabel"
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	caption.offset_left = 0.0
+	caption.offset_right = 0.0
+	caption.offset_top = -55.0
+	caption.offset_bottom = -19.0
+	caption.text = title
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	caption.add_theme_font_override("font", UI_FONTS.word_input_caption_font())
+	caption.add_theme_font_size_override("font_size", 28)
+	caption.add_theme_color_override("font_color", PORTRAIT_BLUE)
+	_portrait_custom_word_input.add_child(caption)
 
 func _portrait_resource_counter_panel_rect(
 	counter_rect: Rect2
@@ -9851,17 +9848,16 @@ func show_custom_word() -> void:
 	# Match the category screen: graph-paper background with a shared top
 	# navigation row and no footer backdrop.
 	_portrait_screen(0.0)
-	var custom_word_title: String = Database.tr_text(37, "Input the word").to_upper()
+	var custom_word_title: String = Database.tr_text(37, "Input the word")
 	_stage_titled_navigation_header(
 		LEADERBOARD_SCREEN.localized("TWO_PLAYER_TITLE", "2 игрока", "2 players"),
 		"TwoPlayerTitle"
 	)
-	_stage_portrait_custom_word_title(custom_word_title)
-
 	# The two auxiliary actions belong to the word field, not to the primary CTA.
 	# Keep them in regular screen content so they follow the vertically centered
 	# input on tall screens and sit immediately below it with one shared gap.
 	_stage_portrait_custom_word_field()
+	_stage_portrait_custom_word_title(custom_word_title)
 	var custom_word_action_rects: Array[Rect2] = _portrait_custom_word_action_rects()
 	var custom_word_random_button: Control = _stage_round_button(
 		custom_word_action_rects[0],

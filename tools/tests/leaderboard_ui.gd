@@ -49,7 +49,25 @@ func _ready() -> void:
 	var pinned_style: StyleBoxFlat = pinned_face.get_theme_stylebox("panel")
 	check(pinned_style.corner_radius_top_left == 0 and pinned_style.corner_radius_bottom_right == 0 and pinned_style.border_width_left == 0, "Pinned strip has square edges and no border")
 	check(view.pinned.get_child_count() == 1, "Pinned strip has no card shadow")
-	var first_row: Control = view.rows.get_child(0)
+	var first_row: Control = view.rows.get_child(1)
+	check(is_equal_approx(first_row.position.y, SCREEN.LIST_TOP_PADDING), "First card has padding inside the flush scroll mask")
+	view.scroll.scroll_vertical = 0
+	view.scroll._begin_pointer_drag(view.scroll.PointerKind.TOUCH)
+	view.scroll._update_pointer_drag(60)
+	check(view.scroll._overscroll_offset_y > 0, "Pulling past top stretches list")
+	view.scroll._end_pointer_drag()
+	await get_tree().create_timer(0.5).timeout
+	check(is_zero_approx(view.scroll._overscroll_offset_y), "Release returns list to rest")
+	view.scroll.scroll_vertical = 100000
+	await settle()
+	view.scroll._begin_pointer_drag(view.scroll.PointerKind.TOUCH)
+	view.scroll._update_pointer_drag(-60)
+	check(view.scroll._overscroll_offset_y < 0, "Pulling past bottom stretches list")
+	view.scroll._end_pointer_drag()
+	await get_tree().create_timer(0.5).timeout
+	check(is_zero_approx(view.scroll._overscroll_offset_y), "Bottom release returns list to rest")
+	view.scroll.scroll_vertical = 0
+	await settle()
 	var icon: TextureRect = first_row.find_child("LeaderboardStarIcon", true, false)
 	check(icon.size.is_equal_approx(Vector2(26, 26)), "Star texture must not enlarge the authored icon size")
 	check(Rect2(Vector2.ZERO, icon.get_parent().size).encloses(icon.get_rect()), "Star icon stays inside its card")
@@ -58,7 +76,7 @@ func _ready() -> void:
 	check(rank_label.text == "1", "JSON numeric ranks render without decimal suffix")
 	var pinned_icon: TextureRect = view.pinned.find_child("LeaderboardStarIcon", true, false)
 	check(pinned_icon.size.is_equal_approx(Vector2(26, 26)), "Pinned row uses the same bounded star icon")
-	view.scroll.scroll_vertical = int(49 * SCREEN.ROW_HEIGHT)
+	view.scroll.scroll_vertical = int(49 * SCREEN.ROW_HEIGHT + SCREEN.LIST_TOP_PADDING)
 	await settle()
 	check(view._pin_side == "", "Visible own row hides pinned duplicate")
 	check(view.own_row.modulate.a == 1, "Visible original remains opaque")
@@ -73,7 +91,7 @@ func _ready() -> void:
 	check(view._pin_side == "bottom", "Outside top100 stays at bottom")
 	view.scroll.scroll_vertical = 100000
 	await settle()
-	var last: Control = view.rows.get_child(99)
+	var last: Control = view.rows.get_child(100)
 	check(last.get_global_rect().end.y <= view.pinned.get_global_rect().position.y + 1, "Last leaderboard row can scroll above pinned row")
 	check(view._weekly.disabled, "Weekly tab is unavailable")
 	view.set_bottom_inset(50)
@@ -126,6 +144,14 @@ func _ready() -> void:
 			header_has_counter = true
 	check(!header_has_counter, "Two-player header omits currency counters")
 	check(is_instance_valid(main.custom_word_start_button), "Two-player word entry remains available")
+	var caption: Label = main.content.find_child("CustomWordTitleLabel", true, false)
+	var input: Control = main._portrait_custom_word_input
+	check(caption.get_parent() == input and is_equal_approx(caption.position.y, -55), "Caption belongs to input and keeps authored 55-unit offset")
+	var old_caption_y := caption.get_global_rect().position.y
+	var old_input_y := input.get_global_rect().position.y
+	input.position.y -= 100
+	check(is_equal_approx(caption.get_global_rect().position.y - old_caption_y, input.get_global_rect().position.y - old_input_y), "Caption follows keyboard field lift without changing gap")
+	check(caption.get_theme_font_size("font_size") == 28, "Caption retains font size 28")
 	main.queue_free()
 	await settle()
 	print("LEADERBOARD_UI checks=%d failures=%d" % [checks, failures])

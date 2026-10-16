@@ -4,10 +4,9 @@ extends ScrollContainer
 # container in pixels and translate their stage canvas instead of scaling twice.
 const LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 
-# Settings is intentionally the only scroll surface that adds a visual elastic
-# overscroll. ScrollContainer still owns the real scroll position and kinetic
-# scrolling; this offset only stretches the stage canvas after the real scroll
-# has reached either edge.
+# Settings and the native leaderboard adapter share this visual elastic
+# overscroll. ScrollContainer owns the real position and kinetic scrolling;
+# the offset only stretches content after the real scroll reaches an edge.
 const OVERSCROLL_MAX_STAGE_PX: float = 52.0
 const OVERSCROLL_RESISTANCE: float = 0.46
 const OVERSCROLL_EDGE_DAMPING: float = 0.72

@@ -139,3 +139,11 @@ static func question_comment_font() -> Font:
 		ROBOTO_FLEX_REGULAR_GRADE,
 		ROBOTO_FLEX_REGULAR_THIN_STROKE
 	)
+
+static func word_input_caption_font() -> Font:
+	return _roboto_flex_font(
+		400.0,
+		ROBOTO_FLEX_REGULAR_WIDTH,
+		ROBOTO_FLEX_REGULAR_GRADE,
+		ROBOTO_FLEX_REGULAR_THIN_STROKE
+	)
