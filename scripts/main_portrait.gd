@@ -5767,10 +5767,10 @@ func _on_quiz_statistics_ready(question_key: String, counts: Array) -> void:
 		if OS.is_debug_build():
 			print("[QuizStatistics] UI: snapshot held until answer feedback finishes")
 		return
-	if total < maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30))):
+	if total < QuizStatistics.minimum_answers():
 		if OS.is_debug_build():
 			print("[QuizStatistics] UI: hidden, total=%d minimum=%d" % [total,
-				maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30)))])
+				QuizStatistics.minimum_answers()])
 		return
 	if OS.is_debug_build():
 		print("[QuizStatistics] UI: displaying distribution, total=%d counts=%s" % [total, str(counts)])
@@ -6266,7 +6266,7 @@ func _quiz_fifty_fifty_wrong_indices(correct_index: int) -> Array:
 	var total := 0
 	for count: Variant in counts:
 		total += int(count)
-	var minimum := maxi(1, int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30)))
+	var minimum := QuizStatistics.minimum_answers()
 	if counts.size() == _quiz_answer_buttons.size() and total > minimum:
 		wrong_indices.sort_custom(func(a: int, b: int) -> bool: return int(counts[a]) < int(counts[b]))
 		if OS.is_debug_build():

@@ -37,6 +37,7 @@ GameSession="*res://scripts/core/game_session.gd"
 YandexAdsService="*res://addons/GodotAndroidYandexAds/yandex_ads.gd"
 ConsentRegion="*res://scripts/services/consent_region.gd"
 QuizStatistics="*res://scripts/services/quiz_statistics.gd"
+Leaderboard="*res://scripts/services/leaderboard.gd"
 
 [dev_console]
 
@@ -62,6 +63,11 @@ theme/default_font_multichannel_signed_distance_field=true
 
 locale/translations=PackedStringArray("res://localization/translations.ru.translation", "res://localization/translations.en.translation")
 
+[leaderboard]
+
+enabled=true
+dev_enabled=true
+
 [legal]
 
 terms_of_service_url="https://trinarr.github.io/hangman20_godot/terms-of-service.html"
@@ -77,6 +83,7 @@ privacy_policy_url_en="https://trinarr.github.io/hangman20_godot/privacy-policy-
 
 enabled=true
 dev_enabled=true
+dev_minimum_answers=1
 supabase_url="https://fstbbkeduxucxneztspt.supabase.co"
 publishable_key="sb_publishable_apZ49sDMzBk7UC3Z02wYSg_gpMql9tf"
 minimum_answers=20

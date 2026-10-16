@@ -1,0 +1,264 @@
+extends Node
+const TRANSPORT = preload("res://tools/tests/leaderboard_transport_mock.gd")
+const CLIENT = preload("res://tools/tests/leaderboard_client_mock.gd")
+const ENVIRONMENT = preload("res://tools/tests/quiz_environment_mock.gd")
+var checks := 0
+var failures := 0
+var delivered: Array = []
+
+func check(value: bool, message: String) -> void:
+	checks += 1
+	if !value:
+		failures += 1
+		push_error(message)
+
+func _ready() -> void:
+	run.call_deferred()
+
+func row(stars: int = 80) -> Dictionary:
+	return {"player_id":"123", "nickname":"Игрок 123", "is_filler":false, "rank":1, "top_percent":null, "stars":stars}
+
+func reply(stars: int = 80, top: bool = true, language: String = "ru") -> Dictionary:
+	var body: Dictionary = {"ok":true, "me":row(stars), "total_players":1, "language":language}
+	if top:
+		var entry := row(stars)
+		entry["is_me"] = true
+		body["top"] = [entry]
+	return {"status":200, "body":body}
+
+func tokens() -> Dictionary:
+	return {"status":200,"body":{"access_token":"test-access","refresh_token":"test-refresh","expires_in":3600}}
+
+func settle(client: Node, transport: Node) -> void:
+	for frame: int in range(200):
+		await get_tree().process_frame
+		if !client._busy and !transport._busy:
+			await get_tree().process_frame
+			if !client._busy and !transport._busy:
+				return
+	check(false, "Workers did not settle")
+
+func run() -> void:
+	var environment: Node = ENVIRONMENT.new()
+	check(environment._leaderboard_rpc_path() == "/rest/v1/rpc/leaderboard_sync_dev", "Debug uses dev leaderboard RPC")
+	check(!environment._path_allowed("/rest/v1/rpc/leaderboard_sync"), "Debug rejects production leaderboard RPC")
+	check(environment._path_allowed(environment._leaderboard_rpc_path()), "Own leaderboard RPC allowed")
+	environment.dev = false
+	check(environment._leaderboard_rpc_path() == "/rest/v1/rpc/leaderboard_sync", "Release uses production leaderboard RPC")
+	check(!environment._path_allowed("/rest/v1/rpc/leaderboard_sync_dev"), "Release rejects dev leaderboard RPC")
+	environment.dev = true
+	var disabled_env := OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED")
+	OS.set_environment("HANGMAN_SUPABASE_NETWORK_DISABLED", "")
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", false)
+	check(environment.leaderboard_is_configured(), "Leaderboard works independently of disabled quiz statistics")
+	var blocked: Dictionary = await environment._post("/rest/v1/rpc/leaderboard_sync", {"p_stars":9}, true)
+	check(blocked.is_empty() and environment.get_child_count() == 0, "Real debug transport blocks direct production leaderboard RPC before HTTPRequest")
+	ProjectSettings.set_setting("leaderboard/dev_enabled", false)
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", true)
+	blocked = await environment._post("/rest/v1/rpc/leaderboard_sync_dev", {"p_stars":9}, true)
+	check(blocked.is_empty() and environment.get_child_count() == 0, "Quiz enablement cannot bypass disabled leaderboard")
+	ProjectSettings.set_setting("leaderboard/dev_enabled", true)
+	OS.set_environment("HANGMAN_SUPABASE_NETWORK_DISABLED", disabled_env)
+	environment.free()
+	check(!QuizStatistics.leaderboard_is_configured(), "Real leaderboard network disabled in tests")
+	var before: int = QuizStatistics.get_child_count()
+	check((await QuizStatistics.leaderboard_rpc({"p_stars":9})).is_empty(), "Test network guard blocks real leaderboard")
+	check(QuizStatistics.get_child_count() == before, "Blocked leaderboard creates no HTTPRequest")
+	var transport: Node = TRANSPORT.new()
+	add_child(transport)
+	transport._access_token = "test-access"
+	var client: Node = CLIENT.new()
+	client.transport = transport
+	add_child(client)
+	client.leaderboard_ready.connect(func(snapshot: Dictionary, cached: bool): delivered.append({"snapshot":snapshot,"cached":cached}))
+	client.sync_stars(0)
+	check(client._pending_stars == -1 and transport.calls.is_empty(), "Zero-star player is not queued or registered")
+	client.sync_stars(40)
+	client.sync_stars(80)
+	transport.replies = [reply()]
+	client.refresh()
+	await settle(client,transport)
+	check(transport.calls.size() == 1 and transport.calls[0].payload.p_stars == 80, "Only latest best offline score submitted")
+	check(transport.calls[0].path == "/rest/v1/rpc/leaderboard_sync_dev", "Debug worker sends only dev RPC")
+	check(transport.calls[0].payload.p_language == "ru", "Client sends nickname-pool language")
+	check(client._pending_stars == -1 and client.cached_snapshot().me.stars == 80, "Successful score clears pending snapshot")
+	check(delivered.size() == 1 and !delivered.back().cached, "Top signal reports server response")
+	var copied: Dictionary = client.cached_snapshot()
+	copied.top[0].stars = 999
+	check(client.cached_snapshot().top[0].stars == 80, "Caller cannot mutate cached top")
+	client.refresh()
+	check(transport.calls.size() == 1 and delivered.back().cached, "Repeated refresh uses one-minute cache")
+	transport.replies = [reply(80)]
+	client.refresh(true)
+	await settle(client,transport)
+	check(transport.calls.size() == 2 and !transport.calls.back().payload.has("p_stars"), "Forced refresh reads without submitting a score")
+	client._cache_at_ms = Time.get_ticks_msec() - client.CACHE_MS
+	transport.replies = [reply(80)]
+	client.refresh()
+	await settle(client,transport)
+	check(transport.calls.size() == 3, "Expired cache loads again")
+	# An update arriving in-flight must be sent after the older acknowledgement.
+	transport.replies = [reply(100,false),reply(120,false)]
+	client.sync_stars(100)
+	client._flush()
+	client.sync_stars(120)
+	await settle(client,transport)
+	check(transport.calls[-2].payload.p_stars == 100 and transport.calls[-1].payload.p_stars == 120, "Score changed in-flight is not dropped")
+	check(!transport.calls.back().payload.p_include_top and client._cache_at_ms == -1, "Ordinary score sync avoids downloading top and invalidates cache")
+	transport.replies = [{"status":503,"body":{}}]
+	client.sync_stars(140)
+	client._flush()
+	await settle(client,transport)
+	check(client._pending_stars == 140, "Network failure retains pending stars")
+	transport.replies = [reply(140,false)]
+	client._flush()
+	await settle(client,transport)
+	check(client._pending_stars == -1 and client.cached_snapshot().me.stars == 140, "Retry acknowledges saved score")
+	# Bounded cache and protocol validation.
+	var invalid: Dictionary = reply().body
+	invalid.top = []
+	for index: int in range(101):
+		invalid.top.append({"player_id":str(index),"rank":index+1,"stars":1,"is_me":false})
+	check(!client._valid_snapshot(invalid,true), "More than 100 rows rejected")
+	invalid = reply().body
+	invalid.top[0].rank = 2
+	check(!client._valid_snapshot(invalid,true), "Invalid top order rejected")
+	invalid = reply().body
+	invalid.top[0].stars = -1
+	check(!client._valid_snapshot(invalid,true), "Negative score rejected")
+	check(client._valid_snapshot({"ok":true,"me":null,"top":[],"total_players":0,"language":"ru"},true), "Read-only nonparticipant accepted")
+	var percentile: Dictionary = {"ok":true,"me":{"player_id":"123","nickname":"Игрок 123","is_filler":false,"stars":140,"rank":null,"top_percent":6},"top":[],"total_players":10000,"language":"ru"}
+	check(client._valid_snapshot(percentile,true), "Own position outside top-100 accepts a percentile instead of exact rank")
+	percentile.me.top_percent = 0
+	check(!client._valid_snapshot(percentile,true), "Top zero percent rejected")
+	percentile.me.top_percent = 101
+	check(!client._valid_snapshot(percentile,true), "Top above one hundred percent rejected")
+	percentile.me.top_percent = 6.5
+	check(!client._valid_snapshot(percentile,true), "Fractional percentile rejected")
+	percentile.me.top_percent = 6
+	percentile.me.rank = 101
+	check(!client._valid_snapshot(percentile,true), "Exact own rank outside top-100 rejected")
+	percentile.me.rank = 1
+	check(!client._valid_snapshot(percentile,true), "Own row cannot contain both exact rank and percentile")
+	percentile.me.rank = null
+	transport.replies = [{"status":200,"body":percentile}]
+	client.refresh(true)
+	await settle(client,transport)
+	check(client.cached_snapshot().me.rank == null and client.cached_snapshot().me.top_percent == 6 and client.cached_snapshot().total_players == 10000, "Cached own position keeps only Top N percent outside top-100")
+	# Fillers require a positive real anchor and must themselves be positive.
+	var real_entry: Dictionary = row(100)
+	real_entry["is_me"] = true
+	var filler_board: Dictionary = {"ok":true,"me":row(100),"total_players":1,"language":"ru","top":[real_entry]}
+	for index: int in range(99):
+		var stars := int(ceil(100.0 - 100.0 * index / 196.0))
+		filler_board.top.append({"player_id":"filler:cis:%03d" % (index+1),"nickname":"Ромашка%d" % index,"stars":stars,"rank":index+2,"is_me":false,"is_filler":true})
+	check(client._valid_snapshot(filler_board,true), "Positive filler ramp accepted below a positive real player")
+	transport.replies = [{"status":200,"body":filler_board}]
+	client.refresh(true)
+	await settle(client,transport)
+	check(client.cached_snapshot().top.size() == 100 and client.cached_snapshot().total_players == 1 and client.cached_snapshot().me.stars == 100, "Filler scores do not inflate real population")
+	var broken: Dictionary = filler_board.duplicate(true)
+	broken.top[1].is_me = true
+	check(!client._valid_snapshot(broken,true), "Filler cannot be current player")
+	broken = filler_board.duplicate(true)
+	broken.top[2].is_filler = false
+	check(!client._valid_snapshot(broken,true), "Real players cannot follow fillers")
+	broken = filler_board.duplicate(true)
+	broken.top[1].nickname = ""
+	check(!client._valid_snapshot(broken,true), "Missing filler nickname rejected")
+	broken = filler_board.duplicate(true)
+	broken.me = broken.top[1].duplicate(true)
+	broken.me["top_percent"] = null
+	check(!client._valid_snapshot(broken,true), "Own row cannot describe a filler")
+	broken = filler_board.duplicate(true)
+	broken.top[0].stars = 0
+	check(!client._valid_snapshot(broken,true), "Zero-star real player rejected")
+	broken = filler_board.duplicate(true)
+	broken.top[1].stars = 0
+	check(!client._valid_snapshot(broken,true), "Zero-star filler rejected")
+	broken = filler_board.duplicate(true)
+	broken.top[1].stars = 101
+	check(!client._valid_snapshot(broken,true), "Filler cannot have a higher score than the real anchor")
+	broken = filler_board.duplicate(true)
+	broken.top.pop_front()
+	for index: int in range(broken.top.size()):
+		broken.top[index].rank = index+1
+	broken.me = null
+	broken.total_players = 0
+	check(!client._valid_snapshot(broken,true), "Fillers without a positive real anchor rejected")
+	check(client._valid_snapshot({"ok":true,"me":null,"total_players":0,"top":[],"language":"ru"},true), "No positive results produces an empty leaderboard")
+	var language_calls: int = transport.calls.size()
+	client.language = "en"
+	transport.replies = [reply(140,true,"en")]
+	client.refresh()
+	await settle(client,transport)
+	check(transport.calls.size() == language_calls+1 and transport.calls.back().payload.p_language == "en" and client.cached_snapshot().language == "en", "Language change bypasses old pool cache")
+	language_calls = transport.calls.size()
+	var delivered_before: int = delivered.size()
+	transport.replies = [reply(140,true,"en"),reply(140,true,"ru")]
+	client.refresh(true)
+	client.language = "ru"
+	await settle(client,transport)
+	check(transport.calls.size() == language_calls+2 and transport.calls.back().payload.p_language == "ru", "Language changed in-flight triggers a read for the correct pool")
+	check(delivered.size() == delivered_before+1 and delivered.back().snapshot.language == "ru", "Stale-language snapshot is not emitted to consumers")
+	var previous_calls: int = transport.calls.size()
+	client.legal = false
+	client.sync_stars(900)
+	client.refresh(true)
+	check(transport.calls.size() == previous_calls and client._pending_stars == -1, "No registration or upload before legal acceptance")
+	client.legal = true
+	# Shared auth lock: quiz and leaderboard make one signup, not two racing sessions.
+	Database.load_languages("ru", "ru")
+	var question: Dictionary = Database.get_quiz_questions_by_theme_index(0)[0]
+	transport._access_token = ""
+	transport._state.refresh_token = ""
+	transport.replies = [tokens(), reply(140), {"status":200,"body":{"ok":true,"counts":[1,2,3,4],"already_answered":true}}]
+	previous_calls = transport.calls.size()
+	transport.record_answer(question,0,0,true)
+	client.refresh(true)
+	await settle(client,transport)
+	check(transport.calls.size() == previous_calls + 3, "Concurrent quiz and leaderboard share one authentication")
+	check(transport.calls[previous_calls].path == "/auth/v1/signup" and transport.calls[previous_calls+1].path.ends_with("leaderboard_sync_dev") and transport.calls.back().path.ends_with("quiz_answer_dev"), "Quiz and leaderboard serialize requests under one session")
+	# A large offline quiz queue must yield between requests to a waiting leaderboard read.
+	var q2: Dictionary = Database.get_quiz_questions_by_theme_index(0)[1]
+	var q3: Dictionary = Database.get_quiz_questions_by_theme_index(0)[2]
+	transport._state.pending = [
+		{"p_key":transport.describe_question(q2,0).key,"p_answer":0},
+		{"p_key":transport.describe_question(q3,0).key,"p_answer":0}]
+	var quiz_reply: Dictionary = {"status":200,"body":{"ok":true,"counts":[1,2,3,4],"already_answered":true}}
+	transport.replies = [quiz_reply,reply(140),quiz_reply]
+	previous_calls = transport.calls.size()
+	transport._flush()
+	client.refresh(true)
+	await settle(client,transport)
+	await get_tree().process_frame
+	await settle(client,transport)
+	check(transport.calls.size() == previous_calls+3 and transport.calls[previous_calls+1].path.ends_with("leaderboard_sync_dev"), "Leaderboard gets a turn before the rest of the offline quiz queue")
+	check(transport._state.pending.is_empty(), "Quiz queue resumes after leaderboard request")
+	# 401 recovery uses same shared immediate retry, including leaderboard RPC.
+	transport._state.refresh_token = "old-refresh"
+	transport.replies = [{"status":401,"body":{}},tokens(),reply(140)]
+	previous_calls = transport.calls.size()
+	client.refresh(true)
+	await settle(client,transport)
+	check(transport.calls.size() == previous_calls + 3 and transport.calls[previous_calls+1].path.contains("refresh_token"), "Leaderboard refreshes JWT and retries immediately")
+	# Revoked identity clears old cached ranking; current score can register a new participant.
+	transport._access_token = ""
+	transport.replies = [{"status":400,"body":{"error_code":"refresh_token_not_found"}},tokens(),reply(90),reply(90,false)]
+	previous_calls = transport.calls.size()
+	client.refresh(true)
+	await settle(client,transport)
+	check(transport._identity_generation == 1 and transport.calls[previous_calls+1].path == "/auth/v1/signup", "Revoked session creates one replacement account")
+	check(client.cached_snapshot().me.stars == 90 and client._pending_stars == -1, "Current stars synchronize under replacement identity")
+	# Restart uses the ordinary persisted game score rather than a growing event queue.
+	client._started = false
+	client.current_stars = 160
+	transport.replies = [reply(160)]
+	client._tick()
+	await settle(client,transport)
+	check(client._started and transport.calls.back().payload.p_stars == 160, "Startup synchronizes persisted star total")
+	client.queue_free()
+	transport.queue_free()
+	await get_tree().process_frame
+	print("LEADERBOARD checks=%d failures=%d" % [checks,failures])
+	get_tree().quit(1 if failures else 0)

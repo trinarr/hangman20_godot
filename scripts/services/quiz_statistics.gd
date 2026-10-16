@@ -1,6 +1,7 @@
 extends Node
 ## Optional Supabase transport. Gameplay never waits for authentication or network.
 signal statistics_ready(question_key: String, counts: Array)
+signal identity_changed()
 
 const SAVE_PATH := "user://quiz_statistics.json"
 const DEV_SAVE_PATH := "user://quiz_statistics_dev.json"
@@ -10,6 +11,7 @@ var _access_token := ""
 var _access_token_refresh_at_ms: int = 0
 var _identity_generation: int = 0
 var _busy := false
+var _backend_waiters := 0
 var _cache: Dictionary = {}
 var _answered: Dictionary = {}
 var _prefetch: Array[String] = []
@@ -34,7 +36,7 @@ func _ready() -> void:
 	_debug_log("Startup: configured=%s enabled=%s pending=%d saved_session=%s minimum_answers=%d" % [
 		is_configured(), ProjectSettings.get_setting("quiz_statistics/dev_enabled" if _uses_dev() else "quiz_statistics/enabled", false),
 		(_state["pending"] as Array).size(), !str(_state.get("refresh_token", "")).is_empty(),
-		int(ProjectSettings.get_setting("quiz_statistics/minimum_answers", 30))])
+		minimum_answers()])
 	if !_network_allowed():
 		_debug_log("Supabase network disabled for this execution")
 		return
@@ -48,6 +50,10 @@ func _ready() -> void:
 func _uses_dev() -> bool:
 	return OS.is_debug_build() or OS.has_feature("editor")
 
+func minimum_answers() -> int:
+	var setting := "quiz_statistics/dev_minimum_answers" if _uses_dev() else "quiz_statistics/minimum_answers"
+	return maxi(1, int(ProjectSettings.get_setting(setting, 1 if _uses_dev() else 30)))
+
 func _save_path() -> String:
 	# Never migrate a production session or pending votes into the dev environment.
 	return DEV_SAVE_PATH if _uses_dev() else SAVE_PATH
@@ -55,12 +61,20 @@ func _save_path() -> String:
 func _rpc_path() -> String:
 	return "/rest/v1/rpc/quiz_answer_dev" if _uses_dev() else "/rest/v1/rpc/quiz_answer"
 
+func _leaderboard_rpc_path() -> String:
+	return "/rest/v1/rpc/leaderboard_sync_dev" if _uses_dev() else "/rest/v1/rpc/leaderboard_sync"
+
+func leaderboard_is_configured() -> bool:
+	var setting := "leaderboard/dev_enabled" if _uses_dev() else "leaderboard/enabled"
+	return _network_allowed() and bool(ProjectSettings.get_setting(setting, false)) \
+		and _url().begins_with("https://") and !_public_key().is_empty()
+
 func _network_allowed() -> bool:
 	return OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") != "1"
 
 func _path_allowed(path: String) -> bool:
 	# No caller can accidentally send a debug vote to the production RPC.
-	return path == _rpc_path() or path in [
+	return path == _rpc_path() or path == _leaderboard_rpc_path() or path in [
 		"/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token"]
 
 func is_configured() -> bool:
@@ -193,7 +207,12 @@ func _save() -> void:
 func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dictionary:
 	# Last line of defense, including direct calls outside the normal worker.
 	# Tests replace this method with an in-memory mock.
-	if !is_configured() or !_path_allowed(path):
+	var configured := is_configured() or leaderboard_is_configured()
+	if path == _rpc_path():
+		configured = is_configured()
+	elif path == _leaderboard_rpc_path():
+		configured = leaderboard_is_configured()
+	if !configured or !_path_allowed(path):
 		_debug_log("HTTP blocked: Supabase disabled for this execution")
 		return {}
 	var started := Time.get_ticks_msec()
@@ -247,6 +266,7 @@ func _reset_revoked_identity() -> void:
 	_answered.clear()
 	# Read-only prefetch requests can safely continue under the new identity.
 	_save()
+	identity_changed.emit()
 
 func _authenticate() -> bool:
 	var refresh: String = str(_state.get("refresh_token", ""))
@@ -285,13 +305,31 @@ func _authenticate() -> bool:
 	return true
 
 func _quiz_rpc(payload: Dictionary) -> Dictionary:
+	return await _authorized_rpc(_rpc_path(), payload, int(payload.get("p_answer", -1)) != -1)
+
+func leaderboard_rpc(payload: Dictionary) -> Dictionary:
+	# Share the quiz session AND its lock: no second account or refresh-token race.
+	_backend_waiters += 1
+	while _busy:
+		await get_tree().process_frame
+	_backend_waiters -= 1
+	if !leaderboard_is_configured():
+		return {}
+	_busy = true
+	# A score snapshot may be submitted under a replacement anonymous identity.
+	var response := await _authorized_rpc(_leaderboard_rpc_path(), payload, false)
+	_busy = false
+	_flush.call_deferred()
+	return response
+
+func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) -> Dictionary:
 	var generation := _identity_generation
 	if _token_needs_refresh() and !(await _authenticate()):
 		return {"identity_reset": generation != _identity_generation}
 	# An old queued vote must never be replayed under a replacement account.
-	if generation != _identity_generation and int(payload.get("p_answer", -1)) != -1:
+	if generation != _identity_generation and identity_bound:
 		return {"identity_reset": true}
-	var response := await _post(_rpc_path(), payload, true)
+	var response := await _post(path, payload, true)
 	if int(response.get("status", 0)) != 401:
 		return response
 	_debug_log("RPC unauthorized: refreshing session and retrying once immediately")
@@ -299,12 +337,16 @@ func _quiz_rpc(payload: Dictionary) -> Dictionary:
 	_access_token_refresh_at_ms = 0
 	if !(await _authenticate()):
 		return {"identity_reset": generation != _identity_generation}
-	if generation != _identity_generation and int(payload.get("p_answer", -1)) != -1:
+	if generation != _identity_generation and identity_bound:
 		return {"identity_reset": true}
-	return await _post(_rpc_path(), payload, true)
+	response = await _post(path, payload, true)
+	if int(response.get("status", 0)) == 401:
+		_access_token = ""
+		_access_token_refresh_at_ms = 0
+	return response
 
 func _flush() -> void:
-	if _busy or !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
+	if _busy or _backend_waiters > 0 or !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
 		return
 	_busy = true
 	_debug_log("Flush: pending=%d" % (_state["pending"] as Array).size())
@@ -313,7 +355,7 @@ func _flush() -> void:
 		return
 	# Serialize reads, auth and writes so token refreshes cannot race each other.
 	var prefetch_failed := false
-	while !_prefetch.is_empty():
+	while !_prefetch.is_empty() and _backend_waiters == 0:
 		var key: String = _prefetch.pop_front()
 		_prefetch_in_flight = key
 		var response := await _quiz_rpc({
@@ -338,7 +380,7 @@ func _flush() -> void:
 			break
 	var pending: Array = _state["pending"]
 	for _attempt: int in range(pending.size()):
-		if pending.is_empty() or !is_configured():
+		if pending.is_empty() or _backend_waiters > 0 or !is_configured():
 			break
 		var entry: Dictionary = pending[0].duplicate(true)
 		_debug_log("RPC %s: question=%s answer=%d" % [_rpc_path(), _debug_question(str(entry["p_key"])), int(entry["p_answer"])])
