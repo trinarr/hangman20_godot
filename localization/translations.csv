@@ -110,3 +110,4 @@ LEADERBOARD_RETRY,Повторить,Retry
 LEADERBOARD_ERROR,Не удалось загрузить рейтинг,Couldn't load leaderboard
 LEADERBOARD_EMPTY,Пока нет участников,No players yet
 TWO_PLAYER_TITLE,2 игрока,2 players
+PROFILE_TITLE,Профиль,Profile

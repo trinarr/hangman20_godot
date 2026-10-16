@@ -1,5 +1,6 @@
 extends Control
 ## Native scrolling children share one stage transform; rows never map twice.
+const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
@@ -72,19 +73,9 @@ func _ready() -> void:
 
 func _tab(index: int, text: String, unavailable: bool) -> Button:
 	var button := Button.new()
-	button.position = Vector2(26 + index * 218, 88)
-	button.size = Vector2(210, 50)
-	button.text = text
-	button.disabled = unavailable
-	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_font_override("font", FONTS.regular_font())
-	button.add_theme_font_size_override("font_size", 24)
-	button.add_theme_color_override("font_color", Color.WHITE)
-	button.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.38))
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var style := CARD.face_style(PALETTE.UI_BLUE if !unavailable else Color.TRANSPARENT)
-		style.set_corner_radius_all(16)
-		button.add_theme_stylebox_override(state, style)
+	button.position = Vector2(26 + index * 218, TABS.TAB_Y)
+	button.size = Vector2(210, TABS.TAB_HEIGHT)
+	TABS.configure(button, text, !unavailable, unavailable)
 	add_child(button)
 	return button
 
@@ -247,14 +238,14 @@ func _layout() -> void:
 	scale = Vector2.ONE * factor
 	size = Vector2(480, LAYOUT.expanded_stage_height(viewport_size))
 	var safe: float = LAYOUT.safe_top_stage(viewport_size)
-	_players.position.y = 88 + safe
-	_weekly.position.y = 88 + safe
-	var list_top := 148.0 + safe + (104.0 if _has_error else 0.0)
+	_players.position.y = TABS.TAB_Y + safe
+	_weekly.position.y = TABS.TAB_Y + safe
+	var list_top := TABS.CONTENT_Y + safe + (104.0 if _has_error else 0.0)
 	scroll.position = Vector2(CARD_SIDE_MARGIN - 8, list_top)
 	scroll.size = Vector2(ROW_WIDTH, maxf(80, size.y - bottom_inset - 12 - list_top))
 	_status.size.y = 44 if _has_error else 80
-	_status.position.y = 160 + safe if _has_error else 190 + safe
-	_retry.position = Vector2(145, 212 + safe)
+	_status.position.y = TABS.CONTENT_Y + 12 + safe if _has_error else TABS.CONTENT_Y + 42 + safe
+	_retry.position = Vector2(145, TABS.CONTENT_Y + 64 + safe)
 	_retry.size = Vector2(190, 44)
 	_update_pin.call_deferred()
 

@@ -1,5 +1,15 @@
 extends "res://scripts/main.gd"
 
+const TABBED_PAGE_STYLE = preload("res://scripts/ui/tabbed_page_style.gd")
+var _portrait_header_fill: Control
+var _tabbed_header_tween: Tween
+var _tabbed_closing := false
+
+const PROFILE_SCREEN = preload("res://scripts/ui/portrait_profile.gd")
+const AVATAR_BUTTON = preload("res://scripts/ui/profile_avatar_button.gd")
+var _portrait_profile: Control
+var _profile_return_action: Callable
+
 const LEADERBOARD_SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
 const QUIZ_CARD_STYLE = preload("res://scripts/ui/quiz_answer_card_style.gd")
 var _portrait_leaderboard: Control
@@ -48,6 +58,7 @@ const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 const PORTRAIT_PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const HOME_PAPER_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_paper_transition.gd")
 const HOME_BLUE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_blue_transition.gd")
+const TABBED_PAGE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/tabbed_page_transition.gd")
 var _home_transition: CanvasLayer
 var _home_logo_reveal: Control
 var _home_start_buttons: Array[Control] = []
@@ -91,6 +102,12 @@ const PORTRAIT_ROUND_BUTTON_SIZE: float = PORTRAIT_LONG_BUTTON_SIZE.y
 const PORTRAIT_PAGE_BACK_BUTTON_SCALE: float = 0.80
 const PORTRAIT_PAGE_BACK_BUTTON_SIZE: float = PORTRAIT_ROUND_BUTTON_SIZE * PORTRAIT_PAGE_BACK_BUTTON_SCALE
 const PORTRAIT_PAGE_BACK_BUTTON_RECT := Rect2(18.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
+const PORTRAIT_HOME_AVATAR_SIZE: float = PORTRAIT_PAGE_BACK_BUTTON_SIZE * 1.15
+const PORTRAIT_HOME_AVATAR_RECT := Rect2(
+	PORTRAIT_PAGE_BACK_BUTTON_RECT.position.x,
+	PORTRAIT_CURRENCY_COUNTER_RECT.position.y + (PORTRAIT_CURRENCY_COUNTER_RECT.size.y - PORTRAIT_HOME_AVATAR_SIZE) * 0.5,
+	PORTRAIT_HOME_AVATAR_SIZE, PORTRAIT_HOME_AVATAR_SIZE
+)
 const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
 const PORTRAIT_MENU_SETTINGS_BUTTON_RECT := Rect2(410.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
 const PORTRAIT_MENU_SETTINGS_ICON_SIZE := Vector2(29.0, 29.0)
@@ -117,8 +134,8 @@ const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
 const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
 const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Every top bar uses one shared resource-counter width. Home fits the same
-# plates into the area before Settings; gameplay and rewards center their pair.
-const PORTRAIT_RESOURCE_COUNTER_GAP: float = 7.0
+# plates into the area after the avatar; gameplay and rewards center their pair.
+const PORTRAIT_RESOURCE_COUNTER_GAP: float = 5.0
 const PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE: float = 0.84
 const PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE: float = 0.80
 const PORTRAIT_RESOURCE_COUNTER_PANEL_TRAILING_INSET: float = 6.0
@@ -973,6 +990,8 @@ func _on_ad_region_changed() -> void:
 	call_deferred("_refresh_portrait_ad_banner_after_permission")
 
 func _refresh_portrait_ad_banner_after_permission() -> void:
+	if is_instance_valid(_portrait_profile):
+		_portrait_profile.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
 	if is_instance_valid(_portrait_leaderboard):
 		_portrait_leaderboard.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
 	if !_portrait_ads_enabled() or !GameState.has_accepted_legal_documents():
@@ -986,7 +1005,7 @@ func _refresh_portrait_ad_banner_after_permission() -> void:
 		return
 	var home_visible: bool = is_instance_valid(_home_logo_reveal) and _home_logo_reveal.is_inside_tree()
 	var has_banner_slot: bool = !get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty()
-	if !home_visible and !game_screen_visible and !_quiz_screen_active and !is_instance_valid(_portrait_leaderboard) and !has_banner_slot:
+	if !home_visible and !game_screen_visible and !_quiz_screen_active and !is_instance_valid(_portrait_leaderboard) and !is_instance_valid(_portrait_profile) and !has_banner_slot:
 		return
 	if !has_banner_slot:
 		_stage_portrait_ad_banner()
@@ -1051,6 +1070,9 @@ func _portrait_handle_modal_back_request() -> bool:
 	return false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _tabbed_closing:
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if (
@@ -1062,8 +1084,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.pressed and !event.echo and event.keycode == KEY_ESCAPE:
+		if is_instance_valid(_portrait_profile):
+			_close_profile_screen()
+			get_viewport().set_input_as_handled()
+			return
 		if is_instance_valid(_portrait_leaderboard):
-			show_menu()
+			_close_leaderboard_screen()
 			get_viewport().set_input_as_handled()
 			return
 	super._unhandled_input(event)
@@ -1242,6 +1268,19 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
+	var opening_transition: CanvasLayer = null
+	if is_instance_valid(_home_transition) and _home_transition.get_script() == TABBED_PAGE_TRANSITION_SCRIPT:
+		var retained_home: Control = _home_transition.call("preserved_home")
+		if retained_home != null:
+			opening_transition = _home_transition
+			preserved_content = retained_home
+	if _tabbed_header_tween != null and _tabbed_header_tween.is_valid():
+		_tabbed_header_tween.kill()
+	_tabbed_header_tween = null
+	_tabbed_closing = false
+	_portrait_header_fill = null
+	_portrait_profile = null
+	_profile_return_action = Callable()
 	if is_instance_valid(_portrait_leaderboard):
 		_portrait_leaderboard.dispose()
 		_portrait_leaderboard = null
@@ -1307,6 +1346,8 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_attempt_star_collection_active = false
 	_portrait_attempt_star_collection_started = false
 	super._clear(preserved_content)
+	if is_instance_valid(opening_transition):
+		opening_transition.call("prepare_destination", content)
 
 func _portrait_begin_adaptive_group(pivot_stage_position: Vector2, max_scale: float, extra_y_shift_factor: float = 0.0) -> Control:
 	var previous_content: Control = content
@@ -1393,7 +1434,7 @@ func _portrait_screen(
 		blue_background.z_index = -2
 	var screen_content: Control = content
 	content = _portrait_create_top_bar_group()
-	_stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
+	_portrait_header_fill = _stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
 	content = screen_content
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
@@ -1867,9 +1908,10 @@ func _stage_home_resource_counters(return_action: Callable) -> void:
 	var total_width: float = (
 		counter_size.x * 3.0 + PORTRAIT_RESOURCE_COUNTER_GAP * 2.0
 	)
-	var available_width: float = PORTRAIT_MENU_SETTINGS_BUTTON_RECT.position.x
+	var available_start: float = PORTRAIT_HOME_AVATAR_RECT.end.x
+	var available_width: float = PORTRAIT_STAGE_SIZE.x - available_start
 	var coin_rect := Rect2(
-		(available_width - total_width) * 0.5,
+		available_start + (available_width - total_width) * 0.5,
 		PORTRAIT_CURRENCY_COUNTER_RECT.position.y,
 		counter_size.x,
 		counter_size.y
@@ -1891,7 +1933,7 @@ func _stage_home_resource_counters(return_action: Callable) -> void:
 		heart_rect.size
 	)
 	_stage_star_counter(star_rect)
-	_stage_menu_settings_button()
+	_stage_home_avatar_button()
 
 func _stage_heart_counter(
 	return_action: Callable,
@@ -3575,7 +3617,11 @@ func _remove_settings_word_language_confirm_popup() -> void:
 func _confirm_settings_word_language_change(language_code: String) -> void:
 	_remove_settings_word_language_confirm_popup()
 	super._set_settings_word_language(language_code)
-	_remove_settings_popup()
+	if is_instance_valid(_portrait_profile):
+		_portrait_profile.rebuild_settings()
+		settings_word_language_changed = false
+	else:
+		_remove_settings_popup()
 
 func show_menu() -> void:
 	# A completed level must never return to Home as resumable after the player has
@@ -3601,6 +3647,8 @@ func _show_menu_screen() -> void:
 	_clear()
 
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
+	_portrait_header_fill.free()
+	_portrait_header_fill = null
 	_stage_home_pattern_background()
 	_stage_home_resource_counters(Callable(self, "show_menu"))
 
@@ -3618,6 +3666,7 @@ func _show_menu_screen() -> void:
 	_portrait_end_adaptive_group(menu_title_content)
 
 	var logo_reveal: Control = HOME_LOGO_PAPER_REVEAL_SCRIPT.new() as Control
+	logo_reveal.set("play_entrance", !(is_instance_valid(_home_transition) and _home_transition.get_script() == TABBED_PAGE_TRANSITION_SCRIPT and !bool(_home_transition.get("opening"))))
 	logo_reveal.set("logo_anchor", main_menu_logo_anchor)
 	logo_reveal.set("logo_texture", main_menu_logo_texture)
 	logo_reveal.set("title_texture", MAIN_MENU_LOGO_RU_TEXTURE if Database.interface_language == "ru" else main_menu_logo_texture)
@@ -3664,7 +3713,7 @@ func _show_menu_screen() -> void:
 	else:
 		_check_startup_guided_resume()
 
-func _leave_home(action: Callable, blue_pattern: bool = false) -> void:
+func _leave_home(action: Callable, blue_pattern: bool = false, solid_background: bool = false) -> void:
 	_trace_ad_banner("home_departure", {"blue_pattern": blue_pattern})
 	if is_instance_valid(_home_transition):
 		return
@@ -3675,6 +3724,8 @@ func _leave_home(action: Callable, blue_pattern: bool = false) -> void:
 	_home_transition = transition_script.new() as CanvasLayer
 	if !blue_pattern:
 		_home_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
+	else:
+		_home_transition.set("fade_to_solid_background", solid_background)
 	add_child(_home_transition)
 	_home_transition.tree_exited.connect(Callable(self, "_trace_ad_banner").bind("home_transition_exited"), CONNECT_ONE_SHOT)
 	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
@@ -4397,7 +4448,10 @@ func _close_single_player_theme_popup_to_menu() -> void:
 		show_menu()
 
 func show_settings() -> void:
-	_show_settings_popup()
+	if _settings_popup_uses_compact_layout():
+		_show_settings_popup()
+	else:
+		_open_profile_tab("settings")
 
 func _settings_popup_uses_compact_layout() -> bool:
 	if _quiz_screen_active:
@@ -4418,12 +4472,7 @@ func _show_settings_popup() -> void:
 	_remove_settings_popup()
 	settings_toggle_buttons.clear()
 	settings_word_language_buttons.clear()
-	var compact_layout: bool = _settings_popup_uses_compact_layout()
-	var rect := (
-		Rect2(28.0, 250.0, 424.0, 244.0)
-		if compact_layout
-		else Rect2(28.0, 120.0, 424.0, 560.0)
-	)
+	var rect := Rect2(28.0, 250.0, 424.0, 244.0)
 	var previous_content := _portrait_popup_begin(
 		"SettingsPopup",
 		"settings_popup",
@@ -4439,8 +4488,7 @@ func _show_settings_popup() -> void:
 		28
 	)
 
-	# Keep the shell/title/close button fixed. All rows and footer links share
-	# one clipped scroll area; its height fits both existing popup sizes.
+	# Keep the compact shell fixed; only sound and vibration belong here.
 	var scroll: SETTINGS_SCROLL_SCRIPT = SETTINGS_SCROLL_SCRIPT.new()
 	scroll.name = "SettingsScroll"
 	scroll.stage_rect = Rect2(40.0, rect.position.y + 86.0, 400.0, rect.size.y - 108.0)
@@ -4448,45 +4496,57 @@ func _show_settings_popup() -> void:
 	# Compact Settings intentionally contains only Sound and Vibration. Keep the
 	# scroll extent equal to the visible viewport so elastic edge feedback remains
 	# available without exposing rows that do not belong to this compact variant.
-	scroll.content_height = 520.0 if !compact_layout else rect.size.y - 108.0
+	scroll.content_height = rect.size.y - 108.0
 	content.add_child(scroll)
 	content = scroll.stage_content
 
+	_stage_settings_rows(false)
+	content = previous_content
+
+func _stage_settings_rows(full_layout: bool) -> void:
+	var left: float = 30.0 if full_layout else 56.0
+	var right: float = PORTRAIT_STAGE_SIZE.x - left
+	var toggle_width: float = _portrait_popup_button_rect(Rect2(0, 0, 102, 49)).size.x
+	# Align the rendered button edge after the popup helper's width adjustment.
+	var toggle_x: float = right - (102.0 + toggle_width) * 0.5 if full_layout else 330.0
+	var toggle_left: float = toggle_x + (102.0 - toggle_width) * 0.5
+	var label_width: float = toggle_left - left - 20.0 if full_layout else 250.0
 	var sound_label := _stage_label(
-		Rect2(56.0, 218.0, 250.0, 42.0),
+		Rect2(left, 218.0, label_width, 42.0),
 		_settings_sound_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 	)
+	sound_label.name = "SettingsSoundLabel"
 	sound_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(sound_label)
-	_stage_settings_toggle_button(Rect2(330.0, 214.0, 102.0, 49.0), 3)
+	_stage_settings_toggle_button(Rect2(toggle_x, 214.0, 102.0, 49.0), 3)
 	var vibration_label := _stage_label(
-		Rect2(56.0, 286.0, 250.0, 42.0),
+		Rect2(left, 286.0, label_width, 42.0),
 		_settings_vibration_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 	)
 	vibration_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(vibration_label)
-	_stage_settings_toggle_button(Rect2(330.0, 282.0, 102.0, 49.0), 4)
-	if !compact_layout:
-		_stage_panel(Rect2(56.0, 350.0, 368.0, 2.0), PORTRAIT_RULE)
+	_stage_settings_toggle_button(Rect2(toggle_x, 282.0, 102.0, 49.0), 4)
+	if full_layout:
+		_stage_panel(Rect2(left, 350.0, right - left, 2.0), PORTRAIT_RULE)
 		var word_base_label := _stage_label(
-			Rect2(56.0, 374.0, 150.0, 42.0),
+			Rect2(left, 374.0, toggle_left - 112.0 - left - 16.0, 42.0),
 			_settings_word_base_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 		)
 		word_base_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(word_base_label)
-		_stage_settings_word_language_button(Rect2(210.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
-		_stage_settings_word_language_button(Rect2(322.0, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
-		_stage_panel(Rect2(56.0, 450.0, 368.0, 2.0), PORTRAIT_RULE)
+		_stage_settings_word_language_button(Rect2(toggle_x - 112.0, 370.0, 102.0, 49.0), "ru", Database.tr_text(71, "Rus"))
+		_stage_settings_word_language_button(Rect2(toggle_x, 370.0, 102.0, 49.0), "en", Database.tr_text(72, "Eng"))
+		_stage_panel(Rect2(left, 450.0, right - left, 2.0), PORTRAIT_RULE)
 
 		var ads_label := _stage_label(
-			Rect2(56.0, 468.0, 256.0, 66.0),
+			Rect2(left, 468.0, label_width, 66.0),
 			tr("SETTINGS_PERSONALIZED_ADS"), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 		)
 		ads_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(ads_label)
 		var enabled: bool = GameState.allows_ad_personalization()
 		_settings_ad_consent_button = _stage_portrait_popup_main_button(
-			Rect2(330.0, 476.0, 102.0, 49.0),
+			Rect2(toggle_x, 476.0, 102.0, 49.0),
 			Callable(self, "_toggle_settings_ad_consent"),
 			_settings_on_label() if enabled else _settings_off_label(),
 			18, false, 0.0, false, enabled, false, LONG_BUTTON_COLOR_ORANGE
@@ -4494,7 +4554,7 @@ func _show_settings_popup() -> void:
 		_apply_settings_compact_toggle_font_size(_settings_ad_consent_button)
 		_settings_ad_consent_button.set("drop_shadow_enabled", true)
 		_settings_ad_consent_button.set("drop_shadow_selected_uses_pressed_state", true)
-		_stage_panel(Rect2(56.0, 552.0, 368.0, 2.0), PORTRAIT_RULE)
+		_stage_panel(Rect2(left, 552.0, right - left, 2.0), PORTRAIT_RULE)
 
 		var vk_button := _stage_round_icon_button(
 			Rect2(174.0, 574.0, 58.0, 58.0),
@@ -4510,15 +4570,14 @@ func _show_settings_popup() -> void:
 		mail_button.set("drop_shadow_enabled", true)
 		mail_button.set("drop_shadow_offset_y", 2.0)
 		mail_button.set("drop_shadow_pressed_offset_y", 1.0)
-		_stage_portrait_legal_links_row(Rect2(40.0, 642.0, 392.0, 30.0), 17)
+		_stage_portrait_legal_links_row(Rect2(left, 642.0, right - left, 30.0), 17)
 		var version_label := _stage_label(
-			Rect2(40.0, 686.0, 392.0, 28.0), _about_version_text(),
+			Rect2(left, 686.0, right - left, 28.0), _about_version_text(),
 			14, PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, HORIZONTAL_ALIGNMENT_CENTER
 		)
 		version_label.add_theme_font_override("font", UI_REGULAR_FONT)
 		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 
-	content = previous_content
 
 func _toggle_settings_ad_consent() -> void:
 	var enabled: bool = GameState.allows_ad_personalization()
@@ -17449,8 +17508,8 @@ func _run_for_current_reward_presentation(generation: int, action: Callable, arg
 
 func _stage_home_pattern_background() -> void:
 	var home_background_overlay := _stage_horizontal_fill(
-		PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+		0.0,
+		PORTRAIT_STAGE_SIZE.y,
 		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	)
 	home_background_overlay.name = "HomeBackgroundOverlay"
@@ -17475,20 +17534,30 @@ func _stage_home_pattern_background() -> void:
 
 
 func show_leaderboard() -> void:
-	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
-		_leave_home(Callable(self, "show_leaderboard"), true)
+	_open_tabbed_page(Callable(self, "_show_leaderboard_screen"))
+
+func _open_tabbed_page(action: Callable) -> void:
+	if is_instance_valid(_home_transition):
 		return
-	_show_leaderboard_screen()
+	if !is_instance_valid(_home_logo_reveal):
+		action.call()
+		return
+	_home_logo_reveal.call("freeze_entrance")
+	_home_transition = TABBED_PAGE_TRANSITION_SCRIPT.new()
+	add_child(_home_transition)
+	_home_transition.call("start", content, action, true)
 
 func _show_leaderboard_screen() -> void:
+	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	_clear()
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
-	_stage_home_pattern_background()
+	_animate_tabbed_header(header_from, PORTRAIT_DARK_BLUE)
+	_stage_tabbed_page_background()
 	_stage_titled_navigation_header(
 		LEADERBOARD_SCREEN.localized("LEADERBOARD_TITLE", "Рейтинг игроков", "Leaderboard"),
-		"LeaderboardTitle"
+		"LeaderboardTitle", false, Callable(self, "_close_leaderboard_screen")
 	)
-	var tabs_band := _stage_horizontal_fill(80, 68, PORTRAIT_DARK_BLUE)
+	var tabs_band := _stage_horizontal_fill(80, TABBED_PAGE_STYLE.BAND_HEIGHT, PORTRAIT_DARK_BLUE)
 	tabs_band.set("follows_safe_top_inset", true)
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
 	_portrait_leaderboard.service = Leaderboard
@@ -17497,14 +17566,112 @@ func _show_leaderboard_screen() -> void:
 	content.add_child(_portrait_leaderboard)
 	_stage_portrait_ad_banner("leaderboard")
 
-func _stage_titled_navigation_header(heading: String, title_node_name: String) -> void:
+func _stage_titled_navigation_header(heading: String, title_node_name: String,
+	with_settings: bool = true, back_action: Callable = Callable()) -> void:
 	var screen_content := content
 	content = _portrait_top_bar_content
 	var back := _stage_round_icon_button(PORTRAIT_PAGE_BACK_BUTTON_RECT,
-		Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, PORTRAIT_PAGE_BACK_ICON_SIZE)
-	_animate_portrait_back_button_entrance(back, PORTRAIT_PAGE_BACK_BUTTON_RECT)
+		back_action if back_action.is_valid() else Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, PORTRAIT_PAGE_BACK_ICON_SIZE)
+	if !_is_tabbed_page_opening():
+		_animate_portrait_back_button_entrance(back, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	var title := _stage_heading_label(Rect2(76, 18, 328, 44),
 		heading.to_upper(), 26)
 	title.name = title_node_name
-	_stage_menu_settings_button()
+	if with_settings:
+		_stage_menu_settings_button()
 	content = screen_content
+
+func _stage_home_avatar_button() -> void:
+	var previous_content := content
+	content = _portrait_top_bar_content
+	var holder := _stage_holder(PORTRAIT_HOME_AVATAR_RECT)
+	var avatar := AVATAR_BUTTON.new()
+	avatar.name = "HomeAvatarButton"
+	avatar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_connect_stage_button_action(avatar, Callable(self, "show_profile"))
+	holder.add_child(avatar)
+	content = previous_content
+
+func show_profile() -> void:
+	_open_profile_tab("profile")
+
+func _open_profile_tab(tab: String) -> void:
+	if is_instance_valid(_portrait_profile):
+		_portrait_profile.select_tab(tab)
+		return
+	var return_action := Callable(self, "_show_leaderboard_screen") if is_instance_valid(_portrait_leaderboard) else Callable(self, "show_menu")
+	var action := Callable(self, "_show_profile_screen").bind(tab, return_action)
+	_open_tabbed_page(action)
+
+func _show_profile_screen(tab: String = "profile", return_action: Callable = Callable()) -> void:
+	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
+	_clear()
+	_profile_return_action = return_action
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
+	_animate_tabbed_header(header_from, PORTRAIT_DARK_BLUE)
+	_stage_tabbed_page_background()
+	_stage_titled_navigation_header(
+		LEADERBOARD_SCREEN.localized("PROFILE_TITLE", "Профиль", "Profile"),
+		"ProfileTitle", false, Callable(self, "_close_profile_screen")
+	)
+	var band := _stage_horizontal_fill(80, TABBED_PAGE_STYLE.BAND_HEIGHT, PORTRAIT_DARK_BLUE)
+	band.set("follows_safe_top_inset", true)
+	_portrait_profile = PROFILE_SCREEN.new()
+	_portrait_profile.host = self
+	_portrait_profile.initial_tab = tab
+	_portrait_profile.heading = content.find_child("ProfileTitle", true, false)
+	_portrait_profile.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
+	content.add_child(_portrait_profile)
+	_stage_portrait_ad_banner("profile")
+
+func _close_profile_screen() -> void:
+	var action := _profile_return_action if _profile_return_action.is_valid() else Callable(self, "show_menu")
+	_close_tabbed_page(action)
+
+func _stage_tabbed_page_background() -> void:
+	var background := _stage_horizontal_fill(
+		TABBED_PAGE_STYLE.CONTENT_Y, PORTRAIT_STAGE_SIZE.y - TABBED_PAGE_STYLE.CONTENT_Y,
+		PORTRAIT_BLUE
+	)
+	background.name = "TabbedPageBackground"
+	background.z_index = -1
+
+func _animate_tabbed_header(from_color: Color, to_color: Color) -> Tween:
+	if _tabbed_header_tween != null and _tabbed_header_tween.is_valid():
+		_tabbed_header_tween.kill()
+	if _is_tabbed_page_opening():
+		_portrait_header_fill.set("fill_color", to_color)
+		_tabbed_header_tween = null
+		return null
+	_portrait_header_fill.set("fill_color", from_color)
+	_tabbed_header_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_tabbed_header_tween.tween_property(_portrait_header_fill, "fill_color", to_color, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return _tabbed_header_tween
+
+func _is_tabbed_page_opening() -> bool:
+	return is_instance_valid(_home_transition) and _home_transition.get_script() == TABBED_PAGE_TRANSITION_SCRIPT and bool(_home_transition.get("opening"))
+
+func _close_leaderboard_screen() -> void:
+	_close_tabbed_page(Callable(self, "show_menu"))
+
+func _close_tabbed_page(action: Callable) -> void:
+	if _tabbed_closing or is_instance_valid(_home_transition) or !action.is_valid():
+		return
+	# Capture the last complete frame before _clear builds Home underneath it.
+	var page_texture: Texture2D = _capture_tabbed_page_texture()
+	if page_texture == null:
+		# A renderer without frame readback cannot display a captured transition.
+		action.call()
+		return
+	_home_transition = TABBED_PAGE_TRANSITION_SCRIPT.new()
+	add_child(_home_transition)
+	_home_transition.finished.connect(func() -> void: _tabbed_closing = false, CONNECT_ONE_SHOT)
+	_home_transition.call("start", content, action, false, page_texture)
+	# Destination construction calls _clear(), which resets this flag.
+	_tabbed_closing = true
+
+func _capture_tabbed_page_texture() -> Texture2D:
+	var frame: Image = get_viewport().get_texture().get_image()
+	if frame == null or frame.is_empty():
+		return null
+	return ImageTexture.create_from_image(frame)

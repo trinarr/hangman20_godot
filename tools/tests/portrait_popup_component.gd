@@ -160,13 +160,15 @@ func run() -> void:
 	check(main._portrait_popup_button_rect(Rect2(60, 400, 300, 56)).size == Vector2(313.6, 64.4), "long button geometry retained")
 	check(main._portrait_popup_font_size(20) == 23, "popup font scale retained")
 	check(is_equal_approx(main._portrait_popup_bottom_button_y(560, 56), 481.8), "bottom action alignment retained")
-	# Concrete Settings still delegates to the extracted shell and restores content.
+	# Compact Settings still delegates to the extracted shell and restores content.
+	main._quiz_screen_active = true
 	main.show_settings()
 	await get_tree().create_timer(0.7).timeout
 	check(!get_tree().get_nodes_in_group(&"settings_popup").is_empty(), "real Settings opens with extracted shell")
 	main._remove_settings_popup()
 	await get_tree().process_frame
 	check(get_tree().get_nodes_in_group(&"settings_popup").is_empty() and main.content == base_content, "real Settings closes and preserves underlying content")
+	main._quiz_screen_active = false
 	# The component remains operational after its main-screen adapter is destroyed.
 	var popup_script: GDScript = load("res://scripts/ui/portrait_popup.gd")
 	var independent_parent := Node.new()

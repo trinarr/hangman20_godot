@@ -1,7 +1,8 @@
 # Leaderboard screen
 
-Open from the Home button below the logo. `show_leaderboard()` preserves the
-Home blue pattern transition. Back returns to Home; Settings uses the existing
+Open from the Home button below the logo. `show_leaderboard()` fades Home smoothly
+to the solid blue body. The leaderboard has no pattern. Its taller active tab
+joins the blue body; the band/header darken above it. Back returns to Home; Settings uses the existing
 modal. The screen and its strings support Russian and English. Weekly is a
 disabled tab reserved for a later implementation.
 

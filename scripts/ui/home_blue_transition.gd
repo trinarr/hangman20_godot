@@ -4,11 +4,13 @@ signal finished
 
 const LOGO_SCRIPT: GDScript = preload("res://scripts/ui/home_logo_paper_reveal.gd")
 const FADE_OUT_SECONDS: float = 0.20
+const PAPER_CLOSE_SPEED_MULTIPLIER: float = 1.30
 const BACKGROUND_BLEND_SECONDS: float = 0.34
 
 # Shared navigation contract with HomePaperTransition: _clear() retains the
 # transition while its action builds the destination, and cancels it otherwise.
 var committing: bool = false
+var fade_to_solid_background: bool = false
 var _home: Control
 var _logo: Control
 var _buttons: Array[Control] = []
@@ -30,7 +32,7 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 		_button_opacities.append(button.modulate.a)
 	var progress: float = _logo.call("prepare_reverse_departure")
 	var close_seconds: float = maxf(FADE_OUT_SECONDS,
-		float(_logo.get("reveal_duration")) / LOGO_SCRIPT.PEEL_SPEED_MULTIPLIER * progress)
+		float(_logo.get("reveal_duration")) / LOGO_SCRIPT.PEEL_SPEED_MULTIPLIER / PAPER_CLOSE_SPEED_MULTIPLIER * progress)
 	_blocker = Control.new()
 	_blocker.name = "HomeBlueTransitionInputBlocker"
 	_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -40,7 +42,7 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	get_viewport().size_changed.connect(_sync_layout)
 	_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_tween.tween_method(_fade_foreground, 1.0, 0.0, FADE_OUT_SECONDS)
-	# Same geometry and easing as the entrance, played in reverse.
+	# Same geometry and easing as the entrance, reversed with faster paper closure.
 	_tween.parallel().tween_method(Callable(_logo, "_set_reveal_progress"), progress, 0.0, close_seconds).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	_tween.chain().tween_callback(_navigate)
 
@@ -76,6 +78,13 @@ func _navigate() -> void:
 func _blend_destination() -> void:
 	if is_queued_for_deletion():
 		return
+	if fade_to_solid_background:
+		# The destination owns an opaque dark fill. Fade the live Home above it,
+		# including its pattern, so the body changes smoothly to a solid color.
+		_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		_tween.tween_property(_home, "modulate:a", 0.0, BACKGROUND_BLEND_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_tween.tween_callback(_finish)
+		return
 	# Deferred destination layout has created its pattern tween by now. Align
 	# its phase so icons replace each other in place, without a pattern jump.
 	var destination: Control = get_parent().get("content")
@@ -95,7 +104,9 @@ func _blend_destination() -> void:
 		_new_pattern = new_motion.get_parent() as Control
 		var old_background := _old_pattern.get_parent() as Control
 		var new_background := _new_pattern.get_parent() as Control
-		_old_pattern.reparent(new_background, false)
+		# Home now extends behind its HUD; preserve icon screen positions when
+		# a destination keeps its pattern below the header.
+		_old_pattern.reparent(new_background, true)
 		new_background.move_child(_old_pattern, _new_pattern.get_index())
 		_new_pattern.modulate.a = 0.0
 		old_background.hide()

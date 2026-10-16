@@ -16,6 +16,7 @@ var logo_texture: Texture2D
 var title_texture: Texture2D
 var title_chroma_key: bool = false
 var start_delay: float = 0.12
+var play_entrance: bool = true
 var reveal_duration: float = 0.71
 var badge_grow_duration: float = 0.18
 var badge_settle_duration: float = 0.22
@@ -45,7 +46,19 @@ func _ready() -> void:
 	_reveal_material.set_shader_parameter("badge_scale", 0.65)
 	material = _reveal_material
 	get_viewport().size_changed.connect(_queue_layout)
-	call_deferred("_start_entrance")
+	if play_entrance:
+		call_deferred("_start_entrance")
+	else:
+		# Tabbed-page returns reveal an already settled Home, including its buttons.
+		_buttons_started = true
+		_set_reveal_progress(1.0)
+		_reveal_material.set_shader_parameter("badge_alpha", 1.0)
+		_set_badge_scale(1.0)
+		_set_shine_progress(1.55)
+		_buttons_opacity = 1.0
+		_set_buttons_scale(1.0)
+		buttons_bounce_finished.emit()
+		_queue_layout()
 
 func _exit_tree() -> void:
 	if _buttons_tween != null and _buttons_tween.is_valid():
@@ -165,11 +178,15 @@ func set_departure_inset(stage_distance: float) -> void:
 # The blue destination closes the original peel instead of separating its edges.
 # Keep the current progress so an early click cannot jump the paper fully open.
 func prepare_reverse_departure() -> float:
+	freeze_entrance()
+	_reveal_material.set_shader_parameter("reverse_departure", true)
+	_sync_layout()
+	return _reveal_progress
+
+func freeze_entrance() -> void:
+	# Tabbed navigation keeps the current Home appearance without folding it.
 	_departing = true
 	if _entrance_tween != null and _entrance_tween.is_valid():
 		_entrance_tween.kill()
 	if _buttons_tween != null and _buttons_tween.is_valid():
 		_buttons_tween.kill()
-	_reveal_material.set_shader_parameter("reverse_departure", true)
-	_sync_layout()
-	return _reveal_progress

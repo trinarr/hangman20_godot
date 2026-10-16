@@ -43,7 +43,7 @@ func _ready() -> void:
 	view.set_snapshot(data)
 	await settle()
 	check(view._pin_side == "bottom", "Own row below viewport pins to bottom")
-	check(is_equal_approx(view.scroll.position.y, 148 + SCREEN.LAYOUT.safe_top_stage(get_viewport().get_visible_rect().size)), "Scroll mask touches the tab band")
+	check(is_equal_approx(view.scroll.position.y, SCREEN.TABS.CONTENT_Y + SCREEN.LAYOUT.safe_top_stage(get_viewport().get_visible_rect().size)), "Scroll mask touches the tab band")
 	check(is_zero_approx(view.pinned.get_global_rect().position.x) and is_equal_approx(view.pinned.get_global_rect().size.x, get_viewport().get_visible_rect().size.x), "Pinned strip fills the physical viewport width")
 	var pinned_face: Panel = view.pinned.get_node("CardFace")
 	var pinned_style: StyleBoxFlat = pinned_face.get_theme_stylebox("panel")
