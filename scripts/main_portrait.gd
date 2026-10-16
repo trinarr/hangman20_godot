@@ -1,5 +1,10 @@
 extends "res://scripts/main.gd"
 
+const LEADERBOARD_SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
+const QUIZ_CARD_STYLE = preload("res://scripts/ui/quiz_answer_card_style.gd")
+var _portrait_leaderboard: Control
+
+
 const STAGE_REWARD_COMPONENT = preload("res://scripts/ui/portrait_stage_reward.gd")
 const REWARD_PRIZE_COMPONENT = preload("res://scripts/ui/portrait_reward_prize.gd")
 var _portrait_stage_reward: Node
@@ -968,6 +973,8 @@ func _on_ad_region_changed() -> void:
 	call_deferred("_refresh_portrait_ad_banner_after_permission")
 
 func _refresh_portrait_ad_banner_after_permission() -> void:
+	if is_instance_valid(_portrait_leaderboard):
+		_portrait_leaderboard.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
 	if !_portrait_ads_enabled() or !GameState.has_accepted_legal_documents():
 		return
 	# Popups do not obstruct the native banner. Only wait for Home departure,
@@ -979,7 +986,7 @@ func _refresh_portrait_ad_banner_after_permission() -> void:
 		return
 	var home_visible: bool = is_instance_valid(_home_logo_reveal) and _home_logo_reveal.is_inside_tree()
 	var has_banner_slot: bool = !get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty()
-	if !home_visible and !game_screen_visible and !_quiz_screen_active and !has_banner_slot:
+	if !home_visible and !game_screen_visible and !_quiz_screen_active and !is_instance_valid(_portrait_leaderboard) and !has_banner_slot:
 		return
 	if !has_banner_slot:
 		_stage_portrait_ad_banner()
@@ -1052,6 +1059,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			and key_event.keycode == KEY_ESCAPE
 			and _portrait_handle_modal_back_request()
 		):
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventKey and event.pressed and !event.echo and event.keycode == KEY_ESCAPE:
+		if is_instance_valid(_portrait_leaderboard):
+			show_menu()
 			get_viewport().set_input_as_handled()
 			return
 	super._unhandled_input(event)
@@ -1230,6 +1242,9 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
+	if is_instance_valid(_portrait_leaderboard):
+		_portrait_leaderboard.dispose()
+		_portrait_leaderboard = null
 	_dispose_round_result_component()
 	_dispose_reward_components()
 	if is_instance_valid(_home_transition) and !bool(_home_transition.get("committing")):
@@ -3589,30 +3604,7 @@ func _show_menu_screen() -> void:
 	_clear()
 
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
-	var home_background_overlay := _stage_horizontal_fill(
-		PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
-	)
-	home_background_overlay.name = "HomeBackgroundOverlay"
-	home_background_overlay.z_index = -1
-	_add_multi_theme_pattern(
-		home_background_overlay,
-		_collect_theme_pattern_textures(true),
-		"HomeThemePattern",
-		Color(1.0, 1.0, 1.0, 0.13),
-		0.92,
-		1.10,
-		0.87,
-		0.0,
-		0.70
-	)
-	_add_full_rect_gradient_overlay(
-		home_background_overlay,
-		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.0),
-		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
-		"HomeBackgroundGradient"
-	)
+	_stage_home_pattern_background()
 	_stage_home_resource_counters(Callable(self, "show_menu"))
 
 	var menu_title_content: Control = _portrait_begin_adaptive_group(Vector2(240.0, 235.0), PORTRAIT_MENU_TITLE_MAX_SCALE, 0.04)
@@ -3645,7 +3637,13 @@ func _show_menu_screen() -> void:
 		Rect2(33.0, 670.0, 414.0, 88.32),
 		Callable(self, "_open_single_player_from_home").bind(single_player_action)
 	)
-	var home_buttons: Array[Control] = [two_player_button, single_player_button]
+	var leaderboard_button := _stage_main_button(
+		Rect2(100.0, 496.0, 280.0, 56.0), Callable(self, "show_leaderboard"),
+		LEADERBOARD_SCREEN.localized("LEADERBOARD_TITLE", "Рейтинг игроков", "Leaderboard"), 22
+	)
+	leaderboard_button.name = "HomeLeaderboardButton"
+	leaderboard_button.set("drop_shadow_enabled", true)
+	var home_buttons: Array[Control] = [leaderboard_button, two_player_button, single_player_button]
 	two_player_button.name = "HomeTwoPlayerButton"
 	single_player_button.name = "HomeSinglePlayerButton"
 	two_player_button.set("drop_shadow_enabled", true)
@@ -4736,7 +4734,6 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	# Label child for the copy. Keeping the text separate lets a wrong answer
 	# shake horizontally without moving the button itself.
 	var holder: Control = _stage_holder(rect, Control.MOUSE_FILTER_PASS)
-	var answer_corner_radius: int = int(round(PORTRAIT_LONG_BUTTON_SIZE.y * 0.5))
 
 	var shadow_panel := Panel.new()
 	shadow_panel.name = "QuizAnswerShadow"
@@ -4744,12 +4741,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	shadow_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shadow_panel.offset_top = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	shadow_panel.offset_bottom = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
-	var shadow_style := StyleBoxFlat.new()
-	shadow_style.bg_color = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_COLOR
-	shadow_style.corner_radius_top_left = answer_corner_radius
-	shadow_style.corner_radius_top_right = answer_corner_radius
-	shadow_style.corner_radius_bottom_left = answer_corner_radius
-	shadow_style.corner_radius_bottom_right = answer_corner_radius
+	var shadow_style := QUIZ_CARD_STYLE.shadow_style()
 	shadow_panel.add_theme_stylebox_override("panel", shadow_style)
 	holder.add_child(shadow_panel)
 
@@ -4760,16 +4752,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	button.text = ""
 	button.focus_mode = Control.FOCUS_NONE
 
-	var normal_style := StyleBoxFlat.new()
-	normal_style.bg_color = Color.WHITE
-	normal_style.corner_radius_top_left = answer_corner_radius
-	normal_style.corner_radius_top_right = answer_corner_radius
-	normal_style.corner_radius_bottom_left = answer_corner_radius
-	normal_style.corner_radius_bottom_right = answer_corner_radius
-	normal_style.content_margin_left = PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING
-	normal_style.content_margin_right = PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING
-	normal_style.content_margin_top = 8.0
-	normal_style.content_margin_bottom = 8.0
+	var normal_style := QUIZ_CARD_STYLE.face_style()
 
 	# Keep every interactive visual state white. The only press feedback is the
 	# same 0.94 scale depression used by the standard long-button component.
@@ -9869,11 +9852,9 @@ func show_custom_word() -> void:
 	# navigation row and no footer backdrop.
 	_portrait_screen(0.0)
 	var custom_word_title: String = Database.tr_text(37, "Input the word").to_upper()
-	_stage_portrait_page_header(
-		"",
-		Callable(self, "show_menu"),
-		Callable(self, "_return_to_custom_word_from_coin_store"),
-		false
+	_stage_titled_navigation_header(
+		LEADERBOARD_SCREEN.localized("TWO_PLAYER_TITLE", "2 игрока", "2 players"),
+		"TwoPlayerTitle"
 	)
 	_stage_portrait_custom_word_title(custom_word_title)
 
@@ -17469,3 +17450,65 @@ func _run_for_current_reward_presentation(generation: int, action: Callable, arg
 		if typeof(argument) == TYPE_OBJECT and !is_instance_valid(argument):
 			return
 	action.callv(args)
+
+func _stage_home_pattern_background() -> void:
+	var home_background_overlay := _stage_horizontal_fill(
+		PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
+	)
+	home_background_overlay.name = "HomeBackgroundOverlay"
+	home_background_overlay.z_index = -1
+	_add_multi_theme_pattern(
+		home_background_overlay,
+		_collect_theme_pattern_textures(true),
+		"HomeThemePattern",
+		Color(1.0, 1.0, 1.0, 0.13),
+		0.92,
+		1.10,
+		0.87,
+		0.0,
+		0.70
+	)
+	_add_full_rect_gradient_overlay(
+		home_background_overlay,
+		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.0),
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
+		"HomeBackgroundGradient"
+	)
+
+
+func show_leaderboard() -> void:
+	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
+		_leave_home(Callable(self, "show_leaderboard"), true)
+		return
+	_show_leaderboard_screen()
+
+func _show_leaderboard_screen() -> void:
+	_clear()
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
+	_stage_home_pattern_background()
+	_stage_titled_navigation_header(
+		LEADERBOARD_SCREEN.localized("LEADERBOARD_TITLE", "Рейтинг игроков", "Leaderboard"),
+		"LeaderboardTitle"
+	)
+	var tabs_band := _stage_horizontal_fill(80, 68, PORTRAIT_DARK_BLUE)
+	tabs_band.set("follows_safe_top_inset", true)
+	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
+	_portrait_leaderboard.service = Leaderboard
+	_portrait_leaderboard.score_formatter = Callable(self, "_soft_currency_balance_text")
+	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
+	content.add_child(_portrait_leaderboard)
+	_stage_portrait_ad_banner("leaderboard")
+
+func _stage_titled_navigation_header(heading: String, title_node_name: String) -> void:
+	var screen_content := content
+	content = _portrait_top_bar_content
+	var back := _stage_round_icon_button(PORTRAIT_PAGE_BACK_BUTTON_RECT,
+		Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, PORTRAIT_PAGE_BACK_ICON_SIZE)
+	_animate_portrait_back_button_entrance(back, PORTRAIT_PAGE_BACK_BUTTON_RECT)
+	var title := _stage_heading_label(Rect2(76, 18, 328, 44),
+		heading.to_upper(), 26)
+	title.name = title_node_name
+	_stage_menu_settings_button()
+	content = screen_content

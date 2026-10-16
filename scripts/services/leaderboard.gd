@@ -1,5 +1,5 @@
 extends Node
-## Star leaderboard. No UI; only up to 100 public rows and the own row are cached.
+## Star leaderboard. Only up to 100 public rows and the own row are cached.
 signal leaderboard_ready(snapshot: Dictionary, from_cache: bool)
 signal sync_failed()
 
@@ -210,3 +210,6 @@ func _flush() -> void:
 		if include_top and current_language:
 			leaderboard_ready.emit(cached_snapshot(), false)
 	_busy = false
+
+func is_configured() -> bool:
+	return _legal_accepted() and _backend().leaderboard_is_configured()
