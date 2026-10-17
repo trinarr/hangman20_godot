@@ -3725,10 +3725,7 @@ func _leave_home(action: Callable, blue_pattern: bool = false, solid_background:
 		_home_transition.set("fade_to_solid_background", solid_background)
 	add_child(_home_transition)
 	_home_transition.tree_exited.connect(Callable(self, "_trace_ad_banner").bind("home_transition_exited"), CONNECT_ONE_SHOT)
-	if blue_pattern:
-		_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
-	else:
-		_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action, _portrait_top_bar_content)
+	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action, _portrait_top_bar_content)
 
 func _open_single_player_from_home(action: Callable) -> void:
 	if is_instance_valid(_home_transition):

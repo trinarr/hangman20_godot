@@ -227,6 +227,20 @@ func run() -> void:
 	main.game_screen_visible = true
 	check(main._settings_popup_uses_compact_layout(), "Hangman and result retain compact settings")
 	main.game_screen_visible = false
+	main.show_menu()
+	await settle()
+	var home_header: Control = main._portrait_top_bar_content
+	var home_button: Control = main._home_start_buttons[0]
+	main._leave_home(Callable(main, "_show_leaderboard_screen"), true)
+	var blue_transition: CanvasLayer = main._home_transition
+	var departure: Tween = blue_transition.get("_tween")
+	departure.pause()
+	departure.custom_step(0.1)
+	check(!blue_transition.get("_navigated") and home_header.modulate.a < 1.0, "Blue departure starts hiding HUD before destination navigation")
+	check(is_equal_approx(home_header.modulate.a, home_button.modulate.a), "Blue departure fades HUD alongside Home buttons")
+	departure.custom_step(0.1)
+	check(is_zero_approx(home_header.modulate.a), "Blue departure hides the whole HUD by the end of the button fade")
+	main._clear()
 	main.queue_free()
 	await settle()
 	print("PROFILE_UI checks=%d failures=%d" % [checks, failures])

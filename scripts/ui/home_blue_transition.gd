@@ -13,6 +13,8 @@ var committing: bool = false
 var fade_to_solid_background: bool = false
 var _home: Control
 var _logo: Control
+var _header: Control
+var _header_opacity: float = 1.0
 var _buttons: Array[Control] = []
 var _button_opacities: Array[float] = []
 var _action: Callable
@@ -22,10 +24,13 @@ var _navigated: bool = false
 var _old_pattern: Control
 var _new_pattern: Control
 
-func start(home_content: Control, logo: Control, buttons: Array[Control], action: Callable) -> void:
+func start(home_content: Control, logo: Control, buttons: Array[Control], action: Callable, header: Control = null) -> void:
 	layer = 1000
 	_home = home_content
 	_logo = logo
+	_header = header
+	if is_instance_valid(_header):
+		_header_opacity = _header.modulate.a
 	_buttons = buttons
 	_action = action
 	for button: Control in _buttons:
@@ -54,6 +59,8 @@ func _sync_layout() -> void:
 	_blocker.size = get_viewport().get_visible_rect().size
 
 func _fade_foreground(opacity: float) -> void:
+	if is_instance_valid(_header):
+		_header.modulate.a = _header_opacity * opacity
 	if is_instance_valid(_logo):
 		_logo.call("set_foreground_opacity", opacity)
 	for index: int in range(_buttons.size()):
