@@ -177,6 +177,24 @@ static func _ensure_loaded() -> void:
 
 static func _validate_loaded_config() -> void:
 	_validate_nonnegative_numbers(_config, "")
+	get_int_range("tournament.duration_seconds", 60, 604800)
+	get_int_range("tournament.unlock_completed_levels", 0, 1000000)
+	var prizes := get_array("tournament.rewards_coins")
+	if prizes.size() != 3:
+		_fatal_config_error("Tournament requires three prizes")
+	for prize: Variant in prizes:
+		if _require_integer_value(prize, "tournament prize") > 100000:
+			_fatal_config_error("Tournament prize exceeds maximum")
+	var opponents := get_array("tournament.opponent_star_ranges")
+	if opponents.size() != 9:
+		_fatal_config_error("Tournament requires nine opponent ranges")
+	for bounds: Variant in opponents:
+		if !(bounds is Array) or bounds.size() != 2:
+			_fatal_config_error("Tournament opponent range must contain minimum and maximum")
+		var minimum := _require_integer_value(bounds[0], "tournament opponent minimum")
+		var maximum := _require_integer_value(bounds[1], "tournament opponent maximum")
+		if minimum > maximum or maximum > 100000:
+			_fatal_config_error("Invalid tournament opponent score range")
 
 	var minimum: float = get_float_range("difficulty.minimum", 0.0, 1.0)
 	var default_difficulty: float = get_float_range("difficulty.default", 0.0, 1.0)

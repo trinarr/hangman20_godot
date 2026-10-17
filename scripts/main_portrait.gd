@@ -55,6 +55,7 @@ const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
 )
 const PORTRAIT_PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
+const HOME_TOURNAMENT_BUTTON = preload("res://scripts/ui/home_tournament_button.gd")
 const HOME_PAPER_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_paper_transition.gd")
 const HOME_BLUE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_blue_transition.gd")
 const TABBED_PAGE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/tabbed_page_transition.gd")
@@ -3688,7 +3689,14 @@ func _show_menu_screen() -> void:
 	)
 	leaderboard_button.name = "HomeLeaderboardButton"
 	leaderboard_button.set("drop_shadow_enabled", true)
-	var home_buttons: Array[Control] = [leaderboard_button, two_player_button, single_player_button]
+	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
+	tournament_button.name = "HomeTournamentButton"
+	tournament_button.stage_rect = Rect2(18, 86, 100, 108)
+	# Render over the paper reveal without modifying its logo or tear geometry.
+	tournament_button.z_index = 1
+	_connect_stage_button_action(tournament_button, Callable(self, "show_tournament"))
+	content.add_child(tournament_button)
+	var home_buttons: Array[Control] = [leaderboard_button, two_player_button, single_player_button, tournament_button]
 	two_player_button.name = "HomeTwoPlayerButton"
 	single_player_button.name = "HomeSinglePlayerButton"
 	two_player_button.set("drop_shadow_enabled", true)
@@ -5710,7 +5718,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	var previous_star_balance: int = GameState.get_stars()
 	var final_star_balance: int = previous_star_balance
 	if speed_reward_amount > 0:
-		final_star_balance = GameState.add_stars(speed_reward_amount, false)
+		final_star_balance = GameState.add_gameplay_stars(speed_reward_amount, false)
 		# Commit the bonus together with the result below; keep the HUD at its
 		# previous value until the visual collection finishes.
 		_set_stage_reward_animated_balance(
@@ -17533,7 +17541,16 @@ func _open_tabbed_page(action: Callable) -> void:
 	add_child(_home_transition)
 	_home_transition.call("start", content, action, true)
 
-func _show_leaderboard_screen() -> void:
+func show_tournament() -> void:
+	if !GameState.is_tournament_unlocked():
+		var level: int = GameState.GAME_DESIGN.get_int("tournament.unlock_completed_levels")
+		_show_portrait_status_toast(LEADERBOARD_SCREEN.localized(
+			"TOURNAMENT_HOME_LOCKED", "Турнир откроется после уровня %d",
+			"Unlocks after level %d") % level)
+		return
+	_open_tabbed_page(Callable(self, "_show_leaderboard_screen").bind(true))
+
+func _show_leaderboard_screen(tournament: bool = false) -> void:
 	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	_clear()
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
@@ -17550,6 +17567,7 @@ func _show_leaderboard_screen() -> void:
 	_portrait_leaderboard.score_formatter = Callable(self, "_soft_currency_balance_text")
 	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_leaderboard)
+	_portrait_leaderboard._select_tab(tournament)
 	_stage_portrait_ad_banner("leaderboard")
 
 func _stage_titled_navigation_header(heading: String, title_node_name: String,

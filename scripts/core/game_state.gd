@@ -2,12 +2,14 @@ extends Node
 
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+const TOURNAMENT_MODEL = preload("res://scripts/core/tournament_model.gd")
 
 signal ads_became_available
 signal ad_personalization_choice_changed
 
 signal soft_currency_changed(balance: int)
 signal stars_changed(balance: int)
+signal tournament_changed
 signal hearts_changed(hearts: int, recovery_seconds: int)
 
 const SAVE_PATH := "user://save_hangman.json"
@@ -213,6 +215,10 @@ var single_player: Dictionary = {}
 var single_player_resume_states: Dictionary = {}
 var active_single_player_session: Dictionary = {}
 var pending_single_player_reward: Dictionary = {}
+var tournament_state: Dictionary = {}
+var tournament_time_source: Callable
+var _tournament_clock_utc := 0
+var _tournament_clock_ticks := 0
 var rewarded_double_requests: Dictionary = {}
 var rewarded_action_requests: Dictionary = {}
 var _save_batch_depth: int = 0
@@ -408,6 +414,8 @@ func load_game() -> void:
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
 	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
+	tournament_state = TOURNAMENT_MODEL.normalize(parsed.get("tournament", {}))
+	_tournament_clock_utc = 0
 	soft_currency = clampi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0, MAX_CURRENCY_BALANCE)
 	stars = clampi(int(parsed.get("stars", DEFAULT_STARS)), 0, MAX_CURRENCY_BALANCE)
 	settings = _normalize_settings(parsed.get("settings", settings))
@@ -645,6 +653,8 @@ func _home_profile_save_game() -> bool:
 	_save_write_in_progress = true
 	_compact_single_player_history()
 	_store_current_single_player_resume_state()
+	if !tournament_state.is_empty():
+		TOURNAMENT_MODEL.advance(tournament_state, _tournament_now())
 	var payload: Dictionary = {
 		"save_version": SAVE_FORMAT_VERSION,
 		"word_content_version": WORD_CONTENT.CONTENT_VERSION,
@@ -662,6 +672,7 @@ func _home_profile_save_game() -> bool:
 		"hint_counts": hint_counts,
 		"soft_currency": soft_currency,
 		"stars": stars,
+		"tournament": tournament_state,
 		"hearts": hearts,
 		"heart_recovery_at": heart_recovery_at,
 		"coin_refill_ad_views_remaining": coin_refill_ad_views_remaining,
@@ -2593,7 +2604,8 @@ func mark_single_level_word_played(
 	difficulty: int = -1,
 	award_completion_bonus: bool = true,
 	persist: bool = true,
-	stage_theme_index: int = -1
+	stage_theme_index: int = -1,
+	stage_stars: int = 0
 ) -> Dictionary:
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
@@ -2659,6 +2671,13 @@ func mark_single_level_word_played(
 	if was_unplayed and completed:
 		bucket["theme_unlock_completed_levels"] = maxi(theme_unlock_before, level_index + 1)
 	single_player[lang_key] = bucket
+	# Score the committed result, before reward/HUD animations or later claims.
+	if was_unplayed:
+		var earned_stars: int = maxi(stage_stars, 0) if is_win else 0
+		if completed and word_count > 1:
+			earned_stars += _single_player_level_completion_stars(
+				level_index, get_single_level_guessed_count(lang, level_index, word_count, difficulty))
+		record_tournament_stars(earned_stars)
 	if was_unplayed and completed and !award_completion_bonus and completion_bonus > 0:
 		var selected_theme_id: int = int(
 			(bucket["selected_themes"] as Dictionary).get(str(level_index), 0)
@@ -2742,3 +2761,83 @@ func reset_single_level_attempt(
 		active_single_player_session = {}
 	if persist:
 		save_game()
+
+
+# Personal tournament state shares the progress/economy save transaction.
+func _tournament_now() -> int:
+	if tournament_time_source.is_valid():
+		return int(tournament_time_source.call())
+	if _tournament_clock_utc == 0:
+		_tournament_clock_utc = maxi(int(Time.get_unix_time_from_system()), int(tournament_state.get("last_seen", 0)))
+		_tournament_clock_ticks = Time.get_ticks_msec()
+	return _tournament_clock_utc + int((Time.get_ticks_msec() - _tournament_clock_ticks) / 1000)
+
+func is_tournament_unlocked() -> bool:
+	var completed := maxi(get_theme_unlock_completed_levels("ru"), get_theme_unlock_completed_levels("en"))
+	return completed >= GAME_DESIGN.get_int("tournament.unlock_completed_levels")
+
+func get_tournament_snapshot() -> Dictionary:
+	var now := _tournament_now()
+	if TOURNAMENT_MODEL.advance(tournament_state, now):
+		save_game()
+		_tournament_log("finished")
+	var snapshot: Dictionary = TOURNAMENT_MODEL.snapshot(tournament_state, now)
+	snapshot["unlocked"] = is_tournament_unlocked()
+	snapshot["unlock_level"] = GAME_DESIGN.get_int("tournament.unlock_completed_levels")
+	snapshot["duration"] = GAME_DESIGN.get_int("tournament.duration_seconds")
+	return snapshot
+
+func start_tournament() -> bool:
+	if _save_batch_depth > 0 or !is_tournament_unlocked():
+		return false
+	if !tournament_state.is_empty() and !bool(tournament_state.claimed):
+		return false
+	var previous := tournament_state.duplicate(true)
+	var config: Dictionary = GAME_DESIGN.get_value("tournament")
+	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi())
+	if !save_game():
+		tournament_state = previous
+		return false
+	_tournament_log("joined")
+	tournament_changed.emit()
+	return true
+
+func record_tournament_stars(amount: int) -> void:
+	if tournament_state.is_empty() or amount <= 0:
+		return
+	var now := _tournament_now()
+	if TOURNAMENT_MODEL.add_score(tournament_state, amount, now):
+		_tournament_log("score +%d" % amount)
+		tournament_changed.emit()
+
+func add_gameplay_stars(amount: int, persist: bool = true) -> int:
+	var before := get_stars()
+	var result := add_stars(amount, false)
+	record_tournament_stars(maxi(0, result - before))
+	if persist:
+		save_game()
+	return result
+
+func claim_tournament_reward() -> Dictionary:
+	if _save_batch_depth > 0 or tournament_state.is_empty():
+		return {"ok": false}
+	var snapshot := get_tournament_snapshot()
+	if snapshot.phase != "finished":
+		return {"ok": false}
+	var before := soft_currency
+	var requested := int(snapshot.reward)
+	tournament_state.claimed = true
+	soft_currency = clampi(before + requested, 0, MAX_CURRENCY_BALANCE)
+	if !save_game():
+		soft_currency = before
+		tournament_state.claimed = false
+		return {"ok": false}
+	if soft_currency != before:
+		soft_currency_changed.emit(soft_currency)
+	_tournament_log("claimed %d coins" % (soft_currency - before))
+	tournament_changed.emit()
+	return {"ok": true, "amount": soft_currency - before, "rank": snapshot.rank}
+
+func _tournament_log(action: String) -> void:
+	if OS.is_debug_build():
+		print("[Tournament] %s id=%s stars=%d" % [action, tournament_state.get("id", ""), int(tournament_state.get("player_stars", 0))])

@@ -93,7 +93,7 @@ func _ready() -> void:
 	await settle()
 	var last: Control = view.rows.get_child(100)
 	check(last.get_global_rect().end.y <= view.pinned.get_global_rect().position.y + 1, "Last leaderboard row can scroll above pinned row")
-	check(view._weekly.disabled, "Weekly tab is unavailable")
+	check(!view._weekly.disabled, "Tournament tab is available")
 	view.set_bottom_inset(50)
 	await settle()
 	check(view.scroll.position.y + view.scroll.size.y <= view.size.y - 62 + 1, "List respects ad banner inset")

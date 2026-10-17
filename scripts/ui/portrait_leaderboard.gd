@@ -1,5 +1,6 @@
 extends Control
 ## Native scrolling children share one stage transform; rows never map twice.
+const TOURNAMENT_PAGE = preload("res://scripts/ui/portrait_tournament.gd")
 const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
@@ -27,6 +28,8 @@ var _retry: Button
 var _players: Button
 var _weekly: Button
 var _has_error := false
+var _tournament: Control
+var _tournament_selected := false
 
 static func localized(key: String, ru: String, en: String) -> String:
 	var translated := TranslationServer.translate(key)
@@ -35,8 +38,11 @@ static func localized(key: String, ru: String, en: String) -> String:
 func _ready() -> void:
 	name = "LeaderboardScreen"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_players = _tab(0, localized("LEADERBOARD_PLAYERS", "Глобальный", "Global"), false)
-	_weekly = _tab(1, localized("LEADERBOARD_WEEKLY", "Недельный", "Weekly"), true)
+	_players = _tab(1, localized("LEADERBOARD_PLAYERS", "Глобальный", "Global"), false)
+	_weekly = _tab(0, localized("LEADERBOARD_TOURNAMENT", "Турнир", "Tournament"), false)
+	TABS.select(_weekly, false)
+	_players.pressed.connect(func(): _select_tab(false))
+	_weekly.pressed.connect(func(): _select_tab(true))
 	scroll = ELASTIC_SCROLL.new()
 	scroll.name = "LeaderboardScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -59,6 +65,9 @@ func _ready() -> void:
 	_retry.add_theme_color_override("font_color", PALETTE.TEXT_DARK)
 	_retry.pressed.connect(func(): _load(true))
 	add_child(_retry)
+	_tournament = TOURNAMENT_PAGE.new()
+	add_child(_tournament)
+	_tournament.hide()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	if is_instance_valid(service):
@@ -247,7 +256,30 @@ func _layout() -> void:
 	_status.position.y = TABS.CONTENT_Y + 12 + safe if _has_error else TABS.CONTENT_Y + 42 + safe
 	_retry.position = Vector2(145, TABS.CONTENT_Y + 64 + safe)
 	_retry.size = Vector2(190, 44)
+	_tournament.position = Vector2(0, TABS.CONTENT_Y + safe)
+	_tournament.size = Vector2(480, maxf(180, size.y - bottom_inset - 12 - TABS.CONTENT_Y - safe))
+	_sync_tab_visibility()
 	_update_pin.call_deferred()
+
+func _select_tab(tournament: bool) -> void:
+	if !_live:
+		return
+	_tournament_selected = tournament
+	TABS.select(_players, !tournament)
+	TABS.select(_weekly, tournament)
+	_sync_tab_visibility()
+	if tournament:
+		_tournament.refresh()
+	else:
+		_update_pin.call_deferred()
+
+func _sync_tab_visibility() -> void:
+	scroll.visible = !_tournament_selected
+	_status.visible = !_tournament_selected and (_has_error or _snapshot.get("top", []).is_empty())
+	_retry.visible = !_tournament_selected and _has_error
+	_tournament.visible = _tournament_selected
+	if is_instance_valid(pinned) and _tournament_selected:
+		pinned.hide()
 
 func _update_pin() -> void:
 	if !_live or !is_instance_valid(pinned):
@@ -264,7 +296,7 @@ func _update_pin() -> void:
 			_pin_side = ""
 		if !_pin_side.is_empty():
 			own_row.modulate.a = 0.0
-	pinned.visible = !_pin_side.is_empty()
+	pinned.visible = !_tournament_selected and !_pin_side.is_empty()
 	# Cover the full physical viewport, including centered-stage side gutters.
 	var viewport_size := get_viewport_rect().size
 	var gutter: float = LAYOUT.horizontal_offset(viewport_size) / scale.x
@@ -276,6 +308,8 @@ func _update_pin() -> void:
 
 func dispose() -> void:
 	_live = false
+	if is_instance_valid(_tournament):
+		_tournament.dispose()
 	if is_instance_valid(service):
 		if service.leaderboard_ready.is_connected(_received):
 			service.leaderboard_ready.disconnect(_received)

@@ -354,5 +354,52 @@
         "counter_settle_seconds": 0.13
       }
     }
+  },
+  "tournament": {
+    "duration_seconds": 28800,
+    "unlock_completed_levels": 5,
+    "rewards_coins": [
+      200,
+      120,
+      80
+    ],
+    "opponent_star_ranges": [
+      [
+        20,
+        60
+      ],
+      [
+        20,
+        60
+      ],
+      [
+        80,
+        160
+      ],
+      [
+        80,
+        160
+      ],
+      [
+        80,
+        160
+      ],
+      [
+        80,
+        160
+      ],
+      [
+        170,
+        250
+      ],
+      [
+        170,
+        250
+      ],
+      [
+        250,
+        350
+      ]
+    ]
   }
 }

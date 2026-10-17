@@ -1532,7 +1532,9 @@ func _single_player_mark_current_word_finished(
 		-1,
 		!defer_final_reward,
 		false,
-		stage_theme_index
+		stage_theme_index,
+		_single_player_stage_reward_amount(single_player_active_level_index, single_player_active_word_slot, level_word_count)
+		if _single_player_stage_reward_currency(single_player_active_level_index, single_player_active_word_slot, level_word_count) == GameState.STAGE_REWARD_STARS else 0
 	)
 	_invalidate_single_player_level_cache()
 	if OS.is_debug_build():
@@ -2745,7 +2747,7 @@ func _grant_remaining_attempt_star_reward(result: Dictionary, is_win: bool) -> D
 	if remaining_attempts <= 0:
 		return rewarded_result
 	var previous_balance: int = GameState.get_stars()
-	var final_balance: int = GameState.add_stars(remaining_attempts, false)
+	var final_balance: int = GameState.add_gameplay_stars(remaining_attempts, false)
 	var credited_amount: int = maxi(final_balance - previous_balance, 0)
 	if credited_amount <= 0:
 		return rewarded_result
