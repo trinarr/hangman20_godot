@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "leaderboard_local_fillers": (True, r"LEADERBOARD_LOCAL_FILLERS checks=[1-9]\d* failures=0"),
     "profile_ui": (True, r"PROFILE_UI checks=[1-9]\d* failures=0"),
     "leaderboard_ui": (True, r"LEADERBOARD_UI checks=[1-9]\d* failures=0"),
     "leaderboard": (True, r"LEADERBOARD checks=[1-9]\d* failures=0"),

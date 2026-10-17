@@ -1,11 +1,13 @@
 # Лидерборд по звёздам: сервер, клиент и debug-логи
 
+Актуальный протокол и сохранение заполнителей на клиенте описаны в [leaderboard_local_fillers.md](leaderboard_local_fillers.md). После миграций 005–009 выполните **010_leaderboard_local_fillers.sql**; она заменяет прежний пересчёт звёзд фейков.
+
 Патч поверх `0cd6c57` с уже применённой правкой отдельных dev/release minimum_answers и разрешённым конфликтом main_portrait.gd. UI не добавляется. Статистика викторин и её пороги сохраняются.
 
 ## Установка и проверка
 
 1. Примените основной патч лидерборда, патч процентов и патч серверных заполнителей.
-2. В Supabase SQL Editor выполните `supabase/migrations/005_leaderboard.sql`, затем `supabase/migrations/006_leaderboard_percentile.sql`, затем `supabase/migrations/007_leaderboard_fillers.sql`, затем `supabase/migrations/008_leaderboard_filler_mix.sql`, затем `supabase/migrations/009_leaderboard_positive_stars.sql`. Миграция 008 уже включает обновлённые 200 ников; отдельная загрузка JSON не нужна. Она создаёт production и dev одновременно. Скрипт безопасно повторять: результаты сохраняются.
+2. В Supabase SQL Editor выполните `supabase/migrations/005_leaderboard.sql`, затем `supabase/migrations/006_leaderboard_percentile.sql`, затем `supabase/migrations/007_leaderboard_fillers.sql`, затем `supabase/migrations/008_leaderboard_filler_mix.sql`, затем `supabase/migrations/009_leaderboard_positive_stars.sql`, затем `supabase/migrations/010_leaderboard_local_fillers.sql`. Миграция 008 уже включает обновлённые 200 ников; отдельная загрузка JSON не нужна. Она создаёт production и dev одновременно. Скрипт безопасно повторять: результаты сохраняются.
 3. Не добавляйте `leaderboard_private` / `leaderboard_dev_private` в Exposed schemas. Игре доступны только public RPC-функции, таблицы закрыты.
 4. Запустите debug-сборку с принятыми игровыми юридическими документами. После запуска автоматически отправится сохранённое число звёзд и один раз загрузится топ для логов. Если документы ещё не приняты, проверка повторяется раз в 30 секунд, без регистрации аккаунта до принятия.
 5. Заработайте звёзды. Сервис отправит новый общий результат примерно через секунду после последнего изменения. Обычная отправка не скачивает весь топ.
@@ -60,18 +62,21 @@ limit 100;
 
 ## Серверный контракт
 
-Production: `public.leaderboard_sync(p_stars bigint default null, p_include_top boolean default true, p_language text default 'en')`.
+Production: `public.leaderboard_sync(p_stars bigint default null, p_include_top boolean default true, p_language text default 'en', p_seed_fillers boolean default false)`.
 Dev: `public.leaderboard_sync_dev` с теми же параметрами.
 
 - `p_stars=null` / параметр отсутствует: только чтение;
 - положительное число: создать или улучшить личный рекорд; ноль принимается как отсутствие нового результата;
 - `p_include_top=false`: вернуть подтверждение и собственную строку без списка;
-- `p_include_top=true`: при наличии положительных рекордов вернуть 100 строк — реальных участников и недостающие заполнители; иначе пустой список;
-- `p_language=ru`: 60% заполнителей СНГ + 40% США/Европы; `en`: 20% СНГ + 80% США/Европы. Язык выбирает оформление и пропорции, а не отдельный рейтинг. Доли считаются от недостающего числа строк с округлением до целого.
+- `p_include_top=true`: вернуть до 100 реальных участников с положительными звёздами;
+- `p_language=ru`: 60% заполнителей СНГ + 40% США/Европы; `en`: 20% СНГ + 80% США/Европы. Язык выбирает оформление и пропорции, а не отдельный рейтинг. Пропорции применяются к начальной сотне фейков.
+- `p_seed_fillers=true` вместе с чтением топа: добавить отдельный массив `fillers` из 100 записей со звёздами 30–100, если реальных участников меньше 100; иначе пустой массив. Клиент запрашивает подборку один раз на аккаунт/язык и сохраняет её локально.
 
 ```json
 {
   "ok": true,
+  "protocol_version": 2,
+  "owner_id": "00000000-0000-0000-0000-000000000001",
   "language": "ru",
   "total_players": 10000,
   "me": {"player_id": "123", "nickname": "Игрок 123", "is_filler": false, "stars": 150, "rank": null, "top_percent": 13},
@@ -144,4 +149,4 @@ Godot-проверки используют изолированные сохр�
 
 ## Серверные заполнители
 
-Текущие правила положительных результатов и звёзд заполнителей: [leaderboard_positive_stars.md](leaderboard_positive_stars.md). Подробности смешивания: [leaderboard_filler_mix.md](leaderboard_filler_mix.md). Исходный формат строк и хранение: [leaderboard_fillers.md](leaderboard_fillers.md). Миграция 007 не создаёт пользователей Auth или записи в players. Заполнители хранятся отдельно, всегда идут после реальных игроков и исчезают из ответа при 100 реальных участниках.
+Актуальные правила: [leaderboard_local_fillers.md](leaderboard_local_fillers.md). Сервер хранит пулы имён и выдаёт начальную персональную подборку. Клиент сохраняет звёзды фейков и вытесняет их реальными игроками; фейки могут стоять выше игрока. Они не создают Auth-аккаунты, не входят в численность участников и проценты. Старые правила вычисления от реального минимума описаны только как история миграции 009.

@@ -13,6 +13,104 @@ var _read_requested := false
 var _busy := false
 var _started := false
 var _debounce: Timer
+var _store_loaded := false
+var _owner_id := ""
+var _boards: Dictionary = {}
+
+func _save_path() -> String:
+	return "user://leaderboard_%s_%s.json" % ["dev" if _backend()._uses_dev() else "production", str(_backend()._url()).sha256_text().left(16)]
+
+func _ensure_store_loaded() -> void:
+	if _store_loaded:
+		return
+	_store_loaded = true
+	var file := FileAccess.open(_save_path(), FileAccess.READ)
+	if file == null or file.get_length() > 262144:
+		return
+	var saved: Variant = JSON.parse_string(file.get_as_text())
+	if !(saved is Dictionary) or saved.get("version") != 1 or !(saved.get("owner_id") is String) or !(saved.get("boards") is Dictionary):
+		return
+	_owner_id = saved.owner_id
+	for language: String in ["ru", "en"]:
+		var board: Variant = saved.boards.get(language)
+		if _valid_saved_board(board):
+			# JSON restores numbers as floats; keep the public snapshot identical
+			# to the original integer-based server response after a restart.
+			for key: String in ["real_top", "fillers"]:
+				for row: Dictionary in board[key]:
+					row.stars = int(row.stars)
+					row.rank = int(row.rank)
+			board.total_players = int(board.total_players)
+			if board.me != null:
+				board.me.stars = int(board.me.stars)
+				if board.me.rank != null:
+					board.me.rank = int(board.me.rank)
+				if board.me.top_percent != null:
+					board.me.top_percent = int(board.me.top_percent)
+			_boards[language] = board
+
+func _save_store() -> void:
+	var path := _save_path()
+	var file := FileAccess.open(path + ".tmp", FileAccess.WRITE)
+	if file == null:
+		_debug_log("Could not save local roster")
+		return
+	file.store_string(JSON.stringify({"version":1, "owner_id":_owner_id, "boards":_boards}))
+	file.close()
+	if DirAccess.rename_absolute(path + ".tmp", path) != OK:
+		_debug_log("Could not replace local roster")
+
+func _valid_rows(rows: Variant, filler: bool, sequential: bool = true) -> bool:
+	if !(rows is Array) or rows.size() > 100:
+		return false
+	var ids := {}
+	var previous := MAX_STARS
+	for i: int in range(rows.size()):
+		var row: Variant = rows[i]
+		if !_valid_row(row) or row.is_filler != filler or ids.has(row.player_id) or int(row.stars) > previous:
+			return false
+		if sequential and int(row.rank) != i + 1:
+			return false
+		if filler and !_integer_in_range(row.stars, 30, 100):
+			return false
+		ids[row.player_id] = true
+		previous = int(row.stars)
+	return true
+
+func _valid_saved_board(board: Variant) -> bool:
+	return board is Dictionary and board.get("initialized") == true \
+		and _valid_rows(board.get("real_top"), false) and _valid_rows(board.get("fillers"), true, false) \
+		and _integer_in_range(board.get("total_players"), 0, 9223372036854775807) \
+		and board.has("me") and (board.me == null or _valid_row(board.me, true))
+
+func _merge_board(board: Dictionary, language: String) -> Dictionary:
+	# Admit every real row first. Only the remaining slots compete among fillers.
+	var real_rows: Array = board.real_top.duplicate(true)
+	var fillers: Array = board.fillers.duplicate(true)
+	var previous_fillers := fillers.size()
+	fillers.sort_custom(_rank_before)
+	fillers.resize(0 if int(board.total_players) >= 100 else mini(fillers.size(), maxi(0, 100 - real_rows.size())))
+	board.fillers = fillers
+	if fillers.size() != previous_fillers:
+		_debug_log("Local fillers retired=%d remaining=%d language=%s" % [previous_fillers-fillers.size(), fillers.size(), language])
+	var rows := real_rows + fillers.duplicate(true)
+	rows.sort_custom(_rank_before)
+	var me: Variant = board.me.duplicate(true) if board.me != null else null
+	for i: int in range(rows.size()):
+		rows[i].rank = i + 1
+		if rows[i].is_me and me != null:
+			me.rank = i + 1
+			me.top_percent = null
+	return {"top":rows, "me":me, "total_players":board.total_players, "language":language}
+
+func _rank_before(a: Dictionary, b: Dictionary) -> bool:
+	if int(a.stars) != int(b.stars):
+		return int(a.stars) > int(b.stars)
+	if a.is_filler != b.is_filler:
+		return !a.is_filler
+	if !a.is_filler:
+		return int(a.rank) < int(b.rank)
+	return str(a.player_id) < str(b.player_id)
 
 func _backend() -> Node:
 	return QuizStatistics
@@ -72,6 +170,9 @@ func sync_stars(stars: int) -> void:
 		_debounce.start()
 
 func cached_snapshot() -> Dictionary:
+	_ensure_store_loaded()
+	if _snapshot.get("language", "") != _language():
+		_snapshot = _merge_board(_boards[_language()], _language()) if _boards.has(_language()) else {}
 	return _snapshot.duplicate(true)
 
 func refresh(force: bool = false) -> void:
@@ -87,6 +188,10 @@ func refresh(force: bool = false) -> void:
 	_flush()
 
 func _on_identity_changed() -> void:
+	_store_loaded = true
+	_owner_id = ""
+	_boards.clear()
+	_save_store()
 	_snapshot.clear()
 	_cache_at_ms = -1
 	_cache_language = ""
@@ -121,6 +226,8 @@ func _valid_row(row: Variant, own: bool = false) -> bool:
 func _valid_snapshot(body: Variant, include_top: bool) -> bool:
 	if !(body is Dictionary) or body.get("ok") != true or !body.has("me"):
 		return false
+	if body.get("protocol_version") != 2 or !(body.get("owner_id") is String) or body.owner_id.is_empty() or body.owner_id.length() > 128:
+		return false
 	if body.get("language") not in ["ru", "en"]:
 		return false
 	if !_integer_in_range(body.get("total_players"), 0, 9223372036854775807):
@@ -129,30 +236,16 @@ func _valid_snapshot(body: Variant, include_top: bool) -> bool:
 		return false
 	if !include_top:
 		return true
-	var rows: Variant = body.get("top")
-	if !(rows is Array) or rows.size() > 100:
+	if !_valid_rows(body.get("top"), false) or body.top.size() > int(body.total_players):
 		return false
-	var ids: Dictionary = {}
-	var previous_stars := MAX_STARS
-	var fillers_started := false
-	var real_count := 0
-	for index: int in range(rows.size()):
-		var row: Variant = rows[index]
-		if !_valid_row(row) or int(row.rank) != index + 1 or int(row.stars) > previous_stars or ids.has(row.player_id):
-			return false
-		if row.is_filler:
-			fillers_started = true
-		else:
-			if fillers_started:
-				return false
-			real_count += 1
-		ids[row.player_id] = true
-		previous_stars = int(row.stars)
-	return real_count <= int(body.total_players) and (!fillers_started or real_count > 0)
+	if body.has("fillers"):
+		return _valid_rows(body.fillers, true) and body.fillers.size() == (100 if int(body.total_players) < 100 else 0)
+	return true
 
 func _flush() -> void:
 	if _busy or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
+	_ensure_store_loaded()
 	_busy = true
 	while _pending_stars >= 0 or _read_requested:
 		var submitted := _pending_stars
@@ -160,36 +253,59 @@ func _flush() -> void:
 		_read_requested = false
 		var request_language := _language()
 		var payload: Dictionary = {"p_include_top": include_top, "p_language": request_language}
+		var seed_requested := include_top and !_boards.has(request_language)
+		payload["p_seed_fillers"] = seed_requested
 		if submitted >= 0:
 			payload["p_stars"] = submitted
-		_debug_log("Sync: stars=%s include_top=%s" % [str(submitted) if submitted >= 0 else "read-only", include_top])
+		_debug_log("Sync: stars=%s include_top=%s seed_fillers=%s" % [str(submitted) if submitted >= 0 else "read-only", include_top, seed_requested])
 		var response: Dictionary = await _backend().leaderboard_rpc(payload)
 		var body: Variant = response.get("body")
-		if int(response.get("status", 0)) != 200 or !_valid_snapshot(body, include_top) or body.language != request_language:
+		if int(response.get("status", 0)) != 200 or !_valid_snapshot(body, include_top) or body.language != request_language \
+			or (seed_requested and !body.has("fillers")):
 			_read_requested = _read_requested or include_top
 			_debug_log("Sync failed: status=%d; pending result retained" % int(response.get("status", 0)))
 			_busy = false
 			sync_failed.emit()
 			return
+		if _owner_id != body.owner_id:
+			_owner_id = body.owner_id
+			_boards.clear()
+			_snapshot.clear()
+			_cache_at_ms = -1
+			_cache_language = ""
+			_save_store()
 		if _pending_stars == submitted:
 			_pending_stars = -1
 		var current_language := request_language == _language()
 		if include_top and current_language:
-			_snapshot = {"top": (body.top as Array).duplicate(true), "me": body.me, "total_players": body.total_players, "language": body.language}
+			if !_boards.has(request_language):
+				if !body.has("fillers"):
+					# Auth can replace the account inside the RPC. Bootstrap that new
+					# identity on the next read instead of adopting the old roster.
+					_read_requested = true
+					continue
+				_boards[request_language] = {"initialized":true, "fillers":body.fillers.duplicate(true)}
+				_debug_log("Local roster initialized: language=%s fillers=%d" % [request_language, body.fillers.size()])
+			var board: Dictionary = _boards[request_language]
+			board["real_top"] = body.top.duplicate(true)
+			board["me"] = body.me
+			board["total_players"] = body.total_players
+			_snapshot = _merge_board(board, request_language)
+			_save_store()
 			_cache_language = request_language
 			_cache_at_ms = Time.get_ticks_msec() if _pending_stars < 0 else -1
 			var filler_count := 0
 			var cis_count := 0
-			for row: Dictionary in body.top:
+			for row: Dictionary in _snapshot.top:
 				if row.is_filler:
 					filler_count += 1
 					if str(row.player_id).begins_with("filler:cis:"):
 						cis_count += 1
 			_debug_log("Top received: rows=%d real=%d fillers=%d cis=%d english=%d total_players=%d language=%s" % [
-				body.top.size(), body.top.size() - filler_count, filler_count, cis_count, filler_count-cis_count,
+				_snapshot.top.size(), _snapshot.top.size() - filler_count, filler_count, cis_count, filler_count-cis_count,
 				int(body.total_players), body.language])
 			if OS.is_debug_build():
-				for row: Dictionary in body.top:
+				for row: Dictionary in _snapshot.top:
 					_debug_log("Top: rank=%d player=%s nickname=%s stars=%d is_me=%s is_filler=%s" % [
 						int(row.rank), row.player_id, row.nickname, int(row.stars), row.is_me, row.is_filler])
 		else:

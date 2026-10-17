@@ -19,11 +19,14 @@ func row(stars: int = 80) -> Dictionary:
 	return {"player_id":"123", "nickname":"Игрок 123", "is_filler":false, "rank":1, "top_percent":null, "stars":stars}
 
 func reply(stars: int = 80, top: bool = true, language: String = "ru") -> Dictionary:
-	var body: Dictionary = {"ok":true, "me":row(stars), "total_players":1, "language":language}
+	var body: Dictionary = {"ok":true,"protocol_version":2,"owner_id":"test-owner", "me":row(stars), "total_players":1, "language":language}
 	if top:
 		var entry := row(stars)
 		entry["is_me"] = true
 		body["top"] = [entry]
+		body["fillers"] = []
+		for index: int in range(100):
+			body.fillers.append({"player_id":"filler:cis:%03d" % index,"nickname":"Ромашка%d" % index,"stars":30,"rank":index+1,"is_me":false,"is_filler":true})
 	return {"status":200, "body":body}
 
 func tokens() -> Dictionary:
@@ -126,8 +129,8 @@ func run() -> void:
 	invalid = reply().body
 	invalid.top[0].stars = -1
 	check(!client._valid_snapshot(invalid,true), "Negative score rejected")
-	check(client._valid_snapshot({"ok":true,"me":null,"top":[],"total_players":0,"language":"ru"},true), "Read-only nonparticipant accepted")
-	var percentile: Dictionary = {"ok":true,"me":{"player_id":"123","nickname":"Игрок 123","is_filler":false,"stars":140,"rank":null,"top_percent":6},"top":[],"total_players":10000,"language":"ru"}
+	check(client._valid_snapshot({"ok":true,"protocol_version":2,"owner_id":"test-owner","me":null,"top":[],"total_players":0,"language":"ru"},true), "Read-only nonparticipant accepted")
+	var percentile: Dictionary = {"ok":true,"protocol_version":2,"owner_id":"test-owner","me":{"player_id":"123","nickname":"Игрок 123","is_filler":false,"stars":140,"rank":null,"top_percent":6},"top":[],"total_players":10000,"language":"ru"}
 	check(client._valid_snapshot(percentile,true), "Own position outside top-100 accepts a percentile instead of exact rank")
 	percentile.me.top_percent = 0
 	check(!client._valid_snapshot(percentile,true), "Top zero percent rejected")
@@ -145,48 +148,14 @@ func run() -> void:
 	client.refresh(true)
 	await settle(client,transport)
 	check(client.cached_snapshot().me.rank == null and client.cached_snapshot().me.top_percent == 6 and client.cached_snapshot().total_players == 10000, "Cached own position keeps only Top N percent outside top-100")
-	# Fillers require a positive real anchor and must themselves be positive.
-	var real_entry: Dictionary = row(100)
-	real_entry["is_me"] = true
-	var filler_board: Dictionary = {"ok":true,"me":row(100),"total_players":1,"language":"ru","top":[real_entry]}
-	for index: int in range(99):
-		var stars := int(ceil(100.0 - 100.0 * index / 196.0))
-		filler_board.top.append({"player_id":"filler:cis:%03d" % (index+1),"nickname":"Ромашка%d" % index,"stars":stars,"rank":index+2,"is_me":false,"is_filler":true})
-	check(client._valid_snapshot(filler_board,true), "Positive filler ramp accepted below a positive real player")
-	transport.replies = [{"status":200,"body":filler_board}]
-	client.refresh(true)
-	await settle(client,transport)
-	check(client.cached_snapshot().top.size() == 100 and client.cached_snapshot().total_players == 1 and client.cached_snapshot().me.stars == 100, "Filler scores do not inflate real population")
-	var broken: Dictionary = filler_board.duplicate(true)
-	broken.top[1].is_me = true
-	check(!client._valid_snapshot(broken,true), "Filler cannot be current player")
-	broken = filler_board.duplicate(true)
-	broken.top[2].is_filler = false
-	check(!client._valid_snapshot(broken,true), "Real players cannot follow fillers")
-	broken = filler_board.duplicate(true)
-	broken.top[1].nickname = ""
-	check(!client._valid_snapshot(broken,true), "Missing filler nickname rejected")
-	broken = filler_board.duplicate(true)
-	broken.me = broken.top[1].duplicate(true)
-	broken.me["top_percent"] = null
-	check(!client._valid_snapshot(broken,true), "Own row cannot describe a filler")
-	broken = filler_board.duplicate(true)
-	broken.top[0].stars = 0
-	check(!client._valid_snapshot(broken,true), "Zero-star real player rejected")
-	broken = filler_board.duplicate(true)
-	broken.top[1].stars = 0
-	check(!client._valid_snapshot(broken,true), "Zero-star filler rejected")
-	broken = filler_board.duplicate(true)
-	broken.top[1].stars = 101
-	check(!client._valid_snapshot(broken,true), "Filler cannot have a higher score than the real anchor")
-	broken = filler_board.duplicate(true)
-	broken.top.pop_front()
-	for index: int in range(broken.top.size()):
-		broken.top[index].rank = index+1
-	broken.me = null
-	broken.total_players = 0
-	check(!client._valid_snapshot(broken,true), "Fillers without a positive real anchor rejected")
-	check(client._valid_snapshot({"ok":true,"me":null,"total_players":0,"top":[],"language":"ru"},true), "No positive results produces an empty leaderboard")
+	# Real-only server lists cannot contain fillers; seeding is separate.
+	var invalid_seed: Dictionary = reply().body
+	check(client._valid_snapshot(invalid_seed, true), "Separate initial roster is accepted")
+	invalid_seed.fillers[0].stars = 101
+	check(!client._valid_snapshot(invalid_seed, true), "Initial filler scores above 100 are rejected")
+	invalid_seed = reply().body
+	invalid_seed.top[0] = invalid_seed.fillers[0]
+	check(!client._valid_snapshot(invalid_seed, true), "Fillers cannot masquerade as current real leaders")
 	var language_calls: int = transport.calls.size()
 	client.language = "en"
 	transport.replies = [reply(140,true,"en")]
