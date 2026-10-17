@@ -35,7 +35,6 @@ const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portr
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
-const SETTINGS_SCROLL_SCRIPT: GDScript = preload("res://scripts/ui/settings_scroll.gd")
 
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
@@ -3722,13 +3721,14 @@ func _leave_home(action: Callable, blue_pattern: bool = false, solid_background:
 		return
 	var transition_script: GDScript = HOME_BLUE_TRANSITION_SCRIPT if blue_pattern else HOME_PAPER_TRANSITION_SCRIPT
 	_home_transition = transition_script.new() as CanvasLayer
-	if !blue_pattern:
-		_home_transition.set("header_stage_height", PORTRAIT_HEADER_HEIGHT)
-	else:
+	if blue_pattern:
 		_home_transition.set("fade_to_solid_background", solid_background)
 	add_child(_home_transition)
 	_home_transition.tree_exited.connect(Callable(self, "_trace_ad_banner").bind("home_transition_exited"), CONNECT_ONE_SHOT)
-	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
+	if blue_pattern:
+		_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action)
+	else:
+		_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action, _portrait_top_bar_content)
 
 func _open_single_player_from_home(action: Callable) -> void:
 	if is_instance_valid(_home_transition):
@@ -4488,22 +4488,11 @@ func _show_settings_popup() -> void:
 		28
 	)
 
-	# Keep the compact shell fixed; only sound and vibration belong here.
-	var scroll: SETTINGS_SCROLL_SCRIPT = SETTINGS_SCROLL_SCRIPT.new()
-	scroll.name = "SettingsScroll"
-	scroll.stage_rect = Rect2(40.0, rect.position.y + 86.0, 400.0, rect.size.y - 108.0)
-	scroll.content_origin_y = 206.0
-	# Compact Settings intentionally contains only Sound and Vibration. Keep the
-	# scroll extent equal to the visible viewport so elastic edge feedback remains
-	# available without exposing rows that do not belong to this compact variant.
-	scroll.content_height = rect.size.y - 108.0
-	content.add_child(scroll)
-	content = scroll.stage_content
-
-	_stage_settings_rows(false)
+	# Two fixed rows need no scroll container or elastic drag handling.
+	_stage_settings_rows(false, rect.position.y + 86.0 - 206.0)
 	content = previous_content
 
-func _stage_settings_rows(full_layout: bool) -> void:
+func _stage_settings_rows(full_layout: bool, row_offset_y: float = 0.0) -> void:
 	var left: float = 30.0 if full_layout else 56.0
 	var right: float = PORTRAIT_STAGE_SIZE.x - left
 	var toggle_width: float = _portrait_popup_button_rect(Rect2(0, 0, 102, 49)).size.x
@@ -4512,20 +4501,20 @@ func _stage_settings_rows(full_layout: bool) -> void:
 	var toggle_left: float = toggle_x + (102.0 - toggle_width) * 0.5
 	var label_width: float = toggle_left - left - 20.0 if full_layout else 250.0
 	var sound_label := _stage_label(
-		Rect2(left, 218.0, label_width, 42.0),
+		Rect2(left, 218.0 + row_offset_y, label_width, 42.0),
 		_settings_sound_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 	)
 	sound_label.name = "SettingsSoundLabel"
 	sound_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(sound_label)
-	_stage_settings_toggle_button(Rect2(toggle_x, 214.0, 102.0, 49.0), 3)
+	_stage_settings_toggle_button(Rect2(toggle_x, 214.0 + row_offset_y, 102.0, 49.0), 3)
 	var vibration_label := _stage_label(
-		Rect2(left, 286.0, label_width, 42.0),
+		Rect2(left, 286.0 + row_offset_y, label_width, 42.0),
 		_settings_vibration_label(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT
 	)
 	vibration_label.add_theme_font_override("font", UI_REGULAR_FONT)
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(vibration_label)
-	_stage_settings_toggle_button(Rect2(toggle_x, 282.0, 102.0, 49.0), 4)
+	_stage_settings_toggle_button(Rect2(toggle_x, 282.0 + row_offset_y, 102.0, 49.0), 4)
 	if full_layout:
 		_stage_panel(Rect2(left, 350.0, right - left, 2.0), PORTRAIT_RULE)
 		var word_base_label := _stage_label(
@@ -17611,7 +17600,7 @@ func _show_profile_screen(tab: String = "profile", return_action: Callable = Cal
 	_animate_tabbed_header(header_from, PORTRAIT_DARK_BLUE)
 	_stage_tabbed_page_background()
 	_stage_titled_navigation_header(
-		LEADERBOARD_SCREEN.localized("PROFILE_TITLE", "Профиль", "Profile"),
+		LEADERBOARD_SCREEN.localized("PLAYER_TITLE", "Игрок", "Player"),
 		"ProfileTitle", false, Callable(self, "_close_profile_screen")
 	)
 	var band := _stage_horizontal_fill(80, TABBED_PAGE_STYLE.BAND_HEIGHT, PORTRAIT_DARK_BLUE)
@@ -17619,7 +17608,6 @@ func _show_profile_screen(tab: String = "profile", return_action: Callable = Cal
 	_portrait_profile = PROFILE_SCREEN.new()
 	_portrait_profile.host = self
 	_portrait_profile.initial_tab = tab
-	_portrait_profile.heading = content.find_child("ProfileTitle", true, false)
 	_portrait_profile.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_profile)
 	_stage_portrait_ad_banner("profile")

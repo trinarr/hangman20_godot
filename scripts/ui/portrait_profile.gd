@@ -3,9 +3,9 @@ extends Control
 const SETTINGS_SCROLL = preload("res://scripts/ui/profile_settings_scroll.gd")
 const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
+const SETTINGS_TOP_PADDING := 20.0
 const COPY = preload("res://scripts/ui/portrait_leaderboard.gd")
 var host: Node
-var heading: Label
 var initial_tab := "profile"
 var selected_tab := ""
 var bottom_inset := 0.0
@@ -43,8 +43,6 @@ func select_tab(tab: String) -> void:
 	for key: String in _buttons:
 		var button: Button = _buttons[key]
 		TABS.select(button, key == tab)
-	if is_instance_valid(heading):
-		heading.text = str((_buttons[tab] as Button).get_meta("tab_title")).to_upper()
 	_layout()
 
 func _build_settings() -> void:
@@ -52,8 +50,8 @@ func _build_settings() -> void:
 	host.settings_word_language_buttons.clear()
 	settings_scroll = SETTINGS_SCROLL.new()
 	settings_scroll.name = "ProfileSettingsScroll"
-	settings_scroll.content_origin_y = 206
-	settings_scroll.content_height = 520
+	settings_scroll.content_origin_y = 206 - SETTINGS_TOP_PADDING
+	settings_scroll.content_height = 520 + SETTINGS_TOP_PADDING
 	add_child(settings_scroll)
 	_layout()
 	var previous: Control = host.content

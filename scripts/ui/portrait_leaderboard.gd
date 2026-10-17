@@ -35,8 +35,8 @@ static func localized(key: String, ru: String, en: String) -> String:
 func _ready() -> void:
 	name = "LeaderboardScreen"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_players = _tab(0, localized("LEADERBOARD_PLAYERS", "Игроки", "Players"), false)
-	_weekly = _tab(1, localized("LEADERBOARD_WEEKLY", "Недельные", "Weekly"), true)
+	_players = _tab(0, localized("LEADERBOARD_PLAYERS", "Глобальный", "Global"), false)
+	_weekly = _tab(1, localized("LEADERBOARD_WEEKLY", "Недельный", "Weekly"), true)
 	scroll = ELASTIC_SCROLL.new()
 	scroll.name = "LeaderboardScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

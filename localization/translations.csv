@@ -103,11 +103,12 @@ You can decline — the game will remain available, but the ads you see may be l
 SETTINGS_PERSONALIZED_ADS,Персонализированная реклама,Personalized Ads
 CONSENT_SAVE_ERROR,Не удалось сохранить выбор. Попробуйте ещё раз.,Could not save your choice. Please try again.
 LEADERBOARD_TITLE,Рейтинг игроков,Leaderboard
-LEADERBOARD_PLAYERS,Игроки,Players
-LEADERBOARD_WEEKLY,Недельные,Weekly
+LEADERBOARD_PLAYERS,Глобальный,Global
+LEADERBOARD_WEEKLY,Недельный,Weekly
 LEADERBOARD_LOADING,Загрузка…,Loading…
 LEADERBOARD_RETRY,Повторить,Retry
 LEADERBOARD_ERROR,Не удалось загрузить рейтинг,Couldn't load leaderboard
 LEADERBOARD_EMPTY,Пока нет участников,No players yet
 TWO_PLAYER_TITLE,2 игрока,2 players
 PROFILE_TITLE,Профиль,Profile
+PLAYER_TITLE,Игрок,Player

@@ -2,21 +2,21 @@ extends CanvasLayer
 
 const TRANSITION_SHADER: Shader = preload("res://shaders/home_paper_transition.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
-const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const MOVEMENT_SPEED: float = 0.95
 const GATHER_SECONDS: float = 0.12 / MOVEMENT_SPEED
 const GATHER_DISTANCE: float = 10.0
 const OPEN_SECONDS: float = 0.34 / MOVEMENT_SPEED
-const HEADER_FADE_OUT_SECONDS: float = 0.18
+const RIM_FADE_SECONDS: float = 0.1
 
 # _clear() runs synchronously while building the destination. Retain the
 # transition and its independent Home artwork throughout that rebuild.
-var header_stage_height: float = 80.0
 var committing: bool = false
 var _cover: ColorRect
 var _input_blocker: Control
 var _foreground: Control
 var _home_viewport: SubViewport
+var _header_viewport: SubViewport
+var _header_overlay: TextureRect
 var _material: ShaderMaterial
 var _tween: Tween
 var _fade_tween: Tween
@@ -56,14 +56,13 @@ static func warm_up(host: Node) -> void:
 	PAPER_BACKGROUND_SCRIPT.configure_material(cover_material, cover.size)
 	cover_material.set_shader_parameter("home_texture", PAPER_BACKGROUND_SCRIPT.PAPER_TEXTURE)
 	cover_material.set_shader_parameter("canvas_size", cover.size)
-	cover_material.set_shader_parameter("header_bottom", 8.0)
 	cover_material.set_shader_parameter("logo_rect", Vector4(16.0, 8.0, 32.0, 32.0))
 	cover_material.set_shader_parameter("destination_ready", true)
 	cover.material = cover_material
 	viewport.add_child(cover)
 	RenderingServer.frame_post_draw.connect(viewport.queue_free, CONNECT_ONE_SHOT)
 
-func start(home_content: Control, logo: Control, buttons: Array[Control], action: Callable) -> void:
+func start(home_content: Control, logo: Control, buttons: Array[Control], action: Callable, header: Control = null) -> void:
 	layer = 1000
 	_logo = logo
 	_buttons = buttons
@@ -74,7 +73,7 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	var logo_rect: Rect2 = anchor.get_global_rect()
 	_normalized_logo_rect = Rect2(logo_rect.position / _source_size, logo_rect.size / _source_size)
 
-	# Keep Home's background/counters on the GPU, independently of the new UI.
+	# Keep Home's full-height background on the GPU, independently of the new UI.
 	# Render once: no screen readback, and no sampling of the destination as blue.
 	_home_viewport = SubViewport.new()
 	_home_viewport.disable_3d = true
@@ -86,6 +85,16 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	home_root.theme = home_content.get_parent_control().theme
 	_home_viewport.add_child(home_root)
 	home_content.reparent(home_root, false)
+	if is_instance_valid(header):
+		_header_viewport = SubViewport.new()
+		_header_viewport.disable_3d = true
+		_header_viewport.gui_disable_input = true
+		_header_viewport.transparent_bg = true
+		_header_viewport.size = Vector2i(_source_size)
+		_header_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+		add_child(_header_viewport)
+		header.theme = home_root.theme
+		header.reparent(_header_viewport, false)
 
 	_material = ShaderMaterial.new()
 	_material.shader = TRANSITION_SHADER
@@ -97,6 +106,14 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	_cover.material = _material
 	_cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_cover)
+	if is_instance_valid(_header_viewport):
+		_header_overlay = TextureRect.new()
+		_header_overlay.name = "HomeTransitionHeader"
+		_header_overlay.texture = _header_viewport.get_texture()
+		_header_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_header_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+		_header_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_header_overlay)
 
 	# Separate foreground from the blue texture so its fade can overlap motion.
 	# The cover retains Home paper until the destination has been built.
@@ -124,12 +141,11 @@ func _input(event: InputEvent) -> void:
 func _sync_layout() -> void:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	_cover.size = viewport_size
+	if is_instance_valid(_header_overlay):
+		_header_overlay.size = viewport_size
 	_input_blocker.size = viewport_size
 	_foreground.scale = viewport_size / _source_size
 	var rect := Rect2(_normalized_logo_rect.position * viewport_size, _normalized_logo_rect.size * viewport_size)
-	_material.set_shader_parameter("header_bottom", (
-		header_stage_height + PORTRAIT_LAYOUT.safe_top_stage(viewport_size)
-	) * PORTRAIT_LAYOUT.fit_scale(viewport_size))
 	PAPER_BACKGROUND_SCRIPT.configure_material(_material, viewport_size)
 	_material.set_shader_parameter("canvas_size", viewport_size)
 	_material.set_shader_parameter("logo_rect", Vector4(rect.position.x, rect.position.y, rect.size.x, rect.size.y))
@@ -152,15 +168,17 @@ func _set_gather(amount: float) -> void:
 		_logo.call("set_departure_inset", amount * GATHER_DISTANCE)
 
 func _set_header_content_opacity(opacity: float) -> void:
-	_material.set_shader_parameter("header_content_opacity", opacity)
+	if is_instance_valid(_header_overlay):
+		_header_overlay.modulate.a = opacity
 
 func _start_gather() -> void:
 	# Keep Home behind the pieces for the entire inward movement.
 	_fade_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	# Fade both the logo and the Home actions during the inward gather. They must
+	# Fade the logo, Home actions and HUD together during the inward gather. They must
 	# be fully gone before the blue pieces start opening onto the destination.
 	_fade_tween.tween_method(_fade_logo, 1.0, 0.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_fade_tween.parallel().tween_method(_fade_buttons, 1.0, 0.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_fade_tween.parallel().tween_method(_set_header_content_opacity, 1.0, 0.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_tween.tween_method(_set_gather, 0.0, 1.0, GATHER_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_callback(_at_gather_peak)
@@ -208,9 +226,10 @@ func _start_opening() -> void:
 	_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	# Swap the paper for the real destination at maximum gather, then open.
 	_material.set_shader_parameter("destination_ready", true)
+	_material.set_shader_parameter("rim_opacity", 1.0)
 	_tween.tween_method(_set_progress, 0.0, 1.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.parallel().tween_method(_set_gather, 1.0, 0.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_tween.parallel().tween_method(_set_header_content_opacity, 1.0, 0.0, HEADER_FADE_OUT_SECONDS)
+	_tween.parallel().tween_property(_material, "shader_parameter/rim_opacity", 0.0, RIM_FADE_SECONDS).from(1.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.chain().tween_callback(queue_free)
 
 func _exit_tree() -> void:
