@@ -130,6 +130,13 @@ var button_font_size: int = 20:
 		button_font_size = value
 		_sync_label()
 
+var caption_font: Font:
+	get:
+		return _button_text_font
+	set(value):
+		_button_text_font = value if value != null else UI_FONTS.button_font()
+		_sync_label()
+
 var button_disabled: bool = false:
 	set(value):
 		button_disabled = value

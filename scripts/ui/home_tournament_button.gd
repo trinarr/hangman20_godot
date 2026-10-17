@@ -68,7 +68,7 @@ func _ready() -> void:
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.clip_text = true
-	caption.add_theme_font_override("font", FONTS.display_font())
+	caption.add_theme_font_override("font", FONTS.display_font_raster())
 	caption.add_theme_font_size_override("font_size", 18)
 	caption.add_theme_color_override("font_color", Color.WHITE)
 	TEXT_STYLE.apply_display(caption)

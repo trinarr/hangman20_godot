@@ -125,7 +125,7 @@ func _ensure_content() -> void:
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_message_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	_message_label.clip_text = true
-	_message_label.add_theme_font_override("font", UI_FONTS.button_font())
+	_message_label.add_theme_font_override("font", UI_FONTS.button_font_raster())
 	_message_label.add_theme_font_size_override("font_size", TOAST_TEXT_FONT_SIZE)
 	_message_label.add_theme_color_override("font_color", Color.WHITE)
 	_message_label.z_index = 2

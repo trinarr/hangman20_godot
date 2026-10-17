@@ -3489,6 +3489,7 @@ func _stage_portrait_popup_coin_purchase_content(
 func _apply_settings_compact_toggle_font_size(button: Control) -> void:
 	if button == null or !is_instance_valid(button):
 		return
+	button.set("caption_font", UI_FONTS.button_font_raster())
 	# Compact settings selectors (ON/OFF, language, etc.) share one caption
 	# scale. This is 15% larger than the previous 0.80 ON/OFF treatment.
 	var resolved_font_size: int = int(button.get("button_font_size"))
@@ -3683,12 +3684,6 @@ func _show_menu_screen() -> void:
 		Rect2(33.0, 670.0, 414.0, 88.32),
 		Callable(self, "_open_single_player_from_home").bind(single_player_action)
 	)
-	var leaderboard_button := _stage_main_button(
-		Rect2(100.0, 496.0, 280.0, 56.0), Callable(self, "show_leaderboard"),
-		LEADERBOARD_SCREEN.localized("LEADERBOARD_TITLE", "Рейтинг игроков", "Leaderboard"), 22
-	)
-	leaderboard_button.name = "HomeLeaderboardButton"
-	leaderboard_button.set("drop_shadow_enabled", true)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
 	tournament_button.name = "HomeTournamentButton"
 	tournament_button.stage_rect = Rect2(18, 86, 100, 108)
@@ -3696,7 +3691,7 @@ func _show_menu_screen() -> void:
 	tournament_button.z_index = 1
 	_connect_stage_button_action(tournament_button, Callable(self, "show_tournament"))
 	content.add_child(tournament_button)
-	var home_buttons: Array[Control] = [leaderboard_button, two_player_button, single_player_button, tournament_button]
+	var home_buttons: Array[Control] = [two_player_button, single_player_button, tournament_button]
 	two_player_button.name = "HomeTwoPlayerButton"
 	single_player_button.name = "HomeSinglePlayerButton"
 	two_player_button.set("drop_shadow_enabled", true)
@@ -8289,14 +8284,8 @@ func _stage_single_player_popup_theme_cards(
 		if theme_index == first_offer_theme:
 			var new_badge_text: String = tr("THEME_NEW_BADGE")
 			var new_badge_font_size: int = 12
-			var new_badge_font: Font = UI_REGULAR_FONT
-			# Measure the same weight and width axes that will render the caption.
-			var new_badge_font_variation := UI_REGULAR_FONT.duplicate() as FontVariation
-			if new_badge_font_variation != null:
-				var new_badge_font_axes: Dictionary = new_badge_font_variation.variation_opentype.duplicate()
-				new_badge_font_axes[TextServerManager.get_primary_interface().name_to_tag("wght")] = 700.0
-				new_badge_font_variation.variation_opentype = new_badge_font_axes
-				new_badge_font = new_badge_font_variation
+			# Keep the original variable weight on the hinted raster font.
+			var new_badge_font: Font = UI_FONTS.regular_font(700.0)
 			new_badge_label = Label.new()
 			new_badge_label.name = "ThemeNewBadgeLabel"
 			new_badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

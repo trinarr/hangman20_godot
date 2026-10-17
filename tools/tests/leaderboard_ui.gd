@@ -133,7 +133,7 @@ func _ready() -> void:
 	main.show_menu()
 	check(!screen._live, "Leaving screen disconnects service immediately")
 	await settle()
-	check(main.content.find_child("HomeLeaderboardButton", true, false) != null, "Home includes leaderboard entry")
+	check(main.content.find_child("HomeLeaderboardButton", true, false) == null and main.content.find_child("HomeTournamentButton", true, false) != null, "Home uses trophy entry instead of old leaderboard button")
 	main.show_custom_word()
 	await settle()
 	var two_player_title: Label = main.content.find_child("TwoPlayerTitle", true, false)

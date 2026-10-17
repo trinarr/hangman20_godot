@@ -62,7 +62,7 @@ func run() -> void:
 	check(opening_surface.name == "OpeningTabbedPage" and is_zero_approx(opening_surface.modulate.a), "New page starts transparent above Home")
 	check(main.content.get_parent() is SubViewport, "All page components render into one texture")
 	check(main._tabbed_header_tween == null, "Opening has no independent header color tween")
-	check(opening_surface.get("page_viewport").size == Vector2i(main.get_viewport().get_visible_rect().size), "Page rendering covers the physical viewport")
+	check(opening_surface.get("page_viewport").size == main.get_window().size, "Page rendering covers the physical viewport")
 	check(opening_home.get_parent() == main.ui and is_equal_approx(opening_home.modulate.a, 1.0), "Home remains intact underneath the new page")
 	main.show_leaderboard()
 	check(main._home_transition == opening_transition, "Repeated navigation cannot interrupt the opening fade")

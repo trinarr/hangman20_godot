@@ -55,6 +55,12 @@ func run() -> void:
 		var open_tween: Tween = opening.get("_tween")
 		open_tween.pause()
 		await rendered_frame()
+		var output_size := Vector2(get_viewport().get_texture().get_image().get_size())
+		check(surface.page_viewport.get_texture().get_size() == output_size,
+			page + ": page texture matches physical output resolution")
+		var logical_bounds := get_viewport().get_visible_rect()
+		check(surface.get_global_rect().size.is_equal_approx(logical_bounds.size),
+			page + ": physical texture preserves logical page bounds")
 		for active_tween: Tween in get_tree().get_processed_tweens():
 			active_tween.pause()
 		var behind: Image = await rendered_frame()
@@ -68,10 +74,24 @@ func run() -> void:
 		await rendered_frame()
 		check(!is_instance_valid(opening), page + ": opening overlay is released")
 		if page == "profile":
+			var previous_size := get_window().size
+			get_window().size = Vector2i(Vector2(previous_size) * 0.75)
+			for _frame in range(4):
+				await rendered_frame()
+			check(surface.page_viewport.get_texture().get_image().get_size() == get_window().size,
+				"Page texture follows a live window resize")
+			get_window().size = previous_size
+			for _frame in range(4):
+				await rendered_frame()
 			# Exercise real root-viewport pointer routing through the surface,
 			# rather than directly emitting a button signal.
 			var button: Button = main._portrait_profile.get("_buttons")["settings"]
-			var point := button.get_global_rect().get_center()
+			# push_input(false) accepts physical window pixels. Include both
+			# viewport stretch transforms, in addition to the CanvasItem transforms.
+			var point: Vector2 = get_viewport().get_stretch_transform() * (
+				surface.get_global_transform_with_canvas() * (
+					surface.page_viewport.get_stretch_transform() * (
+						button.get_global_transform_with_canvas() * (button.size * 0.5))))
 			var motion := InputEventMouseMotion.new()
 			motion.position = point
 			get_viewport().push_input(motion)

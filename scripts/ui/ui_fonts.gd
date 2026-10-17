@@ -4,7 +4,7 @@ const FALLBACK_DISPLAY_FONT: Font = preload("res://fonts/RobotoFlex-Variable.ttf
 const ROBOTO_FLEX_PATH: String = "res://" + "fonts/RobotoFlex-Variable.ttf"
 
 # Headings.
-const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 780.0
+const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 760.0
 const ROBOTO_FLEX_DISPLAY_WIDTH: float = 35.0
 const ROBOTO_FLEX_DISPLAY_MIN_WIDTH: float = 25.0
 const ROBOTO_FLEX_DISPLAY_GRADE: float = -10.0
@@ -45,6 +45,7 @@ const DISPLAY_BUTTON_FONT_SCALE: float = 1.25
 # A font profile is immutable at runtime. All labels/buttons using the same
 # axes can share one variation instead of creating one for every new widget.
 static var _variations: Dictionary = {}
+static var _variable_bitmap_font: FontFile
 
 static func display_button_font_size(font_size: int) -> int:
 	return maxi(1, int(round(float(font_size) * DISPLAY_BUTTON_FONT_SCALE)))
@@ -53,9 +54,10 @@ static func _roboto_flex_font(
 	weight: float,
 	width: float,
 	grade: float,
-	thin_stroke: float
+	thin_stroke: float,
+	use_msdf: bool = false
 ) -> Font:
-	var profile := Vector4(weight, width, grade, thin_stroke)
+	var profile := "%s:%s" % [Vector4(weight, width, grade, thin_stroke), use_msdf]
 	if _variations.has(profile):
 		return _variations[profile] as Font
 	if !ResourceLoader.exists(ROBOTO_FLEX_PATH):
@@ -64,6 +66,19 @@ static func _roboto_flex_font(
 	var base_font: Font = loaded_resource as Font
 	if base_font == null:
 		return FALLBACK_DISPLAY_FONT
+	# Godot MSDF cannot fill Roboto Flex's intersecting contours correctly.
+	# Only headings and large button captions use baked MSDF outlines.
+	# Body copy and small UI retain the variable source and pixel hinting.
+	var msdf_path := "res://fonts/msdf/RobotoFlexUI_%d_%d_%d_%d_%d.ttf" % [
+		int(weight), int(width), int(grade), int(thin_stroke), int(ROBOTO_FLEX_THICK_STROKE)]
+	if use_msdf and ResourceLoader.exists(msdf_path):
+		base_font = ResourceLoader.load(msdf_path) as Font
+	else:
+		if _variable_bitmap_font == null:
+			_variable_bitmap_font = base_font.duplicate() as FontFile
+			_variable_bitmap_font.multichannel_signed_distance_field = false
+			_variable_bitmap_font.hinting = TextServer.HINTING_LIGHT
+		base_font = _variable_bitmap_font
 	var variation := FontVariation.new()
 	variation.base_font = base_font
 	var text_server := TextServerManager.get_primary_interface()
@@ -90,11 +105,24 @@ static func display_font_with_width(width: float = ROBOTO_FLEX_DISPLAY_WIDTH) ->
 		ROBOTO_FLEX_DISPLAY_WEIGHT,
 		resolved_width,
 		ROBOTO_FLEX_DISPLAY_GRADE,
-		ROBOTO_FLEX_DISPLAY_THIN_STROKE
+		ROBOTO_FLEX_DISPLAY_THIN_STROKE,
+		true
 	)
 
 static func button_font() -> Font:
 	return button_font_with_width(ROBOTO_FLEX_BUTTON_WIDTH)
+
+static func display_font_raster() -> Font:
+	return _roboto_flex_font(
+		ROBOTO_FLEX_DISPLAY_WEIGHT, ROBOTO_FLEX_DISPLAY_WIDTH,
+		ROBOTO_FLEX_DISPLAY_GRADE, ROBOTO_FLEX_DISPLAY_THIN_STROKE
+	)
+
+static func button_font_raster() -> Font:
+	return _roboto_flex_font(
+		ROBOTO_FLEX_BUTTON_WEIGHT, ROBOTO_FLEX_BUTTON_WIDTH,
+		ROBOTO_FLEX_BUTTON_GRADE, ROBOTO_FLEX_BUTTON_THIN_STROKE
+	)
 
 static func button_font_with_width(width: float = ROBOTO_FLEX_BUTTON_WIDTH) -> Font:
 	var resolved_width: float = clampf(
@@ -106,12 +134,13 @@ static func button_font_with_width(width: float = ROBOTO_FLEX_BUTTON_WIDTH) -> F
 		ROBOTO_FLEX_BUTTON_WEIGHT,
 		resolved_width,
 		ROBOTO_FLEX_BUTTON_GRADE,
-		ROBOTO_FLEX_BUTTON_THIN_STROKE
+		ROBOTO_FLEX_BUTTON_THIN_STROKE,
+		true
 	)
 
-static func regular_font() -> Font:
+static func regular_font(weight: float = ROBOTO_FLEX_REGULAR_WEIGHT) -> Font:
 	return _roboto_flex_font(
-		ROBOTO_FLEX_REGULAR_WEIGHT,
+		weight,
 		ROBOTO_FLEX_REGULAR_WIDTH,
 		ROBOTO_FLEX_REGULAR_GRADE,
 		ROBOTO_FLEX_REGULAR_THIN_STROKE
