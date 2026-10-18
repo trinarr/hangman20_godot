@@ -40,7 +40,6 @@ const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 const ROUNDED_RECT_TEXTURE_MASK_SHADER: Shader = preload(
 	"res://scripts/ui/rounded_rect_texture_mask.gdshader"
 )
-const COIN_PACK_04_TEXTURE: Texture2D = preload("res://flash_assets/coin_pack_04.png")
 var _reward_chest_closed_texture_cache: Texture2D = null
 var _reward_chest_open_texture_cache: Texture2D = null
 const REWARD_CHEST_FLASH_SHADER: Shader = preload("res://shaders/reward_chest_flash.gdshader")
@@ -200,9 +199,6 @@ var PORTRAIT_ROUND_END_KEY_WAVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float
 var PORTRAIT_ROUND_END_KEY_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_scale"
 )
-var PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.paper_flip_seconds"
-)
 const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
 var PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.attempts_fade_seconds"
@@ -213,7 +209,6 @@ var PORTRAIT_ROUND_END_HINTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_flo
 var PORTRAIT_ROUND_END_HINT_BADGES_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.hint_badges_fade_seconds"
 )
-const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70
 var PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = PORTRAIT_GAME_DESIGN.get_int(
 	"timings.animations.attempts_warning.threshold"
 )
@@ -399,17 +394,8 @@ const PORTRAIT_FINAL_REWARD_COLLECT_RECT := Rect2(
 	300.0,
 	45.0
 )
-var PORTRAIT_FINAL_REWARD_CHAIN_HOLD_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.chain_hold_seconds"
-)
-var PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.icon_crossfade_seconds"
-)
 var PORTRAIT_FINAL_REWARD_REPLACE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.replace_seconds"
-)
-var PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.final_reward.background_fade_seconds"
 )
 var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.pack_bounce_scale"
@@ -445,8 +431,6 @@ var PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION: float = (
 		0.01
 	)
 )
-const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE := Vector2(28.0, 28.0)
-const PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_PLAY_GAP: float = -8.0
 var PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.home_count_seconds"
 )
@@ -491,35 +475,6 @@ var PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.ge
 	"timings.animations.hint.entrance_settle_seconds"
 )
 const PORTRAIT_GAME_HINT_BADGE_FADE_DURATION: float = 0.16
-const PORTRAIT_RESULT_SEARCH_BUTTON_SIZE: float = 44.0
-const PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE := Vector2.ONE
-const PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 0.72
-const PORTRAIT_RESULT_SEARCH_PEAK_VISUAL_SCALE := PORTRAIT_RESULT_SEARCH_REST_VISUAL_SCALE * 1.18
-const PORTRAIT_RESULT_WORD_SEARCH_GAP: float = 10.0
-const PORTRAIT_RESULT_SEARCH_SAFE_MARGIN: float = 14.0
-const PORTRAIT_RESULT_WORD_Y_OFFSET: float = 4.0
-const PORTRAIT_RESULT_SEARCH_ICON_SIZE := Vector2(24.0, 31.0)
-var PORTRAIT_RESULT_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.grow_seconds"
-)
-var PORTRAIT_RESULT_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.settle_seconds"
-)
-var PORTRAIT_RESULT_LETTER_BOUNCE_GAP: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.gap_seconds"
-)
-const PORTRAIT_RESULT_LETTER_NEIGHBOR_BOUNCE_STRENGTH: float = 0.40
-var PORTRAIT_RESULT_LETTER_BOUNCE_REFERENCE_LENGTH: float = PORTRAIT_GAME_DESIGN.get_float_range(
-	"timings.animations.result_letters.reference_length",
-	0.01,
-	100.0
-)
-var PORTRAIT_RESULT_LETTER_BOUNCE_MAX_SPEED_MULTIPLIER: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.maximum_speed_multiplier"
-)
-var PORTRAIT_RESULT_SEARCH_APPEAR_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.result_letters.search_appear_seconds"
-)
 var PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.attempt_reward.bounce_scale"
 )

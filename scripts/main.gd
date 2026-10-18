@@ -125,7 +125,6 @@ const THEME_ASSET_CACHE: GDScript = preload("res://scripts/core/theme_asset_cach
 const FLASH_STAGE_TEXTURE_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_texture.gd")
 const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/flash_stage_horizontal_fill.gd")
 const POPUP_COMPONENT: GDScript = preload("res://scripts/ui/portrait_popup.gd")
-const POPUP_STAGE_CENTER_SCRIPT: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const UI_SECONDARY_BOLD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")

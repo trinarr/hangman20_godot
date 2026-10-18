@@ -13,7 +13,6 @@ const UI_BLUE_LIGHT_BORDER := Color("#B8C4E8")
 const TEXT_DARK := Color("#121A52")
 const TEXT_SHADOW_DARK := Color(0.02, 0.04, 0.16, 0.30)
 const TEXT_PALE_BLUE := Color(0.78, 0.82, 0.96, 0.88)
-const NAV_TEXT_OUTLINE := Color(0.08, 0.12, 0.34, 0.92)
 const NAV_TEXT_SHADOW := Color(0.05, 0.08, 0.24, 0.72)
 
 # Standard buttons.

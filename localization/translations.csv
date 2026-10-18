@@ -31,7 +31,6 @@ LANGUAGE_RU_SHORT,Рус,Rus
 LANGUAGE_EN_SHORT,Eng,Eng
 ON,Вкл,On
 OFF,Выкл,Off
-RANDOM_WORD,Случайное,Random
 START_GAME,Начать игру,Start game
 TOAST_WORD_FOUND,Слово найдено,Word found
 TOAST_WORD_NOT_FOUND,Слово не найдено,Word not found
@@ -42,12 +41,8 @@ LEVEL_LABEL,Уровень,Level
 CHALLENGE_SHORT_LABEL,Сложный,Hard
 LEVEL_FAILURE,НЕУДАЧА,FAILURE
 LEVEL_COMPLETED_BONUS,Уровень пройден! Бонус: +%d,Level completed! Bonus: +%d
-CHAIN_TRY_BETTER,Вы можете лучше,You can do better
 CHOOSE_THEME,Выберите тему,Choose a category
 PLAY_GAME,Играть,Play
-CONTINUE_SELECTED_THEME,Продолжите выбранную тему,Continue the selected category
-CHALLENGE_LEVEL_PLUS_TWO_WORDS,УСЛОЖНЁННЫЙ УРОВЕНЬ • +2 СЛОВА,CHALLENGE LEVEL • +2 WORDS
-NO_THEMES_AVAILABLE,Нет доступных тем,No categories available
 EXIT_LEVEL_HEART_WARNING,Вы потеряете одну жизнь!,You will lose one life!
 EXIT_PROGRESS_WARNING,Вы потеряете свой прогресс,You will lose your progress
 EXIT_LEVEL_CONFIRM,Хотите выйти?,Exit level?
@@ -104,7 +99,6 @@ SETTINGS_PERSONALIZED_ADS,Персонализированная реклама,
 CONSENT_SAVE_ERROR,Не удалось сохранить выбор. Попробуйте ещё раз.,Could not save your choice. Please try again.
 LEADERBOARD_TITLE,Рейтинг игроков,Leaderboard
 LEADERBOARD_PLAYERS,Глобальный,Global
-LEADERBOARD_WEEKLY,Недельный,Weekly
 LEADERBOARD_LOADING,Загрузка…,Loading…
 LEADERBOARD_RETRY,Повторить,Retry
 LEADERBOARD_ERROR,Не удалось загрузить рейтинг,Couldn't load leaderboard
