@@ -14,12 +14,7 @@ const ICON_SHADOW_OFFSET_X_RATIO: float = 0.012
 const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
 const ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
 
-const NORMAL_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_left.png")
-const NORMAL_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_center.png")
-const NORMAL_RIGHT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_21_right.png")
-const PRESSED_LEFT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_23_left.png")
-const PRESSED_CENTER_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_23_center.png")
-const PRESSED_RIGHT_TEXTURE: Texture2D = preload("res://flash_assets/user_main_button_23_right.png")
+const BUTTON_BACKGROUND = preload("res://scripts/ui/procedural_button_background.gd")
 
 var _attention_bounce_scale_value: float = GAME_DESIGN.get_float_range(
 	"timings.animations.button_attention.long.scale",
@@ -66,9 +61,8 @@ enum ColorPreset {
 	CUSTOM,
 }
 
-# The PNGs are neutral grayscale masks. These tints restore the original
-# orange/blue visual language while allowing other palettes to reuse the same
-# button slices without recoloring the source assets.
+# The procedural grayscale relief retains the palette calibrated for the
+# original neutral PNG masks. Colors are shared across all button shapes.
 const ORANGE_NORMAL_TINT := UI_PALETTE.BUTTON_ORANGE
 const ORANGE_PRESSED_TINT := UI_PALETTE.BUTTON_ORANGE_PRESSED
 const ORANGE_SELECTED_TINT := UI_PALETTE.BUTTON_SELECTED_ACCENT
@@ -90,14 +84,6 @@ const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
 const BUTTON_DROP_SHADOW_PRESSED_COLOR := Color(0.07, 0.12, 0.24, 0.187)
 const BUTTON_DROP_SHADOW_OFFSET_Y: float = 3.5
 const BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y: float = 3.0
-const BUTTON_DROP_SHADOW_UNDERLAP_Y: float = 1.5
-# Keep the three slices edge-to-edge. Their destination rectangles are snapped
-# to whole pixels below, so an overlap is not needed to hide a gap. More
-# importantly, overlapping translucent slices are alpha-composited twice while
-# a long button fades in/out, which exposes the joins as brighter vertical bars.
-const BUTTON_SLICE_OVERLAP: float = 0.0
-const BUTTON_CAP_INNER_TRIM: float = 2.0
-
 var drop_shadow_enabled: bool = false:
 	set(value):
 		drop_shadow_enabled = value
@@ -250,13 +236,15 @@ var _icon_rect: TextureRect = null
 var _trailing_icon_shadow_layers: Array[TextureRect] = []
 var _trailing_icon_shadow_material: ShaderMaterial = null
 var _trailing_icon_rect: TextureRect = null
-# Long-button artwork is assembled from three slices. Keep their geometry
-# seam-safe because the complete button can be faded through CanvasItem.modulate.
+var _background: ColorRect = null
 var _attention_bounce_tween: Tween = null
 var _single_attention_shine_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
+	_background = BUTTON_BACKGROUND.new()
+	add_child(_background)
+	move_child(_background, 0)
 	_ensure_label()
 	_ensure_icon_shadow_layers()
 	_ensure_icon()
@@ -269,6 +257,7 @@ func _ready() -> void:
 	_sync_icon()
 	_sync_trailing_icon()
 	_sync_content_layout()
+	_sync_procedural_background()
 	_start_attention_bounce()
 
 func _exit_tree() -> void:
@@ -371,231 +360,29 @@ func _stop_single_attention_shine() -> void:
 	_reset_attention_shine()
 
 func _draw() -> void:
-	var use_pressed_parts: bool = selected or _is_down
-	var background_tint: Color = normal_tint
+	_sync_procedural_background()
+
+func _sync_procedural_background() -> void:
+	if !is_instance_valid(_background):
+		return
+	var pressed_relief: bool = selected or _is_down or disabled
+	var tint: Color = normal_tint
 	if disabled:
-		# Reuse the pressed relief so the disabled button has the same inverted
-		# highlight/shadow direction, but keep it neutral gray and non-interactive.
-		use_pressed_parts = true
-		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, 1.0)
+		tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, 1.0)
 	elif selected:
-		background_tint = selected_tint
+		tint = selected_tint
 	elif _is_down:
-		background_tint = pressed_tint
-	var left_texture: Texture2D = PRESSED_LEFT_TEXTURE if use_pressed_parts else NORMAL_LEFT_TEXTURE
-	var center_texture: Texture2D = PRESSED_CENTER_TEXTURE if use_pressed_parts else NORMAL_CENTER_TEXTURE
-	var right_texture: Texture2D = PRESSED_RIGHT_TEXTURE if use_pressed_parts else NORMAL_RIGHT_TEXTURE
-	var visual_size: Vector2 = size * visual_scale
-	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
+		tint = pressed_tint
+	var shadow := Color.TRANSPARENT
+	var offset := 0.0
 	if drop_shadow_enabled:
-		var shadow_uses_pressed_offset: bool = (
-			_is_down or (selected and drop_shadow_selected_uses_pressed_state)
-		)
-		var shadow_offset_y: float = (
-			BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y
-			if shadow_uses_pressed_offset
-			else BUTTON_DROP_SHADOW_OFFSET_Y
-		) * visual_scale.y
-		# Selected settings toggles use the pressed depth immediately, but retain
-		# normal shadow opacity until the user actually presses the button.
-		var shadow_color: Color = (
-			BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
-		)
-		# During the attention bounce only fade the shadow as the button grows.
-		# Keep its offset fixed so the shadow does not visually expand away from the
-		# button. The settle phase restores the alpha automatically in reverse.
+		var engaged: bool = _is_down or (selected and drop_shadow_selected_uses_pressed_state)
+		offset = BUTTON_DROP_SHADOW_PRESSED_OFFSET_Y if engaged else BUTTON_DROP_SHADOW_OFFSET_Y
+		shadow = BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
 		if !_is_down and visual_scale.y > 1.0:
-			var bounce_scale_range: float = maxf(_attention_bounce_scale_value - 1.0, 0.0001)
-			var bounce_lift_progress: float = clampf(
-				(visual_scale.y - 1.0) / bounce_scale_range,
-				0.0,
-				1.0
-			)
-			shadow_color.a *= 1.0 - bounce_lift_progress
-		# Use only the exposed lower contour of the vertically shifted capsule.
-		# This avoids the extra circular shadow bulges that the full capsule shadow
-		# created under the rounded end caps of long buttons.
-		_draw_exposed_capsule_shadow(visual_rect, shadow_offset_y, shadow_color)
-	_draw_stretchable_background(left_texture, center_texture, right_texture, visual_rect, background_tint)
-
-func _draw_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or color.a <= 0.0:
-		return
-	var shadow_rect := Rect2(rect.position + Vector2(0.0, offset_y), rect.size)
-	var radius: float = minf(shadow_rect.size.y * 0.5, shadow_rect.size.x * 0.5)
-	var left_center := Vector2(shadow_rect.position.x + radius, shadow_rect.get_center().y)
-	var right_center := Vector2(shadow_rect.end.x - radius, shadow_rect.get_center().y)
-	if shadow_rect.size.x > radius * 2.0:
-		draw_rect(
-			Rect2(
-				Vector2(left_center.x, shadow_rect.position.y),
-				Vector2(right_center.x - left_center.x, shadow_rect.size.y)
-			),
-			color
-		)
-	draw_circle(left_center, radius, color)
-	if right_center.x > left_center.x:
-		draw_circle(right_center, radius, color)
-
-func _draw_filled_capsule(rect: Rect2, color: Color) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or color.a <= 0.0:
-		return
-	var radius: float = minf(rect.size.y * 0.5, rect.size.x * 0.5)
-	var left_center := Vector2(rect.position.x + radius, rect.get_center().y)
-	var right_center := Vector2(rect.end.x - radius, rect.get_center().y)
-	if rect.size.x > radius * 2.0:
-		draw_rect(
-			Rect2(
-				Vector2(left_center.x, rect.position.y),
-				Vector2(right_center.x - left_center.x, rect.size.y)
-			),
-			color
-		)
-	draw_circle(left_center, radius, color)
-	if right_center.x > left_center.x:
-		draw_circle(right_center, radius, color)
-
-func _draw_disabled_capsule_face(rect: Rect2) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return
-	# Draw the disabled state as a single capsule instead of reusing the three-slice
-	# bitmap face. Because the disabled button is translucent, the original slice
-	# shading made its rounded end caps show through as separate internal parts.
-	# A single drawn capsule removes those seams completely.
-	var border: float = maxf(roundf(2.0 * visual_scale.y), 1.0)
-	var outer_color := Color(DEFAULT_OUTLINE_COLOR.r, DEFAULT_OUTLINE_COLOR.g, DEFAULT_OUTLINE_COLOR.b, 0.22)
-	var fill_color := Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, DISABLED_OPACITY)
-	_draw_filled_capsule(rect, outer_color)
-	var inner_rect := Rect2(
-		rect.position + Vector2(border, border),
-		Vector2(maxf(rect.size.x - border * 2.0, 0.0), maxf(rect.size.y - border * 2.0, 0.0))
-	)
-	_draw_filled_capsule(inner_rect, fill_color)
-
-func _capsule_lower_contour(rect: Rect2, arc_segments: int = 12) -> PackedVector2Array:
-	var points := PackedVector2Array()
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return points
-	var radius: float = minf(rect.size.y * 0.5, rect.size.x * 0.5)
-	var left_center := Vector2(rect.position.x + radius, rect.position.y + radius)
-	var right_center := Vector2(rect.end.x - radius, rect.position.y + radius)
-	var segment_count: int = maxi(arc_segments, 2)
-	# Leftmost midpoint -> lower-left tangent.
-	for index: int in range(segment_count + 1):
-		var progress: float = float(index) / float(segment_count)
-		var angle: float = PI - progress * PI * 0.5
-		points.append(left_center + Vector2(cos(angle), sin(angle)) * radius)
-	# Straight bottom edge between the two rounded ends.
-	if right_center.x > left_center.x:
-		points.append(Vector2(right_center.x, rect.end.y))
-	# Lower-right tangent -> rightmost midpoint.
-	for index: int in range(1, segment_count + 1):
-		var progress: float = float(index) / float(segment_count)
-		var angle: float = PI * 0.5 - progress * PI * 0.5
-		points.append(right_center + Vector2(cos(angle), sin(angle)) * radius)
-	return points
-
-func _draw_exposed_capsule_shadow(rect: Rect2, offset_y: float, color: Color) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or offset_y <= 0.0 or color.a <= 0.0:
-		return
-	# The visible part of a vertically shifted capsule is a band that follows the
-	# original lower contour. Build that exact band instead of a rectangular strip,
-	# so the shadow keeps the same rounded silhouette at both ends.
-	var inner_contour: PackedVector2Array = _capsule_lower_contour(rect)
-	if inner_contour.size() < 2:
-		return
-	var polygon := PackedVector2Array()
-	# Start the shadow slightly underneath the button artwork. This hides the thin
-	# antialiased gap that can otherwise appear between the button's lower edge and
-	# the exposed shadow band, while the opaque button face masks the overlap.
-	for point: Vector2 in inner_contour:
-		polygon.append(point - Vector2(0.0, BUTTON_DROP_SHADOW_UNDERLAP_Y * visual_scale.y))
-	for index: int in range(inner_contour.size() - 1, -1, -1):
-		polygon.append(inner_contour[index] + Vector2(0.0, offset_y))
-	draw_colored_polygon(polygon, color)
-
-func _build_slice_layout(
-	left_texture: Texture2D,
-	center_texture: Texture2D,
-	right_texture: Texture2D,
-	rect: Rect2
-) -> Dictionary:
-	var left_source_size: Vector2 = left_texture.get_size()
-	var right_source_size: Vector2 = right_texture.get_size()
-	var left_width: float = rect.size.y * left_source_size.x / left_source_size.y
-	var right_width: float = rect.size.y * right_source_size.x / right_source_size.y
-	var cap_width: float = left_width + right_width
-	if cap_width > rect.size.x:
-		var cap_fit: float = rect.size.x / cap_width
-		left_width *= cap_fit
-		right_width *= cap_fit
-
-	var snapped_left: float = roundf(rect.position.x)
-	var snapped_top: float = roundf(rect.position.y)
-	var snapped_right: float = roundf(rect.end.x)
-	var snapped_bottom: float = roundf(rect.end.y)
-	var snapped_height: float = maxf(1.0, snapped_bottom - snapped_top)
-	var total_width: float = maxf(1.0, snapped_right - snapped_left)
-
-	left_width = roundf(left_width)
-	right_width = roundf(right_width)
-	if left_width + right_width > total_width:
-		left_width = floorf(total_width * 0.5)
-		right_width = total_width - left_width
-
-	var left_rect := Rect2(Vector2(snapped_left, snapped_top), Vector2(left_width, snapped_height))
-	var right_rect := Rect2(Vector2(snapped_right - right_width, snapped_top), Vector2(right_width, snapped_height))
-	var center_left: float = left_rect.end.x
-	var center_right: float = right_rect.position.x
-	var overlap: float = minf(
-		roundf(BUTTON_SLICE_OVERLAP * visual_scale.x),
-		maxf(0.0, minf(left_width, right_width) - 1.0)
-	)
-	var center_rect := Rect2()
-	if center_right > center_left:
-		center_rect = Rect2(
-			Vector2(center_left - overlap, snapped_top),
-			Vector2(center_right - center_left + overlap * 2.0, snapped_height)
-		)
-	var left_region := Rect2(Vector2.ZERO, left_source_size)
-	var right_region := Rect2(Vector2.ZERO, right_source_size)
-	var inner_trim_left: float = minf(BUTTON_CAP_INNER_TRIM, maxf(0.0, left_source_size.x - 2.0))
-	var inner_trim_right: float = minf(BUTTON_CAP_INNER_TRIM, maxf(0.0, right_source_size.x - 2.0))
-	if inner_trim_left > 0.0:
-		left_region.size.x -= inner_trim_left
-	if inner_trim_right > 0.0:
-		right_region.position.x += inner_trim_right
-		right_region.size.x -= inner_trim_right
-	return {
-		"left_rect": left_rect,
-		"center_rect": center_rect,
-		"right_rect": right_rect,
-		"left_region": left_region,
-		"right_region": right_region,
-	}
-
-func _draw_stretchable_background(left_texture: Texture2D, center_texture: Texture2D, right_texture: Texture2D, rect: Rect2, tint: Color) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return
-
-	var layout: Dictionary = _build_slice_layout(left_texture, center_texture, right_texture, rect)
-	var center_rect: Rect2 = layout.get("center_rect", Rect2())
-	if center_rect.size.x > 0.0:
-		draw_texture_rect(center_texture, center_rect, false, tint)
-	draw_texture_rect_region(
-		left_texture,
-		layout.get("left_rect", Rect2()),
-		layout.get("left_region", Rect2()),
-		tint,
-		false
-	)
-	draw_texture_rect_region(
-		right_texture,
-		layout.get("right_rect", Rect2()),
-		layout.get("right_region", Rect2()),
-		tint,
-		false
-	)
+			var lift := clampf((visual_scale.y - 1.0) / maxf(_attention_bounce_scale_value - 1.0, 0.0001), 0.0, 1.0)
+			shadow.a *= 1.0 - lift
+	_background.configure(size, visual_scale, false, tint, pressed_relief, shadow, offset)
 
 func set_color_preset(preset: int) -> void:
 	match preset:

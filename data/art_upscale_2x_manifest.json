@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 157,
+  "file_count": 148,
   "files": [
     {
       "path": "icon.png",
@@ -611,124 +611,6 @@
       "source_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
       "target_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
       "native_2x": true
-    },
-    {
-      "path": "flash_assets/user_main_button_21_center.png",
-      "source_size": [
-        5,
-        98
-      ],
-      "target_size": [
-        5,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "510d34c9f1814d5c61f6041731cc7b4cce02d3a96143d055327fa0b6c58dece4",
-      "target_sha256": "bd0a1ce40cf547580593f07012eef59e429fc01594481671cd23ea4614f4c8b3",
-      "native_target_scale": true
-    },
-    {
-      "path": "flash_assets/user_main_button_21_left.png",
-      "source_size": [
-        47,
-        98
-      ],
-      "target_size": [
-        47,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "ce693997ccd41ee1f898c97254ca88a65c5902de6883ea8016a0ce335a197617",
-      "target_sha256": "283cfab2e5ccb6c2f586af9cecfc0275666f819a971646940da602e347ffa572",
-      "native_target_scale": true
-    },
-    {
-      "path": "flash_assets/user_main_button_21_right.png",
-      "source_size": [
-        47,
-        98
-      ],
-      "target_size": [
-        47,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "1e0283b10aafb546a304d87d44ebcbfecb0f2a2249a1bc0029656da5d73a28e8",
-      "target_sha256": "a0ef20ab861bfee5d805bf4611251b125362b88673550f2243ff28154f03c80e",
-      "native_target_scale": true
-    },
-    {
-      "path": "flash_assets/user_main_button_23_center.png",
-      "source_size": [
-        5,
-        98
-      ],
-      "target_size": [
-        5,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "68e12c8a52e3fa4aa60c6e21882a199e5d9234058786a1413bf105843d749344",
-      "target_sha256": "7b5cbbcd73a6b95a912336fd2c08ceaf6f490a4231e10b7d82639375207cf1b2",
-      "native_target_scale": true
-    },
-    {
-      "path": "flash_assets/user_main_button_23_left.png",
-      "source_size": [
-        47,
-        98
-      ],
-      "target_size": [
-        47,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "cce5d03546adaa20d02cfc921f60a02f3df855ea157370509fd9ddb653814185",
-      "target_sha256": "63599692d9cc091c4077dad12e679becfdc2fe94a9b18fc5cff921f147e5e07e",
-      "native_target_scale": true
-    },
-    {
-      "path": "flash_assets/user_main_button_23_right.png",
-      "source_size": [
-        47,
-        98
-      ],
-      "target_size": [
-        47,
-        98
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "2290500cf2747c8fec26deeb8aecf69ead8f68e0fe17f81e3ab56772e4af8a1f",
-      "target_sha256": "44943d4b2dd6c09765f049c23243764c6ff5045ed761408896f676042ce04a50",
-      "native_target_scale": true
-    },
-    {
-      "path": "flash_assets/user_round_button_36.png",
-      "source_size": [
-        62,
-        62
-      ],
-      "target_size": [
-        124,
-        124
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "eb06d14d56d867301a12abcc5be4cded4f608a2322456e87e58eb6892300bd08",
-      "target_sha256": "720f4b6baaf0a70c3a6df23fea5da5217ea7cac647e04d5acea323b888d7f4ff"
-    },
-    {
-      "path": "flash_assets/user_round_button_38.png",
-      "source_size": [
-        62,
-        62
-      ],
-      "target_size": [
-        124,
-        124
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "b6493844f5bf1d4e6f03a11ae1eb25f2b9d76d44a33a3ebe859376002f8137e8",
-      "target_sha256": "afab32d9b4467fdf3edaa7faf59db5af0320d084968bf42d75b4fda2bdcdcd9c"
     },
     {
       "path": "flash_assets/watch_ad_icon.png",
@@ -1656,20 +1538,6 @@
       "source_mode": "RGBA",
       "source_sha256": "03e12328b2e3688d0e75531324b63604c8efddb68e2324f81c9d084133e248c1",
       "target_sha256": "7026a2200d598fe5a21104e4eaefd7253a1f65bd55cb7d3c91b43c45cb71b0a4"
-    },
-    {
-      "path": "img/_______3______1_0_SHAPE_0_BOUNDS_154.49_-80.71_SIZE_270_290.png",
-      "source_size": [
-        270,
-        290
-      ],
-      "target_size": [
-        540,
-        580
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "07af9378f8c93e5d8049321e889e0eff3d5f530419ddcf7b852d16d0440f43d5",
-      "target_sha256": "8854e1957aba5a31d8cf08b78a216ffa8ee5287d98c07fa0cec38c55011245e5"
     },
     {
       "path": "img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png",

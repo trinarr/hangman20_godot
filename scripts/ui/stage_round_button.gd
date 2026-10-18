@@ -7,8 +7,7 @@ const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
-const NORMAL_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_36.png")
-const PRESSED_TEXTURE: Texture2D = preload("res://flash_assets/user_round_button_38.png")
+const BUTTON_BACKGROUND = preload("res://scripts/ui/procedural_button_background.gd")
 const ICON_VISUAL_SCALE: float = 0.82
 var _attention_bounce_scale_value: float = GAME_DESIGN.get_float_range(
 	"timings.animations.button_attention.round.scale",
@@ -55,10 +54,8 @@ enum ColorPreset {
 	CUSTOM,
 }
 
-# The round-button PNGs are neutral grayscale masks. Modulation restores the
-# authored orange visual language while allowing the same component to be
-# recolored without producing additional textures. Pressed orange matches the
-# long button; selected remains a separate blue state.
+# Procedural relief shares the original palette with long buttons. Selected
+# and pressed states invert the bevel while retaining their authored colors.
 const ORANGE_NORMAL_TINT := UI_PALETTE.BUTTON_ORANGE
 const ORANGE_PRESSED_TINT := UI_PALETTE.BUTTON_ORANGE_PRESSED
 const ORANGE_SELECTED_TINT := UI_PALETTE.BUTTON_SELECTED_ACCENT
@@ -192,6 +189,7 @@ var button_disabled: bool = false:
 			_start_attention_bounce()
 		_sync_visuals()
 
+var _background: ColorRect = null
 var _button_text_font: Font = UI_FONTS.button_font()
 var _icon_rect: TextureRect = null
 var _icon_label: Label = null
@@ -201,6 +199,10 @@ var _attention_bounce_tween: Tween = null
 
 func _ready() -> void:
 	press_scale_enabled = true
+	attention_shape_round = true
+	_background = BUTTON_BACKGROUND.new()
+	add_child(_background)
+	move_child(_background, 0)
 	_ensure_visual_nodes()
 	if !resized.is_connected(_sync_icon_layout):
 		resized.connect(_sync_icon_layout)
@@ -208,6 +210,7 @@ func _ready() -> void:
 	super._ready()
 	_sync_visuals()
 	_sync_icon_layout()
+	_sync_procedural_background()
 	_start_attention_bounce()
 
 func _exit_tree() -> void:
@@ -274,34 +277,24 @@ func _stop_attention_bounce(reset_scale: bool) -> void:
 		visual_scale = Vector2.ONE
 
 func _draw() -> void:
-	var visual_size: Vector2 = size * visual_scale
-	var visual_rect := Rect2((size - visual_size) * 0.5, visual_size)
-	if drop_shadow_enabled:
-		# Keep the regular 4 px depth, but compress the shadow to 3 px on press
-		# and reduce its opacity by 15% so the round button still feels pressed
-		# without the shadow disappearing completely.
-		var shadow_radius: float = minf(visual_size.x, visual_size.y) * 0.5
-		var shadow_offset_y: float = (
-			drop_shadow_pressed_offset_y if _is_down else drop_shadow_offset_y
-		) * visual_scale.y
-		var shadow_center: Vector2 = visual_rect.get_center() + Vector2(0.0, shadow_offset_y)
-		var shadow_color: Color = BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
-		draw_circle(shadow_center, shadow_radius, shadow_color)
+	_sync_procedural_background()
 
-	var background_texture: Texture2D = NORMAL_TEXTURE
-	var background_tint: Color = normal_tint
+func _sync_procedural_background() -> void:
+	if !is_instance_valid(_background):
+		return
+	var tint: Color = normal_tint
 	if disabled:
-		# Match the pressed button's inverted relief while keeping the disabled
-		# state neutral gray and unavailable for pointer input.
-		background_texture = PRESSED_TEXTURE
-		background_tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, disabled_visual_opacity)
+		tint = Color(DISABLED_TINT.r, DISABLED_TINT.g, DISABLED_TINT.b, disabled_visual_opacity)
 	elif selected:
-		background_texture = PRESSED_TEXTURE
-		background_tint = selected_tint
+		tint = selected_tint
 	elif _is_down:
-		background_texture = PRESSED_TEXTURE
-		background_tint = pressed_tint
-	draw_texture_rect(background_texture, visual_rect, false, background_tint)
+		tint = pressed_tint
+	var shadow := Color.TRANSPARENT
+	var offset := 0.0
+	if drop_shadow_enabled:
+		offset = drop_shadow_pressed_offset_y if _is_down else drop_shadow_offset_y
+		shadow = BUTTON_DROP_SHADOW_PRESSED_COLOR if _is_down else BUTTON_DROP_SHADOW_COLOR
+	_background.configure(size, visual_scale, true, tint, selected or _is_down or disabled, shadow, offset)
 
 func configure_text(text_value: String, disabled_value: bool = false, selected_value: bool = false, font_size_value: int = 26, disabled_overlay_alpha_value: float = 0.32) -> void:
 	icon_texture = null

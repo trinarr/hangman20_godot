@@ -50,6 +50,7 @@ var disabled: bool = false:
 
 # Long and round button components enable this behavior. Other texture buttons
 # keep their previous interaction and size.
+var attention_shape_round: bool = false
 var press_scale_enabled: bool = false
 # Scrollable parents can opt a button into normal event bubbling. This keeps a
 # stationary tap working exactly as before, while letting ScrollContainer turn a
@@ -220,4 +221,5 @@ func _sync_attention_shine_shape() -> void:
 	if _attention_shine_material == null or !is_instance_valid(_attention_shine_material):
 		return
 	var aspect_ratio: float = size.x / maxf(size.y, 1.0)
-	_attention_shine_material.set_shader_parameter("aspect_ratio", maxf(aspect_ratio, 1.0))
+	_attention_shine_material.set_shader_parameter("aspect_ratio", maxf(aspect_ratio, 0.0001))
+	_attention_shine_material.set_shader_parameter("round_shape", attention_shape_round)
