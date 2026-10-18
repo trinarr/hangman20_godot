@@ -45,7 +45,7 @@ func run() -> void:
 	page._button.pressed.emit()
 	await settle()
 	check(page._snapshot.phase == "active" and !page._button.visible, "Join starts tournament and hides claim action")
-	check(page.rows.get_child_count() == 9 and page.podium.get_child_count() == 3, "Podium plus seven remaining players and bottom inset")
+	check(page.rows.get_child_count() == 8 and page.podium.get_child_count() == 3, "Podium plus seven remaining players")
 	check(page.podium.get_node("PodiumPlace1").size.y > 3 * 66, "Top-three cards are larger than ordinary rows")
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	main._grant_remaining_attempt_star_reward({}, true)
@@ -96,7 +96,7 @@ func run() -> void:
 	page.refresh()
 	await settle()
 	check(page._snapshot.phase == "finished" and page._button.visible, "Finished state exposes reward button")
-	check(int(page._snapshot.reward) == 200 and page._button.text.contains("200"), "Winner button displays 200 coins")
+	check(int(page._snapshot.reward) == 200 and page._button.button_text.contains("200"), "Winner button displays 200 coins")
 	var coins_before := GameState.get_soft_currency()
 	page._button.pressed.emit()
 	await settle()
@@ -107,7 +107,7 @@ func run() -> void:
 		Database.interface_language = language
 		TranslationServer.set_locale(language)
 		page.refresh()
-		check(page._button.text == ("Новый турнир" if language == "ru" else "New tournament"), "Localized next-tournament action")
+		check(page._button.button_text == ("НОВЫЙ ТУРНИР" if language == "ru" else "NEW TOURNAMENT"), "Localized next-tournament action")
 	view.set_bottom_inset(50)
 	await settle()
 	check(page.get_global_rect().end.y <= (view.size.y - 62) * view.scale.y + 1, "Tournament respects banner inset")

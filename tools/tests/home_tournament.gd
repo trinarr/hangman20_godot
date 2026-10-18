@@ -37,7 +37,7 @@ func run() -> void:
 	check(button != null and button.visible, "Home includes tournament shortcut")
 	check(button.stage_rect.position.x < 120 and button.stage_rect.position.y < 142.8, "Shortcut sits left above logo")
 	check(button in main._home_start_buttons, "Shortcut participates in Home entrance/departure")
-	check(button.caption.text in ["Уровень 5", "Level 5"], "Locked shortcut shows unlock level")
+	check(button.caption.text in ["УРОВЕНЬ 5", "LEVEL 5"], "Locked shortcut shows unlock level")
 	check(button.find_child("TrophyCircle", true, false) == null and button._lock.visible, "Locked trophy shows lock without circle backing")
 	var trophy: TextureRect = button.find_child("TrophyIcon", true, false)
 	check(trophy.size == Vector2(72, 72) and trophy.position == Vector2(14, 14), "Trophy retains enlarged size and is raised by five units")
@@ -64,7 +64,7 @@ func run() -> void:
 		Database.interface_language = language
 		TranslationServer.set_locale(language)
 		button.refresh()
-		check(button.caption.text == ("Уровень 5" if language == "ru" else "Level 5"), "Unlock level localized")
+		check(button.caption.text == ("УРОВЕНЬ 5" if language == "ru" else "LEVEL 5"), "Unlock level localized")
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	check(GameState.start_tournament(), "Unlocked user can explicitly join")
 	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
@@ -76,7 +76,7 @@ func run() -> void:
 	check(button.caption.text == "06:59:59", "Visible shortcut updates on timer tick")
 	now = int(GameState.tournament_state.ends_at)
 	button.refresh()
-	check(button.caption.text == "Tournament", "Expired tournament restores title")
+	check(button.caption.text == "TOURNAMENT", "Expired tournament restores title")
 	button.pressed.emit()
 	check(is_instance_valid(main._home_transition), "Unlocked tap starts existing whole-page transition")
 	await get_tree().create_timer(0.4).timeout
@@ -91,7 +91,7 @@ func run() -> void:
 	main.show_menu()
 	await settle()
 	var restored: Control = main.content.find_child("HomeTournamentButton", true, false)
-	check(restored != null and restored.caption.text == "Tournament", "Returning Home rebuilds correct shortcut state")
+	check(restored != null and restored.caption.text == "TOURNAMENT", "Returning Home rebuilds correct shortcut state")
 	var callbacks_before := GameState.tournament_changed.get_connections().size()
 	main.queue_free()
 	await settle()

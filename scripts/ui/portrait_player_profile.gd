@@ -1,112 +1,109 @@
 extends Control
-## Logical 480-unit body: the identity card is fixed; only statistics scroll.
+## Logical 480-unit body: centered identity stays fixed; statistics scroll.
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 const AVATAR = preload("res://scripts/ui/profile_avatar_button.gd")
-const STAR = preload("res://flash_assets/star_currency_icon.png")
-const ICONS := {
-	"stars_earned": preload("res://assets/profile/stars.png"),
-	"levels_completed": preload("res://assets/profile/levels.png"),
-	"hard_levels_completed": preload("res://assets/profile/hard.png"),
-	"quizzes_solved": preload("res://assets/profile/quiz.png"),
-	"words_solved": preload("res://assets/profile/words.png"),
-}
-var identity: Panel
+const ROUND_BUTTON = preload("res://scripts/ui/stage_round_button.gd")
+const LINE_ICON = preload("res://scripts/ui/profile_line_icon.gd")
+const ICON_EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
+const PENCIL = preload("res://assets/profile/pencil.png")
+const STAT_KEYS := ["stars_earned", "levels_completed", "hard_levels_completed", "quizzes_solved", "words_solved"]
+var identity: Control
 var statistics_scroll: ScrollContainer
 var _nickname: Label
-var _balance: Label
+var _avatar: Button
 var _values: Dictionary = {}
 
 func _ready() -> void:
 	name = "PlayerProfileBody"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	identity = _panel(self, Rect2(18, 16, 444, 128), PALETTE.UI_BLUE_DARK)
+	identity = Control.new()
 	identity.name = "PlayerIdentity"
-	var avatar := AVATAR.new()
-	avatar.name = "ProfileAvatar"
-	avatar.position = Vector2(16, 16)
-	avatar.size = Vector2(96, 96)
-	avatar.disabled = true
-	identity.add_child(avatar)
-	_nickname = _label(identity, Rect2(132, 17, 292, 45), "", 30, FONTS.regular_font(700.0))
+	identity.position = Vector2(18, 14)
+	identity.size = Vector2(444, 176)
+	identity.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(identity)
+	_avatar = AVATAR.new()
+	_avatar.name = "ProfileAvatar"
+	_avatar.position = Vector2(163.5, 4)
+	_avatar.size = Vector2(117, 117)
+	_avatar.configure_profile_appearance(_avatar.size.x)
+	_avatar.extra_hit_rect = Rect2(95, -8, 36, 36)
+	identity.add_child(_avatar)
+	var edit := ROUND_BUTTON.new()
+	edit.name = "ProfileAvatarEdit"
+	edit.use_stage_layout = false
+	edit.stage_rect = _avatar.extra_hit_rect
+	edit.set_color_preset(ROUND_BUTTON.ColorPreset.BLUE)
+	edit.drop_shadow_enabled = true
+	_avatar.add_child(edit)
+	# The avatar owns input and the complete press transform, including the badge.
+	edit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var art := Control.new()
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.position = Vector2(8, 8)
+	art.size = Vector2(20, 20)
+	edit.add_child(art)
+	ICON_EXTRUSION._add_portrait_icon_with_extrusion_to_holder(art, PENCIL, "Pencil", 1, 0.50, 0.70)
+	_nickname = _label(identity, Rect2(78, 124, 288, 46), "", 26, FONTS.regular_font())
 	_nickname.name = "PlayerNickname"
+	_nickname.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	TEXT_STYLE.apply_regular_display(_nickname)
-	_icon(identity, STAR, Rect2(133, 77, 29, 29))
-	_balance = _label(identity, Rect2(172, 67, 250, 43), "", 29, FONTS.regular_font(700.0))
-	_balance.name = "PlayerCurrentStars"
-	TEXT_STYLE.apply_regular_display(_balance)
 	statistics_scroll = SCROLL.new()
 	statistics_scroll.name = "ProfileStatisticsScroll"
-	statistics_scroll.position = Vector2(18, 158)
+	statistics_scroll.position = Vector2(18, 208)
 	add_child(statistics_scroll)
-	var content := VBoxContainer.new()
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 12)
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	statistics_scroll.set_list(content)
-	var title := _label(content, Rect2(0, 0, 444, 38), tr("PROFILE_STATISTICS"), 25, FONTS.display_font())
-	title.custom_minimum_size = Vector2(444, 38)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	TEXT_STYLE.apply_display(title)
-	var large := HBoxContainer.new()
-	large.add_theme_constant_override("separation", 12)
-	large.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(large)
-	for key: String in ["stars_earned", "levels_completed"]:
-		large.add_child(_stat_card(key, true))
-	var small := HBoxContainer.new()
-	small.add_theme_constant_override("separation", 12)
-	small.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(small)
-	for key: String in ["hard_levels_completed", "quizzes_solved", "words_solved"]:
-		small.add_child(_stat_card(key, false))
-	var padding := Control.new()
-	padding.custom_minimum_size.y = 18
-	padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(padding)
+	var panel := _panel(null, Rect2(0, 0, 444, 340), PALETTE.UI_BLUE_DARK)
+	panel.name = "ProfileStatisticsList"
+	panel.custom_minimum_size = Vector2(444, 340)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	statistics_scroll.set_list(panel)
+	for index in range(STAT_KEYS.size()):
+		_stat_row(panel, STAT_KEYS[index], index)
 	resized.connect(_layout)
-	GameState.stars_changed.connect(_on_stars_changed)
 	refresh()
 	_layout()
 
-func _stat_card(key: String, large: bool) -> Control:
-	var width := 216.0 if large else 140.0
-	var height := 156.0 if large else 184.0
-	var card := _panel(null, Rect2(0, 0, width, height), PALETTE.UI_BLUE_DARK)
-	card.name = "ProfileStat_" + key
-	card.custom_minimum_size = Vector2(width, height)
-	_icon(card, ICONS[key], Rect2(15, 19, 72, 72) if large else Rect2(43, 14, 54, 54))
-	var value := _label(card, Rect2(95, 25, 109, 60) if large else Rect2(10, 71, 120, 43), "0", 44 if large else 32, FONTS.regular_font(700.0))
-	value.name = "StatValue"
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	TEXT_STYLE.apply_regular_display(value)
-	_values[key] = value
-	var description := _label(card, Rect2(12, 96, width - 24, 52) if large else Rect2(8, 116, width - 16, 62), tr("PROFILE_STAT_" + key.to_upper()), 20 if large else 16, FONTS.regular_font())
+func _stat_row(parent: Control, key: String, index: int) -> void:
+	var row := Control.new()
+	row.name = "ProfileStat_" + key
+	row.position = Vector2(0, 10 + index * 64)
+	row.size = Vector2(444, 64)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(row)
+	_vector_icon(row, key, Rect2(18, 18, 28, 28))
+	var description := _label(row, Rect2(60, 4, 274, 56), tr("PROFILE_STAT_" + key.to_upper()), 20, FONTS.regular_font())
 	description.name = "StatDescription"
-	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return card
+	var value := _label(row, Rect2(344, 4, 82, 56), "0", 26, FONTS.regular_font())
+	value.name = "StatValue"
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_values[key] = value
+	if index < STAT_KEYS.size() - 1:
+		var rule := ColorRect.new()
+		rule.name = "StatDivider"
+		rule.position = Vector2(18, 63)
+		rule.size = Vector2(408, 2)
+		rule.color = PALETTE.UI_BLUE_RULE
+		rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(rule)
 
 func refresh() -> void:
 	if !is_node_ready():
 		return
 	_nickname.text = GameState.player_name if !GameState.player_name.is_empty() else tr("PROFILE_DEFAULT_NAME")
-	_balance.text = str(GameState.get_stars())
+	_avatar.refresh_character()
 	var totals := GameState.get_profile_statistics()
 	for key: String in _values:
 		var label: Label = _values[key]
 		label.text = str(totals.get(key, 0))
 		var font := label.get_theme_font("font")
-		var font_size := 44 if key in ["stars_earned", "levels_completed"] else 32
-		while font_size > 16 and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > label.size.x - 8:
+		var font_size := 26
+		while font_size > 12 and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > label.size.x:
 			font_size -= 1
 		label.add_theme_font_size_override("font_size", font_size)
-
-func _on_stars_changed(_balance_value: int) -> void:
-	refresh()
 
 func _layout() -> void:
 	statistics_scroll.size = Vector2(444, maxf(40, size.y - statistics_scroll.position.y))
@@ -135,14 +132,12 @@ func _label(parent: Control, rect: Rect2, text: String, font_size: int, font: Fo
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	parent.add_child(label)
+	TEXT_STYLE.apply_regular_display(label)
 	return label
 
-func _icon(parent: Control, texture: Texture2D, rect: Rect2) -> void:
-	var icon := TextureRect.new()
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.texture = texture
+func _vector_icon(parent: Control, kind: String, rect: Rect2) -> void:
+	var icon := LINE_ICON.new()
+	icon.kind = kind
 	icon.position = rect.position
 	icon.size = rect.size
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(icon)

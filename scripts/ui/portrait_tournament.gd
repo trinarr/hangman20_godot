@@ -7,13 +7,16 @@ const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const STAR = preload("res://flash_assets/star_currency_icon.png")
 const COIN = preload("res://flash_assets/soft_currency_coin.png")
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
+const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
+# Matches the two-player word-entry CTA after footer sizing (300 * .85 * 1.1 * 1.15, 64 * 1.1).
+const ACTION_BUTTON_SIZE := Vector2(322.575, 70.4)
 var scroll: ScrollContainer
 var rows: VBoxContainer
 var podium: Control
 var own_row: Control
 var _title: Label
 var _hint: Label
-var _button: Button
+var _button: StageLongButton
 var _error: Label
 var _timer: Timer
 var _snapshot: Dictionary = {}
@@ -43,13 +46,12 @@ func _ready() -> void:
 	rows.add_theme_constant_override("separation", 10)
 	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scroll.set_list(rows)
-	_button = Button.new()
+	_button = LONG_BUTTON.new()
 	_button.name = "TournamentAction"
-	_button.add_theme_font_override("font", FONTS.display_font())
-	_button.add_theme_font_size_override("font_size", 25)
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		_button.add_theme_stylebox_override(state, CARD.face_style(PALETTE.BUTTON_ORANGE))
-		_button.add_theme_color_override("font_color" if state == "normal" else "font_%s_color" % state, PALETTE.TEXT_DARK)
+	_button.use_stage_layout = false
+	_button.configure("", FONTS.display_button_font_size(25))
+	_button.set_color_preset(LONG_BUTTON.ColorPreset.ORANGE)
+	_button.drop_shadow_enabled = true
 	_button.pressed.connect(_action)
 	add_child(_button)
 	_error = _label(self, Rect2(18, 0, 444, 30), "", 16, Color.WHITE)
@@ -71,7 +73,7 @@ func refresh() -> void:
 	_snapshot = GameState.get_tournament_snapshot()
 	var phase := str(_snapshot.phase)
 	_button.visible = phase != "active"
-	_button.disabled = !_snapshot.unlocked and phase == "idle"
+	_button.button_disabled = !_snapshot.unlocked and phase == "idle"
 	if phase == "active":
 		var remaining := int(_snapshot.remaining)
 		_title.text = _tr("TOURNAMENT_REMAINING", "До конца: %s", "Time left: %s") % ("%02d:%02d:%02d" % [remaining / 3600, (remaining / 60) % 60, remaining % 60])
@@ -79,11 +81,11 @@ func refresh() -> void:
 	elif phase == "finished" or phase == "claimed":
 		_title.text = _tr("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished")
 		_hint.text = _tr("TOURNAMENT_PLACE", "Ваше место: %d", "Your place: %d") % int(_snapshot.rank)
-		_button.text = _tr("TOURNAMENT_NEXT", "Новый турнир", "New tournament") if phase == "claimed" else (_tr("TOURNAMENT_CLAIM", "Забрать %d монет", "Claim %d coins") % int(_snapshot.reward) if int(_snapshot.reward) > 0 else _tr("COMMON_CONTINUE", "Продолжить", "Continue"))
+		_button.button_text = _tr("TOURNAMENT_NEXT", "Новый турнир", "New tournament") if phase == "claimed" else (_tr("TOURNAMENT_CLAIM", "Забрать %d монет", "Claim %d coins") % int(_snapshot.reward) if int(_snapshot.reward) > 0 else _tr("COMMON_CONTINUE", "Продолжить", "Continue"))
 	else:
 		_title.text = _tr("TOURNAMENT_TITLE", "Турнир", "Tournament")
 		_hint.text = _tr("TOURNAMENT_INTRO", "%d часов · 10 участников · 3 призовых места", "%d hours · 10 players · 3 prize places") % (int(_snapshot.duration) / 3600)
-		_button.text = _tr("TOURNAMENT_JOIN", "Участвовать", "Join")
+		_button.button_text = _tr("TOURNAMENT_JOIN", "Участвовать", "Join")
 		if !_snapshot.unlocked:
 			_hint.text = _tr("TOURNAMENT_LOCKED", "Завершите уровень %d для участия", "Complete level %d to join") % int(_snapshot.unlock_level)
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
@@ -118,10 +120,6 @@ func _rebuild(preview: bool) -> void:
 			rows.add_child(card)
 			if bool(entry.mine):
 				own_row = card
-		var spacer := Control.new()
-		spacer.custom_minimum_size.y = 86
-		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rows.add_child(spacer)
 	scroll.scroll_vertical = previous_scroll
 
 func _name(entry: Dictionary) -> String:
@@ -225,11 +223,10 @@ func _shrink(label: Label, minimum: int) -> void:
 func _layout() -> void:
 	if !is_node_ready():
 		return
-	var action_height := 86.0 if _button.visible else 0.0
+	var action_height := ACTION_BUTTON_SIZE.y + 32.0 if _button.visible else 0.0
 	scroll.position = Vector2(18, 94)
 	scroll.size = Vector2(444, maxf(80, size.y - 94 - action_height))
-	_button.position = Vector2(50, size.y - 68)
-	_button.size = Vector2(380, 54)
+	_button.stage_rect = Rect2(Vector2((480.0 - ACTION_BUTTON_SIZE.x) * 0.5, size.y - 14.0 - ACTION_BUTTON_SIZE.y), ACTION_BUTTON_SIZE)
 	_error.position.y = size.y - 100
 
 func _action() -> void:

@@ -1559,7 +1559,10 @@ func _stage_currency_counter(
 	var counter_rect: Rect2 = rect if rect.size.x > 0.0 and rect.size.y > 0.0 else PORTRAIT_CURRENCY_COUNTER_RECT
 	_portrait_active_currency_counter_rect = counter_rect
 	var counter_scale: float = counter_rect.size.y / 48.0
-	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
+	var panel_color: Color = PORTRAIT_UI_PALETTE.with_alpha(
+		PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE,
+		PORTRAIT_UI_PALETTE.RESOURCE_COUNTER_OPACITY
+	)
 	# Keep resource counters pressable in the shop as well. Their action is
 	# resolved centrally below so pressing them while the shop is already open
 	# only plays the normal press feedback instead of rebuilding the same screen.
@@ -1669,7 +1672,10 @@ func _stage_centered_coin_only_counter(
 	if track_as_active_counter:
 		_portrait_active_currency_counter_rect = counter_rect
 	var counter_scale: float = counter_rect.size.y / 48.0
-	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
+	var panel_color: Color = PORTRAIT_UI_PALETTE.with_alpha(
+		PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE,
+		PORTRAIT_UI_PALETTE.RESOURCE_COUNTER_OPACITY
+	)
 	var counter_is_interactive: bool = interactive and _portrait_ads_enabled()
 	var counter_parent_content: Control = content
 	var counter_visual := Control.new()
@@ -1753,7 +1759,10 @@ func _stage_star_counter(
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
 	var counter_scale: float = counter_rect.size.y / 48.0
-	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
+	var panel_color: Color = PORTRAIT_UI_PALETTE.with_alpha(
+		PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE,
+		PORTRAIT_UI_PALETTE.RESOURCE_COUNTER_OPACITY
+	)
 	var counter_parent_content: Control = content
 	var counter_visual := Control.new()
 	counter_visual.name = "StarCounterVisual"
@@ -1900,7 +1909,10 @@ func _stage_heart_counter(
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
 		content = _portrait_top_bar_content
 	var counter_scale: float = counter_rect.size.y / 48.0
-	var panel_color: Color = PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE
+	var panel_color: Color = PORTRAIT_UI_PALETTE.with_alpha(
+		PORTRAIT_CHALLENGE_HUD_PANEL if challenge_colors else PORTRAIT_DARK_BLUE,
+		PORTRAIT_UI_PALETTE.RESOURCE_COUNTER_OPACITY
+	)
 	var resolved_hearts: int = GameState.get_hearts()
 	# A full inventory has no available action: omit both the invisible hit area
 	# and the plus badge so the complete heart plate behaves as static UI.
@@ -3641,7 +3653,7 @@ func _show_menu_screen() -> void:
 	)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
 	tournament_button.name = "HomeTournamentButton"
-	tournament_button.stage_rect = Rect2(18, 96, 100, 108)
+	tournament_button.stage_rect = Rect2(18, 106, 100, 108)
 	# Render over the paper reveal without modifying its logo or tear geometry.
 	tournament_button.z_index = 1
 	_connect_stage_button_action(tournament_button, Callable(self, "show_tournament"))
@@ -17535,7 +17547,9 @@ func _stage_home_avatar_button() -> void:
 	var holder := _stage_holder(PORTRAIT_HOME_AVATAR_RECT)
 	var avatar := AVATAR_BUTTON.new()
 	avatar.name = "HomeAvatarButton"
-	avatar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar.size = PORTRAIT_HOME_AVATAR_RECT.size
+	avatar.configure_profile_appearance(PORTRAIT_HOME_AVATAR_RECT.size.x)
+	avatar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_connect_stage_button_action(avatar, Callable(self, "show_profile"))
 	holder.add_child(avatar)
 	content = previous_content

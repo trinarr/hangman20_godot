@@ -47,7 +47,8 @@ func run() -> void:
 	await settle()
 	var avatar: Button = main.content.find_child("HomeAvatarButton", true, false)
 	check(avatar != null, "Home replaces settings entry with avatar")
-	check(avatar.get_theme_stylebox("normal").corner_radius_top_left == 12, "Avatar slot has rounded square style")
+	check(avatar.has_node("AvatarPaperBackground") and avatar.frame_color == main.PORTRAIT_UI_PALETTE.BUTTON_ORANGE, "Home uses the profile frame and paper background")
+	check(avatar.size.is_equal_approx(main.PORTRAIT_HOME_AVATAR_RECT.size), "Shared appearance preserves the compact Home avatar bounds")
 	avatar.button_down.emit()
 	await get_tree().create_timer(0.07).timeout
 	check(is_equal_approx(avatar.scale.x, 0.94) and avatar.pivot_offset == avatar.size * 0.5, "Avatar press shrinks around its center")
@@ -95,7 +96,23 @@ func run() -> void:
 	var player_body: Control = profile.player_profile
 	check(player_body._values.size() == 5, "Profile contains all five lifetime counters")
 	check(player_body.identity.get_parent() == player_body and !player_body.statistics_scroll.is_ancestor_of(player_body.identity), "Identity block stays outside statistics scroll")
-	check(player_body._balance.text == str(GameState.get_stars()), "Identity shows current stars independently of lifetime total")
+	check(player_body.find_child("PlayerCurrentStars", true, false) == null, "Identity omits the current-star balance")
+	var profile_avatar: Button = player_body.identity.get_node("ProfileAvatar")
+	check(!profile_avatar.disabled and profile_avatar.get_signal_connection_list("pressed").is_empty(), "Profile avatar is pressable without a navigation action")
+	check(player_body._nickname.get_rect().get_center().x == profile_avatar.get_rect().get_center().x, "Avatar and nickname share the same center")
+	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 6, "Profile avatar grows by thirty percent while retaining its frame")
+	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.has_node("AvatarPaperBackground"), "Edit badge shares the avatar transform above a paper background")
+	var statistics_list: Control = player_body.statistics_scroll.get_node("ProfileStatisticsList")
+	check(statistics_list.get_child_count() == 5 and statistics_list.find_children("StatDivider", "ColorRect", true, false).size() == 4, "Statistics share one panel with separators between all five rows")
+	var previous_hero: int = GameState.settings[5]
+	GameState.settings[5] = 2
+	player_body.refresh()
+	check(profile_avatar.avatar_texture == player_body.AVATAR.EL_TIGRE, "Profile portrait follows El Tigre selection")
+	GameState.settings[5] = 1
+	player_body.refresh()
+	check(profile_avatar.avatar_texture is AtlasTexture and profile_avatar.avatar_texture.atlas == player_body.AVATAR.LUCKY, "Profile portrait follows Lucky selection")
+	GameState.settings[5] = previous_hero
+	player_body.refresh()
 	profile.set_bottom_inset(400)
 	await settle()
 	var identity_at: Vector2 = player_body.identity.global_position
