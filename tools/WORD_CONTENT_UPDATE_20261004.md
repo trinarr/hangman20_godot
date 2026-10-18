@@ -1,5 +1,7 @@
 # Word database update — 2026-10-04
 
+> **Исторический документ.** Описывает состояние, связанное с указанным ниже патчем, датой или commit. Старые значения баланса, количества записей, результаты проверок и команды применения патчей относятся к этому состоянию. Для текущего checkout повторно применять эти патчи не нужно. Начните с [README](../README.md); актуальные команды — в [тестах](../tools/TESTS.md) и [сборке Android](../tools/EXPORT.md). Текущие значения определяют исходники и конфигурация проекта.
+
 Baseline: public 1.0 archive `hangman-2.0(20261004-094221).zip` (tracked HEAD `352df1c`). Apply this patch directly to that archive, without applying the earlier editorial patches again.
 
 ## Content

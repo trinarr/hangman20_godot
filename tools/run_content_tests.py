@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Run content/mechanics regressions with isolated Linux saves and strict logs."""
+"""Run content/mechanics regressions with isolated Windows/Linux saves and strict logs."""
 import argparse
-import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
-import tempfile
+from godot_test_runner import configure_console, has_engine_errors, isolated_environment, run_godot
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
@@ -42,27 +40,23 @@ SUITES = {
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot")
     parser.add_argument("--suite", choices=["all", *SUITES], default="all")
     args = parser.parse_args()
-    if not sys.platform.startswith("linux"):
-        parser.error("Linux is required for XDG_DATA_HOME save isolation")
     executable = shutil.which(args.godot)
     if executable is None:
         parser.error("Godot executable not found")
     failed = []
-    for name in SUITES if args.suite == "all" else [args.suite]:
+    selected = list(SUITES) if args.suite == "all" else [args.suite]
+    for name in selected:
         scene, summary = SUITES[name]
         path = f"res://tools/tests/{name}.{'tscn' if scene else 'gd'}"
-        command = [executable, "--headless", "--path", str(ROOT)]
-        command += [path] if scene else ["--script", path]
-        with tempfile.TemporaryDirectory(prefix="hangman-content-") as profile:
+        arguments = [path] if scene else ["--script", path]
+        with isolated_environment(executable, ROOT) as env:
             try:
-                result = subprocess.run(command, env={**os.environ, "XDG_DATA_HOME": profile,
-                                        "HANGMAN_SUPABASE_NETWORK_DISABLED": "1"},
-                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                        text=True, timeout=150)
+                result = run_godot(executable, ROOT, arguments, env)
             except subprocess.TimeoutExpired as error:
                 print(f"FAIL {name}: timeout", flush=True)
                 if error.stdout:
@@ -71,10 +65,11 @@ def main():
                 continue
         print(result.stdout, end="", flush=True)
         ok = (result.returncode == 0 and re.search(summary, result.stdout)
-              and not re.search(r"^(?:SCRIPT ERROR|ERROR):", result.stdout, re.MULTILINE))
+              and not has_engine_errors(result.stdout))
         print(f"{'PASS' if ok else 'FAIL'} {name}", flush=True)
         if not ok:
             failed.append(name)
+    print(f"CONTENT_TESTS suites={len(selected)} failures={len(failed)} failed={failed}", flush=True)
     return 1 if failed else 0
 
 

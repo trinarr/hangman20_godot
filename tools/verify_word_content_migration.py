@@ -8,12 +8,12 @@ from verify_easy_word_expansion import BATCH
 
 
 def main():
-    manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text())
+    manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text(encoding="utf-8"))
     assert len(manifest['merges']) == 44
     assert Counter(m['language'] for m in manifest['merges']) == {'ru': 25, 'en': 19}
     norm = lambda text: re.sub(r'[^A-ZА-Я]', '', text.upper().replace('Ё', 'Е'))
     for language in ('ru', 'en'):
-        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
+        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text(encoding="utf-8"))
         # The migration replaces release records one for one. Later additions
         # have independent IDs and do not belong to its released quota.
         entries = {e['id']: e for e in catalog['entries'] if e.get('assessment') != BATCH}

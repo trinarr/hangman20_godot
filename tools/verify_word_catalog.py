@@ -130,11 +130,11 @@ def verify_apostrophe_policy(catalog, language):
 
 def main():
     for language in ('ru', 'en'):
-        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
+        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text(encoding="utf-8"))
         validate(catalog)
         verify_apostrophe_policy(catalog, language)
         verify_easy_expansion(catalog, language)
-        manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text())
+        manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text(encoding="utf-8"))
         historical = copy.deepcopy(catalog)
         historical['entries'] = [e for e in catalog['entries']
                                  if e.get('assessment') != 'editorial_dedup_replacement_20261004']

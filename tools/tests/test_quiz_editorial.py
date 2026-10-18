@@ -7,7 +7,7 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from verify_quiz_answer_leaks import find_answer_leaks, find_duplicate_candidates, numeric_values
 
-FIXTURES = json.loads(Path(__file__).with_name("quiz_editorial_fixtures.json").read_text())
+FIXTURES = json.loads(Path(__file__).with_name("quiz_editorial_fixtures.json").read_text(encoding="utf-8"))
 
 
 class EditorialChecks(unittest.TestCase):

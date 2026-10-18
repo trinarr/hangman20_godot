@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 148,
+  "file_count": 156,
   "files": [
     {
       "path": "icon.png",
@@ -61,6 +61,36 @@
       "native_2x": true
     },
     {
+      "path": "flash_assets/custom_word_check_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "6b89dd1959f2518e15b840f6a0a6ea71e7ec0573a5a1ff9028a5a45738e0d7cc",
+      "target_sha256": "6b89dd1959f2518e15b840f6a0a6ea71e7ec0573a5a1ff9028a5a45738e0d7cc",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/custom_word_random_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "ebec543dc665881c9c71f96f1241745a562f21199e071948607ccdbc149ee980",
+      "target_sha256": "ebec543dc665881c9c71f96f1241745a562f21199e071948607ccdbc149ee980",
+      "native_2x": true
+    },
+    {
       "path": "flash_assets/custom_word_refresh_icon_341.png",
       "source_size": [
         21,
@@ -73,6 +103,21 @@
       "source_mode": "RGBA",
       "source_sha256": "360d4bf0971cbbd7760c5f4c0244201ce09a07b06c3a542246b764ef79e5d104",
       "target_sha256": "ebb4ea69d8bb474f380465695108210fa551a3aed41a0c35d3fd27355a3f00fb"
+    },
+    {
+      "path": "flash_assets/custom_word_search_loading_doodle.png",
+      "source_size": [
+        256,
+        256
+      ],
+      "target_size": [
+        256,
+        256
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "bd8bcb07808340655d94a780d4e8b0490e74d52ef145f27144aa32fecc5f0d94",
+      "target_sha256": "bd8bcb07808340655d94a780d4e8b0490e74d52ef145f27144aa32fecc5f0d94",
+      "native_2x": true
     },
     {
       "path": "flash_assets/extra_attempts_icon.png",
@@ -117,6 +162,21 @@
       "source_mode": "RGBA",
       "source_sha256": "4d2a1708518b25b27de10984b38b99843aff2501fd4f7fc8a44226e689e81350",
       "target_sha256": "23734d5b1e01adea9a8d7c30ac47b1fb8d6aa02afd7c5d588cd754f3ced1c7bc",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/hint_locked_doodle.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "target_size": [
+        1254,
+        1254
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "63936986cdcde8386b847250a20776ad93ea56e2771c5a18d6f72a15356cbb28",
+      "target_sha256": "63936986cdcde8386b847250a20776ad93ea56e2771c5a18d6f72a15356cbb28",
       "native_2x": true
     },
     {
@@ -206,7 +266,22 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "bbe12355d67e4ec76cff36945c4af2f0594e1e5332f219ba4e583fb192666a62",
-      "target_sha256": "bbe12355d67e4ec76cff36945c4af2f0594e1e5332f219ba4e583fb192666a62",
+      "target_sha256": "40e2c34e1b210df90437a174a6045ae18919aec266dba8358ac3b3e78cd4f82e",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/main_menu_logo_viselitsa_20.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "target_size": [
+        1254,
+        1254
+      ],
+      "source_mode": "RGB",
+      "source_sha256": "1f1c9d9e88f0d21901d4737a1638ae422bb9732bac99b821f54ecff8ed99f89b",
+      "target_sha256": "1f1c9d9e88f0d21901d4737a1638ae422bb9732bac99b821f54ecff8ed99f89b",
       "native_2x": true
     },
     {
@@ -236,6 +311,36 @@
       "source_mode": "RGBA",
       "source_sha256": "5e2f70ad34acc65624a24bf802c12a426e626a4ab9a363aacf4ba4451d1044a5",
       "target_sha256": "e6dc56a14aa019f98a80c757505fed9919d8ecafc587b756f3d1bdd2fe6f7d21"
+    },
+    {
+      "path": "flash_assets/reward_chest_closed.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "target_size": [
+        1254,
+        1254
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "0b0d5a3370e514fb1dd8f9e22860cebf6b617921575464873f7a737b1d1f6edf",
+      "target_sha256": "0b0d5a3370e514fb1dd8f9e22860cebf6b617921575464873f7a737b1d1f6edf",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/reward_chest_open.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "target_size": [
+        1254,
+        1254
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "f70ecc923bb034cc82987b60434a438957c5e0cc05b6ace276949a01a1b75853",
+      "target_sha256": "f70ecc923bb034cc82987b60434a438957c5e0cc05b6ace276949a01a1b75853",
+      "native_2x": true
     },
     {
       "path": "flash_assets/reward_status_check_wide.png",
@@ -610,6 +715,21 @@
       "source_mode": "LA",
       "source_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
       "target_sha256": "d804388edae444631ec095b2966ebdeb25c7163e623e43387b815d318cb7ef0d",
+      "native_2x": true
+    },
+    {
+      "path": "flash_assets/tournament_trophy_front.png",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "target_size": [
+        1254,
+        1254
+      ],
+      "source_mode": "RGBA",
+      "source_sha256": "e93d6d2e0a35823118ff2586bf272b852901822f127b70c425dd73750647dc94",
+      "target_sha256": "e93d6d2e0a35823118ff2586bf272b852901822f127b70c425dd73750647dc94",
       "native_2x": true
     },
     {

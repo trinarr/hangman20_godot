@@ -17,7 +17,7 @@ SOURCE = ROOT / 'fonts/RobotoFlex-Variable.ttf'
 OUTPUT = ROOT / 'fonts/msdf'
 
 def settings():
-    text = (ROOT / 'scripts/ui/ui_fonts.gd').read_text()
+    text = (ROOT / 'scripts/ui/ui_fonts.gd').read_text(encoding="utf-8")
     return {name: float(value) for name, value in re.findall(
         r'const (ROBOTO_FLEX_\w+): float = ([\d.-]+)', text)}
 

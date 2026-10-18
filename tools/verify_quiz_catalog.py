@@ -44,7 +44,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()
-    catalog = json.loads((ROOT / "data/quiz_catalog.json").read_text())
+    catalog = json.loads((ROOT / "data/quiz_catalog.json").read_text(encoding="utf-8"))
     ids = [r["id"] for r in catalog["records"]]
     require(len(ids) == len(set(ids)), "Duplicate catalog ID")
     retired = {int(key): value for key, value in catalog["retired_ids"].items()}
@@ -58,7 +58,7 @@ def main() -> None:
             require(retired.get(record["source_id"]) == record["id"], "Missing fresh ID for replacement")
         else:
             require(record["source_id"] == record["id"], "Existing fact lost its ID")
-    config = json.loads((ROOT / "data/game_design_config.json").read_text())
+    config = json.loads((ROOT / "data/game_design_config.json").read_text(encoding="utf-8"))
     selection = config["difficulty"]["content_selection"]
     window = selection["initial_window"]
     harder = selection["intro_max_harder"]
@@ -85,7 +85,7 @@ def main() -> None:
         path = ROOT / f"data/quiz_questions_{language}.json"
         if args.write:
             path.write_text(serialize(payload), encoding="utf-8")
-        require(json.loads(path.read_text()) == payload, f"Catalog/runtime mismatch: {path.name}; run --write")
+        require(json.loads(path.read_text(encoding="utf-8")) == payload, f"Catalog/runtime mismatch: {path.name}; run --write")
         counts = Counter(q["theme_id"] for q in questions)
         print(f"{language}: {len(questions)} questions; per theme: {dict(sorted(counts.items()))}")
         # Report actual gaps rather than silently claiming a window is populated.
@@ -100,7 +100,7 @@ def main() -> None:
                 print(f"  empty initial window: theme {theme}, "
                       f"{len(sparse)} target samples between {min(sparse):.2f} and {max(sparse):.2f}")
     exports = configparser.ConfigParser(interpolation=None)
-    exports.read(ROOT / "export_presets.cfg")
+    exports.read(ROOT / "export_presets.cfg", encoding="utf-8")
     for section in exports.sections():
         if not re.fullmatch(r"preset\.\d+", section):
             continue

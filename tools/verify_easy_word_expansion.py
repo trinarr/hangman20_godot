@@ -30,7 +30,7 @@ def normalized(text):
 
 
 def verify_retirements(additions, language):
-    archive = json.loads((ROOT / 'data/word_retirements_20261004.json').read_text())
+    archive = json.loads((ROOT / 'data/word_retirements_20261004.json').read_text(encoding="utf-8"))
     assert archive['schema_version'] == 1 and archive['revision'] == REVISION
     assert archive['source_batch'] == BATCH
     bucket = archive['languages'][language]
@@ -71,7 +71,7 @@ def verify(catalog, language):
                          sort_keys=True, separators=(',', ':')).encode()
     assert hashlib.sha256(encoded).hexdigest() == BASE_DIGESTS[language], (
         language, 'Pre-expansion records changed: IDs, text, hints or calibration')
-    manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text())
+    manifest = json.loads((ROOT / 'data/word_content_migration_v2.json').read_text(encoding="utf-8"))
     used = {normalized(e['answer']) for e in baseline}
     used.update(normalized(e['answer']) for e in retired)
     used.update(normalized(m['retired']['answer']) for m in manifest['merges']
@@ -108,7 +108,7 @@ def verify(catalog, language):
 
 def main():
     for language in ('ru', 'en'):
-        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
+        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text(encoding="utf-8"))
         verify(catalog, language)
 
 

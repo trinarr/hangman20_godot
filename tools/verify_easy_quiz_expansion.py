@@ -21,21 +21,21 @@ def require(ok, message):
 
 
 def main():
-    catalog = json.loads((ROOT / "data/quiz_catalog.json").read_text())
+    catalog = json.loads((ROOT / "data/quiz_catalog.json").read_text(encoding="utf-8"))
     require(digest([r for r in catalog["records"] if r["id"] < FIRST_ID]) == BASELINE["records"],
             "Existing editorial records changed")
     require(digest(catalog["retired_ids"]) == BASELINE["retired_ids"], "Existing quiz aliases changed")
     additions = {r["id"]: r for r in catalog["records"] if FIRST_ID <= r["id"] <= LAST_ID}
     require(set(additions) == set(range(FIRST_ID, LAST_ID + 1)), "Missing/changed new quiz IDs")
     for language in ("ru", "en"):
-        payload = json.loads((ROOT / f"data/quiz_questions_{language}.json").read_text())
+        payload = json.loads((ROOT / f"data/quiz_questions_{language}.json").read_text(encoding="utf-8"))
         questions = payload["questions"]
         original = [q for q in questions if q["id"] < FIRST_ID]
         require(len(original) == 1300 and questions[:1300] == original,
                 f"Existing runtime order changed: {language}")
         require(digest(original) == BASELINE[language + "_questions"],
                 f"Existing question/answer/difficulty/ID changed: {language}")
-        explanations = json.loads((ROOT / f"data/quiz_explanations_{language}.json").read_text())["explanations"]
+        explanations = json.loads((ROOT / f"data/quiz_explanations_{language}.json").read_text(encoding="utf-8"))["explanations"]
         old_explanations = {key: text for key, text in explanations.items() if int(key) < FIRST_ID}
         require(digest(old_explanations) == BASELINE[language + "_explanations"],
                 f"Existing explanation changed: {language}")

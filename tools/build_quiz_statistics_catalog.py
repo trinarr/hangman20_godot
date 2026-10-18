@@ -15,7 +15,7 @@ def question_key(language, question):
 def build():
     keys = []
     for language in ('ru', 'en'):
-        questions = json.loads((ROOT / f'data/quiz_questions_{language}.json').read_text())['questions']
+        questions = json.loads((ROOT / f'data/quiz_questions_{language}.json').read_text(encoding="utf-8"))['questions']
         keys.extend(question_key(language, q) for q in questions)
     assert len(keys) == len(set(keys)), 'Duplicate catalog keys'
     values = ',\n'.join("('%s')" % key for key in keys)
@@ -26,5 +26,5 @@ def build():
 
 if __name__ == '__main__':
     target = ROOT / 'supabase/migrations/002_quiz_catalog.sql'
-    target.write_text(build())
+    target.write_text(build(), encoding="utf-8")
     print(target)

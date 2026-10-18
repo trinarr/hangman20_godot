@@ -1,5 +1,7 @@
 # Portrait UI component extraction — 2026-10-04
 
+> **Исторический документ.** Описывает состояние, связанное с указанным ниже патчем, датой или commit. Старые значения баланса, количества записей, результаты проверок и команды применения патчей относятся к этому состоянию. Для текущего checkout повторно применять эти патчи не нужно. Начните с [README](../README.md); актуальные команды — в [тестах](../tools/TESTS.md) и [сборке Android](../tools/EXPORT.md). Текущие значения определяют исходники и конфигурация проекта.
+
 Apply after `hangman_20261004_word_database_dedup_migration.patch` and
 `hangman_20261004_capoeira_hint.patch` on the supplied
 `hangman-2.0(20261004-094221).zip` project.

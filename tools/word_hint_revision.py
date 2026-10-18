@@ -10,7 +10,7 @@ MANIFEST_PATH = ROOT / 'tools/word_hint_revision_20261004.json'
 
 
 def manifest():
-    result = json.loads(MANIFEST_PATH.read_text())
+    result = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     assert result['schema_version'] == 1
     assert result['revision'] == 'hint_editorial_20261004'
     return result
@@ -47,7 +47,7 @@ def verify(catalog, language):
 
 def main():
     for language in ('ru', 'en'):
-        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text())
+        catalog = json.loads((ROOT / f'data/word_catalog_{language}.json').read_text(encoding="utf-8"))
         verify(catalog, language)
 
 

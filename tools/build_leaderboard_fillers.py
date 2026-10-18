@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def build():
-    seed = json.loads((ROOT / 'supabase/seeds/leaderboard_filler_nicknames.json').read_text())
+    seed = json.loads((ROOT / 'supabase/seeds/leaderboard_filler_nicknames.json').read_text(encoding="utf-8"))
     assert seed.get('schema_version') == 1
     names = [name for pool in ('cis', 'us_europe') for name in seed[pool]]
     assert all(len(seed[pool]) == 100 for pool in ('cis', 'us_europe'))
@@ -36,7 +36,7 @@ revoke all on {schema}.fillers from public, anon, authenticated;
   on conflict (pool, slot) do update set nickname = excluded.nickname;
 ''')
     parts.append('end;\n$seed$;\n\n')
-    previous = (ROOT / 'supabase/migrations/006_leaderboard_percentile.sql').read_text()
+    previous = (ROOT / 'supabase/migrations/006_leaderboard_percentile.sql').read_text(encoding="utf-8")
     for schema, fn in [('leaderboard_private', 'leaderboard_sync'), ('leaderboard_dev_private', 'leaderboard_sync_dev')]:
         start = previous.index(f'create or replace function public.{fn}(')
         end = previous.index('to authenticated;', start) + len('to authenticated;')
@@ -83,8 +83,8 @@ if __name__ == '__main__':
     target = ROOT / 'supabase/migrations/007_leaderboard_fillers.sql'
     generated = build()
     if args.check:
-        assert target.read_text() == generated, 'Regenerate 007 with tools/build_leaderboard_fillers.py'
+        assert target.read_text(encoding="utf-8") == generated, 'Regenerate 007 with tools/build_leaderboard_fillers.py'
         print('Approved 200-name pool and generated migration match')
     else:
-        target.write_text(generated)
+        target.write_text(generated, encoding="utf-8")
         print(target)

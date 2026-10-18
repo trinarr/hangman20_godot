@@ -1,3 +1,20 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local builds
+/builds/
+*.apk
+*.aab
+*.pck
+
+# Local settings and secrets
+.env
+.env.*
+!.env.example
+export_credentials.cfg

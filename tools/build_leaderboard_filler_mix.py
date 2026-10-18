@@ -7,10 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def build():
-    seed = json.loads((ROOT / 'supabase/seeds/leaderboard_filler_nicknames_v2.json').read_text())
+    seed = json.loads((ROOT / 'supabase/seeds/leaderboard_filler_nicknames_v2.json').read_text(encoding="utf-8"))
     assert seed['schema_version'] == 2
     assert seed['cis_percent'] == {'ru':60, 'en':20}
-    previous_seed = json.loads((ROOT / "supabase/seeds/leaderboard_filler_nicknames.json").read_text())
+    previous_seed = json.loads((ROOT / "supabase/seeds/leaderboard_filler_nicknames.json").read_text(encoding="utf-8"))
     names = []
     for pool in ['cis','us_europe']:
         assert len(seed[pool]) == 100
@@ -36,7 +36,7 @@ def build():
   on conflict (pool, slot) do update set nickname=excluded.nickname, style=excluded.style;
 ''')
     parts.append('end;\n$seed$;\n\n')
-    previous=(ROOT/'supabase/migrations/007_leaderboard_fillers.sql').read_text()
+    previous=(ROOT/'supabase/migrations/007_leaderboard_fillers.sql').read_text(encoding="utf-8")
     for schema,fn in [('leaderboard_private','leaderboard_sync'),('leaderboard_dev_private','leaderboard_sync_dev')]:
         start=previous.index(f'create or replace function public.{fn}(')
         end=previous.index('to authenticated;',start)+len('to authenticated;')
@@ -76,8 +76,8 @@ if __name__ == '__main__':
     target=ROOT/'supabase/migrations/008_leaderboard_filler_mix.sql'
     generated=build()
     if args.check:
-        assert target.read_text()==generated, 'Regenerate 008 with tools/build_leaderboard_filler_mix.py'
+        assert target.read_text(encoding="utf-8")==generated, 'Regenerate 008 with tools/build_leaderboard_filler_mix.py'
         print('200 names, 20 slang per pool, percentage rules and migration 008 match')
     else:
-        target.write_text(generated)
+        target.write_text(generated, encoding="utf-8")
         print(target)
