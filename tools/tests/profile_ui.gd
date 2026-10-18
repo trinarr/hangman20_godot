@@ -98,7 +98,7 @@ func run() -> void:
 	check(player_body.identity.get_parent() == player_body and !player_body.statistics_scroll.is_ancestor_of(player_body.identity), "Identity block stays outside statistics scroll")
 	check(player_body.find_child("PlayerCurrentStars", true, false) == null, "Identity omits the current-star balance")
 	var profile_avatar: Button = player_body.identity.get_node("ProfileAvatar")
-	check(!profile_avatar.disabled and profile_avatar.get_signal_connection_list("pressed").is_empty(), "Profile avatar is pressable without a navigation action")
+	check(!profile_avatar.disabled and profile_avatar.pressed.is_connected(player_body._open_editor), "Profile avatar opens the draft editor")
 	check(player_body._nickname.get_rect().get_center().x == profile_avatar.get_rect().get_center().x, "Avatar and nickname share the same center")
 	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 6, "Profile avatar grows by thirty percent while retaining its frame")
 	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.has_node("AvatarPaperBackground"), "Edit badge shares the avatar transform above a paper background")
@@ -113,6 +113,80 @@ func run() -> void:
 	check(profile_avatar.avatar_texture is AtlasTexture and profile_avatar.avatar_texture.atlas == player_body.AVATAR.LUCKY, "Profile portrait follows Lucky selection")
 	GameState.settings[5] = previous_hero
 	player_body.refresh()
+	check(profile_avatar._image.texture == profile_avatar._portrait_viewport.get_texture(), "Avatar displays a cropped full-character viewport")
+	var saved_name := GameState.player_name
+	profile_avatar.pressed.emit()
+	profile_avatar.pressed.emit()
+	var editor: CanvasLayer = player_body._editor
+	check(editor._form.visible and editor._portrait.visible and !editor.close_button.visible, "Complete form starts behind the avatar mask with the close icon hidden")
+	while !editor._prepared:
+		await get_tree().process_frame
+	editor._tween.stop()
+	editor._bounce_scale = editor.CENTER.OPEN_START_FACTOR
+	editor._set_progress(0.0)
+	check(editor._shell.get_rect().is_equal_approx(editor._start_rect), "Initial popup mask matches the captured avatar frame")
+	var paper_unit: float = editor._paper.material.get_shader_parameter("paper_unit")
+	var surface_scale: float = editor._surface.scale.x * editor._surface.size.x / editor.FORM_SIZE.x
+	check(is_equal_approx(paper_unit * surface_scale, editor._initial_paper_unit), "Initial popup cells match the avatar cells")
+	editor._tween.custom_step(0.16)
+	check(!editor._portrait.visible and !editor.close_button.visible and !editor._opened, "Growth reveals the full character before the close icon appears")
+	editor._tween.custom_step(0.12)
+	await get_tree().create_timer(0.30).timeout
+	check(editor.close_button.visible and editor._close_holder.open_bounce_complete, "Standard close icon appears after the popup bounce finishes")
+	check(editor._hero.bounds.size.y * editor._hero.body.scale.y <= 270.0 * 0.65 * 1.15 + 0.001, "Full-body preview grows fifteen percent from its reduced size")
+	check(is_instance_valid(editor) and editor._opened and editor.source == profile_avatar, "Avatar opens one expanding-paper editor")
+	check(is_zero_approx(profile_avatar.modulate.a), "Editor hides the source avatar while expanded")
+	var original_character: int = editor.selected_character
+	editor._form.get_node("NextCharacter").pressed.emit()
+	check(editor.selected_character != original_character, "Right arrow switches the full-body preview")
+	editor._form.get_node("PreviousCharacter").pressed.emit()
+	check(editor.selected_character == original_character, "Left arrow switches back")
+	editor._form.get_node("FrameColor1").pressed.emit()
+	check(editor.frame_color == main.PORTRAIT_UI_PALETTE.CHALLENGE_NORMAL, "Color swatch updates the draft frame")
+	check(editor.nickname.marker_color == editor.frame_color, "Nickname marker follows the selected frame color")
+	check(editor._title.text == tr("PROFILE_EDIT_TITLE").to_upper(), "Editor has a standard localized uppercase title")
+	check(editor.FORM_SIZE.x == 424 and editor.nickname.get_line_edit().max_length == 18, "Editor uses standard popup width and an eighteen-character nickname limit")
+	for index in range(editor._swatches.size()):
+		var swatch: Button = editor._swatches[index]
+		check(!swatch.has_node("AvatarPaperBackground") and swatch.get_theme_stylebox("normal").bg_color == Color.WHITE and swatch.get_theme_stylebox("normal").border_width_left == 5, "All frame samples share the thick frame and white background")
+		check(swatch.scale.is_equal_approx(Vector2.ONE * (1.15 if index == 1 else 1.0)) and swatch.get_node("SelectionCheck").visible == (index == 1), "Only the selected frame grows and displays a check")
+	var selected_check: Control = editor._swatches[1].get_node("SelectionCheck")
+	check(selected_check.size.is_equal_approx(Vector2(31.2,31.2)) and selected_check.scale.x < 1.0 and is_zero_approx(selected_check.modulate.a), "Selection check grows thirty percent and starts the chain reveal animation")
+	var old_check_tween: Tween = editor._check_tween
+	editor._form.get_node("FrameColor2").pressed.emit()
+	check(!old_check_tween.is_valid() and !selected_check.visible, "Rapid frame selection cancels the previous check animation")
+	editor._form.get_node("FrameColor1").pressed.emit()
+	await get_tree().create_timer(0.4).timeout
+	check(selected_check.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(selected_check.modulate.a, 1.0), "Selection check settles at full opacity and its enlarged size")
+	check(editor.nickname.stage_rect.position.y == 270 and editor._swatches[1].position.y == 350, "Nickname and frames move closer to the character and each other")
+	var selected_swatch: Button = editor._swatches[1]
+	selected_swatch.button_down.emit()
+	await get_tree().create_timer(0.07).timeout
+	selected_swatch.button_up.emit()
+	await get_tree().create_timer(0.10).timeout
+	check(selected_swatch.scale.is_equal_approx(Vector2.ONE * 1.15), "Selected frame retains its enlargement after pressing")
+	var wide_name := "Ш".repeat(18)
+	var resolved: Dictionary = editor.nickname._resolved_display_font(wide_name, 320)
+	check(resolved.measured_width <= 320 and resolved.font_size <= editor.nickname.input_font_size, "Wide nickname fits using the two-player input font adaptation")
+	check(editor.nickname.input_font_size == roundi(26 * 1.2) and editor.nickname.stage_rect.size.is_equal_approx(Vector2(344,62.4)), "Nickname retains the enlarged font and height inside the standard popup")
+	var nickname_edit: LineEdit = editor.nickname.get_line_edit()
+	nickname_edit.text = "Draft name"
+	nickname_edit.text_changed.emit(nickname_edit.text)
+	check(editor.nickname._visual_text == "Draft name", "Nickname field updates its displayed draft")
+	editor.save_button.pressed.emit()
+	editor.save_button.pressed.emit()
+	await get_tree().create_timer(0.25).timeout
+	check(!is_instance_valid(editor) and profile_avatar.visible and is_equal_approx(profile_avatar.modulate.a, 1.0), "Save closes once and restores the avatar")
+	check(GameState.player_name == saved_name and GameState.settings[5] == previous_hero, "Closing does not persist the draft")
+	profile_avatar.pressed.emit()
+	player_body._editor.close()
+	await get_tree().create_timer(0.25).timeout
+	check(!is_instance_valid(player_body._editor) and is_equal_approx(profile_avatar.modulate.a, 1.0), "Closing during expansion cancels the old tween")
+	profile_avatar.pressed.emit()
+	await get_tree().create_timer(0.65).timeout
+	player_body._editor.close_button.pressed.emit()
+	await get_tree().create_timer(0.25).timeout
+	check(!is_instance_valid(player_body._editor) and profile_avatar.visible, "Standard close icon dismisses the popup and restores the source")
 	profile.set_bottom_inset(400)
 	await settle()
 	var identity_at: Vector2 = player_body.identity.global_position

@@ -40,6 +40,8 @@ func select_tab(tab: String) -> void:
 	selected_tab = tab
 	if tab == "profile" and !is_instance_valid(player_profile):
 		player_profile = PLAYER_PROFILE.new()
+		player_profile.editor_style = host._portrait_popup_style()
+		player_profile.editor_style["dim_alpha"] = host.PORTRAIT_POPUP_DIM_ALPHA
 		add_child(player_profile)
 	if is_instance_valid(player_profile):
 		player_profile.visible = tab == "profile"

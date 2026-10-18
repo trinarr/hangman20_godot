@@ -9,12 +9,15 @@ const ROUND_BUTTON = preload("res://scripts/ui/stage_round_button.gd")
 const LINE_ICON = preload("res://scripts/ui/profile_line_icon.gd")
 const ICON_EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const PENCIL = preload("res://assets/profile/pencil.png")
+const EDITOR = preload("res://scripts/ui/profile_editor_popup.gd")
 const STAT_KEYS := ["stars_earned", "levels_completed", "hard_levels_completed", "quizzes_solved", "words_solved"]
 var identity: Control
 var statistics_scroll: ScrollContainer
 var _nickname: Label
 var _avatar: Button
 var _values: Dictionary = {}
+var _editor: CanvasLayer
+var editor_style: Dictionary = {}
 
 func _ready() -> void:
 	name = "PlayerProfileBody"
@@ -32,6 +35,7 @@ func _ready() -> void:
 	_avatar.configure_profile_appearance(_avatar.size.x)
 	_avatar.extra_hit_rect = Rect2(95, -8, 36, 36)
 	identity.add_child(_avatar)
+	_avatar.pressed.connect(_open_editor)
 	var edit := ROUND_BUTTON.new()
 	edit.name = "ProfileAvatarEdit"
 	edit.use_stage_layout = false
@@ -63,6 +67,7 @@ func _ready() -> void:
 	for index in range(STAT_KEYS.size()):
 		_stat_row(panel, STAT_KEYS[index], index)
 	resized.connect(_layout)
+	visibility_changed.connect(_close_editor_if_hidden)
 	refresh()
 	_layout()
 
@@ -107,6 +112,18 @@ func refresh() -> void:
 
 func _layout() -> void:
 	statistics_scroll.size = Vector2(444, maxf(40, size.y - statistics_scroll.position.y))
+
+func _open_editor() -> void:
+	if is_instance_valid(_editor):
+		return
+	_editor = EDITOR.new()
+	_editor.source = _avatar
+	_editor.popup_style = editor_style
+	add_child(_editor)
+
+func _close_editor_if_hidden() -> void:
+	if !is_visible_in_tree() and is_instance_valid(_editor):
+		_editor.queue_free()
 
 func _panel(parent: Control, rect: Rect2, color: Color) -> Panel:
 	var panel := Panel.new()

@@ -4,11 +4,20 @@ const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
 const PAPER = preload("res://shaders/profile_avatar_paper.gdshader")
 const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
+const CHARACTER = preload("res://scripts/ui/profile_character_preview.gd")
 const LUCKY = preload("res://img/_______192______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_329_709.png")
 const EL_TIGRE = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 const PROFILE_SIZE := 117.0
 var _appearance_scale := 1.0
 var paper_background := false
+var portrait_enabled := true
+var solid_background_color := Color.TRANSPARENT
+var resting_scale: float = 1.0:
+	set(value):
+		resting_scale = value
+		if _press_tween != null and _press_tween.is_valid():
+			_press_tween.kill()
+		scale = Vector2.ONE * resting_scale
 var extra_hit_rect := Rect2()
 var frame_color: Color = PALETTE.BUTTON_BLUE_OUTLINE
 var frame_width: int = 2
@@ -17,10 +26,12 @@ var image_inset: float = 4.0
 var avatar_texture: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png"):
 	set(value):
 		avatar_texture = value
-		if is_instance_valid(_image):
+		if is_instance_valid(_image) and !is_instance_valid(_portrait_viewport):
 			_image.texture = value
 var _press_tween: Tween
 var _image: TextureRect
+var _portrait_viewport: SubViewport
+var _character: Node2D
 
 func configure_profile_appearance(side: float) -> void:
 	_appearance_scale = side / PROFILE_SIZE
@@ -32,6 +43,9 @@ func configure_profile_appearance(side: float) -> void:
 	refresh_character()
 
 func refresh_character() -> void:
+	if !portrait_enabled:
+		avatar_texture = null
+		return
 	if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2:
 		avatar_texture = EL_TIGRE
 	else:
@@ -39,6 +53,9 @@ func refresh_character() -> void:
 		portrait.atlas = LUCKY
 		portrait.region = Rect2(28, 0, 470, 470)
 		avatar_texture = portrait
+	if is_instance_valid(_character):
+		_character.show_character(2 if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2 else 1)
+		_sync_portrait()
 
 func _ready() -> void:
 	resized.connect(_sync_press_pivot)
@@ -51,6 +68,8 @@ func _ready() -> void:
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color.TRANSPARENT if paper_background else (PALETTE.BUTTON_BLUE_PRESSED if state == "pressed" else PALETTE.BUTTON_BLUE)
+		if solid_background_color.a > 0.0:
+			style.bg_color = solid_background_color
 		style.border_color = frame_color
 		style.set_border_width_all(frame_width)
 		style.set_corner_radius_all(corner_radius)
@@ -90,6 +109,28 @@ func _ready() -> void:
 	move_child(_image, 1 if paper_background else 0)
 	_image.resized.connect(_sync_mask)
 	_sync_mask()
+	if paper_background and portrait_enabled:
+		_portrait_viewport = SubViewport.new()
+		_portrait_viewport.name = "CroppedCharacterViewport"
+		_portrait_viewport.disable_3d = true
+		_portrait_viewport.transparent_bg = true
+		_portrait_viewport.world_2d = World2D.new()
+		_portrait_viewport.size_2d_override_stretch = true
+		add_child(_portrait_viewport)
+		_character = CHARACTER.new()
+		_portrait_viewport.add_child(_character)
+		refresh_character()
+		_image.texture = _portrait_viewport.get_texture()
+
+func _sync_portrait() -> void:
+	if !is_instance_valid(_portrait_viewport):
+		return
+	var logical := _image.size.max(Vector2.ONE)
+	var pixel_scale := get_global_transform_with_canvas().get_scale().abs() * get_viewport().get_stretch_transform().get_scale().abs()
+	_portrait_viewport.size = Vector2i((logical * pixel_scale).ceil()).max(Vector2i(2, 2))
+	_portrait_viewport.size_2d_override = Vector2i(logical.round())
+	_character.fit_portrait(Rect2(Vector2.ZERO, logical))
+	_portrait_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func _has_point(point: Vector2) -> bool:
 	return Rect2(Vector2.ZERO, size).has_point(point) or extra_hit_rect.has_point(point)
@@ -99,6 +140,7 @@ func _sync_mask() -> void:
 	mask.set_shader_parameter("source_size", _image.size)
 	mask.set_shader_parameter("mask_rect", Vector4(0, 0, _image.size.x, _image.size.y))
 	mask.set_shader_parameter("corner_radius", maxf(0, corner_radius - image_inset))
+	_sync_portrait()
 
 func _sync_press_pivot() -> void:
 	pivot_offset = size * 0.5
@@ -108,13 +150,13 @@ func _animate_press(down: bool) -> void:
 		_press_tween.kill()
 	_press_tween = create_tween()
 	_press_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	_press_tween.tween_property(self, "scale", Vector2.ONE * (0.94 if down else 1.0), 0.055 if down else 0.085).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_press_tween.tween_property(self, "scale", Vector2.ONE * resting_scale * (0.94 if down else 1.0), 0.055 if down else 0.085).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func _reset_press_if_hidden() -> void:
 	if !is_visible_in_tree():
 		if _press_tween != null and _press_tween.is_valid():
 			_press_tween.kill()
-		scale = Vector2.ONE
+		scale = Vector2.ONE * resting_scale
 
 func _exit_tree() -> void:
 	if _press_tween != null and _press_tween.is_valid():

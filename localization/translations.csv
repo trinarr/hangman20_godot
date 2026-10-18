@@ -128,3 +128,5 @@ PROFILE_STAT_LEVELS_COMPLETED,Уровней пройдено,Levels completed
 PROFILE_STAT_HARD_LEVELS_COMPLETED,Сложных уровней пройдено,Hard levels completed
 PROFILE_STAT_QUIZZES_SOLVED,Викторин отгадано,Quizzes solved
 PROFILE_STAT_WORDS_SOLVED,Слов отгадано,Words solved
+PROFILE_SAVE,Сохранить,Save
+PROFILE_EDIT_TITLE,Изменить профиль,Edit profile

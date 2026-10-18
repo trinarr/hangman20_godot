@@ -1,0 +1,65 @@
+extends Node2D
+## Static authored character pose shared by cropped avatars and the profile editor.
+const POSES := [preload("res://symbols/_______192.tscn"), preload("res://symbols/_______94.tscn")]
+var character_id := 1
+var body: Node2D
+var bounds := Rect2()
+
+func show_character(value: int) -> void:
+	character_id = clampi(value, 1, 2)
+	if is_instance_valid(body):
+		body.free()
+	body = POSES[character_id - 1].instantiate() as Node2D
+	add_child(body)
+	_freeze(body)
+	bounds = Rect2()
+	for node: Node in body.find_children("*", "Sprite2D", true, false):
+		var sprite := node as Sprite2D
+		if _visible_pose(sprite) and sprite.texture != null:
+			var rect: Rect2 = (body.get_global_transform().affine_inverse() * sprite.get_global_transform()) * sprite.get_rect()
+			bounds = rect if !bounds.has_area() else bounds.merge(rect)
+
+func fit_full_body(rect: Rect2, size_factor: float = 1.0) -> void:
+	if !bounds.has_area():
+		return
+	var fit := minf(rect.size.x / bounds.size.x, rect.size.y / bounds.size.y) * size_factor
+	body.scale = Vector2.ONE * fit
+	body.position = rect.get_center() - bounds.get_center() * fit
+
+func head_center() -> Vector2:
+	var fraction := Vector2(0.38, 0.165) if character_id == 1 else Vector2(0.46, 0.30)
+	return bounds.position + bounds.size * fraction
+
+func portrait_span() -> float:
+	return maxf(bounds.size.x * 0.70, bounds.size.y * (0.34 if character_id == 1 else 0.72))
+
+func fit_portrait(rect: Rect2) -> void:
+	if !bounds.has_area():
+		return
+	var fit := minf(rect.size.x, rect.size.y) / portrait_span()
+	body.scale = Vector2.ONE * fit
+	body.position = rect.get_center() - head_center() * fit
+
+func displayed_head_center() -> Vector2:
+	return body.transform * head_center()
+
+func displayed_portrait_span() -> float:
+	return portrait_span() * body.scale.x
+
+func _visible_pose(node: CanvasItem) -> bool:
+	var current: Node = node
+	while current != self:
+		if current is CanvasItem and !(current as CanvasItem).visible:
+			return false
+		current = current.get_parent()
+	return true
+
+func _freeze(node: Node) -> void:
+	if node is AnimationPlayer:
+		var player := node as AnimationPlayer
+		if player.has_animation("default"):
+			player.play("default")
+			player.seek(0.0, true)
+			player.stop(true)
+	for child: Node in node.get_children():
+		_freeze(child)
