@@ -86,7 +86,7 @@ HANGMAN_SUPABASE_NETWORK_DISABLED=1 XDG_DATA_HOME=/tmp/hangman-transition-render
 This renders actual Profile, Settings and Leaderboard pages and samples the
 midpoints of both opening and closing across the viewport against the expected
 uniform blend. It verifies frame readback, live leaderboard subscriptions, pointer
-routing through the page surface, completion and overlay cleanup. Passed on Godot 4.6 with Mesa llvmpipe/OpenGL compatibility;
+routing through the page surface, completion and overlay cleanup.
 Android device timing and frame-readback cost remain a device check.
 
 

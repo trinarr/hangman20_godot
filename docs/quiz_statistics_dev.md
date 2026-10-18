@@ -1,6 +1,6 @@
 # Dev-статистика в одном проекте Supabase
 
-Реализовано поверх коммита `f227c4c`. Лидерборды не добавляются.
+Описание dev-окружения статистики викторины. Общий контракт и настройка backend — в [quiz_statistics_supabase.md](quiz_statistics_supabase.md), отдельный контракт лидерборда — в [leaderboard_supabase.md](leaderboard_supabase.md).
 
 ## Установка
 

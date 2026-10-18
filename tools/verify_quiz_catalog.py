@@ -105,7 +105,7 @@ def main() -> None:
         if not re.fullmatch(r"preset\.\d+", section):
             continue
         patterns = exports.get(section, "exclude_filter", fallback="").strip('"').split(",")
-        for path in ("data/quiz_catalog.json", "tools/verify_quiz_catalog.py", "docs/QUIZ_EDITORIAL.md"):
+        for path in ("data/quiz_catalog.json", "tools/verify_quiz_catalog.py", "docs/ARCHITECTURE.md"):
             require(any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns), f"Editor file exported by {section}: {path}")
     print("Quiz catalog/runtime validation passed")
 

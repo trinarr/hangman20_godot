@@ -24,5 +24,5 @@ HANGMAN_SUPABASE_NETWORK_DISABLED=1 XDG_DATA_HOME=/tmp/hangman-home-split-render
 It checks top-edge source movement, stationary/excluded HUD pixels and complete
 opening at 480x800 and 480x1000 window sizes, accounting for viewport stretch.
 It also exercises real Home-to-two-player navigation and transition cleanup.
-Passed with Godot 4.6 / Mesa llvmpipe OpenGL compatibility; Android safe-area
-behavior should additionally be checked on a device.
+Android safe-area behavior should additionally be checked on a device; a desktop
+render test does not confirm device behavior.

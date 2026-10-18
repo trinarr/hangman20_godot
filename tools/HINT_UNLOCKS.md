@@ -20,5 +20,4 @@ closed rounded U-shaped shackle, squat rounded square body, centered indigo keyh
 No sparkles, text, button circle, gradients or metallic realism. Transparent background.”
 Импорт ограничен 256 px для маленькой UI-иконки, исходный PNG сохранён отдельно.
 
-Проверка: `tools/tests/hint_unlocks.gd`, 77 проверок. Запускать с отдельным
-`XDG_DATA_HOME`, поскольку тест записывает и загружает тестовый сейв.
+Проверка: `tools/tests/hint_unlocks.gd`. Сценарий записывает и загружает данные: запускать только с проверенной изоляцией профиля, описанной в [TESTS.md](TESTS.md). Прямой запуск на профиле игрока недопустим.
