@@ -1,13 +1,14 @@
 # Profile and full Settings screen
 
 Home's former settings gear is replaced by a rounded square avatar slot on the
-left of the resource counters. The slot is deliberately empty until an avatar is assigned through
-`profile_avatar_button.gd.avatar_texture`. Texture fitting and rounded masking are
-already supported; no account/profile data or avatar persistence is added.
+left of the resource counters. The slot uses El Tigre as the shared default avatar; it can be replaced through
+`profile_avatar_button.gd.avatar_texture`. Texture fitting and rounded masking
+are supported. The Profile tab displays the local nickname, wallet stars and
+five persistent gameplay statistics; see `player_profile.md`.
 
 The avatar opens Profile through Home's transition with a smooth fade to the tabbed page. Profile
 and Settings are enabled tabs matching the leaderboard's tab band. The Profile
-body is empty. The page uses the standard uppercase header, Back, a solid blue
+body contains a fixed identity card and a separate elastic statistics scroll. The page uses the standard uppercase header, Back, a solid blue
 body without a pattern, safe-area layout and banner reservation. The active tab supplies the
 header title. Settings opened from the leaderboard returns to the leaderboard;
 the Home avatar returns to Home.
@@ -31,7 +32,7 @@ Validation (Godot 4.6, headless, network disabled):
 python3 tools/run_content_tests.py --godot /path/to/godot --suite profile_ui
 ```
 
-The suite covers avatar navigation, empty Profile, Settings tabs/actions, short
+The suite covers avatar navigation, profile information/statistics, Settings tabs/actions, short
 viewport scrolling, language confirmation, back routing and compact routing.
 The leaderboard_ui, portrait_popup_component, portrait_round_result and bonus_quiz
 regressions also pass. Rendered appearance, IME and touch behavior still require

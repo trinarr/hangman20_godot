@@ -11,6 +11,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "profile_statistics": (True, r"PROFILE_STATISTICS checks=[1-9]\d* failures=0"),
     "home_tournament": (True, r"HOME_TOURNAMENT checks=[1-9]\d* failures=0"),
     "tournament": (True, r"TOURNAMENT checks=[1-9]\d* failures=0"),
     "tournament_ui": (True, r"TOURNAMENT_UI checks=[1-9]\d* failures=0"),

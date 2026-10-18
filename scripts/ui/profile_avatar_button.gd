@@ -2,14 +2,20 @@ extends Button
 ## Avatar slot; the texture can be supplied later without changing Home layout.
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
-var avatar_texture: Texture2D:
+var avatar_texture: Texture2D = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png"):
 	set(value):
 		avatar_texture = value
 		if is_instance_valid(_image):
 			_image.texture = value
+var _press_tween: Tween
 var _image: TextureRect
 
 func _ready() -> void:
+	resized.connect(_sync_press_pivot)
+	button_down.connect(func(): _animate_press(true))
+	button_up.connect(func(): _animate_press(false))
+	visibility_changed.connect(_reset_press_if_hidden)
+	_sync_press_pivot()
 	focus_mode = Control.FOCUS_NONE
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
@@ -45,3 +51,19 @@ func _sync_mask() -> void:
 	mask.set_shader_parameter("source_size", _image.size)
 	mask.set_shader_parameter("mask_rect", Vector4(0, 0, _image.size.x, _image.size.y))
 	mask.set_shader_parameter("corner_radius", 8.0)
+
+func _sync_press_pivot() -> void:
+	pivot_offset = size * 0.5
+
+func _animate_press(down: bool) -> void:
+	if _press_tween != null and _press_tween.is_valid():
+		_press_tween.kill()
+	_press_tween = create_tween()
+	_press_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_press_tween.tween_property(self, "scale", Vector2.ONE * (0.94 if down else 1.0), 0.055 if down else 0.085).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+func _reset_press_if_hidden() -> void:
+	if !is_visible_in_tree():
+		if _press_tween != null and _press_tween.is_valid():
+			_press_tween.kill()
+		scale = Vector2.ONE

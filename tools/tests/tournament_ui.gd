@@ -76,12 +76,11 @@ func run() -> void:
 	page.refresh()
 	await settle()
 	check(int(page._snapshot.rank) > 3, "Independent opponent progression moves player out of podium")
-	check(page.pinned.visible, "Own player below visible area is pinned")
-	var viewport_width := get_viewport().get_visible_rect().size.x
-	check(is_equal_approx(page.pinned.get_global_rect().position.x, 0) and is_equal_approx(page.pinned.get_global_rect().size.x, viewport_width), "Pinned tournament strip spans screen width")
+	check(page.find_child("TournamentPinnedPlayer", true, false) == null, "Tournament has no pinned player strip")
+	check(is_equal_approx(page.own_row.modulate.a, 1), "Own row remains visible in the regular list")
 	page.scroll.scroll_vertical = 100000
 	await settle()
-	check(!page.pinned.visible and is_equal_approx(page.own_row.modulate.a, 1), "Scrolling to own position restores actual row")
+	check(is_equal_approx(page.own_row.modulate.a, 1), "Scrolling keeps own row visible")
 	var saved_scroll: int = page.scroll.scroll_vertical
 	page.refresh()
 	await settle()

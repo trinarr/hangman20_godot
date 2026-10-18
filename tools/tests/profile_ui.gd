@@ -40,11 +40,20 @@ func run() -> void:
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	main = TestUI.new()
 	add_child(main)
+	if !OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE").is_empty():
+		Database.interface_language = OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE")
+		TranslationServer.set_locale(Database.interface_language)
 	main.show_menu()
 	await settle()
 	var avatar: Button = main.content.find_child("HomeAvatarButton", true, false)
 	check(avatar != null, "Home replaces settings entry with avatar")
 	check(avatar.get_theme_stylebox("normal").corner_radius_top_left == 12, "Avatar slot has rounded square style")
+	avatar.button_down.emit()
+	await get_tree().create_timer(0.07).timeout
+	check(is_equal_approx(avatar.scale.x, 0.94) and avatar.pivot_offset == avatar.size * 0.5, "Avatar press shrinks around its center")
+	avatar.button_up.emit()
+	await get_tree().create_timer(0.18).timeout
+	check(avatar.scale.is_equal_approx(Vector2.ONE), "Avatar release restores its scale")
 	var has_gear := false
 	for control in main._portrait_top_bar_content.find_children("*", "Control", true, false):
 		if control.get_script() == main.STAGE_ROUND_BUTTON_SCRIPT and control.get("icon_texture") == main.PORTRAIT_MENU_SETTINGS_ICON:
@@ -80,11 +89,30 @@ func run() -> void:
 	check(profile_background != null and profile_background.get("fill_color") == main.PORTRAIT_BLUE, "Profile body joins active blue tab")
 	check(main._portrait_header_fill.get("fill_color").is_equal_approx(main.PORTRAIT_DARK_BLUE), "Opening darkens header")
 	var profile: Control = main._portrait_profile
-	check(profile.selected_tab == "profile", "Avatar opens empty Profile tab")
+	check(profile.selected_tab == "profile", "Avatar opens Profile tab")
 	check(!is_instance_valid(profile.settings_scroll), "Profile tab creates no settings content")
+	check(is_instance_valid(profile.player_profile) and profile.player_profile.visible, "Profile builds the player information and statistics")
+	var player_body: Control = profile.player_profile
+	check(player_body._values.size() == 5, "Profile contains all five lifetime counters")
+	check(player_body.identity.get_parent() == player_body and !player_body.statistics_scroll.is_ancestor_of(player_body.identity), "Identity block stays outside statistics scroll")
+	check(player_body._balance.text == str(GameState.get_stars()), "Identity shows current stars independently of lifetime total")
+	profile.set_bottom_inset(400)
+	await settle()
+	var identity_at: Vector2 = player_body.identity.global_position
+	player_body.statistics_scroll.scroll_vertical = 9999
+	await settle()
+	check(player_body.identity.global_position.is_equal_approx(identity_at), "Scrolling statistics leaves identity fixed")
+	check(player_body.statistics_scroll.get_v_scroll_bar().max_value > player_body.statistics_scroll.get_v_scroll_bar().page, "Statistics scroll in short available space")
+	profile.set_bottom_inset(0)
+	await settle()
+
 	check(get_tree().get_nodes_in_group("settings_popup").is_empty(), "Profile does not create full settings popup")
 	var title: Label = main.content.find_child("ProfileTitle", true, false)
 	check(title != null and title.text == title.text.to_upper(), "Profile uses standard uppercase header")
+	var preview_dir := OS.get_environment("HANGMAN_PROFILE_PREVIEW_DIR")
+	if !preview_dir.is_empty():
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(preview_dir.path_join("player-profile-%s-%d.png" % [Database.interface_language, get_viewport().get_visible_rect().size.x]))
 	var tab: Button = profile._buttons.profile
 	check(is_equal_approx(tab.get_parent().stage_rect.size.y, 65), "Tabs have height 65")
 	check(tab.get_theme_stylebox("normal").corner_radius_bottom_left == 0, "Active tab has connected square bottom")
@@ -92,7 +120,7 @@ func run() -> void:
 	check(tab_caption.get_node_or_null("DisplayTextShaderEffect") != null, "Tab text uses heading shader")
 	profile._buttons.settings.pressed.emit()
 	await settle()
-	check(profile.selected_tab == "settings" and profile.settings_scroll.visible, "Settings tab opens full settings content")
+	check(profile.selected_tab == "settings" and profile.settings_scroll.visible and !profile.player_profile.visible, "Settings tab opens full settings content and hides profile")
 	check(main.settings_toggle_buttons.has(3) and main.settings_toggle_buttons.has(4), "Full settings retains sound and vibration")
 	var sound_label: Label = profile.settings_scroll.find_child("SettingsSoundLabel", true, false)
 	check(is_equal_approx(sound_label.get_parent().stage_rect.position.x, 30.0), "Settings labels use 30-unit side inset")

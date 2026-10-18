@@ -7,7 +7,10 @@ const TROPHY = preload("res://flash_assets/tournament_trophy_front.png")
 const EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const MATERIALS = preload("res://scripts/ui/ui_materials.gd")
 const LOCK = preload("res://flash_assets/hint_locked_doodle.png")
-const ICON_RECT := Rect2(20, 25, 60, 60)
+const ICON_RECT := Rect2(14, 14, 72, 72)
+const LOCK_SIZE := Vector2(22, 26) * 1.3 * 1.2
+const LOCK_RECT := Rect2(Vector2(ICON_RECT.end.x - LOCK_SIZE.x + 3, ICON_RECT.position.y - 10), LOCK_SIZE)
+var _lock_shadows: Array[TextureRect] = []
 var caption: Label
 var _timer: Timer
 var _lock: TextureRect
@@ -39,13 +42,19 @@ func _ready() -> void:
 	icon.size = ICON_RECT.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.add_child(icon)
+	_lock_shadows = EXTRUSION._create_portrait_icon_extrusion_layers(
+		visual, LOCK, "TournamentLockShadow")
+	for layer: TextureRect in _lock_shadows:
+		layer.material = MATERIALS.icon_shadow(shadow_color)
+	EXTRUSION._layout_portrait_icon_extrusion_layers(
+		_lock_shadows, LOCK_RECT.position, LOCK_RECT.size)
 	_lock = TextureRect.new()
 	_lock.name = "TournamentLockIcon"
 	_lock.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_lock.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_lock.texture = LOCK
-	_lock.position = Vector2(3, 48)
-	_lock.size = Vector2(22, 26)
+	_lock.position = LOCK_RECT.position
+	_lock.size = LOCK_RECT.size
 	_lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.add_child(_lock)
 	var badge := Panel.new()
@@ -54,11 +63,10 @@ func _ready() -> void:
 	badge.size = Vector2(100, 29)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = PALETTE.BUTTON_ORANGE
-	badge_style.set_corner_radius_all(8)
-	badge_style.shadow_color = PALETTE.TEXT_SHADOW_DARK
-	badge_style.shadow_offset = Vector2(0, 2)
-	badge_style.shadow_size = 1
+	badge_style.bg_color = PALETTE.UI_BLUE_DARK
+	badge_style.border_color = Color(1.0, 1.0, 1.0, 0.8)
+	badge_style.set_border_width_all(1)
+	badge_style.set_corner_radius_all(int(round(badge.size.y * 0.5)))
 	badge.add_theme_stylebox_override("panel", badge_style)
 	visual.add_child(badge)
 	caption = Label.new()
@@ -68,10 +76,10 @@ func _ready() -> void:
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.clip_text = true
-	caption.add_theme_font_override("font", FONTS.display_font_raster())
+	caption.add_theme_font_override("font", FONTS.regular_font(700.0))
 	caption.add_theme_font_size_override("font_size", 18)
 	caption.add_theme_color_override("font_color", Color.WHITE)
-	TEXT_STYLE.apply_display(caption)
+	TEXT_STYLE.apply_regular_display(caption)
 	badge.add_child(caption)
 	_timer = Timer.new()
 	_timer.wait_time = 1.0
@@ -87,6 +95,8 @@ func _ready() -> void:
 func refresh() -> void:
 	var snapshot := GameState.get_tournament_snapshot()
 	_lock.visible = !bool(snapshot.unlocked)
+	for layer: TextureRect in _lock_shadows:
+		layer.visible = _lock.visible
 	if _lock.visible:
 		var level_text := TranslationServer.translate("TOURNAMENT_HOME_LEVEL")
 		if level_text == "TOURNAMENT_HOME_LEVEL":

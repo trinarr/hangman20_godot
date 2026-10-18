@@ -39,6 +39,10 @@ func run() -> void:
 	check(button in main._home_start_buttons, "Shortcut participates in Home entrance/departure")
 	check(button.caption.text in ["Уровень 5", "Level 5"], "Locked shortcut shows unlock level")
 	check(button.find_child("TrophyCircle", true, false) == null and button._lock.visible, "Locked trophy shows lock without circle backing")
+	var trophy: TextureRect = button.find_child("TrophyIcon", true, false)
+	check(trophy.size == Vector2(72, 72) and trophy.position == Vector2(14, 14), "Trophy retains enlarged size and is raised by five units")
+	check(button._lock.size.is_equal_approx(Vector2(34.32, 40.56)) and is_equal_approx(button._lock.position.y, trophy.position.y - 10) and is_equal_approx(button._lock.get_rect().end.x, trophy.get_rect().end.x + 3), "Enlarged lock is ten units above and three units right of trophy corner")
+	check(button._lock_shadows.size() == 4 and button._lock_shadows[0].visible, "Locked trophy has shader shadows")
 	var down := InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT
 	down.pressed = true
@@ -50,7 +54,7 @@ func run() -> void:
 	up.button_index = MOUSE_BUTTON_LEFT
 	up.position = down.position
 	button._gui_input(up)
-	await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.18).timeout
 	check(is_equal_approx(button.visual_scale.x, 1.0), "Release restores button scale")
 	check(!is_instance_valid(main._portrait_leaderboard) and !is_instance_valid(main._home_transition), "Locked tap never opens leaderboard or starts transition")
 	check(is_instance_valid(main._portrait_ad_toast) and main._portrait_ad_toast.visible and main._portrait_ad_toast._message_label.text.contains("5"), "Locked tap shows standard toast with configured unlock level")
@@ -63,6 +67,7 @@ func run() -> void:
 		check(button.caption.text == ("Уровень 5" if language == "ru" else "Level 5"), "Unlock level localized")
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	check(GameState.start_tournament(), "Unlocked user can explicitly join")
+	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
 	check(button.caption.text == "08:00:00", "Active tournament updates shortcut immediately")
 	now += 3601
 	button.refresh()

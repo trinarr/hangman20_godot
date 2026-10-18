@@ -162,6 +162,8 @@ enum AdPersonalizationChoice {
 
 var interface_language: String = "ru"
 var word_language: String = "ru"
+const PROFILE_STATISTICS = preload("res://scripts/core/profile_statistics.gd")
+var profile_statistics: Dictionary = {}
 var player_name: String = ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
 var stars: int = DEFAULT_STARS
@@ -414,6 +416,7 @@ func load_game() -> void:
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
 	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
+	profile_statistics = PROFILE_STATISTICS.normalize(parsed["profile_statistics"]) if parsed.get("profile_statistics") is Dictionary else {}
 	tournament_state = TOURNAMENT_MODEL.normalize(parsed.get("tournament", {}))
 	_tournament_clock_utc = 0
 	soft_currency = clampi(int(parsed.get("soft_currency", DEFAULT_SOFT_CURRENCY)), 0, MAX_CURRENCY_BALANCE)
@@ -651,6 +654,7 @@ func _home_profile_save_game() -> bool:
 	if _save_blocked_by_future_version or _save_write_in_progress:
 		return false
 	_save_write_in_progress = true
+	_ensure_profile_statistics()
 	_compact_single_player_history()
 	_store_current_single_player_resume_state()
 	if !tournament_state.is_empty():
@@ -660,6 +664,7 @@ func _home_profile_save_game() -> bool:
 		"word_content_version": WORD_CONTENT.CONTENT_VERSION,
 		"word_language": word_language,
 		"player_name": player_name,
+		"profile_statistics": profile_statistics,
 		"settings": settings,
 		"records": records,
 		"progress": progress,
@@ -2166,6 +2171,7 @@ func mark_single_player_word_shown(lang: String, theme_index: int, word_index: i
 		save_game()
 
 func mark_single_player_word_guessed(lang: String, theme_index: int, word_index: int, word_count: int, word_text: String = "", persist: bool = true) -> void:
+	_ensure_profile_statistics()
 	if theme_index < 0 or (word_index < 0 and word_text.is_empty()):
 		return
 	var redirected: Dictionary = WORD_CONTENT.canonical_word(lang, Database.get_theme_id(theme_index), word_text)
@@ -2607,6 +2613,7 @@ func mark_single_level_word_played(
 	stage_theme_index: int = -1,
 	stage_stars: int = 0
 ) -> Dictionary:
+	_ensure_profile_statistics()
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
 	var was_unplayed: bool = word_slot >= 0 and word_slot < statuses.size() and _single_level_status(statuses[word_slot]) == 0
 	if was_unplayed:
@@ -2677,6 +2684,7 @@ func mark_single_level_word_played(
 		if completed and word_count > 1:
 			earned_stars += _single_player_level_completion_stars(
 				level_index, get_single_level_guessed_count(lang, level_index, word_count, difficulty))
+		PROFILE_STATISTICS.record(profile_statistics, is_win, get_single_level_question_slots(lang, level_index).has(word_slot), completed, GAME_DESIGN.is_bonus_level(level_index + 1), earned_stars)
 		record_tournament_stars(earned_stars)
 	if was_unplayed and completed and !award_completion_bonus and completion_bonus > 0:
 		var selected_theme_id: int = int(
@@ -2811,8 +2819,10 @@ func record_tournament_stars(amount: int) -> void:
 		tournament_changed.emit()
 
 func add_gameplay_stars(amount: int, persist: bool = true) -> int:
+	_ensure_profile_statistics()
 	var before := get_stars()
 	var result := add_stars(amount, false)
+	PROFILE_STATISTICS.add_earned_stars(profile_statistics, maxi(0, result - before))
 	record_tournament_stars(maxi(0, result - before))
 	if persist:
 		save_game()
@@ -2841,3 +2851,11 @@ func claim_tournament_reward() -> Dictionary:
 func _tournament_log(action: String) -> void:
 	if OS.is_debug_build():
 		print("[Tournament] %s id=%s stars=%d" % [action, tournament_state.get("id", ""), int(tournament_state.get("player_stars", 0))])
+
+func _ensure_profile_statistics() -> void:
+	if profile_statistics.is_empty():
+		profile_statistics = PROFILE_STATISTICS.migrate(single_player, get_stars(), GAME_DESIGN)
+
+func get_profile_statistics() -> Dictionary:
+	_ensure_profile_statistics()
+	return profile_statistics.duplicate(true)

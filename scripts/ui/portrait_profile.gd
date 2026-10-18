@@ -1,5 +1,6 @@
 extends Control
 ## Profile tabs and the full settings page. Host retains existing action handlers.
+const PLAYER_PROFILE = preload("res://scripts/ui/portrait_player_profile.gd")
 const SETTINGS_SCROLL = preload("res://scripts/ui/profile_settings_scroll.gd")
 const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
@@ -10,6 +11,7 @@ var initial_tab := "profile"
 var selected_tab := ""
 var bottom_inset := 0.0
 var _buttons: Dictionary = {}
+var player_profile: Control
 var settings_scroll: ScrollContainer
 
 func _ready() -> void:
@@ -36,6 +38,13 @@ func select_tab(tab: String) -> void:
 	if tab != "profile" and tab != "settings":
 		return
 	selected_tab = tab
+	if tab == "profile" and !is_instance_valid(player_profile):
+		player_profile = PLAYER_PROFILE.new()
+		add_child(player_profile)
+	if is_instance_valid(player_profile):
+		player_profile.visible = tab == "profile"
+		if tab == "profile":
+			player_profile.refresh()
 	if tab == "settings" and !is_instance_valid(settings_scroll):
 		_build_settings()
 	if is_instance_valid(settings_scroll):
@@ -73,14 +82,20 @@ func set_bottom_inset(value: float) -> void:
 	_layout()
 
 func _layout() -> void:
-	if !is_inside_tree() or !is_instance_valid(settings_scroll):
+	if !is_inside_tree():
 		return
 	var viewport_size := get_viewport_rect().size
 	var top: float = TABS.CONTENT_Y + LAYOUT.safe_top_stage(viewport_size)
 	var height: float = maxf(80, LAYOUT.expanded_stage_height(viewport_size) - bottom_inset - 12 - top)
 	# The viewport includes the safe top inset exactly once.
-	settings_scroll.stage_rect = Rect2(18.4, top, 443.2, height)
-	settings_scroll._sync_to_stage()
+	if is_instance_valid(settings_scroll):
+		settings_scroll.stage_rect = Rect2(18.4, top, 443.2, height)
+		settings_scroll._sync_to_stage()
+	if is_instance_valid(player_profile):
+		var fit: float = LAYOUT.fit_scale(viewport_size)
+		player_profile.position = Vector2(LAYOUT.horizontal_offset(viewport_size), top * fit)
+		player_profile.scale = Vector2.ONE * fit
+		player_profile.size = Vector2(480, height)
 
 func _exit_tree() -> void:
 	if get_viewport() != null and get_viewport().size_changed.is_connected(_layout):

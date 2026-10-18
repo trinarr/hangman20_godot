@@ -127,3 +127,10 @@ TOURNAMENT_YOU,Вы,You
 TOURNAMENT_SAVE_ERROR,Не удалось сохранить. Попробуйте ещё раз,Couldn't save. Please try again
 TOURNAMENT_HOME_LOCKED,Турнир откроется после уровня %d,Unlocks after level %d
 TOURNAMENT_HOME_LEVEL,Уровень %d,Level %d
+PROFILE_STATISTICS,Статистика,Statistics
+PROFILE_DEFAULT_NAME,Игрок,Player
+PROFILE_STAT_STARS_EARNED,Звёзд заработано,Stars earned
+PROFILE_STAT_LEVELS_COMPLETED,Уровней пройдено,Levels completed
+PROFILE_STAT_HARD_LEVELS_COMPLETED,Сложных уровней пройдено,Hard levels completed
+PROFILE_STAT_QUIZZES_SOLVED,Викторин отгадано,Quizzes solved
+PROFILE_STAT_WORDS_SOLVED,Слов отгадано,Words solved

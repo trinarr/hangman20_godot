@@ -10,7 +10,6 @@ const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 var scroll: ScrollContainer
 var rows: VBoxContainer
 var podium: Control
-var pinned: Control
 var own_row: Control
 var _title: Label
 var _hint: Label
@@ -44,8 +43,6 @@ func _ready() -> void:
 	rows.add_theme_constant_override("separation", 10)
 	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scroll.set_list(rows)
-	scroll.visual_offset_changed.connect(_update_pin)
-	scroll.get_v_scroll_bar().value_changed.connect(func(_value: float): _update_pin.call_deferred())
 	_button = Button.new()
 	_button.name = "TournamentAction"
 	_button.add_theme_font_override("font", FONTS.display_font())
@@ -99,9 +96,6 @@ func refresh() -> void:
 func _rebuild(preview: bool) -> void:
 	var previous_scroll := scroll.scroll_vertical
 	own_row = null
-	if is_instance_valid(pinned):
-		pinned.free()
-	pinned = null
 	for child in rows.get_children():
 		child.free()
 	podium = Control.new()
@@ -124,18 +118,11 @@ func _rebuild(preview: bool) -> void:
 			rows.add_child(card)
 			if bool(entry.mine):
 				own_row = card
-		for entry: Dictionary in entries:
-			if bool(entry.mine):
-				pinned = _row_card(entry, true)
-				pinned.name = "TournamentPinnedPlayer"
-				add_child(pinned)
-				break
 		var spacer := Control.new()
 		spacer.custom_minimum_size.y = 86
 		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		rows.add_child(spacer)
 	scroll.scroll_vertical = previous_scroll
-	_update_pin.call_deferred()
 
 func _name(entry: Dictionary) -> String:
 	if bool(entry.mine):
@@ -172,22 +159,17 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	_counter(card, Vector2(16, reward_y), 110, reward, COIN, 22)
 	return card
 
-func _row_card(entry: Dictionary, fixed: bool = false) -> Control:
+func _row_card(entry: Dictionary) -> Control:
 	var row := Control.new()
 	row.custom_minimum_size = Vector2(444, 72)
-	row.size = Vector2(480 if fixed else 444, 72)
+	row.size = Vector2(444, 72)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := CARD.face_style(PALETTE.UI_BLUE_LIGHT_BORDER if bool(entry.mine) else Color.WHITE)
-	if fixed:
-		style.set_corner_radius_all(0)
-		style.set_border_width_all(0)
-	else:
-		_panel(row, Rect2(0, 6, 444, 66), CARD.shadow_style())
-	var face := _panel(row, Rect2(Vector2.ZERO, Vector2(row.size.x, 66 if !fixed else 72)), style)
+	_panel(row, Rect2(0, 6, 444, 66), CARD.shadow_style())
+	var face := _panel(row, Rect2(Vector2.ZERO, Vector2(444, 66)), style)
 	face.name = "CardFace"
 	var contents := Control.new()
 	contents.name = "Contents"
-	contents.position.x = 18 if fixed else 0
 	contents.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	face.add_child(contents)
 	_label(contents, Rect2(14, 0, 46, 66), str(entry.rank), 24)
@@ -249,22 +231,6 @@ func _layout() -> void:
 	_button.position = Vector2(50, size.y - 68)
 	_button.size = Vector2(380, 54)
 	_error.position.y = size.y - 100
-	_update_pin.call_deferred()
-
-func _update_pin() -> void:
-	if !_live or !is_instance_valid(pinned) or !is_instance_valid(own_row):
-		return
-	var bounds := scroll.get_global_rect()
-	var rect := own_row.get_global_rect()
-	var side := "top" if rect.position.y < bounds.position.y - 0.5 else ("bottom" if rect.end.y > bounds.end.y + 0.5 else "")
-	pinned.visible = !side.is_empty()
-	own_row.modulate.a = 0.0 if pinned.visible else 1.0
-	var host_scale := get_global_transform().get_scale().x
-	var gutter := get_global_rect().position.x / host_scale
-	pinned.position = Vector2(-gutter, scroll.position.y if side == "top" else scroll.position.y + scroll.size.y - 72)
-	pinned.size.x = get_viewport_rect().size.x / host_scale
-	pinned.get_node("CardFace").size.x = pinned.size.x
-	pinned.get_node("CardFace/Contents").position.x = 18 + gutter
 
 func _action() -> void:
 	if !_live:
