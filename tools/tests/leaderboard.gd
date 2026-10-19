@@ -16,7 +16,7 @@ func _ready() -> void:
 	run.call_deferred()
 
 func row(stars: int = 80) -> Dictionary:
-	return {"player_id":"123", "nickname":"Игрок 123", "is_filler":false, "rank":1, "top_percent":null, "stars":stars}
+	return {"player_id":"123", "nickname":"Игрок 123", "character_id":2, "frame_id":3, "is_filler":false, "rank":1, "top_percent":null, "stars":stars}
 
 func reply(stars: int = 80, top: bool = true, language: String = "ru") -> Dictionary:
 	var body: Dictionary = {"ok":true,"protocol_version":2,"owner_id":"test-owner", "me":row(stars), "total_players":1, "language":language}
@@ -42,6 +42,8 @@ func settle(client: Node, transport: Node) -> void:
 	check(false, "Workers did not settle")
 
 func run() -> void:
+	GameState.guided_onboarding_completed = true
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	var environment: Node = ENVIRONMENT.new()
 	check(environment._leaderboard_rpc_path() == "/rest/v1/rpc/leaderboard_sync_dev", "Debug uses dev leaderboard RPC")
 	check(!environment._path_allowed("/rest/v1/rpc/leaderboard_sync"), "Debug rejects production leaderboard RPC")
@@ -85,6 +87,7 @@ func run() -> void:
 	check(transport.calls[0].path == "/rest/v1/rpc/leaderboard_sync_dev", "Debug worker sends only dev RPC")
 	check(transport.calls[0].payload.p_language == "ru", "Client sends nickname-pool language")
 	check(client._pending_stars == -1 and client.cached_snapshot().me.stars == 80, "Successful score clears pending snapshot")
+	check(client.get_player_id() == "123", "Nickname generation receives the own numeric server ID")
 	check(delivered.size() == 1 and !delivered.back().cached, "Top signal reports server response")
 	var copied: Dictionary = client.cached_snapshot()
 	copied.top[0].stars = 999
@@ -226,6 +229,39 @@ func run() -> void:
 	client._tick()
 	await settle(client,transport)
 	check(client._started and transport.calls.back().payload.p_stars == 160, "Startup synchronizes persisted star total")
+	check(transport.calls.back().payload.p_nickname == client.profile.nickname and transport.calls.back().payload.p_character_id == 1 and transport.calls.back().payload.p_frame_id == 4, "Startup includes persisted public profile")
+	# An unranked profile must synchronize without registering a zero score.
+	client._snapshot.clear()
+	check(client.get_player_id() == "123", "Own ID can be restored from the saved account roster")
+	client.current_stars = 0
+	client.profile = {"nickname":"FirstProfile", "character_id":2, "frame_id":3}
+	transport.replies = [{"status":503,"body":{}}]
+	client.sync_profile()
+	client._flush()
+	await settle(client,transport)
+	check(client._profile_pending, "Profile failure keeps the offline request pending")
+	transport.replies = [reply(160,false), reply(160,false)]
+	client._flush()
+	client.profile = {"nickname":"NewerProfile", "character_id":1, "frame_id":5}
+	client.sync_profile()
+	await settle(client,transport)
+	check(transport.calls[-2].payload.p_nickname == "FirstProfile" and transport.calls[-1].payload.p_nickname == "NewerProfile" and !client._profile_pending, "Profile changed in flight is uploaded after the older acknowledgement")
+	check(!transport.calls.back().payload.has("p_stars"), "Zero-star profile update sends no ranking score")
+	var appearance_row := row()
+	appearance_row["character_id"] = 2
+	appearance_row["frame_id"] = 5
+	check(client._valid_row(appearance_row, true), "Valid public appearance IDs accepted")
+	appearance_row.frame_id = 6
+	check(!client._valid_row(appearance_row, true), "Invalid public appearance ID rejected")
+	client._owner_id = ""
+	check(client.get_player_id().is_empty(), "A cached row without a known account cannot supply a nickname ID")
+	client._owner_id = "test-owner"
+	client._snapshot = {"me":{"player_id":"filler:cis:001", "is_filler":true}}
+	check(client.get_player_id().is_empty(), "Filler IDs are never used for generated player names")
+	client._snapshot = {"me":{"player_id":"00000000-0000-0000-0000-000000000001", "is_filler":false}}
+	check(client.get_player_id().is_empty(), "Auth UUID is not a numeric player ID")
+	client._on_identity_changed()
+	check(client.get_player_id().is_empty(), "Replacing identity discards the previous numeric ID")
 	client.queue_free()
 	transport.queue_free()
 	await get_tree().process_frame

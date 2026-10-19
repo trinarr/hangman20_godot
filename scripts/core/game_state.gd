@@ -11,12 +11,16 @@ signal soft_currency_changed(balance: int)
 signal stars_changed(balance: int)
 signal tournament_changed
 signal hearts_changed(hearts: int, recovery_seconds: int)
+signal profile_changed
+signal guided_onboarding_finished
 
 const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 3
+const SAVE_FORMAT_VERSION: int = 5
+const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
+const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
 const LEGAL_DOCUMENTS_VERSION: int = 1
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
@@ -165,6 +169,10 @@ var word_language: String = "ru"
 const PROFILE_STATISTICS = preload("res://scripts/core/profile_statistics.gd")
 var profile_statistics: Dictionary = {}
 var player_name: String = ""
+var player_frame_id: int = PLAYER_PROFILE.DEFAULT_FRAME_ID
+var player_name_is_custom := false
+var player_name_base := ""
+var player_name_server_id := ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
 var stars: int = DEFAULT_STARS
 var hearts: int = MAX_HEARTS
@@ -239,6 +247,7 @@ var _save_blocked_by_future_version: bool = false
 func _ready() -> void:
 	_normalize_game_design_values()
 	load_game()
+	ensure_initial_player_profile()
 	_heart_tick_timer = Timer.new()
 	_heart_tick_timer.name = "HeartRecoveryTick"
 	_heart_tick_timer.wait_time = HEART_STATE_POLL_SECONDS
@@ -299,14 +308,25 @@ func complete_single_player_guided_onboarding(persist: bool = true) -> bool:
 	# level 3 in the other campaign must not mutate that campaign's resume state.
 	if guided_onboarding_completed:
 		return false
+	if persist and _save_batch_depth > 0:
+		return false
+	var previous_active := active_single_player_session.duplicate(true)
+	var previous_resume := single_player_resume_states.duplicate(true)
 	guided_onboarding_completed = true
 	# Clear only the transient guided theme snapshot of the language that is
 	# completing onboarding. The other language is an independent campaign and
 	# may legitimately have its own unfinished theme-selection state.
 	_clear_guided_theme_resume_state_for_language(word_language)
-	if persist:
-		save_game()
+	if persist and !save_game():
+		guided_onboarding_completed = false
+		active_single_player_session = previous_active
+		single_player_resume_states = previous_resume
+		return false
+	guided_onboarding_finished.emit()
 	return true
+
+func can_use_online_services() -> bool:
+	return guided_onboarding_completed and has_accepted_legal_documents() and !_save_blocked_by_future_version
 
 func are_ads_enabled() -> bool:
 	return ads_unlocked
@@ -415,7 +435,11 @@ func load_game() -> void:
 
 	# Every section is normalized independently. One malformed optional field must
 	# never discard an otherwise valid profile or restore economy defaults.
-	player_name = str(parsed.get("player_name", "")).strip_edges().left(35)
+	player_name = str(parsed.get("player_name", "")).strip_edges().left(PLAYER_PROFILE.NAME_MAX_LENGTH)
+	player_frame_id = clampi(int(parsed.get("player_frame_id", PLAYER_PROFILE.DEFAULT_FRAME_ID)), 1, PLAYER_PROFILE.FRAME_COLORS.size())
+	player_name_is_custom = bool(parsed.get("player_name_is_custom", !player_name.is_empty()))
+	player_name_base = str(parsed.get("player_name_base", ""))
+	player_name_server_id = str(parsed.get("player_name_server_id", ""))
 	profile_statistics = PROFILE_STATISTICS.normalize(parsed["profile_statistics"]) if parsed.get("profile_statistics") is Dictionary else {}
 	tournament_state = TOURNAMENT_MODEL.normalize(parsed.get("tournament", {}))
 	_tournament_clock_utc = 0
@@ -514,6 +538,17 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 	match from_version:
 		2:
 			return WORD_CONTENT.migrate_v2_to_v3(_payload)
+		3:
+			_payload["player_frame_id"] = PLAYER_PROFILE.DEFAULT_FRAME_ID
+			_payload["player_name"] = str(_payload.get("player_name", "")).strip_edges().left(PLAYER_PROFILE.NAME_MAX_LENGTH)
+			_payload["save_version"] = 4
+			return true
+		4:
+			_payload["player_name_is_custom"] = !str(_payload.get("player_name", "")).is_empty()
+			_payload["player_name_base"] = ""
+			_payload["player_name_server_id"] = ""
+			_payload["save_version"] = 5
+			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
 			return false
@@ -664,6 +699,10 @@ func _home_profile_save_game() -> bool:
 		"word_content_version": WORD_CONTENT.CONTENT_VERSION,
 		"word_language": word_language,
 		"player_name": player_name,
+		"player_frame_id": player_frame_id,
+		"player_name_is_custom": player_name_is_custom,
+		"player_name_base": player_name_base,
+		"player_name_server_id": player_name_server_id,
 		"profile_statistics": profile_statistics,
 		"settings": settings,
 		"records": records,
@@ -741,6 +780,66 @@ func _home_profile_save_game() -> bool:
 		return false
 
 	_save_write_in_progress = false
+	return true
+
+func ensure_initial_player_profile() -> bool:
+	if _save_blocked_by_future_version or !player_name.is_empty():
+		return false
+	player_name = PROFILE_NICKNAMES.random_name(interface_language)
+	player_name_base = player_name
+	player_name_server_id = ""
+	player_name_is_custom = false
+	settings[5] = 1
+	player_frame_id = 3
+	return save_game()
+
+func apply_server_player_id(identifier: String) -> bool:
+	if !can_use_online_services() or player_name_is_custom or player_name_base.is_empty() or identifier == player_name_server_id:
+		return false
+	if !identifier.is_valid_int() or identifier.to_int() <= 0 or str(identifier.to_int()) != identifier:
+		return false
+	if player_name != player_name_base + player_name_server_id:
+		return false
+	var candidate := player_name_base + identifier
+	if !PLAYER_PROFILE.valid_name(candidate) or _save_batch_depth > 0:
+		return false
+	var previous_name := player_name
+	var previous_id := player_name_server_id
+	player_name = candidate
+	player_name_server_id = identifier
+	if !save_game():
+		player_name = previous_name
+		player_name_server_id = previous_id
+		return false
+	profile_changed.emit()
+	return true
+
+func get_player_profile() -> Dictionary:
+	return {
+		"nickname": player_name if PLAYER_PROFILE.valid_name(player_name) else tr("PROFILE_DEFAULT_NAME"),
+		"character_id": clampi(int(settings[5]), 1, 2),
+		"frame_id": player_frame_id,
+	}
+
+func update_player_profile(nickname: String, character_id: int, frame_id: int, nickname_changed: bool = true) -> bool:
+	nickname = nickname.strip_edges()
+	if !PLAYER_PROFILE.valid_name(nickname) or character_id < 1 or character_id > 2 or frame_id < 1 or frame_id > PLAYER_PROFILE.FRAME_COLORS.size() or _save_batch_depth > 0:
+		return false
+	var previous_name := player_name
+	var previous_character: int = settings[5]
+	var previous_frame := player_frame_id
+	var previous_custom := player_name_is_custom
+	player_name = nickname
+	settings[5] = character_id
+	player_frame_id = frame_id
+	player_name_is_custom = player_name_is_custom or nickname_changed
+	if !save_game():
+		player_name = previous_name
+		settings[5] = previous_character
+		player_frame_id = previous_frame
+		player_name_is_custom = previous_custom
+		return false
+	profile_changed.emit()
 	return true
 
 func has_accepted_legal_documents() -> bool:

@@ -38,7 +38,8 @@ func _ready() -> void:
 	var top: Array = []
 	for index in range(100):
 		top.append({"player_id": str(index + 1), "rank": float(index + 1),
-			"nickname": "Test", "stars": 1000 - index, "is_filler": false})
+			"nickname": "Test", "stars": 1000 - index, "is_filler": false,
+			"character_id": 1 + index % 2, "frame_id": 1 + index % 5})
 	var data := {"top": top, "me": top[49], "language": "en", "total_players": 100}
 	view.set_snapshot(data)
 	await settle()
@@ -69,13 +70,27 @@ func _ready() -> void:
 	view.scroll.scroll_vertical = 0
 	await settle()
 	var icon: TextureRect = first_row.find_child("LeaderboardStarIcon", true, false)
-	check(icon.size.is_equal_approx(Vector2(26, 26)), "Star texture must not enlarge the authored icon size")
-	check(Rect2(Vector2.ZERO, icon.get_parent().size).encloses(icon.get_rect()), "Star icon stays inside its card")
-	check(is_equal_approx(icon.position.y + icon.size.y * 0.5, 34), "Star icon stays vertically centered")
-	var rank_label: Label = icon.get_parent().get_child(0)
+	check(icon.size.is_equal_approx(Vector2.ONE * view.SCORE_PLATE.STYLE.ICON_SIZE), "Score uses the bounded HUD currency icon size")
+	check(first_row.get_node("CardFace").get_global_rect().encloses(icon.get_global_rect()), "Star icon stays inside its card")
+	check(is_equal_approx(icon.get_global_rect().get_center().y, first_row.get_node("CardFace").get_global_rect().get_center().y - first_row.get_global_transform().get_scale().y), "Star icon sits one stage unit above the card center")
+	var rank_label: Label = first_row.find_child("PlayerRank", true, false)
 	check(rank_label.text == "1", "JSON numeric ranks render without decimal suffix")
 	var pinned_icon: TextureRect = view.pinned.find_child("LeaderboardStarIcon", true, false)
-	check(pinned_icon.size.is_equal_approx(Vector2(26, 26)), "Pinned row uses the same bounded star icon")
+	check(pinned_icon.size == icon.size, "Pinned row uses the same bounded star icon")
+	var avatar: Button = first_row.find_child("PlayerAvatar", true, false)
+	var player_name: Label = first_row.find_child("PlayerName", true, false)
+	var score_plate: Control = first_row.find_child("PlayerScore", true, false)
+	check(rank_label.get_rect().end.x <= avatar.position.x and avatar.get_rect().end.x < player_name.position.x and player_name.get_rect().end.x < score_plate.position.x, "Rows order rank, framed avatar, name and currency-style score without overlap")
+	check(avatar.get_meta("character_id") == 1 and avatar.get_meta("frame_id") == 1 and avatar.frame_color == avatar.PROFILE.FRAME_COLORS[0], "Row avatar displays the player's character and frame")
+	check(avatar.disabled and avatar.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Decorative avatar never intercepts leaderboard scrolling")
+	check(view._portraits.get_child_count() == 2 and first_row.find_children("*", "SubViewport", true, false).is_empty(), "A hundred rows share two portrait viewports")
+	var third_avatar: Button = view.rows.get_child(3).find_child("PlayerAvatar", true, false)
+	check(avatar._image.texture == third_avatar._image.texture, "Same-character rows share one rendered portrait")
+	var background: StyleBoxFlat = score_plate.get_node("CounterBackground").get_theme_stylebox("panel")
+	check(background.bg_color == SCREEN.PALETTE.with_alpha(SCREEN.PALETTE.UI_BLUE_DARK, SCREEN.PALETTE.RESOURCE_COUNTER_OPACITY), "Score plate reuses the currency counter background")
+	check(view.pinned.z_index > 2, "Pinned strip covers the outlined score labels of scrolling rows")
+	var score_value: Label = score_plate.get_node("ScoreValue")
+	check(score_value.position.x > icon.get_rect().end.x and score_value.clip_contents, "Score text and its outline stay clear of the star icon")
 	view.scroll.scroll_vertical = int(49 * SCREEN.ROW_HEIGHT + SCREEN.LIST_TOP_PADDING)
 	await settle()
 	check(view._pin_side == "", "Visible own row hides pinned duplicate")

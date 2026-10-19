@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '../..');
     create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
-  for (const name of fs.readdirSync(root+'/supabase/migrations').filter(n=>/^00[5-9]|^010/.test(n)).sort())
+  for (const name of fs.readdirSync(root+'/supabase/migrations').filter(n=>/^(00[5-9]|01[01])_/.test(n)).sort())
     await db.exec(fs.readFileSync(root+'/supabase/migrations/'+name,'utf8'));
   const user='00000000-0000-0000-0000-000000000001';
   await db.query('insert into auth.users values ($1)',[user]);
@@ -71,7 +71,7 @@ const root = path.resolve(__dirname, '../..');
   assert.deepEqual(result.fillers,[]);
   await db.exec('reset role');
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[other]);
-  await db.exec(fs.readFileSync(root+'/supabase/migrations/010_leaderboard_local_fillers.sql','utf8'));
+  await db.exec(fs.readFileSync(root+'/supabase/migrations/011_player_profiles.sql','utf8'));
   assert.equal((await db.query("select count(*)::int as n from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev')")).rows[0].n,2);
   await db.exec('set role authenticated');assert.deepEqual((await call(null,true,'ru',true)).fillers,otherSeed);
   await db.exec('reset role');await db.exec('set role anon');await assert.rejects(()=>call(null,true));

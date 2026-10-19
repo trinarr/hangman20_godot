@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Temporary profile editor: Save deliberately dismisses without persisting the draft.
+## Profile draft is committed through GameState before server synchronization.
 const DESIGN = preload("res://scripts/core/game_design_config.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
@@ -8,16 +8,21 @@ const CENTER = preload("res://scripts/ui/popup_stage_center.gd")
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
 const PAPER_SHADER = preload("res://shaders/profile_avatar_paper.gdshader")
-const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
+const MASK = preload("res://shaders/profile_editor_mask.gdshader")
 const ROUND = preload("res://scripts/ui/stage_round_button.gd")
 const LONG = preload("res://scripts/ui/stage_long_button.gd")
 const ARROW = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const CHECK = preload("res://flash_assets/reward_status_check_wide.png")
 const AVATAR = preload("res://scripts/ui/profile_avatar_button.gd")
 const CHARACTER = preload("res://scripts/ui/profile_character_preview.gd")
+const NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
+const RANDOM_ICON = preload("res://flash_assets/custom_word_random_doodle.png")
 const WORD_MARKER = preload("res://scripts/ui/portrait_round_result.gd")
-const COLORS := [PALETTE.SUCCESS, PALETTE.CHALLENGE_NORMAL, PALETTE.BUTTON_BLUE, PALETTE.BUTTON_ORANGE, PALETTE.ERROR]
-const FORM_SIZE := Vector2(424, 560)
+const PROFILE = preload("res://scripts/core/player_profile.gd")
+const TOAST = preload("res://scripts/ui/stage_toast.gd")
+const COLORS = PROFILE.FRAME_COLORS
+const FORM_SIZE := Vector2(424, 510)
+const FOOTER_HEIGHT := 16.0
 const NICKNAME_MAX_LENGTH := 18
 const NICKNAME_MIN_LENGTH := 2
 const CHARACTER_SCALE := 0.65 * 1.15
@@ -45,9 +50,14 @@ var selected_character := 1
 var frame_color := PALETTE.BUTTON_ORANGE
 var nickname: Control
 var save_button: Control
+var _save_toast: Control
+var _nickname_changed := false
+var _shown_name := ""
 var _root: Control
 var _dimmer: ColorRect
 var _shell: Panel
+var _header: Panel
+var _footer: Panel
 var _paper: ColorRect
 var _portrait: TextureRect
 var _title: Label
@@ -72,11 +82,13 @@ var _surface_mask: ShaderMaterial
 var close_button: Control
 var _close_holder: Control
 var _source_image_rect := Rect2()
+var _source_head_offset := Vector2.ZERO
 var _source_grid_origin := Vector2.ZERO
 var _initial_paper_unit := 1.0
 var _initial_corner_radius := 14.0
 var _initial_border_width := 6.0
 var _prepared := false
+var _open_elapsed := 0.0
 var _bounce_scale: float = CENTER.OPEN_START_FACTOR:
 	set(value):
 		_bounce_scale = value
@@ -97,6 +109,28 @@ func _ready() -> void:
 	_surface.name = "PreparedProfileEditorSurface"
 	_surface.stretch = true
 	_surface.mouse_filter = Control.MOUSE_FILTER_PASS
+	_header = Panel.new()
+	_header.name = "ProfileEditorPopupTop"
+	_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var header_style := StyleBoxFlat.new()
+	header_style.bg_color = PALETTE.UI_BLUE_DARK
+	header_style.border_color = PALETTE.THEME_CARD
+	header_style.set_border_width_all(3)
+	header_style.set_corner_radius_all(roundi(float(popup_style["corner_radius"])))
+	header_style.corner_radius_bottom_left = 0
+	header_style.corner_radius_bottom_right = 0
+	_header.add_theme_stylebox_override("panel", header_style)
+	_root.add_child(_header)
+	_footer = Panel.new()
+	_footer.name = "ProfileEditorPopupBottom"
+	_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var footer_style := header_style.duplicate() as StyleBoxFlat
+	footer_style.corner_radius_top_left = 0
+	footer_style.corner_radius_top_right = 0
+	footer_style.corner_radius_bottom_left = roundi(float(popup_style["corner_radius"]))
+	footer_style.corner_radius_bottom_right = roundi(float(popup_style["corner_radius"]))
+	_footer.add_theme_stylebox_override("panel", footer_style)
+	_root.add_child(_footer)
 	_root.add_child(_surface)
 	_viewport = SubViewport.new()
 	_viewport.name = "PreparedProfileEditorViewport"
@@ -166,6 +200,8 @@ func _ready() -> void:
 func _capture_source() -> void:
 	_start_rect = source.get_global_rect()
 	_source_image_rect = source._image.get_global_rect()
+	if is_instance_valid(source._character):
+		_source_head_offset = (source._character.displayed_head_center() / source._image.size - Vector2.ONE * 0.5) * _source_image_rect.size
 	_source_grid_origin = source.get_node("AvatarPaperBackground").get_global_rect().position
 	_initial_paper_unit = source.get_global_transform().get_scale().x * source._appearance_scale
 	_initial_corner_radius = source.corner_radius * source.get_global_transform().get_scale().x
@@ -184,10 +220,16 @@ func _prepare_open() -> void:
 	source.hide()
 	_tween = create_tween()
 	_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	_tween.tween_method(_set_progress, 0.0, 1.0, CENTER.OPEN_GROW_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_tween.parallel().tween_property(self, "_bounce_scale", CENTER.OPEN_PEAK_FACTOR, CENTER.OPEN_GROW_DURATION).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(self, "_bounce_scale", 1.0, CENTER.OPEN_SETTLE_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_tween.tween_method(_set_open_time, 0.0, CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION, CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION)
 	_tween.tween_callback(_finish_open)
+
+func _set_open_time(elapsed: float) -> void:
+	_open_elapsed = elapsed
+	var grow := 1.0 - pow(1.0 - clampf(elapsed / CENTER.OPEN_GROW_DURATION, 0.0, 1.0), 3.0)
+	_progress = grow
+	var settle := clampf((elapsed - CENTER.OPEN_GROW_DURATION) / CENTER.OPEN_SETTLE_DURATION, 0.0, 1.0)
+	var eased_settle := 2.0 * settle * settle if settle < 0.5 else 1.0 - pow(-2.0 * settle + 2.0, 2.0) * 0.5
+	_bounce_scale = lerpf(lerpf(CENTER.OPEN_START_FACTOR, CENTER.OPEN_PEAK_FACTOR, grow), 1.0, eased_settle)
 
 func _finish_open() -> void:
 	_opened = true
@@ -206,7 +248,7 @@ func _build_form() -> void:
 		var arrow := ROUND.new()
 		arrow.name = "PreviousCharacter" if direction < 0 else "NextCharacter"
 		arrow.use_stage_layout = false
-		arrow.stage_rect = Rect2(24 if direction < 0 else 348, 128, 52, 52)
+		arrow.stage_rect = Rect2(24 if direction < 0 else 348, 266, 52, 52)
 		arrow.configure_texture(ARROW, Vector2(18, 27))
 		arrow.set_color_preset(ROUND.ColorPreset.BLUE)
 		arrow.drop_shadow_enabled = true
@@ -219,7 +261,7 @@ func _build_form() -> void:
 				shadow.flip_h = true
 	nickname = NickInput.new()
 	nickname.name = "ProfileNicknameInput"
-	nickname.stage_rect = Rect2(40, 280, 344, 62.4)
+	nickname.stage_rect = Rect2(40, 20, 344, 62.4)
 	var marker := WORD_MARKER._stage_portrait_result_word_marker(Vector2(252, 42))
 	marker.position = Vector2(23.2, 6)
 	marker.scale = Vector2.ONE * 1.2
@@ -227,15 +269,18 @@ func _build_form() -> void:
 	nickname.set_marker_node(marker)
 	_form.add_child(nickname)
 	var initial_name := GameState.player_name if !GameState.player_name.is_empty() else tr("PROFILE_DEFAULT_NAME")
+	_shown_name = initial_name
 	nickname.configure(initial_name.left(NICKNAME_MAX_LENGTH), NICKNAME_MAX_LENGTH, roundi(26 * 1.2))
 	var edit: LineEdit = nickname.get_line_edit()
 	edit.text_changed.connect(nickname.set_display_text)
 	edit.text_changed.connect(_update_save_availability)
+	edit.text_changed.connect(func(_value: String): _nickname_changed = true)
+	GameState.profile_changed.connect(_refresh_automatic_nickname)
 	for index in range(COLORS.size()):
 		var swatch := AVATAR.new()
 		swatch.name = "FrameColor%d" % index
 		swatch.portrait_enabled = false
-		swatch.position = Vector2(60 + index * 64, 360)
+		swatch.position = Vector2(60 + index * 64, 100)
 		swatch.size = Vector2(48, 48)
 		swatch.configure_profile_appearance(48)
 		swatch.paper_background = false
@@ -259,22 +304,65 @@ func _build_form() -> void:
 	save_button = LONG.new()
 	save_button.name = "SaveProfileDraft"
 	save_button.use_stage_layout = false
-	save_button.stage_rect = Rect2(62, 484, 300, 56)
+	save_button.stage_rect = Rect2(20, 429, 318, 56)
 	save_button.configure(tr("PROFILE_SAVE"), FONTS.display_button_font_size(20))
 	save_button.set_color_preset(LONG.ColorPreset.ORANGE)
 	save_button.drop_shadow_enabled = true
 	save_button.pressed.connect(_save_draft)
 	_form.add_child(save_button)
+	var random_button := ROUND.new()
+	random_button.name = "RandomizeProfileDraft"
+	random_button.use_stage_layout = false
+	random_button.stage_rect = Rect2(348, 429, 56, 56)
+	random_button.configure_texture(RANDOM_ICON, Vector2(50, 50))
+	random_button.set_color_preset(ROUND.ColorPreset.BLUE)
+	random_button.drop_shadow_enabled = true
+	random_button.icon_shadow_enabled = true
+	random_button.tooltip_text = tr("PROFILE_RANDOMIZE")
+	random_button.pressed.connect(_randomize_profile)
+	_form.add_child(random_button)
+	_save_toast = TOAST.new()
+	_save_toast.position = Vector2(20, 380)
+	_form.add_child(_save_toast)
+	_save_toast.set_available_width(384)
 	_update_save_availability(edit.text)
+
+func _randomize_profile() -> void:
+	if _closing:
+		return
+	var next_character := randi_range(1, 2)
+	if next_character != selected_character:
+		selected_character = next_character
+		_show_character()
+		_hero.play_correct_letter()
+	var color_choices: Array = COLORS.duplicate()
+	color_choices.erase(frame_color)
+	_select_color(COLORS.find(color_choices.pick_random()))
+	var edit: LineEdit = nickname.get_line_edit()
+	edit.text = NICKNAMES.random_name(Database.interface_language, edit.text)
+	edit.text_changed.emit(edit.text)
+
+func _refresh_automatic_nickname() -> void:
+	var edit: LineEdit = nickname.get_line_edit()
+	if _nickname_changed or edit.text != _shown_name:
+		return
+	_shown_name = GameState.player_name
+	edit.text = _shown_name
+	nickname.set_display_text(_shown_name)
+	_update_save_availability(_shown_name)
 
 func _update_save_availability(value: String) -> void:
 	if is_instance_valid(save_button):
-		save_button.button_disabled = value.strip_edges().length() < NICKNAME_MIN_LENGTH
+		save_button.button_disabled = !PROFILE.valid_name(value.strip_edges())
 
 func _save_draft() -> void:
 	_update_save_availability(nickname.get_line_edit().text)
 	if !save_button.button_disabled:
-		close()
+		var value: String = nickname.get_line_edit().text
+		if GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value.strip_edges() != GameState.player_name):
+			close()
+		else:
+			_save_toast.show_message(tr("PROFILE_SAVE_FAILED"), false)
 
 func _switch_character() -> void:
 	selected_character = 1 if selected_character == 2 else 2
@@ -287,7 +375,7 @@ func _show_character() -> void:
 	_hero = CHARACTER.new()
 	_hero_holder.add_child(_hero)
 	_hero.show_character(selected_character)
-	_hero.fit_full_body(Rect2(100, 20, 224, 270), CHARACTER_SCALE)
+	_hero.fit_full_body(Rect2(100, 158, 224, 270), CHARACTER_SCALE)
 
 func _select_color(index: int) -> void:
 	if index == _selected_color_index:
@@ -345,10 +433,11 @@ func _layout() -> void:
 	var keyboard := float(_last_keyboard_height) * viewport.y / maxf(get_window().size.y, 1)
 	var close_size: float = popup_style["close_size"]
 	var close_gap: float = popup_style["close_gap"]
-	var stack_height := FORM_SIZE.y + close_gap + close_size
+	var title_height := 69.0
+	var stack_height := title_height + FORM_SIZE.y + FOOTER_HEIGHT + close_gap + close_size
 	var fit := minf(LAYOUT.fit_scale(viewport), (viewport.y - 32) / stack_height)
 	var target_size := FORM_SIZE * fit
-	var target_position := Vector2((viewport.x - target_size.x) * 0.5, (viewport.y - stack_height * fit) * 0.5)
+	var target_position := Vector2((viewport.x - target_size.x) * 0.5, (viewport.y - stack_height * fit) * 0.5 + title_height * fit)
 	var input_bottom: float = target_position.y + nickname.stage_rect.end.y * fit
 	var keyboard_top := viewport.y - keyboard
 	if keyboard > 0.0 and input_bottom > keyboard_top:
@@ -361,7 +450,7 @@ func _layout() -> void:
 	var initial_scale := _initial_paper_unit / local_paper_unit
 	var current_scale := lerpf(initial_scale, fit * _bounce_scale, _progress)
 	var head: Vector2 = _hero.displayed_head_center()
-	var initial_position := _start_rect.get_center() - head * initial_scale
+	var initial_position := _source_image_rect.get_center() + _source_head_offset - head * initial_scale
 	_surface.position = initial_position.lerp(target_center - FORM_SIZE * current_scale * 0.5, _progress)
 	var pixel_scale := _root.get_viewport().get_stretch_transform().get_scale().abs()
 	var pixels := Vector2i((FORM_SIZE * fit * pixel_scale).ceil()).max(Vector2i(2, 2))
@@ -371,17 +460,20 @@ func _layout() -> void:
 	var mask_rect := Rect2(_start_rect.position.lerp(_surface.position, _progress), _start_rect.size.lerp(FORM_SIZE * current_scale, _progress))
 	_shell.position = mask_rect.position
 	_shell.size = mask_rect.size
-	var radius := lerpf(_initial_corner_radius, 16 * current_scale, _progress)
-	var border := lerpf(_initial_border_width, 3 * current_scale, _progress)
-	_frame_style.border_color = frame_color
-	_frame_style.set_border_width_all(maxi(1, roundi(border)))
-	_frame_style.border_width_top = maxi(1, roundi(lerpf(_initial_border_width, 33 * current_scale, _progress)))
+	var radius := lerpf(_initial_corner_radius, 0.0, _progress)
+	var border := lerpf(_initial_border_width, 0.0, _progress)
+	var portrait_mix: float = 1.0 - smoothstep(0.0, 0.4, _progress) if _closing else 0.0
+	_frame_style.border_color = frame_color.lerp(source.frame_color, portrait_mix) if _closing and is_instance_valid(source) else frame_color
+	_shell.modulate.a = 1.0 - smoothstep(0.0, 0.35, _progress) if _closing else clampf(1.0 - _open_elapsed / 0.1, 0.0, 1.0)
+	_frame_style.set_border_width_all(roundi(border))
 	_frame_style.set_corner_radius_all(roundi(radius))
 	var inner_mask := mask_rect.grow(-border)
 	var local_mask := Rect2((inner_mask.position - _surface.position) / current_scale, inner_mask.size / current_scale)
 	_surface_mask.set_shader_parameter("source_size", FORM_SIZE)
 	_surface_mask.set_shader_parameter("mask_rect", Vector4(local_mask.position.x, local_mask.position.y, local_mask.size.x, local_mask.size.y))
 	_surface_mask.set_shader_parameter("corner_radius", maxf(0, radius - border) / current_scale)
+	_surface_mask.set_shader_parameter("paper_unit", local_paper_unit)
+	_surface_mask.set_shader_parameter("tear_progress", _progress)
 	_surface.hit_rect = Rect2(local_mask.position * Vector2(pixels) / FORM_SIZE, local_mask.size * Vector2(pixels) / FORM_SIZE)
 	var paper := _paper.material as ShaderMaterial
 	paper.set_shader_parameter("paper_canvas_size", FORM_SIZE)
@@ -391,17 +483,38 @@ func _layout() -> void:
 	var zoom := lerpf(portrait_zoom, 1.0, _progress)
 	_hero_holder.scale = Vector2.ONE * zoom
 	_hero_holder.position = head * (1.0 - zoom)
+	_hero_holder.modulate.a = 1.0 - portrait_mix
 	_portrait.position = (_source_image_rect.position - initial_position) / initial_scale
 	_portrait.size = _source_image_rect.size / initial_scale
-	_portrait.visible = is_zero_approx(_progress)
+	_portrait.visible = _closing or is_zero_approx(_progress)
+	_portrait.modulate.a = portrait_mix if _closing else 1.0
 	if is_instance_valid(_title):
-		_title.visible = _progress > 0.5
+		_header.visible = _progress > 0.5
+		_header.scale = Vector2.ONE * current_scale
+		_header.position = mask_rect.position + Vector2(0, -36) * current_scale
+		_header.size = Vector2(mask_rect.size.x / current_scale, 52)
+		_footer.visible = _progress > 0.5
+		_footer.scale = Vector2.ONE * current_scale
+		_footer.position = mask_rect.position + Vector2(0, mask_rect.size.y - 16 * current_scale)
+		_footer.size = Vector2(mask_rect.size.x / current_scale, 16 + FOOTER_HEIGHT)
+		# Solve when the expanding surface first reaches its final size. The
+		# remaining grow and settle time is shared by the title's fade-in.
+		var initial_ratio := initial_scale / fit
+		var a: float = CENTER.OPEN_PEAK_FACTOR - CENTER.OPEN_START_FACTOR
+		var b: float = CENTER.OPEN_START_FACTOR - initial_ratio
+		var crossing := clampf((-b + sqrt(maxf(0.0, b * b - 4.0 * a * (initial_ratio - 1.0)))) / (2.0 * a), 0.0, 1.0)
+		var reveal_start: float = CENTER.OPEN_GROW_DURATION * (1.0 - pow(1.0 - crossing, 1.0 / 3.0))
+		var open_duration: float = CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION
+		_title.modulate.a = clampf((_open_elapsed - reveal_start) / maxf(0.001, open_duration - reveal_start), 0.0, 1.0)
+		if _closing:
+			_title.modulate.a *= _progress
+		_title.visible = _prepared
 		_title.scale = Vector2.ONE * current_scale
-		_title.position = mask_rect.position + Vector2(16, -33) * current_scale
+		_title.position = _header.position + Vector2(16, -33) * current_scale
 		_title.size = Vector2(maxf(1, mask_rect.size.x / current_scale - 32), 66)
 	if is_instance_valid(_close_holder):
 		_close_holder.scale = Vector2.ONE * fit
-		_close_holder.position = Vector2(target_center.x - close_size * fit * 0.5, target_position.y + (FORM_SIZE.y + close_gap) * fit)
+		_close_holder.position = Vector2(target_center.x - close_size * fit * 0.5, target_position.y + (FORM_SIZE.y + FOOTER_HEIGHT + close_gap) * fit)
 
 func close() -> void:
 	if _closing:
@@ -411,6 +524,7 @@ func close() -> void:
 	_opened = false
 	if is_instance_valid(source):
 		_capture_source()
+		_portrait.texture = source._image.texture
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	var edit: LineEdit = nickname.get_line_edit()

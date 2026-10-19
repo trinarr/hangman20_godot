@@ -43,6 +43,7 @@ func _ready() -> void:
 
 func run() -> void:
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	GameState.guided_onboarding_completed = false
 	main = TestUI.new()
 	add_child(main)
 	if !OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE").is_empty():
@@ -52,7 +53,14 @@ func run() -> void:
 	await settle()
 	var avatar: Button = main.content.find_child("HomeAvatarButton", true, false)
 	check(avatar != null, "Home replaces settings entry with avatar")
-	check(avatar.has_node("AvatarPaperBackground") and avatar.frame_color == main.PORTRAIT_UI_PALETTE.BUTTON_ORANGE, "Home uses the profile frame and paper background")
+	check(!avatar.visible, "Avatar remains hidden before the tutorial")
+	var counter_center: float = (main._portrait_active_currency_counter_rect.position.x + main._portrait_active_star_counter_rect.end.x) * 0.5
+	check(is_equal_approx(counter_center, main.PORTRAIT_STAGE_SIZE.x * 0.5), "Home counters are centered across the screen before tutorial")
+	check(GameState.complete_single_player_guided_onboarding(), "Tutorial completion is saved")
+	check(avatar.visible, "Completing tutorial reveals the existing Home avatar")
+	counter_center = (main._portrait_active_currency_counter_rect.position.x + main._portrait_active_star_counter_rect.end.x) * 0.5
+	check(is_equal_approx(counter_center, (main.PORTRAIT_HOME_AVATAR_RECT.end.x + main.PORTRAIT_STAGE_SIZE.x) * 0.5), "Home counters move beside the avatar immediately after tutorial")
+	check(avatar.has_node("AvatarPaperBackground") and avatar.frame_color == main.PORTRAIT_UI_PALETTE.BUTTON_BLUE, "New profile uses the blue frame and paper background")
 	check(avatar.size.is_equal_approx(main.PORTRAIT_HOME_AVATAR_RECT.size), "Shared appearance preserves the compact Home avatar bounds")
 	avatar.button_down.emit()
 	await get_tree().create_timer(0.07).timeout
@@ -105,7 +113,7 @@ func run() -> void:
 	var profile_avatar: Button = player_body.identity.get_node("ProfileAvatar")
 	check(!profile_avatar.disabled and profile_avatar.pressed.is_connected(player_body._open_editor), "Profile avatar opens the draft editor")
 	check(player_body._nickname.get_rect().get_center().x == profile_avatar.get_rect().get_center().x, "Avatar and nickname share the same center")
-	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 6, "Profile avatar grows by thirty percent while retaining its frame")
+	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 7, "Profile avatar retains its size with the thicker frame")
 	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.has_node("AvatarPaperBackground"), "Edit badge shares the avatar transform above a paper background")
 	var statistics_list: Control = player_body.statistics_scroll.get_node("ProfileStatisticsList")
 	check(statistics_list.get_child_count() == 5 and statistics_list.find_children("StatDivider", "ColorRect", true, false).size() == 4, "Statistics share one panel with separators between all five rows")
@@ -119,7 +127,6 @@ func run() -> void:
 	GameState.settings[5] = previous_hero
 	player_body.refresh()
 	check(profile_avatar._image.texture == profile_avatar._portrait_viewport.get_texture(), "Avatar displays a cropped full-character viewport")
-	var saved_name := GameState.player_name
 	profile_avatar.pressed.emit()
 	profile_avatar.pressed.emit()
 	var editor: CanvasLayer = player_body._editor
@@ -133,22 +140,51 @@ func run() -> void:
 	var paper_unit: float = editor._paper.material.get_shader_parameter("paper_unit")
 	var surface_scale: float = editor._surface.scale.x * editor._surface.size.x / editor.FORM_SIZE.x
 	check(is_equal_approx(paper_unit * surface_scale, editor._initial_paper_unit), "Initial popup cells match the avatar cells")
-	editor._tween.custom_step(0.16)
+	editor._tween.custom_step(0.05)
+	check(is_equal_approx(editor._shell.modulate.a, 0.5) and is_zero_approx(editor._title.modulate.a), "Avatar frame fades from the start while the title waits for full popup size")
+	editor._tween.custom_step(0.05)
+	check(is_zero_approx(editor._shell.modulate.a), "Avatar frame disappears within the first tenth of a second")
+	editor._tween.custom_step(0.06)
+	check(editor._title.modulate.a > 0.0 and editor._title.modulate.a < 1.0, "Title fades in during the remaining popup bounce")
 	check(!editor._portrait.visible and !editor.close_button.visible and !editor._opened, "Growth reveals the full character before the close icon appears")
 	editor._tween.custom_step(0.12)
 	await get_tree().create_timer(0.30).timeout
 	check(editor.close_button.visible and editor._close_holder.open_bounce_complete, "Standard close icon appears after the popup bounce finishes")
+	check(is_equal_approx(editor._title.modulate.a, 1.0), "Title is fully visible when the popup finishes opening")
 	check(editor._hero.bounds.size.y * editor._hero.body.scale.y <= 270.0 * 0.65 * 1.15 + 0.001, "Full-body preview grows fifteen percent from its reduced size")
 	check(is_instance_valid(editor) and editor._opened and editor.source == profile_avatar, "Avatar opens one expanding-paper editor")
 	check(editor._check_tween == null and editor._swatches[editor._selected_color_index].get_node("SelectionCheck").scale.is_equal_approx(Vector2.ONE), "Opening shows the selected check without an animation")
-	check(editor._frame_style.border_width_top >= roundi(33 * editor._title.scale.y), "Thick top frame covers the title's entire lower half")
+	check(editor._frame_style.border_width_top == 0 and editor._frame_style.border_width_left == 0, "Expanded editor has no frame")
+	check(is_equal_approx(editor._title.get_global_rect().get_center().y, editor._header.position.y), "Title is centered on the standard popup top edge")
+	check(editor._header.get_index() < editor._surface.get_index(), "Standard popup top stays behind the torn paper")
+	check(editor.save_button.stage_rect.position.y == 429, "Save stays at the bottom of the compact form")
 	check(is_zero_approx(profile_avatar.modulate.a), "Editor hides the source avatar while expanded")
+	var automatic_base: String = GameState.player_name_base
+	check(GameState.apply_server_player_id("123") and editor.nickname.get_line_edit().text == automatic_base + "123" and !editor._nickname_changed, "Automatic server suffix updates an untouched open editor")
+	editor.nickname.get_line_edit().text = "UnsavedChoice"
+	editor.nickname.get_line_edit().text_changed.emit("UnsavedChoice")
+	check(GameState.apply_server_player_id("456") and editor.nickname.get_line_edit().text == "UnsavedChoice", "A server reply never overwrites an edited nickname draft")
 	var original_character: int = editor.selected_character
 	editor._form.get_node("NextCharacter").pressed.emit()
 	check(editor.selected_character != original_character, "Right arrow switches the full-body preview")
 	check(editor._hero.body.get_node("AnimationPlayer").is_playing(), "Switching character plays the authored correct-letter reaction")
 	editor._form.get_node("PreviousCharacter").pressed.emit()
 	check(editor.selected_character == original_character, "Left arrow switches back")
+	editor.selected_character = 1
+	editor._show_character()
+	var lucky_sprite: Sprite2D = editor._hero.body.find_children("*", "Sprite2D", true, false)[0]
+	var lucky_texture: Texture2D = lucky_sprite.texture
+	var lucky_transform: Transform2D = lucky_sprite.transform
+	var lucky_parent_transform: Transform2D = lucky_sprite.get_parent().transform
+	var lucky_player: AnimationPlayer = editor._hero.body.get_node("AnimationPlayer")
+	for replay in range(2):
+		editor._hero.play_correct_letter()
+		var reaction_start: float = lucky_player.current_animation_position
+		lucky_player.advance(0.06)
+		check(lucky_player.current_animation_position < reaction_start and lucky_sprite.texture != lucky_texture, "Lucky rewinds through the authored reaction poses")
+		lucky_player.advance(0.06)
+		check(!lucky_player.is_playing() and lucky_sprite.texture == lucky_texture, "Lucky finishes on the initial texture after every replay")
+		check(lucky_sprite.transform.is_equal_approx(lucky_transform) and lucky_sprite.get_parent().transform.is_equal_approx(lucky_parent_transform), "Lucky restores the complete initial pose")
 	editor._form.get_node("FrameColor1").pressed.emit()
 	check(editor.frame_color == main.PORTRAIT_UI_PALETTE.CHALLENGE_NORMAL, "Color swatch updates the draft frame")
 	check(editor.nickname.marker_color == editor.frame_color, "Nickname marker follows the selected frame color")
@@ -166,7 +202,7 @@ func run() -> void:
 	editor._form.get_node("FrameColor1").pressed.emit()
 	await get_tree().create_timer(0.4).timeout
 	check(selected_check.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(selected_check.modulate.a, 1.0), "Selection check settles at full opacity and its enlarged size")
-	check(editor.nickname.stage_rect.position.y == 280 and editor._swatches[1].position.y == 360, "Nickname and frames move ten units down while retaining the compact gap")
+	check(editor.nickname.stage_rect.position.y == 20 and editor._swatches[1].position.y == 100, "Nickname and frames precede the character area")
 	var selected_swatch: Button = editor._swatches[1]
 	selected_swatch.button_down.emit()
 	await get_tree().create_timer(0.07).timeout
@@ -191,20 +227,110 @@ func run() -> void:
 	nickname_edit.text = "Draft name"
 	nickname_edit.text_changed.emit(nickname_edit.text)
 	check(editor.nickname._visual_text == "Draft name", "Nickname field updates its displayed draft")
+	var random_button: Control = editor._form.get_node("RandomizeProfileDraft")
+	check(random_button.icon_texture == main.PORTRAIT_CUSTOM_WORD_RANDOM_ICON, "Profile randomizer reuses the two-player icon")
+	check(random_button.stage_rect.size.y == editor.save_button.stage_rect.size.y and is_equal_approx(random_button.stage_rect.position.x - editor.save_button.stage_rect.end.x, 10.0), "Randomizer shares the Save row with the theme-popup spacing")
+	var previous_interface_language: String = Database.interface_language
+	var previous_server_snapshot: Dictionary = Leaderboard._snapshot.duplicate(true)
+	var previous_server_owner: String = Leaderboard._owner_id
+	for language: String in ["ru", "en"]:
+		Database.interface_language = language
+		var suggestions: Array[String] = []
+		for words: Array in editor.NICKNAMES.pool(language):
+			suggestions.append(str(words[0]) + str(words[1]))
+		for roll in range(12):
+			var suffix := "" if roll < 6 else "12345678"
+			Leaderboard._owner_id = "" if suffix.is_empty() else "profile-test-owner"
+			Leaderboard._snapshot = {"me":{"player_id":suffix, "is_filler":false}}
+			# Predict only the first draw, then exercise both branches deterministically.
+			seed(7100 + roll)
+			var next_character: int = randi_range(1, 2)
+			editor.selected_character = next_character if roll % 2 == 0 else 3 - next_character
+			editor._show_character()
+			editor._hero.play_correct_letter()
+			var previous_preview_id: int = editor._hero.get_instance_id()
+			var previous_player: AnimationPlayer = editor._hero.body.get_node("AnimationPlayer")
+			previous_player.advance(0.03)
+			var previous_position: float = previous_player.current_animation_position
+			var previous_name: String = nickname_edit.text
+			var previous_color: Color = editor.frame_color
+			seed(7100 + roll)
+			random_button.pressed.emit()
+			check(nickname_edit.text != previous_name and editor.frame_color != previous_color, "Every generation changes both nickname and color")
+			if roll % 2 == 0:
+				check(editor._hero.get_instance_id() == previous_preview_id and is_equal_approx(previous_player.current_animation_position, previous_position), "Same character keeps its preview without restarting the animation")
+			else:
+				check(editor._hero.get_instance_id() != previous_preview_id and editor._hero.body.get_node("AnimationPlayer").is_playing(), "Changed character starts its reaction")
+			check(suggestions.has(nickname_edit.text) and editor.nickname._visual_text == nickname_edit.text, "Random nickname uses two localized words without a server ID and updates the visible input")
+			check(editor.COLORS.has(editor.frame_color) and editor.nickname.marker_color == editor.frame_color, "Random color updates the draft and nickname marker")
+			check(editor.selected_character in [1, 2] and editor._hero.character_id == editor.selected_character and !editor.save_button.button_disabled, "Random character refreshes the preview and produces a valid draft")
+	Database.interface_language = previous_interface_language
+	Leaderboard._snapshot = previous_server_snapshot
+	Leaderboard._owner_id = previous_server_owner
+	for language: String in ["ru", "en"]:
+		for suffix: String in ["", "7", "12345678", "1234567890", "1234567890123", "9223372036854775807", "not-a-numeric-id"]:
+			var previous_generated := ""
+			for roll in range(12):
+				var generated: String = editor.NICKNAMES.random_name(language, previous_generated, suffix)
+				check(GameState.PLAYER_PROFILE.valid_name(generated) and generated != previous_generated and !generated.contains(" "), "Generated nickname stays valid and changes with every request")
+				if suffix in ["7", "12345678", "1234567890", "1234567890123"]:
+					check(generated.ends_with(suffix), "Numeric server ID is appended in full without clipping")
+				else:
+					check(!generated[-1].is_valid_int(), "Missing, invalid or unrepresentable ID uses the two-word fallback")
+				previous_generated = generated
+	var committed_name: String = nickname_edit.text
+	var committed_character: int = editor.selected_character
+	var committed_frame: int = editor._selected_color_index + 1
+	var old_profile: Dictionary = GameState.get_player_profile()
+	GameState._save_blocked_by_future_version = true
+	editor.save_button.pressed.emit()
+	check(!editor._closing and editor._save_toast.visible and GameState.get_player_profile() == old_profile, "Failed profile save keeps the editor open and restores persisted fields")
+	GameState._save_blocked_by_future_version = false
 	editor.save_button.pressed.emit()
 	editor.save_button.pressed.emit()
 	await get_tree().create_timer(0.25).timeout
 	check(!is_instance_valid(editor) and profile_avatar.visible and is_equal_approx(profile_avatar.modulate.a, 1.0), "Save closes once and restores the avatar")
-	check(GameState.player_name == saved_name and GameState.settings[5] == previous_hero, "Closing does not persist the draft")
+	check(GameState.player_name == committed_name and GameState.settings[5] == committed_character and GameState.player_frame_id == committed_frame, "Save commits nickname, character and stable frame ID")
+	check(player_body._nickname.text == committed_name and profile_avatar.frame_color == GameState.PLAYER_PROFILE.FRAME_COLORS[committed_frame - 1], "Profile identity refreshes after saving")
 	profile_avatar.pressed.emit()
+	var committed_profile: Dictionary = GameState.get_player_profile()
+	player_body._editor.nickname.get_line_edit().text = "DiscardedDraft"
+	player_body._editor._switch_character()
+	player_body._editor._select_color((committed_frame % 5))
 	player_body._editor.close()
 	await get_tree().create_timer(0.25).timeout
 	check(!is_instance_valid(player_body._editor) and is_equal_approx(profile_avatar.modulate.a, 1.0), "Closing during expansion cancels the old tween")
+	check(GameState.get_player_profile() == committed_profile, "Closing without Save discards the profile draft")
 	profile_avatar.pressed.emit()
 	await get_tree().create_timer(0.65).timeout
 	player_body._editor.close_button.pressed.emit()
 	await get_tree().create_timer(0.25).timeout
 	check(!is_instance_valid(player_body._editor) and profile_avatar.visible, "Standard close icon dismisses the popup and restores the source")
+	var saved_character_id: int = GameState.settings[5]
+	for character_id: int in [1, 2]:
+		GameState.settings[5] = character_id
+		profile_avatar.refresh_character()
+		profile_avatar.pressed.emit()
+		await get_tree().create_timer(0.4).timeout
+		var closing_editor: CanvasLayer = player_body._editor
+		closing_editor._switch_character()
+		closing_editor._select_color((GameState.player_frame_id % 5))
+		closing_editor.close()
+		closing_editor._tween.stop()
+		closing_editor._set_progress(0.2)
+		check(closing_editor._shell.modulate.a > 0.0 and closing_editor._shell.modulate.a < 1.0 and closing_editor._portrait.modulate.a > 0.0, "Closing fades the saved frame and portrait back in before handoff")
+		closing_editor._set_progress(0.0)
+		var closing_scale: float = closing_editor._surface.scale.x * closing_editor._surface.size.x / closing_editor.FORM_SIZE.x
+		var returned_image := Rect2(closing_editor._surface.position + closing_editor._portrait.position * closing_scale, closing_editor._portrait.size * closing_scale)
+		check(returned_image.is_equal_approx(profile_avatar._image.get_global_rect()), "Closing image lands exactly on the avatar bounds for both characters")
+		check(closing_editor._shell.get_rect().is_equal_approx(profile_avatar.get_global_rect()) and is_equal_approx(closing_editor._shell.modulate.a, 1.0), "Closing frame reaches the original avatar bounds fully visible")
+		check(closing_editor._frame_style.border_color == profile_avatar.frame_color and closing_editor._portrait.texture == profile_avatar._image.texture and is_zero_approx(closing_editor._hero_holder.modulate.a), "Cancelled draft hands off the saved portrait and frame without a pose jump")
+		var expected_offset: float = 15.0 * profile_avatar._appearance_scale * profile_avatar.get_global_transform().get_scale().y if character_id == 2 else 0.0
+		check(is_equal_approx(closing_editor._source_head_offset.y, expected_offset), "Morph compensates the actual cat portrait offset")
+		closing_editor.queue_free()
+		await settle()
+	GameState.settings[5] = saved_character_id
+	profile_avatar.refresh_character()
 	var keyboard_editor := KeyboardEditor.new()
 	keyboard_editor.source = profile_avatar
 	keyboard_editor.popup_style = player_body.editor_style

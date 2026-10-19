@@ -30,6 +30,8 @@ func snapshot() -> Dictionary:
 func revoked(code: String = "refresh_token_not_found") -> Dictionary:
 	return {"status":400,"body":{"error_code":code}}
 func run() -> void:
+	GameState.guided_onboarding_completed = true
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	Database.load_languages("ru", "ru")
 	var q: Dictionary = Database.get_quiz_questions_by_theme_index(0)[0]
 	var other: Dictionary = Database.get_quiz_questions_by_theme_index(0)[1]

@@ -45,7 +45,7 @@ func run() -> void:
 		var original: Dictionary = payload.duplicate(true)
 		var migrated: Dictionary = state._migrate_save_payload(payload)
 		check(payload == original, label + "input untouched")
-		check(int(migrated.get("save_version", -1)) == 3, label + "version advanced")
+		check(int(migrated.get("save_version", -1)) == state.SAVE_FORMAT_VERSION, label + "version advanced")
 		var history: Dictionary = migrated["single_player"][language]["word_stats"][target_theme]
 		check(int(history["seen_count"][new_key]) == 5, label + "counts summed")
 		check(bool(history["played"][new_key]) and bool(history["guessed"][new_key]), label + "flags merged")
@@ -94,7 +94,7 @@ func run() -> void:
 	file.close()
 	state.load_game()
 	check(state.soft_currency == 321 and state.stars == 123, "v2 backup recovered and balances preserved")
-	check(int(state._read_save_dictionary(state.SAVE_PATH).get("save_version", -1)) == 3, "recovery commits migrated format")
+	check(int(state._read_save_dictionary(state.SAVE_PATH).get("save_version", -1)) == state.SAVE_FORMAT_VERSION, "recovery commits migrated format")
 	state.load_game()
 	check(state.soft_currency == 321 and state.stars == 123, "disk reload does not rerun migration")
 	print("WORD_CONTENT_MIGRATION " + JSON.stringify({"checks": checks, "failures": failures}))

@@ -5,6 +5,7 @@ const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
 const PAPER = preload("res://shaders/profile_avatar_paper.gdshader")
 const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
 const CHARACTER = preload("res://scripts/ui/profile_character_preview.gd")
+const PROFILE = preload("res://scripts/core/player_profile.gd")
 const LUCKY = preload("res://img/_______192______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_329_709.png")
 const EL_TIGRE = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 const PROFILE_SIZE := 117.0
@@ -36,13 +37,18 @@ var _character: Node2D
 func configure_profile_appearance(side: float) -> void:
 	_appearance_scale = side / PROFILE_SIZE
 	paper_background = true
-	frame_color = PALETTE.BUTTON_ORANGE
-	frame_width = maxi(1, roundi(6 * _appearance_scale))
+	frame_color = PROFILE.FRAME_COLORS[GameState.player_frame_id - 1]
+	frame_width = maxi(1, roundi(6 * _appearance_scale)) + 1
 	corner_radius = maxi(1, roundi(14 * _appearance_scale))
-	image_inset = 8 * _appearance_scale
+	image_inset = frame_width
 	refresh_character()
 
 func refresh_character() -> void:
+	if portrait_enabled and paper_background:
+		frame_color = PROFILE.FRAME_COLORS[GameState.player_frame_id - 1]
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			if has_theme_stylebox_override(state):
+				(get_theme_stylebox(state) as StyleBoxFlat).border_color = frame_color
 	if !portrait_enabled:
 		avatar_texture = null
 		return
@@ -58,6 +64,9 @@ func refresh_character() -> void:
 		_sync_portrait()
 
 func _ready() -> void:
+	if portrait_enabled:
+		visible = GameState.is_single_player_guided_onboarding_completed()
+		GameState.guided_onboarding_finished.connect(show)
 	resized.connect(_sync_press_pivot)
 	button_down.connect(func(): _animate_press(true))
 	button_up.connect(func(): _animate_press(false))
@@ -129,7 +138,7 @@ func _sync_portrait() -> void:
 	var pixel_scale := get_global_transform_with_canvas().get_scale().abs() * get_viewport().get_stretch_transform().get_scale().abs()
 	_portrait_viewport.size = Vector2i((logical * pixel_scale).ceil()).max(Vector2i(2, 2))
 	_portrait_viewport.size_2d_override = Vector2i(logical.round())
-	_character.fit_portrait(Rect2(Vector2.ZERO, logical))
+	_character.fit_portrait(Rect2(Vector2.ZERO, logical), _appearance_scale)
 	_portrait_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func _has_point(point: Vector2) -> bool:

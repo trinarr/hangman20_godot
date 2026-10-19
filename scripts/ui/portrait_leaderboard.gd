@@ -7,6 +7,8 @@ const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const STAR = preload("res://flash_assets/star_currency_icon.png")
+const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
+const SCORE_PLATE = preload("res://scripts/ui/resource_counter_plate.gd")
 const ELASTIC_SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 const LIST_TOP_PADDING := 12.0
 const ROW_HEIGHT := 80.0
@@ -30,6 +32,7 @@ var _weekly: Button
 var _has_error := false
 var _tournament: Control
 var _tournament_selected := false
+var _portraits: Node
 
 static func localized(key: String, ru: String, en: String) -> String:
 	var translated := TranslationServer.translate(key)
@@ -38,6 +41,8 @@ static func localized(key: String, ru: String, en: String) -> String:
 func _ready() -> void:
 	name = "LeaderboardScreen"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_portraits = PORTRAITS.new()
+	add_child(_portraits)
 	_players = _tab(1, localized("LEADERBOARD_PLAYERS", "Глобальный", "Global"), false)
 	_weekly = _tab(0, localized("LEADERBOARD_TOURNAMENT", "Турнир", "Tournament"), false)
 	TABS.select(_weekly, false)
@@ -146,6 +151,7 @@ func set_snapshot(snapshot: Dictionary) -> void:
 	if !me.is_empty() and int(me.get("stars", 0)) > 0:
 		pinned = _card(me, true, true)
 		pinned.name = "PinnedPlayer"
+		pinned.z_index = 10
 		add_child(pinned)
 		if own_row == null:
 			var spacer := Control.new()
@@ -191,32 +197,31 @@ func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 	var rank := str(int(entry.get("rank", 0))) if entry.get("rank") != null else ""
 	if entry.get("rank") == null:
 		rank = ("Топ %d%%" if Database.interface_language == "ru" else "Top %d%%") % int(entry.get("top_percent", 100))
-	var name_text := str(entry.get("nickname", "")) if bool(entry.get("is_filler", false)) else "ID " + str(entry.get("player_id", ""))
-	_label(card_content, Rect2(14, 0, 70, 68), rank, 15 if rank.contains("%") else 24)
-	var player_label := _label(card_content, Rect2(86, 0, CARD_WIDTH - 254, 68), name_text, 22)
+	var name_text := str(entry.get("nickname", "ID " + str(entry.get("player_id", ""))))
+	var rank_label := _label(card_content, Rect2(8, 0, 42, 68), rank, 12 if rank.contains("%") else 22)
+	rank_label.name = "PlayerRank"
+	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var avatar: Button = _portraits.create_avatar(entry, 50.0)
+	avatar.position = Vector2(56, 9)
+	card_content.add_child(avatar)
+	var player_label := _label(card_content, Rect2(116, 0, CARD_WIDTH - 246, 68), name_text, 20)
+	player_label.name = "PlayerName"
 	player_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var score := str(entry.get("stars", 0))
 	if score_formatter.is_valid():
 		score = str(score_formatter.call(int(entry.get("stars", 0))))
-	var score_label := _label(card_content, Rect2(CARD_WIDTH - 164, 0, 114, 68), score, 22)
-	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	for label: Label in [player_label, score_label]:
-		var font := label.get_theme_font("font")
-		var font_size := 22
-		while font_size > 14 and font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > label.size.x:
-			font_size -= 1
-		label.add_theme_font_size_override("font_size", font_size)
-	var icon := TextureRect.new()
-	icon.name = "LeaderboardStarIcon"
-	# Set expansion before the texture: its native minimum size must never
-	# enlarge the Control before the authored 26x26 rectangle is applied.
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.texture = STAR
-	icon.position = Vector2(CARD_WIDTH - 40, 21)
-	icon.size = Vector2(26, 26)
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_content.add_child(icon)
+	var font := player_label.get_theme_font("font")
+	var font_size := 20
+	while font_size > 14 and font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > player_label.size.x:
+		font_size -= 1
+	player_label.add_theme_font_size_override("font_size", font_size)
+	var counter := SCORE_PLATE.new()
+	counter.name = "PlayerScore"
+	counter.position = Vector2(CARD_WIDTH - 120, (68.0 - 38.64) * 0.5)
+	counter.size = Vector2(110, 38.64)
+	counter.icon_texture = STAR
+	counter.value = score
+	card_content.add_child(counter)
 	return row
 
 func _label(parent: Control, rect: Rect2, text: String, font_size: int, color: Color = PALETTE.TEXT_DARK) -> Label:

@@ -1,0 +1,1057 @@
+{
+  "schema_version": 4,
+  "cis": [
+    {
+      "nickname": "Аня",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Ленуська",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Валера",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Санёк",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Настёна",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Лёлик",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Славик",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Таисия",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Марго",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Раиса",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Зинаида",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Эдик",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Кирюха",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Яна",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Олеся",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Алёнка",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Жанна",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Люсьен",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Серафима",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Олена",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "марина72",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "ОльгаН",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Лена_1968",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Серёга35",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Наталья.В",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Валентина55",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "vika_89",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Sashok1986",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Katrin76",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Andruha",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Dimon64",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Oksanka7",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Ira.P",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Yulchik",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Maks_116",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "ТатьянаМ9",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Михалыч58",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Вовчик_82",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Nika77",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Палыч",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Кнопа",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Рысь",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "крыжовник",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Снежана",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Капелька",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Бублик",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Морошка",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Джинджер",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "КнопкаПауза",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "кофеманка",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Джаз",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Вереск",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Черника",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "ЛюськаБуська",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Апрель",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Василёк",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Фундук",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Шелест",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Бася",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Марта",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "romashkina",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "ТётяМотя",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "juli-juli",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Sova_13",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "ЛапаЛапа",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "keksik42",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Мандаринка7",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "ne_angel",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "ДедСемён",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "ТаСамаяИра",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "РыжаяНюра",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "ТриАккорда",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "KroshkaRu",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "НаткаМ",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Дзен",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "voila",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "читаюночью",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Танго",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Северянка",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Лисёнок24",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "ну_почти",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "МимоКлавиши",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "чайник_про",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "без_подсказок",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "ПеченькаАФК",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "ПальцемВНебо",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "щаУгадаю",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "НеТотАккаунт",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "ВсёПоФану",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "КотэНаСвязи",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "ЛадноОк",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "СкиллНеЗавезли",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "да_я_тут",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "пельмень.exe",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "ВнезапныйЛось",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "ПлюсМинусГений",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "ПоследняяКатка",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "МамЯВТопе",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "kekovaya",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "ЛенивыйБосс",
+      "character_id": 2,
+      "frame_id": 4
+    }
+  ],
+  "us_europe": [
+    {
+      "nickname": "Carol",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Debbie",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Sue",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Betsy",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Joan",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Peggy",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Jen",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Trish",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Diane",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Helen",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Annie",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Nick",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Tony",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Steve",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Eddie",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Lou",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Nico",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Jules",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Freja",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Dafne",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "joanne62",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Linda.P",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "sue_1959",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Mike1972",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Debs77",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "KateB",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "jane_68",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "TonyD42",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "maria.g",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "NannaJo",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Lizzie_7",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "BigAl63",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Babs_54",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "JulesK",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Stevie_G",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "JJ1981",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "anne-marie",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Nicky29",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "jojo_44",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "GinaT",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Willow",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Pebbles",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "saffron",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Hazel",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Pickles",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Clover",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Tansy",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Mochi",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Roo",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "Pippin",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Bramble",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Wren",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Biscuit",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "Juniper",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Dottie",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Marmalade",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Ruffles",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Indigo",
+      "character_id": 2,
+      "frame_id": 3
+    },
+    {
+      "nickname": "Nellie",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "Otter",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "cazzy",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "TillyBean",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "OldSchoolPat",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "BookishBeth",
+      "character_id": 2,
+      "frame_id": 2
+    },
+    {
+      "nickname": "mr_mittens",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "teacup27",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "LilacLane",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "dotty.d",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "RedShoes",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "NanaOf3",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "bikerbob",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "Rivermint",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "AuntieMo",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "notJane",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "MossAndInk",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "KikiBelle",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "patchwork",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "milo_meow",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "KnitOne",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "two_left_feet",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "justlurking",
+      "character_id": 2,
+      "frame_id": 1
+    },
+    {
+      "nickname": "oops_wrong_key",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "SirMisclick",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "ProbablyAFK",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "potato_mode",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "NotMyLastBraincell",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "404brain",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "guessish",
+      "character_id": 1,
+      "frame_id": 5
+    },
+    {
+      "nickname": "CtrlAltTea",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "tiny_rage",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "okayish_gg",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "OopsIDidAThing",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "lowbattery_irl",
+      "character_id": 2,
+      "frame_id": 4
+    },
+    {
+      "nickname": "skill_pending",
+      "character_id": 2,
+      "frame_id": 5
+    },
+    {
+      "nickname": "brb_biscuits",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "AltTabHero",
+      "character_id": 1,
+      "frame_id": 3
+    },
+    {
+      "nickname": "idk_maybe",
+      "character_id": 1,
+      "frame_id": 1
+    },
+    {
+      "nickname": "PressAnySnack",
+      "character_id": 1,
+      "frame_id": 2
+    },
+    {
+      "nickname": "WonByAccident",
+      "character_id": 1,
+      "frame_id": 4
+    },
+    {
+      "nickname": "MehLevelUp",
+      "character_id": 2,
+      "frame_id": 2
+    }
+  ],
+  "slang_slots": {
+    "cis": [
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100
+    ],
+    "us_europe": [
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100
+    ]
+  },
+  "cis_percent": {
+    "ru": 60,
+    "en": 20
+  }
+}

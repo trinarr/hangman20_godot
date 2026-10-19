@@ -85,7 +85,14 @@ def main() -> None:
     project = read("project.godot")
 
     for token in (
-        "SAVE_FORMAT_VERSION: int = 3",
+        "SAVE_FORMAT_VERSION: int = 5",
+        '"player_frame_id": player_frame_id',
+        '_payload["save_version"] = 4',
+        '_payload["save_version"] = 5',
+        '"player_name_is_custom": player_name_is_custom',
+        '"player_name_base": player_name_base',
+        '"player_name_server_id": player_name_server_id',
+        "func update_player_profile",
         "SAVE_MIGRATION_BASE_VERSION: int = 2",
         "func _migrate_save_payload",
         "func _apply_save_migration_step",

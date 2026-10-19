@@ -62,6 +62,7 @@ func run() -> void:
 	var initial: Dictionary = {}
 	for row: Dictionary in fillers(client):
 		initial[row.player_id] = row.stars
+		check(row.character_id in [1, 2] and row.frame_id >= 1 and row.frame_id <= 5, "Legacy fillers receive stable valid appearance without reseeding")
 	await load_reply(client, transport, reply(1))
 	check(!transport.calls.back().payload.p_seed_fillers, "Later reads request only real leaders")
 	check(fillers(client).size() == 99, "A low-scoring real participant displaces one filler")

@@ -18,7 +18,6 @@ var _lock_shadows: Array[TextureRect] = []
 var caption: Label
 var _timer: Timer
 var _lock: TextureRect
-var _trophy: TextureRect
 var _caption_marker: Node2D
 
 func _ready() -> void:
@@ -59,7 +58,6 @@ func _ready() -> void:
 	icon.size = ICON_RECT.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.add_child(icon)
-	_trophy = icon
 	_lock_shadows = EXTRUSION._create_portrait_icon_extrusion_layers(
 		visual, LOCK, "TournamentLockShadow")
 	for layer: TextureRect in _lock_shadows:
@@ -108,7 +106,6 @@ func _ready() -> void:
 func refresh() -> void:
 	var snapshot := GameState.get_tournament_snapshot()
 	_lock.visible = !bool(snapshot.unlocked)
-	_trophy.material = MATERIALS.grayscale() if _lock.visible else null
 	var marker_color: Color = PALETTE.DISABLED if _lock.visible else PALETTE.CHALLENGE_NORMAL
 	var base_layer := _caption_marker.get_node("BaseLayer") as CanvasGroup
 	base_layer.self_modulate = PALETTE.with_alpha(marker_color, WORD_INPUT.MARKER_BASE_ALPHA)

@@ -26,6 +26,8 @@ func settle(service: Node) -> void:
 	check(false, "Mock request failed to settle")
 
 func run() -> void:
+	GameState.guided_onboarding_completed = true
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	# Production settings must never enable the real transport in debug/test runs.
 	ProjectSettings.set_setting("quiz_statistics/enabled", true)
 	check(!QuizStatistics.is_configured(), "Test runner blocks all real transport even when enabled")

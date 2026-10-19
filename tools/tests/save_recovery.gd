@@ -89,6 +89,20 @@ func run() -> void:
 	cross_language_receipt("stage_coin")
 	reset()
 	var current_payload: Dictionary = {"save_version": state.SAVE_FORMAT_VERSION, "soft_currency": 321}
+	var migrated_profile: Dictionary = state._migrate_save_payload({"save_version":3, "player_name":"OldPlayer", "settings":[1,1,1,1,1,2], "stars":73})
+	check(migrated_profile.save_version == state.SAVE_FORMAT_VERSION and migrated_profile.player_frame_id == 4 and migrated_profile.settings[5] == 2 and migrated_profile.stars == 73, "Profile migration preserves character and progress and defaults to the orange frame")
+	check(state.update_player_profile("NewPlayer", 2, 3), "Profile commits through durable save")
+	state.player_name = ""
+	state.player_frame_id = 4
+	state.settings[5] = 1
+	state.load_game()
+	check(state.player_name == "NewPlayer" and state.player_frame_id == 3 and state.settings[5] == 2, "Profile survives a save reload")
+	var original_profile: Dictionary = state.get_player_profile()
+	state._save_blocked_by_future_version = true
+	check(!state.update_player_profile("OtherPlayer", 1, 1) and state.get_player_profile() == original_profile, "Failed profile write rolls back all three fields")
+	state._save_blocked_by_future_version = false
+	check(!state.update_player_profile("A", 1, 1) and !state.update_player_profile("Player", 3, 1) and !state.update_player_profile("Player", 1, 0), "Profile rejects invalid name and appearance IDs")
+	reset()
 	var current_migrated: Dictionary = state._migrate_save_payload(current_payload)
 	check(
 		int(current_migrated.get("save_version", -1)) == state.SAVE_FORMAT_VERSION

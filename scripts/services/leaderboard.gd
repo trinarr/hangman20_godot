@@ -5,10 +5,12 @@ signal sync_failed()
 
 const CACHE_MS := 60000
 const MAX_STARS := 2000000000
+const PROFILE = preload("res://scripts/core/player_profile.gd")
 var _snapshot: Dictionary = {}
 var _cache_at_ms: int = -1
 var _cache_language := ""
 var _pending_stars := -1
+var _profile_pending := false
 var _read_requested := false
 var _busy := false
 var _started := false
@@ -40,9 +42,15 @@ func _ensure_store_loaded() -> void:
 				for row: Dictionary in board[key]:
 					row.stars = int(row.stars)
 					row.rank = int(row.rank)
+					for field: String in ["character_id", "frame_id"]:
+						if row.has(field):
+							row[field] = int(row[field])
 			board.total_players = int(board.total_players)
 			if board.me != null:
 				board.me.stars = int(board.me.stars)
+				for field: String in ["character_id", "frame_id"]:
+					if board.me.has(field):
+						board.me[field] = int(board.me[field])
 				if board.me.rank != null:
 					board.me.rank = int(board.me.rank)
 				if board.me.top_percent != null:
@@ -84,6 +92,9 @@ func _valid_saved_board(board: Variant) -> bool:
 		and board.has("me") and (board.me == null or _valid_row(board.me, true))
 
 func _merge_board(board: Dictionary, language: String) -> Dictionary:
+	# Upgrade legacy cached fillers in place, preserving roster and score history.
+	for entry: Dictionary in board.fillers:
+		entry.merge(PROFILE.resolve_appearance(entry), true)
 	# Admit every real row first. Only the remaining slots compete among fillers.
 	var real_rows: Array = board.real_top.duplicate(true)
 	var fillers: Array = board.fillers.duplicate(true)
@@ -121,6 +132,15 @@ func _legal_accepted() -> bool:
 func _current_stars() -> int:
 	return GameState.get_stars()
 
+func _current_profile() -> Dictionary:
+	return GameState.get_player_profile()
+
+func _tutorial_completed() -> bool:
+	return GameState.is_single_player_guided_onboarding_completed()
+
+func _apply_server_player_id(identifier: String) -> bool:
+	return GameState.apply_server_player_id(identifier)
+
 func _language() -> String:
 	return "ru" if Database.interface_language == "ru" else "en"
 
@@ -130,6 +150,8 @@ func _debug_log(message: String) -> void:
 
 func _ready() -> void:
 	GameState.stars_changed.connect(sync_stars)
+	GameState.profile_changed.connect(sync_profile)
+	GameState.guided_onboarding_finished.connect(_tick)
 	_backend().identity_changed.connect(_on_identity_changed)
 	_debounce = Timer.new()
 	_debounce.one_shot = true
@@ -146,10 +168,12 @@ func _ready() -> void:
 	_tick.call_deferred()
 
 func _tick() -> void:
-	if !_legal_accepted() or !_backend().leaderboard_is_configured():
+	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
+	_apply_server_player_id(get_player_id())
 	if !_started:
 		_started = true
+		sync_profile()
 		# The persisted game save is also the offline score queue after restart.
 		sync_stars(_current_stars())
 		# One startup snapshot makes the backend observable before a UI exists.
@@ -157,8 +181,15 @@ func _tick() -> void:
 			_read_requested = true
 	_flush()
 
+func sync_profile() -> void:
+	_profile_pending = true
+	_cache_at_ms = -1
+	_read_requested = _read_requested or !_snapshot.is_empty()
+	if is_instance_valid(_debounce):
+		_debounce.start()
+
 func sync_stars(stars: int) -> void:
-	if !_legal_accepted() or !_backend().leaderboard_is_configured():
+	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
 	if stars <= 0:
 		_debug_log("Zero stars: not submitting an unranked player")
@@ -169,17 +200,36 @@ func sync_stars(stars: int) -> void:
 	if is_instance_valid(_debounce):
 		_debounce.start()
 
+func get_player_id() -> String:
+	if !_tutorial_completed():
+		return ""
+	_ensure_store_loaded()
+	if _owner_id.is_empty():
+		return ""
+	var own: Variant = _snapshot.get("me")
+	if !_snapshot.has("me"):
+		for board: Dictionary in _boards.values():
+			if board.get("me") is Dictionary:
+				own = board.me
+				break
+	if !(own is Dictionary) or own.get("is_filler") != false:
+		return ""
+	var identifier := str(own.get("player_id", ""))
+	return identifier if identifier.is_valid_int() and identifier.to_int() > 0 and str(identifier.to_int()) == identifier else ""
+
 func cached_snapshot() -> Dictionary:
+	if !_tutorial_completed():
+		return {}
 	_ensure_store_loaded()
 	if _snapshot.get("language", "") != _language():
 		_snapshot = _merge_board(_boards[_language()], _language()) if _boards.has(_language()) else {}
 	return _snapshot.duplicate(true)
 
 func refresh(force: bool = false) -> void:
-	if !_legal_accepted() or !_backend().leaderboard_is_configured():
+	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		_debug_log("Refresh skipped: backend disabled or legal documents not accepted")
 		return
-	if !force and _cache_language == _language() and _pending_stars < 0 and _cache_at_ms >= 0 \
+	if !force and _cache_language == _language() and _pending_stars < 0 and !_profile_pending and _cache_at_ms >= 0 \
 		and Time.get_ticks_msec() - _cache_at_ms < CACHE_MS:
 		_debug_log("Top served from cache: rows=%d" % (_snapshot.get("top", []) as Array).size())
 		leaderboard_ready.emit(cached_snapshot(), true)
@@ -196,6 +246,7 @@ func _on_identity_changed() -> void:
 	_cache_at_ms = -1
 	_cache_language = ""
 	_debug_log("Session replaced: cleared old own row and cached top")
+	sync_profile()
 	sync_stars(_current_stars())
 
 func _integer_in_range(value: Variant, minimum: int, maximum: int) -> bool:
@@ -209,6 +260,10 @@ func _valid_row(row: Variant, own: bool = false) -> bool:
 		return false
 	if !(row.get("is_filler") is bool):
 		return false
+	# Legacy cached rosters have no appearance IDs. Validate any new fields together.
+	if row.has("character_id") or row.has("frame_id"):
+		if !_integer_in_range(row.get("character_id"), 1, 2) or !_integer_in_range(row.get("frame_id"), 1, 5):
+			return false
 	if row.is_filler and (!str(row.player_id).begins_with("filler:") or row.get("is_me") != false):
 		return false
 	if !_integer_in_range(row.get("stars"), 1, MAX_STARS):
@@ -243,16 +298,18 @@ func _valid_snapshot(body: Variant, include_top: bool) -> bool:
 	return true
 
 func _flush() -> void:
-	if _busy or !_legal_accepted() or !_backend().leaderboard_is_configured():
+	if _busy or !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
 	_ensure_store_loaded()
 	_busy = true
-	while _pending_stars >= 0 or _read_requested:
+	while _pending_stars >= 0 or _read_requested or _profile_pending:
 		var submitted := _pending_stars
+		var submitted_profile := _current_profile()
 		var include_top := _read_requested
 		_read_requested = false
 		var request_language := _language()
 		var payload: Dictionary = {"p_include_top": include_top, "p_language": request_language}
+		payload.merge({"p_nickname": submitted_profile.nickname, "p_character_id": submitted_profile.character_id, "p_frame_id": submitted_profile.frame_id})
 		var seed_requested := include_top and !_boards.has(request_language)
 		payload["p_seed_fillers"] = seed_requested
 		if submitted >= 0:
@@ -276,6 +333,11 @@ func _flush() -> void:
 			_save_store()
 		if _pending_stars == submitted:
 			_pending_stars = -1
+		if body.me != null:
+			_apply_server_player_id(str(body.me.player_id))
+		_profile_pending = submitted_profile != _current_profile()
+		if _profile_pending and include_top:
+			_read_requested = true
 		var current_language := request_language == _language()
 		if include_top and current_language:
 			if !_boards.has(request_language):
@@ -328,4 +390,4 @@ func _flush() -> void:
 	_busy = false
 
 func is_configured() -> bool:
-	return _legal_accepted() and _backend().leaderboard_is_configured()
+	return _tutorial_completed() and _legal_accepted() and _backend().leaderboard_is_configured()

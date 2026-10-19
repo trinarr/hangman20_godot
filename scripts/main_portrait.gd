@@ -7,6 +7,7 @@ var _tabbed_closing := false
 
 const PROFILE_SCREEN = preload("res://scripts/ui/portrait_profile.gd")
 const AVATAR_BUTTON = preload("res://scripts/ui/profile_avatar_button.gd")
+const RESOURCE_COUNTER_STYLE = preload("res://scripts/ui/resource_counter_style.gd")
 var _portrait_profile: Control
 var _profile_return_action: Callable
 
@@ -135,16 +136,16 @@ const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
 const PORTRAIT_RESOURCE_COUNTER_GAP: float = 5.0
-const PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE: float = 0.84
-const PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE: float = 0.80
-const PORTRAIT_RESOURCE_COUNTER_PANEL_TRAILING_INSET: float = 6.0
-const PORTRAIT_RESOURCE_COUNTER_FONT_SCALE: float = 0.90
+const PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE: float = RESOURCE_COUNTER_STYLE.PANEL_WIDTH_SCALE
+const PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE: float = RESOURCE_COUNTER_STYLE.PANEL_HEIGHT_SCALE
+const PORTRAIT_RESOURCE_COUNTER_PANEL_TRAILING_INSET: float = RESOURCE_COUNTER_STYLE.TRAILING_INSET
+const PORTRAIT_RESOURCE_COUNTER_FONT_SCALE: float = RESOURCE_COUNTER_STYLE.FONT_SCALE
 # Both resource plates are 10% wider than the original 109.94 px layout. Shift
 # the complete pair left by the same added half-width so it stays centered.
 const PORTRAIT_CURRENCY_COUNTER_RECT := Rect2(105.066, 21.68, 120.934, 38.64)
 const PORTRAIT_GAME_CURRENCY_COUNTER_RECT := PORTRAIT_CURRENCY_COUNTER_RECT
 const PORTRAIT_HOME_RESOURCE_COUNTER_WIDTH: float = PORTRAIT_CURRENCY_COUNTER_RECT.size.x
-const PORTRAIT_CURRENCY_ICON_SIZE: float = 36.6597
+const PORTRAIT_CURRENCY_ICON_SIZE: float = RESOURCE_COUNTER_STYLE.ICON_SIZE
 const PORTRAIT_RESOURCE_COUNTER_ICON_X_SHIFT: float = PORTRAIT_CURRENCY_ICON_SIZE * 0.28
 const PORTRAIT_HEART_ICON_ASPECT_RATIO: float = 1.0
 const PORTRAIT_HEART_ICON_LEFT_INSET: float = 2.0
@@ -1510,19 +1511,7 @@ func _stage_portrait_custom_word_title(title: String) -> void:
 func _portrait_resource_counter_panel_rect(
 	counter_rect: Rect2
 ) -> Rect2:
-	var panel_size := Vector2(
-		counter_rect.size.x * PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE,
-		counter_rect.size.y * PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE
-	)
-	var counter_scale: float = counter_rect.size.y / 48.0
-	var panel_right: float = counter_rect.end.x - 2.0 * counter_scale
-	return Rect2(
-		Vector2(
-			panel_right - panel_size.x,
-			counter_rect.get_center().y - panel_size.y * 0.5
-		),
-		panel_size
-	)
+	return RESOURCE_COUNTER_STYLE.panel_rect(counter_rect)
 
 func _stage_top_bar_resource_icon(
 	icon_rect: Rect2,
@@ -1791,6 +1780,7 @@ func _stage_star_counter(
 		0.0
 	)
 	panel.z_index = 20
+	icon_rect.position += RESOURCE_COUNTER_STYLE.STAR_ICON_OFFSET
 	var star_icon := _stage_top_bar_resource_icon(
 		icon_rect,
 		STAR_CURRENCY_TEXTURE,
@@ -1865,6 +1855,15 @@ func _stage_coin_and_star_counters(
 	_stage_star_counter(star_rect, challenge_colors)
 
 func _stage_home_resource_counters(return_action: Callable) -> void:
+	var counters := preload("res://scripts/ui/home_resource_counters.gd").new()
+	counters.name = "HomeResourceCounters"
+	counters.build_counters = Callable(self, "_stage_home_resource_counter_content").bind(return_action)
+	_portrait_top_bar_content.add_child(counters)
+	_stage_home_avatar_button()
+
+func _stage_home_resource_counter_content(counters: Control, return_action: Callable) -> void:
+	var top_bar := _portrait_top_bar_content
+	_portrait_top_bar_content = counters
 	var counter_size := Vector2(
 		PORTRAIT_HOME_RESOURCE_COUNTER_WIDTH,
 		PORTRAIT_CURRENCY_COUNTER_RECT.size.y
@@ -1872,7 +1871,7 @@ func _stage_home_resource_counters(return_action: Callable) -> void:
 	var total_width: float = (
 		counter_size.x * 3.0 + PORTRAIT_RESOURCE_COUNTER_GAP * 2.0
 	)
-	var available_start: float = PORTRAIT_HOME_AVATAR_RECT.end.x
+	var available_start: float = PORTRAIT_HOME_AVATAR_RECT.end.x if GameState.is_single_player_guided_onboarding_completed() else 0.0
 	var available_width: float = PORTRAIT_STAGE_SIZE.x - available_start
 	var coin_rect := Rect2(
 		available_start + (available_width - total_width) * 0.5,
@@ -1897,7 +1896,7 @@ func _stage_home_resource_counters(return_action: Callable) -> void:
 		heart_rect.size
 	)
 	_stage_star_counter(star_rect)
-	_stage_home_avatar_button()
+	_portrait_top_bar_content = top_bar
 
 func _stage_heart_counter(
 	return_action: Callable,

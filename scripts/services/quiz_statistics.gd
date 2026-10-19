@@ -28,6 +28,7 @@ func _debug_question(key: String) -> String:
 	return ":".join(parts.slice(0, 2))
 
 func _ready() -> void:
+	GameState.guided_onboarding_finished.connect(_start_online_worker)
 	_debug_log("Environment=%s RPC=%s save=%s" % ["dev" if _uses_dev() else "production", _rpc_path(), _save_path()])
 	if FileAccess.file_exists(_save_path()):
 		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(_save_path()))
@@ -37,14 +38,18 @@ func _ready() -> void:
 		is_configured(), ProjectSettings.get_setting("quiz_statistics/dev_enabled" if _uses_dev() else "quiz_statistics/enabled", false),
 		(_state["pending"] as Array).size(), !str(_state.get("refresh_token", "")).is_empty(),
 		minimum_answers()])
-	if !_network_allowed():
+	_start_online_worker()
+
+func _start_online_worker() -> void:
+	if OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") == "1" or !GameState.is_single_player_guided_onboarding_completed():
 		_debug_log("Supabase network disabled for this execution")
 		return
-	_retry = Timer.new()
-	_retry.wait_time = 30.0
-	_retry.timeout.connect(_flush)
-	add_child(_retry)
-	_retry.start()
+	if !is_instance_valid(_retry):
+		_retry = Timer.new()
+		_retry.wait_time = 30.0
+		_retry.timeout.connect(_flush)
+		add_child(_retry)
+		_retry.start()
 	_flush()
 
 func _uses_dev() -> bool:
@@ -70,7 +75,7 @@ func leaderboard_is_configured() -> bool:
 		and _url().begins_with("https://") and !_public_key().is_empty()
 
 func _network_allowed() -> bool:
-	return OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") != "1"
+	return OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") != "1" and GameState.can_use_online_services()
 
 func _path_allowed(path: String) -> bool:
 	# No caller can accidentally send a debug vote to the production RPC.
@@ -269,6 +274,8 @@ func _reset_revoked_identity() -> void:
 	identity_changed.emit()
 
 func _authenticate() -> bool:
+	if !is_configured() and !leaderboard_is_configured():
+		return false
 	var refresh: String = str(_state.get("refresh_token", ""))
 	var response: Dictionary
 	if !refresh.is_empty():

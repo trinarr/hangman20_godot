@@ -68,6 +68,7 @@ func _ready() -> void:
 		_stat_row(panel, STAT_KEYS[index], index)
 	resized.connect(_layout)
 	visibility_changed.connect(_close_editor_if_hidden)
+	GameState.profile_changed.connect(refresh)
 	refresh()
 	_layout()
 
