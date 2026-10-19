@@ -12,7 +12,10 @@ current star total. It uses the existing language-aware cache, RPC and productio
 dev routing; no database migration or additional player-list download is required.
 Real players display their public player ID; fillers display their server nickname.
 Only the server's top 100 rows and own result are rendered. Own results outside the
-100 use the server's percentile rather than an exact position. Zero-star players
+100 display `100+` when the server returns `rank: null`; legacy percentile fields
+are ignored by the UI. First, second and third place use gold, silver and bronze
+coin medals with the corresponding digits. Other ranks, including `100+`, use
+plain dark blue button-font text without shader effects, outlines or shadows. Zero-star players
 remain absent according to the existing server contract.
 
 The own card has a pale blue face. A duplicate is pinned above/below the viewport

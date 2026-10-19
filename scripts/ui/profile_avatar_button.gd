@@ -9,9 +9,13 @@ const PROFILE = preload("res://scripts/core/player_profile.gd")
 const LUCKY = preload("res://img/_______192______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_329_709.png")
 const EL_TIGRE = preload("res://img/_______405______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_366_322.png")
 const PROFILE_SIZE := 117.0
+const SMALL_OUTLINE_WIDTH := 1
+const LARGE_OUTLINE_WIDTH := SMALL_OUTLINE_WIDTH
 var _appearance_scale := 1.0
+var outer_outline_width := SMALL_OUTLINE_WIDTH
 var paper_background := false
 var portrait_enabled := true
+var frame_shadow_enabled := true
 var solid_background_color := Color.TRANSPARENT
 var resting_scale: float = 1.0:
 	set(value):
@@ -33,9 +37,11 @@ var _press_tween: Tween
 var _image: TextureRect
 var _portrait_viewport: SubViewport
 var _character: Node2D
+var _outer_frame_style: StyleBoxFlat
 
 func configure_profile_appearance(side: float) -> void:
 	_appearance_scale = side / PROFILE_SIZE
+	outer_outline_width = LARGE_OUTLINE_WIDTH if side >= PROFILE_SIZE else SMALL_OUTLINE_WIDTH
 	paper_background = true
 	frame_color = PROFILE.FRAME_COLORS[GameState.player_frame_id - 1]
 	frame_width = maxi(1, roundi(6 * _appearance_scale)) + 1
@@ -74,6 +80,12 @@ func _ready() -> void:
 	_sync_press_pivot()
 	focus_mode = Control.FOCUS_NONE
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_outer_frame_style = StyleBoxFlat.new()
+	_outer_frame_style.draw_center = false
+	_outer_frame_style.border_color = PALETTE.TEXT_DARK
+	_outer_frame_style.set_border_width_all(outer_outline_width)
+	_outer_frame_style.set_corner_radius_all(corner_radius + outer_outline_width)
+	queue_redraw()
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color.TRANSPARENT if paper_background else (PALETTE.BUTTON_BLUE_PRESSED if state == "pressed" else PALETTE.BUTTON_BLUE)
@@ -82,9 +94,10 @@ func _ready() -> void:
 		style.border_color = frame_color
 		style.set_border_width_all(frame_width)
 		style.set_corner_radius_all(corner_radius)
-		style.shadow_color = Color(0.07, 0.12, 0.24, 0.22)
-		style.shadow_size = 1
-		style.shadow_offset = Vector2(0, 2 if state != "pressed" else 1)
+		if frame_shadow_enabled:
+			style.shadow_color = Color(0.07, 0.12, 0.24, 0.22)
+			style.shadow_size = 1
+			style.shadow_offset = Vector2(0, 2 if state != "pressed" else 1)
 		add_theme_stylebox_override(state, style)
 	if paper_background:
 		var paper := ColorRect.new()
@@ -130,6 +143,10 @@ func _ready() -> void:
 		_portrait_viewport.add_child(_character)
 		refresh_character()
 		_image.texture = _portrait_viewport.get_texture()
+
+func _draw() -> void:
+	if _outer_frame_style != null:
+		draw_style_box(_outer_frame_style, Rect2(Vector2.ZERO, size).grow(outer_outline_width))
 
 func _sync_portrait() -> void:
 	if !is_instance_valid(_portrait_viewport):

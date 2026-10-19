@@ -112,9 +112,9 @@ static func display_font_with_width(width: float = ROBOTO_FLEX_DISPLAY_WIDTH) ->
 static func button_font() -> Font:
 	return button_font_with_width(ROBOTO_FLEX_BUTTON_WIDTH)
 
-static func display_font_raster() -> Font:
+static func display_font_raster(weight: float = ROBOTO_FLEX_DISPLAY_WEIGHT) -> Font:
 	return _roboto_flex_font(
-		ROBOTO_FLEX_DISPLAY_WEIGHT, ROBOTO_FLEX_DISPLAY_WIDTH,
+		weight, ROBOTO_FLEX_DISPLAY_WIDTH,
 		ROBOTO_FLEX_DISPLAY_GRADE, ROBOTO_FLEX_DISPLAY_THIN_STROKE
 	)
 

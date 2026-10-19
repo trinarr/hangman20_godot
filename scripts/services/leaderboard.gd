@@ -381,8 +381,8 @@ func _flush() -> void:
 			if body.me.rank != null:
 				_debug_log("Own result: rank=%d player=%s stars=%d" % [int(body.me.rank), body.me.player_id, int(body.me.stars)])
 			else:
-				_debug_log("Own result: Top %d%% player=%s stars=%d total_players=%d" % [
-					int(body.me.top_percent), body.me.player_id, int(body.me.stars), int(body.total_players)])
+				_debug_log("Own result: rank=100+ player=%s stars=%d total_players=%d" % [
+					body.me.player_id, int(body.me.stars), int(body.total_players)])
 		else:
 			_debug_log("Own result: not yet participating")
 		if include_top and current_language:

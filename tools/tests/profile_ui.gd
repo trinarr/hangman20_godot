@@ -114,6 +114,7 @@ func run() -> void:
 	check(!profile_avatar.disabled and profile_avatar.pressed.is_connected(player_body._open_editor), "Profile avatar opens the draft editor")
 	check(player_body._nickname.get_rect().get_center().x == profile_avatar.get_rect().get_center().x, "Avatar and nickname share the same center")
 	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 7, "Profile avatar retains its size with the thicker frame")
+	check(profile_avatar.outer_outline_width == profile_avatar.SMALL_OUTLINE_WIDTH and profile_avatar._outer_frame_style.border_color == profile_avatar.PALETTE.TEXT_DARK, "Large and compact avatars share the same thin outer blue outline")
 	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.has_node("AvatarPaperBackground"), "Edit badge shares the avatar transform above a paper background")
 	var statistics_list: Control = player_body.statistics_scroll.get_node("ProfileStatisticsList")
 	check(statistics_list.get_child_count() == 5 and statistics_list.find_children("StatDivider", "ColorRect", true, false).size() == 4, "Statistics share one panel with separators between all five rows")

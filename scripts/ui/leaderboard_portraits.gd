@@ -28,6 +28,7 @@ func create_avatar(entry: Dictionary, side: float) -> Button:
 	var avatar := AVATAR.new()
 	avatar.name = "PlayerAvatar"
 	avatar.portrait_enabled = false
+	avatar.frame_shadow_enabled = false
 	avatar.size = Vector2.ONE * side
 	avatar.configure_profile_appearance(side)
 	avatar.frame_color = PROFILE.FRAME_COLORS[appearance.frame_id - 1]

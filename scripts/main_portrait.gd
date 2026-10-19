@@ -4753,6 +4753,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	shadow_panel.offset_top = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	shadow_panel.offset_bottom = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	var shadow_style := QUIZ_CARD_STYLE.shadow_style()
+	shadow_style.set_corner_radius_all(14)
 	shadow_panel.add_theme_stylebox_override("panel", shadow_style)
 	holder.add_child(shadow_panel)
 
@@ -4764,6 +4765,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	button.focus_mode = Control.FOCUS_NONE
 
 	var normal_style := QUIZ_CARD_STYLE.face_style()
+	normal_style.set_corner_radius_all(14)
 
 	# Keep every interactive visual state white. The only press feedback is the
 	# same 0.94 scale depression used by the standard long-button component.
@@ -4793,7 +4795,7 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	answer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	answer_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	answer_label.clip_text = true
-	answer_label.add_theme_font_override("font", UI_REGULAR_FONT)
+	answer_label.add_theme_font_override("font", UI_BUTTON_FONT)
 	answer_label.add_theme_font_size_override("font_size", font_size)
 	answer_label.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
 	button.add_child(answer_label)

@@ -144,7 +144,8 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	var rank_label := _label(card, Rect2(46, 12, 50, 50), str(rank), 32, Color.WHITE)
 	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TEXT_STYLE.apply_display(rank_label)
-	var nickname := _label(card, Rect2(9, 70, 124, 44), _name(entry), 22)
+	var nickname := _label(card, Rect2(9, 70, 124, 44), _name(entry), 25)
+	nickname.add_theme_font_override("font", FONTS.button_font())
 	nickname.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_shrink(nickname, 16)
@@ -171,7 +172,8 @@ func _row_card(entry: Dictionary) -> Control:
 	contents.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	face.add_child(contents)
 	_label(contents, Rect2(14, 0, 46, 66), str(entry.rank), 24)
-	var nickname := _label(contents, Rect2(65, 0, 226, 66), _name(entry), 22)
+	var nickname := _label(contents, Rect2(65, 0, 226, 66), _name(entry), 25)
+	nickname.add_theme_font_override("font", FONTS.button_font())
 	nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_shrink(nickname, 15)
 	_counter(contents, Vector2(301, 14), 128, int(entry.stars), STAR, 23)
