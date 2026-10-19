@@ -19,6 +19,7 @@ const WORD_MARKER = preload("res://scripts/ui/portrait_round_result.gd")
 const COLORS := [PALETTE.SUCCESS, PALETTE.CHALLENGE_NORMAL, PALETTE.BUTTON_BLUE, PALETTE.BUTTON_ORANGE, PALETTE.ERROR]
 const FORM_SIZE := Vector2(424, 560)
 const NICKNAME_MAX_LENGTH := 18
+const NICKNAME_MIN_LENGTH := 2
 const CHARACTER_SCALE := 0.65 * 1.15
 
 class NickInput extends "res://scripts/ui/stage_word_input.gd":
@@ -195,7 +196,6 @@ func _finish_open() -> void:
 	POPUP.set_close_ready(_dimmer, true)
 	_close_holder.open_bounce_complete = true
 	_close_holder.open_bounce_finished.emit()
-	_animate_selection_check()
 
 func _build_form() -> void:
 	_hero_holder = Node2D.new()
@@ -219,7 +219,7 @@ func _build_form() -> void:
 				shadow.flip_h = true
 	nickname = NickInput.new()
 	nickname.name = "ProfileNicknameInput"
-	nickname.stage_rect = Rect2(40, 270, 344, 62.4)
+	nickname.stage_rect = Rect2(40, 280, 344, 62.4)
 	var marker := WORD_MARKER._stage_portrait_result_word_marker(Vector2(252, 42))
 	marker.position = Vector2(23.2, 6)
 	marker.scale = Vector2.ONE * 1.2
@@ -230,11 +230,12 @@ func _build_form() -> void:
 	nickname.configure(initial_name.left(NICKNAME_MAX_LENGTH), NICKNAME_MAX_LENGTH, roundi(26 * 1.2))
 	var edit: LineEdit = nickname.get_line_edit()
 	edit.text_changed.connect(nickname.set_display_text)
+	edit.text_changed.connect(_update_save_availability)
 	for index in range(COLORS.size()):
 		var swatch := AVATAR.new()
 		swatch.name = "FrameColor%d" % index
 		swatch.portrait_enabled = false
-		swatch.position = Vector2(60 + index * 64, 350)
+		swatch.position = Vector2(60 + index * 64, 360)
 		swatch.size = Vector2(48, 48)
 		swatch.configure_profile_appearance(48)
 		swatch.paper_background = false
@@ -262,12 +263,23 @@ func _build_form() -> void:
 	save_button.configure(tr("PROFILE_SAVE"), FONTS.display_button_font_size(20))
 	save_button.set_color_preset(LONG.ColorPreset.ORANGE)
 	save_button.drop_shadow_enabled = true
-	save_button.pressed.connect(close)
+	save_button.pressed.connect(_save_draft)
 	_form.add_child(save_button)
+	_update_save_availability(edit.text)
+
+func _update_save_availability(value: String) -> void:
+	if is_instance_valid(save_button):
+		save_button.button_disabled = value.strip_edges().length() < NICKNAME_MIN_LENGTH
+
+func _save_draft() -> void:
+	_update_save_availability(nickname.get_line_edit().text)
+	if !save_button.button_disabled:
+		close()
 
 func _switch_character() -> void:
 	selected_character = 1 if selected_character == 2 else 2
 	_show_character()
+	_hero.play_correct_letter()
 
 func _show_character() -> void:
 	if is_instance_valid(_hero):
@@ -290,7 +302,9 @@ func _select_color(index: int) -> void:
 	if _opened and !_closing:
 		_animate_selection_check()
 	else:
-		_swatches[index].get_node("SelectionCheck").modulate.a = 0.0
+		var icon: Control = _swatches[index].get_node("SelectionCheck")
+		icon.modulate.a = 1.0
+		icon.scale = Vector2.ONE
 	_layout()
 
 func _stop_check_animation() -> void:
@@ -329,13 +343,16 @@ func _layout() -> void:
 	_last_viewport = viewport
 	_last_keyboard_height = _keyboard_height()
 	var keyboard := float(_last_keyboard_height) * viewport.y / maxf(get_window().size.y, 1)
-	var available_height := maxf(240, viewport.y - keyboard)
 	var close_size: float = popup_style["close_size"]
 	var close_gap: float = popup_style["close_gap"]
 	var stack_height := FORM_SIZE.y + close_gap + close_size
-	var fit := minf(LAYOUT.fit_scale(viewport), (available_height - 32) / stack_height)
+	var fit := minf(LAYOUT.fit_scale(viewport), (viewport.y - 32) / stack_height)
 	var target_size := FORM_SIZE * fit
-	var target_position := Vector2((viewport.x - target_size.x) * 0.5, (available_height - stack_height * fit) * 0.5)
+	var target_position := Vector2((viewport.x - target_size.x) * 0.5, (viewport.y - stack_height * fit) * 0.5)
+	var input_bottom: float = target_position.y + nickname.stage_rect.end.y * fit
+	var keyboard_top := viewport.y - keyboard
+	if keyboard > 0.0 and input_bottom > keyboard_top:
+		target_position.y -= input_bottom - keyboard_top + 12 * fit
 	var target_center := target_position + target_size * 0.5
 	# The paper lives in the fully built viewport. Only its surface transform and
 	# rounded mask change; cells never stretch with the expanding mask itself.
@@ -358,6 +375,7 @@ func _layout() -> void:
 	var border := lerpf(_initial_border_width, 3 * current_scale, _progress)
 	_frame_style.border_color = frame_color
 	_frame_style.set_border_width_all(maxi(1, roundi(border)))
+	_frame_style.border_width_top = maxi(1, roundi(lerpf(_initial_border_width, 33 * current_scale, _progress)))
 	_frame_style.set_corner_radius_all(roundi(radius))
 	var inner_mask := mask_rect.grow(-border)
 	var local_mask := Rect2((inner_mask.position - _surface.position) / current_scale, inner_mask.size / current_scale)

@@ -19,6 +19,11 @@ class TestUI extends "res://scripts/main_portrait.gd":
 	func _portrait_ads_enabled() -> bool:
 		return false
 
+class KeyboardEditor extends "res://scripts/ui/profile_editor_popup.gd":
+	var keyboard_height_override := 0
+	func _keyboard_height() -> int:
+		return keyboard_height_override
+
 var checks := 0
 var failures := 0
 var main: TestUI
@@ -135,10 +140,13 @@ func run() -> void:
 	check(editor.close_button.visible and editor._close_holder.open_bounce_complete, "Standard close icon appears after the popup bounce finishes")
 	check(editor._hero.bounds.size.y * editor._hero.body.scale.y <= 270.0 * 0.65 * 1.15 + 0.001, "Full-body preview grows fifteen percent from its reduced size")
 	check(is_instance_valid(editor) and editor._opened and editor.source == profile_avatar, "Avatar opens one expanding-paper editor")
+	check(editor._check_tween == null and editor._swatches[editor._selected_color_index].get_node("SelectionCheck").scale.is_equal_approx(Vector2.ONE), "Opening shows the selected check without an animation")
+	check(editor._frame_style.border_width_top >= roundi(33 * editor._title.scale.y), "Thick top frame covers the title's entire lower half")
 	check(is_zero_approx(profile_avatar.modulate.a), "Editor hides the source avatar while expanded")
 	var original_character: int = editor.selected_character
 	editor._form.get_node("NextCharacter").pressed.emit()
 	check(editor.selected_character != original_character, "Right arrow switches the full-body preview")
+	check(editor._hero.body.get_node("AnimationPlayer").is_playing(), "Switching character plays the authored correct-letter reaction")
 	editor._form.get_node("PreviousCharacter").pressed.emit()
 	check(editor.selected_character == original_character, "Left arrow switches back")
 	editor._form.get_node("FrameColor1").pressed.emit()
@@ -158,7 +166,7 @@ func run() -> void:
 	editor._form.get_node("FrameColor1").pressed.emit()
 	await get_tree().create_timer(0.4).timeout
 	check(selected_check.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(selected_check.modulate.a, 1.0), "Selection check settles at full opacity and its enlarged size")
-	check(editor.nickname.stage_rect.position.y == 270 and editor._swatches[1].position.y == 350, "Nickname and frames move closer to the character and each other")
+	check(editor.nickname.stage_rect.position.y == 280 and editor._swatches[1].position.y == 360, "Nickname and frames move ten units down while retaining the compact gap")
 	var selected_swatch: Button = editor._swatches[1]
 	selected_swatch.button_down.emit()
 	await get_tree().create_timer(0.07).timeout
@@ -170,6 +178,16 @@ func run() -> void:
 	check(resolved.measured_width <= 320 and resolved.font_size <= editor.nickname.input_font_size, "Wide nickname fits using the two-player input font adaptation")
 	check(editor.nickname.input_font_size == roundi(26 * 1.2) and editor.nickname.stage_rect.size.is_equal_approx(Vector2(344,62.4)), "Nickname retains the enlarged font and height inside the standard popup")
 	var nickname_edit: LineEdit = editor.nickname.get_line_edit()
+	for sample: String in ["", "Я", "  ", " Я "]:
+		nickname_edit.text = sample
+		nickname_edit.text_changed.emit(sample)
+		check(editor.save_button.disabled and editor.save_button.button_disabled, "Empty or one-character nickname disables Save, ignoring outer spaces")
+		editor.save_button.pressed.emit()
+		check(!editor._closing, "Invalid nickname cannot close the popup through Save")
+	for sample: String in ["Яё", "AB", " Ан "]:
+		nickname_edit.text = sample
+		nickname_edit.text_changed.emit(sample)
+		check(!editor.save_button.disabled, "Two-character nickname re-enables Save")
 	nickname_edit.text = "Draft name"
 	nickname_edit.text_changed.emit(nickname_edit.text)
 	check(editor.nickname._visual_text == "Draft name", "Nickname field updates its displayed draft")
@@ -187,6 +205,28 @@ func run() -> void:
 	player_body._editor.close_button.pressed.emit()
 	await get_tree().create_timer(0.25).timeout
 	check(!is_instance_valid(player_body._editor) and profile_avatar.visible, "Standard close icon dismisses the popup and restores the source")
+	var keyboard_editor := KeyboardEditor.new()
+	keyboard_editor.source = profile_avatar
+	keyboard_editor.popup_style = player_body.editor_style
+	player_body.add_child(keyboard_editor)
+	await get_tree().create_timer(0.65).timeout
+	var normal_rect: Rect2 = keyboard_editor._shell.get_rect()
+	keyboard_editor.keyboard_height_override = roundi(keyboard_editor.get_window().size.y * 0.15)
+	keyboard_editor._layout()
+	check(keyboard_editor._shell.get_rect().is_equal_approx(normal_rect), "Keyboard below the input does not move or resize the popup")
+	keyboard_editor.keyboard_height_override = roundi(keyboard_editor.get_window().size.y * 0.8)
+	keyboard_editor._layout()
+	var lifted_rect: Rect2 = keyboard_editor._shell.get_rect()
+	check(lifted_rect.size.is_equal_approx(normal_rect.size) and lifted_rect.position.y < normal_rect.position.y, "Overlapping keyboard only lifts the popup without shrinking it")
+	var native_input_rect: Rect2 = keyboard_editor.nickname.get_global_rect()
+	var input_bottom: float = keyboard_editor._surface.position.y + native_input_rect.end.y * keyboard_editor._surface.scale.y * keyboard_editor._viewport.get_stretch_transform().get_scale().y
+	var keyboard_top: float = keyboard_editor._root.get_viewport_rect().size.y * (1.0 - float(keyboard_editor.keyboard_height_override) / keyboard_editor.get_window().size.y)
+	check(input_bottom < keyboard_top, "Lifted nickname clears the keyboard")
+	keyboard_editor.keyboard_height_override = 0
+	keyboard_editor._layout()
+	check(keyboard_editor._shell.get_rect().is_equal_approx(normal_rect), "Hiding the keyboard restores the authored position")
+	keyboard_editor.close()
+	await get_tree().create_timer(0.25).timeout
 	profile.set_bottom_inset(400)
 	await settle()
 	var identity_at: Vector2 = player_body.identity.global_position

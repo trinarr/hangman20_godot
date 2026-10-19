@@ -1,5 +1,5 @@
 extends Node2D
-## Static authored character pose shared by cropped avatars and the profile editor.
+## Authored character pose shared by cropped avatars and the profile editor.
 const POSES := [preload("res://symbols/_______192.tscn"), preload("res://symbols/_______94.tscn")]
 var character_id := 1
 var body: Node2D
@@ -18,6 +18,13 @@ func show_character(value: int) -> void:
 		if _visible_pose(sprite) and sprite.texture != null:
 			var rect: Rect2 = (body.get_global_transform().affine_inverse() * sprite.get_global_transform()) * sprite.get_rect()
 			bounds = rect if !bounds.has_area() else bounds.merge(rect)
+
+func play_correct_letter() -> void:
+	# Same Flash frame 6..9 recovery section as main._play_hero_correct_guess_animation.
+	var player := body.get_node_or_null("AnimationPlayer") as AnimationPlayer
+	if player != null and player.has_animation("default"):
+		player.play_section("default", 5.5 / 24.0, 9.5 / 24.0, -1.0, 1.0)
+		player.advance(0.0)
 
 func fit_full_body(rect: Rect2, size_factor: float = 1.0) -> void:
 	if !bounds.has_area():
