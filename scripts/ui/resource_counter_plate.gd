@@ -8,6 +8,14 @@ const EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 var icon_texture: Texture2D
 var value := ""
 
+static func width_for_value(text: String, height: float) -> float:
+	var factor := height / 48.0
+	var icon_right := 2.0 * factor + STYLE.ICON_SIZE * 0.28 + STYLE.ICON_SIZE
+	var text_left := maxf(43.0 * factor, icon_right + 3.0)
+	var font_size := roundi(24.0 * factor * STYLE.FONT_SCALE)
+	var text_width := FONTS.regular_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	return ceilf(text_left + text_width + 4.0 + (STYLE.TRAILING_INSET + 2.0) * factor)
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var factor := size.y / 48.0

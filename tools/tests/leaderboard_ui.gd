@@ -48,8 +48,14 @@ func _ready() -> void:
 	check(is_zero_approx(view.pinned.get_global_rect().position.x) and is_equal_approx(view.pinned.get_global_rect().size.x, get_viewport().get_visible_rect().size.x), "Pinned strip fills the physical viewport width")
 	var pinned_face: Panel = view.pinned.get_node("CardFace")
 	var pinned_style: StyleBoxFlat = pinned_face.get_theme_stylebox("panel")
-	check(pinned_style.corner_radius_top_left == 0 and pinned_style.corner_radius_bottom_right == 0 and pinned_style.border_width_left == 0, "Pinned strip has square edges and no border")
-	check(view.pinned.get_child_count() == 1, "Pinned strip has no card shadow")
+	check(pinned_style.corner_radius_top_left == SCREEN.CARD.face_style().corner_radius_top_left and pinned_face.size.is_equal_approx(Vector2(SCREEN.CARD_WIDTH, 68)), "Pinned result keeps the regular card shape and size")
+	var pinned_background: ColorRect = view.pinned.get_node("PinnedBackground")
+	check(pinned_background.color == SCREEN.PALETTE.UI_BLUE and pinned_background.size == view.pinned.size, "Tab-colored background covers the full pinned strip")
+	check(view.pinned.get_node("CardShadow").position.x == pinned_face.position.x, "Pinned card shadow follows its inset card")
+	var edge_shadow: ColorRect = view.pinned.get_node("PinnedEdgeShadow")
+	var lower_shadow_depth := edge_shadow.size.y
+	check(edge_shadow.position.y < 0 and !edge_shadow.material.get_shader_parameter("upper_piece"), "Bottom strip casts its faint shadow upward into the list")
+	check(view._players.get_node("TabGradient").visible and !view._weekly.get_node("TabGradient").visible, "Gradient follows the active tab")
 	var first_row: Control = view.rows.get_child(1)
 	check(is_equal_approx(first_row.position.y, SCREEN.LIST_TOP_PADDING), "First card has padding inside the flush scroll mask")
 	view.scroll.scroll_vertical = 0
@@ -98,6 +104,7 @@ func _ready() -> void:
 	view.scroll.scroll_vertical = int(70 * SCREEN.ROW_HEIGHT)
 	await settle()
 	check(view._pin_side == "top", "Own row above viewport pins to top")
+	check(edge_shadow.position.y == SCREEN.PINNED_HEIGHT and edge_shadow.size.y > lower_shadow_depth and edge_shadow.material.get_shader_parameter("upper_piece"), "Top strip casts a deeper shadow down into the list")
 	check(is_equal_approx(view.pinned.position.y, view.scroll.position.y), "Top pinned strip sits flush at scroll edge")
 	check(view.own_row.modulate.a == 0, "Pinned original cannot appear twice")
 	data.me = {"player_id": "101", "rank": null, "top_percent": 18, "stars": 400}
@@ -145,6 +152,22 @@ func _ready() -> void:
 	check(leaderboard_title != null, "Host includes title")
 	check(leaderboard_title.text == leaderboard_title.text.to_upper(), "Leaderboard heading uses uppercase")
 	var screen: Control = main._portrait_leaderboard
+	var precise_data: Dictionary = data.duplicate(true)
+	precise_data.top[0].stars = 9999999
+	precise_data.top[1].stars = 1345236
+	precise_data.top[2].stars = 1345235
+	precise_data.me = {"player_id":"outside", "rank":null, "top_percent":100, "nickname":"Maximum", "stars":2000000000, "character_id":2, "frame_id":3}
+	screen.set_snapshot(precise_data)
+	await settle()
+	var seven_digit_score: Label = screen.rows.get_child(1).find_child("ScoreValue", true, false)
+	var first_score: Label = screen.rows.get_child(2).find_child("ScoreValue", true, false)
+	var second_score: Label = screen.rows.get_child(3).find_child("ScoreValue", true, false)
+	check(first_score.text == "1\u202f345\u202f236" and second_score.text == "1\u202f345\u202f235", "Leaderboard displays full scores and preserves differences of one star")
+	var maximum_score: Label = screen.pinned.find_child("ScoreValue", true, false)
+	check(maximum_score.text == "2\u202f000\u202f000\u202f000", "Pinned maximum score uses separators without letter abbreviations")
+	check(maximum_score.get_theme_font("font").get_string_size(maximum_score.text, HORIZONTAL_ALIGNMENT_LEFT, -1, maximum_score.get_theme_font_size("font_size")).x <= maximum_score.size.x - 4.0, "Maximum full score fits the plate without clipping")
+	check(seven_digit_score.text == "9\u202f999\u202f999" and seven_digit_score.get_theme_font_size("font_size") == 17, "Seven-digit scores use the normal counter font")
+	check(maximum_score.get_theme_font_size("font_size") < seven_digit_score.get_theme_font_size("font_size") and maximum_score.get_parent().size.x == seven_digit_score.get_parent().size.x, "Longer scores shrink their text without expanding the counter")
 	main.show_menu()
 	check(!screen._live, "Leaving screen disconnects service immediately")
 	await settle()

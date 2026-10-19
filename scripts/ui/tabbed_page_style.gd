@@ -3,6 +3,7 @@ extends RefCounted
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
+const BACKGROUND = preload("res://scripts/ui/tab_header_background.gd")
 const TAB_Y := 88.0
 const TAB_HEIGHT := 65.0
 const CONTENT_Y := TAB_Y + TAB_HEIGHT
@@ -13,6 +14,10 @@ static func configure(button: Button, title: String, selected: bool, unavailable
 	button.set_meta("tab_title", title)
 	button.focus_mode = Control.FOCUS_NONE
 	button.disabled = unavailable
+	var background := BACKGROUND.new()
+	background.name = "TabGradient"
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	button.add_child(background)
 	var caption := Label.new()
 	caption.name = "TabCaption"
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -29,9 +34,12 @@ static func configure(button: Button, title: String, selected: bool, unavailable
 	select(button, selected)
 
 static func select(button: Button, selected: bool) -> void:
+	var background := button.get_node_or_null("TabGradient")
+	if background != null:
+		background.visible = selected and !button.disabled
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var style := StyleBoxFlat.new()
-		style.bg_color = PALETTE.UI_BLUE if selected and !button.disabled else Color.TRANSPARENT
+		style.bg_color = Color.TRANSPARENT
 		style.corner_radius_top_left = 16
 		style.corner_radius_top_right = 16
 		# Square bottom corners join the identically colored content backdrop.

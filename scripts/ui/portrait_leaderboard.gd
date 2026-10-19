@@ -6,12 +6,16 @@ const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
+const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const STAR = preload("res://flash_assets/star_currency_icon.png")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
 const SCORE_PLATE = preload("res://scripts/ui/resource_counter_plate.gd")
 const ELASTIC_SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
+const PINNED_SHADOW = preload("res://shaders/pinned_list_shadow.gdshader")
 const LIST_TOP_PADDING := 12.0
 const ROW_HEIGHT := 80.0
+const PINNED_EXTRA_PADDING := 3.0
+const PINNED_HEIGHT := ROW_HEIGHT + PINNED_EXTRA_PADDING * 2.0
 const CARD_SIDE_MARGIN := 18.4
 const CARD_WIDTH := 480.0 - CARD_SIDE_MARGIN * 2.0
 const ROW_WIDTH := CARD_WIDTH + 16.0
@@ -155,7 +159,7 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		add_child(pinned)
 		if own_row == null:
 			var spacer := Control.new()
-			spacer.custom_minimum_size.y = ROW_HEIGHT
+			spacer.custom_minimum_size.y = PINNED_HEIGHT
 			spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			rows.add_child(spacer)
 	if top.is_empty():
@@ -166,34 +170,39 @@ func set_snapshot(snapshot: Dictionary) -> void:
 
 func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 	var row := Control.new()
-	row.custom_minimum_size = Vector2(ROW_WIDTH, ROW_HEIGHT)
+	row.custom_minimum_size = Vector2(ROW_WIDTH, PINNED_HEIGHT if fixed else ROW_HEIGHT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if !fixed:
-		var shadow := Panel.new()
-		shadow.position = Vector2(8, CARD.LONG_BUTTON.BUTTON_DROP_SHADOW_OFFSET_Y)
-		shadow.size = Vector2(CARD_WIDTH, 68)
-		shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shadow.add_theme_stylebox_override("panel", CARD.shadow_style())
-		row.add_child(shadow)
+	if fixed:
+		var edge_shadow := ColorRect.new()
+		edge_shadow.name = "PinnedEdgeShadow"
+		edge_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var shadow_material := ShaderMaterial.new()
+		shadow_material.shader = PINNED_SHADOW
+		edge_shadow.material = shadow_material
+		row.add_child(edge_shadow)
+		var backdrop := ColorRect.new()
+		backdrop.name = "PinnedBackground"
+		backdrop.color = PALETTE.UI_BLUE
+		backdrop.size = Vector2(480, PINNED_HEIGHT)
+		backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(backdrop)
+	var card_position := Vector2(CARD_SIDE_MARGIN, (PINNED_HEIGHT - 68) * 0.5) if fixed else Vector2(8, 0)
+	var shadow := Panel.new()
+	shadow.name = "CardShadow"
+	shadow.position = card_position + Vector2(0, CARD.LONG_BUTTON.BUTTON_DROP_SHADOW_OFFSET_Y)
+	shadow.size = Vector2(CARD_WIDTH, 68)
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shadow.add_theme_stylebox_override("panel", CARD.shadow_style())
+	row.add_child(shadow)
 	var face := Panel.new()
 	face.name = "CardFace"
-	face.position = Vector2.ZERO if fixed else Vector2(8, 0)
-	face.size = Vector2(480, ROW_HEIGHT) if fixed else Vector2(CARD_WIDTH, 68)
+	face.position = card_position
+	face.size = Vector2(CARD_WIDTH, 68)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := CARD.face_style(PALETTE.UI_BLUE_LIGHT_BORDER if mine else Color.WHITE)
-	if fixed:
-		style.set_corner_radius_all(0)
-		style.set_border_width_all(0)
+	var style := CARD.face_style(PALETTE.BUTTON_SELECTED_ACCENT if mine else Color.WHITE)
 	face.add_theme_stylebox_override("panel", style)
 	row.add_child(face)
 	var card_content: Control = face
-	if fixed:
-		card_content = Control.new()
-		card_content.name = "CardContents"
-		card_content.position = Vector2(CARD_SIDE_MARGIN, (ROW_HEIGHT - 68) * 0.5)
-		card_content.size = Vector2(CARD_WIDTH, 68)
-		card_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		face.add_child(card_content)
 	var rank := str(int(entry.get("rank", 0))) if entry.get("rank") != null else ""
 	if entry.get("rank") == null:
 		rank = ("Топ %d%%" if Database.interface_language == "ru" else "Top %d%%") % int(entry.get("top_percent", 100))
@@ -201,10 +210,19 @@ func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 	var rank_label := _label(card_content, Rect2(8, 0, 42, 68), rank, 12 if rank.contains("%") else 22)
 	rank_label.name = "PlayerRank"
 	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if mine:
+		rank_label.add_theme_color_override("font_color", Color.WHITE)
+		if rank.contains("%"):
+			TEXT_STYLE.apply_regular_display(rank_label)
+		else:
+			rank_label.add_theme_font_override("font", FONTS.display_font())
+			rank_label.add_theme_font_size_override("font_size", roundi(22 * 1.30))
+			TEXT_STYLE.apply_display(rank_label)
 	var avatar: Button = _portraits.create_avatar(entry, 50.0)
 	avatar.position = Vector2(56, 9)
 	card_content.add_child(avatar)
-	var player_label := _label(card_content, Rect2(116, 0, CARD_WIDTH - 246, 68), name_text, 20)
+	var counter_width := SCORE_PLATE.width_for_value("9\u202f999\u202f999", 38.64)
+	var player_label := _label(card_content, Rect2(116, 0, CARD_WIDTH - counter_width - 136, 68), name_text, 20)
 	player_label.name = "PlayerName"
 	player_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var score := str(entry.get("stars", 0))
@@ -215,10 +233,13 @@ func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 	while font_size > 14 and font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > player_label.size.x:
 		font_size -= 1
 	player_label.add_theme_font_size_override("font_size", font_size)
+	if mine:
+		player_label.add_theme_color_override("font_color", Color.WHITE)
+		TEXT_STYLE.apply_regular_display(player_label)
 	var counter := SCORE_PLATE.new()
 	counter.name = "PlayerScore"
-	counter.position = Vector2(CARD_WIDTH - 120, (68.0 - 38.64) * 0.5)
-	counter.size = Vector2(110, 38.64)
+	counter.position = Vector2(CARD_WIDTH - counter_width - 12, (68.0 - 38.64) * 0.5)
+	counter.size = Vector2(counter_width, 38.64)
 	counter.icon_texture = STAR
 	counter.value = score
 	card_content.add_child(counter)
@@ -305,11 +326,22 @@ func _update_pin() -> void:
 	# Cover the full physical viewport, including centered-stage side gutters.
 	var viewport_size := get_viewport_rect().size
 	var gutter: float = LAYOUT.horizontal_offset(viewport_size) / scale.x
-	pinned.position = Vector2(-gutter, scroll.position.y if _pin_side == "top" else scroll.position.y + scroll.size.y - ROW_HEIGHT)
-	pinned.size = Vector2(viewport_size.x / scale.x, ROW_HEIGHT)
+	pinned.position = Vector2(-gutter, scroll.position.y if _pin_side == "top" else scroll.position.y + scroll.size.y - PINNED_HEIGHT)
+	pinned.size = Vector2(viewport_size.x / scale.x, PINNED_HEIGHT)
+	var backdrop: ColorRect = pinned.get_node("PinnedBackground")
+	backdrop.size = pinned.size
+	var edge_shadow: ColorRect = pinned.get_node("PinnedEdgeShadow")
+	var upper_piece := _pin_side == "top"
+	var shadow_depth := 8.0 if upper_piece else 3.0
+	edge_shadow.position = Vector2(0, PINNED_HEIGHT if upper_piece else -shadow_depth)
+	edge_shadow.size = Vector2(pinned.size.x, shadow_depth)
+	var shadow_material: ShaderMaterial = edge_shadow.material
+	shadow_material.set_shader_parameter("upper_piece", upper_piece)
+	shadow_material.set_shader_parameter("depth", shadow_depth)
 	var face: Panel = pinned.get_node("CardFace")
-	face.size = pinned.size
-	face.get_node("CardContents").position.x = CARD_SIDE_MARGIN + gutter
+	face.position.x = CARD_SIDE_MARGIN + gutter
+	var shadow: Panel = pinned.get_node("CardShadow")
+	shadow.position.x = face.position.x
 
 func dispose() -> void:
 	_live = false

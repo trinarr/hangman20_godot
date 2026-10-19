@@ -17519,7 +17519,7 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	tabs_band.set("follows_safe_top_inset", true)
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
 	_portrait_leaderboard.service = Leaderboard
-	_portrait_leaderboard.score_formatter = Callable(self, "_soft_currency_balance_text")
+	_portrait_leaderboard.score_formatter = Callable(self, "_grouped_counter_text")
 	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_leaderboard)
 	_portrait_leaderboard._select_tab(tournament)
