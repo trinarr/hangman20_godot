@@ -10,6 +10,7 @@ const RANK_MEDALS := [
 	preload("res://assets/leaderboard/rank_medal_2.png"),
 	preload("res://assets/leaderboard/rank_medal_3.png"),
 ]
+const AVATAR_SIZE := 53.0
 const ROW_HEIGHT := 78.0
 const CARD_CORNER_RADIUS := 14
 const CARD_SIDE_MARGIN := 18.4
@@ -39,7 +40,7 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	var rank_value := int(entry.get("rank", 0)) if entry.get("rank") != null else 0
 	var rank := str(rank_value) if rank_value > 0 else "100+"
 	var name_text := str(entry.get("nickname", "ID " + str(entry.get("player_id", ""))))
-	var avatar: Button = portraits.create_avatar(entry, 53.0)
+	var avatar: Button = portraits.create_avatar(entry, AVATAR_SIZE)
 	avatar.position = Vector2(59.5, 7)
 	var rank_area_width: float = avatar.position.x - avatar.outer_outline_width
 	if rank_value >= 1 and rank_value <= RANK_MEDALS.size():

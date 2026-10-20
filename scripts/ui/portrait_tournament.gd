@@ -1,4 +1,5 @@
 extends Control
+signal reward_claimed(award: Dictionary)
 ## Tournament body uses its host's 480-unit portrait stage transform.
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
@@ -8,10 +9,14 @@ const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const STAR = preload("res://flash_assets/star_currency_icon.png")
-const COIN = preload("res://flash_assets/soft_currency_coin.png")
+const COIN_PACK = preload("res://flash_assets/coin_pack_04.png")
+const GIFT = preload("res://flash_assets/reward_chest_closed.png")
+const REWARD_GLOW = preload("res://flash_assets/final_reward_rotating_glow.png")
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
 # Matches the two-player word-entry CTA after footer sizing (300 * .85 * 1.1 * 1.15, 64 * 1.1).
+const PODIUM_AVATAR_SIZE := ROW.AVATAR_SIZE * 1.5
+const PODIUM_HEIGHT := 294.0
 const ACTION_BUTTON_SIZE := Vector2(322.575, 70.4)
 var portraits: Node
 var score_formatter: Callable
@@ -45,6 +50,10 @@ func _ready() -> void:
 	_hint = _label(self, Rect2(18, 47, 444, 42), "", 18, Color.WHITE)
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	podium = Control.new()
+	podium.name = "TournamentPodium"
+	podium.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(podium)
 	scroll = SCROLL.new()
 	scroll.name = "TournamentScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -81,12 +90,13 @@ func refresh() -> void:
 		return
 	_snapshot = GameState.get_tournament_snapshot()
 	var phase := str(_snapshot.phase)
+	_hint.visible = phase != "active"
 	_button.visible = phase != "active"
 	_button.button_disabled = _joining or (!_snapshot.unlocked and phase == "idle")
 	if phase == "active":
 		var remaining := int(_snapshot.remaining)
 		_title.text = _tr("TOURNAMENT_REMAINING", "До конца: %s", "Time left: %s") % ("%02d:%02d:%02d" % [remaining / 3600, (remaining / 60) % 60, remaining % 60])
-		_hint.text = _tr("TOURNAMENT_EARN", "Зарабатывайте звёзды и поднимайтесь в рейтинге", "Earn stars and climb the leaderboard")
+		_hint.text = ""
 	elif phase == "finished" or phase == "claimed":
 		_title.text = _tr("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished")
 		_hint.text = _tr("TOURNAMENT_PLACE", "Ваше место: %d", "Your place: %d") % int(_snapshot.rank)
@@ -111,16 +121,14 @@ func _rebuild(preview: bool) -> void:
 	own_row = null
 	for child in rows.get_children():
 		child.free()
-	podium = Control.new()
-	podium.name = "TournamentPodium"
-	podium.custom_minimum_size = Vector2(ROW.ROW_WIDTH, 260)
-	podium.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rows.add_child(podium)
+	for child in podium.get_children():
+		child.free()
+	scroll.visible = !preview
 	var entries: Array = _snapshot.get("rows", [])
 	var rewards: Array = _snapshot.get("rewards", GameState.GAME_DESIGN.get_array("tournament.rewards_coins"))
 	for slot in range(3):
 		var rank: int = [2, 1, 3][slot]
-		var entry: Dictionary = {"rank": rank, "nickname": "—", "stars": 0, "mine": false} if preview else entries[rank - 1]
+		var entry: Dictionary = {"rank": rank, "nickname": "—", "stars": 0, "mine": false, "preview":true} if preview else entries[rank - 1]
 		var card := _podium_card(entry, int(rewards[rank - 1]), slot)
 		podium.add_child(card)
 		if bool(entry.mine):
@@ -142,57 +150,79 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	var rank := int(entry.rank)
 	var card := Control.new()
 	card.name = "PodiumPlace%d" % rank
-	card.position = Vector2(8 + slot * 151, 10 if rank == 1 else 34)
+	card.position = Vector2(8 + slot * 151, PODIUM_AVATAR_SIZE * 0.5 + (0 if rank == 1 else 24))
 	card.size = Vector2(142, 244 if rank == 1 else 220)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var color: Color = {1: PALETTE.PAPER_CRACK_LIGHT, 2: PALETTE.UI_BLUE_LIGHT_BORDER, 3: PALETTE.BUTTON_ORANGE}[rank]
-	_panel(card, Rect2(Vector2(0, 6), card.size), CARD.shadow_style())
-	_panel(card, Rect2(Vector2.ZERO, card.size), CARD.face_style(color))
-	var badge := StyleBoxFlat.new()
-	badge.bg_color = PALETTE.UI_BLUE if bool(entry.mine) else PALETTE.UI_BLUE_DARK
-	badge.set_corner_radius_all(25)
-	_panel(card, Rect2(46, 12, 50, 50), badge)
-	var rank_label := _label(card, Rect2(46, 12, 50, 50), str(rank), 32, Color.WHITE)
-	rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	TEXT_STYLE.apply_display(rank_label)
-	var nickname := _label(card, Rect2(9, 70, 124, 44), _name(entry), 25)
+	var shadow := _panel(card, Rect2(Vector2(0, 6), card.size), CARD.shadow_style())
+	shadow.name = "CardShadow"
+	var face := _panel(card, Rect2(Vector2.ZERO, card.size), CARD.face_style(color))
+	face.name = "CardFace"
+	var avatar: Button = portraits.create_avatar(_display_entry(entry), PODIUM_AVATAR_SIZE)
+	avatar.position = Vector2((card.size.x - PODIUM_AVATAR_SIZE) * 0.5, -PODIUM_AVATAR_SIZE * 0.5)
+	if bool(entry.get("preview", false)):
+		avatar.avatar_texture = null
+		avatar.frame_color = PALETTE.NEUTRAL_BORDER
+	card.add_child(avatar)
+	var medal := _icon(card, Rect2(54, PODIUM_AVATAR_SIZE * 0.5 - 17, 34, 34), ROW.RANK_MEDALS[rank - 1])
+	medal.name = "PodiumRankMedal"
+	var nickname := _label(card, Rect2(9, 61, 124, 40), _name(entry), 25)
 	nickname.add_theme_font_override("font", FONTS.button_font())
 	nickname.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_shrink(nickname, 16)
-	_counter(card, Vector2(15, 120), 112, int(entry.stars), STAR, 27)
-	var reward_style := StyleBoxFlat.new()
-	reward_style.bg_color = Color(1, 1, 1, 0.55)
-	reward_style.set_corner_radius_all(12)
-	var reward_y := card.size.y - 51
-	_panel(card, Rect2(10, reward_y, 122, 39), reward_style)
-	_counter(card, Vector2(16, reward_y), 110, reward, COIN, 22)
+	var prize_center := Vector2(71, 150 if rank == 1 else 132)
+	var prize_size := Vector2.ONE * (90.0 * 0.8 if rank == 1 else 58.0 * 1.15)
+	var glow_size := Vector2.ONE * (120 if rank == 1 else 112)
+	var glow := _icon(card, Rect2(prize_center - glow_size * 0.5, glow_size), REWARD_GLOW)
+	glow.name = "PodiumRewardGlow"
+	glow.modulate.a = 0.7
+	var prize := _icon(card, Rect2(prize_center - prize_size * 0.5, prize_size), GIFT if rank == 1 else COIN_PACK)
+	prize.name = "PodiumReward"
+	if rank != 1:
+		var amount := _label(card, Rect2(9, 157, 124, 25), "x%d" % reward, 22, Color.WHITE)
+		amount.name = "PodiumRewardAmount"
+		amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		amount.add_theme_font_override("font", FONTS.display_font())
+		amount.autowrap_mode = TextServer.AUTOWRAP_OFF
+		amount.clip_text = false
+		TEXT_STYLE.apply_display(amount)
+	var score_text := str(entry.stars)
+	if score_formatter.is_valid():
+		score_text = str(score_formatter.call(int(entry.stars)))
+	var score := _label(card, Rect2(9, card.size.y - 41, 91, 35), score_text, 27)
+	score.name = "PodiumScore"
+	_shrink(score, 14)
+	var text_width := minf(91, score.get_theme_font("font").get_string_size(score_text, HORIZONTAL_ALIGNMENT_LEFT, -1, score.get_theme_font_size("font_size")).x)
+	score.size.x = text_width
+	score.position.x = (142 - text_width - 33) * 0.5
+	_icon(card, Rect2(score.position + Vector2(text_width + 6, 4), Vector2(27, 27)), STAR)
 	return card
 
 func _row_card(entry: Dictionary) -> Control:
 	var row := Control.new()
 	row.custom_minimum_size = Vector2(ROW.ROW_WIDTH, ROW.ROW_HEIGHT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ROW.populate(row, _display_entry(entry), bool(entry.mine), portraits, score_formatter, Vector2(8, 0))
+	return row
+
+func _display_entry(entry: Dictionary) -> Dictionary:
 	var display_entry := entry.duplicate(true)
 	display_entry.nickname = _name(entry)
 	if bool(entry.mine):
 		display_entry.merge(GameState.get_player_profile(), true)
+	return display_entry
 
-	ROW.populate(row, display_entry, bool(entry.mine), portraits, score_formatter, Vector2(8, 0))
-	return row
-
-func _counter(parent: Control, at: Vector2, width: float, amount: int, texture: Texture2D, font_size: int) -> void:
-	var label := _label(parent, Rect2(at, Vector2(width - 33, 38)), str(amount), font_size)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_shrink(label, 14)
+func _icon(parent: Control, rect: Rect2, texture: Texture2D) -> TextureRect:
 	var icon := TextureRect.new()
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = texture
-	icon.position = at + Vector2(width - 27, 5)
-	icon.size = Vector2(27, 27)
+	icon.position = rect.position
+	icon.size = rect.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(icon)
+	return icon
 
 func _panel(parent: Control, rect: Rect2, style: StyleBox) -> Panel:
 	var panel := Panel.new()
@@ -228,8 +258,11 @@ func _layout() -> void:
 	if !is_node_ready():
 		return
 	var action_height := ACTION_BUTTON_SIZE.y + 32.0 if _button.visible else 0.0
-	scroll.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, 94)
-	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(80, size.y - 94 - action_height))
+	podium.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, 94 if _hint.visible else 60)
+	podium.size = Vector2(ROW.ROW_WIDTH, PODIUM_HEIGHT)
+	var list_top := podium.position.y + PODIUM_HEIGHT + 8.0
+	scroll.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, list_top)
+	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(0, size.y - list_top - action_height))
 	_button.stage_rect = Rect2(Vector2((480.0 - ACTION_BUTTON_SIZE.x) * 0.5, size.y - 14.0 - ACTION_BUTTON_SIZE.y), ACTION_BUTTON_SIZE)
 	_error.position.y = size.y - 100
 
@@ -239,6 +272,7 @@ func _action() -> void:
 	_error.text = ""
 	var phase := str(_snapshot.get("phase", "idle"))
 	var ok := false
+	var award: Dictionary = {}
 	if phase == "idle" or phase == "claimed":
 		if !GameState.is_tournament_unlocked():
 			return
@@ -247,10 +281,14 @@ func _action() -> void:
 		MATCHMAKING.join(weakref(self), _matchmaking_service())
 		return
 	else:
-		ok = bool(GameState.claim_tournament_reward().get("ok", false))
+		award = GameState.claim_tournament_reward()
+		ok = bool(award.get("ok", false))
 	refresh()
 	if !ok:
 		_error.text = _tr("TOURNAMENT_SAVE_ERROR", "Не удалось сохранить. Попробуйте ещё раз", "Couldn't save. Please try again")
+	elif int(award.get("rank", 0)) in [1, 2, 3]:
+		# Payment is already durable; presentation must never grant it again.
+		reward_claimed.emit(award)
 
 func _matchmaking_service() -> Node:
 	return Leaderboard

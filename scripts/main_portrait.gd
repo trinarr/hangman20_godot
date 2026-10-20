@@ -17,6 +17,8 @@ var _portrait_leaderboard: Control
 
 
 const STAGE_REWARD_COMPONENT = preload("res://scripts/ui/portrait_stage_reward.gd")
+const TOURNAMENT_REWARD_COMPONENT = preload("res://scripts/ui/portrait_tournament_reward.gd")
+var _portrait_tournament_reward: Node
 const REWARD_PRIZE_COMPONENT = preload("res://scripts/ui/portrait_reward_prize.gd")
 var _portrait_stage_reward: Node
 var _portrait_reward_prize_visuals: Node
@@ -1040,6 +1042,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.pressed and !event.echo and event.keycode == KEY_ESCAPE:
+		if is_instance_valid(_portrait_tournament_reward):
+			_show_leaderboard_screen(true)
+			get_viewport().set_input_as_handled()
+			return
 		if is_instance_valid(_portrait_profile):
 			_close_profile_screen()
 			get_viewport().set_input_as_handled()
@@ -17419,6 +17425,10 @@ func _on_round_result_continue_requested() -> void:
 		action.call()
 
 func _dispose_reward_components() -> void:
+	if is_instance_valid(_portrait_tournament_reward):
+		_portrait_tournament_reward.stop()
+		_portrait_tournament_reward.queue_free()
+	_portrait_tournament_reward = null
 	if is_instance_valid(_portrait_stage_reward):
 		_portrait_stage_reward.stop()
 		_portrait_stage_reward.queue_free()
@@ -17522,10 +17532,28 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
 	_portrait_leaderboard.service = Leaderboard
 	_portrait_leaderboard.score_formatter = Callable(self, "_grouped_counter_text")
+	_portrait_leaderboard.tournament_reward_claimed.connect(_show_tournament_reward)
 	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_leaderboard)
 	_portrait_leaderboard._select_tab(tournament)
 	_stage_portrait_ad_banner("leaderboard")
+
+func _show_tournament_reward(award: Dictionary) -> void:
+	_clear()
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
+	# Keep navigation above the campaign prize/glow and action layers.
+	_portrait_top_bar_content.z_index = 200
+	var return_action := Callable(self, "_show_leaderboard_screen").bind(true)
+	_stage_titled_navigation_header(
+		LEADERBOARD_SCREEN.localized("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished"),
+		"TournamentRewardTitle", false, return_action
+	)
+	_portrait_tournament_reward = TOURNAMENT_REWARD_COMPONENT.new()
+	_portrait_tournament_reward.name = "TournamentReward"
+	content.add_child(_portrait_tournament_reward)
+	_portrait_tournament_reward.click_requested.connect(_play_ui_click_sound)
+	_portrait_tournament_reward.continue_requested.connect(return_action)
+	_portrait_tournament_reward.present(self, content, award)
 
 func _stage_titled_navigation_header(heading: String, title_node_name: String,
 	with_settings: bool = true, back_action: Callable = Callable()) -> void:

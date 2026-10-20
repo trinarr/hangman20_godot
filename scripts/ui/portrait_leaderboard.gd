@@ -1,4 +1,5 @@
 extends Control
+signal tournament_reward_claimed(award: Dictionary)
 ## Native scrolling children share one stage transform; rows never map twice.
 const TOURNAMENT_PAGE = preload("res://scripts/ui/portrait_tournament.gd")
 const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
@@ -79,6 +80,7 @@ func _ready() -> void:
 	_tournament = TOURNAMENT_PAGE.new()
 	_tournament.portraits = _portraits
 	_tournament.score_formatter = score_formatter
+	_tournament.reward_claimed.connect(func(award: Dictionary): tournament_reward_claimed.emit(award))
 	add_child(_tournament)
 	_tournament.hide()
 	get_viewport().size_changed.connect(_layout)
