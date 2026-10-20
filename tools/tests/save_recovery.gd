@@ -91,6 +91,16 @@ func run() -> void:
 	var current_payload: Dictionary = {"save_version": state.SAVE_FORMAT_VERSION, "soft_currency": 321}
 	var migrated_profile: Dictionary = state._migrate_save_payload({"save_version":3, "player_name":"OldPlayer", "settings":[1,1,1,1,1,2], "stars":73})
 	check(migrated_profile.save_version == state.SAVE_FORMAT_VERSION and migrated_profile.player_frame_id == 4 and migrated_profile.settings[5] == 2 and migrated_profile.stars == 73, "Profile migration preserves character and progress and defaults to the orange frame")
+	var model = preload("res://scripts/core/tournament_model.gd")
+	var old_tournament: Dictionary = model.create(1800000000, "ru", state.GAME_DESIGN.get_value("tournament"), 123)
+	old_tournament.version = 1
+	for opponent: Dictionary in old_tournament.opponents:
+		for field: String in ["profile_id", "character_id", "frame_id", "is_real"]:
+			opponent.erase(field)
+	var old_schedule := JSON.stringify(old_tournament.opponents)
+	var migrated_tournament: Dictionary = state._migrate_save_payload({"save_version":5, "tournament":old_tournament, "stars":73})
+	check(migrated_tournament.save_version == 6 and migrated_tournament.tournament.version == 2 and migrated_tournament.stars == 73, "Save migration five to six preserves progress and upgrades tournament profiles")
+	check(migrated_tournament.tournament.opponents[0].events == old_tournament.opponents[0].events and JSON.stringify(old_tournament.opponents) == old_schedule, "Save migration preserves the frozen tournament and source payload")
 	check(state.update_player_profile("NewPlayer", 2, 3), "Profile commits through durable save")
 	state.player_name = ""
 	state.player_frame_id = 4

@@ -177,6 +177,9 @@ static func _ensure_loaded() -> void:
 
 static func _validate_loaded_config() -> void:
 	_validate_nonnegative_numbers(_config, "")
+	get_int_range("tournament.candidate_pool_size", 9, 100)
+	get_float_range("tournament.filler_cis_ratio.ru", 0.0, 1.0)
+	get_float_range("tournament.filler_cis_ratio.en", 0.0, 1.0)
 	get_int_range("tournament.duration_seconds", 60, 604800)
 	get_int_range("tournament.unlock_completed_levels", 0, 1000000)
 	var prizes := get_array("tournament.rewards_coins")
@@ -233,6 +236,11 @@ static func _validate_loaded_config() -> void:
 		_fatal_config_error("gameplay.max_mistakes must be greater than zero")
 
 	var hint_fade_seconds: float = get_float("timings.animations.round_end.hints_fade_seconds")
+	var retry_base := get_float("timings.network_retry.base_seconds")
+	var retry_maximum := get_float("timings.network_retry.maximum_seconds")
+	var retry_jitter := get_float("timings.network_retry.jitter_ratio")
+	if retry_base <= 0.0 or retry_maximum < retry_base or retry_jitter < 0.0 or retry_jitter > 0.5:
+		_fatal_config_error("Network retry timings must satisfy 0 < base <= maximum and 0 <= jitter <= 0.5")
 	var hint_badge_fade_seconds: float = get_float(
 		"timings.animations.round_end.hint_badges_fade_seconds"
 	)

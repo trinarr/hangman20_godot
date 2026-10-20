@@ -295,6 +295,17 @@ def main() -> None:
         else:
             require_number(value, path)
 
+    require(9 <= require_int(resolve(config, "tournament.candidate_pool_size"), "tournament.candidate_pool_size") <= 100,
+            "Tournament candidate pool must contain 9..100 profiles")
+    for language in ("ru", "en"):
+        path = f"tournament.filler_cis_ratio.{language}"
+        require(require_number(resolve(config, path), path) <= 1, "Tournament filler ratio must be in 0..1")
+    retry = resolve(config, "timings.network_retry")
+    retry_base = require_number(retry["base_seconds"], "timings.network_retry.base_seconds")
+    retry_maximum = require_number(retry["maximum_seconds"], "timings.network_retry.maximum_seconds")
+    retry_jitter = require_number(retry["jitter_ratio"], "timings.network_retry.jitter_ratio")
+    require(0 < retry_base <= retry_maximum and retry_jitter <= 0.5,
+            "Network retry timings must satisfy 0 < base <= maximum and 0 <= jitter <= 0.5")
     validate_all_numbers(config)
     validate_progression(config)
     validate_difficulty(config)

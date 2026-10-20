@@ -1,21 +1,15 @@
 extends RefCounted
 ## Pure tournament rules. A saved schedule never depends on later player scores.
-const NAMES = preload("res://data/tournament_nicknames.gd")
-const VERSION := 1
+const ROSTER = preload("res://scripts/core/tournament_roster.gd")
+const NAMES = ROSTER.NAMES
+const VERSION := 2
 const PLAYER_ID := "self"
 
-static func create(now: int, language: String, config: Dictionary, seed_value: int) -> Dictionary:
+static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = []) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var duration := int(config.duration_seconds)
-	var cis: Array = Array(NAMES.CIS).duplicate()
-	var international: Array = Array(NAMES.INTERNATIONAL).duplicate()
-	_shuffle(cis, rng)
-	_shuffle(international, rng)
-	# Nine draws with a random fractional remainder preserve the locale ratio.
-	var cis_amount := int(floor(9.0 * (0.6 if language == "ru" else 0.2) + rng.randf()))
-	var names: Array = cis.slice(0, cis_amount) + international.slice(0, 9 - cis_amount)
-	_shuffle(names, rng)
+	var pool := ROSTER.build_pool(language, config, real_profiles, rng)
 	var opponents: Array = []
 	for index in range(9):
 		var bounds: Array = config.opponent_star_ranges[index]
@@ -33,24 +27,20 @@ static func create(now: int, language: String, config: Dictionary, seed_value: i
 		events.sort_custom(func(a: Dictionary, b: Dictionary): return int(a.at) < int(b.at))
 		for event_index in range(event_count):
 			events[event_index].stars = int(ceil(float(target) * (event_index + 1) / event_count))
-		opponents.append({"id": "rival_%d" % index, "nickname": str(names[index]), "events": events})
+		var opponent: Dictionary = pool[index].duplicate(true)
+		opponent.merge({"id": "rival_%d" % index, "events": events})
+		opponents.append(opponent)
 	return {"version": VERSION, "id": "%d_%d" % [now, seed_value], "started_at": now,
 		"ends_at": now + duration, "last_seen": now, "language": language,
 		"rewards": config.rewards_coins.duplicate(), "opponents": opponents,
 		"player_stars": 0, "finished": false, "claimed": false, "final_rows": []}
 
-static func _shuffle(values: Array, rng: RandomNumberGenerator) -> void:
-	for i in range(values.size() - 1, 0, -1):
-		var j := rng.randi_range(0, i)
-		var temporary: Variant = values[i]
-		values[i] = values[j]
-		values[j] = temporary
-
 static func normalize(value: Variant) -> Dictionary:
 	if !(value is Dictionary) or value.is_empty():
 		return {}
 	var state: Dictionary = value.duplicate(true)
-	if int(state.get("version", 0)) != VERSION or str(state.get("id", "")).is_empty():
+	var version := int(state.get("version", 0))
+	if version not in [1, VERSION] or str(state.get("id", "")).is_empty():
 		return {}
 	var start := int(state.get("started_at", 0))
 	var duration := int(state.get("ends_at", 0)) - start
@@ -65,13 +55,26 @@ static func normalize(value: Variant) -> Dictionary:
 			return {}
 	var ids: Dictionary = {}
 	var names: Dictionary = {}
+	var profiles: Dictionary = {}
 	for opponent: Variant in state.opponents:
 		if !(opponent is Dictionary) or !(opponent.get("events") is Array):
 			return {}
 		var id := str(opponent.get("id", ""))
 		var nickname := str(opponent.get("nickname", ""))
-		if id.is_empty() or id == PLAYER_ID or ids.has(id) or nickname.is_empty() or names.has(nickname):
+		if id.is_empty() or id == PLAYER_ID or ids.has(id) or nickname.is_empty() or (version == 1 and names.has(nickname)):
 			return {}
+		if version == 1:
+			# Preserve the exact appearance used by old saved tournaments.
+			var appearance: Dictionary = ROSTER.PROFILE.resolve_appearance({"player_id":"tournament:" + id, "is_filler":true})
+			opponent.merge(appearance, true)
+			opponent.profile_id = "legacy:" + id
+			opponent.is_real = false
+		if !ROSTER.valid_appearance(opponent) or !(opponent.get("profile_id") is String) \
+			or str(opponent.profile_id).is_empty() or profiles.has(opponent.profile_id) or !(opponent.get("is_real") is bool):
+			return {}
+		profiles[opponent.profile_id] = true
+		opponent.character_id = int(opponent.character_id)
+		opponent.frame_id = int(opponent.frame_id)
 		ids[id] = true
 		names[nickname] = true
 		if opponent.events.is_empty() or opponent.events.size() > 100:
@@ -90,6 +93,7 @@ static func normalize(value: Variant) -> Dictionary:
 			previous_score = score
 			normalized_events.append({"at": at, "stars": score})
 		opponent.events = normalized_events
+	state.version = VERSION
 	state.player_stars = clampi(int(state.get("player_stars", 0)), 0, 2000000000)
 	state.last_seen = clampi(int(state.get("last_seen", start)), start, int(state.ends_at))
 	state.finished = bool(state.get("finished", false))
@@ -124,7 +128,8 @@ static func standings(state: Dictionary, now: int) -> Array:
 			if int(event.at) > elapsed:
 				break
 			score = int(event.stars)
-		rows.append({"id": opponent.id, "nickname": opponent.nickname, "stars": score, "mine": false})
+		rows.append({"id": opponent.id, "nickname": opponent.nickname, "stars": score, "mine": false,
+			"profile_id":opponent.profile_id, "character_id":opponent.character_id, "frame_id":opponent.frame_id, "is_real":opponent.is_real})
 	rows.sort_custom(func(a: Dictionary, b: Dictionary):
 		if int(a.stars) != int(b.stars):
 			return int(a.stars) > int(b.stars)

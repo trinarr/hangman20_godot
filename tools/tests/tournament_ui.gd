@@ -17,7 +17,50 @@ func _process(_delta: float) -> void:
 		RenderingServer.frame_post_draw.emit()
 func _ready() -> void:
 	call_deferred("run")
+
+func inspect_rows(view: Control, page: Control) -> void:
+	var previous_size := get_window().size
+	var previous_language: String = Database.interface_language
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
+		get_window().size = dimensions
+		await settle()
+		for language: String in ["ru", "en"]:
+			Database.interface_language = language
+			TranslationServer.set_locale(language)
+			page.refresh()
+			await settle()
+			var face: Panel = page.rows.get_child(1).get_node("CardFace")
+			var own_face: Panel = page.own_row.get_node("CardFace")
+			check(face.size == Vector2(SCREEN.CARD_WIDTH, 68) and face.get_theme_stylebox("panel").bg_color == SCREEN.PALETTE.PRESS_HIGHLIGHT, "Tournament uses global row geometry and ordinary face")
+			check(own_face.get_theme_stylebox("panel").bg_color == SCREEN.PALETTE.BUTTON_SELECTED_ACCENT, "Tournament highlights own row with the global accent")
+			var avatar: Button = own_face.get_node("PlayerAvatar")
+			var profile: Dictionary = GameState.get_player_profile()
+			check(avatar.get_meta("character_id") == profile.character_id and avatar.get_meta("frame_id") == profile.frame_id, "Own tournament avatar uses the selected profile")
+			check(face.get_node("PlayerScore").size == view.pinned.get_node("CardFace/PlayerScore").size, "Both lists use the same score plate")
+			check(page.portraits == view._portraits and page.portraits.get_child_count() == 2, "Tournament reuses the global portrait textures")
+			var frozen_appearances_match := true
+			for index in range(3, page._snapshot.rows.size()):
+				var entry: Dictionary = page._snapshot.rows[index]
+				if !bool(entry.mine):
+					var rival_avatar: Button = page.rows.get_child(index - 2).get_node("CardFace/PlayerAvatar")
+					frozen_appearances_match = frozen_appearances_match and rival_avatar.get_meta("character_id") == entry.character_id and rival_avatar.get_meta("frame_id") == entry.frame_id
+			check(frozen_appearances_match, "Tournament rows render the saved real or synthetic appearance")
+			check(face.get_global_rect().position.x >= 0 and face.get_global_rect().end.x <= get_viewport().get_visible_rect().size.x, "Tournament card fits narrow and tall screens")
+			var capture_dir := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !capture_dir.is_empty() and DisplayServer.get_name() != "headless":
+				page.scroll.scroll_vertical = 0
+				await get_tree().process_frame
+				await RenderingServer.frame_post_draw
+				var path := capture_dir.path_join("tournament_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])
+				check(get_viewport().get_texture().get_image().save_png(path) == OK, "Save GPU tournament preview")
+	get_window().size = previous_size
+	Database.interface_language = previous_language
+	TranslationServer.set_locale(previous_language)
+	await settle()
+
 func run() -> void:
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	GameState.guided_onboarding_completed = true
 	GameState.tournament_time_source = func(): return now
 	GameState.tournament_state = {}
 	GameState.single_player = {}
@@ -72,10 +115,12 @@ func run() -> void:
 	check(!view.scroll.visible and !view.pinned.visible and !view._status.visible, "Late global responses never overlap tournament")
 	for index in range(9):
 		GameState.tournament_state.opponents[index].events = [{"at": 100, "stars": 20 + index}]
+	GameState.tournament_state.opponents[0].merge({"nickname":"PublicSnapshot", "profile_id":"player:501", "character_id":2, "frame_id":5, "is_real":true}, true)
 	now += 14000
 	page.refresh()
 	await settle()
 	check(int(page._snapshot.rank) > 3, "Independent opponent progression moves player out of podium")
+	await inspect_rows(view, page)
 	check(page.find_child("TournamentPinnedPlayer", true, false) == null, "Tournament has no pinned player strip")
 	check(is_equal_approx(page.own_row.modulate.a, 1), "Own row remains visible in the regular list")
 	page.scroll.scroll_vertical = 100000

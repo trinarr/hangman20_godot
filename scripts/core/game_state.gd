@@ -18,7 +18,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 5
+const SAVE_FORMAT_VERSION: int = 6
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -548,6 +548,10 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 			_payload["player_name_base"] = ""
 			_payload["player_name_server_id"] = ""
 			_payload["save_version"] = 5
+			return true
+		5:
+			_payload["tournament"] = TOURNAMENT_MODEL.normalize(_payload.get("tournament", {}))
+			_payload["save_version"] = 6
 			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
@@ -2901,7 +2905,7 @@ func start_tournament() -> bool:
 		return false
 	var previous := tournament_state.duplicate(true)
 	var config: Dictionary = GAME_DESIGN.get_value("tournament")
-	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi())
+	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), Leaderboard.tournament_profiles())
 	if !save_game():
 		tournament_state = previous
 		return false

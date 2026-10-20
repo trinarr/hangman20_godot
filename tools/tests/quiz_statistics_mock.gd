@@ -6,6 +6,7 @@ var route_replies: Dictionary = {}
 var delay_frames: Dictionary = {}
 var active_calls := 0
 var max_active_calls := 0
+var retry_clock_ms := -1
 
 func is_configured() -> bool:
 	return true
@@ -26,3 +27,11 @@ func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dicti
 		await get_tree().process_frame
 	active_calls -= 1
 	return response
+
+func _retry_now_ms() -> int:
+	return retry_clock_ms if retry_clock_ms >= 0 else super._retry_now_ms()
+
+func advance_retry() -> void:
+	var now := _retry_now_ms()
+	var remaining := maxi(retry_delay_ms("quiz"), retry_delay_ms("leaderboard"))
+	retry_clock_ms = now + remaining + 1

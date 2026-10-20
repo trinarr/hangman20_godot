@@ -118,6 +118,7 @@ func run() -> void:
 	await settle(service)
 	check(service.calls.size() == 2 and service._state.pending.is_empty() and service._state.refresh_token.is_empty(), "Signup failure does not resurrect old votes or tokens")
 	service.replies = [tokens(),snapshot()]
+	service.advance_retry()
 	service._flush()
 	await settle(service)
 	check(service.calls.size() == 4 and service.calls[2].path == "/auth/v1/signup" and service._cache.has(key), "Replacement signup can recover on later attempt")

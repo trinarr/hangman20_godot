@@ -17,8 +17,105 @@ func check(ok: bool, message: String) -> void:
 func _ready() -> void:
 	call_deferred("run")
 
+func public_profile(identifier: int) -> Dictionary:
+	return {"player_id":str(identifier), "nickname":"Real%d" % identifier, "character_id":1 + identifier % 2,
+		"frame_id":1 + identifier % 5, "is_me":false, "is_filler":false, "stars":9999999}
+
+func pool_for(config: Dictionary, language: String, profiles: Array, seed_value: int = 123) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return MODEL.ROSTER.build_pool(language, config, profiles, rng)
+
+func test_roster(config: Dictionary) -> void:
+	var profiles: Array = []
+	for identifier in range(1, 81):
+		profiles.append(public_profile(identifier))
+	for language: String in ["ru", "en"]:
+		for real_count in [0, 12, 49, 50, 80]:
+			var pool := pool_for(config, language, profiles.slice(0, real_count))
+			var ids: Dictionary = {}
+			var names: Dictionary = {}
+			var actual_real := 0
+			var cis := 0
+			var appearances_valid := true
+			for entry: Dictionary in pool:
+				ids[entry.profile_id] = true
+				names[entry.nickname] = true
+				appearances_valid = appearances_valid and MODEL.ROSTER.valid_appearance(entry) and !entry.has("stars")
+				if entry.is_real:
+					actual_real += 1
+				elif entry.nickname in MODEL.NAMES.CIS:
+					cis += 1
+			check(pool.size() == 50 and ids.size() == 50 and names.size() == 50, "Pool contains fifty distinct public profiles or fillers")
+			check(actual_real == mini(50, real_count), "Real profiles fill the pool before synthetic profiles")
+			var expected_cis := (50 - actual_real) * float(config.filler_cis_ratio[language])
+			check(cis == int(floor(expected_cis)) or cis == int(ceil(expected_cis)), "Only the missing filler slots use the configured language ratio")
+			check(appearances_valid, "All pool entries have valid appearance without global scores")
+	var invalid: Array = [null, {}, public_profile(1), public_profile(1)]
+	var own := public_profile(2)
+	own.is_me = true
+	invalid.append(own)
+	var filler := public_profile(3)
+	filler.is_filler = true
+	invalid.append(filler)
+	var bad := public_profile(4)
+	bad.frame_id = 6
+	invalid.append(bad)
+	var duplicate_name := public_profile(5)
+	duplicate_name.nickname = "Real1"
+	invalid.append(duplicate_name)
+	var accepted := 0
+	for entry: Dictionary in pool_for(config, "ru", invalid):
+		if entry.is_real:
+			accepted += 1
+	check(accepted == 2, "Own identity, fillers, invalid appearances and duplicate IDs are excluded; distinct real players may share a nickname")
+	check(pool_for(config, "ru", profiles) == pool_for(config, "ru", profiles), "Fixed seed reproduces the candidate pool")
+	check(pool_for(config, "ru", profiles, 123) != pool_for(config, "ru", profiles, 124), "New tournament seed regenerates the pool")
+	var state := MODEL.create(now, "ru", config, 555, profiles)
+	var confirmed_profiles := 0
+	for entry: Dictionary in state.opponents:
+		var identifier := int(str(entry.profile_id).trim_prefix("player:"))
+		var original := public_profile(identifier)
+		if entry.is_real and entry.nickname == original.nickname and entry.character_id == original.character_id and entry.frame_id == original.frame_id:
+			confirmed_profiles += 1
+	check(confirmed_profiles == 9 and !state.has("pool"), "Nine real profile snapshots are saved, not the whole candidate pool")
+	for entry: Dictionary in profiles:
+		entry.stars = 0
+	check(MODEL.create(now, "ru", config, 555, profiles).opponents == state.opponents, "Global scores never influence tournament schedules")
+	var selected_id := int(str(state.opponents[0].profile_id).trim_prefix("player:"))
+	profiles[selected_id - 1].nickname = "ChangedLater"
+	profiles[selected_id - 1].frame_id = 1
+	check(MODEL.normalize(JSON.parse_string(JSON.stringify(state))).opponents == state.opponents, "Profile snapshots survive reload and later source changes")
+	var shared_names := profiles.duplicate(true)
+	for entry: Dictionary in shared_names:
+		entry.nickname = "SameName"
+	var same_name_state := MODEL.create(now, "en", config, 555, shared_names)
+	check(!MODEL.normalize(same_name_state).is_empty() and same_name_state.opponents[0].is_real, "Distinct real profiles with identical names remain real through save reload")
+	var legacy := MODEL.create(now, "ru", config, 321)
+	legacy.version = 1
+	for entry: Dictionary in legacy.opponents:
+		for field: String in ["profile_id", "character_id", "frame_id", "is_real"]:
+			entry.erase(field)
+	var schedule := JSON.stringify(legacy.opponents)
+	var migrated := MODEL.normalize(legacy)
+	check(!migrated.is_empty() and migrated.version == 2, "Tournament format migrates sequentially from one to two")
+	var legacy_appearance_preserved := true
+	for index in range(9):
+		var entry: Dictionary = migrated.opponents[index]
+		var appearance: Dictionary = MODEL.ROSTER.PROFILE.resolve_appearance({"player_id":"tournament:" + str(entry.id), "is_filler":true})
+		legacy_appearance_preserved = legacy_appearance_preserved and entry.nickname == legacy.opponents[index].nickname \
+			and entry.events == legacy.opponents[index].events and entry.character_id == appearance.character_id and entry.frame_id == appearance.frame_id
+	check(legacy_appearance_preserved and JSON.stringify(legacy.opponents) == schedule, "Migration preserves old names, schedules and rendered appearances without mutating input")
+	legacy.finished = true
+	check(MODEL.normalize(legacy).final_rows.size() == 10, "Finished legacy tournaments rebuild frozen profile rows")
+	state.opponents[0].frame_id = 0
+	check(MODEL.normalize(state).is_empty(), "Invalid appearance in the new save format is rejected")
+	state.version = 3
+	check(MODEL.normalize(state).is_empty(), "Future tournament versions are not overwritten")
+
 func run() -> void:
 	var config: Dictionary = CONFIG.get_value("tournament")
+	test_roster(config)
 	var canonical: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://supabase/seeds/leaderboard_filler_nicknames_v2.json"))
 	check(Array(MODEL.NAMES.CIS) == canonical.cis and Array(MODEL.NAMES.INTERNATIONAL) == canonical.us_europe, "Client nickname catalog matches existing canonical pools")
 	var cis_counts := {"ru": 0, "en": 0}

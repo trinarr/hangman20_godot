@@ -115,10 +115,12 @@ func run() -> void:
 	check(service.calls[0].path == "/auth/v1/signup", "New installation uses anonymous signup")
 	check(service.calls[1].path == "/rest/v1/rpc/quiz_answer_dev", "Debug worker submits only to dev RPC")
 	service.replies = [{"status": 401, "body": {}}]
+	service.advance_retry()
 	service._flush()
 	await settle(service)
 	check(service._access_token.is_empty() and service._state.pending.size() == 1, "Expired token keeps pending vote")
 	service.replies = [{"status": 200, "body": {"access_token": "new-access", "refresh_token": "new-refresh"}}, {"status": 200, "body": {"ok": true, "already_answered": true, "counts": [10,20,30,40]}}]
+	service.advance_retry()
 	service._flush()
 	await settle(service)
 	check(service._state.pending.is_empty(), "Successful retry removes pending vote")
@@ -133,6 +135,7 @@ func run() -> void:
 	service.replies = [{"status":200,"body":{"ok":true,"results":[
 		{"p_key":service._state.pending[0].p_key,"p_answer":-2,"ok":false,"code":"22023"},
 		{"p_key":other_description.key,"p_answer":int(other_description.mapping[0]),"ok":true,"already_answered":true,"counts":[1,2,3,4]}]}}]
+	service.advance_retry()
 	service.record_answer(other, 0, 0, true)
 	await settle(service)
 	check(service._state.pending.size() == 1 and service._state.pending[0].p_answer == -2, "Unknown catalog revision does not block other votes")
@@ -186,6 +189,7 @@ func run() -> void:
 	await settle(prefetched)
 	check(prefetched._cache[other_key] == [2,3,4,5] and prefetched._state.pending[0].p_answer == -2, "Hinted attempt leaves cached counts unchanged")
 	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
+	prefetched.advance_retry()
 	prefetched.record_answer(other, 0, 1, true)
 	await settle(prefetched)
 	check(prefetched._cache[other_key] == [2,3,4,5] and prefetched._state.pending.is_empty(), "Retry retains hinted first attempt and clears on acknowledgement")

@@ -3652,7 +3652,7 @@ func _show_menu_screen() -> void:
 	)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
 	tournament_button.name = "HomeTournamentButton"
-	tournament_button.stage_rect = Rect2(18, 106, 100, 108)
+	tournament_button.stage_rect = Rect2(Vector2(30, 106), Vector2(100, 108) * HOME_TOURNAMENT_BUTTON.BLOCK_SCALE)
 	# Render over the paper reveal without modifying its logo or tear geometry.
 	tournament_button.z_index = 1
 	_connect_stage_button_action(tournament_button, Callable(self, "show_tournament"))

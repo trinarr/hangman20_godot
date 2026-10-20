@@ -10,6 +10,7 @@ const MATERIALS = preload("res://scripts/ui/ui_materials.gd")
 const LOCK = preload("res://flash_assets/hint_locked_doodle.png")
 const WORD_MARKER = preload("res://scripts/ui/portrait_round_result.gd")
 const WORD_INPUT = preload("res://scripts/ui/stage_word_input.gd")
+const BLOCK_SCALE := 1.15
 const ICON_RECT := Rect2(14, 14, 72, 72)
 const CAPTION_SIDE_PADDING := 8.0
 const LOCK_SIZE := Vector2(22, 26) * 1.3 * 1.2
@@ -28,6 +29,12 @@ func _ready() -> void:
 	visual.size = stage_rect.size
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(visual)
+	var artwork := Control.new()
+	artwork.name = "TournamentButtonArtwork"
+	artwork.size = stage_rect.size / BLOCK_SCALE
+	artwork.scale = Vector2.ONE * BLOCK_SCALE
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual.add_child(artwork)
 	# Same static halo as the word-comment icon; it follows the whole button press.
 	var glow := TextureRect.new()
 	glow.name = "TournamentTrophyGlow"
@@ -38,11 +45,11 @@ func _ready() -> void:
 	glow.position = ICON_RECT.get_center() - glow.size * 0.5
 	glow.modulate.a = 0.5
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.add_child(glow)
+	artwork.add_child(glow)
 	# Match the large coin-refill artwork: four shader silhouette passes,
 	# dark-blue tint, regular shadow alpha and half-depth extrusion.
 	var shadows := EXTRUSION._create_portrait_icon_extrusion_layers(
-		visual, TROPHY, "TrophyShadow")
+		artwork, TROPHY, "TrophyShadow")
 	var shadow_color := PALETTE.UI_BLUE_DARK
 	shadow_color.a = PALETTE.NAV_TEXT_SHADOW.a
 	for layer: TextureRect in shadows:
@@ -57,9 +64,9 @@ func _ready() -> void:
 	icon.position = ICON_RECT.position
 	icon.size = ICON_RECT.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.add_child(icon)
+	artwork.add_child(icon)
 	_lock_shadows = EXTRUSION._create_portrait_icon_extrusion_layers(
-		visual, LOCK, "TournamentLockShadow")
+		artwork, LOCK, "TournamentLockShadow")
 	for layer: TextureRect in _lock_shadows:
 		layer.material = MATERIALS.icon_shadow(shadow_color)
 	EXTRUSION._layout_portrait_icon_extrusion_layers(
@@ -72,12 +79,12 @@ func _ready() -> void:
 	_lock.position = LOCK_RECT.position
 	_lock.size = LOCK_RECT.size
 	_lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.add_child(_lock)
+	artwork.add_child(_lock)
 	var marker := WORD_MARKER._stage_portrait_result_word_marker(Vector2(420, 68.77))
 	marker.name = "TournamentCaptionMarker"
 	marker.position = Vector2(0, 72)
 	marker.scale = Vector2(100.0 / 420.0, 29.0 / 68.77)
-	visual.add_child(marker)
+	artwork.add_child(marker)
 	_caption_marker = marker
 	caption = Label.new()
 	caption.name = "TournamentButtonCaption"
@@ -91,7 +98,7 @@ func _ready() -> void:
 	caption.add_theme_font_size_override("font_size", 18)
 	caption.add_theme_color_override("font_color", Color.WHITE)
 	TEXT_STYLE.apply_display(caption)
-	visual.add_child(caption)
+	artwork.add_child(caption)
 	_timer = Timer.new()
 	_timer.wait_time = 1.0
 	_timer.timeout.connect(func():

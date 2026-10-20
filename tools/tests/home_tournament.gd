@@ -49,7 +49,7 @@ func run() -> void:
 	down.position = Vector2(50, 45)
 	button._gui_input(down)
 	await get_tree().create_timer(0.07).timeout
-	check(button.visual_scale.x < 1.0 and button.size == Vector2(100, 108), "Standard press animation shrinks visuals without shrinking hit area")
+	check(button.visual_scale.x < 1.0 and button.size.is_equal_approx(Vector2(115, 124.2)), "Standard press animation shrinks visuals without shrinking hit area")
 	var up := InputEventMouseButton.new()
 	up.button_index = MOUSE_BUTTON_LEFT
 	up.position = down.position

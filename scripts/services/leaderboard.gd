@@ -3,6 +3,7 @@ extends Node
 signal leaderboard_ready(snapshot: Dictionary, from_cache: bool)
 signal sync_failed()
 
+const RETRY_POLICY = preload("res://scripts/services/api_retry_policy.gd")
 const CACHE_MS := 60000
 const MAX_STARS := 2000000000
 const PROFILE = preload("res://scripts/core/player_profile.gd")
@@ -12,10 +13,12 @@ var _cache_language := ""
 var _pending_stars := -1
 var _profile_pending := false
 var _synced_profile: Dictionary = {}
+var _confirmed_stars := -1
 var _read_requested := false
 var _busy := false
 var _started := false
 var _debounce: Timer
+var _retry_timer: Timer
 var _store_loaded := false
 var _owner_id := ""
 var _boards: Dictionary = {}
@@ -34,6 +37,8 @@ func _ensure_store_loaded() -> void:
 	if !(saved is Dictionary) or saved.get("version") != 1 or !(saved.get("owner_id") is String) or !(saved.get("boards") is Dictionary):
 		return
 	_owner_id = saved.owner_id
+	if !_owner_id.is_empty() and _integer_in_range(saved.get("confirmed_stars"), 0, MAX_STARS):
+		_confirmed_stars = int(saved.confirmed_stars)
 	var profile: Variant = saved.get("synced_profile")
 	if profile is Dictionary and PROFILE.valid_name(str(profile.get("nickname", ""))) \
 		and _integer_in_range(profile.get("character_id"), 1, 2) and _integer_in_range(profile.get("frame_id"), 1, 5):
@@ -68,7 +73,7 @@ func _save_store() -> void:
 	if file == null:
 		_debug_log("Could not save local roster")
 		return
-	file.store_string(JSON.stringify({"version":1, "owner_id":_owner_id, "boards":_boards, "synced_profile":_synced_profile}))
+	file.store_string(JSON.stringify({"version":1, "owner_id":_owner_id, "boards":_boards, "synced_profile":_synced_profile, "confirmed_stars":_confirmed_stars}))
 	file.close()
 	if DirAccess.rename_absolute(path + ".tmp", path) != OK:
 		_debug_log("Could not replace local roster")
@@ -163,11 +168,11 @@ func _ready() -> void:
 	_debounce.wait_time = 1.0
 	_debounce.timeout.connect(_flush)
 	add_child(_debounce)
-	var retry := Timer.new()
-	retry.wait_time = 30.0
-	retry.timeout.connect(_tick)
-	add_child(retry)
-	retry.start()
+	_retry_timer = Timer.new()
+	_retry_timer.wait_time = RETRY_POLICY.base_seconds()
+	_retry_timer.timeout.connect(_tick)
+	add_child(_retry_timer)
+	_retry_timer.start()
 	_debug_log("Startup: environment=%s configured=%s" % [
 		"dev" if _backend()._uses_dev() else "production", _backend().leaderboard_is_configured()])
 	_tick.call_deferred()
@@ -202,7 +207,11 @@ func sync_stars(stars: int) -> void:
 	if stars <= 0:
 		_debug_log("Zero stars: not submitting an unranked player")
 		return
-	_pending_stars = maxi(_pending_stars, clampi(stars, 0, MAX_STARS))
+	_ensure_store_loaded()
+	var candidate := clampi(stars, 0, MAX_STARS)
+	if candidate <= _confirmed_stars:
+		return
+	_pending_stars = maxi(_pending_stars, candidate)
 	_debug_log("Queued stars=%d" % _pending_stars)
 	# Coalesce incremental reward animations and short-lived balance changes.
 	if is_instance_valid(_debounce):
@@ -233,6 +242,32 @@ func cached_snapshot() -> Dictionary:
 		_snapshot = _merge_board(_boards[_language()], _language()) if _boards.has(_language()) else {}
 	return _snapshot.duplicate(true)
 
+func tournament_profiles() -> Array:
+	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
+		return []
+	_ensure_store_loaded()
+	var language := _language()
+	var other := "en" if language == "ru" else "ru"
+	var own_ids: Dictionary = {}
+	for board: Dictionary in _boards.values():
+		if board.me is Dictionary:
+			own_ids[str(board.me.player_id)] = true
+	var profiles: Array = []
+	var ids: Dictionary = {}
+	for locale: String in [language, other]:
+		if !_boards.has(locale):
+			continue
+		for entry: Dictionary in _boards[locale].real_top:
+			var identifier := str(entry.player_id)
+			if bool(entry.is_me) or bool(entry.is_filler) or own_ids.has(identifier) or ids.has(identifier):
+				continue
+			ids[identifier] = true
+			# Copy only public identity/appearance, never a global score or auth ID.
+			var profile := {"player_id":identifier, "nickname":entry.nickname, "is_me":false, "is_filler":false}
+			profile.merge(PROFILE.resolve_appearance(entry))
+			profiles.append(profile)
+	return profiles
+
 func refresh(force: bool = false) -> void:
 	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		_debug_log("Refresh skipped: backend disabled or legal documents not accepted")
@@ -249,6 +284,7 @@ func _on_identity_changed() -> void:
 	_store_loaded = true
 	_owner_id = ""
 	_synced_profile.clear()
+	_confirmed_stars = -1
 	_boards.clear()
 	_save_store()
 	_snapshot.clear()
@@ -309,6 +345,9 @@ func _valid_snapshot(body: Variant, include_top: bool) -> bool:
 func _flush() -> void:
 	if _busy or !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
+	if _backend().retry_delay_ms("leaderboard") > 0:
+		_schedule_retry()
+		return
 	_ensure_store_loaded()
 	_busy = true
 	while _pending_stars >= 0 or _read_requested or _profile_pending:
@@ -329,26 +368,37 @@ func _flush() -> void:
 		var response: Dictionary = await _backend().leaderboard_rpc(payload)
 		var body: Variant = response.get("body")
 		if int(response.get("status", 0)) != 200 or !_valid_snapshot(body, include_top) or body.language != request_language \
-			or (seed_requested and !body.has("fillers")):
+			or (seed_requested and !body.has("fillers")) \
+			or (submitted >= 0 and (body.me == null or int(body.me.stars) < submitted)):
 			_read_requested = _read_requested or include_top
 			_debug_log("Sync failed: status=%d; pending result retained" % int(response.get("status", 0)))
 			_busy = false
-			sync_failed.emit()
+			if !bool(response.get("retry_deferred", false)):
+				_backend().retry_failure("leaderboard", response)
+				sync_failed.emit()
+			_schedule_retry()
 			return
+		_backend().retry_success("leaderboard")
+		_schedule_retry()
 		if _owner_id != body.owner_id:
 			_owner_id = body.owner_id
 			_synced_profile.clear()
+			_confirmed_stars = -1
 			_boards.clear()
 			_snapshot.clear()
 			_cache_at_ms = -1
 			_cache_language = ""
 			_save_store()
-		if _pending_stars == submitted:
+		var confirmed: int = int(body.me.stars) if body.me != null else 0
+		var acknowledgement_changed := confirmed != _confirmed_stars
+		_confirmed_stars = confirmed
+		if _pending_stars >= 0 and _pending_stars <= _confirmed_stars:
 			_pending_stars = -1
 		if body.me != null:
 			_apply_server_player_id(str(body.me.player_id))
 		if send_profile:
 			_synced_profile = submitted_profile.duplicate(true)
+		if send_profile or acknowledgement_changed:
 			_save_store()
 		_profile_pending = _synced_profile != _current_profile()
 		if _profile_pending and include_top:
@@ -406,3 +456,8 @@ func _flush() -> void:
 
 func is_configured() -> bool:
 	return _tutorial_completed() and _legal_accepted() and _backend().leaderboard_is_configured()
+
+func _schedule_retry() -> void:
+	if is_instance_valid(_retry_timer):
+		var delay: int = _backend().retry_delay_ms("leaderboard")
+		_retry_timer.start(float(delay) / 1000.0 if delay > 0 else RETRY_POLICY.base_seconds())

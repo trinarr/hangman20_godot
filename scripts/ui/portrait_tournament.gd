@@ -1,5 +1,7 @@
 extends Control
 ## Tournament body uses its host's 480-unit portrait stage transform.
+const ROW = preload("res://scripts/ui/leaderboard_row.gd")
+const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
 const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
@@ -10,6 +12,8 @@ const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
 # Matches the two-player word-entry CTA after footer sizing (300 * .85 * 1.1 * 1.15, 64 * 1.1).
 const ACTION_BUTTON_SIZE := Vector2(322.575, 70.4)
+var portraits: Node
+var score_formatter: Callable
 var scroll: ScrollContainer
 var rows: VBoxContainer
 var podium: Control
@@ -29,6 +33,9 @@ func _tr(key: String, ru: String, en: String) -> String:
 
 func _ready() -> void:
 	name = "TournamentPage"
+	if !is_instance_valid(portraits):
+		portraits = PORTRAITS.new()
+		add_child(portraits)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_title = _label(self, Rect2(18, 10, 444, 34), "", 27, Color.WHITE)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -43,7 +50,7 @@ func _ready() -> void:
 	add_child(scroll)
 	rows = VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rows.add_theme_constant_override("separation", 10)
+	rows.add_theme_constant_override("separation", 0)
 	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scroll.set_list(rows)
 	_button = LONG_BUTTON.new()
@@ -89,7 +96,7 @@ func refresh() -> void:
 		if !_snapshot.unlocked:
 			_hint.text = _tr("TOURNAMENT_LOCKED", "Завершите уровень %d для участия", "Complete level %d to join") % int(_snapshot.unlock_level)
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
-	var key := JSON.stringify(_snapshot.get("rows", [])) + phase + GameState.player_name
+	var key := JSON.stringify(_snapshot.get("rows", [])) + phase + JSON.stringify(GameState.get_player_profile())
 	if key != _rows_key:
 		_rows_key = key
 		_rebuild(phase == "idle")
@@ -102,7 +109,7 @@ func _rebuild(preview: bool) -> void:
 		child.free()
 	podium = Control.new()
 	podium.name = "TournamentPodium"
-	podium.custom_minimum_size = Vector2(444, 260)
+	podium.custom_minimum_size = Vector2(ROW.ROW_WIDTH, 260)
 	podium.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rows.add_child(podium)
 	var entries: Array = _snapshot.get("rows", [])
@@ -131,7 +138,7 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	var rank := int(entry.rank)
 	var card := Control.new()
 	card.name = "PodiumPlace%d" % rank
-	card.position = Vector2(slot * 151, 10 if rank == 1 else 34)
+	card.position = Vector2(8 + slot * 151, 10 if rank == 1 else 34)
 	card.size = Vector2(142, 244 if rank == 1 else 220)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var color: Color = {1: PALETTE.PAPER_CRACK_LIGHT, 2: PALETTE.UI_BLUE_LIGHT_BORDER, 3: PALETTE.BUTTON_ORANGE}[rank]
@@ -160,23 +167,14 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 
 func _row_card(entry: Dictionary) -> Control:
 	var row := Control.new()
-	row.custom_minimum_size = Vector2(444, 72)
-	row.size = Vector2(444, 72)
+	row.custom_minimum_size = Vector2(ROW.ROW_WIDTH, ROW.ROW_HEIGHT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := CARD.face_style(PALETTE.UI_BLUE_LIGHT_BORDER if bool(entry.mine) else Color.WHITE)
-	_panel(row, Rect2(0, 6, 444, 66), CARD.shadow_style())
-	var face := _panel(row, Rect2(Vector2.ZERO, Vector2(444, 66)), style)
-	face.name = "CardFace"
-	var contents := Control.new()
-	contents.name = "Contents"
-	contents.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	face.add_child(contents)
-	_label(contents, Rect2(14, 0, 46, 66), str(entry.rank), 24)
-	var nickname := _label(contents, Rect2(65, 0, 226, 66), _name(entry), 25)
-	nickname.add_theme_font_override("font", FONTS.button_font())
-	nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_shrink(nickname, 15)
-	_counter(contents, Vector2(301, 14), 128, int(entry.stars), STAR, 23)
+	var display_entry := entry.duplicate(true)
+	display_entry.nickname = _name(entry)
+	if bool(entry.mine):
+		display_entry.merge(GameState.get_player_profile(), true)
+
+	ROW.populate(row, display_entry, bool(entry.mine), portraits, score_formatter, Vector2(8, 0))
 	return row
 
 func _counter(parent: Control, at: Vector2, width: float, amount: int, texture: Texture2D, font_size: int) -> void:
@@ -226,8 +224,8 @@ func _layout() -> void:
 	if !is_node_ready():
 		return
 	var action_height := ACTION_BUTTON_SIZE.y + 32.0 if _button.visible else 0.0
-	scroll.position = Vector2(18, 94)
-	scroll.size = Vector2(444, maxf(80, size.y - 94 - action_height))
+	scroll.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, 94)
+	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(80, size.y - 94 - action_height))
 	_button.stage_rect = Rect2(Vector2((480.0 - ACTION_BUTTON_SIZE.x) * 0.5, size.y - 14.0 - ACTION_BUTTON_SIZE.y), ACTION_BUTTON_SIZE)
 	_error.position.y = size.y - 100
 

@@ -3,6 +3,7 @@ extends Node
 signal statistics_ready(question_key: String, counts: Array)
 signal identity_changed()
 
+const RETRY_POLICY = preload("res://scripts/services/api_retry_policy.gd")
 const SAVE_PATH := "user://quiz_statistics.json"
 const DEV_SAVE_PATH := "user://quiz_statistics_dev.json"
 const MAX_PENDING := 4000
@@ -22,6 +23,7 @@ var _answered: Dictionary = {}
 var _prefetch: Array[String] = []
 var _prefetch_in_flight := ""
 var _retry: Timer
+var _retry_states: Dictionary = {}
 
 func _debug_log(message: String) -> void:
 	if OS.is_debug_build():
@@ -51,7 +53,7 @@ func _start_online_worker() -> void:
 		return
 	if !is_instance_valid(_retry):
 		_retry = Timer.new()
-		_retry.wait_time = 30.0
+		_retry.wait_time = RETRY_POLICY.base_seconds()
 		_retry.timeout.connect(_flush)
 		add_child(_retry)
 		_retry.start()
@@ -293,8 +295,14 @@ func _authenticate() -> bool:
 		while _auth_busy:
 			await get_tree().process_frame
 		return _auth_last_success and !_token_needs_refresh()
+	if retry_delay_ms("auth") > 0:
+		return false
 	_auth_busy = true
 	_auth_last_success = await _authenticate_session()
+	if _auth_last_success:
+		retry_success("auth")
+	else:
+		retry_failure("auth", {})
 	_auth_busy = false
 	return _auth_last_success
 
@@ -346,11 +354,15 @@ func leaderboard_rpc(payload: Dictionary) -> Dictionary:
 	return await _authorized_rpc(_leaderboard_rpc_path(), payload, false)
 
 func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) -> Dictionary:
+	var lane := "leaderboard" if path == _leaderboard_rpc_path() else "quiz"
+	var delay := retry_delay_ms(lane)
+	if delay > 0:
+		return {"retry_deferred":true,"retry_after_ms":delay}
 	var generation := _identity_generation
 	var response: Dictionary = {}
 	for attempt: int in range(2):
 		if _token_needs_refresh() and !(await _authenticate()):
-			return {"identity_reset": generation != _identity_generation}
+			return {"identity_reset": generation != _identity_generation, "retry_scheduled":true}
 		if generation != _identity_generation and identity_bound:
 			return {"identity_reset": true}
 		var request_generation := _identity_generation
@@ -363,6 +375,9 @@ func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) ->
 			response = {"identity_reset": true}
 			continue
 		if int(response.get("status", 0)) != 401:
+			var status: int = int(response.get("status", 0))
+			if status <= 0 or status in [408, 425, 429, 403] or status >= 500:
+				retry_failure(lane, response)
 			return response
 		# A delayed 401 for an old JWT must not erase a concurrently refreshed token.
 		if sent_token == _access_token:
@@ -370,6 +385,8 @@ func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) ->
 			_access_token_refresh_at_ms = 0
 		if attempt == 0:
 			_debug_log("RPC unauthorized: sharing token refresh and retrying once")
+	if int(response.get("status", 0)) == 401:
+		retry_failure(lane, response)
 	return response
 
 func _batch_reply_valid(body: Variant, entries: Array) -> bool:
@@ -407,6 +424,9 @@ func _flush() -> void:
 		return
 	if !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
 		return
+	if retry_delay_ms("quiz") > 0:
+		_schedule_retry()
+		return
 	_busy = true
 	_flush_again = false
 	_debug_log("Flush: pending=%d" % (_state["pending"] as Array).size())
@@ -424,6 +444,7 @@ func _flush() -> void:
 		var status := int(response.get("status", 0))
 		var body: Variant = response.get("body")
 		if status == 200 and body is Dictionary and _accept_snapshot(key, body):
+			retry_success("quiz")
 			_debug_log("Prefetch ready: question=%s already_answered=%s counts=%s" % [
 				_debug_question(key), body["already_answered"], str(body["counts"])])
 		else:
@@ -433,7 +454,9 @@ func _flush() -> void:
 			_debug_log("Prefetch failed: status=%d; retry later" % status)
 			# Let pending writes proceed on catalog errors, but avoid duplicate network failures.
 			if status not in [400, 404, 422]:
+				retry_failure("quiz", response)
 				_busy = false
+				_schedule_retry()
 				return
 			break
 	var remaining: int = (_state["pending"] as Array).size()
@@ -464,7 +487,9 @@ func _flush() -> void:
 		var body: Variant = response.get("body")
 		if entries.size() > 1:
 			if status != 200 or !_batch_reply_valid(body, entries):
+				retry_failure("quiz", response)
 				break
+			retry_success("quiz")
 			for index: int in range(entries.size()):
 				var item: Dictionary = body.results[index]
 				if item.ok:
@@ -473,15 +498,19 @@ func _flush() -> void:
 					_rotate_pending_entry(str(entries[index].p_key))
 		elif status == 200 and body is Dictionary and body.get("ok") == true:
 			if !_acknowledge_entry(entries[0], body):
+				retry_failure("quiz", response)
 				break
+			retry_success("quiz")
 		elif status in [400, 404, 422]:
 			_rotate_pending_entry(str(entries[0].p_key))
 		else:
+			retry_failure("quiz", response)
 			break
 		remaining -= entries.size()
 		_save()
 	_busy = false
 	_debug_log("Flush finished: pending=%d" % (_state["pending"] as Array).size())
+	_schedule_retry()
 	if _flush_again or (!prefetch_failed and !_prefetch.is_empty()):
 		_flush.call_deferred()
 
@@ -491,3 +520,34 @@ func _rotate_pending_entry(key: String) -> void:
 		if pending[index].get("p_key") == key:
 			pending.append(pending.pop_at(index))
 			return
+
+func _retry_now_ms() -> int:
+	return Time.get_ticks_msec()
+
+func _retry_state(lane: String) -> RefCounted:
+	if !_retry_states.has(lane):
+		_retry_states[lane] = RETRY_POLICY.new()
+	return _retry_states[lane]
+
+func retry_delay_ms(lane: String) -> int:
+	var now := _retry_now_ms()
+	return maxi(_retry_state("auth").remaining_ms(now), _retry_state(lane).remaining_ms(now))
+
+func retry_failure(lane: String, response: Dictionary) -> void:
+	if response.get("retry_deferred", false) or response.get("retry_scheduled", false) or response.get("identity_reset", false):
+		return
+	var delay: int = _retry_state(lane).failed(_retry_now_ms())
+	response["retry_scheduled"] = true
+	_debug_log("Retry lane=%s delay_ms=%d" % [lane, delay])
+	if lane != "leaderboard":
+		_schedule_retry()
+
+func retry_success(lane: String) -> void:
+	_retry_state(lane).succeeded()
+	if lane != "leaderboard":
+		_schedule_retry()
+
+func _schedule_retry() -> void:
+	if is_instance_valid(_retry):
+		var delay := retry_delay_ms("quiz")
+		_retry.start(float(delay) / 1000.0 if delay > 0 else RETRY_POLICY.base_seconds())

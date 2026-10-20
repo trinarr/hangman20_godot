@@ -119,6 +119,7 @@ func run() -> void:
 	await settle(client,transport)
 	check(client._pending_stars == 140, "Network failure retains pending stars")
 	transport.replies = [reply(140,false)]
+	transport.advance_retry()
 	client._flush()
 	await settle(client,transport)
 	check(client._pending_stars == -1 and client.cached_snapshot().me.stars == 140, "Retry acknowledges saved score")
@@ -253,6 +254,7 @@ func run() -> void:
 	await settle(client,transport)
 	check(client._profile_pending, "Profile failure keeps the offline request pending")
 	transport.replies = [reply(160,false), reply(160,false)]
+	transport.advance_retry()
 	client._flush()
 	client.profile = {"nickname":"NewerProfile", "character_id":1, "frame_id":5}
 	client.sync_profile()
@@ -265,6 +267,43 @@ func run() -> void:
 	check(client._valid_row(appearance_row, true), "Valid public appearance IDs accepted")
 	appearance_row.frame_id = 6
 	check(!client._valid_row(appearance_row, true), "Invalid public appearance ID rejected")
+	# Tournament candidates use public real rows from cache, excluding every own row.
+	var saved_boards: Dictionary = client._boards.duplicate(true)
+	var saved_language: String = client.language
+	client.language = "ru"
+	var own_entry := row()
+	own_entry.is_me = true
+	var first_real := row(70)
+	first_real.merge({"player_id":"201", "nickname":"PublicOne", "is_me":false, "rank":2}, true)
+	var second_real := row(60)
+	second_real.merge({"player_id":"202", "nickname":"PublicTwo", "is_me":false, "rank":3}, true)
+	client._boards = {"ru":{"initialized":true, "me":row(), "real_top":[own_entry, first_real, second_real], "fillers":[], "total_players":3}}
+	var older := first_real.duplicate(true)
+	older.nickname = "OldName"
+	var third_real := row(50)
+	third_real.merge({"player_id":"203", "nickname":"PublicThree", "is_me":false, "rank":3}, true)
+	var own_other := own_entry.duplicate(true)
+	own_other.is_me = false
+	client._boards.en = {"initialized":true, "me":row(), "real_top":[own_other, older, third_real], "fillers":[], "total_players":3}
+	var candidates: Array = client.tournament_profiles()
+	check(candidates.size() == 3 and candidates[0].nickname == "PublicOne" and candidates[2].player_id == "203", "Tournament combines cached locales, prefers current locale, deduplicates and excludes own identity")
+	check(candidates[0].character_id == 2 and candidates[0].frame_id == 3 and !candidates[0].has("stars"), "Tournament candidates copy public appearance without leaderboard scores")
+	candidates[0].nickname = "ExternalMutation"
+	check(client.tournament_profiles()[0].nickname == "PublicOne", "Candidate snapshots do not mutate leaderboard cache")
+	client._save_store()
+	var reloaded: Node = CLIENT.new()
+	reloaded.transport = transport
+	reloaded.save_file = client.save_file
+	add_child(reloaded)
+	check(reloaded.tournament_profiles().size() == 3, "Offline restart restores real tournament candidates from persisted leaderboard cache")
+	reloaded.legal = false
+	check(reloaded.tournament_profiles().is_empty(), "Candidate cache respects legal access gate")
+	reloaded.legal = true
+	reloaded.tutorial_completed = false
+	check(reloaded.tournament_profiles().is_empty(), "Candidate cache respects onboarding access gate")
+	reloaded.queue_free()
+	client._boards = saved_boards
+	client.language = saved_language
 	client._owner_id = ""
 	check(client.get_player_id().is_empty(), "A cached row without a known account cannot supply a nickname ID")
 	client._owner_id = "test-owner"
