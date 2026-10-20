@@ -88,6 +88,7 @@ func run() -> void:
 	check(transport.calls[0].payload.p_language == "ru", "Client sends nickname-pool language")
 	check(client._pending_stars == -1 and client.cached_snapshot().me.stars == 80, "Successful score clears pending snapshot")
 	check(client.get_player_id() == "123", "Nickname generation receives the own numeric server ID")
+	check(transport.calls[0].payload.has("p_nickname"), "First identity uploads its profile")
 	check(delivered.size() == 1 and !delivered.back().cached, "Top signal reports server response")
 	var copied: Dictionary = client.cached_snapshot()
 	copied.top[0].stars = 999
@@ -98,6 +99,7 @@ func run() -> void:
 	client.refresh(true)
 	await settle(client,transport)
 	check(transport.calls.size() == 2 and !transport.calls.back().payload.has("p_stars"), "Forced refresh reads without submitting a score")
+	check(!transport.calls.back().payload.has("p_nickname"), "Read-only refresh omits unchanged profile fields")
 	client._cache_at_ms = Time.get_ticks_msec() - client.CACHE_MS
 	transport.replies = [reply(80)]
 	client.refresh()
@@ -179,34 +181,44 @@ func run() -> void:
 	client.refresh(true)
 	check(transport.calls.size() == previous_calls and client._pending_stars == -1, "No registration or upload before legal acceptance")
 	client.legal = true
-	# Shared auth lock: quiz and leaderboard make one signup, not two racing sessions.
+	# Authentication is shared, but quiz HTTP and leaderboard HTTP may overlap.
 	Database.load_languages("ru", "ru")
 	var question: Dictionary = Database.get_quiz_questions_by_theme_index(0)[0]
 	transport._access_token = ""
 	transport._state.refresh_token = ""
-	transport.replies = [tokens(), reply(140), {"status":200,"body":{"ok":true,"counts":[1,2,3,4],"already_answered":true}}]
+	var quiz_reply: Dictionary = {"status":200,"body":{"ok":true,"counts":[1,2,3,4],"already_answered":true}}
+	transport.route_replies = {
+		"/auth/v1/signup": [tokens()], transport._leaderboard_rpc_path(): [reply(140)], transport._rpc_path(): [quiz_reply]}
+	transport.delay_frames[transport._rpc_path()] = 5
 	previous_calls = transport.calls.size()
 	transport.record_answer(question,0,0,true)
 	client.refresh(true)
 	await settle(client,transport)
 	check(transport.calls.size() == previous_calls + 3, "Concurrent quiz and leaderboard share one authentication")
-	check(transport.calls[previous_calls].path == "/auth/v1/signup" and transport.calls[previous_calls+1].path.ends_with("leaderboard_sync_dev") and transport.calls.back().path.ends_with("quiz_answer_dev"), "Quiz and leaderboard serialize requests under one session")
-	# A large offline quiz queue must yield between requests to a waiting leaderboard read.
+	check(transport.calls[previous_calls].path == "/auth/v1/signup" and transport.max_active_calls >= 2, "Independent API requests overlap after shared signup")
+	# A batch of queued votes does not block a leaderboard read.
 	var q2: Dictionary = Database.get_quiz_questions_by_theme_index(0)[1]
 	var q3: Dictionary = Database.get_quiz_questions_by_theme_index(0)[2]
 	transport._state.pending = [
 		{"p_key":transport.describe_question(q2,0).key,"p_answer":0},
 		{"p_key":transport.describe_question(q3,0).key,"p_answer":0}]
-	var quiz_reply: Dictionary = {"status":200,"body":{"ok":true,"counts":[1,2,3,4],"already_answered":true}}
-	transport.replies = [quiz_reply,reply(140),quiz_reply]
+	var results: Array = []
+	for entry: Dictionary in transport._state.pending:
+		var item := entry.duplicate(true)
+		item.merge(quiz_reply.body)
+		results.append(item)
+	transport.route_replies = {
+		transport._batch_rpc_path(): [{"status":200,"body":{"ok":true,"results":results}}],
+		transport._leaderboard_rpc_path(): [reply(140)]}
+	transport.delay_frames[transport._batch_rpc_path()] = 5
 	previous_calls = transport.calls.size()
 	transport._flush()
 	client.refresh(true)
 	await settle(client,transport)
-	await get_tree().process_frame
-	await settle(client,transport)
-	check(transport.calls.size() == previous_calls+3 and transport.calls[previous_calls+1].path.ends_with("leaderboard_sync_dev"), "Leaderboard gets a turn before the rest of the offline quiz queue")
-	check(transport._state.pending.is_empty(), "Quiz queue resumes after leaderboard request")
+	check(transport.calls.size() == previous_calls+2 and transport.calls[previous_calls+1].path.ends_with("leaderboard_sync_dev"), "Leaderboard starts without waiting for the offline quiz batch")
+	check(transport._state.pending.is_empty(), "Quiz batch is acknowledged independently")
+	transport.route_replies.clear()
+	transport.delay_frames.clear()
 	# 401 recovery uses same shared immediate retry, including leaderboard RPC.
 	transport._state.refresh_token = "old-refresh"
 	transport.replies = [{"status":401,"body":{}},tokens(),reply(140)]
@@ -216,7 +228,7 @@ func run() -> void:
 	check(transport.calls.size() == previous_calls + 3 and transport.calls[previous_calls+1].path.contains("refresh_token"), "Leaderboard refreshes JWT and retries immediately")
 	# Revoked identity clears old cached ranking; current score can register a new participant.
 	transport._access_token = ""
-	transport.replies = [{"status":400,"body":{"error_code":"refresh_token_not_found"}},tokens(),reply(90),reply(90,false)]
+	transport.replies = [{"status":400,"body":{"error_code":"refresh_token_not_found"}},tokens(),reply(90),reply(90)]
 	previous_calls = transport.calls.size()
 	client.refresh(true)
 	await settle(client,transport)
@@ -229,7 +241,7 @@ func run() -> void:
 	client._tick()
 	await settle(client,transport)
 	check(client._started and transport.calls.back().payload.p_stars == 160, "Startup synchronizes persisted star total")
-	check(transport.calls.back().payload.p_nickname == client.profile.nickname and transport.calls.back().payload.p_character_id == 1 and transport.calls.back().payload.p_frame_id == 4, "Startup includes persisted public profile")
+	check(!transport.calls.back().payload.has("p_nickname"), "Startup does not resend an already acknowledged unchanged profile")
 	# An unranked profile must synchronize without registering a zero score.
 	client._snapshot.clear()
 	check(client.get_player_id() == "123", "Own ID can be restored from the saved account roster")

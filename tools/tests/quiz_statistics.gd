@@ -128,8 +128,11 @@ func run() -> void:
 	service.record_answer(question, 0, 0, false)
 	await settle(service)
 	check(service._state.pending[0].p_answer == -2, "Hinted answer marks seen without a vote")
-	service.replies = [{"status": 400, "body": {}}, {"status": 200, "body": {"ok": true, "already_answered": true, "counts": [1,2,3,4]}}]
 	var other: Dictionary = PICK.shuffled(Database.get_quiz_questions_by_theme_index(0)[1])
+	var other_description: Dictionary = service.describe_question(other, 0)
+	service.replies = [{"status":200,"body":{"ok":true,"results":[
+		{"p_key":service._state.pending[0].p_key,"p_answer":-2,"ok":false,"code":"22023"},
+		{"p_key":other_description.key,"p_answer":int(other_description.mapping[0]),"ok":true,"already_answered":true,"counts":[1,2,3,4]}]}}]
 	service.record_answer(other, 0, 0, true)
 	await settle(service)
 	check(service._state.pending.size() == 1 and service._state.pending[0].p_answer == -2, "Unknown catalog revision does not block other votes")

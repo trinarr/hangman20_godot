@@ -11,6 +11,7 @@ var _cache_at_ms: int = -1
 var _cache_language := ""
 var _pending_stars := -1
 var _profile_pending := false
+var _synced_profile: Dictionary = {}
 var _read_requested := false
 var _busy := false
 var _started := false
@@ -33,6 +34,10 @@ func _ensure_store_loaded() -> void:
 	if !(saved is Dictionary) or saved.get("version") != 1 or !(saved.get("owner_id") is String) or !(saved.get("boards") is Dictionary):
 		return
 	_owner_id = saved.owner_id
+	var profile: Variant = saved.get("synced_profile")
+	if profile is Dictionary and PROFILE.valid_name(str(profile.get("nickname", ""))) \
+		and _integer_in_range(profile.get("character_id"), 1, 2) and _integer_in_range(profile.get("frame_id"), 1, 5):
+		_synced_profile = {"nickname": profile.nickname, "character_id": int(profile.character_id), "frame_id": int(profile.frame_id)}
 	for language: String in ["ru", "en"]:
 		var board: Variant = saved.boards.get(language)
 		if _valid_saved_board(board):
@@ -63,7 +68,7 @@ func _save_store() -> void:
 	if file == null:
 		_debug_log("Could not save local roster")
 		return
-	file.store_string(JSON.stringify({"version":1, "owner_id":_owner_id, "boards":_boards}))
+	file.store_string(JSON.stringify({"version":1, "owner_id":_owner_id, "boards":_boards, "synced_profile":_synced_profile}))
 	file.close()
 	if DirAccess.rename_absolute(path + ".tmp", path) != OK:
 		_debug_log("Could not replace local roster")
@@ -182,7 +187,10 @@ func _tick() -> void:
 	_flush()
 
 func sync_profile() -> void:
-	_profile_pending = true
+	_ensure_store_loaded()
+	_profile_pending = _current_profile() != _synced_profile
+	if !_profile_pending:
+		return
 	_cache_at_ms = -1
 	_read_requested = _read_requested or !_snapshot.is_empty()
 	if is_instance_valid(_debounce):
@@ -240,6 +248,7 @@ func refresh(force: bool = false) -> void:
 func _on_identity_changed() -> void:
 	_store_loaded = true
 	_owner_id = ""
+	_synced_profile.clear()
 	_boards.clear()
 	_save_store()
 	_snapshot.clear()
@@ -309,7 +318,9 @@ func _flush() -> void:
 		_read_requested = false
 		var request_language := _language()
 		var payload: Dictionary = {"p_include_top": include_top, "p_language": request_language}
-		payload.merge({"p_nickname": submitted_profile.nickname, "p_character_id": submitted_profile.character_id, "p_frame_id": submitted_profile.frame_id})
+		var send_profile := submitted_profile != _synced_profile
+		if send_profile:
+			payload.merge({"p_nickname": submitted_profile.nickname, "p_character_id": submitted_profile.character_id, "p_frame_id": submitted_profile.frame_id})
 		var seed_requested := include_top and !_boards.has(request_language)
 		payload["p_seed_fillers"] = seed_requested
 		if submitted >= 0:
@@ -326,6 +337,7 @@ func _flush() -> void:
 			return
 		if _owner_id != body.owner_id:
 			_owner_id = body.owner_id
+			_synced_profile.clear()
 			_boards.clear()
 			_snapshot.clear()
 			_cache_at_ms = -1
@@ -335,7 +347,10 @@ func _flush() -> void:
 			_pending_stars = -1
 		if body.me != null:
 			_apply_server_player_id(str(body.me.player_id))
-		_profile_pending = submitted_profile != _current_profile()
+		if send_profile:
+			_synced_profile = submitted_profile.duplicate(true)
+			_save_store()
+		_profile_pending = _synced_profile != _current_profile()
 		if _profile_pending and include_top:
 			_read_requested = true
 		var current_language := request_language == _language()

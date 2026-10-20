@@ -6,17 +6,19 @@ quiz_schemas(schema_name) as (values ('quiz_private'), ('quiz_dev_private')),
 expected_columns(schema_name, table_name, column_name, expected_type) as (
   select s.schema_name, c.* from leader_schemas s cross join (values
     ('players','player_id','bigint'), ('players','user_id','uuid'),
-    ('players','stars','bigint'), ('players','reached_at','timestamp with time zone'),
+    ('players','stars','integer'), ('players','reached_at','timestamp with time zone'),
+    ('population','singleton','boolean'), ('population','total','bigint'),
     ('profiles','user_id','uuid'), ('profiles','nickname','text'),
-    ('profiles','character_id','integer'), ('profiles','frame_id','integer'),
+    ('profiles','character_id','smallint'), ('profiles','frame_id','smallint'),
     ('profiles','updated_at','timestamp with time zone'),
     ('fillers','pool','text'), ('fillers','slot','integer'),
     ('fillers','nickname','text'), ('fillers','style','text'),
-    ('fillers','character_id','integer'), ('fillers','frame_id','integer')
+    ('fillers','character_id','smallint'), ('fillers','frame_id','smallint')
   ) c(table_name,column_name,expected_type)
   union all
   select s.schema_name, c.* from quiz_schemas s cross join (values
-    ('questions','slot','integer'), ('questions','question_key','text'),
+    ('questions','slot','integer'), ('questions','language','text'),
+    ('questions','question_id','integer'), ('questions','revision_hash','bytea'),
     ('questions','counts','bigint[]'), ('players','user_id','uuid'), ('players','seen','bytea')
   ) c(table_name,column_name,expected_type)
 ),
@@ -39,7 +41,8 @@ column_checks as (
 expected_rpcs(name, arg_types) as (values
   ('leaderboard_sync','bigint, boolean, text, boolean, text, integer, integer'),
   ('leaderboard_sync_dev','bigint, boolean, text, boolean, text, integer, integer'),
-  ('quiz_answer','text, integer, boolean'), ('quiz_answer_dev','text, integer, boolean')
+  ('quiz_answer','text, integer, boolean'), ('quiz_answer_dev','text, integer, boolean'),
+  ('quiz_answers','jsonb'), ('quiz_answers_dev','jsonb')
 ),
 rpc_checks as (
   select e.name, e.arg_types as expected_arg_types,

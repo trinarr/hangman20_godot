@@ -4,13 +4,13 @@
 
 ## Установка
 
-1. В Supabase SQL Editor выполните `supabase/migrations/004_quiz_statistics_dev.sql` после существующих миграций 001–003.
+1. На новой БД выполните миграции по порядку до `017_api_efficiency.sql` включительно; миграция 004 первоначально создаёт dev-окружение. На существующей БД применяйте только отсутствующие миграции после проверки состояния. Порядок обновления — в [общем контракте](quiz_statistics_supabase.md); старую 004 поверх 016/017 не запускают.
 2. Установите обновлённый клиент. В `project.godot` добавлено `quiz_statistics/dev_enabled=true`.
 3. Запустите игру из редактора или экспортируйте debug APK. В логах будет `Environment=dev`, путь RPC `/rest/v1/rpc/quiz_answer_dev` и файл `user://quiz_statistics_dev.json`.
 4. Ответьте на викторину. В логах успешной отправки должны появиться HTTP 200 и `Database acknowledged`. Проверьте dev-счётчики в SQL Editor:
 
 ```sql
-select question_key, counts
+select language, question_id, encode(revision_hash, 'hex') as revision, counts
 from quiz_dev_private.questions
 where counts <> array[0,0,0,0]::bigint[];
 ```
@@ -23,8 +23,8 @@ where counts <> array[0,0,0,0]::bigint[];
 
 | Запуск | RPC | Локальное состояние |
 |---|---|---|
-| Редактор / debug | `quiz_answer_dev` | `quiz_statistics_dev.json` |
-| Release | `quiz_answer` | существующий `quiz_statistics.json` |
+| Редактор / debug | `quiz_answer_dev`, `quiz_answers_dev` | `quiz_statistics_dev.json` |
+| Release | `quiz_answer`, `quiz_answers` | существующий `quiz_statistics.json` |
 | `tools/run_content_tests.py` | реальная сеть отключена | временный тестовый профиль |
 
 `quiz_statistics/enabled` управляет release, `quiz_statistics/dev_enabled` — dev. Отсутствующее dev-настроечное значение означает `false`; production-настройка его не заменяет. `HANGMAN_SUPABASE_NETWORK_DISABLED=1` запрещает все запросы независимо от сборки и настроек. Для ручной интеграционной проверки запустите обычную debug-сборку без этой переменной.

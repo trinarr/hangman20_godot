@@ -46,7 +46,7 @@ func run() -> void:
 	var blocked_env := OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED")
 	OS.set_environment("HANGMAN_SUPABASE_NETWORK_DISABLED", "")
 	check(!environment.is_configured() and !environment.leaderboard_is_configured(), "Both real services remain disabled before tutorial")
-	for path: String in ["/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token", environment._rpc_path(), environment._leaderboard_rpc_path()]:
+	for path: String in ["/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token", environment._rpc_path(), environment._batch_rpc_path(), environment._leaderboard_rpc_path()]:
 		check((await environment._post(path, {}, true)).is_empty() and environment.get_child_count() == 0, "Pre-tutorial transport creates no HTTPRequest: " + path)
 	check(!(await environment._authenticate()) and environment.get_child_count() == 0, "Pre-tutorial authentication cannot start")
 	OS.set_environment("HANGMAN_SUPABASE_NETWORK_DISABLED", blocked_env)

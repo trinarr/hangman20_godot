@@ -5,13 +5,20 @@ with
 targets(schema_name,table_name,kind) as (
   select s.schema_name,t.table_name,t.kind from
     (values ('leaderboard_private'),('leaderboard_dev_private')) s(schema_name)
-    cross join (values ('players','scores'),('profiles','profiles'),('fillers','fillers')) t(table_name,kind)
+    cross join (values ('players','scores'),('profiles','profiles'),('fillers','fillers'),('population','population')) t(table_name,kind)
   union all
   select s.schema_name,t.table_name,t.kind from
     (values ('quiz_private'),('quiz_dev_private')) s(schema_name)
     cross join (values ('questions','questions'),('players','quiz_players')) t(table_name,kind)
 ),
 templates(kind,sql_template) as (values
+('population',$query$
+  select jsonb_build_object('rows',count(*),'total',max(total),
+    'invalid_total',count(*) filter(where total is null or total<0),
+    'invalid_singleton',count(*) filter(where coalesce(p->>'singleton','')<>'true')) as payload
+  from (select p,case when jsonb_typeof(p->'total')='number' and p->>'total' ~ '^[0-9]+$'
+    then (p->>'total')::numeric end as total from (select to_jsonb(t) as p from %I.%I t) a) b
+$query$),
 ('scores',$query$
   select jsonb_build_object('rows',count(*),
     'positive_scores',count(*) filter(where stars>0),
@@ -54,18 +61,23 @@ $query$),
 $query$),
 ('questions',$query$
   select jsonb_build_object('rows',count(*),
-    'missing_question_key',count(*) filter(where nullif(p->>'question_key','') is null),
-    'duplicate_question_keys',count(p->>'question_key')-count(distinct p->>'question_key'),
+    'missing_question_key',count(*) filter(where nullif(question_key,'') is null),
+    'duplicate_question_keys',count(question_key)-count(distinct question_key),
     'duplicate_slots',count(p->>'slot')-count(distinct p->>'slot'),
-    'ru_rows',count(*) filter(where p->>'question_key' like 'ru:%%'),
-    'en_rows',count(*) filter(where p->>'question_key' like 'en:%%'),
-    'other_language_rows',count(*) filter(where coalesce(p->>'question_key','') not like 'ru:%%' and coalesce(p->>'question_key','') not like 'en:%%'),
+    'ru_rows',count(*) filter(where language='ru'),
+    'en_rows',count(*) filter(where language='en'),
+    'other_language_rows',count(*) filter(where coalesce(language,'') not in ('ru','en')),
     'invalid_counts_shape',count(*) filter(where case when jsonb_typeof(p->'counts')='array' then jsonb_array_length(p->'counts') else -1 end <> 4),
     'invalid_count_values',count(*) filter(where exists(select 1 from jsonb_array_elements(case when jsonb_typeof(p->'counts')='array' then p->'counts' else '[]'::jsonb end) v
       where jsonb_typeof(v)<>'number' or v#>>'{}' !~ '^[0-9]+$')),
     'total_recorded_votes',coalesce(sum((select coalesce(sum(case when jsonb_typeof(v)='number' and v#>>'{}' ~ '^[0-9]+$' then (v#>>'{}')::numeric else 0 end),0)
       from jsonb_array_elements(case when jsonb_typeof(p->'counts')='array' then p->'counts' else '[]'::jsonb end) v)),0)) as payload
-  from (select to_jsonb(t) as p from %I.%I t) a
+  from (select p,
+    coalesce(p->>'question_key', case when p->>'language' is not null and p->>'question_id' is not null
+      and length(p->>'revision_hash')=66 then
+      (p->>'language') || ':' || (p->>'question_id') || ':' || substring(p->>'revision_hash' from 3) end) as question_key,
+    coalesce(p->>'language',split_part(p->>'question_key',':',1)) as language
+    from (select to_jsonb(t) as p from %I.%I t) a) b
 $query$),
 ('quiz_players',$query$
   select jsonb_build_object('rows',count(*),

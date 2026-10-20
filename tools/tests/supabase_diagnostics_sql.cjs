@@ -12,7 +12,7 @@ async function setup(db, partial=false) {
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
   for (const name of fs.readdirSync(path.join(root,'supabase/migrations')).filter(n=>/^\d{3}_/.test(n)).sort()) {
-    if (partial && /^(013|015)_/.test(name)) continue;
+    if (partial && /^(013|015|016|017)_/.test(name)) continue;
     await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',name),'utf8'));
   }
   await db.exec(`create schema supabase_migrations;
@@ -33,7 +33,7 @@ async function snapshot(db) {
   for (const {nspname,relname} of tables)
     result[nspname+'.'+relname]=(await db.query(`select coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text),'[]'::jsonb) as data from "${nspname}"."${relname}" t`)).rows[0].data;
   result.functions=(await db.query(`select p.proname,pg_get_functiondef(p.oid) as source from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev','quiz_answer','quiz_answer_dev') order by p.proname`)).rows;
+    where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev','quiz_answer','quiz_answer_dev','quiz_answers','quiz_answers_dev') order by p.proname`)).rows;
   return result;
 }
 async function collect(db, role=null) {
@@ -69,22 +69,24 @@ function table(report,schema,name) {
     const before=await snapshot(db);
     const report=await collect(db);
     assert.deepEqual(await snapshot(db),before,'Diagnostics changed data or RPC definitions');
-    assert.ok(report['01_schema.sql'].rpc_checks.every(r=>r.status==='OK'));
+    assert.ok(report['01_schema.sql'].rpc_checks.every(r=>r.status===(partial && r.name.startsWith('quiz_answers')?'MISSING_RPC':'OK')));
     assert.deepEqual(report['01_schema.sql'].migration_history,{status:'OK',versions:['001']});
     const columns=report['01_schema.sql'].column_checks;
     if (partial) {
-      assert.equal(columns.filter(r=>r.status==='MISSING_COLUMN').length,4);
+      assert.equal(columns.filter(r=>r.status==='MISSING_COLUMN').length,10);
       assert.equal(table(report,'leaderboard_dev_private','fillers').metrics.invalid_or_missing_character_id,200);
     } else {
       assert.ok(columns.every(r=>r.status==='OK'));
       assert.equal(table(report,'leaderboard_dev_private','fillers').metrics.invalid_or_missing_character_id,0);
+      assert.equal(table(report,'leaderboard_private','population').metrics.total,1);
+      assert.equal(table(report,'leaderboard_dev_private','population').metrics.total,0);
     }
     assert.equal(table(report,'leaderboard_private','players').metrics.max_stars,235);
     assert.equal(table(report,'leaderboard_private','profiles').metrics.rows,1);
     assert.equal(table(report,'quiz_private','questions').metrics.total_recorded_votes,10);
     assert.equal(table(report,'quiz_private','players').metrics.maximum_seen_bytes,2);
     const limited=await collect(db,'authenticated');
-    assert.ok(limited['03_data_aggregates.sql'].tables.every(r=>r.result.status==='INSUFFICIENT_PRIVILEGE'));
+    assert.ok(limited['03_data_aggregates.sql'].tables.every(r=>['INSUFFICIENT_PRIVILEGE','MISSING_TABLE'].includes(r.result.status)));
     await db.exec('grant usage on schema quiz_dev_private to authenticated; grant select on quiz_dev_private.questions to authenticated;');
     const filtered=await collect(db,'authenticated');
     assert.equal(table(filtered,'quiz_dev_private','questions').status,'FILTERED_BY_RLS');

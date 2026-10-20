@@ -79,13 +79,16 @@ await assert.rejects(()=>db.query('select * from quiz_dev_private.players'));
 await assert.rejects(()=>db.query('update quiz_dev_private.questions set counts=array[9,9,9,9]::bigint[]'));
 await db.exec('reset role');
 await db.exec(devMigration);
+// The live catalog-sync tool targets the compact schema; historical migrations stay immutable.
+for (const name of fs.readdirSync(root+'/supabase/migrations').filter(n=>/^(00[5-9]|01[0-6])_/.test(n)).sort())
+  await db.exec(fs.readFileSync(root+'/supabase/migrations/'+name,'utf8'));
 await db.exec(fs.readFileSync(root+'/supabase/quiz_statistics_dev_sync.sql','utf8'));
-assert.deepEqual((await db.query('select counts from quiz_dev_private.questions where question_key=$1',[keys[0].question_key])).rows[0].counts,[1,0,0,0]);
-const oldDevSlot = (await db.query('select slot from quiz_dev_private.questions where question_key=$1',[keys[0].question_key])).rows[0].slot;
-await db.query("insert into quiz_private.questions(question_key,counts) values ('future-version',array[90,80,70,60]::bigint[])");
+assert.deepEqual((await db.query("select counts from quiz_dev_private.questions where language || ':' || question_id::text || ':' || encode(revision_hash,'hex')=$1",[keys[0].question_key])).rows[0].counts,[1,0,0,0]);
+const oldDevSlot = (await db.query("select slot from quiz_dev_private.questions where language || ':' || question_id::text || ':' || encode(revision_hash,'hex')=$1",[keys[0].question_key])).rows[0].slot;
+await db.query("insert into quiz_private.questions(language,question_id,revision_hash,counts) values ('en',2147483647,decode(repeat('ff',32),'hex'),array[90,80,70,60]::bigint[])");
 await db.exec(fs.readFileSync(root+'/supabase/quiz_statistics_dev_sync.sql','utf8'));
-assert.equal((await db.query('select slot from quiz_dev_private.questions where question_key=$1',[keys[0].question_key])).rows[0].slot,oldDevSlot);
-assert.deepEqual((await db.query("select counts from quiz_dev_private.questions where question_key='future-version'")).rows[0].counts,[0,0,0,0]);
+assert.equal((await db.query("select slot from quiz_dev_private.questions where language || ':' || question_id::text || ':' || encode(revision_hash,'hex')=$1",[keys[0].question_key])).rows[0].slot,oldDevSlot);
+assert.deepEqual((await db.query("select counts from quiz_dev_private.questions where language='en' and question_id=2147483647")).rows[0].counts,[0,0,0,0]);
 await db.exec('set role authenticated');
 assert.deepEqual(await devSnapshot(keys[0].question_key,-1),{ok:true,counts:[1,0,0,0],already_answered:true});
 await db.exec('reset role');

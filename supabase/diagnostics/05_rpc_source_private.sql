@@ -29,4 +29,4 @@ select jsonb_pretty(jsonb_build_object(
     from relations r where r.relkind in ('v','m')),'[]'::jsonb)
 )) as audit_report
 from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
-where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev','quiz_answer','quiz_answer_dev') and p.prokind='f';
+where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev','quiz_answer','quiz_answer_dev','quiz_answers','quiz_answers_dev') and p.prokind='f';

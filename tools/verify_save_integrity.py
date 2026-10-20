@@ -708,12 +708,20 @@ def main() -> None:
 
     home_screen = function_body(portrait, "_show_menu_screen")
     home_counters = function_body(portrait, "_stage_home_resource_counters")
+    home_counter_content = function_body(portrait, "_stage_home_resource_counter_content")
+    home_counter_component = read("scripts/ui/home_resource_counters.gd")
     game_header = function_body(portrait, "_stage_portrait_game_header")
     reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
     require(
         "_stage_home_resource_counters" in home_screen
-        and "_stage_heart_counter" in home_counters
-        and "_stage_star_counter" in home_counters,
+        and 'preload("res://scripts/ui/home_resource_counters.gd").new()' in home_counters
+        and 'counters.build_counters = Callable(self, "_stage_home_resource_counter_content").bind(return_action)' in home_counters
+        and "_portrait_top_bar_content.add_child(counters)" in home_counters
+        and "_rebuild()" in function_body(home_counter_component, "_ready")
+        and "build_counters.call(self)" in function_body(home_counter_component, "_rebuild")
+        and "_stage_centered_coin_only_counter" in home_counter_content
+        and "_stage_heart_counter" in home_counter_content
+        and "_stage_star_counter" in home_counter_content,
         "Home does not expose coins, hearts, and stars",
     )
     require(

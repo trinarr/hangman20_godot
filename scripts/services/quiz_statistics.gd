@@ -6,12 +6,17 @@ signal identity_changed()
 const SAVE_PATH := "user://quiz_statistics.json"
 const DEV_SAVE_PATH := "user://quiz_statistics_dev.json"
 const MAX_PENDING := 4000
+# Protocol bound shared with migration 017; one failed batch remains safely retryable.
+const MAX_BATCH := 20
 var _state: Dictionary = {"pending": [], "refresh_token": ""}
 var _access_token := ""
 var _access_token_refresh_at_ms: int = 0
 var _identity_generation: int = 0
 var _busy := false
-var _backend_waiters := 0
+var _flush_again := false
+var _auth_busy := false
+var _auth_last_success := false
+var _batch_supported := true
 var _cache: Dictionary = {}
 var _answered: Dictionary = {}
 var _prefetch: Array[String] = []
@@ -66,6 +71,9 @@ func _save_path() -> String:
 func _rpc_path() -> String:
 	return "/rest/v1/rpc/quiz_answer_dev" if _uses_dev() else "/rest/v1/rpc/quiz_answer"
 
+func _batch_rpc_path() -> String:
+	return "/rest/v1/rpc/quiz_answers_dev" if _uses_dev() else "/rest/v1/rpc/quiz_answers"
+
 func _leaderboard_rpc_path() -> String:
 	return "/rest/v1/rpc/leaderboard_sync_dev" if _uses_dev() else "/rest/v1/rpc/leaderboard_sync"
 
@@ -79,7 +87,7 @@ func _network_allowed() -> bool:
 
 func _path_allowed(path: String) -> bool:
 	# No caller can accidentally send a debug vote to the production RPC.
-	return path == _rpc_path() or path == _leaderboard_rpc_path() or path in [
+	return path == _rpc_path() or path == _batch_rpc_path() or path == _leaderboard_rpc_path() or path in [
 		"/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token"]
 
 func is_configured() -> bool:
@@ -146,13 +154,19 @@ func _emit_cached(key: String, selected: int) -> void:
 		_debug_log("Local first attempt applied: question=%s answer=%d" % [_debug_question(key), selected])
 	statistics_ready.emit(key, _cache[key])
 
-func _accept_snapshot(key: String, body: Dictionary) -> bool:
+func _valid_counts_snapshot(body: Dictionary) -> bool:
 	var counts: Variant = body.get("counts")
 	if !(counts is Array) or counts.size() != 4 or !(body.get("already_answered") is bool):
 		return false
 	for value: Variant in counts:
 		if !(value is int or value is float) or float(value) < 0.0:
 			return false
+	return true
+
+func _accept_snapshot(key: String, body: Dictionary) -> bool:
+	if !_valid_counts_snapshot(body):
+		return false
+	var counts: Array = body["counts"]
 	_cache[key] = counts.duplicate()
 	_answered[key] = body["already_answered"]
 	# An answer may have been queued while the read request was in flight.
@@ -213,7 +227,7 @@ func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dicti
 	# Last line of defense, including direct calls outside the normal worker.
 	# Tests replace this method with an in-memory mock.
 	var configured := is_configured() or leaderboard_is_configured()
-	if path == _rpc_path():
+	if path == _rpc_path() or path == _batch_rpc_path():
 		configured = is_configured()
 	elif path == _leaderboard_rpc_path():
 		configured = leaderboard_is_configured()
@@ -274,6 +288,17 @@ func _reset_revoked_identity() -> void:
 	identity_changed.emit()
 
 func _authenticate() -> bool:
+	# Only token rotation is serialized. Independent API requests may overlap.
+	if _auth_busy:
+		while _auth_busy:
+			await get_tree().process_frame
+		return _auth_last_success and !_token_needs_refresh()
+	_auth_busy = true
+	_auth_last_success = await _authenticate_session()
+	_auth_busy = false
+	return _auth_last_success
+
+func _authenticate_session() -> bool:
 	if !is_configured() and !leaderboard_is_configured():
 		return false
 	var refresh: String = str(_state.get("refresh_token", ""))
@@ -315,54 +340,82 @@ func _quiz_rpc(payload: Dictionary) -> Dictionary:
 	return await _authorized_rpc(_rpc_path(), payload, int(payload.get("p_answer", -1)) != -1)
 
 func leaderboard_rpc(payload: Dictionary) -> Dictionary:
-	# Share the quiz session AND its lock: no second account or refresh-token race.
-	_backend_waiters += 1
-	while _busy:
-		await get_tree().process_frame
-	_backend_waiters -= 1
 	if !leaderboard_is_configured():
 		return {}
-	_busy = true
-	# A score snapshot may be submitted under a replacement anonymous identity.
-	var response := await _authorized_rpc(_leaderboard_rpc_path(), payload, false)
-	_busy = false
-	_flush.call_deferred()
-	return response
+	# Share authentication, without waiting for the quiz worker's HTTP request.
+	return await _authorized_rpc(_leaderboard_rpc_path(), payload, false)
 
 func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) -> Dictionary:
 	var generation := _identity_generation
-	if _token_needs_refresh() and !(await _authenticate()):
-		return {"identity_reset": generation != _identity_generation}
-	# An old queued vote must never be replayed under a replacement account.
-	if generation != _identity_generation and identity_bound:
-		return {"identity_reset": true}
-	var response := await _post(path, payload, true)
-	if int(response.get("status", 0)) != 401:
-		return response
-	_debug_log("RPC unauthorized: refreshing session and retrying once immediately")
-	_access_token = ""
-	_access_token_refresh_at_ms = 0
-	if !(await _authenticate()):
-		return {"identity_reset": generation != _identity_generation}
-	if generation != _identity_generation and identity_bound:
-		return {"identity_reset": true}
-	response = await _post(path, payload, true)
-	if int(response.get("status", 0)) == 401:
-		_access_token = ""
-		_access_token_refresh_at_ms = 0
+	var response: Dictionary = {}
+	for attempt: int in range(2):
+		if _token_needs_refresh() and !(await _authenticate()):
+			return {"identity_reset": generation != _identity_generation}
+		if generation != _identity_generation and identity_bound:
+			return {"identity_reset": true}
+		var request_generation := _identity_generation
+		var sent_token := _access_token
+		response = await _post(path, payload, true)
+		# An old identity's late success must never acknowledge the new queue/cache.
+		if request_generation != _identity_generation:
+			if identity_bound:
+				return {"identity_reset": true}
+			response = {"identity_reset": true}
+			continue
+		if int(response.get("status", 0)) != 401:
+			return response
+		# A delayed 401 for an old JWT must not erase a concurrently refreshed token.
+		if sent_token == _access_token:
+			_access_token = ""
+			_access_token_refresh_at_ms = 0
+		if attempt == 0:
+			_debug_log("RPC unauthorized: sharing token refresh and retrying once")
 	return response
 
+func _batch_reply_valid(body: Variant, entries: Array) -> bool:
+	if !(body is Dictionary) or body.get("ok") != true or !(body.get("results") is Array) or body.results.size() != entries.size():
+		return false
+	for index: int in range(entries.size()):
+		var item: Variant = body.results[index]
+		var entry: Dictionary = entries[index]
+		if !(item is Dictionary) or item.get("p_key") != entry.p_key or item.get("p_answer") != entry.p_answer or !(item.get("ok") is bool):
+			return false
+		if item.ok:
+			if entry.p_include_counts and !_valid_counts_snapshot(item):
+				return false
+		elif item.get("code") != "22023":
+			return false
+	return true
+
+func _acknowledge_entry(entry: Dictionary, body: Dictionary) -> bool:
+	var key: String = entry.p_key
+	if entry.p_include_counts and !_accept_snapshot(key, body):
+		return false
+	if int(entry.p_answer) != -1:
+		_answered[key] = true
+	# The queued entry may have changed from a read into a vote while HTTP ran.
+	var pending: Array = _state["pending"]
+	for index: int in range(pending.size()):
+		if pending[index].get("p_key") == key and pending[index].get("p_answer") == entry.p_answer:
+			pending.remove_at(index)
+			break
+	return true
+
 func _flush() -> void:
-	if _busy or _backend_waiters > 0 or !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
+	if _busy:
+		_flush_again = true
+		return
+	if !is_configured() or ((_state["pending"] as Array).is_empty() and _prefetch.is_empty()):
 		return
 	_busy = true
+	_flush_again = false
 	_debug_log("Flush: pending=%d" % (_state["pending"] as Array).size())
 	if _token_needs_refresh() and !(await _authenticate()):
 		_busy = false
 		return
-	# Serialize reads, auth and writes so token refreshes cannot race each other.
+	# One quiz queue worker; leaderboard requests share only the auth lock.
 	var prefetch_failed := false
-	while !_prefetch.is_empty() and _backend_waiters == 0:
+	while !_prefetch.is_empty():
 		var key: String = _prefetch.pop_front()
 		_prefetch_in_flight = key
 		var response := await _quiz_rpc({
@@ -377,59 +430,64 @@ func _flush() -> void:
 			prefetch_failed = true
 			if _prefetch.is_empty():
 				_prefetch.append(key)
-			if status == 401:
-				_access_token = ""
 			_debug_log("Prefetch failed: status=%d; retry later" % status)
 			# Let pending writes proceed on catalog errors, but avoid duplicate network failures.
 			if status not in [400, 404, 422]:
 				_busy = false
 				return
 			break
-	var pending: Array = _state["pending"]
-	for _attempt: int in range(pending.size()):
-		if pending.is_empty() or _backend_waiters > 0 or !is_configured():
-			break
-		var entry: Dictionary = pending[0].duplicate(true)
-		_debug_log("RPC %s: question=%s answer=%d" % [_rpc_path(), _debug_question(str(entry["p_key"])), int(entry["p_answer"])])
-		var key: String = str(entry["p_key"])
-		var payload := entry.duplicate(true)
-		payload["p_include_counts"] = !_cache.has(key)
-		_debug_log("Submit: include_counts=%s" % payload["p_include_counts"])
-		var response := await _quiz_rpc(payload)
+	var remaining: int = (_state["pending"] as Array).size()
+	while remaining > 0 and !(_state["pending"] as Array).is_empty() and is_configured():
+		var pending: Array = _state["pending"]
+		var count := mini(remaining, mini(pending.size(), MAX_BATCH if _batch_supported else 1))
+		var entries: Array = []
+		for index: int in range(count):
+			var entry: Dictionary = pending[index].duplicate(true)
+			entry["p_include_counts"] = !_cache.has(str(entry.p_key))
+			entries.append(entry)
+		var response: Dictionary
+		if entries.size() > 1:
+			response = await _authorized_rpc(_batch_rpc_path(), {"p_answers": entries}, true)
+			var error_body: Variant = response.get("body")
+			if int(response.get("status", 0)) == 404 or (error_body is Dictionary and error_body.get("code") == "PGRST202"):
+				# Deployment compatibility: old servers retain the single-answer RPC.
+				_batch_supported = false
+				continue
+		else:
+			response = await _quiz_rpc(entries[0])
 		if bool(response.get("identity_reset", false)):
-			# The old array belongs to the discarded identity. Process only new work next.
 			_busy = false
 			if !_access_token.is_empty():
 				_flush.call_deferred()
 			return
 		var status: int = int(response.get("status", 0))
-		if status == 401:
-			_debug_log("RPC still unauthorized after immediate retry; queue retained")
-			_access_token = ""
-			break
 		var body: Variant = response.get("body")
-		if status == 200 and body is Dictionary and body.get("ok") == true:
-			if bool(payload["p_include_counts"]):
-				if !_accept_snapshot(key, body):
-					_debug_log("Invalid statistics response; queue retained")
-					break
-			if int(entry["p_answer"]) != -1:
-				_answered[key] = true
-			_debug_log("Database acknowledged: question=%s counts_returned=%s" % [
-				_debug_question(key), body.has("counts")])
-		elif status not in [400, 404, 422]:
-			_debug_log("RPC unsuccessful: status=%d; queue retained for retry" % status)
-			break
-		# Keep undeployed catalog versions without blocking all other answers.
+		if entries.size() > 1:
+			if status != 200 or !_batch_reply_valid(body, entries):
+				break
+			for index: int in range(entries.size()):
+				var item: Dictionary = body.results[index]
+				if item.ok:
+					_acknowledge_entry(entries[index], item)
+				else:
+					_rotate_pending_entry(str(entries[index].p_key))
+		elif status == 200 and body is Dictionary and body.get("ok") == true:
+			if !_acknowledge_entry(entries[0], body):
+				break
+		elif status in [400, 404, 422]:
+			_rotate_pending_entry(str(entries[0].p_key))
 		else:
-			_debug_log("RPC rejected: status=%d question=%s; retained for catalog/configuration fix" % [status, _debug_question(str(entry["p_key"]))])
-			pending.append(pending.pop_front())
-			_save()
-			continue
-		if int(pending[0]["p_answer"]) == int(entry["p_answer"]):
-			pending.pop_front()
+			break
+		remaining -= entries.size()
 		_save()
 	_busy = false
-	_debug_log("Flush finished: pending=%d" % pending.size())
-	if !prefetch_failed and !_prefetch.is_empty():
+	_debug_log("Flush finished: pending=%d" % (_state["pending"] as Array).size())
+	if _flush_again or (!prefetch_failed and !_prefetch.is_empty()):
 		_flush.call_deferred()
+
+func _rotate_pending_entry(key: String) -> void:
+	var pending: Array = _state["pending"]
+	for index: int in range(pending.size()):
+		if pending[index].get("p_key") == key:
+			pending.append(pending.pop_at(index))
+			return
