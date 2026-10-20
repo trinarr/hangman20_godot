@@ -30,6 +30,7 @@ python tools/curate_word_database.py --check
 | Открытые проблемы и известные сбои | [docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md) |
 | Контракты и архитектурные решения | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Backend: статистика и лидерборд | [Статистика](docs/quiz_statistics_supabase.md), [лидерборд](docs/leaderboard_supabase.md) |
+| Диагностика состояния Supabase | [SQL-пакет только на чтение](supabase/diagnostics/README.md) |
 | Сторонние компоненты и лицензии | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
 ## Источники актуальных значений
