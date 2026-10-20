@@ -297,6 +297,8 @@ def main() -> None:
 
     require(9 <= require_int(resolve(config, "tournament.candidate_pool_size"), "tournament.candidate_pool_size") <= 100,
             "Tournament candidate pool must contain 9..100 profiles")
+    require(require_int(resolve(config, "tournament.cache_minimum_fillers"), "tournament.cache_minimum_fillers")
+            <= resolve(config, "tournament.candidate_pool_size"), "Tournament fallback filler count exceeds pool size")
     for language in ("ru", "en"):
         path = f"tournament.filler_cis_ratio.{language}"
         require(require_number(resolve(config, path), path) <= 1, "Tournament filler ratio must be in 0..1")

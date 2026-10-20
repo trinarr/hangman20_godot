@@ -42,7 +42,8 @@ expected_rpcs(name, arg_types) as (values
   ('leaderboard_sync','bigint, boolean, text, boolean, text, integer, integer'),
   ('leaderboard_sync_dev','bigint, boolean, text, boolean, text, integer, integer'),
   ('quiz_answer','text, integer, boolean'), ('quiz_answer_dev','text, integer, boolean'),
-  ('quiz_answers','jsonb'), ('quiz_answers_dev','jsonb')
+  ('quiz_answers','jsonb'), ('quiz_answers_dev','jsonb'),
+  ('tournament_profiles','text'), ('tournament_profiles_dev','text')
 ),
 rpc_checks as (
   select e.name, e.arg_types as expected_arg_types,

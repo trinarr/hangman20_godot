@@ -177,7 +177,8 @@ static func _ensure_loaded() -> void:
 
 static func _validate_loaded_config() -> void:
 	_validate_nonnegative_numbers(_config, "")
-	get_int_range("tournament.candidate_pool_size", 9, 100)
+	var tournament_pool_size := get_int_range("tournament.candidate_pool_size", 9, 100)
+	get_int_range("tournament.cache_minimum_fillers", 0, tournament_pool_size)
 	get_float_range("tournament.filler_cis_ratio.ru", 0.0, 1.0)
 	get_float_range("tournament.filler_cis_ratio.en", 0.0, 1.0)
 	get_int_range("tournament.duration_seconds", 60, 604800)

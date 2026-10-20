@@ -10,7 +10,7 @@ static func _integer(value: Variant, minimum: int, maximum: int) -> bool:
 static func valid_appearance(profile: Dictionary) -> bool:
 	return _integer(profile.get("character_id"), 1, 2) and _integer(profile.get("frame_id"), 1, PROFILE.FRAME_COLORS.size())
 
-static func _real_profile(value: Variant) -> Dictionary:
+static func normalize_public_profile(value: Variant) -> Dictionary:
 	if !(value is Dictionary) or value.get("is_filler") != false or value.get("is_me") != false:
 		return {}
 	var identifier: Variant = value.get("player_id")
@@ -30,22 +30,23 @@ static func _real_profile(value: Variant) -> Dictionary:
 	return {"profile_id":"player:" + identifier, "nickname":nickname,
 		"character_id":int(appearance.character_id), "frame_id":int(appearance.frame_id), "is_real":true}
 
-static func build_pool(language: String, config: Dictionary, real_profiles: Array, rng: RandomNumberGenerator) -> Array:
+static func build_pool(language: String, config: Dictionary, real_profiles: Array, rng: RandomNumberGenerator, cache_fallback: bool = false) -> Array:
 	var capacity := int(config.candidate_pool_size)
+	var real_limit := capacity - int(config.cache_minimum_fillers) if cache_fallback else capacity
 	var candidates := real_profiles.duplicate(true)
 	_shuffle(candidates, rng)
 	var pool: Array = []
 	var ids: Dictionary = {}
 	var names: Dictionary = {}
 	for value: Variant in candidates:
-		var profile := _real_profile(value)
+		if pool.size() >= real_limit:
+			break
+		var profile := normalize_public_profile(value)
 		if profile.is_empty() or ids.has(profile.profile_id):
 			continue
 		pool.append(profile)
 		ids[profile.profile_id] = true
 		names[profile.nickname] = true
-		if pool.size() == capacity:
-			break
 	var cis: Array = []
 	var international: Array = []
 	for nickname: String in NAMES.CIS:

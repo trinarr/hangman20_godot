@@ -2898,14 +2898,16 @@ func get_tournament_snapshot() -> Dictionary:
 	snapshot["duration"] = GAME_DESIGN.get_int("tournament.duration_seconds")
 	return snapshot
 
-func start_tournament() -> bool:
+func start_tournament(selection: Dictionary = {}) -> bool:
 	if _save_batch_depth > 0 or !is_tournament_unlocked():
 		return false
 	if !tournament_state.is_empty() and !bool(tournament_state.claimed):
 		return false
 	var previous := tournament_state.duplicate(true)
 	var config: Dictionary = GAME_DESIGN.get_value("tournament")
-	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), Leaderboard.tournament_profiles())
+	var profiles: Array = selection.get("profiles", Leaderboard.tournament_profiles())
+	var cache_fallback: bool = selection.get("from_cache", true)
+	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), profiles, cache_fallback)
 	if !save_game():
 		tournament_state = previous
 		return false

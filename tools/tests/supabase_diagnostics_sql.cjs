@@ -12,7 +12,7 @@ async function setup(db, partial=false) {
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
   for (const name of fs.readdirSync(path.join(root,'supabase/migrations')).filter(n=>/^\d{3}_/.test(n)).sort()) {
-    if (partial && /^(013|015|016|017)_/.test(name)) continue;
+    if (partial && /^(013|015|016|017|018)_/.test(name)) continue;
     await db.exec(fs.readFileSync(path.join(root,'supabase/migrations',name),'utf8'));
   }
   await db.exec(`create schema supabase_migrations;
@@ -33,7 +33,7 @@ async function snapshot(db) {
   for (const {nspname,relname} of tables)
     result[nspname+'.'+relname]=(await db.query(`select coalesce(jsonb_agg(to_jsonb(t) order by to_jsonb(t)::text),'[]'::jsonb) as data from "${nspname}"."${relname}" t`)).rows[0].data;
   result.functions=(await db.query(`select p.proname,pg_get_functiondef(p.oid) as source from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev','quiz_answer','quiz_answer_dev','quiz_answers','quiz_answers_dev') order by p.proname`)).rows;
+    where n.nspname='public' and p.proname in ('leaderboard_sync','leaderboard_sync_dev','quiz_answer','quiz_answer_dev','quiz_answers','quiz_answers_dev','tournament_profiles','tournament_profiles_dev') order by p.proname`)).rows;
   return result;
 }
 async function collect(db, role=null) {
@@ -69,7 +69,7 @@ function table(report,schema,name) {
     const before=await snapshot(db);
     const report=await collect(db);
     assert.deepEqual(await snapshot(db),before,'Diagnostics changed data or RPC definitions');
-    assert.ok(report['01_schema.sql'].rpc_checks.every(r=>r.status===(partial && r.name.startsWith('quiz_answers')?'MISSING_RPC':'OK')));
+    assert.ok(report['01_schema.sql'].rpc_checks.every(r=>r.status===(partial && /^(quiz_answers|tournament_profiles)/.test(r.name)?'MISSING_RPC':'OK')));
     assert.deepEqual(report['01_schema.sql'].migration_history,{status:'OK',versions:['001']});
     const columns=report['01_schema.sql'].column_checks;
     if (partial) {

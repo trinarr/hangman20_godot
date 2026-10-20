@@ -9,6 +9,7 @@ from godot_test_runner import configure_console, has_engine_errors, isolated_env
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "tournament_matchmaking": (True, r"TOURNAMENT_MATCHMAKING checks=[1-9]\d* failures=0"),
     "network_retries": (True, r"NETWORK_RETRIES checks=[1-9]\d* failures=0"),
     "api_efficiency": (True, r"API_EFFICIENCY checks=[1-9]\d* failures=0"),
     "profile_bootstrap": (True, r"PROFILE_BOOTSTRAP checks=[1-9]\d* failures=0"),

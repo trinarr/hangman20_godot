@@ -5,11 +5,11 @@ const NAMES = ROSTER.NAMES
 const VERSION := 2
 const PLAYER_ID := "self"
 
-static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = []) -> Dictionary:
+static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = [], cache_fallback: bool = false) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var duration := int(config.duration_seconds)
-	var pool := ROSTER.build_pool(language, config, real_profiles, rng)
+	var pool := ROSTER.build_pool(language, config, real_profiles, rng, cache_fallback)
 	var opponents: Array = []
 	for index in range(9):
 		var bounds: Array = config.opponent_star_ranges[index]

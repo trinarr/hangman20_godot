@@ -4,6 +4,7 @@ signal leaderboard_ready(snapshot: Dictionary, from_cache: bool)
 signal sync_failed()
 
 const RETRY_POLICY = preload("res://scripts/services/api_retry_policy.gd")
+const MATCHMAKING = preload("res://scripts/services/tournament_matchmaking.gd")
 const CACHE_MS := 60000
 const MAX_STARS := 2000000000
 const PROFILE = preload("res://scripts/core/player_profile.gd")
@@ -241,6 +242,9 @@ func cached_snapshot() -> Dictionary:
 	if _snapshot.get("language", "") != _language():
 		_snapshot = _merge_board(_boards[_language()], _language()) if _boards.has(_language()) else {}
 	return _snapshot.duplicate(true)
+
+func request_tournament_profiles() -> Dictionary:
+	return await MATCHMAKING.fetch(_backend(), self, _language())
 
 func tournament_profiles() -> Array:
 	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():

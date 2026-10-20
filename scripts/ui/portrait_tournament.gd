@@ -2,6 +2,7 @@ extends Control
 ## Tournament body uses its host's 480-unit portrait stage transform.
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
+const MATCHMAKING = preload("res://scripts/services/tournament_matchmaking.gd")
 const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
@@ -26,6 +27,7 @@ var _timer: Timer
 var _snapshot: Dictionary = {}
 var _rows_key := ""
 var _live := true
+var _joining := false
 
 func _tr(key: String, ru: String, en: String) -> String:
 	var translated := TranslationServer.translate(key)
@@ -80,7 +82,7 @@ func refresh() -> void:
 	_snapshot = GameState.get_tournament_snapshot()
 	var phase := str(_snapshot.phase)
 	_button.visible = phase != "active"
-	_button.button_disabled = !_snapshot.unlocked and phase == "idle"
+	_button.button_disabled = _joining or (!_snapshot.unlocked and phase == "idle")
 	if phase == "active":
 		var remaining := int(_snapshot.remaining)
 		_title.text = _tr("TOURNAMENT_REMAINING", "До конца: %s", "Time left: %s") % ("%02d:%02d:%02d" % [remaining / 3600, (remaining / 60) % 60, remaining % 60])
@@ -95,6 +97,8 @@ func refresh() -> void:
 		_button.button_text = _tr("TOURNAMENT_JOIN", "Участвовать", "Join")
 		if !_snapshot.unlocked:
 			_hint.text = _tr("TOURNAMENT_LOCKED", "Завершите уровень %d для участия", "Complete level %d to join") % int(_snapshot.unlock_level)
+	if _joining:
+		_button.button_text = _tr("LEADERBOARD_LOADING", "Загрузка…", "Loading…")
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
 	var key := JSON.stringify(_snapshot.get("rows", [])) + phase + JSON.stringify(GameState.get_player_profile())
 	if key != _rows_key:
@@ -230,11 +234,32 @@ func _layout() -> void:
 	_error.position.y = size.y - 100
 
 func _action() -> void:
-	if !_live:
+	if !_live or _joining:
 		return
 	_error.text = ""
 	var phase := str(_snapshot.get("phase", "idle"))
-	var ok := GameState.start_tournament() if phase == "idle" or phase == "claimed" else bool(GameState.claim_tournament_reward().get("ok", false))
+	var ok := false
+	if phase == "idle" or phase == "claimed":
+		if !GameState.is_tournament_unlocked():
+			return
+		_joining = true
+		refresh()
+		MATCHMAKING.join(weakref(self), _matchmaking_service())
+		return
+	else:
+		ok = bool(GameState.claim_tournament_reward().get("ok", false))
+	refresh()
+	if !ok:
+		_error.text = _tr("TOURNAMENT_SAVE_ERROR", "Не удалось сохранить. Попробуйте ещё раз", "Couldn't save. Please try again")
+
+func _matchmaking_service() -> Node:
+	return Leaderboard
+
+func _complete_join(selection: Dictionary) -> void:
+	if !_live or !_joining:
+		return
+	_joining = false
+	var ok := GameState.start_tournament(selection)
 	refresh()
 	if !ok:
 		_error.text = _tr("TOURNAMENT_SAVE_ERROR", "Не удалось сохранить. Попробуйте ещё раз", "Couldn't save. Please try again")
