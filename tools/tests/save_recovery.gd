@@ -99,8 +99,34 @@ func run() -> void:
 			opponent.erase(field)
 	var old_schedule := JSON.stringify(old_tournament.opponents)
 	var migrated_tournament: Dictionary = state._migrate_save_payload({"save_version":5, "tournament":old_tournament, "stars":73})
-	check(migrated_tournament.save_version == 6 and migrated_tournament.tournament.version == 2 and migrated_tournament.stars == 73, "Save migration five to six preserves progress and upgrades tournament profiles")
+	check(migrated_tournament.save_version == state.SAVE_FORMAT_VERSION and migrated_tournament.tournament.version == 2 and migrated_tournament.stars == 73, "Save migration preserves progress and upgrades tournament profiles")
 	check(migrated_tournament.tournament.opponents[0].events == old_tournament.opponents[0].events and JSON.stringify(old_tournament.opponents) == old_schedule, "Save migration preserves the frozen tournament and source payload")
+	for custom: bool in [false, true]:
+		var migrated_name: Dictionary = state._migrate_save_payload({"save_version":6, "player_name_is_custom":custom, "soft_currency":123})
+		check(migrated_name.save_version == state.SAVE_FORMAT_VERSION and migrated_name.player_name_free_change_used == custom and migrated_name.soft_currency == 123, "Migration records whether an existing player already chose a manual nickname")
+	state.player_name = "Original"
+	state.player_name_free_change_used = false
+	state.soft_currency = 0
+	check(state.save_game(), "Free nickname fixture is durable")
+	check(state.update_player_profile("Original", 2, 3, false) and !state.player_name_free_change_used, "Appearance-only changes do not consume the free nickname change")
+	state._save_blocked_by_future_version = true
+	check(!state.update_player_profile("First name", 1, 1) and !state.player_name_free_change_used and state.player_name == "Original", "Failed free rename restores the free entitlement and nickname")
+	state._save_blocked_by_future_version = false
+	check(state.update_player_profile("First name", 1, 1) and state.player_name_free_change_used and state.soft_currency == 0, "First actual nickname change is free with zero coins")
+	var rename_cost: int = state.GAME_DESIGN.get_int("economy.profile_name_change_cost")
+	check(state.get_player_name_change_cost("Second name") == rename_cost and state.get_player_name_change_cost("First name") == 0, "Only a different nickname has the configured repeat price")
+	var before_paid: Dictionary = state.get_player_profile()
+	check(!state.update_player_profile("Second name", 2, 4) and state.get_player_profile() == before_paid and state.soft_currency == 0, "Insufficient coins preserve nickname and appearance")
+	state.add_soft_currency(rename_cost)
+	state._save_write_in_progress = true
+	check(!state.update_player_profile("Second name", 2, 4) and state.get_player_profile() == before_paid and state.soft_currency == rename_cost and state.player_name_free_change_used, "Failed paid write rolls back both profile and coins")
+	state._save_write_in_progress = false
+	check(state.update_player_profile("Second name", 2, 4, false) and state.soft_currency == 0, "Paid rename debits exactly the price even if the caller clears nickname_changed")
+	check(state.update_player_profile("Second name", 2, 4) and state.soft_currency == 0, "Repeated identical save cannot charge twice")
+	state.player_name_free_change_used = false
+	state.load_game()
+	check(state.player_name == "Second name" and state.player_name_free_change_used and state.soft_currency == 0, "Paid nickname and free entitlement survive reload together with the balance")
+	state.soft_currency = rename_cost * 3
 	check(state.update_player_profile("NewPlayer", 2, 3), "Profile commits through durable save")
 	state.player_name = ""
 	state.player_frame_id = 4
@@ -125,6 +151,7 @@ func run() -> void:
 	)
 	check(state.save_game(), "Initial save")
 	state.soft_currency = 125
+	state.player_name_free_change_used = true
 	check(state.save_game(), "Newer save")
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(state.SAVE_PATH), ProjectSettings.globalize_path(state.SAVE_TMP_PATH))
 	state.soft_currency = 0
@@ -160,6 +187,7 @@ func prepare_restart() -> void:
 	check(!request.is_empty(), "Restart fixture creates durable receipt")
 	state.set_word_language("en")
 	state.soft_currency = 125
+	state.player_name_free_change_used = true
 	check(state.save_game(), "Restart fixture saves latest balance")
 	write_json("user://restart_test.json", {"request":request})
 	# Simulate interruption after primary removal: no further GameState writes.
@@ -172,6 +200,7 @@ func verify_restart() -> void:
 	# Do not call load_game: these values must come from autoload in a new process.
 	check(state.get_soft_currency() == 125, "Fresh process recovers newest temporary save")
 	check(state.word_language == "en", "Fresh process restores selected language")
+	check(state.player_name_free_change_used and state.get_player_name_change_cost("Restart rename") == state.GAME_DESIGN.get_int("economy.profile_name_change_cost"), "Fresh process cannot reuse the free nickname change")
 	var request: String = str(state._read_save_dictionary("user://restart_test.json").get("request", ""))
 	check(!request.is_empty() and state.rewarded_double_requests.has(request), "Fresh process restores unresolved receipt")
 	var reward: Dictionary = state.claim_rewarded_double_request(request)

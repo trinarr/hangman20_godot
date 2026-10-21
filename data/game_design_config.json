@@ -139,6 +139,7 @@
       }
     },
     "theme_reroll_cost": 20,
+    "profile_name_change_cost": 100,
     "extra_attempts": {
       "base_cost": 40,
       "cost_step": 10,

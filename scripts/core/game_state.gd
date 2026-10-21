@@ -18,7 +18,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 6
+const SAVE_FORMAT_VERSION: int = 7
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -171,6 +171,7 @@ var profile_statistics: Dictionary = {}
 var player_name: String = ""
 var player_frame_id: int = PLAYER_PROFILE.DEFAULT_FRAME_ID
 var player_name_is_custom := false
+var player_name_free_change_used := false
 var player_name_base := ""
 var player_name_server_id := ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
@@ -438,6 +439,7 @@ func load_game() -> void:
 	player_name = str(parsed.get("player_name", "")).strip_edges().left(PLAYER_PROFILE.NAME_MAX_LENGTH)
 	player_frame_id = clampi(int(parsed.get("player_frame_id", PLAYER_PROFILE.DEFAULT_FRAME_ID)), 1, PLAYER_PROFILE.FRAME_COLORS.size())
 	player_name_is_custom = bool(parsed.get("player_name_is_custom", !player_name.is_empty()))
+	player_name_free_change_used = bool(parsed.get("player_name_free_change_used", false))
 	player_name_base = str(parsed.get("player_name_base", ""))
 	player_name_server_id = str(parsed.get("player_name_server_id", ""))
 	profile_statistics = PROFILE_STATISTICS.normalize(parsed["profile_statistics"]) if parsed.get("profile_statistics") is Dictionary else {}
@@ -552,6 +554,10 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 		5:
 			_payload["tournament"] = TOURNAMENT_MODEL.normalize(_payload.get("tournament", {}))
 			_payload["save_version"] = 6
+			return true
+		6:
+			_payload["player_name_free_change_used"] = bool(_payload.get("player_name_is_custom", false))
+			_payload["save_version"] = 7
 			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
@@ -705,6 +711,7 @@ func _home_profile_save_game() -> bool:
 		"player_name": player_name,
 		"player_frame_id": player_frame_id,
 		"player_name_is_custom": player_name_is_custom,
+		"player_name_free_change_used": player_name_free_change_used,
 		"player_name_base": player_name_base,
 		"player_name_server_id": player_name_server_id,
 		"profile_statistics": profile_statistics,
@@ -825,14 +832,26 @@ func get_player_profile() -> Dictionary:
 		"frame_id": player_frame_id,
 	}
 
+func get_player_name_change_cost(nickname: String) -> int:
+	if PLAYER_PROFILE.trim_name_spaces(nickname) == player_name or !player_name_free_change_used:
+		return 0
+	return GAME_DESIGN.get_int("economy.profile_name_change_cost")
+
 func update_player_profile(nickname: String, character_id: int, frame_id: int, nickname_changed: bool = true) -> bool:
-	nickname = nickname.strip_edges()
-	if !PLAYER_PROFILE.valid_name(nickname) or character_id < 1 or character_id > 2 or frame_id < 1 or frame_id > PLAYER_PROFILE.FRAME_COLORS.size() or _save_batch_depth > 0:
+	nickname = PLAYER_PROFILE.trim_name_spaces(nickname)
+	if !PLAYER_PROFILE.valid_custom_name(nickname) or character_id < 1 or character_id > 2 or frame_id < 1 or frame_id > PLAYER_PROFILE.FRAME_COLORS.size() or _save_batch_depth > 0:
+		return false
+	var cost := get_player_name_change_cost(nickname)
+	if get_soft_currency() < cost:
 		return false
 	var previous_name := player_name
 	var previous_character: int = settings[5]
 	var previous_frame := player_frame_id
 	var previous_custom := player_name_is_custom
+	var previous_free_change_used := player_name_free_change_used
+	var previous_balance := soft_currency
+	player_name_free_change_used = player_name_free_change_used or nickname != player_name
+	soft_currency -= cost
 	player_name = nickname
 	settings[5] = character_id
 	player_frame_id = frame_id
@@ -842,7 +861,11 @@ func update_player_profile(nickname: String, character_id: int, frame_id: int, n
 		settings[5] = previous_character
 		player_frame_id = previous_frame
 		player_name_is_custom = previous_custom
+		player_name_free_change_used = previous_free_change_used
+		soft_currency = previous_balance
 		return false
+	if cost > 0:
+		soft_currency_changed.emit(soft_currency)
 	profile_changed.emit()
 	return true
 

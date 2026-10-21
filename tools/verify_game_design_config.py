@@ -341,6 +341,8 @@ def main() -> None:
     maximum_reward = require_int(resolve(config, "economy.maximum_single_reward"), "economy.maximum_single_reward")
     require(maximum_balance > 0 and maximum_reward <= maximum_balance,
             "Maximum balance/reward values are inconsistent")
+    rename_cost = require_int(resolve(config, "economy.profile_name_change_cost"), "economy.profile_name_change_cost")
+    require(0 < rename_cost <= maximum_balance, "Repeat nickname change cost must fit the currency balance")
 
     hint_fade_seconds = require_number(
         resolve(config, "timings.animations.round_end.hints_fade_seconds"),

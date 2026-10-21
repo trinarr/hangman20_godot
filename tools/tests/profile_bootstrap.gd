@@ -32,6 +32,17 @@ func settle(client: Node, transport: Node) -> void:
 	check(false, "Profile synchronization finishes")
 
 func run() -> void:
+	var profile = GameState.PLAYER_PROFILE
+	for sample: Array in [["A@B", "AB"], ["A !  B", "A B"], ["  Ёж  ", "Ёж"], ["é😀\t\n", ""], ["12345678901234567890", "123456789012345678"], ["   123456789012345678", "123456789012345678"], ["12345678901234567 X", "12345678901234567"]]:
+		check(profile.filter_name_input(sample[0]) == sample[1], "Nickname input keeps only allowed characters and single spaces within the length limit")
+	for sample: String in ["Ан", "Ёж ёж", "Az09 Яё", "12", "123456789012345678"]:
+		check(profile.valid_custom_name(sample), "Supported nickname is valid: " + sample)
+	for sample: String in ["", " ", "А", " А", "А ", "A  B", "1234567890123456789", "A_B", "A-B", "A.B", "A😀", "éA", "ΑB", "A\tB", "A\nB", "A\u00a0B", "A\u200bB", "A\u202eB", "１２"]:
+		check(!profile.valid_custom_name(sample), "Unsupported nickname is rejected: " + sample.c_escape())
+	check(profile.valid_name("Old_Name"), "Legacy profile names remain readable")
+	var old_profile: Dictionary = GameState.get_player_profile()
+	for sample: String in ["A  B", "A_B", "\tAB", "AB\n", "  А  ", "  "]:
+		check(!GameState.update_player_profile(sample, 1, 3) and GameState.get_player_profile() == old_profile, "Invalid profile update cannot change saved identity")
 	var initial_name := GameState.player_name
 	check(GameState.PLAYER_PROFILE.valid_name(initial_name) and GameState.player_name_base == initial_name and !GameState.player_name_is_custom, "First startup generates an automatic valid nickname")
 	check(GameState.settings[5] == 1 and GameState.player_frame_id == 3, "New player starts with Lucky and blue frame")
@@ -84,7 +95,7 @@ func run() -> void:
 	transport.replies = [helpers.reply(90), helpers.reply(90)]
 	client.sync_profile()
 	client._flush()
-	check(GameState.update_player_profile("MyChoice", 2, 5), "Manual nickname is saved while request is in flight")
+	check(GameState.update_player_profile("  MyChoice  ", 2, 5), "Manual nickname trims outer spaces before saving while request is in flight")
 	await settle(client, transport)
 	check(GameState.player_name == "MyChoice" and GameState.player_name_is_custom and transport.calls.back().payload.p_nickname == "MyChoice", "Late reply preserves a manually changed nickname")
 	GameState.load_game()

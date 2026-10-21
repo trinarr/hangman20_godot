@@ -1,5 +1,6 @@
 extends Node
 class TestUI extends "res://scripts/main_portrait.gd":
+	var coin_store_enabled := false
 	var captured_texture: ImageTexture
 	var captured_live_page: bool = false
 	func _capture_tabbed_page_texture() -> Texture2D:
@@ -16,13 +17,17 @@ class TestUI extends "res://scripts/main_portrait.gd":
 	func _ready() -> void:
 		_build_root()
 		_clear()
+		GameState.soft_currency_changed.connect(_on_soft_currency_changed)
 	func _portrait_ads_enabled() -> bool:
-		return false
+		return coin_store_enabled
 
 class KeyboardEditor extends "res://scripts/ui/profile_editor_popup.gd":
 	var keyboard_height_override := 0
+	var ime_active_override := false
 	func _keyboard_height() -> int:
 		return keyboard_height_override
+	func _nickname_has_ime_text() -> bool:
+		return ime_active_override
 
 var checks := 0
 var failures := 0
@@ -38,10 +43,21 @@ func settle() -> void:
 	for _frame in range(6):
 		await get_tree().process_frame
 
+func capture_editor_offer(phase: String) -> void:
+	var directory := OS.get_environment("HANGMAN_PROFILE_PREVIEW_DIR")
+	if directory.is_empty() or DisplayServer.get_name() == "headless":
+		return
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(directory.path_join("profile-%s-%s-%d.png" % [phase, Database.interface_language, get_window().size.x]))
+
 func _ready() -> void:
 	run.call_deferred()
 
 func run() -> void:
+	var preview_size := OS.get_environment("HANGMAN_PROFILE_PREVIEW_SIZE").split("x")
+	if preview_size.size() == 2:
+		get_window().min_size = Vector2i(int(preview_size[0]), int(preview_size[1]))
+		get_window().size = get_window().min_size
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	GameState.guided_onboarding_completed = false
 	main = TestUI.new()
@@ -162,13 +178,61 @@ func run() -> void:
 	check(editor._frame_style.border_width_top == 0 and editor._frame_style.border_width_left == 0, "Expanded editor has no frame")
 	check(is_equal_approx(editor._title.get_global_rect().get_center().y, editor._header.position.y), "Title is centered on the standard popup top edge")
 	check(editor._header.get_index() < editor._surface.get_index(), "Standard popup top stays behind the torn paper")
-	check(editor.save_button.stage_rect.position.y == 429, "Save stays at the bottom of the compact form")
+	check(editor._root.get_node_or_null("ProfileEditorPopupBottom") == null, "Paper editor has no blue bottom panel")
+	check(editor._paper.size == Vector2(424, 526), "Paper extends through the former sixteen-unit footer")
+	var editor_scale: float = editor._surface.scale.x * editor._surface.size.x / editor.FORM_SIZE.x
+	check(is_equal_approx(editor._close_holder.position.y - editor._shell.get_rect().end.y, float(editor.popup_style["close_gap"]) * editor_scale), "Close button keeps its gap below the extended paper")
+	var editor_preview_dir := OS.get_environment("HANGMAN_PROFILE_PREVIEW_DIR")
+	check(editor.save_button.button_disabled and editor.save_button.disabled, "Opening an unchanged profile disables Save")
+	check(editor.save_button.button_text == tr("PROFILE_SAVE").to_upper() and editor.save_button.color_preset == editor.LONG.ColorPreset.ORANGE, "Unchanged profile opens with the disabled Save caption")
+	check(editor._root.get_node_or_null("PopupCoinBalance") != null, "Editor reuses the popup top-bar coin counter")
+	var editor_coin_visual: Control = editor._root.get_node("PopupCoinBalance/CurrencyCounterVisual")
+	check(is_equal_approx(editor_coin_visual.pivot_offset.x, get_viewport().get_visible_rect().size.x * 0.5), "Editor coin counter is centered in the actual viewport")
+	editor.save_button.pressed.emit()
+	check(!editor._closing, "Save cannot submit an unchanged profile")
+	if !editor_preview_dir.is_empty() and DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(editor_preview_dir.path_join("character-editor-%s-%d.png" % [Database.interface_language, get_window().size.x]))
+	check(editor.save_button.stage_rect.position.y == 433, "Save stays at the bottom of the compact form")
 	check(is_zero_approx(profile_avatar.modulate.a), "Editor hides the source avatar while expanded")
 	var automatic_base: String = GameState.player_name_base
 	check(GameState.apply_server_player_id("123") and editor.nickname.get_line_edit().text == automatic_base + "123" and !editor._nickname_changed, "Automatic server suffix updates an untouched open editor")
+	check(editor.save_button.button_disabled, "Automatic nickname synchronization leaves an unchanged draft disabled")
 	editor.nickname.get_line_edit().text = "UnsavedChoice"
 	editor.nickname.get_line_edit().text_changed.emit("UnsavedChoice")
 	check(GameState.apply_server_player_id("456") and editor.nickname.get_line_edit().text == "UnsavedChoice", "A server reply never overwrites an edited nickname draft")
+	var saved_identity: Dictionary = GameState.get_player_profile()
+	var draft_edit: LineEdit = editor.nickname.get_line_edit()
+	draft_edit.text = saved_identity.nickname
+	draft_edit.text_changed.emit(draft_edit.text)
+	check(editor.save_button.button_disabled, "Returning to the saved nickname disables Save despite earlier edits")
+	check(editor.save_button.button_text == tr("PROFILE_SAVE").to_upper(), "Restoring the nickname restores the Save caption")
+	editor._switch_character()
+	check(!editor.save_button.button_disabled, "Changing only the character enables Save")
+	editor._switch_character()
+	check(editor.save_button.button_disabled, "Returning to the saved character disables Save")
+	check(editor.save_button.button_text == tr("PROFILE_SAVE").to_upper(), "Restoring the character restores the Save caption")
+	editor._select_color(int(saved_identity.frame_id) % editor.COLORS.size())
+	check(!editor.save_button.button_disabled, "Changing only the frame enables Save")
+	editor._select_color(int(saved_identity.frame_id) - 1)
+	check(editor.save_button.button_disabled, "Returning to the saved frame disables Save")
+	check(editor.save_button.button_text == tr("PROFILE_SAVE").to_upper(), "Restoring the frame restores the Save caption")
+	draft_edit.text = "Changed name"
+	draft_edit.text_changed.emit(draft_edit.text)
+	check(!editor.save_button.button_disabled, "Changing only the nickname enables Save")
+	check(editor._displayed_save_cost == 0, "First nickname change is offered free")
+	check(editor.save_button.button_text == tr("COMMON_FREE").to_upper() and editor.save_button.color_preset == editor.LONG.ColorPreset.GREEN, "An actual free change uses the green Free caption")
+	await capture_editor_offer("free")
+	check(GameState.update_player_profile("Changed name", int(saved_identity.character_id), int(saved_identity.frame_id)), "An external profile update can match the edited draft")
+	check(editor.save_button.button_disabled, "Save compares with the current profile after an external update")
+	check(GameState.update_player_profile(saved_identity.nickname, int(saved_identity.character_id), int(saved_identity.frame_id)), "External profile fixture can be restored")
+	check(!editor.save_button.button_disabled, "A newer saved profile can make the current draft differ again")
+	check(editor._displayed_save_cost == editor.DESIGN.get_int("economy.profile_name_change_cost") and editor.save_button.color_preset == editor.LONG.ColorPreset.ORANGE and editor._purchase_price.text == str(editor._displayed_save_cost), "Repeat rename uses the shared orange caption-coin-price row")
+	check(is_equal_approx(editor.FADE.get_opacity(editor._purchase_content), 1.0), "Enabled paid content remains fully visible through its fade controller")
+	await capture_editor_offer("paid")
+	draft_edit.text = saved_identity.nickname
+	draft_edit.text_changed.emit(draft_edit.text)
+	check(editor.save_button.button_disabled, "Restoring the entire saved profile disables Save again")
 	var original_character: int = editor.selected_character
 	editor._form.get_node("NextCharacter").pressed.emit()
 	check(editor.selected_character != original_character, "Right arrow switches the full-body preview")
@@ -194,7 +258,7 @@ func run() -> void:
 	check(editor.frame_color == main.PORTRAIT_UI_PALETTE.CHALLENGE_NORMAL, "Color swatch updates the draft frame")
 	check(editor.nickname.marker_color == editor.frame_color, "Nickname marker follows the selected frame color")
 	check(editor._title.text == tr("PROFILE_EDIT_TITLE").to_upper(), "Editor has a standard localized uppercase title")
-	check(editor.FORM_SIZE.x == 424 and editor.nickname.get_line_edit().max_length == 18, "Editor uses standard popup width and an eighteen-character nickname limit")
+	check(editor.FORM_SIZE.x == 424 and editor.nickname.max_input_length == 18 and editor.nickname.get_line_edit().max_length == 0, "Editor limits filtered nicknames to eighteen characters after discarding invalid input")
 	for index in range(editor._swatches.size()):
 		var swatch: Button = editor._swatches[index]
 		check(!swatch.has_node("AvatarPaperBackground") and swatch.get_theme_stylebox("normal").bg_color == Color.WHITE and swatch.get_theme_stylebox("normal").border_width_left == 5, "All frame samples share the thick frame and white background")
@@ -219,13 +283,55 @@ func run() -> void:
 	check(resolved.measured_width <= 320 and resolved.font_size <= editor.nickname.input_font_size, "Wide nickname fits using the two-player input font adaptation")
 	check(editor.nickname.input_font_size == roundi(26 * 1.2) and editor.nickname.stage_rect.size.is_equal_approx(Vector2(344,62.4)), "Nickname retains the enlarged font and height inside the standard popup")
 	var nickname_edit: LineEdit = editor.nickname.get_line_edit()
+	for step: Array in [[" ", ""], ["Я", "Я"], ["Я ", "Я"], ["Я  ", "Я"], ["Я@", "Я"], ["Яё", "Я ё"], ["Я ё ", "Я ё"], ["Я ё3", "Я ё 3"]]:
+		nickname_edit.text = step[0]
+		nickname_edit.caret_column = nickname_edit.text.length()
+		nickname_edit.text_changed.emit(nickname_edit.text)
+		check(nickname_edit.text == step[1] and editor.nickname._visual_text == step[1], "Typing words keeps separators internal and never exposes edge spaces")
+	for sample: String in ["  Ан  ", "    ", "Ан ", " Ан", "12345678901234567 X"]:
+		nickname_edit.text = sample
+		nickname_edit.caret_column = sample.length()
+		nickname_edit.text_changed.emit(sample)
+		check(nickname_edit.text == editor.PROFILE.filter_name_input(sample) and nickname_edit.text == nickname_edit.text.strip_edges(), "Pasting or reaching the limit cannot leave an edge space")
+	var move_caret := InputEventKey.new()
+	move_caret.keycode = KEY_LEFT
+	move_caret.pressed = true
+	editor._on_nickname_navigation(move_caret)
+	for sample: String in ["Bob", "Bob "]:
+		nickname_edit.text = sample
+		nickname_edit.caret_column = sample.length()
+		nickname_edit.text_changed.emit(sample)
+	editor._on_nickname_navigation(move_caret)
+	nickname_edit.text = "Bobb"
+	nickname_edit.text_changed.emit(nickname_edit.text)
+	check(nickname_edit.text == "Bobb", "Moving the caret cancels the pending separator")
+	nickname_edit.text = "A  B"
+	nickname_edit.caret_column = 2
+	nickname_edit.text_changed.emit(nickname_edit.text)
+	check(nickname_edit.text == "A B" and nickname_edit.caret_column == 2, "Filtering retains the caret after an internal space")
 	for sample: String in ["", "Я", "  ", " Я "]:
 		nickname_edit.text = sample
 		nickname_edit.text_changed.emit(sample)
 		check(editor.save_button.disabled and editor.save_button.button_disabled, "Empty or one-character nickname disables Save, ignoring outer spaces")
+		check(is_equal_approx(editor.FADE.get_opacity(editor._purchase_content), editor.PALETTE.DISABLED_OPACITY), "Disabled paid content uses the composited opacity controller")
 		editor.save_button.pressed.emit()
 		check(!editor._closing, "Invalid nickname cannot close the popup through Save")
-	for sample: String in ["Яё", "AB", " Ан "]:
+	for sample: String in ["A  B", "A_B", "A-B", "A😀", "A\tB", "A\u00a0B", "A\u200bB", "\tAB", "AB\n"]:
+		nickname_edit.text = sample
+		nickname_edit.caret_column = sample.length()
+		nickname_edit.text_changed.emit(sample)
+		var filtered: String = editor.PROFILE.filter_name_input(sample)
+		check(nickname_edit.text == filtered and editor.nickname._visual_text == filtered, "Unsupported characters and repeated spaces never remain in the native or visible field")
+		check(nickname_edit.caret_column == filtered.length(), "Filtering at the end keeps the caret after the retained text")
+		check(editor.save_button.button_disabled == !editor.PROFILE.valid_custom_name(filtered), "Save availability follows the filtered nickname")
+	nickname_edit.text = "An@na"
+	nickname_edit.caret_column = 3
+	nickname_edit.text_changed.emit(nickname_edit.text)
+	check(nickname_edit.text == "Anna" and nickname_edit.caret_column == 2, "Rejecting a character in the middle preserves the caret position")
+	nickname_edit.text = "@".repeat(20) + "Яё Bob  1234567890123456789"
+	nickname_edit.text_changed.emit(nickname_edit.text)
+	check(nickname_edit.text == "Яё Bob 12345678901" and editor.nickname._visual_text == nickname_edit.text, "Pasted invalid characters do not consume the eighteen allowed slots")
+	for sample: String in ["Яё", "AB", " Ан ", "Ёж 12", "12"]:
 		nickname_edit.text = sample
 		nickname_edit.text_changed.emit(sample)
 		check(!editor.save_button.disabled, "Two-character nickname re-enables Save")
@@ -283,10 +389,33 @@ func run() -> void:
 				else:
 					check(!generated[-1].is_valid_int(), "Missing, invalid or unrepresentable ID uses the two-word fallback")
 				previous_generated = generated
-	var committed_name: String = nickname_edit.text
+	nickname_edit.text = "  Draft name  "
+	nickname_edit.text_changed.emit(nickname_edit.text)
+	var committed_name := "Draft name"
 	var committed_character: int = editor.selected_character
 	var committed_frame: int = editor._selected_color_index + 1
 	var old_profile: Dictionary = GameState.get_player_profile()
+	var rename_cost: int = GameState.get_player_name_change_cost(committed_name)
+	GameState.soft_currency = rename_cost - 1
+	GameState.soft_currency_changed.emit(GameState.soft_currency)
+	check(!editor.save_button.button_disabled and editor._purchase_price.get_theme_color("font_color") == editor.PALETTE.PRICE_ERROR, "Insufficient coins leave paid Save pressable with a red price")
+	await capture_editor_offer("insufficient")
+	main.coin_store_enabled = true
+	editor.save_button.pressed.emit()
+	check(main._portrait_coin_store_active and !get_tree().get_nodes_in_group("coin_refill_popup").is_empty(), "Insufficient paid Save opens the existing coin store")
+	await settle()
+	await capture_editor_offer("store")
+	check(!editor._closing and nickname_edit.text == committed_name and GameState.get_player_profile() == old_profile and GameState.soft_currency == rename_cost - 1, "Opening the store preserves the draft, profile and coins")
+	GameState.add_soft_currency(1)
+	check(editor._purchase_price.get_theme_color("font_color") == Color.WHITE, "Top-up restores the sufficient price color while the editor is covered")
+	var popup_balances: Array[Node] = editor._root.get_node("PopupCoinBalance").find_children("*", "Label", true, false)
+	var balance_captions: Array[String] = []
+	for balance_label: Label in popup_balances:
+		balance_captions.append(balance_label.text)
+	check(balance_captions.has(main._soft_currency_balance_text(rename_cost)), "Popup coin counter updates after a top-up: " + str(balance_captions))
+	main._close_coin_store()
+	main.coin_store_enabled = false
+	check(is_instance_valid(editor) and !editor._closing and !main._portrait_coin_store_active and nickname_edit.text == committed_name, "Closing the store returns to the same live editor draft")
 	GameState._save_blocked_by_future_version = true
 	editor.save_button.pressed.emit()
 	check(!editor._closing and editor._save_toast.visible and GameState.get_player_profile() == old_profile, "Failed profile save keeps the editor open and restores persisted fields")
@@ -296,6 +425,7 @@ func run() -> void:
 	await get_tree().create_timer(0.25).timeout
 	check(!is_instance_valid(editor) and profile_avatar.visible and is_equal_approx(profile_avatar.modulate.a, 1.0), "Save closes once and restores the avatar")
 	check(GameState.player_name == committed_name and GameState.settings[5] == committed_character and GameState.player_frame_id == committed_frame, "Save commits nickname, character and stable frame ID")
+	check(GameState.soft_currency == 0, "Repeated Save clicks debit the rename price only once")
 	check(player_body._nickname.text == committed_name and profile_avatar.frame_color == GameState.PLAYER_PROFILE.FRAME_COLORS[committed_frame - 1], "Profile identity refreshes after saving")
 	profile_avatar.pressed.emit()
 	var committed_profile: Dictionary = GameState.get_player_profile()
@@ -340,6 +470,18 @@ func run() -> void:
 	keyboard_editor.source = profile_avatar
 	keyboard_editor.popup_style = player_body.editor_style
 	player_body.add_child(keyboard_editor)
+	var ime_edit: LineEdit = keyboard_editor.nickname.get_line_edit()
+	keyboard_editor.ime_active_override = true
+	ime_edit.text = "Ё@ж"
+	ime_edit.caret_column = 2
+	ime_edit.text_changed.emit(ime_edit.text)
+	check(ime_edit.text == "Ё@ж" and ime_edit.caret_column == 2 and keyboard_editor.nickname._visual_text == "Ёж", "Active IME keeps its native composition while the visible nickname is filtered")
+	check(keyboard_editor.save_button.button_disabled, "Active IME cannot save a pending composition")
+	keyboard_editor.save_button.pressed.emit()
+	check(!keyboard_editor._closing, "Save never commits an active keyboard composition")
+	keyboard_editor.ime_active_override = false
+	await settle()
+	check(ime_edit.text == "Ёж" and ime_edit.caret_column == 1 and !keyboard_editor.save_button.button_disabled, "Finished IME composition filters the native buffer and restores Save")
 	await get_tree().create_timer(0.65).timeout
 	var normal_rect: Rect2 = keyboard_editor._shell.get_rect()
 	keyboard_editor.keyboard_height_override = roundi(keyboard_editor.get_window().size.y * 0.15)

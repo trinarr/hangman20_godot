@@ -22,10 +22,8 @@ const PROFILE = preload("res://scripts/core/player_profile.gd")
 const TOAST = preload("res://scripts/ui/stage_toast.gd")
 const FADE = preload("res://scripts/ui/composited_fade.gd")
 const COLORS = PROFILE.FRAME_COLORS
-const FORM_SIZE := Vector2(424, 510)
-const FOOTER_HEIGHT := 16.0
-const NICKNAME_MAX_LENGTH := 18
-const NICKNAME_MIN_LENGTH := 2
+const FORM_SIZE := Vector2(424, 526)
+const NICKNAME_MAX_LENGTH := PROFILE.NAME_MAX_LENGTH
 const CHARACTER_SCALE := 0.65 * 1.15
 
 class NickInput extends "res://scripts/ui/stage_word_input.gd":
@@ -46,19 +44,25 @@ class MaskedSurface extends SubViewportContainer:
 		return accepts_input and hit_rect.has_point(point)
 
 var popup_style: Dictionary = {}
+var host: Node
 var source: Button
 var selected_character := 1
 var frame_color := PALETTE.BUTTON_ORANGE
 var nickname: Control
 var save_button: Control
 var _save_toast: Control
+var _purchase_content: Control
+var _purchase_price: Label
+var _displayed_save_cost := -1
+var _displayed_save_unchanged := false
 var _nickname_changed := false
+var _nickname_filter_pending := false
+var _nickname_pending_space_after := ""
 var _shown_name := ""
 var _root: Control
 var _dimmer: ColorRect
 var _shell: Panel
 var _header: Panel
-var _footer: Panel
 var _paper: ColorRect
 var _portrait: TextureRect
 var _title: Label
@@ -104,6 +108,9 @@ func _ready() -> void:
 	add_child(_root)
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_dimmer = POPUP.add_backdrop(_root, close, float(popup_style["dim_alpha"]), false)
+	if is_instance_valid(host):
+		host._stage_popup_coin_balance_above_dimmer(_root, Callable(), _return_from_coin_store, true)
+	GameState.soft_currency_changed.connect(_on_balance_changed)
 	_capture_source()
 	selected_character = 2 if GameState.settings.size() > 5 and int(GameState.settings[5]) == 2 else 1
 	frame_color = source.frame_color
@@ -123,16 +130,6 @@ func _ready() -> void:
 	header_style.corner_radius_bottom_right = 0
 	_header.add_theme_stylebox_override("panel", header_style)
 	_root.add_child(_header)
-	_footer = Panel.new()
-	_footer.name = "ProfileEditorPopupBottom"
-	_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var footer_style := header_style.duplicate() as StyleBoxFlat
-	footer_style.corner_radius_top_left = 0
-	footer_style.corner_radius_top_right = 0
-	footer_style.corner_radius_bottom_left = roundi(float(popup_style["corner_radius"]))
-	footer_style.corner_radius_bottom_right = roundi(float(popup_style["corner_radius"]))
-	_footer.add_theme_stylebox_override("panel", footer_style)
-	_root.add_child(_footer)
 	_root.add_child(_surface)
 	_viewport = SubViewport.new()
 	_viewport.name = "PreparedProfileEditorViewport"
@@ -275,9 +272,11 @@ func _build_form() -> void:
 	_shown_name = initial_name
 	nickname.configure(initial_name.left(NICKNAME_MAX_LENGTH), NICKNAME_MAX_LENGTH, roundi(26 * 1.2))
 	var edit: LineEdit = nickname.get_line_edit()
-	edit.text_changed.connect(nickname.set_display_text)
-	edit.text_changed.connect(_update_save_availability)
-	edit.text_changed.connect(func(_value: String): _nickname_changed = true)
+	# Filter before limiting length, so discarded pasted characters use no slots.
+	edit.max_length = 0
+	edit.text_changed.connect(_on_nickname_text_changed)
+	edit.gui_input.connect(_on_nickname_navigation)
+	edit.focus_exited.connect(func(): _nickname_pending_space_after = "")
 	GameState.profile_changed.connect(_refresh_automatic_nickname)
 	for index in range(COLORS.size()):
 		var swatch := AVATAR.new()
@@ -307,7 +306,7 @@ func _build_form() -> void:
 	save_button = LONG.new()
 	save_button.name = "SaveProfileDraft"
 	save_button.use_stage_layout = false
-	save_button.stage_rect = Rect2(20, 429, 318, 56)
+	save_button.stage_rect = Rect2(20, 433, 318, 56)
 	save_button.configure(tr("PROFILE_SAVE"), FONTS.display_button_font_size(20))
 	save_button.set_color_preset(LONG.ColorPreset.ORANGE)
 	save_button.drop_shadow_enabled = true
@@ -316,7 +315,7 @@ func _build_form() -> void:
 	var random_button := ROUND.new()
 	random_button.name = "RandomizeProfileDraft"
 	random_button.use_stage_layout = false
-	random_button.stage_rect = Rect2(348, 429, 56, 56)
+	random_button.stage_rect = Rect2(348, 433, 56, 56)
 	random_button.configure_texture(RANDOM_ICON, Vector2(50, 50))
 	random_button.set_color_preset(ROUND.ColorPreset.BLUE)
 	random_button.drop_shadow_enabled = true
@@ -333,6 +332,7 @@ func _build_form() -> void:
 func _randomize_profile() -> void:
 	if _closing:
 		return
+	_nickname_pending_space_after = ""
 	var next_character := randi_range(1, 2)
 	if next_character != selected_character:
 		selected_character = next_character
@@ -348,21 +348,103 @@ func _randomize_profile() -> void:
 func _refresh_automatic_nickname() -> void:
 	var edit: LineEdit = nickname.get_line_edit()
 	if _nickname_changed or edit.text != _shown_name:
+		_update_save_availability(edit.text)
 		return
 	_shown_name = GameState.player_name
+	_nickname_pending_space_after = ""
 	edit.text = _shown_name
 	nickname.set_display_text(_shown_name)
 	_update_save_availability(_shown_name)
 
+func _on_nickname_text_changed(_value: String) -> void:
+	var edit: LineEdit = nickname.get_line_edit()
+	var value := edit.text
+	var caret := edit.caret_column
+	var waiting_for_word := !_nickname_pending_space_after.is_empty() \
+		and value.begins_with(_nickname_pending_space_after) and caret >= _nickname_pending_space_after.length()
+	if waiting_for_word and !PROFILE.filter_name_input(value.substr(_nickname_pending_space_after.length())).is_empty():
+		# A separator appears only once there is a word on both sides of it.
+		value = _nickname_pending_space_after + " " + value.substr(_nickname_pending_space_after.length())
+		caret += 1
+		waiting_for_word = false
+	var filtered: String = PROFILE.filter_name_input(value)
+	nickname.set_display_text(filtered)
+	# Never reset the native buffer/caret during an active keyboard composition.
+	_nickname_filter_pending = _nickname_has_ime_text()
+	if _nickname_filter_pending:
+		_update_save_availability(filtered)
+		return
+	if value.ends_with(" ") and caret == value.length() and !filtered.is_empty() and filtered.length() < PROFILE.NAME_MAX_LENGTH - 1:
+		_nickname_pending_space_after = filtered
+	elif !waiting_for_word or filtered != _nickname_pending_space_after:
+		_nickname_pending_space_after = ""
+	if filtered != edit.text:
+		caret = mini(filtered.length(), PROFILE.filter_name_input(value.left(caret), true).length())
+		edit.text = filtered
+		edit.caret_column = caret
+	_nickname_changed = _nickname_changed or filtered != _shown_name
+	_update_save_availability(filtered)
+
+func _on_nickname_navigation(event: InputEvent) -> void:
+	if (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed) \
+		or (event is InputEventKey and event.pressed and event.keycode in [KEY_BACKSPACE, KEY_DELETE, KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END]):
+		_nickname_pending_space_after = ""
+
+func _nickname_has_ime_text() -> bool:
+	return nickname.get_line_edit().has_ime_text()
+
 func _update_save_availability(value: String) -> void:
 	if is_instance_valid(save_button):
-		save_button.button_disabled = !PROFILE.valid_name(value.strip_edges())
+		var name_value: String = PROFILE.trim_name_spaces(value)
+		var current: Dictionary = GameState.get_player_profile()
+		var unchanged := name_value == str(current.nickname) and selected_character == int(current.character_id) \
+			and _selected_color_index + 1 == int(current.frame_id)
+		save_button.button_disabled = unchanged or _nickname_has_ime_text() or !PROFILE.valid_custom_name(name_value)
+		_refresh_save_offer(name_value, unchanged)
+
+func _refresh_save_offer(value: String, unchanged: bool) -> void:
+	var cost: int = GameState.get_player_name_change_cost(value)
+	if cost != _displayed_save_cost or unchanged != _displayed_save_unchanged:
+		_displayed_save_cost = cost
+		_displayed_save_unchanged = unchanged
+		if is_instance_valid(_purchase_content):
+			_purchase_content.free()
+		_purchase_price = null
+		save_button.set_color_preset(LONG.ColorPreset.GREEN if cost == 0 and !unchanged else LONG.ColorPreset.ORANGE)
+		save_button.button_text = tr("PROFILE_SAVE") if unchanged else (tr("COMMON_FREE") if cost == 0 else "")
+		if cost > 0 and is_instance_valid(host):
+			_purchase_content = Control.new()
+			_purchase_content.name = "ProfileSavePrice"
+			_purchase_content.size = save_button.size
+			_purchase_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			save_button.add_child(_purchase_content)
+			var row: Dictionary = host._stage_portrait_popup_coin_purchase_content(_purchase_content, tr("PROFILE_SAVE"), cost)
+			_purchase_price = row.price
+	if is_instance_valid(_purchase_price):
+		_purchase_price.add_theme_color_override("font_color", Color.WHITE if GameState.get_soft_currency() >= cost else PALETTE.PRICE_ERROR)
+		FADE.set_opacity(_purchase_content, PALETTE.DISABLED_OPACITY if save_button.button_disabled else 1.0)
+
+func _on_balance_changed(_balance: int) -> void:
+	_update_save_availability(nickname.get_line_edit().text)
+
+func _return_from_coin_store() -> void:
+	if !_closing:
+		_update_save_availability(nickname.get_line_edit().text)
 
 func _save_draft() -> void:
+	if _closing or _nickname_has_ime_text() or (is_instance_valid(host) and host._portrait_coin_store_active):
+		return
 	_update_save_availability(nickname.get_line_edit().text)
 	if !save_button.button_disabled:
-		var value: String = nickname.get_line_edit().text
-		if GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value.strip_edges() != GameState.player_name):
+		var value: String = PROFILE.trim_name_spaces(nickname.get_line_edit().text)
+		if GameState.get_player_name_change_cost(value) > GameState.get_soft_currency():
+			if is_instance_valid(host):
+				nickname.get_line_edit().release_focus()
+				if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+					DisplayServer.virtual_keyboard_hide()
+				host._open_coin_store(_return_from_coin_store)
+			return
+		if GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value != GameState.player_name):
 			close()
 		else:
 			_save_toast.show_message(tr("PROFILE_SAVE_FAILED"), false)
@@ -371,6 +453,7 @@ func _switch_character() -> void:
 	selected_character = 1 if selected_character == 2 else 2
 	_show_character()
 	_hero.play_correct_letter()
+	_update_save_availability(nickname.get_line_edit().text)
 
 func _show_character() -> void:
 	if is_instance_valid(_hero):
@@ -397,6 +480,7 @@ func _select_color(index: int) -> void:
 		icon.modulate.a = 1.0
 		icon.scale = Vector2.ONE
 	_layout()
+	_update_save_availability(nickname.get_line_edit().text)
 
 func _stop_check_animation() -> void:
 	if _check_tween != null and _check_tween.is_valid():
@@ -420,6 +504,8 @@ func _set_progress(value: float) -> void:
 	_layout()
 
 func _process(_delta: float) -> void:
+	if _nickname_filter_pending and !_closing and !_nickname_has_ime_text():
+		_on_nickname_text_changed(nickname.get_line_edit().text)
 	if _opened and !_closing and (_root.get_viewport_rect().size != _last_viewport or _keyboard_height() != _last_keyboard_height):
 		_layout()
 
@@ -437,7 +523,7 @@ func _layout() -> void:
 	var close_size: float = popup_style["close_size"]
 	var close_gap: float = popup_style["close_gap"]
 	var title_height := 69.0
-	var stack_height := title_height + FORM_SIZE.y + FOOTER_HEIGHT + close_gap + close_size
+	var stack_height := title_height + FORM_SIZE.y + close_gap + close_size
 	var fit := minf(LAYOUT.fit_scale(viewport), (viewport.y - 32) / stack_height)
 	var target_size := FORM_SIZE * fit
 	var target_position := Vector2((viewport.x - target_size.x) * 0.5, (viewport.y - stack_height * fit) * 0.5 + title_height * fit)
@@ -496,10 +582,6 @@ func _layout() -> void:
 		_header.scale = Vector2.ONE * current_scale
 		_header.position = mask_rect.position + Vector2(0, -36) * current_scale
 		_header.size = Vector2(mask_rect.size.x / current_scale, 52)
-		_footer.visible = _progress > 0.5
-		_footer.scale = Vector2.ONE * current_scale
-		_footer.position = mask_rect.position + Vector2(0, mask_rect.size.y - 16 * current_scale)
-		_footer.size = Vector2(mask_rect.size.x / current_scale, 16 + FOOTER_HEIGHT)
 		# Solve when the expanding surface first reaches its final size. The
 		# remaining grow and settle time is shared by the title's fade-in.
 		var initial_ratio := initial_scale / fit
@@ -518,7 +600,7 @@ func _layout() -> void:
 		_title.size = Vector2(maxf(1, mask_rect.size.x / current_scale - 32), 66)
 	if is_instance_valid(_close_holder):
 		_close_holder.scale = Vector2.ONE * fit
-		_close_holder.position = Vector2(target_center.x - close_size * fit * 0.5, target_position.y + (FORM_SIZE.y + FOOTER_HEIGHT + close_gap) * fit)
+		_close_holder.position = Vector2(target_center.x - close_size * fit * 0.5, target_position.y + (FORM_SIZE.y + close_gap) * fit)
 
 func close() -> void:
 	if _closing:
@@ -545,6 +627,8 @@ func close() -> void:
 	_tween.tween_callback(queue_free)
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if is_instance_valid(host) and host._portrait_coin_store_active:
+		return
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		close()

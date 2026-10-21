@@ -18,6 +18,7 @@ var _avatar: Button
 var _values: Dictionary = {}
 var _editor: CanvasLayer
 var editor_style: Dictionary = {}
+var host: Node
 
 func _ready() -> void:
 	name = "PlayerProfileBody"
@@ -118,6 +119,7 @@ func _open_editor() -> void:
 	if is_instance_valid(_editor):
 		return
 	_editor = EDITOR.new()
+	_editor.host = host
 	_editor.source = _avatar
 	_editor.popup_style = editor_style
 	add_child(_editor)

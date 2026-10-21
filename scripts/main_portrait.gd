@@ -3193,7 +3193,8 @@ func _stage_refill_status_glow(
 func _stage_popup_coin_balance_above_dimmer(
 	popup_root: Control,
 	_close_callable: Callable,
-	coin_store_return_action: Callable
+	coin_store_return_action: Callable,
+	center_horizontally: bool = false
 ) -> void:
 	var popup_balance_layer := Control.new()
 	popup_balance_layer.name = "PopupCoinBalance"
@@ -3216,7 +3217,7 @@ func _stage_popup_coin_balance_above_dimmer(
 		source_counter_rect,
 		false,
 		counter_is_interactive,
-		false,
+		center_horizontally,
 		false,
 		Callable()
 	)
