@@ -3,6 +3,11 @@ shader_type canvas_item;
 uniform float progress : hint_range(0.0, 1.0) = 1.0;
 uniform float feather : hint_range(0.0, 0.1) = 0.025;
 uniform int reveal_mode = 0;
+varying vec4 canvas_modulate;
+
+void vertex() {
+	canvas_modulate = COLOR;
+}
 
 void fragment() {
 	vec4 source = texture(TEXTURE, UV);
@@ -23,5 +28,5 @@ void fragment() {
 		}
 		reveal = 1.0 - smoothstep(progress, progress + feather, coordinate);
 	}
-	COLOR = source * reveal;
+	COLOR = source * reveal * canvas_modulate;
 }

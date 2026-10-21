@@ -6,6 +6,7 @@ const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 
 const ICON_SHADOW_DEPTH_RATIO: float = 0.055
 const ICON_SHADOW_DEPTH_MIN: float = 1.5
@@ -479,7 +480,7 @@ func _set_icon_shadow_layers_state(
 			continue
 		layer.texture = texture
 		layer.visible = visible and texture != null
-		layer.modulate = Color(1.0, 1.0, 1.0, DISABLED_OPACITY if button_disabled else 1.0)
+		FADE.set_opacity(layer, DISABLED_OPACITY if button_disabled else 1.0)
 
 func _layout_icon_shadow_layers(
 	layers: Array[TextureRect],
@@ -547,7 +548,7 @@ func _sync_icon() -> void:
 		return
 	_icon_rect.texture = icon_texture
 	_icon_rect.visible = icon_texture != null
-	_icon_rect.modulate = Color(1.0, 1.0, 1.0, DISABLED_OPACITY if button_disabled else 1.0)
+	FADE.set_opacity(_icon_rect, DISABLED_OPACITY if button_disabled else 1.0)
 	_set_icon_shadow_layers_state(
 		_icon_shadow_layers,
 		icon_texture,
@@ -564,12 +565,7 @@ func _sync_trailing_icon() -> void:
 		return
 	_trailing_icon_rect.texture = trailing_icon_texture
 	_trailing_icon_rect.visible = trailing_icon_texture != null
-	_trailing_icon_rect.modulate = Color(
-		1.0,
-		1.0,
-		1.0,
-		DISABLED_OPACITY if button_disabled else 1.0
-	)
+	FADE.set_opacity(_trailing_icon_rect, DISABLED_OPACITY if button_disabled else 1.0)
 	_trailing_icon_rect.z_index = 1
 	_set_icon_shadow_layers_state(
 		_trailing_icon_shadow_layers,

@@ -4,6 +4,11 @@ uniform vec2 source_size = vec2(1.0, 1.0);
 uniform vec4 mask_rect = vec4(0.0, 0.0, 1.0, 1.0);
 uniform float corner_radius = 0.0;
 uniform float opacity = 1.0;
+varying vec4 canvas_modulate;
+
+void vertex() {
+	canvas_modulate = COLOR;
+}
 
 void fragment() {
 	vec2 point = UV * source_size;
@@ -17,5 +22,5 @@ void fragment() {
 	float mask_alpha = 1.0 - smoothstep(-1.0, 1.0, signed_distance);
 	vec4 texture_color = texture(TEXTURE, UV);
 	texture_color.a *= mask_alpha * opacity;
-	COLOR = texture_color;
+	COLOR = texture_color * canvas_modulate;
 }

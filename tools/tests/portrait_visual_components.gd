@@ -1,6 +1,8 @@
 extends Node
 ## Run via run_content_tests.py --suite portrait_visual_components (isolated save directory).
 
+const FADE = preload("res://scripts/ui/composited_fade.gd")
+
 class TestUI:
 	extends "res://scripts/main_portrait.gd"
 	func _ready() -> void:
@@ -74,7 +76,64 @@ func record(label: String, node: Node) -> void:
 func pattern(clip: Control, motion: Control, textures: Array, speed: float = 1.0, tint: Color = Color(0.2, 0.4, 0.6, 0.5)) -> void:
 	ui._layout_multi_theme_pattern(clip, motion, textures, tint, 1.0, 1.0, speed, 0.05, 0.35)
 
+func check_branch_ownership() -> void:
+	var holder := control(Vector2(200, 160))
+	var dimmed := Control.new()
+	dimmed.modulate.a = 0.5
+	holder.add_child(dimmed)
+	var first := ColorRect.new()
+	dimmed.add_child(first)
+	var owner: Node = FADE.branch(holder)
+	owner.opacity = 0.4
+	var late := ColorRect.new()
+	late.modulate.a = 0.8
+	late.self_modulate.a = 0.6
+	dimmed.add_child(late)
+	await get_tree().process_frame
+	check(is_equal_approx(first.self_modulate.a, 0.2), "existing child retains ancestor alpha")
+	check(is_equal_approx(late.self_modulate.a, 0.096), "late child inherits authored ancestor and local alpha")
+	for index in range(3):
+		owner.refresh()
+		check(is_equal_approx(late.self_modulate.a, 0.096), "refresh does not bake inherited alpha")
+	var outside := control(Vector2(200, 160))
+	late.reparent(outside, false)
+	owner.opacity = 0.0
+	await get_tree().process_frame
+	check(is_equal_approx(late.modulate.a, 0.8) and is_equal_approx(late.self_modulate.a, 0.6), "departing child restores its own alpha")
+	var destination: Node = FADE.branch(outside)
+	destination.opacity = 0.25
+	late.reparent(dimmed, false)
+	late.reparent(outside, false)
+	await get_tree().process_frame
+	check(is_equal_approx(late.self_modulate.a, 0.12), "new owner survives old deferred refresh")
+	owner.opacity = 1.0
+	check(is_equal_approx(late.self_modulate.a, 0.12), "old owner cannot change moved child")
+	var independent: Node = FADE.branch(late)
+	check(is_equal_approx(independent.opacity, 0.8), "late independent branch retains local opacity")
+	check(is_equal_approx(late.self_modulate.a, 0.12), "late independent branch preserves appearance")
+	late.reparent(dimmed, false)
+	await get_tree().process_frame
+	check(is_equal_approx(late.self_modulate.a, 0.24), "nested branch adopts new ancestor once")
+	var label := Label.new()
+	label.text = "RU / EN"
+	label.modulate.a = 0.7
+	dimmed.add_child(label)
+	await get_tree().process_frame
+	var wrapped: Control = FADE.wrap(label)
+	check(is_equal_approx(wrapped.opacity, 0.7) and is_equal_approx(wrapped.get_parent_opacity(), 0.5), "late text separates local and inherited alpha")
+	wrapped.reparent(outside, false)
+	await get_tree().process_frame
+	check(is_equal_approx(wrapped.opacity, 0.7) and is_equal_approx(wrapped.get_parent_opacity(), 0.25), "moved text has one owner")
+	root.remove_child(holder)
+	root.add_child(holder)
+	await get_tree().process_frame
+	check(is_equal_approx(late.self_modulate.a, 0.24), "tree reentry retains authored alpha")
+	holder.free()
+	outside.free()
+	await get_tree().process_frame
+
 func run() -> void:
+	await check_branch_ownership()
 	ui = TestUI.new()
 	root.add_child(ui)
 	var tex: Texture2D = texture()
@@ -162,10 +221,12 @@ func run() -> void:
 		ui._play_reward_coin_sparkles(reward)
 		var old_tweens: Array[Tween] = []
 		for sparkle: Node2D in layer.get_children():
+			check(is_zero_approx(sparkle.get_node("SparkleFade").opacity), "sparkle starts hidden")
 			old_tweens.append(sparkle.get_meta(&"reward_sparkle_tween"))
 			check(old_tweens[-1].is_valid() and old_tweens[-1].is_running(), "sparkle started")
 		old_tweens[0].custom_step(0.1)
-		check(layer.get_child(0).modulate.a > 0.0, "sparkle fade advances")
+		var active_alpha: float = layer.get_child(0).get_node("SparkleFade").opacity
+		check(active_alpha > 0.0 and active_alpha < 0.95, "sparkle fade advances")
 		record("chest_glints_animated" if chest else "coin_glints_animated", reward)
 		ui._play_reward_coin_sparkles(reward)
 		for old: Tween in old_tweens:
@@ -173,7 +234,7 @@ func run() -> void:
 		ui._stop_reward_coin_sparkles(reward)
 		for sparkle: Node2D in layer.get_children():
 			check(!sparkle.has_meta(&"reward_sparkle_tween"), "stopped tween cleared")
-			check(is_zero_approx(sparkle.modulate.a) and sparkle.scale == Vector2.ONE * 0.82, "stopped sparkle reset")
+			check(is_zero_approx(sparkle.get_node("SparkleFade").opacity) and sparkle.scale == Vector2.ONE * 0.82, "stopped sparkle reset")
 		ui._play_reward_coin_sparkles(reward)
 		var live_tween: Tween = layer.get_child(0).get_meta(&"reward_sparkle_tween")
 		reward.free()

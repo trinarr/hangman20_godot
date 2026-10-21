@@ -9,6 +9,8 @@ from godot_test_runner import configure_console, has_engine_errors, isolated_env
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
+    "resource_loading": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
+    "resource_loading_shutdown": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
     "tournament_matchmaking": (True, r"TOURNAMENT_MATCHMAKING checks=[1-9]\d* failures=0"),
     "network_retries": (True, r"NETWORK_RETRIES checks=[1-9]\d* failures=0"),
     "api_efficiency": (True, r"API_EFFICIENCY checks=[1-9]\d* failures=0"),
@@ -70,6 +72,8 @@ def main():
         print(result.stdout, end="", flush=True)
         ok = (result.returncode == 0 and re.search(summary, result.stdout)
               and not has_engine_errors(result.stdout))
+        if name in ("resource_loading", "resource_loading_shutdown"):
+            ok = ok and "ObjectDB instances" not in result.stdout
         print(f"{'PASS' if ok else 'FAIL'} {name}", flush=True)
         if not ok:
             failed.append(name)

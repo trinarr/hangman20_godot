@@ -10,7 +10,7 @@ func present(host: Node, parent: Control, award: Dictionary) -> void:
 	var rect := _portrait_final_reward_center_rect(prize_size)
 	build(parent, int(award.amount), rect, false)
 	prize.name = "TournamentGift" if _gift else "TournamentCoins"
-	prize.modulate.a = 1.0
+	FADE.set_opacity(prize, 1.0)
 	if _gift:
 		prize_amount.set("stage_rect", host._portrait_level_completion_amount_rect(rect))
 	_reveal_stage_reward(prize, prize_glow, prize_amount, action, collect, collect_hit)

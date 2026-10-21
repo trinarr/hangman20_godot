@@ -111,6 +111,20 @@ func run() -> void:
 		var amount_fade: Control = main.COMPOSITED_FADE.wrap(amount_label)
 		check(is_equal_approx(float(amount_fade.get("opacity")), 1.0) and is_equal_approx(amount_label.modulate.a, 1.0), "large reward amount finishes revealing through composite opacity")
 		var pack: Control = main.content.find_child("StageCoinLargeReward", true, false)
+		check(pack.self_modulate.a > 0.99 and pack.find_child("CoinPackVisual", true, false).self_modulate.a > 0.99, "large reward art restores visible alpha after parent intro")
+		check(button.self_modulate.a > 0.99, "enabled action also restores visible alpha after parent intro")
+		var glow: Control = main.content.find_child("FinalRewardGlow", true, false)
+		check(glow.self_modulate.a > 0.1, "reward glow reveals after parent intro")
+		if ads:
+			check(main.content.find_child("FinalRewardCollectText", true, false).self_modulate.a > 0.99, "delayed collect text restores visible alpha")
+			var icon_layers: Array = [button.get("_icon_rect"), button.get("_trailing_icon_rect")]
+			icon_layers.append_array(button.get("_icon_shadow_layers"))
+			icon_layers.append_array(button.get("_trailing_icon_shadow_layers"))
+			for repeat in range(3):
+				for disabled: bool in [true, false]:
+					button.set("button_disabled", disabled)
+					for icon: TextureRect in icon_layers:
+						check(is_equal_approx(icon.self_modulate.a, 0.85 if disabled else 1.0), "reward icons and shadows follow disabled state after intro")
 		check(pack.get_meta("main_reward_icon_shadow_layers", []).size() == 4, "large coin pack keeps extrusion shadow")
 		signatures["ads" if ads else "continue"] = signature()
 		if ads:
@@ -153,10 +167,26 @@ func run() -> void:
 	main.ads_enabled = false
 	main._portrait_single_reward_resume_without_intro = true
 	main._show_single_player_reward_chain_screen()
-	await get_tree().create_timer(7.0).timeout
+	var saw_star_plaque := false
+	var saw_pressure_flash := false
+	var summary_deadline: int = Time.get_ticks_msec() + 7000
+	while Time.get_ticks_msec() < summary_deadline:
+		var plaque: Control = main.content.find_child("SinglePlayerLevelStarAward", true, false)
+		var chest: Control = main.content.find_child("LevelCompletionRewardPrize", true, false)
+		var flash: Control = main._reward_chest_flash_overlay(chest)
+		saw_star_plaque = saw_star_plaque or (plaque.is_visible_in_tree() and plaque.self_modulate.a * plaque.modulate.a > 0.5)
+		saw_pressure_flash = saw_pressure_flash or (flash.is_visible_in_tree() and flash.self_modulate.a * flash.modulate.a > 0.5 and chest.get_meta("reward_chest_closed_visual").visible)
+		await get_tree().process_frame
+	check(saw_star_plaque, "level summary shows earned-star plaque during payout")
+	check(saw_pressure_flash, "closed chest visibly whitens before opening")
+	for shadow: TextureRect in main.content.find_child("LevelCompletionRewardPrize", true, false).get_meta("main_reward_icon_shadow_layers"):
+		check(shadow.self_modulate.a > 0.99, "chest extrusion appears after white flash finishes")
 	check(GameState.get_soft_currency() == coins_before_summary + 35 and GameState.get_stars() == stars_before_summary + 10, "shared visuals preserve level coin/star grants")
 	check(bool(GameState.pending_single_player_reward.get("claimed", false)) and bool(GameState.pending_single_player_reward.get("stars_claimed", false)), "level claim flags stay durable")
 	check(main.content.find_child("SinglePlayerRewardHeroViewport", true, false) == null, "level summary still omits hero viewport")
+	check(main.content.find_child("LevelCompletionRewardPrize", true, false).self_modulate.a > 0.99, "level summary prize restores visible alpha")
+	check(main.content.find_child("FinalRewardContinueButton", true, false).self_modulate.a > 0.99, "level summary action restores visible alpha")
+	check(main.content.find_child("FinalRewardGlow", true, false).self_modulate.a > 0.1, "level summary glow restores visible alpha")
 	main._clear()
 	# Standalone presentation has no dependency on the gameplay adapter.
 	var parent := Control.new()

@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/tests/resource_loading.gd" id="1"]
+
+[node name="ResourceLoadingShutdown" type="Node"]
+script = ExtResource("1")
+quit_with_requests = true

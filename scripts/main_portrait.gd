@@ -12476,9 +12476,7 @@ func _set_main_reward_icon_shadow_alpha(holder: Control, alpha: float) -> void:
 	for layer_variant: Variant in layers_variant:
 		var layer := layer_variant as TextureRect
 		if layer != null and is_instance_valid(layer):
-			var layer_modulate: Color = layer.modulate
-			layer_modulate.a = clampf(alpha, 0.0, 1.0)
-			layer.modulate = layer_modulate
+			COMPOSITED_FADE.set_opacity(layer, clampf(alpha, 0.0, 1.0))
 
 func _fade_main_reward_icon_shadow_in(holder: Control, duration: float = 0.22) -> void:
 	if holder == null or !is_instance_valid(holder) or !holder.is_inside_tree():
@@ -12493,8 +12491,8 @@ func _fade_main_reward_icon_shadow_in(holder: Control, duration: float = 0.22) -
 		var tween := layer.create_tween()
 		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		var fade := tween.tween_property(
-			layer,
-			"modulate:a",
+			COMPOSITED_FADE.branch(layer),
+			"opacity",
 			1.0,
 			maxf(duration, 0.01)
 		)
@@ -12556,7 +12554,7 @@ func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	holder.add_child(flash_overlay)
 	flash_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	flash_overlay.z_index = 1
-	flash_overlay.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(flash_overlay, 0.0)
 	flash_overlay.visible = false
 
 	holder.set_meta(&"reward_chest_closed_visual", closed_visual)
@@ -12647,7 +12645,7 @@ func _play_level_completion_chest_pressure_burst(
 
 	var flash_overlay: TextureRect = _reward_chest_flash_overlay(pack)
 	if flash_overlay != null and is_instance_valid(flash_overlay):
-		flash_overlay.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(flash_overlay, 0.0)
 		flash_overlay.visible = true
 
 	var shake_unit: float = maxf(6.0, pack.size.x * 0.045)
@@ -12678,8 +12676,8 @@ func _play_level_completion_chest_pressure_burst(
 		var flash_in_tween := flash_overlay.create_tween()
 		flash_in_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		flash_in_tween.tween_property(
-			flash_overlay,
-			"modulate:a",
+			COMPOSITED_FADE.branch(flash_overlay),
+			"opacity",
 			peak_flash_alpha,
 			pressure_duration
 		)
@@ -12710,8 +12708,8 @@ func _play_level_completion_chest_pressure_burst(
 	settle_position.set_ease(Tween.EASE_OUT)
 	if flash_overlay != null and is_instance_valid(flash_overlay):
 		settle_tween.tween_property(
-			flash_overlay,
-			"modulate:a",
+			COMPOSITED_FADE.branch(flash_overlay),
+			"opacity",
 			0.0,
 			PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION
 		)
@@ -12721,7 +12719,7 @@ func _play_level_completion_chest_pressure_burst(
 	pack.pivot_offset = Vector2.ZERO
 	pack.position = rest_position
 	if flash_overlay != null and is_instance_valid(flash_overlay):
-		flash_overlay.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(flash_overlay, 0.0)
 		flash_overlay.visible = false
 	# Only now, after the white overlay is fully gone, ease the shader shadow in.
 	_fade_main_reward_icon_shadow_in(pack)
@@ -12739,8 +12737,8 @@ func _reveal_level_summary_open_chest(
 		var glow_tween := glow.create_tween()
 		glow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		glow_tween.tween_property(
-			glow,
-			"modulate:a",
+			COMPOSITED_FADE.branch(glow),
+			"opacity",
 			PORTRAIT_FINAL_REWARD_GLOW_ALPHA,
 			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 		)
@@ -12967,7 +12965,7 @@ func _stage_single_player_level_star_award_panel(
 	holder.add_child(value)
 	_layout_level_star_award_value(value)
 	holder.set_meta(&"level_star_value_label", value)
-	holder.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(holder, 0.0)
 	holder.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE
 	return holder
 
@@ -13585,13 +13583,13 @@ func _ensure_theme_unlock_glow(holder: Control) -> Control:
 	glow.size = icon.size * 1.534
 	glow.position = icon.position + icon.size * 0.5 - glow.size * 0.5
 	glow.pivot_offset = glow.size * 0.5
-	glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	# Final-state layering: bar < glow < text < theme icon. This keeps the
 	# rotating glow visibly on top of the progress bar while remaining directly
 	# behind the theme artwork.
 	glow.z_index = 3
 	icon.z_index = 5
 	holder.add_child(glow)
+	COMPOSITED_FADE.set_opacity(glow, 0.0)
 	return glow
 
 func _animate_theme_unlock_progress(
@@ -13635,7 +13633,7 @@ func _animate_theme_unlock_progress(
 	var caption_font_size: int = mini(20, int(floor(20.0 * maxf(caption_fit_width, 1.0) / maxf(caption_width, 1.0))))
 	count.add_theme_font_size_override("font_size", maxi(caption_font_size, 1))
 	count.size.x = caption_area_width
-	count.z_index = 4
+	COMPOSITED_FADE.wrap(count).z_index = 4
 	count.show()
 	var icon := holder.get_node("UnlockThemeIcon") as Control
 	var fill := holder.get_node("UnlockBarFrame/UnlockBarFillMask/UnlockBarFill") as Control
@@ -13659,9 +13657,9 @@ func _animate_theme_unlock_progress(
 		var glow_fade := glow.create_tween()
 		glow_fade.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		glow_fade.tween_property(
-			glow,
-			"modulate",
-			Color(1.0, 1.0, 1.0, 0.52),
+			COMPOSITED_FADE.branch(glow),
+			"opacity",
+			0.52,
 			0.35
 		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	# Restore the original colors while holding the peak briefly, then settle the
@@ -13806,7 +13804,8 @@ func _stage_single_player_reward_status_icon(
 	icon_holder.add_child(status_icon)
 	status_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if start_hidden:
-		icon_holder.modulate.a = 0.0
+		# Own the reveal before an ancestor collects the initially hidden marker.
+		COMPOSITED_FADE.set_opacity(icon_holder, 0.0)
 		icon_holder.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE
 	return icon_holder
 
@@ -13819,11 +13818,11 @@ func _animate_single_player_failed_reward_marker(
 			finished_callback.call()
 		return
 	cross_visual.pivot_offset = cross_visual.size * 0.5
-	cross_visual.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(cross_visual, 0.0)
 	cross_visual.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE
 	var cross_tween := cross_visual.create_tween()
 	cross_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	cross_tween.tween_property(cross_visual, "modulate:a", 1.0, 0.08)
+	cross_tween.tween_property(COMPOSITED_FADE.branch(cross_visual), "opacity", 1.0, 0.08)
 	var cross_grow := cross_tween.parallel().tween_property(
 		cross_visual,
 		"scale",
@@ -14407,12 +14406,12 @@ func _start_single_player_reward_claim_animation_deferred(
 	count_fade.set("opacity", 1.0)
 
 	check_visual.pivot_offset = check_visual.size * 0.5
-	check_visual.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(check_visual, 0.0)
 	check_visual.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_CHECK_BOUNCE_START_SCALE
 	var check_tween := check_visual.create_tween()
 	check_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	check_tween.tween_interval(_single_player_reward_check_reveal_delay())
-	check_tween.tween_property(check_visual, "modulate:a", 1.0, 0.08)
+	check_tween.tween_property(COMPOSITED_FADE.branch(check_visual), "opacity", 1.0, 0.08)
 	var resource_dim := check_tween.parallel().tween_property(
 		resource_visual,
 		"modulate:a",
@@ -14895,7 +14894,7 @@ func _start_single_player_level_summary_transition_deferred(
 
 	if use_chest_animation:
 		_set_reward_chest_icon_open_state(transition_prize, false)
-	transition_prize.modulate.a = 1.0
+	COMPOSITED_FADE.set_opacity(transition_prize, 1.0)
 	var target_prize_rect: Rect2 = _portrait_final_reward_center_rect(
 		(
 			PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
@@ -16477,6 +16476,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			final_reward_glow_size
 		)
 		var glow := _stage_final_reward_glow(target_glow_rect)
+		COMPOSITED_FADE.set_opacity(glow, 0.0)
 		var transition_pack: Control
 		if use_completion_chest:
 			transition_pack = _stage_reward_chest_transition(
@@ -16486,7 +16486,8 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			transition_pack = _stage_main_reward_coin_pack_transition(
 				current_reward_resource_stage_rect
 			)
-		transition_pack.modulate.a = 0.0
+		transition_pack.name = "LevelCompletionRewardPrize"
+		COMPOSITED_FADE.set_opacity(transition_pack, 0.0)
 		var completion_amount_label := _stage_label(
 			(
 				_portrait_level_completion_amount_rect(prize_rect)
@@ -16581,7 +16582,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 				_portrait_final_reward_continue_button = final_action_button
 				final_action_button.set("attention_bounce_enabled", false)
 				final_action_button.set_meta(&"attention_after_reveal", true)
-			final_action_button.modulate.a = 0.0
+			COMPOSITED_FADE.set_opacity(final_action_button, 0.0)
 			final_action_button.z_index = 120
 			final_action_button.set("button_disabled", true)
 			content = final_reward_content
@@ -16736,7 +16737,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		continue_button.set("disabled", false)
 		continue_button.set("attention_bounce_enabled", true)
 		if failure_reward_cross_visual != null and is_instance_valid(failure_reward_cross_visual):
-			failure_reward_cross_visual.modulate.a = 1.0
+			COMPOSITED_FADE.set_opacity(failure_reward_cross_visual, 1.0)
 			failure_reward_cross_visual.scale = Vector2.ONE
 		if failure_back_button != null and is_instance_valid(failure_back_button):
 			failure_back_button.visible = true

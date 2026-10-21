@@ -33,6 +33,12 @@ class Branch extends Node:
 	func get_parent_opacity() -> float:
 		return _parent_opacity
 
+	var _items: Array[Dictionary] = []
+	var _watched: Array[WeakRef] = []
+	var _root: WeakRef
+	var _collecting := false
+	var _refresh_pending := false
+
 	func _apply(value: float) -> void:
 		for entry: Dictionary in _items:
 			var item: Object = entry.reference.get_ref()
@@ -42,52 +48,108 @@ class Branch extends Node:
 				item.set_parent_opacity(float(entry.alpha) * value)
 			else:
 				item.self_modulate.a = float(entry.alpha) * value
-	var _items: Array[Dictionary] = []
-	var _root: WeakRef
-	var _collecting := false
-	var _refresh_pending := false
+
+	func _restore(entry: Dictionary) -> void:
+		var item: Object = entry.reference.get_ref()
+		if !is_instance_valid(item):
+			return
+		if entry.grouped:
+			item.set_parent_opacity(1.0)
+		else:
+			item.modulate.a = float(entry.modulate_alpha)
+			item.self_modulate.a = float(entry.self_alpha)
+
+	func _unwatch(node: Node) -> void:
+		if node.child_entered_tree.is_connected(_queue_refresh):
+			node.child_entered_tree.disconnect(_queue_refresh)
+		if node.child_exiting_tree.is_connected(_child_exiting):
+			node.child_exiting_tree.disconnect(_child_exiting)
+
+	func _release_all() -> void:
+		for entry: Dictionary in _items:
+			_restore(entry)
+		_items.clear()
+		for reference: WeakRef in _watched:
+			var node: Node = reference.get_ref()
+			if is_instance_valid(node):
+				_unwatch(node)
+		_watched.clear()
+
+	func _release_subtree(subtree: Node) -> void:
+		for index in range(_items.size() - 1, -1, -1):
+			var entry: Dictionary = _items[index]
+			var visual: Node = entry.visual.get_ref()
+			if !is_instance_valid(visual) or visual == subtree or subtree.is_ancestor_of(visual):
+				_restore(entry)
+				_items.remove_at(index)
+		for index in range(_watched.size() - 1, -1, -1):
+			var node: Node = _watched[index].get_ref()
+			if !is_instance_valid(node) or node == subtree or subtree.is_ancestor_of(node):
+				if is_instance_valid(node):
+					_unwatch(node)
+				_watched.remove_at(index)
+
+	func _enter_tree() -> void:
+		refresh()
+
+	func _exit_tree() -> void:
+		_collecting = true
+		_release_all()
+		_refresh_pending = false
+		_collecting = false
 
 	func refresh() -> void:
-		# Restore authored alpha before collecting a rebuilt/dynamically extended UI.
+		# Restore LOCAL authored alpha, not the previously flattened ancestor factor.
 		_collecting = true
 		_refresh_pending = false
-		var previous := opacity
-		_apply(1.0)
-		_items.clear()
+		_release_all()
 		var root: Control = _root.get_ref()
 		if is_instance_valid(root):
 			_collect(root, 1.0, true)
-		opacity = previous
+		_apply(opacity * _parent_opacity)
 		_collecting = false
+
+	func _group_entry(controller: Node, visual: Node, inherited_alpha: float) -> void:
+		_items.append({"reference":weakref(controller), "visual":weakref(visual), "alpha":inherited_alpha, "grouped":true})
 
 	func _collect(node: Node, inherited_alpha: float, is_root: bool = false) -> void:
 		if node is Control and !is_root:
 			if node.get_script() == load("res://scripts/ui/composited_fade.gd"):
-				_items.append({"reference":weakref(node), "alpha":float(node.get_parent_opacity()) * inherited_alpha, "grouped":true})
+				_group_entry(node, node, inherited_alpha)
 				return
 			if node.has_meta(&"composited_branch"):
-				var nested: Object = node.get_meta(&"composited_branch").get_ref()
+				var nested: Node = node.get_meta(&"composited_branch").get_ref()
 				if is_instance_valid(nested):
-					_items.append({"reference":weakref(nested), "alpha":float(nested.get_parent_opacity()) * inherited_alpha, "grouped":true})
+					_group_entry(nested, node, inherited_alpha)
 					return
 			var existing: WeakRef = node.get_meta(&"composited_fade") as WeakRef if node.has_meta(&"composited_fade") else null
 			if existing != null and is_instance_valid(existing.get_ref()):
-				var group: Object = existing.get_ref()
-				_items.append({"reference":weakref(group), "alpha":float(group.get_parent_opacity()) * inherited_alpha, "grouped":true})
+				var group: Node = existing.get_ref()
+				_group_entry(group, group, inherited_alpha)
 				return
 			if node is Label or (node is Button and !node.text.is_empty()):
 				var group: Control = load("res://scripts/ui/composited_fade.gd").wrap(node)
-				_items.append({"reference":weakref(group), "alpha":float(group.get_parent_opacity()) * inherited_alpha, "grouped":true})
+				_group_entry(group, group, inherited_alpha)
 				return
 		if node is CanvasItem:
-			inherited_alpha *= node.modulate.a
+			var local_alpha: float = node.modulate.a
+			var self_alpha: float = node.self_modulate.a
+			inherited_alpha *= local_alpha
 			node.modulate.a = 1.0
-			_items.append({"reference":weakref(node), "alpha":node.self_modulate.a * inherited_alpha, "grouped":false})
-		if !node.child_entered_tree.is_connected(_queue_refresh):
-			node.child_entered_tree.connect(_queue_refresh)
+			_items.append({"reference":weakref(node), "visual":weakref(node), "modulate_alpha":local_alpha, "self_alpha":self_alpha, "alpha":self_alpha * inherited_alpha, "grouped":false})
+		node.child_entered_tree.connect(_queue_refresh)
+		node.child_exiting_tree.connect(_child_exiting)
+		_watched.append(weakref(node))
 		for child: Node in node.get_children():
 			if child != self:
 				_collect(child, inherited_alpha)
+
+	func _child_exiting(child: Node) -> void:
+		if _collecting:
+			return
+		# Run while the old ancestry is intact, before a new owner can collect it.
+		_release_subtree(child)
+		_queue_refresh(child)
 
 	func _queue_refresh(_child: Node) -> void:
 		if _collecting or _refresh_pending:
@@ -95,23 +157,26 @@ class Branch extends Node:
 		_refresh_pending = true
 		refresh.call_deferred()
 
+static func _release_from_ancestor(visual: Control) -> Node:
+	var ancestor := visual.get_parent()
+	while ancestor != null:
+		if ancestor.has_meta(&"composited_branch"):
+			var controller: Node = ancestor.get_meta(&"composited_branch").get_ref()
+			if is_instance_valid(controller):
+				if controller._collecting:
+					return null
+				controller._release_subtree(visual)
+				return controller
+		ancestor = ancestor.get_parent()
+	return null
+
 static func branch(visual: Control) -> Node:
 	if visual is Label or visual is Button:
 		return load("res://scripts/ui/composited_fade.gd").wrap(visual)
 	var existing: WeakRef = visual.get_meta(&"composited_branch") as WeakRef if visual.has_meta(&"composited_branch") else null
 	if existing != null and is_instance_valid(existing.get_ref()):
 		return existing.get_ref()
-	# A child may acquire its own animation while its parent is already fading.
-	# Collect its authored alpha, then let the ancestor own only its parent factor.
-	var ancestor := visual.get_parent()
-	var parent_controller: Node = null
-	while ancestor != null:
-		if ancestor.has_meta(&"composited_branch"):
-			parent_controller = ancestor.get_meta(&"composited_branch").get_ref()
-			if is_instance_valid(parent_controller):
-				parent_controller._apply(1.0)
-				break
-		ancestor = ancestor.get_parent()
+	var parent_controller := _release_from_ancestor(visual)
 	var controller := Branch.new()
 	controller.name = "CompositedBranchFade"
 	controller._root = weakref(visual)
@@ -142,6 +207,7 @@ static func wrap(visual: Control) -> Control:
 	var existing: WeakRef = visual.get_meta(&"composited_fade") as WeakRef if visual.has_meta(&"composited_fade") else null
 	if existing != null and is_instance_valid(existing.get_ref()):
 		return existing.get_ref()
+	var parent_controller := _release_from_ancestor(visual)
 	var parent := visual.get_parent()
 	var index := visual.get_index()
 	var fade := load("res://scripts/ui/composited_fade.gd").new() as Control
@@ -169,6 +235,8 @@ static func wrap(visual: Control) -> Control:
 		fade.scale = visual.scale
 		visual.scale = Vector2.ONE
 	fade._prepare_visual(visual)
+	if is_instance_valid(parent_controller):
+		parent_controller.refresh()
 	return fade
 
 func _init() -> void:

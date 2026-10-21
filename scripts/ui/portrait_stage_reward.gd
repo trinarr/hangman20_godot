@@ -54,6 +54,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		reward_glow_size
 	)
 	var glow := _stage_final_reward_glow(target_glow_rect)
+	FADE.set_opacity(glow, 0.0)
 	# Stage-completion coin rewards use the same shadow-aware coin-pack holder
 	# as the one-stage level reward. The old _stage_texture() path bypassed the
 	# shader extrusion completely, which is why this screen had no visible shadow.
@@ -61,7 +62,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		source_rect
 	)
 	transition_pack.name = "StageCoinLargeReward"
-	transition_pack.modulate.a = 0.0
+	FADE.set_opacity(transition_pack, 0.0)
 	transition_pack.z_index = 20
 	var amount_label := _stage_label(
 		_portrait_final_reward_amount_rect(target_coin_rect),
@@ -129,7 +130,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		action_button.name = "StageCoinRewardContinueButton"
 		action_button.set("drop_shadow_enabled", true)
 		action_button.set_meta(&"attention_after_reveal", true)
-	action_button.modulate.a = 0.0
+	FADE.set_opacity(action_button, 0.0)
 	action_button.z_index = 120
 	action_button.set("button_disabled", true)
 	content = reward_content
@@ -260,8 +261,8 @@ func _replace_stage_reward(
 	)
 	# The chain's opacity owner also fades its count; avoid a second alpha on it.
 	replace_tween.parallel().tween_property(
-		transition_pack,
-		"modulate:a",
+		FADE.branch(transition_pack),
+		"opacity",
 		1.0,
 		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
 	)
@@ -314,8 +315,8 @@ func _reveal_stage_reward(transition_pack: Control, glow: Control, amount_label:
 		reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		reveal_tween.set_parallel(true)
 		reveal_tween.tween_property(
-			glow,
-			"modulate:a",
+			FADE.branch(glow),
+			"opacity",
 			PORTRAIT_FINAL_REWARD_GLOW_ALPHA,
 			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 		)

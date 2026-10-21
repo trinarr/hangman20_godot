@@ -74,6 +74,18 @@ class RunnerChecks(unittest.TestCase):
                     patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, output)):
                 self.assertEqual(run_content_tests.main(), 1)
 
+    def test_resource_loading_runner_rejects_objectdb_leaks(self):
+        from contextlib import nullcontext
+        summary = "RESOURCE_LOADING checks=1 failures=0\n"
+        for suite in ("resource_loading", "resource_loading_shutdown"):
+            for warning, expected in (("", 0), ("WARNING: 2 ObjectDB instances were leaked at exit", 1)):
+                with self.subTest(suite=suite, warning=warning), \
+                        patch.object(sys, "argv", ["runner", "--suite", suite]), \
+                        patch.object(run_content_tests.shutil, "which", return_value="godot"), \
+                        patch.object(run_content_tests, "isolated_environment", return_value=nullcontext({})), \
+                        patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, summary + warning)):
+                    self.assertEqual(run_content_tests.main(), expected)
+
     def test_reward_runner_rejects_empty_log_and_engine_errors(self):
         from contextlib import nullcontext
         for output in ("", "REWARDS {\"checks\":1,\"failures\":[]}\nSCRIPT ERROR: broken"):

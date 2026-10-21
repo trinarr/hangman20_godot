@@ -32,6 +32,7 @@ const MONO_ICON_PATHS := {
 
 static var _cache: Dictionary = {}
 static var _requests: Dictionary = {}
+static var _loads = preload("res://scripts/core/threaded_resource_queue.gd").new()
 
 static func prewarm() -> void:
 	for path_variant: Variant in COLOR_ICON_PATHS.values():
@@ -55,8 +56,7 @@ static func get_icon(theme_id: int, monochrome: bool = false) -> Texture2D:
 	# An immediate category tap can beat the background request. Loading only the
 	# requested texture preserves correct UI while the remaining catalog continues
 	# in the worker pool.
-	var resource: Resource = ResourceLoader.load(path, "Texture2D")
-	_requests.erase(path)
+	var resource: Resource = _loads.take(path, true) if _requests.has(path) else ResourceLoader.load(path, "Texture2D")
 	if resource is Texture2D:
 		var texture := resource as Texture2D
 		_cache[path] = texture
@@ -68,22 +68,14 @@ static func _request(path: String) -> void:
 		return
 	if !ResourceLoader.exists(path):
 		return
-	var error: int = ResourceLoader.load_threaded_request(path, "Texture2D", false)
+	var error: int = _loads.request(path, "Texture2D", _texture_loaded)
 	if error == OK:
 		_requests[path] = true
 
 static func _take_threaded_texture_if_ready(path: String) -> Texture2D:
-	if !_requests.has(path):
-		return null
-	var status: int = ResourceLoader.load_threaded_get_status(path)
-	if status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-		return null
+	return _loads.take(path) as Texture2D
+
+static func _texture_loaded(path: String, resource: Resource) -> void:
 	_requests.erase(path)
-	if status != ResourceLoader.THREAD_LOAD_LOADED:
-		return null
-	var resource: Resource = ResourceLoader.load_threaded_get(path)
 	if resource is Texture2D:
-		var texture := resource as Texture2D
-		_cache[path] = texture
-		return texture
-	return null
+		_cache[path] = resource

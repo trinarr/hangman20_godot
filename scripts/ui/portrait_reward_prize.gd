@@ -226,7 +226,7 @@ func _stage_final_reward_collect_text(
 	hit_button.mouse_exited.connect(
 		Callable(self, "_set_final_reward_collect_pressed").bind(visual, false)
 	)
-	holder.modulate.a = 0.0
+	FADE.set_opacity(holder, 0.0)
 	return {
 		"holder": holder,
 		"visual": visual,

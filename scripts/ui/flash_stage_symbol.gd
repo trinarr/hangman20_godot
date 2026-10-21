@@ -49,11 +49,14 @@ const HERO_TYPE_2_OFFSETS: Array[Vector2] = [
 	Vector2(75.0, -433.3334),
 ]
 
-# ResourceLoader keeps the requested next pose in its threaded-load cache. This
-# dictionary holds a strong reference only to the currently displayed pose; the
-# next one is promoted here after its background request has finished.
+# Ready preloads have explicit owners instead of remaining in ResourceLoader.
+# The displayed-pose window and the next/terminal preloads stay bounded.
 static var _hero_pose_cache: Dictionary = {}
 static var _hero_pose_requests: Dictionary = {}
+static var _hero_pose_preloads: Dictionary = {}
+static var _hero_pose_keep_paths: Dictionary = {}
+static var _hero_pose_prefetch_paths: Dictionary = {}
+static var _hero_loads = preload("res://scripts/core/threaded_resource_queue.gd").new()
 
 static func prewarm_hero_type(hero_type_value: int) -> void:
 	var states: Array[String] = (
@@ -63,22 +66,33 @@ static func prewarm_hero_type(hero_type_value: int) -> void:
 	)
 	if states.is_empty():
 		return
+	_set_hero_cache_window(states, 0)
 	_request_hero_path(states[0])
 	if states.size() > 1:
 		_request_hero_path(states[states.size() - 1])
 
 static func _request_hero_path(resource_path: String) -> void:
-	if _hero_pose_cache.has(resource_path) or _hero_pose_requests.has(resource_path):
+	if _hero_pose_cache.has(resource_path) or _hero_pose_preloads.has(resource_path) or _hero_pose_requests.has(resource_path):
 		return
 	if !ResourceLoader.exists(resource_path):
 		return
-	var request_error: int = ResourceLoader.load_threaded_request(
+	var request_error: int = _hero_loads.request(
 		resource_path,
 		"PackedScene",
-		false
+		_hero_scene_loaded
 	)
 	if request_error == OK:
 		_hero_pose_requests[resource_path] = true
+
+static func _hero_scene_loaded(path: String, resource: Resource) -> void:
+	_hero_pose_requests.erase(path)
+	if !(resource is PackedScene):
+		push_warning("Background hero pose load failed: " + path)
+		return
+	if _hero_pose_keep_paths.has(path):
+		_hero_pose_cache[path] = resource
+	elif _hero_pose_prefetch_paths.has(path):
+		_hero_pose_preloads[path] = resource
 
 var force_immediate_hero_pose_load: bool = false
 
@@ -174,6 +188,7 @@ func _reload_hero_symbol() -> void:
 	var state_index: int = _hero_state_index()
 	var target_path: String = _hero_states()[state_index]
 	var target_offset: Vector2 = _hero_offsets()[state_index]
+	_prune_hero_pose_cache(state_index)
 	if _symbol_instance != null and _loaded_symbol_path == target_path:
 		_apply_animation_time()
 		_prune_hero_pose_cache(state_index)
@@ -230,7 +245,7 @@ func _load_initial_hero_scene(resource_path: String) -> PackedScene:
 	if !ResourceLoader.exists(resource_path):
 		push_warning("Hero pose is missing: " + resource_path)
 		return null
-	var resource: Resource = ResourceLoader.load(resource_path, "PackedScene")
+	var resource: Resource = _hero_loads.take(resource_path, true) if _hero_pose_requests.has(resource_path) else ResourceLoader.load(resource_path, "PackedScene")
 	if !(resource is PackedScene):
 		push_warning("Hero pose is not a PackedScene: " + resource_path)
 		return null
@@ -241,8 +256,7 @@ func _load_initial_hero_scene(resource_path: String) -> PackedScene:
 
 func _load_hero_scene_immediately(resource_path: String) -> PackedScene:
 	if _hero_pose_requests.has(resource_path):
-		var threaded_resource: Resource = ResourceLoader.load_threaded_get(resource_path)
-		_hero_pose_requests.erase(resource_path)
+		var threaded_resource: Resource = _hero_loads.take(resource_path, true)
 		if threaded_resource is PackedScene:
 			var threaded_scene: PackedScene = threaded_resource as PackedScene
 			_hero_pose_cache[resource_path] = threaded_scene
@@ -253,8 +267,10 @@ func _request_hero_scene(resource_path: String) -> void:
 	_request_hero_path(resource_path)
 
 func _cached_hero_scene(resource_path: String) -> PackedScene:
-	var cached_resource: Variant = _hero_pose_cache.get(resource_path)
+	var cached_resource: Variant = _hero_pose_cache.get(resource_path, _hero_pose_preloads.get(resource_path))
 	if cached_resource is PackedScene:
+		_hero_pose_preloads.erase(resource_path)
+		_hero_pose_cache[resource_path] = cached_resource
 		return cached_resource as PackedScene
 	return null
 
@@ -262,26 +278,7 @@ func _get_hero_scene_if_ready(resource_path: String) -> PackedScene:
 	var cached_scene: PackedScene = _cached_hero_scene(resource_path)
 	if cached_scene != null:
 		return cached_scene
-	if !_hero_pose_requests.has(resource_path):
-		return null
-	var status: int = ResourceLoader.load_threaded_get_status(resource_path)
-	if status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-		return null
-	if status != ResourceLoader.THREAD_LOAD_LOADED:
-		_hero_pose_requests.erase(resource_path)
-		push_warning("Background hero pose load failed: " + resource_path)
-		return null
-
-	# Calling load_threaded_get before LOADED would block the main thread. The
-	# status guard above is what keeps letter feedback and animation frames smooth.
-	var resource: Resource = ResourceLoader.load_threaded_get(resource_path)
-	_hero_pose_requests.erase(resource_path)
-	if !(resource is PackedScene):
-		push_warning("Background hero pose is not a PackedScene: " + resource_path)
-		return null
-	var scene: PackedScene = resource as PackedScene
-	_hero_pose_cache[resource_path] = scene
-	return scene
+	return _hero_loads.take(resource_path) as PackedScene
 
 func _request_next_hero_pose(state_index: int) -> void:
 	var states: Array[String] = _hero_states()
@@ -289,14 +286,16 @@ func _request_next_hero_pose(state_index: int) -> void:
 	if next_index < states.size():
 		_request_hero_scene(states[next_index])
 	# Prepare the failure-screen pose in parallel with normal sequential loading.
-	# It remains outside the strong cache until actually needed.
+	# Keep its ready result in the bounded preload window until actually needed.
 	var terminal_index: int = states.size() - 1
 	if terminal_index >= 0 and terminal_index != state_index and terminal_index != next_index:
 		_request_hero_scene(states[terminal_index])
 
 func _prune_hero_pose_cache(state_index: int) -> void:
+	_set_hero_cache_window(_hero_states(), state_index)
+
+static func _set_hero_cache_window(states: Array[String], state_index: int) -> void:
 	var keep_paths: Dictionary = {}
-	var states: Array[String] = _hero_states()
 	# Reward screens always use the clean first pose. Keep it warm once it has
 	# been loaded so finishing a damaged round never has to synchronously reload
 	# and instantiate that resource during the screen transition.
@@ -311,9 +310,19 @@ func _prune_hero_pose_cache(state_index: int) -> void:
 		var previous_index: int = state_index - previous_offset
 		if previous_index >= 0:
 			keep_paths[states[previous_index]] = true
+	_hero_pose_keep_paths = keep_paths
+	_hero_pose_prefetch_paths = {states[states.size() - 1]: true}
+	if state_index + 1 < states.size():
+		_hero_pose_prefetch_paths[states[state_index + 1]] = true
 	for cached_path: Variant in _hero_pose_cache.keys():
 		if !keep_paths.has(cached_path):
 			_hero_pose_cache.erase(cached_path)
+	for path: String in _hero_pose_preloads.keys():
+		if keep_paths.has(path):
+			_hero_pose_cache[path] = _hero_pose_preloads[path]
+			_hero_pose_preloads.erase(path)
+		elif !_hero_pose_prefetch_paths.has(path):
+			_hero_pose_preloads.erase(path)
 
 func _poll_pending_hero_pose() -> bool:
 	if _pending_symbol_path == "":

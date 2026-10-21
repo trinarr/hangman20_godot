@@ -1,5 +1,6 @@
 extends RefCounted
 ## Reward-local glints. Each tween is bound to its sparkle node; no screen reference is retained.
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 
 static func _optional_node_meta(node: Object, key: StringName) -> Variant:
 	return node.get_meta(key) if node.has_meta(key) else null
@@ -7,7 +8,10 @@ static func _optional_node_meta(node: Object, key: StringName) -> Variant:
 static func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
 	var sparkle := Node2D.new()
 	sparkle.name = "RewardCoinSparkle"
-	sparkle.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	var fade := FADE.new()
+	fade.name = "SparkleFade"
+	fade.opacity = 0.0
+	sparkle.add_child(fade)
 	var sparkle_size: float = base_size * 1.30
 
 	# Keep the glint close to a compact painted diamond: slightly taller than it is
@@ -25,7 +29,7 @@ static func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
 		Vector2(-sparkle_size * 0.18, -sparkle_size * 0.22),
 	])
 	outer_glint.color = Color(1.0, 0.91, 0.44, 0.72)
-	sparkle.add_child(outer_glint)
+	fade.add_visual(outer_glint)
 
 	var inner_glint := Polygon2D.new()
 	inner_glint.name = "InnerGlint"
@@ -40,7 +44,7 @@ static func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
 		Vector2(-sparkle_size * 0.12, -sparkle_size * 0.16),
 	])
 	inner_glint.color = Color(1.0, 1.0, 1.0, 0.98)
-	sparkle.add_child(inner_glint)
+	fade.add_visual(inner_glint)
 
 	var core := Polygon2D.new()
 	core.name = "DiamondCore"
@@ -51,7 +55,7 @@ static func _build_reward_coin_sparkle(base_size: float = 14.0) -> Node2D:
 		Vector2(-sparkle_size * 0.20, 0.0),
 	])
 	core.color = Color(1.0, 1.0, 1.0, 1.0)
-	sparkle.add_child(core)
+	fade.add_visual(core)
 	return sparkle
 
 static func _reward_coin_sparkle_specs(reward_visual: Control) -> Array:
@@ -128,7 +132,7 @@ static func _ensure_reward_coin_sparkle_layer(reward_visual: Control) -> Control
 static func _reset_reward_coin_sparkle(sparkle: Node2D, base_scale: float) -> void:
 	if sparkle == null or !is_instance_valid(sparkle):
 		return
-	sparkle.modulate.a = 0.0
+	sparkle.get_node("SparkleFade").set("opacity", 0.0)
 	sparkle.scale = Vector2.ONE * base_scale
 
 static func _stop_reward_coin_sparkles(reward_visual: Control, base_scale: float) -> void:
@@ -176,8 +180,8 @@ static func _play_reward_coin_sparkles(reward_visual: Control, base_scale: float
 		if initial_delay > 0.0:
 			sparkle_tween.tween_interval(initial_delay)
 		var fade_in := sparkle_tween.tween_property(
-			sparkle,
-			"modulate:a",
+			sparkle.get_node("SparkleFade"),
+			"opacity",
 			0.95,
 			fade_in_duration
 		)
@@ -192,8 +196,8 @@ static func _play_reward_coin_sparkles(reward_visual: Control, base_scale: float
 		scale_in.set_trans(Tween.TRANS_SINE)
 		scale_in.set_ease(Tween.EASE_OUT)
 		var fade_out := sparkle_tween.tween_property(
-			sparkle,
-			"modulate:a",
+			sparkle.get_node("SparkleFade"),
+			"opacity",
 			0.0,
 			fade_out_duration
 		)
