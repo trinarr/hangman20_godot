@@ -234,6 +234,7 @@ func inspect_reward(main: Node, rank: int, amount: int) -> void:
 	check(!GameState.claim_tournament_reward().ok, "Duplicate claim during presentation is rejected")
 	await get_tree().create_timer(1.5).timeout
 	check(!reward.action.button_disabled, "Campaign animation reveals Continue")
+	check(is_equal_approx(float(main.COMPOSITED_FADE.wrap(reward.prize_amount).get("opacity")), 1.0), "Gift and coin amounts finish their composite reveal")
 	var title: Control = main.content.find_child("TournamentRewardTitle", true, false)
 	check(is_instance_valid(title) and title.is_visible_in_tree() and title.get_global_rect().position.y >= 0, "Each prize screen retains its navigation title")
 	if rank == 1:

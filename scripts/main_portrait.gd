@@ -13,6 +13,7 @@ var _profile_return_action: Callable
 
 const LEADERBOARD_SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
 const QUIZ_CARD_STYLE = preload("res://scripts/ui/quiz_answer_card_style.gd")
+const COMPOSITED_FADE = preload("res://scripts/ui/composited_fade.gd")
 var _portrait_leaderboard: Control
 
 
@@ -631,7 +632,7 @@ const PORTRAIT_QUIZ_QUESTION_RECT := Rect2(40.0, 138.0, 400.0, 224.0)
 const PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE := Vector2(412.0, 68.0)
 const PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING: float = 18.0
 const PORTRAIT_QUIZ_ANSWER_BUTTON_X: float = 34.0
-const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 88.0
+const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 85.0
 const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 40.0
 const PORTRAIT_QUIZ_HINT_GAP: float = 22.0
 const PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
@@ -3720,7 +3721,7 @@ func _sync_home_button_entrance(opacity: float, visual_scale: float, buttons: Ar
 		if !is_instance_valid(button) or !button.is_inside_tree():
 			continue
 		button.visible = opacity > 0.0
-		button.modulate.a = opacity
+		COMPOSITED_FADE.set_opacity(button, opacity)
 		button.set("visual_scale", Vector2.ONE * visual_scale)
 
 func _finish_home_button_entrance(buttons: Array[Control]) -> void:
@@ -4759,7 +4760,6 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	shadow_panel.offset_top = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	shadow_panel.offset_bottom = STAGE_LONG_BUTTON_SCRIPT.BUTTON_DROP_SHADOW_OFFSET_Y
 	var shadow_style := QUIZ_CARD_STYLE.shadow_style()
-	shadow_style.set_corner_radius_all(14)
 	shadow_panel.add_theme_stylebox_override("panel", shadow_style)
 	holder.add_child(shadow_panel)
 
@@ -4771,7 +4771,6 @@ func _stage_quiz_answer_button(rect: Rect2, text: String, font_size: int) -> But
 	button.focus_mode = Control.FOCUS_NONE
 
 	var normal_style := QUIZ_CARD_STYLE.face_style()
-	normal_style.set_corner_radius_all(14)
 
 	# Keep every interactive visual state white. The only press feedback is the
 	# same 0.94 scale depression used by the standard long-button component.
@@ -4972,22 +4971,21 @@ func _show_quiz_continue_button(animated: bool) -> void:
 	_set_quiz_answer_explanation()
 	if is_instance_valid(_quiz_question_label):
 		_quiz_question_label.visible = true
-		_quiz_question_label.modulate = Color.WHITE
+		COMPOSITED_FADE.set_opacity(_quiz_question_label, 1.0)
 	_hide_quiz_hint_buttons(animated)
 	if _quiz_continue_button == null or !is_instance_valid(_quiz_continue_button):
 		return
 	_quiz_continue_button.visible = true
 	_quiz_continue_button.set("attention_bounce_enabled", false)
 	if !animated:
-		_quiz_continue_button.modulate.a = 1.0
+		COMPOSITED_FADE.set_opacity(_quiz_continue_button, 1.0)
 		_quiz_continue_button.set("attention_bounce_enabled", true)
 		return
-	_quiz_continue_button.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(_quiz_continue_button, 0.0)
 	var fade_tween := _quiz_continue_button.create_tween()
 	fade_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	fade_tween.tween_property(
-		_quiz_continue_button,
-		"modulate:a",
+		COMPOSITED_FADE.branch(_quiz_continue_button), "opacity",
 		1.0,
 		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
 	)
@@ -5030,7 +5028,7 @@ func _style_quiz_feedback_label(
 func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
 		return {}
-	var question_holder := _quiz_question_label.get_parent() as Control
+	var question_holder := COMPOSITED_FADE.layout_parent(_quiz_question_label)
 	if question_holder == null or !is_instance_valid(question_holder):
 		return {}
 
@@ -5040,7 +5038,7 @@ func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 	feedback_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	question_holder.add_child(feedback_root)
 	feedback_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	feedback_root.z_index = _quiz_question_label.z_index + 1
+	feedback_root.z_index = COMPOSITED_FADE.wrap(_quiz_question_label).z_index + 1
 
 	var feedback_label := Label.new()
 	feedback_label.name = "QuizCorrectFeedbackLabel"
@@ -5058,19 +5056,22 @@ func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 		PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR,
 		true
 	)
-	feedback_root.add_child(feedback_label)
+	var feedback_fade := COMPOSITED_FADE.new()
+	feedback_fade.name = "QuizCorrectFeedbackFade"
+	feedback_root.add_child(feedback_fade)
+	feedback_fade.add_visual(feedback_label)
 	feedback_label.pivot_offset = feedback_label.size * 0.5
 	feedback_label.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE
 
 	var reward_source: Control = null
 	var reward_row: Control = null
 	if has_speed_reward:
-		reward_row = Control.new()
+		reward_row = COMPOSITED_FADE.new()
 		reward_row.name = "QuizFastAnswerReward"
 		reward_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		reward_row.position = Vector2((feedback_root.size.x - 96.0) * 0.5, 108.0)
 		reward_row.size = Vector2(96.0, 48.0)
-		reward_row.modulate.a = 0.0
+		reward_row.set("opacity", 0.0)
 		feedback_root.add_child(reward_row)
 
 		var reward_amount_label := Label.new()
@@ -5083,7 +5084,7 @@ func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 		# outline/extrusion as ordinary button captions.
 		reward_amount_label.add_theme_font_override("font", UI_BUTTON_FONT)
 		BUTTON_TEXT_STYLE_SCRIPT.apply_display(reward_amount_label)
-		reward_row.add_child(reward_amount_label)
+		reward_row.add_visual(reward_amount_label)
 
 		var reward_icon_holder := Control.new()
 		reward_icon_holder.name = "QuizFastAnswerStarHolder"
@@ -5091,7 +5092,7 @@ func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 		reward_icon_holder.position = Vector2(52.0, 3.0)
 		reward_icon_holder.size = Vector2.ONE * PORTRAIT_QUIZ_FAST_REWARD_ICON_SIZE
 		reward_icon_holder.z_index = 1
-		reward_row.add_child(reward_icon_holder)
+		reward_row.add_visual(reward_icon_holder)
 		var reward_icon := _add_portrait_icon_with_extrusion_to_holder(
 			reward_icon_holder,
 			STAR_CURRENCY_TEXTURE,
@@ -5105,6 +5106,7 @@ func _create_quiz_correct_feedback(speed_tier: int) -> Dictionary:
 	return {
 		"root": feedback_root,
 		"feedback_label": feedback_label,
+		"feedback_fade": feedback_fade,
 		"reward_row": reward_row,
 		"reward_source": reward_source,
 	}
@@ -5172,7 +5174,7 @@ func _finish_quiz_correct_question_feedback(
 		return
 
 	_quiz_question_label.visible = true
-	_quiz_question_label.modulate = Color.WHITE
+	COMPOSITED_FADE.set_opacity(_quiz_question_label, 1.0)
 	if speed_tier != PORTRAIT_QUIZ_SPEED_NONE:
 		_play_quiz_fast_answer_star_collection(
 			reward_source,
@@ -5192,6 +5194,7 @@ func _play_quiz_correct_question_feedback(
 	var feedback: Dictionary = _create_quiz_correct_feedback(speed_tier)
 	var feedback_root := feedback.get("root") as Control
 	var feedback_label := feedback.get("feedback_label") as Label
+	var feedback_fade := feedback.get("feedback_fade") as Control
 	var reward_row := feedback.get("reward_row") as Control
 	var reward_source := feedback.get("reward_source") as Control
 	if (
@@ -5229,7 +5232,7 @@ func _play_quiz_correct_question_feedback(
 	if reward_row != null and is_instance_valid(reward_row):
 		var reward_fade := feedback_tween.tween_property(
 			reward_row,
-			"modulate:a",
+			"opacity",
 			1.0,
 			PORTRAIT_QUIZ_FAST_REWARD_FADE_DURATION
 		)
@@ -5249,7 +5252,7 @@ func _play_quiz_correct_question_feedback(
 	# Keep this label transparent until both feedback elements have faded out.
 	# Replace its text before the following fade-in starts.
 	_quiz_question_label.visible = true
-	_quiz_question_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	COMPOSITED_FADE.set_opacity(_quiz_question_label, 0.0)
 	var exit_hide := feedback_tween.tween_property(
 		feedback_label,
 		"scale",
@@ -5259,8 +5262,8 @@ func _play_quiz_correct_question_feedback(
 	exit_hide.set_trans(Tween.TRANS_BACK)
 	exit_hide.set_ease(Tween.EASE_IN)
 	var feedback_exit_fade := feedback_tween.parallel().tween_property(
-		feedback_label,
-		"modulate:a",
+		feedback_fade,
+		"opacity",
 		0.0,
 		PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
 	)
@@ -5269,7 +5272,7 @@ func _play_quiz_correct_question_feedback(
 	if reward_row != null and is_instance_valid(reward_row):
 		var reward_exit_fade := feedback_tween.parallel().tween_property(
 			reward_row,
-			"modulate:a",
+			"opacity",
 			0.0,
 			PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
 		)
@@ -5279,8 +5282,8 @@ func _play_quiz_correct_question_feedback(
 	# Continue still waits for any subsequent star collection to finish.
 	feedback_tween.tween_callback(Callable(self, "_set_quiz_answer_explanation"))
 	var question_restore := feedback_tween.tween_property(
-		_quiz_question_label,
-		"modulate:a",
+		COMPOSITED_FADE.branch(_quiz_question_label),
+		"opacity",
 		1.0,
 		PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION
 	)
@@ -5299,7 +5302,7 @@ func _play_quiz_correct_question_feedback(
 func _create_quiz_wrong_feedback() -> Dictionary:
 	if _quiz_question_label == null or !is_instance_valid(_quiz_question_label):
 		return {}
-	var question_holder := _quiz_question_label.get_parent() as Control
+	var question_holder := COMPOSITED_FADE.layout_parent(_quiz_question_label)
 	if question_holder == null or !is_instance_valid(question_holder):
 		return {}
 
@@ -5309,16 +5312,16 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	feedback_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	question_holder.add_child(feedback_root)
 	feedback_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	feedback_root.z_index = _quiz_question_label.z_index + 1
+	feedback_root.z_index = COMPOSITED_FADE.wrap(_quiz_question_label).z_index + 1
 
-	var feedback_visual := Control.new()
+	var feedback_visual := COMPOSITED_FADE.new()
 	feedback_visual.name = "QuizWrongFeedbackVisual"
 	feedback_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	feedback_visual.size = Vector2(132.0, 72.0)
 	feedback_visual.position = (feedback_root.size - feedback_visual.size) * 0.5
 	feedback_visual.pivot_offset = feedback_visual.size * 0.5
 	feedback_visual.scale = PORTRAIT_QUIZ_FEEDBACK_START_SCALE
-	feedback_visual.modulate.a = 0.0
+	feedback_visual.opacity = 0.0
 	feedback_root.add_child(feedback_visual)
 
 	var loss_label := Label.new()
@@ -5329,7 +5332,7 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	loss_label.text = "-1"
 	_style_quiz_feedback_label(loss_label, 42, Color.WHITE)
 	loss_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	feedback_visual.add_child(loss_label)
+	feedback_visual.add_visual(loss_label)
 
 	var heart_holder := Control.new()
 	heart_holder.name = "QuizWrongHeartHolder"
@@ -5337,7 +5340,7 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	heart_holder.position = Vector2(70.0, 8.0)
 	heart_holder.size = Vector2.ONE * 56.0
 	heart_holder.z_index = 1
-	feedback_visual.add_child(heart_holder)
+	feedback_visual.add_visual(heart_holder)
 	var heart_icon := _add_portrait_icon_with_extrusion_to_holder(
 		heart_holder,
 		LIFE_HEART_ICON_TEXTURE,
@@ -5359,7 +5362,7 @@ func _finish_quiz_wrong_question_feedback(feedback_root: Control) -> void:
 		and is_instance_valid(_quiz_question_label)
 	):
 		_quiz_question_label.visible = true
-		_quiz_question_label.modulate = Color.WHITE
+		COMPOSITED_FADE.set_opacity(_quiz_question_label, 1.0)
 		_show_quiz_continue_button(true)
 	if feedback_root != null and is_instance_valid(feedback_root):
 		feedback_root.queue_free()
@@ -5376,7 +5379,7 @@ func _play_quiz_wrong_question_feedback() -> void:
 	):
 		if _quiz_question_label != null and is_instance_valid(_quiz_question_label):
 			_quiz_question_label.visible = true
-			_quiz_question_label.modulate = Color.WHITE
+			COMPOSITED_FADE.set_opacity(_quiz_question_label, 1.0)
 		_show_quiz_continue_button(true)
 		return
 
@@ -5392,7 +5395,7 @@ func _play_quiz_wrong_question_feedback() -> void:
 	grow.set_ease(Tween.EASE_OUT)
 	var fade_in := feedback_tween.parallel().tween_property(
 		feedback_visual,
-		"modulate:a",
+		"opacity",
 		1.0,
 		PORTRAIT_QUIZ_FEEDBACK_GROW_DURATION
 	)
@@ -5416,7 +5419,7 @@ func _play_quiz_wrong_question_feedback() -> void:
 	exit_grow.set_trans(Tween.TRANS_QUAD)
 	exit_grow.set_ease(Tween.EASE_OUT)
 	_quiz_question_label.visible = true
-	_quiz_question_label.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	COMPOSITED_FADE.set_opacity(_quiz_question_label, 0.0)
 	var exit_hide := feedback_tween.tween_property(
 		feedback_visual,
 		"scale",
@@ -5427,7 +5430,7 @@ func _play_quiz_wrong_question_feedback() -> void:
 	exit_hide.set_ease(Tween.EASE_IN)
 	var exit_fade := feedback_tween.parallel().tween_property(
 		feedback_visual,
-		"modulate:a",
+		"opacity",
 		0.0,
 		PORTRAIT_QUIZ_FEEDBACK_EXIT_HIDE_DURATION
 	)
@@ -5437,8 +5440,8 @@ func _play_quiz_wrong_question_feedback() -> void:
 	# Continue still waits for any subsequent star collection to finish.
 	feedback_tween.tween_callback(Callable(self, "_set_quiz_answer_explanation"))
 	var question_restore := feedback_tween.tween_property(
-		_quiz_question_label,
-		"modulate:a",
+		COMPOSITED_FADE.branch(_quiz_question_label),
+		"opacity",
 		1.0,
 		PORTRAIT_QUIZ_QUESTION_RESTORE_FADE_DURATION
 	)
@@ -6106,7 +6109,7 @@ func _refresh_quiz_question_in_place() -> bool:
 		"font_size",
 		_quiz_question_font_size(question_text)
 	)
-	_quiz_question_label.modulate = Color.WHITE
+	COMPOSITED_FADE.set_opacity(_quiz_question_label, 1.0)
 
 	for answer_index in range(visible_answer_count):
 		var answer_button := _quiz_answer_buttons[answer_index] as Button
@@ -6118,7 +6121,7 @@ func _refresh_quiz_question_in_place() -> bool:
 		answer_button.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	_quiz_continue_button.visible = false
-	_quiz_continue_button.modulate.a = 1.0
+	COMPOSITED_FADE.set_opacity(_quiz_continue_button, 1.0)
 	_quiz_continue_button.set("attention_bounce_enabled", false)
 	for hint_button: Control in _quiz_hint_buttons:
 		if hint_button == null or !is_instance_valid(hint_button):
@@ -6197,7 +6200,7 @@ func _finish_quiz_fifty_fifty_removal(button: Button, shadow_panel: Panel) -> vo
 	if button != null and is_instance_valid(button):
 		button.scale = Vector2.ONE
 		button.visible = false
-		button.modulate.a = 1.0
+		COMPOSITED_FADE.set_opacity(button, 1.0)
 	if shadow_panel != null and is_instance_valid(shadow_panel):
 		shadow_panel.scale = Vector2.ONE
 		shadow_panel.visible = false
@@ -6207,7 +6210,7 @@ func _play_quiz_fifty_fifty_removal(button: Button) -> void:
 	if button == null or !is_instance_valid(button):
 		return
 	button.disabled = true
-	button.modulate.a = 1.0
+	COMPOSITED_FADE.set_opacity(button, 1.0)
 	button.pivot_offset = button.size * 0.5
 	var shadow_panel := _quiz_answer_shadow(button)
 	if shadow_panel != null and is_instance_valid(shadow_panel):
@@ -6235,7 +6238,7 @@ func _play_quiz_fifty_fifty_removal(button: Button) -> void:
 	var vanish := tween.tween_property(button, "scale", Vector2.ONE * 0.90, 0.23)
 	vanish.set_trans(Tween.TRANS_QUAD)
 	vanish.set_ease(Tween.EASE_IN)
-	var face_fade := tween.parallel().tween_property(button, "modulate:a", 0.0, 0.23)
+	var face_fade := tween.parallel().tween_property(COMPOSITED_FADE.branch(button), "opacity", 0.0, 0.23)
 	face_fade.set_trans(Tween.TRANS_SINE)
 	face_fade.set_ease(Tween.EASE_IN)
 	tween.finished.connect(
@@ -6485,8 +6488,7 @@ func _on_quiz_replace_question_pressed() -> void:
 	outgoing.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	outgoing.set_parallel(true)
 	var question_fade_out := outgoing.tween_property(
-		_quiz_question_label,
-		"modulate:a",
+		COMPOSITED_FADE.branch(_quiz_question_label), "opacity",
 		0.0,
 		0.20
 	)
@@ -6533,7 +6535,7 @@ func _on_quiz_replace_question_pressed() -> void:
 		"font_size",
 		_quiz_question_font_size(new_question_text)
 	)
-	_quiz_question_label.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(_quiz_question_label, 0.0)
 
 	var answers_variant: Variant = _quiz_current_question.get("answers", [])
 	var answers: Array = Array(answers_variant) if answers_variant is Array else []
@@ -6556,8 +6558,7 @@ func _on_quiz_replace_question_pressed() -> void:
 	incoming.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	incoming.set_parallel(true)
 	var question_fade_in := incoming.tween_property(
-		_quiz_question_label,
-		"modulate:a",
+		COMPOSITED_FADE.branch(_quiz_question_label), "opacity",
 		1.0,
 		0.24
 	)
@@ -6694,9 +6695,9 @@ func _prepare_quiz_screen_entrance(
 	if question_panel != null and is_instance_valid(question_panel):
 		question_panel.set_meta(&"quiz_entrance_rest_y", question_panel.position.y)
 		question_panel.position.y -= panel_offset
-		question_panel.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(question_panel, 0.0)
 	if question_label != null and is_instance_valid(question_label):
-		question_label.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(question_label, 0.0)
 
 	for answer_control: Control in _quiz_answer_buttons:
 		var answer_button := answer_control as Button
@@ -6787,8 +6788,7 @@ func _play_quiz_screen_entrance(
 			PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION
 		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		content_tween.tween_property(
-			question_panel,
-			"modulate:a",
+			COMPOSITED_FADE.branch(question_panel), "opacity",
 			1.0,
 			PORTRAIT_QUIZ_ENTRANCE_PANEL_DURATION
 		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -6835,8 +6835,7 @@ func _play_quiz_screen_entrance(
 		var question_tween := question_label.create_tween()
 		question_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		var question_fade := question_tween.tween_property(
-			question_label,
-			"modulate:a",
+			COMPOSITED_FADE.branch(question_label), "opacity",
 			1.0,
 			PORTRAIT_QUIZ_ENTRANCE_QUESTION_FADE_DURATION
 		)
@@ -12749,8 +12748,8 @@ func _reveal_level_summary_open_chest(
 		var amount_tween := amount_label.create_tween()
 		amount_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		amount_tween.tween_property(
-			amount_label,
-			"modulate:a",
+			COMPOSITED_FADE.wrap(amount_label),
+			"opacity",
 			1.0,
 			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 		)
@@ -12992,7 +12991,7 @@ func _play_level_star_award_panel_bounce(
 		# the same frame as the main reward artwork swap, then it simply settles
 		# down to normal size while fading in -- no introductory bounce.
 		panel.scale = Vector2.ONE * PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE
-		panel.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(panel, 0.0)
 		if peak_callback.is_valid():
 			peak_callback.call()
 		var reveal_tween := panel.create_tween()
@@ -13007,8 +13006,7 @@ func _play_level_star_award_panel_bounce(
 		reveal_scale.set_trans(Tween.TRANS_SINE)
 		reveal_scale.set_ease(Tween.EASE_OUT)
 		var reveal_alpha := reveal_tween.tween_property(
-			panel,
-			"modulate:a",
+			COMPOSITED_FADE.branch(panel), "opacity",
 			1.0,
 			PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
 		)
@@ -13020,7 +13018,7 @@ func _play_level_star_award_panel_bounce(
 		return
 
 	panel.scale = Vector2.ONE
-	panel.modulate.a = 1.0
+	COMPOSITED_FADE.set_opacity(panel, 1.0)
 	var grow_tween := panel.create_tween()
 	grow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var grow := grow_tween.tween_property(
@@ -13179,8 +13177,7 @@ func _reset_level_star_award_panel_after_source_empty(star_panel: Control) -> vo
 	settle.set_trans(Tween.TRANS_SINE)
 	settle.set_ease(Tween.EASE_OUT)
 	var fade := settle_tween.tween_property(
-		star_panel,
-		"modulate:a",
+		COMPOSITED_FADE.branch(star_panel), "opacity",
 		0.0,
 		PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION
 	)
@@ -13260,12 +13257,11 @@ func _finish_level_summary_star_award(
 	# In the normal payout path the plaque has already faded while settling from
 	# its bounce peak. Do not add a second shrink/fade after the flying stars land.
 	# Keep a short fallback fade for any path that reaches here without that settle.
-	if star_panel.modulate.a > 0.001:
+	if COMPOSITED_FADE.get_opacity(star_panel) > 0.001:
 		var hide_tween := star_panel.create_tween()
 		hide_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		var fade := hide_tween.tween_property(
-			star_panel,
-			"modulate:a",
+			COMPOSITED_FADE.branch(star_panel), "opacity",
 			0.0,
 			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 		)
@@ -13283,12 +13279,11 @@ func _start_level_theme_progress_reveal(theme_progress: Control) -> void:
 		return
 	theme_progress.set_meta(&"theme_progress_reveal_started", true)
 	theme_progress.visible = true
-	theme_progress.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(theme_progress, 0.0)
 	var reveal_tween := theme_progress.create_tween()
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var fade := reveal_tween.tween_property(
-		theme_progress,
-		"modulate:a",
+		COMPOSITED_FADE.branch(theme_progress), "opacity",
 		1.0,
 		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 	)
@@ -13320,7 +13315,7 @@ func _show_level_theme_progress_then_actions(
 	# the button has finished its reveal/back-bounce animation, so the two focal
 	# animations no longer compete for attention.
 	theme_progress.visible = false
-	theme_progress.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(theme_progress, 0.0)
 	if actions_reveal_callback.is_valid():
 		actions_reveal_callback.call()
 	# On ad-enabled reward screens, show theme progress at the same moment as
@@ -13342,8 +13337,7 @@ func _show_level_theme_progress_then_actions(
 	var reveal_tween := theme_progress.create_tween()
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var fade := reveal_tween.tween_property(
-		theme_progress,
-		"modulate:a",
+		COMPOSITED_FADE.branch(theme_progress), "opacity",
 		1.0,
 		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 	)
@@ -13570,7 +13564,7 @@ func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
 	var fill_material := fill_panel.material as ShaderMaterial
 	fill_material.set_shader_parameter("fill_size", fill_panel.size)
 	fill_mask.visible = ratio > 0.0
-	var count := holder.get_node("UnlockCount") as Label
+	var count := holder.find_child("UnlockCount", true, false) as Label
 	count.text = "%d / %d" % [int(round(value)), int(bar.max_value)]
 
 func _ensure_theme_unlock_glow(holder: Control) -> Control:
@@ -13628,9 +13622,9 @@ func _animate_theme_unlock_progress(
 		return
 	var bar := holder.get_node("UnlockBar") as ProgressBar
 	_set_theme_unlock_bar_value(bar.max_value, holder)
-	var title := holder.get_node("UnlockTitle") as Label
+	var title := holder.find_child("UnlockTitle", true, false) as Label
 	title.hide()
-	var count := holder.get_node("UnlockCount") as Label
+	var count := holder.find_child("UnlockCount", true, false) as Label
 	var caption_area_width: float = count.size.x
 	count.text = tr("NEW_THEME_UNLOCKED")
 	var caption_width: float = UI_DISPLAY_FONT.get_string_size(count.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20).x
@@ -13890,6 +13884,7 @@ func _stage_single_player_reward_count(
 		font_size,
 		int(round(float(PORTRAIT_SINGLE_REWARD_CHAIN_COUNT_MIN_FONT_SIZE) * 1.20))
 	)
+	COMPOSITED_FADE.wrap(count_label)
 	return count_label
 
 func _control_center_in_control_space(source: Control, target_space: Control) -> Vector2:
@@ -14408,7 +14403,8 @@ func _start_single_player_reward_claim_animation_deferred(
 	# as the checkmark starts appearing, dim both and keep them dimmed: the
 	# checkmark marks the reward as permanently claimed.
 	resource_visual.modulate.a = 1.0
-	count_visual.modulate.a = 1.0
+	var count_fade := COMPOSITED_FADE.wrap(count_visual)
+	count_fade.set("opacity", 1.0)
 
 	check_visual.pivot_offset = check_visual.size * 0.5
 	check_visual.modulate.a = 0.0
@@ -14426,8 +14422,8 @@ func _start_single_player_reward_claim_animation_deferred(
 	resource_dim.set_trans(Tween.TRANS_QUAD)
 	resource_dim.set_ease(Tween.EASE_OUT)
 	var count_dim := check_tween.parallel().tween_property(
-		count_visual,
-		"modulate:a",
+		count_fade,
+		"opacity",
 		PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA,
 		0.08
 	)
@@ -14464,17 +14460,16 @@ func _reveal_single_player_reward_continue_button(continue_button: Control) -> v
 	) as Control
 	if paired_back_button != null and is_instance_valid(paired_back_button):
 		paired_back_button.visible = true
-		paired_back_button.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(paired_back_button, 0.0)
 		paired_back_button.set("disabled", false)
 		paired_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
 		_portrait_back_button_visible = true
 	var button_tween := continue_button.create_tween()
 	button_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	button_tween.tween_property(continue_button, "modulate:a", 1.0, 0.12)
+	button_tween.tween_property(COMPOSITED_FADE.branch(continue_button), "opacity", 1.0, 0.12)
 	if paired_back_button != null and is_instance_valid(paired_back_button):
 		button_tween.parallel().tween_property(
-			paired_back_button,
-			"modulate:a",
+			COMPOSITED_FADE.branch(paired_back_button), "opacity",
 			1.0,
 			0.12
 		)
@@ -14533,9 +14528,9 @@ func _start_single_player_reward_intro_deferred(
 	if reward_body == null or !is_instance_valid(reward_body) or !reward_body.is_inside_tree():
 		return
 	if hud_content != null and is_instance_valid(hud_content):
-		hud_content.modulate.a = 1.0 if skip_title_intro else 0.0
+		COMPOSITED_FADE.set_opacity(hud_content, 1.0 if skip_title_intro else 0.0)
 	if continue_button != null and is_instance_valid(continue_button):
-		continue_button.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(continue_button, 0.0)
 		continue_button.set("visual_scale", Vector2.ONE * 0.94)
 		continue_button.set("attention_bounce_enabled", false)
 		continue_button.set("disabled", true)
@@ -14546,16 +14541,16 @@ func _start_single_player_reward_intro_deferred(
 		# whole-level summary in its finished layout immediately: no repeated title
 		# motion, no chain flash and no extra body fade between the two screens.
 		title_block.set("stage_rect", PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT)
-		title_block.modulate.a = 1.0
+		COMPOSITED_FADE.set_opacity(title_block, 1.0)
 		title_visual.scale = Vector2.ONE
 		_set_single_player_reward_hero_mask_from_title_rect(
 			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT,
 			hero_mask,
 			hero_texture
 		)
-		reward_body.modulate.a = 1.0
+		COMPOSITED_FADE.set_opacity(reward_body, 1.0)
 		if hud_content != null and is_instance_valid(hud_content):
-			hud_content.modulate.a = 1.0
+			COMPOSITED_FADE.set_opacity(hud_content, 1.0)
 		if completion_callback.is_valid():
 			completion_callback.call()
 		elif animate_claim:
@@ -14583,7 +14578,7 @@ func _start_single_player_reward_intro_deferred(
 				_reveal_single_player_reward_continue_button(continue_button)
 		return
 	else:
-		title_block.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(title_block, 0.0)
 		title_visual.scale = Vector2.ONE * PORTRAIT_SINGLE_REWARD_TITLE_START_SCALE
 		title_block.set("stage_rect", PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_CENTER_RECT)
 		_set_single_player_reward_hero_mask_from_title_rect(
@@ -14594,8 +14589,7 @@ func _start_single_player_reward_intro_deferred(
 		var title_tween := title_visual.create_tween()
 		title_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		title_tween.tween_property(
-			title_block,
-			"modulate:a",
+			COMPOSITED_FADE.branch(title_block), "opacity",
 			1.0,
 			PORTRAIT_SINGLE_REWARD_TITLE_GROW_DURATION
 		)
@@ -14644,15 +14638,13 @@ func _start_single_player_reward_intro_deferred(
 	var body_tween := reward_body.create_tween()
 	body_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	body_tween.tween_property(
-		reward_body,
-		"modulate:a",
+		COMPOSITED_FADE.branch(reward_body), "opacity",
 		1.0,
 		PORTRAIT_SINGLE_REWARD_BODY_FADE_DURATION
 	)
 	if hud_content != null and is_instance_valid(hud_content):
 		body_tween.parallel().tween_property(
-			hud_content,
-			"modulate:a",
+			COMPOSITED_FADE.branch(hud_content), "opacity",
 			1.0,
 			PORTRAIT_SINGLE_REWARD_BODY_FADE_DURATION
 		)
@@ -16438,7 +16430,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			# Future rewards stay white.
 			resource_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
 			if count_visual != null and is_instance_valid(count_visual):
-				count_visual.modulate.a = PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA
+				COMPOSITED_FADE.wrap(count_visual).set("opacity", PORTRAIT_SINGLE_REWARD_CHECK_COIN_DIM_ALPHA)
 		if is_current:
 			current_reward_resource_visual = resource_visual
 			current_reward_count_visual = count_visual
@@ -16513,6 +16505,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		BUTTON_TEXT_STYLE_SCRIPT.apply_display(completion_amount_label)
 		completion_amount_label.modulate.a = 0.0
 		completion_amount_label.z_index = 24
+		COMPOSITED_FADE.wrap(completion_amount_label)
 
 		var star_award_panel: Control = null
 		var theme_unlock_progress_control: Control = null

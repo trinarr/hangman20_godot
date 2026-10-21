@@ -185,6 +185,8 @@ func _sync_visual_child_scales() -> void:
 			# icon shrink as one unit while the clickable area stays unchanged.
 			visual_child.pivot_offset = visual_center - visual_child.position
 			visual_child.scale = visual_scale
+			if visual_child.has_method("_prepare_visual"):
+				visual_child.call("_prepare_visual", visual_child.get("_layout_root"))
 
 func _ensure_attention_shine() -> void:
 	if _attention_shine_rect != null and is_instance_valid(_attention_shine_rect):

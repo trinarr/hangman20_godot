@@ -1,4 +1,5 @@
 extends CanvasLayer
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 
 signal finished
 
@@ -30,11 +31,11 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	_logo = logo
 	_header = header
 	if is_instance_valid(_header):
-		_header_opacity = _header.modulate.a
+		_header_opacity = FADE.get_opacity(_header)
 	_buttons = buttons
 	_action = action
 	for button: Control in _buttons:
-		_button_opacities.append(button.modulate.a)
+		_button_opacities.append(FADE.get_opacity(button))
 	var progress: float = _logo.call("prepare_reverse_departure")
 	var close_seconds: float = maxf(FADE_OUT_SECONDS,
 		float(_logo.get("reveal_duration")) / LOGO_SCRIPT.PEEL_SPEED_MULTIPLIER / PAPER_CLOSE_SPEED_MULTIPLIER * progress)
@@ -60,12 +61,12 @@ func _sync_layout() -> void:
 
 func _fade_foreground(opacity: float) -> void:
 	if is_instance_valid(_header):
-		_header.modulate.a = _header_opacity * opacity
+		FADE.set_opacity(_header, _header_opacity * opacity)
 	if is_instance_valid(_logo):
 		_logo.call("set_foreground_opacity", opacity)
 	for index: int in range(_buttons.size()):
 		if is_instance_valid(_buttons[index]):
-			_buttons[index].modulate.a = _button_opacities[index] * opacity
+			FADE.set_opacity(_buttons[index], _button_opacities[index] * opacity)
 
 func _navigate() -> void:
 	if _navigated:

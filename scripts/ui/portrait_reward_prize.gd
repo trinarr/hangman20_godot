@@ -1,4 +1,5 @@
 extends "res://scripts/ui/portrait_presentation.gd"
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 ## Shared coin-prize visuals. Economy, advertisements and navigation stay outside.
 
 var UI_REGULAR_FONT: Font = UI_FONTS.regular_font()
@@ -245,8 +246,7 @@ func _reveal_final_reward_collect_action(
 	var reveal_tween := _tween(collect_holder)
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	reveal_tween.tween_property(
-		collect_holder,
-		"modulate:a",
+		FADE.branch(collect_holder), "opacity",
 		1.0,
 		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 	)
@@ -264,8 +264,7 @@ func _reveal_final_reward_actions(
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	reveal_tween.set_parallel(true)
 	reveal_tween.tween_property(
-		double_button,
-		"modulate:a",
+		FADE.branch(double_button), "opacity",
 		1.0,
 		PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 	)
@@ -447,7 +446,7 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 	button.set("trailing_icon_stage_size", PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_BONUS_COIN_SIZE)
 	button.set("trailing_icon_gap_stage", 6.0)
 	button.set("trailing_icon_shadow_enabled", true)
-	var label := button.get_node_or_null("Text") as Label
+	var label := button.find_child("Text", true, false) as Label
 	if label != null and is_instance_valid(label):
 		label.visible = true
 		label.add_theme_font_override("font", UI_BUTTON_FONT)

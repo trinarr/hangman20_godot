@@ -63,10 +63,10 @@ func run() -> void:
 	check(avatar.has_node("AvatarPaperBackground") and avatar.frame_color == main.PORTRAIT_UI_PALETTE.BUTTON_BLUE, "New profile uses the blue frame and paper background")
 	check(avatar.size.is_equal_approx(main.PORTRAIT_HOME_AVATAR_RECT.size), "Shared appearance preserves the compact Home avatar bounds")
 	avatar.button_down.emit()
-	await get_tree().create_timer(0.07).timeout
+	await avatar._press_tween.finished
 	check(is_equal_approx(avatar.scale.x, 0.94) and avatar.pivot_offset == avatar.size * 0.5, "Avatar press shrinks around its center")
 	avatar.button_up.emit()
-	await get_tree().create_timer(0.18).timeout
+	await avatar._press_tween.finished
 	check(avatar.scale.is_equal_approx(Vector2.ONE), "Avatar release restores its scale")
 	var has_gear := false
 	for control in main._portrait_top_bar_content.find_children("*", "Control", true, false):
@@ -89,11 +89,15 @@ func run() -> void:
 	check(opening_home.get_parent() == main.ui and is_equal_approx(opening_home.modulate.a, 1.0), "Home remains intact underneath the new page")
 	main.show_leaderboard()
 	check(main._home_transition == opening_transition, "Repeated navigation cannot interrupt the opening fade")
-	await get_tree().create_timer(0.12).timeout
+	# Advance the fade deterministically; a slow frame can exceed its entire duration.
+	opening_transition._tween.pause()
+	opening_transition._tween.custom_step(0.12)
+	await get_tree().process_frame
 	check(opening_surface.modulate.a > 0.0 and opening_surface.modulate.a < 1.0, "New screen itself fades in")
 	check(opening_home.visible and is_equal_approx(opening_home.modulate.a, 1.0), "Home stays opaque until the new screen covers it")
 	check(is_equal_approx(opening_logo.get("_reveal_progress"), opening_progress), "Opening freezes Home paper instead of folding it")
 	check(!opening_logo.material.get_shader_parameter("reverse_departure"), "Opening does not enable reverse paper shader")
+	opening_transition._tween.play()
 	await get_tree().create_timer(0.3).timeout
 	check(is_instance_valid(main._portrait_profile), "Avatar opens profile screen")
 	check(!is_instance_valid(opening_home), "Home is removed after the new page is fully visible")
@@ -142,16 +146,16 @@ func run() -> void:
 	var surface_scale: float = editor._surface.scale.x * editor._surface.size.x / editor.FORM_SIZE.x
 	check(is_equal_approx(paper_unit * surface_scale, editor._initial_paper_unit), "Initial popup cells match the avatar cells")
 	editor._tween.custom_step(0.05)
-	check(is_equal_approx(editor._shell.modulate.a, 0.5) and is_zero_approx(editor._title.modulate.a), "Avatar frame fades from the start while the title waits for full popup size")
+	check(is_equal_approx(editor._shell.modulate.a, 0.5) and is_zero_approx(float(editor._title_fade.get("opacity"))), "Avatar frame fades from the start while the title waits for full popup size")
 	editor._tween.custom_step(0.05)
 	check(is_zero_approx(editor._shell.modulate.a), "Avatar frame disappears within the first tenth of a second")
 	editor._tween.custom_step(0.06)
-	check(editor._title.modulate.a > 0.0 and editor._title.modulate.a < 1.0, "Title fades in during the remaining popup bounce")
+	check(float(editor._title_fade.get("opacity")) > 0.0 and float(editor._title_fade.get("opacity")) < 1.0, "Title fades in during the remaining popup bounce")
 	check(!editor._portrait.visible and !editor.close_button.visible and !editor._opened, "Growth reveals the full character before the close icon appears")
 	editor._tween.custom_step(0.12)
 	await get_tree().create_timer(0.30).timeout
 	check(editor.close_button.visible and editor._close_holder.open_bounce_complete, "Standard close icon appears after the popup bounce finishes")
-	check(is_equal_approx(editor._title.modulate.a, 1.0), "Title is fully visible when the popup finishes opening")
+	check(is_equal_approx(float(editor._title_fade.get("opacity")), 1.0) and is_equal_approx(editor._title.modulate.a, 1.0), "Title is fully visible when the popup finishes opening")
 	check(editor._hero.bounds.size.y * editor._hero.body.scale.y <= 270.0 * 0.65 * 1.15 + 0.001, "Full-body preview grows fifteen percent from its reduced size")
 	check(is_instance_valid(editor) and editor._opened and editor.source == profile_avatar, "Avatar opens one expanding-paper editor")
 	check(editor._check_tween == null and editor._swatches[editor._selected_color_index].get_node("SelectionCheck").scale.is_equal_approx(Vector2.ONE), "Opening shows the selected check without an animation")
@@ -522,10 +526,10 @@ func run() -> void:
 	var departure: Tween = blue_transition.get("_tween")
 	departure.pause()
 	departure.custom_step(0.1)
-	check(!blue_transition.get("_navigated") and home_header.modulate.a < 1.0, "Blue departure starts hiding HUD before destination navigation")
-	check(is_equal_approx(home_header.modulate.a, home_button.modulate.a), "Blue departure fades HUD alongside Home buttons")
+	check(!blue_transition.get("_navigated") and main.COMPOSITED_FADE.get_opacity(home_header) < 1.0, "Blue departure starts hiding HUD before destination navigation")
+	check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(home_header), main.COMPOSITED_FADE.get_opacity(home_button)), "Blue departure fades HUD alongside Home buttons")
 	departure.custom_step(0.1)
-	check(is_zero_approx(home_header.modulate.a), "Blue departure hides the whole HUD by the end of the button fade")
+	check(is_zero_approx(main.COMPOSITED_FADE.get_opacity(home_header)), "Blue departure hides the whole HUD by the end of the button fade")
 	main._clear()
 	main.queue_free()
 	await settle()

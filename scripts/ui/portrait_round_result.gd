@@ -1,4 +1,5 @@
 extends "res://scripts/ui/portrait_presentation.gd"
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 ## In-place round result: solved word, marker, paper peel and result actions.
 ## The gameplay adapter supplies snapshots and handles rewards/navigation.
 
@@ -766,10 +767,10 @@ func _reveal_portrait_result_actions(
 	search_button.set("visual_scale", PORTRAIT_RESULT_SEARCH_START_VISUAL_SCALE)
 	if continue_button != null and is_instance_valid(continue_button) and continue_button.is_inside_tree():
 		continue_button.visible = true
-		continue_button.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		FADE.set_opacity(continue_button, 0.0)
 	if continue_text != null and is_instance_valid(continue_text) and continue_text.is_inside_tree():
 		continue_text.visible = true
-		continue_text.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		FADE.set_opacity(continue_text, 0.0)
 	var reveal_tween: Tween = _tween(search_button)
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	reveal_tween.set_parallel(true)
@@ -783,18 +784,14 @@ func _reveal_portrait_result_actions(
 	fade_tweener.set_ease(Tween.EASE_OUT)
 	if continue_button != null and is_instance_valid(continue_button) and continue_button.is_inside_tree():
 		var continue_fade_tweener: PropertyTweener = reveal_tween.tween_property(
-			continue_button,
-			"modulate",
-			Color.WHITE,
+			FADE.branch(continue_button), "opacity", 1.0,
 			PORTRAIT_RESULT_SEARCH_APPEAR_DURATION
 		)
 		continue_fade_tweener.set_trans(Tween.TRANS_SINE)
 		continue_fade_tweener.set_ease(Tween.EASE_OUT)
 	if continue_text != null and is_instance_valid(continue_text) and continue_text.is_inside_tree():
 		var continue_text_fade_tweener: PropertyTweener = reveal_tween.tween_property(
-			continue_text,
-			"modulate",
-			Color.WHITE,
+			FADE.branch(continue_text), "opacity", 1.0,
 			PORTRAIT_RESULT_SEARCH_APPEAR_DURATION
 		)
 		continue_text_fade_tweener.set_trans(Tween.TRANS_SINE)
@@ -953,7 +950,7 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 	result_continue_button = action_button
 	if attempt_collection_pending:
 		action_button.visible = false
-		action_button.modulate.a = 0.0
+		FADE.set_opacity(action_button, 0.0)
 		action_button.set("disabled", true)
 		action_button.set("attention_bounce_enabled", false)
 		return
@@ -962,16 +959,15 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 	action_button.set("attention_bounce_enabled", true)
 	if !animated:
 		action_button.visible = true
-		action_button.modulate.a = 1.0
+		FADE.set_opacity(action_button, 1.0)
 		return
 
 	action_button.visible = true
-	action_button.modulate.a = 0.0
+	FADE.set_opacity(action_button, 0.0)
 	var alpha_tween := _tween(action_button)
 	alpha_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	alpha_tween.tween_property(
-		action_button,
-		"modulate:a",
+		FADE.branch(action_button), "opacity",
 		1.0,
 		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
 	)
@@ -985,14 +981,13 @@ func _reveal_in_place_result_action_after_attempt_stars() -> void:
 	):
 		return
 	action_button.visible = true
-	action_button.modulate.a = 0.0
+	FADE.set_opacity(action_button, 0.0)
 	action_button.set("disabled", false)
 	action_button.set("attention_bounce_enabled", true)
 	var reveal_tween := _tween(action_button)
 	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var fade := reveal_tween.tween_property(
-		action_button,
-		"modulate:a",
+		FADE.branch(action_button), "opacity",
 		1.0,
 		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
 	)

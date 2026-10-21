@@ -1,4 +1,5 @@
 extends CanvasLayer
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 
 const TRANSITION_SHADER: Shader = preload("res://shaders/home_paper_transition.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
@@ -157,7 +158,7 @@ func _fade_logo(opacity: float) -> void:
 func _fade_buttons(opacity: float) -> void:
 	for button: Control in _buttons:
 		if is_instance_valid(button):
-			button.modulate.a = opacity
+			FADE.set_opacity(button, opacity)
 
 func _set_progress(progress: float) -> void:
 	_material.set_shader_parameter("progress", progress)

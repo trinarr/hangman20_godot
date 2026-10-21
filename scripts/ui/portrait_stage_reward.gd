@@ -77,6 +77,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 	BUTTON_TEXT_STYLE_SCRIPT.apply_display(amount_label)
 	amount_label.modulate.a = 0.0
 	amount_label.z_index = 21
+	FADE.wrap(amount_label)
 
 	var reward_content: Control = content
 	var bottom_group := Control.new()
@@ -257,13 +258,7 @@ func _replace_stage_reward(
 		0.0,
 		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
 	)
-	if source_count != null and is_instance_valid(source_count) and source_count.is_inside_tree():
-		replace_tween.parallel().tween_property(
-			source_count,
-			"modulate:a",
-			0.0,
-			PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
-		)
+	# The chain's opacity owner also fades its count; avoid a second alpha on it.
 	replace_tween.parallel().tween_property(
 		transition_pack,
 		"modulate:a",
@@ -271,8 +266,7 @@ func _replace_stage_reward(
 		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
 	)
 	replace_tween.parallel().tween_property(
-		chain_holder,
-		"modulate:a",
+		FADE.branch(chain_holder), "opacity",
 		0.0,
 		PORTRAIT_FINAL_REWARD_REPLACE_DURATION * 0.72
 	)
@@ -327,8 +321,8 @@ func _reveal_stage_reward(transition_pack: Control, glow: Control, amount_label:
 		)
 		if amount_label != null and is_instance_valid(amount_label):
 			reveal_tween.tween_property(
-				amount_label,
-				"modulate:a",
+				FADE.wrap(amount_label),
+				"opacity",
 				1.0,
 				PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
 			)

@@ -20,6 +20,7 @@ const RANDOM_ICON = preload("res://flash_assets/custom_word_random_doodle.png")
 const WORD_MARKER = preload("res://scripts/ui/portrait_round_result.gd")
 const PROFILE = preload("res://scripts/core/player_profile.gd")
 const TOAST = preload("res://scripts/ui/stage_toast.gd")
+const FADE = preload("res://scripts/ui/composited_fade.gd")
 const COLORS = PROFILE.FRAME_COLORS
 const FORM_SIZE := Vector2(424, 510)
 const FOOTER_HEIGHT := 16.0
@@ -61,6 +62,7 @@ var _footer: Panel
 var _paper: ColorRect
 var _portrait: TextureRect
 var _title: Label
+var _title_fade: Control
 var _form: Control
 var _hero_holder: Node2D
 var _hero: Node2D
@@ -187,6 +189,7 @@ func _ready() -> void:
 	_title.add_theme_color_override("font_color", Color.WHITE)
 	POPUP.BUTTON_TEXT_STYLE_SCRIPT.apply_display(_title)
 	_root.add_child(_title)
+	_title_fade = FADE.wrap(_title)
 	_close_holder = EditorStage.new()
 	_close_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_close_holder)
@@ -505,9 +508,10 @@ func _layout() -> void:
 		var crossing := clampf((-b + sqrt(maxf(0.0, b * b - 4.0 * a * (initial_ratio - 1.0)))) / (2.0 * a), 0.0, 1.0)
 		var reveal_start: float = CENTER.OPEN_GROW_DURATION * (1.0 - pow(1.0 - crossing, 1.0 / 3.0))
 		var open_duration: float = CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION
-		_title.modulate.a = clampf((_open_elapsed - reveal_start) / maxf(0.001, open_duration - reveal_start), 0.0, 1.0)
+		var title_opacity := clampf((_open_elapsed - reveal_start) / maxf(0.001, open_duration - reveal_start), 0.0, 1.0)
 		if _closing:
-			_title.modulate.a *= _progress
+			title_opacity *= _progress
+		_title_fade.set("opacity", title_opacity)
 		_title.visible = _prepared
 		_title.scale = Vector2.ONE * current_scale
 		_title.position = _header.position + Vector2(16, -33) * current_scale
