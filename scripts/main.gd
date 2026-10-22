@@ -1940,7 +1940,6 @@ func _decline_single_player_extra_attempt() -> void:
 
 func _return_to_single_player_last_chance_from_coin_store() -> void:
 	show_game_screen()
-	call_deferred("_show_single_player_last_chance_popup", false)
 
 func _close_single_player_retry_popup() -> void:
 	single_player_retry_after_loss = false

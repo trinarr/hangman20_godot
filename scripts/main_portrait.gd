@@ -3919,8 +3919,6 @@ func _home_profile_resume_saved_single_player_level() -> void:
 				and GameSession.restore_from_save_data(Dictionary(word_data_variant))
 			):
 				show_game_screen()
-				if GameSession.has_deferred_loss():
-					call_deferred("_show_single_player_last_chance_popup", false)
 				return
 		"quiz":
 			var quiz_data_variant: Variant = session.get("data", {})
@@ -10072,6 +10070,10 @@ func _home_profile_show_game_screen() -> void:
 	# animation. Regular GameSession.changed rebuilds must stay visually stable.
 	_portrait_game_entrance_pending = !game_finished
 	super.show_game_screen()
+	# Home navigation can defer construction of this page. Restore the required
+	# last-chance decision here, after _clear(), so navigation cannot delete it.
+	if GameSession.has_deferred_loss():
+		call_deferred("_show_single_player_last_chance_popup", false)
 	call_deferred("_show_user_consent_on_single_player_word_if_needed")
 
 func _show_user_consent_on_single_player_word_if_needed() -> void:
