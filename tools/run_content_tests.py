@@ -18,6 +18,7 @@ SUITES = {
     "profile_statistics": (True, r"PROFILE_STATISTICS checks=[1-9]\d* failures=0"),
     "home_tournament": (True, r"HOME_TOURNAMENT checks=[1-9]\d* failures=0"),
     "tournament": (True, r"TOURNAMENT checks=[1-9]\d* failures=0"),
+    "tournament_finish_popup": (True, r"TOURNAMENT_FINISH_POPUP checks=[1-9]\d* failures=0"),
     "tournament_ui": (True, r"TOURNAMENT_UI checks=[1-9]\d* failures=0"),
     "leaderboard_local_fillers": (True, r"LEADERBOARD_LOCAL_FILLERS checks=[1-9]\d* failures=0"),
     "profile_ui": (True, r"PROFILE_UI checks=[1-9]\d* failures=0"),

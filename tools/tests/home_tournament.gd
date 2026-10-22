@@ -43,6 +43,7 @@ func run() -> void:
 	check(trophy.size == Vector2(72, 72) and trophy.position == Vector2(14, 14), "Trophy retains enlarged size and is raised by five units")
 	check(button._lock.size.is_equal_approx(Vector2(34.32, 40.56)) and is_equal_approx(button._lock.position.y, trophy.position.y - 10) and is_equal_approx(button._lock.get_rect().end.x, trophy.get_rect().end.x + 3), "Enlarged lock is ten units above and three units right of trophy corner")
 	check(button._lock_shadows.size() == 4 and button._lock_shadows[0].visible, "Locked trophy has shader shadows")
+	check(!button._rank.visible, "Locked shortcut hides player rank")
 	var down := InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT
 	down.pressed = true
@@ -69,6 +70,17 @@ func run() -> void:
 	check(GameState.start_tournament(), "Unlocked user can explicitly join")
 	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
 	check(button.caption.text == "08:00:00", "Active tournament updates shortcut immediately")
+	check(button._rank.visible and button._rank.text == "#1", "Active tournament immediately shows current player rank")
+	check(button._rank.get_rect().get_center().is_equal_approx(button.LOCK_RECT.get_center() + Vector2(0, 5)), "Rank sits five units below locked icon center")
+	check(button._rank.get_theme_color("font_color") == Color.WHITE and button._rank.has_node("DisplayTextShaderEffect"), "Rank uses white text with shared shader style")
+	for opponent: Dictionary in GameState.tournament_state.opponents:
+		opponent.events = [{"at": 0, "stars": 10}]
+	button._timer.timeout.emit()
+	check(button._rank.text == "#10", "Timer refresh tracks changing standings")
+	check(button._rank.get_theme_font("font").get_string_size(button._rank.text, HORIZONTAL_ALIGNMENT_LEFT, -1, button._rank.get_theme_font_size("font_size")).x <= button._rank.size.x, "Two-digit rank fits without clipping")
+	GameState.tournament_state.player_stars = 11
+	GameState.tournament_changed.emit()
+	check(button._rank.text == "#1", "Tournament changes immediately refresh player rank")
 	now += 3601
 	button.refresh()
 	check(button.caption.text == "06:59:59", "Shortcut timer uses saved tournament deadline")
@@ -77,6 +89,7 @@ func run() -> void:
 	now = int(GameState.tournament_state.ends_at)
 	button.refresh()
 	check(button.caption.text == "TOURNAMENT", "Expired tournament restores title")
+	check(!button._rank.visible, "Expired tournament hides player rank")
 	button.pressed.emit()
 	check(is_instance_valid(main._home_transition), "Unlocked tap starts existing whole-page transition")
 	await get_tree().create_timer(0.4).timeout

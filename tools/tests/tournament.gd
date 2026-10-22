@@ -113,8 +113,38 @@ func test_roster(config: Dictionary) -> void:
 	state.version = 3
 	check(MODEL.normalize(state).is_empty(), "Future tournament versions are not overwritten")
 
+func test_start_delay(config: Dictionary) -> void:
+	for delay: int in [int(config.opponent_start_delay_seconds), 90]:
+		var settings := config.duplicate(true)
+		settings.opponent_start_delay_seconds = delay
+		var reached_boundary := false
+		for seed_value in range(100):
+			var state := MODEL.create(now, "ru", settings, seed_value)
+			var valid_times := true
+			for opponent: Dictionary in state.opponents:
+				for event: Dictionary in opponent.events:
+					valid_times = valid_times and int(event.at) >= delay and int(event.at) <= int(settings.duration_seconds)
+					reached_boundary = reached_boundary or int(event.at) == delay
+			check(valid_times, "Every bot event respects the configured start delay and deadline")
+			for elapsed: int in [0, delay - 1]:
+				var all_zero := true
+				for row: Dictionary in MODEL.standings(state, now + elapsed):
+					all_zero = all_zero and int(row.stars) == 0
+				check(all_zero, "Bots have no stars before the start delay expires")
+			var restored := MODEL.normalize(JSON.parse_string(JSON.stringify(state)))
+			check(restored.opponents == state.opponents, "Reload preserves the start delay schedule")
+			check(MODEL.standings(restored, now + delay) == MODEL.standings(state, now + delay), "Reload preserves standings at the start boundary")
+			for opponent: Dictionary in state.opponents:
+				var first: Dictionary = opponent.events[0]
+				var rows := MODEL.standings(state, now + int(first.at))
+				for row: Dictionary in rows:
+					if row.id == opponent.id:
+						check(int(row.stars) >= int(first.stars) and int(row.stars) > 0, "First scheduled event awards stars at its timestamp")
+		check(reached_boundary, "Seeds exercise the exact configured start boundary")
+
 func run() -> void:
 	var config: Dictionary = CONFIG.get_value("tournament")
+	test_start_delay(config)
 	test_roster(config)
 	var canonical: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://supabase/seeds/leaderboard_filler_nicknames_v2.json"))
 	check(Array(MODEL.NAMES.CIS) == canonical.cis and Array(MODEL.NAMES.INTERNATIONAL) == canonical.us_europe, "Client nickname catalog matches existing canonical pools")

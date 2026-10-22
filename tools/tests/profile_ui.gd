@@ -401,8 +401,13 @@ func run() -> void:
 	check(!editor.save_button.button_disabled and editor._purchase_price.get_theme_color("font_color") == editor.PALETTE.PRICE_ERROR, "Insufficient coins leave paid Save pressable with a red price")
 	await capture_editor_offer("insufficient")
 	main.coin_store_enabled = true
+	var screen_coin_rect: Rect2 = main._portrait_active_currency_counter_rect
 	editor.save_button.pressed.emit()
 	check(main._portrait_coin_store_active and !get_tree().get_nodes_in_group("coin_refill_popup").is_empty(), "Insufficient paid Save opens the existing coin store")
+	var store_layer: CanvasLayer = get_tree().get_nodes_in_group("coin_refill_popup")[-1]
+	var store_coin_visual: Control = store_layer.find_child("CurrencyCounterVisual", true, false)
+	check(store_coin_visual.pivot_offset.is_equal_approx(editor_coin_visual.pivot_offset), "Store counter opens at the same horizontal and vertical position as the editor counter: %s / %s" % [store_coin_visual.pivot_offset, editor_coin_visual.pivot_offset])
+	check(main._portrait_active_currency_counter_rect == screen_coin_rect, "Stacked counters preserve the underlying screen HUD rectangle")
 	await settle()
 	await capture_editor_offer("store")
 	check(!editor._closing and nickname_edit.text == committed_name and GameState.get_player_profile() == old_profile and GameState.soft_currency == rename_cost - 1, "Opening the store preserves the draft, profile and coins")
@@ -414,8 +419,13 @@ func run() -> void:
 		balance_captions.append(balance_label.text)
 	check(balance_captions.has(main._soft_currency_balance_text(rename_cost)), "Popup coin counter updates after a top-up: " + str(balance_captions))
 	main._close_coin_store()
-	main.coin_store_enabled = false
 	check(is_instance_valid(editor) and !editor._closing and !main._portrait_coin_store_active and nickname_edit.text == committed_name, "Closing the store returns to the same live editor draft")
+	main._open_coin_store(editor._return_from_coin_store)
+	store_layer = get_tree().get_nodes_in_group("coin_refill_popup")[-1]
+	store_coin_visual = store_layer.find_child("CurrencyCounterVisual", true, false)
+	check(store_coin_visual.pivot_offset.is_equal_approx(editor_coin_visual.pivot_offset), "Reopening the store still inherits the surviving editor counter")
+	main._close_coin_store()
+	main.coin_store_enabled = false
 	GameState._save_blocked_by_future_version = true
 	editor.save_button.pressed.emit()
 	check(!editor._closing and editor._save_toast.visible and GameState.get_player_profile() == old_profile, "Failed profile save keeps the editor open and restores persisted fields")

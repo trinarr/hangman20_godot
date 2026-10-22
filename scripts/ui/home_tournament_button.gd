@@ -19,6 +19,7 @@ var _lock_shadows: Array[TextureRect] = []
 var caption: Label
 var _timer: Timer
 var _lock: TextureRect
+var _rank: Label
 var _caption_marker: Node2D
 
 func _ready() -> void:
@@ -80,6 +81,18 @@ func _ready() -> void:
 	_lock.size = LOCK_RECT.size
 	_lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	artwork.add_child(_lock)
+	_rank = Label.new()
+	_rank.name = "TournamentPlayerRank"
+	_rank.position = LOCK_RECT.position + Vector2(0, 5)
+	_rank.size = LOCK_RECT.size
+	_rank.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_rank.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_rank.add_theme_font_override("font", FONTS.button_font())
+	_rank.add_theme_font_size_override("font_size", 20)
+	_rank.add_theme_color_override("font_color", Color.WHITE)
+	TEXT_STYLE.apply_display(_rank)
+	artwork.add_child(_rank)
 	var marker := WORD_MARKER._stage_portrait_result_word_marker(Vector2(420, 68.77))
 	marker.name = "TournamentCaptionMarker"
 	marker.position = Vector2(0, 72)
@@ -113,6 +126,13 @@ func _ready() -> void:
 func refresh() -> void:
 	var snapshot := GameState.get_tournament_snapshot()
 	_lock.visible = !bool(snapshot.unlocked)
+	_rank.visible = !_lock.visible and snapshot.phase == "active"
+	if _rank.visible:
+		_rank.text = "#%d" % int(snapshot.rank)
+		var rank_width := maxf(LOCK_RECT.size.x, ceilf(_rank.get_theme_font("font").get_string_size(
+			_rank.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _rank.get_theme_font_size("font_size")).x) + 4.0)
+		_rank.size = Vector2(rank_width, LOCK_RECT.size.y)
+		_rank.position = LOCK_RECT.get_center() + Vector2(0, 5) - _rank.size * 0.5
 	var marker_color: Color = PALETTE.DISABLED if _lock.visible else PALETTE.CHALLENGE_NORMAL
 	var base_layer := _caption_marker.get_node("BaseLayer") as CanvasGroup
 	base_layer.self_modulate = PALETTE.with_alpha(marker_color, WORD_INPUT.MARKER_BASE_ALPHA)

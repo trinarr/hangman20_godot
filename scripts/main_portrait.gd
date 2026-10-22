@@ -19,6 +19,7 @@ var _portrait_leaderboard: Control
 
 const STAGE_REWARD_COMPONENT = preload("res://scripts/ui/portrait_stage_reward.gd")
 const TOURNAMENT_REWARD_COMPONENT = preload("res://scripts/ui/portrait_tournament_reward.gd")
+const TOURNAMENT_FINISH_POPUP = preload("res://scripts/ui/tournament_finish_popup.gd")
 var _portrait_tournament_reward: Node
 const REWARD_PRIZE_COMPONENT = preload("res://scripts/ui/portrait_reward_prize.gd")
 var _portrait_stage_reward: Node
@@ -36,6 +37,7 @@ const THEME_NEW_BADGE_SHADER: Shader = preload("res://shaders/theme_new_badge.gd
 const BADGE_SHADOW_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/badge_shadow_style.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
+const PORTRAIT_COIN_COUNTER_ANCHOR = preload("res://scripts/ui/portrait_coin_counter_anchor.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
@@ -985,6 +987,8 @@ func _portrait_ads_enabled() -> bool:
 	)
 
 func _portrait_handle_modal_back_request() -> bool:
+	if !get_tree().get_nodes_in_group(TOURNAMENT_FINISH_POPUP.GROUP).is_empty():
+		return true
 	# Back/Escape must always act on the topmost modal. Without this guard the
 	# base gameplay handler can see a lower popup that is still alive underneath
 	# another one (for example Extra Attempts below the coin store), or even open
@@ -1566,6 +1570,7 @@ func _stage_currency_counter(
 	var counter_parent_content: Control = content
 	var counter_visual := Control.new()
 	counter_visual.name = "CurrencyCounterVisual"
+	PORTRAIT_COIN_COUNTER_ANCHOR.register(counter_visual, counter_rect)
 	counter_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	counter_parent_content.add_child(counter_visual)
 	counter_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1676,6 +1681,7 @@ func _stage_centered_coin_only_counter(
 	var counter_parent_content: Control = content
 	var counter_visual := Control.new()
 	counter_visual.name = "CurrencyCounterVisual"
+	PORTRAIT_COIN_COUNTER_ANCHOR.register(counter_visual, counter_rect)
 	counter_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	counter_parent_content.add_child(counter_visual)
 	counter_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3206,6 +3212,9 @@ func _stage_popup_coin_balance_above_dimmer(
 	var previous_content: Control = content
 	var previous_top_bar: Control = _portrait_top_bar_content
 	var source_counter_rect: Rect2 = _portrait_active_currency_counter_rect
+	if _portrait_coin_store_active:
+		source_counter_rect = PORTRAIT_COIN_COUNTER_ANCHOR.find_under(popup_root, source_counter_rect)
+		center_horizontally = false
 	_portrait_top_bar_content = null
 	content = popup_balance_layer
 	# The coin-refill popup already is the destination of this counter, so its
@@ -3660,7 +3669,7 @@ func _show_menu_screen() -> void:
 	)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
 	tournament_button.name = "HomeTournamentButton"
-	tournament_button.stage_rect = Rect2(Vector2(30, 106), Vector2(100, 108) * HOME_TOURNAMENT_BUTTON.BLOCK_SCALE)
+	tournament_button.stage_rect = Rect2(Vector2(20, 106), Vector2(100, 108) * HOME_TOURNAMENT_BUTTON.BLOCK_SCALE)
 	# Render over the paper reveal without modifying its logo or tear geometry.
 	tournament_button.z_index = 1
 	_connect_stage_button_action(tournament_button, Callable(self, "show_tournament"))
@@ -3682,6 +3691,10 @@ func _show_menu_screen() -> void:
 	content.add_child(logo_reveal)
 	HOME_PAPER_TRANSITION_SCRIPT.warm_up(self)
 	_stage_portrait_ad_banner("_show_menu_screen")
+	var tournament_prompt := TOURNAMENT_FINISH_POPUP.new()
+	tournament_prompt.name = "TournamentFinishPrompt"
+	tournament_prompt.host = self
+	content.add_child(tournament_prompt)
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation", result_transition_generation)
 	if !GameState.has_accepted_legal_documents():
@@ -4410,6 +4423,9 @@ func _resolve_user_consent_popup(accepted: bool, from_settings: bool = false) ->
 
 func _check_startup_guided_resume() -> void:
 	if !GameState.has_accepted_legal_documents():
+		return
+	var tournament_prompt := content.get_node_or_null("TournamentFinishPrompt")
+	if tournament_prompt != null and tournament_prompt.present_if_needed():
 		return
 	if !_startup_guided_resume_checked:
 		_startup_guided_resume_checked = true

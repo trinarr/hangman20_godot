@@ -111,6 +111,9 @@ TOURNAMENT_TITLE,Турнир,Tournament
 TOURNAMENT_REMAINING,До конца: %s,Time left: %s
 TOURNAMENT_EARN,Зарабатывайте звёзды и поднимайтесь в рейтинге,Earn stars and climb the leaderboard
 TOURNAMENT_FINISHED,Турнир завершён,Tournament finished
+TOURNAMENT_END_TITLE,Конец турнира,End of Tournament
+TOURNAMENT_FINISH_PROMPT,Турнир завершен! Заберите вашу награду,The tournament has ended! Claim your reward
+TOURNAMENT_CLAIM_REWARD,Забрать награду,Claim
 TOURNAMENT_PLACE,Ваше место: %d,Your place: %d
 TOURNAMENT_NEXT,Новый турнир,New tournament
 TOURNAMENT_CLAIM,Забрать %d монет,Claim %d coins

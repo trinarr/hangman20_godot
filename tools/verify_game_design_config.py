@@ -295,6 +295,10 @@ def main() -> None:
         else:
             require_number(value, path)
 
+    tournament_duration = require_int(resolve(config, "tournament.duration_seconds"), "tournament.duration_seconds")
+    require(60 <= tournament_duration <= 604800, "Invalid tournament duration")
+    start_delay = require_int(resolve(config, "tournament.opponent_start_delay_seconds"), "tournament.opponent_start_delay_seconds")
+    require(1 <= start_delay < tournament_duration, "Tournament opponent start delay must fit inside the tournament")
     require(9 <= require_int(resolve(config, "tournament.candidate_pool_size"), "tournament.candidate_pool_size") <= 100,
             "Tournament candidate pool must contain 9..100 profiles")
     require(require_int(resolve(config, "tournament.cache_minimum_fillers"), "tournament.cache_minimum_fillers")

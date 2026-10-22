@@ -9,6 +9,7 @@ static func create(now: int, language: String, config: Dictionary, seed_value: i
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var duration := int(config.duration_seconds)
+	var start_delay := int(config.opponent_start_delay_seconds)
 	var pool := ROSTER.build_pool(language, config, real_profiles, rng, cache_fallback)
 	var opponents: Array = []
 	for index in range(9):
@@ -22,7 +23,7 @@ static func create(now: int, language: String, config: Dictionary, seed_value: i
 			session_centers.append(rng.randi_range(60, duration - 60))
 		for event_index in range(event_count):
 			var center := int(session_centers[rng.randi_range(0, session_centers.size() - 1)])
-			var at := clampi(center + rng.randi_range(-600, 600), 1, duration)
+			var at := clampi(center + rng.randi_range(-600, 600), start_delay, duration)
 			events.append({"at": at, "stars": 0})
 		events.sort_custom(func(a: Dictionary, b: Dictionary): return int(a.at) < int(b.at))
 		for event_index in range(event_count):

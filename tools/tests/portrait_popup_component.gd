@@ -93,7 +93,60 @@ func tap(dimmer: ColorRect, action: Callable) -> void:
 	event.pressed = true
 	main._on_modal_dimmer_input(event, dimmer, action)
 
+func check_coin_counter_sources() -> void:
+	var anchors = preload("res://scripts/ui/portrait_coin_counter_anchor.gd")
+	var fixture := Node.new()
+	add_child(fixture)
+	var shop := CanvasLayer.new()
+	shop.layer = 170
+	fixture.add_child(shop)
+	var popup_root := Control.new()
+	shop.add_child(popup_root)
+	var fallback := Rect2(80, 10, 110, 48)
+	check(anchors.find_under(popup_root, fallback) == fallback, "counter without a live source retains fallback position")
+	var screen := CanvasLayer.new()
+	screen.layer = 10
+	fixture.add_child(screen)
+	var screen_counter := Control.new()
+	screen.add_child(screen_counter)
+	var screen_rect := Rect2(36, 14, 100, 48)
+	anchors.register(screen_counter, screen_rect)
+	check(anchors.find_under(popup_root, fallback) == screen_rect, "store inherits the screen counter position and size")
+	var underlay := CanvasLayer.new()
+	underlay.layer = 150
+	fixture.add_child(underlay)
+	var modal_counter := Control.new()
+	underlay.add_child(modal_counter)
+	var modal_rect := Rect2(184, 28, 112, 52)
+	anchors.register(modal_counter, modal_rect)
+	var own_counter := Control.new()
+	popup_root.add_child(own_counter)
+	anchors.register(own_counter, fallback)
+	var higher := CanvasLayer.new()
+	higher.layer = 200
+	fixture.add_child(higher)
+	var higher_counter := Control.new()
+	higher.add_child(higher_counter)
+	anchors.register(higher_counter, fallback)
+	check(anchors.find_under(popup_root, fallback) == modal_rect, "topmost lower counter wins over the HUD, own counter and higher layers")
+	modal_counter.hide()
+	check(anchors.find_under(popup_root, fallback) == screen_rect, "hidden counter is ignored")
+	modal_counter.show()
+	underlay.hide()
+	check(anchors.find_under(popup_root, fallback) == screen_rect, "hidden popup is ignored")
+	underlay.show()
+	underlay.queue_free()
+	check(anchors.find_under(popup_root, fallback) == screen_rect, "queued popup is ignored before its children exit the tree")
+	await get_tree().process_frame
+	check(anchors.find_under(popup_root, fallback) == screen_rect, "closing the top popup restores the underlying counter source")
+	screen.queue_free()
+	check(anchors.find_under(popup_root, fallback) == fallback, "removed last source restores fallback")
+	fixture.queue_free()
+	await get_tree().process_frame
+	check(get_tree().get_nodes_in_group(anchors.GROUP).is_empty(), "counter source registry releases destroyed layers")
+
 func run() -> void:
+	await check_coin_counter_sources()
 	# Avoid startup consent followups while exercising modal removal itself.
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
