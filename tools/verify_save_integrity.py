@@ -370,7 +370,11 @@ def main() -> None:
         portrait, "_show_single_player_last_chance_popup"
     )
     require(
-        "popup_bottom: float = 503.0 if free_offer else 582.0" in attempt_popup
+        re.search(
+            r"popup_bottom:\s*float\s*=\s*\(503\.0\s+if\s+free_offer\s+else\s+582\.0\)"
+            r"\s*\+\s*_portrait_popup_extra_bottom_space\(\)",
+            attempt_popup,
+        ) is not None
         and 'tr("COMMON_FREE") if free_offer else ""' in attempt_popup
         and "LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE"
         in attempt_popup

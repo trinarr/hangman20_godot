@@ -33,5 +33,5 @@ func _retry_now_ms() -> int:
 
 func advance_retry() -> void:
 	var now := _retry_now_ms()
-	var remaining := maxi(retry_delay_ms("tournament"), maxi(retry_delay_ms("quiz"), retry_delay_ms("leaderboard")))
+	var remaining := maxi(retry_delay_ms("quiz"), retry_delay_ms("leaderboard"))
 	retry_clock_ms = now + remaining + 1

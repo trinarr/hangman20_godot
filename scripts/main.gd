@@ -607,16 +607,6 @@ func _connect_stage_button_action(button: Object, callable: Callable, with_click
 		button.connect(&"pressed", Callable(self, "_play_ui_click_sound"))
 	button.connect(&"pressed", callable)
 
-func _add_fullscreen_modal_backdrop(
-	close_callable: Callable,
-	alpha: float = 0.58,
-	animate_fade_in: bool = true
-) -> void:
-	POPUP_COMPONENT.add_backdrop(content, close_callable, alpha, animate_fade_in, MODAL_DIMMER_FADE_IN_DURATION)
-
-func _spawn_modal_dimmer_fade_out(popup_layer: CanvasLayer, source_dimmer: ColorRect) -> void:
-	POPUP_COMPONENT.spawn_fade_out(self, popup_layer, source_dimmer, MODAL_DIMMER_FADE_OUT_DURATION)
-
 func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
 	POPUP_COMPONENT.remove_group(self, group_name, MODAL_DIMMER_FADE_OUT_DURATION)
 
@@ -626,12 +616,6 @@ func _on_modal_dimmer_input(
 	close_callable: Callable
 ) -> void:
 	POPUP_COMPONENT.on_dimmer_input(event, dimmer, close_callable)
-
-func _set_modal_dimmer_close_ready(dimmer: ColorRect, ready: bool) -> void:
-	POPUP_COMPONENT.set_close_ready(dimmer, ready)
-
-func _center_popup_content(popup_root: Control, popup_top: float, popup_bottom: float) -> Control:
-	return POPUP_COMPONENT.center_content(popup_root, popup_top, popup_bottom)
 
 func _stage_hero_symbol(hero_type: int, stage_position: Vector2, animation_time: float = -1.0, nested_animation_time: float = -1.0) -> FlashStageSymbol:
 	var symbol: FlashStageSymbol = FLASH_STAGE_SYMBOL_SCRIPT.new() as FlashStageSymbol

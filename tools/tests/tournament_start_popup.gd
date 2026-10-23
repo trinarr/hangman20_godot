@@ -32,6 +32,9 @@ func settle() -> void:
 	for _i in range(6):
 		await get_tree().process_frame
 
+func clock_text(seconds: int) -> String:
+	return "%02d:%02d:%02d" % [seconds / 3600, (seconds / 60) % 60, seconds % 60]
+
 func run() -> void:
 	GameState.tournament_time_source = func(): return now
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -42,7 +45,7 @@ func run() -> void:
 	add_child(main)
 	var duration: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds")
 	for dimensions: Vector2i in [Vector2i(960,1600), Vector2i(690,1536)]:
-		get_window().min_size = Vector2i.ONE
+		get_window().min_size = dimensions
 		get_window().size = dimensions
 		for language: String in ["ru", "en"]:
 			Database.interface_language = language
@@ -92,7 +95,7 @@ func run() -> void:
 			var glow: TextureRect = panel.get_node("TournamentStartRewardGlow")
 			check(glow.z_index > panel.get_node("TournamentStartCurtain").z_index and panel.z_index + glow.z_index < art.z_index, "Masked reward glow sits above the curtain and behind the prizes")
 			check(float(glow.material.get_shader_parameter("opacity")) > 0.0 and glow.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Reward glow is visible without intercepting input")
-			check(prompt.countdown.text == Time.get_time_string_from_unix_time(duration), "Countdown begins at the configured duration")
+			check(prompt.countdown.text == clock_text(duration), "Countdown begins at the configured duration, including durations over one day")
 			check(description.get_global_rect().position.y > art.get_global_rect().end.y and prompt.action.get_global_rect().position.y > description.get_global_rect().end.y, "Artwork, instructions and orange action do not overlap")
 			check(prompt.action.color_preset == main.LONG_BUTTON_COLOR_ORANGE, "Introduction uses the standard orange button")
 			var sparkles: Control = prompt.popup.find_child("TournamentStartTrophySparkles", true, false)
@@ -104,7 +107,7 @@ func run() -> void:
 			check(!is_equal_approx(float(glint.opacity), opacity_before), "Campaign glints animate on the trophy")
 			now += 1
 			await get_tree().create_timer(1.05).timeout
-			check(prompt.countdown.text == Time.get_time_string_from_unix_time(duration - 1), "Live countdown ticks while the introduction is open")
+			check(prompt.countdown.text == clock_text(duration - 1), "Live countdown ticks while the introduction is open")
 			var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 			if !directory.is_empty() and DisplayServer.get_name() != "headless":
 				await RenderingServer.frame_post_draw
@@ -124,7 +127,7 @@ func run() -> void:
 			check(GameState.tournament_state.id == identifier and JSON.stringify(GameState.tournament_state.opponents) == schedule, "Dismissal never restarts the tournament or regenerates bot schedules")
 			INTRO.present(main)
 			prompt = main.content.get_node("TournamentStartPrompt")
-			check(prompt.countdown.text == Time.get_time_string_from_unix_time(duration - 1), "Reopening keeps the existing countdown")
+			check(prompt.countdown.text == clock_text(duration - 1), "Reopening keeps the existing countdown")
 			prompt.action.pressed.emit()
 			prompt._go()
 			await settle()

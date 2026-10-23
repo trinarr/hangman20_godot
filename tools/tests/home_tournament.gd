@@ -16,6 +16,8 @@ func check(value: bool, message: String) -> void:
 func settle() -> void:
 	for _i in range(6):
 		await get_tree().process_frame
+func clock_text(seconds: int) -> String:
+	return "%02d:%02d:%02d" % [seconds / 3600, (seconds / 60) % 60, seconds % 60]
 func _process(_delta: float) -> void:
 	if DisplayServer.get_name() == "headless":
 		RenderingServer.frame_post_draw.emit()
@@ -69,7 +71,8 @@ func run() -> void:
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	check(GameState.start_tournament(), "Unlocked user can explicitly join")
 	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
-	check(button.caption.text == "12:00:00", "Active tournament updates shortcut immediately")
+	var duration: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds")
+	check(button.caption.text == clock_text(duration), "Active tournament updates shortcut using configured duration")
 	check(button._rank.visible and button._rank.text == "#1", "Active tournament immediately shows current player rank")
 	check(button._rank.get_rect().get_center().is_equal_approx(button.LOCK_RECT.get_center() + Vector2(0, 5)), "Rank sits five units below locked icon center")
 	check(button._rank.get_theme_color("font_color") == Color.WHITE and button._rank.has_node("DisplayTextShaderEffect"), "Rank uses white text with shared shader style")
@@ -81,11 +84,12 @@ func run() -> void:
 	GameState.tournament_state.player_stars = 11
 	GameState.tournament_changed.emit()
 	check(button._rank.text == "#1", "Tournament changes immediately refresh player rank")
-	now += 3601
+	var elapsed := maxi(1, duration / 2)
+	now += elapsed
 	button.refresh()
-	check(button.caption.text == "10:59:59", "Shortcut timer uses saved tournament deadline")
+	check(button.caption.text == clock_text(duration - elapsed), "Shortcut timer uses saved tournament deadline")
 	button._timer.timeout.emit()
-	check(button.caption.text == "10:59:59", "Visible shortcut updates on timer tick")
+	check(button.caption.text == clock_text(duration - elapsed), "Visible shortcut updates on timer tick")
 	button.pressed.emit()
 	check(is_instance_valid(main._home_transition), "Unlocked tap starts existing whole-page transition")
 	await get_tree().create_timer(0.4).timeout

@@ -103,7 +103,7 @@ func run() -> void:
 	check(main._tabbed_header_tween == null, "Opening has no independent header color tween")
 	check(opening_surface.get("page_viewport").size == main.get_window().size, "Page rendering covers the physical viewport")
 	check(opening_home.get_parent() == main.ui and is_equal_approx(opening_home.modulate.a, 1.0), "Home remains intact underneath the new page")
-	main.show_leaderboard()
+	main._open_tabbed_page(Callable(main, "_show_leaderboard_screen"))
 	check(main._home_transition == opening_transition, "Repeated navigation cannot interrupt the opening fade")
 	# Advance the fade deterministically; a slow frame can exceed its entire duration.
 	opening_transition._tween.pause()
@@ -613,7 +613,7 @@ func run() -> void:
 	check(!is_instance_valid(main._portrait_profile), "Back returns from profile to origin")
 	check(main.content.find_child("HomeAvatarButton", true, false) != null, "Back returns Home with avatar")
 	check(!is_instance_valid(main._portrait_header_fill), "Home has no header backdrop")
-	main.show_leaderboard()
+	main._open_tabbed_page(Callable(main, "_show_leaderboard_screen"))
 	check(main._home_transition.opening and is_instance_valid(main._portrait_leaderboard), "Leaderboard opens immediately with a fade and no paper")
 	await get_tree().create_timer(0.4).timeout
 	check(main.content.find_child("PatternMotion", true, false) == null, "Leaderboard has no animated pattern")

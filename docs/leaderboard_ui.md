@@ -1,10 +1,14 @@
 # Leaderboard screen
 
-Open from the Home button below the logo. `show_leaderboard()` fades Home smoothly
-to the solid blue body. The leaderboard has no pattern. Its taller active tab
-joins the blue body; the band/header darken above it. Back returns to Home; Settings uses the existing
-modal. The screen and its strings support Russian and English. Weekly is a
-disabled tab reserved for a later implementation.
+The Home tournament button opens the introduction when a new tournament is
+needed, and opens the existing tournament standings once it is active. The
+standings and global leaderboard share a tabbed page with a whole-page fade
+from Home. The leaderboard has no pattern. Its taller active tab
+joins the blue body; the band/header darken above it. Back returns to Home.
+The screen and its strings support Russian and English. The Tournament tab
+only displays saved standings; it contains no start, claim or next-tournament
+button and no placeholder podium. On expiry, either tab returns to Home for
+the reward popup or the next introduction when there is no prize.
 
 `portrait_leaderboard.gd` owns native scrolling, cards, loading/empty/error states,
 and service subscriptions. It requests `Leaderboard.refresh()` after queuing the
@@ -30,14 +34,14 @@ Quiz answers and leaderboard cards share `quiz_answer_card_style.gd`; the quiz
 face, corner radii, padding and shadow keep their previous values. Closing the
 screen immediately disconnects service signals before deferred node deletion.
 
-Validation (Godot 4.6, headless, network disabled):
+Validation (headless, network disabled, isolated saves):
 
 ```sh
 python3 tools/run_content_tests.py --godot /path/to/godot --suite leaderboard_ui
 ```
 
-The suite checks pinning, visible-row deduplication, bottom padding, disabled
-Weekly, banner inset, empty/unconfigured states, synchronous cached responses,
+The suite checks pinning, visible-row deduplication, bottom padding,
+banner inset, empty/unconfigured states, synchronous cached responses,
 late-response disposal and integration with Home. Existing leaderboard,
 quiz_statistics, bonus_quiz and portrait_round_result suites are also applicable.
 A device render/touch check is still needed; headless checks do not verify pixels.

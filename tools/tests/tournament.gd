@@ -47,7 +47,7 @@ func test_roster(config: Dictionary) -> void:
 				elif entry.nickname in MODEL.NAMES.CIS:
 					cis += 1
 			check(pool.size() == 50 and ids.size() == 50 and names.size() == 50, "Pool contains fifty distinct public profiles or fillers")
-			check(actual_real == mini(50, real_count), "Real profiles fill the pool before synthetic profiles")
+			check(actual_real == mini(int(config.candidate_pool_size) - int(config.cache_minimum_fillers), real_count), "Cached profiles preserve the configured minimum of synthetic opponents")
 			var expected_cis := (50 - actual_real) * float(config.filler_cis_ratio[language])
 			check(cis == int(floor(expected_cis)) or cis == int(ceil(expected_cis)), "Only the missing filler slots use the configured language ratio")
 			check(appearances_valid, "All pool entries have valid appearance without global scores")
@@ -78,11 +78,12 @@ func test_roster(config: Dictionary) -> void:
 		var original := public_profile(identifier)
 		if entry.is_real and entry.nickname == original.nickname and entry.character_id == original.character_id and entry.frame_id == original.frame_id:
 			confirmed_profiles += 1
-	check(confirmed_profiles == 9 and !state.has("pool"), "Nine real profile snapshots are saved, not the whole candidate pool")
+	check(confirmed_profiles > 0 and confirmed_profiles == state.opponents.filter(func(entry: Dictionary): return entry.is_real).size() and !state.has("pool"), "Selected cached profiles keep their public appearance; only nine opponents are saved")
 	for entry: Dictionary in profiles:
 		entry.stars = 0
 	check(MODEL.create(now, "ru", config, 555, profiles).opponents == state.opponents, "Global scores never influence tournament schedules")
-	var selected_id := int(str(state.opponents[0].profile_id).trim_prefix("player:"))
+	var selected_real: Dictionary = state.opponents.filter(func(entry: Dictionary): return entry.is_real)[0]
+	var selected_id := int(str(selected_real.profile_id).trim_prefix("player:"))
 	profiles[selected_id - 1].nickname = "ChangedLater"
 	profiles[selected_id - 1].frame_id = 1
 	check(MODEL.normalize(JSON.parse_string(JSON.stringify(state))).opponents == state.opponents, "Profile snapshots survive reload and later source changes")
@@ -90,7 +91,7 @@ func test_roster(config: Dictionary) -> void:
 	for entry: Dictionary in shared_names:
 		entry.nickname = "SameName"
 	var same_name_state := MODEL.create(now, "en", config, 555, shared_names)
-	check(!MODEL.normalize(same_name_state).is_empty() and same_name_state.opponents[0].is_real, "Distinct real profiles with identical names remain real through save reload")
+	check(!MODEL.normalize(same_name_state).is_empty() and same_name_state.opponents.any(func(entry: Dictionary): return entry.is_real), "Distinct real profiles with identical names remain real through save reload")
 	var legacy := MODEL.create(now, "ru", config, 321)
 	legacy.version = 1
 	for entry: Dictionary in legacy.opponents:
@@ -114,7 +115,7 @@ func test_roster(config: Dictionary) -> void:
 	check(MODEL.normalize(state).is_empty(), "Future tournament versions are not overwritten")
 
 func test_start_delay(config: Dictionary) -> void:
-	for delay: int in [int(config.opponent_start_delay_seconds), 90]:
+	for delay: int in [int(config.opponent_start_delay_seconds), mini(90, int(config.duration_seconds) - 1)]:
 		var settings := config.duplicate(true)
 		settings.opponent_start_delay_seconds = delay
 		var reached_boundary := false
@@ -152,7 +153,7 @@ func test_automatic_start(config: Dictionary) -> void:
 	GameState.add_gameplay_stars(3)
 	var first_id := str(GameState.tournament_state.id)
 	check(int(GameState.tournament_state.player_stars) == 3 and int(GameState.tournament_state.started_at) == now, "First earned stars start the tournament and count immediately")
-	check(int(GameState.tournament_state.ends_at) - now == 43200, "New tournaments last twelve hours")
+	check(int(GameState.tournament_state.ends_at) - now == int(config.duration_seconds), "New tournaments use the configured duration")
 	GameState.load_game()
 	check(GameState.tournament_state.id == first_id and int(GameState.tournament_state.player_stars) == 3, "Automatic start and its first score survive reload")
 	GameState.tournament_state = {}

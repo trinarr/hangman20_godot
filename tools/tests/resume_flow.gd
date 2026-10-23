@@ -70,6 +70,7 @@ func run() -> void:
 	check(state.get_soft_currency() == coins and state.get_hearts() == hearts, "Resume does not charge currency or hearts")
 	for index: int in range(1, 6):
 		session.guess(wrongs[index], true)
+		await settle()
 	check(session.has_deferred_loss(), "Last-chance fixture created")
 	saved = session.to_save_data()
 	await resume()
@@ -78,11 +79,33 @@ func run() -> void:
 	# Resolve loss and interrupt before result presentation can finish.
 	session.resolve_deferred_loss()
 	var lost_hearts: int = state.get_hearts()
-	check(lost_hearts == hearts - 1, "Loss charges exactly one heart")
+	check(lost_hearts == hearts, "Protected onboarding loss preserves hearts")
 	await resume()
 	check(state.get_hearts() == lost_hearts, "Reloaded loss does not charge another heart")
 	check(state.is_single_level_completed(database.current_language, 0, 1), "Completed one-stage defeat remains recorded")
 	check(!main.last_result_is_win, "Continue does not turn the recorded defeat into a win")
+	# The first ordinary level has the same durable last-chance flow, but charges
+	# one heart only when the pending decision is resolved as a defeat.
+	var ordinary_level: int = state.GAME_DESIGN.get_int("progression.guided_onboarding.required_start_level") - 1
+	await begin_level(ordinary_level)
+	check(session.is_active and main.game_screen_visible, "Ordinary word stage opened")
+	hearts = state.get_hearts()
+	for letter: String in database.get_alphabet():
+		if !session.letters.has(letter):
+			session.guess(letter, true)
+			# This suite tests persistence between ordinary player actions. Let
+			# the attempts-counter copies finish before submitting the next guess.
+			await settle()
+			if session.has_deferred_loss():
+				break
+	check(session.has_deferred_loss(), "Ordinary loss waits for the last-chance decision")
+	await resume()
+	check(session.has_deferred_loss() and state.get_hearts() == hearts, "Ordinary pending loss survives restart without charging a heart")
+	session.resolve_deferred_loss()
+	lost_hearts = state.get_hearts()
+	check(lost_hearts == hearts - 1, "Ordinary defeat charges exactly one heart")
+	await resume()
+	check(state.get_hearts() == lost_hearts, "Restart after ordinary defeat never charges a second heart")
 	await begin_level(1)
 	check(main._quiz_screen_active, "Level 2 starts quiz")
 	main._on_quiz_fifty_fifty_pressed()
@@ -99,6 +122,12 @@ func run() -> void:
 	check(state.get_active_single_player_session().kind == "next", "Quiz result persists before animation")
 	await resume()
 	check(state.get_stars() == stars_after_answer, "Continue does not repeat quiz speed stars")
+	await begin_level(1)
+	hearts = state.get_hearts()
+	main._on_quiz_answer_selected((main._quiz_correct_answer_index() + 1) % main._quiz_answer_buttons.size())
+	check(state.get_hearts() == hearts, "Second onboarding level also protects hearts after a quiz defeat")
+	await resume()
+	check(state.get_hearts() == hearts, "Restart after protected quiz defeat preserves hearts")
 	main.queue_free()
 	await process_frame
 	print("RESUME_FLOW " + JSON.stringify({"checks":checks,"failures":failures}))

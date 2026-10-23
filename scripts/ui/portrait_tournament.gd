@@ -1,9 +1,7 @@
 extends Control
-signal reward_claimed(award: Dictionary)
-## Tournament body uses its host's 480-unit portrait stage transform.
+## Read-only standings for the tournament created by gameplay or its introduction.
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
-const MATCHMAKING = preload("res://scripts/services/tournament_matchmaking.gd")
 const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
@@ -13,11 +11,8 @@ const COIN_PACK = preload("res://flash_assets/coin_pack_04.png")
 const GIFT = preload("res://flash_assets/reward_chest_closed.png")
 const REWARD_GLOW = preload("res://flash_assets/final_reward_rotating_glow.png")
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
-const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
-# Matches the two-player word-entry CTA after footer sizing (300 * .85 * 1.1 * 1.15, 64 * 1.1).
 const PODIUM_AVATAR_SIZE := ROW.AVATAR_SIZE * 1.5
 const PODIUM_HEIGHT := 294.0
-const ACTION_BUTTON_SIZE := Vector2(322.575, 70.4)
 var portraits: Node
 var score_formatter: Callable
 var scroll: ScrollContainer
@@ -25,14 +20,10 @@ var rows: VBoxContainer
 var podium: Control
 var own_row: Control
 var _title: Label
-var _hint: Label
-var _button: StageLongButton
-var _error: Label
 var _timer: Timer
 var _snapshot: Dictionary = {}
 var _rows_key := ""
 var _live := true
-var _joining := false
 
 func _tr(key: String, ru: String, en: String) -> String:
 	var translated := TranslationServer.translate(key)
@@ -47,9 +38,6 @@ func _ready() -> void:
 	_title = _label(self, Rect2(18, 10, 444, 34), "", 27, Color.WHITE)
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	TEXT_STYLE.apply_display(_title)
-	_hint = _label(self, Rect2(18, 47, 444, 42), "", 18, Color.WHITE)
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	podium = Control.new()
 	podium.name = "TournamentPodium"
 	podium.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -64,16 +52,6 @@ func _ready() -> void:
 	rows.add_theme_constant_override("separation", 0)
 	rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scroll.set_list(rows)
-	_button = LONG_BUTTON.new()
-	_button.name = "TournamentAction"
-	_button.use_stage_layout = false
-	_button.configure("", FONTS.display_button_font_size(25))
-	_button.set_color_preset(LONG_BUTTON.ColorPreset.ORANGE)
-	_button.drop_shadow_enabled = true
-	_button.pressed.connect(_action)
-	add_child(_button)
-	_error = _label(self, Rect2(18, 0, 444, 30), "", 16, Color.WHITE)
-	_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_timer = Timer.new()
 	_timer.wait_time = 1.0
 	_timer.timeout.connect(func():
@@ -90,55 +68,47 @@ func refresh() -> void:
 		return
 	_snapshot = GameState.get_tournament_snapshot()
 	var phase := str(_snapshot.phase)
-	_hint.visible = phase != "active"
-	_button.visible = phase != "active"
-	_button.button_disabled = _joining or (!_snapshot.unlocked and phase == "idle")
+	# A deadline can pass before the host's next timer tick. Keep the frozen
+	# standings visible until navigation, without exposing legacy actions.
+	var has_standings := phase != "idle"
+	_title.visible = has_standings
+	podium.visible = has_standings
+	scroll.visible = has_standings
 	if phase == "active":
 		var remaining := int(_snapshot.remaining)
 		_title.text = _tr("TOURNAMENT_REMAINING", "До конца: %s", "Time left: %s") % ("%02d:%02d:%02d" % [remaining / 3600, (remaining / 60) % 60, remaining % 60])
-		_hint.text = ""
-	elif phase == "finished" or phase == "claimed":
+	elif has_standings:
 		_title.text = _tr("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished")
-		_hint.text = _tr("TOURNAMENT_PLACE", "Ваше место: %d", "Your place: %d") % int(_snapshot.rank)
-		_button.button_text = _tr("TOURNAMENT_NEXT", "Новый турнир", "New tournament") if phase == "claimed" else (_tr("TOURNAMENT_CLAIM", "Забрать %d монет", "Claim %d coins") % int(_snapshot.reward) if int(_snapshot.reward) > 0 else _tr("COMMON_CONTINUE", "Продолжить", "Continue"))
-	else:
-		_title.text = _tr("TOURNAMENT_TITLE", "Турнир", "Tournament")
-		_hint.text = _tr("TOURNAMENT_INTRO", "%d часов · 10 участников · 3 призовых места", "%d hours · 10 players · 3 prize places") % (int(_snapshot.duration) / 3600)
-		_button.button_text = _tr("TOURNAMENT_JOIN", "Участвовать", "Join")
-		if !_snapshot.unlocked:
-			_hint.text = _tr("TOURNAMENT_LOCKED", "Завершите уровень %d для участия", "Complete level %d to join") % int(_snapshot.unlock_level)
-	if _joining:
-		_button.button_text = _tr("LEADERBOARD_LOADING", "Загрузка…", "Loading…")
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
 	var key := JSON.stringify(_snapshot.get("rows", [])) + phase + JSON.stringify(GameState.get_player_profile())
 	if key != _rows_key:
 		_rows_key = key
-		_rebuild(phase == "idle")
+		_rebuild()
 	_layout()
 
-func _rebuild(preview: bool) -> void:
+func _rebuild() -> void:
 	var previous_scroll := scroll.scroll_vertical
 	own_row = null
 	for child in rows.get_children():
 		child.free()
 	for child in podium.get_children():
 		child.free()
-	scroll.visible = !preview
 	var entries: Array = _snapshot.get("rows", [])
+	if entries.is_empty():
+		return
 	var rewards: Array = _snapshot.get("rewards", GameState.GAME_DESIGN.get_array("tournament.rewards_coins"))
 	for slot in range(3):
 		var rank: int = [2, 1, 3][slot]
-		var entry: Dictionary = {"rank": rank, "nickname": "—", "stars": 0, "mine": false, "preview":true} if preview else entries[rank - 1]
+		var entry: Dictionary = entries[rank - 1]
 		var card := _podium_card(entry, int(rewards[rank - 1]), slot)
 		podium.add_child(card)
 		if bool(entry.mine):
 			own_row = card
-	if !preview:
-		for entry: Dictionary in entries.slice(3):
-			var card := _row_card(entry)
-			rows.add_child(card)
-			if bool(entry.mine):
-				own_row = card
+	for entry: Dictionary in entries.slice(3):
+		var card := _row_card(entry)
+		rows.add_child(card)
+		if bool(entry.mine):
+			own_row = card
 	scroll.scroll_vertical = previous_scroll
 
 func _name(entry: Dictionary) -> String:
@@ -160,9 +130,6 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	face.name = "CardFace"
 	var avatar: Button = portraits.create_avatar(_display_entry(entry), PODIUM_AVATAR_SIZE)
 	avatar.position = Vector2((card.size.x - PODIUM_AVATAR_SIZE) * 0.5, -PODIUM_AVATAR_SIZE * 0.5)
-	if bool(entry.get("preview", false)):
-		avatar.avatar_texture = null
-		avatar.frame_color = PALETTE.NEUTRAL_BORDER
 	card.add_child(avatar)
 	var medal := _icon(card, Rect2(54, PODIUM_AVATAR_SIZE * 0.5 - 17, 34, 34), ROW.RANK_MEDALS[rank - 1])
 	medal.name = "PodiumRankMedal"
@@ -257,50 +224,11 @@ func _shrink(label: Label, minimum: int) -> void:
 func _layout() -> void:
 	if !is_node_ready():
 		return
-	var action_height := ACTION_BUTTON_SIZE.y + 32.0 if _button.visible else 0.0
-	podium.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, 94 if _hint.visible else 60)
+	podium.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, 60)
 	podium.size = Vector2(ROW.ROW_WIDTH, PODIUM_HEIGHT)
 	var list_top := podium.position.y + PODIUM_HEIGHT + 8.0
 	scroll.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, list_top)
-	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(0, size.y - list_top - action_height))
-	_button.stage_rect = Rect2(Vector2((480.0 - ACTION_BUTTON_SIZE.x) * 0.5, size.y - 14.0 - ACTION_BUTTON_SIZE.y), ACTION_BUTTON_SIZE)
-	_error.position.y = size.y - 100
-
-func _action() -> void:
-	if !_live or _joining:
-		return
-	_error.text = ""
-	var phase := str(_snapshot.get("phase", "idle"))
-	var ok := false
-	var award: Dictionary = {}
-	if phase == "idle" or phase == "claimed":
-		if !GameState.is_tournament_unlocked():
-			return
-		_joining = true
-		refresh()
-		MATCHMAKING.join(weakref(self), _matchmaking_service())
-		return
-	else:
-		award = GameState.claim_tournament_reward()
-		ok = bool(award.get("ok", false))
-	refresh()
-	if !ok:
-		_error.text = _tr("TOURNAMENT_SAVE_ERROR", "Не удалось сохранить. Попробуйте ещё раз", "Couldn't save. Please try again")
-	elif int(award.get("rank", 0)) in [1, 2, 3]:
-		# Payment is already durable; presentation must never grant it again.
-		reward_claimed.emit(award)
-
-func _matchmaking_service() -> Node:
-	return Leaderboard
-
-func _complete_join(selection: Dictionary) -> void:
-	if !_live or !_joining:
-		return
-	_joining = false
-	var ok := GameState.start_tournament(selection)
-	refresh()
-	if !ok:
-		_error.text = _tr("TOURNAMENT_SAVE_ERROR", "Не удалось сохранить. Попробуйте ещё раз", "Couldn't save. Please try again")
+	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(0, size.y - list_top))
 
 func dispose() -> void:
 	if !_live:

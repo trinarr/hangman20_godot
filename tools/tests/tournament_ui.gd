@@ -1,6 +1,14 @@
 extends Node
 const SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
 const MODEL = preload("res://scripts/core/tournament_model.gd")
+class TestUI extends "res://scripts/main_portrait.gd":
+	func _ready() -> void:
+		_build_root()
+		_clear()
+	func _portrait_ads_enabled() -> bool:
+		return false
+	func _should_auto_resume_guided_single_player() -> bool:
+		return false
 var checks := 0
 var failures := 0
 var now := 1800000000
@@ -22,6 +30,7 @@ func inspect_rows(view: Control, page: Control) -> void:
 	var previous_size := get_window().size
 	var previous_language: String = Database.interface_language
 	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
+		get_window().min_size = dimensions
 		get_window().size = dimensions
 		await settle()
 		for language: String in ["ru", "en"]:
@@ -29,7 +38,7 @@ func inspect_rows(view: Control, page: Control) -> void:
 			TranslationServer.set_locale(language)
 			page.refresh()
 			await settle()
-			check(!page._hint.visible and page._hint.text.is_empty(), "Active tournament has no earning instruction or reserved hint space")
+			check(page.find_child("TournamentAction", true, false) == null, "Standings contain no start, claim or next-tournament action")
 			check(page.podium.get_parent() == page and !page.scroll.is_ancestor_of(page.podium), "Prize podium is fixed outside the scrolling subtree")
 			check(page.podium.get_global_rect().end.y < page.scroll.get_global_rect().position.y, "Ordinary list starts below the fixed podium")
 			for rank in range(1, 4):
@@ -72,6 +81,7 @@ func inspect_rows(view: Control, page: Control) -> void:
 				await RenderingServer.frame_post_draw
 				var path := capture_dir.path_join("tournament_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])
 				check(get_viewport().get_texture().get_image().save_png(path) == OK, "Save GPU tournament preview")
+	get_window().min_size = previous_size
 	get_window().size = previous_size
 	Database.interface_language = previous_language
 	TranslationServer.set_locale(previous_language)
@@ -83,7 +93,7 @@ func run() -> void:
 	GameState.tournament_time_source = func(): return now
 	GameState.tournament_state = {}
 	GameState.single_player = {}
-	var main = load("res://scenes/Main.tscn").instantiate()
+	var main := TestUI.new()
 	add_child(main)
 	await settle()
 	main._show_leaderboard_screen()
@@ -94,21 +104,27 @@ func run() -> void:
 	await settle()
 	var page: Control = view._tournament
 	check(page.visible and !view.scroll.visible and !view._status.visible and !view._retry.visible, "Tournament tab replaces all global content")
-	check(page._button.disabled and GameState.tournament_state.is_empty(), "Viewing locked tab never starts tournament")
+	check(GameState.tournament_state.is_empty() and !page.podium.visible and !page.scroll.visible, "Viewing an empty tab never starts a tournament or builds a preview")
+	check(page.podium.get_child_count() == 0 and page.find_child("TournamentAction", true, false) == null, "Empty standings contain no placeholder avatars or legacy start button")
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	GameState._single_player_bucket(Database.current_language)["unlocked_level"] = 5
-	page.refresh()
-	check(!page._button.disabled and page.podium.get_child_count() == 3, "Unlocked preview shows three prize cards")
-	check(page.rows.get_child_count() == 0 and !page.scroll.visible and page.podium.get_parent() == page, "Preview shows a fixed podium without an empty scrolling list")
-	check(page.podium.get_node("PodiumPlace1/PlayerAvatar").avatar_texture == null, "Preview does not impersonate an unselected participant")
+	main.show_menu()
+	main.show_tournament()
+	check(GameState.get_tournament_snapshot().phase == "active", "Home starts a durable tournament before the standings open")
+	main.content.get_node("TournamentStartPrompt")._go()
+	await settle()
+	main.show_tournament()
+	await get_tree().create_timer(0.5).timeout
+	await settle()
+	view = main._portrait_leaderboard
+	page = view._tournament
+	check(page.visible and page.podium.visible and page.scroll.visible, "Home opens existing active standings with real participants")
 	var second: Control = page.podium.get_node("PodiumPlace2")
 	var first: Control = page.podium.get_node("PodiumPlace1")
 	var third: Control = page.podium.get_node("PodiumPlace3")
 	check(second.position.x < first.position.x and first.position.x < third.position.x, "Podium order is 2-1-3")
 	check(first.size.y > second.size.y and first.position.y < second.position.y, "First place visually raised above other large cards")
-	page._button.pressed.emit()
-	await settle()
-	check(page._snapshot.phase == "active" and !page._button.visible, "Join starts tournament and hides claim action")
+	check(page._snapshot.phase == "active" and page.find_child("TournamentAction", true, false) == null, "Active standings have no tournament action")
 	var own_avatar: Button = page.own_row.get_node("PlayerAvatar")
 	check(own_avatar.get_meta("character_id") == GameState.get_player_profile().character_id and own_avatar.get_meta("frame_id") == GameState.player_frame_id, "Player's first-place avatar uses the selected profile")
 	check(page.rows.get_child_count() == 7 and page.podium.get_child_count() == 3, "Only seven remaining players belong to the scroll list")
@@ -136,11 +152,12 @@ func run() -> void:
 	view.set_snapshot({"top": [{"player_id": "1", "rank": 1, "stars": 100}], "me": {"player_id": "1", "rank": 1, "stars": 100}})
 	await settle()
 	check(!view.scroll.visible and !view.pinned.visible and !view._status.visible, "Late global responses never overlap tournament")
+	var elapsed: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds") / 2
 	for index in range(9):
-		GameState.tournament_state.opponents[index].events = [{"at": 100, "stars": 20 + index}]
+		GameState.tournament_state.opponents[index].events = [{"at": elapsed, "stars": 20 + index}]
 	GameState.tournament_state.opponents[0].merge({"nickname":"PublicSnapshot", "profile_id":"player:501", "character_id":2, "frame_id":5, "is_real":true}, true)
 	# Keep the progress inspection inside the configured tournament duration.
-	now += mini(14000, GameState.GAME_DESIGN.get_int("tournament.duration_seconds") / 2)
+	now += elapsed
 	page.refresh()
 	await settle()
 	check(int(page._snapshot.rank) > 3, "Independent opponent progression moves player out of podium")
@@ -167,11 +184,14 @@ func run() -> void:
 	GameState.record_tournament_stars(1000)
 	now = int(GameState.tournament_state.ends_at)
 	page.refresh()
-	await settle()
-	check(page._snapshot.phase == "finished" and page._button.visible, "Finished state exposes reward button")
-	check(int(page._snapshot.reward) == 200 and page._button.button_text.contains("200"), "Winner button displays 200 coins")
+	check(page._snapshot.phase == "finished" and page.find_child("TournamentAction", true, false) == null, "Deadline freezes the standings without exposing a claim button")
+	check(int(page._snapshot.reward) == 200, "Winner retains the configured prize until Home handles the claim")
 	var coins_before := GameState.get_soft_currency()
-	page._button.pressed.emit()
+	view._check_tournament_expiry()
+	await settle()
+	var finish: Node = main.content.get_node("TournamentFinishPrompt")
+	check(is_instance_valid(finish.popup) and GameState.get_soft_currency() == coins_before, "Expiry opens the Home reward popup without granting coins")
+	finish._claim()
 	await settle()
 	check(GameState.get_tournament_snapshot().phase == "claimed" and GameState.get_soft_currency() == coins_before + 200, "Claim persists tournament coins before presentation")
 	check(GameState.tournament_state.id == id, "Claim never auto-starts next tournament")
@@ -180,7 +200,8 @@ func run() -> void:
 	for rank in [2, 3]:
 		Database.interface_language = "en" if rank == 2 else "ru"
 		TranslationServer.set_locale(Database.interface_language)
-		get_window().size = Vector2i(690, 1536) if rank == 2 else Vector2i(1080, 1920)
+		get_window().min_size = Vector2i(690, 1536) if rank == 2 else Vector2i(1080, 1920)
+		get_window().size = get_window().min_size
 		await settle()
 		GameState.tournament_state.claimed = false
 		now = int(GameState.tournament_state.ends_at)
@@ -195,7 +216,9 @@ func run() -> void:
 		var amount := int(current_page._snapshot.reward)
 		check(int(current_page._snapshot.rank) == rank and amount == int(GameState.GAME_DESIGN.get_array("tournament.rewards_coins")[rank - 1]), "Podium award matches the configured balance")
 		var before := GameState.get_soft_currency()
-		current_page._button.pressed.emit()
+		main._portrait_leaderboard._check_tournament_expiry()
+		await settle()
+		main.content.get_node("TournamentFinishPrompt")._claim()
 		await settle()
 		check(GameState.get_soft_currency() == before + amount, "Other podium places receive configured coins")
 		await inspect_reward(main, rank, amount)
@@ -207,6 +230,7 @@ func run() -> void:
 	check(interrupted._stopped, "Leaving during gift opening immediately stops its presentation")
 	await get_tree().create_timer(1.5).timeout
 	check(GameState.get_soft_currency() == before_close, "Interrupted gift animation never changes the persisted balance")
+	get_window().min_size = Vector2i(960, 1600)
 	get_window().size = Vector2i(960, 1600)
 	await settle()
 	view = main._portrait_leaderboard
@@ -216,7 +240,7 @@ func run() -> void:
 		Database.interface_language = language
 		TranslationServer.set_locale(language)
 		page.refresh()
-		check(page._title.text.begins_with("До конца:" if language == "ru" else "Time left:") and !page._button.visible, "Localized timer replaces the old next-tournament action once the next tournament starts")
+		check(page._title.text.begins_with("До конца:" if language == "ru" else "Time left:") and page.find_child("TournamentAction", true, false) == null, "Localized active standings have a timer without a next-tournament action")
 	view.set_bottom_inset(50)
 	await settle()
 	check(page.get_global_rect().end.y <= (view.size.y - 62) * view.scale.y + 1, "Tournament respects banner inset")

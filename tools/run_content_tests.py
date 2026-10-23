@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SUITES = {
     "resource_loading": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
     "resource_loading_shutdown": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
-    "tournament_matchmaking": (True, r"TOURNAMENT_MATCHMAKING checks=[1-9]\d* failures=0"),
     "network_retries": (True, r"NETWORK_RETRIES checks=[1-9]\d* failures=0"),
     "api_efficiency": (True, r"API_EFFICIENCY checks=[1-9]\d* failures=0"),
     "profile_bootstrap": (True, r"PROFILE_BOOTSTRAP checks=[1-9]\d* failures=0"),

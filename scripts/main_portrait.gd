@@ -121,7 +121,6 @@ const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.back_entrance_seconds"
 )
-const PORTRAIT_PAGE_TITLE_RECT := Rect2(40.0, 104.0, 400.0, 42.0)
 # Compact text-only gameplay HUD placed in the free space to the right of the
 # left-aligned character. The old white attempts/theme pills are intentionally
 # removed; these labels are the only in-round status presentation now.
@@ -142,8 +141,6 @@ const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
 const PORTRAIT_RESOURCE_COUNTER_GAP: float = 5.0
-const PORTRAIT_RESOURCE_COUNTER_PANEL_WIDTH_SCALE: float = RESOURCE_COUNTER_STYLE.PANEL_WIDTH_SCALE
-const PORTRAIT_RESOURCE_COUNTER_PANEL_HEIGHT_SCALE: float = RESOURCE_COUNTER_STYLE.PANEL_HEIGHT_SCALE
 const PORTRAIT_RESOURCE_COUNTER_PANEL_TRAILING_INSET: float = RESOURCE_COUNTER_STYLE.TRAILING_INSET
 const PORTRAIT_RESOURCE_COUNTER_FONT_SCALE: float = RESOURCE_COUNTER_STYLE.FONT_SCALE
 # Both resource plates are 10% wider than the original 109.94 px layout. Shift
@@ -1414,36 +1411,6 @@ func _portrait_screen(
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
 
-func _stage_portrait_page_header(
-	title: String,
-	back_callable: Callable,
-	currency_return_action: Callable = Callable(),
-	show_heart_counter: bool = true
-) -> void:
-	var screen_content: Control = content
-	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
-		content = _portrait_top_bar_content
-	if back_callable.is_valid():
-		var back_button := _stage_round_icon_button(
-			PORTRAIT_PAGE_BACK_BUTTON_RECT,
-			back_callable,
-			PORTRAIT_BACK_ARROW_ICON,
-			PORTRAIT_PAGE_BACK_ICON_SIZE
-		)
-		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
-	var resolved_return_action: Callable = currency_return_action
-	if !resolved_return_action.is_valid():
-		resolved_return_action = back_callable
-	if !resolved_return_action.is_valid():
-		resolved_return_action = Callable(self, "show_menu")
-	if show_heart_counter:
-		_stage_currency_counter(resolved_return_action)
-	else:
-		_stage_centered_coin_only_counter(resolved_return_action)
-		_stage_menu_settings_button()
-	content = screen_content
-	_stage_portrait_page_title(title)
-
 func _stage_menu_settings_button() -> void:
 	var screen_content: Control = content
 	if _portrait_top_bar_content != null and is_instance_valid(_portrait_top_bar_content):
@@ -1487,23 +1454,6 @@ func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) 
 	)
 	slide_tweener.set_trans(Tween.TRANS_QUAD)
 	slide_tweener.set_ease(Tween.EASE_OUT)
-
-func _stage_portrait_page_title(title: String, color: Color = PORTRAIT_BLUE) -> void:
-	var title_label := _stage_heading_label(
-		PORTRAIT_PAGE_TITLE_RECT,
-		title,
-		30,
-		color,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	title_label.clip_text = false
-	_fit_single_line_label_to_width(
-		title_label,
-		title,
-		PORTRAIT_PAGE_TITLE_RECT.size.x,
-		_heading_font_size(30),
-		_heading_font_size(20)
-	)
 
 func _stage_portrait_custom_word_title(title: String) -> void:
 	if !is_instance_valid(_portrait_custom_word_input):
@@ -3270,15 +3220,6 @@ func _stage_popup_heart_balance_above_dimmer(
 	_stage_heart_counter(Callable(), heart_rect, false, false)
 	content = previous_content
 	_portrait_top_bar_content = previous_top_bar
-
-func _stage_portrait_popup_close_button(rect: Rect2, callable: Callable) -> Control:
-	return POPUP_COMPONENT.add_close_button(content, _portrait_popup_style(), rect, callable)
-
-func _play_portrait_popup_close_button_intro(button: FlashStageTextureButton) -> void:
-	POPUP_COMPONENT.play_close_intro(_portrait_popup_style(), button)
-
-func _finish_portrait_popup_close_button_intro(button: FlashStageTextureButton) -> void:
-	POPUP_COMPONENT.finish_close_intro(_portrait_popup_style(), button)
 
 func _portrait_popup_shell(
 	rect: Rect2,
@@ -17521,9 +17462,6 @@ func _stage_home_pattern_background() -> void:
 	)
 
 
-func show_leaderboard() -> void:
-	_open_tabbed_page(Callable(self, "_show_leaderboard_screen"))
-
 func _open_tabbed_page(action: Callable) -> void:
 	if is_instance_valid(_home_transition):
 		return
@@ -17570,7 +17508,6 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
 	_portrait_leaderboard.service = Leaderboard
 	_portrait_leaderboard.score_formatter = Callable(self, "_grouped_counter_text")
-	_portrait_leaderboard.tournament_reward_claimed.connect(_show_tournament_reward)
 	_portrait_leaderboard.tournament_finished.connect(
 		_on_leaderboard_tournament_finished.bind(weakref(_portrait_leaderboard)), CONNECT_DEFERRED)
 	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0

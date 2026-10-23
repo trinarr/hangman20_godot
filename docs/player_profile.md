@@ -5,11 +5,10 @@ local player name or localized Player fallback, and current star balance).
 Only the statistics section below it scrolls. It reuses the leaderboard's elastic
 scroll and the existing portrait safe-area and banner-inset layout.
 
-The two large cards show lifetime gameplay stars earned and completed campaign
-chains. Three smaller cards show completed hard chains, correct quiz answers,
-and guessed words. Russian and English activity contributes to the same totals.
-The UI uses raster Roboto Flex for small text and numbers, existing heading
-shader effects, and five generated transparent PNG icons in `assets/profile`.
+Five rows show lifetime gameplay stars earned, completed campaign chains,
+completed hard chains, correct quiz answers, and guessed words. Russian and
+English activity contributes to the same totals. The UI uses shared font
+profiles, heading shader effects, and procedural icons from `profile_line_icon.gd`.
 
 `profile_statistics.gd` owns normalization, legacy migration and pure counter
 updates. GameState persists the compact totals alongside the existing profile.
@@ -33,21 +32,6 @@ words and quiz results already removed by history compaction cannot be recovered
 After migration totals are independent of pruning. Migration runs before the
 next save compacts history and before the first new result changes progress.
 No Supabase table, RPC or server deployment is needed.
-
-## Generated icon prompts
-
-Built-in image generation, one transparent PNG per icon. Shared direction:
-polished cheerful casual word-game artwork matching the existing trophy; bold
-navy outlines, rounded substantial forms, warm highlights, restrained gradients,
-front view, readable at small sizes, isolated transparent background, no UI
-frame or baked drop shadow. PNG originals are retained; Godot imports these
-small UI assets with a 256-pixel size limit to reduce runtime texture memory.
-
-- `stars.png`: three golden five-point stars, one large in front.
-- `levels.png`: golden check-mark flag atop three ascending blue steps.
-- `hard.png`: crimson lightning bolt inside a golden shield.
-- `quiz.png`: overlapping blue and mint quiz cards, white question mark and green check.
-- `words.png`: three fanned ivory letter tiles bearing A, B, C in navy.
 
 ## Verification
 

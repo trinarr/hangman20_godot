@@ -1667,20 +1667,6 @@ func can_watch_coin_refill_ad() -> bool:
 	_refresh_coin_refill_ad_cooldown(true)
 	return coin_refill_ad_views_remaining > 0
 
-func consume_coin_refill_ad_view(persist: bool = true) -> int:
-	_refresh_coin_refill_ad_cooldown(false)
-	if coin_refill_ad_views_remaining <= 0:
-		return 0
-	coin_refill_ad_views_remaining -= 1
-	if coin_refill_ad_views_remaining <= 0:
-		coin_refill_ad_views_remaining = 0
-		coin_refill_ad_cooldown_until = (
-			_coin_refill_ad_now() + COIN_REFILL_AD_COOLDOWN_SECONDS
-		)
-	if persist:
-		save_game()
-	return coin_refill_ad_views_remaining
-
 func grant_coin_refill_ad_reward(amount: int, earned_receipt: bool = false) -> int:
 	# Balance and the consumed ad view must reach the same save snapshot.
 	_refresh_coin_refill_ad_cooldown(true)
@@ -1744,20 +1730,6 @@ func get_heart_refill_ad_cooldown_seconds() -> int:
 func can_watch_heart_refill_ad() -> bool:
 	_refresh_heart_refill_ad_cooldown(true)
 	return heart_refill_ad_views_remaining > 0
-
-func consume_heart_refill_ad_view(persist: bool = true) -> int:
-	_refresh_heart_refill_ad_cooldown(false)
-	if heart_refill_ad_views_remaining <= 0:
-		return 0
-	heart_refill_ad_views_remaining -= 1
-	if heart_refill_ad_views_remaining <= 0:
-		heart_refill_ad_views_remaining = 0
-		heart_refill_ad_cooldown_until = (
-			_coin_refill_ad_now() + HEART_REFILL_AD_COOLDOWN_SECONDS
-		)
-	if persist:
-		save_game()
-	return heart_refill_ad_views_remaining
 
 func grant_heart_refill_ad_reward(earned_receipt: bool = false) -> bool:
 	_apply_elapsed_heart_recovery(true)
@@ -1927,23 +1899,6 @@ func purchase_heart_refill(cost: int) -> bool:
 	soft_currency_changed.emit(soft_currency)
 	_emit_heart_status_if_changed(true)
 	return true
-
-func add_hearts(amount: int = 1, persist: bool = true) -> int:
-	# Rewarded lives add to the current inventory instead of filling it outright.
-	# Preserve an active recovery countdown unless the inventory becomes full.
-	_apply_elapsed_heart_recovery(false)
-	if amount <= 0 or hearts >= MAX_HEARTS:
-		_emit_heart_status_if_changed(true)
-		return clampi(hearts, 0, MAX_HEARTS)
-	hearts = mini(hearts + amount, MAX_HEARTS)
-	if hearts >= MAX_HEARTS:
-		heart_recovery_at = 0
-	elif heart_recovery_at <= 0:
-		heart_recovery_at = _heart_now() + HEART_RECOVERY_SECONDS
-	if persist:
-		save_game()
-	_emit_heart_status_if_changed(true)
-	return hearts
 
 func _heart_now() -> int:
 	return int(floor(Time.get_unix_time_from_system()))
@@ -2921,12 +2876,12 @@ func get_tournament_snapshot() -> Dictionary:
 	snapshot["duration"] = GAME_DESIGN.get_int("tournament.duration_seconds")
 	return snapshot
 
-func start_tournament(selection: Dictionary = {}) -> bool:
+func start_tournament() -> bool:
 	if _save_batch_depth > 0:
 		return false
-	return _start_tournament(selection, true)
+	return _start_tournament(true)
 
-func _start_tournament(selection: Dictionary, persist: bool) -> bool:
+func _start_tournament(persist: bool) -> bool:
 	if !is_tournament_unlocked():
 		return false
 	var previous := tournament_state.duplicate(true)
@@ -2935,9 +2890,7 @@ func _start_tournament(selection: Dictionary, persist: bool) -> bool:
 		if !bool(tournament_state.finished) or int(TOURNAMENT_MODEL.snapshot(tournament_state, _tournament_now()).reward) > 0:
 			return false
 	var config: Dictionary = GAME_DESIGN.get_value("tournament")
-	var profiles: Array = selection.get("profiles", Leaderboard.tournament_profiles())
-	var cache_fallback: bool = selection.get("from_cache", true)
-	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), profiles, cache_fallback)
+	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), Leaderboard.tournament_profiles())
 	if persist and !save_game():
 		tournament_state = previous
 		return false
@@ -2951,9 +2904,9 @@ func record_tournament_stars(amount: int) -> void:
 		return
 	var now := _tournament_now()
 	if tournament_state.is_empty() or bool(tournament_state.claimed) or now >= int(tournament_state.ends_at):
-		# Gameplay cannot await matchmaking. Start from cached public profiles and
+		# Start from cached public profiles and
 		# commit the first score in the caller's normal save/batch transaction.
-		_start_tournament({}, false)
+		_start_tournament(false)
 	if TOURNAMENT_MODEL.add_score(tournament_state, amount, now):
 		_tournament_log("score +%d" % amount)
 		tournament_changed.emit()

@@ -30,9 +30,9 @@ static func normalize_public_profile(value: Variant) -> Dictionary:
 	return {"profile_id":"player:" + identifier, "nickname":nickname,
 		"character_id":int(appearance.character_id), "frame_id":int(appearance.frame_id), "is_real":true}
 
-static func build_pool(language: String, config: Dictionary, real_profiles: Array, rng: RandomNumberGenerator, cache_fallback: bool = false) -> Array:
+static func build_pool(language: String, config: Dictionary, real_profiles: Array, rng: RandomNumberGenerator) -> Array:
 	var capacity := int(config.candidate_pool_size)
-	var real_limit := capacity - int(config.cache_minimum_fillers) if cache_fallback else capacity
+	var real_limit := capacity - int(config.cache_minimum_fillers)
 	var candidates := real_profiles.duplicate(true)
 	_shuffle(candidates, rng)
 	var pool: Array = []

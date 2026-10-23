@@ -1,6 +1,6 @@
 extends Node
 
-# Run with an isolated XDG_DATA_HOME: these tests save and reload progress.
+# Run through run_reward_tests.py with a verified isolated user:// profile.
 # The native ad SDK is not involved; callbacks use real GameState request receipts.
 var main: Node
 var checks: int = 0
@@ -24,6 +24,29 @@ func _ready() -> void:
 func settle() -> void:
 	await get_tree().create_timer(8.0).timeout
 	await get_tree().process_frame
+
+func stage_amount(quiz: bool = false) -> int:
+	var amount: float = GameState.GAME_DESIGN.get_float("economy.rewards.word_coins")
+	if quiz:
+		amount *= GameState.GAME_DESIGN.get_float("economy.rewards.quiz_stage_coin_multiplier")
+	return roundi(amount)
+
+func completion_amount(level: int, wins: int, currency: String) -> int:
+	var prefix := "economy.rewards."
+	if GameState.GAME_DESIGN.is_bonus_level(level + 1):
+		prefix += "challenge_"
+	prefix += "level_completion_"
+	return GameState.GAME_DESIGN.get_int(prefix + "base_" + currency) \
+		+ wins * GameState.GAME_DESIGN.get_int(prefix + "per_win_" + currency)
+
+func present_summary() -> void:
+	main._show_single_player_reward_chain_screen()
+	await settle()
+	# Debug builds deliberately retain the manual final-stage Continue step.
+	if !bool(main.last_result_data.get("single_player_level_summary_view", false)):
+		main._continue_from_single_player_reward_chain()
+		await settle()
+	check(bool(main.last_result_data.get("single_player_level_summary_view", false)), "Final-stage Continue opens the level summary")
 
 func setup_level(level: int, prior_wins: Array) -> int:
 	main.show_menu()
@@ -68,6 +91,10 @@ func reload_save() -> void:
 	main._invalidate_single_player_level_cache()
 
 func begin_ad(context: String) -> String:
+	var reward := GameState.get_pending_single_player_reward() if context == "final" else GameState.get_active_single_player_stage_reward()
+	check(!reward.is_empty() and bool(reward.get("claimed", false)) and int(reward.get("amount", 0)) > 0, "Ad fixture has a paid positive reward for " + context)
+	if context == "stage_coin":
+		check(str(reward.get("currency", "")) == GameState.STAGE_REWARD_COINS, "Stage ad fixture pays coins")
 	var request_id: String = GameState.begin_rewarded_double_request(context)
 	check(!request_id.is_empty(), "Ad receipt missing for " + context)
 	main._portrait_reward_ad_request_id = request_id
@@ -98,24 +125,36 @@ func run() -> void:
 	add_child(main)
 	await get_tree().process_frame
 	Engine.time_scale = 8.0
-	# The final stage advances automatically into the merged chest/stars screen.
+	await test_level_rewards()
+	await test_stage_rewards_and_ad_receipts()
+	await test_presentation_lifecycle()
+	main.show_menu()
+	await settle()
+	main.queue_free()
+	await get_tree().process_frame
+	print("REWARDS ", JSON.stringify({"checks":checks, "failures":failures}))
+	get_tree().quit(0 if failures.is_empty() else 1)
+
+func test_level_rewards() -> void:
+	var word_amount := stage_amount()
+	var normal_coins := completion_amount(1, 1, "coins")
+	var normal_stars := completion_amount(1, 1, "stars")
+	# Stage currency and level-completion rewards are independent transactions.
 	await setup_level(1, [false])
 	record_stage(true)
-	check(GameState.get_active_single_player_stage_reward().amount == 10, "Hangman payout changed")
-	check(GameState.get_pending_single_player_reward().amount == 35, "Normal completion formula changed")
-	check(GameState.get_pending_single_player_reward().stars_amount == 12, "Normal completion stars changed")
+	check(GameState.get_active_single_player_stage_reward().currency == GameState.STAGE_REWARD_STARS and GameState.get_active_single_player_stage_reward().amount == word_amount, "Hangman pays configured stage stars")
+	check(GameState.get_pending_single_player_reward().amount == normal_coins, "Normal completion uses configured coin formula")
+	check(GameState.get_pending_single_player_reward().stars_amount == normal_stars, "Normal completion uses configured star formula")
 	GameState.claim_active_single_player_stage_reward()
 	record_stage(true)
 	check(GameState.claim_active_single_player_stage_reward().amount == 0, "Duplicate stage result reset its claim")
 	reload_save()
 	check(GameState.get_active_single_player_stage_reward().claimed, "Stage claim lost after reload")
-	main._show_single_player_reward_chain_screen()
-	await settle()
-	check(main.last_result_data.get("single_player_level_summary_view", false), "Final stage did not auto-advance")
-	check(GameState.get_soft_currency() == 145 and GameState.get_stars() == 112, "Merged summary did not credit coins and stars once")
+	await present_summary()
+	check(GameState.get_soft_currency() == 100 + normal_coins and GameState.get_stars() == 100 + word_amount + normal_stars, "Merged summary credits stage stars and level rewards once")
 	check(main.find_child("SinglePlayerRewardHeroViewport", true, false) == null, "Summary created a hidden hero viewport")
 	check(main.find_child("SinglePlayerRewardChain", true, false) == null, "Summary created an unused chain")
-	var chest: Node = main.find_child("FinalRewardChest", true, false)
+	var chest: Node = main.find_child("LevelCompletionRewardPrize", true, false)
 	check(chest != null and chest.get_node("ChestOpenVisual").visible, "Chest did not open")
 	check(chest != null and !chest.get_node("ChestFlashOverlay").visible, "Chest flash kept drawing")
 	check(is_instance_valid(main._portrait_final_reward_continue_button) and main._portrait_final_reward_continue_button.is_visible_in_tree() and !main._portrait_final_reward_continue_button.get("disabled"), "Summary actions missing or disabled")
@@ -126,7 +165,7 @@ func run() -> void:
 	main._on_final_reward_ad_rewarded(request_id, "ignored", 99999)
 	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
 	main._on_final_reward_ad_rewarded(retry_id, "coins", 1)
-	check(GameState.get_soft_currency() == 180, "Repeated/retried ad duplicated bonus")
+	check(GameState.get_soft_currency() == 100 + 2 * normal_coins, "Repeated/retried ad duplicated bonus")
 	main._on_final_reward_ad_closed("unrelated")
 	check(main._portrait_final_reward_waiting_for_ad, "Unrelated close dismissed current ad")
 	main._on_final_reward_ad_closed(request_id)
@@ -135,24 +174,26 @@ func run() -> void:
 	check(main._portrait_reward_double_context == &"", "Final x2 did not leave the offer")
 	reload_save()
 	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
-	check(GameState.get_soft_currency() == 180 and GameState.get_stars() == 112, "Reload allowed another ad payout")
+	check(GameState.get_soft_currency() == 100 + 2 * normal_coins and GameState.get_stars() == 100 + word_amount + normal_stars, "Reload allowed another ad payout")
 	# Fresh final-stage credit must finish before the automatic summary rebuild.
 	await setup_level(1, [false])
 	record_stage(true)
 	main._show_single_player_reward_chain_screen()
 	var stage_header: Control = main._portrait_top_bar_content
 	await settle()
-	check(GameState.get_soft_currency() == 145 and GameState.get_stars() == 112, "Automatic transition interrupted the fresh stage payout")
+	if !bool(main.last_result_data.get("single_player_level_summary_view", false)):
+		main._continue_from_single_player_reward_chain()
+		await settle()
+	check(GameState.get_soft_currency() == 100 + normal_coins and GameState.get_stars() == 100 + word_amount + normal_stars, "Summary transition preserves the fresh stage payout")
 	check(main._portrait_top_bar_content == stage_header, "Summary replaced the shared result header")
 	# Failed final stages still receive the base level bonus, including zero wins.
 	for won_before: bool in [true, false]:
 		await setup_level(1, [won_before])
 		record_stage(false)
-		var expected_coins: int = 35 if won_before else 25
-		var expected_stars: int = 12 if won_before else 10
+		var expected_coins := completion_amount(1, int(won_before), "coins")
+		var expected_stars := completion_amount(1, int(won_before), "stars")
 		check(GameState.get_active_single_player_stage_reward().is_empty(), "Failed stage has a payout")
-		main._show_single_player_reward_chain_screen()
-		await settle()
+		await present_summary()
 		check(GameState.get_soft_currency() == 100 + expected_coins, "Failed-final coins wrong")
 		check(GameState.get_stars() == 100 + expected_stars, "Failed-final stars wrong")
 		check(GameState.claim_pending_single_player_level_stars() == 0, "Summary stars repeated")
@@ -163,38 +204,49 @@ func run() -> void:
 	GameState.mark_pending_single_player_reward_presented(true)
 	reload_save()
 	main._resume_saved_single_player_level()
-	check(GameState.get_soft_currency() == 135 and GameState.get_stars() == 112, "Interrupted summary lost unpaid rewards")
+	check(GameState.get_soft_currency() == 100 + normal_coins and GameState.get_stars() == 100 + normal_stars, "Interrupted summary lost unpaid rewards")
 	check(GameState.get_pending_single_player_reward().is_empty(), "Interrupted summary retained offer")
 	reload_save()
 	main._resume_saved_single_player_level()
-	check(GameState.get_soft_currency() == 135 and GameState.get_stars() == 112, "Restart repeated settled rewards")
+	check(GameState.get_soft_currency() == 100 + normal_coins and GameState.get_stars() == 100 + normal_stars, "Restart repeated settled rewards")
 	# Hard-level formula and balance caps retain idempotent claims.
 	var count: int = await setup_level(9, [true, false, true, false, false])
-	check(count == 6, "Hard-level fixture changed")
+	check(count == GameState.GAME_DESIGN.level_stage_count_with_bonus(10), "Hard-level fixture uses configured stage count")
 	record_stage(true)
-	check(GameState.get_pending_single_player_reward().amount == 110, "Hard completion coins wrong")
-	check(GameState.get_pending_single_player_reward().stars_amount == 24, "Hard completion stars wrong")
+	check(GameState.get_pending_single_player_reward().amount == completion_amount(9, 3, "coins"), "Hard completion coins wrong")
+	check(GameState.get_pending_single_player_reward().stars_amount == completion_amount(9, 3, "stars"), "Hard completion stars wrong")
 	GameState.soft_currency = GameState.MAX_CURRENCY_BALANCE - 3
 	GameState.stars = GameState.MAX_CURRENCY_BALANCE - 2
 	check(GameState.claim_pending_single_player_reward() == 3, "Capped coin claim did not report actual credit")
 	check(GameState.claim_pending_single_player_reward(2) == 0, "Capped x2 exceeded limit")
 	check(GameState.claim_pending_single_player_level_stars() == 2, "Capped stars did not report actual credit")
 	check(GameState.claim_pending_single_player_level_stars() == 0, "Capped stars repeated")
-	# Embedded quiz and single-stage level offers have no level chest.
-	for level: int in [1, 0]:
-		await setup_level(level, [])
-		record_stage(true, false)
-		var stage_amount: int = 15 if level == 1 else 10
-		main._show_single_player_reward_chain_screen()
-		await settle()
-		check(GameState.get_soft_currency() == 100 + stage_amount, "Stage offer base payout wrong")
-		request_id = begin_ad("stage_coin")
-		main._on_final_reward_ad_closed(request_id)
-		main._on_final_reward_ad_rewarded(request_id, "coins", 1)
-		main._on_final_reward_ad_rewarded(request_id, "coins", 1)
-		await settle()
-		check(GameState.get_soft_currency() == 100 + 2 * stage_amount, "Close-before-reward lost or duplicated payout")
-		check(GameState.get_stars() == 100 and GameState.get_pending_single_player_reward().is_empty(), "Stage offer created a level bonus")
+
+func test_stage_rewards_and_ad_receipts() -> void:
+	var word_amount := stage_amount()
+	var quiz_amount := stage_amount(true)
+	var normal_coins := completion_amount(1, 1, "coins")
+	var request_id: String
+	# Only coin-paying quiz stages offer advertising x2.
+	await setup_level(1, [])
+	record_stage(true, false)
+	check(GameState.get_active_single_player_stage_reward().currency == GameState.STAGE_REWARD_COINS, "Ad fixture is a coin-paying quiz stage")
+	main._show_single_player_reward_chain_screen()
+	await settle()
+	check(GameState.get_soft_currency() == 100 + quiz_amount, "Stage offer base payout wrong")
+	request_id = begin_ad("stage_coin")
+	main._on_final_reward_ad_closed(request_id)
+	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
+	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
+	await settle()
+	check(GameState.get_soft_currency() == 100 + 2 * quiz_amount, "Close-before-reward lost or duplicated payout")
+	check(GameState.get_stars() == 100 and GameState.get_pending_single_player_reward().is_empty(), "Stage offer created a level bonus")
+	await setup_level(0, [])
+	record_stage(true)
+	main._show_single_player_reward_chain_screen()
+	await settle()
+	check(GameState.get_stars() == 100 + word_amount and GameState.get_soft_currency() == 100, "Single-stage word level pays stars, not coins")
+	check(GameState.begin_rewarded_double_request("stage_coin").is_empty() and GameState.get_pending_single_player_reward().is_empty(), "Star stage has neither a coin x2 offer nor a level-completion bonus")
 	# Relaunching after the large stage-coin reward has appeared skips that offer.
 	# The base payout is settled exactly once and Continue resumes on the chain.
 	await setup_level(1, [])
@@ -210,7 +262,7 @@ func run() -> void:
 	main._resume_saved_single_player_level()
 	await settle()
 	var resumed_stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
-	check(GameState.get_soft_currency() == 115, "Interrupted stage reward lost or duplicated base payout")
+	check(GameState.get_soft_currency() == 100 + quiz_amount, "Interrupted stage reward lost or duplicated base payout")
 	check(
 		bool(resumed_stage_reward.get("claimed", false))
 		and bool(resumed_stage_reward.get("double_resolved", false))
@@ -221,13 +273,16 @@ func run() -> void:
 	check(main.find_child("SinglePlayerRewardChain", true, false) != null, "Interrupted stage reward did not resume on the chain")
 	reload_save()
 	main._resume_saved_single_player_level()
-	check(GameState.get_soft_currency() == 115, "Repeated resume credited interrupted stage reward twice")
+	check(GameState.get_soft_currency() == 100 + quiz_amount, "Repeated resume credited interrupted stage reward twice")
 	# A late receipt pays the old target, even while a new offer exists.
-	await setup_level(0, [])
+	await setup_level(1, [false])
 	record_stage(true)
-	GameState.claim_active_single_player_stage_reward()
-	request_id = GameState.begin_rewarded_double_request("stage_coin")
+	await present_summary()
+	request_id = GameState.begin_rewarded_double_request("final")
+	check(!request_id.is_empty(), "Late-receipt fixture has a paid final reward and a durable receipt")
 	GameState.clear_active_single_player_session(false)
+	GameState.clear_pending_single_player_reward(false)
+	GameState.reset_single_level_attempt("ru", 1)
 	main.single_player_active_level_index = 1
 	main.single_player_active_word_slot = 0
 	GameState.select_single_level_theme("ru", 1, 0, 2)
@@ -237,15 +292,15 @@ func run() -> void:
 	main._portrait_reward_double_context = &"stage_coin"
 	var balance_before: int = GameState.get_soft_currency()
 	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
-	check(GameState.get_soft_currency() == balance_before + 10, "Late old-target receipt used new reward amount")
+	check(GameState.get_soft_currency() == balance_before + normal_coins, "Late old-target receipt uses its recorded final-reward amount")
 	check(!GameState.get_active_single_player_stage_reward().double_resolved, "Late old-target receipt resolved new offer")
 	var cancelled_id: String = GameState.begin_rewarded_double_request("stage_coin")
 	main._on_final_reward_ad_failed_to_show(cancelled_id, "test")
 	main._on_final_reward_ad_rewarded(cancelled_id, "coins", 1)
 	main._on_final_reward_ad_rewarded("unknown", "coins", 1)
-	check(GameState.get_soft_currency() == balance_before + 10, "Cancelled or unknown ad paid out")
+	check(GameState.get_soft_currency() == balance_before + normal_coins, "Cancelled or unknown ad paid out")
 	# Leaving a still-pending stage offer must make its late receipt silent.
-	await setup_level(0, [])
+	await setup_level(1, [])
 	record_stage(true)
 	main._show_single_player_reward_chain_screen()
 	await settle()
@@ -255,7 +310,9 @@ func run() -> void:
 	var home_generation: int = main.result_transition_generation
 	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
 	check(main.result_transition_generation == home_generation, "Late off-screen receipt navigated away from Home")
-	check(GameState.get_soft_currency() == 120, "Late off-screen receipt lost payout")
+	check(GameState.get_soft_currency() == 100 + 2 * quiz_amount, "Late off-screen receipt lost payout")
+
+func test_presentation_lifecycle() -> void:
 	# Cancellation must stop root-owned effects, HUD rolls and stale navigation.
 	await setup_level(1, [true])
 	record_stage(false)
@@ -311,7 +368,7 @@ func run() -> void:
 	# Queue navigation in the same frame as leaving the final stage.
 	await setup_level(1, [true])
 	record_stage(false)
-	main._auto_advance_final_stage_reward()
+	main.call_deferred("_continue_final_stage_reward_if_current", main.result_transition_generation)
 	main.show_menu()
 	await settle()
 	check(!main.last_result_data.get("single_player_level_summary_view", false), "Deferred old-stage navigation reopened summary")
@@ -326,12 +383,5 @@ func run() -> void:
 		get_tree().root.size = viewport_size
 		await setup_level(1, [true])
 		record_stage(false)
-		main._show_single_player_reward_chain_screen()
-		await settle()
+		await present_summary()
 		audit_text(main)
-	main.show_menu()
-	await settle()
-	main.queue_free()
-	await get_tree().process_frame
-	print("REWARDS ", JSON.stringify({"checks":checks, "failures":failures}))
-	get_tree().quit(0 if failures.is_empty() else 1)

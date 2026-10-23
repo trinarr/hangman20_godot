@@ -117,12 +117,6 @@ TOURNAMENT_FINISHED,Турнир завершён,Tournament finished
 TOURNAMENT_END_TITLE,Конец турнира,End of Tournament
 TOURNAMENT_FINISH_PROMPT,Турнир завершен! Заберите вашу награду,The tournament has ended! Claim your reward
 TOURNAMENT_CLAIM_REWARD,Забрать награду,Claim
-TOURNAMENT_PLACE,Ваше место: %d,Your place: %d
-TOURNAMENT_NEXT,Новый турнир,New tournament
-TOURNAMENT_CLAIM,Забрать %d монет,Claim %d coins
-TOURNAMENT_INTRO,%d часов · 10 участников · 3 призовых места,%d hours · 10 players · 3 prize places
-TOURNAMENT_LOCKED,Завершите уровень %d для участия,Complete level %d to join
-TOURNAMENT_JOIN,Участвовать,Join
 TOURNAMENT_YOU,Вы,You
 TOURNAMENT_SAVE_ERROR,Не удалось сохранить. Попробуйте ещё раз,Couldn't save. Please try again
 TOURNAMENT_HOME_LOCKED,Турнир откроется после уровня %d,Unlocks after level %d

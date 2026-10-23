@@ -79,9 +79,6 @@ func _batch_rpc_path() -> String:
 func _leaderboard_rpc_path() -> String:
 	return "/rest/v1/rpc/leaderboard_sync_dev" if _uses_dev() else "/rest/v1/rpc/leaderboard_sync"
 
-func _tournament_rpc_path() -> String:
-	return "/rest/v1/rpc/tournament_profiles_dev" if _uses_dev() else "/rest/v1/rpc/tournament_profiles"
-
 func leaderboard_is_configured() -> bool:
 	var setting := "leaderboard/dev_enabled" if _uses_dev() else "leaderboard/enabled"
 	return _network_allowed() and bool(ProjectSettings.get_setting(setting, false)) \
@@ -92,7 +89,7 @@ func _network_allowed() -> bool:
 
 func _path_allowed(path: String) -> bool:
 	# No caller can accidentally send a debug vote to the production RPC.
-	return path == _rpc_path() or path == _batch_rpc_path() or path == _leaderboard_rpc_path() or path == _tournament_rpc_path() or path in [
+	return path == _rpc_path() or path == _batch_rpc_path() or path == _leaderboard_rpc_path() or path in [
 		"/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token"]
 
 func is_configured() -> bool:
@@ -234,7 +231,7 @@ func _post(path: String, payload: Dictionary, authorized: bool = false) -> Dicti
 	var configured := is_configured() or leaderboard_is_configured()
 	if path == _rpc_path() or path == _batch_rpc_path():
 		configured = is_configured()
-	elif path == _leaderboard_rpc_path() or path == _tournament_rpc_path():
+	elif path == _leaderboard_rpc_path():
 		configured = leaderboard_is_configured()
 	if !configured or !_path_allowed(path):
 		_debug_log("HTTP blocked: Supabase disabled for this execution")
@@ -356,13 +353,8 @@ func leaderboard_rpc(payload: Dictionary) -> Dictionary:
 	# Share authentication, without waiting for the quiz worker's HTTP request.
 	return await _authorized_rpc(_leaderboard_rpc_path(), payload, false)
 
-func tournament_rpc(payload: Dictionary) -> Dictionary:
-	if !leaderboard_is_configured():
-		return {}
-	return await _authorized_rpc(_tournament_rpc_path(), payload, true)
-
 func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) -> Dictionary:
-	var lane := "tournament" if path == _tournament_rpc_path() else ("leaderboard" if path == _leaderboard_rpc_path() else "quiz")
+	var lane := "leaderboard" if path == _leaderboard_rpc_path() else "quiz"
 	var delay := retry_delay_ms(lane)
 	if delay > 0:
 		return {"retry_deferred":true,"retry_after_ms":delay}

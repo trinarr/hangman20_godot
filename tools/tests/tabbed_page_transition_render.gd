@@ -45,7 +45,7 @@ func run() -> void:
 		main.show_menu()
 		await rendered_frame()
 		if page == "leaderboard":
-			main.show_leaderboard()
+			main._open_tabbed_page(Callable(main, "_show_leaderboard_screen"))
 		elif page == "settings":
 			main._open_profile_tab("settings")
 		else:
