@@ -5,6 +5,9 @@ const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const POPUP = preload("res://scripts/ui/portrait_popup.gd")
 const CENTER = preload("res://scripts/ui/popup_stage_center.gd")
+const OPEN_GROW_DURATION: float = CENTER.OPEN_GROW_DURATION * 1.4
+const OPEN_SETTLE_DURATION: float = CENTER.OPEN_SETTLE_DURATION * 1.4
+const TITLE_REVEAL_DURATION: float = 0.1
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
 const PAPER_SHADER = preload("res://shaders/profile_avatar_paper.gdshader")
@@ -220,14 +223,14 @@ func _prepare_open() -> void:
 	source.hide()
 	_tween = create_tween()
 	_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	_tween.tween_method(_set_open_time, 0.0, CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION, CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION)
+	_tween.tween_method(_set_open_time, 0.0, OPEN_GROW_DURATION + OPEN_SETTLE_DURATION, OPEN_GROW_DURATION + OPEN_SETTLE_DURATION)
 	_tween.tween_callback(_finish_open)
 
 func _set_open_time(elapsed: float) -> void:
 	_open_elapsed = elapsed
-	var grow := 1.0 - pow(1.0 - clampf(elapsed / CENTER.OPEN_GROW_DURATION, 0.0, 1.0), 3.0)
+	var grow := 1.0 - pow(1.0 - clampf(elapsed / OPEN_GROW_DURATION, 0.0, 1.0), 3.0)
 	_progress = grow
-	var settle := clampf((elapsed - CENTER.OPEN_GROW_DURATION) / CENTER.OPEN_SETTLE_DURATION, 0.0, 1.0)
+	var settle := clampf((elapsed - OPEN_GROW_DURATION) / OPEN_SETTLE_DURATION, 0.0, 1.0)
 	var eased_settle := 2.0 * settle * settle if settle < 0.5 else 1.0 - pow(-2.0 * settle + 2.0, 2.0) * 0.5
 	_bounce_scale = lerpf(lerpf(CENTER.OPEN_START_FACTOR, CENTER.OPEN_PEAK_FACTOR, grow), 1.0, eased_settle)
 
@@ -582,15 +585,9 @@ func _layout() -> void:
 		_header.scale = Vector2.ONE * current_scale
 		_header.position = mask_rect.position + Vector2(0, -36) * current_scale
 		_header.size = Vector2(mask_rect.size.x / current_scale, 52)
-		# Solve when the expanding surface first reaches its final size. The
-		# remaining grow and settle time is shared by the title's fade-in.
-		var initial_ratio := initial_scale / fit
-		var a: float = CENTER.OPEN_PEAK_FACTOR - CENTER.OPEN_START_FACTOR
-		var b: float = CENTER.OPEN_START_FACTOR - initial_ratio
-		var crossing := clampf((-b + sqrt(maxf(0.0, b * b - 4.0 * a * (initial_ratio - 1.0)))) / (2.0 * a), 0.0, 1.0)
-		var reveal_start: float = CENTER.OPEN_GROW_DURATION * (1.0 - pow(1.0 - crossing, 1.0 / 3.0))
-		var open_duration: float = CENTER.OPEN_GROW_DURATION + CENTER.OPEN_SETTLE_DURATION
-		var title_opacity := clampf((_open_elapsed - reveal_start) / maxf(0.001, open_duration - reveal_start), 0.0, 1.0)
+		# Reveal the title when the popup starts settling down from its peak scale.
+		var reveal_start: float = OPEN_GROW_DURATION
+		var title_opacity := clampf((_open_elapsed - reveal_start) / TITLE_REVEAL_DURATION, 0.0, 1.0)
 		if _closing:
 			title_opacity *= _progress
 		_title_fade.set("opacity", title_opacity)
