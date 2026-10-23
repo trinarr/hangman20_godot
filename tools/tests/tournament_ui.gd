@@ -139,7 +139,8 @@ func run() -> void:
 	for index in range(9):
 		GameState.tournament_state.opponents[index].events = [{"at": 100, "stars": 20 + index}]
 	GameState.tournament_state.opponents[0].merge({"nickname":"PublicSnapshot", "profile_id":"player:501", "character_id":2, "frame_id":5, "is_real":true}, true)
-	now += 14000
+	# Keep the progress inspection inside the configured tournament duration.
+	now += mini(14000, GameState.GAME_DESIGN.get_int("tournament.duration_seconds") / 2)
 	page.refresh()
 	await settle()
 	check(int(page._snapshot.rank) > 3, "Independent opponent progression moves player out of podium")
@@ -182,6 +183,9 @@ func run() -> void:
 		get_window().size = Vector2i(690, 1536) if rank == 2 else Vector2i(1080, 1920)
 		await settle()
 		GameState.tournament_state.claimed = false
+		now = int(GameState.tournament_state.ends_at)
+		GameState.tournament_state.last_seen = now
+		GameState.tournament_state.finished = true
 		GameState.tournament_state.player_stars = 100
 		for index in range(9):
 			GameState.tournament_state.opponents[index].events = [{"at": 1, "stars": 200 if index < rank - 1 else 0}]
@@ -212,7 +216,7 @@ func run() -> void:
 		Database.interface_language = language
 		TranslationServer.set_locale(language)
 		page.refresh()
-		check(page._button.button_text == ("НОВЫЙ ТУРНИР" if language == "ru" else "NEW TOURNAMENT"), "Localized next-tournament action")
+		check(page._title.text.begins_with("До конца:" if language == "ru" else "Time left:") and !page._button.visible, "Localized timer replaces the old next-tournament action once the next tournament starts")
 	view.set_bottom_inset(50)
 	await settle()
 	check(page.get_global_rect().end.y <= (view.size.y - 62) * view.scale.y + 1, "Tournament respects banner inset")
@@ -248,5 +252,9 @@ func inspect_reward(main: Node, rank: int, amount: int) -> void:
 	check(reward._stopped, "Navigation stops the outgoing reward immediately")
 	reward._request_continue()
 	await settle()
-	check(is_instance_valid(main._portrait_leaderboard) and main._portrait_leaderboard._tournament.visible, "Continue returns to the tournament tab")
-	check(GameState.get_soft_currency() == before and GameState.get_tournament_snapshot().phase == "claimed", "Animation and repeated Continue cannot grant coins")
+	check(!get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).is_empty(), "Continue opens the new-tournament introduction")
+	check(GameState.get_soft_currency() == before and GameState.get_tournament_snapshot().phase == "active", "Animation and repeated Continue cannot grant coins; the next tournament is active")
+	main.content.get_node("TournamentStartPrompt")._go()
+	await settle()
+	main._show_leaderboard_screen(true)
+	await settle()

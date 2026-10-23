@@ -142,8 +142,44 @@ func test_start_delay(config: Dictionary) -> void:
 						check(int(row.stars) >= int(first.stars) and int(row.stars) > 0, "First scheduled event awards stars at its timestamp")
 		check(reached_boundary, "Seeds exercise the exact configured start boundary")
 
+func test_automatic_start(config: Dictionary) -> void:
+	GameState.tournament_time_source = func(): return now
+	GameState.single_player = {}
+	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
+	GameState.tournament_state = {}
+	GameState.add_stars(1, false)
+	check(GameState.tournament_state.is_empty(), "Administrative stars never start tournaments")
+	GameState.add_gameplay_stars(3)
+	var first_id := str(GameState.tournament_state.id)
+	check(int(GameState.tournament_state.player_stars) == 3 and int(GameState.tournament_state.started_at) == now, "First earned stars start the tournament and count immediately")
+	check(int(GameState.tournament_state.ends_at) - now == 43200, "New tournaments last twelve hours")
+	GameState.load_game()
+	check(GameState.tournament_state.id == first_id and int(GameState.tournament_state.player_stars) == 3, "Automatic start and its first score survive reload")
+	GameState.tournament_state = {}
+	GameState.begin_save_batch()
+	GameState.add_gameplay_stars(5, false)
+	check(int(GameState.tournament_state.player_stars) == 5, "Gameplay can start and score a tournament inside a save batch")
+	GameState.end_save_batch()
+	GameState.load_game()
+	check(int(GameState.tournament_state.player_stars) == 5, "Save batch commits the first tournament score")
+	GameState.tournament_state = MODEL.create(now - int(config.duration_seconds), "ru", config, 765)
+	GameState.tournament_state.player_stars = 1000
+	var unclaimed_id := str(GameState.tournament_state.id)
+	GameState.record_tournament_stars(7)
+	check(GameState.tournament_state.id == unclaimed_id and !GameState.tournament_state.claimed and int(GameState.get_tournament_snapshot().reward) > 0, "Unclaimed prize keeps the previous tournament occupied despite newly earned stars")
+	check(!GameState.start_tournament(), "Opening a new tournament cannot replace an unclaimed prize")
+	GameState.tournament_state = MODEL.create(now - int(config.duration_seconds), "ru", config, 765)
+	var no_prize_id := str(GameState.tournament_state.id)
+	GameState.record_tournament_stars(7)
+	check(GameState.tournament_state.id != no_prize_id and int(GameState.tournament_state.player_stars) == 7, "Finished tournament without a prize permits a new automatic start")
+	GameState.tournament_state = {}
+	GameState.single_player = {}
+	GameState.add_gameplay_stars(1, false)
+	check(GameState.tournament_state.is_empty(), "Stars do not bypass the tournament unlock level")
+
 func run() -> void:
 	var config: Dictionary = CONFIG.get_value("tournament")
+	test_automatic_start(config)
 	test_start_delay(config)
 	test_roster(config)
 	var canonical: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://supabase/seeds/leaderboard_filler_nicknames_v2.json"))
@@ -243,7 +279,7 @@ func run() -> void:
 	failed.tournament_time_source = func(): return now
 	failed._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	check(!failed.start_tournament() and failed.tournament_state.is_empty(), "Failed join save rolls back session")
-	failed.tournament_state = MODEL.create(now - 30000, "ru", config, 1)
+	failed.tournament_state = MODEL.create(now - int(config.duration_seconds), "ru", config, 1)
 	failed.tournament_state.player_stars = 1000
 	var failed_balance := failed.get_soft_currency()
 	check(!bool(failed.claim_tournament_reward().ok), "Failed coin save does not report a successful claim")

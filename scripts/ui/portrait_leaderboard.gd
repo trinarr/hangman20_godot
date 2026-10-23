@@ -1,5 +1,6 @@
 extends Control
 signal tournament_reward_claimed(award: Dictionary)
+signal tournament_finished
 ## Native scrolling children share one stage transform; rows never map twice.
 const TOURNAMENT_PAGE = preload("res://scripts/ui/portrait_tournament.gd")
 const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
@@ -40,6 +41,9 @@ var _has_error := false
 var _tournament: Control
 var _tournament_selected := false
 var _portraits: Node
+var _expiry_timer: Timer
+var _watched_tournament_id := ""
+var _expiry_sent := false
 
 static func localized(key: String, ru: String, en: String) -> String:
 	var translated := TranslationServer.translate(key)
@@ -83,6 +87,14 @@ func _ready() -> void:
 	_tournament.reward_claimed.connect(func(award: Dictionary): tournament_reward_claimed.emit(award))
 	add_child(_tournament)
 	_tournament.hide()
+	var tournament_snapshot := GameState.get_tournament_snapshot()
+	if str(tournament_snapshot.phase) == "active":
+		_watched_tournament_id = str(GameState.tournament_state.id)
+	_expiry_timer = Timer.new()
+	_expiry_timer.wait_time = 1.0
+	_expiry_timer.timeout.connect(_check_tournament_expiry)
+	add_child(_expiry_timer)
+	_expiry_timer.start()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	if is_instance_valid(service):
@@ -294,8 +306,21 @@ func _update_pin() -> void:
 	var shadow: Panel = pinned.get_node("CardShadow")
 	shadow.position.x = face.position.x
 
+func _check_tournament_expiry() -> void:
+	if !_live or _expiry_sent or _watched_tournament_id.is_empty():
+		return
+	var snapshot := GameState.get_tournament_snapshot()
+	if str(GameState.tournament_state.get("id", "")) != _watched_tournament_id:
+		return
+	if str(snapshot.phase) == "finished":
+		_expiry_sent = true
+		_expiry_timer.stop()
+		tournament_finished.emit()
+
 func dispose() -> void:
 	_live = false
+	if is_instance_valid(_expiry_timer):
+		_expiry_timer.stop()
 	if is_instance_valid(_tournament):
 		_tournament.dispose()
 	if is_instance_valid(service):

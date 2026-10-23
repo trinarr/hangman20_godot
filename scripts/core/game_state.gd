@@ -2922,26 +2922,38 @@ func get_tournament_snapshot() -> Dictionary:
 	return snapshot
 
 func start_tournament(selection: Dictionary = {}) -> bool:
-	if _save_batch_depth > 0 or !is_tournament_unlocked():
+	if _save_batch_depth > 0:
 		return false
-	if !tournament_state.is_empty() and !bool(tournament_state.claimed):
+	return _start_tournament(selection, true)
+
+func _start_tournament(selection: Dictionary, persist: bool) -> bool:
+	if !is_tournament_unlocked():
 		return false
 	var previous := tournament_state.duplicate(true)
+	if !tournament_state.is_empty() and !bool(tournament_state.claimed):
+		TOURNAMENT_MODEL.advance(tournament_state, _tournament_now())
+		if !bool(tournament_state.finished) or int(TOURNAMENT_MODEL.snapshot(tournament_state, _tournament_now()).reward) > 0:
+			return false
 	var config: Dictionary = GAME_DESIGN.get_value("tournament")
 	var profiles: Array = selection.get("profiles", Leaderboard.tournament_profiles())
 	var cache_fallback: bool = selection.get("from_cache", true)
 	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), profiles, cache_fallback)
-	if !save_game():
+	if persist and !save_game():
 		tournament_state = previous
 		return false
 	_tournament_log("joined")
-	tournament_changed.emit()
+	if persist:
+		tournament_changed.emit()
 	return true
 
 func record_tournament_stars(amount: int) -> void:
-	if tournament_state.is_empty() or amount <= 0:
+	if amount <= 0:
 		return
 	var now := _tournament_now()
+	if tournament_state.is_empty() or bool(tournament_state.claimed) or now >= int(tournament_state.ends_at):
+		# Gameplay cannot await matchmaking. Start from cached public profiles and
+		# commit the first score in the caller's normal save/batch transaction.
+		_start_tournament({}, false)
 	if TOURNAMENT_MODEL.add_score(tournament_state, amount, now):
 		_tournament_log("score +%d" % amount)
 		tournament_changed.emit()

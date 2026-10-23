@@ -69,7 +69,7 @@ func run() -> void:
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	check(GameState.start_tournament(), "Unlocked user can explicitly join")
 	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
-	check(button.caption.text == "08:00:00", "Active tournament updates shortcut immediately")
+	check(button.caption.text == "12:00:00", "Active tournament updates shortcut immediately")
 	check(button._rank.visible and button._rank.text == "#1", "Active tournament immediately shows current player rank")
 	check(button._rank.get_rect().get_center().is_equal_approx(button.LOCK_RECT.get_center() + Vector2(0, 5)), "Rank sits five units below locked icon center")
 	check(button._rank.get_theme_color("font_color") == Color.WHITE and button._rank.has_node("DisplayTextShaderEffect"), "Rank uses white text with shared shader style")
@@ -83,13 +83,9 @@ func run() -> void:
 	check(button._rank.text == "#1", "Tournament changes immediately refresh player rank")
 	now += 3601
 	button.refresh()
-	check(button.caption.text == "06:59:59", "Shortcut timer uses saved tournament deadline")
+	check(button.caption.text == "10:59:59", "Shortcut timer uses saved tournament deadline")
 	button._timer.timeout.emit()
-	check(button.caption.text == "06:59:59", "Visible shortcut updates on timer tick")
-	now = int(GameState.tournament_state.ends_at)
-	button.refresh()
-	check(button.caption.text == "TOURNAMENT", "Expired tournament restores title")
-	check(!button._rank.visible, "Expired tournament hides player rank")
+	check(button.caption.text == "10:59:59", "Visible shortcut updates on timer tick")
 	button.pressed.emit()
 	check(is_instance_valid(main._home_transition), "Unlocked tap starts existing whole-page transition")
 	await get_tree().create_timer(0.4).timeout
@@ -101,10 +97,13 @@ func run() -> void:
 	main._show_leaderboard_screen()
 	await settle()
 	check(!main._portrait_leaderboard._tournament_selected, "Existing ranking entry preserves Global destination")
+	now = int(GameState.tournament_state.ends_at)
+	GameState.tournament_state.player_stars = 0
 	main.show_menu()
 	await settle()
 	var restored: Control = main.content.find_child("HomeTournamentButton", true, false)
 	check(restored != null and restored.caption.text == "TOURNAMENT", "Returning Home rebuilds correct shortcut state")
+	check(!restored._rank.visible, "Expired tournament hides player rank")
 	var callbacks_before := GameState.tournament_changed.get_connections().size()
 	main.queue_free()
 	await settle()

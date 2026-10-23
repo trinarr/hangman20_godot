@@ -20,6 +20,7 @@ var _portrait_leaderboard: Control
 const STAGE_REWARD_COMPONENT = preload("res://scripts/ui/portrait_stage_reward.gd")
 const TOURNAMENT_REWARD_COMPONENT = preload("res://scripts/ui/portrait_tournament_reward.gd")
 const TOURNAMENT_FINISH_POPUP = preload("res://scripts/ui/tournament_finish_popup.gd")
+const TOURNAMENT_START_POPUP = preload("res://scripts/ui/tournament_start_popup.gd")
 var _portrait_tournament_reward: Node
 const REWARD_PRIZE_COMPONENT = preload("res://scripts/ui/portrait_reward_prize.gd")
 var _portrait_stage_reward: Node
@@ -544,7 +545,9 @@ const PORTRAIT_POPUP_BUTTON_UNIFORM_SCALE: float = 1.15
 const PORTRAIT_POPUP_BUTTON_LENGTH_SCALE: float = 0.85
 const PORTRAIT_POPUP_LONG_BUTTON_MIN_SOURCE_WIDTH: float = 280.0
 const PORTRAIT_POPUP_LONG_BUTTON_WIDTH: float = 313.6
-const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 18.0
+const PORTRAIT_POPUP_BOTTOM_BUTTON_GAP: float = 25.0
+# Existing popup content was authored with this inset; grow the shell below it.
+const PORTRAIT_POPUP_AUTHORED_BOTTOM_BUTTON_GAP: float = 18.0
 const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)
 const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0
 const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0
@@ -987,6 +990,11 @@ func _portrait_ads_enabled() -> bool:
 	)
 
 func _portrait_handle_modal_back_request() -> bool:
+	if !get_tree().get_nodes_in_group(TOURNAMENT_START_POPUP.GROUP).is_empty():
+		var prompt := content.get_node_or_null("TournamentStartPrompt")
+		if is_instance_valid(prompt):
+			prompt._go()
+		return true
 	if !get_tree().get_nodes_in_group(TOURNAMENT_FINISH_POPUP.GROUP).is_empty():
 		return true
 	# Back/Escape must always act on the topmost modal. Without this guard the
@@ -1048,7 +1056,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event is InputEventKey and event.pressed and !event.echo and event.keycode == KEY_ESCAPE:
 		if is_instance_valid(_portrait_tournament_reward):
-			_show_leaderboard_screen(true)
+			_show_next_tournament()
 			get_viewport().set_input_as_handled()
 			return
 		if is_instance_valid(_portrait_profile):
@@ -2710,11 +2718,11 @@ func _show_coin_refill_popup() -> void:
 		170,
 		close_action,
 		145.0,
-		560.0,
+		560.0 + _portrait_popup_extra_bottom_space(),
 		true,
 		coin_store_return_action
 	)
-	var rect := Rect2(28.0, 145.0, 424.0, 415.0)
+	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 415.0))
 	_portrait_popup_shell(rect, tr("COIN_STORE_TITLE"), close_action, 28)
 
 	# Reuse the main-prize composition without the refill popups' blue status card:
@@ -3325,6 +3333,12 @@ func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
 func _portrait_popup_button_rect(rect: Rect2) -> Rect2:
 	return POPUP_COMPONENT.button_rect(_portrait_popup_style(), rect)
 
+func _portrait_popup_extra_bottom_space() -> float:
+	return maxf(0.0, PORTRAIT_POPUP_BOTTOM_BUTTON_GAP - PORTRAIT_POPUP_AUTHORED_BOTTOM_BUTTON_GAP)
+
+func _portrait_popup_with_bottom_space(rect: Rect2) -> Rect2:
+	return Rect2(rect.position, rect.size + Vector2(0.0, _portrait_popup_extra_bottom_space()))
+
 func _portrait_popup_bottom_button_y(popup_bottom: float, source_height: float) -> float:
 	return POPUP_COMPONENT.bottom_button_y(_portrait_popup_style(), popup_bottom, source_height)
 
@@ -3546,7 +3560,7 @@ func _settings_word_language_confirm_description(language_code: String) -> Strin
 func _show_settings_word_language_confirm_popup(language_code: String) -> void:
 	_remove_settings_word_language_confirm_popup()
 	var close_action := Callable(self, "_remove_settings_word_language_confirm_popup")
-	var popup_rect := Rect2(28.0, 235.0, 424.0, 260.0)
+	var popup_rect := _portrait_popup_with_bottom_space(Rect2(28.0, 235.0, 424.0, 260.0))
 	var previous_content := _portrait_popup_begin(
 		"WordLanguageConfirmPopup",
 		"word_language_confirm_popup",
@@ -4221,7 +4235,7 @@ func _show_legal_consent_popup() -> void:
 		return
 	_remove_legal_consent_popup()
 	_hide_portrait_ad_banner()
-	var rect := Rect2(28.0, 225.0, 424.0, 280.0)
+	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 225.0, 424.0, 280.0))
 	var previous_content := _portrait_popup_begin(
 		"LegalConsentPopup",
 		str(PORTRAIT_LEGAL_POPUP_GROUP),
@@ -7159,7 +7173,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	)
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
-	var popup_bottom: float = 503.0 if free_offer else 582.0
+	var popup_bottom: float = (503.0 if free_offer else 582.0) + _portrait_popup_extra_bottom_space()
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
 		"single_player_last_chance_popup",
@@ -7527,7 +7541,7 @@ func _show_heart_refill_popup(
 		150,
 		close_action,
 		145.0,
-		582.0,
+		582.0 + _portrait_popup_extra_bottom_space(),
 		true,
 		Callable(self, "_return_to_heart_refill_from_coin_store").bind(
 			continue_action,
@@ -7536,7 +7550,7 @@ func _show_heart_refill_popup(
 			reward_acquired
 		)
 	)
-	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
+	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 437.0))
 	_portrait_popup_shell(
 		rect,
 		tr("HEART_REFILL_TITLE"),
@@ -7907,7 +7921,7 @@ func _home_profile_show_single_player_level_popup(
 		135,
 		close_action,
 		118.0,
-		568.0,
+		568.0 + _portrait_popup_extra_bottom_space(),
 		true,
 		Callable(self, "_return_to_single_player_theme_popup").bind(
 			level_index,
@@ -7918,7 +7932,7 @@ func _home_profile_show_single_player_level_popup(
 		!theme_selection_locked
 	)
 	single_player_popup_stage_content = content
-	var rect := Rect2(24.0, 118.0, 432.0, 450.0)
+	var rect := _portrait_popup_with_bottom_space(Rect2(24.0, 118.0, 432.0, 450.0))
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
 	_portrait_popup_shell(
 		rect,
@@ -9724,7 +9738,7 @@ func _show_exit_game_popup() -> void:
 	_remove_exit_game_popup()
 	var close_action := Callable(self, "_remove_exit_game_popup")
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		var two_player_rect := Rect2(28.0, 235.0, 424.0, 260.0)
+		var two_player_rect := _portrait_popup_with_bottom_space(Rect2(28.0, 235.0, 424.0, 260.0))
 		var two_player_previous_content := _portrait_popup_begin(
 			"ExitGamePopup",
 			"exit_game_popup",
@@ -9787,11 +9801,11 @@ func _show_exit_game_popup() -> void:
 		140,
 		close_action,
 		145.0,
-		582.0
+		582.0 + _portrait_popup_extra_bottom_space()
 	)
 	var popup_root := content.get_parent() as Control
 	_stage_popup_heart_balance_above_dimmer(popup_root)
-	var rect := Rect2(28.0, 145.0, 424.0, 437.0)
+	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 437.0))
 	_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)
 	# Match the refill popups: keep the warning art and copy together on one
 	# light-blue status card, with the broken heart on the left and text on the right.
@@ -17522,11 +17536,22 @@ func _open_tabbed_page(action: Callable) -> void:
 	_home_transition.call("start", content, action, true)
 
 func show_tournament() -> void:
+	if !get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty():
+		return
 	if !GameState.is_tournament_unlocked():
 		var level: int = GameState.GAME_DESIGN.get_int("tournament.unlock_completed_levels")
 		_show_portrait_status_toast(LEADERBOARD_SCREEN.localized(
 			"TOURNAMENT_HOME_LOCKED", "Турнир откроется после уровня %d",
 			"Unlocks after level %d") % level)
+		return
+	var snapshot := GameState.get_tournament_snapshot()
+	if str(snapshot.phase) != "active":
+		if str(snapshot.phase) == "finished" and int(snapshot.reward) > 0:
+			var prompt := content.get_node_or_null("TournamentFinishPrompt")
+			if prompt != null:
+				prompt.present_if_needed()
+		else:
+			TOURNAMENT_START_POPUP.present(self)
 		return
 	_open_tabbed_page(Callable(self, "_show_leaderboard_screen").bind(true))
 
@@ -17546,17 +17571,33 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	_portrait_leaderboard.service = Leaderboard
 	_portrait_leaderboard.score_formatter = Callable(self, "_grouped_counter_text")
 	_portrait_leaderboard.tournament_reward_claimed.connect(_show_tournament_reward)
+	_portrait_leaderboard.tournament_finished.connect(
+		_on_leaderboard_tournament_finished.bind(weakref(_portrait_leaderboard)), CONNECT_DEFERRED)
 	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_leaderboard)
 	_portrait_leaderboard._select_tab(tournament)
 	_stage_portrait_ad_banner("leaderboard")
+
+func _on_leaderboard_tournament_finished(source: WeakRef) -> void:
+	if source.get_ref() == null or source.get_ref() != _portrait_leaderboard:
+		return
+	var snapshot := GameState.get_tournament_snapshot()
+	if str(snapshot.phase) != "finished":
+		return
+	show_menu()
+	if int(snapshot.reward) > 0:
+		var prompt := content.get_node_or_null("TournamentFinishPrompt")
+		if prompt != null:
+			prompt.present_if_needed()
+	else:
+		TOURNAMENT_START_POPUP.present(self)
 
 func _show_tournament_reward(award: Dictionary) -> void:
 	_clear()
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
 	# Keep navigation above the campaign prize/glow and action layers.
 	_portrait_top_bar_content.z_index = 200
-	var return_action := Callable(self, "_show_leaderboard_screen").bind(true)
+	var return_action := Callable(self, "_show_next_tournament")
 	_stage_titled_navigation_header(
 		LEADERBOARD_SCREEN.localized("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished"),
 		"TournamentRewardTitle", false, return_action
@@ -17567,6 +17608,10 @@ func _show_tournament_reward(award: Dictionary) -> void:
 	_portrait_tournament_reward.click_requested.connect(_play_ui_click_sound)
 	_portrait_tournament_reward.continue_requested.connect(return_action)
 	_portrait_tournament_reward.present(self, content, award)
+
+func _show_next_tournament() -> void:
+	show_menu()
+	TOURNAMENT_START_POPUP.present(self)
 
 func _stage_titled_navigation_header(heading: String, title_node_name: String,
 	with_settings: bool = true, back_action: Callable = Callable()) -> void:

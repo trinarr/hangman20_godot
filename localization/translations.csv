@@ -108,6 +108,9 @@ PROFILE_TITLE,Профиль,Profile
 PLAYER_TITLE,Игрок,Player
 LEADERBOARD_TOURNAMENT,Турнир,Tournament
 TOURNAMENT_TITLE,Турнир,Tournament
+TOURNAMENT_START_TITLE,Новый турнир,New Tournament
+TOURNAMENT_START_DESCRIPTION,"Зарабатывайте звезды {star}, поднимайтесь в рейтинге и забирайте награды!","Earn stars {star}, climb the leaderboard and claim rewards!"
+TOURNAMENT_START_GO,Погнали!,Let's go!
 TOURNAMENT_REMAINING,До конца: %s,Time left: %s
 TOURNAMENT_EARN,Зарабатывайте звёзды и поднимайтесь в рейтинге,Earn stars and climb the leaderboard
 TOURNAMENT_FINISHED,Турнир завершён,Tournament finished

@@ -212,7 +212,10 @@ func run() -> void:
 	# Preserve geometry helpers used by concrete content builders.
 	check(main._portrait_popup_button_rect(Rect2(60, 400, 300, 56)).size == Vector2(313.6, 64.4), "long button geometry retained")
 	check(main._portrait_popup_font_size(20) == 23, "popup font scale retained")
-	check(is_equal_approx(main._portrait_popup_bottom_button_y(560, 56), 481.8), "bottom action alignment retained")
+	check(is_equal_approx(main._portrait_popup_bottom_button_y(560, 56), 474.8), "bottom action uses the standard 25-unit gap after scaling")
+	var expanded: Rect2 = main._portrait_popup_with_bottom_space(Rect2(28, 145, 424, 415))
+	check(expanded == Rect2(28, 145, 424, 422), "Existing popup adds seven units below its content")
+	check(is_equal_approx(main._portrait_popup_bottom_button_y(expanded.end.y, 56), 481.8), "Existing popup preserves its authored button position")
 	# Compact Settings still delegates to the extracted shell and restores content.
 	main._quiz_screen_active = true
 	main.show_settings()
