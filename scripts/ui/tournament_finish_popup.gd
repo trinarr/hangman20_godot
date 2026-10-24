@@ -12,7 +12,6 @@ var popup: CanvasLayer
 var claim_button: Control
 var _tournament_id := ""
 var _claiming := false
-var _error: Label
 
 func _ready() -> void:
 	var timer := Timer.new()
@@ -43,12 +42,16 @@ func present_if_needed() -> bool:
 	return true
 
 func _build(snapshot: Dictionary) -> void:
+	var results_rect := Rect2(48, 405, 384, 200)
+	var action_gap := 25.0
+	var button_rect: Rect2 = host._portrait_popup_button_rect(Rect2(90, 0, 300, 56))
+	var button_bottom: float = results_rect.end.y + action_gap + button_rect.size.y
+	var rect := Rect2(28, 145, 424, button_bottom + host.PORTRAIT_POPUP_BOTTOM_BUTTON_GAP - 145.0)
 	var previous: Control = host._portrait_popup_begin("TournamentFinishPopup", str(GROUP), 140,
-		Callable(), 145.0, 736.0, false, Callable(), false)
+		Callable(), rect.position.y, rect.end.y, false, Callable(), false)
 	var stage: Control = host.content
 	popup = stage.get_parent().get_parent() as CanvasLayer
 	stage.z_index = 10
-	var rect := Rect2(28, 145, 424, 591)
 	var icon_size := Vector2.ONE * (166.4 * 0.85)
 	var icon_rect := Rect2(Vector2(rect.get_center().x - icon_size.x * 0.5,
 		rect.position.y + host.PORTRAIT_POPUP_TOP_TRIM - icon_size.y * 0.60), icon_size)
@@ -113,7 +116,7 @@ func _build(snapshot: Dictionary) -> void:
 		var mine := bool(entry.mine)
 		if mine:
 			entry.merge(GameState.get_player_profile(), true)
-		var holder: Control = host._stage_holder(Rect2(48, 405 + index * 68, 384, 64), Control.MOUSE_FILTER_IGNORE)
+		var holder: Control = host._stage_holder(Rect2(results_rect.position + Vector2(0, index * 68), Vector2(results_rect.size.x, 64)), Control.MOUSE_FILTER_IGNORE)
 		holder.name = "TournamentFinishPlayerResult" if mine else "TournamentFinishPlace%d" % (index + 1)
 		holder.set_meta("rank", index + 1)
 		holder.z_index = 11
@@ -122,8 +125,8 @@ func _build(snapshot: Dictionary) -> void:
 		row.scale = Vector2.ONE * (384.0 / ROW.CARD_WIDTH)
 		holder.add_child(row)
 		ROW.populate(row, entry, mine, portraits, Callable(host, "_grouped_counter_text"), Vector2.ZERO)
-	claim_button = host._stage_portrait_popup_main_button(Rect2(90, 646, 300, 56), _claim,
-		tr("TOURNAMENT_CLAIM_REWARD"), 18, false, 0.32, false, false, false, host.LONG_BUTTON_COLOR_GREEN)
+	claim_button = host._stage_portrait_popup_main_button(Rect2(90, host._portrait_popup_bottom_button_y(rect.end.y, 56.0), 300, 56), _claim,
+		tr("TOURNAMENT_CLAIM_REWARD"), 18, false, 0.32, false, false, false, host.LONG_BUTTON_COLOR_ORANGE)
 	claim_button.name = "TournamentFinishClaim"
 	claim_button.z_index = 16
 	claim_button.set("drop_shadow_enabled", true)
@@ -131,9 +134,6 @@ func _build(snapshot: Dictionary) -> void:
 		claim_button.set("attention_bounce_enabled", true)
 	else:
 		stage.open_bounce_finished.connect(claim_button.set.bind("attention_bounce_enabled", true), CONNECT_ONE_SHOT)
-	_error = host._stage_label(Rect2(48, 608, 384, 31), "", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	_error.name = "TournamentFinishError"
-	_error.z_index = 11
 	host.content = previous
 
 func _claim() -> void:
@@ -143,7 +143,7 @@ func _claim() -> void:
 	var award := GameState.claim_tournament_reward()
 	if !bool(award.get("ok", false)):
 		_claiming = false
-		_error.text = tr("TOURNAMENT_SAVE_ERROR")
+		host._show_portrait_status_toast(tr("TOURNAMENT_SAVE_ERROR"))
 		return
 	# The existing reward screen only presents this durable payment.
 	_remove_popup()

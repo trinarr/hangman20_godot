@@ -1105,26 +1105,14 @@ func _show_portrait_status_toast(message: String) -> void:
 		_portrait_ad_toast = STAGE_TOAST_SCRIPT.new() as Control
 		_portrait_ad_toast.name = "AdStatusToast"
 		toast_anchor.add_child(_portrait_ad_toast)
-	# The reward CTA is bottom-attached, so use its actual viewport position in the
-	# same pixel coordinate space as this CanvasLayer. Avoid FlashStageControl here:
-	# applying stage/safe-area transforms a second time is what moved the toast away.
+	# System messages share one top overlay, above modal windows and the safe inset.
+	# This CanvasLayer uses viewport pixels; apply the stage scale only once.
 	var current_anchor := _portrait_ad_toast.get_parent() as Control
 	if current_anchor != null and is_instance_valid(current_anchor):
 		var viewport_size: Vector2 = get_viewport_rect().size
 		var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
-		var anchor_y_px: float = viewport_size.y * 0.5
-		if (
-			_portrait_final_reward_double_button != null
-			and is_instance_valid(_portrait_final_reward_double_button)
-			and _portrait_final_reward_double_button.is_inside_tree()
-			and _portrait_final_reward_double_button.visible
-		):
-			anchor_y_px = _portrait_final_reward_double_button.get_global_rect().position.y
-		# StageToast is authored in the same 480x800 coordinate system as the rest
-		# of the portrait UI. The raw CanvasLayer anchor must therefore restore the
-		# normal stage fit scale; otherwise the 52 px toast and its 23 px text render
-		# roughly half-size on a 960 px-wide device. Keep the anchor Y in viewport
-		# pixels so the reward toast still tracks the real x2 button position.
+		var anchor_y_px: float = PORTRAIT_STAGE_LAYOUT.safe_top_inset_pixels(viewport_size) + fit_scale * (
+			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + STAGE_TOAST_SCRIPT.TOAST_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_PARENT_GAP)
 		current_anchor.position = Vector2(
 			PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
 			anchor_y_px

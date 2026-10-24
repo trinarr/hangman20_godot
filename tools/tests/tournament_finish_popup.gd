@@ -70,6 +70,7 @@ func run() -> void:
 	await settle()
 	check(get_tree().get_nodes_in_group(PROMPT.GROUP).is_empty(), "No prize means no blocking popup")
 	for dimensions: Vector2i in [Vector2i(960,1600), Vector2i(690,1536)]:
+		get_window().min_size = dimensions
 		get_window().size = dimensions
 		for language: String in ["ru", "en"]:
 			Database.interface_language = language
@@ -126,6 +127,9 @@ func run() -> void:
 				check(description.text == tr("TOURNAMENT_FINISH_PROMPT"), "Description is localized")
 				check(result.get_global_rect().position.y > description.get_global_rect().end.y, "Result row follows description")
 				check(watcher.claim_button.get_global_rect().position.y > result.get_global_rect().end.y, "Only claim action follows the result row")
+				var last_card: Control = result if rank == 3 else popup.find_child("TournamentFinishPlace3", true, false)
+				check(is_equal_approx(watcher.claim_button.stage_rect.position.y - last_card.stage_rect.end.y, 25.0), "Claim has a twenty-five-unit gap below the leaderboard")
+				check(watcher.claim_button.color_preset == main.LONG_BUTTON_COLOR_ORANGE, "Claim uses the standard orange button")
 				var before := GameState.get_soft_currency()
 				var reward := int(GameState.get_tournament_snapshot().reward)
 				check(!bool(GameState.tournament_state.claimed), "Showing the popup does not pay the prize")
@@ -133,7 +137,21 @@ func run() -> void:
 				GameState._save_batch_depth = 1
 				watcher._claim()
 				GameState._save_batch_depth = 0
-				check(!bool(GameState.tournament_state.claimed) and watcher._error.text != "", "Failed claim retains the popup for retry")
+				check(!bool(GameState.tournament_state.claimed) and is_instance_valid(watcher.popup), "Failed claim retains the popup for retry")
+				check(popup.find_child("TournamentFinishError", true, false) == null, "System errors do not add text inside the popup")
+				var toast: Control = main._portrait_ad_toast
+				check(is_instance_valid(toast) and toast.visible and toast._message_label.text == tr("TOURNAMENT_SAVE_ERROR").to_upper(), "Failed claim uses the standard localized toast")
+				await get_tree().create_timer(0.2).timeout
+				check(toast.get_global_rect().position.y >= 0.0 and toast.get_global_rect().end.y < get_viewport().get_visible_rect().size.y * 0.2, "System toast stays at the top of the viewport")
+				check(toast.get_parent().get_parent().get_parent().layer > popup.layer and toast.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Toast appears above the modal without blocking input")
+				await capture("tournament_finish_error_%dx%d_%s_rank%d" % [dimensions.x,dimensions.y,language,rank])
+				if language == "ru" and rank == 2:
+					GameState._save_batch_depth = 1
+					watcher._claim()
+					GameState._save_batch_depth = 0
+					check(main._portrait_ad_toast == toast and toast.visible, "Repeated failures reuse the same toast")
+					await get_tree().create_timer(2.2).timeout
+					check(!toast.visible and is_instance_valid(watcher.popup), "Toast dismisses automatically while the unclaimed prize remains")
 				watcher._claim()
 				watcher._claim()
 				await settle()

@@ -61,6 +61,7 @@ func run() -> void:
 	check(is_equal_approx(button.visual_scale.x, 1.0), "Release restores button scale")
 	check(!is_instance_valid(main._portrait_leaderboard) and !is_instance_valid(main._home_transition), "Locked tap never opens leaderboard or starts transition")
 	check(is_instance_valid(main._portrait_ad_toast) and main._portrait_ad_toast.visible and main._portrait_ad_toast._message_label.text.contains("5"), "Locked tap shows standard toast with configured unlock level")
+	check(main._portrait_ad_toast.get_global_rect().position.y >= 0.0 and main._portrait_ad_toast.get_global_rect().end.y < get_viewport().get_visible_rect().size.y * 0.2, "Locked tournament uses the shared top system toast")
 	var toast_label: Label = main._portrait_ad_toast._message_label
 	check(toast_label.get_theme_font("font").get_string_size(toast_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, toast_label.get_theme_font_size("font_size")).x <= toast_label.size.x + 1, "Unlock toast fits without clipping required level")
 	for language: String in ["ru", "en"]:
