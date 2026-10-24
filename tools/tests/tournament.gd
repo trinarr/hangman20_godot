@@ -153,6 +153,10 @@ func test_automatic_start(config: Dictionary) -> void:
 	GameState.add_gameplay_stars(3)
 	var first_id := str(GameState.tournament_state.id)
 	check(int(GameState.tournament_state.player_stars) == 3 and int(GameState.tournament_state.started_at) == now, "First earned stars start the tournament and count immediately")
+	if OS.is_debug_build():
+		for index in range(9):
+			var events: Array = GameState.tournament_state.opponents[index].events
+			check(events.size() == 1 and int(events[0].at) == 0 and int(events[0].stars) == int(config.debug_opponent_stars[index]), "Runtime debug build starts fixed opponents")
 	check(int(GameState.tournament_state.ends_at) - now == int(config.duration_seconds), "New tournaments use the configured duration")
 	GameState.load_game()
 	check(GameState.tournament_state.id == first_id and int(GameState.tournament_state.player_stars) == 3, "Automatic start and its first score survive reload")
@@ -178,8 +182,33 @@ func test_automatic_start(config: Dictionary) -> void:
 	GameState.add_gameplay_stars(1, false)
 	check(GameState.tournament_state.is_empty(), "Stars do not bypass the tournament unlock level")
 
+func test_debug_scores(config: Dictionary) -> void:
+	for seed_value in [1, 555, 777]:
+		var state := MODEL.create(now, "ru", config, seed_value, [], true)
+		var expected: Array = []
+		for value: Variant in config.debug_opponent_stars:
+			expected.append(int(value))
+		check(expected == [40, 20, 0, 0, 0, 0, 0, 0, 0], "Debug tournament has only two scoring bots")
+		for opponent: Dictionary in state.opponents:
+			check(opponent.events.size() == 1 and int(opponent.events[0].at) == 0, "Debug bots have no timed random sessions")
+		var restored := MODEL.normalize(JSON.parse_string(JSON.stringify(state)))
+		check(!restored.is_empty(), "Fixed debug scores survive save normalization")
+		for elapsed: int in [0, 1, int(config.duration_seconds) / 2, int(config.duration_seconds), int(config.duration_seconds) + 10000]:
+			var actual: Array = []
+			for row: Dictionary in MODEL.standings(restored, now + elapsed):
+				if !bool(row.mine):
+					actual.append(int(row.stars))
+			check(actual == expected, "Debug scores remain fixed regardless of seed, elapsed time and reload")
+		MODEL.advance(restored, int(restored.ends_at))
+		check(MODEL.snapshot(restored, int(restored.ends_at)).rank == 3, "Zero-star player can test the third-place reward")
+		for player_score: int in [20, 21, 40, 41]:
+			restored.player_stars = player_score
+			var rows := MODEL.standings(restored, int(restored.ends_at))
+			check(int(rows[0 if player_score >= 40 else 1].stars) == player_score and bool(rows[0 if player_score >= 40 else 1].mine), "Player can overtake or tie both debug bots")
+
 func run() -> void:
 	var config: Dictionary = CONFIG.get_value("tournament")
+	test_debug_scores(config)
 	test_automatic_start(config)
 	test_start_delay(config)
 	test_roster(config)

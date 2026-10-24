@@ -2890,7 +2890,7 @@ func _start_tournament(persist: bool) -> bool:
 		if !bool(tournament_state.finished) or int(TOURNAMENT_MODEL.snapshot(tournament_state, _tournament_now()).reward) > 0:
 			return false
 	var config: Dictionary = GAME_DESIGN.get_value("tournament")
-	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), Leaderboard.tournament_profiles())
+	tournament_state = TOURNAMENT_MODEL.create(_tournament_now(), Database.interface_language, config, randi(), Leaderboard.tournament_profiles(), OS.is_debug_build())
 	if persist and !save_game():
 		tournament_state = previous
 		return false

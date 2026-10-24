@@ -373,6 +373,7 @@
     "filler_cis_ratio": {"ru": 0.6, "en": 0.2},
     "duration_seconds": 300,
     "opponent_start_delay_seconds": 30,
+    "debug_opponent_stars": [40, 20, 0, 0, 0, 0, 0, 0, 0],
     "unlock_completed_levels": 5,
     "rewards_coins": [
       200,

@@ -5,7 +5,7 @@ const NAMES = ROSTER.NAMES
 const VERSION := 2
 const PLAYER_ID := "self"
 
-static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = []) -> Dictionary:
+static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = [], debug_scores: bool = false) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var duration := int(config.duration_seconds)
@@ -13,6 +13,12 @@ static func create(now: int, language: String, config: Dictionary, seed_value: i
 	var pool := ROSTER.build_pool(language, config, real_profiles, rng)
 	var opponents: Array = []
 	for index in range(9):
+		if debug_scores:
+			# Store fixed scores in the same schedule format, visible from the first frame.
+			var debug_opponent: Dictionary = pool[index].duplicate(true)
+			debug_opponent.merge({"id": "rival_%d" % index, "events": [{"at": 0, "stars": int(config.debug_opponent_stars[index])}]})
+			opponents.append(debug_opponent)
+			continue
 		var bounds: Array = config.opponent_star_ranges[index]
 		var target := rng.randi_range(int(bounds[0]), int(bounds[1]))
 		var events: Array = []
@@ -88,7 +94,8 @@ static func normalize(value: Variant) -> Dictionary:
 				return {}
 			var at := int(event.at)
 			var score := int(event.stars)
-			if at < previous_at or at < 1 or at > duration or score < previous_score or score > 100000:
+			# A zero timestamp represents a fixed score present from tournament start.
+			if at < previous_at or at < 0 or at > duration or score < previous_score or score > 100000:
 				return {}
 			previous_at = at
 			previous_score = score

@@ -74,7 +74,7 @@ func run() -> void:
 	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
 	var duration: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds")
 	check(button.caption.text == clock_text(duration), "Active tournament updates shortcut using configured duration")
-	check(button._rank.visible and button._rank.text == "#1", "Active tournament immediately shows current player rank")
+	check(button._rank.visible and button._rank.text == ("#3" if OS.is_debug_build() else "#1"), "Active tournament immediately shows current player rank for the build's opponents")
 	check(button._rank.get_rect().get_center().is_equal_approx(button.LOCK_RECT.get_center() + Vector2(0, 5)), "Rank sits five units below locked icon center")
 	check(button._rank.get_theme_color("font_color") == Color.WHITE and button._rank.has_node("DisplayTextShaderEffect"), "Rank uses white text with shared shader style")
 	for opponent: Dictionary in GameState.tournament_state.opponents:
