@@ -3563,6 +3563,11 @@ func _confirm_settings_word_language_change(language_code: String) -> void:
 		_remove_settings_popup()
 
 func show_menu() -> void:
+	var presented_reward := GameState.get_pending_single_player_reward()
+	var introduce_tournament: bool = (
+		bool(presented_reward.get("presentation_started", false))
+		and int(presented_reward.get("level_index", -2)) + 1 == PORTRAIT_GAME_DESIGN.get_int("tournament.unlock_completed_levels")
+	)
 	# A completed level must never return to Home as resumable after the player has
 	# already reached its main-reward screen. If navigation interrupts that screen,
 	# settle the still-pending base reward/stars and consider the optional x2 skipped.
@@ -3575,6 +3580,8 @@ func show_menu() -> void:
 	_quiz_single_player_embedded = false
 	_quiz_single_player_target_difficulty = 0.5
 	_show_menu_screen()
+	if introduce_tournament:
+		TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
 
 func _show_menu_screen() -> void:
 	GameSession.discard_current_round()
@@ -3781,7 +3788,7 @@ func _home_profile_resume_saved_single_player_level() -> void:
 	if session.is_empty() and !pending.is_empty() and bool(pending.get("presentation_started", false)):
 		# The main reward was already presented before the process was interrupted.
 		# Finish it idempotently and go Home; never offer Continue for this level.
-		GameState.settle_presented_pending_single_player_reward(true)
+		# show_menu settles this snapshot and handles the tournament introduction.
 		GameSession.discard_current_round()
 		game_finished = false
 		last_result_data = {}
@@ -15612,7 +15619,7 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 			_finish_single_player_stage_coin_reward_offer()
 		else:
 			# A successful x2 of the main level prize intentionally returns to Home.
-			# `No Thanks` keeps the direct-next-theme flow, but after a fullscreen ad
+			# Other No Thanks exits normally keep the direct-next-theme flow; after an ad
 			# the player should first land on the main screen and see the bonus arrive.
 			_finish_single_player_final_reward_claim(-1, true)
 		if animation_amount > 0:
@@ -15640,7 +15647,7 @@ func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) ->
 	_show_portrait_ad_not_ready_toast()
 
 func _claim_single_player_final_reward() -> void:
-	if _portrait_final_reward_waiting_for_ad:
+	if _portrait_final_reward_waiting_for_ad or _portrait_reward_double_context != &"final":
 		return
 	# The normal main reward is now already credited during the pack bounce. In
 	# that state the no-thanks/continue action only has to leave the reward screen.
@@ -15692,6 +15699,8 @@ func _play_early_final_reward_coin_claim(
 func _claim_single_player_final_reward_and_open_next_theme(
 	next_level_index: int
 ) -> void:
+	if _portrait_final_reward_waiting_for_ad or _portrait_reward_double_context != &"final":
+		return
 	if !_portrait_final_reward_claim_in_progress:
 		_complete_single_player_final_reward(1, false, false)
 	_finish_single_player_final_reward_claim(next_level_index)
@@ -15717,6 +15726,12 @@ func _finish_single_player_final_reward_claim(
 	next_theme_level_index: int = -1,
 	force_home: bool = false
 ) -> void:
+	var completed_level_index: int = int(last_result_data.get(
+		"single_player_level_index",
+		single_player_active_level_index
+	))
+	# Returning Home exposes the newly unlocked tournament before level selection.
+	force_home = force_home or completed_level_index + 1 == PORTRAIT_GAME_DESIGN.get_int("tournament.unlock_completed_levels")
 	_stop_final_reward_continue_attention()
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
@@ -15738,12 +15753,10 @@ func _finish_single_player_final_reward_claim(
 		single_player_active_word_slot = -1
 		_portrait_pending_home_reward_amount = 0
 		show_menu()
+		if completed_level_index + 1 == PORTRAIT_GAME_DESIGN.get_int("tournament.unlock_completed_levels"):
+			TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
 		return
 	if next_theme_level_index < 0:
-		var completed_level_index: int = int(last_result_data.get(
-			"single_player_level_index",
-			single_player_active_level_index
-		))
 		next_theme_level_index = _direct_theme_level_after_completed_level(
 			completed_level_index
 		)
@@ -16819,16 +16832,19 @@ func _finish_completed_single_player_stage_result(open_next_theme_popup: bool = 
 	var next_theme_level_index: int = (
 		completed_level_index + 1 if completed_level_index >= 0 else -1
 	)
+	var introduce_tournament: bool = completed_level_index + 1 == PORTRAIT_GAME_DESIGN.get_int("tournament.unlock_completed_levels")
 	GameState.clear_active_single_player_session(true)
 	GameSession.discard_current_round()
 	game_finished = false
 	last_result_data = {}
 	single_player_active_word_slot = -1
-	if open_next_theme_popup and next_theme_level_index >= 0:
+	if open_next_theme_popup and !introduce_tournament and next_theme_level_index >= 0:
 		_stop_single_reward_continue_attention()
 		_show_single_player_level_popup(next_theme_level_index, -1, false, true)
 		return
 	show_menu()
+	if introduce_tournament:
+		TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
 
 func _cancel_single_player_stage_heart_refill(level_index: int) -> void:
 	# Closing without a coin or rewarded-ad refill discards the whole attempt,

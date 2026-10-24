@@ -15,6 +15,27 @@ var countdown: Label
 var _sparkles: Control
 var _closed := false
 
+static func present_after_home_return(target: Node, generation: int) -> void:
+	while true:
+		if !is_instance_valid(target) or !target.is_inside_tree() \
+			or target.result_transition_generation != generation \
+			or !is_instance_valid(target._home_logo_reveal) or !GameState.is_tournament_unlocked():
+			return
+		if !target.get_tree().get_nodes_in_group(GROUP).is_empty():
+			return
+		if GameState.has_accepted_legal_documents() \
+			and !is_instance_valid(target._home_transition) \
+			and target.get_tree().get_nodes_in_group(target.PORTRAIT_MODAL_POPUP_GROUP).is_empty():
+			break
+		# Consent or another Home-owned popup must finish first. Leaving this
+		# Home generation cancels the request before it can affect another page.
+		await target.get_tree().process_frame
+	var snapshot := GameState.get_tournament_snapshot()
+	# The previous tournament's mandatory prize takes precedence over a new intro.
+	if str(snapshot.phase) == "finished" and int(snapshot.reward) > 0:
+		return
+	present(target)
+
 static func present(target: Node) -> bool:
 	if !target.get_tree().get_nodes_in_group(GROUP).is_empty():
 		return true
@@ -32,14 +53,18 @@ static func present(target: Node) -> bool:
 	return true
 
 func _build() -> void:
+	var panel_rect := Rect2(48, 236, 384, 168)
+	var description_rect := Rect2(56, 421, 368, 100)
+	var description_gap: float = description_rect.position.y - panel_rect.end.y
+	var button_rect: Rect2 = host._portrait_popup_button_rect(Rect2(90, 0, 300, 56))
+	var popup_bottom: float = description_rect.end.y + description_gap + button_rect.size.y + host.PORTRAIT_POPUP_BOTTOM_BUTTON_GAP
+	var rect := Rect2(28, 145, 424, popup_bottom - 145.0)
 	var previous: Control = host._portrait_popup_begin("TournamentStartPopup", str(GROUP), 140,
-		_go, 145.0, 638.0, false, Callable(), false)
+		_go, rect.position.y, rect.end.y, false, Callable(), false)
 	var stage: Control = host.content
 	popup = stage.get_parent().get_parent() as CanvasLayer
-	var rect := Rect2(28, 145, 424, 493)
 	host._portrait_popup_shell(rect, tr("TOURNAMENT_START_TITLE"), _go, 28,
 		host.PORTRAIT_BLUE, host.PORTRAIT_DARK_BLUE, host.PORTRAIT_ORANGE, "", true)
-	var panel_rect := Rect2(48, 236, 384, 168)
 	var panel: Control = host._stage_panel(panel_rect,
 		host.PORTRAIT_UI_PALETTE.THEME_CARD, host.PORTRAIT_REFILL_STATUS_CORNER_RADIUS)
 	panel.name = "TournamentStartDescriptionPanel"
@@ -72,8 +97,6 @@ func _build() -> void:
 	var clock: Control = CLOCK_ICON.new()
 	clock.name = "TournamentStartClockIcon"
 	clock.size = Vector2(26, 26)
-	clock.minute_turn_seconds = host.PORTRAIT_GAME_DESIGN.get_float("timings.animations.timer_clock.minute_turn_seconds")
-	clock.hour_turn_seconds = host.PORTRAIT_GAME_DESIGN.get_float("timings.animations.timer_clock.hour_turn_seconds")
 	clock_holder.add_child(clock)
 	var digits_rect := Rect2(timer_rect.position + Vector2(31, 0), timer_rect.size - Vector2(34, 0))
 	countdown = host._stage_label(digits_rect, "", 20, Color.WHITE,
@@ -87,7 +110,7 @@ func _build() -> void:
 	timer.timeout.connect(_update_countdown)
 	add_child(timer)
 	timer.start()
-	var description_holder: Control = host._stage_holder(Rect2(56, 421, 368, 100), Control.MOUSE_FILTER_IGNORE)
+	var description_holder: Control = host._stage_holder(description_rect, Control.MOUSE_FILTER_IGNORE)
 	description_holder.z_index = 11
 	var description := RichTextLabel.new()
 	description.name = "TournamentStartDescription"

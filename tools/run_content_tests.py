@@ -20,6 +20,7 @@ SUITES = {
     "startup_last_chance": (True, r"STARTUP_LAST_CHANCE checks=[1-9]\d* failures=0"),
     "tournament_finish_popup": (True, r"TOURNAMENT_FINISH_POPUP checks=[1-9]\d* failures=0"),
     "tournament_start_popup": (True, r"TOURNAMENT_START_POPUP checks=[1-9]\d* failures=0"),
+    "level_reward_navigation": (True, r"LEVEL_REWARD_NAVIGATION checks=[1-9]\d* failures=0"),
     "tournament_ui": (True, r"TOURNAMENT_UI checks=[1-9]\d* failures=0"),
     "leaderboard_local_fillers": (True, r"LEADERBOARD_LOCAL_FILLERS checks=[1-9]\d* failures=0"),
     "profile_ui": (True, r"PROFILE_UI checks=[1-9]\d* failures=0"),

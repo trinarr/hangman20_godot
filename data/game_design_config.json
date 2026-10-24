@@ -196,8 +196,10 @@
     "quiz_wrong_answer_shake_step_seconds": 0.065,
     "animations": {
       "timer_clock": {
-        "minute_turn_seconds": 8.0,
-        "hour_turn_seconds": 96.0
+        "quarter_turn_seconds": 0.6666666666666666,
+        "pause_seconds": 0.18,
+        "overshoot_degrees": 6.0,
+        "settle_fraction": 0.22
       },
       "back_entrance_seconds": 0.24,
       "counter_press_seconds": 0.055,

@@ -35,6 +35,28 @@ func settle() -> void:
 func clock_text(seconds: int) -> String:
 	return "%02d:%02d:%02d" % [seconds / 3600, (seconds / 60) % 60, seconds % 60]
 
+func check_clock_motion(clock: Control) -> void:
+	var step: float = clock.quarter_turn_seconds + clock.pause_seconds
+	var approach: float = clock.quarter_turn_seconds * (1.0 - clock.settle_fraction)
+	for quadrant in range(4):
+		var start: float = float(quadrant) * PI * 0.5
+		var target: float = start + PI * 0.5
+		var offset: float = float(quadrant) * step
+		check(is_equal_approx(clock._angle_at_time(offset), start), "Clock quarter starts at the exact cardinal angle")
+		var moving: float = clock._angle_at_time(offset + approach * 0.5)
+		check(moving > start and moving < target, "Clock smoothly traverses each quarter without jumping to the target")
+		var peak: float = clock._angle_at_time(offset + approach)
+		check(is_equal_approx(peak, target + deg_to_rad(clock.overshoot_degrees)), "Clock slightly overshoots each cardinal angle")
+		var returning: float = clock._angle_at_time(offset + (approach + clock.quarter_turn_seconds) * 0.5)
+		check(returning > target and returning < peak, "Clock returns smoothly from the overshoot")
+		for pause_fraction: float in [0.0, 0.5, 0.99]:
+			check(is_equal_approx(clock._angle_at_time(offset + clock.quarter_turn_seconds + clock.pause_seconds * pause_fraction), target), "Clock stays exactly on the cardinal angle throughout its pause")
+	check(is_equal_approx(clock._angle_at_time(4.0 * step), 0.0), "Clock wraps a complete turn without accumulating rotation")
+	var probe: Control = clock.get_script().new()
+	probe._process(40.0 * step + approach * 0.5)
+	check(is_equal_approx(probe.hand_angle, clock._angle_at_time(approach * 0.5)), "Clock preserves its motion phase after a long frame")
+	probe.free()
+
 func run() -> void:
 	GameState.tournament_time_source = func(): return now
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -88,8 +110,8 @@ func run() -> void:
 			var top_inset: float = clock_rect.position.y - plate_rect.position.y
 			var bottom_inset: float = plate_rect.end.y - clock_rect.end.y
 			check(absf(left_inset - top_inset) < 0.1 and absf(left_inset - bottom_inset) < 0.1, "Clock has equal left, top and bottom insets: %f / %f / %f" % [left_inset, top_inset, bottom_inset])
-			var clock_minute: float = clock.minute_angle
-			var clock_hour: float = clock.hour_angle
+			var clock_angle: float = clock.hand_angle
+			check_clock_motion(clock)
 			check(plate.stage_rect.size.is_equal_approx(Vector2(144, 34) * 0.85), "Timer pill is fifteen percent smaller")
 			check(is_equal_approx(plate.get_global_rect().get_center().y, panel.get_global_rect().position.y), "Panel top edge bisects the countdown pill")
 			var glow: TextureRect = panel.get_node("TournamentStartRewardGlow")
@@ -97,12 +119,15 @@ func run() -> void:
 			check(float(glow.material.get_shader_parameter("opacity")) > 0.0 and glow.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Reward glow is visible without intercepting input")
 			check(prompt.countdown.text == clock_text(duration), "Countdown begins at the configured duration, including durations over one day")
 			check(description.get_global_rect().position.y > art.get_global_rect().end.y and prompt.action.get_global_rect().position.y > description.get_global_rect().end.y, "Artwork, instructions and orange action do not overlap")
+			var description_top_gap: float = description.get_global_rect().position.y - panel.get_global_rect().end.y
+			var description_bottom_gap: float = prompt.action.get_global_rect().position.y - description.get_global_rect().end.y
+			check(absf(description_top_gap - description_bottom_gap) < 0.1, "Instructions have equal gaps to the artwork panel and action: %f / %f" % [description_top_gap, description_bottom_gap])
 			check(prompt.action.color_preset == main.LONG_BUTTON_COLOR_ORANGE, "Introduction uses the standard orange button")
 			var sparkles: Control = prompt.popup.find_child("TournamentStartTrophySparkles", true, false)
 			var glint: Node = sparkles.get_node("RewardCoinSparkleLayer/Sparkle0/SparkleFade")
 			var opacity_before := float(glint.opacity)
 			await get_tree().create_timer(0.25).timeout
-			check(clock.minute_angle != clock_minute and clock.hour_angle != clock_hour and clock.minute_turn_seconds < clock.hour_turn_seconds, "Clock hands rotate independently at different speeds")
+			check(clock.hand_angle != clock_angle, "The single large clock hand advances while the popup is open")
 			check(!is_equal_approx(float(rain.particles[0].y), coin_y), "Coin confetti falls while the popup is open")
 			check(!is_equal_approx(float(glint.opacity), opacity_before), "Campaign glints animate on the trophy")
 			now += 1

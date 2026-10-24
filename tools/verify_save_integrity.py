@@ -674,7 +674,13 @@ def main() -> None:
     require(
         "_claim_single_player_final_reward_and_open_next_theme" in final_collect
         and "level_index + 1" in reward_screen,
-        "Main-reward No Thanks must open the next-theme popup in place",
+        "Main-reward No Thanks must retain the next-theme destination outside the tournament unlock",
+    )
+    require(
+        '"tournament.unlock_completed_levels"' in final_reward_finish
+        and "completed_level_index + 1" in final_reward_finish
+        and "present_after_home_return" in final_reward_finish,
+        "The tournament unlock must return Home and request its introduction",
     )
     theme_popup = function_body(portrait, "_show_single_player_level_popup")
     theme_popup_close_to_menu = function_body(

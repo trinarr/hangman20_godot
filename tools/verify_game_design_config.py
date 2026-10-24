@@ -295,6 +295,15 @@ def main() -> None:
         else:
             require_number(value, path)
 
+    clock = resolve(config, "timings.animations.timer_clock")
+    require(require_number(clock["quarter_turn_seconds"], "timer_clock.quarter_turn_seconds") > 0,
+            "Timer clock quarter turn must have positive duration")
+    require(require_number(clock["pause_seconds"], "timer_clock.pause_seconds") > 0,
+            "Timer clock must pause at each quarter turn")
+    require(0 < require_number(clock["overshoot_degrees"], "timer_clock.overshoot_degrees") < 45,
+            "Timer clock overshoot must stay inside the next quadrant")
+    require(0 < require_number(clock["settle_fraction"], "timer_clock.settle_fraction") < 1,
+            "Timer clock settle fraction must leave time for both motion phases")
     tournament_duration = require_int(resolve(config, "tournament.duration_seconds"), "tournament.duration_seconds")
     require(60 <= tournament_duration <= 604800, "Invalid tournament duration")
     start_delay = require_int(resolve(config, "tournament.opponent_start_delay_seconds"), "tournament.opponent_start_delay_seconds")
