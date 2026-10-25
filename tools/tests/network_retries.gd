@@ -75,6 +75,15 @@ func run() -> void:
 	node.replies = [{"status":200,"body":{"ok":true}}]
 	await node.leaderboard_rpc({})
 	check(node.calls.size() == 2 and node.retry_delay_ms("quiz") == delay1, "Quiz cooldown does not block another API lane")
+	node.replies = [{"status":503}]
+	await node.leaderboard_rpc({}, true)
+	var manual_calls: int = node.calls.size()
+	var still_deferred: Dictionary = await node.leaderboard_rpc({})
+	check(still_deferred.get("retry_deferred") == true and node.calls.size() == manual_calls, "Background reads retain leaderboard cooldown after a manual failure")
+	node.replies = [{"status":200,"body":{"ok":true}}]
+	var manual_reply: Dictionary = await node.leaderboard_rpc({}, true)
+	check(int(manual_reply.status) == 200 and node.calls.size() == manual_calls + 1, "Manual read bypasses an active leaderboard cooldown")
+	check(node.retry_delay_ms("quiz") == delay1 and node._state.pending.size() == 1, "Manual read does not clear the quiz cooldown or its queued vote")
 	node.advance_retry()
 	node.replies = [{"status":503}]
 	node._flush()
@@ -98,12 +107,24 @@ func run() -> void:
 	node._flush()
 	var deferred: Dictionary = await node.leaderboard_rpc({})
 	check(deferred.get("retry_deferred") == true and node.calls.size() == 1, "Both API lanes respect an auth cooldown")
-	node.advance_retry()
-	node.replies = [{"status":200,"body":{"access_token":"new","refresh_token":"new-refresh","expires_in":3600}},vote_reply()]
+	var auth_calls: int = node.calls.size()
+	node.replies = [{"status":200,"body":{"access_token":"new","refresh_token":"new-refresh","expires_in":3600}}, {"status":200,"body":{"ok":true}}]
+	var auth_manual: Dictionary = await node.leaderboard_rpc({}, true)
+	check(int(auth_manual.status) == 200 and node.calls.size() == auth_calls + 2, "Manual action bypasses auth cooldown and then performs its RPC")
+	check(node._state.pending.size() == 1, "Manual authentication does not lose the queued quiz vote")
+	node.replies = [vote_reply()]
 	node._flush()
 	await settle(node)
 	check(node._state.pending.is_empty() and node._retry_state("auth").failures == 0, "Authentication recovers without losing the queue")
 	node.queue_free()
+	var joined_auth := transport()
+	joined_auth._access_token = ""
+	joined_auth.replies = [{"status":503}, {"status":200,"body":{"access_token":"joined","refresh_token":"joined-refresh","expires_in":3600}}, {"status":200,"body":{"ok":true}}]
+	joined_auth._authenticate()
+	var joined_reply: Dictionary = await joined_auth.leaderboard_rpc({}, true)
+	check(int(joined_reply.status) == 200 and joined_auth.calls.size() == 3, "Manual request waiting on a failed background authentication receives its own immediate auth attempt")
+	check(joined_auth.max_active_calls == 1, "Manual authentication remains serialized with the older attempt")
+	joined_auth.queue_free()
 	# Confirmed stars persist independently of snapshots downloaded by the UI.
 	node = transport()
 	var fixtures: Node = BOARD_FIXTURE.new()
@@ -163,8 +184,30 @@ func run() -> void:
 	file.close()
 	legacy.sync_stars(240)
 	check(legacy._confirmed_stars == -1 and legacy._pending_stars == 240, "Malformed acknowledgement is ignored without losing the current result")
+	var manual_transport := transport()
+	var manual_board := client(manual_transport)
+	manual_board.current_stars = 90
+	var queued_errors: Array = []
+	manual_board.sync_failed.connect(func(): queued_errors.append(true))
+	manual_transport.delay_frames["/rest/v1/rpc/leaderboard_sync_dev"] = 4
+	manual_transport.replies = [{"status":503}, fixtures.reply(90, false)]
+	manual_board.sync_stars(90)
+	manual_board._flush()
+	manual_board.profile = {"nickname":"ManualProfile", "character_id":2, "frame_id":5}
+	var outcomes: Array = []
+	collect_profile_result(manual_board, outcomes)
+	await settle(manual_transport, manual_board)
+	await get_tree().process_frame
+	check(outcomes == [true] and manual_transport.calls.size() == 2 and queued_errors.is_empty(), "Manual profile queued behind a failed background request runs immediately without advancing the retry clock")
+	check(manual_transport.max_active_calls == 1 and manual_board._synced_profile == manual_board.profile, "Manual profile shares the worker and acknowledges its own target without parallel duplicate RPCs")
+	check(!manual_board._user_request_pending, "Completed manual action leaves no cooldown bypass for later background work")
+	manual_board.queue_free()
+	manual_transport.queue_free()
 	for item: Node in [board, restored, restarted, legacy, node, fixtures]:
 		item.queue_free()
 	await get_tree().process_frame
 	print("NETWORK_RETRIES checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func collect_profile_result(board: Node, outcomes: Array) -> void:
+	outcomes.append(await board.sync_profile_and_wait())

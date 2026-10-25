@@ -29,6 +29,13 @@ class KeyboardEditor extends "res://scripts/ui/profile_editor_popup.gd":
 	func _nickname_has_ime_text() -> bool:
 		return ime_active_override
 
+class ProfileSyncMock extends Node:
+	signal answered(success: bool)
+	var calls := 0
+	func sync_profile_and_wait() -> bool:
+		calls += 1
+		return await answered
+
 var checks := 0
 var failures := 0
 var main: TestUI
@@ -49,6 +56,10 @@ func capture_editor_offer(phase: String) -> void:
 		return
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(directory.path_join("profile-%s-%s-%d.png" % [phase, Database.interface_language, get_window().size.x]))
+
+func _process(_delta: float) -> void:
+	if DisplayServer.get_name() != "headless" and OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 
 func _ready() -> void:
 	run.call_deferred()
@@ -431,15 +442,60 @@ func run() -> void:
 	store_coin_visual = store_layer.find_child("CurrencyCounterVisual", true, false)
 	check(store_coin_visual.pivot_offset.is_equal_approx(editor_coin_visual.pivot_offset), "Reopening the store still inherits the surviving editor counter")
 	main._close_coin_store()
+	await get_tree().create_timer(0.3).timeout
 	main.coin_store_enabled = false
+	var profile_sync := ProfileSyncMock.new()
+	add_child(profile_sync)
+	editor.profile_service = profile_sync
 	GameState._save_blocked_by_future_version = true
 	editor.save_button.pressed.emit()
-	check(!editor._closing and editor._save_toast.visible and GameState.get_player_profile() == old_profile, "Failed profile save keeps the editor open and restores persisted fields")
+	check(!editor._closing and main._portrait_ad_toast.visible and GameState.get_player_profile() == old_profile, "Failed profile save keeps the editor open and restores persisted fields")
 	GameState._save_blocked_by_future_version = false
 	editor.save_button.pressed.emit()
 	editor.save_button.pressed.emit()
+	check(is_instance_valid(editor) and editor._saving and !editor._closing and profile_sync.calls == 1, "Save waits for the server and ignores duplicate presses")
+	check(editor.save_button.button_disabled and editor.save_button.button_text == tr("PROFILE_SAVING").to_upper() and !editor._purchase_content.visible, "Saving replaces the price with a disabled Please wait caption")
+	check(editor._viewport.gui_disable_input and editor.close_button.button_disabled, "Pending save blocks edits and the close button")
+	for button_name: String in ["PreviousCharacter", "NextCharacter", "RandomizeProfileDraft"]:
+		check(editor._form.get_node(button_name).button_disabled, "Pending save disables the character/randomize button itself")
+	for swatch: Button in editor._swatches:
+		check(swatch.disabled, "Pending save disables every frame button")
+	check(!nickname_edit.editable, "Pending save makes the nickname field read-only")
+	var waiting_character: int = editor.selected_character
+	var waiting_frame: int = editor._selected_color_index
+	editor._form.get_node("NextCharacter").pressed.emit()
+	editor._form.get_node("RandomizeProfileDraft").pressed.emit()
+	editor._swatches[(waiting_frame + 1) % editor._swatches.size()].pressed.emit()
+	check(editor.selected_character == waiting_character and editor._selected_color_index == waiting_frame and nickname_edit.text == committed_name, "Direct stale signals cannot change the pending draft")
+
+	editor.close()
+	check(!editor._closing, "Close cannot interrupt the pending server save")
+	await get_tree().create_timer(0.2).timeout
+	await capture_editor_offer("saving")
+	profile_sync.answered.emit(false)
+	check(is_instance_valid(editor) and !editor._saving and !editor._closing and !editor.save_button.button_disabled, "Server failure leaves a retryable editor open")
+	check(editor.save_button.button_text == tr("PROFILE_SAVE").to_upper() and main._portrait_ad_toast.visible, "Server failure restores Save and uses the top status toaster")
+	for button_name: String in ["PreviousCharacter", "NextCharacter", "RandomizeProfileDraft"]:
+		check(!editor._form.get_node(button_name).button_disabled, "Server failure restores character/randomize controls")
+	for swatch: Button in editor._swatches:
+		check(!swatch.disabled, "Server failure restores all frame buttons")
+	check(nickname_edit.editable and !editor.close_button.button_disabled, "Server failure restores editing and manual closing")
+
+	check(GameState.soft_currency == 0, "The paid rename is charged only by its durable local commit")
+	await get_tree().create_timer(0.2).timeout
+	await capture_editor_offer("save-error")
+	editor.save_button.pressed.emit()
+	editor.save_button.pressed.emit()
+	check(profile_sync.calls == 2 and GameState.soft_currency == 0, "Retry synchronizes the existing profile without charging again")
+	profile_sync.answered.emit(true)
 	await get_tree().create_timer(0.25).timeout
+	await settle()
 	check(!is_instance_valid(editor) and profile_avatar.visible and is_equal_approx(profile_avatar.modulate.a, 1.0), "Save closes once and restores the avatar")
+	check(main._portrait_ad_toast.visible and main._portrait_ad_toast._message_label.text == tr("PROFILE_SAVE_SUCCESS").to_upper() and main._portrait_ad_toast._status_icon.is_success, "Successful server save shows the standard green success toast")
+	var toast_top: float = main._portrait_ad_toast.get_global_rect().position.y
+	var header_bottom: float = main.PORTRAIT_STAGE_LAYOUT.safe_top_inset_pixels(get_viewport().get_visible_rect().size) + main.PORTRAIT_STAGE_LAYOUT.fit_scale(get_viewport().get_visible_rect().size) * (main.PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + main.PORTRAIT_HEADER_HEIGHT)
+	check(toast_top > header_bottom, "System toast appears below the header counters")
+	await capture_editor_offer("save-success")
 	check(GameState.player_name == committed_name and GameState.settings[5] == committed_character and GameState.player_frame_id == committed_frame, "Save commits nickname, character and stable frame ID")
 	check(GameState.soft_currency == 0, "Repeated Save clicks debit the rename price only once")
 	check(player_body._nickname.text == committed_name and profile_avatar.frame_color == GameState.PLAYER_PROFILE.FRAME_COLORS[committed_frame - 1], "Profile identity refreshes after saving")
@@ -689,6 +745,26 @@ func run() -> void:
 	departure.custom_step(0.1)
 	check(is_zero_approx(main.COMPOSITED_FADE.get_opacity(home_header)), "Blue departure hides the whole HUD by the end of the button fade")
 	main._clear()
+	main._show_profile_screen("profile")
+	await settle()
+	var stale_body: Control = main._portrait_profile.player_profile
+	var stale_avatar: Button = stale_body.identity.get_node("ProfileAvatar")
+	stale_avatar.pressed.emit()
+	await get_tree().create_timer(0.65).timeout
+	var stale_editor: Node = stale_body._editor
+	var stale_sync := ProfileSyncMock.new()
+	add_child(stale_sync)
+	stale_editor.profile_service = stale_sync
+	stale_editor._switch_character()
+	stale_editor.save_button.pressed.emit()
+	check(stale_editor._saving, "Cancellation fixture starts an in-flight profile save")
+	stale_editor.queue_free()
+	await settle()
+	stale_sync.answered.emit(true)
+	await settle()
+	check(!is_instance_valid(stale_editor) and stale_avatar.visible, "Late success after editor destruction is harmless and restores its source avatar")
+	stale_sync.queue_free()
+	profile_sync.queue_free()
 	main.queue_free()
 	await settle()
 	print("PROFILE_UI checks=%d failures=%d" % [checks, failures])

@@ -1,5 +1,5 @@
 extends Node
-## A durable tournament starts with this introduction; its action only dismisses it.
+## A durable tournament starts with this introduction; Play opens theme selection.
 const GROUP: StringName = &"tournament_start_popup"
 const TROPHY = preload("res://assets/tournament/start_trophy_low.png")
 const PEDESTAL = preload("res://assets/tournament/start_pedestal.png")
@@ -7,7 +7,7 @@ const COIN_RAIN = preload("res://scripts/ui/tournament_coin_rain.gd")
 const CURTAIN = preload("res://assets/tournament/red_curtain.png")
 const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
-const CLOCK_ICON = preload("res://scripts/ui/timer_clock_icon.gd")
+const COUNTDOWN = preload("res://scripts/ui/tournament_countdown.gd")
 var host: Node
 var popup: CanvasLayer
 var action: Control
@@ -86,24 +86,14 @@ func _build() -> void:
 	var glow: TextureRect = host._stage_refill_status_glow(panel, panel_rect, Rect2(162, 248, 156, 156), &"TournamentStartRewardGlow")
 	glow.modulate = host.PORTRAIT_UI_PALETTE.TOURNAMENT_GLOW
 	_build_reward_art(panel_rect)
-	var timer_size := Vector2(144, 34) * 0.85
+	var timer_size: Vector2 = COUNTDOWN.PILL_SIZE
 	var timer_rect := Rect2(Vector2(panel_rect.get_center().x, panel_rect.position.y) - timer_size * 0.5, timer_size)
-	var timer_plate: Control = host._stage_panel(timer_rect, host.PORTRAIT_UI_PALETTE.TEXT_DARK, timer_size.y * 0.5)
-	timer_plate.name = "TournamentStartTimerPlate"
-	timer_plate.z_index = 13
-	var clock_inset: float = (timer_rect.size.y - 26.0) * 0.5
-	var clock_holder: Control = host._stage_holder(Rect2(timer_rect.position + Vector2.ONE * clock_inset, Vector2(26, 26)), Control.MOUSE_FILTER_IGNORE)
-	clock_holder.z_index = 14
-	var clock: Control = CLOCK_ICON.new()
-	clock.name = "TournamentStartClockIcon"
-	clock.size = Vector2(26, 26)
-	clock_holder.add_child(clock)
-	var digits_rect := Rect2(timer_rect.position + Vector2(31, 0), timer_rect.size - Vector2(34, 0))
-	countdown = host._stage_label(digits_rect, "", 20, Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER, host.UI_REGULAR_FONT)
-	countdown.name = "TournamentStartTimer"
-	countdown.z_index = 14
-	TEXT_STYLE.apply_regular_display(countdown)
+	var timer_holder: Control = host._stage_holder(timer_rect, Control.MOUSE_FILTER_IGNORE)
+	timer_holder.z_index = 14
+	var timer_pill: Control = COUNTDOWN.new()
+	timer_pill.name = "TournamentStartTimerPlate"
+	timer_holder.add_child(timer_pill)
+	countdown = timer_pill.digits
 	_update_countdown()
 	var timer := Timer.new()
 	timer.wait_time = 1.0
@@ -127,7 +117,7 @@ func _build() -> void:
 		"[img=24x24]res://flash_assets/star_currency_icon.png[/img]") + "[/center]"
 	host._apply_regular_display_to_rich_text(description_holder, description)
 	description_holder.add_child(description)
-	action = host._stage_portrait_popup_main_button(Rect2(90, host._portrait_popup_bottom_button_y(rect.end.y, 56.0), 300, 56), _go,
+	action = host._stage_portrait_popup_main_button(Rect2(90, host._portrait_popup_bottom_button_y(rect.end.y, 56.0), 300, 56), _play,
 		tr("TOURNAMENT_START_GO"), 22, false, 0.32, false, false, false, host.LONG_BUTTON_COLOR_ORANGE)
 	action.name = "TournamentStartGo"
 	action.z_index = 16
@@ -173,6 +163,12 @@ func _update_countdown() -> void:
 	if remaining <= 0:
 		# Defer because the initial countdown also runs while the popup is built.
 		_go.call_deferred()
+
+func _play() -> void:
+	if _closed or !is_instance_valid(host):
+		return
+	_go()
+	host._open_next_single_player_level()
 
 func _go() -> void:
 	if _closed:

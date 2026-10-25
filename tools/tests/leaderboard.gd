@@ -261,6 +261,29 @@ func run() -> void:
 	await settle(client,transport)
 	check(transport.calls[-2].payload.p_nickname == "FirstProfile" and transport.calls[-1].payload.p_nickname == "NewerProfile" and !client._profile_pending, "Profile changed in flight is uploaded after the older acknowledgement")
 	check(!transport.calls.back().payload.has("p_stars"), "Zero-star profile update sends no ranking score")
+	client.profile = {"nickname":"AwaitedProfile", "character_id":2, "frame_id":2}
+	transport.replies = [{"status":0}]
+	check(!(await client.sync_profile_and_wait()) and client._profile_pending, "Awaited profile reports transport failure and preserves its pending upload")
+	var calls_before_wait: int = transport.calls.size()
+	check(!(await client.sync_profile_and_wait()) and transport.calls.size() == calls_before_wait + 1, "Explicit profile retry immediately attempts another request despite cooldown")
+	transport.replies = [reply(160)]
+	check(await client.sync_profile_and_wait(), "Awaited profile completes after its server acknowledgement")
+	calls_before_wait = transport.calls.size()
+	check(await client.sync_profile_and_wait(), "Already acknowledged profile can complete immediately")
+	check(transport.calls.size() == calls_before_wait, "Retrying an acknowledged profile does not resend it")
+	var deferred_errors: Array = []
+	var on_deferred_failure := func(): deferred_errors.append(true)
+	client.sync_failed.connect(on_deferred_failure)
+	transport.replies = [{"retry_deferred":true, "retry_after_ms":1000}]
+	client.refresh(true)
+	await settle(client, transport)
+	check(client._read_requested and !client._busy and deferred_errors.is_empty(), "Deferred RPC keeps the read queued without reporting a failed attempt")
+	check(!client.cached_snapshot().top.is_empty(), "Deferred RPC preserves the previously loaded roster")
+	transport.replies = [reply(160)]
+	client._flush()
+	await settle(client, transport)
+	check(!client._read_requested and !delivered.back().cached, "Queued read completes with a fresh response after deferral")
+	client.sync_failed.disconnect(on_deferred_failure)
 	var appearance_row := row()
 	appearance_row["character_id"] = 2
 	appearance_row["frame_id"] = 5

@@ -113,7 +113,7 @@ func run() -> void:
 			check(absf(left_inset - top_inset) < 0.1 and absf(left_inset - bottom_inset) < 0.1, "Clock has equal left, top and bottom insets: %f / %f / %f" % [left_inset, top_inset, bottom_inset])
 			var clock_angle: float = clock.hand_angle
 			check_clock_motion(clock)
-			check(plate.stage_rect.size.is_equal_approx(Vector2(144, 34) * 0.85), "Timer pill is fifteen percent smaller")
+			check(plate.size.is_equal_approx(Vector2(144, 34) * 0.85), "Timer pill is fifteen percent smaller")
 			check(is_equal_approx(plate.get_global_rect().get_center().y, panel.get_global_rect().position.y), "Panel top edge bisects the countdown pill")
 			var glow: TextureRect = panel.get_node("TournamentStartRewardGlow")
 			check(glow.z_index > panel.get_node("TournamentStartCurtain").z_index and panel.z_index + glow.z_index < art.z_index, "Masked reward glow sits above the curtain and behind the prizes")
@@ -156,6 +156,9 @@ func run() -> void:
 			check(prompt.countdown.text == clock_text(duration - 1), "Reopening keeps the existing countdown")
 			prompt.action.pressed.emit()
 			prompt._go()
+			await settle()
+			check(is_instance_valid(main.single_player_popup_stage_content), "Play dismisses the tournament introduction and opens theme selection")
+			main._remove_single_player_theme_popup()
 			await settle()
 			GameState.load_game()
 			check(GameState.tournament_state.id == identifier, "Tournament survives closing the game on its introduction")

@@ -1,12 +1,26 @@
 extends Node
 const SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
 const MODEL = preload("res://scripts/core/tournament_model.gd")
+class BannerProbe extends Node:
+	var shown := false
+	func show_banner() -> void:
+		shown = true
+	func hide_banner() -> void:
+		shown = false
+	func is_native_available() -> bool:
+		return true
 class TestUI extends "res://scripts/main_portrait.gd":
+	var banner_enabled := false
+	var banner_probe := BannerProbe.new()
+	func _portrait_ads_service() -> Node:
+		return banner_probe
+	func _exit_tree() -> void:
+		banner_probe.free()
 	func _ready() -> void:
 		_build_root()
 		_clear()
 	func _portrait_ads_enabled() -> bool:
-		return false
+		return banner_enabled
 	func _should_auto_resume_guided_single_player() -> bool:
 		return false
 var checks := 0
@@ -26,7 +40,7 @@ func _process(_delta: float) -> void:
 func _ready() -> void:
 	call_deferred("run")
 
-func inspect_rows(view: Control, page: Control) -> void:
+func inspect_rows(main: Node, view: Control, page: Control) -> void:
 	var previous_size := get_window().size
 	var previous_language: String = Database.interface_language
 	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
@@ -36,9 +50,17 @@ func inspect_rows(view: Control, page: Control) -> void:
 		for language: String in ["ru", "en"]:
 			Database.interface_language = language
 			TranslationServer.set_locale(language)
+			# The fixture keeps one live screen while switching languages. Refresh its static captions too.
+			view._weekly.get_node("TabCaption").text = tr("LEADERBOARD_TOURNAMENT")
+			view._players.get_node("TabCaption").text = tr("LEADERBOARD_PLAYERS")
+			main.ui.find_child("LeaderboardTitle", true, false).text = tr("LEADERBOARD_TITLE").to_upper()
 			page.refresh()
 			await settle()
 			check(page.find_child("TournamentAction", true, false) == null, "Standings contain no start, claim or next-tournament action")
+			var pill_rect: Rect2 = page.countdown.get_global_rect()
+			check(is_equal_approx(pill_rect.get_center().y, page.get_global_rect().position.y), "Tab lower edge bisects the countdown pill")
+			check(is_equal_approx(pill_rect.get_center().x, view._weekly.get_global_rect().get_center().x), "Countdown is centered beneath the Tournament tab caption")
+			check(page.countdown.digits.text.count(":") == 2 and page.countdown.find_child("TournamentStartClockIcon", true, false) != null, "Standings reuse the introduction clock and plain countdown digits")
 			check(page.podium.get_parent() == page and !page.scroll.is_ancestor_of(page.podium), "Prize podium is fixed outside the scrolling subtree")
 			check(page.podium.get_global_rect().end.y < page.scroll.get_global_rect().position.y, "Ordinary list starts below the fixed podium")
 			for rank in range(1, 4):
@@ -49,7 +71,7 @@ func inspect_rows(view: Control, page: Control) -> void:
 				var medal: TextureRect = card.get_node("PodiumRankMedal")
 				check(is_equal_approx(medal.get_rect().get_center().y, podium_avatar.get_rect().end.y) and medal.texture == SCREEN.ROW.RANK_MEDALS[rank - 1], "Avatar bottom bisects its place medal")
 				var score: Label = card.get_node("PodiumScore")
-				check(is_equal_approx(score.position.x + (score.size.x + 33) * 0.5, card.size.x * 0.5) and score.position.y > card.size.y - 45, "Stars group is centered at the bottom of the prize card")
+				check(is_equal_approx(score.position.x + (score.size.x + 33) * 0.5, card.size.x * 0.5) and score.get_rect().end.y < card.get_node("PodiumReward").position.y, "Stars group is centered above the main prize")
 				check(card.get_node("PodiumReward").texture == (page.GIFT if rank == 1 else page.COIN_PACK), "Podium uses gift or campaign coin pile")
 				if rank != 1:
 					check(card.get_node("PodiumRewardAmount").text == "x%d" % int(page._snapshot.rewards[rank - 1]), "Coin pile counter follows tournament balance")
@@ -161,7 +183,7 @@ func run() -> void:
 	page.refresh()
 	await settle()
 	check(int(page._snapshot.rank) > 3, "Independent opponent progression moves player out of podium")
-	await inspect_rows(view, page)
+	await inspect_rows(main, view, page)
 	check(page.find_child("TournamentPinnedPlayer", true, false) == null, "Tournament has no pinned player strip")
 	check(is_equal_approx(page.own_row.modulate.a, 1), "Own row remains visible in the regular list")
 	var fixed_position: Vector2 = page.podium.get_global_rect().position
@@ -177,7 +199,7 @@ func run() -> void:
 	check(page.scroll.scroll_vertical == saved_scroll, "Timer refresh preserves scroll position")
 	view._players.pressed.emit()
 	await settle()
-	check(view.scroll.visible and !page.visible, "Global tab remains available")
+	check(!page.visible and view._status.visible and view._retry.visible and !view.scroll.visible, "Global tab remains available and reports its offline read instead of showing cached rows")
 	view._weekly.pressed.emit()
 	await settle()
 	check(GameState.tournament_state.id == id, "Tab switching never regenerates tournament")
@@ -224,7 +246,11 @@ func run() -> void:
 		await inspect_reward(main, rank, amount)
 	# Closing during gift pressure/flash must cancel its callbacks safely.
 	var before_close := GameState.get_soft_currency()
+	main.banner_enabled = true
+	main._stage_portrait_ad_banner("test_reward_departure")
 	main._show_tournament_reward({"rank": 1, "amount": 200})
+	check(main.banner_probe.shown and !get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty(), "Tournament reward restores the native banner and its reserved slot after clearing the previous screen")
+	main.banner_enabled = false
 	var interrupted: Node = main._portrait_tournament_reward
 	main._show_leaderboard_screen(true)
 	check(interrupted._stopped, "Leaving during gift opening immediately stops its presentation")
@@ -240,7 +266,7 @@ func run() -> void:
 		Database.interface_language = language
 		TranslationServer.set_locale(language)
 		page.refresh()
-		check(page._title.text.begins_with("До конца:" if language == "ru" else "Time left:") and page.find_child("TournamentAction", true, false) == null, "Localized active standings have a timer without a next-tournament action")
+		check(page.countdown.digits.text.count(":") == 2 and page.find_child("TournamentAction", true, false) == null, "Localized active standings have a timer without a next-tournament action")
 	view.set_bottom_inset(50)
 	await settle()
 	check(page.get_global_rect().end.y <= (view.size.y - 62) * view.scale.y + 1, "Tournament respects banner inset")

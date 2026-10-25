@@ -10,16 +10,17 @@ const STAR = preload("res://flash_assets/star_currency_icon.png")
 const COIN_PACK = preload("res://flash_assets/coin_pack_04.png")
 const GIFT = preload("res://flash_assets/reward_chest_closed.png")
 const REWARD_GLOW = preload("res://flash_assets/final_reward_rotating_glow.png")
+const COUNTDOWN = preload("res://scripts/ui/tournament_countdown.gd")
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 const PODIUM_AVATAR_SIZE := ROW.AVATAR_SIZE * 1.5
-const PODIUM_HEIGHT := 294.0
+const PODIUM_HEIGHT := 314.0
 var portraits: Node
 var score_formatter: Callable
 var scroll: ScrollContainer
 var rows: VBoxContainer
 var podium: Control
 var own_row: Control
-var _title: Label
+var countdown: Control
 var _timer: Timer
 var _snapshot: Dictionary = {}
 var _rows_key := ""
@@ -35,9 +36,10 @@ func _ready() -> void:
 		portraits = PORTRAITS.new()
 		add_child(portraits)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_title = _label(self, Rect2(18, 10, 444, 34), "", 27, Color.WHITE)
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	TEXT_STYLE.apply_display(_title)
+	countdown = COUNTDOWN.new()
+	countdown.name = "TournamentTabCountdown"
+	countdown.scale = Vector2.ONE * 0.85
+	add_child(countdown)
 	podium = Control.new()
 	podium.name = "TournamentPodium"
 	podium.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -71,14 +73,10 @@ func refresh() -> void:
 	# A deadline can pass before the host's next timer tick. Keep the frozen
 	# standings visible until navigation, without exposing legacy actions.
 	var has_standings := phase != "idle"
-	_title.visible = has_standings
+	countdown.visible = has_standings
 	podium.visible = has_standings
 	scroll.visible = has_standings
-	if phase == "active":
-		var remaining := int(_snapshot.remaining)
-		_title.text = _tr("TOURNAMENT_REMAINING", "До конца: %s", "Time left: %s") % ("%02d:%02d:%02d" % [remaining / 3600, (remaining / 60) % 60, remaining % 60])
-	elif has_standings:
-		_title.text = _tr("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished")
+	countdown.set_remaining(int(_snapshot.get("remaining", 0)))
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
 	var key := JSON.stringify(_snapshot.get("rows", [])) + phase + JSON.stringify(GameState.get_player_profile())
 	if key != _rows_key:
@@ -121,7 +119,7 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	var card := Control.new()
 	card.name = "PodiumPlace%d" % rank
 	card.position = Vector2(8 + slot * 151, PODIUM_AVATAR_SIZE * 0.5 + (0 if rank == 1 else 24))
-	card.size = Vector2(142, 244 if rank == 1 else 220)
+	card.size = Vector2(142, 264 if rank == 1 else 240)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var color: Color = {1: PALETTE.PAPER_CRACK_LIGHT, 2: PALETTE.UI_BLUE_LIGHT_BORDER, 3: PALETTE.BUTTON_ORANGE}[rank]
 	var shadow := _panel(card, Rect2(Vector2(0, 6), card.size), CARD.shadow_style())
@@ -138,7 +136,7 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	nickname.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_shrink(nickname, 16)
-	var prize_center := Vector2(71, 150 if rank == 1 else 132)
+	var prize_center := Vector2(71, card.size.y - (45 if rank == 1 else 55))
 	var prize_size := Vector2.ONE * (90.0 * 0.8 if rank == 1 else 58.0 * 1.15)
 	var glow_size := Vector2.ONE * (120 if rank == 1 else 112)
 	var glow := _icon(card, Rect2(prize_center - glow_size * 0.5, glow_size), REWARD_GLOW)
@@ -147,7 +145,7 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	var prize := _icon(card, Rect2(prize_center - prize_size * 0.5, prize_size), GIFT if rank == 1 else COIN_PACK)
 	prize.name = "PodiumReward"
 	if rank != 1:
-		var amount := _label(card, Rect2(9, 157, 124, 25), "x%d" % reward, 22, Color.WHITE)
+		var amount := _label(card, Rect2(9, card.size.y - 28, 124, 25), "x%d" % reward, 22, Color.WHITE)
 		amount.name = "PodiumRewardAmount"
 		amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		amount.add_theme_font_override("font", FONTS.display_font())
@@ -157,13 +155,14 @@ func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
 	var score_text := str(entry.stars)
 	if score_formatter.is_valid():
 		score_text = str(score_formatter.call(int(entry.stars)))
-	var score := _label(card, Rect2(9, card.size.y - 41, 91, 35), score_text, 27)
+	var score := _label(card, Rect2(9, 128 if rank == 1 else 108, 91, 35), score_text, 27)
 	score.name = "PodiumScore"
 	_shrink(score, 14)
 	var text_width := minf(91, score.get_theme_font("font").get_string_size(score_text, HORIZONTAL_ALIGNMENT_LEFT, -1, score.get_theme_font_size("font_size")).x)
 	score.size.x = text_width
 	score.position.x = (142 - text_width - 33) * 0.5
-	_icon(card, Rect2(score.position + Vector2(text_width + 6, 4), Vector2(27, 27)), STAR)
+	var score_star := _icon(card, Rect2(score.position + Vector2(text_width + 6, 4), Vector2(27, 27)), STAR)
+	score_star.name = "PodiumScoreStar"
 	return card
 
 func _row_card(entry: Dictionary) -> Control:

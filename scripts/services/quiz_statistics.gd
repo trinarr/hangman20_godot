@@ -289,13 +289,17 @@ func _reset_revoked_identity() -> void:
 	_save()
 	identity_changed.emit()
 
-func _authenticate() -> bool:
+func _authenticate(user_requested: bool = false) -> bool:
 	# Only token rotation is serialized. Independent API requests may overlap.
 	if _auth_busy:
 		while _auth_busy:
 			await get_tree().process_frame
-		return _auth_last_success and !_token_needs_refresh()
-	if retry_delay_ms("auth") > 0:
+		if _auth_last_success and !_token_needs_refresh():
+			return true
+		if !user_requested:
+			return false
+		# A failed older auth attempt must not consume the user's own retry.
+	if !user_requested and retry_delay_ms("auth") > 0:
 		return false
 	_auth_busy = true
 	_auth_last_success = await _authenticate_session()
@@ -347,21 +351,21 @@ func _authenticate_session() -> bool:
 func _quiz_rpc(payload: Dictionary) -> Dictionary:
 	return await _authorized_rpc(_rpc_path(), payload, int(payload.get("p_answer", -1)) != -1)
 
-func leaderboard_rpc(payload: Dictionary) -> Dictionary:
+func leaderboard_rpc(payload: Dictionary, user_requested: bool = false) -> Dictionary:
 	if !leaderboard_is_configured():
 		return {}
 	# Share authentication, without waiting for the quiz worker's HTTP request.
-	return await _authorized_rpc(_leaderboard_rpc_path(), payload, false)
+	return await _authorized_rpc(_leaderboard_rpc_path(), payload, false, user_requested)
 
-func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool) -> Dictionary:
+func _authorized_rpc(path: String, payload: Dictionary, identity_bound: bool, user_requested: bool = false) -> Dictionary:
 	var lane := "leaderboard" if path == _leaderboard_rpc_path() else "quiz"
 	var delay := retry_delay_ms(lane)
-	if delay > 0:
+	if delay > 0 and !user_requested:
 		return {"retry_deferred":true,"retry_after_ms":delay}
 	var generation := _identity_generation
 	var response: Dictionary = {}
 	for attempt: int in range(2):
-		if _token_needs_refresh() and !(await _authenticate()):
+		if _token_needs_refresh() and !(await _authenticate(user_requested)):
 			return {"identity_reset": generation != _identity_generation, "retry_scheduled":true}
 		if generation != _identity_generation and identity_bound:
 			return {"identity_reset": true}

@@ -8,15 +8,25 @@ class MockService extends Node:
 	signal sync_failed()
 	var snapshot := {"top": [], "me": null, "language": "en"}
 	var requested := false
+	var request_count := 0
+	var cache_reads := 0
+	var star_syncs := 0
+	var forced := false
+	var manual := false
+	var from_cache := true
 	func is_configured() -> bool:
 		return true
 	func cached_snapshot() -> Dictionary:
+		cache_reads += 1
 		return snapshot
 	func sync_stars(_stars: int) -> void:
-		pass
-	func refresh(_force: bool = false) -> void:
+		star_syncs += 1
+	func refresh(_force: bool = false, user_requested: bool = false) -> void:
 		requested = true
-		leaderboard_ready.emit(snapshot, true)
+		request_count += 1
+		forced = _force
+		manual = user_requested
+		leaderboard_ready.emit(snapshot, from_cache)
 
 
 func check(value: bool, message: String) -> void:
@@ -38,6 +48,10 @@ func score_ink_rect(label: Label) -> Rect2:
 	ink.position.x += label.position.x + floorf((label.size.x - advance) * 0.5) - padding.x
 	ink.size.x += padding.x + padding.y
 	return ink
+
+func _process(_delta: float) -> void:
+	if DisplayServer.get_name() != "headless" and OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 
 func _ready() -> void:
 	await settle()
@@ -168,15 +182,66 @@ func _ready() -> void:
 	connected_view.service = mock
 	add_child(connected_view)
 	await settle()
-	check(mock.requested and connected_view._status.visible, "Synchronous cached response is handled after connection")
+	check(mock.requested and mock.forced and mock.manual and connected_view._status.visible and connected_view._waiting_for_fresh, "Opening the screen requests fresh data without treating a cache callback as completion")
 	check(mock.leaderboard_ready.get_connections().size() == 1, "Screen subscribes once")
+	connected_view.set_snapshot(data)
+	var preserved_rows: Array = connected_view.rows.get_children()
+	var preserved_pin: Control = connected_view.pinned
+	connected_view._load(true)
+	check(connected_view._loading and connected_view.scroll.visible and connected_view.rows.get_children() == preserved_rows and connected_view.pinned == preserved_pin, "Refreshing keeps the existing rows and pinned control alive")
+	check(!connected_view._status.visible, "Loading text does not cover an existing list")
+
+	connected_view.set_snapshot(data)
+	mock.sync_failed.emit()
+	await settle()
+	check(connected_view._has_error and !connected_view.scroll.visible and !is_instance_valid(connected_view.pinned) and connected_view.rows.get_child_count() == 0, "Network failure removes cached rows and pinned player")
+	mock.leaderboard_ready.emit(data, true)
+	check(connected_view._has_error and connected_view.rows.get_child_count() == 0, "Late cache response cannot replace the error")
+	connected_view._retry.pressed.emit()
+	check(connected_view.rows.get_child_count() == 0 and connected_view._waiting_for_fresh and connected_view._loading and !connected_view._has_error and !connected_view._retry.visible, "Retry immediately shows Loading and ignores cached data until a fresh server response")
+	mock.sync_failed.emit()
+	check(connected_view._retry.visible and connected_view._status.visible, "Repeated failure restores the retry state")
+	mock.snapshot = data
+	mock.from_cache = false
+	connected_view._retry.pressed.emit()
+	await settle()
+	check(!connected_view._has_error and !connected_view._retry.visible and connected_view.scroll.visible and connected_view.rows.get_child_count() > 0, "Fresh success restores the list after retry")
 	connected_view.dispose()
 	check(mock.leaderboard_ready.get_connections().is_empty() and mock.sync_failed.get_connections().is_empty(), "Disposal disconnects both service signals")
 	mock.leaderboard_ready.emit(data, false)
-	check(connected_view.rows.get_child_count() == 0, "Late service signal cannot repopulate disposed screen")
+	var disposed_count := connected_view.rows.get_child_count()
+	mock.leaderboard_ready.emit({"top": [], "me": null}, false)
+	check(connected_view.rows.get_child_count() == disposed_count, "Late service signal cannot repopulate disposed screen")
 	connected_view.queue_free()
 	mock.queue_free()
 	await settle()
+	var tournament_service := MockService.new()
+	tournament_service.snapshot = data.duplicate(true)
+	tournament_service.snapshot.language = "ru" if Database.interface_language == "ru" else "en"
+	tournament_service.from_cache = false
+	add_child(tournament_service)
+	var local_view := SCREEN.new()
+	local_view.initial_tournament = true
+	local_view.service = tournament_service
+	add_child(local_view)
+	await settle()
+	check(local_view._tournament_selected and local_view._tournament.visible and !local_view._loading, "Initial Tournament tab is selected before ready without starting global loading")
+	check(tournament_service.request_count == 0 and tournament_service.cache_reads == 0 and tournament_service.star_syncs == 0, "Opening Tournament neither reads global cache nor requests/synchronizes the global service")
+	local_view._players.pressed.emit()
+	await settle()
+	check(tournament_service.request_count == 1 and tournament_service.manual and !local_view._tournament_selected, "First Global selection performs exactly one manual refresh")
+	local_view._players.pressed.emit()
+	check(tournament_service.request_count == 1, "Already-selected Global tab does not duplicate the opening request")
+	local_view._weekly.pressed.emit()
+	check(tournament_service.request_count == 1 and local_view._tournament.visible, "Returning to Tournament never refreshes the global leaderboard")
+	local_view._players.pressed.emit()
+	await settle()
+	check(tournament_service.request_count == 2, "Re-entering Global requests its own fresh snapshot")
+	local_view.dispose()
+	local_view.queue_free()
+	tournament_service.queue_free()
+	await settle()
+	await inspect_offline_open()
 	var main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await settle()
@@ -239,7 +304,139 @@ func _ready() -> void:
 	input.position.y -= 100
 	check(is_equal_approx(caption.get_global_rect().position.y - old_caption_y, input.get_global_rect().position.y - old_input_y), "Caption follows keyboard field lift without changing gap")
 	check(caption.get_theme_font_size("font_size") == 28, "Caption retains font size 28")
+	await inspect_error_ui(main, data)
 	main.queue_free()
 	await settle()
 	print("LEADERBOARD_UI checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func inspect_error_ui(main: Node, data: Dictionary) -> void:
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	main._remove_legal_consent_popup()
+	var old_size := get_window().size
+	var old_min := get_window().min_size
+	var old_language: String = Database.interface_language
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
+		get_window().min_size = dimensions
+		get_window().size = dimensions
+		for language: String in ["ru", "en"]:
+			Database.interface_language = language
+			TranslationServer.set_locale(language)
+			main._show_leaderboard_screen()
+			await settle()
+			var view: Control = main._portrait_leaderboard
+			view.set_snapshot(data)
+			view._failed()
+			await settle()
+			var text_rect: Rect2 = view._status.get_global_rect()
+			var button_rect: Rect2 = view._retry.get_global_rect()
+			var block := text_rect.merge(button_rect)
+			check(block.get_center().distance_to(get_viewport().get_visible_rect().get_center()) < 1.0, "Error text and Retry form a centered block at every aspect ratio")
+			check(text_rect.end.y < button_rect.position.y and text_rect.position.x >= 0 and button_rect.end.x <= get_viewport().get_visible_rect().size.x, "Error text stays above the button without clipping")
+			check(view._retry is StageLongButton and !view._retry.use_stage_layout and view._retry.color_preset == SCREEN.LONG_BUTTON.ColorPreset.ORANGE, "Retry uses the standard orange button without double viewport scaling")
+			check(view._status.get_theme_font("font") == SCREEN.FONTS.question_comment_font() and view._status.has_node("DisplayTextShaderEffect"), "Error text uses the word-comment font and regular display treatment")
+			check(!view.scroll.visible and view.rows.get_child_count() == 0 and !is_instance_valid(view.pinned), "Error has no cached list or pinned player")
+			var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("leaderboard_error_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save network-error GPU preview")
+			var previous_service: Node = view.service
+			var pending := MockService.new()
+			add_child(pending)
+			view.service = pending
+			view._retry.pressed.emit()
+			check(view._loading and !view._has_error and view._status.visible and !view._retry.visible and view._status.text == tr("LEADERBOARD_LOADING"), "Retry immediately enters Loading without a visible button")
+			check(view._status.get_global_rect().get_center().distance_to(get_viewport().get_visible_rect().get_center()) < 1.0, "Loading text is centered at every viewport size")
+			check(view._status.get_theme_font("font") == SCREEN.FONTS.question_comment_font() and view._status.has_node("DisplayTextShaderEffect"), "Loading uses the same text styling as the error")
+			view._retry.pressed.emit()
+			check(view._loading and !view._retry.visible, "Repeated Retry does not reset or cancel the active loading state")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("leaderboard_loading_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save centered-loading GPU preview")
+			view._select_tab(true)
+			check(!view._status.visible and !view._retry.visible and view._tournament.visible, "Global loading controls never overlap the tournament tab")
+			view._select_tab(false)
+			check(view._loading and view._status.visible and !view._retry.visible and view.rows.get_child_count() == 0, "Returning to Global retains the pending Loading state")
+			view._failed()
+			check(!view._loading and view._retry.visible, "A real failed attempt leaves Loading and restores Retry")
+			view.service = previous_service
+			pending.queue_free()
+			main.show_menu()
+			await settle()
+	get_window().min_size = old_min
+	get_window().size = old_size
+	Database.interface_language = old_language
+	TranslationServer.set_locale(old_language)
+
+func inspect_offline_open() -> void:
+	var transport = load("res://tools/tests/leaderboard_transport_mock.gd").new()
+	add_child(transport)
+	transport._access_token = "test-access"
+	transport.retry_clock_ms = 1000
+	var fixture = load("res://tools/tests/leaderboard.gd").new()
+	var client = load("res://tools/tests/leaderboard_client_mock.gd").new()
+	client.transport = transport
+	add_child(client)
+	transport.replies = [fixture.reply()]
+	var warm := SCREEN.new()
+	warm.service = client
+	add_child(warm)
+	await settle_transport(client, transport)
+	await settle()
+	check(warm.rows.get_child_count() > 0, "Live response populates the initial screen and persisted roster")
+	warm.dispose()
+	warm.queue_free()
+	await settle()
+	var before: int = transport.calls.size()
+	transport.replies = [{"status": 0}]
+	var offline := SCREEN.new()
+	offline.service = client
+	add_child(offline)
+	check(offline.rows.get_child_count() > 0 and offline.scroll.visible and offline._waiting_for_fresh and offline._loading, "Reopening retains its cached ranking while waiting for a fresh response")
+	await settle_transport(client, transport)
+	await settle()
+	check(transport.calls.size() == before + 1 and offline._has_error and offline._retry.visible, "Offline reopen attempts a real read and displays the transport failure")
+	before = transport.calls.size()
+	transport.replies = [{"status":0}]
+	offline._select_tab(true)
+	offline._select_tab(false)
+	check(offline._loading and !offline._has_error and !offline._retry.visible and transport.calls.size() == before + 1, "User navigation immediately attempts a read despite cooldown")
+	offline._retry.pressed.emit()
+	check(offline._loading and offline._status.text == tr("LEADERBOARD_LOADING") and transport.calls.size() == before + 1, "Repeated Retry cannot duplicate the in-flight manual request")
+	await settle_transport(client, transport)
+	offline.dispose()
+	offline.queue_free()
+	await settle()
+	var restored = load("res://tools/tests/leaderboard_client_mock.gd").new()
+	restored.transport = transport
+	restored.save_file = client.save_file
+	add_child(restored)
+	var restarted := SCREEN.new()
+	restarted.service = restored
+	add_child(restarted)
+	check(restarted._loading and !restarted._has_error and restarted.rows.get_child_count() > 0 and restarted.scroll.visible, "Restart retains its persisted ranking while the manual read is in flight")
+	check(!restored.cached_snapshot().is_empty(), "Offline error preserves the service roster for local tournament identities")
+	await settle_transport(restored, transport)
+	check(restarted._has_error, "Failed manual reopening returns to the retry state")
+	transport._access_token = ""
+	transport.replies = [{"status": 0}]
+	restarted._retry.pressed.emit()
+	await settle_transport(restored, transport)
+	check(restarted._has_error and restarted._retry.visible, "Offline authentication failure reaches the same error UI")
+	transport.replies = [fixture.tokens(), fixture.reply()]
+	restarted._retry.pressed.emit()
+	await settle_transport(restored, transport)
+	await settle()
+	check(!restarted._has_error and restarted.scroll.visible and restarted.rows.get_child_count() > 0, "Fresh authenticated response restores the ranking after reconnection")
+	restarted.dispose()
+	for item: Node in [restarted, client, restored, transport, fixture]:
+		if is_instance_valid(item):
+			item.queue_free()
+	await settle()
+
+func settle_transport(client: Node, transport: Node) -> void:
+	for frame: int in range(200):
+		await get_tree().process_frame
+		if !client._busy and !transport._auth_busy and transport.active_calls == 0:
+			return
+	check(false, "Leaderboard UI transport settles without wall-clock waits")

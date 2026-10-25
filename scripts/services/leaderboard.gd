@@ -16,6 +16,7 @@ var _synced_profile: Dictionary = {}
 var _confirmed_stars := -1
 var _read_requested := false
 var _busy := false
+var _user_request_pending := false
 var _started := false
 var _debounce: Timer
 var _retry_timer: Timer
@@ -201,6 +202,21 @@ func sync_profile() -> void:
 	if is_instance_valid(_debounce):
 		_debounce.start()
 
+func sync_profile_and_wait() -> bool:
+	if !is_configured():
+		return false
+	var target := _current_profile().duplicate(true)
+	sync_profile()
+	if _synced_profile == target:
+		return true
+	_user_request_pending = true
+	_flush()
+	# Reuse the existing serialized worker, including a request already in flight.
+	# A failed request releases _busy and leaves the durable profile queued.
+	while (_busy or _user_request_pending) and _synced_profile != target:
+		await get_tree().process_frame
+	return _synced_profile == target
+
 func sync_stars(stars: int) -> void:
 	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
@@ -268,16 +284,23 @@ func tournament_profiles() -> Array:
 			profiles.append(profile)
 	return profiles
 
-func refresh(force: bool = false) -> void:
+func refresh(force: bool = false, user_requested: bool = false) -> void:
 	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		_debug_log("Refresh skipped: backend disabled or legal documents not accepted")
 		return
-	if !force and _cache_language == _language() and _pending_stars < 0 and !_profile_pending and _cache_at_ms >= 0 \
+	# Keep a screen read queued while transport/authentication is cooling down.
+	# This is still loading, not a new failed request.
+	if !user_requested and _backend().retry_delay_ms("leaderboard") > 0:
+		_read_requested = true
+		_schedule_retry()
+		return
+	if !force and !user_requested and _cache_language == _language() and _pending_stars < 0 and !_profile_pending and _cache_at_ms >= 0 \
 		and Time.get_ticks_msec() - _cache_at_ms < CACHE_MS:
 		_debug_log("Top served from cache: rows=%d" % (_snapshot.get("top", []) as Array).size())
 		leaderboard_ready.emit(cached_snapshot(), true)
 		return
 	_read_requested = true
+	_user_request_pending = _user_request_pending or user_requested
 	_flush()
 
 func _on_identity_changed() -> void:
@@ -345,12 +368,14 @@ func _valid_snapshot(body: Variant, include_top: bool) -> bool:
 func _flush() -> void:
 	if _busy or !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():
 		return
-	if _backend().retry_delay_ms("leaderboard") > 0:
+	if !_user_request_pending and _backend().retry_delay_ms("leaderboard") > 0:
 		_schedule_retry()
 		return
 	_ensure_store_loaded()
 	_busy = true
 	while _pending_stars >= 0 or _read_requested or _profile_pending:
+		var user_requested := _user_request_pending
+		_user_request_pending = false
 		var submitted := _pending_stars
 		var submitted_profile := _current_profile()
 		var include_top := _read_requested
@@ -365,7 +390,14 @@ func _flush() -> void:
 		if submitted >= 0:
 			payload["p_stars"] = submitted
 		_debug_log("Sync: stars=%s include_top=%s seed_fillers=%s" % [str(submitted) if submitted >= 0 else "read-only", include_top, seed_requested])
-		var response: Dictionary = await _backend().leaderboard_rpc(payload)
+		var response: Dictionary = await _backend().leaderboard_rpc(payload, user_requested)
+		if bool(response.get("retry_deferred", false)):
+			_read_requested = _read_requested or include_top
+			_busy = false
+			_schedule_retry()
+			if _user_request_pending:
+				_flush.call_deferred()
+			return
 		var body: Variant = response.get("body")
 		if int(response.get("status", 0)) != 200 or !_valid_snapshot(body, include_top) or body.language != request_language \
 			or (seed_requested and !body.has("fillers")) \
@@ -373,10 +405,14 @@ func _flush() -> void:
 			_read_requested = _read_requested or include_top
 			_debug_log("Sync failed: status=%d; pending result retained" % int(response.get("status", 0)))
 			_busy = false
-			if !bool(response.get("retry_deferred", false)):
-				_backend().retry_failure("leaderboard", response)
+			_cache_at_ms = -1
+			_backend().retry_failure("leaderboard", response)
+			# The queued manual operation must report its own result, not the older failure.
+			if !_user_request_pending:
 				sync_failed.emit()
 			_schedule_retry()
+			if _user_request_pending:
+				_flush.call_deferred()
 			return
 		_backend().retry_success("leaderboard")
 		_schedule_retry()
@@ -453,6 +489,7 @@ func _flush() -> void:
 		if include_top and current_language:
 			leaderboard_ready.emit(cached_snapshot(), false)
 	_busy = false
+	_user_request_pending = false
 
 func is_configured() -> bool:
 	return _tutorial_completed() and _legal_accepted() and _backend().leaderboard_is_configured()

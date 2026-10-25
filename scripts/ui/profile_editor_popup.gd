@@ -22,7 +22,6 @@ const NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const RANDOM_ICON = preload("res://flash_assets/custom_word_random_doodle.png")
 const WORD_MARKER = preload("res://scripts/ui/portrait_round_result.gd")
 const PROFILE = preload("res://scripts/core/player_profile.gd")
-const TOAST = preload("res://scripts/ui/stage_toast.gd")
 const FADE = preload("res://scripts/ui/composited_fade.gd")
 const COLORS = PROFILE.FRAME_COLORS
 const FORM_SIZE := Vector2(424, 526)
@@ -53,7 +52,10 @@ var selected_character := 1
 var frame_color := PALETTE.BUTTON_ORANGE
 var nickname: Control
 var save_button: Control
-var _save_toast: Control
+var profile_service: Node
+var _saving := false
+var _pending_sync := false
+var _save_input_states: Array[Dictionary] = []
 var _purchase_content: Control
 var _purchase_price: Label
 var _displayed_save_cost := -1
@@ -236,8 +238,8 @@ func _set_open_time(elapsed: float) -> void:
 
 func _finish_open() -> void:
 	_opened = true
-	_viewport.gui_disable_input = false
-	_surface.accepts_input = true
+	_viewport.gui_disable_input = _saving
+	_surface.accepts_input = !_saving
 	POPUP.set_close_ready(_dimmer, true)
 	_close_holder.open_bounce_complete = true
 	_close_holder.open_bounce_finished.emit()
@@ -326,13 +328,11 @@ func _build_form() -> void:
 	random_button.tooltip_text = tr("PROFILE_RANDOMIZE")
 	random_button.pressed.connect(_randomize_profile)
 	_form.add_child(random_button)
-	_save_toast = TOAST.new()
-	_save_toast.position = Vector2(20, 380)
-	_form.add_child(_save_toast)
-	_save_toast.set_available_width(384)
 	_update_save_availability(edit.text)
 
 func _randomize_profile() -> void:
+	if _saving:
+		return
 	if _closing:
 		return
 	_nickname_pending_space_after = ""
@@ -397,12 +397,14 @@ func _nickname_has_ime_text() -> bool:
 	return nickname.get_line_edit().has_ime_text()
 
 func _update_save_availability(value: String) -> void:
+	if _saving:
+		return
 	if is_instance_valid(save_button):
 		var name_value: String = PROFILE.trim_name_spaces(value)
 		var current: Dictionary = GameState.get_player_profile()
 		var unchanged := name_value == str(current.nickname) and selected_character == int(current.character_id) \
 			and _selected_color_index + 1 == int(current.frame_id)
-		save_button.button_disabled = unchanged or _nickname_has_ime_text() or !PROFILE.valid_custom_name(name_value)
+		save_button.button_disabled = (unchanged and !_pending_sync) or _nickname_has_ime_text() or !PROFILE.valid_custom_name(name_value)
 		_refresh_save_offer(name_value, unchanged)
 
 func _refresh_save_offer(value: String, unchanged: bool) -> void:
@@ -435,7 +437,7 @@ func _return_from_coin_store() -> void:
 		_update_save_availability(nickname.get_line_edit().text)
 
 func _save_draft() -> void:
-	if _closing or _nickname_has_ime_text() or (is_instance_valid(host) and host._portrait_coin_store_active):
+	if _closing or _saving or _nickname_has_ime_text() or (is_instance_valid(host) and host._portrait_coin_store_active):
 		return
 	_update_save_availability(nickname.get_line_edit().text)
 	if !save_button.button_disabled:
@@ -447,12 +449,78 @@ func _save_draft() -> void:
 					DisplayServer.virtual_keyboard_hide()
 				host._open_coin_store(_return_from_coin_store)
 			return
-		if GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value != GameState.player_name):
-			close()
+		if is_instance_valid(host) and is_instance_valid(host._portrait_ad_toast):
+			host._portrait_ad_toast.hide_message()
+		_set_saving(true)
+		var current := GameState.get_player_profile()
+		var unchanged := value == str(current.nickname) and selected_character == int(current.character_id) and _selected_color_index + 1 == int(current.frame_id)
+		if !unchanged and !GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value != GameState.player_name):
+			_finish_save(false)
+			return
+		_pending_sync = true
+		var service: Node = profile_service if is_instance_valid(profile_service) else Leaderboard
+		_wait_for_profile_sync(weakref(self), service)
+
+static func _wait_for_profile_sync(editor_ref: WeakRef, service: Node) -> void:
+	var success: bool = await service.sync_profile_and_wait()
+	var editor: Node = editor_ref.get_ref()
+	if is_instance_valid(editor) and editor.is_inside_tree() and !editor.is_queued_for_deletion() and !editor._closing:
+		editor._finish_save(success)
+
+func _set_saving(value: bool) -> void:
+	_saving = value
+	_viewport.gui_disable_input = value
+	_surface.accepts_input = _opened and !value
+	if value:
+		_lock_save_inputs()
+		nickname.get_line_edit().release_focus()
+		if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+			DisplayServer.virtual_keyboard_hide()
+		if is_instance_valid(_purchase_content):
+			_purchase_content.hide()
+		save_button.set_color_preset(LONG.ColorPreset.ORANGE)
+		save_button.button_text = tr("PROFILE_SAVING")
+		save_button.button_disabled = true
+	else:
+		_restore_save_inputs()
+		_displayed_save_cost = -1
+		_update_save_availability(nickname.get_line_edit().text)
+
+func _lock_save_inputs() -> void:
+	_save_input_states.clear()
+	for node: Node in _root.find_children("*", "", true, false):
+		var property: StringName
+		if node is StageLongButton or node is StageRoundButton:
+			property = &"button_disabled"
+		elif node is BaseButton:
+			property = &"disabled"
+		elif node is LineEdit:
+			property = &"editable"
 		else:
-			_save_toast.show_message(tr("PROFILE_SAVE_FAILED"), false)
+			continue
+		_save_input_states.append({"target": weakref(node), "property": property, "previous": node.get(property)})
+		node.set(property, property != &"editable")
+
+func _restore_save_inputs() -> void:
+	for state: Dictionary in _save_input_states:
+		var target: Node = state.target.get_ref()
+		if is_instance_valid(target):
+			target.set(state.property, state.previous)
+	_save_input_states.clear()
+
+func _finish_save(success: bool) -> void:
+	_set_saving(false)
+	if success:
+		_pending_sync = false
+		close()
+		if is_instance_valid(host):
+			host._show_portrait_status_toast(tr("PROFILE_SAVE_SUCCESS"), true)
+	elif is_instance_valid(host):
+		host._show_portrait_status_toast(tr("PROFILE_SAVE_FAILED"))
 
 func _switch_character() -> void:
+	if _saving:
+		return
 	selected_character = 1 if selected_character == 2 else 2
 	_show_character()
 	_hero.play_correct_letter()
@@ -467,6 +535,8 @@ func _show_character() -> void:
 	_hero.fit_full_body(Rect2(100, 158, 224, 270), CHARACTER_SCALE)
 
 func _select_color(index: int) -> void:
+	if _saving:
+		return
 	if index == _selected_color_index:
 		return
 	_stop_check_animation()
@@ -600,7 +670,7 @@ func _layout() -> void:
 		_close_holder.position = Vector2(target_center.x - close_size * fit * 0.5, target_position.y + (FORM_SIZE.y + close_gap) * fit)
 
 func close() -> void:
-	if _closing:
+	if _closing or _saving:
 		return
 	_closing = true
 	_stop_check_animation()

@@ -1082,7 +1082,7 @@ func _portrait_ad_not_ready_message() -> String:
 func _show_portrait_ad_not_ready_toast() -> void:
 	_show_portrait_status_toast(_portrait_ad_not_ready_message())
 
-func _show_portrait_status_toast(message: String) -> void:
+func _show_portrait_status_toast(message: String, is_success: bool = false) -> void:
 	if _portrait_ad_toast == null or !is_instance_valid(_portrait_ad_toast):
 		var toast_layer := CanvasLayer.new()
 		toast_layer.name = "AdStatusToastCanvas"
@@ -1105,14 +1105,14 @@ func _show_portrait_status_toast(message: String) -> void:
 		_portrait_ad_toast = STAGE_TOAST_SCRIPT.new() as Control
 		_portrait_ad_toast.name = "AdStatusToast"
 		toast_anchor.add_child(_portrait_ad_toast)
-	# System messages share one top overlay, above modal windows and the safe inset.
+	# System messages share one overlay above modals, positioned below the header.
 	# This CanvasLayer uses viewport pixels; apply the stage scale only once.
 	var current_anchor := _portrait_ad_toast.get_parent() as Control
 	if current_anchor != null and is_instance_valid(current_anchor):
 		var viewport_size: Vector2 = get_viewport_rect().size
 		var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
 		var anchor_y_px: float = PORTRAIT_STAGE_LAYOUT.safe_top_inset_pixels(viewport_size) + fit_scale * (
-			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + STAGE_TOAST_SCRIPT.TOAST_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_PARENT_GAP)
+			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + PORTRAIT_HEADER_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_PARENT_GAP * 2.0)
 		current_anchor.position = Vector2(
 			PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
 			anchor_y_px
@@ -1120,7 +1120,7 @@ func _show_portrait_status_toast(message: String) -> void:
 		current_anchor.scale = Vector2.ONE * fit_scale
 		current_anchor.size = Vector2(PORTRAIT_STAGE_SIZE.x, 0.0)
 		_portrait_ad_toast.call("set_available_width", PORTRAIT_STAGE_SIZE.x)
-	_portrait_ad_toast.call("show_message", message, false)
+	_portrait_ad_toast.call("show_message", message, is_success)
 
 func _connect_portrait_interstitial_signals(ads_service: Node) -> void:
 	var shown_callback := Callable(self, "_on_portrait_interstitial_shown")
@@ -17510,6 +17510,7 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	var tabs_band := _stage_horizontal_fill(80, TABBED_PAGE_STYLE.BAND_HEIGHT, PORTRAIT_DARK_BLUE)
 	tabs_band.set("follows_safe_top_inset", true)
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
+	_portrait_leaderboard.initial_tournament = tournament
 	_portrait_leaderboard.service = Leaderboard
 	_portrait_leaderboard.score_formatter = Callable(self, "_grouped_counter_text")
 	_portrait_leaderboard.tournament_finished.connect(
@@ -17544,6 +17545,7 @@ func _show_tournament_reward(award: Dictionary) -> void:
 	_portrait_tournament_reward.click_requested.connect(_play_ui_click_sound)
 	_portrait_tournament_reward.continue_requested.connect(return_action)
 	_portrait_tournament_reward.present(self, content, award)
+	_stage_portrait_ad_banner("_show_tournament_reward")
 
 func _show_next_tournament() -> void:
 	show_menu()

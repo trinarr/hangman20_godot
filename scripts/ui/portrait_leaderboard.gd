@@ -13,6 +13,8 @@ const STAR = ROW.STAR
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
 const SCORE_PLATE = ROW.SCORE_PLATE
 const ELASTIC_SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
+const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
+const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const PINNED_SHADOW = preload("res://shaders/pinned_list_shadow.gdshader")
 const LIST_TOP_PADDING := 12.0
 const ROW_HEIGHT = ROW.ROW_HEIGHT
@@ -22,6 +24,7 @@ const PINNED_HEIGHT := ROW_HEIGHT + PINNED_EXTRA_PADDING * 2.0
 const CARD_SIDE_MARGIN = ROW.CARD_SIDE_MARGIN
 const CARD_WIDTH = ROW.CARD_WIDTH
 const ROW_WIDTH = ROW.ROW_WIDTH
+var initial_tournament := false
 var service: Node
 var score_formatter: Callable
 var bottom_inset := 0.0
@@ -33,10 +36,12 @@ var _snapshot: Dictionary = {}
 var _pin_side := ""
 var _live := true
 var _status: Label
-var _retry: Button
+var _retry: StageLongButton
 var _players: Button
 var _weekly: Button
 var _has_error := false
+var _loading := false
+var _waiting_for_fresh := false
 var _tournament: Control
 var _tournament_selected := false
 var _portraits: Node
@@ -55,7 +60,9 @@ func _ready() -> void:
 	add_child(_portraits)
 	_players = _tab(1, localized("LEADERBOARD_PLAYERS", "Глобальный", "Global"), false)
 	_weekly = _tab(0, localized("LEADERBOARD_TOURNAMENT", "Турнир", "Tournament"), false)
-	TABS.select(_weekly, false)
+	_tournament_selected = initial_tournament
+	TABS.select(_weekly, _tournament_selected)
+	TABS.select(_players, !_tournament_selected)
 	_players.pressed.connect(func(): _select_tab(false))
 	_weekly.pressed.connect(func(): _select_tab(true))
 	scroll = ELASTIC_SCROLL.new()
@@ -70,14 +77,17 @@ func _ready() -> void:
 	scroll.set_list(rows)
 	scroll.visual_offset_changed.connect(func(): _update_pin.call_deferred())
 	scroll.get_v_scroll_bar().value_changed.connect(func(_value: float): _update_pin.call_deferred())
-	_status = _label(self, Rect2(35, 172, 410, 80), "", 21, Color.WHITE)
+	_status = _label(self, Rect2(35, 172, 410, 80), "", 24, Color.WHITE)
+	_status.add_theme_font_override("font", FONTS.question_comment_font())
+	_status.clip_text = false
+	TEXT_STYLE.apply_regular_display(_status)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_retry = Button.new()
-	_retry.text = localized("LEADERBOARD_RETRY", "Повторить", "Retry")
-	_retry.add_theme_stylebox_override("normal", CARD.face_style())
-	_retry.add_theme_font_size_override("font_size", 22)
-	_retry.add_theme_color_override("font_color", PALETTE.TEXT_DARK)
+	_retry = LONG_BUTTON.new()
+	_retry.use_stage_layout = false
+	_retry.configure(localized("LEADERBOARD_RETRY", "Повторить", "Retry"), FONTS.display_button_font_size(22))
+	_retry.set_color_preset(LONG_BUTTON.ColorPreset.ORANGE)
+	_retry.drop_shadow_enabled = true
 	_retry.pressed.connect(func(): _load(true))
 	add_child(_retry)
 	_tournament = TOURNAMENT_PAGE.new()
@@ -98,11 +108,8 @@ func _ready() -> void:
 	if is_instance_valid(service):
 		service.leaderboard_ready.connect(_received)
 		service.sync_failed.connect(_failed)
-		var cached: Dictionary = service.cached_snapshot()
-		if cached.get("language", "") == ("ru" if Database.interface_language == "ru" else "en"):
-			if !cached.is_empty():
-				set_snapshot(cached)
-	_load(false)
+	if !_tournament_selected:
+		_load(true)
 	_layout.call_deferred()
 
 func _tab(index: int, text: String, unavailable: bool) -> Button:
@@ -114,27 +121,38 @@ func _tab(index: int, text: String, unavailable: bool) -> Button:
 	return button
 
 func _load(force: bool) -> void:
-	if !_live:
+	if !_live or _loading or _tournament_selected:
 		return
+	if _snapshot.is_empty() and !_waiting_for_fresh and is_instance_valid(service):
+		var cached: Dictionary = service.cached_snapshot()
+		if cached.get("language", "") == ("ru" if Database.interface_language == "ru" else "en") and !cached.is_empty():
+			set_snapshot(cached)
 	_has_error = false
+	_loading = true
+	_waiting_for_fresh = true
+	_retry.button_disabled = true
 	_retry.hide()
-	_status.visible = _snapshot.is_empty()
 	_status.text = localized("LEADERBOARD_LOADING", "Загрузка…", "Loading…")
 	_layout()
 	if !is_instance_valid(service) or !service.is_configured():
 		_failed()
 		return
 	service.sync_stars(GameState.get_stars())
-	service.refresh(force)
+	service.refresh(force, true)
 
 func _received(snapshot: Dictionary, _from_cache: bool) -> void:
-	if _live:
+	if _live and !(_from_cache and _waiting_for_fresh):
 		set_snapshot(snapshot)
 
 func _failed() -> void:
 	if !_live:
 		return
 	_has_error = true
+	_loading = false
+	_retry.button_disabled = false
+	_waiting_for_fresh = true
+	_snapshot.clear()
+	_clear_global_rows()
 	_status.show()
 	_status.text = localized("LEADERBOARD_ERROR", "Не удалось загрузить рейтинг", "Couldn't load leaderboard")
 	_retry.show()
@@ -144,16 +162,14 @@ func set_snapshot(snapshot: Dictionary) -> void:
 	if !_live:
 		return
 	scroll.reset_scroll_effect()
+	_waiting_for_fresh = false
+	_loading = false
+	_retry.button_disabled = false
 	_snapshot = snapshot.duplicate(true)
 	_has_error = false
 	_status.hide()
 	_retry.hide()
-	own_row = null
-	if is_instance_valid(pinned):
-		pinned.free()
-		pinned = null
-	for child in rows.get_children():
-		child.free()
+	_clear_global_rows()
 	var me: Dictionary = snapshot.get("me") if snapshot.get("me") is Dictionary else {}
 	var top: Array = snapshot.get("top", [])
 	if !top.is_empty():
@@ -183,6 +199,14 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		_status.show()
 	_layout()
 	_update_pin.call_deferred()
+
+func _clear_global_rows() -> void:
+	own_row = null
+	if is_instance_valid(pinned):
+		pinned.free()
+		pinned = null
+	for child in rows.get_children():
+		child.free()
 
 func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 	var row := Control.new()
@@ -236,14 +260,16 @@ func _layout() -> void:
 	var safe: float = LAYOUT.safe_top_stage(viewport_size)
 	_players.position.y = TABS.TAB_Y + safe
 	_weekly.position.y = TABS.TAB_Y + safe
-	var list_top := TABS.CONTENT_Y + safe + (104.0 if _has_error else 0.0)
+	var list_top := TABS.CONTENT_Y + safe
 	scroll.position = Vector2(CARD_SIDE_MARGIN - 8, list_top)
 	scroll.size = Vector2(ROW_WIDTH, maxf(80, size.y - bottom_inset - 12 - list_top))
-	_status.size.y = 44 if _has_error else 80
-	_status.position.y = TABS.CONTENT_Y + 12 + safe if _has_error else TABS.CONTENT_Y + 42 + safe
-	_retry.position = Vector2(145, TABS.CONTENT_Y + 64 + safe)
-	_retry.size = Vector2(190, 44)
+	_status.size = Vector2(410, 80)
+	var error_top := maxf(TABS.CONTENT_Y + safe + 16.0, size.y * 0.5 - 80.0)
+	_status.position = Vector2(35, size.y * 0.5 - _status.size.y * 0.5 if _loading else (error_top if _has_error else TABS.CONTENT_Y + 42 + safe))
+	_retry.stage_rect = Rect2(90, error_top + 96, 300, 64)
 	_tournament.position = Vector2(0, TABS.CONTENT_Y + safe)
+	var countdown_size: Vector2 = _tournament.countdown.size * _tournament.countdown.scale
+	_tournament.countdown.position = Vector2(_weekly.get_rect().get_center().x - countdown_size.x * 0.5, -countdown_size.y * 0.5)
 	_tournament.size = Vector2(480, maxf(180, size.y - bottom_inset - 12 - TABS.CONTENT_Y - safe))
 	_sync_tab_visibility()
 	_update_pin.call_deferred()
@@ -251,25 +277,28 @@ func _layout() -> void:
 func _select_tab(tournament: bool) -> void:
 	if !_live:
 		return
+	var was_tournament := _tournament_selected
 	_tournament_selected = tournament
 	TABS.select(_players, !tournament)
 	TABS.select(_weekly, tournament)
 	_sync_tab_visibility()
 	if tournament:
 		_tournament.refresh()
+	elif was_tournament:
+		_load(true)
 	else:
 		_update_pin.call_deferred()
 
 func _sync_tab_visibility() -> void:
-	scroll.visible = !_tournament_selected
+	scroll.visible = !_tournament_selected and !_has_error
 	_status.visible = !_tournament_selected and (_has_error or _snapshot.get("top", []).is_empty())
 	_retry.visible = !_tournament_selected and _has_error
 	_tournament.visible = _tournament_selected
-	if is_instance_valid(pinned) and _tournament_selected:
+	if is_instance_valid(pinned) and (_tournament_selected or _has_error):
 		pinned.hide()
 
 func _update_pin() -> void:
-	if !_live or !is_instance_valid(pinned):
+	if !_live or _has_error or !is_instance_valid(pinned):
 		_pin_side = ""
 		return
 	_pin_side = "bottom"
