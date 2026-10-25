@@ -182,7 +182,8 @@ static func _validate_loaded_config() -> void:
 	get_float_range("tournament.filler_cis_ratio.ru", 0.0, 1.0)
 	get_float_range("tournament.filler_cis_ratio.en", 0.0, 1.0)
 	var tournament_duration := get_int_range("tournament.duration_seconds", 60, 604800)
-	get_int_range("tournament.opponent_start_delay_seconds", 1, tournament_duration - 1)
+	var debug_tournament_duration := get_int_range("tournament.debug_duration_seconds", 60, 604800)
+	get_int_range("tournament.opponent_start_delay_seconds", 1, mini(tournament_duration, debug_tournament_duration) - 1)
 	get_int_range("tournament.unlock_completed_levels", 0, 1000000)
 	var prizes := get_array("tournament.rewards_coins")
 	if prizes.size() != 3:

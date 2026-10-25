@@ -72,7 +72,7 @@ func run() -> void:
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	check(GameState.start_tournament(), "Unlocked user can explicitly join")
 	check(!button._lock.visible and !button._lock_shadows[0].visible, "Unlock hides lock and its shadow together")
-	var duration: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds")
+	var duration: int = GameState.TOURNAMENT_MODEL.duration_seconds(GameState.GAME_DESIGN.get_value("tournament"), OS.is_debug_build())
 	check(button.caption.text == clock_text(duration), "Active tournament updates shortcut using configured duration")
 	check(button._rank.visible and button._rank.text == ("#3" if OS.is_debug_build() else "#1"), "Active tournament immediately shows current player rank for the build's opponents")
 	check(button._rank.get_rect().get_center().is_equal_approx(button.LOCK_RECT.get_center() + Vector2(0, 5)), "Rank sits five units below locked icon center")

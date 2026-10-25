@@ -306,8 +306,10 @@ def main() -> None:
             "Timer clock settle fraction must leave time for both motion phases")
     tournament_duration = require_int(resolve(config, "tournament.duration_seconds"), "tournament.duration_seconds")
     require(60 <= tournament_duration <= 604800, "Invalid tournament duration")
+    debug_duration = require_int(resolve(config, "tournament.debug_duration_seconds"), "tournament.debug_duration_seconds")
+    require(60 <= debug_duration <= 604800, "Invalid debug tournament duration")
     start_delay = require_int(resolve(config, "tournament.opponent_start_delay_seconds"), "tournament.opponent_start_delay_seconds")
-    require(1 <= start_delay < tournament_duration, "Tournament opponent start delay must fit inside the tournament")
+    require(1 <= start_delay < min(tournament_duration, debug_duration), "Tournament opponent start delay must fit inside the tournament")
     debug_scores = resolve(config, "tournament.debug_opponent_stars")
     require(isinstance(debug_scores, list) and len(debug_scores) == 9, "Debug tournament must define nine opponent scores")
     for index, value in enumerate(debug_scores):

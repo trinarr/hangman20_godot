@@ -5,15 +5,18 @@ const NAMES = ROSTER.NAMES
 const VERSION := 2
 const PLAYER_ID := "self"
 
-static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = [], debug_scores: bool = false) -> Dictionary:
+static func duration_seconds(config: Dictionary, debug_build: bool) -> int:
+	return int(config.debug_duration_seconds if debug_build else config.duration_seconds)
+
+static func create(now: int, language: String, config: Dictionary, seed_value: int, real_profiles: Array = [], debug_build: bool = false) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var duration := int(config.duration_seconds)
+	var duration := duration_seconds(config, debug_build)
 	var start_delay := int(config.opponent_start_delay_seconds)
 	var pool := ROSTER.build_pool(language, config, real_profiles, rng)
 	var opponents: Array = []
 	for index in range(9):
-		if debug_scores:
+		if debug_build:
 			# Store fixed scores in the same schedule format, visible from the first frame.
 			var debug_opponent: Dictionary = pool[index].duplicate(true)
 			debug_opponent.merge({"id": "rival_%d" % index, "events": [{"at": 0, "stars": int(config.debug_opponent_stars[index])}]})

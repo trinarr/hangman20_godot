@@ -65,7 +65,8 @@ func run() -> void:
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	var main := TestUI.new()
 	add_child(main)
-	var duration: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds")
+	var duration: int = GameState.TOURNAMENT_MODEL.duration_seconds(GameState.GAME_DESIGN.get_value("tournament"), OS.is_debug_build())
+	var fixture_duration: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds")
 	for dimensions: Vector2i in [Vector2i(960,1600), Vector2i(690,1536)]:
 		get_window().min_size = dimensions
 		get_window().size = dimensions
@@ -165,7 +166,7 @@ func run() -> void:
 	for selected: bool in [false, true]:
 		for rewarded: bool in [false, true]:
 			main.show_menu()
-			GameState.tournament_state = MODEL.create(now - duration + 1, "ru", GameState.GAME_DESIGN.get_value("tournament"), 135)
+			GameState.tournament_state = MODEL.create(now - fixture_duration + 1, "ru", GameState.GAME_DESIGN.get_value("tournament"), 135)
 			GameState.tournament_state.player_stars = 1000 if rewarded else 0
 			var old_id := str(GameState.tournament_state.id)
 			var before_expiry := GameState.get_soft_currency()
@@ -182,7 +183,7 @@ func run() -> void:
 			main._on_leaderboard_tournament_finished(source)
 			check(GameState.get_soft_currency() == before_expiry, "Expiry navigation and stale callbacks cannot grant a reward")
 	main.show_menu()
-	GameState.tournament_state = MODEL.create(now - duration + 1, "ru", GameState.GAME_DESIGN.get_value("tournament"), 134)
+	GameState.tournament_state = MODEL.create(now - fixture_duration + 1, "ru", GameState.GAME_DESIGN.get_value("tournament"), 134)
 	GameState.tournament_state.player_stars = 1000
 	var expiring_id := str(GameState.tournament_state.id)
 	INTRO.present(main)
@@ -191,7 +192,7 @@ func run() -> void:
 	await settle()
 	check(get_tree().get_nodes_in_group(INTRO.GROUP).is_empty(), "Introduction closes automatically when its countdown expires")
 	check(GameState.tournament_state.id == expiring_id and !GameState.tournament_state.claimed and int(GameState.get_tournament_snapshot().reward) > 0, "Automatic closing preserves the finished tournament and unclaimed prize")
-	GameState.tournament_state = MODEL.create(now - duration, "ru", GameState.GAME_DESIGN.get_value("tournament"), 133)
+	GameState.tournament_state = MODEL.create(now - fixture_duration, "ru", GameState.GAME_DESIGN.get_value("tournament"), 133)
 	GameState.tournament_state.player_stars = 1000
 	var previous_id := str(GameState.tournament_state.id)
 	main.show_menu()

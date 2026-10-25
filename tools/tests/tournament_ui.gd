@@ -152,7 +152,7 @@ func run() -> void:
 	view.set_snapshot({"top": [{"player_id": "1", "rank": 1, "stars": 100}], "me": {"player_id": "1", "rank": 1, "stars": 100}})
 	await settle()
 	check(!view.scroll.visible and !view.pinned.visible and !view._status.visible, "Late global responses never overlap tournament")
-	var elapsed: int = GameState.GAME_DESIGN.get_int("tournament.duration_seconds") / 2
+	var elapsed: int = GameState.TOURNAMENT_MODEL.duration_seconds(GameState.GAME_DESIGN.get_value("tournament"), OS.is_debug_build()) / 2
 	for index in range(9):
 		GameState.tournament_state.opponents[index].events = [{"at": elapsed, "stars": 20 + index}]
 	GameState.tournament_state.opponents[0].merge({"nickname":"PublicSnapshot", "profile_id":"player:501", "character_id":2, "frame_id":5, "is_real":true}, true)

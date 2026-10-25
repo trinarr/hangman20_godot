@@ -157,7 +157,7 @@ func test_automatic_start(config: Dictionary) -> void:
 		for index in range(9):
 			var events: Array = GameState.tournament_state.opponents[index].events
 			check(events.size() == 1 and int(events[0].at) == 0 and int(events[0].stars) == int(config.debug_opponent_stars[index]), "Runtime debug build starts fixed opponents")
-	check(int(GameState.tournament_state.ends_at) - now == int(config.duration_seconds), "New tournaments use the configured duration")
+	check(int(GameState.tournament_state.ends_at) - now == MODEL.duration_seconds(config, OS.is_debug_build()), "New tournaments use the configured duration")
 	GameState.load_game()
 	check(GameState.tournament_state.id == first_id and int(GameState.tournament_state.player_stars) == 3, "Automatic start and its first score survive reload")
 	GameState.tournament_state = {}
@@ -206,8 +206,32 @@ func test_debug_scores(config: Dictionary) -> void:
 			var rows := MODEL.standings(restored, int(restored.ends_at))
 			check(int(rows[0 if player_score >= 40 else 1].stars) == player_score and bool(rows[0 if player_score >= 40 else 1].mine), "Player can overtake or tie both debug bots")
 
+func test_build_durations(config: Dictionary) -> void:
+	check(MODEL.duration_seconds(config, true) == 300, "Dev tournaments last five minutes")
+	check(MODEL.duration_seconds(config, false) == 43200, "Release tournaments last twelve hours")
+	for debug_build: bool in [false, true]:
+		var state := MODEL.create(now, "ru", config, 888, [], debug_build)
+		var duration := MODEL.duration_seconds(config, debug_build)
+		check(int(state.ends_at) - int(state.started_at) == duration, "Build mode selects the saved deadline")
+		var settings := config.duplicate(true)
+		settings.duration_seconds = 3600
+		settings.debug_duration_seconds = 120
+		check(int(MODEL.create(now, "ru", settings, 888, [], debug_build).ends_at) - now == MODEL.duration_seconds(settings, debug_build), "Both build timers follow their own configuration")
+		GameState.tournament_state = MODEL.normalize(JSON.parse_string(JSON.stringify(state)))
+		check(int(GameState.get_tournament_snapshot().duration) == duration, "Loaded tournament keeps its own duration across build modes")
+		check(GameState.tournament_state.opponents == state.opponents, "Build mode does not rewrite persisted bot schedules")
+	var legacy := MODEL.create(now, "ru", config, 888)
+	legacy.ends_at = now + 28800
+	for opponent: Dictionary in legacy.opponents:
+		for event: Dictionary in opponent.events:
+			event.at = mini(int(event.at), 28800)
+	GameState.tournament_state = MODEL.normalize(legacy)
+	check(int(GameState.get_tournament_snapshot().duration) == 28800, "Existing eight-hour tournament retains its original deadline")
+	GameState.tournament_state = {}
+
 func run() -> void:
 	var config: Dictionary = CONFIG.get_value("tournament")
+	test_build_durations(config)
 	test_debug_scores(config)
 	test_automatic_start(config)
 	test_start_delay(config)

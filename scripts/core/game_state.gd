@@ -2873,7 +2873,8 @@ func get_tournament_snapshot() -> Dictionary:
 	var snapshot: Dictionary = TOURNAMENT_MODEL.snapshot(tournament_state, now)
 	snapshot["unlocked"] = is_tournament_unlocked()
 	snapshot["unlock_level"] = GAME_DESIGN.get_int("tournament.unlock_completed_levels")
-	snapshot["duration"] = GAME_DESIGN.get_int("tournament.duration_seconds")
+	snapshot["duration"] = (int(tournament_state.ends_at) - int(tournament_state.started_at)
+		if !tournament_state.is_empty() else TOURNAMENT_MODEL.duration_seconds(GAME_DESIGN.get_value("tournament"), OS.is_debug_build()))
 	return snapshot
 
 func start_tournament() -> bool:

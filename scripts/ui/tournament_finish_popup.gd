@@ -4,9 +4,7 @@ const GROUP: StringName = &"tournament_finish_popup"
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
 const TOURNAMENT = preload("res://scripts/ui/portrait_tournament.gd")
-const HOME_BUTTON = preload("res://scripts/ui/home_tournament_button.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
-const MATERIALS = preload("res://scripts/ui/ui_materials.gd")
 var host: Node
 var popup: CanvasLayer
 var claim_button: Control
@@ -52,19 +50,6 @@ func _build(snapshot: Dictionary) -> void:
 	var stage: Control = host.content
 	popup = stage.get_parent().get_parent() as CanvasLayer
 	stage.z_index = 10
-	var icon_size := Vector2.ONE * (166.4 * 0.85)
-	var icon_rect := Rect2(Vector2(rect.get_center().x - icon_size.x * 0.5,
-		rect.position.y + host.PORTRAIT_POPUP_TOP_TRIM - icon_size.y * 0.60), icon_size)
-	var glow_size: Vector2 = icon_size * host.PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
-	var glow: Control = host._stage_final_reward_glow(Rect2(icon_rect.get_center() - glow_size * 0.5, glow_size), Color.WHITE)
-	(glow.get_parent() as CanvasItem).z_index = -2
-	glow.modulate.a = 0.0
-	var trophy: Control = host._stage_texture(icon_rect, HOME_BUTTON.TROPHY)
-	trophy.name = "TournamentFinishTrophy"
-	trophy.material = MATERIALS.grayscale()
-	trophy.z_index = -1
-	host._arm_word_comment_theme_icon_intro(stage, trophy, glow)
-	host._arm_word_comment_theme_glow_reveal(stage, glow)
 	var title := tr("TOURNAMENT_END_TITLE")
 	var title_size := 30
 	var style: Dictionary = host._portrait_popup_style()

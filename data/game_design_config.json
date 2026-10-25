@@ -371,7 +371,8 @@
     "candidate_pool_size": 50,
     "cache_minimum_fillers": 25,
     "filler_cis_ratio": {"ru": 0.6, "en": 0.2},
-    "duration_seconds": 300,
+    "duration_seconds": 43200,
+    "debug_duration_seconds": 300,
     "opponent_start_delay_seconds": 30,
     "debug_opponent_stars": [40, 20, 0, 0, 0, 0, 0, 0, 0],
     "unlock_completed_levels": 5,
@@ -382,40 +383,40 @@
     ],
     "opponent_star_ranges": [
       [
-        20,
-        60
+        30,
+        90
       ],
       [
-        20,
-        60
+        30,
+        90
       ],
       [
-        80,
-        160
+        120,
+        240
       ],
       [
-        80,
-        160
+        120,
+        240
       ],
       [
-        80,
-        160
+        120,
+        240
       ],
       [
-        80,
-        160
+        120,
+        240
       ],
       [
-        170,
-        250
+        255,
+        375
       ],
       [
-        170,
-        250
+        255,
+        375
       ],
       [
-        250,
-        350
+        375,
+        525
       ]
     ]
   }
