@@ -2,6 +2,17 @@ extends Node
 const MODEL = preload("res://scripts/core/tournament_model.gd")
 const PROMPT = preload("res://scripts/ui/tournament_finish_popup.gd")
 class TestUI extends "res://scripts/main_portrait.gd":
+	var captured_without_source := false
+	var captured_without_hud := false
+	var captured_without_toast := false
+	func _capture_tabbed_page_texture() -> Texture2D:
+		var popup: Node = get_tree().get_first_node_in_group(PROMPT.GROUP)
+		var art: Control = popup.find_child("TournamentFinishReward", true, false)
+		var amount: Label = popup.find_child("TournamentFinishAmount", true, false)
+		captured_without_source = !art.is_visible_in_tree() and (amount == null or !amount.is_visible_in_tree())
+		captured_without_hud = !_portrait_top_bar_content.is_visible_in_tree()
+		captured_without_toast = !is_instance_valid(_portrait_ad_toast) or !_portrait_ad_toast.visible
+		return super._capture_tabbed_page_texture()
 	func _ready() -> void:
 		_build_root()
 		_clear()
@@ -69,7 +80,7 @@ func run() -> void:
 	main.show_menu()
 	await settle()
 	check(get_tree().get_nodes_in_group(PROMPT.GROUP).is_empty(), "No prize means no blocking popup")
-	for dimensions: Vector2i in [Vector2i(960,1600), Vector2i(690,1536)]:
+	for dimensions: Vector2i in [Vector2i(960,1600), Vector2i(690,1536), Vector2i(1080,1920)]:
 		get_window().min_size = dimensions
 		get_window().size = dimensions
 		for language: String in ["ru", "en"]:
@@ -152,8 +163,11 @@ func run() -> void:
 					check(main._portrait_ad_toast == toast and toast.visible, "Repeated failures reuse the same toast")
 					await get_tree().create_timer(2.2).timeout
 					check(!toast.visible and is_instance_valid(watcher.popup), "Toast dismisses automatically while the unclaimed prize remains")
+				var source_rect: Rect2 = popup.find_child("TournamentFinishReward", true, false).get_global_rect()
 				watcher._claim()
 				watcher._claim()
+				check(!toast.visible and toast._toast_tween == null, "Successful retry immediately hides the save error and cancels its animation")
+				await inspect_reward(main, rank, before, reward, source_rect, "%dx%d_%s_rank%d" % [dimensions.x, dimensions.y, language, rank])
 				await settle()
 				check(GameState.get_soft_currency() == before + reward and GameState.tournament_state.claimed, "Rapid claim persists exactly one payment")
 				check(is_instance_valid(main._portrait_tournament_reward), "Claim opens the existing prize presentation")
@@ -161,6 +175,7 @@ func run() -> void:
 				main.show_menu()
 				await settle()
 				check(get_tree().get_nodes_in_group(PROMPT.GROUP).is_empty(), "Claimed prize never prompts again")
+	await inspect_cancelled_rewards(main)
 	make_tournament(2)
 	GameState.save_game()
 	GameState.tournament_state = {}
@@ -182,6 +197,107 @@ func run() -> void:
 	GameState.tournament_time_source = Callable()
 	print("TOURNAMENT_FINISH_POPUP checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func inspect_reward(main: Node, rank: int, before: int, amount: int, source_rect: Rect2, suffix: String) -> void:
+	var screen: Node = main._portrait_tournament_reward
+	var prize: Control = screen.prize
+	check(prize.get_global_rect().is_equal_approx(source_rect), "Prize flight starts at the popup's actual art bounds")
+	check(main.content.find_child("HomeThemePattern", true, false) != null, "Tournament reward reuses all Home topic patterns")
+	var title: Label = main.content.find_child("TournamentRewardTitle", true, false)
+	var subtitle: Label = main.content.find_child("TournamentRewardSubtitle", true, false)
+	var expected_place: String = ["1ST PLACE", "2ND PLACE", "3RD PLACE"][rank - 1] if TranslationServer.get_locale().begins_with("en") else "%d МЕСТО" % rank
+	check(title.text == expected_place and subtitle.text == tr("TOURNAMENT_TITLE").to_upper(), "Reward heading shows localized tournament and ordinal place")
+	check(title.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.TOURNAMENT_PLACE_COLORS[rank - 1], "Place heading matches its medal color")
+	check(!title.clip_text and title.autowrap_mode == TextServer.AUTOWRAP_OFF, "Place heading cannot be hidden by wrapped-line clipping")
+	check(is_zero_approx(main.COMPOSITED_FADE.get_opacity(title)) and screen.action.button_disabled, "Heading fades in and Continue waits for the reward")
+	var counter: Label = get_tree().get_first_node_in_group("soft_currency_balance_label")
+	check(counter != null and counter.text == main._soft_currency_balance_text(before), "HUD starts at the balance before the durable award")
+	var start_rect: Rect2 = prize.stage_rect
+	if DisplayServer.get_name() != "headless":
+		check(screen._previous_frame.size.is_equal_approx(get_viewport().get_visible_rect().size), "Popup snapshot covers the viewport")
+		check(main.captured_without_source and main.captured_without_hud and main.captured_without_toast, "Snapshot excludes the departing prize, amount, old HUD and resolved error")
+	# GPU shader warm-up can consume the whole short entrance in one frame.
+	# Step the actual owned tweens to capture their intermediate rendered state.
+	var completed_animations: Array[Tween] = []
+	for animation: Tween in screen._animations:
+		animation.finished.connect(func(): completed_animations.append(animation), CONNECT_ONE_SHOT)
+		animation.pause()
+		animation.custom_step(0.08)
+	check(!prize.stage_rect.is_equal_approx(start_rect) and prize.stage_rect.size.x > start_rect.size.x, "Large prize moves and grows during its flight")
+	var title_alpha: float = main.COMPOSITED_FADE.get_opacity(title)
+	check(title_alpha > 0.0 and title_alpha < 1.0, "Reward heading has a visible intermediate composited opacity")
+	if DisplayServer.get_name() != "headless":
+		var frame_alpha: float = main.COMPOSITED_FADE.get_opacity(screen._previous_frame)
+		check(frame_alpha > 0.0 and frame_alpha < 1.0, "Popup snapshot has intermediate opacity")
+	await capture("tournament_reward_flight_" + suffix)
+	var active_animations: Array[Tween] = []
+	for animation: Tween in screen._animations:
+		if animation.is_valid() and animation.custom_step(0.10):
+			active_animations.append(animation)
+	if DisplayServer.get_name() != "headless":
+		check(is_zero_approx(main.COMPOSITED_FADE.get_opacity(screen._previous_frame)), "Old popup is fully transparent before the flight ends")
+	check(prize.get_global_rect().get_center().distance_to(get_viewport().get_visible_rect().get_center()) > 1.0, "Prize is still flying when the popup has disappeared")
+	await capture("tournament_reward_clean_flight_" + suffix)
+	for animation: Tween in active_animations:
+		if animation.is_valid() and !completed_animations.has(animation):
+			animation.play()
+	await inspect_reward_collection(main, screen, rank, before, amount, suffix)
+
+func inspect_reward_collection(main: Node, screen: Node, rank: int, before: int, amount: int, suffix: String) -> void:
+	var prize: Control = screen.prize
+	var title: Label = main.content.find_child("TournamentRewardTitle", true, false)
+	var counter: Label = get_tree().get_first_node_in_group("soft_currency_balance_label")
+	await get_tree().create_timer(0.9).timeout
+	check(screen._collection_started and screen._claim_emitted, "Prize peak starts the HUD collection")
+	check(main.find_child("SinglePlayerRewardResourceCanvas", true, false) != null, "Standard coins fly into the HUD counter")
+	check(counter.text != main._soft_currency_balance_text(before), "HUD amount rolls while coins are collecting")
+	if rank == 1:
+		check(prize.get_node("ChestOpenVisual").visible and !prize.get_node("ChestClosedVisual").visible, "First-place gift opens with the level reward animation")
+		check(prize.has_meta("reward_confetti_started") and main.content.find_child("LevelRewardConfetti", true, false) != null, "Opening the gift emits existing level confetti")
+		var amount_parent: Control = main.COMPOSITED_FADE.layout_parent(screen.prize_amount)
+		check(amount_parent.stage_rect.is_equal_approx(main._portrait_level_completion_amount_rect(prize.stage_rect)), "Gift amount uses the same layout and gap as the main level reward")
+	await capture("tournament_reward_collection_" + suffix)
+	await finish_reward_check(main, screen, title, counter, before, amount, suffix)
+
+func finish_reward_check(main: Node, screen: Node, title: Label, counter: Label, before: int, amount: int, suffix: String) -> void:
+	await get_tree().create_timer(1.8).timeout
+	check(counter.text == main._soft_currency_balance_text(before + amount), "HUD finishes at the already saved balance")
+	check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(title), 1.0) and !screen.action.button_disabled, "Heading and Continue finish fully visible")
+	check(screen.prize.get_global_rect().get_center().distance_to(get_viewport().get_visible_rect().get_center()) < 1.0, "Reward finishes at the screen center")
+	check(!is_instance_valid(screen._previous_frame), "Previous popup snapshot is removed after crossfade")
+	if screen._gift:
+		check(screen.prize_amount.get_global_rect().position.y > screen.prize.get_global_rect().end.y, "Fully revealed amount stays below the gift instead of overlapping it")
+	check(!main._portrait_ad_toast.visible, "Resolved save error stays hidden throughout the reward")
+	check(GameState.get_soft_currency() == before + amount, "Visual collection never grants a second payment")
+	await capture("tournament_reward_" + suffix)
+
+func inspect_cancelled_rewards(main: Node) -> void:
+	for scenario: Vector2 in [Vector2(1, 0.05), Vector2(1, 0.55), Vector2(2, 0.65)]:
+		make_tournament(int(scenario.x))
+		main.show_menu()
+		await settle()
+		var before := GameState.get_soft_currency()
+		var amount := int(GameState.get_tournament_snapshot().reward)
+		main.content.get_node("TournamentFinishPrompt")._claim()
+		await get_tree().create_timer(scenario.y).timeout
+		main.show_menu()
+		await get_tree().create_timer(2.0).timeout
+		check(!is_instance_valid(main._portrait_tournament_reward), "Leaving during prize flight or collection removes its component")
+		check(main.find_child("SinglePlayerRewardResourceCanvas", true, false) == null and main.find_child("LevelRewardConfetti", true, false) == null, "Leaving cancels flying coins and gift confetti")
+		check(GameState.get_soft_currency() == before + amount and GameState.tournament_state.claimed, "Interrupted presentation retains exactly one durable payment")
+	GameState.soft_currency = GameState.MAX_CURRENCY_BALANCE
+	make_tournament(2)
+	main.show_menu()
+	await settle()
+	main.content.get_node("TournamentFinishPrompt")._claim()
+	await get_tree().create_timer(1.0).timeout
+	var capped: Node = main._portrait_tournament_reward
+	check(capped._amount == 0 and GameState.get_soft_currency() == GameState.MAX_CURRENCY_BALANCE, "Capped balance presents only the actual credited amount")
+	check(main.find_child("SinglePlayerRewardResourceCanvas", true, false) == null, "Zero credited coins do not launch a fake HUD collection")
+	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = GameState.GAME_DESIGN.get_int("tournament.unlock_completed_levels")
+	capped._request_continue()
+	capped._request_continue()
+	check(get_tree().get_nodes_in_group("tournament_start_popup").size() == 1 and GameState.get_tournament_snapshot().phase == "active", "Repeated Continue opens exactly one next-tournament intro")
 
 func capture(filename: String) -> void:
 	var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")

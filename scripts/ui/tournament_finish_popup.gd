@@ -146,6 +146,21 @@ func _claim() -> void:
 		host._show_portrait_status_toast(tr("TOURNAMENT_SAVE_ERROR"))
 		return
 	# The existing reward screen only presents this durable payment.
+	var reward_art: Control = popup.find_child("TournamentFinishReward", true, false)
+	award["source_rect"] = reward_art.get_global_rect()
+	if is_instance_valid(host._portrait_ad_toast):
+		host._portrait_ad_toast.hide_message()
+	if DisplayServer.get_name() != "headless":
+		# Capture the departing page without the art that is about to fly, its
+		# amount, or the old HUD. Redraw before reading back the viewport texture.
+		reward_art.hide()
+		var amount: Label = popup.find_child("TournamentFinishAmount", true, false)
+		if amount != null:
+			amount.hide()
+		if is_instance_valid(host._portrait_top_bar_content):
+			host._portrait_top_bar_content.hide()
+		RenderingServer.force_draw(false)
+		award["previous_frame"] = host._capture_tabbed_page_texture()
 	_remove_popup()
 	host._show_tournament_reward(award)
 

@@ -62,6 +62,7 @@ const PRESS_HIGHLIGHT := Color("#B8C4FA")
 # Reward screen and result markers.
 const REWARD_HEADER := Color("#6371CB")
 const TOURNAMENT_GLOW := Color(1.0, 0.82, 0.22, 1.0)
+const TOURNAMENT_PLACE_COLORS := [Color("#FFCC33"), Color("#D3E1FF"), Color("#D79259")]
 const REWARD_CHAIN := Color("#2E73C9")
 const MARKER_SUCCESS := Color("#86DE8A")
 const MARKER_ERROR := Color("#FF99A2")

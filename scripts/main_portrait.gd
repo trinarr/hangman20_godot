@@ -17536,13 +17536,8 @@ func _on_leaderboard_tournament_finished(source: WeakRef) -> void:
 func _show_tournament_reward(award: Dictionary) -> void:
 	_clear()
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
-	# Keep navigation above the campaign prize/glow and action layers.
-	_portrait_top_bar_content.z_index = 200
+	_stage_home_pattern_background()
 	var return_action := Callable(self, "_show_next_tournament")
-	_stage_titled_navigation_header(
-		LEADERBOARD_SCREEN.localized("TOURNAMENT_FINISHED", "Турнир завершён", "Tournament finished"),
-		"TournamentRewardTitle", false, return_action
-	)
 	_portrait_tournament_reward = TOURNAMENT_REWARD_COMPONENT.new()
 	_portrait_tournament_reward.name = "TournamentReward"
 	content.add_child(_portrait_tournament_reward)
