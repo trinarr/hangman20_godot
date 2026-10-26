@@ -419,6 +419,7 @@ func _sync_visuals() -> void:
 	var current_icon_color := Color(icon_color.r, icon_color.g, icon_color.b, icon_color.a * visual_opacity)
 	_icon_rect.visible = has_texture
 	_icon_rect.texture = icon_texture
+	UI_MATERIALS.OUTLINE.apply(_icon_rect, icon_texture)
 	_icon_rect.modulate = Color(icon_modulate.r, icon_modulate.g, icon_modulate.b, icon_modulate.a * visual_opacity)
 	if icon_shadow_enabled:
 		_ensure_icon_shadow_layers()

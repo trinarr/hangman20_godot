@@ -88,6 +88,7 @@ func _build(snapshot: Dictionary) -> void:
 		reward_rect.position.y = panel_rect.get_center().y - block_height * 0.5
 	host._stage_refill_status_glow(panel, panel_rect, reward_rect, &"TournamentFinishRewardGlow")
 	var reward: Control = host._stage_texture(reward_rect, reward_texture)
+	host.UI_MATERIALS.OUTLINE.apply(reward, reward_texture, host.UI_MATERIALS.OUTLINE.POPUP_PIXELS)
 	reward.name = "TournamentFinishReward"
 	reward.z_index = 11
 	if !gift:

@@ -95,10 +95,10 @@ func _collect_coins(source: Control) -> void:
 	count.tween_method(Callable(_host, "_set_stage_reward_animated_balance").bind(GameState.STAGE_REWARD_COINS),
 		float(_balance_before), float(_balance_before + _amount), _host._single_player_reward_collection_duration()).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
-func _stage_main_reward_coin_pack_transition(rect: Rect2) -> Control:
+func _stage_main_reward_coin_pack_transition(rect: Rect2, outline_pixels: float = PORTRAIT_ICON_EXTRUSION.OUTLINE.LARGE_REWARD_PIXELS) -> Control:
 	if _gift:
 		return _host._stage_reward_chest_transition(rect)
-	return super._stage_main_reward_coin_pack_transition(rect)
+	return super._stage_main_reward_coin_pack_transition(rect, outline_pixels)
 
 func _reveal_stage_reward(pack: Control, glow: Control, amount_label: Label, button: Control, collect_holder: Control, collect_button: Button) -> void:
 	if _stopped or !is_inside_tree():

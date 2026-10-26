@@ -547,6 +547,7 @@ func _sync_icon() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):
 		return
 	_icon_rect.texture = icon_texture
+	preload("res://scripts/ui/colored_icon_outline.gd").apply(_icon_rect, icon_texture)
 	_icon_rect.visible = icon_texture != null
 	FADE.set_opacity(_icon_rect, DISABLED_OPACITY if button_disabled else 1.0)
 	_set_icon_shadow_layers_state(
@@ -564,6 +565,7 @@ func _sync_trailing_icon() -> void:
 	if _trailing_icon_rect == null or !is_instance_valid(_trailing_icon_rect):
 		return
 	_trailing_icon_rect.texture = trailing_icon_texture
+	preload("res://scripts/ui/colored_icon_outline.gd").apply(_trailing_icon_rect, trailing_icon_texture)
 	_trailing_icon_rect.visible = trailing_icon_texture != null
 	FADE.set_opacity(_trailing_icon_rect, DISABLED_OPACITY if button_disabled else 1.0)
 	_trailing_icon_rect.z_index = 1

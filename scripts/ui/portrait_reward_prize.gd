@@ -318,7 +318,7 @@ func _enable_final_reward_continue_attention(button: Control) -> void:
 		return
 	button.set("attention_bounce_enabled", true)
 
-func _stage_main_reward_coin_pack_transition(rect: Rect2) -> Control:
+func _stage_main_reward_coin_pack_transition(rect: Rect2, outline_pixels: float = PORTRAIT_ICON_EXTRUSION.OUTLINE.LARGE_REWARD_PIXELS) -> Control:
 	# FlashStageTexture draws its image on the parent CanvasItem itself, so negative-z
 	# child extrusion layers can be visually swallowed by the main draw. Mirror the
 	# chest implementation instead: use a transparent stage holder, place the shadow
@@ -329,12 +329,14 @@ func _stage_main_reward_coin_pack_transition(rect: Rect2) -> Control:
 	_attach_main_reward_icon_shadow(
 		holder,
 		COIN_PACK_04_TEXTURE,
-		"SingleStageLevelCoinRewardShadow"
+		"SingleStageLevelCoinRewardShadow",
+		outline_pixels
 	)
 	var visual := TextureRect.new()
 	visual.name = "CoinPackVisual"
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.texture = COIN_PACK_04_TEXTURE
+	PORTRAIT_ICON_EXTRUSION.OUTLINE.apply(visual, COIN_PACK_04_TEXTURE, outline_pixels)
 	visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	visual.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	holder.add_child(visual)
@@ -345,7 +347,8 @@ func _stage_main_reward_coin_pack_transition(rect: Rect2) -> Control:
 func _attach_main_reward_icon_shadow(
 	holder: Control,
 	texture: Texture2D,
-	prefix: String
+	prefix: String,
+	outline_pixels: float = PORTRAIT_ICON_EXTRUSION.OUTLINE.LARGE_REWARD_PIXELS
 ) -> Array[TextureRect]:
 	var layers: Array[TextureRect] = []
 	if holder == null or !is_instance_valid(holder) or texture == null:
@@ -365,7 +368,7 @@ func _attach_main_reward_icon_shadow(
 		PORTRAIT_DARK_BLUE.b,
 		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a
 	)
-	var shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(shadow_color)
+	var shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(shadow_color, outline_pixels)
 	for layer: TextureRect in layers:
 		layer.material = shadow_material
 	_layout_portrait_icon_holder_extrusion(holder, layers, 0.5)

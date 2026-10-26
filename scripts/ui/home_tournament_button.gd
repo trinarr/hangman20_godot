@@ -62,6 +62,7 @@ func _ready() -> void:
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = TROPHY
+	EXTRUSION.OUTLINE.apply(icon, TROPHY)
 	icon.position = ICON_RECT.position
 	icon.size = ICON_RECT.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

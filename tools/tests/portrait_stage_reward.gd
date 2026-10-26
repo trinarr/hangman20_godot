@@ -99,6 +99,12 @@ func run() -> void:
 		var before: int = GameState.get_soft_currency()
 		var claims_before: int = main.claims
 		fixture(ads)
+		var large_pack: Control = main.content.find_child("CoinPackVisual", true, false)
+		check(large_pack != null and large_pack.material.get_shader_parameter("outline_pixels") == 8.0, "Large reward uses eight-pixel outline")
+		var chain_icons: Array[Node] = main.content.find_children("RewardCoinIcon", "TextureRect", true, false)
+		check(!chain_icons.is_empty(), "Chain fixture contains resource icons")
+		for resource: TextureRect in chain_icons:
+			check(resource.material.get_shader_parameter("outline_pixels") == 5.0, "Chain rewards use five-pixel outline")
 		check(bool(GameState.get_active_single_player_stage_reward().get("presentation_started", false)), "stage presentation marker is saved before intro")
 		check(GameState.get_soft_currency() == before and main.claims == claims_before, "building screen does not grant reward")
 		var button: Control = main.content.find_child("StageCoinRewardDoubleButton" if ads else "StageCoinRewardContinueButton", true, false)

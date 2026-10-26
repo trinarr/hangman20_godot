@@ -1,0 +1,654 @@
+{
+  "format": 2,
+  "method": "imagegen: original artwork cleanup, external and internal ink removed",
+  "common_prompt": "Precise cleanup edit of the supplied original game icon, not redesign. Remove ALL dark navy/black drawn outline strokes, BOTH outer silhouette outlines and all internal contour lines. Reconstruct the adjacent coloured surface across the removed ink; separate shapes by their original colours and soft natural shading, never by dark strokes. Preserve exact geometry, silhouette, object positions, proportions, optical centre, painted texture, saturated palette, highlights and all meaningful subject details. Do not melt, merge, simplify, warp or add shapes. Keep the same square canvas and artwork placement. Real transparent RGBA background, no outside shadow, no glow, no frame. Runtime shader will supply the exterior outline; output artwork must be free of ink contours. ",
+  "files": [
+    {
+      "path": "flash_assets/coin_pack_04.png",
+      "size": [
+        512,
+        512
+      ],
+      "source_sha256": "ae6add5e5212a037b00452cb73ed5cd2abe0f6dcb1843b7738a7ffd242f6febb",
+      "target_sha256": "c50142f4c695c02f431c76a263dc4fcdfe82eebe6e64fb7bea917d7137e8bc65",
+      "generation_id": "exec-e9404f14-56db-4775-80f4-b6be381b6009",
+      "prompt": "Precise, minimal edit of this exact existing transparent gold coin-stack game asset. Change ONLY the embossed letter on the TOP FACE OF THE UPPERMOST COIN. The current raised symbol is malformed. Replace it with a clean capital Latin H, shaped like the clear H on the front leaning coin, but correctly foreshortened to lie flat on the top coin's elliptical face: two parallel straight stems joined by one centred crossbar, crisp and symmetric, all four ends intact. Keep it raised gold with matching orange relief shading and original lighting; no navy/black outline. Keep the top coin rim ellipse and all other pixels/objects as unchanged as possible: same coin stack count, silhouettes, positions, leaning front coin and its existing H, bottom partial H, gold shading, highlights, composition and optical centre. Do not redraw or reshape the stack, do not add symbols, outlines, shadows, glows or background. Genuine transparent RGBA background and same square framing.",
+      "visible_bounds": [
+        34,
+        56,
+        477,
+        456
+      ],
+      "source_visible_bounds": [
+        34,
+        55,
+        478,
+        457
+      ],
+      "generator_visible_bounds": [
+        79,
+        131,
+        1175,
+        1121
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology.",
+      "previous_generation_id": "exec-2b1958cd-4d38-4201-b9c1-fcc0c4dff48a"
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_geography.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "4f6de2494290b8e2c8520136ccf5d4dde5abd632cc62f3fdcc20de7096b2f60f",
+      "target_sha256": "5034a8c54dadcb68820da0d2fc8527be139f704bfeb76d0cc625478b3fde752b",
+      "generation_id": "exec-dd516420-3755-4fc9-acf4-3a5460f971f0",
+      "prompt": "Remove navy continent/pin borders including tiny islands; preserve each original continent shape and position.",
+      "visible_bounds": [
+        12,
+        4,
+        242,
+        252
+      ],
+      "source_visible_bounds": [
+        12,
+        4,
+        243,
+        252
+      ],
+      "generator_visible_bounds": [
+        90,
+        54,
+        1164,
+        1211
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_history.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "e8f85e099c535c8bc515d775f7c64cdf6fb47ded052208dee8550261b8013167",
+      "target_sha256": "a4a7cd9c7f1f88c391caaccbea4abfa0f5179227489de49f4af3f0e78463079e",
+      "generation_id": "exec-f70ac164-01ef-4f61-b046-c64dc117ab6f",
+      "prompt": "Remove leaf, stem, scroll, curl and column contours, including lower-left leaf/scroll crossing.",
+      "visible_bounds": [
+        10,
+        6,
+        245,
+        251
+      ],
+      "source_visible_bounds": [
+        10,
+        4,
+        245,
+        252
+      ],
+      "generator_visible_bounds": [
+        67,
+        51,
+        1172,
+        1202
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_technics.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "7e9829a030e9398960fc34ec045dfe91cec437fe68b415e9c56a1e100b65682e",
+      "target_sha256": "604925fc21668139f8adfd55b073c382474839733c14a9296078005c2a89fafa",
+      "generation_id": "exec-04da5886-3ed1-47a6-b5ce-315c7e53e504",
+      "prompt": "Remove contours from all gear teeth, central hole, wrench and handle hole; preserve exact silhouettes and negative space.",
+      "visible_bounds": [
+        7,
+        4,
+        249,
+        252
+      ],
+      "source_visible_bounds": [
+        5,
+        4,
+        251,
+        252
+      ],
+      "generator_visible_bounds": [
+        43,
+        21,
+        1210,
+        1218
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_food.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "7d020c9540b59efe1a66c9465f76fc0aada1564e6ef6d382c5722ff4cb239674",
+      "target_sha256": "a6d407eb490baf54ae3ebc01d8f8072d477e3456b2472c98490d0b258afced26",
+      "generation_id": "exec-3abbba05-66cf-4a61-8392-6e3e5dc90ff2",
+      "prompt": "Keep the chef hat, crossed spoon/fork and every fork tine exactly positioned. Remove outlines at their crossing and the hat rim, spoon bowl and fork slots. Keep true gaps/negative space transparent and cyan/gold shading crisp.",
+      "visible_bounds": [
+        27,
+        4,
+        228,
+        252
+      ],
+      "source_visible_bounds": [
+        26,
+        4,
+        229,
+        252
+      ],
+      "generator_visible_bounds": [
+        157,
+        50,
+        1100,
+        1211
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_general.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "7d9dd5d13551e85f971841759717130abcfac275a1bc124736e4a55aa6393e04",
+      "target_sha256": "33e3c8efa2f8379f074374f77a6c2f76008c36266bdfcbc658554b13bf66d379",
+      "generation_id": "exec-abcf51ea-2e70-4136-a96e-e8543ae52b7e",
+      "prompt": "Keep the gold light bulb, cyan screw base and blue question mark in exactly the same shapes and positions. The question mark must remain a readable BLUE FILLED SYMBOL, but remove its dark edging. Remove all navy strokes around the bulb, around screw-base ridges and around the question mark/dot. Preserve blue/cyan shading, avoid dark line art.",
+      "visible_bounds": [
+        51,
+        4,
+        205,
+        252
+      ],
+      "source_visible_bounds": [
+        47,
+        4,
+        209,
+        252
+      ],
+      "generator_visible_bounds": [
+        255,
+        42,
+        995,
+        1230
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_sport.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "0309b2968a0921fe6a7536248fd9320adfb98f085414d7f224fc1753977d6aa7",
+      "target_sha256": "5ac042803edbb639242207727df57335ee074c9b9414f2c2a4bc6766732e9341",
+      "generation_id": "exec-1e58b1a3-19b8-49a8-9070-545e485803cd",
+      "prompt": "Keep the precise soccer ball and orange motion swooshes. Dark navy PENTAGON PANELS are meaningful FILLED COLOUR AREAS and must remain. Remove all thin navy outlines along the ball silhouette, between cream hexagonal panels, along edges of the navy panels and around orange swooshes. Use subtle cream/gold panel shading to retain original panel geometry without drawn border lines.",
+      "visible_bounds": [
+        4,
+        16,
+        252,
+        240
+      ],
+      "source_visible_bounds": [
+        4,
+        14,
+        252,
+        241
+      ],
+      "generator_visible_bounds": [
+        39,
+        101,
+        1230,
+        1176
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_nature.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "ca4c28f5a50e49b16970517c3d5ef04b6df7a5d90cfefd85c530e9d75735491c",
+      "target_sha256": "222cd038d22b2f75830dc92c27c6fb248757f53dff4bbf08f852676bc860a77f",
+      "generation_id": "exec-2ee68d10-a755-47f0-9f72-c41b9ebdc6f9",
+      "prompt": "Keep the exact two leaf silhouettes, orange berry, veins, stems and diagonal arrangement. Remove dark outlines at outer edges AND every internal vein/stem; replace veins with naturally shaded green/teal relief, maintaining original botanical structure without ink strokes.",
+      "visible_bounds": [
+        14,
+        7,
+        242,
+        249
+      ],
+      "source_visible_bounds": [
+        14,
+        4,
+        242,
+        252
+      ],
+      "generator_visible_bounds": [
+        94,
+        49,
+        1187,
+        1210
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_people.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "dfd461247d2630a37b5bd379f105ce77549998c06a0efe047c239bd2f28b402d",
+      "target_sha256": "bcfda8da626757cde45f9e215fa476cae8fa2763f63ce0e3b5941235d282b8a1",
+      "generation_id": "exec-37c23690-c4e9-496c-bb95-94f4675d3068",
+      "prompt": "Keep exactly two busts, orange on left and cyan on right, unchanged round heads, shoulders and arms. Remove dark outlines separating heads/necks/bodies, around arms and between figures. Use original warm/cool colour shading for separation without drawn strokes. Do not add faces, eyes or other features.",
+      "visible_bounds": [
+        4,
+        34,
+        252,
+        222
+      ],
+      "source_visible_bounds": [
+        4,
+        32,
+        252,
+        223
+      ],
+      "generator_visible_bounds": [
+        32,
+        182,
+        1222,
+        1086
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_science.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "0f7c0eed8dfac399b65389bca2f5bfcdbc75345ae9c4d34550d0268a7305276c",
+      "target_sha256": "bf34d29208a3de39fe27da72b4ba28817df216014e09f3fc3e6fd4669a16da4a",
+      "generation_id": "exec-0a58650f-4d70-4ee7-808a-c65fa86ce0c1",
+      "prompt": "Keep exact flask glass silhouette, mouth, neck, gold liquid level and three orange bubbles in original positions. Remove navy strokes from flask outline, mouth rings, liquid rim and bubble borders. Keep translucent cyan glass highlights, orange round bubbles and golden liquid separated by surface shading, not ink contours.",
+      "visible_bounds": [
+        43,
+        4,
+        213,
+        252
+      ],
+      "source_visible_bounds": [
+        42,
+        4,
+        214,
+        252
+      ],
+      "generator_visible_bounds": [
+        226,
+        46,
+        1028,
+        1214
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/theme_icons/theme_icon_film_music.png",
+      "size": [
+        256,
+        256
+      ],
+      "source_sha256": "1141c6de0a5684aa475c663f330b19b2448028dc1f9ccf38ea0d425adc083383",
+      "target_sha256": "2092139c1dde7ddca9f2a8097c4defbc713b6bdce90d7fe3f3c4f9aca4131d03",
+      "generation_id": "exec-c07d218d-7fd5-459f-847f-9d270fe6be67",
+      "prompt": "Keep exact open clapperboard angle, blue board, striped gold/blue slats, hinge and orange music note. Remove all dark strokes along EVERY object edge, hinge circles, between stripes and around/within the note. Keep the note and true openings/negative spaces intact. Do not alter proportions or invent lettering.",
+      "visible_bounds": [
+        17,
+        4,
+        238,
+        252
+      ],
+      "source_visible_bounds": [
+        17,
+        4,
+        238,
+        252
+      ],
+      "generator_visible_bounds": [
+        102,
+        36,
+        1152,
+        1213
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/life_heart_icon.png",
+      "size": [
+        128,
+        128
+      ],
+      "source_sha256": "bfddd7dcfe4e47e4833918b9bc15b068bc5f012c6dcde1a2cc656f2d943534ad",
+      "target_sha256": "fb201d4643ff7fa9c88966d22d40d3555067d1c69770d301a6f94e943fbb056b",
+      "generation_id": "exec-fc5dc653-c812-481e-9a8f-1bd3884ddfd0",
+      "prompt": "Keep the red heart's exact lobes, cleft, point, highlights and red/orange facets. Remove every dark outer/internal border. Preserve its bold red colour and existing painted facets; do not flatten it, change shape or add a bevel rim.",
+      "visible_bounds": [
+        2,
+        8,
+        126,
+        120
+      ],
+      "source_visible_bounds": [
+        2,
+        7,
+        126,
+        120
+      ],
+      "generator_visible_bounds": [
+        56,
+        114,
+        1194,
+        1140
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/star_currency_icon.png",
+      "size": [
+        128,
+        128
+      ],
+      "source_sha256": "66bf7fe7236361123fb8648aecc6f9553540019da860334871df0f0269374ff2",
+      "target_sha256": "429160b61eec8ef72813776a9d0d3f885e30cb03d02831b5f070f9db68a804bb",
+      "generation_id": "exec-b196d6bf-e6f2-48e2-81af-bf0059ab6c3b",
+      "prompt": "Keep the exact five-point orange/gold star shape, rounded corners, highlights and shaded facets. Remove the navy outer outline and any dark contour around bevels; retain soft orange surface shading without drawn strokes.",
+      "visible_bounds": [
+        2,
+        6,
+        126,
+        123
+      ],
+      "source_visible_bounds": [
+        2,
+        5,
+        126,
+        123
+      ],
+      "generator_visible_bounds": [
+        46,
+        76,
+        1207,
+        1169
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/soft_currency_coin.png",
+      "size": [
+        128,
+        128
+      ],
+      "source_sha256": "b4d1e197db14f97e38279ce7551d002a3be974853712c9bbaabad986629938a6",
+      "target_sha256": "0e170d294ce03a463c26ebd98c5ec09206183921952ed3f6cf731d78bb0cc1a0",
+      "generation_id": "exec-c6d18340-ee5a-4d19-b7ab-15e7b87d88aa",
+      "prompt": "Keep the exact front-facing gold coin, circular rim and capital H symbol in the same position and proportions. Remove ALL navy/black outlines, including both coin rim rings AND the outline around and inside the H. Preserve the H as raised GOLD RELIEF using soft orange shading, not navy ink. Do not alter the letter's shape.",
+      "visible_bounds": [
+        2,
+        2,
+        125,
+        125
+      ],
+      "source_visible_bounds": [
+        2,
+        2,
+        125,
+        126
+      ],
+      "generator_visible_bounds": [
+        43,
+        42,
+        1205,
+        1207
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/extra_attempts_icon.png",
+      "size": [
+        512,
+        512
+      ],
+      "source_sha256": "49f0cedda04d21c1091ab2d05dfab7ed4530c3d22a613126dcdb638dfc9febbf",
+      "target_sha256": "4abcd2f3b5e17e6d42b16f4b3047621e26e6b5f4ff6480f9ef570f24d1ea8dcd",
+      "generation_id": "exec-8abbf301-9b6e-4050-b339-e61c9ab4e054",
+      "prompt": "Keep the exact two yellow/orange curved arrows chasing each other in a circle, their arrowheads and negative-space gaps. Remove every navy contour around the outer silhouettes, between overlapping arrows and along the inner circular gap. Keep the warm gold shading and crisp geometry, no drawn dark border.",
+      "visible_bounds": [
+        87,
+        63,
+        446,
+        442
+      ],
+      "source_visible_bounds": [
+        85,
+        63,
+        448,
+        442
+      ],
+      "generator_visible_bounds": [
+        233,
+        172,
+        1070,
+        1056
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/reward_chest_closed.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "0b0d5a3370e514fb1dd8f9e22860cebf6b617921575464873f7a737b1d1f6edf",
+      "target_sha256": "1bf299c01d6ca91909150fad4f0210abd0c88a9b6408877849c03dfae690874c",
+      "generation_id": "exec-954bfe09-d0ec-470a-b861-0d025c36327c",
+      "prompt": "Preserve the EXACT closed magenta gift box, gold ribbon and bow, every fold and existing highlights. Remove all dark navy and dark line-art contours around the box, between the lid/body, around bow loops, knot, hanging tails and vertical ribbon. Keep their geometry and overlap order; replace lines with natural magenta/gold tonal shading. Actual holes inside bow loops must stay transparent, no navy fill. No new objects or text.",
+      "visible_bounds": [
+        100,
+        87,
+        1153,
+        1164
+      ],
+      "source_visible_bounds": [
+        99,
+        87,
+        1155,
+        1164
+      ],
+      "generator_visible_bounds": [
+        124,
+        113,
+        1130,
+        1142
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/reward_chest_open.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "f70ecc923bb034cc82987b60434a438957c5e0cc05b6ace276949a01a1b75853",
+      "target_sha256": "540091060fd3ab445305824543a2f9ad6f329b9d795b9c21b8ae476d83fb3b48",
+      "generation_id": "exec-bff8561e-507e-4559-a9f5-a7397af18df2",
+      "prompt": "Preserve the EXACT open magenta gift box, raised lid, gold bow and ribbon, all gold coins inside and all white glints. Remove ALL drawn navy/black outlines and dark line-art contours outside and inside: box, lid, knot, bow loops/tails, ribbon, every coin rim and overlaps. Keep all geometry, lid angle, coin arrangement and real holes; use original gold/magenta shading for separation, without ink strokes.",
+      "visible_bounds": [
+        122,
+        47,
+        1130,
+        1171
+      ],
+      "source_visible_bounds": [
+        121,
+        47,
+        1132,
+        1171
+      ],
+      "generator_visible_bounds": [
+        145,
+        73,
+        1110,
+        1149
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/tournament_trophy_front.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "e93d6d2e0a35823118ff2586bf272b852901822f127b70c425dd73750647dc94",
+      "target_sha256": "a6e1a7213e68a11a7b70677719f65b17944781191d1d6fcb85e2d3ea70f19fef",
+      "generation_id": "exec-743e163e-598d-4c83-9c5a-28618c9eaddf",
+      "prompt": "Keep this exact tall frontal gold trophy shape and proportions, elliptical open cup rim, both handles, stem, base and highlights. Remove ALL navy/black and brown drawn contour strokes, including the handle inner rims, cup lip, stem joints and base rings. Retain genuine orange surface shadows and highlights, with no hard dark line art. Handle openings must be transparent. Do not widen or shorten the cup.",
+      "visible_bounds": [
+        16,
+        89,
+        1237,
+        1185
+      ],
+      "source_visible_bounds": [
+        16,
+        89,
+        1238,
+        1185
+      ],
+      "generator_visible_bounds": [
+        35,
+        104,
+        1218,
+        1166
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "assets/tournament/start_trophy_low.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "a56859c6cd87df96104514f517d34ffea7d8e5a8a65ddd17dcd27798bbb0c89e",
+      "target_sha256": "226263abcb1cf0a5b9d75df00dac6ee240cc35eb63b88d03623c583005b1992a",
+      "generation_id": "exec-eccab778-3aed-4a25-9d54-5cb810301f69",
+      "prompt": "Keep this exact squat gold trophy silhouette and original proportions, straight-on cup rim, handles, stem, base and highlights. Remove ALL navy/black and brown drawn contour strokes, including handle inner rims, cup lip, stem joints and base rings. Keep true gold/orange surface shading and transparent handle openings. Do not turn it into the taller trophy or change its camera angle.",
+      "visible_bounds": [
+        39,
+        103,
+        1215,
+        1161
+      ],
+      "source_visible_bounds": [
+        38,
+        103,
+        1216,
+        1161
+      ],
+      "generator_visible_bounds": [
+        48,
+        108,
+        1206,
+        1150
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    }
+  ]
+}

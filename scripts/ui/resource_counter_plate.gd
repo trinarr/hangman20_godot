@@ -5,6 +5,7 @@ const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const TEXT = preload("res://scripts/ui/button_text_style.gd")
 const EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
+const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 var icon_texture: Texture2D
 var value := ""
 
@@ -80,6 +81,7 @@ func _ready() -> void:
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = icon_texture
+	OUTLINE.apply(icon, icon_texture)
 	icon.position = icon_position
 	icon.size = icon_size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

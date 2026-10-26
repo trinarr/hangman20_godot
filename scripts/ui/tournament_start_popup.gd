@@ -149,6 +149,8 @@ func _reward_texture(parent: Control, node_name: String, texture: Texture2D, rec
 	icon.name = node_name
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.texture = texture
+	var outline = preload("res://scripts/ui/colored_icon_outline.gd")
+	outline.apply(icon, texture, outline.POPUP_PIXELS)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.position = rect.position

@@ -136,6 +136,7 @@ func _icon(parent: Control, rect: Rect2, texture: Texture2D) -> TextureRect:
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = texture
+	ICON_SHADOW.OUTLINE.apply(icon, texture)
 	icon.position = rect.position
 	icon.size = rect.size
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

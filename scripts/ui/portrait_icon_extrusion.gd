@@ -3,6 +3,7 @@ extends RefCounted
 
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
+const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 
 static func _run_for_live_control(target_ref: WeakRef, action: Callable, args: Array = []) -> void:
 	var target := target_ref.get_ref() as Control
@@ -126,6 +127,7 @@ static func _add_portrait_icon_with_extrusion_to_holder(
 	icon.name = prefix
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.texture = texture
+	OUTLINE.apply(icon, texture)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

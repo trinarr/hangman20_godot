@@ -158,6 +158,13 @@ func run() -> void:
 			prompt._go()
 			await settle()
 			check(is_instance_valid(main.single_player_popup_stage_content), "Play dismisses the tournament introduction and opens theme selection")
+			for item: Node in main.single_player_popup_stage_content.find_children("*", "Control", true, false):
+				if item is FlashStageTexture and item.texture != null and item.texture.resource_path.begins_with("res://flash_assets/theme_icons/"):
+					check(item.material.get_shader_parameter("outline_pixels") == 5.0, "Theme selection uses five-pixel outline")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await get_tree().create_timer(0.8).timeout
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("theme_icons_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save coloured theme icons with shader outlines")
 			main._remove_single_player_theme_popup()
 			await settle()
 			GameState.load_game()

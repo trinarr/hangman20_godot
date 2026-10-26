@@ -2680,7 +2680,7 @@ func _show_coin_refill_popup() -> void:
 	# Use the exact same shader-extrusion shadow as the large stage coin reward.
 	# A transparent holder is required here as well because drawing the artwork on
 	# the parent CanvasItem would swallow negative-z extrusion layers.
-	var coin_icon := _stage_main_reward_coin_pack_transition(coin_rect)
+	var coin_icon := _stage_main_reward_coin_pack_transition(coin_rect, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
 	coin_icon.name = "CoinRefillIcon"
 	coin_icon.z_index = 20
 	# Match the intermediate large stage reward: keep the extrusion shadow hidden
@@ -3223,6 +3223,7 @@ func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
 	heart_icon.name = "BrokenHeartBase"
 	heart_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heart_icon.texture = LIFE_HEART_ICON_TEXTURE
+	UI_MATERIALS.OUTLINE.apply(heart_icon, LIFE_HEART_ICON_TEXTURE)
 	heart_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	heart_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	heart_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3369,6 +3370,7 @@ func _stage_portrait_popup_coin_purchase_content(
 	price_coin.name = "PriceCoin"
 	price_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	price_coin.texture = SOFT_CURRENCY_COIN_TEXTURE
+	UI_MATERIALS.OUTLINE.apply(price_coin, SOFT_CURRENCY_COIN_TEXTURE)
 	price_coin.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	price_coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	price_coin.position = price_coin_position
@@ -7160,6 +7162,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	attempt_icon_spin_visual.name = "ExtraAttemptsSpinVisual"
 	attempt_icon_spin_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	attempt_icon_spin_visual.texture = EXTRA_ATTEMPTS_ICON_TEXTURE
+	UI_MATERIALS.OUTLINE.apply(attempt_icon_spin_visual, EXTRA_ATTEMPTS_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
 	attempt_icon_spin_visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	attempt_icon_spin_visual.stretch_mode = TextureRect.STRETCH_SCALE
 	attempt_icon_spin_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -7517,7 +7520,18 @@ func _show_heart_refill_popup(
 		heart_rect,
 		&"HeartRefillGlow"
 	)
-	var heart_icon := _stage_texture(heart_rect, LIFE_HEART_ICON_TEXTURE)
+	var heart_icon := _stage_holder(heart_rect, Control.MOUSE_FILTER_IGNORE)
+	heart_icon.name = "HeartRefillIcon"
+	_attach_main_reward_icon_shadow(heart_icon, LIFE_HEART_ICON_TEXTURE, "HeartRefillIconShadow", UI_MATERIALS.OUTLINE.POPUP_PIXELS)
+	var heart_art := TextureRect.new()
+	heart_art.name = "HeartRefillVisual"
+	heart_art.texture = LIFE_HEART_ICON_TEXTURE
+	heart_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	heart_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	UI_MATERIALS.OUTLINE.apply(heart_art, LIFE_HEART_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
+	heart_icon.add_child(heart_art)
+	heart_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	heart_icon.z_index = 11
 	var heart_value := _stage_label(
 		heart_rect,
@@ -8137,6 +8151,7 @@ func _stage_single_player_popup_theme_cards(
 				PORTRAIT_SINGLE_PLAYER_THEME_CARD_INACTIVE_GLOW_ALPHA
 			)
 			theme_icon = _stage_texture(theme_icon_rect, theme_icon_texture)
+			UI_MATERIALS.OUTLINE.apply(theme_icon, theme_icon_texture, UI_MATERIALS.OUTLINE.THEME_PIXELS)
 			theme_icon.z_index = 12
 			# A single word is the default/minimal case, so do not clutter the theme
 			# card with a redundant x1 badge. Keep counters only for multi-word levels.
@@ -8809,6 +8824,7 @@ func _stage_single_player_theme_slot_reel(
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.texture = texture
+		UI_MATERIALS.OUTLINE.apply(icon, texture, UI_MATERIALS.OUTLINE.THEME_PIXELS)
 		# Keep the reel readable as motion rather than a stack of competing
 		# images. The selected static icon returns to full opacity for bounce.
 		icon.modulate = Color(1.0, 1.0, 1.0, PORTRAIT_SINGLE_PLAYER_SLOT_SPIN_ICON_ALPHA)
@@ -11412,7 +11428,7 @@ func _stage_portrait_hint_art(
 		0.70
 	)
 	if art != null and grayscale:
-		art.material = UI_MATERIALS.grayscale()
+		art.material = UI_MATERIALS.grayscale(texture)
 
 func _portrait_hint_local_panel(
 	button: Control,
@@ -11490,6 +11506,7 @@ func _create_portrait_button_badge(button: Control, config: Dictionary = {}) -> 
 	var coin_icon := TextureRect.new()
 	coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coin_icon.texture = SOFT_CURRENCY_COIN_TEXTURE
+	UI_MATERIALS.OUTLINE.apply(coin_icon, SOFT_CURRENCY_COIN_TEXTURE)
 	coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	coin_icon.z_index = 1
@@ -12411,14 +12428,17 @@ func _reward_chest_flash_material() -> ShaderMaterial:
 	if _reward_chest_flash_material_cache == null:
 		_reward_chest_flash_material_cache = ShaderMaterial.new()
 		_reward_chest_flash_material_cache.shader = REWARD_CHEST_FLASH_SHADER
+		_reward_chest_flash_material_cache.set_shader_parameter("colored_outline", true)
+		_reward_chest_flash_material_cache.set_shader_parameter("outline_pixels", UI_MATERIALS.OUTLINE.LARGE_REWARD_PIXELS)
 	return _reward_chest_flash_material_cache
 
 func _attach_main_reward_icon_shadow(
 	holder: Control,
 	texture: Texture2D,
-	prefix: String
+	prefix: String,
+	outline_pixels: float = UI_MATERIALS.OUTLINE.LARGE_REWARD_PIXELS
 ) -> Array[TextureRect]:
-	return _ensure_reward_prize_visuals()._attach_main_reward_icon_shadow(holder, texture, prefix)
+	return _ensure_reward_prize_visuals()._attach_main_reward_icon_shadow(holder, texture, prefix, outline_pixels)
 
 
 func _set_main_reward_icon_shadow_texture(holder: Control, texture: Texture2D) -> void:
@@ -12464,8 +12484,8 @@ func _fade_main_reward_icon_shadow_in(holder: Control, duration: float = 0.22) -
 		fade.set_trans(Tween.TRANS_SINE)
 		fade.set_ease(Tween.EASE_OUT)
 
-func _stage_main_reward_coin_pack_transition(rect: Rect2) -> Control:
-	return _ensure_reward_prize_visuals()._stage_main_reward_coin_pack_transition(rect)
+func _stage_main_reward_coin_pack_transition(rect: Rect2, outline_pixels: float = UI_MATERIALS.OUTLINE.LARGE_REWARD_PIXELS) -> Control:
+	return _ensure_reward_prize_visuals()._stage_main_reward_coin_pack_transition(rect, outline_pixels)
 
 
 func _stage_reward_chest_transition(rect: Rect2) -> Control:
@@ -12492,6 +12512,7 @@ func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	closed_visual.name = "ChestClosedVisual"
 	closed_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	closed_visual.texture = _reward_chest_closed_texture()
+	UI_MATERIALS.OUTLINE.apply(closed_visual, closed_visual.texture, UI_MATERIALS.OUTLINE.LARGE_REWARD_PIXELS)
 	closed_visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	closed_visual.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	holder.add_child(closed_visual)
@@ -12502,6 +12523,7 @@ func _stage_reward_chest_transition(rect: Rect2) -> Control:
 	open_visual.name = "ChestOpenVisual"
 	open_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	open_visual.texture = _reward_chest_open_texture()
+	UI_MATERIALS.OUTLINE.apply(open_visual, open_visual.texture, UI_MATERIALS.OUTLINE.LARGE_REWARD_PIXELS)
 	open_visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	open_visual.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	holder.add_child(open_visual)
@@ -13498,6 +13520,8 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	artwork.z_index = 1
 	var icon_material := ShaderMaterial.new()
 	icon_material.shader = THEME_UNLOCK_ICON_GRAYSCALE_SHADER
+	icon_material.set_shader_parameter("colored_outline", true)
+	icon_material.set_shader_parameter("outline_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
 	icon_material.set_shader_parameter("saturation", 0.0)
 	icon_material.set_shader_parameter("shadow_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE_SELECTED)
 	icon_material.set_shader_parameter("highlight_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE.lightened(0.10))
@@ -13734,6 +13758,7 @@ func _stage_single_player_reward_resource_icon(
 		else SOFT_CURRENCY_COIN_TEXTURE
 	)
 	resource_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	UI_MATERIALS.OUTLINE.apply(resource_icon, resource_icon.texture, UI_MATERIALS.OUTLINE.CHAIN_PIXELS)
 	resource_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	resource_icon.position = icon_rect.position
 	resource_icon.size = icon_rect.size
@@ -14066,6 +14091,7 @@ func _play_single_player_reward_resource_collection(
 		var resource_icon := TextureRect.new()
 		resource_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		resource_icon.texture = resource_texture
+		UI_MATERIALS.OUTLINE.apply(resource_icon, resource_texture)
 		resource_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		resource_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		resource_icon.size = resource_size
@@ -17257,7 +17283,7 @@ func _show_word_comment_popup() -> void:
 				(comment_theme_glow.get_parent() as CanvasItem).z_index = -2
 			comment_theme_glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
 			comment_theme_icon = _stage_texture(comment_theme_icon_rect, comment_theme_icon_texture)
-			comment_theme_icon.material = UI_MATERIALS.grayscale()
+			comment_theme_icon.material = UI_MATERIALS.grayscale(comment_theme_icon_texture)
 			comment_theme_icon.z_index = -1
 			# Arm the proven icon bounce first. Glow reveal is an independent listener and
 			# must never alter or replace the icon tween sequence.

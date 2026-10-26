@@ -2,6 +2,7 @@ class_name FlashStageTexture
 extends Control
 
 const PORTRAIT_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
+const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 
 var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):
 	set(value):
@@ -11,6 +12,7 @@ var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):
 var texture: Texture2D:
 	set(value):
 		texture = value
+		OUTLINE.apply(self, texture)
 		queue_redraw()
 
 func _ready() -> void:

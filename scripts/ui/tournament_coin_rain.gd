@@ -5,6 +5,7 @@ var particles: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	preload("res://scripts/ui/colored_icon_outline.gd").apply(self, COIN)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_rng.randomize()
 	for index in range(18):

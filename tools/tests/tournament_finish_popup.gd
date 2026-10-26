@@ -144,6 +144,7 @@ func run() -> void:
 				else:
 					check(popup.find_child("TournamentFinishReward", true, false).stage_rect.size.is_equal_approx(Vector2.ONE * 115.2 * 0.95), "Gift retains its additional five-percent reduction")
 				var description: Label = popup.find_child("TournamentFinishDescription", true, false)
+				check(popup.find_child("TournamentFinishReward", true, false).material.get_shader_parameter("outline_pixels") == 5.0, "Popup prize uses five-pixel outline")
 				check(description.text == tr("TOURNAMENT_FINISH_PROMPT"), "Description is localized")
 				check(result.get_global_rect().position.y > description.get_global_rect().end.y, "Result row follows description")
 				check(watcher.claim_button.get_global_rect().position.y > result.get_global_rect().end.y, "Only claim action follows the result row")
