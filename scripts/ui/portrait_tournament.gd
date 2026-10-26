@@ -2,23 +2,19 @@ extends Control
 ## Read-only standings for the tournament created by gameplay or its introduction.
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
-const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
-const STAR = preload("res://flash_assets/star_currency_icon.png")
 const COIN_PACK = preload("res://flash_assets/coin_pack_04.png")
 const GIFT = preload("res://flash_assets/reward_chest_closed.png")
-const REWARD_GLOW = preload("res://flash_assets/final_reward_rotating_glow.png")
 const COUNTDOWN = preload("res://scripts/ui/tournament_countdown.gd")
+const ICON_SHADOW = preload("res://scripts/ui/portrait_icon_extrusion.gd")
+const LIST_TOP_GAP := 24.0
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
-const PODIUM_AVATAR_SIZE := ROW.AVATAR_SIZE * 1.5
-const PODIUM_HEIGHT := 314.0
 var portraits: Node
 var score_formatter: Callable
 var scroll: ScrollContainer
 var rows: VBoxContainer
-var podium: Control
 var own_row: Control
 var countdown: Control
 var _timer: Timer
@@ -40,10 +36,6 @@ func _ready() -> void:
 	countdown.name = "TournamentTabCountdown"
 	countdown.scale = Vector2.ONE * 0.85
 	add_child(countdown)
-	podium = Control.new()
-	podium.name = "TournamentPodium"
-	podium.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(podium)
 	scroll = SCROLL.new()
 	scroll.name = "TournamentScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -56,9 +48,7 @@ func _ready() -> void:
 	scroll.set_list(rows)
 	_timer = Timer.new()
 	_timer.wait_time = 1.0
-	_timer.timeout.connect(func():
-		if is_visible_in_tree():
-			refresh())
+	_timer.timeout.connect(refresh)
 	add_child(_timer)
 	_timer.start()
 	GameState.tournament_changed.connect(refresh)
@@ -74,7 +64,6 @@ func refresh() -> void:
 	# standings visible until navigation, without exposing legacy actions.
 	var has_standings := phase != "idle"
 	countdown.visible = has_standings
-	podium.visible = has_standings
 	scroll.visible = has_standings
 	countdown.set_remaining(int(_snapshot.get("remaining", 0)))
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
@@ -89,21 +78,14 @@ func _rebuild() -> void:
 	own_row = null
 	for child in rows.get_children():
 		child.free()
-	for child in podium.get_children():
-		child.free()
 	var entries: Array = _snapshot.get("rows", [])
 	if entries.is_empty():
 		return
 	var rewards: Array = _snapshot.get("rewards", GameState.GAME_DESIGN.get_array("tournament.rewards_coins"))
-	for slot in range(3):
-		var rank: int = [2, 1, 3][slot]
-		var entry: Dictionary = entries[rank - 1]
-		var card := _podium_card(entry, int(rewards[rank - 1]), slot)
-		podium.add_child(card)
-		if bool(entry.mine):
-			own_row = card
-	for entry: Dictionary in entries.slice(3):
-		var card := _row_card(entry)
+	for entry: Dictionary in entries:
+		var rank := int(entry.rank)
+		var reward := int(rewards[rank - 1]) if rank >= 1 and rank <= mini(3, rewards.size()) else 0
+		var card := _row_card(entry, reward)
 		rows.add_child(card)
 		if bool(entry.mine):
 			own_row = card
@@ -114,62 +96,32 @@ func _name(entry: Dictionary) -> String:
 		return GameState.player_name if !GameState.player_name.is_empty() else _tr("TOURNAMENT_YOU", "Вы", "You")
 	return str(entry.nickname)
 
-func _podium_card(entry: Dictionary, reward: int, slot: int) -> Control:
-	var rank := int(entry.rank)
-	var card := Control.new()
-	card.name = "PodiumPlace%d" % rank
-	card.position = Vector2(8 + slot * 151, PODIUM_AVATAR_SIZE * 0.5 + (0 if rank == 1 else 24))
-	card.size = Vector2(142, 264 if rank == 1 else 240)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var color: Color = {1: PALETTE.PAPER_CRACK_LIGHT, 2: PALETTE.UI_BLUE_LIGHT_BORDER, 3: PALETTE.BUTTON_ORANGE}[rank]
-	var shadow := _panel(card, Rect2(Vector2(0, 6), card.size), CARD.shadow_style())
-	shadow.name = "CardShadow"
-	var face := _panel(card, Rect2(Vector2.ZERO, card.size), CARD.face_style(color))
-	face.name = "CardFace"
-	var avatar: Button = portraits.create_avatar(_display_entry(entry), PODIUM_AVATAR_SIZE)
-	avatar.position = Vector2((card.size.x - PODIUM_AVATAR_SIZE) * 0.5, -PODIUM_AVATAR_SIZE * 0.5)
-	card.add_child(avatar)
-	var medal := _icon(card, Rect2(54, PODIUM_AVATAR_SIZE * 0.5 - 17, 34, 34), ROW.RANK_MEDALS[rank - 1])
-	medal.name = "PodiumRankMedal"
-	var nickname := _label(card, Rect2(9, 61, 124, 40), _name(entry), 25)
-	nickname.add_theme_font_override("font", FONTS.button_font())
-	nickname.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_shrink(nickname, 16)
-	var prize_center := Vector2(71, card.size.y - (45 if rank == 1 else 55))
-	var prize_size := Vector2.ONE * (90.0 * 0.8 if rank == 1 else 58.0 * 1.15)
-	var glow_size := Vector2.ONE * (120 if rank == 1 else 112)
-	var glow := _icon(card, Rect2(prize_center - glow_size * 0.5, glow_size), REWARD_GLOW)
-	glow.name = "PodiumRewardGlow"
-	glow.modulate.a = 0.7
-	var prize := _icon(card, Rect2(prize_center - prize_size * 0.5, prize_size), GIFT if rank == 1 else COIN_PACK)
-	prize.name = "PodiumReward"
-	if rank != 1:
-		var amount := _label(card, Rect2(9, card.size.y - 28, 124, 25), "x%d" % reward, 22, Color.WHITE)
-		amount.name = "PodiumRewardAmount"
-		amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		amount.add_theme_font_override("font", FONTS.display_font())
-		amount.autowrap_mode = TextServer.AUTOWRAP_OFF
-		amount.clip_text = false
-		TEXT_STYLE.apply_display(amount)
-	var score_text := str(entry.stars)
-	if score_formatter.is_valid():
-		score_text = str(score_formatter.call(int(entry.stars)))
-	var score := _label(card, Rect2(9, 128 if rank == 1 else 108, 91, 35), score_text, 27)
-	score.name = "PodiumScore"
-	_shrink(score, 14)
-	var text_width := minf(91, score.get_theme_font("font").get_string_size(score_text, HORIZONTAL_ALIGNMENT_LEFT, -1, score.get_theme_font_size("font_size")).x)
-	score.size.x = text_width
-	score.position.x = (142 - text_width - 33) * 0.5
-	var score_star := _icon(card, Rect2(score.position + Vector2(text_width + 6, 4), Vector2(27, 27)), STAR)
-	score_star.name = "PodiumScoreStar"
-	return card
-
-func _row_card(entry: Dictionary) -> Control:
+func _row_card(entry: Dictionary, reward: int = 0) -> Control:
 	var row := Control.new()
 	row.custom_minimum_size = Vector2(ROW.ROW_WIDTH, ROW.ROW_HEIGHT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ROW.populate(row, _display_entry(entry), bool(entry.mine), portraits, score_formatter, Vector2(8, 0))
+	row.set_meta("rank", int(entry.rank))
+	if reward > 0:
+		var face: Control = row.get_node("CardFace")
+		var counter: Control = face.get_node("PlayerScore")
+		var reward_rect := Rect2(counter.position.x - 52, 10 if int(entry.rank) == 1 else 4, 48, 48)
+		var reward_texture: Texture2D = GIFT if int(entry.rank) == 1 else COIN_PACK
+		var shadows := ICON_SHADOW._create_portrait_icon_extrusion_layers(face, reward_texture, "TournamentRewardShadow", 0, ROW.SCORE_PLATE.STYLE.ICON_SHADOW_ALPHA)
+		ICON_SHADOW._layout_portrait_icon_extrusion_layers(shadows, reward_rect.position, reward_rect.size)
+		var prize := _icon(face, reward_rect, reward_texture)
+		prize.name = "TournamentRowReward"
+		prize.z_index = 1
+		if int(entry.rank) != 1:
+			var amount := _label(face, Rect2(reward_rect.position.x - 3, reward_rect.end.y - 18, 54, 26), "x%d" % reward, roundi(16 * 1.15), Color.WHITE)
+			amount.name = "TournamentRowRewardAmount"
+			amount.z_index = 2
+			amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			amount.add_theme_font_override("font", FONTS.display_font())
+			TEXT_STYLE.apply_display(amount)
+		var nickname: Label = face.get_node("PlayerName")
+		nickname.size.x = reward_rect.position.x - 8 - nickname.position.x
+		_shrink(nickname, 14)
 	return row
 
 func _display_entry(entry: Dictionary) -> Dictionary:
@@ -189,15 +141,6 @@ func _icon(parent: Control, rect: Rect2, texture: Texture2D) -> TextureRect:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(icon)
 	return icon
-
-func _panel(parent: Control, rect: Rect2, style: StyleBox) -> Panel:
-	var panel := Panel.new()
-	panel.position = rect.position
-	panel.size = rect.size
-	panel.add_theme_stylebox_override("panel", style)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(panel)
-	return panel
 
 func _label(parent: Control, rect: Rect2, text: String, font_size: int, color: Color = PALETTE.TEXT_DARK) -> Label:
 	var label := Label.new()
@@ -223,9 +166,7 @@ func _shrink(label: Label, minimum: int) -> void:
 func _layout() -> void:
 	if !is_node_ready():
 		return
-	podium.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, 60)
-	podium.size = Vector2(ROW.ROW_WIDTH, PODIUM_HEIGHT)
-	var list_top := podium.position.y + PODIUM_HEIGHT + 8.0
+	var list_top := LIST_TOP_GAP
 	scroll.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, list_top)
 	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(0, size.y - list_top))
 
@@ -234,6 +175,8 @@ func dispose() -> void:
 		return
 	_live = false
 	_timer.stop()
+	if is_instance_valid(countdown):
+		countdown.hide()
 	if GameState.tournament_changed.is_connected(refresh):
 		GameState.tournament_changed.disconnect(refresh)
 	if !GameState.tournament_state.is_empty():
@@ -241,3 +184,5 @@ func dispose() -> void:
 
 func _exit_tree() -> void:
 	dispose()
+	if is_instance_valid(countdown) and countdown.get_parent() != self:
+		countdown.queue_free()

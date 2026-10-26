@@ -1488,7 +1488,7 @@ func _stage_top_bar_resource_icon(
 		texture,
 		prefix,
 		1,
-		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a * 0.3,
+		RESOURCE_COUNTER_STYLE.ICON_SHADOW_ALPHA,
 		1.0
 	)
 	return holder
@@ -1746,14 +1746,7 @@ func _stage_star_counter(
 		"TopBarStarIcon"
 	)
 	_portrait_star_icon_visual = star_icon
-	var balance_left: float = counter_rect.position.x + 43.0 * counter_scale
-	var balance_right: float = (
-		panel_rect.end.x - PORTRAIT_RESOURCE_COUNTER_PANEL_TRAILING_INSET * counter_scale
-	)
-	var balance_rect := Rect2(
-		Vector2(balance_left, panel_rect.position.y),
-		Vector2(maxf(1.0, balance_right - balance_left), panel_rect.size.y)
-	)
+	var balance_rect: Rect2 = RESOURCE_COUNTER_STYLE.value_rect(counter_rect)
 	var balance_text: String = _soft_currency_balance_text(GameState.get_stars())
 	var balance_font_size: int = maxi(1, int(round(
 		24.0 * counter_scale * PORTRAIT_RESOURCE_COUNTER_FONT_SCALE

@@ -41,7 +41,7 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	var rank := str(rank_value) if rank_value > 0 else "100+"
 	var name_text := str(entry.get("nickname", "ID " + str(entry.get("player_id", ""))))
 	var avatar: Button = portraits.create_avatar(entry, AVATAR_SIZE)
-	avatar.position = Vector2(59.5, 7)
+	avatar.position = Vector2(59.5 * 0.85, 7)
 	var rank_area_width: float = avatar.position.x - avatar.outer_outline_width
 	if rank_value >= 1 and rank_value <= RANK_MEDALS.size():
 		var medal := TextureRect.new()
@@ -60,8 +60,9 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		rank_label.add_theme_font_override("font", FONTS.button_font())
 	card_content.add_child(avatar)
-	var counter_width := SCORE_PLATE.width_for_value("9\u202f999\u202f999", 38.64) * 0.90
-	var player_label := _label(card_content, Rect2(126, 0, CARD_WIDTH - counter_width - 146, 68), name_text, 23)
+	var counter_width := SCORE_PLATE.width_for_value("9\u202f999\u202f999", 38.64) * 0.90 * 0.85
+	var name_x := avatar.get_rect().end.x + 13.5
+	var player_label := _label(card_content, Rect2(name_x, 0, CARD_WIDTH - counter_width - 20 - name_x, 68), name_text, 23)
 	player_label.name = "PlayerName"
 	player_label.add_theme_font_override("font", FONTS.button_font())
 	player_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

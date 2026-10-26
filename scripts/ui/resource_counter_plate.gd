@@ -70,12 +70,13 @@ func _ready() -> void:
 	plate.add_theme_stylebox_override("panel", style)
 	add_child(plate)
 	var base_icon_position := Vector2(2.0 * factor + STYLE.ICON_SIZE * 0.28, (size.y - STYLE.ICON_SIZE) * 0.5)
-	var icon_position := base_icon_position + STYLE.STAR_ICON_OFFSET
+	var icon_position := base_icon_position + STYLE.STAR_ICON_OFFSET + Vector2(-4, 0)
 	var icon_size := Vector2.ONE * STYLE.ICON_SIZE
-	var shadows := EXTRUSION._create_portrait_icon_extrusion_layers(self, icon_texture, "ScoreStarShadow")
+	var shadows := EXTRUSION._create_portrait_icon_extrusion_layers(self, icon_texture, "ScoreStarShadow", 0, STYLE.ICON_SHADOW_ALPHA)
 	EXTRUSION._layout_portrait_icon_extrusion_layers(shadows, icon_position, icon_size)
 	var icon := TextureRect.new()
 	icon.name = "LeaderboardStarIcon"
+	icon.z_index = 1
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = icon_texture
@@ -85,10 +86,14 @@ func _ready() -> void:
 	add_child(icon)
 	var label := Label.new()
 	label.name = "ScoreValue"
-	var text_left := maxf(plate_rect.position.x, icon.get_rect().end.x) + 2.0
-	var text_right := plate_rect.end.x - 2.0
-	label.position = Vector2(text_left, plate_rect.position.y)
-	label.size = Vector2(text_right - text_left, plate_rect.size.y)
+	var text_area := STYLE.value_rect(Rect2(Vector2.ZERO, size))
+	var text_center := text_area.get_center().x
+	# Use the HUD's authored text center; shrink symmetrically around it so
+	# even long values cannot reach the overlapping star.
+	var safe_left := maxf(text_area.position.x, icon.get_rect().end.x + 2.0)
+	var half_width := maxf(1.0, minf(text_center - safe_left, text_area.end.x - text_center))
+	label.position = Vector2(text_center - half_width, text_area.position.y)
+	label.size = Vector2(half_width * 2.0, text_area.size.y)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -100,8 +105,8 @@ func _ready() -> void:
 	var font := FONTS.regular_font()
 	var font_size := roundi(24.0 * factor * STYLE.FONT_SCALE)
 	var effect := label.get_node("DisplayTextShaderEffect")
-	# Center between the star's right edge and the panel's right edge, with
-	# equal padding. The overlapping part behind the star is not a text area.
+	# Center the visible glyph ink, including its outline and extrusion,
+	# in the same text zone as the Home HUD.
 	var ink := Rect2()
 	var padding := Vector2.ZERO
 	while true:

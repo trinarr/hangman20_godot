@@ -49,6 +49,33 @@ func score_ink_rect(label: Label) -> Rect2:
 	ink.size.x += padding.x + padding.y
 	return ink
 
+func check_rendered_counter_center(counter: Control) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	# Supersample the isolated probe to avoid measuring only antialiased digit interiors.
+	var previous_scale := counter.scale
+	counter.scale = Vector2.ONE * 4
+	await settle()
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var pixel_scale := Vector2(image.get_size()) / get_viewport().get_visible_rect().size
+	var logical_rect := counter.get_global_rect()
+	var rect := Rect2(logical_rect.position * pixel_scale, logical_rect.size * pixel_scale)
+	var star: Control = counter.get_node("LeaderboardStarIcon")
+	var left := image.get_width()
+	var right := -1
+	for y in range(maxi(0, ceili(rect.position.y)), mini(image.get_height(), floori(rect.end.y))):
+		for x in range(maxi(0, ceili(star.get_global_rect().end.x * pixel_scale.x)), mini(image.get_width(), floori(rect.end.x))):
+			var pixel := image.get_pixel(x, y)
+			if minf(pixel.r, minf(pixel.g, pixel.b)) > 0.5:
+				left = mini(left, x)
+				right = maxi(right, x)
+	var zone: Rect2 = SCREEN.SCORE_PLATE.STYLE.value_rect(Rect2(Vector2.ZERO, counter.size))
+	var expected: float = (counter.get_global_transform() * zone.get_center()).x * pixel_scale.x
+	check(right >= left and absf((left + right + 1) * 0.5 - expected) <= 1.25 * counter.get_global_transform().get_scale().x * pixel_scale.x, "GPU score pixels center in the HUD text zone: %s; ink=%s..%s expected=%s" % [counter.value, left, right, expected])
+
+	counter.scale = previous_scale
+
 func _process(_delta: float) -> void:
 	if DisplayServer.get_name() != "headless" and OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
 		RenderingServer.force_draw(false)
@@ -68,7 +95,7 @@ func _ready() -> void:
 	view.set_snapshot(data)
 	await settle()
 	check(view._pin_side == "bottom", "Own row below viewport pins to bottom")
-	check(is_equal_approx(view.scroll.position.y, SCREEN.TABS.CONTENT_Y + SCREEN.LAYOUT.safe_top_stage(get_viewport().get_visible_rect().size)), "Scroll mask touches the tab band")
+	check(is_equal_approx(view.scroll.position.y, SCREEN.TABS.CONTENT_Y + SCREEN.LAYOUT.safe_top_stage(get_viewport().get_visible_rect().size) + SCREEN.TOURNAMENT_PAGE.LIST_TOP_GAP), "Global scroll mask preserves the same countdown gap as Tournament")
 	check(is_zero_approx(view.pinned.get_global_rect().position.x) and is_equal_approx(view.pinned.get_global_rect().size.x, get_viewport().get_visible_rect().size.x), "Pinned strip fills the physical viewport width")
 	var pinned_face: Panel = view.pinned.get_node("CardFace")
 	var pinned_style: StyleBoxFlat = pinned_face.get_theme_stylebox("panel")
@@ -81,7 +108,7 @@ func _ready() -> void:
 	check(edge_shadow.position.y < 0 and !edge_shadow.material.get_shader_parameter("upper_piece"), "Bottom strip casts its faint shadow upward into the list")
 	check(view._players.get_node("TabGradient").visible and !view._weekly.get_node("TabGradient").visible, "Gradient follows the active tab")
 	var first_row: Control = view.rows.get_child(1)
-	check(is_equal_approx(first_row.position.y, SCREEN.LIST_TOP_PADDING), "First card has padding inside the flush scroll mask")
+	check(is_equal_approx(first_row.position.y, SCREEN.LIST_TOP_PADDING), "First card has no extra top inset when switching from Tournament")
 	view.scroll.scroll_vertical = 0
 	view.scroll._begin_pointer_drag(view.scroll.PointerKind.TOUCH)
 	view.scroll._update_pointer_drag(60)
@@ -102,6 +129,7 @@ func _ready() -> void:
 	var icon: TextureRect = first_row.find_child("LeaderboardStarIcon", true, false)
 	check(icon.size.is_equal_approx(Vector2.ONE * view.SCORE_PLATE.STYLE.ICON_SIZE), "Score uses the bounded HUD currency icon size")
 	check(first_row.get_node("CardFace").get_global_rect().encloses(icon.get_global_rect()), "Star icon stays inside its card")
+	check(is_equal_approx(icon.position.x, 2.0 * 38.64 / 48.0 + SCREEN.SCORE_PLATE.STYLE.ICON_SIZE * 0.28 + SCREEN.SCORE_PLATE.STYLE.STAR_ICON_OFFSET.x - 4.0), "List counter star shifts another two units to the left")
 	check(is_equal_approx(icon.get_global_rect().get_center().y, first_row.get_node("CardFace").get_global_rect().get_center().y - first_row.get_global_transform().get_scale().y), "Star icon sits one stage unit above the card center")
 	var rank_medal: TextureRect = first_row.find_child("PlayerRankMedal", true, false)
 	for index: int in range(3):
@@ -116,7 +144,7 @@ func _ready() -> void:
 	var avatar: Button = first_row.find_child("PlayerAvatar", true, false)
 	var player_name: Label = first_row.find_child("PlayerName", true, false)
 	var score_plate: Control = first_row.find_child("PlayerScore", true, false)
-	check(avatar.position.x == 59.5 and player_name.position.x == 126, "Avatar and nickname move five units to the right")
+	check(is_equal_approx(avatar.position.x, 59.5 * 0.85) and is_equal_approx(player_name.position.x, avatar.get_rect().end.x + 13.5), "Avatar inset is fifteen percent smaller and nickname follows the avatar")
 	check(is_equal_approx(rank_medal.get_rect().get_center().x, (avatar.position.x - avatar.outer_outline_width) * 0.5) and is_equal_approx(fourth_rank.get_rect().get_center().x, rank_medal.get_rect().get_center().x), "Medals and numeric ranks share the center of the area before the avatar")
 	check(avatar.outer_outline_width == 1 and avatar._outer_frame_style.border_color == SCREEN.PALETTE.TEXT_DARK, "Compact avatars have a thin outer blue outline")
 	check(rank_medal.get_rect().end.x <= avatar.position.x and avatar.get_rect().end.x < player_name.position.x and player_name.get_rect().end.x < score_plate.position.x, "Rows order rank, framed avatar, name and currency-style score without overlap")
@@ -124,14 +152,18 @@ func _ready() -> void:
 	check(avatar.disabled and avatar.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Decorative avatar never intercepts leaderboard scrolling")
 	check(view._portraits.get_child_count() == 2 and first_row.find_children("*", "SubViewport", true, false).is_empty(), "A hundred rows share two portrait viewports")
 	var third_avatar: Button = view.rows.get_child(3).find_child("PlayerAvatar", true, false)
+	check(is_equal_approx(score_plate.size.x, SCREEN.SCORE_PLATE.width_for_value("9\u202f999\u202f999", 38.64) * 0.90 * 0.85), "List score counters are fifteen percent narrower")
+	check(is_equal_approx(rank_medal.get_rect().get_center().x, (avatar.position.x - avatar.outer_outline_width) * 0.5), "Rank medal centers in the left inset before the avatar")
 	check(avatar._image.texture == third_avatar._image.texture, "Same-character rows share one rendered portrait")
 	var background: StyleBoxFlat = score_plate.get_node("CounterBackground").get_theme_stylebox("panel")
 	check(background.bg_color == SCREEN.PALETTE.UI_BLUE_DARK, "Leaderboard score plate has an opaque dark blue background")
 	check(view.pinned.z_index > 2, "Pinned strip covers the outlined score labels of scrolling rows")
 	var score_value: Label = score_plate.get_node("ScoreValue")
 	check(score_ink_rect(score_value).position.x > icon.get_rect().end.x and score_value.clip_contents, "Score text and its outline stay clear of the star icon")
-	var score_background: Control = score_plate.get_node("CounterBackground")
-	check(is_equal_approx(score_ink_rect(score_value).get_center().x, (icon.get_rect().end.x + score_background.get_rect().end.x) * 0.5), "Visible score is centered between the star and the right panel edge")
+	var list_star_material: ShaderMaterial = score_plate.get_node("ScoreStarShadowExtrusion01").material
+	var list_star_texture: Texture2D = icon.texture
+	check(is_equal_approx(list_star_material.get_shader_parameter("shadow_color").a, SCREEN.SCORE_PLATE.STYLE.ICON_SHADOW_ALPHA) and icon.z_index == 1, "List star uses the shared HUD shadow opacity and icon depth")
+	check(is_equal_approx(score_ink_rect(score_value).get_center().x, SCREEN.SCORE_PLATE.STYLE.value_rect(Rect2(Vector2.ZERO, score_plate.size)).get_center().x), "Visible score uses the authored Home HUD text center")
 	for amount: String in ["9", "98", "100", "220", "273", "999", "1\u202f000"]:
 		var counter := SCREEN.SCORE_PLATE.new()
 		counter.size = score_plate.size
@@ -139,10 +171,11 @@ func _ready() -> void:
 		counter.value = amount
 		add_child(counter)
 		var value_label: Label = counter.get_node("ScoreValue")
-		check(value_label.get_theme_font_size("font_size") == 17, "Short score retains the base font size: " + amount)
-		check(value_label.get_theme_font("font").get_string_size(amount, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x <= value_label.size.x - 4.0, "Short score fits without shrinking: " + amount)
-		var area_center: float = (counter.get_node("LeaderboardStarIcon").get_rect().end.x + counter.get_node("CounterBackground").get_rect().end.x) * 0.5
-		check(is_equal_approx(score_ink_rect(value_label).get_center().x, area_center), "Short score ink stays centered after the star: " + amount)
+		check(value_label.get_theme_font_size("font_size") == 17 if amount.replace("\u202f", "").length() <= 3 else value_label.get_theme_font_size("font_size") >= 14, "Short score retains a readable font size in the centered zone: " + amount)
+		check(score_ink_rect(value_label).size.x <= value_label.size.x + 0.01, "Short score fits the centered text zone: " + amount)
+		var area_center: float = SCREEN.SCORE_PLATE.STYLE.value_rect(Rect2(Vector2.ZERO, counter.size)).get_center().x
+		check(is_equal_approx(score_ink_rect(value_label).get_center().x, area_center), "Short score ink stays centered in the shared HUD text zone: " + amount)
+		await check_rendered_counter_center(counter)
 		counter.queue_free()
 	view.scroll.scroll_vertical = int(49 * SCREEN.ROW_HEIGHT + SCREEN.LIST_TOP_PADDING)
 	await settle()
@@ -245,6 +278,11 @@ func _ready() -> void:
 	var main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await settle()
+	main.show_menu()
+	await settle()
+	var home_star: TextureRect = main.ui.find_child("TopBarStarIcon", true, false)
+	var home_shadow: TextureRect = main.ui.find_child("TopBarStarIconExtrusion01", true, false)
+	check(home_star != null and home_shadow != null and home_star.texture == list_star_texture and home_shadow.material == list_star_material and home_star.z_index == 1, "Leaderboard star shares the Home HUD texture, shader material and visual depth")
 	main._show_leaderboard_screen()
 	await settle()
 	check(is_instance_valid(main._portrait_leaderboard), "Host builds leaderboard")
@@ -275,12 +313,12 @@ func _ready() -> void:
 		var plate: Control = counter.get_node("CounterBackground")
 		var star: Control = counter.get_node("LeaderboardStarIcon")
 		var ink := score_ink_rect(value_label)
-		check(is_equal_approx(ink.get_center().x, (star.get_rect().end.x + plate.get_rect().end.x) * 0.5) and ink.position.x >= star.get_rect().end.x + 2.0 and ink.end.x <= plate.get_rect().end.x - 2.0, "Long score stays centered after the star and clear of both edges")
+		check(is_equal_approx(ink.get_center().x, SCREEN.SCORE_PLATE.STYLE.value_rect(Rect2(Vector2.ZERO, counter.size)).get_center().x) and ink.position.x >= star.get_rect().end.x + 2.0 and ink.end.x <= plate.get_rect().end.x - 2.0, "Long score keeps the shared HUD text center and stays clear of both edges")
 		value_label.add_theme_font_size_override("font_size", fitted_size + 1)
 		var next_padding: Vector2 = value_label.get_node("DisplayTextShaderEffect").get_horizontal_ink_padding()
 		var next_ink: Rect2 = SCREEN.SCORE_PLATE.text_ink_bounds(value_label.text, score_font, fitted_size + 1)
 		value_label.add_theme_font_size_override("font_size", fitted_size)
-		check(fitted_size == 17 or next_ink.size.x + next_padding.x + next_padding.y > plate.get_rect().end.x - star.get_rect().end.x - 4.0, "Long score shrinks only as far as required")
+		check(fitted_size == 17 or next_ink.size.x + next_padding.x + next_padding.y > value_label.size.x, "Long score shrinks only as far as the centered text zone requires")
 	check(maximum_score.get_theme_font_size("font_size") < seven_digit_score.get_theme_font_size("font_size") and maximum_score.get_parent().size.x == seven_digit_score.get_parent().size.x, "Longer scores shrink their text without expanding the counter")
 	main.show_menu()
 	check(!screen._live, "Leaving screen disconnects service immediately")

@@ -16,7 +16,7 @@ const ELASTIC_SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
 const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const PINNED_SHADOW = preload("res://shaders/pinned_list_shadow.gdshader")
-const LIST_TOP_PADDING := 12.0
+const LIST_TOP_PADDING := 0.0
 const ROW_HEIGHT = ROW.ROW_HEIGHT
 const CARD_CORNER_RADIUS = ROW.CARD_CORNER_RADIUS
 const PINNED_EXTRA_PADDING := 3.0
@@ -94,6 +94,8 @@ func _ready() -> void:
 	_tournament.portraits = _portraits
 	_tournament.score_formatter = score_formatter
 	add_child(_tournament)
+	# The countdown belongs visually to the tab band, independently of the selected body.
+	_tournament.countdown.reparent(self, false)
 	_tournament.hide()
 	var tournament_snapshot := GameState.get_tournament_snapshot()
 	if str(tournament_snapshot.phase) == "active":
@@ -260,7 +262,7 @@ func _layout() -> void:
 	var safe: float = LAYOUT.safe_top_stage(viewport_size)
 	_players.position.y = TABS.TAB_Y + safe
 	_weekly.position.y = TABS.TAB_Y + safe
-	var list_top := TABS.CONTENT_Y + safe
+	var list_top := TABS.CONTENT_Y + safe + TOURNAMENT_PAGE.LIST_TOP_GAP
 	scroll.position = Vector2(CARD_SIDE_MARGIN - 8, list_top)
 	scroll.size = Vector2(ROW_WIDTH, maxf(80, size.y - bottom_inset - 12 - list_top))
 	_status.size = Vector2(410, 80)
@@ -269,7 +271,7 @@ func _layout() -> void:
 	_retry.stage_rect = Rect2(90, error_top + 96, 300, 64)
 	_tournament.position = Vector2(0, TABS.CONTENT_Y + safe)
 	var countdown_size: Vector2 = _tournament.countdown.size * _tournament.countdown.scale
-	_tournament.countdown.position = Vector2(_weekly.get_rect().get_center().x - countdown_size.x * 0.5, -countdown_size.y * 0.5)
+	_tournament.countdown.position = Vector2(_weekly.get_rect().get_center().x - countdown_size.x * 0.5, TABS.CONTENT_Y + safe - countdown_size.y * 0.5)
 	_tournament.size = Vector2(480, maxf(180, size.y - bottom_inset - 12 - TABS.CONTENT_Y - safe))
 	_sync_tab_visibility()
 	_update_pin.call_deferred()

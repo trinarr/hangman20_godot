@@ -61,24 +61,27 @@ func inspect_rows(main: Node, view: Control, page: Control) -> void:
 			check(is_equal_approx(pill_rect.get_center().y, page.get_global_rect().position.y), "Tab lower edge bisects the countdown pill")
 			check(is_equal_approx(pill_rect.get_center().x, view._weekly.get_global_rect().get_center().x), "Countdown is centered beneath the Tournament tab caption")
 			check(page.countdown.digits.text.count(":") == 2 and page.countdown.find_child("TournamentStartClockIcon", true, false) != null, "Standings reuse the introduction clock and plain countdown digits")
-			check(page.podium.get_parent() == page and !page.scroll.is_ancestor_of(page.podium), "Prize podium is fixed outside the scrolling subtree")
-			check(page.podium.get_global_rect().end.y < page.scroll.get_global_rect().position.y, "Ordinary list starts below the fixed podium")
+			check(page.find_child("TournamentPodium", true, false) == null and page.scroll.position.y <= 24.0, "All tournament ranks use one list directly below the tabs")
 			for rank in range(1, 4):
-				var card: Control = page.podium.get_node("PodiumPlace%d" % rank)
-				var podium_avatar: Button = card.get_node("PlayerAvatar")
-				check(podium_avatar.size.is_equal_approx(Vector2.ONE * SCREEN.ROW.AVATAR_SIZE * 1.5), "Podium avatars are fifty percent larger than list avatars")
-				check(is_zero_approx(podium_avatar.get_rect().get_center().y) and is_equal_approx(podium_avatar.get_rect().get_center().x, card.size.x * 0.5), "Podium card edge bisects the centered avatar")
-				var medal: TextureRect = card.get_node("PodiumRankMedal")
-				check(is_equal_approx(medal.get_rect().get_center().y, podium_avatar.get_rect().end.y) and medal.texture == SCREEN.ROW.RANK_MEDALS[rank - 1], "Avatar bottom bisects its place medal")
-				var score: Label = card.get_node("PodiumScore")
-				check(is_equal_approx(score.position.x + (score.size.x + 33) * 0.5, card.size.x * 0.5) and score.get_rect().end.y < card.get_node("PodiumReward").position.y, "Stars group is centered above the main prize")
-				check(card.get_node("PodiumReward").texture == (page.GIFT if rank == 1 else page.COIN_PACK), "Podium uses gift or campaign coin pile")
+				var card: Control = page.rows.get_child(rank - 1)
+				var face: Control = card.get_node("CardFace")
+				var avatar: Button = face.get_node("PlayerAvatar")
+				var counter: Control = face.get_node("PlayerScore")
+				var prize: TextureRect = face.get_node("TournamentRowReward")
+				var nickname: Label = face.get_node("PlayerName")
+				check(card.get_meta("rank") == rank and avatar.size.is_equal_approx(Vector2.ONE * SCREEN.ROW.AVATAR_SIZE) and card.custom_minimum_size.y == SCREEN.ROW.ROW_HEIGHT, "Prize ranks use ordinary list rows in 1-2-3 order")
+				check(face.get_node("PlayerRankMedal").texture == SCREEN.ROW.RANK_MEDALS[rank - 1], "Top ranks use the same medals as the finish popup")
+				check(prize.texture == (page.GIFT if rank == 1 else page.COIN_PACK) and prize.get_rect().end.x < counter.position.x and nickname.get_rect().end.x < prize.position.x, "Reward sits between nickname and score without overlap")
+				check(is_equal_approx(counter.position.x - prize.get_rect().end.x, 4.0) and face.find_children("TournamentRewardShadow*", "TextureRect", false, false).size() == 4, "Reward uses the same light icon-shadow style as the star and sits close to its counter")
+				check(face.get_node("TournamentRewardShadowExtrusion01").material == counter.get_node("ScoreStarShadowExtrusion01").material and prize.z_index == 1, "Reward and star share the exact shadow material and artwork depth")
 				if rank != 1:
-					check(card.get_node("PodiumRewardAmount").text == "x%d" % int(page._snapshot.rewards[rank - 1]), "Coin pile counter follows tournament balance")
+					var amount: Label = face.get_node("TournamentRowRewardAmount")
+					check(is_equal_approx(amount.position.y, prize.get_rect().end.y - 18) and amount.get_theme_font_size("font_size") == roundi(16 * 1.15), "Larger coin amount overlaps its reward icon")
+					check(face.get_node("TournamentRowRewardAmount").text == "x%d" % int(page._snapshot.rewards[rank - 1]), "Coin row displays its configured reward")
 				var expected: Dictionary = page._snapshot.rows[rank - 1]
 				if expected.mine:
 					expected = GameState.get_player_profile()
-				check(podium_avatar.get_meta("character_id") == expected.character_id and podium_avatar.get_meta("frame_id") == expected.frame_id, "Podium renders the participant's saved or own profile")
+				check(avatar.get_meta("character_id") == expected.character_id and avatar.get_meta("frame_id") == expected.frame_id, "Prize-row avatar keeps its saved profile")
 			var face: Panel = page.rows.get_child(0).get_node("CardFace")
 			var own_face: Panel = page.own_row.get_node("CardFace")
 			check(face.size == Vector2(SCREEN.CARD_WIDTH, 68) and face.get_theme_stylebox("panel").bg_color == SCREEN.PALETTE.PRESS_HIGHLIGHT, "Tournament uses global row geometry and ordinary face")
@@ -92,7 +95,7 @@ func inspect_rows(main: Node, view: Control, page: Control) -> void:
 			for index in range(3, page._snapshot.rows.size()):
 				var entry: Dictionary = page._snapshot.rows[index]
 				if !bool(entry.mine):
-					var rival_avatar: Button = page.rows.get_child(index - 3).get_node("CardFace/PlayerAvatar")
+					var rival_avatar: Button = page.rows.get_child(index).get_node("CardFace/PlayerAvatar")
 					frozen_appearances_match = frozen_appearances_match and rival_avatar.get_meta("character_id") == entry.character_id and rival_avatar.get_meta("frame_id") == entry.frame_id
 			check(frozen_appearances_match, "Tournament rows render the saved real or synthetic appearance")
 			check(face.get_global_rect().position.x >= 0 and face.get_global_rect().end.x <= get_viewport().get_visible_rect().size.x, "Tournament card fits narrow and tall screens")
@@ -126,8 +129,8 @@ func run() -> void:
 	await settle()
 	var page: Control = view._tournament
 	check(page.visible and !view.scroll.visible and !view._status.visible and !view._retry.visible, "Tournament tab replaces all global content")
-	check(GameState.tournament_state.is_empty() and !page.podium.visible and !page.scroll.visible, "Viewing an empty tab never starts a tournament or builds a preview")
-	check(page.podium.get_child_count() == 0 and page.find_child("TournamentAction", true, false) == null, "Empty standings contain no placeholder avatars or legacy start button")
+	check(GameState.tournament_state.is_empty() and !page.scroll.visible, "Viewing an empty tab never starts a tournament or builds a preview")
+	check(page.rows.get_child_count() == 0 and page.find_child("TournamentAction", true, false) == null, "Empty standings contain no placeholder avatars or legacy start button")
 	GameState._single_player_bucket("ru")["theme_unlock_completed_levels"] = 5
 	GameState._single_player_bucket(Database.current_language)["unlocked_level"] = 5
 	main.show_menu()
@@ -140,17 +143,11 @@ func run() -> void:
 	await settle()
 	view = main._portrait_leaderboard
 	page = view._tournament
-	check(page.visible and page.podium.visible and page.scroll.visible, "Home opens existing active standings with real participants")
-	var second: Control = page.podium.get_node("PodiumPlace2")
-	var first: Control = page.podium.get_node("PodiumPlace1")
-	var third: Control = page.podium.get_node("PodiumPlace3")
-	check(second.position.x < first.position.x and first.position.x < third.position.x, "Podium order is 2-1-3")
-	check(first.size.y > second.size.y and first.position.y < second.position.y, "First place visually raised above other large cards")
+	check(page.visible and page.scroll.visible, "Home opens existing active standings with real participants")
 	check(page._snapshot.phase == "active" and page.find_child("TournamentAction", true, false) == null, "Active standings have no tournament action")
-	var own_avatar: Button = page.own_row.get_node("PlayerAvatar")
+	var own_avatar: Button = page.own_row.find_child("PlayerAvatar", true, false)
 	check(own_avatar.get_meta("character_id") == GameState.get_player_profile().character_id and own_avatar.get_meta("frame_id") == GameState.player_frame_id, "Player's first-place avatar uses the selected profile")
-	check(page.rows.get_child_count() == 7 and page.podium.get_child_count() == 3, "Only seven remaining players belong to the scroll list")
-	check(page.podium.get_node("PodiumPlace1").size.y > 3 * 66, "Top-three cards are larger than ordinary rows")
+	check(page.rows.get_child_count() == page._snapshot.rows.size(), "All ranks belong to the same scroll list")
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	main._grant_remaining_attempt_star_reward({}, true)
 	check(int(GameState.tournament_state.player_stars) == 0, "Actual two-player result does not score tournament stars")
@@ -186,12 +183,11 @@ func run() -> void:
 	await inspect_rows(main, view, page)
 	check(page.find_child("TournamentPinnedPlayer", true, false) == null, "Tournament has no pinned player strip")
 	check(is_equal_approx(page.own_row.modulate.a, 1), "Own row remains visible in the regular list")
-	var fixed_position: Vector2 = page.podium.get_global_rect().position
 	var first_row_position: Vector2 = page.rows.get_child(0).get_global_rect().position
 	page.scroll.scroll_vertical = 100000
 	await settle()
-	check(page.scroll.scroll_vertical > 0 and page.podium.get_global_rect().position.is_equal_approx(fixed_position), "Scrolling the list never moves the prize podium")
-	check(!page.rows.get_child(0).get_global_rect().position.is_equal_approx(first_row_position), "Only ordinary tournament rows move with the scroll")
+	check(page.scroll.scroll_vertical > 0, "Tournament list scrolls when its rows exceed the viewport")
+	check(!page.rows.get_child(0).get_global_rect().position.is_equal_approx(first_row_position), "Prize ranks scroll together with all other players")
 	check(is_equal_approx(page.own_row.modulate.a, 1), "Scrolling keeps own row visible")
 	var saved_scroll: int = page.scroll.scroll_vertical
 	page.refresh()
@@ -199,6 +195,11 @@ func run() -> void:
 	check(page.scroll.scroll_vertical == saved_scroll, "Timer refresh preserves scroll position")
 	view._players.pressed.emit()
 	await settle()
+	check(page.countdown.is_visible_in_tree() and is_equal_approx(view.scroll.position.y, page.position.y + page.scroll.position.y), "Countdown remains visible on Global and both scroll masks share the same top gap")
+	var countdown_before: String = page.countdown.digits.text
+	now += 1
+	await get_tree().create_timer(1.1).timeout
+	check(page.countdown.is_visible_in_tree() and page.countdown.digits.text != countdown_before, "Countdown continues ticking while Tournament body is hidden")
 	check(!page.visible and view._status.visible and view._retry.visible and !view.scroll.visible, "Global tab remains available and reports its offline read instead of showing cached rows")
 	view._weekly.pressed.emit()
 	await settle()
