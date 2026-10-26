@@ -11,6 +11,10 @@ const COUNTDOWN = preload("res://scripts/ui/tournament_countdown.gd")
 const ICON_SHADOW = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const LIST_TOP_GAP := 24.0
 const SCROLL = preload("res://scripts/ui/leaderboard_scroll.gd")
+const ENTRANCE = preload("res://scripts/ui/list_entrance.gd")
+var _list_entrance := ENTRANCE.new()
+var _entrance_pending := true
+var entrance_enabled := true
 var portraits: Node
 var score_formatter: Callable
 var scroll: ScrollContainer
@@ -28,6 +32,8 @@ func _tr(key: String, ru: String, en: String) -> String:
 
 func _ready() -> void:
 	name = "TournamentPage"
+	add_child(_list_entrance)
+	visibility_changed.connect(_on_visibility_changed)
 	if !is_instance_valid(portraits):
 		portraits = PORTRAITS.new()
 		add_child(portraits)
@@ -74,6 +80,8 @@ func refresh() -> void:
 	_layout()
 
 func _rebuild() -> void:
+	_entrance_pending = _entrance_pending or _list_entrance.is_playing()
+	_list_entrance.stop()
 	var previous_scroll := scroll.scroll_vertical
 	own_row = null
 	for child in rows.get_children():
@@ -165,16 +173,27 @@ func _shrink(label: Label, minimum: int) -> void:
 	label.add_theme_font_size_override("font_size", font_size)
 
 func _layout() -> void:
-	if !is_node_ready():
+	if !is_node_ready() or !_live:
 		return
 	var list_top := LIST_TOP_GAP
 	scroll.position = Vector2(ROW.CARD_SIDE_MARGIN - 8, list_top)
 	scroll.size = Vector2(ROW.ROW_WIDTH, maxf(0, size.y - list_top))
+	if entrance_enabled and _entrance_pending and is_visible_in_tree() and scroll.size.y > 0 and rows.get_child_count() > 0:
+		_entrance_pending = false
+		_list_entrance.play(rows, scroll)
+
+func _on_visibility_changed() -> void:
+	if !is_visible_in_tree():
+		_list_entrance.stop()
+		_entrance_pending = false
+	elif is_node_ready():
+		_layout()
 
 func dispose() -> void:
 	if !_live:
 		return
 	_live = false
+	_list_entrance.stop()
 	_timer.stop()
 	if is_instance_valid(countdown):
 		countdown.hide()

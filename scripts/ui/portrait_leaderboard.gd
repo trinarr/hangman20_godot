@@ -17,6 +17,9 @@ const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 const PINNED_SHADOW = preload("res://shaders/pinned_list_shadow.gdshader")
 const LIST_TOP_PADDING := 0.0
+const ENTRANCE = preload("res://scripts/ui/list_entrance.gd")
+var _list_entrance := ENTRANCE.new()
+var _entrance_pending := true
 const ROW_HEIGHT = ROW.ROW_HEIGHT
 const CARD_CORNER_RADIUS = ROW.CARD_CORNER_RADIUS
 const PINNED_EXTRA_PADDING := 3.0
@@ -55,12 +58,14 @@ static func localized(key: String, ru: String, en: String) -> String:
 
 func _ready() -> void:
 	name = "LeaderboardScreen"
+	add_child(_list_entrance)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_portraits = PORTRAITS.new()
 	add_child(_portraits)
 	_players = _tab(1, localized("LEADERBOARD_PLAYERS", "Глобальный", "Global"), false)
 	_weekly = _tab(0, localized("LEADERBOARD_TOURNAMENT", "Турнир", "Tournament"), false)
 	_tournament_selected = initial_tournament
+	_entrance_pending = !initial_tournament
 	TABS.select(_weekly, _tournament_selected)
 	TABS.select(_players, !_tournament_selected)
 	_players.pressed.connect(func(): _select_tab(false))
@@ -91,12 +96,13 @@ func _ready() -> void:
 	_retry.pressed.connect(func(): _load(true))
 	add_child(_retry)
 	_tournament = TOURNAMENT_PAGE.new()
+	_tournament.entrance_enabled = initial_tournament
 	_tournament.portraits = _portraits
 	_tournament.score_formatter = score_formatter
 	add_child(_tournament)
-	# The countdown belongs visually to the tab band, independently of the selected body.
-	_tournament.countdown.reparent(self, false)
-	_tournament.hide()
+	# Keep the clock visible with either body and inherit the Tournament tab press.
+	_tournament.countdown.reparent(_weekly, false)
+	_tournament.visible = _tournament_selected
 	var tournament_snapshot := GameState.get_tournament_snapshot()
 	if str(tournament_snapshot.phase) == "active":
 		_watched_tournament_id = str(GameState.tournament_state.id)
@@ -201,8 +207,16 @@ func set_snapshot(snapshot: Dictionary) -> void:
 		_status.show()
 	_layout()
 	_update_pin.call_deferred()
+	_reveal_global_rows()
+
+func _reveal_global_rows() -> void:
+	if _live and _entrance_pending and !_tournament_selected and !_snapshot.get("top", []).is_empty():
+		_entrance_pending = false
+		_list_entrance.play(rows, scroll)
 
 func _clear_global_rows() -> void:
+	_entrance_pending = _entrance_pending or _list_entrance.is_playing()
+	_list_entrance.stop()
 	own_row = null
 	if is_instance_valid(pinned):
 		pinned.free()
@@ -271,23 +285,27 @@ func _layout() -> void:
 	_retry.stage_rect = Rect2(90, error_top + 96, 300, 64)
 	_tournament.position = Vector2(0, TABS.CONTENT_Y + safe)
 	var countdown_size: Vector2 = _tournament.countdown.size * _tournament.countdown.scale
-	_tournament.countdown.position = Vector2(_weekly.get_rect().get_center().x - countdown_size.x * 0.5, TABS.CONTENT_Y + safe - countdown_size.y * 0.5)
+	_tournament.countdown.position = Vector2((_weekly.size.x - countdown_size.x) * 0.5, _weekly.size.y - countdown_size.y * 0.5)
 	_tournament.size = Vector2(480, maxf(180, size.y - bottom_inset - 12 - TABS.CONTENT_Y - safe))
 	_sync_tab_visibility()
 	_update_pin.call_deferred()
 
 func _select_tab(tournament: bool) -> void:
-	if !_live:
+	if !_live or tournament == _tournament_selected:
 		return
 	var was_tournament := _tournament_selected
+	if tournament != was_tournament:
+		_list_entrance.stop()
+		_entrance_pending = false
 	_tournament_selected = tournament
-	TABS.select(_players, !tournament)
-	TABS.select(_weekly, tournament)
+	TABS.select(_players, !tournament, true)
+	TABS.select(_weekly, tournament, true)
 	_sync_tab_visibility()
 	if tournament:
 		_tournament.refresh()
 	elif was_tournament:
 		_load(true)
+		_reveal_global_rows()
 	else:
 		_update_pin.call_deferred()
 
@@ -348,6 +366,7 @@ func _check_tournament_expiry() -> void:
 
 func dispose() -> void:
 	_live = false
+	_list_entrance.stop()
 	if is_instance_valid(_expiry_timer):
 		_expiry_timer.stop()
 	if is_instance_valid(_tournament):

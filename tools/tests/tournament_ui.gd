@@ -41,6 +41,10 @@ func _ready() -> void:
 	call_deferred("run")
 
 func inspect_rows(main: Node, view: Control, page: Control) -> void:
+	# Static geometry is checked after the first entry; motion has its own suite.
+	if page._list_entrance.is_playing():
+		await page._list_entrance._tween.finished
+		await settle()
 	var previous_size := get_window().size
 	var previous_language: String = Database.interface_language
 	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
@@ -84,7 +88,7 @@ func inspect_rows(main: Node, view: Control, page: Control) -> void:
 				check(avatar.get_meta("character_id") == expected.character_id and avatar.get_meta("frame_id") == expected.frame_id, "Prize-row avatar keeps its saved profile")
 			var face: Panel = page.rows.get_child(0).get_node("CardFace")
 			var own_face: Panel = page.own_row.get_node("CardFace")
-			check(face.size == Vector2(SCREEN.CARD_WIDTH, 68) and face.get_theme_stylebox("panel").bg_color == SCREEN.PALETTE.PRESS_HIGHLIGHT, "Tournament uses global row geometry and ordinary face")
+			check(face.size == Vector2(SCREEN.CARD_WIDTH, 68) and face.get_theme_stylebox("panel").bg_color == SCREEN.PALETTE.PRESS_HIGHLIGHT, "Tournament uses global row geometry and ordinary face: size=%s color=%s mine=%s" % [face.size, face.get_theme_stylebox("panel").bg_color, page._snapshot.rows[0].mine])
 			check(own_face.get_theme_stylebox("panel").bg_color == SCREEN.PALETTE.BUTTON_SELECTED_ACCENT, "Tournament highlights own row with the global accent")
 			var avatar: Button = own_face.get_node("PlayerAvatar")
 			var profile: Dictionary = GameState.get_player_profile()

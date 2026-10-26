@@ -35,7 +35,7 @@ func _ready() -> void:
 	select_tab(initial_tab)
 
 func select_tab(tab: String) -> void:
-	if tab != "profile" and tab != "settings":
+	if tab == selected_tab or (tab != "profile" and tab != "settings"):
 		return
 	selected_tab = tab
 	if tab == "profile" and !is_instance_valid(player_profile):
@@ -54,7 +54,7 @@ func select_tab(tab: String) -> void:
 		settings_scroll.visible = tab == "settings"
 	for key: String in _buttons:
 		var button: Button = _buttons[key]
-		TABS.select(button, key == tab)
+		TABS.select(button, key == tab, true)
 	_layout()
 
 func _build_settings() -> void:

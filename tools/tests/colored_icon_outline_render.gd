@@ -190,5 +190,15 @@ func check_refill_popups() -> void:
 			if !directory.is_empty():
 				get_viewport().get_texture().get_image().save_png(directory.path_join("comment_outline_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
 			main._remove_word_comment_popup()
+			await get_tree().create_timer(0.3).timeout
+			GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+			main.game_finished = false
+			main._show_exit_game_popup()
+			await get_tree().create_timer(0.8).timeout
+			var broken_heart := main.find_child("BrokenHeartBase", true, false) as TextureRect
+			check(broken_heart != null and broken_heart.material.get_shader_parameter("outline_pixels") == 5.0, "Exit popup broken heart uses five pixels")
+			if !directory.is_empty():
+				get_viewport().get_texture().get_image().save_png(directory.path_join("exit_heart_outline_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
+			main._remove_exit_game_popup()
 			main.queue_free()
 			await frame()

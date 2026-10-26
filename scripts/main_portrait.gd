@@ -3227,7 +3227,7 @@ func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
 	heart_icon.name = "BrokenHeartBase"
 	heart_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heart_icon.texture = LIFE_HEART_ICON_TEXTURE
-	UI_MATERIALS.OUTLINE.apply(heart_icon, LIFE_HEART_ICON_TEXTURE)
+	UI_MATERIALS.OUTLINE.apply(heart_icon, LIFE_HEART_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
 	heart_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	heart_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	heart_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -6765,26 +6765,10 @@ func _play_quiz_screen_entrance(
 		if answer_button == null or !is_instance_valid(answer_button) or !answer_button.visible:
 			continue
 		var answer_delay: float = float(visible_answer_order) * PORTRAIT_QUIZ_ENTRANCE_ANSWER_STAGGER
-		var answer_slide := content_tween.tween_property(
-			answer_button,
-			"position:x",
-			0.0,
-			PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION
-		)
-		answer_slide.set_delay(answer_delay)
-		answer_slide.set_trans(Tween.TRANS_CUBIC)
-		answer_slide.set_ease(Tween.EASE_OUT)
+		preload("res://scripts/ui/list_entrance.gd").slide(content_tween, answer_button, 0.0, PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION, answer_delay)
 		var shadow_panel := _quiz_answer_shadow(answer_button)
 		if shadow_panel != null and is_instance_valid(shadow_panel) and shadow_panel.visible:
-			var shadow_slide := content_tween.tween_property(
-				shadow_panel,
-				"position:x",
-				0.0,
-				PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION
-			)
-			shadow_slide.set_delay(answer_delay)
-			shadow_slide.set_trans(Tween.TRANS_CUBIC)
-			shadow_slide.set_ease(Tween.EASE_OUT)
+			preload("res://scripts/ui/list_entrance.gd").slide(content_tween, shadow_panel, 0.0, PORTRAIT_QUIZ_ENTRANCE_CONTENT_DURATION, answer_delay)
 		visible_answer_order += 1
 	# Do not wait for the staggered answer cascade to finish here. The theme
 	# bounce should begin the instant the question card itself reaches its final
