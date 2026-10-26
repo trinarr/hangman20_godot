@@ -177,6 +177,7 @@
   },
   "advertising": {
     "unlock_level": 3,
+    "rewarded_load_timeout_seconds": 12.0,
     "interstitial_interval_seconds": 240
   },
   "timings": {

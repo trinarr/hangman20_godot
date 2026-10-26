@@ -2,11 +2,14 @@ extends Node
 const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 const FADE = preload("res://scripts/ui/composited_fade.gd")
 class TestUI extends "res://scripts/main_portrait.gd":
+	var test_ads_enabled: bool = false
 	func _ready() -> void:
 		_build_root()
 		_clear()
 	func _portrait_ads_enabled() -> bool:
-		return false
+		return test_ads_enabled
+	func _portrait_ads_service() -> Node:
+		return null
 	func _should_auto_resume_guided_single_player() -> bool:
 		return false
 var checks := 0
@@ -110,10 +113,15 @@ func check_refill_popups() -> void:
 			await get_tree().create_timer(0.3).timeout
 			GameState.hearts = 2
 			GameState.heart_recovery_at = int(Time.get_unix_time_from_system()) + 600
+			main._on_hearts_changed(2, 600)
 			main._show_heart_refill_popup()
 			await get_tree().create_timer(0.8).timeout
 			var popup: Node = get_tree().get_first_node_in_group("heart_refill_popup")
 			var heart: Control = popup.find_child("HeartRefillIcon", true, false)
+			var compact_bottom: float = popup.stage.get("popup_bottom")
+			var compact_purchase_y: float = popup.find_child("HeartRefillPurchaseButton", true, false).get("stage_rect").position.y
+			check(is_equal_approx(compact_bottom, 503.0 + main._portrait_popup_extra_bottom_space()), "Heart popup without ads uses the single-button height")
+			check(!get_tree().get_first_node_in_group("heart_refill_ad_button").visible, "Compact popup hides the unavailable ad row")
 			var shadows: Array = heart.get_meta("main_reward_icon_shadow_layers")
 			check(heart.get_node("HeartRefillVisual").material.get_shader_parameter("outline_pixels") == 5.0, "Heart popup uses five pixels")
 			check(shadows.size() == 4 and shadows[0].material == shadow_material, "Heart shares the coin popup's four-layer shadow material")
@@ -152,5 +160,35 @@ func check_refill_popups() -> void:
 			main._show_heart_refill_popup()
 			await get_tree().create_timer(0.8).timeout
 			check(get_tree().get_nodes_in_group("heart_refill_popup").size() == 1, "Heart shadow survives closing and reopening without duplicate popups")
+			main._close_heart_refill_popup()
+			await get_tree().create_timer(0.3).timeout
+			main.test_ads_enabled = true
+			main._show_heart_refill_popup()
+			await get_tree().create_timer(0.8).timeout
+			var full_popup: Node = get_tree().get_first_node_in_group("heart_refill_popup")
+			var full_bottom: float = full_popup.stage.get("popup_bottom")
+			var full_purchase_y: float = full_popup.find_child("HeartRefillPurchaseButton", true, false).get("stage_rect").position.y
+			check(is_equal_approx(full_bottom - compact_bottom, 79.0) and is_equal_approx(full_purchase_y - compact_purchase_y, 79.0), "Only the hidden ad row is removed from shell, centering and purchase layout")
+			check(get_tree().get_first_node_in_group("heart_refill_ad_button").visible, "Ads-enabled popup retains both buttons")
+			if !directory.is_empty():
+				get_viewport().get_texture().get_image().save_png(directory.path_join("heart_two_buttons_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
+			main._close_heart_refill_popup()
+			await get_tree().create_timer(0.3).timeout
+			main.test_ads_enabled = false
+			GameSession.is_active = true
+			GameSession.theme_id = 0
+			GameSession.comment_hint_unlocked = true
+			GameSession.word_hint_text = "Comment outline preview"
+			main._show_word_comment_popup()
+			await get_tree().create_timer(1.6).timeout
+			var comment_icons := 0
+			for candidate: Control in main.find_children("*", "FlashStageTexture", true, false):
+				if candidate.material is ShaderMaterial and candidate.material.shader == main.UI_MATERIALS.GRAYSCALE_SHADER:
+					comment_icons += 1
+					check(candidate.material.get_shader_parameter("outline_pixels") == 5.0, "Comment popup grayscale icon uses five pixels")
+			check(comment_icons == 1, "Comment popup has one grayscale theme icon")
+			if !directory.is_empty():
+				get_viewport().get_texture().get_image().save_png(directory.path_join("comment_outline_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
+			main._remove_word_comment_popup()
 			main.queue_free()
 			await frame()

@@ -14,6 +14,7 @@
 | --- | --- | --- |
 | `verify_easy_quiz_expansion.py` | `Existing explanation changed: ru` | Сверить изменения пояснений и редакторскую фикстуру |
 | GPU `profile_ui`, окно 690×1536 | При проверке 21 октября 2026 не проходит `Full settings scrolls when available height is short`; проверки ника проходят | Разобрать размер тестового окна и ожидание прокрутки настроек отдельно от редактора ника |
+| `release_reward_regression` | 26 октября 2026: `tagged late callback reaches original hint`, `second UI request can load`; те же два сбоя воспроизведены с `main_portrait.gd` из Git HEAD до изменения тайм-аута ×2 | Разобрать фикстуру разблокировки подсказок и обработку позднего callback отдельно от ×2 |
 
 ## Доверие к лидерборду
 

@@ -840,6 +840,7 @@ var _portrait_final_reward_continue_button: Control = null
 var _portrait_single_reward_continue_button: Control = null
 var _portrait_reward_double_context: StringName = &""
 var _portrait_reward_ad_request_id: String = ""
+var _portrait_reward_load_guard: Node = null
 var _portrait_reward_double_animation_amount: int = 0
 var _portrait_rewarded_request_id: String = ""
 var _portrait_rewarded_retry_scheduled: bool = false
@@ -1228,6 +1229,9 @@ func _hide_portrait_ad_banner() -> void:
 		ads_service.call("hide_banner")
 
 func _clear(preserved_content: Control = null) -> void:
+	if is_instance_valid(_portrait_reward_load_guard):
+		_portrait_reward_load_guard.cancel(false)
+		_portrait_reward_load_guard = null
 	var opening_transition: CanvasLayer = null
 	if is_instance_valid(_home_transition) and _home_transition.get_script() == TABBED_PAGE_TRANSITION_SCRIPT:
 		var retained_home: Control = _home_transition.call("preserved_home")
@@ -7470,13 +7474,15 @@ func _show_heart_refill_popup(
 	heart_refill_reward_acquired = reward_acquired
 	heart_refill_store_is_open = _portrait_coin_store_active
 	var close_action := Callable(self, "_close_heart_refill_popup")
+	var show_rewarded_ad: bool = _portrait_ads_enabled()
+	var popup_bottom: float = (582.0 if show_rewarded_ad else 503.0) + _portrait_popup_extra_bottom_space()
 	var previous_content := _portrait_popup_begin(
 		"HeartRefillPopup",
 		"heart_refill_popup",
 		150,
 		close_action,
 		145.0,
-		582.0 + _portrait_popup_extra_bottom_space(),
+		popup_bottom,
 		true,
 		Callable(self, "_return_to_heart_refill_from_coin_store").bind(
 			continue_action,
@@ -7485,7 +7491,7 @@ func _show_heart_refill_popup(
 			reward_acquired
 		)
 	)
-	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 437.0))
+	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
 		rect,
 		tr("HEART_REFILL_TITLE"),
@@ -7627,7 +7633,7 @@ func _show_heart_refill_popup(
 	rewarded_heart_button.set("drop_shadow_enabled", true)
 	rewarded_heart_button.add_to_group(&"heart_refill_ad_button")
 	rewarded_heart_button.z_index = 16
-	rewarded_heart_button.visible = _portrait_ads_enabled()
+	rewarded_heart_button.visible = show_rewarded_ad
 	if rewarded_heart_button.visible:
 		_prepare_portrait_rewarded_placement(&"heart_refill")
 	# Use StageLongButton for the complete rewarded row: leading ad icon, native
@@ -7673,6 +7679,7 @@ func _show_heart_refill_popup(
 	)
 	# Keep all custom button content inside the button itself. The complete row is
 	# centered as one block, using the same font size as the extra-attempt popup.
+	purchase_button.name = "HeartRefillPurchaseButton"
 	purchase_button.z_index = 16
 	purchase_button.set("drop_shadow_enabled", true)
 	purchase_button.mouse_filter = (
@@ -15052,7 +15059,7 @@ func _action_reward_context_matches(action: StringName, context: Dictionary) -> 
 	return false
 
 func _action_request_can_show(request_id: String) -> bool:
-	if request_id != _portrait_rewarded_request_id or Time.get_ticks_msec() - _portrait_rewarded_request_started_msec >= 12000:
+	if request_id != _portrait_rewarded_request_id or Time.get_ticks_msec() - _portrait_rewarded_request_started_msec >= int(PORTRAIT_GAME_DESIGN.get_float("advertising.rewarded_load_timeout_seconds") * 1000.0):
 		return false
 	var origin: Node = _portrait_rewarded_origin.get_ref() if _portrait_rewarded_origin != null else null
 	if !is_instance_valid(origin) or origin.is_queued_for_deletion() or !origin.is_inside_tree():
@@ -15454,8 +15461,10 @@ func _finish_single_player_stage_coin_reward_offer() -> void:
 	_show_single_player_reward_chain_screen()
 
 func _decline_single_player_stage_coin_reward_double() -> void:
-	if _portrait_final_reward_waiting_for_ad or _portrait_reward_double_context != &"stage_coin":
+	if _portrait_reward_double_context != &"stage_coin":
 		return
+	if is_instance_valid(_portrait_reward_load_guard):
+		_portrait_reward_load_guard.cancel(false)
 	GameState.resolve_active_single_player_stage_reward_double(false, true)
 	_finish_single_player_stage_coin_reward_offer()
 
@@ -15494,11 +15503,18 @@ func _on_final_reward_double_pressed() -> void:
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(false)
+	var load_guard := preload("res://scripts/ui/rewarded_load_guard.gd").new()
+	load_guard.cancelled.connect(_on_final_reward_ad_failed_to_show)
+	load_guard.watch(ads_service, _portrait_reward_ad_request_id, _portrait_final_reward_double_button)
+	add_child(load_guard)
+	_portrait_reward_load_guard = load_guard
 	if !bool(ads_service.call(
 		"show_rewarded_video",
 		_portrait_reward_ad_request_id,
-		_portrait_reward_double_context
+		_portrait_reward_double_context,
+		Callable(load_guard, "can_show")
 	)):
+		load_guard.cancel(false)
 		GameState.cancel_rewarded_double_request(_portrait_reward_ad_request_id)
 		# `show_rewarded_video()` starts preloading when no rewarded ad is ready.
 		# Do not leave the button in a silent pending state: report the miss now,
@@ -15645,7 +15661,7 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(true)
 
-func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) -> void:
+func _on_final_reward_ad_failed_to_show(request_id: String, _message: String, report_error: bool = true) -> void:
 	GameState.cancel_rewarded_double_request(request_id)
 	if request_id != _portrait_reward_ad_request_id or !_portrait_final_reward_waiting_for_ad:
 		return
@@ -15654,11 +15670,14 @@ func _on_final_reward_ad_failed_to_show(request_id: String, _message: String) ->
 	_portrait_final_reward_earned_ad_reward = false
 	_portrait_reward_double_animation_amount = 0
 	_set_final_reward_double_button_enabled(true)
-	_show_portrait_ad_not_ready_toast()
+	if report_error:
+		_show_portrait_ad_not_ready_toast()
 
 func _claim_single_player_final_reward() -> void:
-	if _portrait_final_reward_waiting_for_ad or _portrait_reward_double_context != &"final":
+	if _portrait_reward_double_context != &"final":
 		return
+	if is_instance_valid(_portrait_reward_load_guard):
+		_portrait_reward_load_guard.cancel(false)
 	# The normal main reward is now already credited during the pack bounce. In
 	# that state the no-thanks/continue action only has to leave the reward screen.
 	if _portrait_final_reward_claim_in_progress:
@@ -15709,8 +15728,10 @@ func _play_early_final_reward_coin_claim(
 func _claim_single_player_final_reward_and_open_next_theme(
 	next_level_index: int
 ) -> void:
-	if _portrait_final_reward_waiting_for_ad or _portrait_reward_double_context != &"final":
+	if _portrait_reward_double_context != &"final":
 		return
+	if is_instance_valid(_portrait_reward_load_guard):
+		_portrait_reward_load_guard.cancel(false)
 	if !_portrait_final_reward_claim_in_progress:
 		_complete_single_player_final_reward(1, false, false)
 	_finish_single_player_final_reward_claim(next_level_index)
@@ -17283,7 +17304,9 @@ func _show_word_comment_popup() -> void:
 				(comment_theme_glow.get_parent() as CanvasItem).z_index = -2
 			comment_theme_glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
 			comment_theme_icon = _stage_texture(comment_theme_icon_rect, comment_theme_icon_texture)
-			comment_theme_icon.material = UI_MATERIALS.grayscale(comment_theme_icon_texture)
+			var comment_icon_material := UI_MATERIALS.grayscale(comment_theme_icon_texture).duplicate() as ShaderMaterial
+			comment_icon_material.set_shader_parameter("outline_pixels", UI_MATERIALS.OUTLINE.POPUP_PIXELS)
+			comment_theme_icon.material = comment_icon_material
 			comment_theme_icon.z_index = -1
 			# Arm the proven icon bounce first. Glow reveal is an independent listener and
 			# must never alter or replace the icon tween sequence.
