@@ -134,7 +134,7 @@ func run() -> void:
 	await get_tree().create_timer(0.3).timeout
 	check(is_instance_valid(main._portrait_profile), "Avatar opens profile screen")
 	check(!is_instance_valid(opening_home), "Home is removed after the new page is fully visible")
-	check(main.content.get_parent() == opening_surface.get("page_viewport") and is_equal_approx(opening_surface.modulate.a, 1.0), "Destination stays in its original live tree after opening")
+	check(main.content.get_parent() == main.ui and !is_instance_valid(opening_surface), "Destination returns to native UI and releases the transition surface")
 	check(main.content.find_child("PatternMotion", true, false) == null, "Profile has no animated pattern")
 	var profile_background: Control = main.content.find_child("TabbedPageBackground", true, false)
 	check(profile_background != null and profile_background.get("fill_color") == main.PORTRAIT_BLUE, "Profile body joins active blue tab")

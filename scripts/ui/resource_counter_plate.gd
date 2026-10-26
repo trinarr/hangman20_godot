@@ -8,6 +8,8 @@ const EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 var icon_texture: Texture2D
 var value := ""
+var _value_label: Label
+var _value_origin_x := 0.0
 
 static var _glyph_ink: Dictionary = {}
 
@@ -104,8 +106,19 @@ func _ready() -> void:
 	label.add_theme_font_override("font", FONTS.regular_font())
 	label.add_theme_color_override("font_color", Color.WHITE)
 	TEXT.apply_regular_display(label)
+	add_child(label)
+	_value_label = label
+	_value_origin_x = label.position.x
+	set_value(value)
+
+func set_value(text: String) -> void:
+	value = text
+	if !is_instance_valid(_value_label):
+		return
+	var label := _value_label
+	label.position.x = _value_origin_x
 	var font := FONTS.regular_font()
-	var font_size := roundi(24.0 * factor * STYLE.FONT_SCALE)
+	var font_size := roundi(24.0 * size.y / 48.0 * STYLE.FONT_SCALE)
 	var effect := label.get_node("DisplayTextShaderEffect")
 	# Center the visible glyph ink, including its outline and extrusion,
 	# in the same text zone as the Home HUD.
@@ -122,4 +135,3 @@ func _ready() -> void:
 	var native_center_offset := (label.size.x - advance) * 0.5
 	label.position.x += native_center_offset - floorf(native_center_offset) + advance * 0.5 - ink.get_center().x - (padding.y - padding.x) * 0.5
 	label.text = value
-	add_child(label)

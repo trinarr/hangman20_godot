@@ -1,4 +1,5 @@
 extends Control
+const PAGE_TRANSFER = preload("res://scripts/ui/tabbed_page_transfer.gd")
 ## Read-only standings for the tournament created by gameplay or its introduction.
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
@@ -183,6 +184,8 @@ func _layout() -> void:
 		_list_entrance.play(rows, scroll)
 
 func _on_visibility_changed() -> void:
+	if PAGE_TRANSFER.active(self):
+		return
 	if !is_visible_in_tree():
 		_list_entrance.stop()
 		_entrance_pending = false
@@ -203,6 +206,8 @@ func dispose() -> void:
 		GameState.save_game()
 
 func _exit_tree() -> void:
+	if PAGE_TRANSFER.active(self):
+		return
 	dispose()
 	if is_instance_valid(countdown) and countdown.get_parent() != self:
 		countdown.queue_free()

@@ -1,4 +1,5 @@
 extends Control
+const PAGE_TRANSFER = preload("res://scripts/ui/tabbed_page_transfer.gd")
 signal tournament_finished
 ## Native scrolling children share one stage transform; rows never map twice.
 const TOURNAMENT_PAGE = preload("res://scripts/ui/portrait_tournament.gd")
@@ -36,6 +37,7 @@ var rows: VBoxContainer
 var pinned: Control
 var own_row: Control
 var _snapshot: Dictionary = {}
+var _row_by_id: Dictionary = {}
 var _pin_side := ""
 var _live := true
 var _status: Label
@@ -169,39 +171,84 @@ func _failed() -> void:
 func set_snapshot(snapshot: Dictionary) -> void:
 	if !_live:
 		return
-	scroll.reset_scroll_effect()
 	_waiting_for_fresh = false
 	_loading = false
 	_retry.button_disabled = false
-	_snapshot = snapshot.duplicate(true)
+	var unchanged := _snapshot == snapshot
 	_has_error = false
 	_status.hide()
 	_retry.hide()
-	_clear_global_rows()
+	if unchanged:
+		if snapshot.get("top", []).is_empty():
+			_status.text = localized("LEADERBOARD_EMPTY", "Пока нет участников", "No players yet")
+			_status.show()
+			_layout()
+		return
+	_snapshot = snapshot.duplicate(true)
 	var me: Dictionary = snapshot.get("me") if snapshot.get("me") is Dictionary else {}
 	var top: Array = snapshot.get("top", [])
-	if !top.is_empty():
-		var top_padding := Control.new()
-		top_padding.name = "LeaderboardTopPadding"
-		top_padding.custom_minimum_size.y = LIST_TOP_PADDING
-		top_padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rows.add_child(top_padding)
+	# The padding, row objects and pinned card survive cache/network refreshes.
+	var wanted: Dictionary = {}
+	if is_instance_valid(own_row):
+		own_row.modulate.a = 1.0
+	own_row = null
+	var padding := rows.get_node_or_null("LeaderboardTopPadding")
+	if !top.is_empty() and padding == null:
+		padding = Control.new()
+		padding.name = "LeaderboardTopPadding"
+		padding.custom_minimum_size.y = LIST_TOP_PADDING
+		padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rows.add_child(padding)
+	if padding != null:
+		if top.is_empty():
+			padding.free()
+			padding = null
+		else:
+			rows.move_child(padding, 0)
+	var index := 1 if padding != null else 0
 	for entry: Dictionary in top:
-		var mine := !me.is_empty() and str(entry.get("player_id", "")) == str(me.get("player_id", ""))
-		var row := _card(entry, mine)
-		rows.add_child(row)
+		var id := str(entry.get("player_id", ""))
+		var mine := !me.is_empty() and id == str(me.get("player_id", ""))
+		var row: Control = _row_by_id.get(id)
+		if row == null:
+			row = _card(entry, mine)
+			rows.add_child(row)
+		elif row.get_meta("leaderboard_entry") != entry or row.get_meta("leaderboard_mine") != mine:
+			ROW.update(row, entry, mine, _portraits, score_formatter)
+		wanted[id] = row
+		if row.get_index() != index:
+			rows.move_child(row, index)
+		index += 1
 		if mine:
 			own_row = row
+	for id in _row_by_id:
+		if !wanted.has(id):
+			# Restore a moving visual before deleting a row targeted by the tween.
+			_list_entrance.stop()
+			_row_by_id[id].free()
+	_row_by_id = wanted
 	if !me.is_empty() and int(me.get("stars", 0)) > 0:
-		pinned = _card(me, true, true)
-		pinned.name = "PinnedPlayer"
-		pinned.z_index = 10
-		add_child(pinned)
-		if own_row == null:
-			var spacer := Control.new()
+		if !is_instance_valid(pinned):
+			pinned = _card(me, true, true)
+			pinned.name = "PinnedPlayer"
+			pinned.z_index = 10
+			add_child(pinned)
+		elif pinned.get_meta("leaderboard_entry") != me:
+			ROW.update(pinned, me, true, _portraits, score_formatter)
+	elif is_instance_valid(pinned):
+		pinned.free()
+		pinned = null
+	var spacer := rows.get_node_or_null("PinnedPlayerSpacer")
+	if is_instance_valid(pinned) and own_row == null:
+		if spacer == null:
+			spacer = Control.new()
+			spacer.name = "PinnedPlayerSpacer"
 			spacer.custom_minimum_size.y = PINNED_HEIGHT
 			spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			rows.add_child(spacer)
+		rows.move_child(spacer, -1)
+	elif spacer != null:
+		spacer.free()
 	if top.is_empty():
 		_status.text = localized("LEADERBOARD_EMPTY", "Пока нет участников", "No players yet")
 		_status.show()
@@ -218,6 +265,7 @@ func _clear_global_rows() -> void:
 	_entrance_pending = _entrance_pending or _list_entrance.is_playing()
 	_list_entrance.stop()
 	own_row = null
+	_row_by_id.clear()
 	if is_instance_valid(pinned):
 		pinned.free()
 		pinned = null
@@ -378,6 +426,7 @@ func dispose() -> void:
 			service.sync_failed.disconnect(_failed)
 
 func _exit_tree() -> void:
-	dispose()
+	if !PAGE_TRANSFER.active(self):
+		dispose()
 	if get_viewport().size_changed.is_connected(_layout):
 		get_viewport().size_changed.disconnect(_layout)

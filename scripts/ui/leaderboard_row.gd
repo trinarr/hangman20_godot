@@ -38,27 +38,11 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	row.add_child(face)
 	var card_content: Control = face
 	var rank_value := int(entry.get("rank", 0)) if entry.get("rank") != null else 0
-	var rank := str(rank_value) if rank_value > 0 else "100+"
 	var name_text := str(entry.get("nickname", "ID " + str(entry.get("player_id", ""))))
 	var avatar: Button = portraits.create_avatar(entry, AVATAR_SIZE)
 	avatar.position = Vector2(59.5 * 0.85, 7)
 	var rank_area_width: float = avatar.position.x - avatar.outer_outline_width
-	if rank_value >= 1 and rank_value <= RANK_MEDALS.size():
-		var medal := TextureRect.new()
-		medal.name = "PlayerRankMedal"
-		medal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		medal.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		medal.texture = RANK_MEDALS[rank_value - 1]
-		medal.position = Vector2((rank_area_width - 38.0) * 0.5, 15)
-		medal.size = Vector2(38, 38)
-		medal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		medal.set_meta("rank", rank_value)
-		card_content.add_child(medal)
-	else:
-		var rank_label := _label(card_content, Rect2(0, 0, rank_area_width, 68), rank, 25)
-		rank_label.name = "PlayerRank"
-		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		rank_label.add_theme_font_override("font", FONTS.button_font())
+	_add_rank(card_content, rank_value, rank_area_width)
 	card_content.add_child(avatar)
 	var counter_width := SCORE_PLATE.width_for_value("9\u202f999\u202f999", 38.64) * 0.90 * 0.85
 	var name_x := avatar.get_rect().end.x + 13.5
@@ -81,6 +65,67 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	counter.icon_texture = STAR
 	counter.value = score
 	card_content.add_child(counter)
+	row.set_meta("leaderboard_entry", entry.duplicate(true))
+	row.set_meta("leaderboard_mine", mine)
+
+static func _add_rank(parent: Control, rank_value: int, rank_area_width: float) -> void:
+	var rank := str(rank_value) if rank_value > 0 else "100+"
+	if rank_value >= 1 and rank_value <= RANK_MEDALS.size():
+		var medal := TextureRect.new()
+		medal.name = "PlayerRankMedal"
+		medal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		medal.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		medal.texture = RANK_MEDALS[rank_value - 1]
+		medal.position = Vector2((rank_area_width - 38.0) * 0.5, 15)
+		medal.size = Vector2(38, 38)
+		medal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		medal.set_meta("rank", rank_value)
+		parent.add_child(medal)
+	else:
+		var rank_label := _label(parent, Rect2(0, 0, rank_area_width, 68), rank, 25)
+		rank_label.name = "PlayerRank"
+		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rank_label.add_theme_font_override("font", FONTS.button_font())
+
+# Preserve the row, text effects and score plate when only its data changes.
+static func update(row: Control, entry: Dictionary, mine: bool, portraits: Node, score_formatter: Callable) -> void:
+	var previous: Dictionary = row.get_meta("leaderboard_entry", {})
+	var face: Panel = row.get_node("CardFace")
+	if row.get_meta("leaderboard_mine", false) != mine:
+		var style := CARD.face_style(PALETTE.BUTTON_SELECTED_ACCENT if mine else PALETTE.PRESS_HIGHLIGHT)
+		style.set_corner_radius_all(CARD_CORNER_RADIUS)
+		face.add_theme_stylebox_override("panel", style)
+	var appearance: Dictionary = preload("res://scripts/core/player_profile.gd").resolve_appearance(entry)
+	var avatar: Button = face.get_node("PlayerAvatar")
+	if avatar.get_meta("character_id") != appearance.character_id or avatar.get_meta("frame_id") != appearance.frame_id:
+		var position := avatar.position
+		avatar.free()
+		avatar = portraits.create_avatar(entry, AVATAR_SIZE)
+		avatar.position = position
+		face.add_child(avatar)
+	if previous.get("rank") != entry.get("rank"):
+		var old_rank := face.get_node_or_null("PlayerRankMedal")
+		if old_rank == null:
+			old_rank = face.get_node_or_null("PlayerRank")
+		if old_rank != null:
+			old_rank.free()
+		_add_rank(face, int(entry.get("rank", 0)) if entry.get("rank") != null else 0, avatar.position.x - avatar.outer_outline_width)
+	var label: Label = face.get_node("PlayerName")
+	var name_text := str(entry.get("nickname", "ID " + str(entry.get("player_id", ""))))
+	if label.text != name_text:
+		label.text = name_text
+		var font := label.get_theme_font("font")
+		var font_size := 23
+		while font_size > 14 and font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > label.size.x:
+			font_size -= 1
+		label.add_theme_font_size_override("font_size", font_size)
+	if previous.get("stars") != entry.get("stars"):
+		var score := str(entry.get("stars", 0))
+		if score_formatter.is_valid():
+			score = str(score_formatter.call(int(entry.get("stars", 0))))
+		face.get_node("PlayerScore").set_value(score)
+	row.set_meta("leaderboard_entry", entry.duplicate(true))
+	row.set_meta("leaderboard_mine", mine)
 
 static func _label(parent: Control, rect: Rect2, text: String, font_size: int, color: Color = PALETTE.TEXT_DARK) -> Label:
 	var label := Label.new()

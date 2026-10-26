@@ -1,4 +1,5 @@
 extends Node
+const PAGE_TRANSFER = preload("res://scripts/ui/tabbed_page_transfer.gd")
 ## Quiz-style cascade on row visuals, leaving Container layout and scroll intact.
 const CONFIG = preload("res://scripts/core/game_design_config.gd")
 var _tween: Tween
@@ -48,4 +49,5 @@ func stop() -> void:
 	_items.clear()
 
 func _exit_tree() -> void:
-	stop()
+	if !PAGE_TRANSFER.active(self):
+		stop()

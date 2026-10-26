@@ -152,9 +152,10 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if get_viewport() != null and get_viewport().size_changed.is_connected(_sync_to_stage):
 		get_viewport().size_changed.disconnect(_sync_to_stage)
-	_pending_symbol_path = ""
-	_pending_playback.clear()
-	_stop_playback_state()
+	if !preload("res://scripts/ui/tabbed_page_transfer.gd").active(self):
+		_pending_symbol_path = ""
+		_pending_playback.clear()
+		_stop_playback_state()
 
 func _reload_symbol() -> void:
 	_stop_playback_state()
