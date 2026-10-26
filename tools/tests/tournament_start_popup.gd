@@ -162,6 +162,35 @@ func run() -> void:
 			await settle()
 			GameState.load_game()
 			check(GameState.tournament_state.id == identifier, "Tournament survives closing the game on its introduction")
+			var word: Dictionary = Database.get_words_by_index(0, 0)[0]
+			GameSession.start_round(WordData.new(str(word.text), float(word.difficulty), 0, int(word.index), str(word.id)))
+			for letter: String in Database.get_alphabet():
+				if !GameSession.letters.has(letter):
+					GameSession.guess(letter, true)
+					break
+			var saved_round: Dictionary = GameSession.to_save_data()
+			check(GameState.set_active_single_player_session({"kind":"word", "language":Database.current_language,
+				"level_index":5, "word_slot":0, "theme_id":Database.get_theme_id(0), "data":saved_round}), "Persist unfinished level before tournament Play")
+			main.show_menu()
+			await settle()
+			INTRO.present(main)
+			prompt = main.content.get_node("TournamentStartPrompt")
+			var before_play_coins: int = GameState.get_soft_currency()
+			var before_play_hearts: int = GameState.get_hearts()
+			prompt.action.pressed.emit()
+			prompt.action.pressed.emit()
+			await get_tree().create_timer(1.1).timeout
+			await settle()
+			check(main.game_screen_visible and main.single_player_active_level_index == 5, "Tournament Play resumes the unfinished level instead of selecting a new theme")
+			check(!is_instance_valid(main.single_player_popup_stage_content) and get_tree().get_nodes_in_group(INTRO.GROUP).is_empty(), "Resume closes the tournament introduction without opening theme selection")
+			check(GameSession.to_save_data() == saved_round, "Tournament Play preserves the saved word, guessed letters, attempts and hints")
+			check(GameState.get_soft_currency() == before_play_coins and GameState.get_hearts() == before_play_hearts, "Repeated tournament Play does not charge coins or hearts")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("tournament_resume_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save resumed level after tournament Play")
+			GameState.clear_active_single_player_session()
+			GameSession.discard_current_round()
+			main.show_menu()
 			main.show_tournament()
 			await get_tree().create_timer(0.5).timeout
 			await settle()

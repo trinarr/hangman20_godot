@@ -97,6 +97,15 @@ func run() -> void:
 					continue
 				await get_tree().create_timer(0.9).timeout
 				check(popup.stage.open_bounce_complete, "Popup entrance settles")
+				var countdown: Control = popup.find_child("TournamentFinishTimerPlate", true, false)
+				check(countdown != null and countdown.get_script() == PROMPT.COUNTDOWN, "Finished tournament reuses the start popup countdown component")
+				if countdown != null:
+					check(countdown.digits.text == "00:00:00", "Finished tournament countdown stays at zero after entrance")
+					var description_panel: Control = popup.find_child("TournamentFinishDescriptionPanel", true, false)
+					var timer_center: Vector2 = countdown.get_global_rect().get_center()
+					var panel_bounds: Rect2 = description_panel.get_global_rect()
+					check(is_equal_approx(timer_center.x, panel_bounds.get_center().x) and is_equal_approx(timer_center.y, panel_bounds.position.y), "Countdown centers on the description panel upper edge as in the start popup")
+					check(countdown.size.is_equal_approx(PROMPT.COUNTDOWN.PILL_SIZE) and countdown.find_child("TournamentStartClockIcon", true, false) != null, "Finished countdown preserves the start popup size and clock")
 				check(main._portrait_handle_modal_back_request(), "Back is consumed by the mandatory popup")
 				var click := InputEventMouseButton.new()
 				click.button_index = MOUSE_BUTTON_LEFT

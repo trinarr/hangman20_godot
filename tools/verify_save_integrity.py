@@ -219,9 +219,14 @@ def main() -> None:
     require("resume_available" in resume_body, "Single-player button does not switch to Resume")
     require('Database.tr_text(3, "Continue")' in resume_body, "Large Continue label is missing")
     require('tr("LEVEL_NUMBER")' in resume_body, "Small Level N label is missing")
+    home_play = function_body(portrait, "_play_single_player_from_home")
     require(
-        'single_player_action = Callable(self, "_resume_saved_single_player_level")' in portrait,
-        "Home does not conditionally show Resume",
+        'Callable(self, "_play_single_player_from_home")' in function_body(portrait, "_show_menu_screen")
+        and "GameState.has_resumable_single_player_level()" in home_play
+        and 'Callable(self, "_resume_saved_single_player_level")' in home_play
+        and 'Callable(self, "_open_next_single_player_level")' in home_play
+        and "_open_single_player_from_home(action)" in home_play,
+        "Home Play does not route between a new level and Resume",
     )
     require(
         "func _stage_resume_level_button" not in portrait,

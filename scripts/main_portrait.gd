@@ -3603,12 +3603,9 @@ func _show_menu_screen() -> void:
 	logo_reveal.set("shine_duration", PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS)
 
 	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
-	var single_player_action := Callable(self, "_open_next_single_player_level")
-	if GameState.has_resumable_single_player_level():
-		single_player_action = Callable(self, "_resume_saved_single_player_level")
 	var single_player_button := _stage_single_player_menu_button(
 		Rect2(33.0, 670.0, 414.0, 88.32),
-		Callable(self, "_open_single_player_from_home").bind(single_player_action)
+		Callable(self, "_play_single_player_from_home")
 	)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
 	tournament_button.name = "HomeTournamentButton"
@@ -3659,6 +3656,12 @@ func _leave_home(action: Callable, blue_pattern: bool = false, solid_background:
 	add_child(_home_transition)
 	_home_transition.tree_exited.connect(Callable(self, "_trace_ad_banner").bind("home_transition_exited"), CONNECT_ONE_SHOT)
 	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action, _portrait_top_bar_content)
+
+func _play_single_player_from_home() -> void:
+	var action := Callable(self, "_open_next_single_player_level")
+	if GameState.has_resumable_single_player_level():
+		action = Callable(self, "_resume_saved_single_player_level")
+	_open_single_player_from_home(action)
 
 func _open_single_player_from_home(action: Callable) -> void:
 	if is_instance_valid(_home_transition):

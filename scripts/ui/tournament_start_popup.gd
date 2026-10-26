@@ -1,5 +1,5 @@
 extends Node
-## A durable tournament starts with this introduction; Play opens theme selection.
+## A durable tournament starts with this introduction; Play shares the Home action.
 const GROUP: StringName = &"tournament_start_popup"
 const TROPHY = preload("res://assets/tournament/start_trophy_low.png")
 const PEDESTAL = preload("res://assets/tournament/start_pedestal.png")
@@ -168,7 +168,7 @@ func _play() -> void:
 	if _closed or !is_instance_valid(host):
 		return
 	_go()
-	host._open_next_single_player_level()
+	host._play_single_player_from_home()
 
 func _go() -> void:
 	if _closed:

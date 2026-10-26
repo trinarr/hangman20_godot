@@ -54,7 +54,6 @@ var nickname: Control
 var save_button: Control
 var profile_service: Node
 var _saving := false
-var _pending_sync := false
 var _save_input_states: Array[Dictionary] = []
 var _purchase_content: Control
 var _purchase_price: Label
@@ -404,7 +403,9 @@ func _update_save_availability(value: String) -> void:
 		var current: Dictionary = GameState.get_player_profile()
 		var unchanged := name_value == str(current.nickname) and selected_character == int(current.character_id) \
 			and _selected_color_index + 1 == int(current.frame_id)
-		save_button.button_disabled = (unchanged and !_pending_sync) or _nickname_has_ime_text() or !PROFILE.valid_custom_name(name_value)
+		var service: Node = profile_service if is_instance_valid(profile_service) else Leaderboard
+		var pending_sync: bool = service.has_pending_profile_sync()
+		save_button.button_disabled = (unchanged and !pending_sync) or _nickname_has_ime_text() or !PROFILE.valid_custom_name(name_value)
 		_refresh_save_offer(name_value, unchanged)
 
 func _refresh_save_offer(value: String, unchanged: bool) -> void:
@@ -457,7 +458,6 @@ func _save_draft() -> void:
 		if !unchanged and !GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value != GameState.player_name):
 			_finish_save(false)
 			return
-		_pending_sync = true
 		var service: Node = profile_service if is_instance_valid(profile_service) else Leaderboard
 		_wait_for_profile_sync(weakref(self), service)
 
@@ -511,7 +511,6 @@ func _restore_save_inputs() -> void:
 func _finish_save(success: bool) -> void:
 	_set_saving(false)
 	if success:
-		_pending_sync = false
 		close()
 		if is_instance_valid(host):
 			host._show_portrait_status_toast(tr("PROFILE_SAVE_SUCCESS"), true)

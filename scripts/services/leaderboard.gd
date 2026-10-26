@@ -202,6 +202,12 @@ func sync_profile() -> void:
 	if is_instance_valid(_debounce):
 		_debounce.start()
 
+func has_pending_profile_sync() -> bool:
+	if !is_configured():
+		return false
+	_ensure_store_loaded()
+	return _current_profile() != _synced_profile
+
 func sync_profile_and_wait() -> bool:
 	if !is_configured():
 		return false

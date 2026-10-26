@@ -264,10 +264,18 @@ func run() -> void:
 	client.profile = {"nickname":"AwaitedProfile", "character_id":2, "frame_id":2}
 	transport.replies = [{"status":0}]
 	check(!(await client.sync_profile_and_wait()) and client._profile_pending, "Awaited profile reports transport failure and preserves its pending upload")
+	check(client.has_pending_profile_sync(), "Unconfirmed profile is exposed to newly opened editors")
+	var profile_restart: Node = CLIENT.new()
+	profile_restart.transport = transport
+	profile_restart.save_file = client.save_file
+	profile_restart.profile = client.profile.duplicate(true)
+	check(profile_restart.has_pending_profile_sync(), "Restart compares the local profile with its persisted server acknowledgement")
+	profile_restart.free()
 	var calls_before_wait: int = transport.calls.size()
 	check(!(await client.sync_profile_and_wait()) and transport.calls.size() == calls_before_wait + 1, "Explicit profile retry immediately attempts another request despite cooldown")
 	transport.replies = [reply(160)]
 	check(await client.sync_profile_and_wait(), "Awaited profile completes after its server acknowledgement")
+	check(!client.has_pending_profile_sync(), "Acknowledged profile no longer offers Retry")
 	calls_before_wait = transport.calls.size()
 	check(await client.sync_profile_and_wait(), "Already acknowledged profile can complete immediately")
 	check(transport.calls.size() == calls_before_wait, "Retrying an acknowledged profile does not resend it")

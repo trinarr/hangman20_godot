@@ -5,6 +5,7 @@ const ROW = preload("res://scripts/ui/leaderboard_row.gd")
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
 const TOURNAMENT = preload("res://scripts/ui/portrait_tournament.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
+const COUNTDOWN = preload("res://scripts/ui/tournament_countdown.gd")
 var host: Node
 var popup: CanvasLayer
 var claim_button: Control
@@ -65,6 +66,14 @@ func _build(snapshot: Dictionary) -> void:
 		host.PORTRAIT_REFILL_STATUS_CORNER_RADIUS)
 	panel.name = "TournamentFinishDescriptionPanel"
 	panel.z_index = 8
+	var timer_size: Vector2 = COUNTDOWN.PILL_SIZE
+	var timer_rect := Rect2(Vector2(panel_rect.get_center().x, panel_rect.position.y) - timer_size * 0.5, timer_size)
+	var timer_holder: Control = host._stage_holder(timer_rect, Control.MOUSE_FILTER_IGNORE)
+	timer_holder.z_index = 14
+	var timer_pill: Control = COUNTDOWN.new()
+	timer_pill.name = "TournamentFinishTimerPlate"
+	timer_holder.add_child(timer_pill)
+	timer_pill.set_remaining(0)
 	var gift := int(snapshot.rank) == 1
 	var reward_texture: Texture2D = TOURNAMENT.GIFT if gift else TOURNAMENT.COIN_PACK
 	var reward_size := Vector2.ONE * (115.2 * 0.95 if gift else 108.0 * 0.97)

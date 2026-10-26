@@ -32,9 +32,15 @@ class KeyboardEditor extends "res://scripts/ui/profile_editor_popup.gd":
 class ProfileSyncMock extends Node:
 	signal answered(success: bool)
 	var calls := 0
+	var pending := false
+	func has_pending_profile_sync() -> bool:
+		return pending
 	func sync_profile_and_wait() -> bool:
 		calls += 1
-		return await answered
+		pending = true
+		var success: bool = await answered
+		pending = !success
+		return success
 
 var checks := 0
 var failures := 0
@@ -484,6 +490,21 @@ func run() -> void:
 	check(GameState.soft_currency == 0, "The paid rename is charged only by its durable local commit")
 	await get_tree().create_timer(0.2).timeout
 	await capture_editor_offer("save-error")
+	editor.close()
+	await get_tree().create_timer(0.3).timeout
+	check(!is_instance_valid(editor), "Failed server save can be closed before retry")
+	# Inject the same service before _ready, as a new popup uses the surviving autoload.
+	editor = player_body.EDITOR.new()
+	editor.host = main
+	editor.source = profile_avatar
+	editor.popup_style = player_body.editor_style
+	editor.profile_service = profile_sync
+	player_body._editor = editor
+	player_body.add_child(editor)
+	await get_tree().create_timer(0.65).timeout
+	check(!editor.save_button.button_disabled and editor.nickname.get_line_edit().text == committed_name, "Reopened editor restores Retry for the locally saved, unconfirmed profile")
+	check(profile_sync.calls == 1 and GameState.soft_currency == 0, "Reopening neither sends the profile nor charges the rename again")
+	await capture_editor_offer("save-reopened")
 	editor.save_button.pressed.emit()
 	editor.save_button.pressed.emit()
 	check(profile_sync.calls == 2 and GameState.soft_currency == 0, "Retry synchronizes the existing profile without charging again")
