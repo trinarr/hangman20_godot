@@ -18,20 +18,27 @@ func run() -> void:
 	var database: Node = root.get_node("Database")
 	var session: Node = root.get_node("GameSession")
 	var revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261004.json"))
+	var later_revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261027.json"))
+	var audit_revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261027_audit.json"))
+	var latest_hints: Dictionary = {}
+	var changes: Array = revision.changes + later_revision.changes + audit_revision.changes
+	for row: Dictionary in changes:
+		latest_hints[row.id] = row.new_hint
 	var count: int = 0
 	for language: String in ["ru", "en"]:
 		database.load_languages(language, language)
-		for row: Dictionary in revision.changes:
+		for row: Dictionary in changes:
 			if row.language != language:
 				continue
 			count += 1
+			var current_hint: String = str(latest_hints.get(row.id, row.new_hint))
 			var text: String = database.normalize_loaded_word(row.answer)
 			var ref: Dictionary = database.resolve_saved_word(int(row.theme_id), text, row.id)
 			check(!ref.is_empty() and ref.id == row.id, "Stable identity did not resolve: " + row.id)
-			check(ref.hint == row.new_hint, "Runtime hint differs: " + row.id)
+			check(ref.hint == current_hint, "Runtime hint differs: " + row.id)
 			var word: RefCounted = WORD.new(text, database.get_word_difficulty(database.get_theme_index_by_id(int(row.theme_id)), int(ref.index)), database.get_theme_index_by_id(int(row.theme_id)), int(ref.index), row.id)
 			session.start_round(word)
-			check(session.get_word_hint() == row.new_hint, "New round uses old hint: " + row.id)
+			check(session.get_word_hint() == current_hint, "New round uses old hint: " + row.id)
 			# Existing paid/unlocked hints are snapshots of the current round.
 			var saved: Dictionary = session.to_save_data()
 			saved.word_hint_text = row.hint
@@ -43,17 +50,17 @@ func run() -> void:
 				"Paid hint or progress lost: " + row.id)
 			check(session.get_word_hint() == row.hint, "Existing round snapshot changed: " + row.id)
 			saved.erase("word_hint_text")
-			check(session.restore_from_save_data(saved) and session.get_word_hint() == row.new_hint,
+			check(session.restore_from_save_data(saved) and session.get_word_hint() == current_hint,
 				"Missing saved hint did not fall back to current database: " + row.id)
 			var label := Label.new()
 			label.add_theme_font_override("font", FONTS.question_comment_font())
 			label.add_theme_font_size_override("font_size", 25)
 			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			label.size = Vector2(348.0, 202.0)
-			label.text = row.new_hint
+			label.text = current_hint
 			root.add_child(label)
 			check(label.get_minimum_size().y <= 202.0, "Comment popup overflow: " + row.id)
 			label.free()
-	check(count == 190, "Wrong hint revision quota")
+	check(count == 988, "Wrong hint revision quota")
 	print("WORD_HINT_REVISION checks=", checks, " failures=", failures)
 	quit(1 if failures else 0)

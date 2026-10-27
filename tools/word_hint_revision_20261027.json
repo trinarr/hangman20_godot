@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "revision": "hint_editorial_20261027",
+  "previous_revision": "hint_editorial_20261004",
+  "baseline_digests": {
+    "ru": "9b102887f6300479e07d126e02fe1481763d75d1d7f1f4932f04b7899bb40f8f",
+    "en": "5b45c9980c58ab3bdb3d3b7ce01a7b22d6602cfdfa8568d946e24fb3f1bfb451"
+  },
+  "changes": [
+    {
+      "id": "en-119100bc01124920",
+      "theme_id": 1,
+      "answer": "PICKLEBALL",
+      "hint": "A racket sport played with solid paddles and a perforated plastic ball over a low net.",
+      "concept_score": 0.35003735,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "A racket sport played over a low net with solid paddles instead of strung rackets."
+    },
+    {
+      "id": "en-bd09e436021c5117",
+      "theme_id": 1,
+      "answer": "GOALBALL",
+      "hint": "This Paralympic team sport uses a ball with bells and relies on sound for positioning.",
+      "concept_score": 0.57995896,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "Blindfolded teams listen for bells to block shots and score."
+    },
+    {
+      "id": "en-920ec1cc66698961",
+      "theme_id": 1,
+      "answer": "PICKLEBALL PADDLE",
+      "hint": "This solid paddle is used to strike a perforated ball over a low net",
+      "concept_score": 1.0,
+      "assessment": "legacy_calibration",
+      "score_adjustment": 0.0748,
+      "language": "en",
+      "new_hint": "A solid racket without strings, used in a court game with a low net."
+    },
+    {
+      "id": "en-a63ee6a1ffb40963",
+      "theme_id": 1,
+      "answer": "BASEBALL GLOVE",
+      "hint": "A leather hand covering used to catch a fast-moving projectile on the diamond.",
+      "concept_score": 0.90434654,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "A leather hand covering used to catch a pitch."
+    },
+    {
+      "id": "en-850dcb968f0d043a",
+      "theme_id": 1,
+      "answer": "MASSAGE BALL",
+      "hint": "This small firm ball releases tight muscles through pressure.",
+      "concept_score": 0.88216687,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "A small firm tool rolled over tight muscles to help them relax."
+    },
+    {
+      "id": "en-c006ee7a74c10e11",
+      "theme_id": 1,
+      "answer": "BALL CART",
+      "hint": "This wheeled container stores balls during practice.",
+      "concept_score": 0.89302423,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "A wheeled basket a coach uses to store equipment during practice."
+    },
+    {
+      "id": "en-43b74d8396f2c3c7",
+      "theme_id": 1,
+      "answer": "BALL TEE",
+      "hint": "This small stand supports a ball before a strike.",
+      "concept_score": 0.93640488,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "A small stand used before a kick or a golf swing."
+    },
+    {
+      "id": "en-7ba3d1ace26def30",
+      "theme_id": 1,
+      "answer": "BASKETBALL HOOP",
+      "hint": "Players send a round object through a raised metal rim",
+      "concept_score": 0.37997278,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "Players aim through this raised metal ring to score points."
+    },
+    {
+      "id": "en-8c63f9ad7fe0465c",
+      "theme_id": 1,
+      "answer": "BALL PASS",
+      "hint": "A player sends possession to a teammate",
+      "concept_score": 0.37999791,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "A player finds a teammate with a well-aimed kick or throw."
+    },
+    {
+      "id": "en-2aee9b41eb8482e6",
+      "theme_id": 1,
+      "answer": "BALL CONTROL",
+      "hint": "The ability to keep the playing sphere close while moving",
+      "concept_score": 0.06006227,
+      "assessment": "legacy_calibration",
+      "language": "en",
+      "new_hint": "The ability to keep the ball close while moving."
+    }
+  ]
+}
