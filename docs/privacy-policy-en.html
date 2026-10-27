@@ -18,39 +18,56 @@
     <article class="paper">
       <h1 class="paper__title">Privacy Policy</h1>
       <div class="paper__body">
-        <p class="effective-date">Effective date: September 23, 2026</p>
+        <p class="effective-date">Effective date: October 27, 2026</p>
 
         <div class="notice">
-          Hangman 2.0 is made by Nikita Lukanin, an independent game developer and data controller (the “Developer”). The game does not require an account or send your game save to the Developer's servers. For privacy questions, email <a href="mailto:trinarr@mail.ru">trinarr@mail.ru</a>.
+          Hangman 2.0 is made by Nikita Lukanin, an independent game developer and data controller (the “Developer”). Playing does not require email registration or creating a password. The app automatically creates a technical account for its online features. Your full game save is not uploaded to a server; only the specific information described below is transmitted. For privacy questions, email <a href="mailto:trinarr@mail.ru">trinarr@mail.ru</a>.
         </div>
 
         <h2>1. Data on your device</h2>
-        <p>Settings and game progress, including the state of an unfinished game, are stored only on your device. The game has no accounts, cloud synchronization, Developer-operated profile servers, or Developer-operated analytics. The Developer does not receive your local game save.</p>
-        <p>This data is removed when you clear the app's data or uninstall the game.</p>
+        <p>Your full game progress, including an unfinished round, settings, resource balances, and personal tournament state, is stored on your device.</p>
+        <p>Your online profile and leaderboard result are stored separately from your local save. Their existence does not provide cloud recovery of a complete round or transfer of all your progress to another device.</p>
+        <p>Clearing the app's data or uninstalling the game removes the local save and credentials for the technical account. Information previously sent to the server is not automatically deleted.</p>
 
-        <h2>2. Advertising</h2>
+        <h2>2. Technical account and profile</h2>
+        <p>After you accept the current version of the legal documents and complete the introductory tutorial, the app automatically creates a technical account through Supabase when a network connection is available. It is used to maintain your server-side profile, record your leaderboard result, and process quiz statistics.</p>
+        <p>Identifiers are assigned to the account and server-side profile. The profile contains your in-game nickname, selected character, and frame. Your initial nickname is generated automatically; you can change it in the game.</p>
+        <p>Credentials are stored on your device and used for subsequent requests to the server. We do not ask for an email address or password for this account. Clearing the app's data may result in losing access to the previous account.</p>
+        <p>The Developer uses Supabase infrastructure to operate these features. During a network connection, the infrastructure necessarily receives the IP address and request information. Information about processing on behalf of customers is available in the <a href="https://supabase.com/legal/customer-resources/data-processing-addendum" rel="noopener noreferrer">Supabase Data Processing Addendum</a>.</p>
+
+        <h2>3. Leaderboards and information visible to other players</h2>
+        <p>To build the global leaderboard, the app sends your star balance to the server. The server retains the highest result submitted.</p>
+        <p>Other players may see your in-game nickname, public player number, selected character, frame, score, and leaderboard rank. This information is used to display participants and compare results.</p>
+        <p>Do not include information in your nickname that you do not want to disclose to other people, such as your real name, phone number, or email address.</p>
+        <p>Your published nickname and profile appearance may be used to represent opponents in other players' personal tournaments. Those opponents' scores and activity are simulated by the game and do not reflect the current activity of the corresponding profile owner.</p>
+
+        <h2>4. Answer statistics</h2>
+        <p>When you answer a quiz question, the app may transmit the question identifier and its revision, your selected answer, or an indication that a hint was used. This information is used to produce answer statistics and prevent the same attempt from being counted more than once.</p>
+        <p>The server stores aggregate answer counters and markers of previously counted attempts linked to the technical account. Individual answers and attempt markers are not displayed to other players; aggregate figures may be shown to them.</p>
+
+        <h2>5. Advertising</h2>
         <p>The game uses Yandex Mobile Ads. Depending on your device, region, settings, and applicable law, the advertising service may process your IP address, advertising identifier and other available device identifiers, approximate location, device and app information, advertising interactions, and technical or diagnostic data.</p>
         <p>Yandex may use this information to deliver and measure ads, limit their frequency, prevent fraud and, where permitted by applicable law and your settings, personalize advertising. Yandex processes this information under the <a href="https://yandex.com/legal/confidential/" rel="noopener noreferrer">Yandex Privacy Policy</a>.</p>
 
-        <h2>3. Personalized advertising and your choices</h2>
+        <h2>6. Personalized advertising and your choices</h2>
         <p>Agreeing to the <a href="terms-of-service-en.html">Terms of Service</a> or this Privacy Policy does not by itself constitute consent to personalized advertising or cross-app tracking where applicable law or platform rules require separate consent.</p>
         <p>You can manage personalized advertising in the game under “Settings → Personalized Ads”. Your saved explicit choice to enable or disable personalization takes priority over the regional default and is retained between app launches. While this choice is saved, the game does not request your country from IPinfo to determine the advertising setting.</p>
         <p>If there is no saved explicit choice, the game automatically enables personalization based on a successfully identified country in supported regions where applicable law permits it without prior consent. This automatic setting is not recorded as your explicit consent and is not automatically carried over to the next app launch. In regions requiring prior consent, personalization is enabled only after your choice. If the country cannot be determined, including because of a network error or an invalid service response, no automatic permission is granted: personalization remains off until you make an explicit choice.</p>
         <p>Turning off personalized advertising does not disable advertising altogether: you may still receive contextual or non-personalized ads. Available controls for advertising, advertising identifiers, and tracking depend on your device, operating system, region, and advertising service.</p>
         <p>To select the applicable regional advertising-privacy model, the game makes an HTTPS request directly to IPinfo Lite and requests only the two-letter country code of the current public IP connection. As part of the network connection, IPinfo necessarily receives the request IP address; the game does not add your game save, profile identifier, or advertising identifier to this request. IP-based geolocation is approximate and may differ when a VPN, proxy, or roaming connection is used. See the <a href="https://ipinfo.io/privacy-policy" rel="noopener noreferrer">IPinfo Privacy Policy</a>. IP geolocation data is powered by <a href="https://ipinfo.io" rel="noopener noreferrer">IPinfo</a>.</p>
 
-        <h2>4. Correspondence, word checks, and external pages</h2>
+        <h2>7. Correspondence, word checks, and external pages</h2>
         <p>If you choose to email the Developer, the Developer receives your sender address, message, and any attachments you provide only to reply, provide support, and investigate bugs.</p>
         <p>The legal pages are hosted on GitHub Pages without Developer-added forms, analytics, JavaScript, or cookies. When you open them, GitHub may receive standard web-request data such as your IP address and browser information under the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub General Privacy Statement</a>.</p>
 
         <p>When you request a check of a word entered in two-player mode, the game sends that word in the URL of an HTTPS request to the relevant language edition of Wiktionary. The service receives the requested word, the connection IP address, and technical request information. The game does not attach your game save or advertising identifier to this request. Processing is governed by the <a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy" rel="noopener noreferrer">Wikimedia Foundation Privacy Policy</a>.</p>
         <p>When you use the search button, the game opens Google Search and passes the word as a search query. Google receives the query and technical connection information, including the IP address. Further processing is governed by the <a href="https://policies.google.com/privacy" rel="noopener noreferrer">Google Privacy Policy</a> and your settings for the service and browser.</p>
 
-        <h2>5. How data is used and disclosed</h2>
-        <p>Local data is used to operate the game and save your progress. Advertising-service data may be used to deliver and measure ads, limit their frequency, personalize ads where permitted, and prevent fraud. Information from emails is used to respond to you, provide support, resolve disputes, and meet legal obligations.</p>
-        <p>The Developer does not sell personal data for monetary consideration. Data may be disclosed or made available to advertising and technical partners, including Yandex, IPinfo, GitHub, Wikimedia Foundation, Google, and the email provider, for the purposes described in this Policy, and to public authorities where disclosure is required by law. In some jurisdictions, certain disclosures to advertising partners may fall within special legal definitions of a “sale,” “sharing,” “disclosure,” or “targeted advertising”; where applicable law provides a right to opt out of such processing, users may exercise that right.</p>
+        <h2>8. How data is used and disclosed</h2>
+        <p>Local data is used to operate the game and save your progress. Technical account, profile, leaderboard, and answer data is used for the online features described in sections 2–4. Advertising-service data may be used to deliver and measure ads, limit their frequency, personalize ads where permitted, and prevent fraud. Information from emails is used to respond to you, provide support, resolve disputes, and meet legal obligations.</p>
+        <p>The Developer does not sell personal data for monetary consideration. Data may be disclosed or made available to advertising and technical partners, including Supabase, Yandex, IPinfo, GitHub, Wikimedia Foundation, Google, and the email provider, for the purposes described in this Policy, and to public authorities where disclosure is required by law. Public profile and leaderboard information may be available to other players as described in section 3. In some jurisdictions, certain disclosures to advertising partners may fall within special legal definitions of a “sale,” “sharing,” “disclosure,” or “targeted advertising”; where applicable law provides a right to opt out of such processing, users may exercise that right.</p>
 
-        <h2>6. Legal bases for processing</h2>
+        <h2>9. Legal bases for processing</h2>
         <p>Depending on the type of data, the purpose of processing, and applicable law, the Developer may process personal data on the following legal bases:</p>
         <ul>
           <li>to provide the game, handle user requests, and perform obligations arising in connection with your use of the game;</li>
@@ -60,12 +77,13 @@
         </ul>
         <p>Where processing is based on consent, you may withdraw that consent at any time. Withdrawal does not affect the lawfulness of processing carried out before withdrawal. Yandex, IPinfo, GitHub, Wikimedia Foundation, Google, the email provider, and other independent service providers may determine their own legal bases for processing under their policies and applicable law.</p>
 
-        <h2>7. Data retention</h2>
+        <h2>10. Data retention</h2>
         <p>Local game progress and settings remain on your device until you clear the app's data or uninstall the game.</p>
+        <p>Deleting local data does not automatically delete the technical account, server-side profile, leaderboard result, or server-side attempt markers. For questions about the processing of this information and exercising your rights, contact the Developer at the address in section 11.</p>
         <p>Correspondence with the Developer and related information is retained only for as long as reasonably necessary to reply and provide support, investigate bugs, resolve disputes, protect legal rights, and comply with legal obligations. After that, such data is deleted or anonymized unless further retention is required by law.</p>
         <p>Yandex, IPinfo, GitHub, Wikimedia Foundation, Google, and the email provider determine their own retention periods under their respective policies.</p>
 
-        <h2>8. Your rights</h2>
+        <h2>11. Your rights</h2>
         <p>Depending on applicable law, you may have the right to:</p>
         <ul>
           <li>receive information about the processing of your personal data and obtain access to it;</li>
@@ -77,14 +95,14 @@
           <li>withdraw consent you previously provided;</li>
           <li>lodge a complaint with a competent data-protection authority.</li>
         </ul>
-        <p>To exercise rights relating to data received directly by the Developer, email <a href="mailto:trinarr@mail.ru">trinarr@mail.ru</a>. Where reasonably necessary, the Developer may request additional information to verify the identity of the requester. The Developer has no remote access to your local game save; you can manage it on your device, including by clearing the app's data or uninstalling the game.</p>
+        <p>To exercise rights relating to data processed by the Developer or on the Developer's behalf, including technical account, profile, and leaderboard information, email <a href="mailto:trinarr@mail.ru">trinarr@mail.ru</a>. Where reasonably necessary, the Developer may request additional information to verify the identity of the requester. The Developer has no remote access to your local game save; you can manage it on your device, including by clearing the app's data or uninstalling the game. Doing so does not itself constitute a request to delete server-side data.</p>
 
-        <h2>9. Children and security</h2>
+        <h2>12. Children and security</h2>
         <p>The game is not specifically directed at children under 13 or any higher minimum age required by applicable law. The Developer does not knowingly request personal data from children below the applicable minimum age. Where local law requires permission from a parent or legal guardian, a minor must obtain that permission before using the game.</p>
         <p>If you believe a child has provided personal data to the Developer without the required permission, contact <a href="mailto:trinarr@mail.ru">trinarr@mail.ru</a>. After receiving sufficient information, the Developer will take reasonable steps to delete such data unless retention is required by law.</p>
-        <p>The Developer takes reasonable measures to protect received correspondence, but no storage or transmission method can guarantee absolute security. Third-party services may process technical data in other countries under their own policies and applicable law.</p>
+        <p>The Developer takes reasonable measures to protect the data processed, but no storage or transmission method can guarantee absolute security. Third-party services may process technical data in other countries under their own policies and applicable law.</p>
 
-        <h2>10. Changes</h2>
+        <h2>13. Changes</h2>
         <p>This Policy may be updated as the game, third-party services, or legal requirements change. A revised version will be posted on this page with a new effective date; the game may display the legal pop-up again for material changes.</p>
 
         <a class="back-link" href="index-en.html">← All legal documents</a>
