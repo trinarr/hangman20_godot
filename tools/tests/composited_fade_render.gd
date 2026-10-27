@@ -510,6 +510,8 @@ func check_unlock_progress(main: Node, stage: Control, background_only: Image) -
 		var count_fade := FADE.wrap(count)
 		check(count.text == TranslationServer.translate("NEW_THEME_UNLOCKED"), "Completed progress shows the unlocked caption in " + language)
 		var icon := progress.get_node("UnlockThemeIcon") as Control
+		check(is_equal_approx(float(icon.get_node("Artwork").material.get_shader_parameter("outline_pixels")), 5.0),
+			"Reward category icon keeps a five-pixel outline after unlocking")
 		var bar_frame := progress.get_node("UnlockBarFrame") as Control
 		check(is_equal_approx(icon.position.x + icon.size.x * 0.5, bar_frame.position.x + bar_frame.size.x - 4.0),
 			"Category icon center sits four stage units inside the right edge")
@@ -552,6 +554,7 @@ func check_unlock_progress(main: Node, stage: Control, background_only: Image) -
 		await frame()
 
 func check_dynamic_ownership(stage: Control) -> void:
+	var background_only := await frame()
 	var holder := Control.new()
 	stage.add_child(holder)
 	var dimmed := Control.new()
@@ -567,9 +570,12 @@ func check_dynamic_ownership(stage: Control) -> void:
 	late.size = first.size
 	dimmed.add_child(late)
 	var image := await frame()
-	var scale_factor := stage.scale.x
+	# Expand/stretch can make logical viewport units differ from captured pixels,
+	# especially when Windows limits the requested window height.
+	var scale_factor := stage.scale * Vector2(image.get_size()) / get_viewport().get_visible_rect().size
 	var point_a := Vector2i(Vector2(40, 50) * scale_factor)
 	var point_b := Vector2i(Vector2(140, 50) * scale_factor)
+	check(!image.get_pixelv(point_a).is_equal_approx(background_only.get_pixelv(point_a)), "Dynamic ownership samples visible artwork rather than background")
 	check(image.get_pixelv(point_a).is_equal_approx(image.get_pixelv(point_b)), "Late visual inherits dimmed intermediate ancestor on GPU")
 	var reference := image.get_data()
 	owner.refresh()

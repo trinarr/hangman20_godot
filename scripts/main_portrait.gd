@@ -13499,6 +13499,7 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	var icon_material := ShaderMaterial.new()
 	icon_material.shader = THEME_UNLOCK_ICON_GRAYSCALE_SHADER
 	icon_material.set_shader_parameter("colored_outline", true)
+	icon_material.set_shader_parameter("outline_pixels", UI_MATERIALS.OUTLINE.THEME_PIXELS)
 	icon_material.set_shader_parameter("outline_color", PORTRAIT_UI_PALETTE.TEXT_DARK)
 	icon_material.set_shader_parameter("saturation", 0.0)
 	icon_material.set_shader_parameter("shadow_tint", PORTRAIT_UI_PALETTE.BUTTON_BLUE_SELECTED)

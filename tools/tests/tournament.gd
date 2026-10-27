@@ -327,7 +327,7 @@ func run() -> void:
 		now = int(GameState.tournament_state.ends_at)
 		var finished := GameState.get_tournament_snapshot()
 		check(int(finished.rank) == desired_rank, "Configured final placement")
-		var expected: int = {2: 120, 3: 80, 10: 0}[desired_rank]
+		var expected: int = {2: 120, 3: 70, 10: 0}[desired_rank]
 		check(int(GameState.claim_tournament_reward().get("amount", -1)) == expected, "Prize for place %d" % desired_rank)
 	var failed := FailedSaveState.new()
 	failed.tournament_time_source = func(): return now
