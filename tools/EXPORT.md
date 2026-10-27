@@ -1,6 +1,6 @@
 # Сборка Android
 
-Актуальная инструкция для checkout на 18 октября 2026. Целевая платформа — Android; команды приведены для PowerShell на Windows. Начало работы — в [README](../README.md). Прежние параметры и изменения фильтров доступны в истории Git.
+Целевая платформа — Android; команды приведены для PowerShell на Windows. Начало работы — в [README](../README.md). Прежние параметры и изменения фильтров доступны в истории Git.
 
 ## Подготовка среды
 
@@ -15,7 +15,7 @@
 
 Текущие значения определяет [export_presets.cfg](../export_presets.cfg):
 
-- Пресет — `Hangman 2.0`; Gradle включён, выбран APK. Для AAB выберите соответствующий формат в пресете и выходной файл `.aab`.
+- Release-пресет — `Hangman 2.0`, отладочный — `Hangman 2.0 Debug`; Gradle включён, выбран APK. Для AAB выберите соответствующий формат в пресете и выходной файл `.aab`. При изменении общих Android-параметров обновляйте оба пресета.
 - Package ID — `com.trinarr.Hangman20`; не меняйте его для очередной версии приложения. Версии и Android version code сверяйте в пресете перед релизом; для обновления нужен новый version code.
 - Пресет задаёт minimum SDK 24 и target SDK 35. Target SDK отличается от compile SDK: локальное значение compile 36 не меняет target 35 из пресета. Перед публикацией отдельно сверяйте требования выбранного магазина.
 - Включены четыре ABI и Internet, Android backup выключен. Выбор ABI меняйте осознанно под канал распространения.
@@ -32,7 +32,7 @@ $godotExe = 'C:/path/to/Godot.exe'
 & $godotExe --headless --editor --import --path .
 if ($LASTEXITCODE -ne 0) { throw 'Godot import failed' }
 New-Item -ItemType Directory -Force builds
-& $godotExe --headless --path . --export-debug 'Hangman 2.0' 'builds/Hangman20_debug.apk'
+& $godotExe --headless --path . --export-debug 'Hangman 2.0 Debug' 'builds/Hangman20_debug.apk'
 if ($LASTEXITCODE -ne 0) { throw 'Android debug export failed' }
 ```
 
@@ -46,15 +46,28 @@ if ($LASTEXITCODE -ne 0) { throw 'Android release export failed' }
 Для отдельной проверки ресурсов:
 
 ```powershell
-& $godotExe --headless --path . --export-pack 'Hangman 2.0' 'builds/Hangman20.pck'
+& $godotExe --headless --path . --export-pack 'Hangman 2.0' 'builds/Hangman20_release_resources.zip'
 if ($LASTEXITCODE -ne 0) { throw 'PCK export failed' }
+python tools/verify_release_export.py 'builds/Hangman20_release_resources.zip'
+if ($LASTEXITCODE -ne 0) { throw 'Release resource verification failed' }
 ```
 
-PCK не заменяет APK/AAB и не подтверждает подключение Android SDK или рекламы.
+ZIP/PCK не заменяет APK/AAB и не подтверждает подключение Android SDK или рекламы. Для проверки готового APK:
+
+```powershell
+python tools/verify_release_export.py 'builds/Hangman20_release.apk' --aapt 'C:/SDK/Android/build-tools/36.1.0/aapt.exe'
+if ($LASTEXITCODE -ne 0) { throw 'Release APK verification failed' }
+```
+
+Путь к `aapt.exe` берите из установленного SDK. Проверка APK дополнительно запрещает `application-debuggable` и сверяет package ID.
 
 ## Содержимое экспорта
 
-Фильтры задаёт `export_presets.cfg`, а не `.gitignore`. Сейчас исключены `supabase/*`, `tools/*`, `docs/*`, `data/*manifest.json`, редакторские каталоги слов/викторины и редакторский `export_plugin.gd`. Игре нужны runtime JSON, переводы, используемые шрифты/изображения и рекламный сервис. В include-фильтре явно оставлена миграция контента; не удаляйте её вместе с редакторскими исходниками.
+Фильтры задаёт `export_presets.cfg`, а не `.gitignore`. Исключены инструменты, документация разработки, редакторские каталоги и манифесты, локальные сборки/секреты, исходники Java и AAR как ресурсы игры. Нативный рекламный AAR подключается отдельно Android export plugin: release-вариант для release, debug-вариант для debug. Миграция контента и лицензионные уведомления явно включены; не удаляйте их вместе с редакторскими исходниками.
+
+Release-пресет исключает `addons/dev-console/*` и `scripts/debug/*` до компиляции скриптов. `addons/release_guard/` включён только как плагин редактора: при release-экспорте удаляет из упакованных настроек autoload консоли/логгера, параметры dev-сервисов, настройки консоли и устаревшие demo-ID. Из экспортируемого JSON удаляются два тестовых поля турнира с сохранением полной точности остальных чисел. Исходные настройки и порядок игровых autoload сохраняются; плагин не записывает `project.godot`. Для отладочной сборки с консолью используйте отдельный Debug-пресет.
+
+`verify_release_export.py` читает фактический ZIP/APK, включая `project.binary`, ищет исходные и скомпилированные debug-файлы, проверяет autoload, кеш классов, назначения remap/import, обязательные runtime-данные и лицензии. Экспортный баланс сверяется с исходным за исключением удалённых debug-полей. Ошибка проверки блокирует приёмку артефакта, даже если Godot завершился с кодом 0.
 
 При изменении фильтров проверьте реальный пакет: необходимые ресурсы доступны, служебные документы и секреты отсутствуют. Корневые README/AGENTS сами по себе не подтверждают включение или исключение из пакета. Размер исходных PNG и историческая экономия PCK не равны размеру текущего APK.
 
@@ -62,6 +75,6 @@ PCK не заменяет APK/AAB и не подтверждает подклю�
 
 На устройстве проверьте установку и запуск, оба языка, портретную адаптацию, сохранение/продолжение после перезапуска и выдачу наград. После изменения ресурсов проверьте шрифты, логотипы, сундук и иконки из экспортированной сборки.
 
-Отдельно проверьте баннер, interstitial и rewarded-рекламу через нативный SDK, согласие и повторные/поздние сигналы награды. Сейчас в `project.godot` заданы demo-рекламные ID; перед публикацией настройте реальные ID и проверьте нужное окружение backend. Настольные mocks не подтверждают SDK на телефоне.
+Отдельно проверьте баннер, interstitial и rewarded-рекламу через нативный SDK, согласие и повторные/поздние сигналы награды. `yandex_ads.gd` выбирает боевые ID по placement в release, demo-ID — только в debug/editor; устаревшие demo-настройки из `project.godot` в release удаляются. Backend выбирает production RPC и обычный порог статистики, турнир использует release-длительность. Настольные mocks и проверка архива не подтверждают SDK на телефоне.
 
 Для проверенной сборки фиксируйте commit, версию Godot, параметры шаблона/SDK, debug/release, устройство и результат. Пока такого отчёта нет, Android-экспорт на текущей версии остаётся непроверенным. Лицензии и уведомления перечислены в [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
