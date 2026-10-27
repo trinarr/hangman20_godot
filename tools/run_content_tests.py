@@ -16,6 +16,7 @@ SUITES = {
     "profile_bootstrap": (True, r"PROFILE_BOOTSTRAP checks=[1-9]\d* failures=0"),
     "profile_statistics": (True, r"PROFILE_STATISTICS checks=[1-9]\d* failures=0"),
     "home_tournament": (True, r"HOME_TOURNAMENT checks=[1-9]\d* failures=0"),
+    "home_resource_counters": (True, r"HOME_RESOURCE_COUNTERS checks=[1-9]\d* failures=0"),
     "tournament": (True, r"TOURNAMENT checks=[1-9]\d* failures=0"),
     "startup_last_chance": (True, r"STARTUP_LAST_CHANCE checks=[1-9]\d* failures=0"),
     "tournament_finish_popup": (True, r"TOURNAMENT_FINISH_POPUP checks=[1-9]\d* failures=0"),
