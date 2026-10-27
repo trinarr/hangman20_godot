@@ -502,19 +502,47 @@ func check_unlock_progress(main: Node, stage: Control, background_only: Image) -
 	await frame()
 	for language: String in ["ru", "en"]:
 		TranslationServer.set_locale(language)
-		progress = main._create_theme_unlock_progress(stage, Rect2(20, 100, 440, 100), {"total":10, "from":9, "to":10, "theme_id":Database.THEME_IDS[0], "unlocked":true})
+		progress = main._create_theme_unlock_progress(stage, Rect2(Vector2(20, 100), main.PORTRAIT_LEVEL_THEME_PROGRESS_SIZE), {"total":10, "from":9, "to":10, "theme_id":Database.THEME_IDS[0], "unlocked":true})
 		controller = FADE.branch(progress)
 		await main._animate_theme_unlock_progress(progress)
 		await frame()
 		var count := progress.find_child("UnlockCount", true, false) as Label
 		var count_fade := FADE.wrap(count)
 		check(count.text == TranslationServer.translate("NEW_THEME_UNLOCKED"), "Completed progress shows the unlocked caption in " + language)
+		var icon := progress.get_node("UnlockThemeIcon") as Control
+		var bar_frame := progress.get_node("UnlockBarFrame") as Control
+		check(is_equal_approx(icon.position.x + icon.size.x * 0.5, bar_frame.position.x + bar_frame.size.x - 4.0),
+			"Category icon center sits four stage units inside the right edge")
+		check(is_equal_approx(icon.position.y + icon.size.y * 0.5, bar_frame.position.y + bar_frame.size.y * 0.5 - 2.0),
+			"Category icon center sits two stage units above the bar center")
+		check(count.get_rect().is_equal_approx(bar_frame.get_rect()),
+			"Unlocked caption spans the complete plaque without reserving icon space")
+		check(count.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER,
+			"Unlocked caption is centered on the complete plaque")
+		check(count.get_theme_font_size("font_size") == 15,
+			"Actual reward-width caption uses size 15 in " + language)
+		var measured_width := count.get_theme_font("font").get_string_size(count.text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, count.get_theme_font_size("font_size")).x
+		check(measured_width <= count.size.x, "Unlocked caption fits its available track width")
+		var shadow_layers := icon.find_children("UnlockThemeIconExtrusion*", "TextureRect", true, false)
+		check(shadow_layers.size() == 4, "Category icon owns four HUD-style shadow layers")
+		for shadow: TextureRect in shadow_layers:
+			var color: Color = shadow.material.get_shader_parameter("shadow_color")
+			check(is_equal_approx(color.a, main.RESOURCE_COUNTER_STYLE.ICON_SHADOW_ALPHA)
+				and is_equal_approx(color.r, PALETTE.NAV_TEXT_SHADOW.r), "Category shadow matches currency-counter colour and opacity")
+		check(shadow_layers[-1].position.y >= 2.8, "Category shadow uses full HUD extrusion depth")
 		check(count_fade.z_index == 4 and same_z_band(count_fade._group), "Unlocked caption keeps every glyph inside its composited Z band")
 		var glow := progress.get_node("UnlockThemeGlow") as Control
 		check(is_equal_approx(glow.self_modulate.a, 0.52), "Late-created unlock glow reaches its visible alpha")
 		var lit := await frame()
 		glow.hide()
 		check(pixel_error(await frame(), lit, lit, 0.0) > 0.025, "Completed unlock glow contributes visible pixels")
+		var shadowed := await frame()
+		for shadow: TextureRect in shadow_layers:
+			shadow.hide()
+		check(pixel_error(await frame(), shadowed, shadowed, 0.0) > 0.005, "Category icon shadow contributes visible GPU pixels")
+		for shadow: TextureRect in shadow_layers:
+			shadow.show()
 		glow.show()
 		controller.set("opacity", 0.0)
 		check(pixel_error(await frame(), background_only, background_only, 0.0) < 0.025, "Completed caption and glow fully hide with their branch")

@@ -2300,7 +2300,6 @@ func _check_custom_word_now() -> void:
 	var language_code: String = _custom_word_language(custom_word_text)
 	if !_is_valid_custom_word(custom_word_text) or language_code == "":
 		_set_temporary_custom_word_field_tint(UI_PALETTE.MARKER_ERROR)
-		custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
 		_vibrate_custom_word_not_found()
 		return
@@ -2457,7 +2456,6 @@ func start_custom_game() -> void:
 	if !_is_valid_custom_word(word):
 		if custom_word_edit != null:
 			_set_custom_word_field_tint(UI_PALETTE.MARKER_ERROR)
-			custom_word_edit.placeholder_text = Database.tr_text(64, "Error! Something goes wrong.")
 		return
 	custom_word_text = word
 	game_finished = false

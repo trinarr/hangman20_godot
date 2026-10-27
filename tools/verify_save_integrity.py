@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import re
 from collections import Counter, defaultdict
+from io import StringIO
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -658,10 +660,18 @@ def main() -> None:
         and "reward_acquired and continue_action.is_valid()" in refill_close,
         "Stage result copy or the zero-heart reset flow is incomplete",
     )
+    localized_rows = {
+        row["keys"]: row for row in csv.DictReader(StringIO(localization))
+    }
     require(
-        "REWARD_MAIN_PRIZE,ГЛАВНЫЙ ПРИЗ,MAIN PRIZE" in localization
-        and "REWARD_LEVEL_FINISHED,КОНЕЦ УРОВНЯ,LEVEL COMPLETE" in localization,
-        "Final-stage result headings are not localized",
+        all(
+            localized_rows.get(key, {}).get(language, "").strip()
+            for key in ("REWARD_STAGE_COMPLETED", "REWARD_STAGE_FAILED", "LEVEL_COMPLETED_TITLE")
+            for language in ("ru", "en")
+        )
+        and 'tr("LEVEL_COMPLETED_TITLE")'
+        in function_body(portrait, "_single_player_level_completed_label"),
+        "Stage and level result headings must use nonempty RU/EN translations",
     )
     require(
         "completed_level_index + 1 if completed_level_index >= 0 else -1"

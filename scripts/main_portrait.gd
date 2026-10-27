@@ -1075,7 +1075,7 @@ func _portrait_ad_not_ready_message() -> String:
 	# from the CSV. Keep a runtime fallback so this patch also works immediately
 	# when applied without opening the project in the editor first.
 	return (
-		"Реклама еще не готова"
+		"Реклама ещё не готова"
 		if Database.interface_language == "ru"
 		else "The ad isn't ready yet"
 	)
@@ -9831,7 +9831,7 @@ func show_custom_word() -> void:
 	# Match the category screen: graph-paper background with a shared top
 	# navigation row and no footer backdrop.
 	_portrait_screen(0.0)
-	var custom_word_title: String = Database.tr_text(37, "Input the word")
+	var custom_word_title: String = Database.tr_text(37, "Enter a word")
 	_stage_titled_navigation_header(
 		LEADERBOARD_SCREEN.localized("TWO_PLAYER_TITLE", "2 игрока", "2 players"),
 		"TwoPlayerTitle"
@@ -9983,7 +9983,7 @@ func _stage_portrait_custom_word_field() -> void:
 	var custom_word_input_rect: Rect2 = _portrait_custom_word_input_rect()
 	word_input.stage_rect = custom_word_input_rect
 
-	# Reuse the exact marker artwork from the "Input the word" heading. Keep the
+	# Reuse the exact marker artwork from the "Enter a word" heading. Keep the
 	# input marker at its existing 420 px width and twice-enlarged vertical size.
 	# Its brush strokes extend beyond that box; text uses the wider field below
 	# to avoid large blank margins while retaining a small screen-edge inset.
@@ -13466,40 +13466,27 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	var theme_index: int = Database.THEME_IDS.find(int(progress["theme_id"]))
 	var icon := Control.new()
 	icon.name = "UnlockThemeIcon"
-	# Keep the icon centered vertically on the bar and let it sit on the right
-	# endpoint. Theme icons contain a little transparent padding, so move the
-	# texture box slightly past the frame end; this keeps the visible artwork on
-	# the edge instead of leaving a dark tail to its right.
+	# Keep the icon four stage units left of the endpoint and two above the bar center.
 	icon.size = Vector2(52.8, 52.8)
 	var bar_center_y: float = bar_frame.position.y + bar_frame.size.y * 0.5
-	var icon_edge_offset: float = 6.0
 	icon.position = Vector2(
-		bar_frame.position.x + bar_frame.size.x - icon.size.x + icon_edge_offset,
-		bar_center_y - icon.size.y * 0.5
+		bar_frame.position.x + bar_frame.size.x - icon.size.x * 0.5 - 4.0,
+		bar_center_y - icon.size.y * 0.5 - 2.0
 	)
 	icon.pivot_offset = icon.size * 0.5
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.z_index = 2
 	holder.add_child(icon)
-	# Use the same shader-extrusion technique as ad-button icons, but make this
-	# shadow half as deep and tint it with the progress-bar track blue.
+	# Match HUD resource icons: all four shadow layers follow the icon bounce.
 	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
 	var icon_shadow_layers := _create_portrait_icon_extrusion_layers(
 		icon,
 		theme_icon_texture,
 		"UnlockThemeIcon",
-		0
+		0,
+		RESOURCE_COUNTER_STYLE.ICON_SHADOW_ALPHA
 	)
-	var theme_icon_shadow_color := Color(
-		PORTRAIT_DARK_BLUE.r,
-		PORTRAIT_DARK_BLUE.g,
-		PORTRAIT_DARK_BLUE.b,
-		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a
-	)
-	var theme_icon_shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(theme_icon_shadow_color)
-	for shadow_layer: TextureRect in icon_shadow_layers:
-		shadow_layer.material = theme_icon_shadow_material
-	_layout_portrait_icon_holder_extrusion(icon, icon_shadow_layers, 0.5)
+	_layout_portrait_icon_holder_extrusion(icon, icon_shadow_layers)
 	# Animate saturation on one artwork surface to avoid opacity dips from
 	# crossfading two copies while the shadow remains stable underneath.
 	var artwork := TextureRect.new()
@@ -13603,16 +13590,14 @@ func _animate_theme_unlock_progress(
 	var title := holder.find_child("UnlockTitle", true, false) as Label
 	title.hide()
 	var count := holder.find_child("UnlockCount", true, false) as Label
-	var caption_area_width: float = count.size.x
+	# Keep the requested font size and center on the complete plaque. The icon
+	# does not reserve caption space or shift its horizontal center.
+	count.clip_text = true
 	count.text = tr("NEW_THEME_UNLOCKED")
-	var caption_width: float = UI_DISPLAY_FONT.get_string_size(count.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 20).x
-	# Fit symmetrically around the full bar center while keeping clear of the icon.
-	var caption_center_x: float = count.position.x + caption_area_width * 0.5
-	var icon_left: float = (holder.get_node("UnlockThemeIcon") as Control).position.x
-	var caption_fit_width: float = minf(caption_area_width - 6.0, (icon_left - caption_center_x - 4.0) * 2.0)
-	var caption_font_size: int = mini(20, int(floor(20.0 * maxf(caption_fit_width, 1.0) / maxf(caption_width, 1.0))))
-	count.add_theme_font_size_override("font_size", maxi(caption_font_size, 1))
-	count.size.x = caption_area_width
+	count.add_theme_font_size_override("font_size", 15)
+	var bar_frame := holder.get_node("UnlockBarFrame") as Control
+	count.position = bar_frame.position
+	count.size = bar_frame.size
 	COMPOSITED_FADE.wrap(count).z_index = 4
 	count.show()
 	var icon := holder.get_node("UnlockThemeIcon") as Control
