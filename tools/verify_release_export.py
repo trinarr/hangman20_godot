@@ -150,11 +150,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path, help="ZIP from --export-pack or final APK")
     parser.add_argument("--aapt", type=Path, help="Android SDK aapt.exe; required for APK manifest checks")
+    parser.add_argument("--check-presets", action="store_true", help="Also check this checkout's release/debug presets")
     args = parser.parse_args()
     try:
-        verify_presets()
         with zipfile.ZipFile(args.archive) as archive:
             count = verify_archive(archive)
+        if args.check_presets:
+            verify_presets()
         if args.archive.suffix.lower() == ".apk":
             require(args.aapt is not None, "APK verification also requires --aapt to inspect the manifest")
             manifest = subprocess.run([str(args.aapt), "dump", "badging", str(args.archive)],

@@ -25,7 +25,7 @@
 
 ## Проверки и экспорт
 
-Выполните нужные [проверки проекта](TESTS.md) и разберите ошибки. Затем импортируйте ресурсы и создайте каталог сборок:
+После изменения `project.godot`, плагинов или `export_presets.cfg` закройте и заново откройте Godot: уже открытый редактор может экспортировать прежние настройки и перезаписать обновлённый пресет. Включите плагин Release Guard и убедитесь, что доступны оба пресета. Выполните нужные [проверки проекта](TESTS.md) и разберите ошибки. Затем импортируйте ресурсы и создайте каталог сборок:
 
 ```powershell
 $godotExe = 'C:/path/to/Godot.exe'
@@ -48,7 +48,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Android release export failed' }
 ```powershell
 & $godotExe --headless --path . --export-pack 'Hangman 2.0' 'builds/Hangman20_release_resources.zip'
 if ($LASTEXITCODE -ne 0) { throw 'PCK export failed' }
-python tools/verify_release_export.py 'builds/Hangman20_release_resources.zip'
+python tools/verify_release_export.py 'builds/Hangman20_release_resources.zip' --check-presets
 if ($LASTEXITCODE -ne 0) { throw 'Release resource verification failed' }
 ```
 
