@@ -752,7 +752,25 @@ func _settings_off_label() -> String:
 	return Database.tr_text(74, "Off")
 
 func _about_version_text() -> String:
-	return Database.tr_text(19, "Version:") + " " + _application_version()
+	var build_number: String = _application_build_number()
+	var version: String = _application_version()
+	if !build_number.is_empty():
+		version += " (%s)" % build_number
+	return Database.tr_text(19, "Version:") + " " + version
+
+func _application_build_number() -> String:
+	if Engine.has_singleton("AndroidRuntime"):
+		var runtime: Object = Engine.get_singleton("AndroidRuntime")
+		var context: Object = runtime.getApplicationContext()
+		if context != null:
+			var package_info: Object = context.getPackageManager().getPackageInfo(context.getPackageName(), 0)
+			if JavaClassWrapper.get_exception() == null and package_info != null:
+				return str(package_info.get("versionCode"))
+	# Export presets are available in the editor; Android reads its installed APK.
+	var presets := ConfigFile.new()
+	if presets.load("res://export_presets.cfg") == OK:
+		return str(presets.get_value("preset.0.options", "version/code", ""))
+	return ""
 
 func _application_version() -> String:
 	var configured_version: String = str(

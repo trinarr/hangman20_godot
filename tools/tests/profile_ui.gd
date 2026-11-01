@@ -628,6 +628,9 @@ func run() -> void:
 	for label in profile.settings_scroll.find_children("*", "Label", true, false):
 		labels.append(label.text)
 	check(labels.has(main._about_version_text()), "Full settings retains version")
+	var version_presets := ConfigFile.new()
+	check(version_presets.load("res://export_presets.cfg") == OK, "Version fixture reads export preset")
+	check(main._about_version_text().ends_with("%s (%s)" % [ProjectSettings.get_setting("application/config/version"), version_presets.get_value("preset.0.options", "version/code")]), "Settings displays version and build number")
 	check(profile.settings_scroll.stage_content.get_child_count() >= 15, "Full settings retains links and contact controls")
 	var old_sound: int = GameState.settings[3]
 	main.settings_toggle_buttons[3].emit_signal("pressed")

@@ -7095,7 +7095,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	)
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
-	var popup_bottom: float = (503.0 if free_offer else 582.0) + _portrait_popup_extra_bottom_space()
+	var show_rewarded_ad: bool = !free_offer and _portrait_ads_enabled()
+	var popup_bottom: float = (582.0 if show_rewarded_ad else 503.0) + _portrait_popup_extra_bottom_space()
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
 		"single_player_last_chance_popup",
@@ -7190,7 +7191,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(description_label)
 	description_label.z_index = 11
 
-	if !free_offer:
+	if show_rewarded_ad:
 		var rewarded_attempt_button := _stage_portrait_popup_main_button(
 			Rect2(90.0, 425.0, 300.0, 56.0),
 			Callable(self, "_on_single_player_extra_attempt_ad_pressed"),
@@ -7206,9 +7207,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		rewarded_attempt_button.set("drop_shadow_enabled", true)
 		rewarded_attempt_button.add_to_group(&"single_player_last_chance_ad_button")
 		rewarded_attempt_button.z_index = 16
-		rewarded_attempt_button.visible = _portrait_ads_enabled()
-		if rewarded_attempt_button.visible:
-			_prepare_portrait_rewarded_placement(&"extra_attempt")
+		_prepare_portrait_rewarded_placement(&"extra_attempt")
 		var rewarded_ad_icon_texture := AtlasTexture.new()
 		rewarded_ad_icon_texture.atlas = WATCH_AD_ICON_TEXTURE
 		rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)

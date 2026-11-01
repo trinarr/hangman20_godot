@@ -3,13 +3,17 @@ extends Node
 class TestUI:
 	extends "res://scripts/main_portrait.gd"
 	var open_sounds: int = 0
+	var ads_enabled: bool = false
+	var free_attempt_offer: bool = false
 	func _ready() -> void:
 		_build_root()
 		_clear()
 	func _play_popup_open_sound() -> void:
 		open_sounds += 1
 	func _portrait_ads_enabled() -> bool:
-		return false
+		return ads_enabled
+	func _single_player_extra_attempt_is_free() -> bool:
+		return free_attempt_offer
 	func _close_coin_store() -> void:
 		_remove_popup_group_with_dimmer_fade(&"coin_refill_popup")
 	func _close_heart_refill_popup() -> void:
@@ -145,6 +149,40 @@ func check_coin_counter_sources() -> void:
 	await get_tree().process_frame
 	check(get_tree().get_nodes_in_group(anchors.GROUP).is_empty(), "counter source registry releases destroyed layers")
 
+func check_last_chance_layout() -> void:
+	GameSession.start_round(WordData.new("TEST", 0.5, 0, 0, "popup-test"))
+	for letter: String in ["A", "B", "C", "D", "F", "G", "H", "I", "J", "K", "L", "M"]:
+		GameSession.guess(letter, true)
+		if GameSession.has_deferred_loss():
+			break
+	check(GameSession.has_deferred_loss(), "last-chance fixture reaches deferred loss")
+	for language: String in ["ru", "en"]:
+		Database.load_languages(language, language)
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().min_size = Vector2i.ONE
+			get_window().size = dimensions
+			for ads: bool in [false, true]:
+				main.ads_enabled = ads
+				for free: bool in [false, true]:
+					main.free_attempt_offer = free
+					main._show_single_player_last_chance_popup(false)
+					await get_tree().create_timer(0.7).timeout
+					var popup: Node = get_tree().get_nodes_in_group(&"single_player_last_chance_popup")[0]
+					var stage: PopupStageCenter = popup.find_child("CenteredPopupStage", true, false)
+					var expected_bottom: float = (582.0 if ads and !free else 503.0) + main._portrait_popup_extra_bottom_space()
+					check(is_equal_approx(stage.popup_bottom, expected_bottom), "last-chance height matches visible choices")
+					check(get_tree().get_nodes_in_group(&"single_player_last_chance_ad_button").size() == int(ads and !free), "last-chance only creates an available ad choice")
+					check(stage.open_bounce_complete, "last-chance opening completes")
+					var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+					if !directory.is_empty() and DisplayServer.get_name() != "headless":
+						await RenderingServer.frame_post_draw
+						get_viewport().get_texture().get_image().save_png(directory.path_join("last_chance_%s_%d_%d_%d.png" % [language, dimensions.x, int(ads), int(free)]))
+					main._remove_single_player_last_chance_popup()
+					await get_tree().process_frame
+	main.ads_enabled = false
+	main.free_attempt_offer = false
+	GameSession.discard_current_round()
+
 func run() -> void:
 	await check_coin_counter_sources()
 	# Avoid startup consent followups while exercising modal removal itself.
@@ -225,6 +263,7 @@ func run() -> void:
 	await get_tree().process_frame
 	check(get_tree().get_nodes_in_group(&"settings_popup").is_empty() and main.content == base_content, "real Settings closes and preserves underlying content")
 	main._quiz_screen_active = false
+	await check_last_chance_layout()
 	# The component remains operational after its main-screen adapter is destroyed.
 	var popup_script: GDScript = load("res://scripts/ui/portrait_popup.gd")
 	var independent_parent := Node.new()

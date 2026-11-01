@@ -378,10 +378,12 @@ def main() -> None:
     )
     require(
         re.search(
-            r"popup_bottom:\s*float\s*=\s*\(503\.0\s+if\s+free_offer\s+else\s+582\.0\)"
+            r"popup_bottom:\s*float\s*=\s*\(582\.0\s+if\s+show_rewarded_ad\s+else\s+503\.0\)"
             r"\s*\+\s*_portrait_popup_extra_bottom_space\(\)",
             attempt_popup,
         ) is not None
+        and "var show_rewarded_ad: bool = !free_offer and _portrait_ads_enabled()" in attempt_popup
+        and "if show_rewarded_ad:" in attempt_popup
         and 'tr("COMMON_FREE") if free_offer else ""' in attempt_popup
         and "LONG_BUTTON_COLOR_GREEN if free_offer else LONG_BUTTON_COLOR_ORANGE"
         in attempt_popup
