@@ -1,4 +1,13 @@
 extends Node
+class PackageInfoMock extends RefCounted:
+	var build_number: Variant = 4
+	func getClass() -> Object:
+		return self
+	func getField(field_name: String) -> Object:
+		return self if field_name == "versionCode" else null
+	func getInt(instance: Object) -> Variant:
+		return instance.build_number
+
 class TestUI extends "res://scripts/main_portrait.gd":
 	var coin_store_enabled := false
 	var captured_texture: ImageTexture
@@ -631,6 +640,12 @@ func run() -> void:
 	var version_presets := ConfigFile.new()
 	check(version_presets.load("res://export_presets.cfg") == OK, "Version fixture reads export preset")
 	check(main._about_version_text().ends_with("%s (%s)" % [ProjectSettings.get_setting("application/config/version"), version_presets.get_value("preset.0.options", "version/code")]), "Settings displays version and build number")
+	var package_info := PackageInfoMock.new()
+	check(package_info.get("versionCode") == null, "Android fixture does not expose instance fields through Object.get")
+	check(main._android_package_build_number(package_info) == "4", "Android build number uses Java field reflection")
+	for invalid_build: Variant in [null, "<null>", 0, -1]:
+		package_info.build_number = invalid_build
+		check(main._android_package_build_number(package_info).is_empty(), "Invalid Android build never becomes visible text")
 	check(profile.settings_scroll.stage_content.get_child_count() >= 15, "Full settings retains links and contact controls")
 	var old_sound: int = GameState.settings[3]
 	main.settings_toggle_buttons[3].emit_signal("pressed")
