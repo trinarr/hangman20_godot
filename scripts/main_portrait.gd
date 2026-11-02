@@ -2640,6 +2640,8 @@ func _on_extra_attempt_ad_cooldown_tick(button: Control) -> void:
 	_refresh_extra_attempt_ad_button(button, _portrait_rewarded_action != &"extra_attempt")
 
 func _show_coin_refill_popup() -> void:
+	if !_portrait_coin_store_active:
+		Analytics.track("store_open")
 	_remove_coin_refill_popup()
 	_portrait_coin_store_underlay = content
 	_portrait_coin_store_active = true
@@ -3568,6 +3570,7 @@ func show_menu() -> void:
 		TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
 
 func _show_menu_screen() -> void:
+	Analytics.screen("home")
 	GameSession.discard_current_round()
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
@@ -4638,6 +4641,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	_quiz_single_player_target_difficulty = _single_player_level_question_target_difficulty(level_index, word_slot)
 	_quiz_selected_theme_index = theme_index
 	_quiz_current_question = QUIZ_SELECTION.shuffled(question)
+	Analytics.begin_stage(level_index, word_slot, "quiz")
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
@@ -5649,6 +5653,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	):
 		return
 	var correct_answer: bool = answer_index == correct_index
+	Analytics.track("quiz_answered", {"success": correct_answer, "game_mode": "embedded_quiz" if _quiz_single_player_embedded else "quiz"})
 	var speed_tier: int = _take_quiz_speed_tier()
 	if !correct_answer:
 		speed_tier = PORTRAIT_QUIZ_SPEED_NONE
@@ -6874,6 +6879,7 @@ func _home_profile_show_quiz_game_screen() -> void:
 	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
 		_leave_home(Callable(self, "_show_quiz_game_screen"), true)
 		return
+	Analytics.screen("quiz")
 	_clear()
 	_quiz_mode_active = true
 	_quiz_screen_active = true
@@ -10019,6 +10025,7 @@ func _home_profile_show_game_screen() -> void:
 		return
 	# Only actual navigation into the active gameplay page gets the entrance
 	# animation. Regular GameSession.changed rebuilds must stay visually stable.
+	Analytics.screen("word")
 	_portrait_game_entrance_pending = !game_finished
 	super.show_game_screen()
 	# Home navigation can defer construction of this page. Restore the required
@@ -15075,7 +15082,11 @@ func _deliver_action_request(request_id: String) -> void:
 	# Receipt removal and all reward effects commit together. Failed writes are
 	# retried by GameState without replaying in-memory effects; after a crash the
 	# durable earned receipt remains available for recovery.
-	GameState.end_save_batch()
+	var reward_saved: bool = GameState.end_save_batch()
+	if delivered and reward_saved:
+		Analytics.track("reward_granted", {"placement": str(action), "source": "rewarded"})
+		if action == &"theme_reroll":
+			Analytics.track("theme_rerolled", {"source": "rewarded"})
 	if delivered and is_open:
 		_portrait_rewarded_action_earned = true
 	elif delivered and action == &"theme_reroll" and same_context:
@@ -15929,6 +15940,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	if bool(last_result_data.get("single_player_level_stars_view", false)):
 		_finish_legacy_single_player_level_stars_state()
 		return
+	Analytics.screen("rewards")
 	var is_failure_reward: bool = !last_result_is_win
 
 	var word_count: int = maxi(
@@ -17497,6 +17509,7 @@ func show_tournament() -> void:
 	_open_tabbed_page(Callable(self, "_show_leaderboard_screen").bind(true))
 
 func _show_leaderboard_screen(tournament: bool = false) -> void:
+	Analytics.screen("leaderboard")
 	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	_clear()
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
@@ -17590,6 +17603,7 @@ func _open_profile_tab(tab: String) -> void:
 	_open_tabbed_page(action)
 
 func _show_profile_screen(tab: String = "profile", return_action: Callable = Callable()) -> void:
+	Analytics.screen("profile")
 	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	_clear()
 	_profile_return_action = return_action

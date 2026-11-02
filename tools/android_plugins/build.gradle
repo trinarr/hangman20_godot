@@ -1,0 +1,17 @@
+plugins {
+    id 'com.android.library' version '8.6.1' apply false
+}
+buildDir = file('../../builds/android-plugins/root')
+subprojects {
+    apply plugin: 'com.android.library'
+    buildDir = rootProject.file("../../builds/android-plugins/${project.name}")
+    android {
+        compileSdk 36
+        defaultConfig { minSdk 24 }
+        compileOptions {
+            sourceCompatibility JavaVersion.VERSION_17
+            targetCompatibility JavaVersion.VERSION_17
+        }
+    }
+    dependencies { compileOnly 'org.godotengine:godot:4.7.2.stable' }
+}

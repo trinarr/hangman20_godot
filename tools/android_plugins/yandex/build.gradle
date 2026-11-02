@@ -1,0 +1,8 @@
+android {
+    namespace 'com.darkmoonight.godotandroidyandexads'
+    sourceSets.main {
+        java.srcDirs = ['../../../addons/GodotAndroidYandexAds/source']
+        manifest.srcFile 'AndroidManifest.xml'
+    }
+}
+dependencies { implementation 'com.yandex.android:mobileads:8.6.0' }

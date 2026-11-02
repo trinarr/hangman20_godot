@@ -4,6 +4,7 @@ extends Node
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 
 signal changed
+signal round_started
 signal round_won
 signal round_lost
 signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
@@ -64,6 +65,7 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAY
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
 	emit_signal("changed")
+	round_started.emit()
 
 func start_custom_round(text: String) -> void:
 	var word := WordManager.set_custom_word(text)

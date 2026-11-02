@@ -11,6 +11,7 @@ from godot_test_runner import configure_console, has_engine_errors, isolated_env
 ROOT = Path(__file__).resolve().parents[1]
 # A None pattern selects the structured JSON report named after the suite.
 SUITES = {
+    "firebase_analytics": (True, None),
     "resource_loading": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
     "resource_loading_shutdown": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
     "network_retries": (True, r"NETWORK_RETRIES checks=[1-9]\d* failures=0"),

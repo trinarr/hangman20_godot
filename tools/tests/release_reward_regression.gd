@@ -1,6 +1,5 @@
 extends Node
-# Run with a disposable user-data directory:
-# XDG_DATA_HOME=/tmp/hangman-tests godot --headless --path . res://tools/tests/release_reward_regression.tscn
+# Run through tools/run_reward_tests.py --suite release_reward_regression.
 
 class TestUI:
 	extends "res://scripts/main_portrait.gd"
@@ -47,13 +46,13 @@ class CountedState:
 		commits += 1
 		return true
 
-var failures: int = 0
+var failures: Array[String] = []
 var checks: int = 0
 
 func check(value: bool, label: String) -> void:
 	checks += 1
 	if !value:
-		failures += 1
+		failures.append(label)
 		push_error("FAIL: " + label)
 	else:
 		print("PASS: " + label)
@@ -172,7 +171,6 @@ func run_tests() -> void:
 	check(native.rewarded_shows == 1, "exactly one native rewarded show")
 	ads._on_rewarded_closed_for_request("valid")
 	ads._rewarded_loaded = true
-	ads._rewarded_loaded_id = ads.rewarded_id
 	ui.test_ads = ads
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
@@ -181,6 +179,10 @@ func run_tests() -> void:
 	var origin := Control.new()
 	ui.add_child(origin)
 	ui._portrait_game_input_group = origin
+	GameState._single_player_bucket(Database.current_language)["unlocked_level"] = 0
+	check(!ui._show_portrait_rewarded_action(&"hint_open") and native.rewarded_shows == 1, "locked hint cannot show a cached ad")
+	GameState._single_player_bucket(Database.current_language)["unlocked_level"] = GameState.GAME_DESIGN.get_int("progression.hints.all_unlocked_from_level") - 1
+	check(GameSession.can_use_open_letter_hint_ad(), "hint fixture meets production eligibility before showing")
 	check(ui._show_portrait_rewarded_action(&"hint_open"), "UI creates tagged rewarded request")
 	var first_request: String = ui._portrait_rewarded_request_id
 	if ads.is_rewarded_request_pending(first_request):
@@ -225,5 +227,5 @@ func run_tests() -> void:
 	await get_tree().create_timer(2.1).timeout
 	ads.free()
 	ui.free()
-	print("RESULT: %d checks, %d failures" % [checks, failures])
-	get_tree().quit(1 if failures else 0)
+	print("RELEASE_REWARD_REGRESSION " + JSON.stringify({"checks": checks, "failures": failures}))
+	get_tree().quit(1 if !failures.is_empty() else 0)

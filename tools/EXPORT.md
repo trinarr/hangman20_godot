@@ -25,6 +25,35 @@
 
 ## Проверки и экспорт
 
+Для Firebase после установки или замены Android-шаблона выполните:
+
+```powershell
+python tools/prepare_firebase_android.py
+python tools/prepare_firebase_android.py --check
+```
+
+Скрипт проверяет package ID из release-пресета, копирует клиентский `config/firebase/google-services.json` в app-модуль и подключает Google Services Gradle plugin. Его повторный запуск не дублирует правки. `android/` остаётся генерируемым каталогом; исходная конфигурация и скрипт подготовки отслеживаются Git. Исходный JSON и исходники/бинарники addon исключены из игровых assets; нативные ресурсы Firebase и классы входят в APK через Gradle. Google Analytics должен быть включён для проекта в консоли Firebase.
+
+Для пересборки **обоих** Android-мостов (Firebase и Yandex ILRD), укажите Gradle 8.13 и Android SDK 36; JDK 17 должен быть доступен через `JAVA_HOME`/`PATH`:
+
+```powershell
+python tools/build_android_plugins.py --gradle 'C:/path/to/gradle-8.13/bin/gradle.bat' --sdk 'C:/SDK/Android'
+```
+
+Скрипт собирает debug/release и обновляет AAR в `addons/*/bin/`. Определения сборки — `tools/android_plugins/`, временные результаты — `builds/android-plugins/`. Для AGP 8.6.1 предупреждение о compile SDK 36 фиксируйте отдельно; версию AGP не обновляйте одновременно с несвязанной правкой игры.
+
+Для проверки Firebase на Android явно разрешите тестовый сбор настройкой `firebase_analytics/debug_enabled=true` перед debug-экспортом (секция `[firebase_analytics]`, строка `debug_enabled=true` в `project.godot`). Примите новую редакцию документов в тестовой установке и включите DebugView:
+
+```powershell
+adb shell setprop debug.firebase.analytics.app com.trinarr.Hangman20
+# После проверки:
+adb shell setprop debug.firebase.analytics.app .none.
+```
+
+Отмечайте тестовый трафик фильтром разработчика в Google Analytics; настройку `firebase_analytics/debug_enabled` удаляйте после проверки. Без неё Android debug не отправляет события. Проверьте отсутствие Firebase до принятия документов, события прогресса, поздние/повторные рекламные callback, реальные ILRD value/currency и баннерный refresh. Политики из `docs/` должны быть опубликованы по адресам приложения до выпуска версии с новой редакцией. Локальное изменение HTML не публикует GitHub Pages.
+
+Для отчётов GA4 зарегистрируйте пользовательские параметры `placement`, `ad_format`, `stage_type`, `hint_type`, `game_mode`, `content_language`, `ui_language` как custom dimensions и `wait_ms` как custom metric. В DebugView параметры доступны для первичной проверки до настройки отчётов. Не используйте отдельные имена событий для каждого уровня или рекламного запроса.
+
 После изменения `project.godot`, плагинов или `export_presets.cfg` закройте и заново откройте Godot: уже открытый редактор может экспортировать прежние настройки и перезаписать обновлённый пресет. Включите плагин Release Guard и убедитесь, что доступны оба пресета. Выполните нужные [проверки проекта](TESTS.md) и разберите ошибки. Затем импортируйте ресурсы и создайте каталог сборок:
 
 ```powershell

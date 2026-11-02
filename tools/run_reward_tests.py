@@ -21,7 +21,8 @@ def main() -> int:
     configure_console()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot", help="Godot executable name or path")
-    parser.add_argument("--suite", choices=("rewards", "runtime_optimizations", "save_recovery", "resume_flow"), default="rewards")
+    parser.add_argument("--suite", choices=("rewards", "runtime_optimizations", "save_recovery", "resume_flow", "release_reward_regression"), default="rewards")
+    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a minimized window instead of the headless dummy renderer")
     args = parser.parse_args()
     executable = shutil.which(args.godot)
     if executable is None:
@@ -37,9 +38,11 @@ def main() -> int:
         phases += [["--", f"--restart-{phase}"] for phase in ("prepare", "verify", "confirm")]
     total_checks = 0
     with isolated_environment(executable, ROOT) as env:
+        if args.gpu:
+            env["HANGMAN_TEST_HIDE_WINDOW"] = "1"
         for phase in phases:
             try:
-                result = run_godot(executable, ROOT, arguments + phase, env, timeout=120)
+                result = run_godot(executable, ROOT, arguments + phase, env, timeout=120, headless=not args.gpu)
             except subprocess.TimeoutExpired as error:
                 print(f"{args.suite} tests timed out after 120 seconds")
                 if error.stdout:

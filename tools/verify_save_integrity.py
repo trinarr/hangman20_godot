@@ -114,7 +114,7 @@ def main() -> None:
         'signal stars_changed(balance: int)',
         '"stars": stars',
         'stars = clampi(int(parsed.get("stars", DEFAULT_STARS))',
-        "LEGAL_DOCUMENTS_VERSION: int = 1",
+        "LEGAL_DOCUMENTS_VERSION: int = 2",
         '"accepted_legal_documents_version": accepted_legal_documents_version',
         'int(parsed.get("accepted_legal_documents_version", 0))',
         "func has_accepted_legal_documents()",

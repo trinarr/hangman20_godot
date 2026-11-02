@@ -1,5 +1,5 @@
 extends SceneTree
-# Headless integration checks: real Home/Continue routing, isolated user://.
+# Integration checks: real Home/Continue routing, isolated user://.
 var main: Node
 var state: Node
 var session: Node
@@ -13,7 +13,10 @@ func _initialize() -> void:
 func _process(_delta: float) -> bool:
 	# The dummy renderer never submits GPU frames. Advance only that fence;
 	# navigation, saves, reward claims and scene construction run normally.
-	RenderingServer.frame_post_draw.emit()
+	if DisplayServer.get_name() == "headless":
+		RenderingServer.frame_post_draw.emit()
+	elif OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 	return false
 
 func check(value: bool, message: String) -> void:

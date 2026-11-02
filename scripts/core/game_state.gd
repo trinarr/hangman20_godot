@@ -13,6 +13,9 @@ signal tournament_changed
 signal hearts_changed(hearts: int, recovery_seconds: int)
 signal profile_changed
 signal guided_onboarding_finished
+signal legal_documents_accepted
+signal single_level_attempt_reset(language: String, level: int)
+signal stage_completed(language: String, level: int, slot: int, won: bool, completed: bool, quiz: bool, perfect: bool)
 
 const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
@@ -22,7 +25,7 @@ const SAVE_FORMAT_VERSION: int = 8
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
-const LEGAL_DOCUMENTS_VERSION: int = 1
+const LEGAL_DOCUMENTS_VERSION: int = 2
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
 const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
 const HINT_OPEN_LETTER: String = "open_letter"
@@ -887,6 +890,7 @@ func accept_legal_documents() -> bool:
 	var previous_version: int = accepted_legal_documents_version
 	accepted_legal_documents_version = LEGAL_DOCUMENTS_VERSION
 	if save_game():
+		legal_documents_accepted.emit()
 		return true
 	accepted_legal_documents_version = previous_version
 	return false
@@ -1630,6 +1634,10 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	# Notify UI only after the balance and receipt removal are durable.
 	if !already_granted:
 		soft_currency_changed.emit(soft_currency)
+	if !already_granted:
+		var analytics: Node = get_node_or_null("/root/Analytics")
+		if analytics != null:
+			analytics.track("reward_granted", {"placement": context, "amount": get_soft_currency() - before, "currency": "coins"})
 	return {"context": context, "is_current": is_current, "amount": get_soft_currency() - before}
 
 func _load_rewarded_double_requests(source: Variant) -> void:
@@ -2848,6 +2856,8 @@ func mark_single_level_word_played(
 		)
 	if persist:
 		save_game()
+	if was_unplayed:
+		stage_completed.emit(lang_key, level_index, word_slot, is_win, completed, get_single_level_question_slots(lang_key, level_index).has(word_slot), perfect)
 	return {
 		"completed": completed,
 		"theme_unlock_before": theme_unlock_before,
@@ -2918,6 +2928,7 @@ func reset_single_level_attempt(
 		active_single_player_session = {}
 	if persist:
 		save_game()
+	single_level_attempt_reset.emit(lang_key, level_index)
 
 
 # Personal tournament state shares the progress/economy save transaction.

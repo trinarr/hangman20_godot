@@ -20,7 +20,7 @@ func _export_begin(_features: PackedStringArray, is_debug: bool, _path: String, 
 			or key.begins_with("dev_console/") \
 			or key.begins_with("leaderboard/dev_") \
 			or key.begins_with("quiz_statistics/dev_") \
-			or key in ["yandex_ads/banner_id", "yandex_ads/interstitial_id", "yandex_ads/rewarded_id"])):
+			or key in ["yandex_ads/banner_id", "yandex_ads/interstitial_id", "yandex_ads/rewarded_id", "firebase_analytics/debug_enabled"])):
 			_settings[key] = {"value": ProjectSettings.get_setting(key), "order": ProjectSettings.get_order(key)}
 			ProjectSettings.clear(key)
 

@@ -1,0 +1,8 @@
+android {
+    namespace 'com.trinarr.analytics'
+    sourceSets.main {
+        java.srcDirs = ['../../../addons/HangmanFirebase/source']
+        manifest.srcFile '../../../addons/HangmanFirebase/source/AndroidManifest.xml'
+    }
+}
+dependencies { implementation 'com.google.firebase:firebase-analytics:24.0.0' }

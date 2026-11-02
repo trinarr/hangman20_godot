@@ -17,6 +17,8 @@ func _process(_delta: float) -> void:
 	# Home transitions await a GPU fence that the dummy renderer never emits.
 	if DisplayServer.get_name() == "headless":
 		RenderingServer.frame_post_draw.emit()
+	elif OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 
 func _ready() -> void:
 	call_deferred("run")

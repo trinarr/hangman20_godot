@@ -22,6 +22,14 @@ and license notices must be preserved as required by their respective licenses.
 
 ## Engine and runtime dependencies / Движок и зависимости
 
+The Android build uses Google Analytics for Firebase and its transitive Android
+SDK dependencies. Firebase Android SDK source is available under Apache 2.0;
+Google Play services dependencies also have their own terms. Preserve applicable
+notices in redistributed dependencies. The project-owned HangmanFirebase bridge
+does not replace these terms: [Firebase Android SDK](https://github.com/firebase/firebase-android-sdk),
+[Firebase terms](https://firebase.google.com/terms/),
+[Google APIs terms](https://developers.google.com/terms/).
+
 Hangman 2.0 uses Godot Engine. Godot's MIT license does not require the original
 game code to be open source. Godot and its bundled third-party libraries retain
 their own copyright notices and license requirements:

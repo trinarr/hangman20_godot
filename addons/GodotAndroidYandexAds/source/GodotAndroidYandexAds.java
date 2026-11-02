@@ -51,6 +51,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
     private InterstitialAd interstitialAd;
     private InterstitialAdLoader interstitialAdLoader;
     private boolean initializationRequested;
+    private boolean diagnosticLogging;
 
     public GodotAndroidYandexAds(Godot godot) {
         super(godot);
@@ -68,6 +69,10 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         signals.add(new SignalInfo("_on_sdk_initialized"));
 
         signals.add(new SignalInfo("_on_banner_loaded"));
+        signals.add(new SignalInfo("_on_ad_impression", String.class, String.class, String.class));
+        signals.add(new SignalInfo("_on_interstitial_shown_for_request", String.class));
+        signals.add(new SignalInfo("_on_interstitial_failed_for_request", String.class, String.class));
+        signals.add(new SignalInfo("_on_interstitial_closed_for_request", String.class));
         signals.add(new SignalInfo("_on_banner_failed_to_load", Integer.class));
         signals.add(new SignalInfo("_on_banner_clicked"));
         signals.add(new SignalInfo("_on_banner_impression"));
@@ -80,6 +85,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         signals.add(new SignalInfo("_on_rewarded_video_ad_clicked"));
         signals.add(new SignalInfo("_on_rewarded", String.class, Integer.class));
         signals.add(new SignalInfo("_on_rewarded_for_request", String.class, String.class, Integer.class));
+        signals.add(new SignalInfo("_on_rewarded_shown_for_request", String.class));
         signals.add(new SignalInfo("_on_rewarded_closed_for_request", String.class));
         signals.add(new SignalInfo("_on_rewarded_failed_for_request", String.class, String.class));
 
@@ -107,6 +113,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
             final boolean debugLogging = loggingEnabled &&
                     (activity.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
             YandexAds.enableLogging(debugLogging);
+            diagnosticLogging = debugLogging;
             if (initializationRequested) {
                 return;
             }
@@ -201,6 +208,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
             @Override
             public void onImpression(ImpressionData impressionData) {
                 emitSignal("_on_banner_impression");
+                if (impressionData != null) { emitSignal("_on_ad_impression", "", "banner", impressionData.getRawData()); }
             }
         };
     }
@@ -310,6 +318,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         return new RewardedAdEventListener() {
             @Override
             public void onAdShown() {
+                emitSignal("_on_rewarded_shown_for_request", requestId);
                 emitSignal("_on_rewarded_video_ad_show");
             }
 
@@ -334,7 +343,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
             @Override
             public void onAdImpression(ImpressionData impressionData) {
-                // ILRD is not consumed by the game yet.
+                if (impressionData != null) { emitSignal("_on_ad_impression", requestId, "rewarded", impressionData.getRawData()); }
             }
 
             @Override
@@ -371,31 +380,46 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void showInterstitial() {
+        showInterstitialForRequest("");
+    }
+
+    @UsedByGodot
+    public void showInterstitialForRequest(final String requestId) {
         activity.runOnUiThread(() -> {
-            if (interstitialAd == null) {
+            if (diagnosticLogging) Log.d(TAG, "Interstitial requested");
+            final InterstitialAd shownAd = interstitialAd;
+            if (shownAd == null) {
+                emitSignal("_on_interstitial_failed_for_request", requestId, "Interstitial ad is not ready");
+                emitSignal("_on_interstitial_failed_to_show", "Interstitial ad is not ready");
                 return;
             }
-            interstitialAd.setAdEventListener(createInterstitialEventListener());
-            interstitialAd.show(activity);
+            shownAd.setAdEventListener(createInterstitialEventListener(requestId, shownAd));
+            shownAd.show(activity);
         });
     }
 
-    private InterstitialAdEventListener createInterstitialEventListener() {
+    private InterstitialAdEventListener createInterstitialEventListener(final String requestId, final InterstitialAd shownAd) {
         return new InterstitialAdEventListener() {
             @Override
             public void onAdShown() {
+                if (diagnosticLogging) Log.d(TAG, "Interstitial shown callback");
+                emitSignal("_on_interstitial_shown_for_request", requestId);
                 emitSignal("_on_interstitial_ad_show");
             }
 
             @Override
             public void onAdFailedToShow(AdError error) {
-                interstitialAd = null;
+                if (diagnosticLogging) Log.d(TAG, "Interstitial failed callback");
+                if (interstitialAd == shownAd) { interstitialAd = null; }
+                emitSignal("_on_interstitial_failed_for_request", requestId, error.getDescription());
                 emitSignal("_on_interstitial_failed_to_show", error.getDescription());
             }
 
             @Override
             public void onAdDismissed() {
-                interstitialAd = null;
+                if (diagnosticLogging) Log.d(TAG, "Interstitial closed callback");
+                if (interstitialAd == shownAd) { interstitialAd = null; }
+                emitSignal("_on_interstitial_closed_for_request", requestId);
                 emitSignal("_on_interstitial_ad_dismissed");
             }
 
@@ -406,7 +430,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
             @Override
             public void onAdImpression(ImpressionData impressionData) {
-                // ILRD is not consumed by the game yet.
+                if (impressionData != null) { emitSignal("_on_ad_impression", requestId, "interstitial", impressionData.getRawData()); }
             }
         };
     }

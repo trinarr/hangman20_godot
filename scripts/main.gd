@@ -2023,6 +2023,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		false
 	)
 	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
+	Analytics.begin_stage(level_index, word_slot, "word")
 	show_game_screen()
 
 func _exit_game_warning_text() -> String:

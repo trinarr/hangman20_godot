@@ -16,7 +16,7 @@ DEBUG_AUTOLOADS = {"DebugLogBridge", "DevConsole"}
 FORBIDDEN_PREFIXES = (
     "tools/", "docs/", "supabase/", "scripts/debug/", "addons/dev-console/",
     "addons/release_guard/", "addons/GodotAndroidYandexAds/source/",
-    "addons/GodotAndroidYandexAds/bin/", "android/", "builds/",
+    "addons/GodotAndroidYandexAds/bin/", "addons/HangmanFirebase/", "config/firebase/", "android/", "builds/",
 )
 REQUIRED_FILES = (
     "scenes/Main.tscn", "scripts/main.gd", "scripts/main_portrait.gd",
@@ -96,7 +96,7 @@ def verify_properties(properties: dict[str, bytes], root: Path = ROOT) -> None:
                  key in {"autoload/" + name for name in DEBUG_AUTOLOADS}
                  or key.startswith(("dev_console/", "debug/", "leaderboard/dev_", "quiz_statistics/dev_"))
                  or key == "editor_plugins/enabled"
-                 or key in {"yandex_ads/banner_id", "yandex_ads/interstitial_id", "yandex_ads/rewarded_id"}]
+                 or key in {"yandex_ads/banner_id", "yandex_ads/interstitial_id", "yandex_ads/rewarded_id", "firebase_analytics/debug_enabled"}]
     require(not forbidden, "Development settings in release: " + ", ".join(forbidden))
     source = (root / "project.godot").read_text(encoding="utf-8")
     section = re.search(r"(?ms)^\[autoload\]\s*(.*?)(?=^\[|\Z)", source).group(1)

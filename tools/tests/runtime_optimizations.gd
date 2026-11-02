@@ -16,6 +16,8 @@ func _process(_delta: float) -> void:
 	# Home transitions await a GPU fence that the dummy renderer never emits.
 	if DisplayServer.get_name() == "headless":
 		RenderingServer.frame_post_draw.emit()
+	elif OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 
 func _ready() -> void:
 	call_deferred("run")
@@ -64,9 +66,9 @@ func test_word_reuse() -> void:
 	main.pending_letter_markers = PackedStringArray(["В"])
 	main.pending_letter_marker_is_correct = true
 	GameSession.guess("В")
-	check(main._portrait_word_letter_bounce_active_count == 1, "Final letter lost its bounce")
+	check(main._portrait_word_letter_bounce_active_count == 1, "Final letter lost its bounce (active=%d)" % main._portrait_word_letter_bounce_active_count)
 	main._rebuild_portrait_game_word_slots()
-	check(main._portrait_word_letter_bounce_active_count == 1, "Result refresh reset final bounce")
+	check(main._portrait_word_letter_bounce_active_count == 1, "Result refresh reset final bounce (active=%d)" % main._portrait_word_letter_bounce_active_count)
 	await get_tree().create_timer(5.0).timeout
 	check(main._portrait_word_letter_bounce_active_count == 0, "Final bounce did not complete")
 	check(!main._portrait_round_end_waiting_for_letter_bounce, "Result remained blocked by the bounce")
@@ -200,7 +202,8 @@ func run() -> void:
 	main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await get_tree().process_frame
-	Engine.time_scale = 8.0
+	# Intermediate animation assertions need the game's normal frame/time ratio.
+	Engine.time_scale = 1.0
 	await test_word_reuse()
 	await test_pattern_reuse()
 	test_receipt_compaction()

@@ -3,6 +3,8 @@ extends Node
 class_name YandexAds
 
 signal sdk_initialized
+signal analytics_event(event: String, parameters: Dictionary)
+signal ad_impression_received(raw: String, format: String, placement: String)
 signal banner_loaded(size_pixels: Vector2)
 signal banner_failed_to_load(error_code: int)
 signal interstitial_loaded
@@ -23,21 +25,17 @@ const DEFAULT_BANNER_ID := "demo-banner-yandex"
 const DEFAULT_INTERSTITIAL_ID := "demo-interstitial-yandex"
 const DEFAULT_REWARDED_ID := "demo-rewarded-yandex"
 const RELEASE_BANNER_ID := "R-M-19724622-1"
-const RELEASE_REWARDED_IDS := {
-	&"stage_coin": "R-M-19724622-2",
-	&"hint_open": "R-M-19724622-3",
-	&"coin_refill": "R-M-19724622-4",
-	&"heart_refill": "R-M-19724622-5",
-	&"extra_attempt": "R-M-19724622-6",
-	&"theme_reroll": "R-M-19724622-7",
-	&"hint_remove": "R-M-19724622-8",
-	&"final": "R-M-19724622-9",
-}
-const RELEASE_INTERSTITIAL_IDS := {
-	&"word_success": "R-M-19724622-10",
-	&"quiz_correct": "R-M-19724622-11",
-	&"forfeit": "R-M-19724622-12",
-}
+const RELEASE_REWARDED_ID := "R-M-19724622-2"
+const RELEASE_INTERSTITIAL_ID := "R-M-19724622-10"
+# Gameplay placements share one cached ad per format. Reward receipts still
+# identify the action independently of the advertising unit.
+const REWARDED_PLACEMENTS: Array[StringName] = [
+	&"stage_coin", &"hint_open", &"coin_refill", &"heart_refill",
+	&"extra_attempt", &"theme_reroll", &"hint_remove", &"final",
+]
+const INTERSTITIAL_PLACEMENTS: Array[StringName] = [
+	&"word_success", &"quiz_correct", &"forfeit",
+]
 const PLUGIN_SINGLETON := "GodotAndroidYandexAds"
 
 var banner_id: String = DEFAULT_BANNER_ID
@@ -58,16 +56,12 @@ var _banner_loading: bool = false
 var _banner_loaded: bool = false
 var _interstitial_loading: bool = false
 var _interstitial_loaded: bool = false
-var _interstitial_loading_id: String = ""
-var _interstitial_loaded_id: String = ""
 var _rewarded_loading: bool = false
 var _rewarded_loaded: bool = false
-var _rewarded_loading_id: String = ""
-var _rewarded_loaded_id: String = ""
 var _rewarded_pending_show: bool = false
 var _rewarded_pending_validator: Callable = Callable()
 var _rewarded_pending_request_id: String = ""
-# Drain an in-flight request after a privacy or placement change without exposing
+# Drain an in-flight request after a privacy change without exposing
 # the stale ad. The bundled native bridge has untagged load callbacks, so each
 # replacement is serialized until the old callback has been drained.
 var _discard_banner_load: bool = false
@@ -77,6 +71,13 @@ var _rewarded_show_id: String = ""
 var _rewarded_show_open: bool = false
 var _rewarded_show_legacy: bool = false
 var _rewarded_show_tagged_legacy_bridge: bool = false
+var _rewarded_placement: StringName = &""
+var _rewarded_request_placement: StringName = &""
+var _interstitial_placement: StringName = &""
+var _interstitial_show_id: String = ""
+var _interstitial_show_open: bool = false
+var _analytics_shows: Dictionary = {}
+var _rewarded_wait_started: int = 0
 
 # Temporary debug-only diagnostics. No IP, token or ad payloads.
 var _banner_diag_sequence: int = 0
@@ -113,7 +114,7 @@ func _exit_tree() -> void:
 
 func _read_project_settings() -> void:
 	# Debug/editor builds always use Yandex demo units. Release exports use the
-	# production banner immediately; fullscreen formats select a unit by placement.
+	# production banner immediately; fullscreen formats wait for a gameplay placement.
 	if OS.is_debug_build():
 		banner_id = DEFAULT_BANNER_ID
 		interstitial_id = DEFAULT_INTERSTITIAL_ID
@@ -133,14 +134,18 @@ func _read_project_settings() -> void:
 	))
 
 func _rewarded_id_for_placement(placement: StringName) -> String:
+	if !REWARDED_PLACEMENTS.has(placement):
+		return ""
 	if OS.is_debug_build():
 		return DEFAULT_REWARDED_ID
-	return str(RELEASE_REWARDED_IDS.get(placement, ""))
+	return RELEASE_REWARDED_ID
 
 func _interstitial_id_for_placement(placement: StringName) -> String:
+	if !INTERSTITIAL_PLACEMENTS.has(placement):
+		return ""
 	if OS.is_debug_build():
 		return DEFAULT_INTERSTITIAL_ID
-	return str(RELEASE_INTERSTITIAL_IDS.get(placement, ""))
+	return RELEASE_INTERSTITIAL_ID
 
 func _bind_native_plugin() -> bool:
 	if !Engine.has_singleton(PLUGIN_SINGLETON):
@@ -174,6 +179,11 @@ func is_sdk_ready() -> bool:
 	return _sdk_ready
 
 func _connect_native_signals() -> void:
+	_connect_native(&"_on_ad_impression", Callable(self, "_on_ad_impression"))
+	if _native.has_signal("_on_rewarded_shown_for_request"):
+		_connect_native(&"_on_rewarded_shown_for_request", Callable(self, "_on_rewarded_shown_for_request"))
+	else:
+		_connect_native(&"_on_rewarded_video_ad_show", Callable(self, "_on_rewarded_video_ad_show"))
 	_connect_native(&"_on_sdk_initialized", Callable(self, "_on_sdk_initialized"))
 	_connect_native(&"_on_banner_loaded", Callable(self, "_on_banner_loaded"))
 	_connect_native(&"_on_banner_failed_to_load", Callable(self, "_on_banner_failed_to_load"))
@@ -182,16 +192,16 @@ func _connect_native_signals() -> void:
 		&"_on_interstitial_failed_to_load",
 		Callable(self, "_on_interstitial_failed_to_load")
 	)
-	_connect_native(&"_on_interstitial_ad_show", Callable(self, "_on_interstitial_ad_show"))
-	_connect_native(
-		&"_on_interstitial_failed_to_show",
-		Callable(self, "_on_interstitial_failed_to_show")
-	)
-	_connect_native(
-		&"_on_interstitial_ad_dismissed",
-		Callable(self, "_on_interstitial_ad_dismissed")
-	)
-	if _native.has_method("showRewardedVideoForRequest"):
+	if _native.has_signal("_on_interstitial_shown_for_request"):
+		trace_banner("interstitial_tagged_bridge_bound")
+		_connect_native(&"_on_interstitial_shown_for_request", Callable(self, "_on_interstitial_shown_for_request"))
+		_connect_native(&"_on_interstitial_failed_for_request", Callable(self, "_on_interstitial_failed_for_request"))
+		_connect_native(&"_on_interstitial_closed_for_request", Callable(self, "_on_interstitial_closed_for_request"))
+	else:
+		_connect_native(&"_on_interstitial_ad_show", Callable(self, "_on_interstitial_ad_show"))
+		_connect_native(&"_on_interstitial_failed_to_show", Callable(self, "_on_interstitial_failed_to_show"))
+		_connect_native(&"_on_interstitial_ad_dismissed", Callable(self, "_on_interstitial_ad_dismissed"))
+	if _native_has_method(&"showRewardedVideoForRequest"):
 		_connect_native(&"_on_rewarded_for_request", Callable(self, "_on_rewarded_for_request"))
 		_connect_native(&"_on_rewarded_closed_for_request", Callable(self, "_on_rewarded_closed_for_request"))
 		_connect_native(&"_on_rewarded_failed_for_request", Callable(self, "_on_rewarded_failed_for_request"))
@@ -207,6 +217,13 @@ func _connect_native_signals() -> void:
 		&"_on_rewarded_video_ad_failed_to_load",
 		Callable(self, "_on_rewarded_video_ad_failed_to_load")
 	)
+
+func _native_has_method(method: StringName) -> bool:
+	# Android JNISingleton exports Java methods outside Object.has_method().
+	# Normal GDScript mocks and older bridges retain the Object fallback.
+	if _native.has_method("has_java_method"):
+		return bool(_native.has_java_method(method))
+	return _native.has_method(method)
 
 func _connect_native(signal_name: StringName, callback: Callable) -> void:
 	if _native.has_signal(signal_name) and !_native.is_connected(signal_name, callback):
@@ -262,22 +279,10 @@ func prepare_interstitial_placement(placement: StringName) -> bool:
 	var placement_id: String = _interstitial_id_for_placement(placement)
 	if placement_id.is_empty():
 		return false
-	_select_interstitial_id(placement_id)
-	return true
-
-func _select_interstitial_id(placement_id: String) -> void:
-	if placement_id.is_empty():
-		return
 	interstitial_id = placement_id
-	if _interstitial_loading:
-		if _interstitial_loading_id != interstitial_id:
-			_discard_interstitial_load = true
-		return
-	if _interstitial_loaded and _interstitial_loaded_id != interstitial_id:
-		_interstitial_loaded = false
-		_interstitial_loaded_id = ""
-	if !_interstitial_loaded:
-		load_interstitial()
+	_interstitial_placement = placement
+	load_interstitial()
+	return true
 
 func load_interstitial() -> void:
 	if (
@@ -285,65 +290,54 @@ func load_interstitial() -> void:
 		or !_sdk_ready
 		or interstitial_id.is_empty()
 		or _interstitial_loading
-		or (_interstitial_loaded and _interstitial_loaded_id == interstitial_id)
+		or _interstitial_show_open
+		or _interstitial_loaded
 	):
 		return
 	_interstitial_loading = true
 	_interstitial_loaded = false
-	_interstitial_loading_id = interstitial_id
 	_native.loadInterstitial(interstitial_id)
 
 func is_interstitial_loaded(placement: StringName = &"") -> bool:
 	if placement == &"":
 		return _interstitial_loaded
 	var placement_id: String = _interstitial_id_for_placement(placement)
-	return _interstitial_loaded and !placement_id.is_empty() and _interstitial_loaded_id == placement_id
+	return _interstitial_loaded and !placement_id.is_empty()
 
 func show_interstitial(placement: StringName = &"") -> bool:
 	if placement != &"" and !prepare_interstitial_placement(placement):
 		return false
 	if !is_native_available() or !_sdk_ready or interstitial_id.is_empty():
 		return false
-	if _interstitial_loaded and _interstitial_loaded_id == interstitial_id:
+	if _interstitial_loaded:
 		_start_interstitial_show()
 		return true
 	# A network request must never block navigation or auto-show later.
 	load_interstitial()
+	analytics_event.emit("ad_show_result", {"placement": str(_interstitial_placement), "ad_format": "interstitial", "status": "not_ready"})
 	return false
 
 func _start_interstitial_show() -> void:
-	if !is_native_available() or !_interstitial_loaded:
+	if !is_native_available() or !_interstitial_loaded or _interstitial_show_open:
 		return
 	_interstitial_loaded = false
-	_interstitial_loaded_id = ""
-	_native.showInterstitial()
+	_interstitial_show_id = "int:%d" % Time.get_ticks_usec()
+	_interstitial_show_open = true
+	_remember_analytics_show(_interstitial_show_id, str(_interstitial_placement), "interstitial")
+	_track_show_event(_interstitial_show_id, "ad_show_result", "requested")
+	if _native_has_method(&"showInterstitialForRequest"):
+		_native.showInterstitialForRequest(_interstitial_show_id)
+	else:
+		_native.showInterstitial()
 
 func prepare_rewarded_placement(placement: StringName) -> bool:
 	var placement_id: String = _rewarded_id_for_placement(placement)
 	if placement_id.is_empty():
 		return false
-	_select_rewarded_id(placement_id)
-	return true
-
-func _select_rewarded_id(placement_id: String) -> void:
-	if placement_id.is_empty():
-		return
-	# Keep the unit selected by the user's tap stable while it is loading. A later
-	# UI refresh may warm another placement, but it must not hijack this show.
-	if _rewarded_pending_show and rewarded_id != placement_id:
-		return
 	rewarded_id = placement_id
-	if _rewarded_show_open:
-		return
-	if _rewarded_loading:
-		if _rewarded_loading_id != rewarded_id:
-			_discard_rewarded_load = true
-		return
-	if _rewarded_loaded and _rewarded_loaded_id != rewarded_id:
-		_rewarded_loaded = false
-		_rewarded_loaded_id = ""
-	if !_rewarded_loaded:
-		load_rewarded_video()
+	_rewarded_placement = placement
+	load_rewarded_video()
+	return true
 
 func load_rewarded_video() -> void:
 	if (
@@ -352,19 +346,18 @@ func load_rewarded_video() -> void:
 		or rewarded_id.is_empty()
 		or _rewarded_loading
 		or _rewarded_show_open
-		or (_rewarded_loaded and _rewarded_loaded_id == rewarded_id)
+		or _rewarded_loaded
 	):
 		return
 	_rewarded_loading = true
 	_rewarded_loaded = false
-	_rewarded_loading_id = rewarded_id
 	_native.loadRewardedVideo(rewarded_id)
 
 func is_rewarded_video_loaded(placement: StringName = &"") -> bool:
 	if placement == &"":
 		return _rewarded_loaded
 	var placement_id: String = _rewarded_id_for_placement(placement)
-	return _rewarded_loaded and !placement_id.is_empty() and _rewarded_loaded_id == placement_id
+	return _rewarded_loaded and !placement_id.is_empty()
 
 func can_request_rewarded_video(placement: StringName = &"") -> bool:
 	if !is_native_available() or !_sdk_ready:
@@ -385,7 +378,10 @@ func show_rewarded_video(
 	_rewarded_pending_show = true
 	_rewarded_pending_request_id = request_id
 	_rewarded_pending_validator = validator
-	if _rewarded_loaded and _rewarded_loaded_id == rewarded_id:
+	_rewarded_request_placement = _rewarded_placement
+	_rewarded_wait_started = Time.get_ticks_msec()
+	analytics_event.emit("ad_offer_clicked", {"placement": str(_rewarded_placement), "ad_format": "rewarded"})
+	if _rewarded_loaded:
 		_start_rewarded_show(request_id)
 		return _rewarded_show_open
 	load_rewarded_video()
@@ -394,6 +390,7 @@ func show_rewarded_video(
 func cancel_pending_rewarded_request(request_id: String) -> bool:
 	if !_rewarded_pending_show or _rewarded_pending_request_id != request_id:
 		return false
+	analytics_event.emit("ad_show_result", {"placement": str(_rewarded_request_placement), "ad_format": "rewarded", "status": "cancelled"})
 	_rewarded_pending_show = false
 	_rewarded_pending_request_id = ""
 	_rewarded_pending_validator = Callable()
@@ -417,15 +414,16 @@ func _start_rewarded_show(request_id: String) -> void:
 	_rewarded_pending_show = false
 	_rewarded_pending_request_id = ""
 	_rewarded_loaded = false
-	_rewarded_loaded_id = ""
 	_rewarded_show_legacy = request_id.is_empty()
 	_rewarded_show_id = request_id if !request_id.is_empty() else "action:%d" % Time.get_ticks_usec()
 	_rewarded_show_open = true
+	_remember_analytics_show(_rewarded_show_id, str(_rewarded_request_placement), "rewarded")
+	analytics_event.emit("ad_show_result", {"placement": str(_rewarded_request_placement), "ad_format": "rewarded", "status": "requested", "wait_ms": maxi(Time.get_ticks_msec() - _rewarded_wait_started, 0)})
 	_rewarded_show_tagged_legacy_bridge = (
 		!request_id.is_empty()
-		and !_native.has_method("showRewardedVideoForRequest")
+		and !_native_has_method(&"showRewardedVideoForRequest")
 	)
-	if _native.has_method("showRewardedVideoForRequest"):
+	if _native_has_method(&"showRewardedVideoForRequest"):
 		_native.showRewardedVideoForRequest(_rewarded_show_id)
 	else:
 		# Keep tagged final-reward requests working with an older cached Android
@@ -436,6 +434,7 @@ func _start_rewarded_show(request_id: String) -> void:
 func _fail_pending_rewarded_show(message: String) -> void:
 	if !_rewarded_pending_show:
 		return
+	analytics_event.emit("ad_show_result", {"placement": str(_rewarded_request_placement), "ad_format": "rewarded", "status": "failed"})
 	var request_id: String = _rewarded_pending_request_id
 	_rewarded_pending_validator = Callable()
 	_rewarded_pending_show = false
@@ -453,20 +452,20 @@ func _on_rewarded_for_request(request_id: String, currency: String, amount: int)
 		rewarded.emit(currency, amount)
 
 func _on_rewarded_closed_for_request(request_id: String) -> void:
+	_track_show_event(request_id, "ad_closed", "closed")
 	if request_id == _rewarded_show_id and _rewarded_show_open:
 		_rewarded_show_open = false
 		_rewarded_loaded = false
-		_rewarded_loaded_id = ""
 		if _rewarded_show_legacy:
 			rewarded_video_closed.emit()
 		call_deferred("load_rewarded_video")
 	rewarded_video_closed_for_request.emit(request_id)
 
 func _on_rewarded_failed_for_request(request_id: String, message: String) -> void:
+	_track_show_event(request_id, "ad_show_result", "failed")
 	if request_id == _rewarded_show_id and _rewarded_show_open:
 		_rewarded_show_open = false
 		_rewarded_loaded = false
-		_rewarded_loaded_id = ""
 		if _rewarded_show_legacy:
 			rewarded_video_failed_to_show.emit(message)
 		call_deferred("load_rewarded_video")
@@ -488,9 +487,7 @@ func set_user_consent(value: bool) -> void:
 	_discard_rewarded_load = _rewarded_loading
 	_banner_loaded = false
 	_interstitial_loaded = false
-	_interstitial_loaded_id = ""
 	_rewarded_loaded = false
-	_rewarded_loaded_id = ""
 	_native.hideBanner()
 	if !_banner_loading:
 		_native.removeBanner()
@@ -518,8 +515,7 @@ func _on_sdk_initialized() -> void:
 	if _banner_wanted:
 		load_banner()
 	# Debug keeps the original eager demo preload. Release fullscreen units are
-	# selected by gameplay placement before loading so one point cannot use another
-	# point's production ad unit.
+	# requested by gameplay before loading; all placements share a unit per format.
 	if OS.is_debug_build():
 		load_interstitial()
 		load_rewarded_video()
@@ -531,6 +527,7 @@ func _on_banner_loaded() -> void:
 		_finish_discarded_banner_load()
 		return
 	_banner_loaded = true
+	analytics_event.emit("ad_load_result", {"ad_format": "banner", "status": "loaded"})
 	trace_banner("banner_visibility_after_load")
 	if _banner_wanted:
 		_native.showBanner()
@@ -546,47 +543,68 @@ func _on_banner_failed_to_load(error_code: int) -> void:
 		return
 	_banner_loaded = false
 	banner_failed_to_load.emit(error_code)
+	analytics_event.emit("ad_load_result", {"ad_format": "banner", "status": "failed", "error_code": error_code})
 
 func _on_interstitial_loaded() -> void:
-	var loaded_id: String = _interstitial_loading_id
 	_interstitial_loading = false
-	_interstitial_loading_id = ""
-	if _discard_interstitial_load or loaded_id != interstitial_id:
+	if _discard_interstitial_load:
 		_discard_interstitial_load = false
 		_interstitial_loaded = false
-		_interstitial_loaded_id = ""
 		load_interstitial()
 		return
 	_interstitial_loaded = true
-	_interstitial_loaded_id = loaded_id
+	analytics_event.emit("ad_load_result", {"ad_format": "interstitial", "status": "loaded"})
 	interstitial_loaded.emit()
 
 func _on_interstitial_failed_to_load(error_code: int) -> void:
-	var failed_id: String = _interstitial_loading_id
 	_interstitial_loading = false
-	_interstitial_loading_id = ""
-	if _discard_interstitial_load or failed_id != interstitial_id:
+	if _discard_interstitial_load:
 		_discard_interstitial_load = false
 		_interstitial_loaded = false
-		_interstitial_loaded_id = ""
 		load_interstitial()
 		return
 	_interstitial_loaded = false
-	_interstitial_loaded_id = ""
 	interstitial_failed_to_load.emit(error_code)
+	analytics_event.emit("ad_load_result", {"ad_format": "interstitial", "status": "failed", "error_code": error_code})
 
 func _on_interstitial_ad_show() -> void:
+	_on_interstitial_shown_for_request(_interstitial_show_id)
+
+func _on_interstitial_shown_for_request(request_id: String) -> void:
+	trace_banner("interstitial_shown_callback", {"current_request": request_id == _interstitial_show_id, "show_open": _interstitial_show_open})
+	if !_interstitial_show_open or request_id != _interstitial_show_id:
+		return
+	var record: Dictionary = _analytics_shows.get(request_id, {})
+	if record.get("events", {}).has("ad_show_result:shown"):
+		return
+	_track_show_event(request_id, "ad_show_result", "shown")
 	interstitial_shown.emit()
 
 func _on_interstitial_failed_to_show(message: String) -> void:
+	_on_interstitial_failed_for_request(_interstitial_show_id, message)
+
+func _on_interstitial_failed_for_request(request_id: String, message: String) -> void:
+	trace_banner("interstitial_failed_callback", {"current_request": request_id == _interstitial_show_id, "show_open": _interstitial_show_open})
+	if !_interstitial_show_open or request_id != _interstitial_show_id:
+		return
+	_track_show_event(request_id, "ad_show_result", "failed")
+	_interstitial_show_open = false
+	_interstitial_show_id = ""
 	_interstitial_loaded = false
-	_interstitial_loaded_id = ""
 	interstitial_failed_to_show.emit(message)
 	call_deferred("load_interstitial")
 
 func _on_interstitial_ad_dismissed() -> void:
+	_on_interstitial_closed_for_request(_interstitial_show_id)
+
+func _on_interstitial_closed_for_request(request_id: String) -> void:
+	trace_banner("interstitial_closed_callback", {"current_request": request_id == _interstitial_show_id, "show_open": _interstitial_show_open})
+	if !_interstitial_show_open or request_id != _interstitial_show_id:
+		return
+	_track_show_event(request_id, "ad_closed", "closed")
+	_interstitial_show_open = false
+	_interstitial_show_id = ""
 	_interstitial_loaded = false
-	_interstitial_loaded_id = ""
 	interstitial_closed.emit()
 	call_deferred("load_interstitial")
 
@@ -597,34 +615,28 @@ func _on_rewarded(currency: String, amount: int) -> void:
 	rewarded.emit(currency, amount)
 
 func _on_rewarded_video_ad_loaded() -> void:
-	var loaded_id: String = _rewarded_loading_id
 	_rewarded_loading = false
-	_rewarded_loading_id = ""
-	if _discard_rewarded_load or loaded_id != rewarded_id:
+	if _discard_rewarded_load:
 		_discard_rewarded_load = false
 		_rewarded_loaded = false
-		_rewarded_loaded_id = ""
 		load_rewarded_video()
 		return
 	_rewarded_loaded = true
-	_rewarded_loaded_id = loaded_id
+	analytics_event.emit("ad_load_result", {"ad_format": "rewarded", "status": "loaded"})
 	rewarded_video_loaded.emit()
 	if _rewarded_pending_show:
 		call_deferred("_start_rewarded_show", _rewarded_pending_request_id)
 
 func _on_rewarded_video_ad_failed_to_load(error_code: int) -> void:
-	var failed_id: String = _rewarded_loading_id
 	_rewarded_loading = false
-	_rewarded_loading_id = ""
-	if _discard_rewarded_load or failed_id != rewarded_id:
+	if _discard_rewarded_load:
 		_discard_rewarded_load = false
 		_rewarded_loaded = false
-		_rewarded_loaded_id = ""
 		load_rewarded_video()
 		return
 	_rewarded_loaded = false
-	_rewarded_loaded_id = ""
 	rewarded_video_failed_to_load.emit(error_code)
+	analytics_event.emit("ad_load_result", {"ad_format": "rewarded", "status": "failed", "error_code": error_code})
 	_fail_pending_rewarded_show("Rewarded ad failed to load: %d" % error_code)
 
 func _on_rewarded_video_ad_failed_to_show(message: String) -> void:
@@ -632,7 +644,6 @@ func _on_rewarded_video_ad_failed_to_show(message: String) -> void:
 	var tagged_legacy_bridge: bool = _rewarded_show_tagged_legacy_bridge
 	_rewarded_show_open = false
 	_rewarded_loaded = false
-	_rewarded_loaded_id = ""
 	if tagged_legacy_bridge and !request_id.is_empty():
 		rewarded_video_failed_to_show_for_request.emit(request_id, message)
 	else:
@@ -644,9 +655,39 @@ func _on_rewarded_video_ad_dismissed() -> void:
 	var tagged_legacy_bridge: bool = _rewarded_show_tagged_legacy_bridge
 	_rewarded_show_open = false
 	_rewarded_loaded = false
-	_rewarded_loaded_id = ""
 	if tagged_legacy_bridge and !request_id.is_empty():
 		rewarded_video_closed_for_request.emit(request_id)
 	else:
 		rewarded_video_closed.emit()
 	call_deferred("load_rewarded_video")
+
+func _remember_analytics_show(request: String, placement: String, format: String) -> void:
+	_analytics_shows[request] = {"placement": placement, "ad_format": format, "events": {}}
+	if _analytics_shows.size() > 32:
+		_analytics_shows.erase(_analytics_shows.keys()[0])
+
+func _track_show_event(request: String, event: String, status: String) -> void:
+	var record: Dictionary = _analytics_shows.get(request, {})
+	if record.is_empty():
+		return
+	var key: String = event + ":" + status
+	if record["events"].has(key):
+		return
+	record["events"][key] = true
+	analytics_event.emit(event, {"placement": record["placement"], "ad_format": record["ad_format"], "status": status})
+
+func _on_rewarded_video_ad_show() -> void:
+	_on_rewarded_shown_for_request(_rewarded_show_id)
+
+func _on_rewarded_shown_for_request(request_id: String) -> void:
+	_track_show_event(request_id, "ad_show_result", "shown")
+
+func _on_ad_impression(request: String, format: String, raw: String) -> void:
+	if format == "banner":
+		ad_impression_received.emit(raw, format, "banner")
+		return
+	var record: Dictionary = _analytics_shows.get(request, {})
+	if record.is_empty() or record["ad_format"] != format or record["events"].has("impression"):
+		return
+	record["events"]["impression"] = true
+	ad_impression_received.emit(raw, format, str(record["placement"]))

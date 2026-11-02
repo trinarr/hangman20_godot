@@ -2,6 +2,13 @@ extends SceneTree
 
 const ADS_SCRIPT: GDScript = preload("res://yandex_ads.gd")
 
+# Exercise production placement routing even when the test engine is debug.
+class ReleaseAds extends "res://yandex_ads.gd":
+	func _rewarded_id_for_placement(placement: StringName) -> String:
+		return RELEASE_REWARDED_ID if REWARDED_PLACEMENTS.has(placement) else ""
+	func _interstitial_id_for_placement(placement: StringName) -> String:
+		return RELEASE_INTERSTITIAL_ID if INTERSTITIAL_PLACEMENTS.has(placement) else ""
+
 class FakeNative extends RefCounted:
 	var calls: Array[String] = []
 	func setUserConsent(value: bool) -> void:
@@ -20,12 +27,35 @@ class FakeNative extends RefCounted:
 		calls.append("load_rewarded")
 	func showBanner() -> void:
 		calls.append("show_banner")
+	func showRewardedVideoForRequest(request: String) -> void:
+		calls.append("show:" + request)
+	func showInterstitialForRequest(request: String) -> void:
+		calls.append("int:" + request)
 	func getBannerWidth() -> int:
 		return 320
 	func getBannerHeight() -> int:
 		return 50
 
 var failures: int = 0
+
+class FakeJni extends FakeNative:
+	var java_queries: Array[String] = []
+	func has_java_method(method: StringName) -> bool:
+		java_queries.append(str(method))
+		return method in [&"showInterstitialForRequest", &"showRewardedVideoForRequest"]
+
+class SignalNative extends FakeJni:
+	signal _on_rewarded_shown_for_request(id: String)
+	signal _on_rewarded_for_request(id: String, currency: String, amount: int)
+	signal _on_rewarded_closed_for_request(id: String)
+	signal _on_rewarded_failed_for_request(id: String, message: String)
+	signal _on_rewarded(currency: String, amount: int)
+	signal _on_rewarded_video_ad_dismissed
+	signal _on_rewarded_video_ad_failed_to_show(message: String)
+	signal _on_rewarded_video_ad_show
+	signal _on_ad_impression(id: String, format: String, raw: String)
+	signal _on_banner_loaded
+	signal _on_banner_failed_to_load(code: int)
 
 func check(condition: bool, message: String) -> void:
 	if !condition:
@@ -41,6 +71,10 @@ func service():
 	return ads
 
 func _initialize() -> void:
+	test_shared_placement_cache()
+	test_impression_placement()
+	test_tagged_interstitial_lifecycle()
+	test_native_signal_subscription()
 	# Initial choice reaches native configure before any ad load. Repeating the
 	# saved choice must not initialize twice or replace a current cached ad.
 	var initial = service()
@@ -128,3 +162,152 @@ func _initialize() -> void:
 	reward_service.free()
 	print("Ad consent tests: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
+
+func test_native_signal_subscription() -> void:
+	var ads = service()
+	var native := SignalNative.new()
+	ads._native = native
+	ads._connect_native_signals()
+	ads._connect_native_signals()
+	var received: Array[String] = []
+	var shown: Array[Dictionary] = []
+	ads.analytics_event.connect(func(event: String, parameters: Dictionary) -> void:
+		if event == "ad_show_result" and parameters.get("status") == "shown":
+			shown.append(parameters.duplicate()))
+	ads.rewarded_for_request.connect(func(id: String, _currency: String, _amount: int) -> void: received.append("reward:" + id))
+	ads.rewarded_video_closed_for_request.connect(func(id: String) -> void: received.append("closed:" + id))
+	ads.rewarded_video_failed_to_show_for_request.connect(func(id: String, _message: String) -> void: received.append("failed:" + id))
+	ads.rewarded.connect(func(_currency: String, _amount: int) -> void: received.append("legacy_reward"))
+	ads.rewarded_video_closed.connect(func() -> void: received.append("legacy_closed"))
+	ads.banner_loaded.connect(func(_size: Vector2) -> void: received.append("banner_loaded"))
+	ads.banner_failed_to_load.connect(func(_code: int) -> void: received.append("banner_failed"))
+	ads.ad_impression_received.connect(func(_raw: String, _format: String, placement: String) -> void: received.append("impression:" + placement))
+	ads._rewarded_loaded = true
+	check(ads.show_rewarded_video("first", &"hint_open"), "JNI Rewarded starts")
+	check(native.calls.has("show:first"), "JNI Rewarded preserves its request ID")
+	native._on_rewarded_for_request.emit("first", "coin", 1)
+	native._on_rewarded.emit("coin", 1)
+	native._on_rewarded_closed_for_request.emit("first")
+	native._on_rewarded_video_ad_dismissed.emit()
+	check(received == ["reward:first", "closed:first"], "paired native tagged/legacy callbacks are delivered only once")
+	ads._rewarded_loaded = true
+	ads.show_rewarded_video("second", &"coin_refill")
+	native._on_rewarded_shown_for_request.emit("first")
+	native._on_rewarded_video_ad_show.emit()
+	check(shown.size() == 1 and shown[0].placement == "hint_open", "late Rewarded shown keeps its original placement and legacy shown is disconnected")
+	check(!ads._analytics_shows["second"].events.has("ad_show_result:shown"), "late shown never marks the current show")
+	native._on_rewarded_shown_for_request.emit("second")
+	native._on_rewarded_shown_for_request.emit("second")
+	native._on_rewarded_shown_for_request.emit("unknown")
+	check(shown.size() == 2 and shown[1].placement == "coin_refill", "current shown is delivered once and unknown IDs are ignored")
+	native._on_rewarded_video_ad_failed_to_show.emit("old legacy error")
+	native._on_rewarded_video_ad_dismissed.emit()
+	check(ads._rewarded_show_open and ads._rewarded_show_id == "second", "legacy callbacks are disconnected from the tagged path")
+	native._on_rewarded_for_request.emit("first", "coin", 1)
+	native._on_rewarded_closed_for_request.emit("first")
+	check(received[-2] == "reward:first" and ads._rewarded_show_open, "late tagged reward retains original ID while another show is open")
+	native._on_ad_impression.emit("first", "rewarded", "{}")
+	check(received.back() == "impression:hint_open", "Rewarded ILRD retains original placement")
+	native._on_rewarded_failed_for_request.emit("second", "not ready")
+	native._on_rewarded_video_ad_failed_to_show.emit("not ready")
+	check(!ads._rewarded_show_open and received.back() == "failed:second", "tagged show error completes the matching show")
+	ads._rewarded_loaded = true
+	ads.show_rewarded_video("", &"final")
+	var generated: String = ads._rewarded_show_id
+	native._on_rewarded_for_request.emit(generated, "coin", 1)
+	native._on_rewarded.emit("coin", 1)
+	native._on_rewarded_closed_for_request.emit(generated)
+	native._on_rewarded_video_ad_dismissed.emit()
+	check(received.count("legacy_reward") == 1 and received.count("legacy_closed") == 1, "empty-id caller remains compatible without duplicate legacy delivery")
+	native._on_banner_loaded.emit()
+	native._on_banner_failed_to_load.emit(5)
+	native._on_ad_impression.emit("", "banner", "{}")
+	check(received.slice(-3) == ["banner_loaded", "banner_failed", "impression:banner"], "banner load/error/impression subscriptions survive JNI changes")
+	ads.free()
+
+func test_tagged_interstitial_lifecycle() -> void:
+	var ads = service()
+	ads._native = FakeJni.new()
+	check(ads._native_has_method(&"showRewardedVideoForRequest"), "JNI capability check finds tagged Rewarded")
+	check(!ads._native_has_method(&"getBannerWidth"), "JNI capability map takes precedence over Object.has_method")
+	var notifications: Array[String] = []
+	ads.interstitial_shown.connect(func() -> void: notifications.append("shown"))
+	ads.interstitial_closed.connect(func() -> void: notifications.append("closed"))
+	ads.interstitial_failed_to_show.connect(func(_message: String) -> void: notifications.append("failed"))
+	ads._interstitial_loaded = true
+	check(ads.show_interstitial(&"word_success"), "first interstitial starts")
+	var first: String = ads._interstitial_show_id
+	check(ads._native.calls.has("int:" + first) and ads._native.java_queries.has("showInterstitialForRequest"), "JNI capability selects tagged show and retains request ID")
+	ads.prepare_interstitial_placement(&"quiz_correct")
+	check(!ads._native.calls.has("load_interstitial"), "preload must not replace an open interstitial")
+	ads._on_interstitial_shown_for_request(first)
+	ads._on_interstitial_shown_for_request(first)
+	ads._on_interstitial_closed_for_request(first)
+	ads._interstitial_loaded = true
+	check(ads.show_interstitial(&"quiz_correct"), "second interstitial starts")
+	var second: String = ads._interstitial_show_id
+	ads._on_interstitial_closed_for_request(first)
+	ads._on_interstitial_failed_for_request(first, "late error")
+	ads._on_interstitial_shown_for_request(first)
+	check(ads._interstitial_show_open and ads._interstitial_show_id == second, "old callbacks cannot terminate a new show")
+	check(notifications == ["shown", "closed"], "old or duplicate callbacks never reach UI")
+	ads._on_interstitial_failed_for_request(second, "not ready")
+	ads._on_interstitial_closed_for_request(second)
+	check(!ads._interstitial_show_open and notifications == ["shown", "closed", "failed"], "current failure completes UI exactly once")
+	ads.free()
+
+func test_shared_placement_cache() -> void:
+	for complete_load: bool in [false, true]:
+		var ads = ReleaseAds.new()
+		ads._native = FakeNative.new()
+		ads._sdk_ready = true
+		ads.prepare_rewarded_placement(&"stage_coin")
+		ads.prepare_interstitial_placement(&"word_success")
+		if complete_load:
+			ads._on_rewarded_video_ad_loaded()
+			ads._on_interstitial_loaded()
+		for placement: StringName in [&"stage_coin", &"hint_open", &"coin_refill", &"heart_refill", &"extra_attempt", &"theme_reroll", &"hint_remove", &"final"]:
+			check(ads._rewarded_id_for_placement(placement) == "R-M-19724622-2", "shared production RW id: " + placement)
+			check(ads.prepare_rewarded_placement(placement), "RW placement rejected: " + placement)
+			check(!ads._discard_rewarded_load, "RW placement discards an in-flight shared load")
+			if complete_load:
+				check(ads.is_rewarded_video_loaded(placement), "RW placement loses a ready shared ad: " + placement)
+		for placement: StringName in [&"word_success", &"quiz_correct", &"forfeit"]:
+			check(ads._interstitial_id_for_placement(placement) == "R-M-19724622-10", "shared production INT id: " + placement)
+			check(ads.prepare_interstitial_placement(placement), "INT placement rejected: " + placement)
+			check(!ads._discard_interstitial_load, "INT placement discards an in-flight shared load")
+			if complete_load:
+				check(ads.is_interstitial_loaded(placement), "INT placement loses a ready shared ad: " + placement)
+		if !complete_load:
+			ads._on_rewarded_video_ad_loaded()
+			ads._on_interstitial_loaded()
+		check(ads.is_rewarded_video_loaded(&"hint_open") and ads.is_interstitial_loaded(&"quiz_correct"), "shared load completes for another gameplay placement")
+		check(ads._native.calls.count("load_rewarded") == 1 and ads._native.calls.count("load_interstitial") == 1, "placement changes cause duplicate fullscreen loads")
+		check(!ads.prepare_rewarded_placement(&"unknown") and !ads.prepare_interstitial_placement(&"unknown"), "unknown production placement accepted")
+		ads.free()
+
+func test_impression_placement() -> void:
+	var ads = ReleaseAds.new()
+	ads._native = FakeNative.new()
+	ads._sdk_ready = true
+	var impressions: Array[Dictionary] = []
+	ads.ad_impression_received.connect(func(raw: String, format: String, placement: String) -> void:
+		impressions.append({"raw": raw, "format": format, "placement": placement}))
+	check(ads.show_rewarded_video("hint", &"hint_open"), "hint queues shared ad")
+	ads.prepare_rewarded_placement(&"heart_refill")
+	ads._on_rewarded_video_ad_loaded()
+	ads._start_rewarded_show("hint")
+	ads._on_rewarded_closed_for_request("hint")
+	check(ads.show_rewarded_video("final", &"final"), "next placement queues another show")
+	ads._on_rewarded_video_ad_loaded()
+	ads._start_rewarded_show("final")
+	ads._on_ad_impression("hint", "rewarded", "{}")
+	ads._on_ad_impression("hint", "rewarded", "{}")
+	ads._on_ad_impression("final", "rewarded", "{}")
+	check(impressions.size() == 2, "fullscreen impression callbacks are idempotent per show")
+	check(impressions[0].placement == "hint_open" and impressions[1].placement == "final", "late ILRD retains original placement despite pending preload and a newer show")
+	ads._on_rewarded_closed_for_request("hint")
+	check(ads._rewarded_show_open and ads._rewarded_show_id == "final", "old close cannot invalidate newer analytics context")
+	ads._on_ad_impression("unknown", "rewarded", "{}")
+	check(impressions.size() == 2, "unknown impression never borrows current placement")
+	ads.free()

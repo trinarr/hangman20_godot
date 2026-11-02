@@ -30,6 +30,17 @@ class ResourceChecks(unittest.TestCase):
 
 
 class RunnerChecks(unittest.TestCase):
+    def test_gpu_mode_keeps_real_renderer_and_engine_error_log(self):
+        def fake_engine(command, **kwargs):
+            self.assertNotIn("--headless", command)
+            self.assertIn("--minimized", command)
+            Path(command[command.index("--log-file") + 1]).write_text(
+                "ERROR: GPU failure", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, "")
+        with patch("godot_test_runner.subprocess.run", side_effect=fake_engine):
+            result = run_godot("godot", ".", [], {}, headless=False)
+        self.assertTrue(has_engine_errors(result.stdout))
+
     def test_gui_log_is_read_when_stdout_is_empty(self):
         def fake_engine(command, **kwargs):
             Path(command[command.index("--log-file") + 1]).write_text(

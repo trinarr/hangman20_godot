@@ -1,5 +1,25 @@
 # Запуск тестов на Windows и Linux
 
+`python tools/run_content_tests.py --godot 'C:/path/to/Godot.exe' --suite firebase_analytics` проверяет fake Firebase bridge: запрет событий до новой принятой редакции и при ошибке сохранения, независимость от выбора Yandex, allowlist параметров, повторные receipt/screen_view, разбор ILRD и валют, отсутствие выдуманного дохода. `run_ad_consent_tests.py` также проверяет исходный плейсмент ILRD при смене preloader во время pending-показа, позднем callback за новым показом и дубликатах. Эти проверки не отправляют события в Firebase.
+
+Регрессию нативного Firebase lifecycle проверяйте на Android debug APK с opt-in по `EXPORT.md`: включите DebugView и verbose-теги `FA`/`FA-SVC`, выполните `adb shell am force-stop com.trinarr.Hangman20`, затем откройте игру штатным launcher. После ранее принятой текущей редакции первый `screen_view` должен уйти без `Cannot log screen view event when the app is in the background`; переход на другую страницу, сворачивание/возврат и второй холодный запуск также должны сохранять события. На отдельном чистом тестовом профиле проверьте отсутствие инициализации до принятия документов и первый экран после принятия без перезапуска; не очищайте данные установки игрока. В merged manifest должны остаться `AnalyticsApplication`, выключенные defaults и отсутствие `FirebaseInitProvider`. После проверки верните теги логов в `INFO`. Desktop fake bridge не проверяет Android lifecycle.
+
+`firebase_analytics` также воспроизводит сброс цепочки с сохранением seed и проверяет порядок screen → level/stage start для слова и викторины. `ad_consent` воспроизводит дубликаты shown, старые shown/failed/closed после начала нового Interstitial, однократное завершение UI и запрет загрузки во время показа.
+
+Для Android проверяйте, что native capability lookup использует `has_java_method`: Java-методы не представлены обычным `Object.has_method`. Fake JNI в `ad_consent` проверяет приоритет Java capability map и передачу ID в tagged show. На устройстве после реального показа должны появиться `ad_show_result:requested`, `ad_show_result:shown`, `ad_closed:closed`, а игра должна выполнить ожидавший переход ровно один раз.
+
+`ad_consent` дополнительно испускает настоящие GDScript-сигналы fake native после двукратного подключения: парные tagged/legacy Rewarded callbacks не дублируют доставку, старые legacy close/error не закрывают новый tagged-показ, поздняя награда и ILRD сохраняют исходный ID/placement. Проверяются также empty-ID legacy caller через tagged bridge и подписки banner loaded/failed/impression. Это проверка подписок, а не только прямой вызов обработчиков; JNI и реальный просмотр по-прежнему проверяются на Android отдельно.
+
+Регрессия Rewarded shown: закрыть A, начать B, передать запоздалый shown(A), затем legacy shown, shown(B) дважды и shown неизвестного ID. События должны относиться к исходным placement A/B ровно по одному разу; A не должен помечать B показанным. `test_firebase_tools` проверяет наличие нового сигнала в debug/release AAR.
+
+`python -m unittest discover -s tools/tests -p test_firebase_tools.py` проверяет повторяемость подготовки Android-шаблона, отказ при несовпадении package ID и реальные API/manifest поставляемых AAR, включая tagged lifecycle Interstitial. После изменения Java сначала пересоберите AAR по [EXPORT.md](EXPORT.md). Нативную интеграцию и события в DebugView подтверждают отдельной Android-сборкой и устройством; desktop mocks их не подтверждают.
+
+`run_reward_tests.py --gpu` запускает настоящий renderer проекта со свёрнутым окном и принудительной отрисовкой кадров. Используйте этот режим для `rewards`, `resume_flow` и `runtime_optimizations`: dummy renderer Godot 4.7.2 в headless выдаёт ошибку компилятора шейдеров с sampler-аргументом. GPU-режим сохраняет проверку реального пути `user://`, временный профиль, отключённую сеть и отказ при любом `ERROR` / `SCRIPT ERROR`. Сама ошибка headless-компилятора этим не исправляется. Для Linux GPU-режиму нужен доступный графический сеанс.
+
+`run_reward_tests.py --suite release_reward_regression` проверяет рекламные receipt, поздние/повторные callback, сохранение и отказ записи. Фикстура проверяет отказ готовой рекламы для заблокированной подсказки, затем открывает подсказки на уровне из конфигурации и проверяет допустимость действия до показа. Набор выдаёт штатный JSON-отчёт и запускается в изолированном профиле. `runtime_optimizations` проверяет промежуточные анимационные состояния при обычном `Engine.time_scale = 1`, чтобы ускорение времени не пропускало их на GPU.
+
+`python tools/run_ad_consent_tests.py --godot 'C:/path/to/Godot.exe'` проверяет обёртку на fake native bridge без игровых autoload и сохранений. Помимо смены согласия, проверяются production-ID всех восьми RW- и трёх Interstitial-плейсментов: смена действия сохраняет готовое объявление и незавершённую загрузку, не создаёт повторного запроса; неизвестные плейсменты отклоняются. Проверки production-маршрутизации выполняются и debug-движком.
+
 `stage_reward_multiplier_render` сравнивает толщину левого и правого закруглений множителей в трёх горизонтальных срезах (расхождение не более одного пикселя), включая 1200×2670 из Android-снимка. Подложка и заливка рисуются одним шейдером с логическими отступами 2.5/4. Отдельный GPU-срез изолирует новый шейдер от перекрывающихся надписей и указателя и проверяет половинную/нулевую прозрачность и восстановление подложки с заливкой.
 
 `portrait_stage_reward` проверяет настоящий маршрут Home → «Продолжить» для сохранённого словесного этапа: прерванное вступление до начисления звёзд, уже выданная награда и поражение. В RU/EN при 960×1600 и 690×1536 заголовок проверяется с первого кадра цепочки и ещё через 0.15/0.4 секунды: конечная позиция, масштаб и прозрачность, доступная кнопка, однократное начисление и повторное нажатие Home Continue. `HANGMAN_UI_CAPTURE_DIR` сохраняет `home_chain_*`.
@@ -34,10 +54,11 @@ GPU-сцена `tools/tests/tabbed_screen_animation.tscn` проверяет к�
 
 ```powershell
 python tools/run_content_tests.py --godot 'C:/path/to/Godot.exe'
-python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite rewards
+python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite rewards --gpu
 python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite save_recovery
-python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite resume_flow
-python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite runtime_optimizations
+python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite resume_flow --gpu
+python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite runtime_optimizations --gpu
+python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite release_reward_regression
 python tools/verify_game_design_config.py
 python tools/verify_optimization.py
 python -m unittest discover -s tools/tests -p 'test_*.py'

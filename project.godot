@@ -38,6 +38,7 @@ YandexAdsService="*res://addons/GodotAndroidYandexAds/yandex_ads.gd"
 ConsentRegion="*res://scripts/services/consent_region.gd"
 QuizStatistics="*res://scripts/services/quiz_statistics.gd"
 Leaderboard="*res://scripts/services/leaderboard.gd"
+Analytics="*res://scripts/services/analytics.gd"
 
 [dev_console]
 
@@ -53,7 +54,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GodotAndroidYandexAds/plugin.cfg", "res://addons/dev-console/plugin.cfg", "res://addons/release_guard/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotAndroidYandexAds/plugin.cfg", "res://addons/dev-console/plugin.cfg", "res://addons/release_guard/plugin.cfg", "res://addons/HangmanFirebase/plugin.cfg")
 
 [gui]
 
@@ -96,8 +97,5 @@ textures/vram_compression/import_etc2_astc=true
 
 [yandex_ads]
 
-banner_id="demo-banner-yandex"
-interstitial_id="demo-interstitial-yandex"
-rewarded_id="demo-rewarded-yandex"
 age_restricted_user=false
 user_consent=false

@@ -23,17 +23,25 @@ def has_engine_errors(output: str) -> bool:
     return re.search(r"^(?:SCRIPT ERROR|ERROR):", ANSI.sub("", output), re.MULTILINE) is not None
 
 
-def run_godot(executable, project, arguments, env, timeout=150):
+def run_godot(executable, project, arguments, env, timeout=150, *, headless=True):
     # GUI Windows executables may not deliver stdout. Always retain the engine
     # log as well, rather than interpreting an empty successful process as PASS.
     with tempfile.TemporaryDirectory(prefix="hangman-log-") as directory:
         log = Path(directory) / "engine.log"
+        display_arguments = ["--headless"] if headless else ["--minimized"]
+        process_options = {}
+        if not headless and sys.platform == "win32":
+            startup = subprocess.STARTUPINFO()
+            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup.wShowWindow = subprocess.SW_HIDE
+            process_options["startupinfo"] = startup
         try:
             result = subprocess.run(
-                [str(executable), "--headless", "--log-file", str(log),
+                [str(executable), *display_arguments, "--log-file", str(log),
                  "--path", str(project), *arguments],
                 env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace", timeout=timeout,
+                **process_options,
             )
         except subprocess.TimeoutExpired as error:
             # Preserve GUI executable diagnostics before the log folder is removed.
