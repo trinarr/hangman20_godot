@@ -1,10 +1,12 @@
 """Regressions for development assets found in actual Godot release exports."""
 import io
+import configparser
 import json
 from pathlib import Path
 import re
 import struct
 import sys
+import tempfile
 import unittest
 import zipfile
 
@@ -57,6 +59,34 @@ class ReleaseExportChecks(unittest.TestCase):
 
     def test_shared_android_options_and_release_filters(self):
         verify_presets()
+
+    def verify_modified_preset(self, section, key, value):
+        presets = configparser.ConfigParser(interpolation=None)
+        presets.optionxform = str
+        presets.read(ROOT / "export_presets.cfg", encoding="utf-8")
+        if value is None:
+            del presets[section][key]
+        else:
+            presets[section][key] = value
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (root / "export_presets.cfg").open("w", encoding="utf-8") as handle:
+                presets.write(handle)
+            verify_presets(root)
+
+    def test_wrong_or_missing_export_formats_are_rejected(self):
+        for section, value, message in (("preset.0.options", "0", "Release preset must export AAB"),
+                                        ("preset.1.options", "1", "Debug preset must export APK"),
+                                        ("preset.0.options", None, "Release preset must export AAB"),
+                                        ("preset.1.options", None, "Debug preset must export APK")):
+            with self.subTest(section=section, value=value), self.assertRaisesRegex(ValueError, message):
+                self.verify_modified_preset(section, "gradle_build/export_format", value)
+
+    def test_shared_android_option_drift_is_still_rejected(self):
+        for key, value in (("gradle_build/target_sdk", '"35"'),
+                           ("package/unique_name", '"com.example.changed"')):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "Shared Android options differ"):
+                self.verify_modified_preset("preset.1.options", key, value)
 
     def test_compiled_console_and_bridge_are_rejected(self):
         for path in ("addons/dev-console/script/dev-console.gdc", "scripts/debug/dev_console_log_bridge.gdc"):

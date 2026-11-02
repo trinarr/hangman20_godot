@@ -104,6 +104,10 @@ func run() -> void:
 	for custom: bool in [false, true]:
 		var migrated_name: Dictionary = state._migrate_save_payload({"save_version":6, "player_name_is_custom":custom, "soft_currency":123})
 		check(migrated_name.save_version == state.SAVE_FORMAT_VERSION and migrated_name.player_name_free_change_used == custom and migrated_name.soft_currency == 123, "Migration records whether an existing player already chose a manual nickname")
+	var legacy_rewards: Dictionary = {"save_version":7, "soft_currency":123, "single_player":{"ru":{"levels":{"1":[1, 0]}}}}
+	var migrated_rewards: Dictionary = state._migrate_save_payload(legacy_rewards)
+	check(migrated_rewards.save_version == 8 and migrated_rewards.soft_currency == 123 and migrated_rewards.single_player.ru.stage_coin_rewards.is_empty(), "Stage-credit migration preserves balance and initializes an empty history")
+	check(migrated_rewards.single_player.ru.levels == legacy_rewards.single_player.ru.levels and !legacy_rewards.single_player.ru.has("stage_coin_rewards"), "Stage-credit migration preserves progress and leaves the legacy source unchanged")
 	state.player_name = "Original"
 	state.player_name_free_change_used = false
 	state.soft_currency = 0

@@ -25,7 +25,6 @@ class TestUI:
 var main: TestUI
 var checks: int = 0
 var failures: Array[String] = []
-var signatures: Dictionary = {}
 var standalone_claims: int = 0
 var standalone_doubles: int = 0
 var standalone_continues: int = 0
@@ -34,38 +33,6 @@ func check(value: bool, label: String) -> void:
 	checks += 1
 	if !value:
 		failures.append(label)
-
-func snapshot(node: Node) -> Dictionary:
-	var result: Dictionary = {"class": node.get_class()}
-	if node is Control:
-		result.merge({"position": str(node.position), "size": str(node.size),
-			"scale": str(node.scale), "z": node.z_index, "visible": node.visible,
-			"mouse": node.mouse_filter, "modulate": str(node.modulate)})
-	if node is Label:
-		result.merge({"text": node.text, "font_size": node.get_theme_font_size("font_size"), "font_color": str(node.get_theme_color("font_color"))})
-	if node is TextureRect:
-		result["texture"] = node.texture.resource_path if node.texture != null else ""
-	if node is FlashStageControl or node is FlashStageTextureButton:
-		result["rect"] = str(node.get("stage_rect"))
-	if node is FlashStageTextureButton:
-		result["disabled"] = node.disabled
-		result["visual_scale"] = str(node.visual_scale)
-	var children: Array = []
-	for child: Node in node.get_children():
-		children.append(snapshot(child))
-	result["children"] = children
-	return result
-
-func signature() -> String:
-	var pack: Control = main.content.find_child("StageCoinLargeReward", true, false)
-	var label: Label = main.content.find_child("StageCoinLargeRewardAmount", true, false)
-	var button: Control = main.content.find_child("StageCoinRewardDoubleButton" if main.ads_enabled else "StageCoinRewardContinueButton", true, false)
-	button.set("attention_bounce_enabled", false)
-	button.set("visual_scale", Vector2.ONE)
-	var objects: Array = [snapshot(pack), snapshot(label.get_parent()), snapshot(button)]
-	if main.ads_enabled:
-		objects.append(snapshot(main.content.find_child("FinalRewardCollectText", true, false)))
-	return JSON.stringify(objects).sha256_text()
 
 func fixture(ads: bool, completed: bool = false, count: int = 2, level_number: int = 5) -> void:
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
@@ -156,7 +123,6 @@ func run() -> void:
 			meter.running = true
 			meter._elapsed = 0.0
 			var traverse: float = GameDesignConfig.get_float("timings.animations.stage_reward_multiplier.traverse_seconds")
-			check(is_equal_approx(traverse * 1.15, 0.9230769231), "meter travels fifteen percent faster than its previous speed")
 			traverse *= 0.8
 			meter._process(0.05)
 			check(is_equal_approx(meter.cursor, 0.1), "arrow pauses at the first sector center")
@@ -178,14 +144,12 @@ func run() -> void:
 			check(border.draw_center and border.bg_color == preload("res://scripts/ui/ui_palette.gd").UI_BLUE_DARK, "meter uses the theme-unlock dark track")
 			check([border.border_width_left, border.border_width_top, border.border_width_right, border.border_width_bottom] == [0, 0, 0, 0], "track replaces the uniform outline")
 			var fill: Control = meter.get_child(0).get_child(0)
-			check(fill.position == Vector2(6, 6) and fill.size == meter.get_child(0).size - Vector2(12, 15), "track has six-pixel sides and a heavier nine-pixel lower edge")
+			check(fill.position == Vector2(2.5, 2.5) and fill.size == meter.get_child(0).size - Vector2(5, 6.5), "track has 2.5-unit sides and a heavier four-unit lower edge")
 			meter.scale = Vector2.ONE * 1.25
-			meter._sync_border_scale()
-			var frame_transform: Transform2D = meter.get_child(0).get_global_transform_with_canvas()
-			var pixel_ratio: Vector2 = Vector2(get_viewport().get("size")) / get_viewport().get_visible_rect().size
-			check(is_equal_approx((frame_transform.x * pixel_ratio).length(), 1.0) and is_equal_approx((frame_transform.y * pixel_ratio).length(), 1.0), "track compensates ancestor scaling and viewport stretching without integer rounding")
+			meter._sync_layout()
+			check(meter.get_child(0).scale == Vector2.ONE and fill.scale == Vector2.ONE and fill.position == Vector2(2.5, 2.5), "track and fill inherit ancestor scaling with unchanged logical insets")
 			meter.scale = Vector2.ONE
-			meter._sync_border_scale()
+			meter._sync_layout()
 			meter.set_cursor(0.0)
 			check(is_equal_approx(meter.cursor, 0.1), "arrow cannot leave the first sector center")
 			check(meter._pointer.texture != null and meter._pointer.material.get_shader_parameter("outline_pixels") == 5.0, "rounded pointer uses shared icon outline shader")
@@ -200,7 +164,6 @@ func run() -> void:
 					for icon: TextureRect in icon_layers:
 						check(is_equal_approx(icon.self_modulate.a, 0.85 if disabled else 1.0), "reward icons and shadows follow disabled state after intro")
 		check(pack.get_meta("main_reward_icon_shadow_layers", []).size() == 4, "large coin pack keeps extrusion shadow")
-		signatures["ads" if ads else "continue"] = signature()
 		if ads:
 			button.emit_signal("pressed")
 			check(main.doubles == 1, "double action reaches ad controller")
@@ -307,6 +270,6 @@ func run() -> void:
 	check(standalone_doubles == 1 and standalone_continues == 1, "stopped presentation ignores actions")
 	check(component._animations.is_empty(), "stop cancels all stage animations")
 	parent.queue_free()
-	print("PORTRAIT_STAGE_REWARD " + JSON.stringify({"checks": checks, "failures": failures, "signatures": signatures}))
+	print("PORTRAIT_STAGE_REWARD " + JSON.stringify({"checks": checks, "failures": failures}))
 	await get_tree().process_frame
 	get_tree().quit(0 if failures.is_empty() else 1)

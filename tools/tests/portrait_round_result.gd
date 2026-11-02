@@ -22,47 +22,12 @@ class TestUI:
 var main: TestUI
 var checks: int = 0
 var failures: Array[String] = []
-var signatures: Dictionary = {}
 var independent_continues: int = 0
 
 func check(value: bool, label: String) -> void:
 	checks += 1
 	if !value:
 		failures.append(label)
-
-func snapshot(node: Node) -> Dictionary:
-	var result: Dictionary = {"class": node.get_class()}
-	if node is Control:
-		result.merge({"position": str(node.position), "size": str(node.size),
-			"scale": str(node.scale), "z": node.z_index, "visible": node.visible,
-			"mouse": node.mouse_filter, "modulate": str(node.modulate)})
-	if node is Label:
-		result.merge({"text": node.text, "font_size": node.get_theme_font_size("font_size"),
-			"font_color": str(node.get_theme_color("font_color")),
-			"outline": node.get_theme_constant("outline_size")})
-	if node is Line2D:
-		result.merge({"points": str(node.points), "width": node.width})
-	if node is CanvasGroup:
-		result["tint"] = str(node.self_modulate)
-	if node is FlashStageControl or node is FlashStageTextureButton:
-		result["rect"] = str(node.get("stage_rect"))
-	if node is FlashStageTextureButton:
-		result["disabled"] = node.disabled
-		result["visual_scale"] = str(node.visual_scale)
-	var children: Array = []
-	for child: Node in node.get_children():
-		children.append(snapshot(child))
-	result["children"] = children
-	return result
-
-func signature() -> String:
-	var label: Label = main.content.find_child("ResultWordLabel", true, false)
-	var marker: Control = main.content.find_child("ResultWordMarkerHolder", true, false)
-	main._portrait_inline_result_continue_button.set("attention_bounce_enabled", false)
-	main._portrait_inline_result_continue_button.set("visual_scale", Vector2.ONE)
-	return JSON.stringify([snapshot(label.get_parent()), snapshot(marker),
-		snapshot(main._portrait_inline_result_search_button),
-		snapshot(main._portrait_inline_result_continue_button)]).sha256_text()
 
 func build(word: String) -> void:
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
@@ -97,7 +62,6 @@ func run() -> void:
 		var button: Control = main._portrait_inline_result_continue_button
 		main._show_in_place_round_result(win, false)
 		check(main.sounds == sounds and main._portrait_inline_result_continue_button == button, "duplicate result does not rebuild or replay sound")
-		signatures["win" if win else "loss"] = signature()
 		button.emit_signal("pressed")
 		check(main.continued == (1 if win else 2), "continue reaches adapter")
 	build("ДЛИННОЕ СОСТАВНОЕ-СЛОВО")
@@ -112,7 +76,6 @@ func run() -> void:
 	var result_label: Label = main.content.find_child("ResultWordLabel", true, false)
 	check(result_label.visible and result_label.text.contains("−"), "settled word uses display separator")
 	check(main.content.find_child("ResultWordBounceLetters", true, false) == null, "temporary glyphs are removed")
-	signatures["animated_long"] = signature()
 	# A restored result must skip attempts collection and show actions immediately.
 	build("АБВА")
 	main.last_result_data = {"remaining_attempt_star_reward_amount": 3, "remaining_attempt_star_balance_before": GameState.get_stars()}
@@ -153,6 +116,6 @@ func run() -> void:
 	check(independent_continues == 1, "stopped component ignores actions")
 	check(component._animations.all(func(animation: Tween) -> bool: return !animation.is_valid() or !animation.is_running()), "stop cancels owned animations")
 	parent.queue_free()
-	print("PORTRAIT_ROUND_RESULT " + JSON.stringify({"checks": checks, "failures": failures, "signatures": signatures}))
+	print("PORTRAIT_ROUND_RESULT " + JSON.stringify({"checks": checks, "failures": failures}))
 	await get_tree().process_frame
 	get_tree().quit(0 if failures.is_empty() else 1)

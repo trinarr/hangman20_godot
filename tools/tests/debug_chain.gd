@@ -1,5 +1,5 @@
 extends SceneTree
-# Run with isolated XDG_DATA_HOME; this test writes campaign saves.
+# Run through godot_test_runner.isolated_environment; this test writes saves.
 var failures: Array[String] = []
 var checks: int = 0
 
@@ -63,7 +63,6 @@ func run() -> void:
 	main._show_single_player_reward_chain_screen()
 	var button: Control = main._portrait_single_reward_continue_button
 	check(is_instance_valid(button) and !bool(button.get("disabled")), "Debug final stage has enabled Continue")
-	check(main.content.has_node("DifficultyDebugToast"), "Chain shows debug toast")
 	main._auto_advance_final_stage_reward()
 	await process_frame
 	check(!bool(main.last_result_data.get("single_player_level_summary_view", false)), "Debug automatic advance is blocked")

@@ -74,6 +74,40 @@ class RunnerChecks(unittest.TestCase):
                     patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, output)):
                 self.assertEqual(run_content_tests.main(), 1)
 
+    def test_content_runner_requires_nonempty_valid_json_report(self):
+        from contextlib import nullcontext, redirect_stdout
+        import io
+        reports = [
+            ('{"checks": 0, "failures": []}', 1),
+            ('{"checks": -1, "failures": []}', 1),
+            ('{"checks": true, "failures": []}', 1),
+            ('{"checks": "1", "failures": []}', 1),
+            ('{"checks": 1.0, "failures": []}', 1),
+            ('{"failures": []}', 1),
+            ('{"checks": 1}', 1),
+            ('{"checks": 1, "failures": ["broken"]}', 1),
+            ('{"checks":1,"failures":[] invalid}', 1),
+            ('[]', 1),
+            ('{"checks": 1, "failures": []}', 0),
+            ('{"checks": 2, "failures": [], "extra": true}', 0),
+        ]
+        for report, expected in reports:
+            output = "PORTRAIT_STAGE_REWARD " + report + "\n"
+            with self.subTest(report=report), patch.object(sys, "argv", ["runner", "--suite", "portrait_stage_reward"]), \
+                    patch.object(run_content_tests.shutil, "which", return_value="godot"), \
+                    patch.object(run_content_tests, "isolated_environment", return_value=nullcontext({})), \
+                    patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, output)), \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(run_content_tests.main(), expected)
+
+    def test_content_runner_uses_last_json_report(self):
+        pattern = run_content_tests.SUITES["portrait_stage_reward"][1]
+        passed = 'PORTRAIT_STAGE_REWARD {"checks":1,"failures":[]}\n'
+        for last in ('{"checks":0,"failures":[]}', '{"checks":1,"failures":["broken"]}', '{invalid}'):
+            with self.subTest(last=last):
+                self.assertFalse(run_content_tests.has_successful_summary(
+                    "portrait_stage_reward", pattern, passed + "PORTRAIT_STAGE_REWARD " + last + "\n"))
+
     def test_resource_loading_runner_rejects_objectdb_leaks(self):
         from contextlib import nullcontext
         summary = "RESOURCE_LOADING checks=1 failures=0\n"

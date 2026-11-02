@@ -486,6 +486,7 @@ func check_reward_marker(main: Node, stage: Control, background_only: Image) -> 
 
 func check_unlock_progress(main: Node, stage: Control, background_only: Image) -> void:
 	main._clear()
+	await check_unlock_track_pixels(main, stage)
 	var progress: Control = main._create_theme_unlock_progress(stage, Rect2(20, 100, 440, 100), {"total":10, "from":2, "to":5, "theme_id":Database.THEME_IDS[0]})
 	var mask: Control = progress.find_child("UnlockBarFillMask", true, false)
 	var mask_parent := mask.get_parent()
@@ -552,6 +553,67 @@ func check_unlock_progress(main: Node, stage: Control, background_only: Image) -
 		check(is_equal_approx(glow.self_modulate.a, 0.52) and is_equal_approx(float(count_fade.get("opacity")), 1.0), "Reopening restores the unlocked caption and glow")
 		progress.queue_free()
 		await frame()
+
+func check_unlock_track_pixels(main: Node, stage: Control) -> void:
+	var original_size: Vector2i = get_window().size
+	var original_min_size: Vector2i = get_window().min_size
+	var original_scale: Vector2 = stage.scale
+	var original_locale: String = TranslationServer.get_locale()
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
+		get_window().min_size = dimensions
+		get_window().size = dimensions
+		await frame()
+		stage.scale = Vector2.ONE * (get_viewport().get_visible_rect().size.x / 480.0)
+		for language: String in ["ru", "en"]:
+			TranslationServer.set_locale(language)
+			var progress: Control = main._create_theme_unlock_progress(stage, Rect2(Vector2(20, 100), main.PORTRAIT_LEVEL_THEME_PROGRESS_SIZE), {"total":10, "from":10, "to":10, "theme_id":Database.THEME_IDS[0]})
+			var frame_control: Control = progress.get_node("UnlockBarFrame")
+			var mask: Control = frame_control.find_child("UnlockBarFillMask", true, false)
+			var fill: Control = mask.get_node("UnlockBarFill")
+			var captures := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !captures.is_empty():
+				(await frame()).save_png(captures.path_join("theme_track_%s_%d.png" % [language, dimensions.x]))
+			# Isolate the track for pixel measurements without glyphs over the fill.
+			progress.find_child("UnlockCount", true, false).hide()
+			for factor: float in [1.0, 1.14]:
+				progress.scale = Vector2.ONE * factor
+				var screenshot := await frame()
+				var ratio: Vector2 = Vector2(screenshot.get_size()) / get_viewport().get_visible_rect().size
+				var rect: Rect2 = frame_control.get_global_rect()
+				var mask_rect: Rect2 = mask.get_global_rect()
+				var transform: Transform2D = frame_control.get_global_transform_with_canvas()
+				var render_scale := Vector2((transform.x * ratio).length(), (transform.y * ratio).length())
+				check(((mask_rect.position - rect.position) * ratio / render_scale).is_equal_approx(Vector2(1.5, 1.5)), "Unlock fill keeps a 1.5-unit top/side inset at every scale")
+				check(is_equal_approx((rect.end.y - mask_rect.end.y) * ratio.y / render_scale.y, 3.5), "Unlock fill keeps a 3.5-unit bottom inset at every scale")
+				check(mask.scale == Vector2.ONE and fill.scale == Vector2.ONE, "Unlock fill inherits the track scale without compensation")
+				var probes: Array[Vector2i] = [Vector2i((rect.position + Vector2(0, rect.size.y * 0.5)) * ratio), Vector2i((rect.position + Vector2(rect.size.x * 0.3, 0)) * ratio), Vector2i((rect.position + Vector2(rect.size.x * 0.3, rect.size.y)) * ratio) - Vector2i(0, 1)]
+				for edge in range(3):
+					var direction: Vector2i = [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.UP][edge]
+					var thickness: int = -1
+					# Measure the visible fill edge, including partial coverage from
+					# antialiasing, relative to the actual dark-track palette.
+					for offset in range(1, 16):
+						var color: Color = screenshot.get_pixelv(probes[edge] + direction * offset)
+						if color.b > PALETTE.UI_BLUE_DARK.b + 0.05 and color.r > PALETTE.UI_BLUE_DARK.r + 0.04:
+							thickness = offset
+							break
+					var axis_scale: float = render_scale.x if edge == 0 else render_scale.y
+					var expected: float = (3.5 if edge == 2 else 1.5) * axis_scale
+					# Logical Control snapping plus one antialiased render pixel.
+					check(thickness >= 0 and absf(float(thickness) - expected) <= ceili(axis_scale * 0.5) + 1, "Unlock track edge %d scales with the UI: %d vs %.2f, %s/%d/%.2f" % [edge, thickness, expected, language, dimensions.x, factor])
+				main._set_theme_unlock_bar_value(5.0, progress)
+				await frame()
+				check(is_equal_approx(mask.size.x, fill.size.x * 0.5), "Rescaled unlock fill still clips at half progress")
+				main._set_theme_unlock_bar_value(0.0, progress)
+				check(!mask.visible, "Zero progress hides the rescaled fill")
+				main._set_theme_unlock_bar_value(10.0, progress)
+			progress.queue_free()
+			await frame()
+	get_window().min_size = original_min_size
+	get_window().size = original_size
+	stage.scale = original_scale
+	TranslationServer.set_locale(original_locale)
+	await frame()
 
 func check_dynamic_ownership(stage: Control) -> void:
 	var background_only := await frame()

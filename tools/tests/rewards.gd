@@ -222,6 +222,33 @@ func test_level_rewards() -> void:
 	check(GameState.claim_pending_single_player_level_stars() == 2, "Capped stars did not report actual credit")
 	check(GameState.claim_pending_single_player_level_stars() == 0, "Capped stars repeated")
 
+func check_stage_coin_chain_total(total: int) -> void:
+	var original_size: Vector2i = get_window().size
+	var original_min: Vector2i = get_window().min_size
+	var original_locale: String = TranslationServer.get_locale()
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+		get_window().min_size = dimensions
+		get_window().size = dimensions
+		await get_tree().process_frame
+		for language: String in ["ru", "en"]:
+			TranslationServer.set_locale(language)
+			main._portrait_single_reward_resume_without_intro = true
+			main._show_single_player_reward_chain_screen()
+			var chain: Node = main.find_child("SinglePlayerRewardChain", true, false)
+			var has_total: bool = false
+			if chain != null:
+				for label: Node in chain.find_children("*", "Label", true, false):
+					has_total = has_total or label.text == "x%d" % total
+			check(has_total, "Reopened chain displays actual stage coins: %s/%d/x%d" % [language, dimensions.x, total])
+			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await get_tree().create_timer(0.8).timeout
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(directory.path_join("stage_total_%s_%d_%d.png" % [language, dimensions.x, total]))
+	get_window().min_size = original_min
+	get_window().size = original_size
+	TranslationServer.set_locale(original_locale)
+
 func test_stage_rewards_and_ad_receipts() -> void:
 	for multiplier: float in [1.5, 2.0, 3.0]:
 		await setup_level(1, [])
@@ -231,10 +258,46 @@ func test_stage_rewards_and_ad_receipts() -> void:
 		var before: int = GameState.get_soft_currency()
 		var captured: String = GameState.begin_rewarded_double_request("stage_coin", multiplier)
 		reload_save()
+		GameState._save_blocked_by_future_version = true
+		check(GameState.claim_rewarded_double_request(captured).is_empty(), "Failed durable bonus remains retryable")
+		GameState._save_blocked_by_future_version = false
+		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == base, "Failed bonus save rolls back its displayed stage total")
 		var receipt: Dictionary = GameState.claim_rewarded_double_request(captured)
 		check(int(receipt.get("amount", 0)) == roundi(float(base) * multiplier) - base, "Stage multiplier survives reload and pays only bonus")
 		check(GameState.get_soft_currency() == before + roundi(float(base) * multiplier) - base, "Stage total matches selected multiplier")
 		check(GameState.claim_rewarded_double_request(captured).is_empty(), "Stage multiplier duplicate signal is idempotent")
+		var total: int = roundi(float(base) * multiplier)
+		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == total, "Stage history keeps the base plus captured multiplier bonus")
+		reload_save()
+		await check_stage_coin_chain_total(total)
+		GameState.clear_active_single_player_session(false)
+		GameState.save_game()
+		reload_save()
+		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == total, "Stage total outlives the active reward snapshot")
+		GameState.reset_single_level_attempt("ru", 1)
+		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == -1, "Replaying the level clears its previous reward history")
+	await setup_level(1, [])
+	record_stage(true, false)
+	GameState.soft_currency = GameState.MAX_CURRENCY_BALANCE - 2
+	GameState.claim_active_single_player_stage_reward(true)
+	var capped_request: String = GameState.begin_rewarded_double_request("stage_coin", 3.0)
+	GameState.claim_rewarded_double_request(capped_request)
+	check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == 2, "Stage display counts actual credit at the currency cap")
+	await setup_level(1, [])
+	record_stage(true, false)
+	GameState.claim_active_single_player_stage_reward(true)
+	var old_request: String = GameState.begin_rewarded_double_request("stage_coin", 3.0)
+	GameState.reset_single_level_attempt("ru", 1)
+	GameState.select_single_level_theme("ru", 1, 0, main._single_player_level_word_target(1))
+	main._invalidate_single_player_level_cache()
+	record_stage(true, false)
+	GameState.claim_active_single_player_stage_reward(true)
+	var replay_base: int = GameState.get_single_level_coin_reward("ru", 1, 0, -1)
+	var replay_balance: int = GameState.get_soft_currency()
+	var late_receipt: Dictionary = GameState.claim_rewarded_double_request(old_request)
+	check(!late_receipt.is_empty() and GameState.get_soft_currency() > replay_balance, "Late receipt still pays its original attempt")
+	check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == replay_base, "Late old-attempt receipt cannot relabel the replayed stage")
+	check(GameState.get_single_level_coin_reward("en", 1, 0, -1) == -1, "Stage history remains separate for each content language")
 	var word_amount := stage_amount()
 	var quiz_amount := stage_amount(true)
 	var normal_coins := completion_amount(1, 1, "coins")

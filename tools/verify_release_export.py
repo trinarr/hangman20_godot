@@ -41,7 +41,13 @@ def verify_presets(root: Path = ROOT) -> None:
     presets.read(root / "export_presets.cfg", encoding="utf-8")
     require(presets["preset.0"]["name"] == '"Hangman 2.0"', "Release preset is missing")
     require(presets["preset.1"]["name"] == '"Hangman 2.0 Debug"', "Debug preset is missing")
-    require(dict(presets["preset.0.options"]) == dict(presets["preset.1.options"]),
+    release_options = dict(presets["preset.0.options"])
+    debug_options = dict(presets["preset.1.options"])
+    require(release_options.pop("gradle_build/export_format", None) == "1",
+            "Release preset must export AAB")
+    require(debug_options.pop("gradle_build/export_format", None) == "0",
+            "Debug preset must export APK")
+    require(release_options == debug_options,
             "Shared Android options differ between release and debug presets")
     release_filters = presets["preset.0"]["exclude_filter"].strip('"').split(",")
     for pattern in ("addons/dev-console/*", "scripts/debug/*", "tools/*", "docs/*", "supabase/*"):

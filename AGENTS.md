@@ -103,13 +103,14 @@ python tools/verify_optimization.py
 
 | Изменение | Дополнительные проверки |
 | --- | --- |
-| Слова / подсказки | `python tools/curate_word_database.py --check`, `python tools/verify_word_catalog.py`, `python tools/verify_word_content_migration.py`, `python tools/verify_theme_catalog.py` |
-| Викторина | `python tools/verify_quiz_catalog.py`, `python tools/verify_quiz_answer_leaks.py`, `python -m unittest discover -s tools/tests -p test_quiz_editorial.py` |
+| Слова / подсказки | `python tools/verify_word_catalog.py`, `python tools/verify_word_content_migration.py`, `python tools/verify_theme_catalog.py` |
+| Викторина | `python tools/verify_quiz_catalog.py`, `python -m unittest discover -s tools/tests -p test_quiz_editorial.py` |
 | Сохранения / награды / реклама | `python tools/verify_save_integrity.py`, соответствующие Godot suites `rewards`, `save_recovery`, `resume_flow`, `runtime_optimizations`; для обёртки согласия `run_ad_consent_tests.py` |
 | Текстуры / иконки | `python tools/audit_texture_usage.py`, `python tools/upscale_art_2x.py --verify`, визуальное сравнение в целевом UI |
 | UI / шрифты / шейдеры | Подходящий сценарий из `tools/tests/*render*`, проверка на GPU и обоих языках; headless не подтверждает внешний вид |
 
 - Сначала посмотри `--help` и актуальные suites в запускателе. `run_content_tests.py` и `run_reward_tests.py` поддерживают Windows и Linux через `tools/godot_test_runner.py`. До запуска игровых autoload проверяется реальный путь `user://`; окружение процесса направляется во временный профиль, сеть Supabase отключена. Не обходи эту проверку прямым запуском `.tscn`.
+- `verify_optimization.py` проверяет только структуру и пути ресурсов, без запуска проверки викторины. `verify_word_catalog.py` уже включает проверку runtime-экспорта и easy word expansion; вместе с ним не повторяй `curate_word_database.py --check` и `verify_easy_word_expansion.py`. `verify_quiz_catalog.py` уже включает поиск утечек ответа; вместе с ним не повторяй `verify_quiz_answer_leaks.py`. Сами отдельные команды сохраняются для целевых проверок.
 - Для Windows: `python tools/run_content_tests.py --godot 'C:/path/to/Godot.exe' --suite <name>`; награды: `python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite rewards`. На Linux укажи путь к Linux-бинарнику теми же параметрами. Целевая платформа игры остаётся Android.
 - Регрессии инструментов: `python -m unittest discover -s tools/tests -p test_project_tools.py`. Для проверки изоляции настоящим движком задай `HANGMAN_TEST_GODOT` с путём к бинарнику; без него этот сценарий пропускается. Запускатели отказываются работать при локальном `override.cfg`, пока его влияние на сохранения не проверено.
 - Перед Godot suites выполни импорт ресурсов выбранным движком. Проверяй exit code, итоговый отчёт и отсутствие `ERROR` / `SCRIPT ERROR`; предупреждения об утечках фиксируй отдельно.

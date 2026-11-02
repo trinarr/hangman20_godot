@@ -22,7 +22,6 @@ class TestUI:
 var main: TestUI
 var checks: int = 0
 var failures: Array[String] = []
-var signatures: Dictionary = {}
 var closes: int = 0
 var independent_closes: int = 0
 
@@ -40,41 +39,6 @@ func close_independent() -> void:
 func close(group: StringName) -> void:
 	closes += 1
 	main._remove_popup_group_with_dimmer_fade(group)
-
-func snapshot(node: Node) -> Dictionary:
-	var result: Dictionary = {"class": node.get_class()}
-	if node is CanvasLayer:
-		result["layer"] = node.layer
-	if node is Control:
-		result["position"] = str(node.position)
-		result["size"] = str(node.size)
-		result["scale"] = str(node.scale)
-		result["pivot"] = str(node.pivot_offset)
-		result["mouse"] = node.mouse_filter
-		result["visible"] = node.visible
-		result["z"] = node.z_index
-	if node is ColorRect:
-		result["color"] = str(node.color)
-	if node is Label:
-		result["text"] = node.text
-		result["font_size"] = node.get_theme_font_size("font_size")
-		result["color"] = str(node.get_theme_color("font_color"))
-		result["outline"] = node.get_theme_constant("outline_size")
-	if node is FlashStagePanel:
-		result["rect"] = str(node.stage_rect)
-		result["fill"] = str(node.fill_color)
-		result["border"] = str(node.border_color)
-		result["radius"] = node.corner_radius
-		result["border_width"] = node.border_width
-	if node is FlashStageTextureButton:
-		result["rect"] = str(node.stage_rect)
-		result["visual_scale"] = str(node.visual_scale)
-		result["disabled"] = node.disabled
-	var children: Array = []
-	for child: Node in node.get_children():
-		children.append(snapshot(child))
-	result["children"] = children
-	return result
 
 func open_popup(group: StringName, layer: int = 110, resume: bool = false, show_balance: bool = false, dismissible: bool = true, subtitle: String = "") -> CanvasLayer:
 	var previous: Control = main.content
@@ -204,7 +168,6 @@ func run() -> void:
 		if child is StageRoundButton:
 			close_button = child
 	check(close_button != null and close_button.visible and close_button.mouse_filter == Control.MOUSE_FILTER_STOP, "close button intro finishes and enables input")
-	signatures["animated_shell"] = JSON.stringify(snapshot(animated)).sha256_text()
 	tap(dimmer, close.bind(&"popup_test"))
 	tap(dimmer, close.bind(&"popup_test"))
 	await get_tree().process_frame
@@ -219,7 +182,6 @@ func run() -> void:
 	check(resumed_stage.open_bounce_complete and main.open_sounds == sounds_before, "restored modal skips intro and sound")
 	check(resumed.find_child("PopupCoinBalance", true, false).z_index == 200, "coin overlay stays above dimmer")
 	await get_tree().create_timer(0.4).timeout
-	signatures["resumed_with_balance_subtitle"] = JSON.stringify(snapshot(resumed)).sha256_text()
 	main._remove_popup_group_with_dimmer_fade(&"popup_resume")
 	# Required decisions block dimmer and Back, retaining the existing group policy.
 	var consent: CanvasLayer = open_popup(&"user_consent_popup", 180, false, false, false)
@@ -229,7 +191,6 @@ func run() -> void:
 	check(main._portrait_handle_modal_back_request(), "required consent consumes Back")
 	await get_tree().process_frame
 	check(is_instance_valid(consent) and closes == 1, "required consent cannot dismiss")
-	signatures["required_decision"] = JSON.stringify(snapshot(consent)).sha256_text()
 	main._remove_popup_group_with_dimmer_fade(&"user_consent_popup")
 	# Coin over heart: Back must remove only the top modal.
 	var heart: CanvasLayer = open_popup(&"heart_refill_popup", 100, true)
@@ -295,6 +256,5 @@ func run() -> void:
 	check(!is_instance_valid(standalone) and independent_parent.get_child_count() == 0, "standalone popup and fade clean up")
 	independent_parent.queue_free()
 	await get_tree().process_frame
-	print("PORTRAIT_POPUP_SIGNATURES " + JSON.stringify(signatures))
 	print("PORTRAIT_POPUP_COMPONENT " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)

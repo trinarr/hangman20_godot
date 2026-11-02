@@ -23,6 +23,7 @@ func remember(history: Dictionary, id: int) -> void:
 	history.recent = history.recent.slice(maxi(0, history.recent.size() - 8))
 
 func run() -> void:
+	check_question_snapshots()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 123
 	var questions: Array = []
@@ -49,6 +50,7 @@ func run() -> void:
 	check(int(PICK.pick([sparse[0]], .1, {"seen_count": {"1": 1}, "recent": ["1"]}, rng).id) == 1,
 		"Single safe question may repeat")
 	check(PICK.pick([sparse[0]], .1, {}, rng, 1).is_empty(), "Replacement exclusion is absolute")
+	check(PICK.pick([], .1, {}, rng).is_empty(), "Empty question pool is safe")
 	var two: Array = sparse.slice(0, 2)
 	check(int(PICK.pick(two, .1, {"seen_count": {"1": 1, "2": 1}, "recent": ["2", "1"]}, rng).id) == 2,
 		"Use least recent when all candidates are recent")
@@ -90,13 +92,40 @@ func run() -> void:
 		print("QUIZ_POOL ", language, " cap unique across full theme: ", total_unique)
 	var state: Node = root.get_node("GameState")
 	state.single_player = {}
-	state.mark_single_player_question_seen("ru", 0, 123, false)
-	state.mark_single_player_question_seen("ru", 0, 123, false)
+	for id in range(1, 12):
+		state.mark_single_player_question_seen("ru", 0, id, false)
+	state.mark_single_player_question_seen("ru", 0, 6, false)
+	var history_before_save: Dictionary = state.get_single_player_question_history("ru", 0)
+	check(history_before_save.seen_count.size() == 11 and history_before_save.recent.size() == 8 and history_before_save.recent.back() == "6", "Repeated presentations preserve all seen IDs and bound recent history")
 	state.save_game()
 	state.load_game()
 	var restored: Dictionary = state.get_single_player_question_history("ru", 0)
-	check(int(restored.seen_count["123"]) == 2 and int(restored.last_seen["123"]) == 2, "Quiz counts survive save reload")
-	check(restored.recent == ["123"], "Recent keys survive JSON reload")
+	check(int(restored.seen_count["6"]) == 2 and int(restored.last_seen["6"]) == 12, "Quiz counts survive save reload")
+	# JSON numbers are floats on read; compare the complete serialized contract.
+	check(restored == JSON.parse_string(JSON.stringify(history_before_save)), "Complete question history survives JSON reload")
 	check(state.get_single_player_question_history("en", 0).seen_count.is_empty(), "Language histories isolated")
 	print("QUIZ_SELECTION_POOL checks=", checks, " failures=", failures)
 	quit(1 if failures else 0)
+
+func check_question_snapshots() -> void:
+	var canonical: Dictionary = {"id": 1, "question": "Snapshot fixture?", "answers": ["A", "B", "C", "D"], "correct_index": 2, "difficulty": .3}
+	var original: Dictionary = canonical.duplicate(true)
+	var positions: Dictionary = {}
+	seed(124)
+	for iteration in range(100):
+		var presented: Dictionary = PICK.shuffled(canonical)
+		positions[presented.correct_index] = true
+		check(presented.answers[int(presented.correct_index)] == original.answers[int(original.correct_index)], "Shuffle preserves the correct answer")
+		check(PICK.restore_question(presented, canonical) == presented, "Valid resume preserves shuffled answer order")
+	check(positions.size() == 4 and canonical == original, "Shuffle reaches every position without mutating the source")
+	var shuffled: Dictionary = PICK.shuffled(canonical)
+	var updated: Dictionary = canonical.duplicate(true)
+	updated.difficulty = .4
+	var restored: Dictionary = PICK.restore_question(shuffled, updated)
+	check(restored.answers == shuffled.answers and is_equal_approx(restored.difficulty, .4), "Grade-only edit updates difficulty without reshuffling answers")
+	updated.question += " updated"
+	check(PICK.restore_question(shuffled, updated).is_empty(), "Changed wording invalidates an old snapshot")
+	check(PICK.restore_question(shuffled, {}).is_empty(), "Retired question cannot restore its old snapshot")
+	var wrong_key: Dictionary = shuffled.duplicate(true)
+	wrong_key.correct_index = (int(wrong_key.correct_index) + 1) % 4
+	check(PICK.restore_question(wrong_key, canonical).is_empty(), "Invalid saved answer key is rejected")

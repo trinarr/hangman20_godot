@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run content/mechanics regressions with isolated Windows/Linux saves and strict logs."""
 import argparse
+import json
 from pathlib import Path
 import re
 import shutil
@@ -8,6 +9,7 @@ import subprocess
 from godot_test_runner import configure_console, has_engine_errors, isolated_environment, run_godot
 
 ROOT = Path(__file__).resolve().parents[1]
+# A None pattern selects the structured JSON report named after the suite.
 SUITES = {
     "resource_loading": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
     "resource_loading_shutdown": (True, r"RESOURCE_LOADING checks=[1-9]\d* failures=0"),
@@ -31,22 +33,37 @@ SUITES = {
     "quiz_statistics": (True, r"QUIZ_STATISTICS checks=[1-9]\d* failures=0"),
     "word_hint_revision": (False, r'WORD_HINT_REVISION checks=[1-9]\d* failures=0'),
     "easy_quiz_expansion": (False, r'EASY_QUIZ_EXPANSION checks=[1-9]\d* failures=0'),
-    "supported_game_modes": (False, r'SUPPORTED_GAME_MODES .*"failures":\[\]'),
-    "portrait_stage_reward": (True, r'PORTRAIT_STAGE_REWARD .*"failures":\[\]'),
-    "portrait_round_result": (True, r'PORTRAIT_ROUND_RESULT .*"failures":\[\]'),
-    "portrait_popup_component": (True, r'PORTRAIT_POPUP_COMPONENT .*"failures":\[\]'),
-    "letter_feedback_sequence": (True, r'LETTER_FEEDBACK_SEQUENCE .*"failures":\[\]'),
-    "portrait_visual_components": (True, r'PORTRAIT_VISUAL_COMPONENTS .*"failures":\[\]'),
-    "word_content_migration": (False, r'WORD_CONTENT_MIGRATION .*"failures":\[\]'),
-    "word_rebalance": (False, r'WORD_REBALANCE .*"failures":\[\]'),
+    "supported_game_modes": (False, None),
+    "portrait_stage_reward": (True, None),
+    "portrait_round_result": (True, None),
+    "portrait_popup_component": (True, None),
+    "letter_feedback_sequence": (True, None),
+    "portrait_visual_components": (True, None),
+    "word_content_migration": (False, None),
+    "word_rebalance": (False, None),
     "bonus_quiz": (True, r"BONUS_QUIZ checks=[1-9]\d* failures=0"),
     "word_selection": (True, r"WORD SELECTION: [1-9]\d* checks, 0 failures"),
-    "adaptation_speed": (False, r'ADAPTATION_SPEED .*"failures":\[\]'),
-    "theme_intro": (False, r'THEME_INTRO .*"failures":\[\]'),
+    "adaptation_speed": (False, None),
+    "theme_intro": (False, None),
     "quiz_expansion": (True, r'Quiz expansion checks: [1-9]\d*; failures: 0'),
     "quiz_explanations": (True, r'Quiz explanations: [1-9]\d* checks, 0 failures'),
     "quiz_selection_pool": (False, r'QUIZ_SELECTION_POOL checks=[1-9]\d* failures=0'),
 }
+
+
+def has_successful_summary(name, pattern, output):
+    if pattern is not None:
+        return re.search(rf"^{pattern}$", output, re.MULTILINE) is not None
+    reports = re.findall(rf"^{re.escape(name.upper())} (.+)$", output, re.MULTILINE)
+    if not reports:
+        return False
+    try:
+        report = json.loads(reports[-1])
+    except json.JSONDecodeError:
+        return False
+    return (isinstance(report, dict)
+            and type(report.get("checks")) is int and report["checks"] > 0
+            and report.get("failures") == [])
 
 
 def main():
@@ -74,7 +91,7 @@ def main():
                 failed.append(name)
                 continue
         print(result.stdout, end="", flush=True)
-        ok = (result.returncode == 0 and re.search(summary, result.stdout)
+        ok = (result.returncode == 0 and has_successful_summary(name, summary, result.stdout)
               and not has_engine_errors(result.stdout))
         if name in ("resource_loading", "resource_loading_shutdown"):
             ok = ok and "ObjectDB instances" not in result.stdout

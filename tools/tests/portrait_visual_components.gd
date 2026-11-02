@@ -12,7 +12,6 @@ var root: Window
 var ui: Node
 var checks: int = 0
 var failures: Array[String] = []
-var visual_signatures: Dictionary = {}
 
 func _ready() -> void:
 	root = get_tree().root
@@ -35,43 +34,6 @@ func control(size_value: Vector2) -> Control:
 	root.add_child(result)
 	result.size = size_value
 	return result
-
-func snapshot(node: Node) -> Dictionary:
-	var result: Dictionary = {"type": node.get_class()}
-	if node is CanvasItem:
-		result["modulate"] = str(node.modulate)
-		result["z"] = node.z_index
-	if node is Control:
-		result["size"] = str(node.size)
-		# PatternMotion advances on wall-clock time; child geometry is deterministic.
-		if node.name != &"PatternMotion":
-			result["position"] = str(node.position)
-		result["rotation"] = node.rotation
-		result["mouse_filter"] = node.mouse_filter
-		result["clip"] = node.clip_contents
-	if node is TextureRect:
-		result["expand"] = node.expand_mode
-		result["stretch"] = node.stretch_mode
-		if node.material is ShaderMaterial:
-			result["shadow"] = str(node.material.get_shader_parameter("shadow_color"))
-	if node is Node2D:
-		result["position"] = str(node.position)
-		result["scale"] = str(node.scale)
-	if node is Polygon2D:
-		result["polygon"] = str(node.polygon)
-		result["color"] = str(node.color)
-	if node is TextureRect and node.texture is GradientTexture2D:
-		result["gradient"] = str(node.texture.gradient.colors)
-		result["fill_from"] = str(node.texture.fill_from)
-		result["fill_to"] = str(node.texture.fill_to)
-	var children: Array = []
-	for child: Node in node.get_children():
-		children.append(snapshot(child))
-	result["children"] = children
-	return result
-
-func record(label: String, node: Node) -> void:
-	visual_signatures[label] = JSON.stringify(snapshot(node)).sha256_text()
 
 func pattern(clip: Control, motion: Control, textures: Array, speed: float = 1.0, tint: Color = Color(0.2, 0.4, 0.6, 0.5)) -> void:
 	ui._layout_multi_theme_pattern(clip, motion, textures, tint, 1.0, 1.0, speed, 0.05, 0.35)
@@ -160,13 +122,11 @@ func run() -> void:
 	for shadow: TextureRect in shadows:
 		check(shadow.texture == tex and shadow.z_index == 2, "shadow texture and stacking")
 		check(shadow.size == holder.size and shadow.mouse_filter == Control.MOUSE_FILTER_IGNORE, "shadow initial layout")
-	record("icon_initial", holder)
 	holder.size = Vector2(140, 100)
 	await get_tree().process_frame
 	check(holder.get_children().slice(0, 4) == shadows, "resize reuses shadow nodes")
 	for shadow: TextureRect in shadows:
 		check(shadow.size == holder.size, "shadow follows holder resize")
-	record("icon_resized", holder)
 	holder.free()
 	# Repeated pattern refresh does not reset scrolling; resize reuses the prefix.
 	var clip: Control = control(Vector2(480, 800))
@@ -176,7 +136,6 @@ func run() -> void:
 	pattern(clip, motion, textures)
 	var initial: Array[Node] = motion.get_children()
 	var tween: Tween = motion.get_meta("pattern_move_tween")
-	record("pattern_initial", clip)
 	pattern(clip, motion, textures)
 	check(motion.get_children() == initial and motion.get_meta("pattern_move_tween") == tween, "pattern refresh preserves nodes and motion")
 	clip.size.y = 1100
@@ -186,7 +145,6 @@ func run() -> void:
 	clip.size.y = 400
 	pattern(clip, motion, textures, 1.0, Color(0.7, 0.3, 0.1, 0.6))
 	check(motion.get_child(0) == initial[0] and motion.get_child_count() < initial.size(), "smaller pattern reuses prefix")
-	record("pattern_resized", clip)
 	textures[0] = texture()
 	pattern(clip, motion, textures)
 	check(motion.get_child(0).texture == textures[0], "pattern textures refresh")
@@ -204,7 +162,6 @@ func run() -> void:
 	var factory_clip: Control = background.get_node("Pattern")
 	var factory_motion: Control = factory_clip.get_node("PatternMotion")
 	check(factory_motion.get_child_count() > 0, "pattern factory deferred layout")
-	record("background", background)
 	background.size.y = 1200
 	await get_tree().process_frame
 	check(factory_clip.size.y == 1200 and factory_motion.get_child_count() > 0, "background resize")
@@ -217,7 +174,6 @@ func run() -> void:
 		var layer: Control = ui._ensure_reward_coin_sparkle_layer(reward)
 		check(layer.get_child_count() == 3 and layer.z_index == 4, "sparkle layer and count")
 		check(ui._ensure_reward_coin_sparkle_layer(reward) == layer and layer.get_child_count() == 3, "sparkle layer reused")
-		record("chest_glints" if chest else "coin_glints", reward)
 		ui._play_reward_coin_sparkles(reward)
 		var old_tweens: Array[Tween] = []
 		for sparkle: Node2D in layer.get_children():
@@ -227,7 +183,6 @@ func run() -> void:
 		old_tweens[0].custom_step(0.1)
 		var active_alpha: float = layer.get_child(0).get_node("SparkleFade").opacity
 		check(active_alpha > 0.0 and active_alpha < 0.95, "sparkle fade advances")
-		record("chest_glints_animated" if chest else "coin_glints_animated", reward)
 		ui._play_reward_coin_sparkles(reward)
 		for old: Tween in old_tweens:
 			check(!old.is_valid(), "sparkle restart kills old tween")
@@ -251,6 +206,5 @@ func run() -> void:
 	await get_tree().process_frame
 	check(true, "deferred callbacks survive deleted parents without script errors")
 	ui.free()
-	print("PORTRAIT_VISUAL_SIGNATURES " + JSON.stringify(visual_signatures))
 	print("PORTRAIT_VISUAL_COMPONENTS " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
