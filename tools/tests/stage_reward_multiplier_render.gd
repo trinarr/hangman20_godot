@@ -1,6 +1,44 @@
 extends "res://tools/tests/rewarded_stage_fixture.gd"
 ## GPU layout matrix; no native advertisement requests are started.
 
+func check_track_fade() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(420, 160)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(viewport)
+	var background := ColorRect.new()
+	background.color = preload("res://scripts/ui/ui_palette.gd").UI_BLUE
+	background.size = Vector2(viewport.size)
+	viewport.add_child(background)
+	var meter := preload("res://scripts/ui/stage_reward_multiplier.gd").new()
+	meter.position = Vector2(12, 10)
+	meter.size = Vector2(396, 94.6)
+	viewport.add_child(meter)
+	meter.build(null)
+	# Isolate the new shader. Text and pointer use separate fade surfaces and
+	# overlap the plaque, so their combined half-opacity is not a flat image mix.
+	for label: Label in meter._labels:
+		label.hide()
+	meter._pointer.hide()
+	var fade: Node = preload("res://scripts/ui/composited_fade.gd").branch(meter)
+	await frames()
+	await RenderingServer.frame_post_draw
+	var original: Image = viewport.get_texture().get_image()
+	for opacity: float in [0.5, 0.0, 1.0]:
+		fade.set("opacity", opacity)
+		await frames()
+		await RenderingServer.frame_post_draw
+		var current: Image = viewport.get_texture().get_image()
+		var error: float = 0.0
+		for y in range(current.get_height()):
+			for x in range(current.get_width()):
+				var expected: Color = background.color.lerp(original.get_pixel(x, y), opacity)
+				var actual: Color = current.get_pixel(x, y)
+				error = maxf(error, maxf(absf(actual.r - expected.r), maxf(absf(actual.g - expected.g), absf(actual.b - expected.b))))
+		check(error < 0.03, "Track and fill shader preserves incoming opacity %.1f (error %.3f)" % [opacity, error])
+	viewport.queue_free()
+	await frames()
+
 func capture(tag: String) -> void:
 	var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	if DisplayServer.get_name() == "headless":
@@ -16,6 +54,24 @@ func capture(tag: String) -> void:
 		var ratio: Vector2 = Vector2(screenshot.get_size()) / get_viewport().get_visible_rect().size
 		var transform: Transform2D = frame.get_global_transform_with_canvas()
 		var render_scale := Vector2((transform.x * ratio).length(), (transform.y * ratio).length())
+		# Compare both curved ends, including the phone resolution from the report.
+		for fraction: float in [0.35, 0.5, 0.65]:
+			var row: int = floori((rect.position.y + rect.size.y * fraction) * ratio.y)
+			var rims: Array[int] = []
+			for side in range(2):
+				var outer: int = -1
+				var inner: int = -1
+				for offset in range(64):
+					var x: int = floori(rect.position.x * ratio.x) + offset if side == 0 else ceili(rect.end.x * ratio.x) - 1 - offset
+					var color: Color = screenshot.get_pixel(x, row)
+					if outer < 0 and color.r < 0.28 and color.g < 0.33 and color.b > 0.4 and color.b < 0.6:
+						outer = offset
+					if color.r > 0.7 and color.g < 0.5 and color.b < 0.5:
+						inner = offset
+						break
+				check(outer >= 0 and inner > outer, "Both rounded ends expose a measurable dark rim: " + tag)
+				rims.append(inner - outer)
+			check(absi(rims[0] - rims[1]) <= 1, "Multiplier rim is horizontally symmetric at %.2f (%d/%d): " % [fraction, rims[0], rims[1]] + tag)
 		var sample: Vector2i = Vector2i((rect.position + Vector2(0.0, rect.size.y * 0.5)) * ratio)
 		var first_fill_pixel: int = -1
 		for offset in range(16):
@@ -47,7 +103,8 @@ func run() -> void:
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	GameState.guided_onboarding_completed = true
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
-	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
+	await check_track_fade()
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920), Vector2i(1200, 2670)]:
 		get_window().min_size = dimensions
 		get_window().size = dimensions
 		for language: String in ["ru", "en"]:

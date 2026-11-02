@@ -118,7 +118,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		action_button = _stage_main_button(
 			_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 			Callable(self, "_request_double"),
-			tr("REWARD_DOUBLE"),
+			tr("REWARD_GET" if _meter_enabled else "REWARD_GET_X2"),
 			22,
 			true,
 			0.32,

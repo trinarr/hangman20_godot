@@ -378,11 +378,8 @@ const PORTRAIT_LEVEL_STAR_AWARD_PANEL_HEIGHT: float = 52.0
 const PORTRAIT_LEVEL_STAR_AWARD_GAP: float = 28.0
 const PORTRAIT_LEVEL_THEME_PROGRESS_SIZE := Vector2(384.0, 96.0)
 const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 4.0
-# Authored at 480 px; the 960 px viewport renders a 5/5/5/9 px rim.
-const PORTRAIT_THEME_BAR_INSET := Vector2(2.0, 2.0)
-const PORTRAIT_THEME_BAR_BOTTOM_INSET: float = 4.5
 const THEME_UNLOCK_ICON_GRAYSCALE_SHADER: Shader = preload("res://shaders/theme_unlock_icon_grayscale.gdshader")
-const THEME_UNLOCK_FILL_SHADER: Shader = preload("res://shaders/theme_unlock_fill.gdshader")
+const THEME_UNLOCK_FILL_SHADER: Shader = preload("res://shaders/stage_reward_track.gdshader")
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE: float = 1.14
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION: float = 0.16
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION: float = 0.20
@@ -3997,13 +3994,15 @@ func _home_profile_resume_saved_single_player_level() -> void:
 						_portrait_single_reward_resume_without_intro = true
 						_show_single_player_reward_chain_screen()
 						return
-					_portrait_single_reward_resume_without_intro = bool(
-						!last_result_is_win
-						or (
-							bool(stage_reward.get("claimed", false))
-							and bool(stage_reward.get("double_resolved", true))
-						)
-					)
+					# An interrupted word result can predate its star-claim animation.
+					# Resolve the durable reward before constructing the resumed chain,
+					# just as for an answered quiz; Home Continue never replays its intro.
+					if !stage_reward.is_empty():
+						if !bool(stage_reward.get("claimed", false)):
+							GameState.claim_active_single_player_stage_reward(true)
+						if str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS and !bool(stage_reward.get("double_resolved", true)):
+							GameState.resolve_active_single_player_stage_reward_double(false, true)
+					_portrait_single_reward_resume_without_intro = true
 					_show_single_player_reward_chain_screen()
 					return
 			_start_next_single_player_word(level_index)
@@ -13358,13 +13357,10 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(title)
 	title.z_index = 2
 	holder.add_child(title)
-	# Draw the dark track as a separate frame and inset the actual ProgressBar.
-	# This keeps a dark rim visible around the green fill even at 100%, so the
-	# track itself works as the progress bar outline instead of being covered.
-	var bar_frame := Panel.new()
+	# Draw the track and fill on one rectangle, with shader-local logical insets.
+	var bar_frame := preload("res://scripts/ui/theme_unlock_track.gd").new()
 	bar_frame.name = "UnlockBarFrame"
-	# Keep the 30 px fill height while using a visibly heavier lower edge:
-	# 5 px top/sides and 9 px bottom at the 960 px reference viewport.
+	# Rim in logical stage units: 1.5 on top/sides and 3.5 below.
 	bar_frame.position = Vector2(bar_x, 30.0)
 	bar_frame.size = Vector2(bar_width, 36.5)
 	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -13396,7 +13392,7 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 		shadow_color.a = BADGE_SHADOW_STYLE_SCRIPT.SHADOW_ALPHA
 		shadow_material.set_shader_parameter("shadow_color", shadow_color)
 	var track := StyleBoxFlat.new()
-	track.bg_color = PORTRAIT_DARK_BLUE
+	track.bg_color = Color.TRANSPARENT
 	track.set_corner_radius_all(18)
 	bar_frame.add_theme_stylebox_override("panel", track)
 	bar_frame.z_index = 2
@@ -13404,14 +13400,8 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 
 	var bar := ProgressBar.new()
 	bar.name = "UnlockBar"
-	# Keep the fill itself asymmetrically inset inside one continuous rounded track:
-	# 5 px on top/sides and 9 px on the bottom at the 960 px reference viewport.
-	# No overlay/masking strip is needed, so there is no seam at the rounded edge.
-	bar.position = bar_frame.position + PORTRAIT_THEME_BAR_INSET
-	bar.size = Vector2(
-		bar_frame.size.x - PORTRAIT_THEME_BAR_INSET.x * 2.0,
-		bar_frame.size.y - PORTRAIT_THEME_BAR_INSET.y - PORTRAIT_THEME_BAR_BOTTOM_INSET
-	)
+	bar.position = bar_frame.position
+	bar.size = bar_frame.size
 	bar.min_value = 0.0
 	bar.max_value = float(progress["total"])
 	bar.value = float(progress["from"])
@@ -13427,16 +13417,7 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	bar.add_theme_stylebox_override("fill", transparent_fill)
 	bar.z_index = 2
 	holder.add_child(bar)
-	# Reveal the full-size rounded fill through a rectangular clip mask. The fill
-	# itself never changes shape, so the first pixels slide out from the left instead
-	# of squeezing the rounded geometry into a narrow vertical capsule.
-	var fill_mask := Control.new()
-	fill_mask.name = "UnlockBarFillMask"
-	fill_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill_mask.position = bar.position - bar_frame.position
-	fill_mask.size = Vector2(0.0, bar.size.y)
-	fill_mask.clip_contents = true
-	bar_frame.add_child(fill_mask)
+	# The shader clips the fixed-size pill at its progress front.
 	var fill_panel := ColorRect.new()
 	fill_panel.name = "UnlockBarFill"
 	fill_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -13446,10 +13427,13 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	var fill_material := ShaderMaterial.new()
 	fill_material.shader = THEME_UNLOCK_FILL_SHADER
 	fill_material.set_shader_parameter("fill_size", fill_panel.size)
+	fill_material.set_shader_parameter("segmented", false)
+	fill_material.set_shader_parameter("track_color", PORTRAIT_DARK_BLUE)
 	fill_material.set_shader_parameter("base_color", PORTRAIT_UI_PALETTE.BUTTON_BLUE)
 	fill_material.set_shader_parameter("highlight_color", Color("#96A9FF"))
 	fill_panel.material = fill_material
-	fill_mask.add_child(fill_panel)
+	bar_frame.add_child(fill_panel)
+	bar_frame.configure(bar, fill_panel)
 	var count := Label.new()
 	count.name = "UnlockCount"
 	count.position = bar_frame.position
@@ -13517,18 +13501,10 @@ func _set_theme_unlock_bar_value(value: float, holder: Control) -> void:
 	var bar := holder.get_node("UnlockBar") as ProgressBar
 	bar.value = value
 	var bar_frame := holder.get_node("UnlockBarFrame") as Control
-	var fill_mask := bar_frame.get_node("UnlockBarFillMask") as Control
-	var fill_panel := fill_mask.get_node("UnlockBarFill") as Control
 	var ratio: float = 0.0
 	if bar.max_value > 0.0:
 		ratio = clampf(value / bar.max_value, 0.0, 1.0)
-	fill_mask.position = bar.position - bar_frame.position
-	fill_mask.size = Vector2(bar.size.x * ratio, bar.size.y)
-	fill_panel.position = Vector2.ZERO
-	fill_panel.size = bar.size
-	var fill_material := fill_panel.material as ShaderMaterial
-	fill_material.set_shader_parameter("fill_size", fill_panel.size)
-	fill_mask.visible = ratio > 0.0
+	bar_frame.set_value_ratio(ratio)
 	var count := holder.find_child("UnlockCount", true, false) as Label
 	count.text = "%d / %d" % [int(round(value)), int(bar.max_value)]
 
@@ -13601,7 +13577,7 @@ func _animate_theme_unlock_progress(
 	COMPOSITED_FADE.wrap(count).z_index = 4
 	count.show()
 	var icon := holder.get_node("UnlockThemeIcon") as Control
-	var fill := holder.get_node("UnlockBarFrame/UnlockBarFillMask/UnlockBarFill") as Control
+	var fill := holder.find_child("UnlockBarFill", true, false) as Control
 	var fill_material := fill.material as ShaderMaterial
 	var recolor := holder.create_tween()
 	recolor.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -16335,6 +16311,10 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			word_slot,
 			word_count
 		)
+		if reward_currency == GameState.STAGE_REWARD_COINS and slot_status == 1:
+			reward_amount = GameState.get_single_level_coin_reward(
+				Database.current_language, level_index, word_slot, reward_amount
+			)
 		# Reward amounts start fully white. Once a reward is claimed, the checkmark
 		# dims both its resource icon and xN; future rewards stay white.
 		var count_color: Color = Color.WHITE
@@ -16536,7 +16516,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 				final_action_button = _stage_main_button(
 					_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
 					Callable(self, "_on_final_reward_double_pressed"),
-					tr("REWARD_DOUBLE"),
+					tr("REWARD_GET_X2"),
 					22,
 					true,
 					0.32,

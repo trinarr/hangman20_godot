@@ -6,6 +6,7 @@ class TestUI:
 	var claims: int = 0
 	var claim_scale: float = 0.0
 	var doubles: int = 0
+	var quiz_stage: bool = true
 	func _ready() -> void:
 		_build_root()
 		_clear()
@@ -14,7 +15,7 @@ class TestUI:
 	func _portrait_ads_service() -> Node:
 		return null
 	func _single_player_stage_is_quiz(_level: int, _slot: int) -> bool:
-		return true
+		return quiz_stage
 	func _play_early_stage_coin_reward_claim(source: Control) -> void:
 		claims += 1
 		claim_scale = source.scale.x
@@ -57,6 +58,71 @@ func _standalone_continue() -> void:
 
 func _ready() -> void:
 	call_deferred("run")
+
+func check_home_chain_resume() -> void:
+	var original_size: Vector2i = get_window().size
+	var original_min: Vector2i = get_window().min_size
+	GameState.guided_onboarding_completed = true
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	main.quiz_stage = false
+	main.ads_enabled = false
+	for language: String in ["ru", "en"]:
+		GameState.set_word_language(language)
+		GameState.interface_language = language
+		Database.load_languages(language, language)
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().min_size = dimensions
+			get_window().size = dimensions
+			for state_index in range(3):
+				var home_deadline: int = Time.get_ticks_msec() + 5000
+				while is_instance_valid(main._home_transition) and Time.get_ticks_msec() < home_deadline:
+					await get_tree().process_frame
+				var won: bool = state_index != 2
+				var claimed: bool = state_index != 0
+				GameState.reset_single_level_attempt(language, 4, true, true, false)
+				GameState._single_player_bucket(language)["unlocked_level"] = 4
+				GameState.select_single_level_theme(language, 4, 0, 2)
+				var statuses: Array = GameState.ensure_single_level_progress(language, 4, 2)
+				statuses[0] = 1 if won else 2
+				GameState.pending_single_player_reward = {}
+				GameState.stars = 105 if won and claimed else 100
+				var result: Dictionary = {"single_player_level_index":4, "single_player_word_slot":0, "single_player_total_count":2, "single_player_level_completed":false, "single_player_stage_won":won}
+				GameState.set_active_single_player_session({"kind":"next", "language":language, "level_index":4, "word_slot":0, "theme_id":Database.get_theme_id(0), "data":{"result":result, "reward_currency":GameState.STAGE_REWARD_STARS, "reward_amount":5 if won else 0, "reward_claimed":claimed, "reward_double_resolved":true}}, true)
+				if !claimed:
+					# Interrupt the original title before the claim choreography begins.
+					main._clear()
+					main.last_result_data = result.duplicate(true)
+					main.last_result_is_win = won
+					main._show_single_player_reward_chain_screen()
+					await get_tree().process_frame
+				main.show_menu()
+				GameState.load_game()
+				await get_tree().create_timer(1.4).timeout
+				main._play_single_player_from_home()
+				main._play_single_player_from_home()
+				var deadline: int = Time.get_ticks_msec() + 5000
+				while main.content.find_child("SinglePlayerRewardChain", true, false) == null and Time.get_ticks_msec() < deadline:
+					await get_tree().process_frame
+				var title: Control = main._portrait_top_bar_content.get_meta("reward_title_block") if main._portrait_top_bar_content.has_meta("reward_title_block") else null
+				check(is_instance_valid(title), "Home Continue reaches the saved word-stage chain: %s/%d/%d" % [language, dimensions.x, state_index])
+				if !is_instance_valid(title):
+					continue
+				var visual: Control = title.get_node("SinglePlayerRewardTitleVisual")
+				for delay: float in [0.0, 0.15, 0.4]:
+					if delay > 0.0:
+						await get_tree().create_timer(delay).timeout
+					check(title.get("stage_rect") == main.PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT and visual.scale == Vector2.ONE and is_equal_approx(title.modulate.a, 1.0), "Resumed header is settled from its first frame and never restarts: %s/%d/%d/%.2f" % [language, dimensions.x, state_index, delay])
+					check(!main._portrait_single_reward_continue_button.get("disabled"), "Resumed chain Continue is immediately available")
+				check(GameState.get_stars() == (105 if won else 100), "Home resume settles stars exactly once, without a delayed second claim")
+				var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+				if !directory.is_empty() and DisplayServer.get_name() != "headless":
+					await RenderingServer.frame_post_draw
+					get_viewport().get_texture().get_image().save_png(directory.path_join("home_chain_%s_%d_%d.png" % [language, dimensions.x, state_index]))
+				main.show_menu()
+				await get_tree().process_frame
+	main.quiz_stage = true
+	get_window().min_size = original_min
+	get_window().size = original_size
 
 func run() -> void:
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
@@ -141,13 +207,13 @@ func run() -> void:
 			meter._process(traverse * 0.5 + 0.05)
 			check(is_equal_approx(meter.cursor, 0.1), "left pause repeats after a complete cycle")
 			var border: StyleBoxFlat = meter.get_child(0).get_theme_stylebox("panel")
-			check(border.draw_center and border.bg_color == preload("res://scripts/ui/ui_palette.gd").UI_BLUE_DARK, "meter uses the theme-unlock dark track")
+			check(border.bg_color.a == 0.0 and meter._fill.material.get_shader_parameter("track_color") == preload("res://scripts/ui/ui_palette.gd").UI_BLUE_DARK, "meter draws its dark track only in the shared shader")
 			check([border.border_width_left, border.border_width_top, border.border_width_right, border.border_width_bottom] == [0, 0, 0, 0], "track replaces the uniform outline")
 			var fill: Control = meter.get_child(0).get_child(0)
-			check(fill.position == Vector2(2.5, 2.5) and fill.size == meter.get_child(0).size - Vector2(5, 6.5), "track has 2.5-unit sides and a heavier four-unit lower edge")
+			check(fill.position == Vector2.ZERO and fill.size == meter.get_child(0).size and fill.material.get_shader_parameter("inset") == Vector2(2.5, 2.5) and is_equal_approx(float(fill.material.get_shader_parameter("bottom_inset")), 4.0), "shader keeps 2.5-unit sides and a four-unit lower edge on the complete track rectangle")
 			meter.scale = Vector2.ONE * 1.25
 			meter._sync_layout()
-			check(meter.get_child(0).scale == Vector2.ONE and fill.scale == Vector2.ONE and fill.position == Vector2(2.5, 2.5), "track and fill inherit ancestor scaling with unchanged logical insets")
+			check(meter.get_child(0).scale == Vector2.ONE and fill.scale == Vector2.ONE and fill.position == Vector2.ZERO, "track and fill inherit ancestor scaling on the same logical rectangle")
 			meter.scale = Vector2.ONE
 			meter._sync_layout()
 			meter.set_cursor(0.0)
@@ -225,6 +291,7 @@ func run() -> void:
 	check(main.content.find_child("FinalRewardContinueButton", true, false).self_modulate.a > 0.99, "level summary action restores visible alpha")
 	check(main.content.find_child("FinalRewardGlow", true, false).self_modulate.a > 0.1, "level summary glow restores visible alpha")
 	main._clear()
+	await check_home_chain_resume()
 	# Standalone presentation has no dependency on the gameplay adapter.
 	var parent := Control.new()
 	parent.theme = main.ui.theme

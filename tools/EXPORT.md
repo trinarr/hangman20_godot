@@ -15,9 +15,9 @@
 
 Текущие значения определяет [export_presets.cfg](../export_presets.cfg):
 
-- Release-пресет — `Hangman 2.0`, отладочный — `Hangman 2.0 Debug`; Gradle включён, выбран APK. Для AAB выберите соответствующий формат в пресете и выходной файл `.aab`. При изменении общих Android-параметров обновляйте оба пресета.
+- Release-пресет — `Hangman 2.0`, формат AAB; отладочный — `Hangman 2.0 Debug`, формат APK. В обоих включён Gradle. Расширение выходного файла должно соответствовать формату выбранного пресета. При изменении общих Android-параметров обновляйте оба пресета.
 - Package ID — `com.trinarr.Hangman20`; не меняйте его для очередной версии приложения. Версии и Android version code сверяйте в пресете перед релизом; для обновления нужен новый version code.
-- Пресет задаёт minimum SDK 24 и target SDK 35. Target SDK отличается от compile SDK: локальное значение compile 36 не меняет target 35 из пресета. Перед публикацией отдельно сверяйте требования выбранного магазина.
+- Оба пресета задают minimum SDK 24 и target SDK 36. Target SDK берётся из пресета, compile SDK — из Gradle-шаблона; сверяйте их отдельно. Перед публикацией отдельно сверяйте требования выбранного магазина.
 - Включены четыре ABI и Internet, Android backup выключен. Выбор ABI меняйте осознанно под канал распространения.
 - Сохранённый `export_path` ведёт в пользовательский Downloads. Команды ниже явно используют игнорируемый `builds/`.
 
@@ -39,7 +39,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Android debug export failed' }
 После каждого вызова проверяйте журнал и `$LASTEXITCODE`; при ошибке остановитесь. Для release сначала настройте собственный keystore и подпись в диалоге экспорта либо через поддерживаемые [переменные окружения](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_android.html#environment-variables). Ключи и пароли храните вне Git и журналов; `export_credentials.cfg` и локальные `.env` игнорируются.
 
 ```powershell
-& $godotExe --headless --path . --export-release 'Hangman 2.0' 'builds/Hangman20_release.apk'
+& $godotExe --headless --path . --export-release 'Hangman 2.0' 'builds/Hangman20_release.aab'
 if ($LASTEXITCODE -ne 0) { throw 'Android release export failed' }
 ```
 
@@ -52,9 +52,15 @@ python tools/verify_release_export.py 'builds/Hangman20_release_resources.zip' -
 if ($LASTEXITCODE -ne 0) { throw 'Release resource verification failed' }
 ```
 
-ZIP/PCK не заменяет APK/AAB и не подтверждает подключение Android SDK или рекламы. Для проверки готового APK:
+Флаг `--check-presets` проверяет совпадение общих Android options двух пресетов, release-фильтры и отсутствие dev-features. Формат экспорта проверяется отдельно: AAB для release и APK для debug.
+
+ZIP/PCK не заменяет APK/AAB и не подтверждает подключение Android SDK или рекламы. `verify_release_export.py` поддерживает ZIP ресурсов и APK; прямой проверки AAB в нём нет. Для AAB отдельно проверьте подпись, манифест и состав пакета, затем установку и запуск APK, полученных из этого AAB.
+
+Если для распространения или проверки нужен release APK, создайте копию release-пресета `Hangman 2.0` с именем `Hangman 2.0 APK`, выберите в ней формат APK и сохраните те же фильтры ресурсов, общие Android-параметры и release-подпись. Затем экспортируйте и проверьте APK:
 
 ```powershell
+& $godotExe --headless --path . --export-release 'Hangman 2.0 APK' 'builds/Hangman20_release.apk'
+if ($LASTEXITCODE -ne 0) { throw 'Android release APK export failed' }
 python tools/verify_release_export.py 'builds/Hangman20_release.apk' --aapt 'C:/SDK/Android/build-tools/36.1.0/aapt.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Release APK verification failed' }
 ```

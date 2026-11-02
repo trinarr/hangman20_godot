@@ -18,7 +18,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 7
+const SAVE_FORMAT_VERSION: int = 8
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -558,6 +558,15 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 		6:
 			_payload["player_name_free_change_used"] = bool(_payload.get("player_name_is_custom", false))
 			_payload["save_version"] = 7
+			return true
+		7:
+			# Older saves have no per-stage credit history; keep their base fallback.
+			var campaigns: Variant = _payload.get("single_player", {})
+			if campaigns is Dictionary:
+				for bucket: Variant in campaigns.values():
+					if bucket is Dictionary:
+						bucket["stage_coin_rewards"] = {}
+			_payload["save_version"] = 8
 			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
@@ -1173,6 +1182,8 @@ func settle_presented_active_single_player_stage_reward(persist: bool = true) ->
 		data["reward_double_claimed"] = false
 	session["data"] = data
 	active_single_player_session = session
+	if currency == STAGE_REWARD_COINS and !bool(reward.get("claimed", false)):
+		_record_stage_coin_credit(active_single_player_session, credited_amount)
 	if persist:
 		save_game()
 	return {
@@ -1207,6 +1218,8 @@ func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary
 		if currency == STAGE_REWARD_STARS
 		else add_soft_currency(requested_amount, false)
 	)
+	if currency == STAGE_REWARD_COINS:
+		_record_stage_coin_credit(active_single_player_session, maxi(final_balance - previous_balance, 0))
 	if persist:
 		save_game()
 	return {
@@ -1258,6 +1271,7 @@ func resolve_active_single_player_stage_reward_double(
 		var previous_balance: int = get_soft_currency()
 		var final_balance: int = add_soft_currency(int(reward.get("amount", 0)), false)
 		credited_amount = maxi(final_balance - previous_balance, 0)
+		_add_stage_coin_bonus(_rewarded_double_target("stage_coin").get("target", ""), credited_amount)
 	if persist:
 		save_game()
 	return {
@@ -1266,6 +1280,46 @@ func resolve_active_single_player_stage_reward_double(
 		"resolved": true,
 		"granted": grant_bonus,
 	}
+
+func get_single_level_coin_reward(lang: String, level_index: int, word_slot: int, fallback: int) -> int:
+	var bucket: Dictionary = _single_player_bucket(lang)
+	var slots: Variant = bucket["stage_coin_rewards"].get(str(level_index), {})
+	if slots is Dictionary:
+		var record: Variant = slots.get(str(word_slot), {})
+		if record is Dictionary and record.has("amount"):
+			return clampi(int(record["amount"]), 0, MAX_CURRENCY_BALANCE)
+	return fallback
+
+func _record_stage_coin_credit(session: Dictionary, amount: int) -> void:
+	var level_index: int = int(session.get("level_index", -1))
+	var word_slot: int = int(session.get("word_slot", -1))
+	if level_index < 0 or word_slot < 0:
+		return
+	var data: Dictionary = session["data"]
+	if str(data.get("reward_ad_id", "")).is_empty():
+		data["reward_ad_id"] = "stage:%d:%d" % [Time.get_ticks_usec(), randi()]
+	var target: Dictionary = _rewarded_double_target_from_snapshots("stage_coin", session, {})
+	if target.is_empty():
+		return
+	var bucket: Dictionary = _single_player_bucket(str(session.get("language", word_language)))
+	var history: Dictionary = bucket["stage_coin_rewards"]
+	var level_key: String = str(level_index)
+	if !(history.get(level_key) is Dictionary):
+		history[level_key] = {}
+	history[level_key][str(word_slot)] = {"amount": amount, "target": target["target"]}
+
+func _add_stage_coin_bonus(target: String, amount: int) -> void:
+	var parts: PackedStringArray = target.split(":", true, 4)
+	if parts.size() != 5 or parts[0] != "stage_coin":
+		return
+	var bucket: Dictionary = _single_player_bucket(parts[1])
+	var slots: Variant = bucket["stage_coin_rewards"].get(parts[2], {})
+	if !(slots is Dictionary):
+		return
+	var record: Variant = slots.get(parts[3], {})
+	# A late receipt may credit an old attempt, but must not relabel a replay.
+	if record is Dictionary and record.get("target", "") == target:
+		record["amount"] = clampi(int(record.get("amount", 0)) + amount, 0, MAX_CURRENCY_BALANCE)
 
 func get_pending_single_player_reward() -> Dictionary:
 	return pending_single_player_reward.duplicate(true)
@@ -1539,6 +1593,7 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	var previous_pending: Dictionary = pending_single_player_reward.duplicate(true)
 	var previous_resume_states: Dictionary = single_player_resume_states.duplicate(true)
 	var previous_session: Dictionary = active_single_player_session.duplicate(true)
+	var previous_single_player: Dictionary = single_player.duplicate(true)
 	if is_current:
 		if context == "final":
 			pending_single_player_reward["double_resolved"] = true
@@ -1559,12 +1614,15 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	var before: int = get_soft_currency()
 	if !already_granted:
 		soft_currency = clampi(before + int(request["amount"]), 0, MAX_CURRENCY_BALANCE)
+		if context == "stage_coin":
+			_add_stage_coin_bonus(str(request["target"]), soft_currency - before)
 	if !save_game():
 		# Balance, offer flags and receipt removal must commit together. Keep the
 		# receipt retryable if the durable write fails.
 		soft_currency = before
 		pending_single_player_reward = previous_pending
 		active_single_player_session = previous_session
+		single_player = previous_single_player
 		single_player_resume_states = previous_resume_states
 		rewarded_double_requests.merge(completed_requests)
 		_store_current_single_player_resume_state()
@@ -1630,6 +1688,7 @@ func _home_profile_compact_single_player_history() -> void:
 		var oldest_kept_level: int = maxi(unlocked_level - SINGLE_PLAYER_LEVEL_HISTORY_LIMIT, 0)
 		for field_name: String in [
 			"levels",
+			"stage_coin_rewards",
 			"selected_themes",
 			"level_seeds",
 			"theme_reroll_states",
@@ -2073,6 +2132,7 @@ func _new_single_player_bucket() -> Dictionary:
 		"win_streak": 0,
 		"loss_streak": 0,
 		"levels": {},
+		"stage_coin_rewards": {},
 		"selected_themes": {},
 		"level_seeds": {},
 		"theme_reroll_states": {},
@@ -2091,6 +2151,7 @@ func _single_player_bucket(lang: String) -> Dictionary:
 	var bucket: Dictionary = single_player[lang_key]
 	for dictionary_key in [
 		"levels",
+		"stage_coin_rewards",
 		"selected_themes",
 		"level_seeds",
 		"theme_reroll_states",
@@ -2834,6 +2895,7 @@ func reset_single_level_attempt(
 	var level_question_slots: Dictionary = bucket["level_question_slots"]
 	var level_question_ids: Dictionary = bucket["level_question_ids"]
 	levels.erase(level_key)
+	bucket["stage_coin_rewards"].erase(level_key)
 	selected_themes.erase(level_key)
 	level_question_slots.erase(level_key)
 	level_question_ids.erase(level_key)
