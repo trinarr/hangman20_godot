@@ -160,7 +160,9 @@
       "challenge_level_completion_per_win_stars": 10,
       "quick_quiz_answer_stars": 2,
       "lightning_quiz_answer_stars": 5,
-      "coin_refill_ad_coins": 40
+      "coin_refill_ad_coins": 40,
+      "stage_ad_multipliers_from_level": 5,
+      "stage_ad_multipliers": [1.5, 2.0, 3.0]
     },
     "coin_refill_ad": {
       "maximum_views": 5,
@@ -196,6 +198,11 @@
     "menu_logo_shine_duration_seconds": 0.72,
     "quiz_wrong_answer_shake_step_seconds": 0.065,
     "animations": {
+      "stage_reward_multiplier": {
+        "traverse_seconds": 0.8026755853,
+        "label_peak_scale": 1.1666666667,
+        "endpoint_pause_seconds": 0.1
+      },
       "leaderboard": {
         "entrance_speed_multiplier": 1.3
       },

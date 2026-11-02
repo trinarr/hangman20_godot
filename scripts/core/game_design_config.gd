@@ -177,6 +177,19 @@ static func _ensure_loaded() -> void:
 
 static func _validate_loaded_config() -> void:
 	_validate_nonnegative_numbers(_config, "")
+	get_int_range("economy.rewards.stage_ad_multipliers_from_level", 1, 1000)
+	var stage_multipliers: Array = get_array("economy.rewards.stage_ad_multipliers")
+	if stage_multipliers.size() != 3:
+		_fatal_config_error("Stage ad meter requires three multipliers")
+	var previous_multiplier: float = 1.0
+	for value: Variant in stage_multipliers:
+		var multiplier: float = _require_numeric_value(value, "economy.rewards.stage_ad_multipliers")
+		if multiplier <= previous_multiplier or multiplier > 10.0:
+			_fatal_config_error("Stage ad multipliers must increase above one and not exceed ten")
+		previous_multiplier = multiplier
+	get_float_range("timings.animations.stage_reward_multiplier.traverse_seconds", 0.1, 10.0)
+	get_float_range("timings.animations.stage_reward_multiplier.label_peak_scale", 1.0, 1.5)
+	get_float_range("timings.animations.stage_reward_multiplier.endpoint_pause_seconds", 0.0, 2.0)
 	var tournament_pool_size := get_int_range("tournament.candidate_pool_size", 9, 100)
 	get_int_range("tournament.cache_minimum_fillers", 0, tournament_pool_size)
 	get_float_range("tournament.filler_cis_ratio.ru", 0.0, 1.0)

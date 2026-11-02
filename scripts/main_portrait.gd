@@ -15464,7 +15464,11 @@ func _on_final_reward_double_pressed() -> void:
 		return
 	_connect_final_reward_ad_signals(ads_service)
 	_portrait_reward_ad_request_id = GameState.begin_rewarded_double_request(
-		String(_portrait_reward_double_context)
+		String(_portrait_reward_double_context),
+		_portrait_stage_reward.selected_multiplier() if (
+			_portrait_reward_double_context == &"stage_coin"
+			and is_instance_valid(_portrait_stage_reward)
+		) else 2.0
 	)
 	if _portrait_reward_ad_request_id.is_empty():
 		return
@@ -17441,7 +17445,8 @@ func _create_stage_reward_component(parent: Control, amount: int, source_rect: R
 	_portrait_stage_reward.claim_peak.connect(_play_early_stage_coin_reward_claim)
 	_portrait_stage_reward.double_requested.connect(_on_final_reward_double_pressed)
 	_portrait_stage_reward.continue_requested.connect(_decline_single_player_stage_coin_reward_double)
-	_portrait_stage_reward.build(parent, amount, source_rect, _portrait_ads_enabled())
+	var level_index: int = int(last_result_data.get("single_player_level_index", single_player_active_level_index))
+	_portrait_stage_reward.build(parent, amount, source_rect, _portrait_ads_enabled(), level_index + 1)
 	return _portrait_stage_reward
 
 func _run_for_current_reward_presentation(generation: int, action: Callable, args: Array) -> void:

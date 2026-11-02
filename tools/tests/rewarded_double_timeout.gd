@@ -53,8 +53,33 @@ func capture(tag: String) -> void:
 	var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	if !directory.is_empty() and DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(directory.path_join(tag + ".png"))
-func fixture() -> void:
+		var screenshot: Image = get_viewport().get_texture().get_image()
+		screenshot.save_png(directory.path_join(tag + ".png"))
+		if tag.begins_with("stage_multiplier_") and tag.ends_with("_5"):
+			check(ui._portrait_stage_reward.prize_amount.text == "x25", "Large prize retains base amount while pointer selects x3: " + tag)
+			var frame: Control = ui._portrait_stage_reward.multiplier_meter.get_child(0)
+			var rect: Rect2 = frame.get_global_rect()
+			var ratio: Vector2 = Vector2(screenshot.get_size()) / get_viewport().get_visible_rect().size
+			var sample: Vector2i = Vector2i((rect.position + Vector2(0.0, rect.size.y * 0.5)) * ratio)
+			var first_fill_pixel: int = -1
+			for offset in range(16):
+				var color: Color = screenshot.get_pixel(sample.x + offset, sample.y)
+				if color.r > 0.7 and color.g < 0.5 and color.b < 0.5:
+					first_fill_pixel = offset
+					break
+			check(absi(first_fill_pixel - 6) <= 1, "Multiplier track side measures six render pixels (%d): " % first_fill_pixel + tag)
+			var top: Vector2i = Vector2i((rect.position + Vector2(rect.size.x * 0.3, 0.0)) * ratio)
+			var bottom: Vector2i = Vector2i((rect.position + Vector2(rect.size.x * 0.3, rect.size.y)) * ratio) - Vector2i(0, 1)
+			for edge: int in range(2):
+				var thickness: int = -1
+				for offset in range(16):
+					var point: Vector2i = top + Vector2i(0, offset) if edge == 0 else bottom - Vector2i(0, offset)
+					var color: Color = screenshot.get_pixelv(point)
+					if color.r > 0.7 and color.g > 0.4 and color.b < 0.65:
+						thickness = offset
+						break
+				check(absi(thickness - (6 if edge == 0 else 9)) <= 1, "Theme-style track keeps top/bottom pixel thickness under scaling (%d/%d): " % [edge, thickness] + tag)
+func fixture(level_number: int = 5) -> void:
 	if is_instance_valid(ui):
 		ui.queue_free()
 		await frames()
@@ -75,12 +100,19 @@ func fixture() -> void:
 	ui.ads = ads
 	add_child(ui)
 	ui.last_result_is_win = true
-	ui.single_player_active_level_index = 4
+	ui.single_player_active_level_index = level_number - 1
 	ui.single_player_active_word_slot = 0
-	ui.last_result_data = {"single_player_level_index": 4, "single_player_word_slot": 0, "single_player_total_count": 2, "single_player_level_completed": false}
+	ui.last_result_data = {"single_player_level_index": level_number - 1, "single_player_word_slot": 0, "single_player_total_count": 2, "single_player_level_completed": false}
 	ui._show_single_player_reward_chain_screen()
+	var initial_collect := ui.find_child("FinalRewardCollectButton", true, false) as Button
+	check(initial_collect != null and initial_collect.disabled, "No Thanks remains unavailable during the original introduction delay")
 	await get_tree().create_timer(6.0).timeout
 	check(is_instance_valid(ui._portrait_final_reward_double_button) and !ui._portrait_final_reward_double_button.get("button_disabled"), "Fixture reveals the real stage x2 button")
+	check(ui._portrait_final_reward_double_button.get("button_text") == tr("REWARD_GET" if level_number >= 5 else "REWARD_GET_X2").to_upper(), "Stage ad action uses the requested localized caption")
+	var meter: Control = ui._portrait_stage_reward.multiplier_meter
+	if is_instance_valid(meter):
+		meter.running = false
+		meter.set_cursor(0.3)
 func start() -> String:
 	ui._on_final_reward_double_pressed()
 	check(ads._rewarded_pending_show and ui._portrait_final_reward_waiting_for_ad, "Unloaded x2 waits for the native SDK")
@@ -91,13 +123,28 @@ func run() -> void:
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	GameState.guided_onboarding_completed = true
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
-	for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+	for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
 		get_window().min_size = size
 		get_window().size = size
 		for language: String in ["ru", "en"]:
 			Database.load_languages(language, language)
+			await fixture(4)
+			check(!is_instance_valid(ui._portrait_stage_reward.multiplier_meter) and ui._portrait_stage_reward.selected_multiplier() == 2.0, "Fourth level offers fixed doubling without a meter")
+			await capture("stage_double_%dx%d_%s" % [size.x, size.y, language])
+			var early_request: String = start()
+			check(int(GameState.rewarded_double_requests[early_request].get("amount", 0)) == 25, "Old doubling records exactly one base amount as the bonus")
+			ui._decline_single_player_stage_coin_reward_double()
 			await fixture()
+			var meter: Control = ui._portrait_stage_reward.multiplier_meter
+			for position: float in [0.1, 0.3, 0.5, 0.7, 0.9]:
+				meter.set_cursor(position)
+				await capture("stage_multiplier_%dx%d_%s_%d" % [size.x, size.y, language, roundi(position * 10)])
+			meter.set_cursor(0.3)
 			var request := start()
+			meter.running = true
+			meter._process(0.3)
+			check(is_equal_approx(meter.cursor, 0.3), "Multiplier freezes while advertisement is pending")
+			meter.running = false
 			var guard: Node = ui._portrait_reward_load_guard
 			check(guard.expires_at_msec - Time.get_ticks_msec() > 11000, "Production timeout is twelve monotonic seconds")
 			await capture("x2_waiting_%dx%d_%s" % [size.x, size.y, language])
@@ -132,8 +179,11 @@ func run() -> void:
 	ads._on_rewarded_video_ad_loaded()
 	await frames()
 	check(native.shows == 0 and !ui._portrait_final_reward_waiting_for_ad, "Validator rejects load arriving at the expired deadline before polling")
+	ui._portrait_stage_reward.multiplier_meter.set_cursor(0.5)
 	ui._on_final_reward_double_pressed()
 	request = ui._portrait_reward_ad_request_id
+	check(int(GameState.rewarded_double_requests[request].amount) == 50, "Real button captures x3 as a 50-coin bonus for a paid 25-coin stage")
+	ui._portrait_stage_reward.multiplier_meter.set_cursor(0.1)
 	check(native.shows == 1 and ads._rewarded_show_open, "Explicit retry starts the cached late ad")
 	ui._portrait_reward_load_guard.expires_at_msec = Time.get_ticks_msec() - 1
 	await frames()
@@ -142,7 +192,7 @@ func run() -> void:
 	ads._on_rewarded_for_request(request, "coins", 25)
 	ads._on_rewarded_for_request(request, "coins", 25)
 	ads._on_rewarded_closed_for_request(request)
-	check(GameState.get_soft_currency() == before + 25 and !ui._portrait_final_reward_waiting_for_ad, "Normal show grants the bonus once and releases UI")
+	check(GameState.get_soft_currency() == before + 50 and !ui._portrait_final_reward_waiting_for_ad, "Normal show grants captured x3 once despite subsequent cursor changes and releases UI")
 	await fixture()
 	request = start()
 	ui._clear()

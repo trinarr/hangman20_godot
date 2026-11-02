@@ -1473,9 +1473,11 @@ func _rewarded_double_target_from_snapshots(
 		"context": context, "amount": amount, "resolved": resolved, "granted": granted,
 	}
 
-func begin_rewarded_double_request(context: String) -> String:
+func begin_rewarded_double_request(context: String, stage_multiplier: float = 2.0) -> String:
 	var target: Dictionary = _rewarded_double_target(context)
 	if target.is_empty() or bool(target.get("resolved", true)):
+		return ""
+	if context == "stage_coin" and !GAME_DESIGN.get_array("economy.rewards.stage_ad_multipliers").has(stage_multiplier):
 		return ""
 	var request_id: String = "double:%s:%d:%d" % [str(Time.get_unix_time_from_system()), Time.get_ticks_usec(), randi()]
 	# The same level/slot can be replayed. Give each actual payout its own id.
@@ -1487,6 +1489,9 @@ func begin_rewarded_double_request(context: String) -> String:
 		if str(data.get("reward_ad_id", "")).is_empty():
 			data["reward_ad_id"] = request_id
 	target = _rewarded_double_target(context)
+	if context == "stage_coin":
+		# The base is already paid; persist the captured bonus in the existing receipt.
+		target["amount"] = roundi(float(target["amount"]) * stage_multiplier) - int(target["amount"])
 	rewarded_double_requests[request_id] = target
 	if !save_game():
 		rewarded_double_requests.erase(request_id)
@@ -1579,7 +1584,8 @@ func _load_rewarded_double_requests(source: Variant) -> void:
 			continue
 		var context: String = str(item.get("context", ""))
 		var target: String = str(item.get("target", ""))
-		var amount: int = clampi(int(item.get("amount", 0)), 0, MAX_SINGLE_REWARD)
+		var amount_limit: int = MAX_CURRENCY_BALANCE if context == "stage_coin" else MAX_SINGLE_REWARD
+		var amount: int = clampi(int(item.get("amount", 0)), 0, amount_limit)
 		if str(request_id).is_empty() or target.is_empty() or amount <= 0 or !["final", "stage_coin"].has(context):
 			continue
 		rewarded_double_requests[str(request_id)] = {

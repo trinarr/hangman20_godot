@@ -14,9 +14,31 @@ var collect: Control
 var collect_hit: Button
 var _claim_emitted: bool = false
 var _transition_started: bool = false
+var multiplier_meter: Control
+var _meter_enabled: bool = false
+
+func _portrait_final_reward_center_rect(size: Vector2) -> Rect2:
+	var rect: Rect2 = super._portrait_final_reward_center_rect(size)
+	if _meter_enabled:
+		# Keep the amount clear of the raised meter at the reference aspect.
+		rect.position.y -= 45.0
+	return rect
+
+func selected_multiplier() -> float:
+	return multiplier_meter.selected_multiplier() if is_instance_valid(multiplier_meter) else 2.0
+
+func _sync_final_reward_double_button_content(button: Control) -> void:
+	super._sync_final_reward_double_button_content(button)
+	if !_meter_enabled:
+		return
+	button.set("button_text", tr("REWARD_GET"))
+	button.set("trailing_icon_texture", null)
+	button.set("trailing_icon_shadow_enabled", false)
 
 func stop() -> void:
 	super.stop()
+	if is_instance_valid(multiplier_meter):
+		multiplier_meter.running = false
 	if is_instance_valid(prize):
 		PORTRAIT_REWARD_SPARKLES._stop_reward_coin_sparkles(prize, PORTRAIT_FINAL_REWARD_SPARKLE_BASE_SCALE)
 	if is_instance_valid(action):
@@ -41,10 +63,11 @@ func _on_claim_peak(source: Control) -> void:
 	_claim_emitted = true
 	claim_peak.emit(source)
 
-func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled: bool) -> void:
+func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled: bool, level_number: int = 1) -> void:
 	if prize != null or _stopped:
 		return
 	content = parent
+	_meter_enabled = ads_enabled and level_number >= PORTRAIT_GAME_DESIGN.get_int("economy.rewards.stage_ad_multipliers_from_level")
 	var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
 		PORTRAIT_FINAL_REWARD_COIN_SIZE
 	)
@@ -105,6 +128,21 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 			LONG_BUTTON_COLOR_BLUE
 		)
 		action_button.name = "StageCoinRewardDoubleButton"
+		if _meter_enabled:
+			var meter_rect: Rect2 = _portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT)
+			meter_rect.position.x = 42.0
+			meter_rect.position.y -= 131.0
+			meter_rect.size = Vector2((PORTRAIT_STAGE_SIZE.x - 40.0) * 0.9, 94.6)
+			var meter_holder: Control = _stage_holder(meter_rect, Control.MOUSE_FILTER_IGNORE)
+			meter_holder.name = "StageRewardMultiplierHolder"
+			meter_holder.z_index = 120
+			multiplier_meter = preload("res://scripts/ui/stage_reward_multiplier.gd").new()
+			multiplier_meter.name = "StageRewardMultiplier"
+			meter_holder.add_child(multiplier_meter)
+			multiplier_meter.size = meter_rect.size
+			multiplier_meter.build(action_button)
+			FADE.branch(meter_holder)
+			FADE.set_opacity(meter_holder, 0.0)
 		action_button.set_meta(&"single_shine_after_reveal", true)
 		_configure_final_reward_double_button(action_button)
 		var collect_controls: Dictionary = _stage_final_reward_collect_text(
@@ -337,3 +375,7 @@ func _reveal_stage_reward(transition_pack: Control, glow: Control, amount_label:
 	if collect_holder != null and is_instance_valid(collect_holder):
 		_play_reward_coin_sparkles(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
+	if is_instance_valid(multiplier_meter):
+		multiplier_meter.running = true
+		var meter_reveal := _tween(multiplier_meter)
+		meter_reveal.tween_property(FADE.branch(multiplier_meter.get_parent()), "opacity", 1.0, PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION)

@@ -5,6 +5,7 @@ const ROBOTO_FLEX_PATH: String = "res://" + "fonts/RobotoFlex-Variable.ttf"
 
 # Headings.
 const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 760.0
+const ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT: float = 900.0
 const ROBOTO_FLEX_DISPLAY_WIDTH: float = 35.0
 const ROBOTO_FLEX_DISPLAY_MIN_WIDTH: float = 25.0
 const ROBOTO_FLEX_DISPLAY_GRADE: float = -10.0
@@ -94,6 +95,12 @@ static func _roboto_flex_font(
 
 static func display_font() -> Font:
 	return display_font_with_width(ROBOTO_FLEX_DISPLAY_WIDTH)
+
+static func heavy_display_font() -> Font:
+	return _roboto_flex_font(
+		ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT, ROBOTO_FLEX_DISPLAY_WIDTH,
+		ROBOTO_FLEX_DISPLAY_GRADE, ROBOTO_FLEX_DISPLAY_THIN_STROKE, true
+	)
 
 static func display_font_with_width(width: float = ROBOTO_FLEX_DISPLAY_WIDTH) -> Font:
 	var resolved_width: float = clampf(

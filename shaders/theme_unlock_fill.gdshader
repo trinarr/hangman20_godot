@@ -4,6 +4,9 @@ render_mode unshaded;
 uniform vec2 fill_size = vec2(1.0, 30.0);
 uniform vec4 base_color : source_color;
 uniform vec4 highlight_color : source_color;
+uniform bool segmented = false;
+uniform vec4 middle_color : source_color;
+uniform vec4 center_color : source_color;
 
 void fragment() {
 	// Always render one full-size rounded pill. Progress is revealed by the parent
@@ -17,5 +20,10 @@ void fragment() {
 	float mask = 1.0 - smoothstep(-feather, 0.0, distance);
 	float highlight_mix = 1.0 - smoothstep(0.092, 0.108, UV.y);
 	vec4 fill = mix(base_color, highlight_color, highlight_mix);
+	if (segmented) {
+		float sector = floor(min(UV.x, 0.9999) * 5.0);
+		vec4 zone = sector == 2.0 ? center_color : ((sector == 1.0 || sector == 3.0) ? middle_color : base_color);
+		fill = vec4(mix(zone.rgb, mix(zone.rgb, vec3(1.0), 0.25), highlight_mix), zone.a);
+	}
 	COLOR *= vec4(fill.rgb, fill.a * mask);
 }

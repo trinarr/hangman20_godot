@@ -63,6 +63,7 @@ REWARD_GET_X2,Получить Х2,Get X2
 REWARD_STAGE_COMPLETED,ЭТАП ПРОЙДЕН,STAGE COMPLETE
 REWARD_STAGE_FAILED,НЕУДАЧА!,FAILURE!
 REWARD_DOUBLE,Удвоить награду,Double reward
+REWARD_GET,Получить,Multiply
 LEVEL_NUMBER,Уровень %d,Level %d
 COMMON_MAX,Макс,Max
 COMPACT_THOUSANDS_SUFFIX,к,k

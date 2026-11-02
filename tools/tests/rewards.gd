@@ -223,6 +223,18 @@ func test_level_rewards() -> void:
 	check(GameState.claim_pending_single_player_level_stars() == 0, "Capped stars repeated")
 
 func test_stage_rewards_and_ad_receipts() -> void:
+	for multiplier: float in [1.5, 2.0, 3.0]:
+		await setup_level(1, [])
+		record_stage(true, false)
+		GameState.claim_active_single_player_stage_reward(true)
+		var base: int = int(GameState.get_active_single_player_stage_reward().amount)
+		var before: int = GameState.get_soft_currency()
+		var captured: String = GameState.begin_rewarded_double_request("stage_coin", multiplier)
+		reload_save()
+		var receipt: Dictionary = GameState.claim_rewarded_double_request(captured)
+		check(int(receipt.get("amount", 0)) == roundi(float(base) * multiplier) - base, "Stage multiplier survives reload and pays only bonus")
+		check(GameState.get_soft_currency() == before + roundi(float(base) * multiplier) - base, "Stage total matches selected multiplier")
+		check(GameState.claim_rewarded_double_request(captured).is_empty(), "Stage multiplier duplicate signal is idempotent")
 	var word_amount := stage_amount()
 	var quiz_amount := stage_amount(true)
 	var normal_coins := completion_amount(1, 1, "coins")

@@ -67,15 +67,15 @@ func signature() -> String:
 		objects.append(snapshot(main.content.find_child("FinalRewardCollectText", true, false)))
 	return JSON.stringify(objects).sha256_text()
 
-func fixture(ads: bool, completed: bool = false, count: int = 2) -> void:
+func fixture(ads: bool, completed: bool = false, count: int = 2, level_number: int = 5) -> void:
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	GameState.active_single_player_session = {"kind": "next", "data": {"reward_currency": GameState.STAGE_REWARD_COINS, "reward_amount": 25,
 		"reward_claimed": false, "reward_double_resolved": false, "reward_double_claimed": false}}
 	main.ads_enabled = ads
 	main.last_result_is_win = true
-	main.single_player_active_level_index = 4
+	main.single_player_active_level_index = level_number - 1
 	main.single_player_active_word_slot = 0
-	main.last_result_data = {"single_player_level_index": 4, "single_player_word_slot": 0,
+	main.last_result_data = {"single_player_level_index": level_number - 1, "single_player_word_slot": 0,
 		"single_player_total_count": count, "single_player_level_completed": completed}
 	main._show_single_player_reward_chain_screen()
 
@@ -95,6 +95,17 @@ func run() -> void:
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
 	add_child(main)
+	for level_number: int in [1, 4, 5, 6]:
+		fixture(true, false, 2, level_number)
+		var component: Node = main._portrait_stage_reward
+		var use_meter: bool = level_number >= 5
+		check(is_instance_valid(component.multiplier_meter) == use_meter, "Multiplier meter starts with level five: %d" % level_number)
+		check(component.action.get("button_text") == tr("REWARD_GET" if use_meter else "REWARD_GET_X2").to_upper(), "Stage caption matches its reward approach: %d" % level_number)
+		check((component.action.get("trailing_icon_texture") == null) == use_meter, "Old doubling keeps its currency icon: %d" % level_number)
+		if !use_meter:
+			check(component.selected_multiplier() == 2.0, "Early levels keep fixed doubling")
+		main._clear()
+		await get_tree().process_frame
 	for ads: bool in [false, true]:
 		var before: int = GameState.get_soft_currency()
 		var claims_before: int = main.claims
@@ -122,10 +133,67 @@ func run() -> void:
 		var glow: Control = main.content.find_child("FinalRewardGlow", true, false)
 		check(glow.self_modulate.a > 0.1, "reward glow reveals after parent intro")
 		if ads:
+			var meter: Control = main._portrait_stage_reward.multiplier_meter
+			check(meter != null and meter.running, "stage offer starts multiplier meter")
+			var meter_rect: Rect2 = meter.get_parent().get("stage_rect")
+			check(is_equal_approx(meter_rect.position.x, 42.0) and is_equal_approx(meter_rect.size.x, 396.0), "meter width is reduced ten percent and stays centered")
+			check(is_equal_approx(meter.BAR_HEIGHT, 51.1), "meter height increases by forty percent")
+			meter.running = false
+			for index in range(5):
+				meter.set_cursor((float(index) + 0.5) / 5.0)
+				check(meter._labels[index].get_theme_font_size("font_size") == 24 and is_equal_approx(24.0 * meter._labels[index].scale.x, 28.0), "label grows from base size 24 to 28 at sector center")
+				check(amount_label.text == "x25", "large prize keeps its base amount in every multiplier sector")
+				check(amount_label.scale.is_equal_approx(Vector2.ONE) and amount_label.get_theme_font_size("font_size") == 48, "reward count retains its original unscaled size")
+				check(button.get("button_text") == tr("REWARD_GET").to_upper() and button.get("trailing_icon_texture") == null, "claim button has no currency amount or currency icon")
+				check(meter._labels[index].get_theme_font("font") == preload("res://scripts/ui/ui_fonts.gd").heavy_display_font(), "multiplier uses heavy heading font")
+				check(meter._labels[index].get_theme_font("font").base_font.multichannel_signed_distance_field, "heavy heading uses baked MSDF for sharp scaling")
+			meter.set_cursor(0.4)
+			check(meter.selected_multiplier() == 3.0, "sector boundary selects next multiplier")
+			meter.set_cursor(0.5)
+			var peak_scale: float = meter._labels[2].scale.x
+			meter.set_cursor(0.45)
+			check(meter._labels[2].scale.x > 1.0 and meter._labels[2].scale.x < peak_scale, "label grows gradually approaching center")
+			meter.running = true
+			meter._elapsed = 0.0
+			var traverse: float = GameDesignConfig.get_float("timings.animations.stage_reward_multiplier.traverse_seconds")
+			check(is_equal_approx(traverse * 1.15, 0.9230769231), "meter travels fifteen percent faster than its previous speed")
+			traverse *= 0.8
+			meter._process(0.05)
+			check(is_equal_approx(meter.cursor, 0.1), "arrow pauses at the first sector center")
+			meter._process(0.05)
+			check(is_equal_approx(meter.cursor, 0.1), "left endpoint pause lasts 0.1 seconds")
+			meter._process(traverse * 0.25)
+			check(is_equal_approx(meter.cursor, 0.3), "arrow moves between sector centers")
+			meter._process(traverse * 0.75)
+			check(is_equal_approx(meter.cursor, 0.9), "arrow turns at the last sector center")
+			meter._process(0.05)
+			check(is_equal_approx(meter.cursor, 0.9), "arrow pauses at the last sector center")
+			meter._process(0.05)
+			check(is_equal_approx(meter.cursor, 0.9), "right endpoint pause lasts 0.1 seconds")
+			meter._process(traverse * 0.5)
+			check(is_equal_approx(meter.cursor, 0.5), "arrow reverses smoothly after the endpoint")
+			meter._process(traverse * 0.5 + 0.05)
+			check(is_equal_approx(meter.cursor, 0.1), "left pause repeats after a complete cycle")
+			var border: StyleBoxFlat = meter.get_child(0).get_theme_stylebox("panel")
+			check(border.draw_center and border.bg_color == preload("res://scripts/ui/ui_palette.gd").UI_BLUE_DARK, "meter uses the theme-unlock dark track")
+			check([border.border_width_left, border.border_width_top, border.border_width_right, border.border_width_bottom] == [0, 0, 0, 0], "track replaces the uniform outline")
+			var fill: Control = meter.get_child(0).get_child(0)
+			check(fill.position == Vector2(6, 6) and fill.size == meter.get_child(0).size - Vector2(12, 15), "track has six-pixel sides and a heavier nine-pixel lower edge")
+			meter.scale = Vector2.ONE * 1.25
+			meter._sync_border_scale()
+			var frame_transform: Transform2D = meter.get_child(0).get_global_transform_with_canvas()
+			var pixel_ratio: Vector2 = Vector2(get_viewport().get("size")) / get_viewport().get_visible_rect().size
+			check(is_equal_approx((frame_transform.x * pixel_ratio).length(), 1.0) and is_equal_approx((frame_transform.y * pixel_ratio).length(), 1.0), "track compensates ancestor scaling and viewport stretching without integer rounding")
+			meter.scale = Vector2.ONE
+			meter._sync_border_scale()
+			meter.set_cursor(0.0)
+			check(is_equal_approx(meter.cursor, 0.1), "arrow cannot leave the first sector center")
+			check(meter._pointer.texture != null and meter._pointer.material.get_shader_parameter("outline_pixels") == 5.0, "rounded pointer uses shared icon outline shader")
+			check(is_equal_approx(meter._pointer.position.y + meter._pointer.size.y * 0.5, 24.0 + meter.BAR_HEIGHT), "plaque edge bisects pointer height")
+			meter.running = false
 			check(main.content.find_child("FinalRewardCollectText", true, false).self_modulate.a > 0.99, "delayed collect text restores visible alpha")
-			var icon_layers: Array = [button.get("_icon_rect"), button.get("_trailing_icon_rect")]
+			var icon_layers: Array = [button.get("_icon_rect")]
 			icon_layers.append_array(button.get("_icon_shadow_layers"))
-			icon_layers.append_array(button.get("_trailing_icon_shadow_layers"))
 			for repeat in range(3):
 				for disabled: bool in [true, false]:
 					button.set("button_disabled", disabled)
@@ -204,9 +272,9 @@ func run() -> void:
 	component.double_requested.connect(_standalone_double)
 	component.continue_requested.connect(_standalone_continue)
 	var source_rect := Rect2(180, 380, 120, 120)
-	component.build(parent, 25, source_rect, true)
+	component.build(parent, 25, source_rect, true, 5)
 	var child_count: int = parent.get_child_count()
-	component.build(parent, 25, source_rect, true)
+	component.build(parent, 25, source_rect, true, 5)
 	check(parent.get_child_count() == child_count, "duplicate build is ignored")
 	var chain := Control.new()
 	parent.add_child(chain)
@@ -233,6 +301,7 @@ func run() -> void:
 	check(standalone_doubles == 1 and standalone_continues == 1, "standalone actions emit intents")
 	check(Vector2i(GameState.get_soft_currency(), GameState.get_stars()) == balances, "standalone component never changes balances")
 	component.stop()
+	check(!component.multiplier_meter.running, "stop cancels the moving meter")
 	component.action.emit_signal("pressed")
 	component.collect_hit.emit_signal("pressed")
 	check(standalone_doubles == 1 and standalone_continues == 1, "stopped presentation ignores actions")

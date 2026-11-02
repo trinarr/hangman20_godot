@@ -30,6 +30,9 @@ def profiles():
         for width in range(int(values[prefix+'MIN_WIDTH']), int(values[prefix+'WIDTH'])+1):
             result.append((values[prefix+'WEIGHT'], width, values[prefix+'GRADE'],
                            values[prefix+'THIN_STROKE'], thick))
+    result.append((values['ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT'],
+                   values['ROBOTO_FLEX_DISPLAY_WIDTH'], values['ROBOTO_FLEX_DISPLAY_GRADE'],
+                   values['ROBOTO_FLEX_DISPLAY_THIN_STROKE'], thick))
     return result
 
 def filename(profile):
