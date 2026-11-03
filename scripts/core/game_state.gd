@@ -15,7 +15,9 @@ signal profile_changed
 signal guided_onboarding_finished
 signal legal_documents_accepted
 signal single_level_attempt_reset(language: String, level: int)
-signal stage_completed(language: String, level: int, slot: int, won: bool, completed: bool, quiz: bool, perfect: bool)
+signal stage_completed(language: String, level: int, slot: int, won: bool, completed: bool, quiz: bool, perfect: bool, outcome: String)
+signal save_committed
+signal save_loaded
 
 const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
@@ -389,6 +391,7 @@ func _on_heart_tick() -> void:
 	_emit_heart_status_if_changed()
 
 func load_game() -> void:
+	save_loaded.emit()
 	_set_interface_language_from_locale()
 	word_language = interface_language
 	var primary_payload: Dictionary = _read_save_dictionary(SAVE_PATH)
@@ -705,6 +708,8 @@ func save_game() -> bool:
 		return true
 	var profile_result: bool = _home_profile_save_game()
 	_save_retry_pending = !profile_result
+	if profile_result:
+		save_committed.emit()
 	return profile_result
 
 func _home_profile_save_game() -> bool:
@@ -878,6 +883,7 @@ func update_player_profile(nickname: String, character_id: int, frame_id: int, n
 		return false
 	if cost > 0:
 		soft_currency_changed.emit(soft_currency)
+		_analytics_economy(-cost, "coins", "coins", "profile_name", false)
 	profile_changed.emit()
 	return true
 
@@ -1173,9 +1179,9 @@ func settle_presented_active_single_player_stage_reward(persist: bool = true) ->
 			get_stars() if currency == STAGE_REWARD_STARS else get_soft_currency()
 		)
 		var final_balance: int = (
-			add_stars(requested_amount, false)
+			add_stars(requested_amount, false, "gameplay", "stage_reward")
 			if currency == STAGE_REWARD_STARS
-			else add_soft_currency(requested_amount, false)
+			else add_soft_currency(requested_amount, false, "gameplay", "stage_reward")
 		)
 		credited_amount = maxi(final_balance - previous_balance, 0)
 	# Reopening after the large reward was already presented must not resurrect
@@ -1218,9 +1224,9 @@ func claim_active_single_player_stage_reward(persist: bool = true) -> Dictionary
 		get_stars() if currency == STAGE_REWARD_STARS else get_soft_currency()
 	)
 	var final_balance: int = (
-		add_stars(requested_amount, false)
+		add_stars(requested_amount, false, "gameplay", "stage_reward")
 		if currency == STAGE_REWARD_STARS
-		else add_soft_currency(requested_amount, false)
+		else add_soft_currency(requested_amount, false, "gameplay", "stage_reward")
 	)
 	if currency == STAGE_REWARD_COINS:
 		_record_stage_coin_credit(active_single_player_session, maxi(final_balance - previous_balance, 0))
@@ -1273,7 +1279,7 @@ func resolve_active_single_player_stage_reward_double(
 	var credited_amount: int = 0
 	if grant_bonus:
 		var previous_balance: int = get_soft_currency()
-		var final_balance: int = add_soft_currency(int(reward.get("amount", 0)), false)
+		var final_balance: int = add_soft_currency(int(reward.get("amount", 0)), false, "rewarded", "stage_coin")
 		credited_amount = maxi(final_balance - previous_balance, 0)
 		_add_stage_coin_bonus(_rewarded_double_target("stage_coin").get("target", ""), credited_amount)
 	if persist:
@@ -1360,14 +1366,14 @@ func settle_presented_pending_single_player_reward(persist: bool = true) -> Dict
 		pending_single_player_reward["claimed"] = true
 		var previous_coins: int = get_soft_currency()
 		credited_coins = (
-			add_soft_currency(int(pending_single_player_reward.get("amount", 0)), false)
+			add_soft_currency(int(pending_single_player_reward.get("amount", 0)), false, "gameplay", "level_reward")
 			- previous_coins
 		)
 	if !bool(pending_single_player_reward.get("stars_claimed", false)):
 		pending_single_player_reward["stars_claimed"] = true
 		var previous_stars: int = get_stars()
 		credited_stars = (
-			add_stars(int(pending_single_player_reward.get("stars_amount", 0)), false)
+			add_stars(int(pending_single_player_reward.get("stars_amount", 0)), false, "gameplay", "level_reward")
 			- previous_stars
 		)
 	# Leaving the main-reward presentation means the optional x2 offer was skipped.
@@ -1448,7 +1454,7 @@ func claim_pending_single_player_reward(multiplier: int = 1) -> int:
 	if !bool(pending_single_player_reward.get("claimed", false)):
 		pending_single_player_reward["claimed"] = true
 		var previous_balance: int = get_soft_currency()
-		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false) - previous_balance
+		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false, "gameplay", "level_reward") - previous_balance
 	if multiplier >= 2:
 		credited_amount += resolve_pending_single_player_reward_double(true, false)
 	# Keep the completion snapshot through the x2 offer. It also owns the durable
@@ -1468,7 +1474,7 @@ func claim_pending_single_player_level_stars(persist: bool = true) -> int:
 		MAX_SINGLE_REWARD
 	)
 	var previous_balance: int = get_stars()
-	var final_balance: int = add_stars(requested_amount, false)
+	var final_balance: int = add_stars(requested_amount, false, "gameplay", "level_reward")
 	if persist:
 		save_game()
 	return maxi(final_balance - previous_balance, 0)
@@ -1485,7 +1491,7 @@ func resolve_pending_single_player_reward_double(grant_bonus: bool, persist: boo
 	var credited_amount: int = 0
 	if grant_bonus:
 		var previous_balance: int = get_soft_currency()
-		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false) - previous_balance
+		credited_amount = add_soft_currency(int(pending_single_player_reward["amount"]), false, "rewarded", "final") - previous_balance
 	if persist:
 		save_game()
 	return credited_amount
@@ -1637,7 +1643,7 @@ func claim_rewarded_double_request(request_id: String) -> Dictionary:
 	if !already_granted:
 		var analytics: Node = get_node_or_null("/root/Analytics")
 		if analytics != null:
-			analytics.track("reward_granted", {"placement": context, "amount": get_soft_currency() - before, "currency": "coins"})
+			analytics.economy(get_soft_currency() - before, "coins", "rewarded", context, false)
 	return {"context": context, "is_current": is_current, "amount": get_soft_currency() - before}
 
 func _load_rewarded_double_requests(source: Variant) -> void:
@@ -1936,6 +1942,7 @@ func lose_heart(persist: bool = true) -> bool:
 		return false
 	var was_full: bool = hearts >= MAX_HEARTS
 	hearts = maxi(hearts - 1, 0)
+	_analytics_economy(-1, "hearts", "gameplay", "stage_failure")
 	if was_full or heart_recovery_at <= 0:
 		heart_recovery_at = _heart_now() + HEART_RECOVERY_SECONDS
 	if persist:
@@ -1947,7 +1954,9 @@ func refill_hearts(persist: bool = true) -> int:
 	# A paid refill always restores the global inventory to exactly five lives.
 	# Reset the recovery deadline as well: a full inventory must not keep a stale
 	# countdown that could grant an extra life after the next one is spent.
+	var before: int = hearts
 	hearts = MAX_HEARTS
+	_analytics_economy(hearts - before, "hearts", "coins", "heart_refill")
 	heart_recovery_at = 0
 	if persist:
 		save_game()
@@ -1971,6 +1980,8 @@ func purchase_heart_refill(cost: int) -> bool:
 		return false
 	soft_currency_changed.emit(soft_currency)
 	_emit_heart_status_if_changed(true)
+	_analytics_economy(-cost, "coins", "coins", "heart_refill", false)
+	_analytics_economy(hearts - previous_hearts, "hearts", "coins", "heart_refill", false)
 	return true
 
 func _heart_now() -> int:
@@ -2012,37 +2023,50 @@ func _emit_heart_status_if_changed(force: bool = false) -> void:
 		_last_emitted_heart_seconds = recovery_seconds
 		hearts_changed.emit(hearts, recovery_seconds)
 
-func add_soft_currency(amount: int, persist: bool = true) -> int:
+func _analytics_economy(amount: int, currency: String, source: String, purpose: String, wait_for_save: bool = true) -> void:
+	if !is_inside_tree():
+		return
+	var analytics: Node = get_node_or_null("/root/Analytics")
+	if analytics != null:
+		analytics.economy(amount, currency, source, purpose, wait_for_save)
+
+func add_soft_currency(amount: int, persist: bool = true, source: String = "gameplay", purpose: String = "reward") -> int:
 	if amount <= 0:
 		return get_soft_currency()
+	var before: int = soft_currency
 	soft_currency = clampi(soft_currency + amount, 0, MAX_CURRENCY_BALANCE)
+	_analytics_economy(soft_currency - before, "coins", source, purpose)
 	soft_currency_changed.emit(soft_currency)
 	if persist:
 		save_game()
 	return soft_currency
 
-func spend_soft_currency(amount: int, persist: bool = true) -> bool:
+func spend_soft_currency(amount: int, persist: bool = true, purpose: String = "purchase") -> bool:
 	if amount <= 0 or get_soft_currency() < amount:
 		return false
 	soft_currency -= amount
+	_analytics_economy(-amount, "coins", "coins", purpose)
 	soft_currency_changed.emit(soft_currency)
 	if persist:
 		save_game()
 	return true
 
-func add_stars(amount: int, persist: bool = true) -> int:
+func add_stars(amount: int, persist: bool = true, source: String = "gameplay", purpose: String = "reward") -> int:
 	if amount <= 0:
 		return get_stars()
+	var before: int = stars
 	stars = clampi(stars + amount, 0, MAX_CURRENCY_BALANCE)
+	_analytics_economy(stars - before, "stars", source, purpose)
 	stars_changed.emit(stars)
 	if persist:
 		save_game()
 	return stars
 
-func spend_stars(amount: int, persist: bool = true) -> bool:
+func spend_stars(amount: int, persist: bool = true, purpose: String = "purchase") -> bool:
 	if amount <= 0 or get_stars() < amount:
 		return false
 	stars -= amount
+	_analytics_economy(-amount, "stars", "stars", purpose)
 	stars_changed.emit(stars)
 	if persist:
 		save_game()
@@ -2067,12 +2091,13 @@ func pay_for_hint(hint_key: String, persist: bool = true) -> int:
 	var free_count: int = get_hint_count(hint_key)
 	if free_count > 0:
 		hint_counts[hint_key] = free_count - 1
+		_analytics_economy(-1, hint_key, "inventory", hint_key)
 		if persist:
 			save_game()
 		return HintPayment.FREE_HINT
 
 	var cost: int = get_hint_cost(hint_key)
-	if cost <= 0 or !spend_soft_currency(cost, persist):
+	if cost <= 0 or !spend_soft_currency(cost, persist, hint_key):
 		return HintPayment.FAILED
 	return HintPayment.SOFT_CURRENCY
 
@@ -2767,7 +2792,8 @@ func mark_single_level_word_played(
 	award_completion_bonus: bool = true,
 	persist: bool = true,
 	stage_theme_index: int = -1,
-	stage_stars: int = 0
+	stage_stars: int = 0,
+	outcome: String = ""
 ) -> Dictionary:
 	_ensure_profile_statistics()
 	var statuses := ensure_single_level_progress(lang, level_index, word_count, difficulty)
@@ -2826,7 +2852,7 @@ func mark_single_level_word_played(
 		)
 		completion_bonus = _single_player_level_completion_bonus(level_index, guessed_count)
 		if award_completion_bonus:
-			add_soft_currency(completion_bonus, false)
+			add_soft_currency(completion_bonus, false, "gameplay", "level_reward")
 	difficulty_delta = difficulty_after - difficulty_before
 	if was_unplayed and completed and level_index >= unlocked_level:
 		bucket["unlocked_level"] = level_index + 1
@@ -2857,7 +2883,7 @@ func mark_single_level_word_played(
 	if persist:
 		save_game()
 	if was_unplayed:
-		stage_completed.emit(lang_key, level_index, word_slot, is_win, completed, get_single_level_question_slots(lang_key, level_index).has(word_slot), perfect)
+		stage_completed.emit(lang_key, level_index, word_slot, is_win, completed, get_single_level_question_slots(lang_key, level_index).has(word_slot), perfect, outcome if !outcome.is_empty() else ("win" if is_win else "loss"))
 	return {
 		"completed": completed,
 		"theme_unlock_before": theme_unlock_before,
@@ -2991,10 +3017,10 @@ func record_tournament_stars(amount: int) -> void:
 		_tournament_log("score +%d" % amount)
 		tournament_changed.emit()
 
-func add_gameplay_stars(amount: int, persist: bool = true) -> int:
+func add_gameplay_stars(amount: int, persist: bool = true, purpose: String = "stage_bonus") -> int:
 	_ensure_profile_statistics()
 	var before := get_stars()
-	var result := add_stars(amount, false)
+	var result := add_stars(amount, false, "gameplay", purpose)
 	PROFILE_STATISTICS.add_earned_stars(profile_statistics, maxi(0, result - before))
 	record_tournament_stars(maxi(0, result - before))
 	if persist:
@@ -3018,6 +3044,7 @@ func claim_tournament_reward() -> Dictionary:
 	if soft_currency != before:
 		soft_currency_changed.emit(soft_currency)
 	_tournament_log("claimed %d coins" % (soft_currency - before))
+	_analytics_economy(soft_currency - before, "coins", "tournament", "tournament_reward", false)
 	tournament_changed.emit()
 	return {"ok": true, "amount": soft_currency - before, "rank": snapshot.rank}
 

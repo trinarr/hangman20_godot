@@ -370,7 +370,7 @@ def main() -> None:
     require(
         "!free_offer and GameState.get_soft_currency() < purchase_cost"
         in attempt_purchase
-        and "!free_offer and !GameState.spend_soft_currency(purchase_cost, false)"
+        and '!free_offer and !GameState.spend_soft_currency(purchase_cost, false, "extra_attempt")'
         in attempt_purchase,
         "A first-two-level extra-attempt purchase can still spend coins",
     )
@@ -578,8 +578,8 @@ def main() -> None:
     stage_claim = function_body(game_state, "claim_active_single_player_stage_reward")
     require(
         "reward_claimed" in stage_claim
-        and "add_soft_currency(requested_amount, false)" in stage_claim
-        and "add_stars(requested_amount, false)" in stage_claim
+        and 'add_soft_currency(requested_amount, false, "gameplay", "stage_reward")' in stage_claim
+        and 'add_stars(requested_amount, false, "gameplay", "stage_reward")' in stage_claim
         and "save_game()" in stage_claim,
         "Animated stage rewards are not claimed atomically",
     )

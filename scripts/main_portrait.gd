@@ -2439,6 +2439,7 @@ func _stop_coin_refill_ad_button_timer(button: Control) -> void:
 func _refresh_coin_refill_ad_button(button: Control, interaction_enabled: bool = true) -> void:
 	if button == null or !is_instance_valid(button):
 		return
+	Analytics.watch_ad_offer(button, "coin_refill")
 	var remaining: int = GameState.get_coin_refill_ad_views_remaining()
 	var cooldown_seconds: int = GameState.get_coin_refill_ad_cooldown_seconds()
 	var cooldown_active: bool = remaining <= 0 and cooldown_seconds > 0
@@ -2521,6 +2522,7 @@ func _stop_heart_refill_ad_button_timer(button: Control) -> void:
 func _refresh_heart_refill_ad_button(button: Control, interaction_enabled: bool = true) -> void:
 	if button == null or !is_instance_valid(button):
 		return
+	Analytics.watch_ad_offer(button, "heart_refill")
 	var remaining: int = GameState.get_heart_refill_ad_views_remaining()
 	var cooldown_seconds: int = GameState.get_heart_refill_ad_cooldown_seconds()
 	var cooldown_active: bool = remaining <= 0 and cooldown_seconds > 0
@@ -2607,6 +2609,7 @@ func _stop_extra_attempt_ad_button_timer(button: Control) -> void:
 func _refresh_extra_attempt_ad_button(button: Control, interaction_enabled: bool = true) -> void:
 	if button == null or !is_instance_valid(button):
 		return
+	Analytics.watch_ad_offer(button, "extra_attempt", GameSession.round_id)
 	var remaining: int = GameState.get_extra_attempt_ad_views_remaining()
 	var cooldown_seconds: int = GameState.get_extra_attempt_ad_cooldown_seconds()
 	var cooldown_active: bool = remaining <= 0 and cooldown_seconds > 0
@@ -3870,6 +3873,7 @@ func _home_profile_resume_saved_single_player_level() -> void:
 				word_data_variant is Dictionary
 				and GameSession.restore_from_save_data(Dictionary(word_data_variant))
 			):
+				Analytics.resume_stage(level_index, word_slot, "word")
 				show_game_screen()
 				return
 		"quiz":
@@ -3909,6 +3913,7 @@ func _home_profile_resume_saved_single_player_level() -> void:
 					_quiz_replace_question_used = bool(data.get("replace_question_used", false))
 					_quiz_question_replacing = false
 					_persist_active_single_player_quiz_session()
+					Analytics.resume_stage(level_index, word_slot, "quiz")
 					_show_quiz_game_screen()
 					return
 			# The saved quiz itself is no longer restorable and no replacement question
@@ -5653,7 +5658,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	):
 		return
 	var correct_answer: bool = answer_index == correct_index
-	Analytics.track("quiz_answered", {"success": correct_answer, "game_mode": "embedded_quiz" if _quiz_single_player_embedded else "quiz"})
+	Analytics.track("quiz_answered", {"success": correct_answer, "outcome": "win" if correct_answer else "loss", "game_mode": "single_player", "stage_type": "quiz"})
 	var speed_tier: int = _take_quiz_speed_tier()
 	if !correct_answer:
 		speed_tier = PORTRAIT_QUIZ_SPEED_NONE
@@ -5661,7 +5666,7 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	var previous_star_balance: int = GameState.get_stars()
 	var final_star_balance: int = previous_star_balance
 	if speed_reward_amount > 0:
-		final_star_balance = GameState.add_gameplay_stars(speed_reward_amount, false)
+		final_star_balance = GameState.add_gameplay_stars(speed_reward_amount, false, "quiz_speed")
 		# Commit the bonus together with the result below; keep the HUD at its
 		# previous value until the visual collection finishes.
 		_set_stage_reward_animated_balance(
@@ -6032,6 +6037,11 @@ func _pay_for_quiz_hint(hint_key: String, button: Control) -> bool:
 	)
 	if !free_counter_animated:
 		_refresh_portrait_quiz_hint_counter(button, hint_key)
+	Analytics.track("hint_used", {
+		"hint_type": hint_key,
+		"source": "inventory" if payment == GameState.HintPayment.FREE_HINT else "coins",
+		"game_mode": "single_player", "stage_type": "quiz",
+	})
 	return true
 
 func _return_to_quiz_from_coin_store() -> void:
@@ -7429,7 +7439,7 @@ func _purchase_single_player_extra_attempt() -> void:
 		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
 		return
 	single_player_extra_attempt_claim_in_progress = true
-	if !free_offer and !GameState.spend_soft_currency(purchase_cost, false):
+	if !free_offer and !GameState.spend_soft_currency(purchase_cost, false, "extra_attempt"):
 		single_player_extra_attempt_claim_in_progress = false
 		return
 	_remove_single_player_last_chance_popup()
@@ -8397,7 +8407,7 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 			)
 		)
 		return
-	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST, false):
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST, false, "theme_reroll"):
 		return
 	_single_player_theme_reroll_used = true
 	GameState.set_single_level_theme_reroll_state(
@@ -8409,6 +8419,7 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 	_update_single_player_theme_reroll_badge()
 	_update_single_player_theme_reroll_button_state()
 	_perform_single_player_theme_reroll(level_index)
+	Analytics.track("theme_rerolled", {"source": "coins"})
 
 func _perform_single_player_theme_reroll(level_index: int) -> void:
 	var previous_options: Array = _single_player_level_theme_options(level_index).duplicate()
@@ -8488,6 +8499,7 @@ func _update_single_player_theme_reroll_button_state() -> void:
 	)
 	if _single_player_theme_reroll_used and ad_action_available:
 		_prepare_portrait_rewarded_placement(&"theme_reroll")
+		Analytics.watch_ad_offer(single_player_popup_refresh_button, "theme_reroll", "%s:%d:%d" % [Database.current_language, single_player_popup_level_index, GameState.get_or_create_single_level_seed(Database.current_language, single_player_popup_level_index)])
 	# Keep the reroll control in the popup after both rerolls are exhausted.
 	# Its disabled state already renders the round button in neutral gray and
 	# blocks pointer input, so removing it only makes the CTA row jump visually.
@@ -11327,11 +11339,13 @@ func _stage_portrait_hint_buttons() -> void:
 	# the unlocked/used comment switches to the blue state.
 	if open_hint_ad_available:
 		_prepare_portrait_rewarded_placement(&"hint_open")
+		Analytics.watch_ad_offer(open_button, "hint_open", GameSession.round_id)
 		_stage_portrait_hint_ad_counter(open_button)
 	elif !open_locked and !open_hint_used:
 		_stage_portrait_hint_counter(open_button, GameState.HINT_OPEN_LETTER)
 	if remove_hint_ad_available:
 		_prepare_portrait_rewarded_placement(&"hint_remove")
+		Analytics.watch_ad_offer(remove_button, "hint_remove", GameSession.round_id)
 		_stage_portrait_hint_ad_counter(remove_button)
 	elif !remove_locked and !remove_hint_used:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
@@ -15049,6 +15063,9 @@ func _deliver_action_request(request_id: String) -> void:
 	var same_context: bool = _action_reward_context_matches(action, context)
 	var is_open: bool = request_id == _portrait_rewarded_request_id
 	var delivered: bool = true
+	var theme_rerolled: bool = false
+	var coins_before: int = GameState.get_soft_currency()
+	var hearts_before: int = GameState.get_hearts()
 	GameState.begin_save_batch()
 	GameState.rewarded_action_requests.erase(request_id)
 	if action in [&"coin_refill", &"heart_refill"]:
@@ -15066,6 +15083,7 @@ func _deliver_action_request(request_id: String) -> void:
 			single_player_extra_attempt_claim_in_progress = false
 		else:
 			_grant_portrait_rewarded_action(action, int(context.get("level_index", -1)))
+			theme_rerolled = action == &"theme_reroll" and _single_player_theme_ad_reroll_used
 	else:
 		# A late reward must not change an unrelated word. Preserve its value:
 		# hints enter inventory; attempts/theme reroll use the captured coin price.
@@ -15075,7 +15093,7 @@ func _deliver_action_request(request_id: String) -> void:
 		elif action in [&"extra_attempt", &"theme_reroll"]:
 			if action == &"extra_attempt":
 				GameState.consume_extra_attempt_ad_view(false)
-			GameState.add_soft_currency(clampi(int(context.get("cost", 0)), 0, GameState.MAX_SINGLE_REWARD), false)
+			GameState.add_soft_currency(clampi(int(context.get("cost", 0)), 0, GameState.MAX_SINGLE_REWARD), false, "", "ad_compensation")
 	if !delivered:
 		GameState.rewarded_action_requests[request_id] = request
 	GameState.reset_interstitial_timer(false)
@@ -15084,8 +15102,28 @@ func _deliver_action_request(request_id: String) -> void:
 	# durable earned receipt remains available for recovery.
 	var reward_saved: bool = GameState.end_save_batch()
 	if delivered and reward_saved:
-		Analytics.track("reward_granted", {"placement": str(action), "source": "rewarded"})
-		if action == &"theme_reroll":
+		var amount: int = 1
+		var currency: String = str(action)
+		var purpose: String = str(action)
+		if action == &"coin_refill" or !same_context and action in [&"extra_attempt", &"theme_reroll"]:
+			amount = GameState.get_soft_currency() - coins_before
+			currency = "coins"
+			if action != &"coin_refill":
+				purpose = "ad_compensation"
+		elif action == &"heart_refill":
+			amount = GameState.get_hearts() - hearts_before
+			currency = "hearts"
+		elif action == &"extra_attempt":
+			amount = int(context.get("attempts", SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT))
+			currency = "attempts"
+		elif action == &"hint_open":
+			currency = GameState.HINT_OPEN_LETTER
+		elif action == &"hint_remove":
+			currency = GameState.HINT_REMOVE_WRONG
+		elif action == &"theme_reroll" and !theme_rerolled:
+			amount = 0
+		Analytics.economy(amount, currency, "rewarded", purpose, false, str(action))
+		if theme_rerolled:
 			Analytics.track("theme_rerolled", {"source": "rewarded"})
 	if delivered and is_open:
 		_portrait_rewarded_action_earned = true

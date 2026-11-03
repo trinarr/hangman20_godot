@@ -7,6 +7,23 @@ class Native extends RefCounted:
 	func setCollectionEnabled(value: bool) -> void: enabled = value
 	func logEvent(event: String, parameters: Dictionary) -> void:
 		events.append({"event": event, "parameters": parameters.duplicate(true)})
+	func count(event: String) -> int:
+		return events.filter(func(item: Dictionary) -> bool: return item.event == event).size()
+
+class TestUI extends "res://scripts/main_portrait.gd":
+	var rerolls: int = 0
+	func _ready() -> void:
+		pass
+	func show_custom_word() -> void:
+		pass
+	func _open_coin_store(_return_action: Callable = Callable()) -> void:
+		pass
+	func _portrait_ads_enabled() -> bool:
+		return false
+	func _single_player_can_reroll_themes(_level_index: int) -> bool:
+		return true
+	func _perform_single_player_theme_reroll(_level_index: int) -> void:
+		rerolls += 1
 
 var checks: int = 0
 var failures: Array[String] = []
@@ -17,6 +34,10 @@ func check(ok: bool, message: String) -> void:
 
 func _ready() -> void:
 	run.call_deferred()
+
+func _process(_delta: float) -> void:
+	if DisplayServer.get_name() != "headless" and OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 
 func run() -> void:
 	var native := Native.new()
@@ -73,11 +94,13 @@ func run() -> void:
 	check(native.events.size() == count, "stage starts wait for actual navigation away from home")
 	service.screen("word")
 	check(native.events.size() == count + 3 and native.events[count].event == "screen_view" and native.events[count + 1].event == "level_start" and native.events[count + 2].event == "stage_start", "screen_view precedes campaign start events")
+	check(native.events[count + 1].parameters.get("game_mode") == "single_player" and native.events[count + 2].parameters.get("game_mode") == "single_player", "campaign level and word starts identify single-player mode")
 	service.begin_stage(4, 0, "word")
 	service.begin_stage(4, 1, "quiz")
 	check(native.events.size() == count + 3, "quiz start waits for its screen and repeated word start is deduplicated")
 	service.screen("quiz")
 	check(native.events.size() == count + 5 and native.events[count + 3].event == "screen_view" and native.events.back().event == "stage_start", "quiz starts after its screen without restarting the level")
+	check(native.events.back().parameters.get("game_mode") == "single_player", "campaign quiz start identifies single-player mode")
 	GameState._single_player_bucket("ru")["level_seeds"]["4"] = 12345
 	service.begin_stage(4, 0, "quiz")
 	count = native.events.size()
@@ -101,6 +124,21 @@ func run() -> void:
 	check(native.events.size() == count, "two-player start waits for gameplay screen")
 	service.screen("word")
 	check(native.events.size() == count + 2 and native.events[count].event == "screen_view" and native.events.back().event == "stage_start", "two-player screen also precedes stage start")
+	check(native.events.back().parameters.get("game_mode") == "two_player", "two-player start remains distinct from campaign starts")
+	service.screen("home")
+	count = native.events.size()
+	service.resume_stage(7, 1, "word")
+	check(native.events.size() == count, "resume waits for gameplay screen")
+	service.screen("word")
+	check(native.events.size() == count + 2 and native.events.back().event == "stage_resumed" and native.events.back().parameters.game_mode == "single_player", "resume logs a distinct event after its screen without new starts")
+	service.resume_stage(7, 1, "word")
+	service.begin_stage(7, 1, "word")
+	check(native.events.size() == count + 2, "repeated restore never manufactures a new start or resume")
+	service.screen("home")
+	service.resume_stage(7, 2, "quiz")
+	count = native.events.size()
+	service.screen("quiz")
+	check(native.events.size() == count + 2 and native.events.back().event == "stage_resumed" and native.events.back().parameters.stage_type == "quiz", "quiz restore uses the same resume contract")
 	GameSession.mode = previous_mode
 	GameState.stage_completed.connect(service._on_stage_completed)
 	GameState.reset_single_level_attempt("ru", 4)
@@ -110,7 +148,12 @@ func run() -> void:
 	check(native.events.size() == count + 1, "duplicate persisted stage result emits only one stage_complete")
 	GameState.mark_single_level_word_played("ru", 4, 1, 2, true)
 	check(native.events.size() == count + 3 and native.events.back().event == "level_end", "last stage produces one campaign level_end")
-	check(native.events.back().parameters.success == 0, "level_end success uses all stage outcomes, not just the last victory")
+	check(native.events.back().parameters.success == 1 and native.events.back().parameters.completed == 1 and native.events.back().parameters.perfect == 0 and native.events.back().parameters.won_stages == 1 and native.events.back().parameters.total_stages == 2, "completed mixed-result level is completed but not perfect")
+	check(native.events.back().parameters.game_mode == "single_player" and native.events.back().parameters.outcome == "completed", "campaign completion has a stable mode and level outcome")
+	GameState.reset_single_level_attempt("ru", 5, false)
+	GameState.mark_single_level_word_played("ru", 5, 0, 1, false, false, -1, false, false, -1, 0, "forfeit")
+	check(native.events[native.events.size() - 2].parameters.outcome == "forfeit", "campaign voluntary exit is distinct from a natural loss")
+	await _check_quiz_hints_and_coin_reroll()
 	count = native.events.size()
 	GameState.accepted_legal_documents_version = 0
 	service.sync_collection()
@@ -119,3 +162,185 @@ func run() -> void:
 	service.free()
 	print("FIREBASE_ANALYTICS " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+func _check_quiz_hints_and_coin_reroll() -> void:
+	var previous_native: Object = Analytics._native
+	var native := Native.new()
+	Analytics._native = native
+	Analytics.sync_collection()
+	var ui := TestUI.new()
+	add_child(ui)
+	for hint: String in [GameState.HINT_QUIZ_FIFTY_FIFTY, GameState.HINT_QUIZ_REPLACE_QUESTION]:
+		for inventory: bool in [true, false]:
+			native.events.clear()
+			GameState.hint_counts[hint] = 1 if inventory else 0
+			GameState.soft_currency = GameState.get_hint_cost(hint)
+			check(ui._pay_for_quiz_hint(hint, null), "quiz hint payment succeeds")
+			check(native.events.size() == 1 and native.events[0].event == "hint_used" and native.events[0].parameters.hint_type == hint and native.events[0].parameters.source == ("inventory" if inventory else "coins"), "each quiz hint logs its inventory/coin use once")
+		GameState.hint_counts[hint] = 0
+		GameState.soft_currency = 0
+		native.events.clear()
+		check(!ui._pay_for_quiz_hint(hint, null) and native.events.is_empty(), "unaffordable quiz hint never logs use")
+	ui.single_player_popup_level_index = 4
+	GameState.soft_currency = 0
+	native.events.clear()
+	ui._refresh_single_player_theme_popup(4)
+	check(ui.rerolls == 0 and native.events.is_empty(), "unaffordable theme reroll never logs use")
+	GameState.soft_currency = ui.SINGLE_PLAYER_THEME_REFRESH_COST
+	ui._refresh_single_player_theme_popup(4)
+	check(ui.rerolls == 1 and GameState.soft_currency == 0, "coin reroll applies once and consumes its price")
+	check(native.events.size() == 1 and native.events[0].event == "theme_rerolled" and native.events[0].parameters.source == "coins", "coin reroll logs its payment source once")
+	ui._refresh_single_player_theme_popup(4)
+	check(ui.rerolls == 1 and native.events.size() == 1, "repeated unavailable reroll does not duplicate analytics")
+	_check_rewarded_rerolls(ui, native)
+	ui.free()
+	_check_two_player_results(native)
+	_check_economy(native)
+	await _check_ad_offers(native)
+	Analytics._native = previous_native
+	Analytics.sync_collection()
+
+func _check_rewarded_rerolls(ui: TestUI, native: Native) -> void:
+	var popup := Control.new()
+	ui.add_child(popup)
+	popup.add_to_group(&"single_player_theme_popup")
+	ui._single_player_theme_ad_reroll_used = false
+	var context: Dictionary = ui._action_reward_context(&"theme_reroll", 4)
+	var request: String = GameState.begin_rewarded_action_request("theme_reroll", context)
+	ui._portrait_rewarded_request_id = request
+	GameState.rewarded_action_requests[request]["earned"] = true
+	native.events.clear()
+	ui._deliver_action_request(request)
+	check(ui._single_player_theme_ad_reroll_used and !ui._portrait_pending_theme_reroll_presentation.is_empty(), "current rewarded reroll changes themes before presentation")
+	check(native.count("theme_rerolled") == 1 and native.count("reward_granted") == 1, "actual rewarded reroll logs both events once")
+	ui._deliver_action_request(request)
+	check(native.count("theme_rerolled") == 1 and native.count("reward_granted") == 1, "duplicate rewarded reroll receipt never duplicates analytics")
+	ui._single_player_theme_ad_reroll_used = false
+	context = ui._action_reward_context(&"theme_reroll", 4)
+	popup.free()
+	request = GameState.begin_rewarded_action_request("theme_reroll", context)
+	GameState.rewarded_action_requests[request]["earned"] = true
+	var coins: int = GameState.get_soft_currency()
+	native.events.clear()
+	ui._deliver_action_request(request)
+	check(GameState.get_soft_currency() == coins + int(context.cost), "late reroll after leaving popup compensates captured coin price")
+	check(native.count("reward_granted") == 1 and native.count("theme_rerolled") == 0, "coin compensation logs reward without claiming themes changed")
+	check(native.events.back().parameters.placement == "theme_reroll" and native.events.back().parameters.purpose == "ad_compensation" and native.events.back().parameters.currency == "coins" and native.events.back().parameters.amount == int(context.cost), "compensation preserves the offer placement and actual resource amount")
+	ui._deliver_action_request(request)
+	check(GameState.get_soft_currency() == coins + int(context.cost) and native.count("reward_granted") == 1 and native.count("theme_rerolled") == 0, "duplicate late reroll cannot repeat compensation or events")
+
+func _check_two_player_results(native: Native) -> void:
+	for outcome: String in ["win", "loss", "forfeit"]:
+		native.events.clear()
+		GameState.current_mode = GameState.GameMode.TWO_PLAYER
+		GameSession.start_custom_round("A")
+		Analytics.screen("word")
+		if outcome == "win":
+			GameSession.guess("A")
+		elif outcome == "loss":
+			GameSession.mistakes = GameSession.MAX_MISTAKES - 1
+			GameSession.guess("B")
+		var before_records: Array = GameState.records[1].duplicate()
+		if outcome == "forfeit":
+			var ui := TestUI.new()
+			add_child(ui)
+			ui._confirm_exit_game()
+			ui.free()
+			check(GameState.records[1] == before_records, "two-player exit analytics does not change existing record behavior")
+		else:
+			GameSession.finish_result(outcome == "win", outcome)
+		check(native.count("stage_start") == 1 and native.count("stage_complete") == 1, "two-player %s has one start and completion" % outcome)
+		var result: Dictionary = native.events.back().parameters
+		check(result.game_mode == "two_player" and result.success == int(outcome == "win") and result.outcome == outcome and !result.has("answer_text") and !result.has("round_id"), "two-player completion reports outcome without custom word or round ID")
+		GameSession.finish_result(outcome == "win")
+		check(native.count("stage_complete") == 1, "repeated two-player result is deduplicated")
+	native.events.clear()
+	GameSession.discard_current_round()
+	GameSession.finish_result(false)
+	check(native.events.is_empty(), "discarded round has no completion")
+	GameSession.start_round(WordData.new("A", 0.0, -1, -1), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.finish_result(true)
+	check(native.count("stage_complete") == 0, "word result does not duplicate campaign completion")
+	GameState.accepted_legal_documents_version = 0
+	Analytics.sync_collection()
+	native.events.clear()
+	GameSession.start_custom_round("A")
+	GameSession.finish_result(true)
+	check(native.events.is_empty(), "two-player completion respects collection gate")
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	Analytics.sync_collection()
+
+func _check_economy(native: Native) -> void:
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	Analytics._discard_economy()
+	native.events.clear()
+	GameState.soft_currency = GameState.MAX_CURRENCY_BALANCE - 3
+	GameState.add_soft_currency(20, false, "gameplay", "stage_reward")
+	check(native.events.is_empty(), "economy waits for a successful save")
+	GameState._save_blocked_by_future_version = true
+	check(!GameState.save_game() and native.events.is_empty(), "failed save does not report a reward")
+	GameState._save_blocked_by_future_version = false
+	GameState.save_game()
+	check(native.count("reward_granted") == 1 and native.events.back().parameters.amount == 3 and native.events.back().parameters.currency == "coins", "reward reports actual capped credit after durable retry")
+	GameState.save_game()
+	check(native.count("reward_granted") == 1, "repeated save does not repeat economic events")
+	native.events.clear()
+	GameState.spend_soft_currency(2, false, "theme_reroll")
+	GameState.spend_soft_currency(2, false, "theme_reroll")
+	GameState.save_game()
+	check(native.count("currency_spent") == 1 and native.events.back().parameters.amount == 4 and native.events.back().parameters.purpose == "theme_reroll", "same-save expenses aggregate with amount and purpose")
+	native.events.clear()
+	GameState.soft_currency = 0
+	check(!GameState.spend_soft_currency(1, true, "hint") and native.events.is_empty(), "unaffordable spending produces no event")
+	GameState.add_stars(2, false, "gameplay", "level_reward")
+	GameState.load_game()
+	GameState.save_game()
+	check(native.events.is_empty(), "loading saved state discards uncommitted economic events")
+	GameState.accepted_legal_documents_version = 0
+	Analytics.sync_collection()
+	GameState.add_soft_currency(1, true)
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	Analytics.sync_collection()
+	native.events.clear()
+	GameState.save_game()
+	check(native.events.is_empty(), "pre-consent economy is never replayed after enabling collection")
+
+func _check_ad_offers(native: Native) -> void:
+	for language: String in ["ru", "en"]:
+		GameState.interface_language = language
+		for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_tree().root.size = size
+			await _check_ad_offer_visibility(native, "%s:%s" % [language, size])
+
+func _check_ad_offer_visibility(native: Native, suffix: String) -> void:
+	var container := Control.new()
+	add_child(container)
+	var button := Button.new()
+	button.size = Vector2(120, 50)
+	button.disabled = true
+	container.add_child(button)
+	Analytics.watch_ad_offer(button, "hint_open", "offer-fixture:" + suffix)
+	Analytics.watch_ad_offer(button, "hint_open", "offer-fixture:" + suffix)
+	native.events.clear()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(native.count("ad_offer_shown") == 0, "disabled offer is not an impression")
+	button.disabled = false
+	container.hide()
+	await get_tree().process_frame
+	check(native.count("ad_offer_shown") == 0, "hidden offer is not an impression")
+	container.show()
+	var fade: Node = preload("res://scripts/ui/composited_fade.gd").branch(container)
+	fade.opacity = 0.0
+	await get_tree().process_frame
+	check(native.count("ad_offer_shown") == 0, "transparent composite offer is not an impression")
+	fade.opacity = 1.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(native.count("ad_offer_shown") == 1 and native.events.back().parameters.placement == "hint_open", "visible usable offer is reported once")
+	await get_tree().process_frame
+	check(native.count("ad_offer_shown") == 1, "frames and repeated registration never duplicate an offer")
+	if DisplayServer.get_name() != "headless" and !OS.get_environment("HANGMAN_UI_CAPTURE_DIR").is_empty():
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(OS.get_environment("HANGMAN_UI_CAPTURE_DIR").path_join("analytics-offer-%s.png" % suffix.replace(":", "-").replace(" ", "")))
+	container.free()

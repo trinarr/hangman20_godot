@@ -7,6 +7,7 @@ signal changed
 signal round_started
 signal round_won
 signal round_lost
+signal round_finished(id: String, game_mode: int, won: bool, outcome: String)
 signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
 
 var WRONG_LETTER_VIBRATION_MS: int = GAME_DESIGN.get_int(
@@ -479,7 +480,11 @@ func discard_current_round() -> void:
 	word_hint_text = ""
 	GameState.reset_current_game()
 
-func finish_result(is_win: bool) -> Dictionary:
+func report_round_finished(is_win: bool, outcome: String = "") -> void:
+	if word_data != null:
+		round_finished.emit(round_id, mode, is_win, outcome if !outcome.is_empty() else ("win" if is_win else "loss"))
+
+func finish_result(is_win: bool, outcome: String = "") -> Dictionary:
 	var result := {
 		"title": Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT"),
 		"lines": []
@@ -507,4 +512,5 @@ func finish_result(is_win: bool) -> Dictionary:
 	# committed together by Main after this method returns.
 	if mode != GameState.GameMode.SINGLE_PLAYER:
 		GameState.save_game()
+	report_round_finished(is_win, outcome)
 	return result

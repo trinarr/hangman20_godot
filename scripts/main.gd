@@ -1550,7 +1550,8 @@ func _single_player_mark_current_word_finished(
 		false,
 		stage_theme_index,
 		_single_player_stage_reward_amount(single_player_active_level_index, single_player_active_word_slot, level_word_count)
-		if _single_player_stage_reward_currency(single_player_active_level_index, single_player_active_word_slot, level_word_count) == GameState.STAGE_REWARD_STARS else 0
+		if _single_player_stage_reward_currency(single_player_active_level_index, single_player_active_word_slot, level_word_count) == GameState.STAGE_REWARD_STARS else 0,
+		"win" if is_win else ("loss" if failure_affects_difficulty else "forfeit")
 	)
 	_invalidate_single_player_level_cache()
 	if OS.is_debug_build():
@@ -1784,7 +1785,7 @@ func _purchase_heart_refill() -> void:
 			)
 		)
 		return
-	if !GameState.spend_soft_currency(HEART_REFILL_COST, false):
+	if !GameState.spend_soft_currency(HEART_REFILL_COST, false, "heart_refill"):
 		return
 	var continue_action: Callable = heart_refill_continue_action
 	GameState.refill_hearts(true)
@@ -1841,7 +1842,7 @@ func _refresh_single_player_theme_popup(level_index: int) -> void:
 			)
 		)
 		return
-	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST, false):
+	if !GameState.spend_soft_currency(SINGLE_PLAYER_THEME_REFRESH_COST, false, "theme_reroll"):
 		return
 	GameState.reset_single_level_attempt(Database.current_language, level_index)
 	_invalidate_single_player_level_cache()
@@ -1882,7 +1883,7 @@ func _purchase_single_player_extra_attempt() -> void:
 		_open_coin_store(Callable(self, "_return_to_single_player_last_chance_from_coin_store"))
 		return
 	single_player_extra_attempt_claim_in_progress = true
-	if !free_offer and !GameState.spend_soft_currency(purchase_cost, false):
+	if !free_offer and !GameState.spend_soft_currency(purchase_cost, false, "extra_attempt"):
 		single_player_extra_attempt_claim_in_progress = false
 		return
 	_remove_single_player_last_chance_popup()
@@ -2042,6 +2043,8 @@ func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 		_forfeit_single_player_round(confirmed_by_popup)
 		return
 	var return_to_custom_word: bool = GameState.current_mode == GameState.GameMode.TWO_PLAYER
+	if return_to_custom_word and !game_finished and GameSession.word_data != null:
+		GameSession.report_round_finished(false, "forfeit")
 	_discard_round_for_navigation()
 	if return_to_custom_word:
 		_preserve_custom_word_on_next_show = true
@@ -2080,7 +2083,7 @@ func _single_player_strip_win_rewards_for_forfeit(source_result: Dictionary) -> 
 		0
 	)
 	if remaining_attempt_reward > 0:
-		GameState.spend_stars(remaining_attempt_reward, false)
+		GameState.spend_stars(remaining_attempt_reward, false, "forfeit_reversal")
 	if bool(result.get("single_player_reward_deferred", false)):
 		GameState.clear_pending_single_player_reward(false)
 	for reward_key: String in [
@@ -2761,7 +2764,7 @@ func _grant_remaining_attempt_star_reward(result: Dictionary, is_win: bool) -> D
 	if remaining_attempts <= 0:
 		return rewarded_result
 	var previous_balance: int = GameState.get_stars()
-	var final_balance: int = GameState.add_gameplay_stars(remaining_attempts, false)
+	var final_balance: int = GameState.add_gameplay_stars(remaining_attempts, false, "remaining_attempts")
 	var credited_amount: int = maxi(final_balance - previous_balance, 0)
 	if credited_amount <= 0:
 		return rewarded_result

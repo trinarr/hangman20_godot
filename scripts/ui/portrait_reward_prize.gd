@@ -304,6 +304,10 @@ func _reveal_final_reward_actions(
 func _finish_final_reward_action_reveal(button: Control) -> void:
 	if button == null or !is_instance_valid(button) or !button.is_inside_tree():
 		return
+	if button.name in [&"StageCoinRewardDoubleButton", &"FinalRewardDoubleButton"]:
+		var placement: String = "stage_coin" if button.name == &"StageCoinRewardDoubleButton" else "final"
+		var target: Dictionary = GameState._rewarded_double_target(placement)
+		Analytics.watch_ad_offer(button, placement, str(target.get("target", button.get_instance_id())))
 	if (
 		bool(button.get_meta(&"single_shine_after_reveal", false))
 		and button.has_method("play_single_attention_shine")
