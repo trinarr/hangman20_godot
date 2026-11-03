@@ -200,5 +200,80 @@ func check_refill_popups() -> void:
 			if !directory.is_empty():
 				get_viewport().get_texture().get_image().save_png(directory.path_join("exit_heart_outline_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
 			main._remove_exit_game_popup()
+			await check_status_icons(main, dimensions, language)
 			main.queue_free()
 			await frame()
+
+func navy_pixels(image: Image) -> int:
+	var count: int = 0
+	for y: int in range(image.get_height()):
+		for x: int in range(image.get_width()):
+			var pixel: Color = image.get_pixel(x, y)
+			if pixel.a > 0.5 and pixel.b > pixel.r * 1.5 and pixel.b > pixel.g * 1.5:
+				count += 1
+	return count
+
+func check_status_icons(main: Node, dimensions: Vector2i, language: String) -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(256, 256)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(viewport)
+	var holder := Control.new()
+	viewport.add_child(holder)
+	for success: bool in [true, false]:
+		var marker: Control = main._stage_single_player_reward_status_icon(holder, Rect2(80, 80, 96, 96), false, success)
+		var art := marker.find_child("StatusTexture", true, false) as TextureRect
+		var material: Material = art.material
+		check(material is ShaderMaterial and material.get_shader_parameter("outline_pixels") == 6.0, "Chain status uses a six-pixel outline")
+		var shadows: Array = marker.get_meta("main_reward_icon_shadow_layers")
+		check(shadows.size() == 4, "Status uses the standard four-layer shadow")
+		for shadow: TextureRect in shadows:
+			check(shadow.material.get_shader_parameter("outline_pixels") == 6.0 and shadow.z_index == 0 and shadow.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Status shadow includes the outline, stays in the fade group and ignores input")
+			shadow.hide()
+		art.material = null
+		await frame()
+		check(navy_pixels(viewport.get_texture().get_image()) == 0, "Raw status PNG has no baked navy outline")
+		art.material = material
+		await frame()
+		var without_shadow: Image = viewport.get_texture().get_image()
+		for shadow: TextureRect in shadows:
+			shadow.show()
+		await frame()
+		var with_shadow: Image = viewport.get_texture().get_image()
+		var shadow_pixels: int = 0
+		for y: int in range(256):
+			for x: int in range(256):
+				if with_shadow.get_pixel(x, y).a > without_shadow.get_pixel(x, y).a + 0.05:
+					shadow_pixels += 1
+		check(shadow_pixels > 10, "Status shadow adds visible pixels beyond the outline")
+		for scale_value: float in [0.5, 1.0, 1.4]:
+			marker.scale = Vector2.ONE * scale_value
+			await frame()
+			check(navy_pixels(viewport.get_texture().get_image()) > 40, "Shader supplies visible status outline at rest and bounce scales")
+		marker.scale = Vector2.ONE
+		await frame()
+		var full: Image = viewport.get_texture().get_image()
+		FADE.set_opacity(marker, 0.5)
+		await frame()
+		var half: Image = viewport.get_texture().get_image()
+		var mismatch: int = 0
+		for y: int in range(256):
+			for x: int in range(256):
+				if absf(half.get_pixel(x, y).a - full.get_pixel(x, y).a * 0.5) > 0.035:
+					mismatch += 1
+		check(mismatch < 8, "Status fill and outline fade together at half opacity")
+		FADE.set_opacity(marker, 0.0)
+		await frame()
+		check(!viewport.get_texture().get_image().get_used_rect().has_area(), "Zero opacity hides the whole status outline")
+		main._animate_single_player_failed_reward_marker(marker)
+		await get_tree().create_timer(0.7).timeout
+		await frame()
+		check(FADE.get_opacity(marker) > 0.99 and navy_pixels(viewport.get_texture().get_image()) > 40, "Status outline restores after reveal animation")
+		var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+		if !directory.is_empty():
+			viewport.get_texture().get_image().save_png(directory.path_join("status_%s_%dx%d_%s.png" % ["check" if success else "cross", dimensions.x, dimensions.y, language]))
+		marker.free()
+		await frame()
+	viewport.queue_free()
+	await frame()

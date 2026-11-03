@@ -16,6 +16,7 @@ const ROUND = preload("res://scripts/ui/stage_round_button.gd")
 const LONG = preload("res://scripts/ui/stage_long_button.gd")
 const ARROW = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const CHECK = preload("res://flash_assets/reward_status_check_wide.png")
+const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 const AVATAR = preload("res://scripts/ui/profile_avatar_button.gd")
 const CHARACTER = preload("res://scripts/ui/profile_character_preview.gd")
 const NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
@@ -299,6 +300,7 @@ func _build_form() -> void:
 		check_icon.name = "SelectionCheck"
 		check_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		check_icon.texture = CHECK
+		OUTLINE.apply(check_icon, CHECK)
 		check_icon.position = Vector2(8.4, 8.4)
 		check_icon.size = Vector2(31.2, 31.2)
 		check_icon.pivot_offset = check_icon.size * 0.5

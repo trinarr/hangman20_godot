@@ -649,6 +649,74 @@
         1254
       ],
       "normalization": "Uniform premultiplied-alpha resize to original visual bounds; original canvas and optical centre retained. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/reward_status_check_wide.png",
+      "size": [
+        512,
+        512
+      ],
+      "source_sha256": "460124dd6cbb8350909923824bcb7f4b055e0c08f5fa55cc0e1aaf489b886700",
+      "target_sha256": "95b33cc549d48343645f1290412c765bfad6f80a28818ba9d8667428e810fa07",
+      "generation_id": "exec-88c48d4f-9f74-4894-82c8-40f94088d9bb",
+      "prompt": "Precise-object-edit of the original check icon: remove only the dark navy outer contour to true transparency. Preserve coloured body shape, rounded geometry, original vivid gradients, highlights, relief shading and optical centre. No border, stroke, shadow, glow, dark fringe, new objects or text. Genuine transparent RGBA square game icon; runtime shader supplies the contour.",
+      "visible_bounds": [
+        33,
+        103,
+        482,
+        418
+      ],
+      "source_coloured_bounds": [
+        33,
+        103,
+        482,
+        417
+      ],
+      "generator_visible_bounds": [
+        81,
+        253,
+        1179,
+        1022
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to the original coloured-body bounds, preserving original 512x512 canvas and optical centre. No pixel recolouring or morphology."
+    },
+    {
+      "path": "flash_assets/reward_status_cross_wide.png",
+      "size": [
+        512,
+        512
+      ],
+      "source_sha256": "93e54975baa2104d1925d7bc3406b3f2da9226224ff5063e7d2fec9b517f5bea",
+      "target_sha256": "62870a578bfdac9560a1b1da2440e1972b052a07dca275f6777bee1b7c2d4ff2",
+      "generation_id": "exec-0ca040d5-0060-484d-9d35-236e0f653439",
+      "prompt": "Precise-object-edit of the original cross icon: remove only the dark navy outer contour to true transparency. Preserve coloured body shape, rounded geometry, original vivid gradients, highlights, relief shading and optical centre. No border, stroke, shadow, glow, dark fringe, new objects or text. Genuine transparent RGBA square game icon; runtime shader supplies the contour.",
+      "visible_bounds": [
+        51,
+        67,
+        460,
+        443
+      ],
+      "source_coloured_bounds": [
+        50,
+        68,
+        462,
+        443
+      ],
+      "generator_visible_bounds": [
+        126,
+        168,
+        1126,
+        1086
+      ],
+      "generator_size": [
+        1254,
+        1254
+      ],
+      "normalization": "Uniform premultiplied-alpha resize to the original coloured-body bounds, preserving original 512x512 canvas and optical centre. No pixel recolouring or morphology."
     }
   ]
 }

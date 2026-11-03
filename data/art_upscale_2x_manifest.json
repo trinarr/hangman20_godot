@@ -354,7 +354,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "460124dd6cbb8350909923824bcb7f4b055e0c08f5fa55cc0e1aaf489b886700",
-      "target_sha256": "460124dd6cbb8350909923824bcb7f4b055e0c08f5fa55cc0e1aaf489b886700",
+      "target_sha256": "95b33cc549d48343645f1290412c765bfad6f80a28818ba9d8667428e810fa07",
       "native_2x": true
     },
     {
@@ -369,7 +369,7 @@
       ],
       "source_mode": "RGBA",
       "source_sha256": "93e54975baa2104d1925d7bc3406b3f2da9226224ff5063e7d2fec9b517f5bea",
-      "target_sha256": "93e54975baa2104d1925d7bc3406b3f2da9226224ff5063e7d2fec9b517f5bea",
+      "target_sha256": "62870a578bfdac9560a1b1da2440e1972b052a07dca275f6777bee1b7c2d4ff2",
       "native_2x": true
     },
     {

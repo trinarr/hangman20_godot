@@ -6,6 +6,7 @@ const DEFAULT_PIXELS := 2.0
 const THEME_PIXELS := 5.0
 const POPUP_PIXELS := 5.0
 const CHAIN_PIXELS := 5.0
+const CHAIN_STATUS_PIXELS := 6.0
 const LARGE_REWARD_PIXELS := 8.0
 const PATHS := [
 	"res://flash_assets/star_currency_icon.png", "res://flash_assets/soft_currency_coin.png",
@@ -13,6 +14,7 @@ const PATHS := [
 	"res://flash_assets/reward_chest_closed.png", "res://flash_assets/reward_chest_open.png",
 	"res://flash_assets/tournament_trophy_front.png", "res://assets/tournament/start_trophy_low.png",
 	"res://flash_assets/extra_attempts_icon.png",
+	"res://flash_assets/reward_status_check_wide.png", "res://flash_assets/reward_status_cross_wide.png",
 ]
 static var _materials: Dictionary = {}
 

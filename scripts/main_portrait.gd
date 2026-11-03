@@ -13758,13 +13758,31 @@ func _stage_single_player_reward_status_icon(
 	icon_holder.pivot_offset = icon_rect.size * 0.5
 	parent.add_child(icon_holder)
 	icon_holder.z_index = 10
+	var composite: Control = COMPOSITED_FADE.new()
+	composite.name = "StatusComposite"
+	icon_holder.add_child(composite)
+	composite.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var visuals := Control.new()
+	visuals.name = "StatusVisuals"
+	visuals.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	composite.add_visual(visuals)
+	visuals.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var status_texture: Texture2D = REWARD_STATUS_CHECK_TEXTURE if is_success else REWARD_STATUS_CROSS_TEXTURE
+	var shadow_layers: Array[TextureRect] = _attach_main_reward_icon_shadow(
+		visuals, status_texture, "StatusShadow", UI_MATERIALS.OUTLINE.CHAIN_STATUS_PIXELS
+	)
+	icon_holder.set_meta(&"main_reward_icon_shadow_layers", shadow_layers)
+	for layer: TextureRect in shadow_layers:
+		# Draw behind the face by child order, also inside composited fades.
+		layer.z_index = 0
 	var status_icon := TextureRect.new()
 	status_icon.name = "StatusTexture"
-	status_icon.texture = REWARD_STATUS_CHECK_TEXTURE if is_success else REWARD_STATUS_CROSS_TEXTURE
+	status_icon.texture = status_texture
+	UI_MATERIALS.OUTLINE.apply(status_icon, status_icon.texture, UI_MATERIALS.OUTLINE.CHAIN_STATUS_PIXELS)
 	status_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	status_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_holder.add_child(status_icon)
+	visuals.add_child(status_icon)
 	status_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if start_hidden:
 		# Own the reveal before an ancestor collects the initially hidden marker.
