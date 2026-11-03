@@ -29,7 +29,19 @@ class AndroidExportPlugin extends EditorExportPlugin:
 
 
 	func _get_android_dependencies(platform, debug):
-		return PackedStringArray(["com.yandex.android:mobileads:8.6.0"])
+		return PackedStringArray(["com.yandex.android:mobileads-mediation:8.6.0.0"])
+
+
+	func _get_android_dependencies_maven_repos(platform, debug):
+		return PackedStringArray([
+			"https://android-sdk.is.com/",
+			"https://artifact.bytedance.com/repository/pangle",
+			"https://sdk.tapjoy.com/",
+			"https://artifactory.bidmachine.io/bidmachine",
+			"https://dl-maven-android.mintegral.com/repository/mbridge_android_sdk_oversea",
+			"https://cboost.jfrog.io/artifactory/chartboost-ads/",
+			"https://dl.appnext.com/",
+		])
 
 
 	func _get_name():

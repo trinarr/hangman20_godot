@@ -3,6 +3,14 @@
 This addon is based on `noctisalamandra/godot-yandex-ads-android` (MIT) and is
 adapted for Godot 4.7 and Yandex Mobile Ads SDK 8.6.0.
 
+Android export connects the unified Easy Monetization dependency
+`com.yandex.android:mobileads-mediation:8.6.0.0` and its Maven repositories.
+The bridge itself compiles against the matching base SDK API 8.6.0.
+After installing the Android template, run `python tools/prepare_yandex_android.py`
+to select AGP 8.10.1 (Gradle 8.11.1, JDK 17, SDK 36).
+Google App ID from the Easy Monetization manager is still required in the app
+manifest; see `tools/EXPORT.md` before running an Android build.
+
 The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by
 `project.godot`.
@@ -16,7 +24,7 @@ Debug/editor builds use demo ad units:
 - `demo-rewarded-yandex`
 
 Release ad unit IDs are configured in `yandex_ads.gd`: banner
-`R-M-19724622-1`, rewarded `R-M-19724622-2`, interstitial `R-M-19724622-10`.
+`R-M-20326744-9`, rewarded `R-M-20326744-4`, interstitial `R-M-20326744-1`.
 All eight rewarded and three interstitial gameplay placements share one unit
 and one cached ad per format. Placement names and reward request IDs remain
 separate, so each action keeps its own reward and late-callback handling.

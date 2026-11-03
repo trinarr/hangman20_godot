@@ -225,7 +225,8 @@ func ad_impression(raw: String, format: String, placement: String) -> void:
 	parameters["ad_unit_name"] = str(payload.get("ad_unit_id", ""))
 	parameters["precision"] = str(payload.get("precision", ""))
 	var network: Variant = payload.get("network", {})
-	parameters["ad_source"] = str(network.get("name", "Yandex")) if network is Dictionary else "Yandex"
+	if network is Dictionary and network.get("name") is String and !str(network["name"]).strip_edges().is_empty():
+		parameters["ad_source"] = str(network["name"]).strip_edges()
 	var revenue: String = str(payload.get("revenueUSD", ""))
 	if revenue.is_valid_float() and is_finite(float(revenue)) and float(revenue) >= 0.0:
 		parameters["value"] = float(revenue)
@@ -233,7 +234,16 @@ func ad_impression(raw: String, format: String, placement: String) -> void:
 	else:
 		revenue = str(payload.get("revenue", ""))
 		var currency: String = str(payload.get("currency", ""))
-		if revenue.is_valid_float() and is_finite(float(revenue)) and float(revenue) >= 0.0 and currency.length() == 3:
+		if revenue.is_valid_float() and is_finite(float(revenue)) and float(revenue) >= 0.0 and _is_currency_code(currency):
 			parameters["value"] = float(revenue)
 			parameters["currency"] = currency.to_upper()
 	track("ad_impression", parameters)
+
+func _is_currency_code(currency: String) -> bool:
+	if currency.length() != 3:
+		return false
+	var upper: String = currency.to_upper()
+	for index: int in range(3):
+		if upper.unicode_at(index) < 65 or upper.unicode_at(index) > 90:
+			return false
+	return true

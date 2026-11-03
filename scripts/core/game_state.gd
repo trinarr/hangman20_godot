@@ -27,7 +27,7 @@ const SAVE_FORMAT_VERSION: int = 8
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
-const LEGAL_DOCUMENTS_VERSION: int = 2
+const LEGAL_DOCUMENTS_VERSION: int = 3
 const SINGLE_PLAYER_LEVEL_HISTORY_LIMIT: int = 64
 const SINGLE_PLAYER_MAX_SAVED_LEVEL_SLOTS: int = 16
 const HINT_OPEN_LETTER: String = "open_letter"
@@ -894,11 +894,26 @@ func accept_legal_documents() -> bool:
 	if has_accepted_legal_documents():
 		return true
 	var previous_version: int = accepted_legal_documents_version
+	var previous_choice: int = ad_personalization_choice
+	var previous_choice_at: int = ad_personalization_choice_at
+	var previous_choice_source: String = ad_personalization_choice_source
+	# Revision 3 adds mediated networks. Do not extend an earlier positive
+	# personalization choice to them; keep an explicit refusal in effect.
+	var reset_choice: bool = previous_version < 3 and previous_choice == AdPersonalizationChoice.ACCEPTED
+	if reset_choice:
+		ad_personalization_choice = AdPersonalizationChoice.UNKNOWN
+		ad_personalization_choice_at = 0
+		ad_personalization_choice_source = ""
 	accepted_legal_documents_version = LEGAL_DOCUMENTS_VERSION
 	if save_game():
 		legal_documents_accepted.emit()
+		if reset_choice:
+			ad_personalization_choice_changed.emit()
 		return true
 	accepted_legal_documents_version = previous_version
+	ad_personalization_choice = previous_choice
+	ad_personalization_choice_at = previous_choice_at
+	ad_personalization_choice_source = previous_choice_source
 	return false
 
 func has_answered_ad_personalization_choice() -> bool:

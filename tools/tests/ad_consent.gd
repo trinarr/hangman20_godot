@@ -259,6 +259,7 @@ func test_tagged_interstitial_lifecycle() -> void:
 func test_shared_placement_cache() -> void:
 	for complete_load: bool in [false, true]:
 		var ads = ReleaseAds.new()
+		check(ads.RELEASE_BANNER_ID == "R-M-20326744-9", "production banner uses Easy Monetization unit")
 		ads._native = FakeNative.new()
 		ads._sdk_ready = true
 		ads.prepare_rewarded_placement(&"stage_coin")
@@ -267,13 +268,13 @@ func test_shared_placement_cache() -> void:
 			ads._on_rewarded_video_ad_loaded()
 			ads._on_interstitial_loaded()
 		for placement: StringName in [&"stage_coin", &"hint_open", &"coin_refill", &"heart_refill", &"extra_attempt", &"theme_reroll", &"hint_remove", &"final"]:
-			check(ads._rewarded_id_for_placement(placement) == "R-M-19724622-2", "shared production RW id: " + placement)
+			check(ads._rewarded_id_for_placement(placement) == "R-M-20326744-4", "shared production RW id: " + placement)
 			check(ads.prepare_rewarded_placement(placement), "RW placement rejected: " + placement)
 			check(!ads._discard_rewarded_load, "RW placement discards an in-flight shared load")
 			if complete_load:
 				check(ads.is_rewarded_video_loaded(placement), "RW placement loses a ready shared ad: " + placement)
 		for placement: StringName in [&"word_success", &"quiz_correct", &"forfeit"]:
-			check(ads._interstitial_id_for_placement(placement) == "R-M-19724622-10", "shared production INT id: " + placement)
+			check(ads._interstitial_id_for_placement(placement) == "R-M-20326744-1", "shared production INT id: " + placement)
 			check(ads.prepare_interstitial_placement(placement), "INT placement rejected: " + placement)
 			check(!ads._discard_interstitial_load, "INT placement discards an in-flight shared load")
 			if complete_load:

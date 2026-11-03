@@ -51,10 +51,23 @@ func run() -> void:
 	service.screen("home")
 	service.screen("profile")
 	check(!native.enabled and native.events.is_empty(), "old document acceptance cannot enable collection")
+	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
+	GameState.ad_personalization_choice_at = 123
+	GameState.ad_personalization_choice_source = "user_popup"
 	GameState._save_blocked_by_future_version = true
 	check(!GameState.accept_legal_documents(), "failed durable acceptance remains unaccepted")
+	check(GameState.ad_personalization_choice == GameState.AdPersonalizationChoice.ACCEPTED and GameState.ad_personalization_choice_at == 123 and GameState.ad_personalization_choice_source == "user_popup", "failed mediation acceptance restores previous choice and metadata")
 	GameState._save_blocked_by_future_version = false
 	check(GameState.accept_legal_documents(), "new documents accepted durably")
+	check(!GameState.has_answered_ad_personalization_choice() and GameState.ad_personalization_choice_at == 0 and GameState.ad_personalization_choice_source.is_empty(), "old positive choice is not extended to mediated networks")
+	GameState.load_game()
+	check(GameState.has_accepted_legal_documents() and !GameState.has_answered_ad_personalization_choice(), "mediation choice reset survives reload")
+	GameState.accepted_legal_documents_version = 2
+	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.DENIED
+	GameState.ad_personalization_choice_at = 456
+	GameState.ad_personalization_choice_source = "user_settings"
+	check(GameState.accept_legal_documents(), "new mediation policy accepts an earlier refusal")
+	check(GameState.ad_personalization_choice == GameState.AdPersonalizationChoice.DENIED and GameState.ad_personalization_choice_at == 456 and GameState.ad_personalization_choice_source == "user_settings", "mediation policy preserves refusal and metadata")
 	service.sync_collection()
 	check(native.enabled, "current documents enable measurement independently of Yandex personalization")
 	check(native.events.size() == 1 and native.events[0].event == "screen_view" and native.events[0].parameters.screen_name == "profile", "acceptance logs only the currently visible screen without replaying earlier views")
@@ -79,6 +92,15 @@ func run() -> void:
 	service.ad_impression('{"revenue":"2.5","currency":"RUB"}', "interstitial", "word_success")
 	params = native.events.back().parameters
 	check(params.value == 2.5 and params.currency == "RUB", "ILRD falls back to original currency without CPM conversion")
+	service.ad_impression('{"revenueUSD":"0.0012","revenue":"900","currency":"RUB","network":{"name":"AppLovin"}}', "rewarded", "heart_refill")
+	params = native.events.back().parameters
+	check(params.ad_source == "AppLovin" and params.ad_platform == "Yandex" and params.value == 0.0012 and params.currency == "USD" and params.placement == "heart_refill", "mediation keeps actual network and per-impression revenue")
+	service.ad_impression('{"revenue":"0","currency":"eur"}', "banner", "banner")
+	params = native.events.back().parameters
+	check(params.value == 0.0 and params.currency == "EUR" and !params.has("ad_source"), "zero revenue is valid and an unknown network is not guessed")
+	service.ad_impression('{"revenue":"2.5","currency":"123","network":null}', "banner", "banner")
+	params = native.events.back().parameters
+	check(!params.has("value") and !params.has("currency") and !params.has("ad_source"), "invalid currency and network do not fabricate attribution")
 	service.ad_impression('{"revenueUSD":"NaN"}', "banner", "banner")
 	check(!native.events.back().parameters.has("value"), "missing or invalid revenue is never fabricated")
 	var count: int = native.events.size()

@@ -24,9 +24,9 @@ signal rewarded_video_closed
 const DEFAULT_BANNER_ID := "demo-banner-yandex"
 const DEFAULT_INTERSTITIAL_ID := "demo-interstitial-yandex"
 const DEFAULT_REWARDED_ID := "demo-rewarded-yandex"
-const RELEASE_BANNER_ID := "R-M-19724622-1"
-const RELEASE_REWARDED_ID := "R-M-19724622-2"
-const RELEASE_INTERSTITIAL_ID := "R-M-19724622-10"
+const RELEASE_BANNER_ID := "R-M-20326744-9"
+const RELEASE_REWARDED_ID := "R-M-20326744-4"
+const RELEASE_INTERSTITIAL_ID := "R-M-20326744-1"
 # Gameplay placements share one cached ad per format. Reward receipts still
 # identify the action independently of the advertising unit.
 const REWARDED_PLACEMENTS: Array[StringName] = [
