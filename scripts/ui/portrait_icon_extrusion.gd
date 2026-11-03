@@ -4,6 +4,8 @@ extends RefCounted
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
+const ACTION_SHADOW_ALPHA: float = 0.50
+const ACTION_SHADOW_OFFSET_SCALE: float = 0.70
 
 static func _run_for_live_control(target_ref: WeakRef, action: Callable, args: Array = []) -> void:
 	var target := target_ref.get_ref() as Control

@@ -1,0 +1,85 @@
+{
+  "generator": "built-in image_gen",
+  "normalization": "Premultiplied-alpha Lanczos; proportional fit to 248 pixels on a transparent 256x256 canvas.",
+  "files": [
+    {
+      "path": "flash_assets/settings_gear_icon.png",
+      "generation_id": "e0287e6d-685e-4c62-8110-9a03c70992d7",
+      "previous_size": [
+        64,
+        64
+      ],
+      "previous_sha256": "eae2f6e86ff77bd8a4dc02086a3e9893d62cafe9c51c37253d89e35ef0a984d8",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "b8c29dd9f9431786f24bef14d9e05e6c945ab4bae9cc54f805a65a29e1ffb570"
+    },
+    {
+      "path": "flash_assets/portrait_back_arrow_icon.png",
+      "generation_id": "e27bfe18-c3aa-4ffc-9ba4-708bc231f31f",
+      "previous_size": [
+        28,
+        44
+      ],
+      "previous_sha256": "6672e3a6fa75175983d8c0685e7aa7ff4a8de556d61135f124cb97b7fbcda4a5",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "c24b722917d8c7e68bf3cdf884a3f9a3c84d03194c4607a866550dce881375be"
+    },
+    {
+      "path": "flash_assets/custom_word_refresh_icon_341.png",
+      "generation_id": "eb320aaf-d00c-4052-93a0-bc45846c7228",
+      "previous_size": [
+        42,
+        42
+      ],
+      "previous_sha256": "ebb4ea69d8bb474f380465695108210fa551a3aed41a0c35d3fd27355a3f00fb",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "14b2f17fe655691e9688204608f45c99b8282f2a9533562ce553f44dbd28c3fa"
+    },
+    {
+      "path": "flash_assets/about_vk_icon_87.png",
+      "generation_id": "9a88946c-a9cc-4ea5-9e7c-21ba5b3527b5",
+      "previous_size": [
+        48,
+        28
+      ],
+      "previous_sha256": "c36217f50e0c36ae740f3767164f529d30e73df997afe4785730e59fe0b9c9b9",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "dceab520ffa69f8c7ea962da3137d4aa97e16836aac042bbdc780ddeacb0c070"
+    },
+    {
+      "path": "flash_assets/about_mail_icon_86.png",
+      "generation_id": "93903689-000d-491e-8cc7-c3050ddc31a1",
+      "previous_size": [
+        44,
+        36
+      ],
+      "previous_sha256": "a69684299e4475a67f7761b5fc62a52c61b09a62c0e0312d4bc3f16c82105b2e",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "6dfe974cf2cc557cf4aa31d164571e522dba3708f5da0fcb953e3753329d7367"
+    },
+    {
+      "path": "flash_assets/round_close_icon.png",
+      "generation_id": "97aaec0d-1d77-4bc2-b405-cd6af379f573",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "a1de2fef6f445d4a40009e984b2d9d2028e19f2a2f661cbb48f70f0e41ab72a3"
+    }
+  ]
+}

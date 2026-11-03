@@ -1,0 +1,32 @@
+[
+  {
+    "name": "settings",
+    "target": "flash_assets/settings_gear_icon.png",
+    "prompt": "Production Hangman 2.0 mobile game UI icon. Recreate the small reference at high resolution, preserving its recognizable geometry and optical weight. One isolated flat WHITE glyph with smooth antialiasing, on genuine transparent RGBA background. No button or disc, no baked navy/black outline, no external shadow, no glow, no grey bevel, no extra decoration or lettering. Keep all counters/holes truly transparent. Centre the glyph on a square canvas, preserve the original glyph proportions, with generous clear transparent padding. Output will be normalized to a 256x256 PNG and rendered with the game's existing shadow. Reference is the edit/reconstruction target: a simple eight-tooth white gear with one large transparent circular central hole. Preserve exactly eight chunky evenly spaced teeth, not a flower."
+  },
+  {
+    "name": "back",
+    "target": "flash_assets/portrait_back_arrow_icon.png",
+    "prompt": "Create ONE bold white LEFT CHEVRON navigation icon for Hangman 2.0. Use attached X CLOSE icon as the PRIMARY style reference: same thick flat white strokes, slightly softened squared corners, compact bold geometric character. The second image is the OLD arrow to REPLACE: it is too thin and vertically elongated. New chevron should be noticeably wider and compact: overall visible width about 75 percent of visible height, two equally thick straight diagonals meeting at a clean 90 degree inner turn, about 45-degree diagonals, like the left HALF of the X close glyph, with generous stroke weight (about 23 percent of glyph height). No shaft. No slender tall curved angle. Match X's subtle corner rounding, avoid pill-like terminals. Standalone glyph, transparent background and transparent negative space, pure solid white, no outline, baked shadow, gradients, speckles, texture, button, circle, lettering or decorations. Center on a square canvas; intended final RGBA PNG 256x256 with equal generous transparent padding. One left-pointing chevron ONLY."
+  },
+  {
+    "name": "refresh",
+    "target": "flash_assets/custom_word_refresh_icon_341.png",
+    "prompt": "Production Hangman 2.0 mobile game UI icon. Recreate the small reference at high resolution, preserving its recognizable geometry and optical weight. One isolated flat WHITE glyph with smooth antialiasing, on genuine transparent RGBA background. No button or disc, no baked navy/black outline, no external shadow, no glow, no grey bevel, no extra decoration or lettering. Keep all counters/holes truly transparent. Centre the glyph on a square canvas, preserve the original glyph proportions, with generous clear transparent padding. Output will be normalized to a 256x256 PNG and rendered with the game's existing shadow. Reference is the edit/reconstruction target: one clockwise circular refresh arrow, nearly a full ring, opening at the upper right with a clear triangular arrowhead pointing clockwise. Keep the single-arrow ring and generous central hole."
+  },
+  {
+    "name": "vk",
+    "target": "flash_assets/about_vk_icon_87.png",
+    "prompt": "Production Hangman 2.0 mobile game UI icon. Recreate the small reference at high resolution, preserving its recognizable geometry and optical weight. One isolated flat WHITE glyph with smooth antialiasing, on genuine transparent RGBA background. No button or disc, no baked navy/black outline, no external shadow, no glow, no grey bevel, no extra decoration or lettering. Keep all counters/holes truly transparent. Centre the glyph on a square canvas, preserve the original glyph proportions, with generous clear transparent padding. Output will be normalized to a 256x256 PNG and rendered with the game's existing shadow. Reference is the edit/reconstruction target: the recognizable classic VK / Р’РљРѕРЅС‚Р°РєС‚Рµ white joined VK logomark. Reproduce the exact logo silhouette faithfully, including the joined V and K shape and cutouts, with overall 48:28 wide proportions. No enclosing square or circle. No other text."
+  },
+  {
+    "name": "mail",
+    "target": "flash_assets/about_mail_icon_86.png",
+    "prompt": "Create a production Hangman 2.0 mobile game UI icon: one simple CLOSED ENVELOPE pictogram replacing the @ email icon. Attached images are style references only for the bold flat white navigation glyphs. Draw a wide horizontal rounded rectangle envelope, about 1.4:1 width to height, with a clearly readable folded triangular flap in transparent negative-space seams. Thick white flat filled panels and smooth slightly rounded corners, optically centered, recognisable when reduced to 28 pixels. Pure white glyph on a genuinely transparent RGBA background; no @, letters, stamps, paper, button, circle, background, navy outline, baked shadow, bevel, glow, texture, distress, speckles or decoration. All negative-space seams must be fully transparent and clean. Square canvas with transparent padding, intended final output 256x256. The game renders the button separately."
+  },
+  {
+    "name": "close",
+    "target": "builds/status-icons/captures/home_chain_ru_690_1.png",
+    "prompt": "Production Hangman 2.0 mobile game UI icon. Recreate the small reference at high resolution, preserving its recognizable geometry and optical weight. One isolated flat WHITE glyph with smooth antialiasing, on genuine transparent RGBA background. No button or disc, no baked navy/black outline, no external shadow, no glow, no grey bevel, no extra decoration or lettering. Keep all counters/holes truly transparent. Centre the glyph on a square canvas, preserve the original glyph proportions, with generous clear transparent padding. Output will be normalized to a 256x256 PNG and rendered with the game's existing shadow. The screenshot is a style/location reference only: recreate ONLY the WHITE X CLOSE glyph inside the upper-left circular blue button. Produce the standalone white X glyph with two equal thick diagonal strokes crossing at 90 degrees, symmetric arms and subtly softened corners, matching the screenshot's compact bold close symbol. Do NOT include the blue button, outline, shading, grid, character, game art, green checkmark, red cross, or any screenshot pixels. Single white X centered on a transparent square canvas."
+  }
+]

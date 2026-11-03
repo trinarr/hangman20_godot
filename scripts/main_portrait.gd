@@ -114,9 +114,9 @@ const PORTRAIT_HOME_AVATAR_RECT := Rect2(
 	PORTRAIT_CURRENCY_COUNTER_RECT.position.y + (PORTRAIT_CURRENCY_COUNTER_RECT.size.y - PORTRAIT_HOME_AVATAR_SIZE) * 0.5,
 	PORTRAIT_HOME_AVATAR_SIZE, PORTRAIT_HOME_AVATAR_SIZE
 )
-const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2(21.6, 26.4)
+const PORTRAIT_PAGE_BACK_ICON_SIZE := Vector2.ONE * 26.4 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE
 const PORTRAIT_MENU_SETTINGS_BUTTON_RECT := Rect2(410.4, 15.4, PORTRAIT_PAGE_BACK_BUTTON_SIZE, PORTRAIT_PAGE_BACK_BUTTON_SIZE)
-const PORTRAIT_MENU_SETTINGS_ICON_SIZE := Vector2(29.0, 29.0)
+const PORTRAIT_MENU_SETTINGS_ICON_SIZE := Vector2.ONE * 29.0 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE
 const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.back_entrance_seconds"
@@ -501,7 +501,7 @@ const PORTRAIT_CUSTOM_WORD_CHECK_ICON: Texture2D = preload("res://flash_assets/c
 const PORTRAIT_CUSTOM_WORD_SEARCH_LOADING_ICON: Texture2D = preload("res://flash_assets/custom_word_search_loading_doodle.png")
 const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS: float = 3.0
 const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_DURATION: float = 1.1
-const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = 0.50
+const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = PORTRAIT_ICON_EXTRUSION.ACTION_SHADOW_ALPHA
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 const GAME_WORD_PAPER_SHADER: Shader = preload("res://shaders/game_word_paper.gdshader")
 const GAME_WORD_PAPER_BACKSIDE_SHADER: Shader = preload("res://shaders/game_word_paper_backside.gdshader")
@@ -7939,7 +7939,7 @@ func _home_profile_show_single_player_level_popup(
 			refresh_button_rect,
 			Callable(self, "_refresh_single_player_theme_popup").bind(level_index),
 			SINGLE_PLAYER_REFRESH_ICON,
-			Vector2(27.0, 27.0) * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE,
+			Vector2.ONE * 27.0 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE * PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE,
 			false
 		)
 		single_player_popup_refresh_button = refresh_button
@@ -11435,7 +11435,7 @@ func _stage_portrait_hint_art(
 		"HintArt",
 		1,
 		PORTRAIT_HINT_ICON_SHADOW_ALPHA,
-		0.70
+		PORTRAIT_ICON_EXTRUSION.ACTION_SHADOW_OFFSET_SCALE
 	)
 	if art != null and grayscale:
 		art.material = UI_MATERIALS.grayscale(texture)

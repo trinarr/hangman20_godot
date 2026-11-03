@@ -147,7 +147,32 @@ func check_last_chance_layout() -> void:
 	main.free_attempt_offer = false
 	GameSession.discard_current_round()
 
+func check_action_icon_shadows() -> void:
+	var extrusion = preload("res://scripts/ui/portrait_icon_extrusion.gd")
+	for path: String in StageRoundButton.WHITE_ACTION_ICON_PATHS:
+		var button := StageRoundButton.new()
+		button.use_stage_layout = false
+		button.stage_rect = Rect2(0, 0, 52, 52)
+		button.size = Vector2(52, 52)
+		add_child(button)
+		button.configure_texture(load(path), Vector2(32, 32))
+		check(button.icon_shadow_enabled and button._icon_shadow_layers.size() == 4, "white action icon automatically receives four shadow layers: " + path)
+		var reference := Control.new()
+		add_child(reference)
+		var layers: Array[TextureRect] = extrusion._create_portrait_icon_extrusion_layers(reference, button.icon_texture, "Reference", 0, extrusion.ACTION_SHADOW_ALPHA)
+		extrusion._layout_portrait_icon_extrusion_layers(layers, button._icon_rect.position, button._icon_rect.size, extrusion.ACTION_SHADOW_OFFSET_SCALE)
+		for i: int in range(4):
+			var actual: TextureRect = button._icon_shadow_layers[i]
+			check(actual.visible and actual.position.is_equal_approx(layers[i].position), "action shadow matches two-player offset: " + path)
+			check(actual.material.get_shader_parameter("shadow_color") == layers[i].material.get_shader_parameter("shadow_color"), "action shadow matches two-player color and alpha: " + path)
+		button.button_disabled = true
+		check(button._icon_shadow_layers[0].modulate.a < 1.0, "disabled action also dims its shadow: " + path)
+		button.queue_free()
+		reference.queue_free()
+	await get_tree().process_frame
+
 func run() -> void:
+	await check_action_icon_shadows()
 	await check_coin_counter_sources()
 	# Avoid startup consent followups while exercising modal removal itself.
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
@@ -168,6 +193,8 @@ func run() -> void:
 		if child is StageRoundButton:
 			close_button = child
 	check(close_button != null and close_button.visible and close_button.mouse_filter == Control.MOUSE_FILTER_STOP, "close button intro finishes and enables input")
+	check(close_button.icon_texture == StageRoundButton.CLOSE_ICON and close_button.icon_text.is_empty(), "close button uses the dedicated PNG instead of a font glyph")
+	check(close_button.icon_texture.get_size() == Vector2(256, 256) and close_button.icon_shadow_enabled, "close icon has a square canvas and runtime shadow")
 	tap(dimmer, close.bind(&"popup_test"))
 	tap(dimmer, close.bind(&"popup_test"))
 	await get_tree().process_frame

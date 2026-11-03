@@ -9,6 +9,21 @@ const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 
 const BUTTON_BACKGROUND = preload("res://scripts/ui/procedural_button_background.gd")
 const ICON_VISUAL_SCALE: float = 0.82
+const CLOSE_ICON: Texture2D = preload("res://flash_assets/round_close_icon.png")
+# Recreated navigation art occupies 248 pixels of its 256-pixel canvas.
+const NAV_CANVAS_SCALE: float = 256.0 / 248.0
+const ICON_EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
+const WHITE_ACTION_ICON_PATHS: Array[String] = [
+	"res://flash_assets/settings_gear_icon.png",
+	"res://flash_assets/portrait_back_arrow_icon.png",
+	"res://flash_assets/custom_word_refresh_icon_341.png",
+	"res://flash_assets/about_vk_icon_87.png",
+	"res://flash_assets/about_mail_icon_86.png",
+	"res://flash_assets/round_close_icon.png",
+	"res://flash_assets/custom_word_random_doodle.png",
+	"res://assets/profile/pencil.png",
+]
+var _icon_shadow_offset_scale: float = 1.0
 var _attention_bounce_scale_value: float = GAME_DESIGN.get_float_range(
 	"timings.animations.button_attention.round.scale",
 	1.0,
@@ -306,6 +321,12 @@ func configure_text(text_value: String, disabled_value: bool = false, selected_v
 	_ensure_visual_nodes()
 	_sync_visuals()
 
+func configure_close(font_size_value: int = 55, disabled_value: bool = false, selected_value: bool = false, disabled_overlay_alpha_value: float = 0.32) -> void:
+	# Preserve the previous bold multiplication glyph's optical size.
+	var side: float = float(font_size_value) * 0.55 / ICON_VISUAL_SCALE * NAV_CANVAS_SCALE
+	configure_texture(CLOSE_ICON, Vector2.ONE * side, disabled_value, selected_value, Vector2.ZERO, disabled_overlay_alpha_value)
+	icon_shadow_enabled = true
+
 func configure_texture(texture_value: Texture2D, stage_size_value: Vector2, disabled_value: bool = false, selected_value: bool = false, stage_offset_value: Vector2 = Vector2.ZERO, disabled_overlay_alpha_value: float = 0.32) -> void:
 	icon_text = ""
 	icon_texture = texture_value
@@ -316,6 +337,17 @@ func configure_texture(texture_value: Texture2D, stage_size_value: Vector2, disa
 	button_disabled = disabled_value
 	_ensure_visual_nodes()
 	_sync_visuals()
+	_sync_icon_layout()
+	if texture_value != null and texture_value.resource_path in WHITE_ACTION_ICON_PATHS:
+		_use_action_icon_shadow()
+
+func _use_action_icon_shadow() -> void:
+	_icon_shadow_offset_scale = ICON_EXTRUSION.ACTION_SHADOW_OFFSET_SCALE
+	icon_shadow_enabled = true
+	var base: Color = UI_PALETTE.NAV_TEXT_SHADOW
+	_icon_shadow_material = UI_MATERIALS.icon_shadow(Color(base.r, base.g, base.b, ICON_EXTRUSION.ACTION_SHADOW_ALPHA))
+	for layer: TextureRect in _icon_shadow_layers:
+		layer.material = _icon_shadow_material
 	_sync_icon_layout()
 
 func _ensure_icon_shadow_layers() -> void:
@@ -350,11 +382,11 @@ func _sync_icon_shadow_layout(actual_size: Vector2) -> void:
 		icon_extent * ICON_SHADOW_DEPTH_RATIO,
 		ICON_SHADOW_DEPTH_MIN,
 		ICON_SHADOW_DEPTH_MAX
-	)
+	) * _icon_shadow_offset_scale
 	var shadow_offset_x: float = minf(
 		icon_extent * ICON_SHADOW_OFFSET_X_RATIO,
 		ICON_SHADOW_OFFSET_X_MAX
-	)
+	) * _icon_shadow_offset_scale
 	for layer_index: int in range(_icon_shadow_layers.size()):
 		var layer: TextureRect = _icon_shadow_layers[layer_index]
 		if layer == null or !is_instance_valid(layer):

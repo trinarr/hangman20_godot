@@ -256,7 +256,7 @@ static func _play_close_from_ref(target: WeakRef, style: Dictionary) -> void:
 
 static func add_close_button(parent: Control, style: Dictionary, rect: Rect2, callable: Callable) -> Control:
 	var button: FlashStageTextureButton = ROUND_BUTTON.new() as FlashStageTextureButton
-	button.call("configure_text", "×", false, false, int(style["close_icon_font_size"]), 0.32)
+	button.call("configure_close", int(style["close_icon_font_size"]), false, false, 0.32)
 	button.call("set_color_preset", int(style["blue_button"]))
 	button.set("drop_shadow_enabled", true)
 	if callable.is_valid():

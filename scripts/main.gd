@@ -141,8 +141,8 @@ const STAR_CURRENCY_TEXTURE: Texture2D = preload("res://flash_assets/star_curren
 const SINGLE_PLAYER_REFRESH_ICON: Texture2D = preload("res://flash_assets/custom_word_refresh_icon_341.png")
 const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.png")
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
-const ABOUT_VK_ICON_SIZE := Vector2(34.0, 20.0)
-const ABOUT_MAIL_ICON_SIZE := Vector2(33.0, 27.0)
+const ABOUT_VK_ICON_SIZE := Vector2.ONE * 34.0 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE
+const ABOUT_MAIL_ICON_SIZE := Vector2.ONE * 33.0 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE
 const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
 const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
@@ -669,7 +669,10 @@ func _stage_main_button(rect: Rect2, callable: Callable, text: String, font_size
 
 func _stage_round_button(rect: Rect2, callable: Callable, icon_text: String = "", disabled: bool = false, selected: bool = false, disabled_overlay_alpha: float = 0.32, color_preset: int = ROUND_BUTTON_COLOR_BLUE) -> Control:
 	var button: FlashStageTextureButton = STAGE_ROUND_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
+	if icon_text == "×":
+		button.call("configure_close", UI_FONTS.display_button_font_size(28), disabled, selected, disabled_overlay_alpha)
+	else:
+		button.call("configure_text", icon_text, disabled, selected, UI_FONTS.display_button_font_size(28), disabled_overlay_alpha)
 	button.call("set_color_preset", color_preset)
 	_connect_stage_button_action(button, callable)
 	button.stage_rect = rect

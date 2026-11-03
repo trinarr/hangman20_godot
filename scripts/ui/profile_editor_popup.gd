@@ -254,7 +254,7 @@ func _build_form() -> void:
 		arrow.name = "PreviousCharacter" if direction < 0 else "NextCharacter"
 		arrow.use_stage_layout = false
 		arrow.stage_rect = Rect2(24 if direction < 0 else 348, 266, 52, 52)
-		arrow.configure_texture(ARROW, Vector2(18, 27))
+		arrow.configure_texture(ARROW, Vector2.ONE * 27.0 * ROUND.NAV_CANVAS_SCALE)
 		arrow.set_color_preset(ROUND.ColorPreset.BLUE)
 		arrow.drop_shadow_enabled = true
 		arrow.icon_shadow_enabled = true
