@@ -24,6 +24,8 @@ var _multipliers: Array = []
 var _pointer: TextureRect
 var _frame: Panel
 var _fill: ColorRect
+var _active_zone: int = -1
+var _label_tween: Tween
 
 func build(button: Control) -> void:
 	action = button
@@ -119,24 +121,42 @@ func _process(delta: float) -> void:
 	if !running or !is_instance_valid(action) or bool(action.get("button_disabled")):
 		return
 	_elapsed += delta
-	# Shorten the leg duration with the travel distance to retain pointer speed.
+	# A longer braking phase starts before the midpoint and eases into the edge.
 	var duration: float = CONFIG.get_float("timings.animations.stage_reward_multiplier.traverse_seconds") * (CURSOR_MAX - CURSOR_MIN)
 	var pause: float = CONFIG.get_float("timings.animations.stage_reward_multiplier.endpoint_pause_seconds")
 	var phase: float = fmod(_elapsed, 2.0 * (duration + pause))
 	if phase < pause:
 		set_cursor(CURSOR_MIN)
 	elif phase < pause + duration:
-		set_cursor(lerpf(CURSOR_MIN, CURSOR_MAX, (phase - pause) / duration))
+		set_cursor(lerpf(CURSOR_MIN, CURSOR_MAX, _travel_progress((phase - pause) / duration)))
 	elif phase < 2.0 * pause + duration:
 		set_cursor(CURSOR_MAX)
 	else:
-		set_cursor(lerpf(CURSOR_MAX, CURSOR_MIN, (phase - 2.0 * pause - duration) / duration))
+		set_cursor(lerpf(CURSOR_MAX, CURSOR_MIN, _travel_progress((phase - 2.0 * pause - duration) / duration)))
+
+func _travel_progress(progress: float) -> float:
+	var acceleration: float = CONFIG.get_float("timings.animations.stage_reward_multiplier.acceleration_fraction")
+	if progress < acceleration:
+		return progress * progress * progress / (acceleration * acceleration)
+	var remaining: float = 1.0 - progress
+	var braking: float = 1.0 - acceleration
+	return 1.0 - remaining * remaining * remaining / (braking * braking)
 
 func set_cursor(value: float) -> void:
 	cursor = clampf(value, CURSOR_MIN, CURSOR_MAX)
-	for index in range(_labels.size()):
-		var distance: float = absf(cursor - (float(index) + 0.5) / 5.0)
-		var proximity: float = clampf(1.0 - distance / 0.2, 0.0, 1.0)
+	var zone: int = mini(int(cursor * 5.0), 4)
+	if zone != _active_zone:
+		_active_zone = zone
+		if _label_tween != null:
+			_label_tween.kill()
+		_label_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		var peak: float = CONFIG.get_float("timings.animations.stage_reward_multiplier.label_peak_scale")
-		_labels[index].scale = Vector2.ONE * lerpf(1.0, peak, smoothstep(0.0, 1.0, proximity))
+		var duration: float = CONFIG.get_float("timings.animations.stage_reward_multiplier.label_transition_seconds")
+		for index in range(_labels.size()):
+			_label_tween.tween_property(_labels[index], "scale", Vector2.ONE * (peak if index == zone else 1.0), duration)
 	_update_pointer_position()
+
+func _exit_tree() -> void:
+	if _label_tween != null:
+		_label_tween.kill()
+	_active_zone = -1

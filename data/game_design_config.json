@@ -199,9 +199,11 @@
     "quiz_wrong_answer_shake_step_seconds": 0.065,
     "animations": {
       "stage_reward_multiplier": {
-        "traverse_seconds": 0.8026755853,
+        "traverse_seconds": 1.5,
+        "acceleration_fraction": 0.4,
         "label_peak_scale": 1.1666666667,
-        "endpoint_pause_seconds": 0.1
+        "label_transition_seconds": 0.12,
+        "endpoint_pause_seconds": 0
       },
       "leaderboard": {
         "entrance_speed_multiplier": 1.3

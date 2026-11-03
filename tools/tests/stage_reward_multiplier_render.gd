@@ -94,6 +94,45 @@ func capture(tag: String) -> void:
 			check(thickness >= 0 and absf(float(thickness) - expected) <= ceili(render_scale.y * 0.5) + 1, "Track top/bottom scale from logical units (%d/%d): " % [edge, thickness] + tag)
 
 
+func check_moving_center(meter: Control, tag: String) -> void:
+	var previous_time_scale: float = Engine.time_scale
+	Engine.time_scale = 1.0
+	meter.set_cursor(0.1)
+	await get_tree().create_timer(0.12).timeout
+	meter._elapsed = 0.0
+	meter.running = true
+	var duration: float = GameDesignConfig.get_float("timings.animations.stage_reward_multiplier.traverse_seconds") * 0.8
+	var pause: float = GameDesignConfig.get_float("timings.animations.stage_reward_multiplier.endpoint_pause_seconds")
+	var previous_cursor: float = meter.cursor
+	var previous_scale: float = meter._labels[2].scale.x
+	var samples: Array = []
+	var directions: Array[bool] = [false, false]
+	var shrink_after_exit: Array[bool] = [false, false]
+	while meter._elapsed < 2.0 * (duration + pause):
+		await get_tree().process_frame
+		var current_cursor: float = meter.cursor
+		var current_scale: float = meter._labels[2].scale.x
+		var direction: int = 0 if meter._elapsed < duration + 2.0 * pause else 1
+		var inside: bool = current_cursor >= 0.4 and current_cursor < 0.6
+		var was_inside: bool = previous_cursor >= 0.4 and previous_cursor < 0.6
+		if inside and was_inside:
+			directions[direction] = true
+			check(current_scale + 0.00001 >= previous_scale, "Moving x3 never shrinks inside its sector: " + tag)
+		if !inside and current_scale < previous_scale - 0.00001:
+			shrink_after_exit[direction] = true
+		if inside or was_inside:
+			samples.append({"cursor": current_cursor, "scale": current_scale, "direction": direction})
+		previous_cursor = current_cursor
+		previous_scale = current_scale
+	meter.running = false
+	check(directions[0] and directions[1], "Continuous movement samples x3 in both directions: " + tag)
+	check(shrink_after_exit[0] and shrink_after_exit[1], "Moving x3 shrinks after leaving the sector in both directions: " + tag)
+	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+	if !directory.is_empty():
+		var output := FileAccess.open(directory.path_join(tag + ".json"), FileAccess.WRITE)
+		output.store_string(JSON.stringify(samples))
+	Engine.time_scale = previous_time_scale
+
 func run() -> void:
 	if DisplayServer.get_name() == "headless":
 		push_error("Stage reward multiplier rendering requires a GPU")
@@ -114,9 +153,24 @@ func run() -> void:
 			await capture("stage_double_%dx%d_%s" % [dimensions.x, dimensions.y, language])
 			await fixture()
 			var meter: Control = ui._portrait_stage_reward.multiplier_meter
+			var label_transition: float = GameDesignConfig.get_float("timings.animations.stage_reward_multiplier.label_transition_seconds")
 			for position: float in [0.1, 0.3, 0.5, 0.7, 0.9]:
 				meter.set_cursor(position)
+				await get_tree().create_timer(label_transition + 0.02).timeout
 				await capture("stage_multiplier_%dx%d_%s_%d" % [dimensions.x, dimensions.y, language, roundi(position * 10)])
+			meter.set_cursor(0.399)
+			meter._label_tween.pause()
+			meter._label_tween.custom_step(label_transition)
+			meter.set_cursor(0.4)
+			meter._label_tween.pause()
+			await capture("stage_zone_enter_%dx%d_%s" % [dimensions.x, dimensions.y, language])
+			meter._label_tween.custom_step(label_transition * 0.5)
+			check(meter._labels[2].scale.x > 1.0 and meter._labels[2].scale.x < 28.0 / 24.0, "GPU frame captures intermediate growth at sector boundary")
+			await capture("stage_zone_mid_%dx%d_%s" % [dimensions.x, dimensions.y, language])
+			meter._label_tween.custom_step(label_transition * 0.5)
+			check(is_equal_approx(meter._labels[2].scale.x, 28.0 / 24.0), "GPU frame captures full scale at sector boundary")
+			await capture("stage_zone_full_%dx%d_%s" % [dimensions.x, dimensions.y, language])
+			await check_moving_center(meter, "stage_moving_center_%dx%d_%s" % [dimensions.x, dimensions.y, language])
 			check(native.shows == 0 and !ads._rewarded_pending_show and !ui._portrait_final_reward_waiting_for_ad, "Layout matrix never requests an advertisement")
 	ui.queue_free()
 	ads.queue_free()
