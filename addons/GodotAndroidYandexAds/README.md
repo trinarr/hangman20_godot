@@ -8,8 +8,11 @@ Android export connects the unified Easy Monetization dependency
 The bridge itself compiles against the matching base SDK API 8.6.0.
 After installing the Android template, run `python tools/prepare_yandex_android.py`
 to select AGP 8.10.1 (Gradle 8.11.1, JDK 17, SDK 36).
-Google App ID from the Easy Monetization manager is still required in the app
-manifest; see `tools/EXPORT.md` before running an Android build.
+For RuStore, the Easy Monetization manager confirmed that Google App ID is not
+required because Google ads are not used in this distribution channel. Other
+channels using Google ads need the manager-provided App ID; see `tools/EXPORT.md`.
+The export plugin disables Yandex automatic SDK initialization in the manifest
+so the native provider cannot initialize it before the app privacy gate.
 
 The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by

@@ -7,6 +7,7 @@ subprojects {
     buildDir = rootProject.file("../../builds/android-plugins/${project.name}")
     android {
         compileSdk 36
+        buildToolsVersion '36.1.0'
         defaultConfig { minSdk 24 }
         compileOptions {
             sourceCompatibility JavaVersion.VERSION_17
