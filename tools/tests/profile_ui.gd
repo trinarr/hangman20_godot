@@ -720,13 +720,15 @@ func run() -> void:
 		if control.get_script() == main.STAGE_ROUND_BUTTON_SCRIPT and control.get("icon_texture") == main.PORTRAIT_MENU_SETTINGS_ICON:
 			leaderboard_has_gear = true
 	check(!leaderboard_has_gear, "Leaderboard header has no settings button")
-	main.show_settings()
+	main._portrait_leaderboard._select_tab(true)
+	main._portrait_leaderboard.profile_requested.emit()
 	await settle()
-	check(main._portrait_profile.selected_tab == "settings", "Settings navigation retains full page routing")
+	check(main._portrait_profile.selected_tab == "profile", "Own player card opens profile")
 	main._close_profile_screen()
 	await get_tree().create_timer(0.4).timeout
 	await settle()
-	check(is_instance_valid(main._portrait_leaderboard), "Settings back restores leaderboard")
+	check(is_instance_valid(main._portrait_leaderboard), "Profile back restores leaderboard")
+	check(main._portrait_leaderboard._tournament_selected, "Profile back restores the previous tournament tab")
 	check(main._portrait_header_fill.get("fill_color").is_equal_approx(main.PORTRAIT_DARK_BLUE), "Back between tabbed pages keeps dark header")
 	main._close_leaderboard_screen()
 	check(main._tabbed_closing, "Leaderboard close fades its whole page")

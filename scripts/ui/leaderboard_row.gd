@@ -17,6 +17,8 @@ const CARD_SIDE_MARGIN := 18.4
 const CARD_WIDTH := 480.0 - CARD_SIDE_MARGIN * 2.0
 const ROW_WIDTH := CARD_WIDTH + 16.0
 
+const PLAYER_PRESS = preload("res://scripts/ui/leaderboard_player_press.gd")
+
 static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Node, score_formatter: Callable, card_position: Vector2) -> void:
 	var shadow := Panel.new()
 	shadow.name = "CardShadow"
@@ -65,6 +67,11 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	counter.icon_texture = STAR
 	counter.value = score
 	card_content.add_child(counter)
+	var press := PLAYER_PRESS.new()
+	press.name = "PlayerPress"
+	press.stage_rect = Rect2(card_position, face.size)
+	press.active = mine
+	row.add_child(press)
 	row.set_meta("leaderboard_entry", entry.duplicate(true))
 	row.set_meta("leaderboard_mine", mine)
 
@@ -89,6 +96,7 @@ static func _add_rank(parent: Control, rank_value: int, rank_area_width: float) 
 
 # Preserve the row, text effects and score plate when only its data changes.
 static func update(row: Control, entry: Dictionary, mine: bool, portraits: Node, score_formatter: Callable) -> void:
+	row.get_node("PlayerPress").active = mine
 	var previous: Dictionary = row.get_meta("leaderboard_entry", {})
 	var face: Panel = row.get_node("CardFace")
 	if row.get_meta("leaderboard_mine", false) != mine:

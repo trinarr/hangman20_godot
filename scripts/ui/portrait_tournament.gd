@@ -1,4 +1,5 @@
 extends Control
+signal profile_requested
 const PAGE_TRANSFER = preload("res://scripts/ui/tabbed_page_transfer.gd")
 ## Read-only standings for the tournament created by gameplay or its introduction.
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
@@ -110,6 +111,8 @@ func _row_card(entry: Dictionary, reward: int = 0) -> Control:
 	row.custom_minimum_size = Vector2(ROW.ROW_WIDTH, ROW.ROW_HEIGHT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ROW.populate(row, _display_entry(entry), bool(entry.mine), portraits, score_formatter, Vector2(8, 0))
+	row.get_node("PlayerPress").scroll_surface = scroll
+	row.get_node("PlayerPress").pressed.connect(func(): profile_requested.emit(), CONNECT_DEFERRED)
 	row.set_meta("rank", int(entry.rank))
 	if reward > 0:
 		var face: Control = row.get_node("CardFace")

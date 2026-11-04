@@ -1,4 +1,5 @@
 extends Control
+signal profile_requested
 const PAGE_TRANSFER = preload("res://scripts/ui/tabbed_page_transfer.gd")
 signal tournament_finished
 ## Native scrolling children share one stage transform; rows never map twice.
@@ -101,6 +102,7 @@ func _ready() -> void:
 	_tournament.entrance_enabled = initial_tournament
 	_tournament.portraits = _portraits
 	_tournament.score_formatter = score_formatter
+	_tournament.profile_requested.connect(func(): profile_requested.emit())
 	add_child(_tournament)
 	# Keep the clock visible with either body and inherit the Tournament tab press.
 	_tournament.countdown.reparent(_weekly, false)
@@ -292,6 +294,8 @@ func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 		row.add_child(backdrop)
 	var card_position := Vector2(CARD_SIDE_MARGIN, (PINNED_HEIGHT - 68) * 0.5) if fixed else Vector2(8, 0)
 	ROW.populate(row, entry, mine, _portraits, score_formatter, card_position)
+	row.get_node("PlayerPress").scroll_surface = scroll
+	row.get_node("PlayerPress").pressed.connect(func(): profile_requested.emit(), CONNECT_DEFERRED)
 	return row
 
 func _label(parent: Control, rect: Rect2, text: String, font_size: int, color: Color = PALETTE.TEXT_DARK) -> Label:
@@ -400,6 +404,7 @@ func _update_pin() -> void:
 	face.position.x = CARD_SIDE_MARGIN + gutter
 	var shadow: Panel = pinned.get_node("CardShadow")
 	shadow.position.x = face.position.x
+	pinned.get_node("PlayerPress").stage_rect = Rect2(face.position, face.size)
 
 func _check_tournament_expiry() -> void:
 	if !_live or _expiry_sent or _watched_tournament_id.is_empty():

@@ -81,6 +81,12 @@ func _process(_delta: float) -> void:
 		RenderingServer.force_draw(false)
 
 func _ready() -> void:
+	var preview_size := OS.get_environment("HANGMAN_PROFILE_PREVIEW_SIZE").split("x")
+	if preview_size.size() == 2:
+		get_window().size = Vector2i(int(preview_size[0]), int(preview_size[1]))
+	if !OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE").is_empty():
+		Database.interface_language = OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE")
+		TranslationServer.set_locale(Database.interface_language)
 	await settle()
 	var view := SCREEN.new()
 	add_child(view)
@@ -95,6 +101,7 @@ func _ready() -> void:
 	view.set_snapshot(data)
 	await settle()
 	check(view._pin_side == "bottom", "Own row below viewport pins to bottom")
+	await check_player_press(view)
 	check(is_equal_approx(view.scroll.position.y, SCREEN.TABS.CONTENT_Y + SCREEN.LAYOUT.safe_top_stage(get_viewport().get_visible_rect().size) + SCREEN.TOURNAMENT_PAGE.LIST_TOP_GAP), "Global scroll mask preserves the same countdown gap as Tournament")
 	check(is_zero_approx(view.pinned.get_global_rect().position.x) and is_equal_approx(view.pinned.get_global_rect().size.x, get_viewport().get_visible_rect().size.x), "Pinned strip fills the physical viewport width")
 	var pinned_face: Panel = view.pinned.get_node("CardFace")
@@ -413,9 +420,10 @@ func inspect_offline_open() -> void:
 	transport.retry_clock_ms = 1000
 	var fixture = load("res://tools/tests/leaderboard.gd").new()
 	var client = load("res://tools/tests/leaderboard_client_mock.gd").new()
+	client.language = Database.interface_language
 	client.transport = transport
 	add_child(client)
-	transport.replies = [fixture.reply()]
+	transport.replies = [fixture.reply(80, true, Database.interface_language)]
 	var warm := SCREEN.new()
 	warm.service = client
 	add_child(warm)
@@ -446,6 +454,7 @@ func inspect_offline_open() -> void:
 	offline.queue_free()
 	await settle()
 	var restored = load("res://tools/tests/leaderboard_client_mock.gd").new()
+	restored.language = Database.interface_language
 	restored.transport = transport
 	restored.save_file = client.save_file
 	add_child(restored)
@@ -461,7 +470,7 @@ func inspect_offline_open() -> void:
 	restarted._retry.pressed.emit()
 	await settle_transport(restored, transport)
 	check(restarted._has_error and restarted._retry.visible, "Offline authentication failure reaches the same error UI")
-	transport.replies = [fixture.tokens(), fixture.reply()]
+	transport.replies = [fixture.tokens(), fixture.reply(80, true, Database.interface_language)]
 	restarted._retry.pressed.emit()
 	await settle_transport(restored, transport)
 	await settle()
@@ -478,3 +487,98 @@ func settle_transport(client: Node, transport: Node) -> void:
 		if !client._busy and !transport._auth_busy and transport.active_calls == 0:
 			return
 	check(false, "Leaderboard UI transport settles without wall-clock waits")
+
+func check_player_press(view: Control) -> void:
+	var activations := [0]
+	view.profile_requested.connect(func(): activations[0] += 1)
+	var press: Control = view.pinned.get_node("PlayerPress")
+	var point := press.get_global_rect().get_center()
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	get_viewport().push_input(motion, true)
+	await settle()
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.position = point
+	down.pressed = true
+	get_viewport().push_input(down, true)
+	await get_tree().create_timer(0.03).timeout
+	await capture_press("pinned_pressed")
+	check(press._is_down and press.visual_scale.x < 1.0, "Pinned own card visibly presses without taking GUI input")
+	check(press.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Card leaves native scrolling input untouched")
+	var up := down.duplicate() as InputEventMouseButton
+	up.pressed = false
+	get_viewport().push_input(up, true)
+	await get_tree().create_timer(0.12).timeout
+	await capture_press("pinned_released")
+	check(activations[0] == 1 and press.visual_scale.is_equal_approx(Vector2.ONE), "Tap activates profile once and restores the card")
+	get_viewport().push_input(down, true)
+	motion.relative = Vector2(0, -40)
+	motion.position = point + motion.relative
+	motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+	get_viewport().push_input(motion, true)
+	get_viewport().push_input(up, true)
+	await get_tree().create_timer(0.12).timeout
+	check(activations[0] == 1 and !press._is_down and press.visual_scale.is_equal_approx(Vector2.ONE), "Drag starting on pinned card cancels activation and restores scale")
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel.position = point
+	wheel.pressed = true
+	get_viewport().push_input(wheel, true)
+	await settle()
+	check(view.scroll.scroll_vertical > 0, "Wheel over pinned own card still scrolls the underlying list")
+	view.scroll.scroll_vertical = int(view.own_row.position.y) - 200
+	await settle()
+	press = view.own_row.get_node("PlayerPress")
+	point = press.get_global_rect().get_center()
+	motion.position = point
+	motion.relative = Vector2.ZERO
+	motion.button_mask = 0
+	get_viewport().push_input(motion, true)
+	down.position = point
+	up.position = point
+	get_viewport().push_input(down, true)
+	await get_tree().create_timer(0.03).timeout
+	check(!view.pinned.visible and press._is_down and press.visual_scale.x < 1.0, "Own row inside the list has the same press effect")
+	get_viewport().push_input(up, true)
+	await get_tree().create_timer(0.12).timeout
+	check(activations[0] == 2, "Own row inside the list activates profile once")
+	var previous_emulation := Input.emulate_touch_from_mouse
+	Input.emulate_touch_from_mouse = true
+	var touch := InputEventScreenTouch.new()
+	touch.index = 0
+	touch.position = point
+	touch.pressed = true
+	get_viewport().push_input(touch, true)
+	get_viewport().push_input(down, true)
+	var before: int = view.scroll.scroll_vertical
+	for step in range(1, 5):
+		var drag := InputEventScreenDrag.new()
+		drag.index = 0
+		drag.position = point - Vector2(0, step * 25)
+		drag.relative = Vector2(0, -25)
+		get_viewport().push_input(drag, true)
+		motion.position = drag.position
+		motion.relative = drag.relative
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		get_viewport().push_input(motion, true)
+		await get_tree().process_frame
+	touch.pressed = false
+	touch.position = motion.position
+	get_viewport().push_input(touch, true)
+	up.position = motion.position
+	get_viewport().push_input(up, true)
+	await get_tree().create_timer(0.12).timeout
+	Input.emulate_touch_from_mouse = previous_emulation
+	check(view.scroll.scroll_vertical > before and activations[0] == 2 and !press._is_down, "Touch drag from own row scrolls natively without opening profile")
+	view.scroll.scroll_vertical = 0
+	await settle()
+	check(!view.rows.get_child(1).get_node("PlayerPress").active, "Other players remain noninteractive")
+
+func capture_press(state: String) -> void:
+	var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+	if directory.is_empty() or DisplayServer.get_name() == "headless":
+		return
+	await RenderingServer.frame_post_draw
+	var dimensions := get_window().size
+	get_viewport().get_texture().get_image().save_png(directory.path_join("player_%s_%s_%dx%d.png" % [state, Database.interface_language, dimensions.x, dimensions.y]))

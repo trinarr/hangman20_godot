@@ -17583,6 +17583,7 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	_portrait_leaderboard.initial_tournament = tournament
 	_portrait_leaderboard.service = Leaderboard
 	_portrait_leaderboard.score_formatter = Callable(self, "_grouped_counter_text")
+	_portrait_leaderboard.profile_requested.connect(show_profile)
 	_portrait_leaderboard.tournament_finished.connect(
 		_on_leaderboard_tournament_finished.bind(weakref(_portrait_leaderboard)), CONNECT_DEFERRED)
 	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
@@ -17656,9 +17657,18 @@ func _open_profile_tab(tab: String) -> void:
 	if is_instance_valid(_portrait_profile):
 		_portrait_profile.select_tab(tab)
 		return
-	var return_action := Callable(self, "_show_leaderboard_screen") if is_instance_valid(_portrait_leaderboard) else Callable(self, "show_menu")
+	var return_action := Callable(self, "show_menu")
+	if is_instance_valid(_portrait_leaderboard):
+		return_action = Callable(self, "_restore_leaderboard_screen").bind(
+			_portrait_leaderboard._tournament_selected, _portrait_leaderboard.scroll.scroll_vertical,
+			_portrait_leaderboard._tournament.scroll.scroll_vertical)
 	var action := Callable(self, "_show_profile_screen").bind(tab, return_action)
 	_open_tabbed_page(action)
+
+func _restore_leaderboard_screen(tournament: bool, global_scroll: int, tournament_scroll: int) -> void:
+	_show_leaderboard_screen(tournament)
+	_portrait_leaderboard.scroll.set_deferred("scroll_vertical", global_scroll)
+	_portrait_leaderboard._tournament.scroll.set_deferred("scroll_vertical", tournament_scroll)
 
 func _show_profile_screen(tab: String = "profile", return_action: Callable = Callable()) -> void:
 	Analytics.screen("profile")
