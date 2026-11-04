@@ -25,6 +25,22 @@ class TestUI extends "res://scripts/main_portrait.gd":
 	func _perform_single_player_theme_reroll(_level_index: int) -> void:
 		rerolls += 1
 
+class LegalAcceptanceUI extends "res://scripts/main_portrait.gd":
+	var calls: Array[String] = []
+	var legal_saved_before_init: bool = false
+	func _ready() -> void:
+		pass
+	func _remove_legal_consent_popup() -> void:
+		calls.append("popup_removed")
+	func _initialize_yandex_ads_from_saved_consent() -> bool:
+		legal_saved_before_init = GameState.has_accepted_legal_documents()
+		calls.append("initialize")
+		return true
+	func _check_startup_guided_resume() -> void:
+		pass
+	func _refresh_portrait_ad_banner_after_permission() -> void:
+		calls.append("banner")
+
 var checks: int = 0
 var failures: Array[String] = []
 
@@ -68,6 +84,7 @@ func run() -> void:
 	GameState.ad_personalization_choice_source = "user_settings"
 	check(GameState.accept_legal_documents(), "new mediation policy accepts an earlier refusal")
 	check(GameState.ad_personalization_choice == GameState.AdPersonalizationChoice.DENIED and GameState.ad_personalization_choice_at == 456 and GameState.ad_personalization_choice_source == "user_settings", "mediation policy preserves refusal and metadata")
+	_check_legal_acceptance_restarts_ads()
 	service.sync_collection()
 	check(native.enabled, "current documents enable measurement independently of Yandex personalization")
 	check(native.events.size() == 1 and native.events[0].event == "screen_view" and native.events[0].parameters.screen_name == "profile", "acceptance logs only the currently visible screen without replaying earlier views")
@@ -185,6 +202,25 @@ func run() -> void:
 	print("FIREBASE_ANALYTICS " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
 
+func _check_legal_acceptance_restarts_ads() -> void:
+	var previous_ads_unlocked: bool = GameState.ads_unlocked
+	GameState.ads_unlocked = true
+	GameState.accepted_legal_documents_version = 0
+	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.DENIED
+	var ui := LegalAcceptanceUI.new()
+	add_child(ui)
+	GameState._save_blocked_by_future_version = true
+	ui._accept_legal_documents()
+	check(ui.calls.is_empty() and !GameState.has_accepted_legal_documents(), "failed legal save cannot start ads or dismiss the gate")
+	GameState._save_blocked_by_future_version = false
+	ui._accept_legal_documents()
+	check(ui.calls == ["popup_removed", "initialize", "banner"] and ui.legal_saved_before_init, "legal acceptance restarts ads and banner without waiting for a cached region change")
+	GameState.load_game()
+	check(GameState.has_accepted_legal_documents() and GameState.ad_personalization_choice == GameState.AdPersonalizationChoice.DENIED, "restarted ads use durably accepted documents and preserve refusal")
+	ui.free()
+	GameState.ads_unlocked = previous_ads_unlocked
+	GameState.save_game()
+
 func _check_quiz_hints_and_coin_reroll() -> void:
 	var previous_native: Object = Analytics._native
 	var native := Native.new()
@@ -216,11 +252,59 @@ func _check_quiz_hints_and_coin_reroll() -> void:
 	check(ui.rerolls == 1 and native.events.size() == 1, "repeated unavailable reroll does not duplicate analytics")
 	_check_rewarded_rerolls(ui, native)
 	ui.free()
+	_check_word_hints(native)
 	_check_two_player_results(native)
 	_check_economy(native)
 	await _check_ad_offers(native)
 	Analytics._native = previous_native
 	Analytics.sync_collection()
+
+func _check_word_hints(native: Native) -> void:
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	var bucket: Dictionary = GameState._single_player_bucket(Database.current_language)
+	var previous_level: int = int(bucket.get("unlocked_level", 0))
+	bucket["unlocked_level"] = GameState.GAME_DESIGN.get_int("progression.hints.all_unlocked_from_level")
+	var candidates: Array = Database.get_words_by_index(0).filter(func(item: Dictionary) -> bool: return str(item.text).length() >= 6)
+	var entry: Dictionary = candidates[0]
+	var word := WordData.new(str(entry.text), float(entry.difficulty), 0, int(entry.index), str(entry.id))
+	for hint: String in [GameState.HINT_OPEN_LETTER, GameState.HINT_REMOVE_WRONG, GameState.HINT_COMMENT]:
+		var activate: Callable = GameSession.use_open_letter_hint
+		var repeat_ad: Callable = GameSession.use_open_letter_hint_ad
+		if hint == GameState.HINT_REMOVE_WRONG:
+			activate = GameSession.use_remove_wrong_hint
+			repeat_ad = GameSession.use_remove_wrong_hint_ad
+		elif hint == GameState.HINT_COMMENT:
+			activate = GameSession.unlock_comment_hint
+		for inventory: bool in [true, false]:
+			GameSession.start_round(word)
+			GameState.hint_counts[hint] = 1 if inventory else 0
+			GameState.soft_currency = GameState.get_hint_cost(hint)
+			native.events.clear()
+			check(activate.call(), "word hint activates after payment: " + hint)
+			var events: Array = native.events.filter(func(item: Dictionary) -> bool: return item.event == "hint_used")
+			check(events.size() == 1 and events[0].parameters.hint_type == hint and events[0].parameters.source == ("inventory" if inventory else "coins") and events[0].parameters.stage_type == "word", "word hint logs its actual source once: " + hint)
+			if hint == GameState.HINT_COMMENT:
+				check(GameSession.unlock_comment_hint() and native.count("hint_used") == 1, "viewing an activated comment never logs a second use")
+				var saved: Dictionary = GameSession.to_save_data()
+				GameSession.discard_current_round()
+				check(GameSession.restore_from_save_data(saved) and GameSession.unlock_comment_hint() and native.count("hint_used") == 1, "restored comment stays activated without another use event")
+			else:
+				check(!activate.call() and native.count("hint_used") == 1, "repeated paid word hint cannot duplicate use")
+				check(repeat_ad.call(), "rewarded word hint reuse activates")
+				check(native.count("hint_used") == 2 and native.events.back().parameters.source == "rewarded", "rewarded word hint reuse logs its source once")
+				check(!repeat_ad.call() and native.count("hint_used") == 2, "duplicate rewarded activation never logs another use")
+		GameSession.start_round(word)
+		GameState.hint_counts[hint] = 0
+		GameState.soft_currency = 0
+		native.events.clear()
+		check(!activate.call() and native.count("hint_used") == 0, "unaffordable word hint never logs use: " + hint)
+	GameSession.start_round(word)
+	GameState.hint_counts[GameState.HINT_COMMENT] = 1
+	native.events.clear()
+	check(GameSession.unlock_comment_hint() and native.count("hint_used") == 1, "a new stage permits its own first comment activation")
+	GameSession.discard_current_round()
+	bucket["unlocked_level"] = previous_level
+	Analytics._discard_economy()
 
 func _check_rewarded_rerolls(ui: TestUI, native: Native) -> void:
 	var popup := Control.new()

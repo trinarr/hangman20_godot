@@ -255,7 +255,7 @@ func _on_ads_became_available() -> void:
 	_initialize_yandex_ads_from_saved_consent()
 
 func _trace_ad_banner(event: String, details: Dictionary = {}) -> void:
-	if !OS.is_debug_build():
+	if !OS.is_debug_build() or !bool(ProjectSettings.get_setting("yandex_ads/logging_enabled", false)):
 		return
 	var ads_service: Node = get_node_or_null("/root/YandexAdsService")
 	var state: Dictionary = details.duplicate()

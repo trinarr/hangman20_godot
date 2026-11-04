@@ -4,16 +4,19 @@ const ADS_SCRIPT: GDScript = preload("res://yandex_ads.gd")
 
 # Exercise production placement routing even when the test engine is debug.
 class ReleaseAds extends "res://yandex_ads.gd":
-	func _rewarded_id_for_placement(placement: StringName) -> String:
-		return RELEASE_REWARDED_ID if REWARDED_PLACEMENTS.has(placement) else ""
-	func _interstitial_id_for_placement(placement: StringName) -> String:
-		return RELEASE_INTERSTITIAL_ID if INTERSTITIAL_PLACEMENTS.has(placement) else ""
+	var store: String = "rustore"
+	func _uses_demo_units() -> bool:
+		return false
+	func _distribution_store() -> String:
+		return store
 
 class FakeNative extends RefCounted:
 	var calls: Array[String] = []
+	var logging_enabled: bool = false
 	func setUserConsent(value: bool) -> void:
 		calls.append("consent:%s" % value)
 	func configure(_age: bool, consent: bool, _logging: bool) -> void:
+		logging_enabled = _logging
 		calls.append("configure:%s" % consent)
 	func hideBanner() -> void:
 		calls.append("hide_banner")
@@ -71,6 +74,7 @@ func service():
 	return ads
 
 func _initialize() -> void:
+	test_diagnostic_logging()
 	test_shared_placement_cache()
 	test_impression_placement()
 	test_tagged_interstitial_lifecycle()
@@ -162,6 +166,26 @@ func _initialize() -> void:
 	reward_service.free()
 	print("Ad consent tests: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
+
+func test_diagnostic_logging() -> void:
+	var ads = ADS_SCRIPT.new()
+	ProjectSettings.set_setting("yandex_ads/logging_enabled", null)
+	ads._read_project_settings()
+	check(!ads.logging_enabled, "advertising diagnostics default to off")
+	ads.trace_banner("disabled")
+	check(ads._banner_diag_sequence == 0, "disabled diagnostics never collect or print banner state")
+	for enabled: bool in [true, false]:
+		ProjectSettings.set_setting("yandex_ads/logging_enabled", enabled)
+		ads._read_project_settings()
+		ads._native = FakeNative.new()
+		ads._sdk_initialization_requested = false
+		ads.initialize_after_consent(false)
+		check(ads._native.logging_enabled == (enabled and OS.is_debug_build()), "native logging follows the same debug setting")
+		var before: int = ads._banner_diag_sequence
+		ads.trace_banner("toggle")
+		check(ads._banner_diag_sequence == before + int(enabled and OS.is_debug_build()), "banner diagnostics follow the setting after toggling")
+	ProjectSettings.set_setting("yandex_ads/logging_enabled", null)
+	ads.free()
 
 func test_native_signal_subscription() -> void:
 	var ads = service()
@@ -257,9 +281,18 @@ func test_tagged_interstitial_lifecycle() -> void:
 	ads.free()
 
 func test_shared_placement_cache() -> void:
+	var other_store := ReleaseAds.new()
+	other_store.store = "google_play"
+	check(other_store._release_unit_id("banner").is_empty(), "unconfigured Google Play never uses the RuStore banner")
+	check(other_store._rewarded_id_for_placement(&"hint_open").is_empty(), "unconfigured Google Play never uses RuStore rewarded")
+	check(other_store._interstitial_id_for_placement(&"quiz_correct").is_empty(), "unconfigured Google Play never uses RuStore interstitial")
+	other_store.store = ""
+	check(other_store._release_unit_id("banner").is_empty(), "missing store never defaults to RuStore")
+	check(ADS_SCRIPT.STORE_CONFIG.store_from_features(PackedStringArray(["rustore", "google_play"])) == "", "ambiguous store is rejected")
+	other_store.free()
 	for complete_load: bool in [false, true]:
 		var ads = ReleaseAds.new()
-		check(ads.RELEASE_BANNER_ID == "R-M-20326744-9", "production banner uses Easy Monetization unit")
+		check(ads._release_unit_id("banner") == "R-M-20326744-9", "RuStore banner uses Easy Monetization unit")
 		ads._native = FakeNative.new()
 		ads._sdk_ready = true
 		ads.prepare_rewarded_placement(&"stage_coin")

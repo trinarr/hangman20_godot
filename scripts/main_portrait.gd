@@ -4232,7 +4232,9 @@ func _accept_legal_documents() -> void:
 		return
 	_remove_legal_consent_popup()
 	ConsentRegion.refresh()
+	_initialize_yandex_ads_from_saved_consent()
 	_check_startup_guided_resume()
+	_refresh_portrait_ad_banner_after_permission()
 
 func _show_user_consent_popup(
 	from_settings: bool = false,

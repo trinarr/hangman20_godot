@@ -24,9 +24,7 @@ signal rewarded_video_closed
 const DEFAULT_BANNER_ID := "demo-banner-yandex"
 const DEFAULT_INTERSTITIAL_ID := "demo-interstitial-yandex"
 const DEFAULT_REWARDED_ID := "demo-rewarded-yandex"
-const RELEASE_BANNER_ID := "R-M-20326744-9"
-const RELEASE_REWARDED_ID := "R-M-20326744-4"
-const RELEASE_INTERSTITIAL_ID := "R-M-20326744-1"
+const STORE_CONFIG = preload("store_config.gd")
 # Gameplay placements share one cached ad per format. Reward receipts still
 # identify the action independently of the advertising unit.
 const REWARDED_PLACEMENTS: Array[StringName] = [
@@ -79,13 +77,13 @@ var _interstitial_show_open: bool = false
 var _analytics_shows: Dictionary = {}
 var _rewarded_wait_started: int = 0
 
-# Temporary debug-only diagnostics. No IP, token or ad payloads.
+# Opt-in debug diagnostics. No IP, token or ad payloads.
 var _banner_diag_sequence: int = 0
 var _banner_diag_sdk_started_ms: int = -1
 var _banner_diag_load_started_ms: int = -1
 
 func trace_banner(event: String, details: Dictionary = {}) -> void:
-	if !OS.is_debug_build():
+	if !OS.is_debug_build() or !logging_enabled:
 		return
 	_banner_diag_sequence += 1
 	var now: int = Time.get_ticks_msec()
@@ -115,12 +113,12 @@ func _exit_tree() -> void:
 func _read_project_settings() -> void:
 	# Debug/editor builds always use Yandex demo units. Release exports use the
 	# production banner immediately; fullscreen formats wait for a gameplay placement.
-	if OS.is_debug_build():
+	if _uses_demo_units():
 		banner_id = DEFAULT_BANNER_ID
 		interstitial_id = DEFAULT_INTERSTITIAL_ID
 		rewarded_id = DEFAULT_REWARDED_ID
 	else:
-		banner_id = RELEASE_BANNER_ID
+		banner_id = _release_unit_id("banner")
 		interstitial_id = ""
 		rewarded_id = ""
 	user_consent = bool(ProjectSettings.get_setting("yandex_ads/user_consent", false))
@@ -130,22 +128,31 @@ func _read_project_settings() -> void:
 	))
 	logging_enabled = OS.is_debug_build() and bool(ProjectSettings.get_setting(
 		"yandex_ads/logging_enabled",
-		OS.is_debug_build()
+		false
 	))
+
+func _uses_demo_units() -> bool:
+	return OS.is_debug_build()
+
+func _distribution_store() -> String:
+	return STORE_CONFIG.runtime_store()
+
+func _release_unit_id(format: String) -> String:
+	return str(STORE_CONFIG.profile(_distribution_store()).get(format + "_id", ""))
 
 func _rewarded_id_for_placement(placement: StringName) -> String:
 	if !REWARDED_PLACEMENTS.has(placement):
 		return ""
-	if OS.is_debug_build():
+	if _uses_demo_units():
 		return DEFAULT_REWARDED_ID
-	return RELEASE_REWARDED_ID
+	return _release_unit_id("rewarded")
 
 func _interstitial_id_for_placement(placement: StringName) -> String:
 	if !INTERSTITIAL_PLACEMENTS.has(placement):
 		return ""
-	if OS.is_debug_build():
+	if _uses_demo_units():
 		return DEFAULT_INTERSTITIAL_ID
-	return RELEASE_INTERSTITIAL_ID
+	return _release_unit_id("interstitial")
 
 func _bind_native_plugin() -> bool:
 	if !Engine.has_singleton(PLUGIN_SINGLETON):

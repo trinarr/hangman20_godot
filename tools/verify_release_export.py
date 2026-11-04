@@ -10,6 +10,8 @@ import re
 import struct
 import subprocess
 import zipfile
+import xml.etree.ElementTree as ET
+from export_android import STORES, validate_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 DEBUG_AUTOLOADS = {"DebugLogBridge", "DevConsole"}
@@ -26,7 +28,8 @@ REQUIRED_FILES = (
     "data/quiz_explanations_ru.json", "data/quiz_explanations_en.json",
     "localization/translations.ru.translation", "localization/translations.en.translation",
     "LICENSE", "LICENSE.ru.txt", "THIRD_PARTY_NOTICES.md",
-    "addons/GodotAndroidYandexAds/LICENSE", "fonts/RobotoFlex-OFL.txt", "fonts/OFL-BalsamiqSans.txt",
+    "addons/GodotAndroidYandexAds/LICENSE", "data/ad_store_profiles.json",
+    "addons/GodotAndroidYandexAds/store_config.gd", "fonts/RobotoFlex-OFL.txt", "fonts/OFL-BalsamiqSans.txt",
 )
 
 
@@ -39,8 +42,8 @@ def verify_presets(root: Path = ROOT) -> None:
     presets = configparser.ConfigParser(interpolation=None)
     presets.optionxform = str
     presets.read(root / "export_presets.cfg", encoding="utf-8")
-    require(presets["preset.0"]["name"] == '"Hangman 2.0"', "Release preset is missing")
-    require(presets["preset.1"]["name"] == '"Hangman 2.0 Debug"', "Debug preset is missing")
+    require(presets["preset.0"]["name"] == '"Hangman 2.0 RuStore"', "Release preset is missing")
+    require(presets["preset.1"]["name"] == '"Hangman 2.0 RuStore Debug"', "Debug preset is missing")
     release_options = dict(presets["preset.0.options"])
     debug_options = dict(presets["preset.1.options"])
     require(release_options.pop("gradle_build/export_format", None) == "1",
@@ -54,6 +57,15 @@ def verify_presets(root: Path = ROOT) -> None:
         require(pattern in release_filters, "Release filter missing: " + pattern)
     features = presets["preset.0"]["custom_features"].strip('"').split(",")
     require(not set(features) & {"debug", "editor", "dev", "test"}, "Development feature enabled in release preset")
+    for index, store, name in ((0, "rustore", "RuStore"), (2, "google_play", "Google Play")):
+        for offset, suffix in ((0, ""), (1, " Debug")):
+            section = f"preset.{index + offset}"
+            require(presets[section]["name"] == f'"Hangman 2.0 {name}{suffix}"', "Store preset is missing")
+            require(presets[section]["custom_features"] == f'"{store}"', "Store feature is missing or ambiguous")
+            require(dict(presets[section + ".options"]) == dict(presets[f"preset.{offset}.options"]),
+                    "Shared Android options differ between stores")
+            require(presets[section]["exclude_filter"] == presets[f"preset.{offset}"]["exclude_filter"],
+                    "Store resource filters differ")
 
 
 def project_properties(data: bytes) -> dict[str, bytes]:
@@ -112,7 +124,9 @@ def verify_properties(properties: dict[str, bytes], root: Path = ROOT) -> None:
 
 def verify_archive(archive: zipfile.ZipFile, root: Path = ROOT) -> int:
     names = archive.namelist()
-    prefix = "assets/" if "assets/project.binary" in names else ""
+    settings = [name for name in names if name in {"project.binary", "assets/project.binary"} or name.endswith("/assets/project.binary")]
+    require(len(settings) == 1, "Expected exactly one Godot project.binary in resource ZIP/APK/AAB")
+    prefix = settings[0].removesuffix("project.binary")
     files = {name[len(prefix):] for name in names if name.startswith(prefix) and not name.endswith("/")}
 
     def read(path):
@@ -136,6 +150,10 @@ def verify_archive(archive: zipfile.ZipFile, root: Path = ROOT) -> int:
                 require(target in files, "Missing imported resource: " + target)
     properties = project_properties(read("project.binary"))
     verify_properties(properties, root)
+    require("_custom_features" in properties, "Release store feature is missing")
+    stores = STORES.intersection(variant_string(properties["_custom_features"]).split(","))
+    require(len(stores) == 1, "Release must select exactly one store")
+    validate_profile(json.loads(read("data/ad_store_profiles.json")), stores.pop())
     for key, value in properties.items():
         if key.startswith("autoload/"):
             path = variant_string(value).removeprefix("*").removeprefix("res://")
@@ -152,11 +170,26 @@ def verify_archive(archive: zipfile.ZipFile, root: Path = ROOT) -> int:
     return len(files)
 
 
+def verify_bundle_manifest(xml: str) -> None:
+    manifest = ET.fromstring(xml)
+    android = "{http://schemas.android.com/apk/res/android}"
+    require(manifest.get("package") == "com.trinarr.Hangman20", "Unexpected Android package ID")
+    application = manifest.find("application")
+    require(application is not None, "Missing Android application")
+    require(application.get(android + "debuggable", "false") == "false", "AAB manifest enables debugging")
+    providers = {item.get(android + "name") for item in application.findall("provider")}
+    require(not providers.intersection({"com.applovin.sdk.AppLovinInitProvider", "com.startapp.sdk.adsbase.StartAppInitProvider", "com.yandex.mobile.ads.core.initializer.YandexAdsInitializeProvider", "com.google.firebase.provider.FirebaseInitProvider"}), "Early initialization provider in AAB")
+    metadata = {item.get(android + "name"): item.get(android + "value") for item in application.findall("meta-data")}
+    require(metadata.get("com.my.target.autoInitMode") == "0", "MyTarget auto-init is not disabled")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("archive", type=Path, help="ZIP from --export-pack or final APK")
+    parser.add_argument("archive", type=Path, help="Resource ZIP, final APK or AAB")
     parser.add_argument("--aapt", type=Path, help="Android SDK aapt.exe; required for APK manifest checks")
     parser.add_argument("--check-presets", action="store_true", help="Also check this checkout's release/debug presets")
+    parser.add_argument("--bundletool", type=Path, help="Official bundletool-all.jar; required for AAB validation")
+    parser.add_argument("--java", default="java", help="Java executable for bundletool")
     args = parser.parse_args()
     try:
         with zipfile.ZipFile(args.archive) as archive:
@@ -169,8 +202,14 @@ def main() -> None:
                                       capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
             require("application-debuggable" not in manifest, "APK manifest enables debugging")
             require("name='com.trinarr.Hangman20'" in manifest, "Unexpected Android package ID")
+        elif args.archive.suffix.lower() == ".aab":
+            require(args.bundletool is not None, "AAB verification requires --bundletool")
+            command = [args.java, "-jar", str(args.bundletool)]
+            subprocess.run(command + ["validate", "--bundle=" + str(args.archive)], check=True, capture_output=True)
+            manifest = subprocess.run(command + ["dump", "manifest", "--bundle=" + str(args.archive), "--module=base"], capture_output=True, text=True, encoding="utf-8", check=True).stdout
+            verify_bundle_manifest(manifest)
         print(f"RELEASE_EXPORT files={count} failures=0")
-    except (ValueError, KeyError, OSError, struct.error, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
+    except (ValueError, KeyError, OSError, struct.error, ET.ParseError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         raise SystemExit("Release export verification failed: " + str(error)) from error
 
 

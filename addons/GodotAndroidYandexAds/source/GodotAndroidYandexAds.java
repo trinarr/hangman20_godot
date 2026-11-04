@@ -6,6 +6,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import com.yandex.mobile.ads.banner.BannerAdEventListener;
@@ -119,7 +120,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
             }
             initializationRequested = true;
             YandexAds.initialize(activity.getApplicationContext(), () -> {
-                if (debugLogging) Log.d(TAG, "Yandex Mobile Ads SDK initialized");
+                if (diagnosticLogging) Log.d(TAG, "Yandex Mobile Ads SDK initialized");
                 emitSignal("_on_sdk_initialized");
             });
         });
@@ -168,8 +169,8 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         bannerAdView.setBannerAdEventListener(createBannerEventListener());
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
+                bannerAdSize.getWidthInPixels(activity),
+                bannerAdSize.getHeightInPixels(activity)
         );
         params.gravity = (onTop ? Gravity.TOP : Gravity.BOTTOM) | Gravity.CENTER_HORIZONTAL;
         bannerParent.addView(bannerAdView, params);
@@ -187,8 +188,16 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
                 bannerLoaded = true;
                 bannerWidthPixels = bannerAdSize.getWidthInPixels(activity);
                 bannerHeightPixels = bannerAdSize.getHeightInPixels(activity);
-                if ((activity.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-                    Log.d(TAG, "Banner loaded: " + bannerWidthPixels + "x" + bannerHeightPixels + " px");
+                final BannerAdView loadedView = bannerAdView;
+                final int widthPixels = bannerWidthPixels;
+                final int heightPixels = bannerHeightPixels;
+                loadedView.post(() -> {
+                    if (bannerAdView == loadedView && !activity.isFinishing()) {
+                        fitAppLovinBannerView(loadedView, widthPixels, heightPixels);
+                    }
+                });
+                if (diagnosticLogging) {
+                    Log.d(TAG, "Banner loaded, requested size: " + bannerWidthPixels + "x" + bannerHeightPixels + " px");
                 }
                 emitSignal("_on_banner_loaded");
             }
@@ -196,7 +205,8 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
             @Override
             public void onAdFailedToLoad(AdRequestError error) {
                 bannerLoaded = false;
-                Log.w(TAG, "Banner failed to load: " + error.getDescription());
+                Log.w(TAG, "Banner failed to load: code=" + error.getCode());
+                if (diagnosticLogging) Log.d(TAG, "Banner load details: " + error.getDescription());
                 emitSignal("_on_banner_failed_to_load", error.getCode());
             }
 
@@ -211,6 +221,30 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
                 if (impressionData != null) { emitSignal("_on_ad_impression", "", "banner", impressionData.getRawData()); }
             }
         };
+    }
+
+    private boolean fitAppLovinBannerView(View view, int widthPixels, int heightPixels) {
+        // AppLovin 13.6.3's BANNER WebView fills its parent, but the Yandex
+        // adapter leaves the public AppLovinAdView wrapping that child.
+        // Size that public view; do not alter the SDK's internal WebView.
+        if ("com.applovin.adview.AppLovinAdView".equals(view.getClass().getName())) {
+            ViewGroup.LayoutParams params = view.getLayoutParams();
+            if (params != null) {
+                params.width = widthPixels;
+                params.height = heightPixels;
+                view.setLayoutParams(params);
+            }
+            return true;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (fitAppLovinBannerView(group.getChildAt(index), widthPixels, heightPixels)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @UsedByGodot

@@ -39,7 +39,7 @@ func _ready() -> void:
 	GameState.save_loaded.connect(_discard_economy)
 	GameSession.round_started.connect(_on_round_started)
 	GameSession.round_finished.connect(_on_round_finished)
-	GameSession.hint_letters_selected.connect(_on_hint_used)
+	GameSession.hint_activated.connect(_on_hint_used)
 	YandexAdsService.analytics_event.connect(track)
 	YandexAdsService.ad_impression_received.connect(ad_impression)
 	sync_collection()
@@ -195,8 +195,8 @@ func _on_attempt_reset(language: String, level: int) -> void:
 	if str(_pending_stage.get("attempt_prefix", "")) == prefix:
 		_pending_stage.clear()
 
-func _on_hint_used(_letters: PackedStringArray, correct: bool) -> void:
-	track("hint_used", {"hint_type": "open_letter" if correct else "remove_wrong"})
+func _on_hint_used(hint_type: String, source: String) -> void:
+	track("hint_used", {"hint_type": hint_type, "source": source, "stage_type": "word"})
 
 func _on_stage_completed(language: String, level: int, slot: int, won: bool, completed: bool, quiz: bool, perfect: bool, outcome: String = "") -> void:
 	var parameters: Dictionary = {"game_mode": "single_player", "content_language": language, "level_number": level + 1, "stage_number": slot + 1, "success": won, "stage_type": "quiz" if quiz else "word", "outcome": outcome if !outcome.is_empty() else ("win" if won else "loss")}

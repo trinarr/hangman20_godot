@@ -473,10 +473,6 @@ func _flush() -> void:
 			_debug_log("Top received: rows=%d real=%d fillers=%d cis=%d english=%d total_players=%d language=%s" % [
 				_snapshot.top.size(), _snapshot.top.size() - filler_count, filler_count, cis_count, filler_count-cis_count,
 				int(body.total_players), body.language])
-			if OS.is_debug_build():
-				for row: Dictionary in _snapshot.top:
-					_debug_log("Top: rank=%d player=%s nickname=%s stars=%d is_me=%s is_filler=%s" % [
-						int(row.rank), row.player_id, row.nickname, int(row.stars), row.is_me, row.is_filler])
 		else:
 			_snapshot["me"] = body.me
 			_snapshot["total_players"] = body.total_players
@@ -486,10 +482,10 @@ func _flush() -> void:
 				_debug_log("Language changed during request; loading the current nickname pool")
 		if body.me != null:
 			if body.me.rank != null:
-				_debug_log("Own result: rank=%d player=%s stars=%d" % [int(body.me.rank), body.me.player_id, int(body.me.stars)])
+				_debug_log("Own result: rank=%d stars=%d" % [int(body.me.rank), int(body.me.stars)])
 			else:
-				_debug_log("Own result: rank=100+ player=%s stars=%d total_players=%d" % [
-					body.me.player_id, int(body.me.stars), int(body.total_players)])
+				_debug_log("Own result: rank=100+ stars=%d total_players=%d" % [
+					int(body.me.stars), int(body.total_players)])
 		else:
 			_debug_log("Own result: not yet participating")
 		if include_top and current_language:

@@ -47,6 +47,16 @@ const DISPLAY_BUTTON_FONT_SCALE: float = 1.25
 # axes can share one variation instead of creating one for every new widget.
 static var _variations: Dictionary = {}
 static var _variable_bitmap_font: FontFile
+static var _msdf_warning_paths: Dictionary = {}
+
+static func _load_msdf_font(path: String, expected_size: int = 64) -> FontFile:
+	var font: FontFile = ResourceLoader.load(path) as FontFile if ResourceLoader.exists(path) else null
+	if font != null and font.multichannel_signed_distance_field and font.msdf_size == expected_size and font.msdf_pixel_range == 24:
+		return font
+	if !_msdf_warning_paths.has(path):
+		_msdf_warning_paths[path] = true
+		push_warning("UI MSDF profile missing or incorrectly imported; using raster fallback: " + path)
+	return null
 
 static func display_button_font_size(font_size: int) -> int:
 	return maxi(1, int(round(float(font_size) * DISPLAY_BUTTON_FONT_SCALE)))
@@ -72,8 +82,9 @@ static func _roboto_flex_font(
 	# Body copy and small UI retain the variable source and pixel hinting.
 	var msdf_path := "res://fonts/msdf/RobotoFlexUI_%d_%d_%d_%d_%d.ttf" % [
 		int(weight), int(width), int(grade), int(thin_stroke), int(ROBOTO_FLEX_THICK_STROKE)]
-	if use_msdf and ResourceLoader.exists(msdf_path):
-		base_font = ResourceLoader.load(msdf_path) as Font
+	var msdf_font: FontFile = _load_msdf_font(msdf_path, 48 if weight == ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT else 64) if use_msdf else null
+	if msdf_font != null:
+		base_font = msdf_font
 	else:
 		if _variable_bitmap_font == null:
 			_variable_bitmap_font = base_font.duplicate() as FontFile

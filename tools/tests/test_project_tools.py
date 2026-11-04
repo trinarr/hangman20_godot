@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from godot_test_runner import has_engine_errors, isolated_environment, run_godot
 import run_content_tests
 import run_reward_tests
+import run_ad_consent_tests
 from verify_optimization import missing_resources
 
 
@@ -30,6 +31,50 @@ class ResourceChecks(unittest.TestCase):
 
 
 class RunnerChecks(unittest.TestCase):
+    def test_region_runner_requires_isolation_complete_resources_and_report(self):
+        from contextlib import contextmanager, redirect_stdout
+        import io
+        import runpy
+        runner = Path(__file__).resolve().parents[1] / 'run_region_consent_tests.py'
+        for output, expected in [('', 1), ('Region consent tests: PASS\nSCRIPT ERROR: broken', 1), ('Region consent tests: PASS', 0)]:
+            order = []
+            @contextmanager
+            def isolate(_godot, project):
+                order.append('probe')
+                config = (project / 'project.godot').read_text(encoding='utf-8')
+                self.assertIn('ipinfo_lite_token=""', config)
+                yield {'isolated': 'yes'}
+            def engine(_godot, _project, _args, env, **_kwargs):
+                order.append('engine')
+                self.assertEqual(env['isolated'], 'yes')
+                return subprocess.CompletedProcess([], 0, output)
+            with self.subTest(output=output), patch.object(sys, 'argv', ['runner']), \
+                    patch('shutil.which', return_value='godot'), \
+                    patch('pathlib.Path.symlink_to') as links, \
+                    patch('godot_test_runner.isolated_environment', side_effect=isolate), \
+                    patch('godot_test_runner.run_godot', side_effect=engine), redirect_stdout(io.StringIO()):
+                with self.assertRaises(SystemExit) as caught:
+                    runpy.run_path(str(runner), run_name='__main__')
+                self.assertEqual(caught.exception.code, expected)
+                self.assertEqual(order, ['probe', 'engine'])
+                linked = {call.args[0].name for call in links.call_args_list}
+                self.assertTrue({'symbols', 'scenes', 'fonts', 'scripts'} <= linked)
+
+    def test_ad_consent_runner_requires_report_and_clean_log(self):
+        from contextlib import redirect_stdout
+        import io
+        for output, code, expected in [
+            ("", 0, 1), ("Ad consent tests: PASS\nSCRIPT ERROR: broken", 0, 1),
+            ("Ad consent tests: FAIL (1)", 0, 1), ("Ad consent tests: PASS", 1, 1),
+            ("Ad consent tests: PASS", 0, 0),
+        ]:
+            with self.subTest(output=output, code=code), \
+                    patch.object(sys, "argv", ["runner"]), \
+                    patch.object(run_ad_consent_tests.shutil, "which", return_value="godot"), \
+                    patch.object(run_ad_consent_tests, "run_godot", return_value=subprocess.CompletedProcess([], code, output)), \
+                    redirect_stdout(io.StringIO()):
+                self.assertEqual(run_ad_consent_tests.main(), expected)
+
     def test_gpu_mode_keeps_real_renderer_and_engine_error_log(self):
         def fake_engine(command, **kwargs):
             self.assertNotIn("--headless", command)

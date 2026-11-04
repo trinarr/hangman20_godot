@@ -16,6 +16,15 @@ static func configure(button: Button, title: String, selected: bool, unavailable
 	button.set_meta("tab_unavailable", unavailable)
 	button.focus_mode = Control.FOCUS_NONE
 	button.disabled = unavailable
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color.TRANSPARENT
+		style.corner_radius_top_left = 16
+		style.corner_radius_top_right = 16
+		# Square bottom corners join the identically colored content backdrop.
+		style.corner_radius_bottom_left = 0
+		style.corner_radius_bottom_right = 0
+		button.add_theme_stylebox_override(state, style)
 	var background := BACKGROUND.new()
 	background.name = "TabGradient"
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -51,15 +60,6 @@ static func select(button: Button, selected: bool, animate: bool = false) -> voi
 	var background := button.get_node_or_null("TabGradient")
 	if background != null:
 		background.visible = selected and !unavailable
-	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color.TRANSPARENT
-		style.corner_radius_top_left = 16
-		style.corner_radius_top_right = 16
-		# Square bottom corners join the identically colored content backdrop.
-		style.corner_radius_bottom_left = 0
-		style.corner_radius_bottom_right = 0
-		button.add_theme_stylebox_override(state, style)
 	if selected and animate and !unavailable:
 		button.pivot_offset = button.size * 0.5
 		button.scale = Vector2.ONE * 0.94

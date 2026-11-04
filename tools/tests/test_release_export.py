@@ -11,7 +11,7 @@ import unittest
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from verify_release_export import ROOT, REQUIRED_FILES, verify_archive, verify_presets
+from verify_release_export import ROOT, REQUIRED_FILES, verify_archive, verify_presets, verify_bundle_manifest
 
 
 def string_variant(value):
@@ -27,12 +27,14 @@ class ReleaseExportChecks(unittest.TestCase):
                       for key, value in re.findall(r'^([^\s=]+)="([^"]+)"', section, re.M)
                       if key not in {"DebugLogBridge", "DevConsole"}}
         properties.update({key: struct.pack("<II", 1, 1) for key in ("leaderboard/enabled", "quiz_statistics/enabled")})
+        properties["_custom_features"] = string_variant("rustore")
         properties.update(extra_settings or {})
         binary = b"ECFG" + struct.pack("<I", len(properties))
         for key, value in properties.items():
             key = key.encode("utf-8")
             binary += struct.pack("<I", len(key)) + key + struct.pack("<I", len(value)) + value
         files = {path: b"resource" for path in REQUIRED_FILES}
+        files["data/ad_store_profiles.json"] = (ROOT / "data/ad_store_profiles.json").read_bytes()
         for value in properties:
             if value.startswith("autoload/"):
                 data = properties[value]
@@ -57,8 +59,37 @@ class ReleaseExportChecks(unittest.TestCase):
     def test_release_fixture(self):
         self.assertGreater(self.verify(self.fixture()), 0)
 
+    def test_apk_and_install_time_asset_pack_are_checked(self):
+        for prefix in ['assets/', 'base/assets/', 'assetPackInstallTime/assets/']:
+            files = {prefix + name: data for name, data in self.fixture().items()}
+            self.assertGreater(self.verify(files), 0)
+            files[prefix + 'AGENTS.md'] = b'development rules'
+            with self.assertRaisesRegex(ValueError, 'Development files'):
+                self.verify(files)
+        files = self.fixture()
+        files['base/assets/project.binary'] = files['project.binary']
+        with self.assertRaisesRegex(ValueError, 'exactly one'):
+            self.verify(files)
+
+    def test_bundle_manifest_rejects_early_providers_and_debug(self):
+        xml = '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.trinarr.Hangman20"><application><meta-data android:name="com.my.target.autoInitMode" android:value="0"/></application></manifest>'
+        verify_bundle_manifest(xml)
+        for altered in [xml.replace('<application>', '<application android:debuggable="true">'), xml.replace('</application>', '<provider android:name="com.yandex.mobile.ads.core.initializer.YandexAdsInitializeProvider"/></application>'), xml.replace('android:value="0"', 'android:value="false"')]:
+            with self.assertRaises(ValueError):
+                verify_bundle_manifest(altered)
+
     def test_shared_android_options_and_release_filters(self):
         verify_presets()
+
+    def test_exported_store_cannot_be_ambiguous_or_unconfigured(self):
+        with self.assertRaisesRegex(ValueError, "exactly one store"):
+            self.verify(self.fixture({"_custom_features": string_variant("rustore,google_play")}))
+        files = self.fixture({"_custom_features": string_variant("google_play")})
+        profiles = json.loads(files["data/ad_store_profiles.json"])
+        profiles["google_play"]["banner_id"] = ""
+        files["data/ad_store_profiles.json"] = json.dumps(profiles).encode()
+        with self.assertRaisesRegex(ValueError, "missing or invalid banner_id"):
+            self.verify(files)
 
     def verify_modified_preset(self, section, key, value):
         presets = configparser.ConfigParser(interpolation=None)

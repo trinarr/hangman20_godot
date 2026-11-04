@@ -9,6 +9,7 @@ signal round_won
 signal round_lost
 signal round_finished(id: String, game_mode: int, won: bool, outcome: String)
 signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
+signal hint_activated(hint_type: String, source: String)
 
 var WRONG_LETTER_VIBRATION_MS: int = GAME_DESIGN.get_int(
 	"gameplay.vibration.wrong_letter_ms"
@@ -343,6 +344,7 @@ func use_open_letter_hint() -> bool:
 	if mode != GameState.GameMode.SINGLE_PLAYER:
 		GameState.save_game()
 	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
+	hint_activated.emit(GameState.HINT_OPEN_LETTER, "inventory" if payment == GameState.HintPayment.FREE_HINT else "coins")
 	if is_word_completed():
 		is_active = false
 		emit_signal("changed")
@@ -365,6 +367,7 @@ func use_open_letter_hint_ad() -> bool:
 	var selected_letter: String = letters[index]
 	_reveal_letter(selected_letter)
 	emit_signal("hint_letters_selected", PackedStringArray([selected_letter]), true)
+	hint_activated.emit(GameState.HINT_OPEN_LETTER, "rewarded")
 	if is_word_completed():
 		is_active = false
 		emit_signal("changed")
@@ -405,6 +408,7 @@ func use_remove_wrong_hint() -> bool:
 	if mode != GameState.GameMode.SINGLE_PLAYER:
 		GameState.save_game()
 	emit_signal("hint_letters_selected", selected_letters, false)
+	hint_activated.emit(GameState.HINT_REMOVE_WRONG, "inventory" if payment == GameState.HintPayment.FREE_HINT else "coins")
 	emit_signal("changed")
 	return true
 
@@ -428,6 +432,7 @@ func use_remove_wrong_hint_ad() -> bool:
 		selected_letters.append(selected_letter)
 		candidates.remove_at(candidate_index)
 	emit_signal("hint_letters_selected", selected_letters, false)
+	hint_activated.emit(GameState.HINT_REMOVE_WRONG, "rewarded")
 	emit_signal("changed")
 	return true
 
@@ -436,12 +441,14 @@ func unlock_comment_hint() -> bool:
 		return can_view_comment_hint()
 	if !can_unlock_comment_hint():
 		return false
-	if GameState.pay_for_hint(
+	var payment: int = GameState.pay_for_hint(
 		GameState.HINT_COMMENT,
 		false
-	) == GameState.HintPayment.FAILED:
+	)
+	if payment == GameState.HintPayment.FAILED:
 		return false
 	comment_hint_unlocked = true
+	hint_activated.emit(GameState.HINT_COMMENT, "inventory" if payment == GameState.HintPayment.FREE_HINT else "coins")
 	if mode != GameState.GameMode.SINGLE_PLAYER:
 		GameState.save_game()
 	emit_signal("changed")

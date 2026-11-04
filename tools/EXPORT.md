@@ -4,7 +4,7 @@
 
 ## Подготовка среды
 
-1. Установите выбранный редактор Godot и export templates **той же версии**. Последние настольные тесты выполнены на 4.7.2 stable; успешный Android-релиз на этой версии пока не зафиксирован.
+1. Установите выбранный редактор Godot и export templates **той же версии**. Последние настольные тесты выполнены на 4.7.2 stable; RuStore Debug APK проверен на Android 14 (03.11.2026), release на этой версии пока не подтверждён. Открытые проблемы нативных SDK перечислены в [аудите](../docs/PROJECT_AUDIT.md).
 2. Установите OpenJDK 17 и Android SDK. В Editor Settings → Export → Android задайте Java SDK Path и Android SDK Path. Подготовка описана в [документации Godot 4.7](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_android.html).
 3. Через меню Project установите Android/Gradle Build Template выбранного редактора. Он создаёт `android/build/`; Gradle используется для подключённых Android-библиотек. См. [Gradle builds](https://docs.godotengine.org/en/4.7/tutorials/export/android_gradle_build.html). Перед заменой вручную изменённого шаблона сохраните нужные локальные правки.
 4. Установите Platform Tools, Command-line Tools, SDK Platform и Build Tools, требуемые фактическим `android/build/config.gradle`. Для NDK/CMake сверяйтесь с шаблоном и выбранным редактором. Пример из документации другой версии не задаёт параметры локальной сборки.
@@ -15,13 +15,28 @@
 
 Текущие значения определяет [export_presets.cfg](../export_presets.cfg):
 
-- Release-пресет — `Hangman 2.0`, формат AAB; отладочный — `Hangman 2.0 Debug`, формат APK. В обоих включён Gradle. Расширение выходного файла должно соответствовать формату выбранного пресета. При изменении общих Android-параметров обновляйте оба пресета.
+- Release-пресет — `Hangman 2.0 RuStore`, формат AAB; отладочный — `Hangman 2.0 RuStore Debug`, формат APK. Для Google Play предусмотрены `Hangman 2.0 Google Play` (AAB) и `Hangman 2.0 Google Play Debug` (APK). Во всех четырёх включён Gradle. Расширение выходного файла должно соответствовать формату выбранного пресета. При изменении общих Android-параметров обновляйте все четыре пресета.
 - Package ID — `com.trinarr.Hangman20`; не меняйте его для очередной версии приложения. Версии и Android version code сверяйте в пресете перед релизом; для обновления нужен новый version code.
-- Оба пресета задают minimum SDK 24 и target SDK 36. Target SDK берётся из пресета, compile SDK — из Gradle-шаблона; сверяйте их отдельно. Перед публикацией отдельно сверяйте требования выбранного магазина.
+- Все четыре пресета задают minimum SDK 24 и target SDK 36. Target SDK берётся из пресета, compile SDK — из Gradle-шаблона; сверяйте их отдельно. Перед публикацией отдельно сверяйте требования выбранного магазина.
 - Включены четыре ABI и Internet, Android backup выключен. Выбор ABI меняйте осознанно под канал распространения.
-- Сохранённый `export_path` ведёт в пользовательский Downloads. Команды ниже явно используют игнорируемый `builds/`.
+- Пути `export_path` ведут в игнорируемый `builds/` и различаются по магазину и типу сборки.
 
 `addons/GodotAndroidYandexAds/export_plugin.gd` подключает debug/release AAR из `bin/` и Maven-зависимость Yandex Mobile Ads. Текущую версию зависимости читайте в этом файле; описание SDK — в [README плагина](../addons/GodotAndroidYandexAds/README.md). Первая Gradle-сборка требует доступа к репозиториям зависимостей. Изменение Java в `source/` не пересобирает AAR автоматически.
+
+## Магазины и рекламные ID
+
+Ответ поддержки «Простой монетизации» от 03.11.2026: для каждого магазина приложение добавляется отдельно. Пресеты задают ровно один custom feature: `rustore` либо `google_play`. Runtime выбирает соответствующий профиль из `data/ad_store_profiles.json`; отсутствие или конфликт меток не подставляет ID другого магазина. Редактор и debug-сборки используют demo-ID независимо от магазина.
+
+Текущие боевые ID относятся к RuStore. Профиль Google Play намеренно пуст: заполните его после регистрации отдельного приложения у менеджера. Если для этого канала подключена Google Ads, задайте `google_ads_enabled=true` и выданный `google_application_id`; экспортный плагин добавит его в Android manifest только для выбранного магазина. До подтверждения подключения не включайте этот флаг. Firebase `google-services.json` и рекламный Google Application ID — разные настройки.
+
+Перед выпуском используйте проверяющий запускатель, который отказывается экспортировать незаполненный профиль, повторно использованные RuStore-ID в Google Play и Google Ads без Application ID:
+
+```powershell
+python tools/export_android.py --preset 'Hangman 2.0 RuStore' --check-only
+python tools/export_android.py --preset 'Hangman 2.0 Google Play' --check-only
+```
+
+Вторая команда сейчас ожидаемо завершается ошибкой: Google Play ещё не настроен. Debug Google Play можно проверять с `--debug --check-only`. Прямой экспорт через Godot обходит эту предварительную проверку; готовность к публикации им не подтверждается. Общие package ID, Firebase, сохранения, version code и подпись остаются общими: разные пресеты не создают две параллельные установки на одном Android-профиле.
 
 ## Проверки и экспорт
 
@@ -53,6 +68,8 @@ python tools/build_android_plugins.py --gradle 'C:/path/to/gradle-8.11.1/bin/gra
 
 Скрипт собирает debug/release и обновляет AAR в `addons/*/bin/`. Определения сборки — `tools/android_plugins/`, временные результаты — `builds/android-plugins/`. Для приложения и Android-мостов используется AGP 8.10.1. Для мостов явно закреплены Build Tools 36.1.0, как в шаблоне приложения, чтобы AGP не запрашивал дополнительную установку версии 35. После замены шаблона повторяйте подготовку Яндекса и Firebase.
 
+Подробная рекламная диагностика выключена по умолчанию. Для её проверки добавьте `logging_enabled=true` в секцию `[yandex_ads]` перед debug-экспортом, затем верните настройку. Один флаг управляет BannerDiag, подробными сообщениями Java-моста и `YandexAds.enableLogging`; release принудительно выключает их. Ошибки загрузки баннера сохраняют код без описания SDK, описание доступно только при включённой диагностике. Флаг не гарантирует отключение собственных логов всех сторонних SDK.
+
 Для проверки Firebase на Android явно разрешите тестовый сбор настройкой `firebase_analytics/debug_enabled=true` перед debug-экспортом (секция `[firebase_analytics]`, строка `debug_enabled=true` в `project.godot`). Примите новую редакцию документов в тестовой установке и включите DebugView:
 
 ```powershell
@@ -67,43 +84,43 @@ adb shell setprop debug.firebase.analytics.app .none.
 
 Google Analytics доступен без оплаты в Spark; экономить общий объём событий ради отдельного Spark-пакета не требуется. Сохраняйте небольшой фиксированный набор имён, значения режима/исхода/назначения передавайте параметрами, не регистрируйте ID и seed как измерения. Основные лимиты сбора: 500 различных имён событий на пользователя приложения, 25 параметров на событие и 100 000 событий на пользователя в сутки; это ограничения Analytics, а не квота платных записей Firestore. Дедупликация UI и объединение одинаковых экономических операций одного сохранения сокращают шум без выборочного удаления результатов/дохода. Актуальные условия: [Firebase Analytics](https://firebase.google.com/products/analytics), [лимиты сбора GA4](https://support.google.com/analytics/answer/9267744).
 
-После изменения `project.godot`, плагинов или `export_presets.cfg` закройте и заново откройте Godot: уже открытый редактор может экспортировать прежние настройки и перезаписать обновлённый пресет. Включите плагин Release Guard и убедитесь, что доступны оба пресета. Выполните нужные [проверки проекта](TESTS.md) и разберите ошибки. Затем импортируйте ресурсы и создайте каталог сборок:
+После изменения `project.godot`, плагинов или `export_presets.cfg` закройте и заново откройте Godot: уже открытый редактор может экспортировать прежние настройки и перезаписать обновлённый пресет. Включите плагин Release Guard и убедитесь, что доступны четыре пресета. Выполните нужные [проверки проекта](TESTS.md) и разберите ошибки. Затем импортируйте ресурсы и создайте каталог сборок:
 
 ```powershell
 $godotExe = 'C:/path/to/Godot.exe'
 & $godotExe --headless --editor --import --path .
 if ($LASTEXITCODE -ne 0) { throw 'Godot import failed' }
 New-Item -ItemType Directory -Force builds
-& $godotExe --headless --path . --export-debug 'Hangman 2.0 Debug' 'builds/Hangman20_debug.apk'
+python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore Debug' --debug --output 'builds/Hangman20_rustore_debug.apk'
 if ($LASTEXITCODE -ne 0) { throw 'Android debug export failed' }
 ```
 
 После каждого вызова проверяйте журнал и `$LASTEXITCODE`; при ошибке остановитесь. Для release сначала настройте собственный keystore и подпись в диалоге экспорта либо через поддерживаемые [переменные окружения](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_android.html#environment-variables). Ключи и пароли храните вне Git и журналов; `export_credentials.cfg` и локальные `.env` игнорируются.
 
 ```powershell
-& $godotExe --headless --path . --export-release 'Hangman 2.0' 'builds/Hangman20_release.aab'
+python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore' --output 'builds/Hangman20_rustore.aab'
 if ($LASTEXITCODE -ne 0) { throw 'Android release export failed' }
 ```
 
 Для отдельной проверки ресурсов:
 
 ```powershell
-& $godotExe --headless --path . --export-pack 'Hangman 2.0' 'builds/Hangman20_release_resources.zip'
+& $godotExe --headless --path . --export-pack 'Hangman 2.0 RuStore' 'builds/Hangman20_release_resources.zip'
 if ($LASTEXITCODE -ne 0) { throw 'PCK export failed' }
 python tools/verify_release_export.py 'builds/Hangman20_release_resources.zip' --check-presets
 if ($LASTEXITCODE -ne 0) { throw 'Release resource verification failed' }
 ```
 
-Флаг `--check-presets` проверяет совпадение общих Android options двух пресетов, release-фильтры и отсутствие dev-features. Формат экспорта проверяется отдельно: AAB для release и APK для debug.
+Флаг `--check-presets` проверяет совпадение общих Android options четырёх пресетов, release-фильтры и отсутствие dev-features. Формат экспорта проверяется отдельно: AAB для release и APK для debug.
 
-ZIP/PCK не заменяет APK/AAB и не подтверждает подключение Android SDK или рекламы. `verify_release_export.py` поддерживает ZIP ресурсов и APK; прямой проверки AAB в нём нет. Для AAB отдельно проверьте подпись, манифест и состав пакета, затем установку и запуск APK, полученных из этого AAB.
+ZIP/PCK не заменяет APK/AAB и не подтверждает подключение Android SDK или рекламы. `verify_release_export.py` поддерживает ZIP ресурсов, APK и AAB, включая Godot assets в `assetPackInstallTime`. Для AAB укажите `--bundletool 'C:/path/to/bundletool-all.jar' --java 'C:/path/to/java.exe'`: проверяются ресурсы, структура bundle и базовый release-манифест без ранних providers. Подпись AAB и установку/запуск APK, полученных из него, проверяйте отдельно. Несколько `project.binary` в разных модулях отклоняются как неоднозначный пакет.
 
-Если для распространения или проверки нужен release APK, создайте копию release-пресета `Hangman 2.0` с именем `Hangman 2.0 APK`, выберите в ней формат APK и сохраните те же фильтры ресурсов, общие Android-параметры и release-подпись. Затем экспортируйте и проверьте APK:
+Если для распространения или проверки нужен release APK, создайте копию release-пресета `Hangman 2.0 RuStore` с именем `Hangman 2.0 RuStore APK`, выберите в ней формат APK и сохраните те же фильтры ресурсов, общие Android-параметры и release-подпись. Затем экспортируйте и проверьте APK:
 
 ```powershell
-& $godotExe --headless --path . --export-release 'Hangman 2.0 APK' 'builds/Hangman20_release.apk'
+python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore APK' --output 'builds/Hangman20_rustore_release.apk'
 if ($LASTEXITCODE -ne 0) { throw 'Android release APK export failed' }
-python tools/verify_release_export.py 'builds/Hangman20_release.apk' --aapt 'C:/SDK/Android/build-tools/36.1.0/aapt.exe'
+python tools/verify_release_export.py 'builds/Hangman20_rustore_release.apk' --aapt 'C:/SDK/Android/build-tools/36.1.0/aapt.exe'
 if ($LASTEXITCODE -ne 0) { throw 'Release APK verification failed' }
 ```
 
@@ -133,4 +150,4 @@ Release-пресет исключает `addons/dev-console/*` и `scripts/debug
 
 Проверьте декларации данных в используемых магазинах по фактическому составу адаптеров в итоговом APK/AAB: идентификаторы устройства, IP/приблизительный регион, взаимодействия с рекламой, назначение обработки и передача рекламным партнёрам. Описание только Yandex больше не покрывает всю медиацию. Для Google Ads сверяйте требования к форме согласия с менеджером и правилами выбранного магазина; наличие `setUserConsent` само по себе не подтверждает выполнение требований каждого партнёра. Не заявляйте отсутствие сбора данных всеми сторонними SDK на основании настроек Firebase: его рекламный ID и персонализация отключены отдельно.
 
-На чистой тестовой установке подтвердите по Android Logcat отсутствие рекламной инициализации/запросов до принятия текущих документов и игрового разрешения рекламы. Экспортный плагин явно задаёт `com.yandex.mobile.ads.AUTOMATIC_SDK_INITIALIZATION=false`, иначе Android provider SDK 8.6.0 запускает инициализацию раньше игрового gate. После выбора проверьте передачу `true`/`false` перед инициализацией, повторный запуск и отзыв через настройки. Merged manifest и ранние ContentProvider подключённых SDK также требуют проверки: desktop fake bridge не доказывает отсутствие их ранней активности. На устройстве проверьте закрытие без награды, полный просмотр, поздние/повторные callback и Firebase `ad_impression` с фактическими `network.name`, доходом и валютой ILRD. Значение за показ не делите на 1000 и не заменяйте отсутствующие доход/сеть вымышленными значениями.
+На чистой тестовой установке подтвердите по Android Logcat отсутствие рекламной инициализации/запросов до принятия текущих документов и игрового разрешения рекламы. Экспортный плагин задаёт `com.yandex.mobile.ads.AUTOMATIC_SDK_INITIALIZATION=false` и удаляет startup providers Yandex/AppLovin/StartApp, сохраняя SDK и адаптеры. У Yandex 8.6.0 debug-проверка интеграции запускает статическую подготовку Pangle даже при этом флаге; используется ручной публичный initialize после игрового gate. Для myTarget добавляется `com.my.target.autoInitMode` с целым значением `0`, не boolean false. В готовом APK проверьте отсутствие этих трёх providers и числовой тип metadata. Перед инициализацией должны передаваться выбранные `true`/`false`; повторите запуск и отзыв через настройки. При принятии новой редакции документов уже разблокированная реклама должна запуститься без перезапуска приложения даже с кешированным регионом/явным отказом от персонализации. Desktop fake bridge не подтверждает отсутствие ранней активности нативных SDK. На устройстве проверьте закрытие без награды, полный просмотр, поздние/повторные callback и Firebase `ad_impression` с фактическими `network.name`, доходом и валютой ILRD. Значение за показ не делите на 1000 и не заменяйте отсутствующие доход/сеть вымышленными значениями.

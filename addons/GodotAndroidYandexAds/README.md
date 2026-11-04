@@ -11,12 +11,33 @@ to select AGP 8.10.1 (Gradle 8.11.1, JDK 17, SDK 36).
 For RuStore, the Easy Monetization manager confirmed that Google App ID is not
 required because Google ads are not used in this distribution channel. Other
 channels using Google ads need the manager-provided App ID; see `tools/EXPORT.md`.
-The export plugin disables Yandex automatic SDK initialization in the manifest
-so the native provider cannot initialize it before the app privacy gate.
+The export plugin disables Yandex automatic initialization and removes the
+startup providers of Yandex, AppLovin and StartApp from the merged manifest.
+Yandex 8.6.0's debug integration checker loads Pangle even when automatic
+initialization is off, so the flag alone does not protect the app privacy gate.
+myTarget's own provider remains installed with integer metadata
+`com.my.target.autoInitMode=0` (boolean `false` is not equivalent).
+All SDKs and adapters remain dependencies. The native bridge calls the public
+Yandex initialize API after the game/legal/privacy gate, and mediation then
+initializes the requested partner. After durable document acceptance, the UI
+retries initialization and banner staging even if the region lookup is cached.
 
 The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by
 `project.godot`.
+
+Verbose diagnostics default to off. In debug exports, set
+`yandex_ads/logging_enabled=true` to enable BannerDiag, native bridge debug logs
+and Yandex SDK logging together. Release forces them off. Banner load failures
+retain their error code; SDK descriptions require diagnostic logging. Partner
+SDKs may have their own logging outside this switch.
+
+The banner bridge reserves the pixel dimensions returned by `BannerAdSize`.
+For AppLovin 13.6.3 / Yandex adapter 13.6.3.3, it also sizes the public
+`AppLovinAdView` after loading to prevent its fill-parent WebView from collapsing
+inside a wrap-content parent. The deferred adjustment checks banner ownership;
+it does not modify internal WebViews or other network views. Recheck this
+compatibility adjustment when updating the SDK/adapter.
 
 ## Ad unit configuration
 
@@ -26,8 +47,13 @@ Debug/editor builds use demo ad units:
 - `demo-interstitial-yandex`
 - `demo-rewarded-yandex`
 
-Release ad unit IDs are configured in `yandex_ads.gd`: banner
-`R-M-20326744-9`, rewarded `R-M-20326744-4`, interstitial `R-M-20326744-1`.
+Release ad units are configured per store in `data/ad_store_profiles.json`.
+The `rustore` / `google_play` export feature selects the profile; missing or
+conflicting features never fall back to another store. RuStore is configured;
+Google Play is intentionally empty until separate units are issued.
+Use `tools/export_android.py` for preflight validation and export; see `tools/EXPORT.md`.
+When a store enables Google ads, its manager-provided Application ID is added
+to the manifest only for that store.
 All eight rewarded and three interstitial gameplay placements share one unit
 and one cached ad per format. Placement names and reward request IDs remain
 separate, so each action keeps its own reward and late-callback handling.
