@@ -2059,11 +2059,13 @@ func add_soft_currency(amount: int, persist: bool = true, source: String = "game
 func spend_soft_currency(amount: int, persist: bool = true, purpose: String = "purchase") -> bool:
 	if amount <= 0 or get_soft_currency() < amount:
 		return false
+	var previous_balance: int = soft_currency
 	soft_currency -= amount
-	_analytics_economy(-amount, "coins", "coins", purpose)
+	if persist and !save_game():
+		soft_currency = previous_balance
+		return false
+	_analytics_economy(-amount, "coins", "coins", purpose, !persist or _save_batch_depth > 0)
 	soft_currency_changed.emit(soft_currency)
-	if persist:
-		save_game()
 	return true
 
 func add_stars(amount: int, persist: bool = true, source: String = "gameplay", purpose: String = "reward") -> int:
@@ -2106,9 +2108,10 @@ func pay_for_hint(hint_key: String, persist: bool = true) -> int:
 	var free_count: int = get_hint_count(hint_key)
 	if free_count > 0:
 		hint_counts[hint_key] = free_count - 1
-		_analytics_economy(-1, hint_key, "inventory", hint_key)
-		if persist:
-			save_game()
+		if persist and !save_game():
+			hint_counts[hint_key] = free_count
+			return HintPayment.FAILED
+		_analytics_economy(-1, hint_key, "inventory", hint_key, !persist or _save_batch_depth > 0)
 		return HintPayment.FREE_HINT
 
 	var cost: int = get_hint_cost(hint_key)

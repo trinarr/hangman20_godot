@@ -379,6 +379,7 @@ func _check_two_player_results(native: Native) -> void:
 func _check_economy(native: Native) -> void:
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	Analytics._discard_economy()
+	_check_persisted_spending(native)
 	native.events.clear()
 	GameState.soft_currency = GameState.MAX_CURRENCY_BALANCE - 3
 	GameState.add_soft_currency(20, false, "gameplay", "stage_reward")
@@ -410,6 +411,59 @@ func _check_economy(native: Native) -> void:
 	native.events.clear()
 	GameState.save_game()
 	check(native.events.is_empty(), "pre-consent economy is never replayed after enabling collection")
+
+func _check_persisted_spending(native: Native) -> void:
+	var hint: String = GameState.HINT_COMMENT
+	GameState.soft_currency = 100
+	GameState.hint_counts[hint] = 1
+	check(GameState.save_game(), "spending fixture is durable")
+	native.events.clear()
+	var balance_signals: Array[int] = []
+	var on_balance := func(balance: int) -> void: balance_signals.append(balance)
+	GameState.soft_currency_changed.connect(on_balance)
+	GameState._save_blocked_by_future_version = true
+	check(!GameState.spend_soft_currency(10), "failed coin write returns false")
+	check(GameState.soft_currency == 100 and balance_signals.is_empty(), "failed coin write restores balance without success signal")
+	check(GameState.pay_for_hint(hint) == GameState.HintPayment.FAILED, "failed inventory write rejects hint payment")
+	check(GameState.get_hint_count(hint) == 1, "failed inventory write restores free hint")
+	GameState.hint_counts[hint] = 0
+	check(GameState.pay_for_hint(hint) == GameState.HintPayment.FAILED, "failed coin-funded hint write rejects payment")
+	check(GameState.soft_currency == 100 and balance_signals.is_empty(), "failed coin-funded hint restores balance without success signal")
+	check(native.events.is_empty(), "failed payments emit no economy events")
+	GameState.hint_counts[hint] = 1
+	GameState._save_blocked_by_future_version = false
+	# A later unrelated save must not report a rolled-back expense.
+	check(GameState.save_game() and native.events.is_empty(), "failed payments leave no queued analytics")
+	GameState.load_game()
+	check(GameState.soft_currency == 100 and GameState.get_hint_count(hint) == 1, "failed payments leave saved balance and inventory unchanged")
+	balance_signals.clear()
+	check(GameState.spend_soft_currency(10), "coin payment can be retried after write recovery")
+	check(balance_signals == [90], "successful coin payment emits one committed balance")
+	check(native.count("currency_spent") == 1 and native.events.back().parameters.amount == 10, "successful coin retry reports exactly one expense")
+	GameState.load_game()
+	check(GameState.soft_currency == 90, "successful coin retry survives reload")
+	native.events.clear()
+	check(GameState.pay_for_hint(hint) == GameState.HintPayment.FREE_HINT, "inventory payment can be retried after write recovery")
+	check(native.count("currency_spent") == 1 and native.events.back().parameters.source == "inventory", "successful inventory retry reports exactly one expense")
+	GameState.load_game()
+	check(GameState.get_hint_count(hint) == 0 and GameState.soft_currency == 90, "successful inventory retry survives reload without spending coins")
+	native.events.clear()
+	var cost: int = GameState.get_hint_cost(hint)
+	check(GameState.pay_for_hint(hint) == GameState.HintPayment.SOFT_CURRENCY, "coin-funded hint succeeds after write recovery")
+	check(native.count("currency_spent") == 1 and native.events.back().parameters.amount == cost, "coin-funded hint reports exactly one expense")
+	GameState.load_game()
+	check(GameState.soft_currency == 90 - cost, "coin-funded hint survives reload")
+	native.events.clear()
+	GameState.hint_counts[hint] = 1
+	check(GameState.pay_for_hint(hint, false) == GameState.HintPayment.FREE_HINT and native.events.is_empty(), "non-persisted inventory payment waits for owner save")
+	check(GameState.save_game() and native.count("currency_spent") == 1, "owner save commits non-persisted inventory expense")
+	native.events.clear()
+	GameState.begin_save_batch()
+	check(GameState.spend_soft_currency(1) and native.events.is_empty(), "batched persisted payment waits for actual commit")
+	check(GameState.end_save_batch() and native.count("currency_spent") == 1, "batch completion reports expense once")
+	GameState.save_game()
+	check(native.count("currency_spent") == 1, "later save does not repeat committed expense")
+	GameState.soft_currency_changed.disconnect(on_balance)
 
 func _check_ad_offers(native: Native) -> void:
 	for language: String in ["ru", "en"]:
