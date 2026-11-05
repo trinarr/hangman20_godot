@@ -82,12 +82,6 @@ const GREEN_SELECTED_TINT := UI_PALETTE.SUCCESS_SELECTED
 const BLUE_NORMAL_TINT := UI_PALETTE.BUTTON_BLUE
 const BLUE_PRESSED_TINT := UI_PALETTE.BUTTON_BLUE_PRESSED
 const BLUE_SELECTED_TINT := UI_PALETTE.BUTTON_BLUE_SELECTED
-const ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
-const ICON_SHADOW_DEPTH_RATIO: float = 0.055
-const ICON_SHADOW_DEPTH_MIN: float = 1.5
-const ICON_SHADOW_DEPTH_MAX: float = 5.0
-const ICON_SHADOW_OFFSET_X_RATIO: float = 0.012
-const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
 # Match the soft drop shadow used by the white quiz answer cards. The hint
 # buttons opt into this separately so regular round navigation/actions stay unchanged.
 const BUTTON_DROP_SHADOW_COLOR := Color(0.07, 0.12, 0.24, 0.22)
@@ -346,25 +340,20 @@ func _use_action_icon_shadow() -> void:
 	icon_shadow_enabled = true
 	var base: Color = UI_PALETTE.NAV_TEXT_SHADOW
 	_icon_shadow_material = UI_MATERIALS.icon_shadow(Color(base.r, base.g, base.b, ICON_EXTRUSION.ACTION_SHADOW_ALPHA))
-	for layer: TextureRect in _icon_shadow_layers:
-		layer.material = _icon_shadow_material
+	ICON_EXTRUSION.set_shadow_material(_icon_shadow_layers, _icon_shadow_material)
 	_sync_icon_layout()
 
 func _ensure_icon_shadow_layers() -> void:
 	if !_icon_shadow_layers.is_empty():
 		return
 	_icon_shadow_material = UI_MATERIALS.icon_shadow(UI_PALETTE.NAV_TEXT_SHADOW)
-	for layer_index: int in range(ICON_SHADOW_LAYER_T.size()):
-		var layer := TextureRect.new()
-		layer.name = "IconExtrusion%02d" % (layer_index + 1)
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		layer.material = _icon_shadow_material
-		layer.z_index = 0
-		add_child(layer)
-		move_child(layer, 0)
-		_icon_shadow_layers.append(layer)
+	var layer := ICON_EXTRUSION.COMBINED_SHADOW.new()
+	layer.name = "IconExtrusion01"
+	layer.set_shadow_material(_icon_shadow_material)
+	layer.z_index = 0
+	add_child(layer)
+	move_child(layer, 0)
+	_icon_shadow_layers.append(layer)
 
 func _sync_icon_shadow_visuals(has_texture: bool, visual_opacity: float) -> void:
 	for layer: TextureRect in _icon_shadow_layers:
@@ -377,26 +366,9 @@ func _sync_icon_shadow_visuals(has_texture: bool, visual_opacity: float) -> void
 func _sync_icon_shadow_layout(actual_size: Vector2) -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):
 		return
-	var icon_extent: float = minf(actual_size.x, actual_size.y)
-	var shadow_depth: float = clampf(
-		icon_extent * ICON_SHADOW_DEPTH_RATIO,
-		ICON_SHADOW_DEPTH_MIN,
-		ICON_SHADOW_DEPTH_MAX
-	) * _icon_shadow_offset_scale
-	var shadow_offset_x: float = minf(
-		icon_extent * ICON_SHADOW_OFFSET_X_RATIO,
-		ICON_SHADOW_OFFSET_X_MAX
-	) * _icon_shadow_offset_scale
-	for layer_index: int in range(_icon_shadow_layers.size()):
-		var layer: TextureRect = _icon_shadow_layers[layer_index]
-		if layer == null or !is_instance_valid(layer):
-			continue
-		var layer_t: float = float(ICON_SHADOW_LAYER_T[layer_index])
-		layer.position = _icon_rect.position + Vector2(
-			shadow_offset_x * layer_t,
-			shadow_depth * layer_t
-		)
-		layer.size = actual_size
+	ICON_EXTRUSION._layout_portrait_icon_extrusion_layers(
+		_icon_shadow_layers, _icon_rect.position, actual_size, _icon_shadow_offset_scale
+	)
 
 func _ensure_visual_nodes() -> void:
 	if _icon_rect == null or !is_instance_valid(_icon_rect):

@@ -10,6 +10,7 @@ __pycache__/
 # Local builds
 /builds/
 /.codex-attachments/
+/.codex-remote-attachments/
 *.apk
 *.aab
 *.pck

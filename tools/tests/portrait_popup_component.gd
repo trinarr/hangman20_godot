@@ -156,12 +156,12 @@ func check_action_icon_shadows() -> void:
 		button.size = Vector2(52, 52)
 		add_child(button)
 		button.configure_texture(load(path), Vector2(32, 32))
-		check(button.icon_shadow_enabled and button._icon_shadow_layers.size() == 4, "white action icon automatically receives four shadow layers: " + path)
+		check(button.icon_shadow_enabled and button._icon_shadow_layers.size() == 1, "white action icon automatically receives a combined shadow: " + path)
 		var reference := Control.new()
 		add_child(reference)
 		var layers: Array[TextureRect] = extrusion._create_portrait_icon_extrusion_layers(reference, button.icon_texture, "Reference", 0, extrusion.ACTION_SHADOW_ALPHA)
 		extrusion._layout_portrait_icon_extrusion_layers(layers, button._icon_rect.position, button._icon_rect.size, extrusion.ACTION_SHADOW_OFFSET_SCALE)
-		for i: int in range(4):
+		for i: int in range(layers.size()):
 			var actual: TextureRect = button._icon_shadow_layers[i]
 			check(actual.visible and actual.position.is_equal_approx(layers[i].position), "action shadow matches two-player offset: " + path)
 			check(actual.material.get_shader_parameter("shadow_color") == layers[i].material.get_shader_parameter("shadow_color"), "action shadow matches two-player color and alpha: " + path)

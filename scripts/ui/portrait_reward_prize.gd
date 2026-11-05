@@ -373,8 +373,7 @@ func _attach_main_reward_icon_shadow(
 		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW.a
 	)
 	var shadow_material: ShaderMaterial = UI_MATERIALS.icon_shadow(shadow_color, outline_pixels)
-	for layer: TextureRect in layers:
-		layer.material = shadow_material
+	PORTRAIT_ICON_EXTRUSION.set_shadow_material(layers, shadow_material)
 	_layout_portrait_icon_holder_extrusion(holder, layers, 0.5)
 	var resize_callback := Callable(self, "_layout_portrait_icon_holder_extrusion").bind(
 		holder,

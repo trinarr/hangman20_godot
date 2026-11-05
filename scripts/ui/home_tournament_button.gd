@@ -47,14 +47,13 @@ func _ready() -> void:
 	glow.modulate.a = 0.5
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	artwork.add_child(glow)
-	# Match the large coin-refill artwork: four shader silhouette passes,
+	# Match the large coin-refill artwork: combined silhouette samples,
 	# dark-blue tint, regular shadow alpha and half-depth extrusion.
 	var shadows := EXTRUSION._create_portrait_icon_extrusion_layers(
 		artwork, TROPHY, "TrophyShadow")
 	var shadow_color := PALETTE.UI_BLUE_DARK
 	shadow_color.a = PALETTE.NAV_TEXT_SHADOW.a
-	for layer: TextureRect in shadows:
-		layer.material = MATERIALS.icon_shadow(shadow_color)
+	EXTRUSION.set_shadow_material(shadows, MATERIALS.icon_shadow(shadow_color))
 	EXTRUSION._layout_portrait_icon_extrusion_layers(
 		shadows, ICON_RECT.position, ICON_RECT.size, 0.5)
 	var icon := TextureRect.new()
@@ -69,8 +68,7 @@ func _ready() -> void:
 	artwork.add_child(icon)
 	_lock_shadows = EXTRUSION._create_portrait_icon_extrusion_layers(
 		artwork, LOCK, "TournamentLockShadow")
-	for layer: TextureRect in _lock_shadows:
-		layer.material = MATERIALS.icon_shadow(shadow_color)
+	EXTRUSION.set_shadow_material(_lock_shadows, MATERIALS.icon_shadow(shadow_color))
 	EXTRUSION._layout_portrait_icon_extrusion_layers(
 		_lock_shadows, LOCK_RECT.position, LOCK_RECT.size)
 	_lock = TextureRect.new()

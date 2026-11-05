@@ -289,7 +289,7 @@ func _ready() -> void:
 	await settle()
 	var home_star: TextureRect = main.ui.find_child("TopBarStarIcon", true, false)
 	var home_shadow: TextureRect = main.ui.find_child("TopBarStarIconExtrusion01", true, false)
-	check(home_star != null and home_shadow != null and home_star.texture == list_star_texture and home_shadow.material == list_star_material and home_star.z_index == 1, "Leaderboard star shares the Home HUD texture, shader material and visual depth")
+	check(home_star != null and home_shadow != null and home_star.texture == list_star_texture and home_shadow.material.get_shader_parameter("shadow_color") == list_star_material.get_shader_parameter("shadow_color") and home_star.z_index == 1, "Leaderboard star shares the Home HUD texture, shadow colour and visual depth")
 	main._show_leaderboard_screen()
 	await settle()
 	check(is_instance_valid(main._portrait_leaderboard), "Host builds leaderboard")

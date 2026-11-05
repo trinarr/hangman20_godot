@@ -1,5 +1,6 @@
 extends RefCounted
-## Stateless icon extrusion. Nodes and deferred callbacks belong to the supplied holder.
+## Icon extrusion. Nodes and deferred callbacks belong to the supplied holder.
+const COMBINED_SHADOW = preload("res://scripts/ui/combined_icon_shadow.gd")
 
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
@@ -34,17 +35,13 @@ static func _create_portrait_icon_extrusion_layers(
 			clampf(shadow_alpha, 0.0, 1.0)
 		)
 	)
-	for layer_index: int in range(4):
-		var layer := TextureRect.new()
-		layer.name = "%sExtrusion%02d" % [prefix, layer_index + 1]
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.texture = texture
-		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		layer.material = shadow_material
-		layer.z_index = z_index
-		parent.add_child(layer)
-		layers.append(layer)
+	var layer := COMBINED_SHADOW.new()
+	layer.name = "%sExtrusion01" % prefix
+	layer.texture = texture
+	layer.set_shadow_material(shadow_material)
+	layer.z_index = z_index
+	parent.add_child(layer)
+	layers.append(layer)
 	return layers
 
 static func _layout_portrait_icon_extrusion_layers(
@@ -63,23 +60,17 @@ static func _layout_portrait_icon_extrusion_layers(
 		minf(icon_extent * 0.012, 1.5)
 		* resolved_offset_scale
 	)
-	for layer_index: int in range(layers.size()):
-		var layer: TextureRect = layers[layer_index]
-		if layer == null or !is_instance_valid(layer):
+	for layer: TextureRect in layers:
+		if !is_instance_valid(layer):
 			continue
-		var layer_t: float = 1.0
-		match layer_index:
-			0:
-				layer_t = 0.25
-			1:
-				layer_t = 0.55
-			2:
-				layer_t = 0.80
-		layer.position = icon_position + Vector2(
-			shadow_offset_x * layer_t,
-			shadow_depth * layer_t
-		)
+		layer.position = icon_position
 		layer.size = icon_size
+		layer.set("offset_step", Vector2(shadow_offset_x, shadow_depth))
+
+static func set_shadow_material(layers: Array[TextureRect], material: ShaderMaterial) -> void:
+	for layer: TextureRect in layers:
+		if is_instance_valid(layer):
+			layer.set_shadow_material(material)
 
 static func _layout_portrait_icon_holder_extrusion(
 	holder: Control,

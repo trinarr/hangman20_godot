@@ -44,7 +44,7 @@ func run() -> void:
 	var trophy: TextureRect = button.find_child("TrophyIcon", true, false)
 	check(trophy.size == Vector2(72, 72) and trophy.position == Vector2(14, 14), "Trophy retains enlarged size and is raised by five units")
 	check(button._lock.size.is_equal_approx(Vector2(34.32, 40.56)) and is_equal_approx(button._lock.position.y, trophy.position.y - 10) and is_equal_approx(button._lock.get_rect().end.x, trophy.get_rect().end.x + 3), "Enlarged lock is ten units above and three units right of trophy corner")
-	check(button._lock_shadows.size() == 4 and button._lock_shadows[0].visible, "Locked trophy has shader shadows")
+	check(button._lock_shadows.size() == 1 and button._lock_shadows[0].visible, "Locked trophy has shader shadows")
 	check(!button._rank.visible, "Locked shortcut hides player rank")
 	var down := InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT

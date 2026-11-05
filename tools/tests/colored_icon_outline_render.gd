@@ -175,7 +175,7 @@ func check_refill_popups() -> void:
 			check(!get_tree().get_first_node_in_group("heart_refill_ad_button").visible, "Compact popup hides the unavailable ad row")
 			var shadows: Array = heart.get_meta("main_reward_icon_shadow_layers")
 			check(heart.get_node("HeartRefillVisual").material.get_shader_parameter("outline_pixels") == 5.0, "Heart popup uses five pixels")
-			check(shadows.size() == 4 and shadows[0].material == shadow_material, "Heart shares the coin popup's four-layer shadow material")
+			check(shadows.size() == 1 and shadows[0].material != shadow_material and shadows[0].material.get_shader_parameter("shadow_color") == shadow_material.get_shader_parameter("shadow_color"), "Heart retains coin shadow colour with its own combined material")
 			var animations: Array[Tween] = get_tree().get_processed_tweens()
 			for animation: Tween in animations:
 				animation.set_speed_scale(0.0)
@@ -278,7 +278,7 @@ func check_status_icons(main: Node, dimensions: Vector2i, language: String) -> v
 		var material: Material = art.material
 		check(material is ShaderMaterial and material.get_shader_parameter("outline_pixels") == 6.0, "Chain status uses a six-pixel outline")
 		var shadows: Array = marker.get_meta("main_reward_icon_shadow_layers")
-		check(shadows.size() == 4, "Status uses the standard four-layer shadow")
+		check(shadows.size() == 1, "Status uses the standard combined shadow")
 		for shadow: TextureRect in shadows:
 			check(shadow.material.get_shader_parameter("outline_pixels") == 6.0 and shadow.z_index == 0 and shadow.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Status shadow includes the outline, stays in the fade group and ignores input")
 			shadow.hide()

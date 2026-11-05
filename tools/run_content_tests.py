@@ -39,6 +39,7 @@ SUITES = {
     "portrait_round_result": (True, None),
     "portrait_popup_component": (True, None),
     "letter_feedback_sequence": (True, None),
+    "hero_state_transitions": (True, None),
     "portrait_visual_components": (True, None),
     "word_content_migration": (False, None),
     "word_rebalance": (False, None),

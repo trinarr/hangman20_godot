@@ -116,15 +116,15 @@ func run() -> void:
 	var holder: Control = control(Vector2(80, 60))
 	var icon: TextureRect = ui._add_portrait_icon_with_extrusion_to_holder(holder, tex, "Icon", 3, 0.7, 0.5)
 	await get_tree().process_frame
-	check(holder.get_child_count() == 5, "four shadows and foreground")
+	check(holder.get_child_count() == 2, "combined shadow and foreground")
 	check(icon.texture == tex and icon.z_index == 3, "foreground texture and stacking")
-	var shadows: Array[Node] = holder.get_children().slice(0, 4)
+	var shadows: Array[Node] = holder.get_children().slice(0, 1)
 	for shadow: TextureRect in shadows:
 		check(shadow.texture == tex and shadow.z_index == 2, "shadow texture and stacking")
 		check(shadow.size == holder.size and shadow.mouse_filter == Control.MOUSE_FILTER_IGNORE, "shadow initial layout")
 	holder.size = Vector2(140, 100)
 	await get_tree().process_frame
-	check(holder.get_children().slice(0, 4) == shadows, "resize reuses shadow nodes")
+	check(holder.get_children().slice(0, 1) == shadows, "resize reuses shadow nodes")
 	for shadow: TextureRect in shadows:
 		check(shadow.size == holder.size, "shadow follows holder resize")
 	holder.free()

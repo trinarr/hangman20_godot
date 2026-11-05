@@ -76,8 +76,8 @@ func inspect_rows(main: Node, view: Control, page: Control) -> void:
 				check(card.get_meta("rank") == rank and avatar.size.is_equal_approx(Vector2.ONE * SCREEN.ROW.AVATAR_SIZE) and card.custom_minimum_size.y == SCREEN.ROW.ROW_HEIGHT, "Prize ranks use ordinary list rows in 1-2-3 order")
 				check(face.get_node("PlayerRankMedal").texture == SCREEN.ROW.RANK_MEDALS[rank - 1], "Top ranks use the same medals as the finish popup")
 				check(prize.texture == (page.GIFT if rank == 1 else page.COIN_PACK) and prize.get_rect().end.x < counter.position.x and nickname.get_rect().end.x < prize.position.x, "Reward sits between nickname and score without overlap")
-				check(is_equal_approx(counter.position.x - prize.get_rect().end.x, 4.0) and face.find_children("TournamentRewardShadow*", "TextureRect", false, false).size() == 4, "Reward uses the same light icon-shadow style as the star and sits close to its counter")
-				check(face.get_node("TournamentRewardShadowExtrusion01").material == counter.get_node("ScoreStarShadowExtrusion01").material and prize.z_index == 1, "Reward and star share the exact shadow material and artwork depth")
+				check(is_equal_approx(counter.position.x - prize.get_rect().end.x, 4.0) and face.find_children("TournamentRewardShadow*", "TextureRect", false, false).size() == 1, "Reward uses the same light icon-shadow style as the star and sits close to its counter")
+				check(face.get_node("TournamentRewardShadowExtrusion01").material.get_shader_parameter("shadow_color") == counter.get_node("ScoreStarShadowExtrusion01").material.get_shader_parameter("shadow_color") and prize.z_index == 1, "Reward and star share the exact shadow colour and artwork depth")
 				if rank != 1:
 					var amount: Label = face.get_node("TournamentRowRewardAmount")
 					check(is_equal_approx(amount.position.y, prize.get_rect().end.y - 18) and amount.get_theme_font_size("font_size") == roundi(16 * 1.15), "Larger coin amount overlaps its reward icon")

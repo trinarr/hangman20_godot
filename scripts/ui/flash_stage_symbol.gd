@@ -382,6 +382,10 @@ func _apply_animation_time() -> void:
 	if _symbol_instance == null:
 		return
 	if _is_hero_symbol():
+		# Keep the displayed hierarchy frozen while a different outer pose loads.
+		# The requested nested time belongs to that target, not to the fallback.
+		if _loaded_symbol_path != _hero_states()[_hero_state_index()]:
+			return
 		_apply_direct_hero_time_recursive(_symbol_instance)
 		return
 	_apply_animation_time_recursive(_symbol_instance, false)
@@ -431,11 +435,19 @@ func play_nested_loop(root_time: float, nested_start_time: float, nested_end_tim
 	_play_nested(root_time, nested_start_time, nested_end_time, playback_speed_scale, true, resolved_initial_time)
 
 func get_nested_playback_position() -> float:
-	if _playback_player != null and _playback_player.current_animation == "default":
-		return _playback_player.current_animation_position
+	if _playback_player != null:
+		if _playback_player.current_animation == "default":
+			return _playback_player.current_animation_position
+		if !_playback_loop:
+			# The player may finish after our _process and before the caller samples
+			# this frame. Its displayed pose is already the section end, not its start.
+			return _playback_end_time
 	if _playback_loop and _playback_loop_position >= 0.0:
 		return _playback_loop_position
 	return maxf(nested_animation_time, 0.0)
+
+func is_nested_playback_active() -> bool:
+	return _playback_player != null or !_pending_playback.is_empty()
 
 func _play_nested(root_time: float, nested_start_time: float, nested_end_time: float, playback_speed_scale: float, should_loop: bool, initial_time: float) -> void:
 	_stop_playback_state()
@@ -527,16 +539,13 @@ func _process(_delta: float) -> void:
 			)
 			_restart_nested_loop(restart_position)
 		return
-	if _playback_player.current_animation != "default":
-		_stop_playback_state()
-		emit_signal("playback_finished")
-		return
 	if (
-		!_playback_player.is_playing()
+		_playback_player.current_animation != "default"
+		or !_playback_player.is_playing()
 		or _playback_player.current_animation_position + 0.0005 >= _playback_end_time
 	):
-		_playback_player.seek(_playback_end_time, true)
-		_playback_player.stop(true)
+		# AnimationPlayer clears current_animation when a section ends. Commit
+		# the final pose in that case too, before notifying the owner.
 		if _playback_nested_time >= 0.0:
 			nested_animation_time = _playback_nested_time
 		else:
@@ -564,6 +573,7 @@ func _restart_nested_loop(restart_position: float = -1.0) -> void:
 
 func _stop_playback_state() -> void:
 	if _playback_player != null:
+		_playback_player.stop(true)
 		_playback_player.speed_scale = 1.0
 	_playback_player = null
 	_playback_start_time = -1.0

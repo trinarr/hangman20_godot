@@ -535,12 +535,12 @@ func check_unlock_progress(main: Node, stage: Control, background_only: Image) -
 			HORIZONTAL_ALIGNMENT_LEFT, -1, count.get_theme_font_size("font_size")).x
 		check(measured_width <= count.size.x, "Unlocked caption fits its available track width")
 		var shadow_layers := icon.find_children("UnlockThemeIconExtrusion*", "TextureRect", true, false)
-		check(shadow_layers.size() == 4, "Category icon owns four HUD-style shadow layers")
+		check(shadow_layers.size() == 1, "Category icon owns one combined HUD-style shadow")
 		for shadow: TextureRect in shadow_layers:
 			var color: Color = shadow.material.get_shader_parameter("shadow_color")
 			check(is_equal_approx(color.a, main.RESOURCE_COUNTER_STYLE.ICON_SHADOW_ALPHA)
 				and is_equal_approx(color.r, PALETTE.NAV_TEXT_SHADOW.r), "Category shadow matches currency-counter colour and opacity")
-		check(shadow_layers[-1].position.y >= 2.8, "Category shadow uses full HUD extrusion depth")
+		check(shadow_layers[-1].get("offset_step").y >= 2.8, "Category shadow uses full HUD extrusion depth")
 		check(count_fade.z_index == 4 and same_z_band(count_fade._group), "Unlocked caption keeps every glyph inside its composited Z band")
 		var glow := progress.get_node("UnlockThemeGlow") as Control
 		check(is_equal_approx(glow.self_modulate.a, 0.52), "Late-created unlock glow reaches its visible alpha")

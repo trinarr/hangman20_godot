@@ -261,12 +261,13 @@ func run() -> void:
 			check(main.content.find_child("FinalRewardCollectText", true, false).self_modulate.a > 0.99, "delayed collect text restores visible alpha")
 			var icon_layers: Array = [button.get("_icon_rect")]
 			icon_layers.append_array(button.get("_icon_shadow_layers"))
+			check(icon_layers.size() == 2, "long reward button keeps one combined icon shadow")
 			for repeat in range(3):
 				for disabled: bool in [true, false]:
 					button.set("button_disabled", disabled)
 					for icon: TextureRect in icon_layers:
 						check(is_equal_approx(icon.self_modulate.a, 0.85 if disabled else 1.0), "reward icons and shadows follow disabled state after intro")
-		check(pack.get_meta("main_reward_icon_shadow_layers", []).size() == 4, "large coin pack keeps extrusion shadow")
+		check(pack.get_meta("main_reward_icon_shadow_layers", []).size() == 1, "large coin pack keeps extrusion shadow")
 		if ads:
 			button.emit_signal("pressed")
 			check(main.doubles == 1, "double action reaches ad controller")

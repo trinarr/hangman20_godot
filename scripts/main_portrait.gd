@@ -10363,9 +10363,15 @@ func _refresh_portrait_game_runtime_state() -> void:
 	# complete character hierarchy.
 	_capture_hero_animation_phase()
 	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.animation_time = _hero_animation_time()
-		hero_static_symbol.nested_animation_time = _hero_nested_display_time()
-		_configure_hero_static_animation()
+		# A second correct letter or a hint can refresh the UI mid-reaction. Keep
+		# that timeline running; only a changed outer pose supersedes it.
+		if (
+			!hero_static_symbol.is_nested_playback_active()
+			or !is_equal_approx(hero_static_symbol.animation_time, _hero_animation_time())
+		):
+			hero_static_symbol.animation_time = _hero_animation_time()
+			hero_static_symbol.nested_animation_time = _hero_nested_display_time()
+			_configure_hero_static_animation()
 
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
@@ -11815,7 +11821,7 @@ func _set_portrait_hint_button_badge_shader_effects_enabled(
 				enabled and state in regular_display_text_states
 			)
 
-	# The ad pictogram uses four shader-based extrusion layers. Keep the plain
+	# The ad pictogram uses a combined extrusion shadow. Keep the plain
 	# icon visible during the fade and reveal only those shader layers after the
 	# badge itself has fully reached alpha 1.
 	var ad_icon_holder := component.get("ad_holder") as Control
@@ -12025,19 +12031,15 @@ func _stage_portrait_hint_price(button: Control, price: int) -> void:
 		"state": PORTRAIT_BUTTON_BADGE_STATE_COINS,
 	})
 
-func _create_hero_animation_overlay() -> FlashStageSymbol:
-	var overlay := FlashStageSymbol.new()
-	overlay.name = "HeroAnimationOverlay"
-	overlay.z_index = 150
-	overlay.hero_type = _hero_type()
-	overlay.stage_position = _portrait_game_hero_stage_position
-	overlay.stage_scale_multiplier = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER
-	overlay.animation_time = _hero_animation_time()
-	if _portrait_game_adaptive_group != null and is_instance_valid(_portrait_game_adaptive_group):
-		_portrait_game_adaptive_group.add_child(overlay)
-	else:
-		add_child(overlay)
-	return overlay
+func _play_hero_animation_range(nested_start_time: float, nested_end_time: float) -> void:
+	# Play on the displayed hierarchy. Swapping a hidden resting symbol for a
+	# freshly instantiated autoplay scene can expose a different pose while the
+	# new scene starts or waits for its background resource request.
+	if hero_static_symbol == null or !is_instance_valid(hero_static_symbol):
+		return
+	hero_static_symbol.play_nested_range(
+		_hero_animation_time(), nested_start_time, nested_end_time, HERO_ANIMATION_SPEED_SCALE
+	)
 
 func _prepare_portrait_game_entrance() -> void:
 	_portrait_game_entrance_active = true
@@ -13488,7 +13490,7 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon.z_index = 2
 	holder.add_child(icon)
-	# Match HUD resource icons: all four shadow layers follow the icon bounce.
+	# Match HUD resource icons: the combined shadow follows the icon bounce.
 	var theme_icon_texture: Texture2D = _theme_icon_texture(theme_index)
 	var icon_shadow_layers := _create_portrait_icon_extrusion_layers(
 		icon,

@@ -6,14 +6,8 @@ const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
+const ICON_EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const FADE = preload("res://scripts/ui/composited_fade.gd")
-
-const ICON_SHADOW_DEPTH_RATIO: float = 0.055
-const ICON_SHADOW_DEPTH_MIN: float = 1.5
-const ICON_SHADOW_DEPTH_MAX: float = 5.0
-const ICON_SHADOW_OFFSET_X_RATIO: float = 0.012
-const ICON_SHADOW_OFFSET_X_MAX: float = 1.5
-const ICON_SHADOW_LAYER_T := [0.25, 0.55, 0.80, 1.0]
 
 const BUTTON_BACKGROUND = preload("res://scripts/ui/procedural_button_background.gd")
 
@@ -445,17 +439,13 @@ func _ensure_label() -> void:
 
 func _create_icon_shadow_layers(prefix: String, material: ShaderMaterial) -> Array[TextureRect]:
 	var layers: Array[TextureRect] = []
-	for index: int in range(ICON_SHADOW_LAYER_T.size()):
-		var layer := TextureRect.new()
-		layer.name = "%sExtrusion%02d" % [prefix, index + 1]
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		layer.z_index = 0
-		layer.material = material
-		add_child(layer)
-		move_child(layer, 0)
-		layers.append(layer)
+	var layer := ICON_EXTRUSION.COMBINED_SHADOW.new()
+	layer.name = "%sExtrusion01" % prefix
+	layer.z_index = 0
+	layer.set_shadow_material(material)
+	add_child(layer)
+	move_child(layer, 0)
+	layers.append(layer)
 	return layers
 
 func _ensure_icon_shadow_layers() -> void:
@@ -487,26 +477,7 @@ func _layout_icon_shadow_layers(
 	base_position: Vector2,
 	icon_size: Vector2
 ) -> void:
-	var icon_extent: float = minf(icon_size.x, icon_size.y)
-	var shadow_depth: float = clampf(
-		icon_extent * ICON_SHADOW_DEPTH_RATIO,
-		ICON_SHADOW_DEPTH_MIN,
-		ICON_SHADOW_DEPTH_MAX
-	)
-	var shadow_offset_x: float = minf(
-		icon_extent * ICON_SHADOW_OFFSET_X_RATIO,
-		ICON_SHADOW_OFFSET_X_MAX
-	)
-	for index: int in range(layers.size()):
-		var layer: TextureRect = layers[index]
-		if layer == null or !is_instance_valid(layer):
-			continue
-		var layer_t: float = float(ICON_SHADOW_LAYER_T[index])
-		layer.position = base_position + Vector2(
-			shadow_offset_x * layer_t,
-			shadow_depth * layer_t
-		)
-		layer.size = icon_size
+	ICON_EXTRUSION._layout_portrait_icon_extrusion_layers(layers, base_position, icon_size)
 
 func _ensure_icon() -> void:
 	if _icon_rect != null and is_instance_valid(_icon_rect):
