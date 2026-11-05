@@ -72,6 +72,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot")
     parser.add_argument("--suite", choices=["all", *SUITES], default="all")
+    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window instead of the headless dummy renderer")
     args = parser.parse_args()
     executable = shutil.which(args.godot)
     if executable is None:
@@ -83,8 +84,10 @@ def main():
         path = f"res://tools/tests/{name}.{'tscn' if scene else 'gd'}"
         arguments = [path] if scene else ["--script", path]
         with isolated_environment(executable, ROOT) as env:
+            if args.gpu:
+                env["HANGMAN_TEST_HIDE_WINDOW"] = "1"
             try:
-                result = run_godot(executable, ROOT, arguments, env)
+                result = run_godot(executable, ROOT, arguments, env, headless=not args.gpu)
             except subprocess.TimeoutExpired as error:
                 print(f"FAIL {name}: timeout", flush=True)
                 if error.stdout:

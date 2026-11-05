@@ -75,10 +75,15 @@ func refresh() -> void:
 	scroll.visible = has_standings
 	countdown.set_remaining(int(_snapshot.get("remaining", 0)))
 	# Rebuild only on score/state changes: ticking seconds never reset the scroll.
-	var key := JSON.stringify(_snapshot.get("rows", [])) + phase + JSON.stringify(GameState.get_player_profile())
+	var key := JSON.stringify(_snapshot.get("rows", [])) + phase
 	if key != _rows_key:
 		_rows_key = key
 		_rebuild()
+	if is_instance_valid(own_row):
+		var entry: Dictionary = own_row.get_meta("leaderboard_entry").duplicate(true)
+		entry.merge(GameState.get_player_profile(), true)
+		if entry != own_row.get_meta("leaderboard_entry"):
+			ROW.update(own_row, entry, true, portraits, score_formatter)
 	_layout()
 
 func _rebuild() -> void:

@@ -1,5 +1,7 @@
 # Запуск тестов на Windows и Linux
 
+`leaderboard` проверяет отправку профиля без таблицы при успехе, ошибке и изменении во время чтения; обновление только своей записи в обоих кешах и после перезапуска; сохранение отдельного запроса таблицы в очереди и её штатной ошибки. В `profile_ui --gpu` возврат проверяется через подключённый настоящий клиент с mock-транспортом: неуспешная отправка профиля и успешный повтор сохраняют скрытые строки и прокрутку, не запрашивают таблицу и не повторяют её вступление.
+
 MSDF-профили: `python tools/build_ui_msdf_fonts.py --check` проверяет наличие всего набора TTF и параметров `.import` без изменения файлов и без fonttools/pathops. `python -m unittest discover -s tools/tests -p test_msdf_fonts.py` воспроизводит отсутствие метаданных и неверные MSDF mode/size/range; при `HANGMAN_TEST_GODOT` проверяет создание метаданных самим движком и повторный импорт. `font_artifacts_render` на GPU проверяет все промежуточные ширины заголовка, тяжёлый профиль и кнопку против raster-эталона, размеры 32/48 и обводку 4; задавайте `HANGMAN_PROFILE_PREVIEW_LANGUAGE=ru/en`, `HANGMAN_PROFILE_PREVIEW_SIZE=960x1600/690x1536` и каталог `HANGMAN_UI_CAPTURE_DIR`. `font_raster_ui_render` также проверяет рабочий fallback и однократную диагностику отсутствующего/неверно импортированного MSDF-профиля; предупреждения в этих намеренных отрицательных пробах ожидаемы.
 
 `run_region_consent_tests.py --godot <path>` проверяет фактический `user://` временного проекта через общий `isolated_environment`, убирает IPinfo token до игровых autoload и сохраняет `HANGMAN_SUPABASE_NETWORK_DISABLED=1`. Временный проект включает `symbols` и `scenes`; запускатель читает engine.log и требует `Region consent tests: PASS` без `ERROR`/`SCRIPT ERROR`. `test_project_tools` проверяет отказ при пустом/ошибочном отчёте и выполнение пробы изоляции до движка со сценарием.
@@ -71,7 +73,7 @@ GPU-сцена `tools/tests/tabbed_screen_animation.tscn` проверяет к�
 После импорта ресурсов выбранной версией Godot, из корня проекта:
 
 ```powershell
-python tools/run_content_tests.py --godot 'C:/path/to/Godot.exe'
+python tools/run_content_tests.py --godot 'C:/path/to/Godot.exe' --gpu
 python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite rewards --gpu
 python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite save_recovery
 python tools/run_reward_tests.py --godot 'C:/path/to/Godot.exe' --suite resume_flow --gpu
@@ -83,6 +85,8 @@ python -m unittest discover -s tools/tests -p 'test_*.py'
 ```
 
 На Linux команды те же, с Linux-бинарником в `--godot`. Отдельный контентный сценарий выбирается через `--suite <name>`; список смотри в `--help`. Перед запуском ресурсы должны быть импортированы, например `Godot.exe --headless --editor --import --path .`.
+
+`run_content_tests.py --gpu` использует рендерер проекта и фоновое окно (на Windows скрытое), задавая `HANGMAN_TEST_HIDE_WINDOW=1`. UI-сценарии, например `--suite leaderboard_ui --gpu` и `--suite profile_ui --gpu`, запускайте в этом режиме. Без `--gpu` остаётся headless для логических проверок: его dummy renderer не подтверждает внешний вид и в Godot 4.7.2 выдаёт `custom_samplers` при обработке общих шейдеров обводки/тени. Эти ошибки не подавляются: любой `ERROR` / `SCRIPT ERROR` по-прежнему проваливает прогон в обоих режимах. Для снимков поддерживающих их сценариев задайте `HANGMAN_UI_CAPTURE_DIR`; матрица UI — RU/EN × 960×1600/690×1536.
 
 `godot_test_runner.py` создаёт временный профиль, задаёт APPDATA/LOCALAPPDATA только дочернему процессу на Windows либо XDG-каталоги на Linux. До запуска игровых autoload отдельный минимальный проект с теми же настройками `[application]` проверяет реальный `OS.get_user_data_dir()`. Путь вне временного профиля, ошибка движка или отсутствие отчёта прерывают запуск. Локальный `override.cfg` также блокирует запуск, поскольку он может изменить проверенные настройки. Исходный проект и настройки Android не меняются. Механизм Windows соответствует [реализации путей Godot](https://github.com/godotengine/godot/blob/master/platform/windows/os_windows.cpp) и дополнительно проверяется самим используемым бинарником.
 
@@ -219,4 +223,4 @@ GPU-сценарий `composited_fade_render` также проверяет по
 
 Регрессия P1 нативной медиации: в APK удалены `YandexAdsInitializeProvider`, `AppLovinInitProvider`, `StartAppInitProvider`, а `com.my.target.autoInitMode` имеет тип Integer и значение 0. Для профиля с разблокированной рекламой, непринятыми документами и сохранённым отказом JDWP breakpoint в `AdvertisingIdClient.getAdvertisingIdInfo/getInfo` не должен срабатывать до принятия документов. Проверьте положительный контроль после принятия в том же процессе и загрузку demo-рекламы StartApp, Pangle и myTarget; наличие адаптера в DEX не заменяет показ. `firebase_analytics` проверяет отказ записи документов и повторный запуск рекламы/баннера после успешного сохранения без ожидания `ConsentRegion.changed`, с сохранением отказа после загрузки. После проверки выключайте ожидание debugger и удаляйте ADB forwarding.
 
-`leaderboard_ui` также проверяет прожатие и однократное нажатие своей строки и закреплённой карточки, отмену нажатия при drag, нативную touch-прокрутку с собственной строки и колесо над закреплённой карточкой. `profile_ui` проверяет переход по сигналу карточки на вкладку «Профиль» и возврат на прежнюю вкладку турнира. GPU-матрица: RU/EN при 960×1600 и 690×1536.
+`leaderboard_ui` также проверяет прожатие и однократное нажатие своей строки и закреплённой карточки, отмену нажатия при drag, нативную touch-прокрутку с собственной строки и колесо над закреплённой карточкой. `profile_ui --gpu` проверяет возврат из профиля на обе вкладки рейтинга: тот же экземпляр экрана и строк, сохранение прокрутки обеих вкладок, отсутствие нового запроса и повторного вступления, обновление ника/персонажа/рамки в своей строке, закреплённой карточке и турнире. Повторное открытие профиля сохраняет этот контракт; переход на другой экран освобождает удерживаемый рейтинг. GPU-матрица: RU/EN при 960×1600 и 690×1536; при 690×1536 отдельно остаётся известный сбой фикстуры прокрутки настроек из аудита.

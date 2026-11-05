@@ -130,6 +130,26 @@ class RunnerChecks(unittest.TestCase):
                     patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, output)):
                 self.assertEqual(run_content_tests.main(), 1)
 
+    def test_content_runner_gpu_mode_preserves_isolation_and_rejects_shader_errors(self):
+        from contextlib import nullcontext, redirect_stdout
+        import io
+        summary = "LEADERBOARD_UI checks=1 failures=0\n"
+        shader_error = 'ERROR: Condition "!actions.custom_samplers.has(function->arguments[j].tex_builtin)" is true. Continuing.\n'
+        for gpu in (False, True):
+            for error in ("", shader_error):
+                env = {"HANGMAN_SUPABASE_NETWORK_DISABLED": "1", "isolated": "yes"}
+                arguments = ["runner", "--suite", "leaderboard_ui"] + (["--gpu"] if gpu else [])
+                with self.subTest(gpu=gpu, error=bool(error)), \
+                        patch.object(sys, "argv", arguments), \
+                        patch.object(run_content_tests.shutil, "which", return_value="godot"), \
+                        patch.object(run_content_tests, "isolated_environment", return_value=nullcontext(env)), \
+                        patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, summary + error)) as engine, \
+                        redirect_stdout(io.StringIO()):
+                    self.assertEqual(run_content_tests.main(), 1 if error else 0)
+                self.assertIs(engine.call_args.args[3], env)
+                self.assertEqual(engine.call_args.kwargs["headless"], not gpu)
+                self.assertEqual(env.get("HANGMAN_TEST_HIDE_WINDOW"), "1" if gpu else None)
+
     def test_content_runner_requires_nonempty_valid_json_report(self):
         from contextlib import nullcontext, redirect_stdout
         import io

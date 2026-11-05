@@ -41,6 +41,71 @@ func settle(client: Node, transport: Node) -> void:
 				return
 	check(false, "Workers did not settle")
 
+func check_profile_only_sync() -> void:
+	var transport: Node = TRANSPORT.new()
+	add_child(transport)
+	transport._access_token = "test-access"
+	transport.retry_clock_ms = 1000
+	var client: Node = CLIENT.new()
+	client.transport = transport
+	add_child(client)
+	var errors: Array = []
+	var snapshots: Array = []
+	client.sync_failed.connect(func(): errors.append(true))
+	client.leaderboard_ready.connect(func(snapshot: Dictionary, _cached: bool): snapshots.append(snapshot))
+	transport.replies = [reply()]
+	client.refresh(true, true)
+	await settle(client, transport)
+	client._boards["en"] = client._boards.ru.duplicate(true)
+	var before: Dictionary = client.cached_snapshot()
+	client.profile = {"nickname":"ChangedProfile", "character_id":1, "frame_id":5}
+	transport.replies = [{"status":503}]
+	check(!(await client.sync_profile_and_wait()), "Profile-only failure reports rejection to its waiter")
+	check(!transport.calls.back().payload.p_include_top and errors.is_empty(), "Profile-only failure does not request or invalidate standings")
+	check(client.cached_snapshot() == before and client._profile_pending, "Failed profile-only upload preserves cached rows and its pending retry")
+	var acknowledgement := reply(999, false)
+	acknowledgement.body.me.merge(client.profile, true)
+	acknowledgement.body.me.rank = 73
+	acknowledgement.body.total_players = 200
+	transport.replies = [acknowledgement]
+	check(await client.sync_profile_and_wait(), "Profile-only retry succeeds without advancing the retry clock")
+	var after: Dictionary = client.cached_snapshot()
+	check(!transport.calls.back().payload.p_include_top and snapshots.size() == 1, "Successful profile-only upload emits no replacement standings")
+	check(after.me.nickname == client.profile.nickname and after.top[0].nickname == client.profile.nickname and after.top[0].frame_id == 5, "Profile acknowledgement patches own cached card and row")
+	check(after.me.rank == before.me.rank and after.me.stars == before.me.stars and after.total_players == before.total_players and after.top.slice(1) == before.top.slice(1), "Profile acknowledgement preserves cached ranks, scores, totals and other players")
+	check(client._boards.en.me.nickname == client.profile.nickname and client._boards.en.real_top[0].nickname == client.profile.nickname, "Profile acknowledgement updates the own row in both language caches")
+	var restarted: Node = CLIENT.new()
+	restarted.transport = transport
+	restarted.save_file = client.save_file
+	add_child(restarted)
+	check(restarted.cached_snapshot() == after, "Patched own profile survives cache reload without a table request")
+	restarted.queue_free()
+	# A separate read waiting in backoff must still be served with the profile.
+	transport.retry_failure("leaderboard", {"status":503})
+	client.refresh(true)
+	check(client._read_requested, "Explicit refresh remains queued during backoff")
+	client.profile.nickname = "QueuedProfile"
+	acknowledgement = reply()
+	acknowledgement.body.me.merge(client.profile, true)
+	acknowledgement.body.top[0].merge(client.profile, true)
+	transport.replies = [acknowledgement]
+	check(await client.sync_profile_and_wait(), "Manual profile upload also completes an independently queued read")
+	check(transport.calls.back().payload.p_include_top and !client._read_requested and snapshots.size() == 2, "Profile upload preserves the queued standings request and delivers its result")
+	# A profile changed during an explicit read needs only a subsequent upload.
+	transport.delay_frames["/rest/v1/rpc/leaderboard_sync_dev"] = 4
+	transport.replies = [acknowledgement, reply(80, false)]
+	client.refresh(true, true)
+	client.profile.nickname = "DuringReadProfile"
+	check(await client.sync_profile_and_wait(), "Profile changed during a read is acknowledged by the serialized worker")
+	check(transport.calls[-2].payload.p_include_top and !transport.calls[-1].payload.p_include_top and snapshots.size() == 3, "In-flight read is not followed by another table download just for a profile change")
+	transport.replies = [{"status":503}]
+	client.refresh(true, true)
+	await settle(client, transport)
+	check(errors.size() == 1 and client._read_requested, "A genuine standings failure still reports an error and retains the read for retry")
+	client.queue_free()
+	transport.queue_free()
+	await get_tree().process_frame
+
 func run() -> void:
 	GameState.guided_onboarding_completed = true
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -69,6 +134,7 @@ func run() -> void:
 	var before: int = QuizStatistics.get_child_count()
 	check((await QuizStatistics.leaderboard_rpc({"p_stars":9})).is_empty(), "Test network guard blocks real leaderboard")
 	check(QuizStatistics.get_child_count() == before, "Blocked leaderboard creates no HTTPRequest")
+	await check_profile_only_sync()
 	var transport: Node = TRANSPORT.new()
 	add_child(transport)
 	transport._access_token = "test-access"

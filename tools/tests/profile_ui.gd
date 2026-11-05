@@ -79,6 +79,105 @@ func _process(_delta: float) -> void:
 func _ready() -> void:
 	run.call_deferred()
 
+func check_leaderboard_profile_return() -> void:
+	var view: Control = main._portrait_leaderboard
+	var transport = preload("res://tools/tests/leaderboard_transport_mock.gd").new()
+	add_child(transport)
+	transport._access_token = "test-access"
+	var fixture = preload("res://tools/tests/leaderboard.gd").new()
+	var service = preload("res://tools/tests/leaderboard_client_mock.gd").new()
+	service.transport = transport
+	service.language = Database.interface_language
+	service.profile = GameState.get_player_profile()
+	add_child(service)
+	view.service.leaderboard_ready.disconnect(view._received)
+	view.service.sync_failed.disconnect(view._failed)
+	view.service = service
+	service.leaderboard_ready.connect(view._received)
+	service.sync_failed.connect(view._failed)
+	transport.replies = [fixture.reply(80, true, Database.interface_language)]
+	service.refresh(true, true)
+	for _frame in range(200):
+		await get_tree().process_frame
+		if !service._busy and !transport._busy and transport.active_calls == 0:
+			break
+	check(!service._busy and !view._snapshot.is_empty(), "Profile-return fixture loads standings through the connected service")
+	service.use_game_profile = true
+	var previous_tournament := GameState.tournament_state.duplicate(true)
+	GameState.tournament_state = preload("res://scripts/core/tournament_model.gd").create(
+		GameState._tournament_now(), Database.interface_language,
+		GameState.GAME_DESIGN.get_value("tournament"), 12345, [], OS.is_debug_build())
+	view._tournament.refresh()
+	await settle()
+	var previous_profile := GameState.get_player_profile()
+	var previous_custom_name := GameState.player_name_is_custom
+	for tournament in [false, true]:
+		view._select_tab(tournament)
+		await settle()
+		view.scroll.scroll_vertical = 600
+		view._tournament.scroll.scroll_vertical = 100
+		await settle()
+		var global_scroll: int = view.scroll.scroll_vertical
+		var tournament_scroll: int = view._tournament.scroll.scroll_vertical
+		var global_row: Control = view.own_row
+		var tournament_row: Control = view._tournament.own_row
+		var requests: int = transport.calls.size()
+		# Opening can interrupt the short release tween after an actual card tap.
+		var pressed_card: Control = tournament_row if tournament else view.pinned
+		pressed_card.get_node("PlayerPress")._set_press_scale(true, false)
+		view.profile_requested.emit()
+		await settle()
+		check(main._portrait_profile.selected_tab == "profile", "Own player card opens profile")
+		check(is_instance_valid(view) and !view.visible and view.process_mode == Node.PROCESS_MODE_DISABLED, "Profile retains a hidden paused leaderboard")
+		GameState.player_name = "Updated Player" if tournament else "Changed Player"
+		GameState.settings[5] = 2
+		GameState.player_frame_id = 3
+		GameState.player_name_is_custom = true
+		transport.replies = [{"status":503}]
+		check(!(await service.sync_profile_and_wait()), "Profile upload reports a transport failure")
+		check(!view._has_error and view.own_row == global_row and view.scroll.scroll_vertical == global_scroll, "Failed profile upload preserves the hidden standings and scroll")
+		check(!transport.calls.back().payload.p_include_top, "Failed profile upload does not request standings")
+		var acknowledgement: Dictionary = fixture.reply(80, false, Database.interface_language)
+		acknowledgement.body.me.merge(GameState.get_player_profile(), true)
+		transport.replies = [acknowledgement]
+		check(await service.sync_profile_and_wait(), "Profile upload can be retried successfully")
+		check(!transport.calls.back().payload.p_include_top and transport.calls.size() == requests + 2, "Successful profile retry uploads only the profile")
+		main._close_profile_screen()
+		await get_tree().create_timer(0.4).timeout
+		await settle()
+		check(main._portrait_leaderboard == view and view._live and view.visible, "Profile back restores the same live leaderboard")
+		check(view._tournament_selected == tournament, "Profile back preserves the selected leaderboard tab")
+		check(view.scroll.scroll_vertical == global_scroll and view._tournament.scroll.scroll_vertical == tournament_scroll, "Profile back preserves both scroll positions including the hidden tab")
+		check(view.own_row == global_row and view._tournament.own_row == tournament_row, "Profile changes preserve global and tournament row instances")
+		check(transport.calls.size() == requests + 2, "Profile back makes no additional leaderboard request")
+		check(!view._list_entrance.is_playing() and !view._tournament._list_entrance.is_playing(), "Profile back does not replay either leaderboard entrance")
+		for row: Control in [global_row, view.pinned, tournament_row]:
+			check(row.get_node("PlayerPress").visual_scale.is_equal_approx(Vector2.ONE), "Profile back restores an interrupted card release")
+			var face: Control = row.get_node("CardFace")
+			check(face.get_node("PlayerName").text == GameState.player_name, "Profile back updates own nickname in every card")
+			check(face.get_node("PlayerAvatar").get_meta("character_id") == 2 and face.get_node("PlayerAvatar").get_meta("frame_id") == 3, "Profile back updates own character and frame in every card")
+		var capture_dir := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+		if !capture_dir.is_empty() and DisplayServer.get_name() != "headless":
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(capture_dir.path_join("profile_return_%s.png" % ("tournament" if tournament else "global")))
+	GameState.player_name = str(previous_profile.nickname)
+	GameState.settings[5] = int(previous_profile.character_id)
+	GameState.player_frame_id = int(previous_profile.frame_id)
+	GameState.player_name_is_custom = previous_custom_name
+	GameState.tournament_state = previous_tournament
+	# An unrelated destination must release the retained screen and its signals.
+	view.profile_requested.emit()
+	await settle()
+	main.show_custom_word()
+	await settle()
+	check(!is_instance_valid(view) and !is_instance_valid(main._profile_leaderboard), "Unrelated navigation frees the retained leaderboard")
+	main._show_leaderboard_screen(true)
+	await get_tree().create_timer(0.4).timeout
+	await settle()
+	service.queue_free()
+	transport.queue_free()
+	fixture.free()
+
 func run() -> void:
 	var preview_size := OS.get_environment("HANGMAN_PROFILE_PREVIEW_SIZE").split("x")
 	if preview_size.size() == 2:
@@ -720,15 +819,7 @@ func run() -> void:
 		if control.get_script() == main.STAGE_ROUND_BUTTON_SCRIPT and control.get("icon_texture") == main.PORTRAIT_MENU_SETTINGS_ICON:
 			leaderboard_has_gear = true
 	check(!leaderboard_has_gear, "Leaderboard header has no settings button")
-	main._portrait_leaderboard._select_tab(true)
-	main._portrait_leaderboard.profile_requested.emit()
-	await settle()
-	check(main._portrait_profile.selected_tab == "profile", "Own player card opens profile")
-	main._close_profile_screen()
-	await get_tree().create_timer(0.4).timeout
-	await settle()
-	check(is_instance_valid(main._portrait_leaderboard), "Profile back restores leaderboard")
-	check(main._portrait_leaderboard._tournament_selected, "Profile back restores the previous tournament tab")
+	await check_leaderboard_profile_return()
 	check(main._portrait_header_fill.get("fill_color").is_equal_approx(main.PORTRAIT_DARK_BLUE), "Back between tabbed pages keeps dark header")
 	main._close_leaderboard_screen()
 	check(main._tabbed_closing, "Leaderboard close fades its whole page")

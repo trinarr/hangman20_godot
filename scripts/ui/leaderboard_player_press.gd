@@ -46,6 +46,10 @@ func cancel_press() -> void:
 		_is_down = false
 		_set_press_scale(false)
 
+func reset_press() -> void:
+	_is_down = false
+	_set_press_scale(false, false)
+
 func _sync_visual_child_scales() -> void:
 	if !is_inside_tree():
 		return

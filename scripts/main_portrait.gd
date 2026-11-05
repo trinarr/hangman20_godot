@@ -10,6 +10,7 @@ const AVATAR_BUTTON = preload("res://scripts/ui/profile_avatar_button.gd")
 const RESOURCE_COUNTER_STYLE = preload("res://scripts/ui/resource_counter_style.gd")
 var _portrait_profile: Control
 var _profile_return_action: Callable
+var _profile_leaderboard: Control
 
 const LEADERBOARD_SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
 const QUIZ_CARD_STYLE = preload("res://scripts/ui/quiz_answer_card_style.gd")
@@ -1242,6 +1243,10 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_header_fill = null
 	_portrait_profile = null
 	_profile_return_action = Callable()
+	if is_instance_valid(_profile_leaderboard):
+		_profile_leaderboard.dispose()
+		_profile_leaderboard.queue_free()
+		_profile_leaderboard = null
 	if is_instance_valid(_portrait_leaderboard):
 		_portrait_leaderboard.dispose()
 		_portrait_leaderboard = null
@@ -17566,7 +17571,7 @@ func show_tournament() -> void:
 		return
 	_open_tabbed_page(Callable(self, "_show_leaderboard_screen").bind(true))
 
-func _show_leaderboard_screen(tournament: bool = false) -> void:
+func _show_leaderboard_screen(tournament: bool = false, retained: Control = null) -> void:
 	Analytics.screen("leaderboard")
 	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	_clear()
@@ -17579,6 +17584,12 @@ func _show_leaderboard_screen(tournament: bool = false) -> void:
 	)
 	var tabs_band := _stage_horizontal_fill(80, TABBED_PAGE_STYLE.BAND_HEIGHT, PORTRAIT_DARK_BLUE)
 	tabs_band.set("follows_safe_top_inset", true)
+	if is_instance_valid(retained):
+		_portrait_leaderboard = retained
+		retained.resume_from_profile(content)
+		retained.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
+		_stage_portrait_ad_banner("leaderboard")
+		return
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
 	_portrait_leaderboard.initial_tournament = tournament
 	_portrait_leaderboard.service = Leaderboard
@@ -17659,21 +17670,24 @@ func _open_profile_tab(tab: String) -> void:
 		return
 	var return_action := Callable(self, "show_menu")
 	if is_instance_valid(_portrait_leaderboard):
-		return_action = Callable(self, "_restore_leaderboard_screen").bind(
-			_portrait_leaderboard._tournament_selected, _portrait_leaderboard.scroll.scroll_vertical,
-			_portrait_leaderboard._tournament.scroll.scroll_vertical)
+		return_action = Callable(self, "_restore_leaderboard_screen")
 	var action := Callable(self, "_show_profile_screen").bind(tab, return_action)
 	_open_tabbed_page(action)
 
-func _restore_leaderboard_screen(tournament: bool, global_scroll: int, tournament_scroll: int) -> void:
-	_show_leaderboard_screen(tournament)
-	_portrait_leaderboard.scroll.set_deferred("scroll_vertical", global_scroll)
-	_portrait_leaderboard._tournament.scroll.set_deferred("scroll_vertical", tournament_scroll)
+func _restore_leaderboard_screen() -> void:
+	var retained := _profile_leaderboard
+	_profile_leaderboard = null
+	_show_leaderboard_screen(false, retained)
 
 func _show_profile_screen(tab: String = "profile", return_action: Callable = Callable()) -> void:
 	Analytics.screen("profile")
 	var header_from: Color = _portrait_header_fill.get("fill_color") if is_instance_valid(_portrait_header_fill) else PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
+	var retained := _portrait_leaderboard
+	if is_instance_valid(retained):
+		_portrait_leaderboard = null
+		retained.suspend_for_profile(self)
 	_clear()
+	_profile_leaderboard = retained
 	_profile_return_action = return_action
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
 	_animate_tabbed_header(header_from, PORTRAIT_DARK_BLUE)

@@ -1,6 +1,8 @@
 extends Node
 ## Star leaderboard. Only up to 100 public rows and the own row are cached.
 signal leaderboard_ready(snapshot: Dictionary, from_cache: bool)
+# Only a failed request for standings is reported to the leaderboard screen.
+# Profile uploads report their result through sync_profile_and_wait().
 signal sync_failed()
 
 const RETRY_POLICY = preload("res://scripts/services/api_retry_policy.gd")
@@ -198,7 +200,6 @@ func sync_profile() -> void:
 	if !_profile_pending:
 		return
 	_cache_at_ms = -1
-	_read_requested = _read_requested or !_snapshot.is_empty()
 	if is_instance_valid(_debounce):
 		_debounce.start()
 
@@ -414,7 +415,7 @@ func _flush() -> void:
 			_cache_at_ms = -1
 			_backend().retry_failure("leaderboard", response)
 			# The queued manual operation must report its own result, not the older failure.
-			if !_user_request_pending:
+			if include_top and !_user_request_pending:
 				sync_failed.emit()
 			_schedule_retry()
 			if _user_request_pending:
@@ -440,11 +441,12 @@ func _flush() -> void:
 			_apply_server_player_id(str(body.me.player_id))
 		if send_profile:
 			_synced_profile = submitted_profile.duplicate(true)
+			for board: Dictionary in _boards.values():
+				_patch_cached_profile(board, "real_top", submitted_profile)
+			_patch_cached_profile(_snapshot, "top", submitted_profile)
 		if send_profile or acknowledgement_changed:
 			_save_store()
 		_profile_pending = _synced_profile != _current_profile()
-		if _profile_pending and include_top:
-			_read_requested = true
 		var current_language := request_language == _language()
 		if include_top and current_language:
 			if !_boards.has(request_language):
@@ -474,8 +476,11 @@ func _flush() -> void:
 				_snapshot.top.size(), _snapshot.top.size() - filler_count, filler_count, cis_count, filler_count-cis_count,
 				int(body.total_players), body.language])
 		else:
-			_snapshot["me"] = body.me
-			_snapshot["total_players"] = body.total_players
+			# A profile-only acknowledgement cannot refresh ranks or totals without
+			# downloading the corresponding standings. Keep that cached view intact.
+			if !send_profile or submitted >= 0 or !current_language or _snapshot.is_empty():
+				_snapshot["me"] = body.me
+				_snapshot["total_players"] = body.total_players
 			_cache_at_ms = -1
 			if include_top:
 				_read_requested = true
@@ -492,6 +497,15 @@ func _flush() -> void:
 			leaderboard_ready.emit(cached_snapshot(), false)
 	_busy = false
 	_user_request_pending = false
+
+static func _patch_cached_profile(board: Dictionary, rows_key: String, profile: Dictionary) -> void:
+	var me: Variant = board.get("me")
+	if !(me is Dictionary):
+		return
+	me.merge(profile, true)
+	for entry: Dictionary in board.get(rows_key, []):
+		if str(entry.get("player_id", "")) == str(me.get("player_id", "")) and !bool(entry.get("is_filler", false)):
+			entry.merge(profile, true)
 
 func is_configured() -> bool:
 	return _tutorial_completed() and _legal_accepted() and _backend().leaderboard_is_configured()

@@ -54,6 +54,7 @@ var _portraits: Node
 var _expiry_timer: Timer
 var _watched_tournament_id := ""
 var _expiry_sent := false
+var _suspended_for_profile := false
 
 static func localized(key: String, ru: String, en: String) -> String:
 	var translated := TranslationServer.translate(key)
@@ -407,7 +408,7 @@ func _update_pin() -> void:
 	pinned.get_node("PlayerPress").stage_rect = Rect2(face.position, face.size)
 
 func _check_tournament_expiry() -> void:
-	if !_live or _expiry_sent or _watched_tournament_id.is_empty():
+	if !_live or _suspended_for_profile or _expiry_sent or _watched_tournament_id.is_empty():
 		return
 	var snapshot := GameState.get_tournament_snapshot()
 	if str(GameState.tournament_state.get("id", "")) != _watched_tournament_id:
@@ -416,6 +417,36 @@ func _check_tournament_expiry() -> void:
 		_expiry_sent = true
 		_expiry_timer.stop()
 		tournament_finished.emit()
+
+func suspend_for_profile(destination: Node) -> void:
+	_suspended_for_profile = true
+	_list_entrance.stop()
+	_entrance_pending = false
+	scroll.reset_scroll_effect()
+	_tournament.scroll.reset_scroll_effect()
+	for row: Control in [own_row, pinned, _tournament.own_row]:
+		if is_instance_valid(row):
+			row.get_node("PlayerPress").reset_press()
+	hide()
+	process_mode = Node.PROCESS_MODE_DISABLED
+	PAGE_TRANSFER.finish(self, destination)
+
+func resume_from_profile(destination: Node) -> void:
+	PAGE_TRANSFER.finish(self, destination)
+	var snapshot := _snapshot.duplicate(true)
+	var me: Dictionary = snapshot.get("me") if snapshot.get("me") is Dictionary else {}
+	if !me.is_empty():
+		me.merge(GameState.get_player_profile(), true)
+		for entry: Dictionary in snapshot.get("top", []):
+			if str(entry.get("player_id", "")) == str(me.get("player_id", "")):
+				entry.merge(GameState.get_player_profile(), true)
+		set_snapshot(snapshot)
+	_tournament.refresh()
+	_suspended_for_profile = false
+	process_mode = Node.PROCESS_MODE_INHERIT
+	show()
+	_layout()
+	_check_tournament_expiry.call_deferred()
 
 func dispose() -> void:
 	_live = false
