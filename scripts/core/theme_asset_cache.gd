@@ -34,6 +34,9 @@ static var _cache: Dictionary = {}
 static var _requests: Dictionary = {}
 static var _loads = preload("res://scripts/core/threaded_resource_queue.gd").new()
 
+static func is_prewarm_pending() -> bool:
+	return _loads.pending_count() > 0
+
 static func prewarm() -> void:
 	for path_variant: Variant in COLOR_ICON_PATHS.values():
 		_request(str(path_variant))

@@ -2,6 +2,7 @@ extends ColorRect
 
 signal buttons_appearance_changed(opacity: float, visual_scale: float)
 signal buttons_bounce_finished
+signal entrance_finished
 
 const REVEAL_SHADER: Shader = preload("res://shaders/home_logo_paper_reveal.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
@@ -17,6 +18,7 @@ var title_texture: Texture2D
 var title_chroma_key: bool = false
 var start_delay: float = 0.12
 var play_entrance: bool = true
+var defer_entrance: bool = false
 var reveal_duration: float = 0.71
 var badge_grow_duration: float = 0.18
 var badge_settle_duration: float = 0.22
@@ -47,7 +49,8 @@ func _ready() -> void:
 	material = _reveal_material
 	get_viewport().size_changed.connect(_queue_layout)
 	if play_entrance:
-		call_deferred("_start_entrance")
+		if !defer_entrance:
+			call_deferred("_start_entrance")
 	else:
 		# Tabbed-page returns reveal an already settled Home, including its buttons.
 		_buttons_started = true
@@ -58,6 +61,7 @@ func _ready() -> void:
 		_buttons_opacity = 1.0
 		_set_buttons_scale(1.0)
 		buttons_bounce_finished.emit()
+		entrance_finished.emit()
 		_queue_layout()
 
 func _exit_tree() -> void:
@@ -88,7 +92,7 @@ func _sync_layout() -> void:
 	))
 
 func _start_entrance() -> void:
-	if !is_inside_tree() or _departing:
+	if !is_inside_tree() or _departing or (_entrance_tween != null and _entrance_tween.is_valid()):
 		return
 	_sync_layout()
 	_entrance_tween = create_tween()
@@ -117,6 +121,7 @@ func _start_entrance() -> void:
 	)
 	shine.set_trans(Tween.TRANS_SINE)
 	shine.set_ease(Tween.EASE_IN_OUT)
+	_entrance_tween.tween_callback(entrance_finished.emit)
 
 func _set_reveal_progress(value: float) -> void:
 	_reveal_progress = value

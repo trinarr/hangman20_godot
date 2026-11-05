@@ -29,6 +29,9 @@ func present_if_needed() -> bool:
 		return false
 	if is_instance_valid(popup):
 		return true
+	var startup: Node = host.get_node_or_null("StartupPreparation")
+	if startup != null and bool(startup.get("entrance_pending")):
+		return false
 	if host.content != get_parent() or is_instance_valid(host._home_transition) or !GameState.has_accepted_legal_documents():
 		return false
 	if !get_tree().get_nodes_in_group(host.PORTRAIT_MODAL_POPUP_GROUP).is_empty():

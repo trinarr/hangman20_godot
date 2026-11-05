@@ -13,7 +13,9 @@ func _ready() -> void:
 	run.call_deferred()
 
 func _process(_delta: float) -> void:
-	if DisplayServer.get_name() == "headless":
+	if OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1" and DisplayServer.get_name() != "headless":
+		RenderingServer.force_draw(false)
+	elif DisplayServer.get_name() == "headless":
 		RenderingServer.frame_post_draw.emit()
 
 func settle() -> void:
@@ -29,6 +31,11 @@ func restart_main(language: String) -> void:
 	GameSession.discard_current_round()
 	main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
+	var startup: Node = main.get_node("StartupPreparation")
+	var deadline: int = Time.get_ticks_msec() + 15000
+	while (startup.preparing or startup.entrance_pending) and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	check(!startup.preparing and !startup.entrance_pending, "Startup preparation and entrance finish before guided resume checks")
 	await settle()
 
 func run() -> void:

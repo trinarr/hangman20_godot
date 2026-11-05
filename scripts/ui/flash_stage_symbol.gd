@@ -58,6 +58,9 @@ static var _hero_pose_keep_paths: Dictionary = {}
 static var _hero_pose_prefetch_paths: Dictionary = {}
 static var _hero_loads = preload("res://scripts/core/threaded_resource_queue.gd").new()
 
+static func is_prewarm_pending() -> bool:
+	return _hero_loads.pending_count() > 0
+
 static func prewarm_hero_type(hero_type_value: int) -> void:
 	var states: Array[String] = (
 		HERO_TYPE_2_STATES

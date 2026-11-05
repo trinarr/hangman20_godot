@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from prepare_startup_android import prepare as prepare_startup
 
 ROOT = Path(__file__).resolve().parents[1]
 STORES = {"rustore", "google_play"}
@@ -63,6 +64,10 @@ def main() -> int:
         return 0
     if args.output is None:
         parser.error("--output is required for export")
+    try:
+        prepare_startup(ROOT / "android/build", check=True)
+    except (OSError, ValueError) as error:
+        parser.error(str(error) + "; run python tools/prepare_startup_android.py")
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     return subprocess.run([args.godot, "--headless", "--path", str(ROOT),

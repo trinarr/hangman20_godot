@@ -65,6 +65,7 @@ const PORTRAIT_PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/por
 const HOME_TOURNAMENT_BUTTON = preload("res://scripts/ui/home_tournament_button.gd")
 const HOME_PAPER_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_paper_transition.gd")
 const HOME_BLUE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_blue_transition.gd")
+const HOME_FONT_WARMUP = preload("res://scripts/ui/home_font_warmup.gd")
 const TABBED_PAGE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/tabbed_page_transition.gd")
 var _home_transition: CanvasLayer
 var _home_logo_reveal: Control
@@ -3575,7 +3576,12 @@ func show_menu() -> void:
 	_quiz_single_player_target_difficulty = 0.5
 	_show_menu_screen()
 	if introduce_tournament:
-		TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
+		var startup: Node = get_node_or_null("StartupPreparation")
+		if startup != null and bool(startup.get("preparing")):
+			_home_logo_reveal.entrance_finished.connect(
+				TOURNAMENT_START_POPUP.present_after_home_return.bind(self, result_transition_generation), CONNECT_ONE_SHOT)
+		else:
+			TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
 
 func _show_menu_screen() -> void:
 	Analytics.screen("home")
@@ -3642,6 +3648,14 @@ func _show_menu_screen() -> void:
 	logo_reveal.connect("buttons_bounce_finished", _finish_home_button_entrance.bind(home_buttons))
 	_home_logo_reveal = logo_reveal
 	_home_start_buttons = home_buttons
+	var font_warmup := HOME_FONT_WARMUP.new()
+	font_warmup.name = "HomeFontWarmup"
+	content.add_child(font_warmup)
+	var startup: Node = get_node_or_null("StartupPreparation")
+	if startup != null and bool(startup.get("preparing")):
+		startup.prepare_home(logo_reveal, font_warmup, content, _finish_home_startup_checks)
+	else:
+		logo_reveal.entrance_finished.connect(font_warmup.start, CONNECT_ONE_SHOT)
 	content.add_child(logo_reveal)
 	HOME_PAPER_TRANSITION_SCRIPT.warm_up(self)
 	_stage_portrait_ad_banner("_show_menu_screen")
@@ -3649,6 +3663,10 @@ func _show_menu_screen() -> void:
 	tournament_prompt.name = "TournamentFinishPrompt"
 	tournament_prompt.host = self
 	content.add_child(tournament_prompt)
+	if startup == null or !bool(startup.get("preparing")):
+		_finish_home_startup_checks()
+
+func _finish_home_startup_checks() -> void:
 	if _portrait_pending_home_reward_amount > 0:
 		call_deferred("_play_pending_home_reward_animation", result_transition_generation)
 	if !GameState.has_accepted_legal_documents():

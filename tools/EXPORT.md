@@ -45,7 +45,11 @@ python tools/export_android.py --preset 'Hangman 2.0 Google Play' --check-only
 ```powershell
 python tools/prepare_yandex_android.py
 python tools/prepare_yandex_android.py --check
+python tools/prepare_startup_android.py
+python tools/prepare_startup_android.py --check
 ```
+
+Подготовка startup устанавливает `HomeStartupGate` и два JNI-метода в генерируемый `GodotApp.java`. Системный сплеш ждёт готовности Home и локального прогрева; вступление начинается после подтверждённого удаления сплеша. Условие ожидания не блокирует UI-поток; аварийный предел удержания после старта движка — 30 секунд. Рекламу и сеть этот gate не ожидает. Повторяйте подготовку после замены Android-шаблона. `export_android.py` перед реальным экспортом проверяет наличие актуального gate; `--check-only` по-прежнему проверяет только настройки магазина без SDK. Прямой экспорт из редактора требует заранее подготовленного шаблона.
 
 Подготовка Яндекса закрепляет AGP 8.10.1 в `android/build/config.gradle`. Штатный Gradle wrapper 8.11.1 и JDK 17 совместимы с этой версией; SDK 36 поддерживается. Maven-зависимость `mobileads-mediation:8.6.0.0` и репозитории адаптеров подключает экспортный плагин, а не ручные изменения генерируемого Gradle-файла. Android-мост компилируется против базового API `mobileads:8.6.0`; полный набор адаптеров разрешается при экспорте приложения.
 
