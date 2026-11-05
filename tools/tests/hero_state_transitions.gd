@@ -50,6 +50,73 @@ func visual_pose(symbol: FlashStageSymbol) -> Array:
 			values.append(node.texture)
 	return values
 
+func check_section_frame(symbol: FlashStageSymbol, reference: FlashStageSymbol, phase: float, context: String) -> void:
+	# Sample the authored scene directly: a correct player position alone can
+	# still accompany frame-zero discrete texture keys after play_section().
+	reference.nested_animation_time = phase
+	check(visual_pose(symbol) == visual_pose(reference), context + " matches authored textures and transforms")
+
+func check_section_frames(character: int) -> void:
+	for mistakes: int in range(7):
+		var symbol := FlashStageSymbol.new()
+		symbol.hero_type = character
+		symbol.force_immediate_hero_pose_load = true
+		symbol.animation_time = main._hero_animation_time_for_mistakes(mistakes)
+		symbol.nested_animation_time = main.HERO_MOV_IDLE_FRAME_TIME
+		add_child(symbol)
+		var reference := FlashStageSymbol.new()
+		reference.hero_type = character
+		reference.force_immediate_hero_pose_load = true
+		reference.animation_time = symbol.animation_time
+		add_child(reference)
+		var context: String = "%s %s hero=%d state=%d" % [Database.interface_language, get_window().size, character, mistakes]
+		var terminal: bool = mistakes == 6
+		var ranges: Array[Vector2] = [
+			Vector2(main.HERO_MOV_START_FRAME_TIME, main.HERO_MOV_IDLE_FRAME_TIME),
+			Vector2(main.HERO_MOV_RECOVERY_START_FRAME_TIME, main.HERO_MOV_RECOVERY_END_FRAME_TIME),
+		]
+		if terminal:
+			ranges = [Vector2(0.0, main.HERO_TYPE_2_TERMINAL_END_FRAME_TIME if character == 2 else main.HERO_TYPE_1_TERMINAL_END_FRAME_TIME)]
+		for section: Vector2 in ranges:
+			var initial: float = section.x + 0.07 if terminal else section.x
+			if terminal:
+				symbol.play_nested_loop(symbol.animation_time, section.x, section.y, 1.0, initial)
+			else:
+				symbol.play_nested_range(symbol.animation_time, section.x, section.y)
+			symbol.set_process(false)
+			var player: AnimationPlayer = symbol._playback_player
+			player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+			check_section_frame(symbol, reference, initial, context + " section start")
+			player.advance(0.0)
+			check_section_frame(symbol, reference, initial, context + " first update")
+			player.advance(0.06)
+			check_section_frame(symbol, reference, initial + 0.06, context + " intermediate update")
+			if terminal:
+				# Resuming an interrupted loop and wrapping it use a second launch site.
+				symbol._restart_nested_loop(0.11)
+				check_section_frame(symbol, reference, 0.11, context + " loop resume")
+				player.advance(0.0)
+				check_section_frame(symbol, reference, 0.11, context + " resumed first update")
+				player.advance(section.y)
+				symbol._process(0.0)
+				check_section_frame(symbol, reference, section.x, context + " loop wrap")
+				player.advance(0.0)
+				check_section_frame(symbol, reference, section.x, context + " wrapped first update")
+			else:
+				player.advance(section.y - initial)
+				symbol._process(0.0)
+				check(!symbol.is_nested_playback_active(), context + " section completes")
+				check_section_frame(symbol, reference, section.y, context + " section end")
+				# Starting another section cancels the prior player state.
+				symbol.play_nested_range(symbol.animation_time, section.x, section.y)
+				player.advance(0.03)
+				symbol.play_nested_range(symbol.animation_time, section.x, section.y)
+				player.advance(0.0)
+				check_section_frame(symbol, reference, section.x, context + " interrupted restart")
+				symbol._stop_playback_state()
+		symbol.free()
+		reference.free()
+
 func check_cold_pose_transitions() -> void:
 	for character: int in [1, 2]:
 		for interrupted: bool in [false, true]:
@@ -144,6 +211,7 @@ func run() -> void:
 			Database.load_languages(language, language)
 			for character: int in [1, 2]:
 				GameState.settings[5] = character
+				check_section_frames(character)
 				for mistakes: int in range(6):
 					main.game_screen_visible = false
 					GameSession.start_custom_round("АБВГДЕЖЗ" if language == "ru" else "ABCDEFGH")

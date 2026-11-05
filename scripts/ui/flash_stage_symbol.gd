@@ -506,6 +506,9 @@ func _play_nested(root_time: float, nested_start_time: float, nested_end_time: f
 		-1.0,
 		_playback_speed_scale
 	)
+	# Initialize discrete texture keys at the section start. Otherwise the first
+	# animation update can apply frame zero even with a nonzero section position.
+	_playback_player.seek(playback_initial_time, true)
 	if should_loop:
 		# Imported Flash clips are not marked as looping Godot animations. Let the
 		# AnimationPlayer advance the section natively and restart only at its end;
@@ -566,6 +569,8 @@ func _restart_nested_loop(restart_position: float = -1.0) -> void:
 		else clampf(restart_position, _playback_start_time, _playback_end_time)
 	)
 	_playback_loop_position = resolved_position
+	# Drop the previous section's discrete-key state before seeking backwards.
+	_playback_player.stop(true)
 	_playback_player.play_section(
 		"default",
 		resolved_position,
@@ -573,6 +578,7 @@ func _restart_nested_loop(restart_position: float = -1.0) -> void:
 		-1.0,
 		_playback_speed_scale
 	)
+	_playback_player.seek(resolved_position, true)
 
 func _stop_playback_state() -> void:
 	if _playback_player != null:
