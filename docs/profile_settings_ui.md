@@ -123,7 +123,7 @@ python3 tools/build_ui_msdf_fonts.py --check
 ```
 
 The script reads the existing axes from `ui_fonts.gd`, preserves advance widths,
-and generates all display widths, the button and heavy-display profiles. With `--godot`, the engine creates new import remaps/UIDs before the script configures MSDF options and reimports them. Without `--godot`, generation requires valid existing imports and a later editor reimport. `--check` validates every expected TTF/import without generating fonts or requiring build dependencies. The authored MSDF size is 64, except the heavy multiplier profile at 48; pixel range is 24. Runtime verifies the loaded FontFile and diagnoses a missing/incorrect profile once before using the variable raster fallback. Adjusting arbitrary gameplay-word
+and generates only the display widths listed in `ROBOTO_FLEX_DISPLAY_WIDTHS` (35/32/30), the button and heavy-display profiles: five MSDF profiles in total. Input fitting tries these display widths before reducing font size; other width requests resolve to the next narrower available profile. The button and heavy profiles retain their authored axes. With `--godot`, the engine creates new import remaps/UIDs before the script configures MSDF options and reimports them. Without `--godot`, generation requires valid existing imports and a later editor reimport. `--check` validates every expected TTF/import and rejects obsolete generated profiles without generating fonts or requiring build dependencies. When changing the width set, reconcile obsolete assets/imports with runtime consumers before accepting the build. The authored MSDF size is 64, except the heavy multiplier profile at 48; pixel range is 24. Runtime verifies the loaded FontFile and diagnoses a missing/incorrect profile once before using the variable raster fallback. Adjusting arbitrary gameplay-word
 widths requires no font generation.
 
 Tabbed pages render at actual output pixel density, computed from the parent
@@ -150,7 +150,7 @@ are rebuilt; advance widths and the full character set are retained.
 Compact settings captions use the raster button font with native glyph spacing,
 including ВКЛ/ВЫКЛ.
 
-`tools/tests/font_artifacts_render.tscn` requires a real renderer. It compares each intermediate display width, the button, heavy-display and regular profiles against raster reference outlines at sizes 32/48, including a native outline of 4. It tests Cyrillic or Latin plus digits according to the test language, rejects spurious filled blocks and verifies native button glyph spacing. RU/EN at 960x1600 and 690x1536 are covered; captures use `HANGMAN_UI_CAPTURE_DIR`.
+`tools/tests/font_artifacts_render.tscn` requires a real renderer. It compares each available display width, the button, heavy-display and regular profiles against raster reference outlines at sizes 32/48, including a native outline of 4. It tests Cyrillic or Latin plus digits according to the test language, rejects spurious filled blocks and verifies native button glyph spacing. Real word/nickname inputs exercise sparse profile selection, fitting, intermediate bounce scale, restart, completion and destruction during an animation without requesting removed profiles. RU/EN at 960x1600 and 690x1536 are covered; captures use `HANGMAN_UI_CAPTURE_DIR`.
 
 
 `tools/tests/font_raster_ui_render.tscn` compares styled body text, the exact

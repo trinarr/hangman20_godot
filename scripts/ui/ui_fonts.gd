@@ -7,7 +7,8 @@ const ROBOTO_FLEX_PATH: String = "res://" + "fonts/RobotoFlex-Variable.ttf"
 const ROBOTO_FLEX_DISPLAY_WEIGHT: float = 760.0
 const ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT: float = 900.0
 const ROBOTO_FLEX_DISPLAY_WIDTH: float = 35.0
-const ROBOTO_FLEX_DISPLAY_MIN_WIDTH: float = 25.0
+const ROBOTO_FLEX_DISPLAY_MIN_WIDTH: float = 30.0
+const ROBOTO_FLEX_DISPLAY_WIDTHS: Array[int] = [35, 32, 30]
 const ROBOTO_FLEX_DISPLAY_GRADE: float = -10.0
 const ROBOTO_FLEX_DISPLAY_THIN_STROKE: float = 90.0
 
@@ -114,11 +115,17 @@ static func heavy_display_font() -> Font:
 	)
 
 static func display_font_with_width(width: float = ROBOTO_FLEX_DISPLAY_WIDTH) -> Font:
-	var resolved_width: float = clampf(
+	var requested_width: float = clampf(
 		roundf(width),
 		ROBOTO_FLEX_DISPLAY_MIN_WIDTH,
 		ROBOTO_FLEX_DISPLAY_WIDTH
 	)
+	# Round toward the next narrower baked profile so fitted text cannot expand.
+	var resolved_width: float = ROBOTO_FLEX_DISPLAY_MIN_WIDTH
+	for candidate: int in ROBOTO_FLEX_DISPLAY_WIDTHS:
+		if float(candidate) <= requested_width:
+			resolved_width = float(candidate)
+			break
 	return _roboto_flex_font(
 		ROBOTO_FLEX_DISPLAY_WEIGHT,
 		resolved_width,

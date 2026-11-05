@@ -34,14 +34,58 @@ func run() -> void:
 	background.color = Color.BLACK
 	add_child(background)
 	var profiles: Array[Font] = [FONTS.button_font(), FONTS.regular_font(), FONTS.heavy_display_font()]
-	for width in range(int(FONTS.ROBOTO_FLEX_DISPLAY_MIN_WIDTH), int(FONTS.ROBOTO_FLEX_DISPLAY_WIDTH) + 1):
+	for width: int in FONTS.ROBOTO_FLEX_DISPLAY_WIDTHS:
 		profiles.append(FONTS.display_font_with_width(width))
 	for index in range(profiles.size()):
 		for font_size: int in [32, 48]:
 			await check_profile(profiles[index], characters, font_size, 4 if font_size == 48 else 0, "%s_%d_%d" % [language, index, font_size])
 	check(FONTS.button_font().spacing_glyph == 0, "Button captions retain native glyph spacing")
+	await check_input_profiles()
 	print("FONT_ARTIFACTS_RENDER checks=", checks, " profiles=", profiles.size(), " failures=", failures)
 	get_tree().quit(1 if failures else 0)
+
+func check_input_profiles() -> void:
+	var warnings_before: int = FONTS._msdf_warning_paths.size()
+	var cases := [
+		["АВАРИЙНОЕ ОСВЕЩЕНИЕ", 40, Vector2(464, 72), 20, 32],
+		["WORD", 40, Vector2(464, 72), 20, 35],
+		["W".repeat(20), 40, Vector2(464, 72), 20, 30],
+		["Ш".repeat(18), 31, Vector2(344, 62.4), 18, 30],
+		["Player 123", 31, Vector2(344, 62.4), 18, 35],
+	]
+	for index in range(cases.size()):
+		var sample: Array = cases[index]
+		var input := preload("res://scripts/ui/stage_word_input.gd").new()
+		input.stage_rect = Rect2(Vector2(8, 200), sample[2])
+		add_child(input)
+		input.configure(sample[0], sample[3], sample[1])
+		await frame()
+		var label: Label = input._display_label
+		var font: Font = label.get_theme_font("font")
+		check(font == FONTS.display_font_with_width(sample[4]), "Input selects the intended sparse MSDF profile: case %d" % index)
+		var measured := font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")).x
+		check(measured <= input.size.x - 16.0, "Word or nickname fits its authored field: case %d" % index)
+		input.play_word_bounce()
+		var first: Tween = input._word_bounce_tweens[0]
+		first.pause()
+		check(label.scale.is_equal_approx(Vector2.ONE * 0.58), "Input bounce starts at its authored scale")
+		first.custom_step(0.09)
+		check(label.scale.x > 0.58 and label.scale.y < 1.24 and label.get_theme_font("font") == font, "Input bounce progresses without switching font")
+		var image := await frame()
+		var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+		if !directory.is_empty():
+			image.save_png(directory.path_join("input_profile_%s_%d_%dx%d.png" % [OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE"), index, get_window().size.x, get_window().size.y]))
+		input.play_word_bounce()
+		check(!first.is_valid() and input._word_bounce_tweens.size() == 1, "Repeated input bounce cancels the old tween")
+		var restarted: Tween = input._word_bounce_tweens[0]
+		restarted.pause()
+		restarted.custom_step(0.43)
+		check(label.scale.is_equal_approx(Vector2.ONE) and label.get_theme_font("font") == font, "Input bounce completes at full scale with the same font")
+		input.play_word_bounce()
+		input.queue_free()
+		await frame()
+		check(!is_instance_valid(input), "Leaving the input during a bounce releases its owner")
+	check(FONTS._msdf_warning_paths.size() == warnings_before, "Word and nickname fitting never requests a removed MSDF profile")
 
 func check_profile(font: FontVariation, characters: String, font_size: int, outline: int, name: String) -> void:
 	var labels: Array[Label] = []

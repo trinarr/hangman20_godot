@@ -12,6 +12,19 @@ import build_ui_msdf_fonts as fonts
 
 
 class MSDFImports(unittest.TestCase):
+    def test_sparse_heading_profiles_do_not_generate_intermediate_fonts(self):
+        self.assertEqual(fonts.display_widths(), [35, 32, 30])
+        self.assertEqual({(int(p[0]), int(p[1])) for p in fonts.profiles()},
+                         {(760, 35), (760, 32), (760, 30), (680, 25), (900, 35)})
+
+    def test_check_rejects_obsolete_profiles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'RobotoFlexUI_760_34_-10_90_80.ttf').touch()
+            with patch.object(fonts, 'OUTPUT', output), patch.object(fonts, 'profiles', return_value=[]):
+                with self.assertRaisesRegex(ValueError, 'Obsolete MSDF profile'):
+                    fonts.verify_imports()
+
     def test_expected_profiles_and_import_settings(self):
         fonts.verify_imports()
 

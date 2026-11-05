@@ -85,9 +85,60 @@ func run() -> void:
 	check(viewport.get_texture().get_image().get_pixel(164, 164).a > 0.95, "Outline restores after repeated fading")
 	viewport.queue_free()
 	await get_tree().process_frame
+	await check_root_outline_pixels(ImageTexture.create_from_image(source))
 	await check_refill_popups()
 	print("COLORED_ICON_OUTLINE_RENDER checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func check_root_outline_pixels(texture: Texture2D) -> void:
+	var previous_size := get_window().size
+	var previous_minimum := get_window().min_size
+	var background := ColorRect.new()
+	background.color = Color.BLACK
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(background)
+	var icon := TextureRect.new()
+	icon.texture = texture
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.position = Vector2(200, 200)
+	icon.size = Vector2(32, 32)
+	add_child(icon)
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 2400)]:
+		get_window().min_size = dimensions
+		get_window().size = dimensions
+		await frame()
+		background.size = get_viewport().get_visible_rect().size
+		for width: float in [2.0, 5.0, 8.0]:
+			var probe_material := OUTLINE.material(width).duplicate() as ShaderMaterial
+			probe_material.set_shader_parameter("outline_color", Color.GREEN)
+			icon.material = probe_material
+			for scale_value: float in [0.5, 1.0, 2.0, 4.0]:
+				icon.scale = Vector2.ONE * scale_value
+				await frame()
+				var image := get_viewport().get_texture().get_image()
+				var pixel_scale := Vector2(image.get_size()) / get_viewport().get_visible_rect().size
+				var y := roundi((200 + 16 * scale_value) * pixel_scale.y)
+				var first := -1
+				var red := -1
+				for x in range(image.get_width()):
+					var pixel := image.get_pixel(x, y)
+					if first < 0 and pixel.g > 0.5:
+						first = x
+					if pixel.r > 0.8:
+						red = x
+						break
+				check(first >= 0 and red > first and absf(red - first - width) <= 1.0, "Stretched root outline: size=%s scale=%s width=%s measured=%s physical pixels" % [dimensions, scale_value, width, red-first])
+				check(absf(red - (200 + 8 * scale_value) * pixel_scale.x) <= 1.0, "Stretched root preserves the source edge in physical pixels")
+				var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+				if !directory.is_empty() and scale_value == 2.0:
+					image.save_png(directory.path_join("root_outline_%dx%d_%d.png" % [dimensions.x, dimensions.y, int(width)]))
+	icon.free()
+	background.free()
+	get_window().min_size = previous_minimum
+	get_window().size = previous_size
+	await frame()
 
 func check_refill_popups() -> void:
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION

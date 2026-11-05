@@ -13,7 +13,7 @@ const STAGE_SIZE := Vector2(480.0, 800.0)
 const MIN_FONT_SIZE: int = 24
 const INPUT_TEXT_SIDE_PADDING: float = 2.0
 # Keep glyph proportions readable; do not bypass this axis floor with scale.x.
-const INPUT_MIN_WIDTH: float = 30.0
+const INPUT_MIN_WIDTH: float = UI_FONTS.ROBOTO_FLEX_DISPLAY_MIN_WIDTH
 const INPUT_TEXT_EFFECT_PADDING: float = 12.0
 const MARKER_BASE_ALPHA: float = 0.35
 const MARKER_DETAIL_ALPHA: float = 0.70
@@ -362,14 +362,16 @@ func _rebuild_visuals() -> void:
 func _resolved_display_font(value: String, available_width: float) -> Dictionary:
 	var resolved_size: int = maxi(input_font_size, MIN_FONT_SIZE)
 	var resolved_width: float = UI_FONTS.ROBOTO_FLEX_DISPLAY_WIDTH
-	var font: Font = UI_FONTS.display_font_with_width(resolved_width)
-	var measured: float = font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_size).x
+	var font: Font
+	var measured: float = 0.0
 	# Like the result word, exhaust width adjustment before reducing font size.
 	# Stop at wdth=30 and preserve the font's native proportions afterwards.
-	while measured > available_width and resolved_width > INPUT_MIN_WIDTH:
-		resolved_width = maxf(resolved_width - 1.0, INPUT_MIN_WIDTH)
+	for width: int in UI_FONTS.ROBOTO_FLEX_DISPLAY_WIDTHS:
+		resolved_width = float(width)
 		font = UI_FONTS.display_font_with_width(resolved_width)
 		measured = font.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1.0, resolved_size).x
+		if measured <= available_width:
+			break
 	# Extremely wide 20-letter words may need less than the old 24 px floor.
 	# Reduce size uniformly rather than squeezing glyphs or overflowing the field.
 	while measured > available_width and resolved_size > 1:

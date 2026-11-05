@@ -11,6 +11,9 @@ func check(ok: bool, message: String) -> void:
   push_error(message)
 func _ready() -> void:
  run.call_deferred()
+func _process(_delta: float) -> void:
+ if OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+  RenderingServer.force_draw(false)
 func frame() -> Image:
  for _i in range(4):await get_tree().process_frame
  await RenderingServer.frame_post_draw
@@ -34,6 +37,10 @@ func run() -> void:
   push_error("Raster UI regression requires a real renderer")
   get_tree().quit(1)
   return
+ var preview_size := OS.get_environment("HANGMAN_PROFILE_PREVIEW_SIZE").split("x")
+ if preview_size.size() == 2:
+  get_window().min_size = Vector2i(int(preview_size[0]), int(preview_size[1]))
+  get_window().size = get_window().min_size
  var background := ColorRect.new()
  background.size = get_viewport().get_visible_rect().size
  background.color = Color.BLACK
@@ -84,8 +91,13 @@ func run() -> void:
  check(FONTS.regular_font(700.0) == FONTS.regular_font(700.0), "Weighted raster profiles are cached")
  check(FONTS.button_font() != FONTS.button_font_raster(), "Raster and MSDF profiles have separate caches")
  check(FONTS.button_font().spacing_glyph == 0 and FONTS.button_font_raster().spacing_glyph == 0, "Compact native spacing is preserved")
- for width in range(25,36):
+ for width in FONTS.ROBOTO_FLEX_DISPLAY_WIDTHS:
   check(FONTS.display_font_with_width(width).base_font.multichannel_signed_distance_field, "Heading remains MSDF at width %d" % width)
+ var warning_count_before := FONTS._msdf_warning_paths.size()
+ for width in range(25,36):
+  var expected_width := 35 if width == 35 else (32 if width >= 32 else 30)
+  check(FONTS.display_font_with_width(width) == FONTS.display_font_with_width(expected_width), "Heading width %d selects a shared narrower baked profile" % width)
+ check(FONTS._msdf_warning_paths.size() == warning_count_before, "Intermediate heading widths never trigger raster fallback")
  check(FONTS.button_font().base_font.multichannel_signed_distance_field, "Large button captions retain MSDF")
  check(!FONTS.gameplay_word_font().base_font.multichannel_signed_distance_field, "Gameplay word letters retain raster")
  var warning_count: int = FONTS._msdf_warning_paths.size()

@@ -46,6 +46,9 @@ def import_errors(path):
 
 def verify_imports():
     errors = [error for profile in profiles() for error in import_errors(OUTPUT / filename(profile))]
+    expected = {filename(profile) for profile in profiles()}
+    errors += [f'Obsolete MSDF profile: {path.name}' for path in OUTPUT.glob('RobotoFlexUI_*.ttf')
+               if path.name not in expected]
     if errors:
         raise ValueError('\n'.join(errors))
     print(f'MSDF imports verified: {len(profiles())} profiles', flush=True)
@@ -83,13 +86,28 @@ def settings():
     return {name: float(value) for name, value in re.findall(
         r'const (ROBOTO_FLEX_\w+): float = ([\d.-]+)', text)}
 
+def display_widths():
+    text = (ROOT / 'scripts/ui/ui_fonts.gd').read_text(encoding='utf-8')
+    match = re.search(r'const ROBOTO_FLEX_DISPLAY_WIDTHS: Array\[int\] = \[([\d,\s]+)\]', text)
+    if match is None:
+        raise ValueError('Missing baked heading widths in ui_fonts.gd')
+    widths = [int(value.strip()) for value in match[1].split(',') if value.strip()]
+    values = settings()
+    if (not widths or widths != sorted(set(widths), reverse=True)
+            or widths[0] != int(values['ROBOTO_FLEX_DISPLAY_WIDTH'])
+            or widths[-1] != int(values['ROBOTO_FLEX_DISPLAY_MIN_WIDTH'])):
+        raise ValueError('Baked heading widths must descend from the maximum to the minimum')
+    return widths
+
+
 def profiles():
     values = settings()
     thick = values['ROBOTO_FLEX_THICK_STROKE']
     result = []
     for kind in ['DISPLAY', 'BUTTON']:
         prefix = 'ROBOTO_FLEX_' + kind + '_'
-        for width in range(int(values[prefix+'MIN_WIDTH']), int(values[prefix+'WIDTH'])+1):
+        widths = display_widths() if kind == 'DISPLAY' else range(int(values[prefix+'MIN_WIDTH']), int(values[prefix+'WIDTH'])+1)
+        for width in widths:
             result.append((values[prefix+'WEIGHT'], width, values[prefix+'GRADE'],
                            values[prefix+'THIN_STROKE'], thick))
     result.append((values['ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT'],
@@ -141,7 +159,7 @@ def build():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--check', action='store_true', help='Verify every expected font/import without generating files')
+    parser.add_argument('--check', action='store_true', help='Verify expected fonts/imports and reject obsolete generated profiles without generating files')
     parser.add_argument('--godot', type=Path, help='Godot executable to create missing metadata and reimport generated fonts')
     args = parser.parse_args()
     try:
@@ -157,7 +175,7 @@ def main():
                 verify_imports()
                 print('Reimport generated fonts in Godot before exporting.')
     except (ValueError, OSError) as error:
-        parser.exit(1, str(error) + '\nUse --godot to prepare MSDF imports with the engine.\n')
+        parser.exit(1, str(error) + '\nUse --godot for missing imports; reconcile obsolete profiles with runtime consumers before removing them.\n')
 
 
 if __name__ == '__main__':
