@@ -287,8 +287,12 @@ def main() -> None:
     )
     guided_home_screen = function_body(portrait, "_show_menu_screen")
     guided_startup = function_body(portrait, "_check_startup_guided_resume")
+    guided_home_checks = function_body(portrait, "_finish_home_startup_checks")
     require(
-        "_check_startup_guided_resume()" in guided_home_screen
+        ("_check_startup_guided_resume()" in guided_home_screen
+         or ("_finish_home_startup_checks()" in guided_home_screen
+             and "_check_startup_guided_resume()" in guided_home_checks
+             and "startup.prepare_home(logo_reveal, font_warmup, content, _finish_home_startup_checks)" in guided_home_screen))
         and "_startup_guided_resume_checked" in guided_startup
         and "has_accepted_legal_documents()" in guided_startup
         and 'call_deferred("_resume_saved_single_player_level")' in guided_startup,
@@ -543,8 +547,9 @@ def main() -> None:
     legal_popup = function_body(portrait, "_show_legal_consent_popup")
     legal_accept = function_body(portrait, "_accept_legal_documents")
     require(
-        'call_deferred("_show_legal_consent_popup")'
-        in function_body(portrait, "_show_menu_screen"),
+        ('call_deferred("_show_legal_consent_popup")' in guided_home_screen
+         or ("_finish_home_startup_checks()" in guided_home_screen
+             and 'call_deferred("_show_legal_consent_popup")' in guided_home_checks)),
         "Home does not show the legal confirmation on first launch",
     )
     require(

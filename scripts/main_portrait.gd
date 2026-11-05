@@ -3557,6 +3557,10 @@ func _confirm_settings_word_language_change(language_code: String) -> void:
 	else:
 		_remove_settings_popup()
 
+func _show_initial_screen() -> void:
+	if !preload("res://scripts/ui/first_word_startup.gd").try_start(self):
+		show_menu()
+
 func show_menu() -> void:
 	var presented_reward := GameState.get_pending_single_player_reward()
 	var introduce_tournament: bool = (
@@ -12113,6 +12117,9 @@ func _prepare_portrait_game_entrance() -> void:
 	call_deferred("_play_portrait_game_entrance")
 
 func _play_portrait_game_entrance() -> void:
+	var first_start: Node = get_node_or_null("FirstWordStartup")
+	if first_start != null and first_start.holds_entrance():
+		return
 	if !_portrait_game_entrance_active or !game_screen_visible or game_finished:
 		return
 	var entrance_start_delay: float = PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
@@ -16098,8 +16105,8 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		stage_finished_callback = Callable(self, "_auto_advance_final_stage_reward")
 	# Quiz slots do not keep an active GameSession round, so GameSession.theme_id
 	# is -1 by the time their reward screen is shown. Resolve the reward theme
-	# from the level definition and retain the active round as a safe fallback.
-	var reward_theme_index: int = _single_player_level_selected_theme(level_index)
+	# from saved metadata without selecting content; retain the active round as fallback.
+	var reward_theme_index: int = GameState.get_single_level_selected_theme(Database.current_language, level_index)
 	if reward_theme_index < 0:
 		reward_theme_index = GameSession.theme_id
 	if is_final_reward or is_quiz_coin_reward:

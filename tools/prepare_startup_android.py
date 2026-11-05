@@ -2,6 +2,7 @@
 """Install the Home readiness gate in the generated Godot Android activity."""
 import argparse
 from pathlib import Path
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 ORIGINAL = "splashScreen.setKeepOnScreenCondition(() -> godot.getRunStatus() != Godot.RunStatus.STARTED);"
@@ -18,6 +19,18 @@ METHODS = """
         return HomeStartupGate.isDismissed();
     }
 """
+
+
+def verify_package(path: Path) -> None:
+    """A prepared source tree does not prove that its bridge reached the APK/AAB."""
+    required = {b'finishHomeStartup', b'isHomeStartupSplashDismissed', b'HomeStartupGate'}
+    with zipfile.ZipFile(path) as archive:
+        for name in archive.namelist():
+            if name.endswith('.dex'):
+                data = archive.read(name)
+                required = {marker for marker in required if marker not in data}
+    if required:
+        raise ValueError('Android package has no complete Home startup bridge; prepare and rebuild the Gradle template')
 
 
 def prepare(template: Path, check: bool = False) -> None:

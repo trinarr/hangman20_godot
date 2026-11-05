@@ -244,9 +244,12 @@ func _ready() -> void:
 	ConsentRegion.changed.connect(_on_ad_region_changed)
 	ConsentRegion.refresh()
 	_initialize_yandex_ads_from_saved_consent()
-	show_menu()
+	_show_initial_screen()
 	_prewarm_runtime_assets()
 	call_deferred("_start_action_reward_retry")
+
+func _show_initial_screen() -> void:
+	show_menu()
 
 func _on_ad_region_changed() -> void:
 	_initialize_yandex_ads_from_saved_consent()
@@ -1471,9 +1474,13 @@ func _single_player_level_question_target_difficulty(level_index: int, word_slot
 		GameState.get_single_player_adaptive_difficulty(Database.current_language)))
 
 func _single_player_level_word_count(level_index: int) -> int:
-	return int(_single_player_level_data(level_index).get("word_count", _single_player_level_word_target(level_index)))
+	# The level definition takes this same configured count. Reading it must not
+	# select every word/question just to render progress or a resumed reward.
+	return _single_player_level_word_target(level_index)
 
 func _single_player_stage_is_quiz(level_index: int, word_slot: int) -> bool:
+	if GameState.has_single_level_question_slots_assignment(Database.current_language, level_index):
+		return GameState.get_single_level_question_slots(Database.current_language, level_index).has(word_slot)
 	return _single_player_level_data(level_index).get("question_slots", []).has(word_slot)
 
 func _single_player_stage_reward_currency(

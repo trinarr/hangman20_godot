@@ -1,5 +1,13 @@
 extends Node
 
+class MetadataUI extends "res://scripts/main.gd":
+	var level_builds: int = 0
+	func _ready() -> void:
+		pass
+	func _single_player_level_data(_level: int) -> Dictionary:
+		level_builds += 1
+		return {"question_slots": [1]}
+
 class TestUI:
 	extends "res://scripts/main_portrait.gd"
 	var ads_enabled: bool = false
@@ -7,6 +15,10 @@ class TestUI:
 	var claim_scale: float = 0.0
 	var doubles: int = 0
 	var quiz_stage: bool = true
+	var level_builds: int = 0
+	func _single_player_level_data(level: int) -> Dictionary:
+		level_builds += 1
+		return super._single_player_level_data(level)
 	func _ready() -> void:
 		_build_root()
 		_clear()
@@ -98,6 +110,8 @@ func check_home_chain_resume() -> void:
 				main.show_menu()
 				GameState.load_game()
 				await get_tree().create_timer(1.4).timeout
+				main.single_player_level_definitions_cache.clear()
+				main.level_builds = 0
 				main._play_single_player_from_home()
 				main._play_single_player_from_home()
 				var deadline: int = Time.get_ticks_msec() + 5000
@@ -105,6 +119,7 @@ func check_home_chain_resume() -> void:
 					await get_tree().process_frame
 				var title: Control = main._portrait_top_bar_content.get_meta("reward_title_block") if main._portrait_top_bar_content.has_meta("reward_title_block") else null
 				check(is_instance_valid(title), "Home Continue reaches the saved word-stage chain: %s/%d/%d" % [language, dimensions.x, state_index])
+				check(main.level_builds == 0, "Resuming the reward chain does not build gameplay content")
 				if !is_instance_valid(title):
 					continue
 				var visual: Control = title.get_node("SinglePlayerRewardTitleVisual")
@@ -125,6 +140,19 @@ func check_home_chain_resume() -> void:
 	get_window().size = original_size
 
 func run() -> void:
+	var metadata := MetadataUI.new()
+	var assignments: Dictionary = GameState._single_player_bucket(Database.current_language)["level_question_slots"]
+	var previous: Dictionary = assignments.duplicate(true)
+	assignments.erase("98")
+	check(metadata._single_player_stage_is_quiz(98, 1) and metadata.level_builds == 1, "Legacy metadata can still derive its quiz assignment")
+	assignments["98"] = [2]
+	check(!metadata._single_player_stage_is_quiz(98, 1) and metadata._single_player_stage_is_quiz(98, 2), "Saved quiz slots determine the stage type")
+	assignments["98"] = []
+	check(!metadata._single_player_stage_is_quiz(98, 2), "An explicitly downgraded quiz stays a word stage")
+	check(metadata._single_player_level_word_count(98) == metadata._single_player_level_word_target(98) and metadata.level_builds == 1, "Saved stage metadata and configured count never select content")
+	assignments.clear()
+	assignments.merge(previous, true)
+	metadata.free()
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
 	add_child(main)

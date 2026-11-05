@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
-from prepare_startup_android import prepare as prepare_startup
+from prepare_startup_android import prepare as prepare_startup, verify_package
 
 ROOT = Path(__file__).resolve().parents[1]
 STORES = {"rustore", "google_play"}
@@ -70,9 +70,15 @@ def main() -> int:
         parser.error(str(error) + "; run python tools/prepare_startup_android.py")
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    return subprocess.run([args.godot, "--headless", "--path", str(ROOT),
+    result = subprocess.run([args.godot, "--headless", "--path", str(ROOT),
                            "--export-debug" if args.debug else "--export-release",
-                           args.preset, str(output)], cwd=ROOT, check=False).returncode
+                           args.preset, str(output)], cwd=ROOT, check=False)
+    if result.returncode == 0:
+        try:
+            verify_package(output)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+    return result.returncode
 
 
 if __name__ == "__main__":

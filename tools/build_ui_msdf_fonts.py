@@ -6,7 +6,9 @@ UI font axes in scripts/ui/ui_fonts.gd. Body copy, small UI and variable-width g
 the original variable font and its raster cache.
 """
 import argparse
+import ast
 import configparser
+import csv
 from pathlib import Path
 import re
 
@@ -14,10 +16,42 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'fonts/RobotoFlex-Variable.ttf'
 OUTPUT = ROOT / 'fonts/msdf'
 IMPORT_PARAMS = {'multichannel_signed_distance_field': 'true', 'msdf_size': '64', 'msdf_pixel_range': '24'}
+PRELOAD_PATTERN = r'(?ms)^preload=(.*?)(?=^[A-Za-z_]\w*=|^\[|\Z)'
+
+
+def preload_value(text):
+    return ast.literal_eval(re.sub(r'Vector2i\((\d+),\s*(\d+)\)', r'(\1, \2)', text.strip()))
+
+
+def preload_characters():
+    characters = set('0123456789 +−×%/.,:!?()')
+    with (ROOT / 'localization/translations.csv').open(encoding='utf-8', newline='') as source:
+        for row in csv.DictReader(source):
+            for language in ('ru', 'en'):
+                text = row[language]
+                characters.update(text)
+                characters.update(text.upper())
+    return sorted(ord(character) for character in characters if ord(character) > 32)
+
+
+def preload_config(path):
+    values = settings()
+    shared = {(values['ROBOTO_FLEX_DISPLAY_WEIGHT'], values['ROBOTO_FLEX_DISPLAY_WIDTH']),
+              (values['ROBOTO_FLEX_BUTTON_WEIGHT'], values['ROBOTO_FLEX_BUTTON_WIDTH'])}
+    for profile in profiles():
+        if filename(profile) == path.name and profile[:2] in shared:
+            # Match FontVariation's exact axes, even for the static generated TTF.
+            axes = ', '.join(f'{int.from_bytes(tag.encode(), "big")}: {float(value)}'
+                             for tag, value in zip(('wght', 'wdth', 'GRAD', 'YOPQ', 'XOPQ'), profile))
+            return ('[{"name": "Shared UI RU EN", "size": Vector2i(64, 0), '
+                    f'"chars": {preload_characters()}, "glyphs": [], '
+                    f'"variation_opentype": {{{axes}}}}}]')
+    return '[]'
 
 
 def import_params(path):
     values = dict(IMPORT_PARAMS)
+    values['preload'] = preload_config(path)
     # The heavy multiplier caption retains its authored smaller MSDF cache.
     if path.name.startswith('RobotoFlexUI_900_'):
         values['msdf_size'] = '48'
@@ -32,14 +66,20 @@ def import_errors(path):
     config = configparser.ConfigParser(interpolation=None)
     config.optionxform = str
     try:
-        if not config.read(metadata, encoding='utf-8'):
+        if not metadata.is_file():
             return errors + [f'Missing Godot import: {metadata.name}']
+        text = metadata.read_text(encoding='utf-8')
+        preload = re.search(PRELOAD_PATTERN, text)
+        # Godot serializes Variant arrays/dictionaries across unindented lines.
+        config.read_string(re.sub(PRELOAD_PATTERN, 'preload=[]\n', text))
         for key, value in import_params(path).items():
-            if config.get('params', key, fallback='').strip() != value:
+            matches = (preload is not None and preload_value(preload.group(1)) == preload_value(value)
+                       if key == 'preload' else config.get('params', key, fallback='').strip() == value)
+            if not matches:
                 errors.append(f'{metadata.name}: expected {key}={value}')
         if config.get('remap', 'importer', fallback='') != '"font_data_dynamic"':
             errors.append(f'{metadata.name}: unexpected importer')
-    except (configparser.Error, OSError) as error:
+    except (configparser.Error, OSError, ValueError, SyntaxError) as error:
         errors.append(f'{metadata.name}: {error}')
     return errors
 
@@ -68,9 +108,9 @@ def prepare_imports(godot):
             text = metadata.read_text(encoding='utf-8')
             original = text
             for key, value in import_params(OUTPUT / filename(profile)).items():
-                pattern = rf'(?m)^{key}=.*$'
+                pattern = PRELOAD_PATTERN if key == 'preload' else rf'(?m)^{key}=.*$'
                 if re.search(pattern, text):
-                    text = re.sub(pattern, key + '=' + value, text)
+                    text = re.sub(pattern, key + '=' + value + ('\n' if key == 'preload' else ''), text)
                 else:
                     text = text.replace('[params]', '[params]\n' + key + '=' + value, 1)
             if text != original:
@@ -161,10 +201,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true', help='Verify expected fonts/imports and reject obsolete generated profiles without generating files')
     parser.add_argument('--godot', type=Path, help='Godot executable to create missing metadata and reimport generated fonts')
+    parser.add_argument('--imports-only', action='store_true', help='Update Godot import options without regenerating TTF outlines; requires --godot')
     args = parser.parse_args()
     try:
         if args.check:
             verify_imports()
+        elif args.imports_only:
+            if not args.godot:
+                parser.error('--imports-only requires --godot')
+            prepare_imports(args.godot)
         else:
             if not args.godot:
                 verify_imports()

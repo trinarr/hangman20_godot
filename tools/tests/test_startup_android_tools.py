@@ -2,13 +2,26 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
-from prepare_startup_android import ORIGINAL, METHODS, prepare
+from prepare_startup_android import ORIGINAL, METHODS, prepare, verify_package
 
 
 class StartupAndroidPreparationTests(unittest.TestCase):
+    def test_built_package_must_contain_the_bridge(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            package = Path(temporary) / 'test.apk'
+            for prefix in ('', 'base/dex/'):
+                with zipfile.ZipFile(package, 'w') as archive:
+                    archive.writestr(prefix + 'classes.dex', b'ordinary Android activity')
+                with self.assertRaisesRegex(ValueError, 'startup bridge'):
+                    verify_package(package)
+                with zipfile.ZipFile(package, 'w') as archive:
+                    archive.writestr(prefix + 'classes.dex', b'finishHomeStartup HomeStartupGate')
+                    archive.writestr(prefix + 'classes2.dex', b'isHomeStartupSplashDismissed')
+                verify_package(package)
     def fixture(self, root):
         directory = root / "src/main/java/com/godot/game"
         directory.mkdir(parents=True)

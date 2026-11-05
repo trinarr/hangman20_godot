@@ -12,6 +12,16 @@ func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	check(!DevConsole._console_ready and DevConsole._console == null, "hidden console creates no startup UI")
+	print("Console buffered before first open")
+	DebugLogBridge._process(0.0)
+	check(!DevConsole._console_ready, "buffering startup logs never creates console UI")
+	var first_key := InputEventKey.new()
+	first_key.keycode = KEY_QUOTELEFT
+	first_key.pressed = true
+	DevConsole._input(first_key)
+	check(DevConsole.visible, "keyboard opens the lazy console")
+	DevConsole.visible = false
 	check(DevConsole._console_ready, "real addon initialized")
 	check(not DevConsole.visible, "console starts hidden")
 	check(DevConsole._console.layer > 510, "console above legal/settings popups")
@@ -27,7 +37,7 @@ func run() -> void:
 	await get_tree().process_frame
 	DebugLogBridge._process(0.0)
 	var output: String = DevConsole._console.output_rtl.get_parsed_text()
-	for marker: String in ["[HomeBuild]", "[HomeTransition]", "[Difficulty]", "[b]literal BBCode[/b]", "Console stderr test", "Console warning test", "Worker thread log"]:
+	for marker: String in ["Console buffered before first open", "[HomeBuild]", "[HomeTransition]", "[Difficulty]", "[b]literal BBCode[/b]", "Console stderr test", "Console warning test", "Worker thread log"]:
 		check(marker in output, "mirrored: " + marker)
 	check(DebugLogBridge._logger.take_batch().is_empty(), "rendering logs does not log recursively")
 	var rect: Rect2 = get_viewport().get_visible_rect()

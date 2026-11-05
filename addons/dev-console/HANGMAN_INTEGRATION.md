@@ -15,6 +15,8 @@ Four taps: top-right 18% of viewport width by 10% of height; maximum gap 450 ms,
 maximum total 1500 ms; releases within 300 ms, movement within 3% of viewport width.
 Touches and real mouse clicks are supported; emulated mouse events are ignored.
 Earlier taps keep normal UI behavior; the fourth release opens/closes the console.
+The hidden console UI is created on the first open or explicit console API query/output, not during game startup. Keyboard opening and the four-tap gesture both initialize it. Before that, DebugLogBridge retains early messages in its bounded logger queue rather than enqueueing an unbounded list of UI calls.
+
 Release builds neither register the logger nor create the console UI or handle the gesture.
 
 Smoke tests:
