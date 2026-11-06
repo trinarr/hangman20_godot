@@ -41,8 +41,8 @@ func build_reference() -> void:
 	reference_text.add_theme_color_override("default_color", Color.WHITE)
 	var link_color: String = PORTRAIT_UI_PALETTE.SUCCESS_SOFT.to_html(false)
 	reference_text.text = tr("LEGAL_CONSENT_TEXT") % [link_color, link_color]
-	# This unchanged text-effect implementation was moved to the shared popup.
-	load("res://scripts/ui/legal_consent_popup.gd")._style_text(holder, reference_text)
+	# Reuse the unchanged text effect; the runtime helpers remain the layout reference.
+	preload("res://scripts/ui/rich_text_style.gd").apply_regular_display(holder, reference_text)
 	holder.add_child(reference_text)
 	reference_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	reference_button = _stage_portrait_popup_main_button(

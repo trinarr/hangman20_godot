@@ -89,6 +89,8 @@ func run() -> void:
 			check(prompt.popup.find_child("TournamentFinishTrophy", true, false) == null, "Introduction has no trophy or halo above its heading")
 			var art: Control = prompt.popup.find_child("TournamentStartArtwork", true, false)
 			var description: RichTextLabel = prompt.popup.find_child("TournamentStartDescription", true, false)
+			check(main.content != prompt.popup.stage and is_instance_valid(prompt.action), "Introduction construction restores Home content and creates its action")
+			check(description.get_parent().find_children("LegalConsentTextShadow*", "RichTextLabel", false, false).size() == 4, "Introduction instructions retain all four regular text shadow layers")
 			check(description.text.contains(tr("TOURNAMENT_START_DESCRIPTION").get_slice("{star}", 0)) and description.text.contains("[img=24x24]res://flash_assets/star_currency_icon.png[/img]"), "Localized instructions contain the game star inline")
 			var panel: Control = prompt.popup.find_child("TournamentStartDescriptionPanel", true, false)
 			check(is_equal_approx(panel.stage_rect.size.y, 168) and art.clip_contents, "Compact artwork panel clips the foreground prizes")
