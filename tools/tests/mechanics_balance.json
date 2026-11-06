@@ -232,7 +232,8 @@
       ]
     },
     "guided_onboarding": {
-      "required_start_level": 3
+      "required_start_level": 3,
+      "first_word_theme_id": 9
     },
     "level_stage_counts": [
       {
