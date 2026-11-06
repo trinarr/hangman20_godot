@@ -1,0 +1,14 @@
+// Enforce the DEV build policy in Gradle, including direct editor/CLI exports.
+// config.gradle must be applied before this script.
+if (getExportPackageName().endsWith('.dev') && getExportBuildType() != 'debug') {
+    throw new GradleException('DEV packages require Export With Debug. Release export is forbidden.')
+}
+
+gradle.taskGraph.whenReady { graph ->
+    // Also reject a manually requested release task without export_build_type.
+    if (getExportPackageName().endsWith('.dev') && graph.allTasks.any {
+        it.project == project && it.name.toLowerCase(java.util.Locale.ROOT).contains('release')
+    }) {
+        throw new GradleException('DEV packages cannot execute release tasks. Use a debug build.')
+    }
+}

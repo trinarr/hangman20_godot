@@ -97,6 +97,7 @@ CONSENT_SAVE_ERROR,Не удалось сохранить выбор. Попро
 LEADERBOARD_TITLE,Рейтинг игроков,Leaderboard
 LEADERBOARD_PLAYERS,Глобальный,Global
 LEADERBOARD_LOADING,Загрузка…,Loading…
+STARTUP_LOAD_ERROR,Не удалось загрузить игру. Попробуйте ещё раз,Could not load the game. Please try again
 LEADERBOARD_RETRY,Повторить,Retry
 LEADERBOARD_ERROR,Не удалось загрузить рейтинг,Couldn't load leaderboard
 LEADERBOARD_EMPTY,Пока нет участников,No players yet

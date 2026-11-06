@@ -10,6 +10,8 @@ const DISPLAY_TEXT_EFFECT_SCRIPT: GDScript = preload("res://scripts/ui/display_t
 const TOAST_HEIGHT: float = 44.2
 const TOAST_PARENT_GAP: float = 8.84
 const TOAST_HORIZONTAL_PADDING: float = 11.05
+const TOAST_VERTICAL_PADDING: float = 8.84
+const TOAST_SCREEN_EDGE_MARGIN: float = 16.0
 const TOAST_ICON_TEXT_GAP: float = 5.525
 const TOAST_TEXT_FONT_SIZE: int = 20
 const TOAST_ICON_SIZE: float = 26.52
@@ -23,10 +25,19 @@ const TOAST_BACKGROUND := UI_PALETTE.TOAST_BACKGROUND
 const STATUS_ICON_SCRIPT: GDScript = preload("res://scripts/ui/stage_status_icon.gd")
 
 var _available_width: float = 0.0
+var grow_downward: bool = false:
+	set(value):
+		grow_downward = value
+		_layout_message()
 var _status_icon: Control = null
 var _status_icon_shadow_layers: Array[Control] = []
 var _message_label: Label = null
 var _toast_tween: Tween = null
+var _rest_position := Vector2.ZERO
+var _entrance_offset: float = 0.0:
+	set(value):
+		_entrance_offset = value
+		position = _rest_position + Vector2(0.0, value)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -56,16 +67,15 @@ func show_message(message: String, is_success: bool) -> void:
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()
 
-	var rest_position: Vector2 = position
 	visible = true
 	modulate = Color(1.0, 1.0, 1.0, 0.0)
-	position = rest_position + Vector2(0.0, TOAST_ENTER_OFFSET)
+	_entrance_offset = TOAST_ENTER_OFFSET
 	_toast_tween = create_tween()
 	_toast_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_toast_tween.tween_property(
 		self,
-		"position",
-		rest_position,
+		"_entrance_offset",
+		0.0,
 		TOAST_ENTER_DURATION
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_toast_tween.parallel().tween_property(
@@ -90,6 +100,7 @@ func hide_message() -> void:
 	if _toast_tween != null and _toast_tween.is_valid():
 		_toast_tween.kill()
 	_toast_tween = null
+	_entrance_offset = 0.0
 	visible = false
 	modulate = Color.WHITE
 
@@ -122,9 +133,9 @@ func _ensure_content() -> void:
 	_message_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_message_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	_message_label.clip_text = true
+	_message_label.clip_text = false
 	_message_label.add_theme_font_override("font", UI_FONTS.button_font_raster())
 	_message_label.add_theme_font_size_override("font_size", TOAST_TEXT_FONT_SIZE)
 	_message_label.add_theme_color_override("font_color", Color.WHITE)
@@ -145,26 +156,34 @@ func _layout_message() -> void:
 	).x)
 	var maximum_message_width: float = maxf(
 		_available_width
+			- TOAST_SCREEN_EDGE_MARGIN * 2.0
 			- TOAST_HORIZONTAL_PADDING * 2.0
 			- icon_width
 			- TOAST_ICON_TEXT_GAP,
 		1.0
 	)
 	var message_width: float = minf(measured_message_width, maximum_message_width)
+	_message_label.size = Vector2(message_width, 0.0)
+	var line_count: int = _message_label.get_line_count()
+	var text_height: float = float(maxi(line_count - 1, 0) * _message_label.get_theme_constant("line_spacing"))
+	for line: int in range(line_count):
+		text_height += _message_label.get_line_height(line)
+	var toast_height: float = maxf(TOAST_HEIGHT, text_height + TOAST_VERTICAL_PADDING * 2.0)
 	var toast_width: float = (
 		TOAST_HORIZONTAL_PADDING * 2.0
 		+ icon_width
 		+ TOAST_ICON_TEXT_GAP
 		+ message_width
 	)
-	size = Vector2(toast_width, TOAST_HEIGHT)
-	position = Vector2(
+	size = Vector2(toast_width, toast_height)
+	_rest_position = Vector2(
 		(_available_width - toast_width) * 0.5,
-		-TOAST_HEIGHT - TOAST_PARENT_GAP
+		TOAST_PARENT_GAP if grow_downward else -toast_height - TOAST_PARENT_GAP
 	)
+	position = _rest_position + Vector2(0.0, _entrance_offset)
 	_status_icon.position = Vector2(
 		TOAST_HORIZONTAL_PADDING,
-		(TOAST_HEIGHT - icon_width) * 0.5
+		(toast_height - icon_width) * 0.5
 	)
 	_status_icon.size = Vector2(icon_width, icon_width)
 	var icon_shadow_depth: float = clampf(
@@ -190,7 +209,7 @@ func _layout_message() -> void:
 		TOAST_HORIZONTAL_PADDING + icon_width + TOAST_ICON_TEXT_GAP,
 		0.0
 	)
-	_message_label.size = Vector2(message_width, TOAST_HEIGHT)
+	_message_label.size = Vector2(message_width, toast_height)
 
 func _finish_message() -> void:
 	_toast_tween = null

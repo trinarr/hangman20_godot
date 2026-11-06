@@ -42,8 +42,8 @@ var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
 	60.0
 )
 const CUSTOM_WORD_FIELD_DEFAULT_TINT := UI_PALETTE.MARKER_INFO
-const SOUND_SETTING_INDEX: int = 3
-const APP_VERSION_FALLBACK: String = "3.0.0"
+const UI_AUDIO_FEEDBACK = preload("res://scripts/ui/ui_audio_feedback.gd")
+const SOUND_SETTING_INDEX: int = UI_AUDIO_FEEDBACK.SOUND_SETTING_INDEX
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
 	"progression.theme_options_per_level",
 	1,
@@ -150,8 +150,8 @@ const WRONG_LETTER_SOUND: AudioStream = preload("res://audio/No_New.wav")
 const LUCKY_DEFEAT_SOUND: AudioStream = preload("res://audio/LuckyDefeat.wav")
 const RESULT_WIN_SOUND: AudioStream = preload("res://audio/LuckyWin.wav")
 const EL_TIGRE_DEFEAT_SOUND: AudioStream = preload("res://audio/CatDefeat.wav")
-const UI_CLICK_SOUND: AudioStream = preload("res://audio/Click.wav")
-const POPUP_OPEN_SOUND: AudioStream = preload("res://audio/Popup_Open.wav")
+const UI_CLICK_SOUND: AudioStream = UI_AUDIO_FEEDBACK.CLICK_SOUND
+const POPUP_OPEN_SOUND: AudioStream = UI_AUDIO_FEEDBACK.POPUP_OPEN_SOUND
 const MODAL_DIMMER_FADE_IN_DURATION: float = 0.18
 const MODAL_DIMMER_FADE_OUT_DURATION: float = 0.14
 
@@ -226,7 +226,9 @@ var heart_refill_store_is_open: bool = false
 func _ready() -> void:
 	Engine.max_fps = 60
 	randomize()
-	Database.load_languages(GameState.interface_language, GameState.word_language)
+	# Startup already prepared the selected bundle; direct Main entry still works.
+	if !Database.is_language_ready(GameState.interface_language, GameState.word_language):
+		Database.load_languages(GameState.interface_language, GameState.word_language)
 	_build_root()
 	GameSession.hint_letters_selected.connect(_on_hint_letters_selected)
 	GameSession.changed.connect(_persist_active_single_player_word_session)
@@ -337,7 +339,10 @@ func _restore_attempt_offer(data: Dictionary) -> void:
 
 func _prewarm_runtime_assets() -> void:
 	THEME_ASSET_CACHE.prewarm()
-	FLASH_STAGE_SYMBOL_SCRIPT.prewarm_hero_type(_selected_character_id())
+	# A restored word already owns its current/next pose window. Resetting it to
+	# state zero here can discard the still-streaming damaged pose on completion.
+	if !is_instance_valid(hero_static_symbol):
+		FLASH_STAGE_SYMBOL_SCRIPT.prewarm_hero_type(_selected_character_id())
 
 # Main.tscn always uses main_portrait.gd. Keep only the small virtual surface
 # that shared game logic calls; all screen construction lives in the portrait
@@ -758,46 +763,10 @@ func _settings_off_label() -> String:
 	return Database.tr_text(74, "Off")
 
 func _about_version_text() -> String:
-	var build_number: String = _application_build_number()
-	var version: String = _application_version()
-	if !build_number.is_empty():
-		version += " (%s)" % build_number
-	return Database.tr_text(19, "Version:") + " " + version
-
-func _application_build_number() -> String:
-	if Engine.has_singleton("AndroidRuntime"):
-		var runtime: Object = Engine.get_singleton("AndroidRuntime")
-		var context: Object = runtime.getApplicationContext()
-		if context != null:
-			var package_info: Object = context.getPackageManager().getPackageInfo(context.getPackageName(), 0)
-			if JavaClassWrapper.get_exception() == null and package_info != null:
-				return _android_package_build_number(package_info)
-		return ""
-	# Export presets are available in the editor; Android reads its installed APK.
-	var presets := ConfigFile.new()
-	if presets.load("res://export_presets.cfg") == OK:
-		return str(presets.get_value("preset.0.options", "version/code", ""))
-	return ""
+	return preload("res://scripts/ui/application_version.gd").text()
 
 func _android_package_build_number(package_info: Object) -> String:
-	# JavaObject exposes methods, but not Java instance fields via Object.get().
-	# Reflection also supports Android API 24-27, before getLongVersionCode().
-	var package_class: Object = package_info.getClass()
-	if JavaClassWrapper.get_exception() != null or package_class == null:
-		return ""
-	var version_field: Object = package_class.getField("versionCode")
-	if JavaClassWrapper.get_exception() != null or version_field == null:
-		return ""
-	var build_number: Variant = version_field.getInt(package_info)
-	if JavaClassWrapper.get_exception() != null or !(build_number is int):
-		return ""
-	return str(build_number) if build_number > 0 else ""
-
-func _application_version() -> String:
-	var configured_version: String = str(
-		ProjectSettings.get_setting("application/config/version", APP_VERSION_FALLBACK)
-	).strip_edges()
-	return configured_version if configured_version != "" else APP_VERSION_FALLBACK
+	return preload("res://scripts/ui/application_version.gd").android_package_build_number(package_info)
 
 func _about_contact_action(contact_type: String) -> void:
 	match contact_type:
@@ -840,16 +809,10 @@ func _toggle_setting(index: int) -> void:
 	_refresh_settings_toggle_button(index)
 
 func _sound_enabled() -> bool:
-	return (
-		GameState.settings.size() > SOUND_SETTING_INDEX
-		and int(GameState.settings[SOUND_SETTING_INDEX]) == 2
-	)
+	return UI_AUDIO_FEEDBACK.enabled()
 
 func _play_game_sound(player: AudioStreamPlayer, stream: AudioStream) -> void:
-	if !_sound_enabled() or player == null or stream == null:
-		return
-	player.stream = stream
-	player.play()
+	UI_AUDIO_FEEDBACK.play_stream(player, stream)
 
 func _play_letter_feedback_sound(is_correct: bool) -> void:
 	_play_game_sound(

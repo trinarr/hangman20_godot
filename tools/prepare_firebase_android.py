@@ -4,19 +4,45 @@ import argparse
 import configparser
 import json
 from pathlib import Path
+import re
 import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def prepare(root: Path, config: Path, template: Path, check: bool = False) -> None:
+def package_for_preset(root: Path, preset_name: str | None = None) -> str:
     presets = configparser.ConfigParser(interpolation=None)
     presets.read(root / "export_presets.cfg", encoding="utf-8")
-    package = presets["preset.0.options"]["package/unique_name"].strip('"')
+    section = "preset.0"
+    if preset_name is not None:
+        selected = [name for name in presets.sections()
+                    if re.fullmatch(r"preset\.\d+", name)
+                    and presets[name].get("name", "").strip('"') == preset_name]
+        if len(selected) != 1:
+            raise ValueError("Unknown or duplicate Android preset: " + preset_name)
+        section = selected[0]
+        if presets[section].get("platform", "").strip('"') != "Android":
+            raise ValueError("Firebase preparation requires an Android preset")
+    package = presets.get(section + ".options", "package/unique_name", fallback="").strip('"')
+    if not package:
+        raise ValueError("Selected Android preset has no package/unique_name")
+    return package
+
+
+def validate_config(root: Path, config: Path, preset_name: str | None = None) -> str:
+    package = package_for_preset(root, preset_name)
     payload = json.loads(config.read_text(encoding="utf-8"))
-    if not any(client["client_info"]["android_client_info"]["package_name"] == package
-               for client in payload.get("client", [])):
-        raise ValueError("Firebase configuration does not match the release package")
+    matches = [client for client in payload.get("client", [])
+               if client.get("client_info", {}).get("android_client_info", {}).get("package_name") == package]
+    if len(matches) != 1:
+        raise ValueError(f"Firebase configuration must contain exactly one client for {package}; "
+                         "register this Android app in the current Firebase project and download its google-services.json")
+    return package
+
+
+def prepare(root: Path, config: Path, template: Path, check: bool = False,
+            *, preset_name: str | None = None) -> None:
+    validate_config(root, config, preset_name)
     changes = {}
     for name, anchor, addition in [
         ("settings.gradle", "    plugins {", "        id 'com.google.gms.google-services' version '4.4.4'"),
@@ -44,8 +70,12 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=ROOT / "config/firebase/google-services.json")
     parser.add_argument("--template", type=Path, default=ROOT / "android/build")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--preset", help="Android preset name; defaults to the first release preset")
     args = parser.parse_args()
-    prepare(ROOT, args.config, args.template, args.check)
+    try:
+        prepare(ROOT, args.config, args.template, args.check, preset_name=args.preset)
+    except (OSError, ValueError) as error:
+        parser.exit(1, str(error) + "\n")
     print("Firebase Android template verified" if args.check else "Firebase Android template prepared")
 
 

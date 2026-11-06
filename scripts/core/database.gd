@@ -110,11 +110,16 @@ const QUIZ_EXPLANATION_FILES := {
 }
 # Load only when the first answered question needs its explanation.
 var _quiz_explanations_by_language: Dictionary = {}
+var _debug_summary_requested: bool = false
 
 func _ready() -> void:
 	set_process(false)
-	if OS.is_debug_build():
-		call_deferred("_print_debug_database_summary")
+
+func request_debug_database_summary() -> void:
+	if !OS.is_debug_build() or _debug_summary_requested:
+		return
+	_debug_summary_requested = true
+	call_deferred("_print_debug_database_summary")
 
 
 # Startup-only diagnostics. Read independently so reporting does not change the
@@ -166,6 +171,18 @@ func load_languages(interface_lang: String, word_lang: String) -> void:
 	current_language = _normalize_language(word_lang)
 	TranslationServer.set_locale(interface_language)
 	_request_word_language_load(current_language)
+
+func get_word_language_load_status() -> Error:
+	# Observe the existing worker without joining it from the loading screen.
+	if _loaded_word_language == current_language:
+		return OK if data.get("words") is Dictionary and !hints.is_empty() else ERR_CANT_OPEN
+	if _word_load_thread != null or !_queued_word_load_language.is_empty():
+		return ERR_BUSY
+	return ERR_CANT_OPEN
+
+func is_language_ready(interface_lang: String, word_lang: String) -> bool:
+	return interface_language == _normalize_language(interface_lang) \
+		and current_language == _normalize_language(word_lang) and get_word_language_load_status() == OK
 
 func load_word_language(word_lang: String) -> void:
 	current_language = _normalize_language(word_lang)

@@ -58,6 +58,7 @@ func _release() -> void:
 			await get_tree().process_frame
 	if !preparing or !is_instance_valid(_screen):
 		return
+	Database.request_debug_database_summary()
 	preparing = false
 	set_process(false)
 	if is_instance_valid(_logo):

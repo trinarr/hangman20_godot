@@ -1104,6 +1104,7 @@ func _show_portrait_status_toast(message: String, is_success: bool = false) -> v
 
 		_portrait_ad_toast = STAGE_TOAST_SCRIPT.new() as Control
 		_portrait_ad_toast.name = "AdStatusToast"
+		_portrait_ad_toast.set("grow_downward", true)
 		toast_anchor.add_child(_portrait_ad_toast)
 	# System messages share one overlay above modals, positioned below the header.
 	# This CanvasLayer uses viewport pixels; apply the stage scale only once.
@@ -1112,7 +1113,7 @@ func _show_portrait_status_toast(message: String, is_success: bool = false) -> v
 		var viewport_size: Vector2 = get_viewport_rect().size
 		var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
 		var anchor_y_px: float = PORTRAIT_STAGE_LAYOUT.safe_top_inset_pixels(viewport_size) + fit_scale * (
-			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + PORTRAIT_HEADER_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_PARENT_GAP * 2.0)
+			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + PORTRAIT_HEADER_HEIGHT)
 		current_anchor.position = Vector2(
 			PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
 			anchor_y_px
@@ -4102,160 +4103,22 @@ func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
 		font_size
 	))
 
-func _on_portrait_legal_text_meta_clicked(meta: Variant) -> void:
-	var document_type := str(meta)
-	if document_type == "terms" or document_type == "privacy":
-		_open_legal_document(document_type)
-
-func _apply_regular_display_to_rich_text(
-	holder: Control,
-	target: RichTextLabel
-) -> void:
-	if holder == null or target == null or !is_instance_valid(target):
-		return
-
-	# Match ButtonTextStyle.apply_regular_display(), which is used by the quiz
-	# question. RichTextLabel needs real RichTextLabel shadow copies so its
-	# BBCode links remain clickable on the untouched front layer.
-	var font_size: float = float(maxi(target.get_theme_font_size("normal_font_size"), 1))
-	var outline_local: float = clampf(font_size * 0.075, 2.0, 9.0)
-	var outline_size: int = maxi(1, int(round(outline_local * 0.55)))
-	var shadow_spread: int = maxi(1, int(round(outline_local * 0.92 * 0.55)))
-	var shadow_depth: float = clampf(font_size * 0.055, 1.5, 5.0) * 0.70
-	var shadow_offset_x: float = minf(font_size * 0.012, 1.5) * 0.70
-
-	target.add_theme_color_override(
-		"font_outline_color",
-		PORTRAIT_UI_PALETTE.UI_BLUE.darkened(0.40)
-	)
-	target.add_theme_constant_override("outline_size", outline_size)
-	target.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-	target.add_theme_constant_override("shadow_offset_x", 0)
-	target.add_theme_constant_override("shadow_offset_y", 0)
-	target.add_theme_constant_override("shadow_outline_size", 0)
-
-	var shadow_material: ShaderMaterial = UI_MATERIALS.text_shadow(
-		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
-	)
-	var layer_depths: Array[float] = [0.25, 0.55, 0.80, 1.0]
-	for layer_index: int in range(layer_depths.size()):
-		var layer_t: float = layer_depths[layer_index]
-		var shadow_text := RichTextLabel.new()
-		shadow_text.name = "LegalConsentTextShadow%02d" % (layer_index + 1)
-		shadow_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shadow_text.focus_mode = Control.FOCUS_NONE
-		shadow_text.bbcode_enabled = true
-		shadow_text.fit_content = false
-		shadow_text.scroll_active = false
-		shadow_text.selection_enabled = false
-		shadow_text.autowrap_mode = target.autowrap_mode
-		shadow_text.vertical_alignment = target.vertical_alignment
-		shadow_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		shadow_text.offset_left = shadow_offset_x * layer_t
-		shadow_text.offset_right = shadow_offset_x * layer_t
-		shadow_text.offset_top = shadow_depth * layer_t
-		shadow_text.offset_bottom = shadow_depth * layer_t
-		shadow_text.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-		shadow_text.add_theme_font_override("normal_font", target.get_theme_font("normal_font"))
-		shadow_text.add_theme_font_override("bold_font", target.get_theme_font("bold_font"))
-		shadow_text.add_theme_font_size_override(
-			"normal_font_size",
-			target.get_theme_font_size("normal_font_size")
-		)
-		shadow_text.add_theme_font_size_override(
-			"bold_font_size",
-			target.get_theme_font_size("bold_font_size")
-		)
-		shadow_text.add_theme_color_override("default_color", Color.WHITE)
-		shadow_text.add_theme_color_override("font_outline_color", Color.WHITE)
-		shadow_text.add_theme_constant_override("outline_size", shadow_spread)
-		shadow_text.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-		shadow_text.add_theme_constant_override("shadow_offset_x", 0)
-		shadow_text.add_theme_constant_override("shadow_offset_y", 0)
-		shadow_text.add_theme_constant_override("shadow_outline_size", 0)
-		shadow_text.material = shadow_material
-		shadow_text.text = target.text
-		holder.add_child(shadow_text)
-
-func _stage_portrait_legal_inline_text(rect: Rect2) -> RichTextLabel:
-	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
-	var legal_text := RichTextLabel.new()
-	legal_text.name = "LegalConsentText"
-	legal_text.mouse_filter = Control.MOUSE_FILTER_STOP
-	legal_text.focus_mode = Control.FOCUS_NONE
-	legal_text.bbcode_enabled = true
-	legal_text.fit_content = false
-	legal_text.scroll_active = false
-	legal_text.selection_enabled = false
-	legal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	legal_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	legal_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	legal_text.add_theme_font_override("normal_font", UI_REGULAR_FONT)
-	legal_text.add_theme_font_override("bold_font", UI_REGULAR_FONT)
-	legal_text.add_theme_font_size_override("normal_font_size", 22)
-	legal_text.add_theme_font_size_override("bold_font_size", 22)
-	legal_text.add_theme_color_override("default_color", Color.WHITE)
-	var link_color: String = PORTRAIT_UI_PALETTE.SUCCESS_SOFT.to_html(false)
-	legal_text.text = tr("LEGAL_CONSENT_TEXT") % [link_color, link_color]
-	_apply_regular_display_to_rich_text(holder, legal_text)
-	legal_text.meta_clicked.connect(Callable(self, "_on_portrait_legal_text_meta_clicked"))
-	holder.add_child(legal_text)
-	return legal_text
-
 func _show_legal_consent_popup() -> void:
 	if GameState.has_accepted_legal_documents():
 		return
 	_remove_legal_consent_popup()
 	_hide_portrait_ad_banner()
-	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 225.0, 424.0, 280.0))
-	var previous_content := _portrait_popup_begin(
-		"LegalConsentPopup",
-		str(PORTRAIT_LEGAL_POPUP_GROUP),
-		500,
-		Callable(),
-		rect.position.y,
-		rect.end.y,
-		false,
-		Callable(),
-		false
-	)
-	_portrait_popup_shell(
-		rect,
-		tr("LEGAL_WELCOME_TITLE"),
-		Callable(),
-		27,
-		PORTRAIT_BLUE,
-		PORTRAIT_DARK_BLUE,
-		PORTRAIT_ORANGE,
-		"",
-		false
-	)
-	_stage_portrait_legal_inline_text(Rect2(54.0, 294.0, 372.0, 116.0))
-	var accept_button := _stage_portrait_popup_main_button(
-		Rect2(
-			90.0,
-			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
-			300.0,
-			56.0
-		),
-		Callable(self, "_accept_legal_documents"),
-		tr("LEGAL_ACCEPT"),
-		22,
-		false,
-		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	accept_button.set("drop_shadow_enabled", true)
-	content = previous_content
+	var resume_without_intro: bool = _portrait_popup_resume_without_intro
+	_portrait_popup_resume_without_intro = false
+	load("res://scripts/ui/legal_consent_popup.gd").show(self, _accept_legal_documents,
+		500, ui.theme, resume_without_intro, _play_popup_open_sound, _play_ui_click_sound)
 
 func _remove_legal_consent_popup() -> void:
 	_remove_popup_group_with_dimmer_fade(PORTRAIT_LEGAL_POPUP_GROUP)
 
 func _accept_legal_documents() -> void:
 	if !GameState.accept_legal_documents():
+		_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
 		return
 	_remove_legal_consent_popup()
 	ConsentRegion.refresh()

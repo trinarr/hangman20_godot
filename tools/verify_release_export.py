@@ -21,6 +21,10 @@ FORBIDDEN_PREFIXES = (
     "addons/GodotAndroidYandexAds/bin/", "addons/HangmanFirebase/", "config/firebase/", "android/", "builds/",
 )
 REQUIRED_FILES = (
+    "scenes/Startup.tscn", "scripts/ui/startup_loader.gd", "scripts/ui/startup_screen.gd",
+    "scripts/ui/startup_logo.gd", "scripts/ui/legal_consent_popup.gd", "scripts/ui/application_version.gd",
+    "scripts/ui/ui_audio_feedback.gd",
+    "shaders/startup_logo.gdshader", "shaders/home_logo_ink.gdshaderinc",
     "scenes/Main.tscn", "scripts/main.gd", "scripts/main_portrait.gd",
     "data/word_content_migration_v2.json", "data/word_retirements_20261004.json",
     "data/words_ru.json", "data/words_en.json", "data/hints_ru.json", "data/hints_en.json",
@@ -66,6 +70,21 @@ def verify_presets(root: Path = ROOT) -> None:
                     "Shared Android options differ between stores")
             require(presets[section]["exclude_filter"] == presets[f"preset.{offset}"]["exclude_filter"],
                     "Store resource filters differ")
+    dev = presets["preset.4"]
+    require(dev["name"] == '"Hangman 2.0 DEV Debug"', "DEV debug preset is missing")
+    require(dev["custom_features"] == '"rustore,dev"', "DEV must select RuStore and dev features")
+    dev_options = dict(presets["preset.4.options"])
+    require(dev_options.pop("package/unique_name", None) == '"com.trinarr.Hangman20.dev"',
+            "DEV package must be isolated from release")
+    require(dev_options.pop("package/name", None) == '"Hangman 2.0 DEV"', "DEV launcher name is missing")
+    expected_dev = dict(presets["preset.1.options"])
+    expected_dev.pop("package/unique_name")
+    expected_dev.pop("package/name")
+    require(dev_options == expected_dev, "Shared Android options differ for DEV")
+    require(dev["exclude_filter"] == presets["preset.1"]["exclude_filter"], "DEV must retain debug resources and console")
+    require(dev["include_filter"] == presets["preset.1"]["include_filter"], "DEV license/resource inclusions differ")
+    require(dev["export_path"] == '"builds/Hangman20_dev.apk"', "DEV needs its own APK path")
+    require(presets["runnable_presets"]["Android"] == '"Hangman 2.0 DEV Debug"', "One-click deployment must use DEV")
 
 
 def project_properties(data: bytes) -> dict[str, bytes]:
@@ -149,6 +168,9 @@ def verify_archive(archive: zipfile.ZipFile, root: Path = ROOT) -> int:
             for target in re.findall(r'^path(?:\.[^=]+)?="res://([^"]+)"', read(path).decode("utf-8"), re.M):
                 require(target in files, "Missing imported resource: " + target)
     properties = project_properties(read("project.binary"))
+    require("application/run/main_scene" in properties and
+            variant_string(properties["application/run/main_scene"]) == "res://scenes/Startup.tscn",
+            "Release entry point must be res://scenes/Startup.tscn")
     verify_properties(properties, root)
     require("_custom_features" in properties, "Release store feature is missing")
     stores = STORES.intersection(variant_string(properties["_custom_features"]).split(","))

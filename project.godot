@@ -20,7 +20,7 @@ config/name_localized={
 "ru": "Виселица 2.0"
 }
 config/version="4.1.1"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Startup.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
 boot_splash/show_image=false

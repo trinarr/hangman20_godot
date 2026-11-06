@@ -8,8 +8,10 @@ var _settings: Dictionary = {}
 func _get_name() -> String:
 	return "HangmanReleaseGuard"
 
-func _export_begin(_features: PackedStringArray, is_debug: bool, _path: String, _flags: int) -> void:
+func _export_begin(features: PackedStringArray, is_debug: bool, _path: String, _flags: int) -> void:
 	_release = !is_debug
+	if is_debug and features.has("dev"):
+		_apply_dev_names()
 	var strip_console: bool = _release or get_export_preset().get_exclude_filter().contains("addons/dev-console/*")
 	if !strip_console:
 		return
@@ -23,6 +25,17 @@ func _export_begin(_features: PackedStringArray, is_debug: bool, _path: String, 
 			or key in ["yandex_ads/banner_id", "yandex_ads/interstitial_id", "yandex_ads/rewarded_id", "firebase_analytics/debug_enabled"])):
 			_settings[key] = {"value": ProjectSettings.get_setting(key), "order": ProjectSettings.get_order(key)}
 			ProjectSettings.clear(key)
+
+func _apply_dev_names() -> void:
+	# Godot emits localized launcher names independently of package/name.
+	# These in-memory overrides are restored in _export_end.
+	for key: String in ["application/config/name", "application/config/name_localized"]:
+		_settings[key] = {"value": ProjectSettings.get_setting(key), "order": ProjectSettings.get_order(key)}
+	var localized: Dictionary = ProjectSettings.get_setting("application/config/name_localized", {}).duplicate()
+	for locale: String in localized:
+		localized[locale] = str(localized[locale]) + " DEV"
+	ProjectSettings.set_setting("application/config/name_localized", localized)
+	ProjectSettings.set_setting("application/config/name", str(_settings["application/config/name"].value) + " DEV")
 
 func _export_file(path: String, _type: String, _features: PackedStringArray) -> void:
 	if !_release:

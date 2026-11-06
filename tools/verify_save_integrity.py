@@ -545,6 +545,7 @@ def main() -> None:
     )
 
     legal_popup = function_body(portrait, "_show_legal_consent_popup")
+    legal_component = read("scripts/ui/legal_consent_popup.gd")
     legal_accept = function_body(portrait, "_accept_legal_documents")
     require(
         ('call_deferred("_show_legal_consent_popup")' in guided_home_screen
@@ -554,8 +555,10 @@ def main() -> None:
     )
     require(
         "_hide_portrait_ad_banner()" in legal_popup
-        and "false\n\t)" in legal_popup
-        and "PORTRAIT_LEGAL_POPUP_GROUP" in legal_popup,
+        and 'load("res://scripts/ui/legal_consent_popup.gd").show(self, _accept_legal_documents' in legal_popup
+        and '"legal_consent_popup"' in legal_component
+        and 'layer_index, Callable(), 225.0, 512.0' in legal_component
+        and 'PALETTE.ACCENT_ORANGE, "", false)' in legal_component,
         "The mandatory legal popup can be dismissed or covered by the ad banner",
     )
     require(

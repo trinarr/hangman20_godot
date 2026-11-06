@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 from prepare_startup_android import prepare as prepare_startup, verify_package
+from prepare_firebase_android import prepare as prepare_firebase, validate_config as validate_firebase_config
 
 ROOT = Path(__file__).resolve().parents[1]
 STORES = {"rustore", "google_play"}
@@ -23,6 +24,9 @@ def validate_store(root: Path, preset_name: str, debug: bool = False) -> str:
     preset = presets[selected[0]]
     if preset_name.endswith(" Debug") != debug:
         raise ValueError("Debug presets require --debug; release presets must omit it")
+    features = set(preset.get("custom_features", "").strip('"').split(","))
+    if "dev" in features and not debug:
+        raise ValueError("DEV presets require a debug export with the console")
     stores = STORES.intersection(preset.get("custom_features", "").strip('"').split(","))
     if len(stores) != 1:
         raise ValueError("Preset must select exactly one store")
@@ -57,7 +61,8 @@ def main() -> int:
     args = parser.parse_args()
     try:
         store = validate_store(ROOT, args.preset, args.debug)
-    except (ValueError, KeyError) as error:
+        validate_firebase_config(ROOT, ROOT / "config/firebase/google-services.json", args.preset)
+    except (OSError, ValueError, KeyError) as error:
         parser.error(str(error))
     print(f"Android store verified: {store} ({'demo' if args.debug else 'production'} ads)", flush=True)
     if args.check_only:
@@ -68,6 +73,11 @@ def main() -> int:
         prepare_startup(ROOT / "android/build", check=True)
     except (OSError, ValueError) as error:
         parser.error(str(error) + "; run python tools/prepare_startup_android.py")
+    try:
+        prepare_firebase(ROOT, ROOT / "config/firebase/google-services.json", ROOT / "android/build",
+                         check=True, preset_name=args.preset)
+    except (OSError, ValueError) as error:
+        parser.error(str(error) + "; run python tools/prepare_firebase_android.py --preset '" + args.preset + "'")
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run([args.godot, "--headless", "--path", str(ROOT),

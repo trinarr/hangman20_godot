@@ -1,10 +1,23 @@
 extends Node
 
 const STARTUP = preload("res://scripts/ui/startup_preparation.gd")
+const HERO = preload("res://scripts/ui/flash_stage_symbol.gd")
 var checks: int = 0
 var failures: Array[String] = []
 var baseline: String
 var main: Node
+
+class HeldPoseLoader extends RefCounted:
+	var held_path: String
+	var released: bool = false
+	func load_threaded_request(path: String, hint: String, sub_threads: bool) -> Error:
+		return ResourceLoader.load_threaded_request(path, hint, sub_threads)
+	func load_threaded_get_status(path: String) -> int:
+		if path == held_path and !released:
+			return ResourceLoader.THREAD_LOAD_IN_PROGRESS
+		return ResourceLoader.load_threaded_get_status(path)
+	func load_threaded_get(path: String) -> Resource:
+		return ResourceLoader.load_threaded_get(path)
 
 class TestUI extends "res://scripts/main_portrait.gd":
 	var home_builds: int = 0
@@ -160,6 +173,11 @@ func run() -> void:
 			check(!main.get_node("StartupPreparation").preparing, "Leaving the word during preparation cancels startup callbacks")
 			await close_main()
 		await check_legacy_resume(language)
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			await check_guided_stage_resume(language, dimensions)
+		for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			for character: int in [1, 2]:
+				await check_cold_damaged_resume(language, size, character)
 	reset_profile("ru")
 	GameState.guided_onboarding_completed = true
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -186,3 +204,116 @@ func check_legacy_resume(language: String) -> void:
 	await settle()
 	check(main.resumes == 1 and Database.get_theme_id(GameSession.theme_id) == 1 and GameSession.to_save_data() == saved_round, "Fixed initial theme never replaces an existing first word from another theme")
 	await close_main()
+
+func check_guided_stage_resume(language: String, dimensions: Vector2i) -> void:
+	get_window().size = dimensions
+	for stage: Dictionary in [
+		{"kind": "word", "level": 0, "slot": 1},
+		{"kind": "word", "level": 1, "slot": 0},
+		{"kind": "quiz", "level": 1, "slot": 0},
+		{"kind": "theme", "level": 2, "slot": 0},
+		{"kind": "reward", "level": 0, "slot": 0},
+	]:
+		reset_profile(language)
+		GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+		GameState._single_player_progress_bucket(language)["unlocked_level"] = stage.level
+		var theme: int = Database.get_theme_index_by_id(9)
+		var data: Dictionary = {}
+		if stage.kind == "word":
+			var source: Dictionary = Database.get_words_by_index(theme, 0)[0]
+			GameSession.start_round(WordData.new(str(source.text), float(source.difficulty), theme, int(source.index), str(source.id)))
+			GameSession.guess(str(GameSession.letters[0]), true)
+			data = GameSession.to_save_data()
+		elif stage.kind == "quiz":
+			data = {"question": preload("res://scripts/core/quiz_selection.gd").shuffled(Database.get_quiz_questions_by_theme_index(theme)[0]), "target_difficulty": 0.5}
+		if stage.kind == "reward":
+			GameState._create_pending_single_player_reward(language, stage.level, stage.slot, 1, 9, 1)
+			check(GameState.save_game(), "Persist the unpresented guided level reward before restart")
+		else:
+			check(GameState.set_active_single_player_session({
+				"kind": stage.kind, "language": language, "level_index": stage.level,
+				"word_slot": stage.slot, "theme_id": 9, "data": data,
+			}), "Persist a later guided stage before restart")
+		GameSession.discard_current_round()
+		GameState.load_game()
+		GameState.interface_language = language
+		Database.load_languages(language, language)
+		start_main()
+		check(main.home_builds == 0 and main.resumes == 1, "Later guided startup resumes immediately without constructing Home: %s" % stage)
+		await settle()
+		check(main.home_builds == 0 and !is_instance_valid(main._home_logo_reveal) and main.resumes == 1, "Guided startup never passes through Home or resumes twice: %s" % stage)
+		if stage.kind == "word":
+			check(main.game_screen_visible and GameSession.to_save_data() == data, "Later guided word keeps its identity and guessed letters")
+		elif stage.kind == "quiz":
+			check(main._quiz_screen_active and main._quiz_current_question == data.question, "Guided quiz resumes its saved question directly")
+		elif stage.kind == "theme":
+			check(!get_tree().get_nodes_in_group("single_player_theme_popup").is_empty(), "Guided theme selection resumes directly")
+			check(main.content.find_child("PortraitBlueBackground", true, false) != null, "Direct theme startup has its own blue backdrop")
+		else:
+			check(main.game_finished and bool(main.last_result_data.get("single_player_level_summary_view", false)), "Unpresented guided reward resumes its summary directly")
+		var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+		if !directory.is_empty():
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(directory.path_join("guided_resume_%s_%d_%s_%d_%d.png" % [language, dimensions.x, stage.kind, stage.level, stage.slot]))
+		await close_main()
+
+func check_cold_damaged_resume(language: String, dimensions: Vector2i, character: int) -> void:
+	reset_profile(language)
+	get_window().size = dimensions
+	await get_tree().process_frame
+	GameState.settings[5] = character
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+	var theme: int = Database.get_theme_index_by_id(9)
+	var source: Dictionary = Database.get_words_by_index(theme, 0)[0]
+	GameSession.start_round(WordData.new(str(source.text), float(source.difficulty), theme, int(source.index), str(source.id)))
+	var alphabet: String = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ" if language == "ru" else "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	for letter: String in alphabet:
+		if !GameSession.word_data.text.to_upper().contains(letter):
+			GameSession.guess(letter, true)
+		if GameSession.mistakes == 4:
+			break
+	var saved_round: Dictionary = GameSession.to_save_data()
+	check(GameSession.mistakes == 4 and GameState.set_active_single_player_session({
+		"kind": "word", "language": language, "level_index": 0,
+		"word_slot": 0, "theme_id": 9, "data": saved_round,
+	}), "Persist a first word with four mistakes before restarting")
+	GameSession.discard_current_round()
+	GameState.load_game()
+	GameState.interface_language = language
+	Database.load_languages(language, language)
+	# Simulate a cold process with the restored pose still streaming after intro.
+	HERO._hero_loads.finish()
+	HERO._hero_pose_cache.clear()
+	HERO._hero_pose_preloads.clear()
+	HERO._hero_pose_requests.clear()
+	var held := HeldPoseLoader.new()
+	held.held_path = (HERO.HERO_TYPE_2_STATES if character == 2 else HERO.HERO_TYPE_1_STATES)[4]
+	HERO._hero_loads.loader = held
+	var native := start_main()
+	var hero: FlashStageSymbol = main.hero_static_symbol
+	check(hero._pending_symbol_path == held.held_path, "Cold restart requests the restored damaged pose")
+	check(HERO._hero_pose_keep_paths.has(held.held_path), "Startup prewarm preserves the live hero's cache window")
+	if character == 2:
+		var deadline: int = Time.get_ticks_msec() + 10000
+		while main._portrait_game_entrance_active and Time.get_ticks_msec() < deadline:
+			await get_tree().process_frame
+		await get_tree().process_frame
+		await get_tree().process_frame
+		check(!main._portrait_game_entrance_active, "Word entrance completes while the restored hero is still loading")
+		check(main.get_node("StartupPreparation").preparing and !native.released, "Startup cannot reveal an empty streamed hero after the entrance")
+	held.released = true
+	# Deliver the background completion before the displayed symbol polls it.
+	# With the old prewarm this result was discarded by the wrong cache window.
+	HERO._hero_loads.take(held.held_path, true)
+	hero._process(0.0)
+	await settle()
+	check(hero._symbol_instance != null and hero._loaded_symbol_path == held.held_path, "Restored damaged pose becomes visible when its resource completes")
+	check(hero.visible and is_equal_approx(hero.modulate.a, 1.0) and !hero.find_children("*", "Sprite2D", true, false).is_empty(), "Restored hero has visible opaque textured art")
+	check(GameSession.to_save_data() == saved_round and GameSession.get_remaining_attempts() == 2, "Hero recovery preserves the word, guesses and remaining attempts")
+	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+	if !directory.is_empty():
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(directory.path_join("first_resume_hero_%s_%d_%d.png" % [language, dimensions.x, character]))
+	await close_main()
+	HERO._hero_loads.finish()
+	HERO._hero_loads.loader = ResourceLoader
