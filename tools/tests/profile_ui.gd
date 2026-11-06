@@ -179,6 +179,8 @@ func check_leaderboard_profile_return() -> void:
 	fixture.free()
 
 func run() -> void:
+	# TestUI bypasses the loading screen that creates the first player profile.
+	GameState.ensure_initial_player_profile()
 	var preview_size := OS.get_environment("HANGMAN_PROFILE_PREVIEW_SIZE").split("x")
 	if preview_size.size() == 2:
 		get_window().min_size = Vector2i(int(preview_size[0]), int(preview_size[1]))
@@ -749,11 +751,20 @@ func run() -> void:
 	var old_sound: int = GameState.settings[3]
 	main.settings_toggle_buttons[3].emit_signal("pressed")
 	check(GameState.settings[3] != old_sound, "Sound button retains existing action")
-	profile.set_bottom_inset(300)
+	var settings_scroll = profile.settings_scroll
+	var settings_bar: VScrollBar = settings_scroll.get_v_scroll_bar()
+	check(settings_bar.max_value <= settings_bar.page, "Full settings needs no scrolling when its content fits")
+	var short_settings_height: float = settings_scroll.content_height * 0.8
+	profile.set_bottom_inset(profile.bottom_inset + settings_scroll.stage_rect.size.y - short_settings_height)
 	await settle()
-	check(profile.settings_scroll.get_v_scroll_bar().max_value > profile.settings_scroll.get_v_scroll_bar().page, "Full settings scrolls when available height is short")
+	check(settings_bar.max_value > settings_bar.page, "Full settings scrolls when available height is short")
+	var settings_position: Vector2 = settings_scroll.stage_content.global_position
+	settings_scroll.scroll_vertical = roundi(settings_bar.max_value - settings_bar.page)
+	await settle()
+	check(settings_scroll.scroll_vertical > 0 and settings_scroll.stage_content.global_position.y < settings_position.y, "Full settings scroll moves the actual content")
 	profile.set_bottom_inset(0)
 	await settle()
+	check(settings_bar.max_value <= settings_bar.page and settings_scroll.scroll_vertical == 0, "Full settings removes scrolling when the content fits again")
 	var old_scroll = profile.settings_scroll
 	profile.select_tab("profile")
 	check(!old_scroll.visible, "Profile hides settings body")

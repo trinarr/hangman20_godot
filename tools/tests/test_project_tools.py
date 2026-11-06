@@ -196,6 +196,25 @@ class RunnerChecks(unittest.TestCase):
                         patch.object(run_content_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, summary + warning)):
                     self.assertEqual(run_content_tests.main(), expected)
 
+    def test_runtime_optimizations_automatically_uses_gpu_and_checks_errors(self):
+        from contextlib import nullcontext, redirect_stdout
+        import io
+        for flags in ([], ["--gpu"]):
+            for error in ("", "ERROR: shader compilation failed\n"):
+                env = {"HANGMAN_SUPABASE_NETWORK_DISABLED": "1", "isolated": "yes"}
+                output = 'RUNTIME_OPTIMIZATIONS {"checks":49,"failures":[]}\n' + error
+                with self.subTest(flags=flags, error=bool(error)), \
+                        patch.object(sys, "argv", ["runner", "--suite", "runtime_optimizations", *flags]), \
+                        patch.object(run_reward_tests.shutil, "which", return_value="godot"), \
+                        patch.object(run_reward_tests, "isolated_environment", return_value=nullcontext(env)), \
+                        patch.object(run_reward_tests, "run_godot", return_value=subprocess.CompletedProcess([], 0, output)) as engine, \
+                        redirect_stdout(io.StringIO()):
+                    self.assertEqual(run_reward_tests.main(), 1 if error else 0)
+                self.assertIs(engine.call_args.args[3], env)
+                self.assertFalse(engine.call_args.kwargs["headless"])
+                self.assertEqual(env["HANGMAN_TEST_HIDE_WINDOW"], "1")
+                self.assertEqual(env["HANGMAN_SUPABASE_NETWORK_DISABLED"], "1")
+
     def test_reward_runner_rejects_empty_log_and_engine_errors(self):
         from contextlib import nullcontext
         for output in ("", "REWARDS {\"checks\":1,\"failures\":[]}\nSCRIPT ERROR: broken"):

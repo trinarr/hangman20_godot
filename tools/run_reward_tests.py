@@ -22,8 +22,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot", help="Godot executable name or path")
     parser.add_argument("--suite", choices=("rewards", "runtime_optimizations", "save_recovery", "resume_flow", "release_reward_regression"), default="rewards")
-    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a minimized window instead of the headless dummy renderer")
+    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window (automatic for runtime_optimizations)")
     args = parser.parse_args()
+    # This suite constructs real UI whose shaders require the project renderer.
+    use_gpu = args.gpu or args.suite == "runtime_optimizations"
+    if use_gpu and not args.gpu:
+        print("runtime_optimizations: using the project renderer with a hidden window", flush=True)
     executable = shutil.which(args.godot)
     if executable is None:
         parser.error(f"Godot executable not found: {args.godot}")
@@ -38,11 +42,11 @@ def main() -> int:
         phases += [["--", f"--restart-{phase}"] for phase in ("prepare", "verify", "confirm")]
     total_checks = 0
     with isolated_environment(executable, ROOT) as env:
-        if args.gpu:
+        if use_gpu:
             env["HANGMAN_TEST_HIDE_WINDOW"] = "1"
         for phase in phases:
             try:
-                result = run_godot(executable, ROOT, arguments + phase, env, timeout=120, headless=not args.gpu)
+                result = run_godot(executable, ROOT, arguments + phase, env, timeout=120, headless=not use_gpu)
             except subprocess.TimeoutExpired as error:
                 print(f"{args.suite} tests timed out after 120 seconds")
                 if error.stdout:
