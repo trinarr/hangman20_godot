@@ -32,6 +32,8 @@ func settle(client: Node, transport: Node) -> void:
 	check(false, "Profile synchronization finishes")
 
 func run() -> void:
+	check(GameState.player_name.is_empty() and !FileAccess.file_exists(GameState.SAVE_PATH), "Fresh autoload defers nickname creation and the first disk write")
+	check(GameState.ensure_initial_player_profile(), "The loading-screen phase creates and persists the initial profile")
 	var profile = GameState.PLAYER_PROFILE
 	for sample: Array in [["A@B", "AB"], ["A !  B", "A B"], ["  Ёж  ", "Ёж"], ["é😀\t\n", ""], ["12345678901234567890", "123456789012345678"], ["   123456789012345678", "123456789012345678"], ["12345678901234567 X", "12345678901234567"]]:
 		check(profile.filter_name_input(sample[0]) == sample[1], "Nickname input keeps only allowed characters and single spaces within the length limit")

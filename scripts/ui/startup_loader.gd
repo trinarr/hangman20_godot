@@ -21,6 +21,8 @@ var _database: Object = Database
 var _database_loading: bool = false
 var _database_ready: bool = false
 var _keep_fallback: bool = false
+var _splash_dismissed: bool = false
+var _preparation_started: bool = false
 
 func _ready() -> void:
 	# Keep the first-run shell stable even after consent changes the saved state.
@@ -29,6 +31,7 @@ func _ready() -> void:
 	_overlay.layer = 1001
 	add_child(_overlay)
 	screen = SCREEN.new()
+	screen.initial_logo_language = "en" if _keep_fallback else GameState.interface_language
 	_overlay.add_child(screen)
 	screen.retry_requested.connect(_retry)
 	if Engine.has_singleton("AndroidRuntime"):
@@ -45,13 +48,19 @@ func _begin() -> void:
 		return
 	if _native != null:
 		_native.finishHomeStartup()
+	screen.set_progress(0.05)
+	_request()
+	_start_database()
+	if _native != null:
 		while !_native.isHomeStartupSplashDismissed():
 			await get_tree().process_frame
 			if !is_inside_tree():
 				return
-	screen.set_progress(0.05)
-	_request()
-	_start_database()
+	GameState.ensure_initial_player_profile()
+	_splash_dismissed = true
+	if _database_ready:
+		_prepare_after_splash.call_deferred()
+	_try_install()
 
 func _start_database() -> void:
 	_database_loading = true
@@ -65,8 +74,9 @@ func _retry() -> void:
 		_request()
 
 func _prepare_after_splash() -> void:
-	if !is_inside_tree() or is_queued_for_deletion() or !_database_ready:
+	if !is_inside_tree() or is_queued_for_deletion() or !_database_ready or !_splash_dismissed or _preparation_started:
 		return
+	_preparation_started = true
 	if !GameState.has_accepted_legal_documents():
 		_ui_audio = load("res://scripts/ui/ui_audio_feedback.gd").new()
 		add_child(_ui_audio)
@@ -151,7 +161,7 @@ func _on_legal_dimmer_closed() -> void:
 	_try_install()
 
 func _try_install() -> void:
-	if _packed == null or !_database_ready or _installing or _legal_close_pending > 0 or !GameState.has_accepted_legal_documents():
+	if _packed == null or !_database_ready or !_splash_dismissed or _installing or _legal_close_pending > 0 or !GameState.has_accepted_legal_documents():
 		return
 	_installing = true
 	_install.call_deferred()

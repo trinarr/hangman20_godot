@@ -9,8 +9,10 @@ const LOGO = preload("res://scripts/ui/startup_logo.gd")
 const TRACK = preload("res://scripts/ui/theme_unlock_track.gd")
 const TRACK_SHADER = preload("res://shaders/stage_reward_track.gdshader")
 const VERSION = preload("res://scripts/ui/application_version.gd")
+const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
 
 var progress: float = 0.0
+var initial_logo_language: String = "en"
 var _icons: Array[Texture2D] = []
 var _logo: Control
 var _progress_group: Control
@@ -40,6 +42,7 @@ func _ready() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
 	_logo = LOGO.new()
+	_logo.language = initial_logo_language
 	add_child(_logo)
 	_progress_group = Control.new()
 	_progress_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -103,6 +106,7 @@ func _label(font_size: int) -> Label:
 	label.add_theme_font_override("font", FONTS.regular_font())
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", Color.WHITE)
+	TEXT_STYLE.apply_regular_display(label)
 	return label
 
 func set_progress(value: float) -> void:
@@ -113,7 +117,8 @@ func set_progress(value: float) -> void:
 
 func apply_database_language() -> void:
 	_localized = true
-	_logo.set_language(Database.interface_language)
+	if _logo.language != Database.interface_language:
+		_logo.set_language(Database.interface_language)
 	_version.text = VERSION.text()
 	if is_instance_valid(_retry):
 		_retry.configure(tr("LEADERBOARD_RETRY"), 20)

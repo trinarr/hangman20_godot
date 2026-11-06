@@ -92,6 +92,8 @@ func close_main() -> void:
 	await get_tree().process_frame
 
 func run() -> void:
+	# Direct-Main fixtures start from the profile already prepared by Startup.
+	GameState.ensure_initial_player_profile()
 	GameState.save_game()
 	baseline = FileAccess.get_file_as_string(GameState.SAVE_PATH)
 	for language: String in ["ru", "en"]:

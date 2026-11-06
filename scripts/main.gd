@@ -226,6 +226,8 @@ var heart_refill_store_is_open: bool = false
 func _ready() -> void:
 	Engine.max_fps = 60
 	randomize()
+	# Direct Main entry also owns first-profile creation when Startup is bypassed.
+	GameState.ensure_initial_player_profile()
 	# Startup already prepared the selected bundle; direct Main entry still works.
 	if !Database.is_language_ready(GameState.interface_language, GameState.word_language):
 		Database.load_languages(GameState.interface_language, GameState.word_language)

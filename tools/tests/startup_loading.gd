@@ -143,6 +143,29 @@ func draw_frame() -> void:
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 
+func check_loading_text_shadows(loader: Node) -> void:
+	await draw_frame()
+	for label: Label in [loader.screen._percentage, loader.screen._version]:
+		var effect: Control = label.get_node_or_null("DisplayTextShaderEffect")
+		check(effect != null, "Loading text uses the shared regular text effect")
+		if effect == null:
+			continue
+		check(effect._shadow_labels.size() == 4 and is_equal_approx(effect._shadow_offset_scale, 0.70), "Loading text keeps the standard four regular shadow layers")
+		var frame: Image = get_viewport().get_texture().get_image()
+		var pixel_scale: Vector2 = Vector2(frame.get_size()) / get_viewport().get_visible_rect().size
+		var bounds: Rect2 = label.get_global_rect().grow(12.0)
+		var region := Rect2i(bounds.position * pixel_scale, bounds.size * pixel_scale)
+		region = region.intersection(Rect2i(Vector2i.ZERO, frame.get_size()))
+		var shaded: Image = frame.get_region(region)
+		for shadow: Label in effect._shadow_labels:
+			shadow.hide()
+		await draw_frame()
+		var plain: Image = get_viewport().get_texture().get_image().get_region(region)
+		check(shaded.get_data() != plain.get_data(), "Loading text shadows contribute visible GPU pixels")
+		for shadow: Label in effect._shadow_labels:
+			shadow.show()
+		await draw_frame()
+
 func check_loading_fade(loader: Node, language: String, width: int, existing: bool) -> void:
 	var transition: Node = loader._transition
 	var tween: Tween = transition._tween
@@ -284,7 +307,8 @@ func check_legal_intro(loader: Node) -> void:
 		await get_tree().process_frame
 	check(is_instance_valid(stage._open_tween) and !stage.open_bounce_complete, "Legal entrance owns a live standard tween")
 	if is_instance_valid(stage._open_tween):
-		stage._open_tween.pause()
+		# Sample fixed animation times, independent of frames spent constructing the popup.
+		stage._open_tween.stop()
 		stage._open_tween.custom_step(0.04)
 		var early: float = stage.scale.x
 		await draw_frame()
@@ -403,10 +427,12 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 	var diagnostics_before: bool = Database._debug_summary_requested
 	add_child(loader)
 	await wait_for_release(native)
-	check(delayed.starts == 0 and !loader._database_ready, "Cold Database loading starts after native dismissal")
-	check(!loader.screen._logo.title_chroma_key and loader.screen._version.text.begins_with("Version:"), "Cold loading uses EN without consulting the uninitialized Database")
+	check(delayed.starts == 1 and !loader._database_ready and loader._loading, "Cold Database and Main loading start during native splash fade")
+	var expected_ru_logo: bool = existing and language == "ru"
+	check(loader.screen._logo.title_chroma_key == expected_ru_logo and loader.screen._version.text.begins_with("Version:"), "Cold loading selects the returning player's logo before Database readiness and keeps first-run EN")
 	check(native.diagnostics_requested == diagnostics_before, "Cold splash cannot request database diagnostics")
 	var initial_logo: Control = loader.screen._logo
+	var initial_title: Texture2D = initial_logo.title_texture
 	var initial_version: Label = loader.screen._version
 	var initial_version_text: String = initial_version.text
 	await capture("database_fallback_%s.png" % language)
@@ -416,7 +442,7 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 		await get_tree().process_frame
 	check(delayed.starts == 1 and loader._packed != null, "Main resources load in parallel with the selected Database bundle")
 	check(!loader._database_ready and loader.runtime == null and !is_instance_valid(loader._legal_popup), "Ready Main resources cannot show consent or gameplay before Database completes")
-	check(!loader.screen._logo.title_chroma_key and loader.screen._version.text.begins_with("Version:"), "Loading retains EN while Database is pending")
+	check(loader.screen._logo.title_chroma_key == expected_ru_logo and loader.screen._version.text.begins_with("Version:"), "Loading retains its initial logo while Database is pending")
 	if cancel:
 		loader.queue_free()
 		await get_tree().process_frame
@@ -438,6 +464,7 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 	check(loader._database_ready and Database.is_language_ready(language, words), "Startup waits for the actual words/hints worker and independent selected interface language")
 	if existing:
 		check(loader.screen._logo.title_chroma_key == (language == "ru") and loader.screen._version.text == VERSION.text(), "Returning players retain localized loading after Database readiness")
+		check(loader.screen._logo == initial_logo and initial_logo.title_texture == initial_title, "Database readiness does not replace the returning player's initial logo or texture")
 	else:
 		check(loader.screen._logo == initial_logo and loader.screen._version == initial_version and !initial_logo.title_chroma_key and initial_version.text == initial_version_text and !loader.screen._localized, "First Database completion preserves the original fallback nodes and text")
 	check(!loader.screen._retry.visible and !loader.screen._toast.visible, "Successful Database retry clears obsolete errors")
@@ -453,17 +480,53 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 	await get_tree().process_frame
 
 
+func check_first_profile_startup() -> void:
+	check(GameState.player_name.is_empty() and GameState.PROFILE_NICKNAMES._pools.is_empty(), "Clean autoload does not read nickname pools or generate a profile under the splash")
+	for cancel: bool in [true, false]:
+		var loader := LOADER.new()
+		loader._database = WaitingDatabase.new()
+		var native := NativeSplash.new()
+		native.viewport = get_viewport()
+		native.draws = draws
+		native.first_draw = draws[0]
+		loader._native = native
+		var writes: Array[bool] = []
+		var on_save: Callable = func(): writes.append(native.isHomeStartupSplashDismissed())
+		GameState.save_committed.connect(on_save)
+		add_child(loader)
+		await wait_for_release(native)
+		await draw_frame()
+		check(GameState.player_name.is_empty() and writes.is_empty(), "Profile creation and saving wait through native splash fade")
+		for path: String in [GameState.SAVE_PATH, GameState.SAVE_TMP_PATH, GameState.SAVE_BACKUP_PATH]:
+			check(!FileAccess.file_exists(path), "First launch creates no save files before splash dismissal")
+		if !cancel:
+			native.dismissed = true
+			var deadline: int = Time.get_ticks_msec() + 10000
+			while writes.is_empty() and Time.get_ticks_msec() < deadline:
+				await get_tree().process_frame
+			check(writes == [true] and GameState.PLAYER_PROFILE.valid_name(GameState.player_name), "Visible loading creates a valid profile and saves exactly once after native dismissal")
+			var initial_name: String = GameState.player_name
+			GameState.load_game()
+			check(GameState.player_name == initial_name and !GameState.ensure_initial_player_profile() and writes == [true], "Deferred first profile survives reload without a second save or reroll")
+		GameState.save_committed.disconnect(on_save)
+		loader.queue_free()
+		await get_tree().process_frame
+		if cancel:
+			check(GameState.player_name.is_empty() and writes.is_empty(), "Leaving the first loading screen cannot create a late profile")
+
 func run() -> void:
 	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Startup.tscn", "Normal launch enters the lightweight loader")
 	check(!ResourceLoader.has_cached(LOADER.RUNTIME_PATH), "Loading screen does not preload Main")
 	check(!ResourceLoader.has_cached("res://scripts/ui/home_logo_paper_reveal.gd") and !ResourceLoader.has_cached("res://shaders/home_logo_paper_reveal.gdshader") and !ResourceLoader.has_cached("res://flash_assets/word_paper_backside.png"), "Cold startup excludes the reveal controller, shader and back-face texture")
+	check(!ResourceLoader.has_cached("res://scripts/ui/legal_consent_popup.gd"), "Cold startup does not preload legal UI")
+	await check_first_profile_startup()
 	GameState.save_game()
 	baseline = FileAccess.get_file_as_string(GameState.SAVE_PATH)
-	check(!ResourceLoader.has_cached("res://scripts/ui/legal_consent_popup.gd"), "Cold startup does not preload legal UI")
 	await check_cold_database_startup("en")
 	await check_cold_database_startup("ru")
 	await check_cold_database_startup("en", false, "ru", true)
 	await check_cold_database_startup("en", true)
+	await check_cold_database_startup("ru", false, "", true)
 	for language: String in ["ru", "en"]:
 		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
 			get_window().min_size = Vector2i.ONE
@@ -497,11 +560,11 @@ func run() -> void:
 				)
 				add_child(loader)
 				await wait_for_release(native)
-				check(loader.runtime == null and !loader._loading and loader.screen.visible, "Main loading waits for dismissal while the loading screen is visible")
-				check(loader.screen.progress == 0.0 and loader.screen._percentage.text == "0%", "Loading starts at zero")
-				check(loader.screen._version.text == VERSION.text("Version:"), "Fallback version retains the installed version and build number")
+				check(loader.runtime == null and loader._loading and loader.screen.visible, "Main loading starts during native fade without constructing gameplay")
+				check(loader.screen.progress >= 0.05, "Loading advances after the first zero-percent frame")
+				check(loader.screen._version.text == VERSION.text() if existing and loader._database_ready else loader.screen._version.text == VERSION.text("Version:"), "Loading retains the installed version and build number during native fade")
 				check(loader.screen._logo.get_script().resource_path == "res://scripts/ui/startup_logo.gd" and loader.screen._logo.get_child_count() == 0, "Loading logo uses only the static renderer")
-				check(!loader.screen._logo.title_chroma_key and !loader._database_ready, "First loading frame uses the EN fallback before Database readiness")
+				check(loader.screen._logo.title_chroma_key == (existing and language == "ru"), "First loading frame uses the returning player's language or first-run EN")
 				check(native.image != null and native.image.get_size().x > 0, "Loading frame exists before the native splash releases")
 				check(native.submitted_frames == 1, "Native splash releases after exactly one submitted loading frame")
 				check(native.diagnostics_requested == diagnostics_before, "Native splash cannot request additional database diagnostics")
@@ -513,6 +576,8 @@ func run() -> void:
 				if !existing:
 					await compare_settled_logo(loader.screen, language, dimensions.x)
 					await capture("loading_zero_%s_%d.png" % [language, dimensions.x])
+					# Isolate the progress widget from resources already loaded during the fade.
+					loader.screen.progress = 0.0
 					loader.screen.set_progress(0.45)
 					check(loader.screen._percentage.text == "45%" and is_equal_approx(loader.screen._track._ratio, 0.45), "Percentage and shader track share intermediate progress")
 					loader.screen.set_progress(0.10)
@@ -520,6 +585,13 @@ func run() -> void:
 					await capture("loading_middle_%s_%d.png" % [language, dimensions.x])
 					loader.screen.progress = 0.0
 					loader.screen.set_progress(0.0)
+				var fade_deadline: int = Time.get_ticks_msec() + 20000
+				while (!loader._database_ready or (!accepted_early and loader._packed == null)) and Time.get_ticks_msec() < fade_deadline:
+					await get_tree().process_frame
+				check(loader._database_ready and (accepted_early or loader._packed != null), "Database and Main resources can complete before native fade ends")
+				check(loader.runtime == null and !loader._installing and !is_instance_valid(loader._legal_popup), "Completed background loads cannot build gameplay or consent during native fade")
+				check(Database._debug_summary_requested == diagnostics_before, "Diagnostics wait for native fade completion")
+				await check_loading_text_shadows(loader)
 				native.dismissed = true
 				var database_deadline: int = Time.get_ticks_msec() + 10000
 				while !loader._database_ready and Time.get_ticks_msec() < database_deadline:
