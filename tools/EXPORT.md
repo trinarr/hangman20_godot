@@ -76,6 +76,8 @@ python tools/build_android_plugins.py --gradle 'C:/path/to/gradle-8.11.1/bin/gra
 
 Подробная рекламная диагностика выключена по умолчанию. Для её проверки добавьте `logging_enabled=true` в секцию `[yandex_ads]` перед debug-экспортом, затем верните настройку. Один флаг управляет BannerDiag, подробными сообщениями Java-моста и `YandexAds.enableLogging`; release принудительно выключает их. Ошибки загрузки баннера сохраняют код без описания SDK, описание доступно только при включённой диагностике. Флаг не гарантирует отключение собственных логов всех сторонних SDK.
 
+Для замера возврата с главной награды соберите DEV APK с этим флагом и запишите закрытие деморолика вместе с `adb logcat -v monotonic | Select-String RWReturn`. Сопоставьте строки с одним `request`. Монотонные отметки logcat связывают `sdk_dismissed` и `bridge_dismissed`. Пары `final_save_begin/end` и `home_build_begin/end` показывают время сохранения и построения главного экрана. `home_frame_post_draw` отмечает завершение его первого кадра в Godot. Момент появления этого кадра на дисплее сверяйте по видеозаписи. Поле `us` используется для интервалов между метками Godot.
+
 Для проверки Firebase на Android явно разрешите тестовый сбор настройкой `firebase_analytics/debug_enabled=true` перед debug-экспортом (секция `[firebase_analytics]`, строка `debug_enabled=true` в `project.godot`). Примите новую редакцию документов в тестовой установке и включите DebugView:
 
 ```powershell

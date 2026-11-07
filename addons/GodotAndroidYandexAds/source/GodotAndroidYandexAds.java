@@ -352,12 +352,14 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         return new RewardedAdEventListener() {
             @Override
             public void onAdShown() {
+                traceRewardedReturn(requestId, "sdk_shown");
                 emitSignal("_on_rewarded_shown_for_request", requestId);
                 emitSignal("_on_rewarded_video_ad_show");
             }
 
             @Override
             public void onAdFailedToShow(AdError error) {
+                traceRewardedReturn(requestId, "sdk_failed_to_show");
                 if (rewardedAd == shownAd) { rewardedAd = null; }
                 emitSignal("_on_rewarded_failed_for_request", requestId, error.getDescription());
                 emitSignal("_on_rewarded_video_ad_failed_to_show", error.getDescription());
@@ -365,6 +367,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
             @Override
             public void onAdDismissed() {
+                traceRewardedReturn(requestId, "sdk_dismissed");
                 if (rewardedAd == shownAd) { rewardedAd = null; }
                 emitSignal("_on_rewarded_closed_for_request", requestId);
                 emitSignal("_on_rewarded_video_ad_dismissed");
@@ -382,10 +385,17 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
             @Override
             public void onRewarded(Reward reward) {
+                traceRewardedReturn(requestId, "sdk_rewarded");
                 emitSignal("_on_rewarded_for_request", requestId, reward.getType(), reward.getAmount());
                 emitSignal("_on_rewarded", reward.getType(), reward.getAmount());
             }
         };
+    }
+
+    private void traceRewardedReturn(String requestId, String event) {
+        if (diagnosticLogging && !requestId.isEmpty()) {
+            Log.d("RWReturn", "request=" + requestId + " event=" + event);
+        }
     }
 
     @UsedByGodot

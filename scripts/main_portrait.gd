@@ -7634,6 +7634,8 @@ func _finish_heart_refill_when_full() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_RESUMED:
+		if _portrait_final_reward_waiting_for_ad:
+			YandexAds.trace_rewarded_return(_portrait_reward_ad_request_id, "application_resumed")
 		call_deferred("_sync_heart_refill_after_resume")
 		call_deferred("_retry_pending_refill_ad_rewards")
 
@@ -15511,7 +15513,9 @@ func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount
 		request_id == _portrait_reward_ad_request_id
 		and _portrait_final_reward_waiting_for_ad
 	)
+	YandexAds.trace_rewarded_return(request_id, "reward_receipt_begin")
 	var receipt: Dictionary = GameState.claim_rewarded_double_request(request_id)
+	YandexAds.trace_rewarded_return(request_id, "reward_receipt_end")
 	if receipt.is_empty():
 		return
 	var receipt_is_current: bool = bool(receipt.get("is_current", false))
@@ -15548,6 +15552,7 @@ func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount
 			GameState.STAGE_REWARD_COINS
 		)
 	GameState.reset_interstitial_timer(true)
+	YandexAds.trace_rewarded_return(request_id, "reward_timer_reset_end")
 	_portrait_final_reward_earned_ad_reward = true
 	if !_portrait_final_reward_waiting_for_ad and _portrait_rewarded_action == &"":
 		if _portrait_reward_double_context == &"stage_coin":
@@ -15561,6 +15566,10 @@ func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount
 func _on_final_reward_ad_closed(request_id: String) -> void:
 	if request_id != _portrait_reward_ad_request_id or !_portrait_final_reward_waiting_for_ad:
 		return
+	YandexAds.trace_rewarded_return(
+		request_id,
+		"reward_close_earned" if _portrait_final_reward_earned_ad_reward else "reward_close_without_receipt"
+	)
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	if _portrait_final_reward_earned_ad_reward:
@@ -15695,6 +15704,9 @@ func _finish_single_player_final_reward_claim(
 	next_theme_level_index: int = -1,
 	force_home: bool = false
 ) -> void:
+	var trace_request_id: String = (
+		_portrait_reward_ad_request_id if force_home and _portrait_reward_double_context == &"final" else ""
+	)
 	var completed_level_index: int = int(last_result_data.get(
 		"single_player_level_index",
 		single_player_active_level_index
@@ -15710,8 +15722,10 @@ func _finish_single_player_final_reward_claim(
 	# Stars are now part of this same reward presentation and are credited before
 	# the x2 / No Thanks actions appear. Keep this finalization idempotent for old
 	# or interrupted saves, then clear the durable level-reward snapshot.
+	YandexAds.trace_rewarded_return(trace_request_id, "final_save_begin")
 	GameState.claim_pending_single_player_level_stars(false)
 	GameState.clear_pending_single_player_reward(true)
+	YandexAds.trace_rewarded_return(trace_request_id, "final_save_end")
 	if force_home:
 		# Do not let the generic final-reward path reopen the next-theme popup.
 		# A timely rewarded-x2 callback owns the following Home animation; a late
@@ -15721,7 +15735,14 @@ func _finish_single_player_final_reward_claim(
 		last_result_data = {}
 		single_player_active_word_slot = -1
 		_portrait_pending_home_reward_amount = 0
+		YandexAds.trace_rewarded_return(trace_request_id, "home_build_begin")
 		show_menu()
+		YandexAds.trace_rewarded_return(trace_request_id, "home_build_end")
+		if !trace_request_id.is_empty() and YandexAds.is_rewarded_return_trace_enabled():
+			RenderingServer.frame_post_draw.connect(
+				_trace_rewarded_home_frame.bind(trace_request_id, result_transition_generation),
+				CONNECT_ONE_SHOT
+			)
 		if completed_level_index + 1 == PORTRAIT_GAME_DESIGN.get_int("tournament.unlock_completed_levels"):
 			TOURNAMENT_START_POPUP.present_after_home_return.call_deferred(self, result_transition_generation)
 		return
@@ -15742,6 +15763,10 @@ func _finish_single_player_final_reward_claim(
 		_show_single_player_level_popup(next_theme_level_index, -1, false, true)
 		return
 	show_menu()
+
+func _trace_rewarded_home_frame(request_id: String, generation: int) -> void:
+	if generation == result_transition_generation:
+		YandexAds.trace_rewarded_return(request_id, "home_frame_post_draw")
 
 func _set_home_reward_animated_balance(value: float) -> void:
 	var balance_text: String = _soft_currency_balance_text(int(round(value)))

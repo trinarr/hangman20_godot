@@ -101,6 +101,13 @@ func trace_banner(event: String, details: Dictionary = {}) -> void:
 	}, true)
 	print("[BannerDiag] ", JSON.stringify(state))
 
+static func is_rewarded_return_trace_enabled() -> bool:
+	return OS.is_debug_build() and bool(ProjectSettings.get_setting("yandex_ads/logging_enabled", false))
+
+static func trace_rewarded_return(request_id: String, event: String) -> void:
+	if !request_id.is_empty() and is_rewarded_return_trace_enabled():
+		print("[RWReturn] request=%s event=%s us=%d" % [request_id, event, Time.get_ticks_usec()])
+
 func _enter_tree() -> void:
 	_read_project_settings()
 	_bind_native_plugin()
@@ -452,6 +459,7 @@ func _fail_pending_rewarded_show(message: String) -> void:
 		rewarded_video_failed_to_show_for_request.emit(request_id, message)
 
 func _on_rewarded_for_request(request_id: String, currency: String, amount: int) -> void:
+	trace_rewarded_return(request_id, "bridge_rewarded")
 	# Deliver late tagged rewards even after another show or navigation. Legacy
 	# consumers only receive callbacks belonging to their own current show.
 	rewarded_for_request.emit(request_id, currency, amount)
@@ -459,6 +467,7 @@ func _on_rewarded_for_request(request_id: String, currency: String, amount: int)
 		rewarded.emit(currency, amount)
 
 func _on_rewarded_closed_for_request(request_id: String) -> void:
+	trace_rewarded_return(request_id, "bridge_dismissed")
 	_track_show_event(request_id, "ad_closed", "closed")
 	if request_id == _rewarded_show_id and _rewarded_show_open:
 		_rewarded_show_open = false
@@ -469,6 +478,7 @@ func _on_rewarded_closed_for_request(request_id: String) -> void:
 	rewarded_video_closed_for_request.emit(request_id)
 
 func _on_rewarded_failed_for_request(request_id: String, message: String) -> void:
+	trace_rewarded_return(request_id, "bridge_failed_to_show")
 	_track_show_event(request_id, "ad_show_result", "failed")
 	if request_id == _rewarded_show_id and _rewarded_show_open:
 		_rewarded_show_open = false
@@ -691,6 +701,7 @@ func _on_rewarded_video_ad_show() -> void:
 	_on_rewarded_shown_for_request(_rewarded_show_id)
 
 func _on_rewarded_shown_for_request(request_id: String) -> void:
+	trace_rewarded_return(request_id, "bridge_shown")
 	_track_show_event(request_id, "ad_show_result", "shown")
 
 func _on_ad_impression(request: String, format: String, raw: String) -> void:
