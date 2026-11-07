@@ -1,22 +1,8 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 157,
+  "file_count": 156,
   "files": [
-    {
-      "path": "icon.png",
-      "source_size": [
-        512,
-        512
-      ],
-      "target_size": [
-        1024,
-        1024
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "44f6a109cb17509e34369ef3c4efe50f6b9255bc844ccee03a4869580d9792f3",
-      "target_sha256": "a2d4fd75556e0d50de372e044d584cf00f61e62d2f8b7348189dadbe66b98e40"
-    },
     {
       "path": "flash_assets/about_mail_icon_86.png",
       "source_size": [
