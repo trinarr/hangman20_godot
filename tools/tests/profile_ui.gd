@@ -738,6 +738,9 @@ func run() -> void:
 	for label in profile.settings_scroll.find_children("*", "Label", true, false):
 		labels.append(label.text)
 	check(labels.has(main._about_version_text()), "Full settings retains version")
+	var version_label: Label = main.find_child("SettingsVersion", true, false)
+	check(version_label != null and version_label.get_theme_font_size("font_size") == 14 and version_label.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, "Settings version keeps its original small muted style")
+	check(version_label != null and version_label.get_node_or_null("DisplayTextShaderEffect") == null and version_label.get_theme_color("font_shadow_color").a == 0.0, "Settings version has no shadow")
 	var version_presets := ConfigFile.new()
 	check(version_presets.load("res://export_presets.cfg") == OK, "Version fixture reads export preset")
 	check(main._about_version_text().ends_with("%s (%s)" % [ProjectSettings.get_setting("application/config/version"), version_presets.get_value("preset.0.options", "version/code")]), "Settings displays version and build number")

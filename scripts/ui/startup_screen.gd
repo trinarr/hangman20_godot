@@ -91,7 +91,8 @@ func _build_progress() -> void:
 	_percentage.size = shadow.size
 	_percentage.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_progress_group.add_child(_percentage)
-	_version = _label(18)
+	_version = Label.new()
+	VERSION.style_label(_version)
 	_version.name = "LoadingVersion"
 	_version.position = Vector2(-42.0, 56.0)
 	_version.size = Vector2(400.0, 30.0)

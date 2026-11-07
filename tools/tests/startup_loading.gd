@@ -145,7 +145,11 @@ func draw_frame() -> void:
 
 func check_loading_text_shadows(loader: Node) -> void:
 	await draw_frame()
-	for label: Label in [loader.screen._percentage, loader.screen._version]:
+	var version: Label = loader.screen._version
+	check(version.get_theme_font_size("font_size") == VERSION.FONT_SIZE and version.get_theme_color("font_color") == VERSION.FONT_COLOR, "Loading version uses the small muted Settings style")
+	check(version.get_theme_font("font") == preload("res://scripts/ui/ui_fonts.gd").regular_font(), "Loading version uses the Settings regular font")
+	check(version.get_node_or_null("DisplayTextShaderEffect") == null and version.get_theme_color("font_shadow_color").a == 0.0 and version.get_theme_constant("outline_size") == 0, "Loading version has no shadow or outline layers")
+	for label: Label in [loader.screen._percentage]:
 		var effect: Control = label.get_node_or_null("DisplayTextShaderEffect")
 		check(effect != null, "Loading text uses the shared regular text effect")
 		if effect == null:

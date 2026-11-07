@@ -1,6 +1,24 @@
 extends RefCounted
 ## Shared installed version/build label for Settings and the startup screen.
 const APP_VERSION_FALLBACK: String = "3.0.0"
+const FONT_SIZE: int = 14
+const FONT_COLOR: Color = preload("res://scripts/ui/ui_palette.gd").TEXT_PALE_BLUE
+
+static func style_label(label: Label) -> void:
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.begin_bulk_theme_override()
+	label.add_theme_font_override("font", preload("res://scripts/ui/ui_fonts.gd").regular_font())
+	label.add_theme_font_size_override("font_size", FONT_SIZE)
+	label.add_theme_color_override("font_color", FONT_COLOR)
+	label.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+	label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
+	label.add_theme_constant_override("outline_size", 0)
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 0)
+	label.end_bulk_theme_override()
 
 static func text(prefix: String = "") -> String:
 	var build: String = build_number()

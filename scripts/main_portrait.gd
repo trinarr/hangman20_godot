@@ -4401,10 +4401,11 @@ func _stage_settings_rows(full_layout: bool, row_offset_y: float = 0.0) -> void:
 		_stage_portrait_legal_links_row(Rect2(left, 642.0, right - left, 30.0), 17)
 		var version_label := _stage_label(
 			Rect2(left, 686.0, right - left, 28.0), _about_version_text(),
-			14, PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, HORIZONTAL_ALIGNMENT_CENTER
+			preload("res://scripts/ui/application_version.gd").FONT_SIZE,
+			preload("res://scripts/ui/application_version.gd").FONT_COLOR, HORIZONTAL_ALIGNMENT_CENTER
 		)
-		version_label.add_theme_font_override("font", UI_REGULAR_FONT)
-		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		version_label.name = "SettingsVersion"
+		preload("res://scripts/ui/application_version.gd").style_label(version_label)
 
 
 func _toggle_settings_ad_consent() -> void:
