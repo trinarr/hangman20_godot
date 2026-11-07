@@ -2,6 +2,7 @@ extends Node
 
 const LOADER = preload("res://scripts/ui/startup_loader.gd")
 const VERSION = preload("res://scripts/ui/application_version.gd")
+const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 var checks: int = 0
 var failures: Array[String] = []
 var baseline: String
@@ -564,9 +565,9 @@ func run() -> void:
 				)
 				add_child(loader)
 				await wait_for_release(native)
-				check(loader.runtime == null and loader._loading and loader.screen.visible, "Main loading starts during native fade without constructing gameplay")
+				check(loader.runtime == null and loader._loading and loader.screen.visible, "Main loading starts before native dismissal without constructing gameplay")
 				check(loader.screen.progress >= 0.05, "Loading advances after the first zero-percent frame")
-				check(loader.screen._version.text == VERSION.text() if existing and loader._database_ready else loader.screen._version.text == VERSION.text("Version:"), "Loading retains the installed version and build number during native fade")
+				check(loader.screen._version.text == VERSION.text() if existing and loader._database_ready else loader.screen._version.text == VERSION.text("Version:"), "Loading retains the installed version and build number before native dismissal")
 				check(loader.screen._logo.get_script().resource_path == "res://scripts/ui/startup_logo.gd" and loader.screen._logo.get_child_count() == 0, "Loading logo uses only the static renderer")
 				check(loader.screen._logo.title_chroma_key == (existing and language == "ru"), "First loading frame uses the returning player's language or first-run EN")
 				check(native.image != null and native.image.get_size().x > 0, "Loading frame exists before the native splash releases")
@@ -577,10 +578,16 @@ func run() -> void:
 				var version_rect: Rect2 = loader.screen._version.get_global_rect()
 				var pattern_size: Vector2 = loader.screen.pattern_icon_size()
 				check(bar_rect.position.y >= loader.screen.size.y * 0.8 and version_rect.end.y <= loader.screen.size.y, "Progress and version fit entirely inside the bottom 20 percent")
+				if native.image != null:
+					var pixel_scale: Vector2 = Vector2(native.image.get_size()) / get_viewport().get_visible_rect().size
+					var sample := Vector2i((bar_rect.position + bar_rect.size * Vector2(0.8, 0.5)) * pixel_scale)
+					var track_pixel: Color = native.image.get_pixelv(sample)
+					var track_color: Color = PALETTE.UI_BLUE_DARK
+					check(absf(track_pixel.r - track_color.r) < 0.02 and absf(track_pixel.g - track_color.g) < 0.02 and absf(track_pixel.b - track_color.b) < 0.02, "The first submitted frame already draws the empty loading track")
 				if !existing:
 					await compare_settled_logo(loader.screen, language, dimensions.x)
 					await capture("loading_zero_%s_%d.png" % [language, dimensions.x])
-					# Isolate the progress widget from resources already loaded during the fade.
+					# Isolate the progress widget from resources already loaded before native dismissal.
 					loader.screen.progress = 0.0
 					loader.screen.set_progress(0.45)
 					check(loader.screen._percentage.text == "45%" and is_equal_approx(loader.screen._track._ratio, 0.45), "Percentage and shader track share intermediate progress")
@@ -592,10 +599,11 @@ func run() -> void:
 				var fade_deadline: int = Time.get_ticks_msec() + 20000
 				while (!loader._database_ready or (!accepted_early and loader._packed == null)) and Time.get_ticks_msec() < fade_deadline:
 					await get_tree().process_frame
-				check(loader._database_ready and (accepted_early or loader._packed != null), "Database and Main resources can complete before native fade ends")
-				check(loader.runtime == null and !loader._installing and !is_instance_valid(loader._legal_popup), "Completed background loads cannot build gameplay or consent during native fade")
-				check(Database._debug_summary_requested == diagnostics_before, "Diagnostics wait for native fade completion")
+				check(loader._database_ready and (accepted_early or loader._packed != null), "Database and Main resources can complete before native dismissal")
+				check(loader.runtime == null and !loader._installing and !is_instance_valid(loader._legal_popup), "Completed background loads cannot build gameplay or consent before native dismissal")
+				check(Database._debug_summary_requested == diagnostics_before, "Diagnostics wait for native dismissal")
 				await check_loading_text_shadows(loader)
+				check(loader.screen._track.is_visible_in_tree() and loader.screen._percentage.is_visible_in_tree(), "Progress stays visible while native dismissal is pending")
 				native.dismissed = true
 				var database_deadline: int = Time.get_ticks_msec() + 10000
 				while !loader._database_ready and Time.get_ticks_msec() < database_deadline:

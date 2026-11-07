@@ -42,7 +42,7 @@ func _ready() -> void:
 	_begin.call_deferred()
 
 func _begin() -> void:
-	# Layout is synchronous: the first submitted frame already contains the shell.
+	# Wait for the loading screen and its progress bar to be drawn before releasing the native splash.
 	await RenderingServer.frame_post_draw
 	if !is_inside_tree():
 		return

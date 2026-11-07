@@ -14,76 +14,32 @@ from prepare_startup_android import ORIGINAL, METHODS, prepare, verify_package
 
 class StartupAndroidPreparationTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("javac") and shutil.which("java"), "JDK required for native splash gate regression")
-    def test_splash_is_removed_only_after_fade(self):
-        # Execute the production helper with a controllable Android animation clock.
+    def test_splash_is_removed_synchronously_on_exit(self):
+        # Execute the production helper with a controllable Android clock.
         sources = {
-            "android/animation/Animator.java": """
-package android.animation;
-public class Animator {}
-""",
-            "android/animation/AnimatorListenerAdapter.java": """
-package android.animation;
-public class AnimatorListenerAdapter {
-    public void onAnimationEnd(Animator animation) {}
-}
-""",
-            "android/animation/ObjectAnimator.java": """
-package android.animation;
-import android.view.View;
-import android.view.animation.AccelerateDecelerateInterpolator;
-public class ObjectAnimator extends Animator {
-    public static ObjectAnimator last;
-    public View view;
-    public float from, to;
-    public long duration;
-    public boolean started;
-    public AccelerateDecelerateInterpolator interpolator;
-    private AnimatorListenerAdapter listener;
-    public static ObjectAnimator ofFloat(View view, Object property, float from, float to) {
-        if (property != View.ALPHA) throw new AssertionError("Wrong property");
-        last = new ObjectAnimator();
-        last.view = view; last.from = from; last.to = to;
-        return last;
-    }
-    public void setDuration(long duration) { this.duration = duration; }
-    public void setInterpolator(AccelerateDecelerateInterpolator value) { interpolator = value; }
-    public void addListener(AnimatorListenerAdapter listener) { this.listener = listener; }
-    public void start() { started = true; view.alpha = from; }
-    public void advance(float fraction) { view.alpha = from + (to - from) * fraction; }
-    public void end() { advance(1); listener.onAnimationEnd(this); }
-    public void cancel() { listener.onAnimationEnd(this); }
-}
-""",
-            "android/view/View.java": """
-package android.view;
-public class View { public static final Object ALPHA = new Object(); public float alpha = 1; }
-""",
-            "android/view/animation/AccelerateDecelerateInterpolator.java": """
-package android.view.animation;
-public class AccelerateDecelerateInterpolator {}
-""",
             "android/os/SystemClock.java": """
 package android.os;
-public class SystemClock { public static long uptimeMillis() { return 0; } }
+public class SystemClock {
+    public static long now;
+    public static long uptimeMillis() { return now; }
+}
 """,
             "org/godotengine/godot/Godot.java": """
 package org.godotengine.godot;
 public class Godot {
-    public enum RunStatus { STARTED }
-    public RunStatus getRunStatus() { return RunStatus.STARTED; }
+    public enum RunStatus { STARTING, STARTED }
+    public RunStatus status = RunStatus.STARTING;
+    public RunStatus getRunStatus() { return status; }
 }
 """,
             "androidx/core/splashscreen/SplashScreen.java": """
 package androidx.core.splashscreen;
-import android.view.View;
 import com.godot.game.HomeStartupGateTest;
 public class SplashScreen {
     public interface Condition { boolean test(); }
     public interface ExitListener { void onExit(Provider provider); }
     public static class Provider {
-        public View view = new View();
         public boolean removed;
-        public View getView() { return view; }
         public void remove() {
             if (HomeStartupGateTest.dismissed()) throw new AssertionError("Gate opened before removal");
             removed = true;
@@ -97,31 +53,33 @@ public class SplashScreen {
 """,
             "com/godot/game/HomeStartupGateTest.java": """
 package com.godot.game;
-import android.animation.ObjectAnimator;
+import android.os.SystemClock;
 import androidx.core.splashscreen.SplashScreen;
 import org.godotengine.godot.Godot;
 public class HomeStartupGateTest {
     public static boolean dismissed() { return HomeStartupGate.isDismissed(); }
     private static void check(boolean value) { if (!value) throw new AssertionError(); }
+    private static void checkExit(SplashScreen splash) {
+        check(!splash.condition.test() && !dismissed());
+        SplashScreen.Provider provider = new SplashScreen.Provider();
+        splash.listener.onExit(provider);
+        check(provider.removed && dismissed());
+    }
     public static void main(String[] args) {
-        for (boolean cancel : new boolean[] {false, true}) {
-            SplashScreen splash = new SplashScreen();
-            HomeStartupGate.install(splash, new Godot());
-            check(!dismissed() && splash.condition.test());
-            HomeStartupGate.finish();
-            check(!splash.condition.test() && !dismissed());
-            SplashScreen.Provider provider = new SplashScreen.Provider();
-            splash.listener.onExit(provider);
-            ObjectAnimator fade = ObjectAnimator.last;
-            check(fade != null && fade.started && fade.view == provider.view);
-            check(fade.from == 1 && fade.to == 0 && fade.duration == 200 && fade.interpolator != null);
-            check(!provider.removed && !dismissed());
-            fade.advance(0.5f);
-            check(provider.view.alpha > 0 && provider.view.alpha < 1);
-            check(!provider.removed && !dismissed());
-            if (cancel) fade.cancel(); else fade.end();
-            check(provider.removed && dismissed());
-        }
+        SplashScreen splash = new SplashScreen();
+        Godot godot = new Godot();
+        HomeStartupGate.install(splash, godot);
+        check(!dismissed() && splash.condition.test());
+        HomeStartupGate.finish();
+        check(splash.condition.test());
+        godot.status = Godot.RunStatus.STARTED;
+        checkExit(splash);
+
+        SplashScreen restarted = new SplashScreen();
+        HomeStartupGate.install(restarted, godot);
+        check(!dismissed() && restarted.condition.test());
+        SystemClock.now = 30000;
+        checkExit(restarted);
     }
 }
 """,

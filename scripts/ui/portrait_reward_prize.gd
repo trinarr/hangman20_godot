@@ -288,18 +288,16 @@ func _reveal_final_reward_actions(
 		and is_instance_valid(collect_button)
 		and collect_button.is_inside_tree()
 	):
-		var collect_delay := _tween(collect_holder)
-		collect_delay.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		collect_delay.tween_interval(
-			PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION
-			+ PORTRAIT_FINAL_REWARD_COLLECT_DELAY
-		)
-		collect_delay.tween_callback(
-			Callable(self, "_reveal_final_reward_collect_action").bind(
-				collect_holder,
-				collect_button
-			)
-		)
+		_schedule_final_reward_collect(collect_holder,
+			_reveal_final_reward_collect_action.bind(collect_holder, collect_button))
+
+func _schedule_final_reward_collect(holder: Control, reveal: Callable) -> void:
+	if !is_instance_valid(holder) or !holder.is_inside_tree():
+		return
+	var delay := _tween(holder)
+	delay.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	delay.tween_interval(PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION + PORTRAIT_FINAL_REWARD_COLLECT_DELAY)
+	delay.tween_callback(reveal)
 
 func _finish_final_reward_action_reveal(button: Control) -> void:
 	if button == null or !is_instance_valid(button) or !button.is_inside_tree():

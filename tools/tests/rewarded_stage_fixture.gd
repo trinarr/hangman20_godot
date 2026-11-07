@@ -90,9 +90,11 @@ func fixture(level_number: int = 5, banner_height: float = 50.0) -> void:
 		var deadline: int = Time.get_ticks_msec() + 20000
 		while bool(ui._portrait_stage_reward.action.get("button_disabled")) and Time.get_ticks_msec() < deadline:
 			await get_tree().process_frame
-		check(!bool(initial_collect.get("button_disabled")), "Collect enables on the same frame as the ad action")
-		check(is_equal_approx(ui.COMPOSITED_FADE.get_opacity(initial_collect), ui.COMPOSITED_FADE.get_opacity(ui._portrait_stage_reward.action)), "Both actions start revealing together without a decline delay")
+		check(bool(initial_collect.get("button_disabled")) and initial_collect.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Collect stays unavailable while the ad button starts revealing")
+		check(is_zero_approx(ui.COMPOSITED_FADE.get_opacity(initial_collect)), "Collect is transparent during the decline delay")
 	await get_tree().create_timer(6.0).timeout
+	if level_number >= 5:
+		check(!bool(initial_collect.get("button_disabled")) and is_equal_approx(ui.COMPOSITED_FADE.get_opacity(initial_collect), 1.0), "Collect becomes visible and interactive after its delay")
 	check(is_instance_valid(ui._portrait_final_reward_double_button) and !ui._portrait_final_reward_double_button.get("button_disabled"), "Fixture reveals the real stage x2 button")
 	check(ui._portrait_final_reward_double_button.get("button_text") == (("%s %d" % [tr("REWARD_GET"), roundi(25 * ui._portrait_stage_reward.selected_multiplier())]).to_upper() if level_number >= 5 else tr("REWARD_GET_X2").to_upper()), "Stage ad action uses the requested localized caption")
 	var meter: Control = ui._portrait_stage_reward.multiplier_meter

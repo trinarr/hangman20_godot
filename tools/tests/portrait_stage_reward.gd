@@ -444,6 +444,13 @@ func check_offer_update_work() -> void:
 	check(component.full_configurations == configurations, "Sector changes only update the amount, without rebuilding icons/fonts/shadows")
 	for _i in range(4): await get_tree().process_frame
 	check(parent.find_children("*", "", true, false).size() == nodes, "Repeated amount changes do not accumulate visual nodes")
+	component._reveal_final_reward_actions(component.action, component.collect, null)
+	var delay: Tween = component._animations.back()
+	delay.pause()
+	var reveal_after: float = component.PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION + component.PORTRAIT_FINAL_REWARD_COLLECT_DELAY
+	delay.custom_step(reveal_after - 0.01)
+	check(bool(component.collect.get("button_disabled")), "Collect remains disabled until the shared decline delay elapses")
 	component.stop()
+	check(!delay.is_valid() and is_zero_approx(main.COMPOSITED_FADE.get_opacity(component.collect)), "Leaving during the delay cancels the collect reveal")
 	parent.queue_free()
 	await get_tree().process_frame

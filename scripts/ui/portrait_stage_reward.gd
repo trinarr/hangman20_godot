@@ -449,8 +449,10 @@ func _reveal_final_reward_actions(double_button: Control, holder: Control, hit: 
 	if !_meter_enabled:
 		super._reveal_final_reward_actions(double_button, holder, hit)
 		return
-	# Both native buttons reveal together, without the legacy decline delay.
 	super._reveal_final_reward_actions(double_button, null, null)
+	_schedule_final_reward_collect(holder, _reveal_native_collect.bind(holder))
+
+func _reveal_native_collect(holder: Control) -> void:
 	super._reveal_final_reward_actions(holder, null, null)
 
 func defers_coin_collection() -> bool:
