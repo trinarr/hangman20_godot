@@ -83,11 +83,13 @@ def isolated_environment(executable, root):
         probe = profile / "probe"
         probe.mkdir()
         config = (root / "project.godot").read_text(encoding="utf-8")
-        # Preserve [application] verbatim, including platform-specific settings.
         application = re.search(r"(?ms)^\[application\]\s*.*?(?=^\[|\Z)", config)
         if application is None:
             raise RuntimeError("Project has no [application] settings for isolation probe")
-        config = "config_version=5\n\n" + application.group(0)
+        # Preserve application identity and feature overrides. The probe has no
+        # imported resources, so omit the purely visual boot splash settings.
+        probe_application = re.sub(r"(?m)^boot_splash/[^\n]*(?:\n|$)", "", application.group(0))
+        config = "config_version=5\n\n" + probe_application
         (probe / "project.godot").write_text(config, encoding="utf-8")
         (probe / "probe.gd").write_text(
             'extends SceneTree\n'

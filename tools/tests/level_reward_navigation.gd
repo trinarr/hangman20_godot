@@ -1,14 +1,17 @@
 extends "res://tools/tests/rewards.gd"
 ## Exercise the real reward actions without requesting the native ad SDK.
+const REWARDED_FIXTURE = preload("res://tools/tests/rewarded_stage_fixture.gd")
+
 class TestUI extends "res://scripts/main_portrait.gd":
 	var ads_enabled := false
+	var ads: Node
 	func _ready() -> void:
 		_build_root()
 		_clear()
 	func _portrait_ads_enabled() -> bool:
 		return ads_enabled
 	func _portrait_ads_service() -> Node:
-		return null
+		return ads
 	func _should_auto_resume_guided_single_player() -> bool:
 		return false
 
@@ -106,15 +109,7 @@ func test_exit_edges(unlock_level: int) -> void:
 		main._on_final_reward_ad_rewarded(request_id, "coins", 1)
 		main._on_final_reward_ad_closed(request_id)
 		check(main.result_transition_generation == generation and GameState.get_soft_currency() == coins + bonus, "Repeated ad callbacks cannot restart Home or pay twice")
-	await prepare_unlock_reward(unlock_level)
-	var request_id := begin_ad("final")
-	main._claim_single_player_final_reward()
-	check(main._portrait_final_reward_waiting_for_ad, "No Thanks cannot dismiss an outstanding ad")
-	main._on_final_reward_ad_failed_to_show(request_id, "test")
-	check(main._portrait_reward_double_context == &"final", "Failed ad leaves the reward available for No Thanks")
-	main._claim_single_player_final_reward()
-	await get_tree().process_frame
-	check(get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).size() == 1, "No Thanks still introduces the tournament after an ad failure")
+	await test_ad_load_and_show(unlock_level)
 	await prepare_unlock_reward(unlock_level)
 	var coins := GameState.get_soft_currency()
 	main._clear()
@@ -159,6 +154,46 @@ func test_exit_edges(unlock_level: int) -> void:
 	await settle()
 	check(GameState.tournament_state.id == identifier and get_tree().get_nodes_in_group(main.TOURNAMENT_FINISH_POPUP.GROUP).size() == 1, "Unclaimed tournament prize takes precedence over the automatic intro")
 	check(get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).is_empty(), "Automatic intro cannot replace an unclaimed tournament prize")
+
+func test_ad_load_and_show(unlock_level: int) -> void:
+	var ads := REWARDED_FIXTURE.Ads.new()
+	var native := REWARDED_FIXTURE.NativeAds.new()
+	ads._native = native
+	ads._sdk_ready = true
+	add_child(ads)
+	main.ads = ads
+
+	await prepare_unlock_reward(unlock_level)
+	main._on_final_reward_double_pressed()
+	var request_id: String = main._portrait_reward_ad_request_id
+	check(ads.is_rewarded_request_pending(request_id) and native.shows == 0, "Main prize waits for the ad to load")
+	var collect := main.find_child("FinalRewardCollectButton", true, false) as Button
+	check(!collect.disabled, "No Thanks remains available during ad loading")
+	collect.pressed.emit()
+	check(!ads.is_rewarded_request_pending(request_id) and !main._portrait_final_reward_waiting_for_ad, "No Thanks cancels the pending show")
+	check(!GameState.rewarded_double_requests.has(request_id), "Cancelling the pending show removes its receipt")
+	ads._on_rewarded_video_ad_loaded()
+	await get_tree().process_frame
+	check(native.shows == 0, "Late ad load cannot reopen the cancelled show")
+	check(get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).size() == 1, "No Thanks introduces the tournament while the ad is loading")
+
+	await prepare_unlock_reward(unlock_level)
+	main._on_final_reward_double_pressed()
+	request_id = main._portrait_reward_ad_request_id
+	check(native.shows == 1 and ads._rewarded_show_open and !ads.is_rewarded_request_pending(request_id), "Cached ad starts a native show")
+	# The native overlay owns input during the show. Cancel the load guard
+	# directly to exercise its contract without sending an impossible click.
+	main._portrait_reward_load_guard.cancel(false)
+	check(ads._rewarded_show_open and main._portrait_final_reward_waiting_for_ad and GameState.rewarded_double_requests.has(request_id), "Cancelling a load guard leaves the open ad and its receipt intact")
+	ads._on_rewarded_failed_for_request(request_id, "test")
+	collect = main.find_child("FinalRewardCollectButton", true, false) as Button
+	check(main._portrait_reward_double_context == &"final" and !main._portrait_final_reward_waiting_for_ad and !collect.disabled, "Failed ad leaves the reward available for No Thanks")
+	check(!GameState.rewarded_double_requests.has(request_id), "Failed show removes its unearned receipt")
+	collect.pressed.emit()
+	await get_tree().process_frame
+	check(get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).size() == 1, "No Thanks still introduces the tournament after an ad failure")
+	main.ads = null
+	ads.queue_free()
 
 func test_single_stage_unlock() -> void:
 	var config: Dictionary = GameState.GAME_DESIGN.get_value("tournament")

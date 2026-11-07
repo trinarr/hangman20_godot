@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -232,8 +233,11 @@ class EngineIsolationChecks(unittest.TestCase):
         original = os.environ.copy()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            splash = Path(__file__).resolve().parents[2] / "assets/app_icon/trinarr_games_splash.png"
+            shutil.copyfile(splash, root / "splash.png")
             (root / "project.godot").write_text(
-                'config_version=5\n[application]\nconfig/name="Hangman isolation regression"\n', encoding="utf-8")
+                'config_version=5\n[application]\nconfig/name="Hangman isolation regression"\n'
+                'boot_splash/image="res://splash.png"\n', encoding="utf-8")
             # Use the same scene/script in independent Godot processes. A second
             # profile must not see the first one's saved marker.
             (root / "check.gd").write_text(
