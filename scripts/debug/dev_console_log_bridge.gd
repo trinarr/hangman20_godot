@@ -67,7 +67,7 @@ func _exit_tree() -> void:
 
 func _process(_delta: float) -> void:
 	var console: Node = get_node_or_null("/root/DevConsole")
-	if _logger == null or console == null or not console.is_node_ready():
+	if _logger == null or console == null or not console.is_node_ready() or !bool(console.get("_console_ready")):
 		return
 	for entry: Dictionary in _logger.take_batch():
 		match int(entry["severity"]):

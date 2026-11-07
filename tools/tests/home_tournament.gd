@@ -19,6 +19,8 @@ func settle() -> void:
 func clock_text(seconds: int) -> String:
 	return "%02d:%02d:%02d" % [seconds / 3600, (seconds / 60) % 60, seconds % 60]
 func _process(_delta: float) -> void:
+	if OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 	if DisplayServer.get_name() == "headless":
 		RenderingServer.frame_post_draw.emit()
 func _ready() -> void:
@@ -109,6 +111,7 @@ func run() -> void:
 	var restored: Control = main.content.find_child("HomeTournamentButton", true, false)
 	check(restored != null and restored.caption.text == "TOURNAMENT", "Returning Home rebuilds correct shortcut state")
 	check(!restored._rank.visible, "Expired tournament hides player rank")
+	await check_wrapped_status_toasts(main)
 	var callbacks_before := GameState.tournament_changed.get_connections().size()
 	main.queue_free()
 	await settle()
@@ -116,3 +119,30 @@ func run() -> void:
 	GameState.tournament_time_source = Callable()
 	print("HOME_TOURNAMENT checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func check_wrapped_status_toasts(main: Node) -> void:
+	var original_size: Vector2i = get_window().size
+	get_window().min_size = Vector2i.ONE
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+		get_window().size = dimensions
+		await settle()
+		for language: String in ["ru", "en"]:
+			var message: String = "Не удалось сохранить выбор. Попробуйте ещё раз." if language == "ru" else "Could not save your choice. Please try again."
+			main._show_portrait_status_toast(message)
+			await get_tree().create_timer(0.2).timeout
+			var toast: Control = main._portrait_ad_toast
+			var label: Label = toast._message_label
+			var bounds: Rect2 = toast.get_global_rect()
+			var margin: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(get_viewport().get_visible_rect().size) * toast.TOAST_SCREEN_EDGE_MARGIN
+			check(label.get_theme_font_size("font_size") == 20 and label.scale == Vector2.ONE, "Game toasts keep their font size and proportions")
+			check(label.get_line_count() > 1 and label.get_visible_line_count() == label.get_line_count(), "Game toasts show all wrapped lines")
+			check(bounds.position.x >= margin - 0.1 and bounds.end.x <= get_viewport().get_visible_rect().size.x - margin + 0.1 and bounds.position.y >= 0.0, "Game toasts retain screen margins")
+			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !directory.is_empty():
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(directory.path_join("toast_game_%s_%d.png" % [language, dimensions.x]))
+			main._show_portrait_status_toast("OK", true)
+			check(is_equal_approx(toast.size.y, toast.TOAST_HEIGHT), "Short game toasts restore the normal height")
+			toast.hide_message()
+	get_window().size = original_size
+	await settle()

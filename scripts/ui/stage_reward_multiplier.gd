@@ -1,4 +1,6 @@
 extends Control
+
+signal selection_changed
 ## Decorative timing meter. The offer owns payout and advertisement handling.
 
 const CONFIG = preload("res://scripts/core/game_design_config.gd")
@@ -147,6 +149,7 @@ func set_cursor(value: float) -> void:
 	var zone: int = mini(int(cursor * 5.0), 4)
 	if zone != _active_zone:
 		_active_zone = zone
+		selection_changed.emit()
 		if _label_tween != null:
 			_label_tween.kill()
 		_label_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

@@ -1,5 +1,19 @@
 extends Node
 
+class CountingOffer extends "res://scripts/ui/portrait_stage_reward.gd":
+	var full_configurations: int = 0
+	func _sync_final_reward_double_button_content(button: Control) -> void:
+		full_configurations += 1
+		super._sync_final_reward_double_button_content(button)
+
+class MetadataUI extends "res://scripts/main.gd":
+	var level_builds: int = 0
+	func _ready() -> void:
+		pass
+	func _single_player_level_data(_level: int) -> Dictionary:
+		level_builds += 1
+		return {"question_slots": [1]}
+
 class TestUI:
 	extends "res://scripts/main_portrait.gd"
 	var ads_enabled: bool = false
@@ -7,6 +21,13 @@ class TestUI:
 	var claim_scale: float = 0.0
 	var doubles: int = 0
 	var quiz_stage: bool = true
+	var collection_amounts: Array[int] = []
+	var level_builds: int = 0
+	func _play_centered_rewarded_double_coin_animation(before: int, after: int, _layer: int = 100, _generation: int = -1) -> void:
+		collection_amounts.append(after - before)
+	func _single_player_level_data(level: int) -> Dictionary:
+		level_builds += 1
+		return super._single_player_level_data(level)
 	func _ready() -> void:
 		_build_root()
 		_clear()
@@ -98,6 +119,8 @@ func check_home_chain_resume() -> void:
 				main.show_menu()
 				GameState.load_game()
 				await get_tree().create_timer(1.4).timeout
+				main.single_player_level_definitions_cache.clear()
+				main.level_builds = 0
 				main._play_single_player_from_home()
 				main._play_single_player_from_home()
 				var deadline: int = Time.get_ticks_msec() + 5000
@@ -105,6 +128,7 @@ func check_home_chain_resume() -> void:
 					await get_tree().process_frame
 				var title: Control = main._portrait_top_bar_content.get_meta("reward_title_block") if main._portrait_top_bar_content.has_meta("reward_title_block") else null
 				check(is_instance_valid(title), "Home Continue reaches the saved word-stage chain: %s/%d/%d" % [language, dimensions.x, state_index])
+				check(main.level_builds == 0, "Resuming the reward chain does not build gameplay content")
 				if !is_instance_valid(title):
 					continue
 				var visual: Control = title.get_node("SinglePlayerRewardTitleVisual")
@@ -125,16 +149,30 @@ func check_home_chain_resume() -> void:
 	get_window().size = original_size
 
 func run() -> void:
+	var metadata := MetadataUI.new()
+	var assignments: Dictionary = GameState._single_player_bucket(Database.current_language)["level_question_slots"]
+	var previous: Dictionary = assignments.duplicate(true)
+	assignments.erase("98")
+	check(metadata._single_player_stage_is_quiz(98, 1) and metadata.level_builds == 1, "Legacy metadata can still derive its quiz assignment")
+	assignments["98"] = [2]
+	check(!metadata._single_player_stage_is_quiz(98, 1) and metadata._single_player_stage_is_quiz(98, 2), "Saved quiz slots determine the stage type")
+	assignments["98"] = []
+	check(!metadata._single_player_stage_is_quiz(98, 2), "An explicitly downgraded quiz stays a word stage")
+	check(metadata._single_player_level_word_count(98) == metadata._single_player_level_word_target(98) and metadata.level_builds == 1, "Saved stage metadata and configured count never select content")
+	assignments.clear()
+	assignments.merge(previous, true)
+	metadata.free()
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
 	add_child(main)
+	await check_offer_update_work()
 	for level_number: int in [1, 4, 5, 6]:
 		fixture(true, false, 2, level_number)
 		var component: Node = main._portrait_stage_reward
 		var use_meter: bool = level_number >= 5
 		check(is_instance_valid(component.multiplier_meter) == use_meter, "Multiplier meter starts with level five: %d" % level_number)
-		check(component.action.get("button_text") == tr("REWARD_GET" if use_meter else "REWARD_GET_X2").to_upper(), "Stage caption matches its reward approach: %d" % level_number)
-		check((component.action.get("trailing_icon_texture") == null) == use_meter, "Old doubling keeps its currency icon: %d" % level_number)
+		check(component.action.get("button_text") == (("%s %d" % [tr("REWARD_GET"), 38]).to_upper() if use_meter else tr("REWARD_GET_X2").to_upper()), "Stage caption matches its reward approach: %d" % level_number)
+		check(component.action.get("trailing_icon_texture") != null, "Old doubling keeps its currency icon: %d" % level_number)
 		if !use_meter:
 			check(component.selected_multiplier() == 2.0, "Early levels keep fixed doubling")
 		main._clear()
@@ -157,9 +195,18 @@ func run() -> void:
 		check(main.claims == claims_before + 1 and GameState.get_soft_currency() == before + 25, "one base reward granted during presentation")
 		check(main.claim_scale > 1.0 and bool(GameState.get_active_single_player_stage_reward().get("claimed", false)), "peak callback grants and persists reward")
 		check(!bool(button.get("button_disabled")) and is_equal_approx(button.modulate.a, 1.0), "action enabled after intro")
+		check(!main.content.find_child("SinglePlayerRewardChain", true, false).visible, "Replaced alpha-zero chain stops issuing draw calls")
 		var amount_label: Label = main.content.find_child("StageCoinLargeRewardAmount", true, false)
 		var amount_fade: Control = main.COMPOSITED_FADE.wrap(amount_label)
-		check(is_equal_approx(float(amount_fade.get("opacity")), 1.0) and is_equal_approx(amount_label.modulate.a, 1.0), "large reward amount finishes revealing through composite opacity")
+		check(!amount_label.visible if ads else is_equal_approx(float(amount_fade.get("opacity")), 1.0), "Multiplier offer hides the large reward amount; other stages keep it")
+		if ads:
+			check(main._portrait_stage_reward.deferred_coin_amount == 25, "Base reward remains pending for the collection animation")
+			check(button.get("stage_rect").size == main._portrait_primary_bottom_button_rect(main.PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT).size, "Ad button matches the standard Continue size")
+			var popup_size: Vector2 = main._portrait_popup_button_rect(Rect2(Vector2.ZERO, main.PORTRAIT_STAGE_LAYOUT.POPUP_COIN_BUTTON_SIZE)).size
+			var collect_rect: Rect2 = main._portrait_stage_reward.collect.get("stage_rect")
+			check(collect_rect.size.is_equal_approx(popup_size * Vector2(0.85, 1.0)), "Collect button keeps popup height and is fifteen percent shorter")
+			check(main._portrait_stage_reward.collect.get("color_preset") == main.LONG_BUTTON_COLOR_BLUE, "Collect button uses standard blue")
+			check(collect_rect.end.y <= 800.0 - main._portrait_ad_banner_height_stage() - 24.0, "Collect button stays above banner with a gap")
 		var pack: Control = main.content.find_child("StageCoinLargeReward", true, false)
 		check(pack.self_modulate.a > 0.99 and pack.find_child("CoinPackVisual", true, false).self_modulate.a > 0.99, "large reward art restores visible alpha after parent intro")
 		check(button.self_modulate.a > 0.99, "enabled action also restores visible alpha after parent intro")
@@ -180,7 +227,7 @@ func run() -> void:
 				check(meter._labels[index].get_theme_font_size("font_size") == 24 and is_equal_approx(24.0 * meter._labels[index].scale.x, 28.0), "active sector label reaches size 28 after the quick transition")
 				check(amount_label.text == "x25", "large prize keeps its base amount in every multiplier sector")
 				check(amount_label.scale.is_equal_approx(Vector2.ONE) and amount_label.get_theme_font_size("font_size") == 48, "reward count retains its original unscaled size")
-				check(button.get("button_text") == tr("REWARD_GET").to_upper() and button.get("trailing_icon_texture") == null, "claim button has no currency amount or currency icon")
+				check(button.get("button_text") == ("%s %d" % [tr("REWARD_GET"), roundi(25 * meter.selected_multiplier())]).to_upper() and button.get("trailing_icon_texture") != null, "Ad button shows the selected total and coin icon")
 				check(meter._labels[index].get_theme_font("font") == preload("res://scripts/ui/ui_fonts.gd").heavy_display_font(), "multiplier uses heavy heading font")
 				check(meter._labels[index].get_theme_font("font").base_font.multichannel_signed_distance_field, "heavy heading uses baked MSDF for sharp scaling")
 			meter.set_cursor(0.399)
@@ -258,7 +305,7 @@ func run() -> void:
 			check(meter._pointer.texture != null and meter._pointer.material.get_shader_parameter("outline_pixels") == 5.0, "rounded pointer uses shared icon outline shader")
 			check(is_equal_approx(meter._pointer.position.y + meter._pointer.size.y * 0.5, 24.0 + meter.BAR_HEIGHT), "plaque edge bisects pointer height")
 			meter.running = false
-			check(main.content.find_child("FinalRewardCollectText", true, false).self_modulate.a > 0.99, "delayed collect text restores visible alpha")
+			check(main._portrait_stage_reward.collect.self_modulate.a > 0.99, "Collect button restores visible alpha")
 			var icon_layers: Array = [button.get("_icon_rect")]
 			icon_layers.append_array(button.get("_icon_shadow_layers"))
 			check(icon_layers.size() == 2, "long reward button keeps one combined icon shadow")
@@ -271,8 +318,8 @@ func run() -> void:
 		if ads:
 			button.emit_signal("pressed")
 			check(main.doubles == 1, "double action reaches ad controller")
-			var collect: Button = main.content.find_child("FinalRewardCollectButton", true, false)
-			check(collect != null and !collect.disabled and collect.mouse_filter == Control.MOUSE_FILTER_STOP, "no thanks appears after delay")
+			var collect: Control = main._portrait_stage_reward.collect
+			check(collect != null and !bool(collect.get("button_disabled")) and collect.mouse_filter == Control.MOUSE_FILTER_STOP, "Native collect is visible and interactive")
 			collect.emit_signal("pressed")
 		else:
 			button.emit_signal("pressed")
@@ -280,6 +327,8 @@ func run() -> void:
 		check(bool(GameState.get_active_single_player_stage_reward().get("double_resolved", false)), "decline persists choice")
 		await get_tree().process_frame
 		check(main.content.find_child("StageCoinLargeReward", true, false) == null, "resolved offer returns to ordinary chain")
+		if ads:
+			check(main.collection_amounts == [25], "Collect animates the base reward exactly once after closing")
 	# Interruption before peak keeps durable presentation intent, then restore settles it once.
 	var before: int = GameState.get_soft_currency()
 	var claims_before: int = main.claims
@@ -361,20 +410,47 @@ func run() -> void:
 		component.prize_amount, component.action, component.collect, component.collect_hit)
 	await get_tree().create_timer(3.0).timeout
 	check(standalone_claims == 1, "standalone transition emits one peak intent after adapter deletion")
-	check(!bool(component.action.get("button_disabled")) and !component.collect_hit.disabled, "standalone actions become available")
+	check(!bool(component.action.get("button_disabled")) and !bool(component.collect.get("button_disabled")), "standalone actions become available")
 	component._on_claim_peak(component.prize)
 	check(standalone_claims == 1, "repeat peak does not repeat claim intent")
 	component.action.emit_signal("pressed")
-	component.collect_hit.emit_signal("pressed")
+	component.collect.emit_signal("pressed")
 	check(standalone_doubles == 1 and standalone_continues == 1, "standalone actions emit intents")
 	check(Vector2i(GameState.get_soft_currency(), GameState.get_stars()) == balances, "standalone component never changes balances")
 	component.stop()
 	check(!component.multiplier_meter.running, "stop cancels the moving meter")
 	component.action.emit_signal("pressed")
-	component.collect_hit.emit_signal("pressed")
+	component.collect.emit_signal("pressed")
 	check(standalone_doubles == 1 and standalone_continues == 1, "stopped presentation ignores actions")
 	check(component._animations.is_empty(), "stop cancels all stage animations")
 	parent.queue_free()
 	print("PORTRAIT_STAGE_REWARD " + JSON.stringify({"checks": checks, "failures": failures}))
 	await get_tree().process_frame
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+func check_offer_update_work() -> void:
+	var parent := Control.new()
+	parent.theme = main.ui.theme
+	add_child(parent)
+	var component := CountingOffer.new()
+	parent.add_child(component)
+	component.build(parent, 25, Rect2(180, 380, 120, 120), true, 5)
+	for _i in range(4): await get_tree().process_frame
+	var configurations: int = component.full_configurations
+	var nodes: int = parent.find_children("*", "", true, false).size()
+	for index in range(100):
+		component.multiplier_meter.set_cursor(0.1 if index % 2 == 0 else 0.5)
+		component._update_ad_amount()
+	check(component.full_configurations == configurations, "Sector changes only update the amount, without rebuilding icons/fonts/shadows")
+	for _i in range(4): await get_tree().process_frame
+	check(parent.find_children("*", "", true, false).size() == nodes, "Repeated amount changes do not accumulate visual nodes")
+	component._reveal_final_reward_actions(component.action, component.collect, null)
+	var delay: Tween = component._animations.back()
+	delay.pause()
+	var reveal_after: float = component.PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION + component.PORTRAIT_FINAL_REWARD_COLLECT_DELAY
+	delay.custom_step(reveal_after - 0.01)
+	check(bool(component.collect.get("button_disabled")), "Collect remains disabled until the shared decline delay elapses")
+	component.stop()
+	check(!delay.is_valid() and is_zero_approx(main.COMPOSITED_FADE.get_opacity(component.collect)), "Leaving during the delay cancels the collect reveal")
+	parent.queue_free()
+	await get_tree().process_frame

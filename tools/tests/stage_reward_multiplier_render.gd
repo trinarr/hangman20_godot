@@ -48,7 +48,8 @@ func capture(tag: String) -> void:
 	if !directory.is_empty():
 		screenshot.save_png(directory.path_join(tag + ".png"))
 	if tag.begins_with("stage_multiplier_") and tag.ends_with("_5"):
-		check(ui._portrait_stage_reward.prize_amount.text == "x25", "Large prize retains base amount while pointer selects x3: " + tag)
+		check(!ui._portrait_stage_reward.prize_amount.visible, "Large prize has no amount below it: " + tag)
+		check(ui._portrait_stage_reward.action.get("button_text") == ("%s 75" % tr("REWARD_GET")).to_upper(), "Ad counter follows x3: " + tag)
 		var frame: Control = ui._portrait_stage_reward.multiplier_meter.get_child(0)
 		var rect: Rect2 = frame.get_global_rect()
 		var ratio: Vector2 = Vector2(screenshot.get_size()) / get_viewport().get_visible_rect().size
@@ -133,6 +134,34 @@ func check_moving_center(meter: Control, tag: String) -> void:
 		output.store_string(JSON.stringify(samples))
 	Engine.time_scale = previous_time_scale
 
+func check_collect_press(tag: String) -> void:
+	var button: Control = ui._portrait_stage_reward.collect
+	check(button.get_script() == preload("res://scripts/ui/stage_long_button.gd"), "Collect is a native standard button")
+	check(ui.find_child("FinalRewardCollectButton", true, false) == null, "No transparent hit target covers the standard button")
+	var rect: Rect2 = button.get_global_rect()
+	await RenderingServer.frame_post_draw
+	var idle_image: Image = get_viewport().get_texture().get_image()
+	var ratio: Vector2 = Vector2(idle_image.get_size()) / get_viewport().get_visible_rect().size
+	var point := Vector2i((rect.position + Vector2(rect.size.x * 0.18, rect.size.y * 0.5)) * ratio)
+	var idle: Color = idle_image.get_pixelv(point)
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = rect.get_center()
+	get_viewport().push_input(down, true)
+	await frames()
+	check(bool(button.get("_is_down")), "Viewport input reaches native pressed state")
+	await capture("stage_collect_pressed_" + tag)
+	var pressed: Color = get_viewport().get_texture().get_image().get_pixelv(point)
+	check(absf(pressed.r - idle.r) + absf(pressed.g - idle.g) + absf(pressed.b - idle.b) > 0.03, "GPU button background visibly changes while pressed")
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.position = Vector2(-10, -10)
+	get_viewport().push_input(up, true)
+	await frames()
+	check(!bool(button.get("_is_down")) and ui.declines == 0, "Release outside cancels press without collecting")
+	await capture("stage_collect_released_" + tag)
+
 func run() -> void:
 	if DisplayServer.get_name() == "headless":
 		push_error("Stage reward multiplier rendering requires a GPU")
@@ -151,7 +180,19 @@ func run() -> void:
 			await fixture(4)
 			check(!is_instance_valid(ui._portrait_stage_reward.multiplier_meter), "Early reward has no multiplier meter")
 			await capture("stage_double_%dx%d_%s" % [dimensions.x, dimensions.y, language])
-			await fixture()
+			await fixture(5, 100.0 if dimensions.x == 690 else 50.0)
+			var collect_rect: Rect2 = ui._portrait_stage_reward.collect.get("stage_rect")
+			var offer_layout: Dictionary = ui.POPUP_COMPONENT.attempt_offer_layout(ui._portrait_popup_style(), true, ui._portrait_popup_extra_bottom_space())
+			var action_rect: Rect2 = ui._portrait_stage_reward.action.get("stage_rect")
+			check(is_equal_approx(collect_rect.position.y - action_rect.end.y, float(offer_layout["button_gap"])), "Reward buttons use the same gap as the attempts popup")
+			var original_collect: Rect2 = ui._portrait_popup_button_rect(Rect2(Vector2(90, ui._portrait_stage_reward.PORTRAIT_FINAL_REWARD_COLLECT_RECT.position.y + 24), ui.PORTRAIT_STAGE_LAYOUT.POPUP_COIN_BUTTON_SIZE))
+			check(is_equal_approx(collect_rect.position.y, original_collect.position.y - ui._portrait_stage_reward._controls_raise), "Collect keeps its bottom anchor while the ad and meter move")
+			var meter_rect: Rect2 = ui._portrait_stage_reward.multiplier_meter.get_parent().get("stage_rect")
+			check(is_equal_approx(action_rect.position.y - meter_rect.position.y, 121.0), "Multiplier plaque is ten units closer to the ad button")
+			check(ui._portrait_stage_reward.action.get("stage_rect").size == ui._portrait_primary_bottom_button_rect(ui.PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT).size, "Ad button matches standard Continue dimensions")
+			check(collect_rect.end.y <= 800.0 - ui.banner_height - 24.0, "Buttons reserve banner height and a gap")
+			check(ui._portrait_stage_reward.collect.get("color_preset") == ui.LONG_BUTTON_COLOR_BLUE, "Collect uses the standard blue preset")
+			await check_collect_press("%dx%d_%s" % [dimensions.x, dimensions.y, language])
 			var meter: Control = ui._portrait_stage_reward.multiplier_meter
 			var label_transition: float = GameDesignConfig.get_float("timings.animations.stage_reward_multiplier.label_transition_seconds")
 			for position: float in [0.1, 0.3, 0.5, 0.7, 0.9]:

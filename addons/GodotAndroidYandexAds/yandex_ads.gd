@@ -521,11 +521,15 @@ func _on_sdk_initialized() -> void:
 	sdk_initialized.emit()
 	if _banner_wanted:
 		load_banner()
-	# Debug keeps the original eager demo preload. Release fullscreen units are
-	# requested by gameplay before loading; all placements share a unit per format.
-	if OS.is_debug_build():
+	# The app initializes this SDK only after its advertising/consent gates.
+	# Warm the shared INT unit now, rather than on the result's Continue button.
+	if _uses_demo_units():
 		load_interstitial()
 		load_rewarded_video()
+	elif _interstitial_placement != &"":
+		load_interstitial()
+	else:
+		prepare_interstitial_placement(&"word_success")
 
 func _on_banner_loaded() -> void:
 	trace_banner("banner_loaded_callback")

@@ -47,7 +47,9 @@ def read(path: str) -> str:
 def main() -> None:
     project = read("project.godot")
     scene = read("scenes/Main.tscn")
-    require('run/main_scene="res://scenes/Main.tscn"' in project, "Main scene must use a stable path")
+    require('run/main_scene="res://scenes/Startup.tscn"' in project, "Startup scene must use a stable path")
+    require('path="res://scripts/ui/startup_loader.gd"' in read("scenes/Startup.tscn"), "Startup loader is not connected")
+    require('"res://scenes/Main.tscn"' in read("scripts/ui/startup_loader.gd"), "Startup does not load the portrait runtime")
     require('Database="*res://scripts/core/database.gd"' in project, "Database autoload path is missing")
     require('path="res://scripts/main_portrait.gd"' in scene, "Portrait runtime is not connected")
     missing = []

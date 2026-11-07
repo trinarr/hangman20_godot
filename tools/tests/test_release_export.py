@@ -28,6 +28,7 @@ class ReleaseExportChecks(unittest.TestCase):
                       if key not in {"DebugLogBridge", "DevConsole"}}
         properties.update({key: struct.pack("<II", 1, 1) for key in ("leaderboard/enabled", "quiz_statistics/enabled")})
         properties["_custom_features"] = string_variant("rustore")
+        properties["application/run/main_scene"] = string_variant("res://scenes/Startup.tscn")
         properties.update(extra_settings or {})
         binary = b"ECFG" + struct.pack("<I", len(properties))
         for key, value in properties.items():
@@ -58,6 +59,19 @@ class ReleaseExportChecks(unittest.TestCase):
 
     def test_release_fixture(self):
         self.assertGreater(self.verify(self.fixture()), 0)
+
+    def test_startup_entry_and_resources_are_required(self):
+        for path in ("scenes/Startup.tscn", "scripts/ui/startup_loader.gd",
+                     "scripts/ui/startup_screen.gd", "scripts/ui/legal_consent_popup.gd",
+                     "scripts/ui/startup_logo.gd", "scripts/ui/application_version.gd",
+                     "scripts/ui/ui_audio_feedback.gd",
+                     "shaders/startup_logo.gdshader", "shaders/home_logo_ink.gdshaderinc"):
+            files = self.fixture()
+            del files[path]
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, "Required runtime resource missing"):
+                self.verify(files)
+        with self.assertRaisesRegex(ValueError, "Release entry point"):
+            self.verify(self.fixture({"application/run/main_scene": string_variant("res://scenes/Main.tscn")}))
 
     def test_apk_and_install_time_asset_pack_are_checked(self):
         for prefix in ['assets/', 'base/assets/', 'assetPackInstallTime/assets/']:
@@ -118,6 +132,17 @@ class ReleaseExportChecks(unittest.TestCase):
                            ("package/unique_name", '"com.example.changed"')):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "Shared Android options differ"):
                 self.verify_modified_preset("preset.1.options", key, value)
+
+    def test_dev_cannot_replace_release_or_drop_the_console(self):
+        for section, key, value, message in (
+            ("preset.4.options", "package/unique_name", '"com.trinarr.Hangman20"', "DEV package"),
+            ("preset.4.options", "gradle_build/export_format", "1", "Shared Android options differ for DEV"),
+            ("preset.4", "exclude_filter", '"addons/dev-console/*"', "retain debug resources"),
+            ("preset.4", "custom_features", '"dev"', "RuStore and dev"),
+            ("runnable_presets", "Android", '"Hangman 2.0 RuStore Debug"', "One-click"),
+        ):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, message):
+                self.verify_modified_preset(section, key, value)
 
     def test_compiled_console_and_bridge_are_rejected(self):
         for path in ("addons/dev-console/script/dev-console.gdc", "scripts/debug/dev_console_log_bridge.gdc"):

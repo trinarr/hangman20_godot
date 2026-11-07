@@ -33,7 +33,7 @@ def sha256(path: Path) -> str:
 
 
 def raster_paths() -> list[Path]:
-    paths = [PROJECT_ROOT / "icon.png"]
+    paths: list[Path] = []
     for directory_name in ("flash_assets", "img"):
         directory = PROJECT_ROOT / directory_name
         paths.extend(sorted(directory.rglob("*.png")))

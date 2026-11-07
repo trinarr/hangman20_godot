@@ -7,6 +7,7 @@ const COIN_RAIN = preload("res://scripts/ui/tournament_coin_rain.gd")
 const CURTAIN = preload("res://assets/tournament/red_curtain.png")
 const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
+const RICH_TEXT_STYLE = preload("res://scripts/ui/rich_text_style.gd")
 const COUNTDOWN = preload("res://scripts/ui/tournament_countdown.gd")
 var host: Node
 var popup: CanvasLayer
@@ -115,7 +116,7 @@ func _build() -> void:
 	description.add_theme_color_override("default_color", Color.WHITE)
 	description.text = "[center]" + tr("TOURNAMENT_START_DESCRIPTION").replace("{star}",
 		"[img=24x24]res://flash_assets/star_currency_icon.png[/img]") + "[/center]"
-	host._apply_regular_display_to_rich_text(description_holder, description)
+	RICH_TEXT_STYLE.apply_regular_display(description_holder, description)
 	description_holder.add_child(description)
 	action = host._stage_portrait_popup_main_button(Rect2(90, host._portrait_popup_bottom_button_y(rect.end.y, 56.0), 300, 56), _play,
 		tr("TOURNAMENT_START_GO"), 22, false, 0.32, false, false, false, host.LONG_BUTTON_COLOR_ORANGE)

@@ -21,7 +21,14 @@ class CountingWarmup extends "res://scripts/ui/home_font_warmup.gd":
 class NativeSplash extends RefCounted:
 	var released: bool = false
 	var dismissed: bool = false
+	var viewport: Viewport
+	var release_pixel: Color = Color.BLACK
 	func finishHomeStartup() -> void:
+		if released:
+			return
+		if viewport != null and DisplayServer.get_name() != "headless":
+			var image: Image = viewport.get_texture().get_image()
+			release_pixel = image.get_pixel(image.get_width() / 2, image.get_height() / 2)
 		released = true
 	func isHomeStartupSplashDismissed() -> bool:
 		return dismissed
@@ -40,6 +47,7 @@ func _ready() -> void:
 
 func run() -> void:
 	WARMUP._warmed.clear()
+	check_imported_glyphs()
 	var save_before: Dictionary = GameState.get_active_single_player_session()
 	var balance_before: int = GameState.get_soft_currency()
 	for language: String in ["ru", "en"]:
@@ -105,6 +113,26 @@ func run() -> void:
 	print("HOME_FONT_WARMUP " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
 
+func check_imported_glyphs() -> void:
+	# Run before any warmup or Home creation: Continue must be ready even when
+	# the player taps immediately, without relying on idle frames first.
+	var text_server: TextServer = TextServerManager.get_primary_interface()
+	for language: String in ["ru", "en"]:
+		Database.load_languages(language, language)
+		var warmup := CountingWarmup.new()
+		add_child(warmup)
+		warmup.start()
+		warmup.set_process(false)
+		for job: Dictionary in warmup._jobs:
+			var font: FontVariation = job.font
+			var size := Vector2i(font.base_font.msdf_size, 0)
+			var rid: RID = font.get_rids()[0]
+			var glyph: int = text_server.font_get_glyph_index(rid, WARMUP.FONT_SIZE, job.character.unicode_at(0), 0)
+			var cached: PackedInt32Array = text_server.font_get_glyph_list(rid, size)
+			check(cached.has(glyph) and text_server.font_get_glyph_texture_idx(rid, size, glyph) >= 0,
+				"Imported shared font already contains %s glyph %s before runtime warmup" % [language, job.character])
+		warmup.free()
+
 func check_home_lifecycle() -> void:
 	GameState.guided_onboarding_completed = true
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -151,9 +179,11 @@ func check_startup_lifecycle() -> void:
 			main.add_child(startup)
 			add_child(main)
 			var native := NativeSplash.new()
+			native.viewport = main.get_viewport()
 			startup._native = native
 			main.show_menu()
 			main._prewarm_runtime_assets()
+			var warmup: Node = main.content.find_child("HomeFontWarmup",true,false)
 			var logo: Control = main._home_logo_reveal
 			check(logo.defer_entrance and logo._entrance_tween == null, "Cold startup holds Home entrance behind the splash")
 			check(startup._cover.visible and startup._cover.mouse_filter == Control.MOUSE_FILTER_STOP, "Startup cover blocks early taps")
@@ -161,14 +191,18 @@ func check_startup_lifecycle() -> void:
 			var deadline: int = Time.get_ticks_msec() + 15000
 			while !native.released and Time.get_ticks_msec() < deadline:
 				await get_tree().process_frame
-			check(native.released and WARMUP._warmed.size() > 0, "Native splash is released after actual glyph preparation")
-			check(!STARTUP.THEMES.is_prewarm_pending() and !STARTUP.HERO.is_prewarm_pending(), "Shared threaded loads finish before splash release")
+			check(native.released and WARMUP._warmed.is_empty(), "Native splash releases without warming fonts for other screens")
+			if DisplayServer.get_name() != "headless":
+				check(native.release_pixel.r + native.release_pixel.g + native.release_pixel.b > 0.1,
+					"The frame already submitted when native splash releases contains Home instead of the black cover")
+			check(!warmup.is_processing() and warmup._language.is_empty(), "Idle glyph work stays stopped under the native splash")
 			check(startup.preparing and logo._entrance_tween == null, "Home animation waits for native splash dismissal")
 			check(startup.entrance_pending, "Tournament prompts stay gated during startup")
 			native.dismissed = true
 			await get_tree().process_frame
 			await get_tree().process_frame
 			check(!startup.preparing and logo._entrance_tween != null, "Home entrance begins after native dismissal")
+			check(!warmup.is_processing() and WARMUP._warmed.is_empty(), "Home entrance does not compete with idle glyph generation")
 			var completed: Array[bool] = [false]
 			logo.entrance_finished.connect(func(): completed[0] = true)
 			while !completed[0] and Time.get_ticks_msec() < deadline:
@@ -176,11 +210,19 @@ func check_startup_lifecycle() -> void:
 			check(completed[0], "Delayed Home entrance completes normally")
 			await get_tree().process_frame
 			check(!startup.entrance_pending, "Startup releases the tournament watcher after entrance")
+			check(warmup.is_processing() and warmup._jobs.size() > 0, "Cold startup starts idle warmup only after the full Home entrance")
+			var warmed: int = WARMUP._warmed.size()
+			if needs_consent:
+				warmup._process(.016)
+				check(WARMUP._warmed.size() == warmed, "Consent pauses cold-start idle preparation")
+			else:
+				warmup._process(.016)
+				check(WARMUP._warmed.size() == warmed + 1, "Cold-start idle work prepares only one glyph per frame")
 			check(!get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty() if needs_consent else get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty(), "Consent appears only after entrance when required")
 			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 			main.show_menu()
 			var repeat: Node = main.content.find_child("HomeFontWarmup",true,false)
-			check(!repeat.startup_mode and !main._home_logo_reveal.defer_entrance, "Returning to Home never repeats the startup hold")
+			check(!repeat.is_processing() and !main._home_logo_reveal.defer_entrance, "Returning to Home never repeats the startup hold")
 			main.queue_free()
 			await get_tree().process_frame
 	var main := TestUI.new()

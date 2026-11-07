@@ -103,7 +103,7 @@ static func add_backdrop(
 		dimmer_fade_in.set_ease(Tween.EASE_OUT)
 	return dimmer
 
-static func spawn_fade_out(parent: Node, popup_layer: CanvasLayer, source_dimmer: ColorRect, fade_seconds: float) -> void:
+static func spawn_fade_out(parent: Node, popup_layer: CanvasLayer, source_dimmer: ColorRect, fade_seconds: float) -> CanvasLayer:
 	if (
 		popup_layer == null
 		or !is_instance_valid(popup_layer)
@@ -111,7 +111,7 @@ static func spawn_fade_out(parent: Node, popup_layer: CanvasLayer, source_dimmer
 		or !is_instance_valid(source_dimmer)
 		or source_dimmer.color.a <= 0.001
 	):
-		return
+		return null
 
 	# The popup itself disappears immediately, while a non-interactive copy of its
 	# dimmer remains for the short fade-out. This keeps navigation responsive and
@@ -148,8 +148,10 @@ static func spawn_fade_out(parent: Node, popup_layer: CanvasLayer, source_dimmer
 	dimmer_fade_out.set_trans(Tween.TRANS_QUAD)
 	dimmer_fade_out.set_ease(Tween.EASE_OUT)
 	fade_tween.finished.connect(fade_layer.queue_free, CONNECT_ONE_SHOT)
+	return fade_layer
 
-static func remove_group(parent: Node, group_name: StringName, fade_seconds: float) -> void:
+static func remove_group(parent: Node, group_name: StringName, fade_seconds: float) -> Array[CanvasLayer]:
+	var fades: Array[CanvasLayer] = []
 	var popup_nodes: Array = parent.get_tree().get_nodes_in_group(group_name)
 	for node: Node in popup_nodes:
 		if !is_instance_valid(node) or node.get_parent() == null:
@@ -157,9 +159,12 @@ static func remove_group(parent: Node, group_name: StringName, fade_seconds: flo
 		var popup_layer := node as CanvasLayer
 		if popup_layer != null:
 			var dimmer := popup_layer.find_child("ModalDimmer", true, false) as ColorRect
-			spawn_fade_out(parent, popup_layer, dimmer, fade_seconds)
+			var fade: CanvasLayer = spawn_fade_out(parent, popup_layer, dimmer, fade_seconds)
+			if fade != null:
+				fades.append(fade)
 		node.get_parent().remove_child(node)
 		node.queue_free()
+	return fades
 
 static func on_dimmer_input(
 	event: InputEvent,
@@ -426,3 +431,15 @@ static func bottom_button_y(style: Dictionary, popup_bottom: float, source_heigh
 
 static func button_font_size(style: Dictionary, font_size: int) -> int:
 	return int(round(float(font_size) * float(style["button_uniform_scale"])))
+
+static func attempt_offer_layout(style: Dictionary, show_ad: bool, extra_bottom_space: float) -> Dictionary:
+	var popup_bottom: float = (582.0 if show_ad else 503.0) + extra_bottom_space
+	var size: Vector2 = preload("res://scripts/ui/portrait_stage_layout.gd").POPUP_COIN_BUTTON_SIZE
+	var ad_rect := Rect2(Vector2(90, 425), size)
+	var coin_rect := Rect2(Vector2(90, bottom_button_y(style, popup_bottom, size.y)), size)
+	return {
+		"popup_bottom": popup_bottom,
+		"ad_rect": ad_rect,
+		"coin_rect": coin_rect,
+		"button_gap": button_rect(style, coin_rect).position.y - button_rect(style, ad_rect).end.y,
+	}

@@ -253,7 +253,10 @@ var _save_blocked_by_future_version: bool = false
 func _ready() -> void:
 	_normalize_game_design_values()
 	load_game()
-	ensure_initial_player_profile()
+	# Preserve repair/recovery for existing saves. A clean install creates its
+	# nickname and first save on the loading screen, after native splash dismissal.
+	if FileAccess.file_exists(SAVE_PATH) or FileAccess.file_exists(SAVE_TMP_PATH) or FileAccess.file_exists(SAVE_BACKUP_PATH):
+		ensure_initial_player_profile()
 	_heart_tick_timer = Timer.new()
 	_heart_tick_timer.name = "HeartRecoveryTick"
 	_heart_tick_timer.wait_time = HEART_STATE_POLL_SECONDS

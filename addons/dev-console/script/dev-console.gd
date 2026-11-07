@@ -12,6 +12,18 @@ func _ready() -> void:
 	if not OS.is_debug_build():
 		set_process_input(false)
 		return
+	# The hidden console is not part of the first game screen.
+	set_process_input(true)
+
+func _input(event: InputEvent) -> void:
+	if !_console_ready and event is InputEventKey and event.pressed and !event.echo:
+		if event.keycode == DevConsoleInternal.TOGGLE_KEYS.get(toggle_keybind, KEY_QUOTELEFT):
+			get_viewport().set_input_as_handled()
+			visible = true
+
+func _initialize_console() -> void:
+	if not OS.is_debug_build() or _console != null:
+		return
 
 	# Initiate & call initial/pending calls
 	_console = DevConsoleInternal.new()
@@ -59,29 +71,41 @@ func delete_signal(signal_name: String) -> void: _defer_or_call(func(): _console
 
 # Command & Signal Registry Getters
 func has_command(command_name: String) -> bool:
+	_initialize_console()
 	if _console_ready: return _console.has_command(command_name)
 	return false
 
 func has_signal_connected(signal_name: String) -> bool:
+	_initialize_console()
 	if _console_ready: return _console.has_signal_connected(signal_name)
 	return false
 
 func get_commands() -> Dictionary[String, Callable]:
+	_initialize_console()
 	if _console_ready: return _console.get_commands()
 	return { }
 
 func get_signals() -> Dictionary[String, Dictionary]:
+	_initialize_console()
 	if _console_ready: return _console.get_signals()
 	return { }
 
 # Output
-func print_line(text: String) -> void: _defer_or_call(func(): _console.output_callback(text))
+func print_line(text: String) -> void:
+	_initialize_console()
+	_defer_or_call(func(): _console.output_callback(text))
 
-func print_error(text: String) -> void: _defer_or_call(func(): _console.output_error(text))
+func print_error(text: String) -> void:
+	_initialize_console()
+	_defer_or_call(func(): _console.output_error(text))
 
-func print_warning(text: String) -> void: _defer_or_call(func(): _console.output_warning(text))
+func print_warning(text: String) -> void:
+	_initialize_console()
+	_defer_or_call(func(): _console.output_warning(text))
 
-func clear_output() -> void: _defer_or_call(func(): _console.clear_output())
+func clear_output() -> void:
+	_initialize_console()
+	_defer_or_call(func(): _console.clear_output())
 
 # ========== PROPERTIES ==========
 # Runtime
@@ -90,6 +114,8 @@ var visible := false:
 		return _console.visible if _console_ready else visible
 	set(value):
 		visible = value
+		if value:
+			_initialize_console()
 		_defer_or_call(func(): _console.visible = value)
 
 # Configuration

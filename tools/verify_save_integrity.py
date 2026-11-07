@@ -287,8 +287,12 @@ def main() -> None:
     )
     guided_home_screen = function_body(portrait, "_show_menu_screen")
     guided_startup = function_body(portrait, "_check_startup_guided_resume")
+    guided_home_checks = function_body(portrait, "_finish_home_startup_checks")
     require(
-        "_check_startup_guided_resume()" in guided_home_screen
+        ("_check_startup_guided_resume()" in guided_home_screen
+         or ("_finish_home_startup_checks()" in guided_home_screen
+             and "_check_startup_guided_resume()" in guided_home_checks
+             and "startup.prepare_home(logo_reveal, font_warmup, content, _finish_home_startup_checks)" in guided_home_screen))
         and "_startup_guided_resume_checked" in guided_startup
         and "has_accepted_legal_documents()" in guided_startup
         and 'call_deferred("_resume_saved_single_player_level")' in guided_startup,
@@ -377,12 +381,16 @@ def main() -> None:
     attempt_popup = function_body(
         portrait, "_show_single_player_last_chance_popup"
     )
+    popup_layout_source = read("scripts/ui/portrait_popup.gd")
     require(
         re.search(
-            r"popup_bottom:\s*float\s*=\s*\(582\.0\s+if\s+show_rewarded_ad\s+else\s+503\.0\)"
-            r"\s*\+\s*_portrait_popup_extra_bottom_space\(\)",
-            attempt_popup,
+            r"static func attempt_offer_layout\(style: Dictionary, show_ad: bool, extra_bottom_space: float\)"
+            r"[^\n]*\n\s*var popup_bottom:\s*float\s*=\s*\(582\.0\s+if\s+show_ad\s+else\s+503\.0\)"
+            r"\s*\+\s*extra_bottom_space",
+            popup_layout_source,
         ) is not None
+        and "POPUP_COMPONENT.attempt_offer_layout(_portrait_popup_style(), show_rewarded_ad, _portrait_popup_extra_bottom_space())" in attempt_popup
+        and 'var popup_bottom: float = button_layout["popup_bottom"]' in attempt_popup
         and "var show_rewarded_ad: bool = !free_offer and _portrait_ads_enabled()" in attempt_popup
         and "if show_rewarded_ad:" in attempt_popup
         and 'tr("COMMON_FREE") if free_offer else ""' in attempt_popup
@@ -541,16 +549,20 @@ def main() -> None:
     )
 
     legal_popup = function_body(portrait, "_show_legal_consent_popup")
+    legal_component = read("scripts/ui/legal_consent_popup.gd")
     legal_accept = function_body(portrait, "_accept_legal_documents")
     require(
-        'call_deferred("_show_legal_consent_popup")'
-        in function_body(portrait, "_show_menu_screen"),
+        ('call_deferred("_show_legal_consent_popup")' in guided_home_screen
+         or ("_finish_home_startup_checks()" in guided_home_screen
+             and 'call_deferred("_show_legal_consent_popup")' in guided_home_checks)),
         "Home does not show the legal confirmation on first launch",
     )
     require(
         "_hide_portrait_ad_banner()" in legal_popup
-        and "false\n\t)" in legal_popup
-        and "PORTRAIT_LEGAL_POPUP_GROUP" in legal_popup,
+        and 'load("res://scripts/ui/legal_consent_popup.gd").show(self, _accept_legal_documents' in legal_popup
+        and '"legal_consent_popup"' in legal_component
+        and 'layer_index, Callable(), 225.0, 512.0' in legal_component
+        and 'PALETTE.ACCENT_ORANGE, "", false)' in legal_component,
         "The mandatory legal popup can be dismissed or covered by the ad banner",
     )
     require(

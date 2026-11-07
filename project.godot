@@ -20,11 +20,13 @@ config/name_localized={
 "ru": "Виселица 2.0"
 }
 config/version="4.1.1"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Startup.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
-boot_splash/show_image=false
-config/icon="res://icon.png"
+boot_splash/bg_color=Color(0.00022259181, 0.00022259181, 0.00022259181, 1)
+boot_splash/stretch_mode=0
+boot_splash/image="res://assets/app_icon/trinarr_games_splash.png"
+config/icon="res://assets/app_icon/main_192.png"
 
 [autoload]
 

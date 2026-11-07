@@ -76,6 +76,7 @@ func service():
 func _initialize() -> void:
 	test_diagnostic_logging()
 	test_shared_placement_cache()
+	test_release_interstitial_warmup()
 	test_impression_placement()
 	test_tagged_interstitial_lifecycle()
 	test_native_signal_subscription()
@@ -319,6 +320,33 @@ func test_shared_placement_cache() -> void:
 		check(ads._native.calls.count("load_rewarded") == 1 and ads._native.calls.count("load_interstitial") == 1, "placement changes cause duplicate fullscreen loads")
 		check(!ads.prepare_rewarded_placement(&"unknown") and !ads.prepare_interstitial_placement(&"unknown"), "unknown production placement accepted")
 		ads.free()
+
+func test_release_interstitial_warmup() -> void:
+	for preselected: bool in [false, true]:
+		var ads := ReleaseAds.new()
+		ads._native = FakeNative.new()
+		if preselected:
+			ads.prepare_interstitial_placement(&"quiz_correct")
+		check(ads._native.calls.is_empty(), "INT preload cannot run before SDK initialization")
+		ads.initialize_after_consent(false)
+		check(!ads._native.calls.has("load_interstitial"), "INT waits for consent-configured SDK readiness")
+		ads._on_sdk_initialized()
+		check(ads._native.calls.count("load_interstitial") == 1, "Release warms one INT immediately after SDK readiness")
+		check(ads._native.calls.find("configure:false") < ads._native.calls.find("load_interstitial"), "INT preload follows consent/configure")
+		check(!ads._native.calls.has("load_rewarded"), "INT warmup does not add unsolicited release RW loads")
+		ads.prepare_interstitial_placement(&"forfeit")
+		check(ads._native.calls.count("load_interstitial") == 1, "Gameplay preparation reuses the in-flight warmup")
+		ads._on_interstitial_loaded()
+		check(ads.show_interstitial(&"quiz_correct"), "Continue can use the already warmed shared INT")
+		check(ads._native.calls[-1].begins_with("int:"), "Ready INT reaches native show synchronously without a frame or load wait")
+		check(ads._native.calls.count("load_interstitial") == 1, "Ready Continue does not reload before showing")
+		ads.free()
+	var other := ReleaseAds.new()
+	other.store = "google_play"
+	other._native = FakeNative.new()
+	other._on_sdk_initialized()
+	check(!other._native.calls.has("load_interstitial"), "Warmup cannot request an unconfigured store unit")
+	other.free()
 
 func test_impression_placement() -> void:
 	var ads = ReleaseAds.new()

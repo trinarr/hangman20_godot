@@ -3,6 +3,7 @@ extends Panel
 
 const INSET_UNITS := Vector2(1.5, 1.5)
 const BOTTOM_INSET_UNITS: float = 3.5
+const CAPTION_GAP_UNITS: float = 4.0
 
 var _bar: ProgressBar
 var _fill: ColorRect

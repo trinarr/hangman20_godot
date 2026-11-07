@@ -382,6 +382,7 @@ const PORTRAIT_LEVEL_THEME_PROGRESS_SIZE := Vector2(384.0, 96.0)
 const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 4.0
 const THEME_UNLOCK_ICON_GRAYSCALE_SHADER: Shader = preload("res://shaders/theme_unlock_icon_grayscale.gdshader")
 const THEME_UNLOCK_FILL_SHADER: Shader = preload("res://shaders/stage_reward_track.gdshader")
+const THEME_UNLOCK_TRACK = preload("res://scripts/ui/theme_unlock_track.gd")
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE: float = 1.14
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION: float = 0.16
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION: float = 0.20
@@ -1104,6 +1105,7 @@ func _show_portrait_status_toast(message: String, is_success: bool = false) -> v
 
 		_portrait_ad_toast = STAGE_TOAST_SCRIPT.new() as Control
 		_portrait_ad_toast.name = "AdStatusToast"
+		_portrait_ad_toast.set("grow_downward", true)
 		toast_anchor.add_child(_portrait_ad_toast)
 	# System messages share one overlay above modals, positioned below the header.
 	# This CanvasLayer uses viewport pixels; apply the stage scale only once.
@@ -1112,7 +1114,7 @@ func _show_portrait_status_toast(message: String, is_success: bool = false) -> v
 		var viewport_size: Vector2 = get_viewport_rect().size
 		var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
 		var anchor_y_px: float = PORTRAIT_STAGE_LAYOUT.safe_top_inset_pixels(viewport_size) + fit_scale * (
-			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + PORTRAIT_HEADER_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_HEIGHT + STAGE_TOAST_SCRIPT.TOAST_PARENT_GAP * 2.0)
+			PORTRAIT_STAGE_LAYOUT.SAFE_TOP_EXTRA_MARGIN + PORTRAIT_HEADER_HEIGHT)
 		current_anchor.position = Vector2(
 			PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size),
 			anchor_y_px
@@ -3557,6 +3559,10 @@ func _confirm_settings_word_language_change(language_code: String) -> void:
 	else:
 		_remove_settings_popup()
 
+func _show_initial_screen() -> void:
+	if !preload("res://scripts/ui/first_word_startup.gd").try_start(self):
+		show_menu()
+
 func show_menu() -> void:
 	var presented_reward := GameState.get_pending_single_player_reward()
 	var introduce_tournament: bool = (
@@ -3624,7 +3630,7 @@ func _show_menu_screen() -> void:
 
 	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_button := _stage_single_player_menu_button(
-		Rect2(33.0, 670.0, 414.0, 88.32),
+		Rect2(Vector2(33.0, 670.0), PORTRAIT_STAGE_LAYOUT.HOME_PLAY_BUTTON_SIZE),
 		Callable(self, "_play_single_player_from_home")
 	)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
@@ -4098,160 +4104,22 @@ func _stage_portrait_legal_links_row(rect: Rect2, font_size: int = 17) -> void:
 		font_size
 	))
 
-func _on_portrait_legal_text_meta_clicked(meta: Variant) -> void:
-	var document_type := str(meta)
-	if document_type == "terms" or document_type == "privacy":
-		_open_legal_document(document_type)
-
-func _apply_regular_display_to_rich_text(
-	holder: Control,
-	target: RichTextLabel
-) -> void:
-	if holder == null or target == null or !is_instance_valid(target):
-		return
-
-	# Match ButtonTextStyle.apply_regular_display(), which is used by the quiz
-	# question. RichTextLabel needs real RichTextLabel shadow copies so its
-	# BBCode links remain clickable on the untouched front layer.
-	var font_size: float = float(maxi(target.get_theme_font_size("normal_font_size"), 1))
-	var outline_local: float = clampf(font_size * 0.075, 2.0, 9.0)
-	var outline_size: int = maxi(1, int(round(outline_local * 0.55)))
-	var shadow_spread: int = maxi(1, int(round(outline_local * 0.92 * 0.55)))
-	var shadow_depth: float = clampf(font_size * 0.055, 1.5, 5.0) * 0.70
-	var shadow_offset_x: float = minf(font_size * 0.012, 1.5) * 0.70
-
-	target.add_theme_color_override(
-		"font_outline_color",
-		PORTRAIT_UI_PALETTE.UI_BLUE.darkened(0.40)
-	)
-	target.add_theme_constant_override("outline_size", outline_size)
-	target.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-	target.add_theme_constant_override("shadow_offset_x", 0)
-	target.add_theme_constant_override("shadow_offset_y", 0)
-	target.add_theme_constant_override("shadow_outline_size", 0)
-
-	var shadow_material: ShaderMaterial = UI_MATERIALS.text_shadow(
-		PORTRAIT_UI_PALETTE.NAV_TEXT_SHADOW
-	)
-	var layer_depths: Array[float] = [0.25, 0.55, 0.80, 1.0]
-	for layer_index: int in range(layer_depths.size()):
-		var layer_t: float = layer_depths[layer_index]
-		var shadow_text := RichTextLabel.new()
-		shadow_text.name = "LegalConsentTextShadow%02d" % (layer_index + 1)
-		shadow_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shadow_text.focus_mode = Control.FOCUS_NONE
-		shadow_text.bbcode_enabled = true
-		shadow_text.fit_content = false
-		shadow_text.scroll_active = false
-		shadow_text.selection_enabled = false
-		shadow_text.autowrap_mode = target.autowrap_mode
-		shadow_text.vertical_alignment = target.vertical_alignment
-		shadow_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		shadow_text.offset_left = shadow_offset_x * layer_t
-		shadow_text.offset_right = shadow_offset_x * layer_t
-		shadow_text.offset_top = shadow_depth * layer_t
-		shadow_text.offset_bottom = shadow_depth * layer_t
-		shadow_text.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-		shadow_text.add_theme_font_override("normal_font", target.get_theme_font("normal_font"))
-		shadow_text.add_theme_font_override("bold_font", target.get_theme_font("bold_font"))
-		shadow_text.add_theme_font_size_override(
-			"normal_font_size",
-			target.get_theme_font_size("normal_font_size")
-		)
-		shadow_text.add_theme_font_size_override(
-			"bold_font_size",
-			target.get_theme_font_size("bold_font_size")
-		)
-		shadow_text.add_theme_color_override("default_color", Color.WHITE)
-		shadow_text.add_theme_color_override("font_outline_color", Color.WHITE)
-		shadow_text.add_theme_constant_override("outline_size", shadow_spread)
-		shadow_text.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-		shadow_text.add_theme_constant_override("shadow_offset_x", 0)
-		shadow_text.add_theme_constant_override("shadow_offset_y", 0)
-		shadow_text.add_theme_constant_override("shadow_outline_size", 0)
-		shadow_text.material = shadow_material
-		shadow_text.text = target.text
-		holder.add_child(shadow_text)
-
-func _stage_portrait_legal_inline_text(rect: Rect2) -> RichTextLabel:
-	var holder := _stage_holder(rect, Control.MOUSE_FILTER_PASS)
-	var legal_text := RichTextLabel.new()
-	legal_text.name = "LegalConsentText"
-	legal_text.mouse_filter = Control.MOUSE_FILTER_STOP
-	legal_text.focus_mode = Control.FOCUS_NONE
-	legal_text.bbcode_enabled = true
-	legal_text.fit_content = false
-	legal_text.scroll_active = false
-	legal_text.selection_enabled = false
-	legal_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	legal_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	legal_text.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	legal_text.add_theme_font_override("normal_font", UI_REGULAR_FONT)
-	legal_text.add_theme_font_override("bold_font", UI_REGULAR_FONT)
-	legal_text.add_theme_font_size_override("normal_font_size", 22)
-	legal_text.add_theme_font_size_override("bold_font_size", 22)
-	legal_text.add_theme_color_override("default_color", Color.WHITE)
-	var link_color: String = PORTRAIT_UI_PALETTE.SUCCESS_SOFT.to_html(false)
-	legal_text.text = tr("LEGAL_CONSENT_TEXT") % [link_color, link_color]
-	_apply_regular_display_to_rich_text(holder, legal_text)
-	legal_text.meta_clicked.connect(Callable(self, "_on_portrait_legal_text_meta_clicked"))
-	holder.add_child(legal_text)
-	return legal_text
-
 func _show_legal_consent_popup() -> void:
 	if GameState.has_accepted_legal_documents():
 		return
 	_remove_legal_consent_popup()
 	_hide_portrait_ad_banner()
-	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 225.0, 424.0, 280.0))
-	var previous_content := _portrait_popup_begin(
-		"LegalConsentPopup",
-		str(PORTRAIT_LEGAL_POPUP_GROUP),
-		500,
-		Callable(),
-		rect.position.y,
-		rect.end.y,
-		false,
-		Callable(),
-		false
-	)
-	_portrait_popup_shell(
-		rect,
-		tr("LEGAL_WELCOME_TITLE"),
-		Callable(),
-		27,
-		PORTRAIT_BLUE,
-		PORTRAIT_DARK_BLUE,
-		PORTRAIT_ORANGE,
-		"",
-		false
-	)
-	_stage_portrait_legal_inline_text(Rect2(54.0, 294.0, 372.0, 116.0))
-	var accept_button := _stage_portrait_popup_main_button(
-		Rect2(
-			90.0,
-			_portrait_popup_bottom_button_y(rect.end.y, 56.0),
-			300.0,
-			56.0
-		),
-		Callable(self, "_accept_legal_documents"),
-		tr("LEGAL_ACCEPT"),
-		22,
-		false,
-		0.0,
-		false,
-		false,
-		false,
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	accept_button.set("drop_shadow_enabled", true)
-	content = previous_content
+	var resume_without_intro: bool = _portrait_popup_resume_without_intro
+	_portrait_popup_resume_without_intro = false
+	load("res://scripts/ui/legal_consent_popup.gd").show(self, _accept_legal_documents,
+		500, ui.theme, resume_without_intro, _play_popup_open_sound, _play_ui_click_sound)
 
 func _remove_legal_consent_popup() -> void:
 	_remove_popup_group_with_dimmer_fade(PORTRAIT_LEGAL_POPUP_GROUP)
 
 func _accept_legal_documents() -> void:
 	if !GameState.accept_legal_documents():
+		_show_portrait_status_toast(tr("CONSENT_SAVE_ERROR"))
 		return
 	_remove_legal_consent_popup()
 	ConsentRegion.refresh()
@@ -4534,10 +4402,11 @@ func _stage_settings_rows(full_layout: bool, row_offset_y: float = 0.0) -> void:
 		_stage_portrait_legal_links_row(Rect2(left, 642.0, right - left, 30.0), 17)
 		var version_label := _stage_label(
 			Rect2(left, 686.0, right - left, 28.0), _about_version_text(),
-			14, PORTRAIT_UI_PALETTE.TEXT_PALE_BLUE, HORIZONTAL_ALIGNMENT_CENTER
+			preload("res://scripts/ui/application_version.gd").FONT_SIZE,
+			preload("res://scripts/ui/application_version.gd").FONT_COLOR, HORIZONTAL_ALIGNMENT_CENTER
 		)
-		version_label.add_theme_font_override("font", UI_REGULAR_FONT)
-		version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		version_label.name = "SettingsVersion"
+		preload("res://scripts/ui/application_version.gd").style_label(version_label)
 
 
 func _toggle_settings_ad_consent() -> void:
@@ -7136,7 +7005,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
 	var show_rewarded_ad: bool = !free_offer and _portrait_ads_enabled()
-	var popup_bottom: float = (582.0 if show_rewarded_ad else 503.0) + _portrait_popup_extra_bottom_space()
+	var button_layout: Dictionary = POPUP_COMPONENT.attempt_offer_layout(_portrait_popup_style(), show_rewarded_ad, _portrait_popup_extra_bottom_space())
+	var popup_bottom: float = button_layout["popup_bottom"]
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
 		"single_player_last_chance_popup",
@@ -7233,7 +7103,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 
 	if show_rewarded_ad:
 		var rewarded_attempt_button := _stage_portrait_popup_main_button(
-			Rect2(90.0, 425.0, 300.0, 56.0),
+			button_layout["ad_rect"],
 			Callable(self, "_on_single_player_extra_attempt_ad_pressed"),
 			tr("COMMON_CONTINUE"),
 			18,
@@ -7269,7 +7139,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		_refresh_extra_attempt_ad_button(rewarded_attempt_button, true)
 
 	var purchase_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
+		button_layout["coin_rect"],
 		Callable(self, "_purchase_single_player_extra_attempt"),
 		tr("COMMON_FREE") if free_offer else "",
 		18,
@@ -12113,6 +11983,9 @@ func _prepare_portrait_game_entrance() -> void:
 	call_deferred("_play_portrait_game_entrance")
 
 func _play_portrait_game_entrance() -> void:
+	var first_start: Node = get_node_or_null("FirstWordStartup")
+	if first_start != null and first_start.holds_entrance():
+		return
 	if !_portrait_game_entrance_active or !game_screen_visible or game_finished:
 		return
 	var entrance_start_delay: float = PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
@@ -13394,8 +13267,9 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	var title := Label.new()
 	title.name = "UnlockTitle"
 	# Sit close to the bar and share its exact horizontal center.
+	var title_height: float = 26.0
 	title.position = Vector2(bar_x, 0.0)
-	title.size = Vector2(bar_width, 26.0)
+	title.size = Vector2(bar_width, title_height)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var title_text: String = tr("NEXT_THEME_UNLOCK").to_lower()
 	title.text = title_text.left(1).to_upper() + title_text.substr(1)
@@ -13406,10 +13280,10 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	title.z_index = 2
 	holder.add_child(title)
 	# Draw the track and fill on one rectangle, with shader-local logical insets.
-	var bar_frame := preload("res://scripts/ui/theme_unlock_track.gd").new()
+	var bar_frame := THEME_UNLOCK_TRACK.new()
 	bar_frame.name = "UnlockBarFrame"
 	# Rim in logical stage units: 1.5 on top/sides and 3.5 below.
-	bar_frame.position = Vector2(bar_x, 30.0)
+	bar_frame.position = Vector2(bar_x, title_height + THEME_UNLOCK_TRACK.CAPTION_GAP_UNITS)
 	bar_frame.size = Vector2(bar_width, 36.5)
 	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_frame.clip_contents = true
@@ -15417,6 +15291,10 @@ func _play_early_stage_coin_reward_claim(source_visual: Control) -> void:
 	var credited_reward_amount: int = maxi(int(claim_result.get("amount", 0)), 0)
 	if credited_reward_amount <= 0:
 		return
+	if is_instance_valid(_portrait_stage_reward) and _portrait_stage_reward.defers_coin_collection():
+		_portrait_stage_reward.deferred_coin_amount = credited_reward_amount
+		_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_COINS)
+		return
 	var final_balance: int = previous_balance + credited_reward_amount
 	_set_stage_reward_animated_balance(
 		float(previous_balance),
@@ -15504,8 +15382,14 @@ func _decline_single_player_stage_coin_reward_double() -> void:
 		return
 	if is_instance_valid(_portrait_reward_load_guard):
 		_portrait_reward_load_guard.cancel(false)
+	var amount: int = _take_deferred_stage_coin_amount()
 	GameState.resolve_active_single_player_stage_reward_double(false, true)
+	var final_balance: int = GameState.get_soft_currency()
 	_finish_single_player_stage_coin_reward_offer()
+	if amount > 0:
+		_set_stage_reward_animated_balance(float(final_balance - amount), GameState.STAGE_REWARD_COINS)
+		call_deferred("_play_centered_rewarded_double_coin_animation", final_balance - amount,
+			final_balance, 100, result_transition_generation)
 
 func _on_final_reward_double_pressed() -> void:
 	# The base reward is credited at the peak of the prize bounce, so
@@ -15648,6 +15532,14 @@ func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount
 	_portrait_reward_double_animation_amount = (
 		receipt_amount if reward_was_on_time else 0
 	)
+	if (
+		reward_was_on_time and _portrait_reward_double_context == &"stage_coin"
+		and is_instance_valid(_portrait_stage_reward)
+		and _portrait_stage_reward.defers_coin_collection()
+	):
+		_set_stage_reward_animated_balance(
+			float(GameState.get_soft_currency() - receipt_amount - _portrait_stage_reward.deferred_coin_amount),
+			GameState.STAGE_REWARD_COINS)
 	if !reward_was_on_time:
 		# Late receipt: present the already-persisted balance immediately and skip
 		# all flying-coin/count-roll presentation by design.
@@ -15672,7 +15564,8 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	if _portrait_final_reward_earned_ad_reward:
-		var animation_amount: int = maxi(_portrait_reward_double_animation_amount, 0)
+		var deferred_stage_amount: int = _take_deferred_stage_coin_amount()
+		var animation_amount: int = maxi(_portrait_reward_double_animation_amount, 0) + deferred_stage_amount
 		var final_balance: int = GameState.get_soft_currency()
 		var previous_balance: int = maxi(final_balance - animation_amount, 0)
 		_portrait_reward_double_animation_amount = 0
@@ -15692,6 +15585,8 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 			# the player should first land on the main screen and see the bonus arrive.
 			_finish_single_player_final_reward_claim(-1, true)
 		if animation_amount > 0:
+			if deferred_stage_amount > 0:
+				_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_COINS)
 			call_deferred(
 				"_play_centered_rewarded_double_coin_animation",
 				previous_balance,
@@ -16098,8 +15993,8 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		stage_finished_callback = Callable(self, "_auto_advance_final_stage_reward")
 	# Quiz slots do not keep an active GameSession round, so GameSession.theme_id
 	# is -1 by the time their reward screen is shown. Resolve the reward theme
-	# from the level definition and retain the active round as a safe fallback.
-	var reward_theme_index: int = _single_player_level_selected_theme(level_index)
+	# from saved metadata without selecting content; retain the active round as fallback.
+	var reward_theme_index: int = GameState.get_single_level_selected_theme(Database.current_language, level_index)
 	if reward_theme_index < 0:
 		reward_theme_index = GameSession.theme_id
 	if is_final_reward or is_quiz_coin_reward:
@@ -17521,8 +17416,20 @@ func _create_stage_reward_component(parent: Control, amount: int, source_rect: R
 	_portrait_stage_reward.double_requested.connect(_on_final_reward_double_pressed)
 	_portrait_stage_reward.continue_requested.connect(_decline_single_player_stage_coin_reward_double)
 	var level_index: int = int(last_result_data.get("single_player_level_index", single_player_active_level_index))
+	_portrait_stage_reward.coin_content_builder = _stage_portrait_popup_coin_purchase_content
+	_portrait_stage_reward.collect_rect_builder = _portrait_popup_button_rect
+	_portrait_stage_reward.banner_height_stage = _portrait_ad_banner_height_stage()
+	_portrait_stage_reward.button_gap_stage = POPUP_COMPONENT.attempt_offer_layout(
+		_portrait_popup_style(), true, _portrait_popup_extra_bottom_space())["button_gap"]
 	_portrait_stage_reward.build(parent, amount, source_rect, _portrait_ads_enabled(), level_index + 1)
 	return _portrait_stage_reward
+
+func _take_deferred_stage_coin_amount() -> int:
+	if _portrait_reward_double_context != &"stage_coin" or !is_instance_valid(_portrait_stage_reward):
+		return 0
+	var amount: int = _portrait_stage_reward.deferred_coin_amount
+	_portrait_stage_reward.deferred_coin_amount = 0
+	return amount
 
 func _run_for_current_reward_presentation(generation: int, action: Callable, args: Array) -> void:
 	# Check lifetime before dispatching freed Controls into typed intro arguments.

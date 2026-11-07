@@ -4,8 +4,6 @@ signal finished
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const FONT_SIZE: int = 32
 const BUSY_FRAME_SECONDS: float = 0.05
-const STARTUP_FRAME_BUDGET_US: int = 12000
-const STARTUP_MAX_GLYPHS_PER_FRAME: int = 32
 const COMMON_KEYS: Array[StringName] = [
 	&"COMMON_CONTINUE", &"SETTINGS", &"PROFILE_TITLE", &"LEADERBOARD_TITLE",
 	&"REWARD_GET", &"REWARD_GET_X2", &"YES", &"NO",
@@ -15,7 +13,6 @@ static var _warmed: Dictionary = {}
 var _language: String = ""
 var _jobs: Array[Dictionary] = []
 var _next_job: int = 0
-var startup_mode: bool = false
 
 func _ready() -> void:
 	set_process(false)
@@ -60,13 +57,11 @@ func _process(delta: float) -> void:
 	if Database.interface_language != _language:
 		queue_free()
 		return
-	if !startup_mode and !get_tree().get_nodes_in_group(&"portrait_modal_popup").is_empty():
+	if !get_tree().get_nodes_in_group(&"portrait_modal_popup").is_empty():
 		return
 	# Do not add work to a frame already delayed by another subsystem.
-	if !startup_mode and delta > BUSY_FRAME_SECONDS * maxf(Engine.time_scale, 0.01):
+	if delta > BUSY_FRAME_SECONDS * maxf(Engine.time_scale, 0.01):
 		return
-	var started: int = Time.get_ticks_usec()
-	var prepared: int = 0
 	while _next_job < _jobs.size():
 		var job: Dictionary = _jobs[_next_job]
 		_next_job += 1
@@ -74,10 +69,7 @@ func _process(delta: float) -> void:
 			continue
 		_prepare_glyph(job.font, job.character)
 		_warmed[job.key] = true
-		prepared += 1
-		# Startup is covered by the splash; use small batches without one long stall.
-		if !startup_mode or prepared >= STARTUP_MAX_GLYPHS_PER_FRAME or Time.get_ticks_usec() - started >= STARTUP_FRAME_BUDGET_US:
-			return
+		return
 	finished.emit()
 	queue_free()
 
