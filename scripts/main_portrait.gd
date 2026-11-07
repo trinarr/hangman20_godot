@@ -382,6 +382,7 @@ const PORTRAIT_LEVEL_THEME_PROGRESS_SIZE := Vector2(384.0, 96.0)
 const PORTRAIT_LEVEL_THEME_PROGRESS_TOP_GAP: float = 4.0
 const THEME_UNLOCK_ICON_GRAYSCALE_SHADER: Shader = preload("res://shaders/theme_unlock_icon_grayscale.gdshader")
 const THEME_UNLOCK_FILL_SHADER: Shader = preload("res://shaders/stage_reward_track.gdshader")
+const THEME_UNLOCK_TRACK = preload("res://scripts/ui/theme_unlock_track.gd")
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_PEAK_SCALE: float = 1.14
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_GROW_DURATION: float = 0.16
 const PORTRAIT_LEVEL_STAR_PANEL_BOUNCE_SETTLE_DURATION: float = 0.20
@@ -13266,8 +13267,9 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	var title := Label.new()
 	title.name = "UnlockTitle"
 	# Sit close to the bar and share its exact horizontal center.
+	var title_height: float = 26.0
 	title.position = Vector2(bar_x, 0.0)
-	title.size = Vector2(bar_width, 26.0)
+	title.size = Vector2(bar_width, title_height)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var title_text: String = tr("NEXT_THEME_UNLOCK").to_lower()
 	title.text = title_text.left(1).to_upper() + title_text.substr(1)
@@ -13278,10 +13280,10 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	title.z_index = 2
 	holder.add_child(title)
 	# Draw the track and fill on one rectangle, with shader-local logical insets.
-	var bar_frame := preload("res://scripts/ui/theme_unlock_track.gd").new()
+	var bar_frame := THEME_UNLOCK_TRACK.new()
 	bar_frame.name = "UnlockBarFrame"
 	# Rim in logical stage units: 1.5 on top/sides and 3.5 below.
-	bar_frame.position = Vector2(bar_x, 30.0)
+	bar_frame.position = Vector2(bar_x, title_height + THEME_UNLOCK_TRACK.CAPTION_GAP_UNITS)
 	bar_frame.size = Vector2(bar_width, 36.5)
 	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_frame.clip_contents = true

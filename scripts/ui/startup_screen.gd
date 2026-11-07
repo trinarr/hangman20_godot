@@ -94,10 +94,11 @@ func _build_progress() -> void:
 	_version = Label.new()
 	VERSION.style_label(_version)
 	_version.name = "LoadingVersion"
-	_version.position = Vector2(-42.0, 56.0)
-	_version.size = Vector2(400.0, 30.0)
 	_version.text = VERSION.text("Version:")
 	_progress_group.add_child(_version)
+	_version.size = Vector2(400.0, _version.get_minimum_size().y)
+	_version.position = Vector2((_track.size.x - _version.size.x) * 0.5,
+		shadow.position.y + shadow.size.y + TRACK.CAPTION_GAP_UNITS)
 	set_progress(progress)
 
 func _label(font_size: int) -> Label:

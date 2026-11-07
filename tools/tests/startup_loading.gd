@@ -578,6 +578,9 @@ func run() -> void:
 				var version_rect: Rect2 = loader.screen._version.get_global_rect()
 				var pattern_size: Vector2 = loader.screen.pattern_icon_size()
 				check(bar_rect.position.y >= loader.screen.size.y * 0.8 and version_rect.end.y <= loader.screen.size.y, "Progress and version fit entirely inside the bottom 20 percent")
+				var group_scale: float = loader.screen._progress_group.scale.y
+				check(is_equal_approx(version_rect.position.y - bar_rect.end.y, 7.0 * group_scale), "Version uses the theme caption gap below the loading track's three-unit shadow")
+				check(is_equal_approx(version_rect.get_center().x, bar_rect.get_center().x), "Version remains centered below the loading track")
 				if native.image != null:
 					var pixel_scale: Vector2 = Vector2(native.image.get_size()) / get_viewport().get_visible_rect().size
 					var sample := Vector2i((bar_rect.position + bar_rect.size * Vector2(0.8, 0.5)) * pixel_scale)
@@ -603,6 +606,8 @@ func run() -> void:
 				check(loader.runtime == null and !loader._installing and !is_instance_valid(loader._legal_popup), "Completed background loads cannot build gameplay or consent before native dismissal")
 				check(Database._debug_summary_requested == diagnostics_before, "Diagnostics wait for native dismissal")
 				await check_loading_text_shadows(loader)
+				if existing:
+					await capture("loading_version_%s_%d.png" % [language, dimensions.x])
 				check(loader.screen._track.is_visible_in_tree() and loader.screen._percentage.is_visible_in_tree(), "Progress stays visible while native dismissal is pending")
 				native.dismissed = true
 				var database_deadline: int = Time.get_ticks_msec() + 10000
