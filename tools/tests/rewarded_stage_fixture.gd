@@ -13,6 +13,14 @@ class UI extends "res://scripts/main_portrait.gd":
 	var declines: int = 0
 	var final_exits: int = 0
 	var next_level: int = -1
+	var banner_height: float = 50.0
+	func _portrait_ad_banner_height_stage() -> float: return banner_height
+	var collection_amounts: Array[int] = []
+	var run_collection_animation: bool = false
+	func _play_centered_rewarded_double_coin_animation(before: int, after: int, _layer: int = 100, _generation: int = -1) -> void:
+		collection_amounts.append(after - before)
+		if run_collection_animation:
+			await super._play_centered_rewarded_double_coin_animation(before, after, _layer, _generation)
 	func _ready() -> void:
 		_build_root()
 		_clear()
@@ -49,7 +57,7 @@ func _process(_delta: float) -> void:
 func frames() -> void:
 	for _i in range(4):
 		await get_tree().process_frame
-func fixture(level_number: int = 5) -> void:
+func fixture(level_number: int = 5, banner_height: float = 50.0) -> void:
 	if is_instance_valid(ui):
 		ui.queue_free()
 		await frames()
@@ -67,18 +75,26 @@ func fixture(level_number: int = 5) -> void:
 	ads._sdk_ready = true
 	add_child(ads)
 	ui = UI.new()
+	ui.banner_height = banner_height
 	ui.ads = ads
 	add_child(ui)
+	GameState.soft_currency_changed.connect(ui._on_soft_currency_changed)
 	ui.last_result_is_win = true
 	ui.single_player_active_level_index = level_number - 1
 	ui.single_player_active_word_slot = 0
 	ui.last_result_data = {"single_player_level_index": level_number - 1, "single_player_word_slot": 0, "single_player_total_count": 2, "single_player_level_completed": false}
 	ui._show_single_player_reward_chain_screen()
-	var initial_collect := ui.find_child("FinalRewardCollectButton", true, false) as Button
-	check(initial_collect != null and initial_collect.disabled, "No Thanks remains unavailable during the original introduction delay")
+	var initial_collect: Control = ui._portrait_stage_reward.collect if level_number >= 5 else ui.find_child("FinalRewardCollectButton", true, false) as Control
+	check(initial_collect != null and bool(initial_collect.get("button_disabled" if level_number >= 5 else "disabled")), "No Thanks remains unavailable during the original introduction delay")
+	if level_number >= 5:
+		var deadline: int = Time.get_ticks_msec() + 20000
+		while bool(ui._portrait_stage_reward.action.get("button_disabled")) and Time.get_ticks_msec() < deadline:
+			await get_tree().process_frame
+		check(!bool(initial_collect.get("button_disabled")), "Collect enables on the same frame as the ad action")
+		check(is_equal_approx(ui.COMPOSITED_FADE.get_opacity(initial_collect), ui.COMPOSITED_FADE.get_opacity(ui._portrait_stage_reward.action)), "Both actions start revealing together without a decline delay")
 	await get_tree().create_timer(6.0).timeout
 	check(is_instance_valid(ui._portrait_final_reward_double_button) and !ui._portrait_final_reward_double_button.get("button_disabled"), "Fixture reveals the real stage x2 button")
-	check(ui._portrait_final_reward_double_button.get("button_text") == tr("REWARD_GET" if level_number >= 5 else "REWARD_GET_X2").to_upper(), "Stage ad action uses the requested localized caption")
+	check(ui._portrait_final_reward_double_button.get("button_text") == (("%s %d" % [tr("REWARD_GET"), roundi(25 * ui._portrait_stage_reward.selected_multiplier())]).to_upper() if level_number >= 5 else tr("REWARD_GET_X2").to_upper()), "Stage ad action uses the requested localized caption")
 	var meter: Control = ui._portrait_stage_reward.multiplier_meter
 	if is_instance_valid(meter):
 		meter.running = false

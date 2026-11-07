@@ -431,3 +431,15 @@ static func bottom_button_y(style: Dictionary, popup_bottom: float, source_heigh
 
 static func button_font_size(style: Dictionary, font_size: int) -> int:
 	return int(round(float(font_size) * float(style["button_uniform_scale"])))
+
+static func attempt_offer_layout(style: Dictionary, show_ad: bool, extra_bottom_space: float) -> Dictionary:
+	var popup_bottom: float = (582.0 if show_ad else 503.0) + extra_bottom_space
+	var size: Vector2 = preload("res://scripts/ui/portrait_stage_layout.gd").POPUP_COIN_BUTTON_SIZE
+	var ad_rect := Rect2(Vector2(90, 425), size)
+	var coin_rect := Rect2(Vector2(90, bottom_button_y(style, popup_bottom, size.y)), size)
+	return {
+		"popup_bottom": popup_bottom,
+		"ad_rect": ad_rect,
+		"coin_rect": coin_rect,
+		"button_gap": button_rect(style, coin_rect).position.y - button_rect(style, ad_rect).end.y,
+	}

@@ -3629,7 +3629,7 @@ func _show_menu_screen() -> void:
 
 	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_button := _stage_single_player_menu_button(
-		Rect2(33.0, 670.0, 414.0, 88.32),
+		Rect2(Vector2(33.0, 670.0), PORTRAIT_STAGE_LAYOUT.HOME_PLAY_BUTTON_SIZE),
 		Callable(self, "_play_single_player_from_home")
 	)
 	var tournament_button := HOME_TOURNAMENT_BUTTON.new()
@@ -7003,7 +7003,8 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	_remove_single_player_last_chance_popup()
 	var close_action := Callable(self, "_decline_single_player_extra_attempt")
 	var show_rewarded_ad: bool = !free_offer and _portrait_ads_enabled()
-	var popup_bottom: float = (582.0 if show_rewarded_ad else 503.0) + _portrait_popup_extra_bottom_space()
+	var button_layout: Dictionary = POPUP_COMPONENT.attempt_offer_layout(_portrait_popup_style(), show_rewarded_ad, _portrait_popup_extra_bottom_space())
+	var popup_bottom: float = button_layout["popup_bottom"]
 	var previous_content := _portrait_popup_begin(
 		"SinglePlayerLastChancePopup",
 		"single_player_last_chance_popup",
@@ -7100,7 +7101,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 
 	if show_rewarded_ad:
 		var rewarded_attempt_button := _stage_portrait_popup_main_button(
-			Rect2(90.0, 425.0, 300.0, 56.0),
+			button_layout["ad_rect"],
 			Callable(self, "_on_single_player_extra_attempt_ad_pressed"),
 			tr("COMMON_CONTINUE"),
 			18,
@@ -7136,7 +7137,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		_refresh_extra_attempt_ad_button(rewarded_attempt_button, true)
 
 	var purchase_button := _stage_portrait_popup_main_button(
-		Rect2(90.0, _portrait_popup_bottom_button_y(rect.end.y, 56.0), 300.0, 56.0),
+		button_layout["coin_rect"],
 		Callable(self, "_purchase_single_player_extra_attempt"),
 		tr("COMMON_FREE") if free_offer else "",
 		18,
@@ -15287,6 +15288,10 @@ func _play_early_stage_coin_reward_claim(source_visual: Control) -> void:
 	var credited_reward_amount: int = maxi(int(claim_result.get("amount", 0)), 0)
 	if credited_reward_amount <= 0:
 		return
+	if is_instance_valid(_portrait_stage_reward) and _portrait_stage_reward.defers_coin_collection():
+		_portrait_stage_reward.deferred_coin_amount = credited_reward_amount
+		_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_COINS)
+		return
 	var final_balance: int = previous_balance + credited_reward_amount
 	_set_stage_reward_animated_balance(
 		float(previous_balance),
@@ -15374,8 +15379,14 @@ func _decline_single_player_stage_coin_reward_double() -> void:
 		return
 	if is_instance_valid(_portrait_reward_load_guard):
 		_portrait_reward_load_guard.cancel(false)
+	var amount: int = _take_deferred_stage_coin_amount()
 	GameState.resolve_active_single_player_stage_reward_double(false, true)
+	var final_balance: int = GameState.get_soft_currency()
 	_finish_single_player_stage_coin_reward_offer()
+	if amount > 0:
+		_set_stage_reward_animated_balance(float(final_balance - amount), GameState.STAGE_REWARD_COINS)
+		call_deferred("_play_centered_rewarded_double_coin_animation", final_balance - amount,
+			final_balance, 100, result_transition_generation)
 
 func _on_final_reward_double_pressed() -> void:
 	# The base reward is credited at the peak of the prize bounce, so
@@ -15518,6 +15529,14 @@ func _on_final_reward_ad_rewarded(request_id: String, _currency: String, _amount
 	_portrait_reward_double_animation_amount = (
 		receipt_amount if reward_was_on_time else 0
 	)
+	if (
+		reward_was_on_time and _portrait_reward_double_context == &"stage_coin"
+		and is_instance_valid(_portrait_stage_reward)
+		and _portrait_stage_reward.defers_coin_collection()
+	):
+		_set_stage_reward_animated_balance(
+			float(GameState.get_soft_currency() - receipt_amount - _portrait_stage_reward.deferred_coin_amount),
+			GameState.STAGE_REWARD_COINS)
 	if !reward_was_on_time:
 		# Late receipt: present the already-persisted balance immediately and skip
 		# all flying-coin/count-roll presentation by design.
@@ -15542,7 +15561,8 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 	GameState.set_fullscreen_ad_active(false)
 	_portrait_final_reward_waiting_for_ad = false
 	if _portrait_final_reward_earned_ad_reward:
-		var animation_amount: int = maxi(_portrait_reward_double_animation_amount, 0)
+		var deferred_stage_amount: int = _take_deferred_stage_coin_amount()
+		var animation_amount: int = maxi(_portrait_reward_double_animation_amount, 0) + deferred_stage_amount
 		var final_balance: int = GameState.get_soft_currency()
 		var previous_balance: int = maxi(final_balance - animation_amount, 0)
 		_portrait_reward_double_animation_amount = 0
@@ -15562,6 +15582,8 @@ func _on_final_reward_ad_closed(request_id: String) -> void:
 			# the player should first land on the main screen and see the bonus arrive.
 			_finish_single_player_final_reward_claim(-1, true)
 		if animation_amount > 0:
+			if deferred_stage_amount > 0:
+				_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_COINS)
 			call_deferred(
 				"_play_centered_rewarded_double_coin_animation",
 				previous_balance,
@@ -17391,8 +17413,20 @@ func _create_stage_reward_component(parent: Control, amount: int, source_rect: R
 	_portrait_stage_reward.double_requested.connect(_on_final_reward_double_pressed)
 	_portrait_stage_reward.continue_requested.connect(_decline_single_player_stage_coin_reward_double)
 	var level_index: int = int(last_result_data.get("single_player_level_index", single_player_active_level_index))
+	_portrait_stage_reward.coin_content_builder = _stage_portrait_popup_coin_purchase_content
+	_portrait_stage_reward.collect_rect_builder = _portrait_popup_button_rect
+	_portrait_stage_reward.banner_height_stage = _portrait_ad_banner_height_stage()
+	_portrait_stage_reward.button_gap_stage = POPUP_COMPONENT.attempt_offer_layout(
+		_portrait_popup_style(), true, _portrait_popup_extra_bottom_space())["button_gap"]
 	_portrait_stage_reward.build(parent, amount, source_rect, _portrait_ads_enabled(), level_index + 1)
 	return _portrait_stage_reward
+
+func _take_deferred_stage_coin_amount() -> int:
+	if _portrait_reward_double_context != &"stage_coin" or !is_instance_valid(_portrait_stage_reward):
+		return 0
+	var amount: int = _portrait_stage_reward.deferred_coin_amount
+	_portrait_stage_reward.deferred_coin_amount = 0
+	return amount
 
 func _run_for_current_reward_presentation(generation: int, action: Callable, args: Array) -> void:
 	# Check lifetime before dispatching freed Controls into typed intro arguments.

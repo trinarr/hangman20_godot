@@ -381,12 +381,16 @@ def main() -> None:
     attempt_popup = function_body(
         portrait, "_show_single_player_last_chance_popup"
     )
+    popup_layout_source = read("scripts/ui/portrait_popup.gd")
     require(
         re.search(
-            r"popup_bottom:\s*float\s*=\s*\(582\.0\s+if\s+show_rewarded_ad\s+else\s+503\.0\)"
-            r"\s*\+\s*_portrait_popup_extra_bottom_space\(\)",
-            attempt_popup,
+            r"static func attempt_offer_layout\(style: Dictionary, show_ad: bool, extra_bottom_space: float\)"
+            r"[^\n]*\n\s*var popup_bottom:\s*float\s*=\s*\(582\.0\s+if\s+show_ad\s+else\s+503\.0\)"
+            r"\s*\+\s*extra_bottom_space",
+            popup_layout_source,
         ) is not None
+        and "POPUP_COMPONENT.attempt_offer_layout(_portrait_popup_style(), show_rewarded_ad, _portrait_popup_extra_bottom_space())" in attempt_popup
+        and 'var popup_bottom: float = button_layout["popup_bottom"]' in attempt_popup
         and "var show_rewarded_ad: bool = !free_offer and _portrait_ads_enabled()" in attempt_popup
         and "if show_rewarded_ad:" in attempt_popup
         and 'tr("COMMON_FREE") if free_offer else ""' in attempt_popup

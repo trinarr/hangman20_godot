@@ -16,12 +16,23 @@ var _claim_emitted: bool = false
 var _transition_started: bool = false
 var multiplier_meter: Control
 var _meter_enabled: bool = false
+var base_amount: int = 0
+var deferred_coin_amount: int = 0
+var coin_content_builder: Callable
+var collect_rect_builder: Callable
+var banner_height_stage: float = 50.0
+var button_gap_stage: float = -1.0
+var _controls_raise: float = 0.0
+const COLLECT_WIDTH_SCALE: float = 0.85
+const BUTTONS_MIN_RAISE: float = 32.0
+const BANNER_BUTTON_GAP: float = 24.0
 
 func _portrait_final_reward_center_rect(size: Vector2) -> Rect2:
 	var rect: Rect2 = super._portrait_final_reward_center_rect(size)
 	if _meter_enabled:
-		# Keep the amount clear of the raised meter at the reference aspect.
+		# Keep the coin pack clear of the raised meter at the reference aspect.
 		rect.position.y -= 45.0
+		rect.position.y -= maxf(_controls_raise - BUTTONS_MIN_RAISE, 0.0)
 	return rect
 
 func selected_multiplier() -> float:
@@ -31,9 +42,8 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 	super._sync_final_reward_double_button_content(button)
 	if !_meter_enabled:
 		return
-	button.set("button_text", tr("REWARD_GET"))
-	button.set("trailing_icon_texture", null)
-	button.set("trailing_icon_shadow_enabled", false)
+	button.set("button_text", "%s %d" % [tr("REWARD_GET"), roundi(base_amount * selected_multiplier())])
+	button.set("trailing_icon_stage_size", Vector2(28, 28))
 
 func stop() -> void:
 	super.stop()
@@ -45,6 +55,9 @@ func stop() -> void:
 		action.set("attention_bounce_enabled", false)
 		action.set("button_disabled", true)
 		action.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _meter_enabled and is_instance_valid(collect):
+		collect.set("button_disabled", true)
+		collect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if is_instance_valid(collect_hit):
 		collect_hit.disabled = true
 		collect_hit.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -67,7 +80,17 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 	if prize != null or _stopped:
 		return
 	content = parent
+	base_amount = reward_amount
 	_meter_enabled = ads_enabled and level_number >= PORTRAIT_GAME_DESIGN.get_int("economy.rewards.stage_ad_multipliers_from_level")
+	var collect_rect := Rect2(Vector2(90, PORTRAIT_FINAL_REWARD_COLLECT_RECT.position.y + 24), PORTRAIT_STAGE_LAYOUT.POPUP_COIN_BUTTON_SIZE)
+	if _meter_enabled:
+		if collect_rect_builder.is_valid():
+			collect_rect = collect_rect_builder.call(collect_rect)
+		var collect_center_x: float = collect_rect.get_center().x
+		collect_rect.size.x *= COLLECT_WIDTH_SCALE
+		collect_rect.position.x = collect_center_x - collect_rect.size.x * 0.5
+		_controls_raise = maxf(BUTTONS_MIN_RAISE, collect_rect.end.y - (PORTRAIT_STAGE_SIZE.y - banner_height_stage - BANNER_BUTTON_GAP))
+		collect_rect.position.y -= _controls_raise
 	var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
 		PORTRAIT_FINAL_REWARD_COIN_SIZE
 	)
@@ -95,6 +118,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
 	amount_label.name = "StageCoinLargeRewardAmount"
+	amount_label.visible = !_meter_enabled
 	amount_label.add_theme_font_override("font", UI_DISPLAY_FONT)
 	amount_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	amount_label.clip_text = false
@@ -111,12 +135,19 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 	bottom_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(bottom_group)
 	content = bottom_group
+	var action_rect: Rect2 = _portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT)
+	var action_group_shift: float = 0.0
+	if _meter_enabled:
+		action_rect.position.y -= _controls_raise
+		if button_gap_stage >= 0.0:
+			action_group_shift = collect_rect.position.y - action_rect.end.y - button_gap_stage
+			action_rect.position.y += action_group_shift
 	var action_button: Control
 	var collect_holder: Control = null
 	var collect_button: Button = null
 	if ads_enabled:
 		action_button = _stage_main_button(
-			_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
+			action_rect,
 			Callable(self, "_request_double"),
 			tr("REWARD_GET" if _meter_enabled else "REWARD_GET_X2"),
 			22,
@@ -131,7 +162,9 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		if _meter_enabled:
 			var meter_rect: Rect2 = _portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT)
 			meter_rect.position.x = 42.0
-			meter_rect.position.y -= 131.0
+			meter_rect.position.y -= 121.0
+			meter_rect.position.y -= _controls_raise
+			meter_rect.position.y += action_group_shift
 			meter_rect.size = Vector2((PORTRAIT_STAGE_SIZE.x - 40.0) * 0.9, 94.6)
 			var meter_holder: Control = _stage_holder(meter_rect, Control.MOUSE_FILTER_IGNORE)
 			meter_holder.name = "StageRewardMultiplierHolder"
@@ -141,17 +174,31 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 			meter_holder.add_child(multiplier_meter)
 			multiplier_meter.size = meter_rect.size
 			multiplier_meter.build(action_button)
+			multiplier_meter.selection_changed.connect(_update_ad_amount)
 			FADE.branch(meter_holder)
 			FADE.set_opacity(meter_holder, 0.0)
 		action_button.set_meta(&"single_shine_after_reveal", true)
 		_configure_final_reward_double_button(action_button)
-		var collect_controls: Dictionary = _stage_final_reward_collect_text(
-			PORTRAIT_FINAL_REWARD_COLLECT_RECT,
-			-1,
-			Callable(self, "_request_continue")
-		)
-		collect_holder = collect_controls.get("holder") as Control
-		collect_button = collect_controls.get("button") as Button
+		if _meter_enabled:
+			collect_holder = _stage_main_button(
+				collect_rect,
+				Callable(self, "_request_continue"), "", 18, true, 0.32, false, false, false, LONG_BUTTON_COLOR_BLUE)
+			collect_holder.name = "StageCoinRewardCollect"
+			collect_holder.z_index = 120
+			collect_holder.set("drop_shadow_enabled", true)
+			if coin_content_builder.is_valid():
+				var row: Dictionary = coin_content_builder.call(collect_holder, tr("REWARD_GET"), reward_amount)
+				var price: Label = row["price"]
+				price.remove_from_group(&"portrait_coin_price_badge_label")
+			else:
+				collect_holder.set("button_text", "%s %d" % [tr("REWARD_GET"), reward_amount])
+				collect_holder.set("trailing_icon_texture", SOFT_CURRENCY_COIN_TEXTURE)
+			FADE.set_opacity(collect_holder, 0.0)
+		else:
+			var collect_controls: Dictionary = _stage_final_reward_collect_text(
+				PORTRAIT_FINAL_REWARD_COLLECT_RECT, -1, Callable(self, "_request_continue"))
+			collect_holder = collect_controls.get("holder") as Control
+			collect_button = collect_controls.get("button") as Button
 	else:
 		action_button = _stage_main_button(
 			_portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT),
@@ -341,7 +388,18 @@ func _replace_stage_reward(
 				PORTRAIT_BLUE,
 				PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
 			)
+	replace_tween.finished.connect(_hide_replaced_reward_visuals.bind(chain_holder, hero_texture), CONNECT_ONE_SHOT)
 	replace_tween.finished.connect(Callable(self, "_reveal_stage_reward").bind(transition_pack, glow, amount_label, double_button, collect_holder, collect_button), CONNECT_ONE_SHOT)
+
+func _hide_replaced_reward_visuals(chain_holder: Control, hero_texture: TextureRect) -> void:
+	if _stopped or !is_inside_tree():
+		return
+	# Alpha-zero text groups still issue offscreen draw calls. These visuals are
+	# no longer used once the replacement has finished, so stop submitting them.
+	if is_instance_valid(chain_holder):
+		chain_holder.hide()
+	if is_instance_valid(hero_texture):
+		hero_texture.hide()
 
 func _reveal_stage_reward(transition_pack: Control, glow: Control, amount_label: Label, double_button: Control, collect_holder: Control, collect_button: Button) -> void:
 	if _stopped or !is_inside_tree():
@@ -379,3 +437,21 @@ func _reveal_stage_reward(transition_pack: Control, glow: Control, amount_label:
 		multiplier_meter.running = true
 		var meter_reveal := _tween(multiplier_meter)
 		meter_reveal.tween_property(FADE.branch(multiplier_meter.get_parent()), "opacity", 1.0, PORTRAIT_FINAL_REWARD_ACTION_REVEAL_DURATION)
+
+func _update_ad_amount() -> void:
+	if is_instance_valid(action):
+		# Icons, fonts and shadows are configured once when the offer is built.
+		var caption := "%s %d" % [tr("REWARD_GET"), roundi(base_amount * selected_multiplier())]
+		if str(action.get("button_text")) != caption.to_upper():
+			action.set("button_text", caption)
+
+func _reveal_final_reward_actions(double_button: Control, holder: Control, hit: Button) -> void:
+	if !_meter_enabled:
+		super._reveal_final_reward_actions(double_button, holder, hit)
+		return
+	# Both native buttons reveal together, without the legacy decline delay.
+	super._reveal_final_reward_actions(double_button, null, null)
+	super._reveal_final_reward_actions(holder, null, null)
+
+func defers_coin_collection() -> bool:
+	return _meter_enabled

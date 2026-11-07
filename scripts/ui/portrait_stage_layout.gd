@@ -1,6 +1,8 @@
 extends RefCounted
 
 const BASE_SIZE: Vector2 = Vector2(480.0, 800.0)
+const HOME_PLAY_BUTTON_SIZE := Vector2(414.0, 88.32)
+const POPUP_COIN_BUTTON_SIZE := Vector2(300.0, 56.0)
 const FIXED_BOTTOM_START: float = 688.0
 const ADAPTIVE_REFERENCE_HEIGHT: float = 1068.0
 const SAFE_TOP_EXTRA_MARGIN: float = 8.0
