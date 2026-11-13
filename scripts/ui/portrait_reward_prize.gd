@@ -383,6 +383,26 @@ func _attach_main_reward_icon_shadow(
 	holder.set_meta(&"main_reward_icon_shadow_layers", layers)
 	return layers
 
+func _set_main_reward_icon_shadow_alpha(holder: Control, alpha: float) -> void:
+	if !is_instance_valid(holder):
+		return
+	for layer: TextureRect in holder.get_meta(&"main_reward_icon_shadow_layers", []):
+		if is_instance_valid(layer):
+			# Install the independent controller before the prize branch collects it.
+			FADE.set_opacity(layer, clampf(alpha, 0.0, 1.0))
+
+func _fade_main_reward_icon_shadow_in(holder: Control, duration: float = 0.22) -> void:
+	if !is_instance_valid(holder) or !holder.is_inside_tree():
+		return
+	for layer: TextureRect in holder.get_meta(&"main_reward_icon_shadow_layers", []):
+		if !is_instance_valid(layer):
+			continue
+		var tween := _tween(layer)
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		var fade := tween.tween_property(FADE.branch(layer), "opacity", 1.0, maxf(duration, 0.01))
+		fade.set_trans(Tween.TRANS_SINE)
+		fade.set_ease(Tween.EASE_OUT)
+
 func _create_portrait_icon_extrusion_layers(
 	parent: Control,
 	texture: Texture2D,

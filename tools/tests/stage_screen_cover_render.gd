@@ -85,10 +85,38 @@ func await_cover() -> Node:
 		await get_tree().process_frame
 	return null
 
+func verify_prize_flight(prize: Control) -> void:
+	var animations: Array[Tween] = get_tree().get_processed_tweens()
+	for animation: Tween in animations:
+		animation.pause()
+	var previous_rect: Rect2 = prize.get("stage_rect")
+	for animation: Tween in animations:
+		if animation.is_valid():
+			animation.custom_step(0.025)
+	var early: float = main.COMPOSITED_FADE.get_opacity(prize)
+	for animation: Tween in animations:
+		if animation.is_valid():
+			animation.custom_step(0.025)
+	var late: float = main.COMPOSITED_FADE.get_opacity(prize)
+	check(early > 0.0 and late > early and late < 1.0, "Flying prize progressively fades in")
+	check(!previous_rect.is_equal_approx(prize.get("stage_rect")), "Prize moves while fading in")
+	for shadow: TextureRect in prize.get_meta("main_reward_icon_shadow_layers"):
+		check(is_zero_approx(main.COMPOSITED_FADE.get_opacity(shadow)), "Prize shadow stays hidden during flight")
+	var visible_prize := await frame()
+	save_frame(visible_prize, "prize_flight")
+	main.COMPOSITED_FADE.set_opacity(prize, 0.0)
+	var hidden_prize := await frame()
+	check(visible_prize.get_data() != hidden_prize.get_data(), "Intermediate prize opacity draws visible GPU pixels")
+	main.COMPOSITED_FADE.set_opacity(prize, late)
+	for animation: Tween in animations:
+		if animation.is_valid():
+			animation.play()
+
 func verify_pixels(cover: Node) -> void:
 	check(cover.has_source and (is_instance_valid(cover._snapshot) or cover.uses_live_source()), "Transition retains its real source")
 	if tag.ends_with("_stage"):
 		check(cover.uses_live_source() and cover._snapshot == null, "Stage reward keeps the live hierarchy without a screenshot")
+		await verify_prize_flight(main.content.find_child("StageCoinLargeReward", true, false))
 	check(is_instance_valid(cover._blocker) and cover._blocker.mouse_filter == Control.MOUSE_FILTER_STOP, "Cover blocks repeat input")
 	var animations: Array[Tween] = get_tree().get_processed_tweens()
 	for animation: Tween in animations:
@@ -197,7 +225,15 @@ func run() -> void:
 				check(cover.reveal(5.0) == cover._animation, "Repeated reveal reuses the running transition")
 				await cover.finished
 				check(cover.complete and is_equal_approx(cover.coverage, 1.0) and cover._snapshot == null and cover._blocker == null, "Full coverage releases snapshot and input blocker")
+				if target == "summary":
+					# The cover signal precedes the deferred flight continuation.
+					await get_tree().process_frame
+					await verify_prize_flight(main.content.find_child("LevelCompletionRewardPrize", true, false))
 				await get_tree().create_timer(1.6).timeout
+				if target in ["stage", "summary"]:
+					var prize: Control = main.content.find_child("StageCoinLargeReward" if target == "stage" else "LevelCompletionRewardPrize", true, false)
+					for shadow: TextureRect in prize.get_meta("main_reward_icon_shadow_layers"):
+						check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(shadow), 1.0), "Prize shadow appears after the landing animation")
 				if target.contains("quiz"):
 					check(main._quiz_question_ready_at_msec > 0, "Speed timer starts after the entrance")
 				# Cancel another instance mid-fade, then allow its old deadline to pass.

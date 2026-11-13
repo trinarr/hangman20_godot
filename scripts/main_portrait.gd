@@ -12379,36 +12379,10 @@ func _set_main_reward_icon_shadow_texture(holder: Control, texture: Texture2D) -
 			layer.texture = texture
 
 func _set_main_reward_icon_shadow_alpha(holder: Control, alpha: float) -> void:
-	if holder == null or !is_instance_valid(holder):
-		return
-	var layers_variant: Variant = holder.get_meta(&"main_reward_icon_shadow_layers", [])
-	if !(layers_variant is Array):
-		return
-	for layer_variant: Variant in layers_variant:
-		var layer := layer_variant as TextureRect
-		if layer != null and is_instance_valid(layer):
-			COMPOSITED_FADE.set_opacity(layer, clampf(alpha, 0.0, 1.0))
+	_ensure_reward_prize_visuals()._set_main_reward_icon_shadow_alpha(holder, alpha)
 
 func _fade_main_reward_icon_shadow_in(holder: Control, duration: float = 0.22) -> void:
-	if holder == null or !is_instance_valid(holder) or !holder.is_inside_tree():
-		return
-	var layers_variant: Variant = holder.get_meta(&"main_reward_icon_shadow_layers", [])
-	if !(layers_variant is Array):
-		return
-	for layer_variant: Variant in layers_variant:
-		var layer := layer_variant as TextureRect
-		if layer == null or !is_instance_valid(layer):
-			continue
-		var tween := layer.create_tween()
-		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		var fade := tween.tween_property(
-			COMPOSITED_FADE.branch(layer),
-			"opacity",
-			1.0,
-			maxf(duration, 0.01)
-		)
-		fade.set_trans(Tween.TRANS_SINE)
-		fade.set_ease(Tween.EASE_OUT)
+	_ensure_reward_prize_visuals()._fade_main_reward_icon_shadow_in(holder, duration)
 
 func _stage_main_reward_coin_pack_transition(rect: Rect2, outline_pixels: float = UI_MATERIALS.OUTLINE.LARGE_REWARD_PIXELS) -> Control:
 	return _ensure_reward_prize_visuals()._stage_main_reward_coin_pack_transition(rect, outline_pixels)
@@ -14781,7 +14755,6 @@ func _start_single_player_level_summary_transition_deferred(
 
 	if use_chest_animation:
 		_set_reward_chest_icon_open_state(transition_prize, false)
-	COMPOSITED_FADE.set_opacity(transition_prize, 1.0)
 	var target_prize_rect: Rect2 = _portrait_final_reward_center_rect(
 		(
 			PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
@@ -14798,6 +14771,9 @@ func _start_single_player_level_summary_transition_deferred(
 		PORTRAIT_FINAL_REWARD_REPLACE_DURATION
 	)
 	flight.set_trans(Tween.TRANS_LINEAR)
+	flight_tween.parallel().tween_property(
+		COMPOSITED_FADE.branch(transition_prize), "opacity", 1.0,
+		PORTRAIT_GAME_DESIGN.get_float("timings.animations.final_reward.icon_crossfade_seconds"))
 	await flight_tween.finished
 
 	if DisplayServer.get_name() == "headless":

@@ -114,6 +114,7 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		source_rect
 	)
 	transition_pack.name = "StageCoinLargeReward"
+	_set_main_reward_icon_shadow_alpha(transition_pack, 0.0)
 	FADE.set_opacity(transition_pack, 0.0)
 	transition_pack.z_index = 20
 	var amount_label := _stage_label(
@@ -423,6 +424,7 @@ func _reveal_stage_reward(transition_pack: Control, glow: Control, amount_label:
 	await _play_final_reward_pack_bounce(transition_pack, peak_callback)
 	if _stopped or !is_inside_tree():
 		return
+	_fade_main_reward_icon_shadow_in(transition_pack)
 	if collect_holder != null and is_instance_valid(collect_holder):
 		_play_reward_coin_sparkles(transition_pack)
 	_reveal_final_reward_actions(double_button, collect_holder, collect_button)
