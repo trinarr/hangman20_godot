@@ -108,7 +108,7 @@ func _ready() -> void:
 	var pinned_style: StyleBoxFlat = pinned_face.get_theme_stylebox("panel")
 	check(pinned_style.corner_radius_top_left == SCREEN.CARD_CORNER_RADIUS and pinned_face.size.is_equal_approx(Vector2(SCREEN.CARD_WIDTH, 68)), "Pinned result keeps the regular card shape and size")
 	var pinned_background: ColorRect = view.pinned.get_node("PinnedBackground")
-	check(pinned_background.color == SCREEN.PALETTE.UI_BLUE and pinned_background.size == view.pinned.size, "Tab-colored background covers the full pinned strip")
+	check(pinned_background.color == SCREEN.PALETTE.UI_BLUE and pinned_background.size.x == view.pinned.size.x and pinned_background.size.y > view.pinned.size.y, "Tab-colored background overlaps the bottom clipping edge")
 	check(view.pinned.get_node("CardShadow").position.x == pinned_face.position.x, "Pinned card shadow follows its inset card")
 	var edge_shadow: ColorRect = view.pinned.get_node("PinnedEdgeShadow")
 	var lower_shadow_depth := edge_shadow.size.y
@@ -371,6 +371,7 @@ func inspect_error_ui(main: Node, data: Dictionary) -> void:
 			await settle()
 			var view: Control = main._portrait_leaderboard
 			view.set_snapshot(data)
+			await check_pinned_bottom_edge(view)
 			view._failed()
 			await settle()
 			var text_rect: Rect2 = view._status.get_global_rect()
@@ -412,6 +413,38 @@ func inspect_error_ui(main: Node, data: Dictionary) -> void:
 	get_window().size = old_size
 	Database.interface_language = old_language
 	TranslationServer.set_locale(old_language)
+
+func check_pinned_bottom_edge(view: Control) -> void:
+	await settle()
+	view._list_entrance.stop()
+	var background: ColorRect = view.pinned.get_node("PinnedBackground")
+	check(background.get_global_rect().end.y >= view.scroll.get_global_rect().end.y + 0.99, "Pinned background covers fractional scroll clipping with a viewport-pixel overlap")
+	if DisplayServer.get_name() == "headless":
+		return
+	# A bright row at the clipping edge exposes even a single uncovered pixel.
+	var probe := ColorRect.new()
+	probe.color = Color.MAGENTA
+	probe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	probe.position = Vector2(0, view.scroll.size.y - 6)
+	probe.size = Vector2(view.scroll.size.x, 12)
+	probe.z_index = 3
+	# Keep the probe out of ScrollContainer's direct Control layout.
+	var probe_root := Node2D.new()
+	view.scroll.add_child(probe_root)
+	probe_root.add_child(probe)
+	await settle()
+	await RenderingServer.frame_post_draw
+	var image := get_viewport().get_texture().get_image()
+	var pixel_scale := Vector2(image.get_size()) / get_viewport().get_visible_rect().size
+	var edge: Vector2 = view.scroll.get_global_rect().end * pixel_scale
+	var x := floori(view.scroll.get_global_rect().get_center().x * pixel_scale.x)
+	var covered := true
+	for y in range(floori(edge.y) - 2, ceili(edge.y)):
+		var pixel := image.get_pixel(x, y)
+		covered = covered and absf(pixel.r - SCREEN.PALETTE.UI_BLUE.r) < 0.01 and absf(pixel.g - SCREEN.PALETTE.UI_BLUE.g) < 0.01 and absf(pixel.b - SCREEN.PALETTE.UI_BLUE.b) < 0.01
+	check(covered, "GPU bottom edge has no pixels from the scrolling list")
+	await capture_press("bottom_edge")
+	probe_root.free()
 
 func inspect_offline_open() -> void:
 	var transport = load("res://tools/tests/leaderboard_transport_mock.gd").new()

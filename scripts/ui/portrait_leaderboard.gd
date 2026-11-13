@@ -393,6 +393,10 @@ func _update_pin() -> void:
 	pinned.size = Vector2(viewport_size.x / scale.x, PINNED_HEIGHT)
 	var backdrop: ColorRect = pinned.get_node("PinnedBackground")
 	backdrop.size = pinned.size
+	# Scroll clipping rounds independently of the scaled strip's fractional edge.
+	# Overlap its bottom by one viewport pixel so no row can show through.
+	if _pin_side == "bottom":
+		backdrop.size.y += 1.0 / scale.y
 	var edge_shadow: ColorRect = pinned.get_node("PinnedEdgeShadow")
 	var upper_piece := _pin_side == "top"
 	var shadow_depth := 8.0 if upper_piece else 3.0
