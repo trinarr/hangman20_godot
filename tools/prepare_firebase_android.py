@@ -10,9 +10,17 @@ import shutil
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def package_for_preset(root: Path, preset_name: str | None = None) -> str:
+def read_android_presets(root: Path) -> configparser.ConfigParser:
+    # Godot dictionaries are not INI. Only these scalar fields are needed by exporters.
+    lines = (root / "export_presets.cfg").read_text(encoding="utf-8").splitlines(keepends=True)
     presets = configparser.ConfigParser(interpolation=None)
-    presets.read(root / "export_presets.cfg", encoding="utf-8")
+    presets.read_string("".join(line for line in lines if line.startswith("[")
+                               or re.match(r"^(?:name|platform|custom_features|package/unique_name)\s*=", line)))
+    return presets
+
+
+def package_for_preset(root: Path, preset_name: str | None = None) -> str:
+    presets = read_android_presets(root)
     section = "preset.0"
     if preset_name is not None:
         selected = [name for name in presets.sections()

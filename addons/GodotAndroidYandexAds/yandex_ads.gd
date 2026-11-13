@@ -25,6 +25,7 @@ const DEFAULT_BANNER_ID := "demo-banner-yandex"
 const DEFAULT_INTERSTITIAL_ID := "demo-interstitial-yandex"
 const DEFAULT_REWARDED_ID := "demo-rewarded-yandex"
 const STORE_CONFIG = preload("store_config.gd")
+const BANNER_CONFIG = preload("res://scripts/core/game_design_config.gd")
 # Gameplay placements share one cached ad per format. Reward receipts still
 # identify the action independently of the advertising unit.
 const REWARDED_PLACEMENTS: Array[StringName] = [
@@ -52,6 +53,18 @@ var _sdk_initialization_requested: bool = false
 var _banner_wanted: bool = false
 var _banner_loading: bool = false
 var _banner_loaded: bool = false
+var _banner_request_serial: int = 0
+var _banner_request_id: String = ""
+var _banner_load_remaining: float = 0.0
+var _banner_retry_remaining: float = 0.0
+var _banner_recovery_count: int = 0
+var _banner_probe_after_ms: int = -1
+var _banner_tagged_bridge: bool = false
+var _banner_native_clock: bool = false
+var _banner_backgrounded: bool = false
+var _banner_focused: bool = true
+var _banner_background_started_ms: int = -1
+var _banner_resume_pending: bool = false
 var _interstitial_loading: bool = false
 var _interstitial_loaded: bool = false
 var _rewarded_loading: bool = false
@@ -94,6 +107,8 @@ func trace_banner(event: String, details: Dictionary = {}) -> void:
 		"singleton": Engine.has_singleton(PLUGIN_SINGLETON),
 		"init_requested": _sdk_initialization_requested, "sdk_ready": _sdk_ready,
 		"wanted": _banner_wanted, "loading": _banner_loading, "loaded": _banner_loaded,
+		"request_id": _banner_request_id, "backgrounded": _banner_backgrounded,
+		"retry_remaining_seconds": _banner_retry_remaining,
 		"discard_load": _discard_banner_load, "consent": user_consent,
 		"debug_build": OS.is_debug_build(),
 		"sdk_elapsed_ms": now - _banner_diag_sdk_started_ms if _banner_diag_sdk_started_ms >= 0 else -1,
@@ -105,10 +120,130 @@ func _enter_tree() -> void:
 	_read_project_settings()
 	_bind_native_plugin()
 	trace_banner("service_enter_tree")
+	_update_banner_processing()
 
 func _exit_tree() -> void:
+	remove_banner()
+	_banner_resume_pending = false
+	_banner_backgrounded = false
+	_banner_focused = true
+	_banner_background_started_ms = -1
+	set_process(false)
+
+func _ready() -> void:
+	_update_banner_processing()
+
+func _banner_timing(key: String) -> float:
+	return BANNER_CONFIG.get_float("advertising.banner_recovery." + key)
+
+func _banner_now_ms() -> int:
+	# Android elapsed realtime includes sleep without calendar clock adjustments.
+	if _banner_native_clock and is_native_available():
+		return int(_native.getElapsedRealtimeMs())
+	return Time.get_ticks_msec()
+
+func _banner_probe_now_ms() -> int:
+	return Time.get_ticks_msec()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		# Preserve the earliest pause until pending resume gets a processing frame.
+		if _banner_background_started_ms < 0:
+			_banner_background_started_ms = _banner_now_ms()
+		_banner_backgrounded = true
+	elif what == NOTIFICATION_APPLICATION_RESUMED:
+		_banner_backgrounded = false
+		_banner_resume_pending = true
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_banner_focused = false
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_banner_focused = true
+		_banner_resume_pending = true
+	else:
+		return
+	_update_banner_processing()
+
+func _banner_can_request() -> bool:
+	return !_banner_backgrounded and _banner_focused and _sdk_ready and is_native_available()
+
+func _update_banner_processing() -> void:
+	set_process(_banner_can_request() and (
+		_banner_resume_pending or (_banner_wanted and (
+			(_banner_loading and _banner_tagged_bridge) or _banner_retry_remaining > 0.0
+		))
+	))
+
+func _process(delta: float) -> void:
+	if !_banner_can_request():
+		_update_banner_processing()
+		return
+	if _banner_resume_pending:
+		_banner_resume_pending = false
+		_recover_banner_after_resume()
+		_update_banner_processing()
+		return
+	if !_banner_wanted:
+		_update_banner_processing()
+		return
+	# Legacy bridges cannot distinguish a late callback from a replacement.
+	if _banner_loading and _banner_tagged_bridge:
+		_banner_load_remaining -= delta
+		if _banner_load_remaining <= 0.0:
+			_replace_failed_banner_request("load_timeout")
+	elif _banner_retry_remaining > 0.0:
+		_banner_retry_remaining = maxf(0.0, _banner_retry_remaining - delta)
+		if _banner_retry_remaining == 0.0:
+			load_banner()
+	_update_banner_processing()
+
+func _recover_banner_after_resume() -> void:
+	var background_seconds: float = 0.0
+	if _banner_background_started_ms >= 0:
+		background_seconds = maxf(0.0, (_banner_now_ms() - _banner_background_started_ms) / 1000.0)
+	_banner_background_started_ms = -1
+	if !_sdk_ready or !is_native_available():
+		return
+	trace_banner("application_resumed", {"background_seconds": background_seconds})
+	if background_seconds >= _banner_timing("refresh_after_background_seconds"):
+		_banner_recovery_count = 0
+		_banner_probe_after_ms = -1
+		if !_banner_loading or _banner_tagged_bridge:
+			_reset_banner_request()
+		else:
+			_discard_banner_load = true
+	if _banner_wanted:
+		show_banner()
+
+func _reset_banner_request() -> void:
+	_banner_request_id = ""
+	_banner_loading = false
+	_banner_loaded = false
+	_discard_banner_load = false
+	_banner_load_remaining = 0.0
+	_banner_retry_remaining = 0.0
 	if is_native_available():
 		_native.removeBanner()
+	_update_banner_processing()
+
+func _replace_failed_banner_request(event: String) -> void:
+	trace_banner(event)
+	_banner_recovery_count += 1
+	_reset_banner_request()
+	_schedule_banner_retry()
+
+func _schedule_banner_retry() -> void:
+	if _banner_recovery_count > BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts"):
+		_banner_probe_after_ms = _banner_probe_now_ms() + int(_banner_timing("probe_cooldown_seconds") * 1000.0)
+		trace_banner("probe_cooldown_started")
+		return
+	if !_banner_wanted:
+		return
+	_banner_retry_remaining = minf(
+		_banner_timing("retry_base_seconds") * pow(2.0, _banner_recovery_count - 1),
+		_banner_timing("retry_maximum_seconds")
+	)
+	trace_banner("retry_scheduled", {"delay_seconds": _banner_retry_remaining})
+	_update_banner_processing()
 
 func _read_project_settings() -> void:
 	# Debug/editor builds always use Yandex demo units. Release exports use the
@@ -186,14 +321,20 @@ func is_sdk_ready() -> bool:
 	return _sdk_ready
 
 func _connect_native_signals() -> void:
+	_banner_tagged_bridge = _native_has_method(&"loadBannerForRequest")
+	_banner_native_clock = _native_has_method(&"getElapsedRealtimeMs")
 	_connect_native(&"_on_ad_impression", Callable(self, "_on_ad_impression"))
 	if _native.has_signal("_on_rewarded_shown_for_request"):
 		_connect_native(&"_on_rewarded_shown_for_request", Callable(self, "_on_rewarded_shown_for_request"))
 	else:
 		_connect_native(&"_on_rewarded_video_ad_show", Callable(self, "_on_rewarded_video_ad_show"))
 	_connect_native(&"_on_sdk_initialized", Callable(self, "_on_sdk_initialized"))
-	_connect_native(&"_on_banner_loaded", Callable(self, "_on_banner_loaded"))
-	_connect_native(&"_on_banner_failed_to_load", Callable(self, "_on_banner_failed_to_load"))
+	if _banner_tagged_bridge:
+		_connect_native(&"_on_banner_loaded_for_request", Callable(self, "_on_banner_loaded_for_request"))
+		_connect_native(&"_on_banner_failed_for_request", Callable(self, "_on_banner_failed_for_request"))
+	else:
+		_connect_native(&"_on_banner_loaded", Callable(self, "_on_banner_loaded"))
+		_connect_native(&"_on_banner_failed_to_load", Callable(self, "_on_banner_failed_to_load"))
 	_connect_native(&"_on_interstitial_loaded", Callable(self, "_on_interstitial_loaded"))
 	_connect_native(
 		&"_on_interstitial_failed_to_load",
@@ -244,38 +385,59 @@ func show_banner() -> void:
 		trace_banner("show_dropped_before_initialize")
 		return
 	_banner_wanted = true
+	if _banner_resume_pending:
+		_update_banner_processing()
+		return
+	if _banner_backgrounded or !_banner_focused:
+		_banner_resume_pending = true
+		_update_banner_processing()
+		return
 	if !is_native_available() or !_sdk_ready:
 		trace_banner("show_queued_waiting_sdk")
 		return
-	if _banner_loaded:
+	if !_banner_loading and !_banner_request_id.is_empty():
 		trace_banner("native_show_cached")
 		_native.showBanner()
 		return
-	load_banner()
+	load_banner(true)
 
 func hide_banner() -> void:
 	_banner_wanted = false
 	trace_banner("hide_called")
 	if is_native_available():
 		_native.hideBanner()
+	_update_banner_processing()
 
-func load_banner() -> void:
-	if !is_native_available() or !_sdk_ready or banner_id.is_empty() or _banner_loading:
+func load_banner(allow_cooldown_probe: bool = false) -> void:
+	if !_banner_can_request() or _banner_resume_pending or banner_id.is_empty() or !_banner_request_id.is_empty() or _banner_retry_remaining > 0.0:
 		trace_banner("load_skipped", {"empty_unit": banner_id.is_empty()})
+		_update_banner_processing()
 		return
+	if _banner_recovery_count > BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts"):
+		if !allow_cooldown_probe or _banner_probe_after_ms < 0 or _banner_probe_now_ms() < _banner_probe_after_ms:
+			trace_banner("load_blocked_probe_cooldown")
+			return
+		# Keep the exhausted budget: this authorizes one probe, not a new retry chain.
+		_banner_probe_after_ms = -1
 	_banner_loading = true
 	_banner_loaded = false
+	_banner_load_remaining = _banner_timing("load_timeout_seconds")
+	_banner_request_serial += 1
+	_banner_request_id = str(_banner_request_serial)
 	_banner_diag_load_started_ms = Time.get_ticks_msec()
 	trace_banner("native_load", {"width_dp": banner_width_dp, "height_dp": banner_height_dp})
-	_native.loadBanner(banner_id, banner_on_top, banner_width_dp, banner_height_dp)
+	if _banner_tagged_bridge:
+		_native.loadBannerForRequest(_banner_request_id, banner_id, banner_on_top, banner_width_dp, banner_height_dp)
+	else:
+		_native.loadBanner(banner_id, banner_on_top, banner_width_dp, banner_height_dp)
+	_update_banner_processing()
 
 func remove_banner() -> void:
 	trace_banner("remove_called")
 	_banner_wanted = false
-	_banner_loading = false
-	_banner_loaded = false
-	if is_native_available():
-		_native.removeBanner()
+	_banner_recovery_count = 0
+	_banner_probe_after_ms = -1
+	_reset_banner_request()
 
 func get_banner_dimension() -> Vector2:
 	if !is_native_available():
@@ -490,6 +652,8 @@ func set_user_consent(value: bool) -> void:
 	# Never show a cached ad loaded with the previous choice. Do not revoke
 	# reward callbacks for an already shown ad: earned rewards remain valid.
 	_discard_banner_load = _banner_loading
+	_banner_recovery_count = 0
+	_banner_probe_after_ms = -1
 	_discard_interstitial_load = _interstitial_loading
 	_discard_rewarded_load = _rewarded_loading
 	_banner_loaded = false
@@ -497,7 +661,7 @@ func set_user_consent(value: bool) -> void:
 	_rewarded_loaded = false
 	_native.hideBanner()
 	if !_banner_loading:
-		_native.removeBanner()
+		_reset_banner_request()
 		if _banner_wanted:
 			load_banner()
 	if !_interstitial_loading:
@@ -506,9 +670,7 @@ func set_user_consent(value: bool) -> void:
 		load_rewarded_video()
 
 func _finish_discarded_banner_load() -> void:
-	_discard_banner_load = false
-	_banner_loaded = false
-	_native.removeBanner()
+	_reset_banner_request()
 	if _banner_wanted:
 		load_banner()
 
@@ -530,6 +692,16 @@ func _on_sdk_initialized() -> void:
 		load_interstitial()
 	else:
 		prepare_interstitial_placement(&"word_success")
+	_update_banner_processing()
+
+func _on_banner_loaded_for_request(request_id: String) -> void:
+	if request_id == _banner_request_id and !_banner_request_id.is_empty():
+		_on_banner_loaded()
+
+func _on_banner_failed_for_request(request_id: String, error_code: int) -> void:
+	# SDK auto-refresh may fail after the initial successful load as well.
+	if request_id == _banner_request_id and !_banner_request_id.is_empty():
+		_on_banner_failed_to_load(error_code)
 
 func _on_banner_loaded() -> void:
 	trace_banner("banner_loaded_callback")
@@ -538,13 +710,19 @@ func _on_banner_loaded() -> void:
 		_finish_discarded_banner_load()
 		return
 	_banner_loaded = true
+	_banner_retry_remaining = 0.0
+	_banner_recovery_count = 0
+	_banner_probe_after_ms = -1
 	analytics_event.emit("ad_load_result", {"ad_format": "banner", "status": "loaded"})
 	trace_banner("banner_visibility_after_load")
-	if _banner_wanted:
+	if _banner_wanted and _banner_can_request():
 		_native.showBanner()
 	else:
 		_native.hideBanner()
+		if _banner_wanted:
+			_banner_resume_pending = true
 	banner_loaded.emit(get_banner_dimension())
+	_update_banner_processing()
 
 func _on_banner_failed_to_load(error_code: int) -> void:
 	trace_banner("banner_failed_callback", {"error_code": error_code})
@@ -553,6 +731,12 @@ func _on_banner_failed_to_load(error_code: int) -> void:
 		_finish_discarded_banner_load()
 		return
 	_banner_loaded = false
+	_banner_load_remaining = 0.0
+	# The view remains alive: SDK auto-refresh owns ordinary load failures.
+	if error_code == -1:
+		# The native bridge could not create a view, so no SDK refresh can follow.
+		_replace_failed_banner_request("view_unavailable")
+	_update_banner_processing()
 	banner_failed_to_load.emit(error_code)
 	analytics_event.emit("ad_load_result", {"ad_format": "banner", "status": "failed", "error_code": error_code})
 

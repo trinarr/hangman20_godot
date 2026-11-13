@@ -2,6 +2,7 @@ package com.darkmoonight.godotandroidyandexads;
 
 import android.app.Activity;
 import android.graphics.Color;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
@@ -70,6 +71,8 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         signals.add(new SignalInfo("_on_sdk_initialized"));
 
         signals.add(new SignalInfo("_on_banner_loaded"));
+        signals.add(new SignalInfo("_on_banner_loaded_for_request", String.class));
+        signals.add(new SignalInfo("_on_banner_failed_for_request", String.class, Integer.class));
         signals.add(new SignalInfo("_on_ad_impression", String.class, String.class, String.class));
         signals.add(new SignalInfo("_on_interstitial_shown_for_request", String.class));
         signals.add(new SignalInfo("_on_interstitial_failed_for_request", String.class, String.class));
@@ -153,12 +156,13 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         return null;
     }
 
-    private void createBanner(String adUnitId, boolean onTop, int widthDp, int heightDp) {
+    private void createBanner(String requestId, String adUnitId, boolean onTop, int widthDp, int heightDp) {
         destroyBannerInternal();
         bannerParent = resolveContentRoot();
         if (bannerParent == null) {
             Log.e(TAG, "Android content root is not a FrameLayout");
             emitSignal("_on_banner_failed_to_load", -1);
+            emitSignal("_on_banner_failed_for_request", requestId, -1);
             return;
         }
 
@@ -166,7 +170,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         bannerAdView = new BannerAdView(activity);
         bannerAdView.setBackgroundColor(Color.TRANSPARENT);
         bannerAdView.setAdSize(bannerAdSize);
-        bannerAdView.setBannerAdEventListener(createBannerEventListener());
+        bannerAdView.setBannerAdEventListener(createBannerEventListener(bannerAdView, bannerAdSize, requestId));
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 bannerAdSize.getWidthInPixels(activity),
@@ -177,17 +181,18 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         bannerAdView.loadAd(new AdRequest.Builder(adUnitId).build());
     }
 
-    private BannerAdEventListener createBannerEventListener() {
+    private BannerAdEventListener createBannerEventListener(BannerAdView owner, BannerAdSize size, String requestId) {
         return new BannerAdEventListener() {
             @Override
             public void onAdLoaded() {
-                if (activity.isFinishing() || bannerAdView == null || bannerAdSize == null) {
+                if (bannerAdView != owner) { return; }
+                if (activity.isFinishing()) {
                     destroyBannerInternal();
                     return;
                 }
                 bannerLoaded = true;
-                bannerWidthPixels = bannerAdSize.getWidthInPixels(activity);
-                bannerHeightPixels = bannerAdSize.getHeightInPixels(activity);
+                bannerWidthPixels = size.getWidthInPixels(activity);
+                bannerHeightPixels = size.getHeightInPixels(activity);
                 final BannerAdView loadedView = bannerAdView;
                 final int widthPixels = bannerWidthPixels;
                 final int heightPixels = bannerHeightPixels;
@@ -200,23 +205,28 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
                     Log.d(TAG, "Banner loaded, requested size: " + bannerWidthPixels + "x" + bannerHeightPixels + " px");
                 }
                 emitSignal("_on_banner_loaded");
+                emitSignal("_on_banner_loaded_for_request", requestId);
             }
 
             @Override
             public void onAdFailedToLoad(AdRequestError error) {
+                if (bannerAdView != owner) { return; }
                 bannerLoaded = false;
                 Log.w(TAG, "Banner failed to load: code=" + error.getCode());
                 if (diagnosticLogging) Log.d(TAG, "Banner load details: " + error.getDescription());
                 emitSignal("_on_banner_failed_to_load", error.getCode());
+                emitSignal("_on_banner_failed_for_request", requestId, error.getCode());
             }
 
             @Override
             public void onAdClicked() {
+                if (bannerAdView != owner) { return; }
                 emitSignal("_on_banner_clicked");
             }
 
             @Override
             public void onImpression(ImpressionData impressionData) {
+                if (bannerAdView != owner) { return; }
                 emitSignal("_on_banner_impression");
                 if (impressionData != null) { emitSignal("_on_ad_impression", "", "banner", impressionData.getRawData()); }
             }
@@ -249,7 +259,12 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void loadBanner(String adUnitId, boolean onTop, int widthDp, int heightDp) {
-        activity.runOnUiThread(() -> createBanner(adUnitId, onTop, widthDp, heightDp));
+        loadBannerForRequest("", adUnitId, onTop, widthDp, heightDp);
+    }
+
+    @UsedByGodot
+    public void loadBannerForRequest(String requestId, String adUnitId, boolean onTop, int widthDp, int heightDp) {
+        activity.runOnUiThread(() -> createBanner(requestId, adUnitId, onTop, widthDp, heightDp));
     }
 
     @UsedByGodot
@@ -278,6 +293,11 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
     @UsedByGodot
     public boolean isBannerLoaded() {
         return bannerLoaded;
+    }
+
+    @UsedByGodot
+    public long getElapsedRealtimeMs() {
+        return SystemClock.elapsedRealtime();
     }
 
     @UsedByGodot

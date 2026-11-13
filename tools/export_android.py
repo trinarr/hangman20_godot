@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """Validate the selected store before exporting Android; --check-only needs no SDK."""
 import argparse
-import configparser
 import json
 from pathlib import Path
 import re
 import subprocess
 from prepare_startup_android import prepare as prepare_startup, verify_package
 from prepare_firebase_android import prepare as prepare_firebase, validate_config as validate_firebase_config
+from prepare_firebase_android import read_android_presets
+from prepare_yandex_android import prepare as prepare_yandex
 
 ROOT = Path(__file__).resolve().parents[1]
 STORES = {"rustore", "google_play"}
 
 
 def validate_store(root: Path, preset_name: str, debug: bool = False) -> str:
-    presets = configparser.ConfigParser(interpolation=None)
-    presets.read(root / "export_presets.cfg", encoding="utf-8")
+    presets = read_android_presets(root)
     selected = [section for section in presets.sections()
                 if re.fullmatch(r"preset\.\d+", section)
                 and presets[section].get("name", "").strip('"') == preset_name]
@@ -69,6 +69,10 @@ def main() -> int:
         return 0
     if args.output is None:
         parser.error("--output is required for export")
+    try:
+        prepare_yandex(ROOT / "android/build", check=True)
+    except (OSError, ValueError) as error:
+        parser.error(str(error) + "; run python tools/prepare_yandex_android.py")
     try:
         prepare_startup(ROOT / "android/build", check=True)
     except (OSError, ValueError) as error:

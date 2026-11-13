@@ -255,6 +255,13 @@ static func _validate_loaded_config() -> void:
 
 	var hint_fade_seconds: float = get_float("timings.animations.round_end.hints_fade_seconds")
 	var retry_base := get_float("timings.network_retry.base_seconds")
+	var banner_recovery: Dictionary = get_value("advertising.banner_recovery")
+	get_int_range("advertising.banner_recovery.maximum_recovery_attempts", 0, 10)
+	for key: String in ["load_timeout_seconds", "refresh_after_background_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"]:
+		if _require_numeric_field(banner_recovery, key, "advertising.banner_recovery") <= 0.0:
+			_fatal_config_error("Banner recovery timings must be positive")
+	if get_float("advertising.banner_recovery.retry_base_seconds") > get_float("advertising.banner_recovery.retry_maximum_seconds"):
+		_fatal_config_error("Banner recovery retry base must not exceed maximum")
 	var retry_maximum := get_float("timings.network_retry.maximum_seconds")
 	var retry_jitter := get_float("timings.network_retry.jitter_ratio")
 	if retry_base <= 0.0 or retry_maximum < retry_base or retry_jitter < 0.0 or retry_jitter > 0.5:

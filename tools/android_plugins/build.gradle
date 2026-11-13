@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.library' version '8.10.1' apply false
+    id 'com.android.library' version '8.13.2' apply false
 }
 buildDir = file('../../builds/android-plugins/root')
 subprojects {

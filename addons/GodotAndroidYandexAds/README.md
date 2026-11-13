@@ -26,6 +26,32 @@ The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by
 `project.godot`.
 
+Banner recovery belongs to this autoload. Long background periods invalidate
+cached and in-flight banners, including hidden ones; only a wanted banner loads
+a replacement. The SDK owns normal load errors and auto-refresh, so a success
+for the current view remains valid after a refresh error. Missing callbacks and
+native view creation failures trigger replacements with capped backoff and a
+finite recovery budget.
+After that budget is exhausted, the next `show_banner()` may start one probe
+once `probe_cooldown_seconds` has elapsed. Expiry alone makes no request and
+does not enable frame processing. A failed probe restarts cooldown; success
+restores the normal budget. The cooldown deadline uses a monotonic clock.
+Success, a long background period or a privacy change renews that budget; hiding
+and showing cannot bypass it. Processing waits for actual application focus,
+independent of fullscreen terminal callbacks, and is disabled when idle. JNI
+banner capabilities are cached at bridge binding. Parameters come from
+`advertising.banner_recovery` in the game-design config. Both bundled AARs
+expose `loadBannerForRequest` and tagged load callbacks; listeners also reject
+events from replaced views. Older bridges keep serialized untagged requests,
+without unsafe timeout replacement of a request still awaiting its callback.
+
+Android background age uses the bridge's `getElapsedRealtimeMs()` backed by
+`SystemClock.elapsedRealtime()`: it includes device sleep and is independent of
+calendar time changes. Capability detection is cached, and clock reads occur
+only when measuring lifecycle intervals. Desktop and older bridges fall back
+to monotonic engine ticks; sleep accounting on an older Android AAR is not
+guaranteed. Use both updated AARs for the Android clock path.
+
 Verbose diagnostics default to off. In debug exports, set
 `yandex_ads/logging_enabled=true` to enable BannerDiag, native bridge debug logs
 and Yandex SDK logging together. Release forces them off. Banner load failures

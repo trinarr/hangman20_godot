@@ -322,6 +322,14 @@ def main() -> None:
     for language in ("ru", "en"):
         path = f"tournament.filler_cis_ratio.{language}"
         require(require_number(resolve(config, path), path) <= 1, "Tournament filler ratio must be in 0..1")
+    banner = resolve(config, "advertising.banner_recovery")
+    require(require_int(banner["maximum_recovery_attempts"], "advertising.banner_recovery.maximum_recovery_attempts") <= 10,
+            "Banner recovery attempts must be in 0..10")
+    for key in ("load_timeout_seconds", "refresh_after_background_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"):
+        require(require_number(banner[key], f"advertising.banner_recovery.{key}") > 0,
+                "Banner recovery timings must be positive")
+    require(banner["retry_base_seconds"] <= banner["retry_maximum_seconds"],
+            "Banner recovery retry base must not exceed maximum")
     retry = resolve(config, "timings.network_retry")
     retry_base = require_number(retry["base_seconds"], "timings.network_retry.base_seconds")
     retry_maximum = require_number(retry["maximum_seconds"], "timings.network_retry.maximum_seconds")

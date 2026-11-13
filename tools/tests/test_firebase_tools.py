@@ -136,7 +136,9 @@ func run() -> void:
                 ("GodotAndroidYandexAds", [b"_on_ad_impression", b"showInterstitialForRequest",
                                           b"_on_rewarded_shown_for_request",
                                           b"_on_interstitial_shown_for_request", b"_on_interstitial_failed_for_request",
-                                          b"_on_interstitial_closed_for_request"]),
+                                          b"_on_interstitial_closed_for_request", b"loadBannerForRequest",
+                                          b"_on_banner_loaded_for_request", b"_on_banner_failed_for_request",
+                                          b"getElapsedRealtimeMs", b"elapsedRealtime"]),
             ]:
                 with self.subTest(variant=variant, addon=addon):
                     with zipfile.ZipFile(ROOT / f"addons/{addon}/bin/{variant}/{addon}-{variant}.aar") as archive:
