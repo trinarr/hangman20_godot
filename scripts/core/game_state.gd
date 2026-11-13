@@ -857,6 +857,26 @@ func get_player_name_change_cost(nickname: String) -> int:
 		return 0
 	return GAME_DESIGN.get_int("economy.profile_name_change_cost")
 
+# Capture only identity fields; unrelated progress must survive an editor rollback.
+func capture_player_profile_state() -> Dictionary:
+	return {
+		"nickname": player_name, "character_id": int(settings[5]), "frame_id": player_frame_id,
+		"custom": player_name_is_custom, "free_change_used": player_name_free_change_used,
+	}
+
+func restore_player_profile_state(previous: Dictionary, refund: int) -> void:
+	player_name = previous.nickname
+	settings[5] = int(previous.character_id)
+	player_frame_id = int(previous.frame_id)
+	player_name_is_custom = bool(previous.custom)
+	player_name_free_change_used = bool(previous.free_change_used)
+	soft_currency = clampi(soft_currency + refund, 0, MAX_CURRENCY_BALANCE)
+	save_game()
+	if refund > 0:
+		soft_currency_changed.emit(soft_currency)
+		_analytics_economy(refund, "coins", "coins", "profile_name_refund", false)
+	profile_changed.emit()
+
 func update_player_profile(nickname: String, character_id: int, frame_id: int, nickname_changed: bool = true) -> bool:
 	nickname = PLAYER_PROFILE.trim_name_spaces(nickname)
 	if !PLAYER_PROFILE.valid_custom_name(nickname) or character_id < 1 or character_id > 2 or frame_id < 1 or frame_id > PLAYER_PROFILE.FRAME_COLORS.size() or _save_batch_depth > 0:

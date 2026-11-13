@@ -590,19 +590,26 @@ func run() -> void:
 	await capture_editor_offer("saving")
 	profile_sync.answered.emit(false)
 	check(is_instance_valid(editor) and !editor._saving and !editor._closing and !editor.save_button.button_disabled, "Server failure leaves a retryable editor open")
-	check(editor.save_button.button_text == tr("PROFILE_SAVE").to_upper() and main._portrait_ad_toast.visible, "Server failure restores Save and uses the top status toaster")
+	check(editor._purchase_price.text == str(rename_cost) and main._portrait_ad_toast.visible, "Server failure restores the paid offer and uses the top status toaster")
 	for button_name: String in ["PreviousCharacter", "NextCharacter", "RandomizeProfileDraft"]:
 		check(!editor._form.get_node(button_name).button_disabled, "Server failure restores character/randomize controls")
 	for swatch: Button in editor._swatches:
 		check(!swatch.disabled, "Server failure restores all frame buttons")
 	check(nickname_edit.editable and !editor.close_button.button_disabled, "Server failure restores editing and manual closing")
 
-	check(GameState.soft_currency == 0, "The paid rename is charged only by its durable local commit")
+	check(GameState.get_player_profile() == old_profile and GameState.soft_currency == rename_cost, "Server failure restores identity and refunds the rename while keeping the draft")
+	check(nickname_edit.text == committed_name, "Failed save retains the edited nickname for retry")
 	await get_tree().create_timer(0.2).timeout
 	await capture_editor_offer("save-error")
+	editor.save_button.pressed.emit()
+	check(editor._saving and GameState.soft_currency == 0 and profile_sync.calls == 2, "Retry in the same popup charges the refunded price")
+	profile_sync.answered.emit(false)
+	check(!editor._saving and GameState.soft_currency == rename_cost and GameState.get_player_profile() == old_profile, "Repeated failure refunds immediately and restores identity again")
 	editor.close()
 	await get_tree().create_timer(0.3).timeout
-	check(!is_instance_valid(editor), "Failed server save can be closed before retry")
+	check(!is_instance_valid(editor) and GameState.get_player_profile() == old_profile, "Closing a failed save keeps the original profile")
+	GameState.load_game()
+	check(GameState.get_player_profile() == old_profile and GameState.soft_currency == rename_cost, "Original identity and refund survive reload after closing")
 	# Inject the same service before _ready, as a new popup uses the surviving autoload.
 	editor = player_body.EDITOR.new()
 	editor.host = main
@@ -612,12 +619,17 @@ func run() -> void:
 	player_body._editor = editor
 	player_body.add_child(editor)
 	await get_tree().create_timer(0.65).timeout
-	check(!editor.save_button.button_disabled and editor.nickname.get_line_edit().text == committed_name, "Reopened editor restores Retry for the locally saved, unconfirmed profile")
-	check(profile_sync.calls == 1 and GameState.soft_currency == 0, "Reopening neither sends the profile nor charges the rename again")
+	check(editor.nickname.get_line_edit().text == old_profile.nickname and editor.selected_character == int(old_profile.character_id) and editor._selected_color_index + 1 == int(old_profile.frame_id), "Reopening restores the original identity rather than the discarded draft")
+	check(profile_sync.calls == 2 and GameState.soft_currency == rename_cost, "Reopening does not submit or spend coins")
+	editor.nickname.get_line_edit().text = committed_name
+	editor.nickname.get_line_edit().text_changed.emit(committed_name)
+	editor.selected_character = committed_character
+	editor._select_color(committed_frame - 1)
+	editor._update_save_availability(committed_name)
 	await capture_editor_offer("save-reopened")
 	editor.save_button.pressed.emit()
 	editor.save_button.pressed.emit()
-	check(profile_sync.calls == 2 and GameState.soft_currency == 0, "Retry synchronizes the existing profile without charging again")
+	check(profile_sync.calls == 3 and GameState.soft_currency == 0, "Retry charges the refunded price once")
 	profile_sync.answered.emit(true)
 	await get_tree().create_timer(0.25).timeout
 	await settle()
@@ -901,6 +913,7 @@ func run() -> void:
 	var stale_sync := ProfileSyncMock.new()
 	add_child(stale_sync)
 	stale_editor.profile_service = stale_sync
+	var before_stale_save := GameState.get_player_profile()
 	stale_editor._switch_character()
 	stale_editor.save_button.pressed.emit()
 	check(stale_editor._saving, "Cancellation fixture starts an in-flight profile save")
@@ -908,7 +921,7 @@ func run() -> void:
 	await settle()
 	stale_sync.answered.emit(true)
 	await settle()
-	check(!is_instance_valid(stale_editor) and stale_avatar.visible, "Late success after editor destruction is harmless and restores its source avatar")
+	check(!is_instance_valid(stale_editor) and stale_avatar.visible and GameState.get_player_profile() == before_stale_save, "Editor destruction rolls back identity and ignores late success")
 	stale_sync.queue_free()
 	profile_sync.queue_free()
 	main.queue_free()

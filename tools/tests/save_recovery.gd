@@ -116,7 +116,12 @@ func run() -> void:
 	state._save_blocked_by_future_version = true
 	check(!state.update_player_profile("First name", 1, 1) and !state.player_name_free_change_used and state.player_name == "Original", "Failed free rename restores the free entitlement and nickname")
 	state._save_blocked_by_future_version = false
+	var free_profile: Dictionary = state.capture_player_profile_state()
 	check(state.update_player_profile("First name", 1, 1) and state.player_name_free_change_used and state.soft_currency == 0, "First actual nickname change is free with zero coins")
+	state.restore_player_profile_state(free_profile, 0)
+	state.load_game()
+	check(state.player_name == "Original" and !state.player_name_free_change_used and state.player_name_is_custom == bool(free_profile.custom), "Rejected free rename restores durable identity and free entitlement")
+	check(state.update_player_profile("First name", 1, 1), "Free rename can be retried after rollback")
 	var rename_cost: int = state.GAME_DESIGN.get_int("economy.profile_name_change_cost")
 	check(state.get_player_name_change_cost("Second name") == rename_cost and state.get_player_name_change_cost("First name") == 0, "Only a different nickname has the configured repeat price")
 	var before_paid: Dictionary = state.get_player_profile()
