@@ -2,6 +2,20 @@ extends SceneTree
 # Run only with an isolated user:// directory (tools/run_reward_tests.py).
 var failures: Array[String] = []
 var checks: int = 0
+class SuffixSyncMock extends Node:
+	var calls := 0
+	var pending := false
+	func sync_profile_and_wait() -> bool:
+		calls += 1
+		if calls == 1:
+			get_node("/root/GameState").apply_server_player_id("17")
+			pending = true
+		else:
+			pending = false
+		return true
+	func has_pending_profile_sync() -> bool:
+		return pending
+
 var state: Node
 
 func _initialize() -> void:
@@ -106,7 +120,7 @@ func run() -> void:
 		check(migrated_name.save_version == state.SAVE_FORMAT_VERSION and migrated_name.player_name_free_change_used == custom and migrated_name.soft_currency == 123, "Migration records whether an existing player already chose a manual nickname")
 	var legacy_rewards: Dictionary = {"save_version":7, "soft_currency":123, "single_player":{"ru":{"levels":{"1":[1, 0]}}}}
 	var migrated_rewards: Dictionary = state._migrate_save_payload(legacy_rewards)
-	check(migrated_rewards.save_version == 8 and migrated_rewards.soft_currency == 123 and migrated_rewards.single_player.ru.stage_coin_rewards.is_empty(), "Stage-credit migration preserves balance and initializes an empty history")
+	check(migrated_rewards.save_version == state.SAVE_FORMAT_VERSION and migrated_rewards.soft_currency == 123 and migrated_rewards.single_player.ru.stage_coin_rewards.is_empty(), "Stage-credit migration preserves balance and initializes an empty history")
 	check(migrated_rewards.single_player.ru.levels == legacy_rewards.single_player.ru.levels and !legacy_rewards.single_player.ru.has("stage_coin_rewards"), "Stage-credit migration preserves progress and leaves the legacy source unchanged")
 	state.player_name = "Original"
 	state.player_name_free_change_used = false
@@ -147,6 +161,62 @@ func run() -> void:
 	check(!state.update_player_profile("OtherPlayer", 1, 1) and state.get_player_profile() == original_profile, "Failed profile write rolls back all three fields")
 	state._save_blocked_by_future_version = false
 	check(!state.update_player_profile("A", 1, 1) and !state.update_player_profile("Player", 3, 1) and !state.update_player_profile("Player", 1, 0), "Profile rejects invalid name and appearance IDs")
+	var v8: Dictionary = state._migrate_save_payload({"save_version": 8, "player_name": "BeforeCrash", "soft_currency": 125})
+	check(v8.save_version == 9 and v8.pending_profile_update.is_empty() and v8.soft_currency == 125, "Migration 8 to 9 adds an empty profile transaction without changing balance")
+	var transaction_profile: Dictionary = state.capture_player_profile_state()
+	var transaction_balance: int = state.soft_currency
+	var transaction_id: String = state.begin_player_profile_update("Pending name", 1, 1)
+	check(!transaction_id.is_empty() and !state._read_save_dictionary(state.SAVE_PATH).get("pending_profile_update", {}).is_empty(), "Profile mutation and rollback checkpoint are durable in one save")
+	check(!state.update_player_profile("External", 2, 2), "An external profile update cannot overwrite an in-flight transaction")
+	state.cancel_player_profile_update(transaction_id)
+	check(state.get_player_profile().nickname == transaction_profile.nickname and state.soft_currency == transaction_balance, "Cancellation restores identity and refunds exactly once")
+	var newer_id: String = state.begin_player_profile_update("Newer name", 2, 2)
+	check(!state.complete_player_profile_update(transaction_id, true) and state.player_name == "Newer name", "Late acknowledgement cannot commit or cancel a newer operation")
+	state.cancel_player_profile_update(transaction_id)
+	state.cancel_player_profile_update(newer_id)
+	check(state.soft_currency == transaction_balance, "Old cancellation cannot refund the newer transaction twice")
+	state.player_name_free_change_used = false
+	state.player_name_is_custom = false
+	check(state.save_game(), "Free crash fixture is durable")
+	var original_free_name: String = state.player_name
+	check(!state.begin_player_profile_update("Free pending", 1, 1).is_empty(), "Free change also records its pending operation")
+	state.load_game()
+	check(state.player_name == original_free_name and !state.player_name_free_change_used and !state.player_name_is_custom and state._pending_profile_update.is_empty(), "Reload restores free entitlement and identity before network startup")
+	state.load_game()
+	check(state.player_name == original_free_name and state.soft_currency == transaction_balance, "A second recovery cannot refund again")
+	state.player_name_free_change_used = true
+	check(state.save_game(), "Confirmed paid-rename fixture is durable")
+	var confirmed_id: String = state.begin_player_profile_update("Confirmed", 2, 5)
+	check(!confirmed_id.is_empty() and state.complete_player_profile_update(confirmed_id, true), "Server acknowledgement durably clears the rollback checkpoint")
+	var confirmed_balance: int = state.soft_currency
+	state.load_game()
+	check(state.player_name == "Confirmed" and state.soft_currency == confirmed_balance and state._pending_profile_update.is_empty(), "Confirmed profile survives reload without a refund")
+	var rejected_id: String = state.begin_player_profile_update("Rejected", 1, 1)
+	check(!rejected_id.is_empty(), "Commit-write failure fixture starts a paid transaction")
+	state._save_blocked_by_future_version = true
+	check(!state.complete_player_profile_update(rejected_id, true) and state.player_name == "Confirmed" and state.soft_currency == confirmed_balance, "A failed acknowledgement write rolls back profile and payment")
+	state._save_blocked_by_future_version = false
+	state.load_game()
+	check(state.player_name == "Confirmed" and state.soft_currency == confirmed_balance, "Recovery of a failed commit write cannot double the refund")
+	state.player_name = "AutoBase"
+	state.player_name_base = "AutoBase"
+	state.player_name_server_id = ""
+	state.player_name_is_custom = false
+	state.guided_onboarding_completed = true
+	state.accepted_legal_documents_version = state.LEGAL_DOCUMENTS_VERSION
+	check(state.save_game(), "Automatic-suffix transaction fixture is durable")
+	var sync := SuffixSyncMock.new()
+	var owner := Node.new()
+	root.add_child(sync)
+	root.add_child(owner)
+	var suffix_saved: bool = await state.save_player_profile_and_wait("AutoBase", 1, 1, false, sync, owner)
+	check(suffix_saved and sync.calls == 2 and state.player_name == "AutoBase17", "A server-added suffix must itself be acknowledged before commit")
+	state.load_game()
+	check(state.player_name == "AutoBase17" and state._pending_profile_update.is_empty(), "Acknowledged automatic suffix survives reload")
+	sync.queue_free()
+	owner.queue_free()
+	var malformed_checkpoint: Dictionary = {"pending_profile_update": {"version": 1, "id": "bad", "previous": state.capture_player_profile_state(), "refund": -1}, "soft_currency": 123, "player_name": "KeepMe", "progress": {"keep": true}}
+	check(state._recover_pending_profile_update(malformed_checkpoint) and malformed_checkpoint.soft_currency == 123 and malformed_checkpoint.player_name == "KeepMe" and malformed_checkpoint.progress.keep, "Malformed checkpoint cannot invent a refund or discard unrelated state")
 	reset()
 	var current_migrated: Dictionary = state._migrate_save_payload(current_payload)
 	check(
@@ -197,8 +267,13 @@ func prepare_restart() -> void:
 	state.set_word_language("en")
 	state.soft_currency = 125
 	state.player_name_free_change_used = true
+	state.player_name = "BeforeCrash"
+	state.player_name_is_custom = true
+	state.settings[5] = 1
+	state.player_frame_id = 4
 	check(state.save_game(), "Restart fixture saves latest balance")
 	write_json("user://restart_test.json", {"request":request})
+	check(!state.begin_player_profile_update("Unconfirmed", 2, 2).is_empty(), "Crash fixture persists unconfirmed profile and its paid rollback checkpoint")
 	# Simulate interruption after primary removal: no further GameState writes.
 	check(DirAccess.rename_absolute(
 		ProjectSettings.globalize_path(state.SAVE_PATH),
@@ -207,7 +282,8 @@ func prepare_restart() -> void:
 
 func verify_restart() -> void:
 	# Do not call load_game: these values must come from autoload in a new process.
-	check(state.get_soft_currency() == 125, "Fresh process recovers newest temporary save")
+	check(state.get_soft_currency() == 125, "Fresh process recovers newest temporary save and refunds the unconfirmed rename")
+	check(state.player_name == "BeforeCrash" and state.settings[5] == 1 and state.player_frame_id == 4 and state._pending_profile_update.is_empty(), "A fresh engine process restores the original profile before autoload services")
 	check(state.word_language == "en", "Fresh process restores selected language")
 	check(state.player_name_free_change_used and state.get_player_name_change_cost("Restart rename") == state.GAME_DESIGN.get_int("economy.profile_name_change_cost"), "Fresh process cannot reuse the free nickname change")
 	var request: String = str(state._read_save_dictionary("user://restart_test.json").get("request", ""))

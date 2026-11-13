@@ -23,7 +23,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 8
+const SAVE_FORMAT_VERSION: int = 9
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -177,6 +177,7 @@ var player_name: String = ""
 var player_frame_id: int = PLAYER_PROFILE.DEFAULT_FRAME_ID
 var player_name_is_custom := false
 var player_name_free_change_used := false
+var _pending_profile_update: Dictionary = {}
 var player_name_base := ""
 var player_name_server_id := ""
 var soft_currency: int = DEFAULT_SOFT_CURRENCY
@@ -425,6 +426,10 @@ func load_game() -> void:
 		if !loaded_from_recovery:
 			return
 
+	if _recover_pending_profile_update(parsed):
+		save_needs_rewrite = true
+	_pending_profile_update = {}
+
 	word_language = _normalize_language(str(parsed.get("word_language", word_language)))
 	accepted_legal_documents_version = maxi(
 		int(parsed.get("accepted_legal_documents_version", 0)),
@@ -576,6 +581,10 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 					if bucket is Dictionary:
 						bucket["stage_coin_rewards"] = {}
 			_payload["save_version"] = 8
+			return true
+		8:
+			_payload["pending_profile_update"] = {}
+			_payload["save_version"] = 9
 			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
@@ -732,6 +741,7 @@ func _home_profile_save_game() -> bool:
 		"player_frame_id": player_frame_id,
 		"player_name_is_custom": player_name_is_custom,
 		"player_name_free_change_used": player_name_free_change_used,
+		"pending_profile_update": _pending_profile_update,
 		"player_name_base": player_name_base,
 		"player_name_server_id": player_name_server_id,
 		"profile_statistics": profile_statistics,
@@ -862,6 +872,7 @@ func capture_player_profile_state() -> Dictionary:
 	return {
 		"nickname": player_name, "character_id": int(settings[5]), "frame_id": player_frame_id,
 		"custom": player_name_is_custom, "free_change_used": player_name_free_change_used,
+		"base_name": player_name_base, "server_id": player_name_server_id,
 	}
 
 func restore_player_profile_state(previous: Dictionary, refund: int) -> void:
@@ -870,6 +881,8 @@ func restore_player_profile_state(previous: Dictionary, refund: int) -> void:
 	player_frame_id = int(previous.frame_id)
 	player_name_is_custom = bool(previous.custom)
 	player_name_free_change_used = bool(previous.free_change_used)
+	player_name_base = str(previous.get("base_name", player_name_base))
+	player_name_server_id = str(previous.get("server_id", player_name_server_id))
 	soft_currency = clampi(soft_currency + refund, 0, MAX_CURRENCY_BALANCE)
 	save_game()
 	if refund > 0:
@@ -877,7 +890,99 @@ func restore_player_profile_state(previous: Dictionary, refund: int) -> void:
 		_analytics_economy(refund, "coins", "coins", "profile_name_refund", false)
 	profile_changed.emit()
 
+# Owns the durable operation, payment and owner lifetime; UI only supplies a draft.
+func begin_player_profile_update(nickname: String, character_id: int, frame_id: int, nickname_changed: bool = true) -> String:
+	if !_pending_profile_update.is_empty():
+		return ""
+	var identifier := "%d_%d" % [Time.get_ticks_usec(), randi()]
+	_pending_profile_update = {"version": 1, "id": identifier,
+		"previous": capture_player_profile_state(), "refund": get_player_name_change_cost(nickname)}
+	if !_commit_player_profile(nickname, character_id, frame_id, nickname_changed):
+		_pending_profile_update = {}
+		return ""
+	return identifier
+
+func cancel_player_profile_update(identifier: String) -> void:
+	if _pending_profile_update.get("id", "") != identifier or identifier.is_empty():
+		return
+	var operation := _pending_profile_update
+	_pending_profile_update = {}
+	restore_player_profile_state(operation.previous, int(operation.refund))
+
+func complete_player_profile_update(identifier: String, success: bool) -> bool:
+	if _pending_profile_update.get("id", "") != identifier or identifier.is_empty():
+		return false
+	if success:
+		var operation := _pending_profile_update
+		_pending_profile_update = {}
+		if save_game():
+			return true
+		_pending_profile_update = operation
+	cancel_player_profile_update(identifier)
+	return false
+
+func save_player_profile_and_wait(nickname: String, character_id: int, frame_id: int,
+	nickname_changed: bool, service: Node, owner: Node) -> bool:
+	var current := get_player_profile()
+	if PLAYER_PROFILE.trim_name_spaces(nickname) == current.nickname and character_id == int(current.character_id) and frame_id == int(current.frame_id):
+		return await service.sync_profile_and_wait()
+	var identifier := begin_player_profile_update(nickname, character_id, frame_id, nickname_changed)
+	if identifier.is_empty():
+		return false
+	var owner_ref: WeakRef = weakref(owner)
+	var cancel: Callable = cancel_player_profile_update.bind(identifier)
+	owner.tree_exiting.connect(cancel, CONNECT_ONE_SHOT)
+	var success: bool = await service.sync_profile_and_wait()
+	# A bootstrap acknowledgement may append the automatic server suffix. Wait
+	# for that resulting profile too, rather than committing an unconfirmed name.
+	while success and _pending_profile_update.get("id", "") == identifier and service.has_pending_profile_sync():
+		success = await service.sync_profile_and_wait()
+	var surviving_owner: Node = owner_ref.get_ref()
+	if is_instance_valid(surviving_owner) and surviving_owner.tree_exiting.is_connected(cancel):
+		surviving_owner.tree_exiting.disconnect(cancel)
+	return complete_player_profile_update(identifier, success)
+
+func _recover_pending_profile_update(payload: Dictionary) -> bool:
+	var raw: Variant = payload.get("pending_profile_update", {})
+	if !(raw is Dictionary) or raw.is_empty():
+		return false
+	# A malformed optional checkpoint must not invent a refund or discard progress.
+	payload["pending_profile_update"] = {}
+	var previous: Variant = raw.get("previous")
+	var refund: Variant = raw.get("refund")
+	if raw.get("version") != 1 or !(raw.get("id") is String) or str(raw.id).is_empty() \
+		or !(previous is Dictionary) or !(refund is int or refund is float):
+		return true
+	if !_profile_checkpoint_integer(refund, 0, MAX_CURRENCY_BALANCE):
+		return true
+	# This is a rollback snapshot, not new nickname input: retain legacy/empty names.
+	if !(previous.get("nickname") is String) or str(previous.nickname).length() > PLAYER_PROFILE.NAME_MAX_LENGTH \
+		or !_profile_checkpoint_integer(previous.get("character_id"), 1, 2) \
+		or !_profile_checkpoint_integer(previous.get("frame_id"), 1, PLAYER_PROFILE.FRAME_COLORS.size()) \
+		or !(previous.get("custom") is bool) or !(previous.get("free_change_used") is bool):
+		return true
+	payload["player_name"] = previous.nickname
+	payload["player_frame_id"] = int(previous.frame_id)
+	payload["player_name_is_custom"] = previous.custom
+	payload["player_name_free_change_used"] = previous.free_change_used
+	payload["player_name_base"] = str(previous.get("base_name", payload.get("player_name_base", "")))
+	payload["player_name_server_id"] = str(previous.get("server_id", payload.get("player_name_server_id", "")))
+	var recovered_settings: Array = _normalize_settings(payload.get("settings", settings))
+	recovered_settings[5] = int(previous.character_id)
+	payload["settings"] = recovered_settings
+	payload["soft_currency"] = clampi(int(payload.get("soft_currency", DEFAULT_SOFT_CURRENCY)) + int(refund), 0, MAX_CURRENCY_BALANCE)
+	return true
+
+func _profile_checkpoint_integer(value: Variant, minimum: int, maximum: int) -> bool:
+	return (value is int or value is float) and is_finite(float(value)) \
+		and float(value) == floorf(float(value)) and float(value) >= minimum and float(value) <= maximum
+
 func update_player_profile(nickname: String, character_id: int, frame_id: int, nickname_changed: bool = true) -> bool:
+	if !_pending_profile_update.is_empty():
+		return false
+	return _commit_player_profile(nickname, character_id, frame_id, nickname_changed)
+
+func _commit_player_profile(nickname: String, character_id: int, frame_id: int, nickname_changed: bool = true) -> bool:
 	nickname = PLAYER_PROFILE.trim_name_spaces(nickname)
 	if !PLAYER_PROFILE.valid_custom_name(nickname) or character_id < 1 or character_id > 2 or frame_id < 1 or frame_id > PLAYER_PROFILE.FRAME_COLORS.size() or _save_batch_depth > 0:
 		return false

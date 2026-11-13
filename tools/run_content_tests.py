@@ -39,6 +39,7 @@ SUITES = {
     "easy_quiz_expansion": (False, r'EASY_QUIZ_EXPANSION checks=[1-9]\d* failures=0'),
     "supported_game_modes": (False, None),
     "portrait_stage_reward": (True, None),
+    "stage_screen_cover_render": (True, None),
     "portrait_round_result": (True, None),
     "portrait_popup_component": (True, None),
     "letter_feedback_sequence": (True, None),
@@ -76,7 +77,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot")
     parser.add_argument("--suite", choices=["all", *SUITES], default="all")
-    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window instead of the headless dummy renderer")
+    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window (automatic for stage_screen_cover_render)")
     args = parser.parse_args()
     executable = shutil.which(args.godot)
     if executable is None:
@@ -84,14 +85,15 @@ def main():
     failed = []
     selected = list(SUITES) if args.suite == "all" else [args.suite]
     for name in selected:
+        use_gpu = args.gpu or name == "stage_screen_cover_render"
         scene, summary = SUITES[name]
         path = f"res://tools/tests/{name}.{'tscn' if scene else 'gd'}"
         arguments = [path] if scene else ["--script", path]
         with isolated_environment(executable, ROOT) as env:
-            if args.gpu:
+            if use_gpu:
                 env["HANGMAN_TEST_HIDE_WINDOW"] = "1"
             try:
-                result = run_godot(executable, ROOT, arguments, env, headless=not args.gpu)
+                result = run_godot(executable, ROOT, arguments, env, headless=not use_gpu)
             except subprocess.TimeoutExpired as error:
                 print(f"FAIL {name}: timeout", flush=True)
                 if error.stdout:

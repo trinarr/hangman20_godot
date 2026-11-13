@@ -2,6 +2,9 @@ extends "res://scripts/ui/portrait_reward_prize.gd"
 ## Large coin reward for a completed stage. Receives amount and frame controls.
 ## Emits claim-peak and action intents; never grants or persists any reward.
 
+const SCREEN_COVER_TRANSITION = preload("res://scripts/ui/screen_cover_transition.gd")
+
+signal presentation_visible
 signal claim_peak(source: Control)
 signal double_requested
 signal continue_requested
@@ -14,6 +17,7 @@ var collect: Control
 var collect_hit: Button
 var _claim_emitted: bool = false
 var _transition_started: bool = false
+var _cover: Node
 var multiplier_meter: Control
 var _meter_enabled: bool = false
 var base_amount: int = 0
@@ -47,6 +51,8 @@ func _sync_final_reward_double_button_content(button: Control) -> void:
 
 func stop() -> void:
 	super.stop()
+	if is_instance_valid(_cover):
+		_cover.cancel()
 	if is_instance_valid(multiplier_meter):
 		multiplier_meter.running = false
 	if is_instance_valid(prize):
@@ -324,8 +330,13 @@ func _replace_stage_reward(
 	):
 		return
 
-	if hero_texture != null and is_instance_valid(hero_texture):
-		hero_texture.pivot_offset = hero_texture.size * 0.5
+	if is_instance_valid(background_overlay):
+		_cover = SCREEN_COVER_TRANSITION.new()
+		background_overlay.add_child(_cover)
+		var sources: Array[Control] = [chain_holder]
+		if is_instance_valid(hero_texture):
+			sources.append(hero_texture)
+		_cover.prepare_live(background_overlay, sources)
 	var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
 		PORTRAIT_FINAL_REWARD_COIN_SIZE
 	)
@@ -335,67 +346,49 @@ func _replace_stage_reward(
 		transition_pack,
 		"stage_rect",
 		target_coin_rect,
-		PORTRAIT_FINAL_REWARD_REPLACE_DURATION
+		# Keep the prize moving until the background covers the live chain.
+		maxf(PORTRAIT_FINAL_REWARD_REPLACE_DURATION, PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION)
 	)
 	move_pack.set_trans(Tween.TRANS_LINEAR)
-	replace_tween.parallel().tween_property(
-		source_coin,
-		"modulate:a",
-		0.0,
-		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
-	)
-	# The chain's opacity owner also fades its count; avoid a second alpha on it.
+	# Keep the live chain under the incoming background; crossfade only the icon
+	# that becomes the flying prize, so it does not remain duplicated in its tile.
+	replace_tween.parallel().tween_property(FADE.branch(source_coin), "opacity", 0.0,
+		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION)
 	replace_tween.parallel().tween_property(
 		FADE.branch(transition_pack),
 		"opacity",
 		1.0,
 		PORTRAIT_FINAL_REWARD_ICON_CROSSFADE_DURATION
 	)
-	replace_tween.parallel().tween_property(
-		FADE.branch(chain_holder), "opacity",
-		0.0,
-		PORTRAIT_FINAL_REWARD_REPLACE_DURATION * 0.72
-	)
-	if hero_texture != null and is_instance_valid(hero_texture):
-		var hero_fade := replace_tween.parallel().tween_property(
-			hero_texture,
-			"modulate:a",
-			0.0,
-			PORTRAIT_FINAL_REWARD_REPLACE_DURATION
-		)
-		hero_fade.set_trans(Tween.TRANS_QUAD)
-		hero_fade.set_ease(Tween.EASE_IN)
-	if (
-		(background_overlay != null and is_instance_valid(background_overlay))
-		or (title_panel != null and is_instance_valid(title_panel))
-	):
-		var backdrop_tween := _tween(transition_pack)
-		backdrop_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		backdrop_tween.set_parallel(true)
-		if background_overlay != null and is_instance_valid(background_overlay):
-			var backdrop_fade := backdrop_tween.tween_property(
-				background_overlay,
-				"modulate:a",
-				1.0,
-				PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
-			)
-			backdrop_fade.set_trans(Tween.TRANS_SINE)
-			backdrop_fade.set_ease(Tween.EASE_IN_OUT)
-		if title_panel != null and is_instance_valid(title_panel):
-			backdrop_tween.tween_method(
-				Callable(self, "_set_panel_fill_color").bind(title_panel),
-				PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR,
-				PORTRAIT_BLUE,
-				PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION
-			)
-	replace_tween.finished.connect(_hide_replaced_reward_visuals.bind(chain_holder, hero_texture), CONNECT_ONE_SHOT)
-	replace_tween.finished.connect(Callable(self, "_reveal_stage_reward").bind(transition_pack, glow, amount_label, double_button, collect_holder, collect_button), CONNECT_ONE_SHOT)
+	if is_instance_valid(title_panel):
+		var title_tween := _tween(title_panel)
+		title_tween.tween_method(
+			Callable(self, "_set_panel_fill_color").bind(title_panel),
+			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR, PORTRAIT_BLUE,
+			PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION)
+	var backdrop_tween: Tween = null
+	if is_instance_valid(_cover):
+		backdrop_tween = _cover.reveal(PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION)
+	await replace_tween.finished
+	# Either duration may be longer. Never await a signal that already fired.
+	if backdrop_tween != null and backdrop_tween.is_valid() and backdrop_tween.is_running():
+		await backdrop_tween.finished
+	if _stopped or !is_inside_tree() or (is_instance_valid(_cover) and !_cover.complete):
+		return
+	_hide_replaced_reward_visuals(chain_holder, hero_texture)
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
+	if _stopped or !is_inside_tree() or !is_instance_valid(transition_pack) or !transition_pack.is_inside_tree():
+		return
+	presentation_visible.emit()
+	_reveal_stage_reward(transition_pack, glow, amount_label, double_button, collect_holder, collect_button)
 
 func _hide_replaced_reward_visuals(chain_holder: Control, hero_texture: TextureRect) -> void:
 	if _stopped or !is_inside_tree():
 		return
-	# Alpha-zero text groups still issue offscreen draw calls. These visuals are
-	# no longer used once the replacement has finished, so stop submitting them.
+	# Full background coverage has replaced the live source; stop its draw calls.
 	if is_instance_valid(chain_holder):
 		chain_holder.hide()
 	if is_instance_valid(hero_texture):

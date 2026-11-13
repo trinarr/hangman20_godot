@@ -52,6 +52,15 @@ static func get_array(path: String) -> Array:
 	var result: Array = value
 	return result.duplicate(true)
 
+static func single_stage_reward(word_count: int) -> Dictionary:
+	if word_count != get_int_range("economy.rewards.single_stage_level.stage_count", 1, 100):
+		return {}
+	var currency: String = str(get_value("economy.rewards.single_stage_level.currency"))
+	if currency not in ["coins", "stars"]:
+		_fatal_config_error("Invalid single-stage reward currency: %s" % currency)
+	return {"currency": currency,
+		"amount": get_int_range("economy.rewards.single_stage_level.amount", 1, get_int("economy.maximum_single_reward"))}
+
 static func _difficulty_streak_ranges(path: String, current_difficulty: float) -> Array:
 	var ranges: Array = get_array(path)
 	if ranges.is_empty():

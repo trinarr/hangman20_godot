@@ -205,7 +205,8 @@ func test_single_stage_unlock() -> void:
 	record_stage(true)
 	main._show_single_player_reward_chain_screen()
 	await settle()
-	main._continue_from_single_player_reward_chain()
+	check(is_instance_valid(main.content.find_child("StageCoinLargeReward", true, false)) and GameState.get_stars() == 100, "A configured single-stage unlock presents one coin prize without adding stars")
+	main._portrait_stage_reward.action.pressed.emit()
 	await get_tree().process_frame
-	check(is_instance_valid(main._home_logo_reveal) and get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).size() == 1, "A configured single-stage unlock also returns Home with an intro without a separate level prize")
+	check(is_instance_valid(main._home_logo_reveal) and get_tree().get_nodes_in_group(main.TOURNAMENT_START_POPUP.GROUP).size() == 1, "A configured single-stage unlock returns Home with an intro after its coin reward")
 	config.unlock_completed_levels = original_level

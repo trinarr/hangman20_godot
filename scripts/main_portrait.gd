@@ -18,6 +18,7 @@ const COMPOSITED_FADE = preload("res://scripts/ui/composited_fade.gd")
 var _portrait_leaderboard: Control
 
 
+const SCREEN_COVER_TRANSITION = preload("res://scripts/ui/screen_cover_transition.gd")
 const STAGE_REWARD_COMPONENT = preload("res://scripts/ui/portrait_stage_reward.gd")
 const TOURNAMENT_REWARD_COMPONENT = preload("res://scripts/ui/portrait_tournament_reward.gd")
 const TOURNAMENT_FINISH_POPUP = preload("res://scripts/ui/tournament_finish_popup.gd")
@@ -3979,6 +3980,16 @@ func _home_profile_resume_saved_single_player_level() -> void:
 						"single_player_stage_won",
 						true
 					))
+					# Unshown coin prizes must still be presented after restart. A receipt
+					# becomes skippable only after its first rendered prize frame.
+					if last_result_is_win and !stage_reward.is_empty() \
+						and str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS \
+						and !bool(stage_reward.get("presentation_started", false)) \
+						and !bool(stage_reward.get("claimed", false)) \
+						and !bool(stage_reward.get("double_resolved", true)):
+						_portrait_single_reward_resume_without_intro = true
+						_show_single_player_reward_chain_screen()
+						return
 					# A relaunched completed multi-stage level should stop on a fully settled
 					# reward-chain checkpoint instead of replaying any of the final-stage
 					# presentation. Resolve the durable stage reward before rebuilding the UI
@@ -6540,6 +6551,11 @@ func _stage_portrait_quiz_continue_button() -> Control:
 	continue_button.set("attention_bounce_enabled", false)
 	return continue_button
 
+func _finish_restored_quiz_cover(cover: Node, generation: int) -> void:
+	await cover.reveal(PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION).finished
+	if _quiz_entrance_is_current(generation) and !_quiz_answer_locked:
+		_mark_quiz_question_ready()
+
 func _quiz_entrance_is_current(generation: int) -> bool:
 	return generation == _quiz_entrance_generation and _quiz_screen_active
 
@@ -6562,7 +6578,8 @@ func _prepare_quiz_screen_entrance(
 	# while starting the quiz content immediately, without another backdrop wait.
 	var from_blue_home: bool = is_instance_valid(_home_transition) and _home_transition.get_script() == HOME_BLUE_TRANSITION_SCRIPT
 	quiz_background.set_meta(&"from_blue_home", from_blue_home)
-	quiz_background.modulate.a = 1.0 if from_blue_home else 0.0
+	if from_blue_home:
+		quiz_background.get_node("ScreenCoverTransition").finish()
 	if question_shadow != null and is_instance_valid(question_shadow):
 		question_shadow.set_meta(&"quiz_entrance_rest_y", question_shadow.position.y)
 		question_shadow.position.y -= panel_offset
@@ -6623,17 +6640,8 @@ func _play_quiz_screen_entrance(
 	if !bool(quiz_background.get_meta(&"from_blue_home", false)):
 		# Match the grand-prize reveal: the blue patterned backdrop fades in as one
 		# complete layer before any quiz content is introduced.
-		var background_tween := quiz_background.create_tween()
-		background_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		var backdrop_fade := background_tween.tween_property(
-			quiz_background,
-			"modulate:a",
-			1.0,
-			PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION
-		)
-		backdrop_fade.set_trans(Tween.TRANS_SINE)
-		backdrop_fade.set_ease(Tween.EASE_IN_OUT)
-		await background_tween.finished
+		var cover: Node = quiz_background.get_node("ScreenCoverTransition")
+		await cover.reveal(PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION).finished
 		if !_quiz_entrance_is_current(generation):
 			return
 	# The question card descends from above while fading in. Answers enter as a
@@ -6783,6 +6791,7 @@ func _home_profile_show_quiz_game_screen() -> void:
 	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
 		_leave_home(Callable(self, "_show_quiz_game_screen"), true)
 		return
+	var source_frame := _capture_reward_chain_frame()
 	Analytics.screen("quiz")
 	_clear()
 	_quiz_mode_active = true
@@ -6818,6 +6827,10 @@ func _home_profile_show_quiz_game_screen() -> void:
 		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
 		"QuizBackgroundGradient"
 	)
+
+	var quiz_cover := SCREEN_COVER_TRANSITION.new()
+	quiz_background.add_child(quiz_cover)
+	quiz_cover.prepare(quiz_background, source_frame)
 
 	# Keep the normal gameplay resource/header treatment, but omit the character,
 	# attempts counter and theme title entirely.
@@ -6943,8 +6956,7 @@ func _home_profile_show_quiz_game_screen() -> void:
 	_portrait_end_adaptive_group(answer_hint_group_content)
 	var should_animate_quiz_intro: bool = (
 		!_quiz_answer_locked
-		and !_quiz_fifty_fifty_used
-		and !_quiz_replace_question_used
+		and (quiz_cover.has_source or (!_quiz_fifty_fifty_used and !_quiz_replace_question_used))
 		and !_quiz_question_replacing
 	)
 	if should_animate_quiz_intro:
@@ -6956,8 +6968,12 @@ func _home_profile_show_quiz_game_screen() -> void:
 		)
 	else:
 		_quiz_entrance_generation += 1
+		if !quiz_cover.has_source:
+			quiz_cover.finish()
 	_restore_quiz_answer_result_state()
-	if !should_animate_quiz_intro and !_quiz_answer_locked:
+	if !should_animate_quiz_intro and quiz_cover.has_source:
+		_finish_restored_quiz_cover(quiz_cover, _quiz_entrance_generation)
+	elif !should_animate_quiz_intro and !_quiz_answer_locked:
 		if is_instance_valid(_home_transition) and _home_transition.get_script() == HOME_BLUE_TRANSITION_SCRIPT:
 			# A restored question with used hints skips the regular quiz intro.
 			# Its speed bonus clock must start only after Home stops covering it.
@@ -14736,10 +14752,7 @@ func _start_single_player_level_summary_transition_deferred(
 ) -> void:
 	# The closed chest uses the large-reward flight and bounce, then opens at the
 	# pressure peak together with its amount and payout callback.
-	if background_overlay != null and is_instance_valid(background_overlay):
-		# Match the quiz entrance: reveal the patterned blue destination backdrop
-		# through the same short sine fade instead of switching it on in one frame.
-		background_overlay.modulate.a = 0.0
+
 	if title_panel != null and is_instance_valid(title_panel):
 		var title_style := title_panel.get_theme_stylebox("panel") as StyleBoxFlat
 		if title_style != null:
@@ -14757,17 +14770,8 @@ func _start_single_player_level_summary_transition_deferred(
 		return
 
 	if background_overlay != null and is_instance_valid(background_overlay):
-		var backdrop_tween := background_overlay.create_tween()
-		backdrop_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		var backdrop_fade := backdrop_tween.tween_property(
-			background_overlay,
-			"modulate:a",
-			1.0,
-			PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION
-		)
-		backdrop_fade.set_trans(Tween.TRANS_SINE)
-		backdrop_fade.set_ease(Tween.EASE_IN_OUT)
-		await backdrop_tween.finished
+		var cover: Node = background_overlay.get_node("ScreenCoverTransition")
+		await cover.reveal(PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION).finished
 		if (
 			transition_prize == null
 			or !is_instance_valid(transition_prize)
@@ -14795,6 +14799,15 @@ func _start_single_player_level_summary_transition_deferred(
 	)
 	flight.set_trans(Tween.TRANS_LINEAR)
 	await flight_tween.finished
+
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
+	if !is_instance_valid(transition_prize) or !transition_prize.is_inside_tree():
+		return
+	if _portrait_reward_double_context == &"final":
+		GameState.mark_pending_single_player_reward_presented(true)
 
 	if use_chest_animation:
 		await _play_level_completion_chest_pressure_burst(
@@ -15365,10 +15378,9 @@ func _finish_single_player_stage_coin_reward_offer() -> void:
 			"single_player_total_count",
 			_single_player_level_word_count(level_index)
 		)), 1)
-		if word_count == 1:
-			# The only stage reward is already the level's complete reward flow.
-			# Finish immediately after No Thanks / rewarded x2: do not rebuild a
-			# whole-level reward screen or ask for another Continue press.
+		if word_count == 1 and GameState.get_pending_single_player_reward().is_empty():
+			# The single stage prize is the complete level reward. Earlier saves may
+			# still have a separate pending completion reward handled below.
 			GameState.clear_pending_single_player_reward(false)
 			_finish_completed_single_player_stage_result()
 			return
@@ -15949,10 +15961,6 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		is_level_summary
 		and maxi(int(pending_level_reward.get("amount", 0)), 0) > 0
 	)
-	if is_final_reward:
-		# From this point on, an interrupted app/session should finish the level
-		# instead of resurrecting the reward screen as Home -> Continue.
-		GameState.mark_pending_single_player_reward_presented(true)
 	var level_star_reward_amount: int = maxi(
 		int(pending_level_reward.get("stars_amount", 0)),
 		0
@@ -15973,11 +15981,6 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		and str(active_stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
 		and !bool(active_stage_reward.get("double_resolved", true))
 	)
-	if is_quiz_coin_reward:
-		# Mirror the durable main-reward presentation marker. Once the large stage
-		# coin reward starts presenting, a relaunch must continue from the chain
-		# rather than replaying this optional x2 screen.
-		GameState.mark_active_single_player_stage_reward_presented(true)
 	var resumed_final_chain_checkpoint: bool = bool(
 		last_result_data.get("single_player_resume_chain_checkpoint", false)
 	)
@@ -16016,6 +16019,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	if is_failure_reward and !final_stage_completed:
 		result_title_color = PORTRAIT_SINGLE_REWARD_FAILURE_TITLE_COLOR
 
+	var source_frame: Texture2D = _capture_reward_chain_frame() if is_level_summary else null
 	var keep_header_static: bool = resume_without_intro and is_level_summary
 	var retained_header: Dictionary = {}
 	if keep_header_static:
@@ -16153,6 +16157,11 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
 			"FinalRewardBackgroundGradient"
 		)
+		if is_level_summary:
+			var cover := SCREEN_COVER_TRANSITION.new()
+			final_reward_background_overlay.add_child(cover)
+			cover.prepare(final_reward_background_overlay, source_frame)
+
 	var masked_hero: Dictionary = {}
 	if !is_level_summary:
 		# Only stage results need the hero viewport and moving-title clip.
@@ -16421,8 +16430,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			int(pending_level_reward.get("amount", 0)),
 			0
 		)
-		# One-stage levels use the ordinary large-coin x2 presentation instead of
-		# the special completion chest. The whole-level bonus amount is unchanged.
+		# One-stage levels use the same large coin prize, without the completion chest.
 		var use_completion_chest: bool = word_count > 1
 		var prize_rect: Rect2 = _portrait_final_reward_center_rect(
 			(
@@ -16735,6 +16743,9 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	)
 
 func _continue_from_single_player_reward_chain() -> void:
+	var cover: Node = ui.find_child("ScreenCoverTransition", true, false)
+	if is_instance_valid(cover) and !cover.complete:
+		return
 	var level_index: int = int(last_result_data.get(
 		"single_player_level_index",
 		single_player_active_level_index
@@ -16751,11 +16762,9 @@ func _continue_from_single_player_reward_chain() -> void:
 		"single_player_total_count",
 		_single_player_level_word_count(level_index)
 	)), 1)
-	if level_completed and word_count == 1:
-		# Failed one-stage levels have no stage payout to enlarge, so their one
-		# existing Continue simply finishes the level. Successful one-stage levels
-		# normally leave through the large stage-reward x2 offer above.
-		GameState.clear_pending_single_player_reward(false)
+	if level_completed and word_count == 1 and GameState.get_pending_single_player_reward().is_empty():
+		# One-stage levels have no second prize. Keep the pending-reward route
+		# below for saves made with a separate completion reward.
 		_finish_completed_single_player_stage_result()
 		return
 	if level_completed and !showing_level_summary:
@@ -17412,6 +17421,7 @@ func _create_stage_reward_component(parent: Control, amount: int, source_rect: R
 	_portrait_stage_reward.name = "PortraitStageReward"
 	parent.add_child(_portrait_stage_reward)
 	_portrait_stage_reward.click_requested.connect(_play_ui_click_sound)
+	_portrait_stage_reward.presentation_visible.connect(GameState.mark_active_single_player_stage_reward_presented.bind(true))
 	_portrait_stage_reward.claim_peak.connect(_play_early_stage_coin_reward_claim)
 	_portrait_stage_reward.double_requested.connect(_on_final_reward_double_pressed)
 	_portrait_stage_reward.continue_requested.connect(_decline_single_player_stage_coin_reward_double)
@@ -17678,8 +17688,11 @@ func _close_tabbed_page(action: Callable) -> void:
 	# Destination construction calls _clear(), which resets this flag.
 	_tabbed_closing = true
 
-func _capture_tabbed_page_texture() -> Texture2D:
-	var frame: Image = get_viewport().get_texture().get_image()
-	if frame == null or frame.is_empty():
+func _capture_reward_chain_frame() -> Texture2D:
+	var chain: Control = ui.find_child("SinglePlayerRewardChain", true, false) as Control
+	if !is_instance_valid(chain) or !chain.is_visible_in_tree():
 		return null
-	return ImageTexture.create_from_image(frame)
+	return _capture_tabbed_page_texture()
+
+func _capture_tabbed_page_texture() -> Texture2D:
+	return SCREEN_COVER_TRANSITION.capture(get_viewport())

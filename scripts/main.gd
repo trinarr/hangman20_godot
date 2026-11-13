@@ -1451,10 +1451,13 @@ func _single_player_stage_is_quiz(level_index: int, word_slot: int) -> bool:
 func _single_player_stage_reward_currency(
 	level_index: int,
 	word_slot: int,
-	_word_count: int
+	word_count: int
 ) -> String:
-	# Hangman stages pay stars; embedded quiz stages are the only stage type
-	# that pays soft currency.
+	# A one-stage level has one coin prize. Longer levels pay word-stage stars
+	# and quiz-stage coins before their separate completion reward.
+	var single_stage: Dictionary = GameState.GAME_DESIGN.single_stage_reward(word_count)
+	if !single_stage.is_empty():
+		return str(single_stage.currency)
 	return (
 		GameState.STAGE_REWARD_COINS
 		if _single_player_stage_is_quiz(level_index, word_slot)
@@ -1464,8 +1467,11 @@ func _single_player_stage_reward_currency(
 func _single_player_stage_reward_amount(
 	level_index: int,
 	word_slot: int,
-	_word_count: int
+	word_count: int
 ) -> int:
+	var single_stage: Dictionary = GameState.GAME_DESIGN.single_stage_reward(word_count)
+	if !single_stage.is_empty():
+		return int(single_stage.amount)
 	if _single_player_stage_is_quiz(level_index, word_slot):
 		return maxi(
 			int(round(
@@ -1607,9 +1613,8 @@ func _single_player_mark_current_word_finished(
 			"reward_currency": stage_reward_currency,
 			"reward_amount": stage_reward_amount,
 			"reward_claimed": !is_win,
-			# Successful quiz stages offer x2 as usual. A one-stage level also uses
-			# that same large-reward offer, but for its stage reward itself: there is
-			# no separate whole-level completion bonus on such levels.
+			# Quiz stages and one-stage levels use the same coin-prize presentation.
+			# The one-stage prize is the complete level reward, without another bonus.
 			"reward_double_resolved": (
 				!is_win
 				or stage_reward_currency != GameState.STAGE_REWARD_COINS

@@ -322,17 +322,16 @@ func test_stage_rewards_and_ad_receipts() -> void:
 	record_stage(true)
 	main._show_single_player_reward_chain_screen()
 	await settle()
-	check(GameState.get_stars() == 100 + word_amount and GameState.get_soft_currency() == 100, "Single-stage word level pays stars, not coins")
-	check(GameState.begin_rewarded_double_request("stage_coin").is_empty() and GameState.get_pending_single_player_reward().is_empty(), "Star stage has neither a coin x2 offer nor a level-completion bonus")
+	check(GameState.get_stars() == 100 and GameState.get_soft_currency() == 100 + GameState.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount"), "One-stage word level pays its configured coin prize without stars")
+	check(GameState.get_active_single_player_stage_reward().currency == GameState.STAGE_REWARD_COINS and GameState.get_pending_single_player_reward().is_empty(), "One-stage coin prize has no additional completion reward")
 	# Relaunching after the large stage-coin reward has appeared skips that offer.
 	# The base payout is settled exactly once and Continue resumes on the chain.
 	await setup_level(1, [])
 	record_stage(true, false)
 	main._show_single_player_reward_chain_screen()
-	check(
-		GameState.get_active_single_player_stage_reward().get("presentation_started", false),
-		"Large stage reward did not persist its presentation marker"
-	)
+	check(!GameState.get_active_single_player_stage_reward().get("presentation_started", false), "A built but hidden prize is not presented")
+	await main._portrait_stage_reward.presentation_visible
+	check(GameState.get_active_single_player_stage_reward().get("presentation_started", false), "Rendered prize persists its presentation marker")
 	# Leave before the deferred pack bounce reaches the base-claim callback.
 	main.show_menu()
 	reload_save()

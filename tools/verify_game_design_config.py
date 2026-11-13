@@ -196,6 +196,13 @@ def validate_progression(config: dict[str, Any]) -> None:
         require(theme_id not in theme_ids, f"Duplicate theme ID: {theme_id}")
         theme_ids.add(theme_id)
 
+    single = require_dict(resolve(config, "economy.rewards.single_stage_level"), "economy.rewards.single_stage_level")
+    require(require_int(single.get("stage_count"), "single_stage_level.stage_count") == 1,
+            "single_stage_level must describe exactly one stage")
+    require(single.get("currency") in ("coins", "stars"), "single_stage_level currency must be coins or stars")
+    require(require_int(single.get("amount"), "single_stage_level.amount") > 0,
+            "single_stage_level amount must be positive")
+
     previous_level = 0
     milestones = require_list(resolve(config, "progression.theme_unlocks.milestones"), "progression.theme_unlocks.milestones")
     for index, raw in enumerate(milestones):

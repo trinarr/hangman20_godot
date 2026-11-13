@@ -55,8 +55,6 @@ var nickname: Control
 var save_button: Control
 var profile_service: Node
 var _saving := false
-var _previous_profile: Dictionary = {}
-var _rename_refund := 0
 var _save_input_states: Array[Dictionary] = []
 var _purchase_content: Control
 var _purchase_price: Label
@@ -457,21 +455,14 @@ func _save_draft() -> void:
 		if is_instance_valid(host) and is_instance_valid(host._portrait_ad_toast):
 			host._portrait_ad_toast.hide_message()
 		_set_saving(true)
-		var current := GameState.get_player_profile()
-		var unchanged := value == str(current.nickname) and selected_character == int(current.character_id) and _selected_color_index + 1 == int(current.frame_id)
-		var previous := GameState.capture_player_profile_state()
-		var cost := GameState.get_player_name_change_cost(value)
-		if !unchanged and !GameState.update_player_profile(value, selected_character, _selected_color_index + 1, _nickname_changed or value != GameState.player_name):
-			_finish_save(false)
-			return
-		if !unchanged:
-			_previous_profile = previous
-			_rename_refund = cost
 		var service: Node = profile_service if is_instance_valid(profile_service) else Leaderboard
-		_wait_for_profile_sync(weakref(self), service)
+		_wait_for_profile_sync(weakref(self), service, value, selected_character,
+			_selected_color_index + 1, _nickname_changed or value != GameState.player_name)
 
-static func _wait_for_profile_sync(editor_ref: WeakRef, service: Node) -> void:
-	var success: bool = await service.sync_profile_and_wait()
+static func _wait_for_profile_sync(editor_ref: WeakRef, service: Node, value: String,
+	character_id: int, frame_id: int, nickname_changed: bool) -> void:
+	var success: bool = await GameState.save_player_profile_and_wait(value, character_id,
+		frame_id, nickname_changed, service, editor_ref.get_ref())
 	var editor: Node = editor_ref.get_ref()
 	if is_instance_valid(editor) and editor.is_inside_tree() and !editor.is_queued_for_deletion() and !editor._closing:
 		editor._finish_save(success)
@@ -517,21 +508,7 @@ func _restore_save_inputs() -> void:
 			target.set(state.property, state.previous)
 	_save_input_states.clear()
 
-func _rollback_profile() -> void:
-	if _previous_profile.is_empty():
-		return
-	var previous := _previous_profile
-	var refund := _rename_refund
-	_previous_profile = {}
-	_rename_refund = 0
-	GameState.restore_player_profile_state(previous, refund)
-
 func _finish_save(success: bool) -> void:
-	if success:
-		_previous_profile = {}
-		_rename_refund = 0
-	else:
-		_rollback_profile()
 	_set_saving(false)
 	if success:
 		close()
@@ -723,7 +700,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		close()
 
 func _exit_tree() -> void:
-	_rollback_profile()
 	_stop_check_animation()
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
