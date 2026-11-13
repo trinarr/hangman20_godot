@@ -7,5 +7,6 @@ void vertex() {
 	VERTEX = icon_outline_vertex(VERTEX, UV, MODEL_MATRIX, CANVAS_MATRIX);
 }
 void fragment() {
-	COLOR = outlined_icon(TEXTURE, UV) * canvas_modulate;
+	#include "res://shaders/colored_icon_outline_fragment.gdshaderinc"
+	COLOR = icon_color * canvas_modulate;
 }

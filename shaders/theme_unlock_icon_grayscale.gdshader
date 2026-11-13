@@ -13,7 +13,8 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 source = outlined_icon(TEXTURE, UV);
+	#include "res://shaders/colored_icon_outline_fragment.gdshaderinc"
+	vec4 source = icon_color;
 	float luminance = dot(source.rgb, vec3(0.299, 0.587, 0.114));
 	vec3 neutral = vec3(luminance);
 	vec3 tinted = mix(shadow_tint.rgb, highlight_tint.rgb, luminance);

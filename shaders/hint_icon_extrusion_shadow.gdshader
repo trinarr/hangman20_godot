@@ -15,8 +15,9 @@ void vertex() {
 }
 
 void fragment() {
+	#include "res://shaders/colored_icon_outline_fragment.gdshaderinc"
 	// Preserve the authored edge coverage (the previous TEXTURE * COLOR applied
 	// texture alpha twice), but sample the texture explicitly only once.
-	float alpha = outlined_icon(TEXTURE, UV).a;
+	float alpha = icon_color.a;
 	COLOR = vec4(shadow_color.rgb, alpha * alpha * vertex_alpha * shadow_color.a);
 }

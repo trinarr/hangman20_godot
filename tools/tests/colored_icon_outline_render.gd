@@ -39,6 +39,7 @@ func run() -> void:
 		push_error("Outline pixel regression requires GPU")
 		get_tree().quit(1)
 		return
+	await check_shader_compatibility()
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(400, 400)
 	viewport.transparent_bg = true
@@ -89,6 +90,57 @@ func run() -> void:
 	await check_refill_popups()
 	print("COLORED_ICON_OUTLINE_RENDER checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func check_shader_compatibility() -> void:
+	# Retain the sampler-based implementation as a GPU pixel reference only.
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(192, 192)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(viewport)
+	var texture := Image.create(32, 24, false, Image.FORMAT_RGBA8)
+	texture.fill(Color.TRANSPARENT)
+	texture.fill_rect(Rect2i(0, 3, 21, 14), Color(0.8, 0.2, 0.1, 1.0))
+	texture.fill_rect(Rect2i(12, 8, 20, 16), Color(0.1, 0.6, 0.9, 0.4))
+	var icon := TextureRect.new()
+	icon.texture = ImageTexture.create_from_image(texture)
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.position = Vector2(48, 48)
+	icon.size = Vector2(64, 48)
+	viewport.add_child(icon)
+	for name: String in ["colored_icon_outline", "hint_icon_extrusion_shadow", "hint_icon_grayscale", "reward_chest_flash", "theme_unlock_icon_grayscale"]:
+		var shader := load("res://shaders/%s.gdshader" % name) as Shader
+		var reference := Shader.new()
+		reference.code = shader.code.replace("res://shaders/colored_icon_outline.gdshaderinc", "res://tools/tests/icon_outline_reference.gdshaderinc").replace(
+			'#include "res://shaders/colored_icon_outline_fragment.gdshaderinc"', "vec4 icon_color = outlined_icon(TEXTURE, UV);")
+		var current := ShaderMaterial.new()
+		current.shader = shader
+		var previous := ShaderMaterial.new()
+		previous.shader = reference
+		for outlined: bool in [false, true]:
+			for width: float in [0.0, 2.0, 5.0, 8.0]:
+				for material: ShaderMaterial in [current, previous]:
+					material.set_shader_parameter("colored_outline", outlined)
+					material.set_shader_parameter("outline_pixels", width)
+				for zoom: float in [0.5, 1.0, 1.4]:
+					icon.scale = Vector2.ONE * zoom
+					for opacity: float in [1.0, 0.5, 0.0, 1.0]:
+						icon.modulate = Color(0.7, 0.8, 0.9, opacity)
+						icon.material = previous
+						await frame()
+						var baseline := viewport.get_texture().get_image()
+						icon.material = current
+						await frame()
+						var actual := viewport.get_texture().get_image()
+						check(actual.get_data() == baseline.get_data(), "Headless-compatible %s matches GPU reference: outline=%s width=%s scale=%s opacity=%s" % [name, outlined, width, zoom, opacity])
+						check(actual.get_used_rect().has_area() == (opacity > 0.0), "Shader %s hides all pixels at zero and restores them afterwards" % name)
+						var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+						if !directory.is_empty() and outlined and width == 5.0 and zoom == 1.4 and opacity == 0.5:
+							baseline.save_png(directory.path_join("shader_reference_%s.png" % name))
+							actual.save_png(directory.path_join("shader_current_%s.png" % name))
+	viewport.queue_free()
+	await get_tree().process_frame
 
 func check_root_outline_pixels(texture: Texture2D) -> void:
 	var previous_size := get_window().size

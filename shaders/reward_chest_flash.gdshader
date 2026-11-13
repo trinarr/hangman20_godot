@@ -9,5 +9,6 @@ void vertex() {
 }
 
 void fragment() {
-	COLOR = vec4(vec3(1.0), outlined_icon(TEXTURE, UV).a) * canvas_modulate;
+	#include "res://shaders/colored_icon_outline_fragment.gdshaderinc"
+	COLOR = vec4(vec3(1.0), icon_color.a) * canvas_modulate;
 }
