@@ -1,7 +1,6 @@
 extends Control
 ## Profile tabs and the full settings page. Host retains existing action handlers.
 const PLAYER_PROFILE = preload("res://scripts/ui/portrait_player_profile.gd")
-const SETTINGS_SCROLL = preload("res://scripts/ui/profile_settings_scroll.gd")
 const TABS = preload("res://scripts/ui/tabbed_page_style.gd")
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const SETTINGS_TOP_PADDING := 20.0
@@ -60,7 +59,7 @@ func select_tab(tab: String) -> void:
 func _build_settings() -> void:
 	host.settings_toggle_buttons.clear()
 	host.settings_word_language_buttons.clear()
-	settings_scroll = SETTINGS_SCROLL.new()
+	settings_scroll = ProfileSettingsScroll.new()
 	settings_scroll.name = "ProfileSettingsScroll"
 	settings_scroll.content_origin_y = 206 - SETTINGS_TOP_PADDING
 	settings_scroll.content_height = 520 + SETTINGS_TOP_PADDING
@@ -103,3 +102,11 @@ func _layout() -> void:
 func _exit_tree() -> void:
 	if get_viewport() != null and get_viewport().size_changed.is_connected(_layout):
 		get_viewport().size_changed.disconnect(_layout)
+
+
+class ProfileSettingsScroll extends "res://scripts/ui/settings_scroll.gd":
+	## Full-page stage widgets already include the safe-top inset. Cancel it in
+	## the content origin because the scroll viewport itself sits below the inset.
+	func _sync_stage_content_position() -> void:
+		super._sync_stage_content_position()
+		stage_content.position.y -= LAYOUT.safe_top_stage(get_viewport_rect().size) * _fit_scale

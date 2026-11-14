@@ -72,6 +72,15 @@ func run() -> void:
 			check(coin.has_node("ResourceAddBadgeVisual"), "Delayed permission adds the green plus without reopening Home")
 			var button := coin_button(counters)
 			check(button != null and !button.disabled, "Delayed permission enables the coin counter")
+			var presentation: Node = main._resource_counter_presentation
+			check(presentation.state == main._resource_counter_state, "HUD has one shared typed binding state")
+			for transition in range(1000):
+				main._set_currency_counter_pressed(coin, main._portrait_active_currency_counter_rect, transition % 2 == 0)
+			check(presentation._owned_animations.size() <= 1, "Repeated press cancellation does not retain old tweens")
+			for animation: Tween in presentation._owned_animations.duplicate():
+				animation.custom_step(1.0)
+			await settle()
+			check(presentation._owned_animations.is_empty(), "Completed press tween leaves its owner registry")
 			await capture("home_coins_%s_%d" % [language, size.x])
 			if button != null:
 				for pressed: bool in [true, false]:

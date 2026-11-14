@@ -1,5 +1,8 @@
 extends Node2D
 
+const RESOURCE_COUNTER_COMPONENT = preload("res://scripts/ui/portrait_resource_counters.gd")
+var _resource_counter_state := RESOURCE_COUNTER_COMPONENT.CounterState.new()
+
 const WORD_SELECTION: GDScript = preload("res://scripts/core/word_selection.gd")
 
 
@@ -211,10 +214,26 @@ var _wrong_letter_feedback_sequence: int = 0
 var result_transition_generation: int = 0
 var last_result_sound_key: String = ""
 var coin_store_return_action: Callable = Callable()
-var heart_count_label: Label = null
-var heart_status_label: Label = null
-var heart_add_badge_visual: Control = null
-var heart_counter_button: Control = null
+var heart_count_label: Label:
+	get:
+		return _resource_counter_state.heart_count_label
+	set(value):
+		_resource_counter_state.heart_count_label = value
+var heart_status_label: Label:
+	get:
+		return _resource_counter_state.heart_status_label
+	set(value):
+		_resource_counter_state.heart_status_label = value
+var heart_add_badge_visual: Control:
+	get:
+		return _resource_counter_state.heart_add_badge_visual
+	set(value):
+		_resource_counter_state.heart_add_badge_visual = value
+var heart_counter_button: Control:
+	get:
+		return _resource_counter_state.heart_counter_button
+	set(value):
+		_resource_counter_state.heart_counter_button = value
 var _last_heart_count_for_animation: int = -1
 var _preserve_custom_word_on_next_show: bool = false
 var heart_refill_continue_action: Callable = Callable()

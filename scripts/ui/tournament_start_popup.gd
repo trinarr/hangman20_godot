@@ -3,7 +3,6 @@ extends Node
 const GROUP: StringName = &"tournament_start_popup"
 const TROPHY = preload("res://assets/tournament/start_trophy_low.png")
 const PEDESTAL = preload("res://assets/tournament/start_pedestal.png")
-const COIN_RAIN = preload("res://scripts/ui/tournament_coin_rain.gd")
 const CURTAIN = preload("res://assets/tournament/red_curtain.png")
 const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
@@ -131,7 +130,7 @@ func _build_reward_art(panel_rect: Rect2) -> void:
 	art.z_index = 11
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.clip_contents = true
-	var rain: Control = COIN_RAIN.new()
+	var rain: Control = CoinRain.new()
 	rain.name = "TournamentStartCoinRain"
 	rain.size = panel_rect.size
 	art.add_child(rain)
@@ -192,3 +191,45 @@ func _exit_tree() -> void:
 	if is_instance_valid(_sparkles) and is_instance_valid(host):
 		host._stop_reward_coin_sparkles(_sparkles)
 	_remove_popup()
+
+
+class CoinRain extends Control:
+	## Popup-owned, clipped coin confetti. No timers or callbacks outlive this node.
+	const COIN = preload("res://flash_assets/soft_currency_coin.png")
+	var particles: Array[Dictionary] = []
+	var _rng := RandomNumberGenerator.new()
+
+	func _ready() -> void:
+		preload("res://scripts/ui/colored_icon_outline.gd").apply(self, COIN)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_rng.randomize()
+		for index in range(18):
+			var particle := {}
+			_reset(particle)
+			particle.y = _rng.randf_range(-20.0, size.y)
+			particles.append(particle)
+
+	func _reset(particle: Dictionary) -> void:
+		particle.x = _rng.randf_range(28.0, size.x - 28.0)
+		particle.y = -24.0
+		particle.speed = _rng.randf_range(27.0, 52.0)
+		particle.diameter = _rng.randf_range(9.0, 17.0) * 1.15
+		particle.angle = _rng.randf_range(-PI, PI)
+		particle.spin = _rng.randf_range(1.5, 3.5)
+
+	func _process(delta: float) -> void:
+		var step: float = minf(delta, 0.1)
+		for particle: Dictionary in particles:
+			particle.y += particle.speed * step
+			particle.angle += particle.spin * step
+			if particle.y > size.y + 24.0:
+				_reset(particle)
+		queue_redraw()
+
+	func _draw() -> void:
+		for particle: Dictionary in particles:
+			var diameter: float = particle.diameter
+			draw_set_transform(Vector2(particle.x, particle.y), particle.angle * 0.3,
+				Vector2(maxf(absf(cos(particle.angle)), 0.18), 1.0))
+			draw_texture_rect(COIN, Rect2(Vector2.ONE * -diameter * 0.5, Vector2.ONE * diameter), false)
+		draw_set_transform(Vector2.ZERO)

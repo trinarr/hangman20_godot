@@ -3,7 +3,6 @@ extends RefCounted
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
-const BACKGROUND = preload("res://scripts/ui/tab_header_background.gd")
 const CONFIG = preload("res://scripts/core/game_design_config.gd")
 const TAB_Y := 88.0
 const TAB_HEIGHT := 65.0
@@ -25,7 +24,7 @@ static func configure(button: Button, title: String, selected: bool, unavailable
 		style.corner_radius_bottom_left = 0
 		style.corner_radius_bottom_right = 0
 		button.add_theme_stylebox_override(state, style)
-	var background := BACKGROUND.new()
+	var background := TabHeaderBackground.new()
 	background.name = "TabGradient"
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	button.add_child(background)
@@ -66,3 +65,23 @@ static func select(button: Button, selected: bool, animate: bool = false) -> voi
 		var tween := button.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween.tween_property(button, "scale", Vector2.ONE, CONFIG.get_float("timings.animations.counter_release_seconds")).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		button.set_meta("tab_release_tween", tween)
+
+
+class TabHeaderBackground extends ColorRect:
+	## Independent gradient material; only the upper corners are rounded.
+	const SHADER = preload("res://shaders/tab_header_gradient.gdshader")
+	const PALETTE = preload("res://scripts/ui/ui_palette.gd")
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var gradient := ShaderMaterial.new()
+		gradient.shader = SHADER
+		gradient.set_shader_parameter("top_color", PALETTE.THEME_CARD_SELECTED)
+		gradient.set_shader_parameter("bottom_color", PALETTE.UI_BLUE)
+		material = gradient
+		resized.connect(_sync_size)
+		_sync_size()
+
+	func _sync_size() -> void:
+		if material is ShaderMaterial:
+			material.set_shader_parameter("rect_size", size)

@@ -21,8 +21,9 @@ and existing settings/save/action handlers.
 
 Full Settings retains sound/music, vibration, word-base languages and their
 confirmation, personalized ads and confirmation, contacts, legal links and version.
-It uses the existing elastic Settings scroll. `profile_settings_scroll.gd` adjusts
-its origin to avoid applying the safe-top inset twice outside a centered modal.
+It uses the existing elastic Settings scroll. The nested `ProfileSettingsScroll`
+adapter in `portrait_profile.gd` adjusts its origin to avoid applying the safe-top
+inset twice outside a centered modal.
 Word-language confirmation rebuilds the selectors without closing the page. Going
 back to Home rebuilds its language-specific Continue/New Level state naturally.
 
@@ -56,7 +57,7 @@ without a delayed navigation callback. A renderer without frame readback falls
 back to immediate navigation; dummy headless UI tests inject a known frame at
 the capture boundary and do not verify rendered pixels.
 Opening Profile or Leaderboard retains Home at full opacity and immediately
-builds the new page inside `tabbed_page_surface.gd`, a full-screen
+builds the new page inside the nested `PageSurface` in `tabbed_page_transition.gd`, a full-screen
 SubViewportContainer. The page's SubViewport renders all backgrounds, mixed Z
 layers, clipped scroll contents and shader captions into one live texture. Only
 the surface opacity fades from transparent to opaque over 0.24 seconds, then Home

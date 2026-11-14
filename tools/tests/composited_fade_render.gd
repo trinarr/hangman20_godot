@@ -32,6 +32,7 @@ func pixel_error(actual: Image, first: Image, second: Image, alpha: float) -> fl
 	return maximum_error
 
 func run() -> void:
+	await check_unlock_tween_registry()
 	if DisplayServer.get_name() == "headless":
 		push_error("Composited fade regression requires a real renderer")
 		get_tree().quit(1)
@@ -704,3 +705,34 @@ func check_dynamic_ownership(stage: Control) -> void:
 	holder.free()
 	outside.free()
 	await frame()
+
+func check_unlock_tween_registry() -> void:
+	var presentation := preload("res://scripts/ui/portrait_theme_unlock_progress.gd").new()
+	add_child(presentation)
+	var holder := Control.new()
+	add_child(holder)
+	var previous: Tween
+	for transition in range(1000):
+		if previous != null:
+			previous.kill()
+		previous = presentation._owned_tween(holder)
+		previous.tween_interval(0.01)
+	check(presentation._owned_animations.size() == 1, "Unlock registry prunes externally killed tween references")
+	previous.custom_step(1.0)
+	await get_tree().process_frame
+	check(presentation._owned_animations.is_empty(), "Completed unlock tween leaves the registry")
+	previous = presentation._owned_tween(holder)
+	previous.tween_interval(1.0)
+	presentation._cancel_owned_tween(previous)
+	check(presentation._owned_animations.is_empty(), "Explicit unlock cancellation immediately removes the reference")
+	previous = presentation._owned_tween(holder)
+	previous.tween_interval(1.0)
+	previous.kill()
+	for tick in range(2):
+		await get_tree().process_frame
+	check(presentation._owned_animations.is_empty() and !presentation.is_processing(), "External cancellation clears the registry without another animation")
+	var component_ref: WeakRef = weakref(presentation)
+	presentation.queue_free()
+	holder.queue_free()
+	await get_tree().process_frame
+	check(component_ref.get_ref() == null, "Unlock controller is released after cancellation")
