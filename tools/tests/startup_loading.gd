@@ -91,7 +91,58 @@ func capture(filename: String) -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png(directory.path_join(filename))
 
+func check_idle_progress(source: Control, language: String, width: int) -> void:
+	source.hide()
+	var screen := LOADER.SCREEN.new()
+	source.get_parent().add_child(screen)
+	screen.set_process(false)
+	screen.set_progress(0.45)
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var initial: Image = get_viewport().get_texture().get_image()
+	for step in range(30):
+		screen.set_progress(0.45)
+		screen._process(1.0 / 60.0)
+	var middle: float = screen._visual_progress
+	check(middle > 0.45 + screen._idle_speed * 0.25 and middle < 0.45 + screen._idle_speed * 0.5 and screen.progress == 0.45, "Idle progress advances at the configured speed with easing between unchanged real reports")
+	check(is_equal_approx(screen._track._ratio, middle) and screen._percentage.text == "%d%%" % int(middle * 100.0), "Idle fill and percentage share the displayed progress")
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	check(initial.get_data() != get_viewport().get_texture().get_image().get_data(), "Idle advance changes visible GPU pixels")
+	await capture("loading_idle_%s_%d.png" % [language, width])
+	screen.set_progress(0.70)
+	check(is_equal_approx(screen._visual_progress, 0.70), "Real milestones retain their immediate jump")
+	screen.set_progress(0.10)
+	check(is_equal_approx(screen._visual_progress, 0.70), "Late low reports cannot reverse the displayed progress")
+	screen.show_load_error()
+	screen._process(1.0)
+	check(is_equal_approx(screen._visual_progress, 0.70), "Load errors stop the idle advance")
+	screen.clear_load_error()
+	screen._process(0.5)
+	check(screen._visual_progress > 0.70, "Retry resumes idle progress")
+	var before_hidden: float = screen._visual_progress
+	screen.hide()
+	screen._process(1.0)
+	check(screen._visual_progress == before_hidden, "Hidden loading screens stop advancing")
+	screen.show()
+	screen._process(0.5)
+	check(screen._visual_progress > before_hidden, "Reopening resumes idle progress")
+	for step in range(120):
+		screen._process(1.0)
+	check(screen._visual_progress <= 0.70 + screen._maximum_lead and screen._visual_progress < 1.0, "Long stalls keep the visual lead bounded")
+	screen.set_progress(0.95)
+	screen._process(120.0)
+	check(screen._visual_progress <= screen._incomplete_limit and screen._percentage.text != "100%", "Idle progress cannot complete loading")
+	screen.set_progress(1.0)
+	screen._process(1.0)
+	check(screen._visual_progress == 1.0 and screen._track._ratio == 1.0 and screen._percentage.text == "100%", "Only real completion fills the entire track")
+	screen.queue_free()
+	await get_tree().process_frame
+	source.show()
+
 func compare_settled_logo(screen: Control, language: String, width: int) -> void:
+	# Compare static artwork without the independently advancing progress widget.
+	screen._progress_group.hide()
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var actual: Image = get_viewport().get_texture().get_image()
@@ -127,6 +178,7 @@ func compare_settled_logo(screen: Control, language: String, width: int) -> void
 	reference.queue_free()
 	anchor.queue_free()
 	screen._logo.show()
+	screen._progress_group.show()
 	await get_tree().process_frame
 
 
@@ -579,7 +631,8 @@ func run() -> void:
 				var pattern_size: Vector2 = loader.screen.pattern_icon_size()
 				check(bar_rect.position.y >= loader.screen.size.y * 0.8 and version_rect.end.y <= loader.screen.size.y, "Progress and version fit entirely inside the bottom 20 percent")
 				var group_scale: float = loader.screen._progress_group.scale.y
-				check(is_equal_approx(version_rect.position.y - bar_rect.end.y, 7.0 * group_scale), "Version uses the theme caption gap below the loading track's three-unit shadow")
+				check(is_equal_approx(version_rect.position.y - bar_rect.end.y, 7.0 * group_scale), "Version keeps its spacing below the loading track")
+				check(loader.screen._progress_group.find_children("*", "Panel", false, false).size() == 1, "Loading track has no separate shadow panel")
 				check(is_equal_approx(version_rect.get_center().x, bar_rect.get_center().x), "Version remains centered below the loading track")
 				if native.image != null:
 					var pixel_scale: Vector2 = Vector2(native.image.get_size()) / get_viewport().get_visible_rect().size
@@ -588,16 +641,19 @@ func run() -> void:
 					var track_color: Color = PALETTE.UI_BLUE_DARK
 					check(absf(track_pixel.r - track_color.r) < 0.02 and absf(track_pixel.g - track_color.g) < 0.02 and absf(track_pixel.b - track_color.b) < 0.02, "The first submitted frame already draws the empty loading track")
 				if !existing:
+					await check_idle_progress(loader.screen, language, dimensions.x)
 					await compare_settled_logo(loader.screen, language, dimensions.x)
 					await capture("loading_zero_%s_%d.png" % [language, dimensions.x])
 					# Isolate the progress widget from resources already loaded before native dismissal.
 					loader.screen.progress = 0.0
+					loader.screen._visual_progress = 0.0
 					loader.screen.set_progress(0.45)
 					check(loader.screen._percentage.text == "45%" and is_equal_approx(loader.screen._track._ratio, 0.45), "Percentage and shader track share intermediate progress")
 					loader.screen.set_progress(0.10)
 					check(is_equal_approx(loader.screen.progress, 0.45), "Progress never goes backwards")
 					await capture("loading_middle_%s_%d.png" % [language, dimensions.x])
 					loader.screen.progress = 0.0
+					loader.screen._visual_progress = 0.0
 					loader.screen.set_progress(0.0)
 				var fade_deadline: int = Time.get_ticks_msec() + 20000
 				while (!loader._database_ready or (!accepted_early and loader._packed == null)) and Time.get_ticks_msec() < fade_deadline:

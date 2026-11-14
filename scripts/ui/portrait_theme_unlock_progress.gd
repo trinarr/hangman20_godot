@@ -10,7 +10,6 @@ const RESOURCE_COUNTER_STYLE = preload("res://scripts/ui/resource_counter_style.
 const COMPOSITED_FADE = preload("res://scripts/ui/composited_fade.gd")
 const PORTRAIT_GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
-const BADGE_SHADOW_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/badge_shadow_style.gd")
 const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
@@ -58,32 +57,6 @@ func _create_theme_unlock_progress(parent: Control, rect: Rect2, progress: Dicti
 	bar_frame.size = Vector2(bar_width, 36.5)
 	bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_frame.clip_contents = true
-	# Reuse the rounded-badge shader extrusion for the complete progress plaque.
-	# Keep it in a dedicated holder so the shadow can extend outside the clipped
-	# bar frame while following exactly the same rounded geometry.
-	var bar_shadow_holder := Control.new()
-	bar_shadow_holder.name = "UnlockBarShadow"
-	bar_shadow_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar_shadow_holder.position = bar_frame.position
-	bar_shadow_holder.size = bar_frame.size
-	bar_shadow_holder.z_index = 1
-	holder.add_child(bar_shadow_holder)
-	var bar_shadow_layers := _create_portrait_rounded_panel_extrusion_layers(
-		bar_shadow_holder,
-		"UnlockBarShadow",
-		0
-	)
-	_layout_portrait_rounded_panel_extrusion_layers(
-		bar_shadow_layers,
-		bar_frame.size,
-		bar_frame.size.y * 0.5
-	)
-	# This plaque uses a lighter extrusion; do not change other badge shadows.
-	if !bar_shadow_layers.is_empty():
-		var shadow_material := bar_shadow_layers[0].material as ShaderMaterial
-		var shadow_color: Color = PORTRAIT_DARK_BLUE.lightened(0.18)
-		shadow_color.a = BADGE_SHADOW_STYLE_SCRIPT.SHADOW_ALPHA
-		shadow_material.set_shader_parameter("shadow_color", shadow_color)
 	var track := StyleBoxFlat.new()
 	track.bg_color = Color.TRANSPARENT
 	track.set_corner_radius_all(18)
@@ -304,24 +277,6 @@ func _animate_theme_unlock_progress(
 	await settle.finished
 	if finished_callback.is_valid():
 		finished_callback.call()
-
-func _create_portrait_rounded_panel_extrusion_layers(
-	parent: Control,
-	prefix: String,
-	z_index: int = -1
-) -> Array[ColorRect]:
-	return BADGE_SHADOW_STYLE_SCRIPT.create_layers(parent, prefix, z_index)
-
-func _layout_portrait_rounded_panel_extrusion_layers(
-	layers: Array[ColorRect],
-	panel_size: Vector2,
-	corner_radius: float
-) -> void:
-	BADGE_SHADOW_STYLE_SCRIPT.layout_layers(
-		layers,
-		panel_size,
-		corner_radius
-	)
 
 func _create_portrait_icon_extrusion_layers(
 	parent: Control,

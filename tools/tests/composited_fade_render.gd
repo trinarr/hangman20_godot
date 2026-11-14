@@ -576,6 +576,7 @@ func check_unlock_track_pixels(main: Node, stage: Control) -> void:
 			TranslationServer.set_locale(language)
 			var progress: Control = main._create_theme_unlock_progress(stage, Rect2(Vector2(20, 100), main.PORTRAIT_LEVEL_THEME_PROGRESS_SIZE), {"total":10, "from":10, "to":10, "theme_id":Database.THEME_IDS[0]})
 			var frame_control: Control = progress.get_node("UnlockBarFrame")
+			check(progress.get_node_or_null("UnlockBarShadow") == null, "Unlock track has no lower shadow layer")
 			var fill: Control = frame_control.get_node("UnlockBarFill")
 			var captures := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 			if !captures.is_empty():

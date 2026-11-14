@@ -10,8 +10,14 @@ const TRACK = preload("res://scripts/ui/theme_unlock_track.gd")
 const TRACK_SHADER = preload("res://shaders/stage_reward_track.gdshader")
 const VERSION = preload("res://scripts/ui/application_version.gd")
 const TEXT_STYLE = preload("res://scripts/ui/button_text_style.gd")
+const DESIGN = preload("res://scripts/core/game_design_config.gd")
 
 var progress: float = 0.0
+var _visual_progress: float = 0.0
+var _progress_paused: bool = false
+var _idle_speed: float = DESIGN.get_float_range("timings.animations.startup_loading.idle_progress_per_second", 0.001, 1.0)
+var _maximum_lead: float = DESIGN.get_float_range("timings.animations.startup_loading.maximum_visual_lead", 0.001, 1.0)
+var _incomplete_limit: float = DESIGN.get_float_range("timings.animations.startup_loading.incomplete_limit", 0.01, 0.99)
 var initial_logo_language: String = "en"
 var _icons: Array[Texture2D] = []
 var _logo: Control
@@ -52,18 +58,9 @@ func _ready() -> void:
 	_layout()
 
 func _build_progress() -> void:
-	var shadow := Panel.new()
-	shadow.position = Vector2(0.0, 3.0)
-	shadow.size = Vector2(316.0, 36.5)
-	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shadow_style := StyleBoxFlat.new()
-	shadow_style.bg_color = PALETTE.UI_BLUE_DARK.lightened(0.18)
-	shadow_style.set_corner_radius_all(18)
-	shadow.add_theme_stylebox_override("panel", shadow_style)
-	_progress_group.add_child(shadow)
 	_track = TRACK.new()
 	_track.name = "LoadingTrack"
-	_track.size = shadow.size
+	_track.size = Vector2(316.0, 36.5)
 	_track.clip_contents = true
 	_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var empty := StyleBoxEmpty.new()
@@ -88,7 +85,7 @@ func _build_progress() -> void:
 	_track.configure(bar, fill)
 	_percentage = _label(20)
 	_percentage.name = "LoadingPercentage"
-	_percentage.size = shadow.size
+	_percentage.size = _track.size
 	_percentage.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_progress_group.add_child(_percentage)
 	_version = Label.new()
@@ -98,7 +95,7 @@ func _build_progress() -> void:
 	_progress_group.add_child(_version)
 	_version.size = Vector2(400.0, _version.get_minimum_size().y)
 	_version.position = Vector2((_track.size.x - _version.size.x) * 0.5,
-		shadow.position.y + shadow.size.y + TRACK.CAPTION_GAP_UNITS)
+		_track.size.y + 3.0 + TRACK.CAPTION_GAP_UNITS)
 	set_progress(progress)
 
 func _label(font_size: int) -> Label:
@@ -113,9 +110,23 @@ func _label(font_size: int) -> Label:
 
 func set_progress(value: float) -> void:
 	progress = clampf(maxf(progress, value), 0.0, 1.0)
+	# Real milestones still jump forward; repeated reports keep the idle advance.
+	_visual_progress = maxf(_visual_progress, progress)
+	_update_progress_view()
+
+func _process(delta: float) -> void:
+	if _progress_paused or !is_visible_in_tree() or progress <= 0.0 or progress >= 1.0:
+		return
+	# Ease toward a bounded lead so long waits never reach completion on their own.
+	var ceiling: float = minf(progress + _maximum_lead, _incomplete_limit)
+	if _visual_progress < ceiling:
+		_visual_progress = lerpf(_visual_progress, ceiling, 1.0 - exp(-_idle_speed / _maximum_lead * delta))
+		_update_progress_view()
+
+func _update_progress_view() -> void:
 	if _track != null:
-		_track.set_value_ratio(progress)
-		_percentage.text = "%d%%" % int(progress * 100.0)
+		_track.set_value_ratio(_visual_progress)
+		_percentage.text = "%d%%" % int(_visual_progress * 100.0)
 
 func apply_database_language() -> void:
 	_localized = true
@@ -126,11 +137,13 @@ func apply_database_language() -> void:
 		_retry.configure(tr("LEADERBOARD_RETRY"), 20)
 
 func clear_load_error() -> void:
+	_progress_paused = false
 	if is_instance_valid(_retry):
 		_retry.hide()
 	hide_status_toast()
 
 func show_load_error() -> void:
+	_progress_paused = true
 	if _retry == null:
 		_retry = load("res://scripts/ui/stage_long_button.gd").new()
 		_retry.position = Vector2(48.0, -76.0)

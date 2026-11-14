@@ -994,7 +994,7 @@ func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
 	if word_comment.is_empty():
 		return
 	var top: float = result_word_rect.end.y + 50.0
-	comment_label = _stage_label(Rect2(30.0, top, 420.0, maxf(1.0, action_rect.position.y - top - 16.0)), word_comment, 27, StageLetterButton.NORMAL_COLOR, HORIZONTAL_ALIGNMENT_CENTER, UI_FONTS.HANDWRITTEN_REGULAR_FONT)
+	comment_label = _stage_label(Rect2(50.0, top, PORTRAIT_STAGE_SIZE.x - 100.0, maxf(1.0, action_rect.position.y - top - 16.0)), word_comment, 28, StageLetterButton.NORMAL_COLOR, HORIZONTAL_ALIGNMENT_CENTER, UI_FONTS.HANDWRITTEN_REGULAR_FONT)
 	comment_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	comment_label.name = "LossWordComment"
 	var comment_fade: Node = FADE.wrap(comment_label)
