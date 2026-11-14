@@ -95,11 +95,13 @@ func run() -> void:
 				check(QuizStatistics.describe_question(PICK.restore_question(shuffled, canonical), theme) == description, "Restored order must retain identity")
 	Database.load_languages("ru", "ru")
 	var question: Dictionary = PICK.shuffled(Database.get_quiz_questions_by_theme_index(0)[0])
+	await check_tutorial_delivery(question, true)
+	await check_tutorial_delivery(question, false)
 	var service: Node = MOCK.new()
 	add_child(service)
 	service.replies = [{"status": 200, "body": {"access_token": "test-access", "refresh_token": "test-refresh"}}, {}]
-	service.record_answer(question, 0, 1, true)
-	service.record_answer(question, 0, 2, true)
+	service.record_answer(question, 0, 1)
+	service.record_answer(question, 0, 2)
 	await settle(service)
 	check(service._state.pending.size() == 1, "Offline queue retains first vote")
 	var first: int = int(service.describe_question(question, 0).mapping[1])
@@ -127,18 +129,18 @@ func run() -> void:
 	check(service._state.refresh_token == "new-refresh", "Refresh token rotates")
 	check(service._cache.size() == 1, "Result cached after successful request")
 	service.replies = [{}]
-	service.record_answer(question, 0, 0, false)
+	service.record_answer(question, 0, 0)
 	await settle(service)
-	check(service._state.pending[0].p_answer == -2, "Hinted answer marks seen without a vote")
+	check(service._state.pending[0].p_answer == int(service.describe_question(question, 0).mapping[0]), "Answer after 50/50 queues the selected catalog index")
 	var other: Dictionary = PICK.shuffled(Database.get_quiz_questions_by_theme_index(0)[1])
 	var other_description: Dictionary = service.describe_question(other, 0)
 	service.replies = [{"status":200,"body":{"ok":true,"results":[
-		{"p_key":service._state.pending[0].p_key,"p_answer":-2,"ok":false,"code":"22023"},
+		{"p_key":service._state.pending[0].p_key,"p_answer":int(service.describe_question(question, 0).mapping[0]),"ok":false,"code":"22023"},
 		{"p_key":other_description.key,"p_answer":int(other_description.mapping[0]),"ok":true,"already_answered":true,"counts":[1,2,3,4]}]}}]
 	service.advance_retry()
-	service.record_answer(other, 0, 0, true)
+	service.record_answer(other, 0, 0)
 	await settle(service)
-	check(service._state.pending.size() == 1 and service._state.pending[0].p_answer == -2, "Unknown catalog revision does not block other votes")
+	check(service._state.pending.size() == 1 and service._state.pending[0].p_answer == int(service.describe_question(question, 0).mapping[0]), "Unknown catalog revision does not block other votes")
 	service._access_token = ""
 	var before_calls: int = service.calls.size()
 	service.replies = [{"status": 400, "body": {}}]
@@ -158,19 +160,19 @@ func run() -> void:
 	check(prefetched._state.pending.is_empty() and !prefetched._answered[key], "Prefetch does not consume an attempt or add a vote")
 	var before: Array = prefetched._cache[key].duplicate()
 	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
-	prefetched.record_answer(question, 0, 1, true)
+	prefetched.record_answer(question, 0, 1)
 	check(prefetched._cache[key][first] == before[first] + 1, "Cached first vote displayed immediately")
 	await settle(prefetched)
 	check(!prefetched.calls.back().payload.p_include_counts, "Cached submission requests only acknowledgement")
 	check(prefetched._state.pending.is_empty(), "Acknowledgement removes pending vote without counters")
 	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
-	prefetched.record_answer(question, 0, 2, true)
+	prefetched.record_answer(question, 0, 2)
 	await settle(prefetched)
 	check(prefetched._cache[key][first] == before[first] + 1, "Repeat attempt never increments cached counts")
 	# Player answers while a prefetch request is in flight: add the queued first answer once.
 	prefetched.replies = [{"status": 200, "body": {"ok": true, "counts": [0,0,0,0], "already_answered": false}}, {"status": 200, "body": {"ok": true}}]
 	prefetched.prefetch_question(other, 0)
-	prefetched.record_answer(other, 0, 0, true)
+	prefetched.record_answer(other, 0, 0)
 	await settle(prefetched)
 	var other_key: String = prefetched.describe_question(other, 0).key
 	var other_index: int = prefetched.describe_question(other, 0).mapping[0]
@@ -178,21 +180,23 @@ func run() -> void:
 	# Reloaded snapshots must not duplicate a vote already committed remotely.
 	check(prefetched._accept_snapshot(other_key, {"counts": [2,3,4,5], "already_answered": true}), "Accept authoritative answered snapshot")
 	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
-	prefetched.record_answer(other, 0, 1, true)
+	prefetched.record_answer(other, 0, 1)
 	await settle(prefetched)
 	check(prefetched._cache[other_key] == [2,3,4,5], "Server answered flag prevents local repeat vote")
-	# Offline hinted first attempts stay excluded even after later attempts without a hint.
+	# Answers after 50/50 count once, including offline retries and repeat plays.
 	prefetched._cache[other_key] = [2,3,4,5]
 	prefetched._answered[other_key] = false
 	prefetched.replies = [{}]
-	prefetched.record_answer(other, 0, 1, false)
+	prefetched.record_answer(other, 0, 1)
 	await settle(prefetched)
-	check(prefetched._cache[other_key] == [2,3,4,5] and prefetched._state.pending[0].p_answer == -2, "Hinted attempt leaves cached counts unchanged")
+	var hinted_counts: Array = [2,3,4,5]
+	hinted_counts[int(other_description.mapping[1])] += 1
+	check(prefetched._cache[other_key] == hinted_counts and prefetched._state.pending[0].p_answer == int(other_description.mapping[1]), "Answer after 50/50 increments cached selected variant once")
 	prefetched.replies = [{"status": 200, "body": {"ok": true}}]
 	prefetched.advance_retry()
-	prefetched.record_answer(other, 0, 1, true)
+	prefetched.record_answer(other, 0, 2)
 	await settle(prefetched)
-	check(prefetched._cache[other_key] == [2,3,4,5] and prefetched._state.pending.is_empty(), "Retry retains hinted first attempt and clears on acknowledgement")
+	check(prefetched._cache[other_key] == hinted_counts and prefetched._state.pending.is_empty(), "Retry retains first selected variant after 50/50 and clears on acknowledgement")
 	prefetched.queue_free()
 	# Disabled backend must not touch the network or prevent normal quiz feedback.
 	check(!QuizStatistics.is_configured(), "Backend disabled until configured")
@@ -231,9 +235,16 @@ func run() -> void:
 	seed(1234)
 	check(main._quiz_fifty_fifty_wrong_indices(hint_correct) == random_order, "Missing prefetch does not delay 50/50 and uses random selection")
 	ProjectSettings.set_setting("quiz_statistics/dev_minimum_answers", 30)
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", true)
+	main._quiz_fifty_fifty_used = true
 	main._on_quiz_answer_selected(main._quiz_correct_answer_index())
 	check(main._quiz_answer_locked, "Quiz completes with backend disabled")
 	var identity: Dictionary = QuizStatistics.describe_question(main._quiz_current_question, 0)
+	var hinted_vote_found := false
+	for entry: Dictionary in QuizStatistics._state.pending:
+		if entry.p_key == identity.key:
+			hinted_vote_found = int(entry.p_answer) == int(identity.mapping[main._quiz_correct_answer_index()])
+	check(hinted_vote_found, "Real quiz screen queues the selected variant even after using 50/50")
 	main._on_quiz_statistics_ready("stale-question", [10,20,30,40])
 	check(!main._quiz_answer_buttons[0].has_node("QuizStatisticsFill"), "Late response for another question ignored")
 	main._on_quiz_statistics_ready(identity.key, [1,0,0,0])
@@ -313,3 +324,68 @@ func run() -> void:
 	await get_tree().process_frame
 	print("QUIZ_STATISTICS checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(0 if failures == 0 else 1)
+
+func check_tutorial_delivery(question: Dictionary, documents_first: bool) -> void:
+	GameState.guided_onboarding_completed = false
+	GameState.accepted_legal_documents_version = 0
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", false)
+	var tutorial: Node = MOCK.new()
+	tutorial.use_real_lifecycle = true
+	add_child(tutorial)
+	tutorial._state = {"pending": [], "refresh_token": ""}
+	tutorial._save()
+	var saved_before := FileAccess.get_file_as_string(tutorial._save_path())
+	tutorial.record_answer(question, 0, 0)
+	check(tutorial._state.pending.is_empty() and FileAccess.get_file_as_string(tutorial._save_path()) == saved_before,
+		"Explicit dev disablement prevents collection and disk writes")
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", true)
+	tutorial.record_answer(question, 0, 1)
+	tutorial.record_answer(question, 0, 2)
+	var selected: int = tutorial.describe_question(question, 0).mapping[1]
+	check(tutorial._state.pending.size() == 1 and tutorial._state.pending[0].p_answer == selected,
+		"Tutorial preserves first selected variant before online gates open")
+	check(tutorial.calls.is_empty() and tutorial.get_child_count() == 0,
+		"Tutorial neither authenticates nor starts worker before permission")
+	tutorial.free()
+	var restored: Node = MOCK.new()
+	restored.use_real_lifecycle = true
+	add_child(restored)
+	check(restored._state.pending.size() == 1 and restored._state.pending[0].p_answer == selected,
+		"Real service startup restores tutorial queue from disk")
+	restored.replies = [{"status":200,"body":{"access_token":"tutorial-access","refresh_token":"tutorial-refresh"}},
+		{"status":200,"body":{"ok":true,"counts":[0,1,0,0],"already_answered":true}}]
+	GameState._save_write_in_progress = true
+	if documents_first:
+		check(!GameState.accept_legal_documents(), "Failed consent save does not open gate")
+	else:
+		check(!GameState.complete_single_player_guided_onboarding(), "Failed onboarding save does not open gate")
+	GameState._save_write_in_progress = false
+	check(restored.calls.is_empty() and restored.get_child_count() == 0, "Failed first gate never wakes sender")
+	if documents_first:
+		check(GameState.accept_legal_documents(), "Consent is saved first")
+	else:
+		check(GameState.complete_single_player_guided_onboarding(), "Onboarding is saved first")
+	check(restored.calls.is_empty() and restored.get_child_count() == 0, "One successful gate alone cannot wake sender")
+	GameState._save_write_in_progress = true
+	if documents_first:
+		check(!GameState.complete_single_player_guided_onboarding(), "Failed final onboarding save keeps sender blocked")
+	else:
+		check(!GameState.accept_legal_documents(), "Failed final consent save keeps sender blocked")
+	GameState._save_write_in_progress = false
+	check(restored.calls.is_empty() and restored._state.pending.size() == 1, "Failed final gate preserves queue without sending")
+	if documents_first:
+		check(GameState.complete_single_player_guided_onboarding(), "Final onboarding signal starts sender")
+	else:
+		check(GameState.accept_legal_documents(), "Final consent signal starts sender")
+	await settle(restored)
+	check(restored.calls.size() == 2 and restored.calls[0].path == "/auth/v1/signup"
+		and restored.calls[1].payload.p_answer == selected and restored._state.pending.is_empty(),
+		"Saved gates automatically authenticate and submit restored tutorial answer in either order")
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(restored._save_path()))
+	check(saved.pending.is_empty(), "Automatic delivery persists queue acknowledgement")
+	GameState.legal_documents_accepted.emit()
+	GameState.guided_onboarding_finished.emit()
+	await settle(restored)
+	check(restored.calls.size() == 2 and restored.get_child_count() == 1, "Repeated readiness signals neither duplicate votes nor timers")
+	restored.free()
+	ProjectSettings.set_setting("quiz_statistics/dev_enabled", false)

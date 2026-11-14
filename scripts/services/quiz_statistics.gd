@@ -36,6 +36,7 @@ func _debug_question(key: String) -> String:
 
 func _ready() -> void:
 	GameState.guided_onboarding_finished.connect(_start_online_worker)
+	GameState.legal_documents_accepted.connect(_start_online_worker)
 	_debug_log("Environment=%s RPC=%s save=%s" % ["dev" if _uses_dev() else "production", _rpc_path(), _save_path()])
 	if FileAccess.file_exists(_save_path()):
 		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(_save_path()))
@@ -48,7 +49,7 @@ func _ready() -> void:
 	_start_online_worker()
 
 func _start_online_worker() -> void:
-	if OS.get_environment("HANGMAN_SUPABASE_NETWORK_DISABLED") == "1" or !GameState.is_single_player_guided_onboarding_completed():
+	if !_network_allowed():
 		_debug_log("Supabase network disabled for this execution")
 		return
 	if !is_instance_valid(_retry):
@@ -92,9 +93,12 @@ func _path_allowed(path: String) -> bool:
 	return path == _rpc_path() or path == _batch_rpc_path() or path == _leaderboard_rpc_path() or path in [
 		"/auth/v1/signup", "/auth/v1/token?grant_type=refresh_token"]
 
-func is_configured() -> bool:
+func _collection_enabled() -> bool:
 	var enabled_setting := "quiz_statistics/dev_enabled" if _uses_dev() else "quiz_statistics/enabled"
-	return _network_allowed() and bool(ProjectSettings.get_setting(enabled_setting, false)) \
+	return bool(ProjectSettings.get_setting(enabled_setting, false))
+
+func is_configured() -> bool:
+	return _network_allowed() and _collection_enabled() \
 		and _url().begins_with("https://") and !_public_key().is_empty()
 
 func _url() -> String:
@@ -179,10 +183,11 @@ func _accept_snapshot(key: String, body: Dictionary) -> bool:
 	statistics_ready.emit(key, _cache[key])
 	return true
 
-func record_answer(question: Dictionary, theme_index: int, answer_index: int, eligible: bool) -> void:
-	if !is_configured():
-		_debug_log("Skipped: statistics disabled or URL/public key missing")
+func record_answer(question: Dictionary, theme_index: int, answer_index: int) -> void:
+	if !_collection_enabled():
 		return
+	# Local collection does not require consent, onboarding completion or a session.
+	# Only the worker may send these persisted answers once networking is allowed.
 	var description := describe_question(question, theme_index)
 	if description.is_empty():
 		_debug_log("Skipped: question does not match the local catalog")
@@ -190,10 +195,10 @@ func record_answer(question: Dictionary, theme_index: int, answer_index: int, el
 	var key: String = description["key"]
 	var selected := -1
 	if answer_index >= 0 and answer_index < 4:
-		selected = int(description["mapping"][answer_index]) if eligible else -2
+		selected = int(description["mapping"][answer_index])
 	var pending: Array = _state["pending"]
-	_debug_log("Answer: question=%s catalog_answer=%d eligible=%s (-2=hinted, -1=read only)" % [
-		_debug_question(key), selected, eligible])
+	_debug_log("Answer: question=%s catalog_answer=%d (-1=read only)" % [
+		_debug_question(key), selected])
 	# Keep the earliest offline answer; retries and repeat plays never replace it.
 	for entry: Dictionary in pending:
 		if entry.get("p_key") == key:

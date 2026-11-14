@@ -258,7 +258,7 @@ func run() -> void:
 		"/auth/v1/signup": [tokens()], transport._leaderboard_rpc_path(): [reply(140)], transport._rpc_path(): [quiz_reply]}
 	transport.delay_frames[transport._rpc_path()] = 5
 	previous_calls = transport.calls.size()
-	transport.record_answer(question,0,0,true)
+	transport.record_answer(question,0,0)
 	client.refresh(true)
 	await settle(client,transport)
 	check(transport.calls.size() == previous_calls + 3, "Concurrent quiz and leaderboard share one authentication")

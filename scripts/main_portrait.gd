@@ -4948,7 +4948,7 @@ func _request_quiz_statistics() -> void:
 		QuizStatistics.statistics_ready.connect(_on_quiz_statistics_ready)
 	QuizStatistics.record_answer(
 		_quiz_current_question, _quiz_selected_theme_index,
-		_quiz_selected_answer_index, !_quiz_fifty_fifty_used
+		_quiz_selected_answer_index
 	)
 
 func _on_quiz_statistics_ready(question_key: String, counts: Array) -> void:

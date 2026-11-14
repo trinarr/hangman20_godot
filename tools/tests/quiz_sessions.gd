@@ -40,7 +40,7 @@ func run() -> void:
 	service._cache[key] = [1,2,3,4]
 	service._answered[key] = false
 	service.replies = [{"status":401,"body":{}},tokens(),{"status":200,"body":{"ok":true}}]
-	service.record_answer(q,0,0,true)
+	service.record_answer(q,0,0)
 	await settle(service)
 	check(service.calls.size() == 3, "401 immediately refreshes and retries without a timer")
 	check(service.calls[1].path.contains("refresh_token"), "Retry refreshes existing identity")
@@ -56,7 +56,7 @@ func run() -> void:
 	service.queue_free()
 	service = session()
 	service.replies = [{"status":401,"body":{}},tokens(),{"status":401,"body":{}}]
-	service.record_answer(q,0,0,true)
+	service.record_answer(q,0,0)
 	await settle(service)
 	check(service.calls.size() == 3 and service._state.pending.size() == 1, "Second 401 stops the immediate retry loop and retains vote")
 	check(service._access_token.is_empty(), "Second 401 invalidates access token")
@@ -87,7 +87,7 @@ func run() -> void:
 	# Revocation discovered after sending a vote must not replay it on the new account.
 	service = session()
 	service.replies = [{"status":401,"body":{}},revoked(),tokens()]
-	service.record_answer(q,0,0,true)
+	service.record_answer(q,0,0)
 	await settle(service)
 	check(service.calls.size() == 3 and service.calls.back().path == "/auth/v1/signup", "Old in-flight vote is not retried on replacement identity")
 	check(service._state.pending.is_empty() and service._cache.is_empty(), "In-flight identity reset leaves no old pending state")
@@ -126,13 +126,13 @@ func run() -> void:
 	# A genuinely new answer arriving during replacement signup must survive.
 	service = session()
 	service.replies = [{"status":401,"body":{}},revoked(),tokens(),{"status":200,"body":{"ok":true,"counts":[1,0,0,0],"already_answered":true}}]
-	service.record_answer(q,0,0,true)
+	service.record_answer(q,0,0)
 	for frame: int in range(50):
 		if service._identity_generation == 1:
 			break
 		await get_tree().process_frame
 	check(service._identity_generation == 1, "Replacement begins before injecting a new answer")
-	service.record_answer(other,0,0,true)
+	service.record_answer(other,0,0)
 	await settle(service)
 	check(service._state.pending.is_empty() and service.calls.size() == 4, "New answer submitted during signup is processed under replacement account")
 	check(service.calls[0].payload.p_key != service.calls[3].payload.p_key, "Only new question is sent after identity reset")
