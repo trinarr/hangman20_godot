@@ -482,10 +482,11 @@ def main() -> None:
         portrait, "_start_single_player_level_summary_transition_deferred"
     )
     final_pack_bounce = function_body(
-        reward_prize, "_play_final_reward_pack_bounce"
+        read("scripts/ui/portrait_presentation.gd"), "_create_final_reward_pack_bounce"
     )
     require(
-        "peak_callback: Callable = Callable()" in final_pack_bounce
+        "_create_final_reward_pack_bounce(pack, peak_callback)" in function_body(reward_prize, "_play_final_reward_pack_bounce")
+        and "peak_callback: Callable = Callable()" in final_pack_bounce
         and "bounce_tween.tween_callback(peak_callback)" in final_pack_bounce
         and final_pack_bounce.index("bounce_tween.tween_callback(peak_callback)")
         < final_pack_bounce.index("var settle := bounce_tween.tween_property"),
@@ -753,15 +754,30 @@ def main() -> None:
     )
 
     home_screen = function_body(portrait, "_show_menu_screen")
-    home_counters = function_body(portrait, "_stage_home_resource_counters")
-    home_counter_content = function_body(portrait, "_stage_home_resource_counter_content")
+    resource_counters = read("scripts/ui/portrait_resource_counters.gd")
+    home_counters = function_body(resource_counters, "_stage_home_resource_counters")
+    home_counter_content = function_body(resource_counters, "_stage_home_resource_counter_content")
     home_counter_component = read("scripts/ui/home_resource_counters.gd")
     game_header = function_body(portrait, "_stage_portrait_game_header")
     reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
+    for name in (
+        "_stage_home_resource_counters",
+        "_stage_home_resource_counter_content",
+        "_stage_currency_counter",
+        "_stage_centered_coin_only_counter",
+        "_stage_star_counter",
+        "_stage_heart_counter",
+        "_stage_coin_and_star_counters",
+    ):
+        require(
+            f"_resource_counters().{name}(" in function_body(portrait, name),
+            f"Resource counter adapter no longer delegates {name}",
+        )
     require(
         "_stage_home_resource_counters" in home_screen
         and 'preload("res://scripts/ui/home_resource_counters.gd").new()' in home_counters
-        and 'counters.build_counters = Callable(self, "_stage_home_resource_counter_content").bind(return_action)' in home_counters
+        and 'counters.build_counters = actions[&"_stage_home_resource_counter_content"].bind(return_action)' in home_counters
+        and '&"_stage_home_resource_counter_content": Callable(self, "_stage_home_resource_counter_content")' in function_body(portrait, "_resource_counters")
         and "_portrait_top_bar_content.add_child(counters)" in home_counters
         and "_rebuild()" in function_body(home_counter_component, "_ready")
         and "build_counters.call(self)" in function_body(home_counter_component, "_rebuild")
@@ -776,7 +792,7 @@ def main() -> None:
         "Gameplay and reward screens do not expose coins and stars",
     )
     counter_bodies = "\n".join(
-        function_body(portrait, name)
+        function_body(resource_counters, name)
         for name in (
             "_stage_currency_counter",
             "_stage_centered_coin_only_counter",

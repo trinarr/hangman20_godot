@@ -114,7 +114,7 @@ func run() -> void:
 			var paper: Control = main._portrait_game_word_paper_mask
 			var key: Control = main._portrait_game_keyboard_buttons[0].button
 			check(main.get_node("StartupPreparation").preparing and main._portrait_game_entrance_active, "Entrance waits for native dismissal confirmation")
-			check(!paper.visible and is_zero_approx(key.modulate.a), "Paper and letters stay at their initial state under the splash")
+			check(!paper.visible and is_zero_approx(main.COMPOSITED_FADE.get_opacity(key)), "Paper and letters stay at their initial state under the splash")
 			native.dismissed = true
 			deadline = Time.get_ticks_msec() + 10000
 			while !paper.visible and Time.get_ticks_msec() < deadline:
@@ -124,14 +124,14 @@ func run() -> void:
 			await get_tree().create_timer(.08).timeout
 			check(paper.position.x < first_paper_x, "Paper continues moving after splash dismissal")
 			deadline = Time.get_ticks_msec() + 10000
-			while is_zero_approx(key.modulate.a) and Time.get_ticks_msec() < deadline:
+			while is_zero_approx(main.COMPOSITED_FADE.get_opacity(key)) and Time.get_ticks_msec() < deadline:
 				await get_tree().process_frame
-			var first_key_alpha: float = key.modulate.a
+			var first_key_alpha: float = main.COMPOSITED_FADE.get_opacity(key)
 			check(first_key_alpha > 0.0 and first_key_alpha < 1.0, "Letters have an intermediate fade after dismissal")
 			await get_tree().create_timer(.04).timeout
-			check(key.modulate.a > first_key_alpha, "Letters continue appearing after dismissal")
+			check(main.COMPOSITED_FADE.get_opacity(key) > first_key_alpha, "Letters continue appearing after dismissal")
 			await settle()
-			check(!main._portrait_game_entrance_active and native.released and is_equal_approx(key.modulate.a, 1.0), "Visible entrance finishes and restores the keyboard")
+			check(!main._portrait_game_entrance_active and native.released and is_equal_approx(main.COMPOSITED_FADE.get_opacity(key), 1.0), "Visible entrance finishes and restores the keyboard")
 			if native.image != null:
 				var color: Color = native.image.get_pixel(native.image.get_width()/2, native.image.get_height()/2)
 				check(color.r + color.g + color.b > 0.1, "Native splash reveals rendered pixels rather than black")

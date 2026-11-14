@@ -9410,6 +9410,7 @@ func _refresh_game_screen() -> void:
 	hero_static_symbol = _stage_hero_symbol(_hero_type(), hero_stage_position, _hero_animation_time(), _hero_nested_display_time())
 	if hero_static_symbol != null:
 		hero_static_symbol.stage_scale_multiplier = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER
+		hero_static_symbol.backward_pose_fade_seconds = PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION
 	_configure_hero_static_animation()
 
 	_portrait_end_adaptive_group(hero_root_content)
@@ -11288,7 +11289,7 @@ func _prepare_portrait_game_entrance() -> void:
 		var rest_visual_scale: Vector2 = button.get("visual_scale")
 		button.set_meta(&"portrait_entrance_rest_visual_scale", rest_visual_scale)
 		button.set_meta(&"portrait_entrance_rest_mouse_filter", button.mouse_filter)
-		button.modulate.a = 0.0
+		COMPOSITED_FADE.set_opacity(button, 0.0)
 		# `disabled = true` resets visual_scale through the shared press-state
 		# handler. Apply the enlarged entrance scale only AFTER blocking input so
 		# the first visible frame is the exact reverse of the round-end animation.
@@ -11384,11 +11385,12 @@ func _play_portrait_game_entrance() -> void:
 			Vector2.ONE
 		)
 		var alpha_tween := button.create_tween()
+		var key_fade: Node = COMPOSITED_FADE.branch(button)
 		alpha_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		alpha_tween.tween_interval(delay)
 		var alpha_tweener := alpha_tween.tween_property(
-			button,
-			"modulate:a",
+			key_fade,
+			"opacity",
 			1.0,
 			key_fade_duration
 		)
@@ -11528,7 +11530,7 @@ func _finish_portrait_game_entrance() -> void:
 		var button := entry.get("button") as Control
 		if button == null or !is_instance_valid(button):
 			continue
-		button.modulate.a = 1.0
+		COMPOSITED_FADE.set_opacity(button, 1.0)
 		button.set(
 			"visual_scale",
 			button.get_meta(&"portrait_entrance_rest_visual_scale", Vector2.ONE)
@@ -14880,8 +14882,6 @@ func _log_difficulty_debug(theme_index: int) -> void:
 		print("[Difficulty] " + _difficulty_debug_text(theme_index).replace("\n", " | "))
 
 func _auto_advance_final_stage_reward() -> void:
-	if OS.is_debug_build():
-		return
 	# The final stage has no manual Continue step on its ordinary reward screen.
 	# Defer navigation so this callback can safely run from tween completion.
 	if !bool(last_result_data.get("single_player_level_completed", false)):
@@ -15012,7 +15012,6 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	)
 	var auto_advance_final_stage_reward: bool = (
 		final_stage_completed
-		and !OS.is_debug_build()
 		and !is_level_summary
 		and !is_quiz_coin_reward
 		and !resumed_final_chain_checkpoint
@@ -16404,6 +16403,11 @@ func _ensure_round_result_component() -> Node:
 		"paper_backside": _portrait_game_word_paper_backside,
 		"paper_backside_visual": _portrait_game_word_paper_backside_visual,
 		"keyboard_buttons": _portrait_game_keyboard_buttons,
+		"word_comment": GameSession.get_word_hint(),
+		"replace_result_keyboard": GameState.current_mode != GameState.GameMode.TWO_PLAYER,
+		"attempts_title": _portrait_game_attempts_controls[0] if _portrait_game_attempts_controls.size() >= 2 else null,
+		"attempts_value": _portrait_game_attempts_value_label,
+		"attempt_reward_amount": _remaining_attempt_star_reward_amount(),
 		"back_button": _portrait_game_back_button,
 	}, GameSession.letters)
 	return _portrait_round_result

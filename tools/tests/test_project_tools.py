@@ -31,6 +31,51 @@ class ResourceChecks(unittest.TestCase):
                 "res://fonts/missing.ttf", "res://fonts/Absent_%d.ttf"])
 
 
+class SaveIntegrityCounterChecks(unittest.TestCase):
+    def run_validator(self, path=None, source=None):
+        from contextlib import redirect_stdout
+        import io
+        import verify_save_integrity as validator
+        original_read = validator.read
+
+        def read(candidate):
+            return source if candidate == path else original_read(candidate)
+
+        with patch.object(validator, "read", side_effect=read), redirect_stdout(io.StringIO()):
+            validator.main()
+
+    def test_extracted_counters_pass(self):
+        self.run_validator()
+
+    def test_missing_home_resource_is_rejected(self):
+        import verify_save_integrity as validator
+        path = "scripts/ui/portrait_resource_counters.gd"
+        source = validator.read(path)
+        body = validator.function_body(source, "_stage_home_resource_counter_content")
+        for name in ("_stage_centered_coin_only_counter", "_stage_heart_counter", "_stage_star_counter"):
+            with self.subTest(counter=name), self.assertRaisesRegex(SystemExit, "Home does not expose"):
+                self.run_validator(path, source.replace(body, body.replace(name + "(", "_missing_counter(")))
+
+    def test_broken_adapter_or_callback_is_rejected(self):
+        import verify_save_integrity as validator
+        path = "scripts/main_portrait.gd"
+        source = validator.read(path)
+        for old, new, error in (
+            ("_resource_counters()._stage_home_resource_counters(", "_missing_counter(", "no longer delegates"),
+            ('&"_stage_home_resource_counter_content": Callable(self, "_stage_home_resource_counter_content")',
+             '&"_stage_home_resource_counter_content": Callable()', "Home does not expose"),
+        ):
+            with self.subTest(wiring=old), self.assertRaisesRegex(SystemExit, error):
+                self.run_validator(path, source.replace(old, new))
+
+    def test_component_counter_outline_is_rejected(self):
+        import verify_save_integrity as validator
+        path = "scripts/ui/portrait_resource_counters.gd"
+        source = validator.read(path)
+        with self.assertRaisesRegex(SystemExit, "panel outline"):
+            self.run_validator(path, source.replace("Color.TRANSPARENT,\n\t\t0.0", "Color.WHITE,\n\t\t1.0", 1))
+
+
 class RunnerChecks(unittest.TestCase):
     def test_region_runner_requires_isolation_complete_resources_and_report(self):
         from contextlib import contextmanager, redirect_stdout

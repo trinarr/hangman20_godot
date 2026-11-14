@@ -147,7 +147,51 @@ func check_cold_pose_transitions() -> void:
 			check(symbol._symbol_instance != previous_hierarchy and symbol.is_nested_playback_active(), "ready scene starts the queued reaction on its own hierarchy")
 			await get_tree().create_timer(0.30).timeout
 			check(!symbol.is_nested_playback_active() and is_equal_approx(symbol.nested_animation_time, main.HERO_MOV_IDLE_FRAME_TIME), "cold transition finishes at its requested resting frame")
+			# A backward purchase waits for the cold scene before fading either pose.
+			symbol.backward_pose_fade_seconds = 0.3
+			symbol.blocked = true
+			var fallback: Node = symbol._symbol_instance
+			symbol.animation_time = main._hero_animation_time_for_mistakes(2)
+			await get_tree().process_frame
+			check(symbol._symbol_instance == fallback and is_equal_approx(symbol._symbol_instance.modulate.a, 1.0), "cold recovery keeps old pose opaque while loading")
+			symbol.blocked = false
+			await wait_for_pose(symbol)
+			check(symbol._fading_pose == fallback, "cold recovery begins fade only after loading")
 			symbol.free()
+
+func check_attempt_recovery(character: int) -> void:
+	main.game_screen_visible = false
+	GameSession.start_custom_round("АБВА" if Database.current_language == "ru" else "ABBA")
+	GameSession.mistakes = 5
+	GameSession.loss_deferred = true
+	main.show_game_screen()
+	var symbol: FlashStageSymbol = main.hero_static_symbol
+	await wait_for_pose(symbol)
+	var previous: Node2D = symbol._symbol_instance
+	main.single_player_extra_attempt_current_count = 3
+	main._grant_single_player_extra_attempt()
+	await wait_for_pose(symbol)
+	check(symbol._fading_pose == previous and symbol._symbol_instance != previous, "attempt purchase keeps old pose for crossfade")
+	var duration: float = symbol.backward_pose_fade_seconds
+	await get_tree().create_timer(duration * 0.2).timeout
+	var early: float = symbol._symbol_instance.modulate.a
+	check(early > 0.0 and early < 1.0 and previous.modulate.a > 0.0 and previous.modulate.a < 1.0, "both recovery poses have intermediate opacity")
+	await get_tree().create_timer(duration * 0.2).timeout
+	check(symbol._symbol_instance.modulate.a > early, "recovery fade advances")
+	await capture("attempt_recovery", character)
+	await get_tree().create_timer(duration).timeout
+	check(symbol._fading_pose == null and is_equal_approx(symbol._symbol_instance.modulate.a, 1.0), "recovery releases old pose and restores opacity")
+	# A second reversal interrupted by navigation must not leave a live tween.
+	GameSession.mistakes = 5
+	main._refresh_game_screen()
+	await wait_for_pose(symbol)
+	GameSession.loss_deferred = true
+	main._grant_single_player_extra_attempt()
+	await wait_for_pose(symbol)
+	var animation: Tween = symbol._pose_fade
+	main._clear()
+	await get_tree().process_frame
+	check(!animation.is_valid() or !animation.is_running(), "navigation cancels recovery fade")
 
 func capture(phase: String, character: int) -> void:
 	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
@@ -212,6 +256,7 @@ func run() -> void:
 			for character: int in [1, 2]:
 				GameState.settings[5] = character
 				check_section_frames(character)
+				await check_attempt_recovery(character)
 				for mistakes: int in range(6):
 					main.game_screen_visible = false
 					GameSession.start_custom_round("АБВГДЕЖЗ" if language == "ru" else "ABCDEFGH")

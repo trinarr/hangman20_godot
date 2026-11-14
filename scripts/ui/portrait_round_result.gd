@@ -26,6 +26,15 @@ var result_search_button: Control
 var result_continue_button: Control
 var attempt_collection_pending: bool = false
 var continue_caption: String = ""
+var word_comment: String = ""
+var comment_label: Label
+var replace_result_keyboard: bool = false
+var attempts_title: Label
+var attempts_value: Label
+var attempt_reward_amount: int = 0
+var attempt_reward_summary: Control
+var attempt_reward_reveal: Tween
+var attempt_reward_bounce: Tween
 
 func configure(parent: Control, bindings: Dictionary, word_letters: Array[String]) -> void:
 	content = parent
@@ -37,7 +46,12 @@ func configure(parent: Control, bindings: Dictionary, word_letters: Array[String
 	paper_backside = bindings.get("paper_backside")
 	paper_backside_visual = bindings.get("paper_backside_visual")
 	keyboard_buttons = bindings.get("keyboard_buttons", [])
+	word_comment = str(bindings.get("word_comment", "")).strip_edges()
+	replace_result_keyboard = bool(bindings.get("replace_result_keyboard", false))
 	back_button = bindings.get("back_button")
+	attempts_title = bindings.get("attempts_title")
+	attempts_value = bindings.get("attempts_value")
+	attempt_reward_amount = maxi(int(bindings.get("attempt_reward_amount", 0)), 0)
 
 func begin(win: bool, animated: bool, wait_for_letters: bool, pending_attempts: bool, caption: String) -> void:
 	if active or _stopped:
@@ -46,11 +60,14 @@ func begin(win: bool, animated: bool, wait_for_letters: bool, pending_attempts: 
 	is_win = win
 	continue_caption = caption
 	attempt_collection_pending = pending_attempts
+	if !animated and !pending_attempts:
+		_show_attempt_reward_summary(false)
 	if back_button != null and is_instance_valid(back_button):
 		back_button.visible = false
 		back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		back_button.set("disabled", true)
-	_dim_portrait_keyboard_for_in_place_result()
+	if !replace_result_keyboard:
+		_dim_portrait_keyboard_for_in_place_result()
 	waiting_for_letters = win and animated and wait_for_letters
 	if !waiting_for_letters:
 		_peel_portrait_word_paper_for_in_place_result(animated)
@@ -62,10 +79,71 @@ func gameplay_letters_settled() -> void:
 func attempts_collected() -> void:
 	attempt_collection_pending = false
 	if !_stopped:
+		_show_attempt_reward_summary(true)
 		_reveal_in_place_result_action_after_attempt_stars()
+
+func _show_attempt_reward_summary(animated: bool) -> void:
+	if _stopped or !is_win or attempt_reward_amount <= 0 or is_instance_valid(attempt_reward_summary):
+		return
+	if !is_instance_valid(attempts_title) or !is_instance_valid(attempts_value):
+		return
+	var title_holder: Control = FADE.layout_parent(attempts_title)
+	var value_holder: Control = FADE.layout_parent(attempts_value)
+	var title_rect: Rect2 = title_holder.get("stage_rect")
+	var value_rect: Rect2 = value_holder.get("stage_rect")
+	attempt_reward_summary = FLASH_STAGE_CONTROL_SCRIPT.new()
+	attempt_reward_summary.name = "AttemptStarRewardSummary"
+	attempt_reward_summary.set("stage_rect", title_rect.merge(value_rect))
+	title_holder.get_parent().add_child(attempt_reward_summary)
+	attempt_reward_summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	attempt_reward_summary.z_index = attempts_value.z_index
+	var row := HBoxContainer.new()
+	row.name = "AttemptStarRewardRow"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	attempt_reward_summary.add_child(row)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var amount := Label.new()
+	amount.name = "AttemptStarRewardAmount"
+	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	amount.text = "+%d" % attempt_reward_amount
+	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	amount.add_theme_font_override("font", attempts_value.get_theme_font("font"))
+	var font_size: int = attempts_value.get_theme_font_size("font_size")
+	amount.add_theme_font_size_override("font_size", font_size)
+	amount.add_theme_color_override("font_color", attempts_value.get_theme_color("font_color"))
+	row.add_child(amount)
+	var amount_fade: Control = FADE.wrap(amount)
+	amount_fade.custom_minimum_size = amount.get_combined_minimum_size()
+	amount.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var icon_holder := Control.new()
+	icon_holder.name = "AttemptStarRewardIconHolder"
+	icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_holder.custom_minimum_size = Vector2.ONE * font_size
+	icon_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon_holder)
+	preload("res://scripts/ui/portrait_icon_extrusion.gd")._add_portrait_icon_with_extrusion_to_holder(
+		icon_holder, preload("res://flash_assets/star_currency_icon.png"), "AttemptStarRewardIcon"
+	)
+	var icon_fade: Control = FADE.wrap(icon_holder)
+	icon_fade.custom_minimum_size = Vector2.ONE * font_size
+	icon_fade.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	attempts_title.hide()
+	attempts_value.hide()
+	var fade: Node = FADE.branch(attempt_reward_summary)
+	fade.set("opacity", 0.0 if animated else 1.0)
+	if animated:
+		attempt_reward_bounce = _create_final_reward_pack_bounce(row)
+		attempt_reward_reveal = _tween(attempt_reward_summary)
+		attempt_reward_reveal.tween_property(fade, "opacity", 1.0, PORTRAIT_RESULT_SEARCH_APPEAR_DURATION)
 
 func stop() -> void:
 	super.stop()
+	if is_instance_valid(attempt_reward_summary):
+		attempt_reward_summary.queue_free()
+	attempt_reward_summary = null
 	active = false
 	waiting_for_letters = false
 	if is_instance_valid(result_search_button):
@@ -866,6 +944,9 @@ func _stage_in_place_result_word(animated: bool) -> void:
 	var bounce_start_delay: float = PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5 if animated else 0.0
 	var result_controls: Dictionary = _stage_portrait_result_word_display(word_rect, null, null, animated, bounce_start_delay)
 	_set_portrait_result_word_color(result_controls, _in_place_result_word_color())
+	if replace_result_keyboard:
+		var word_holder: Control = result_controls["word_holder"]
+		_hide_keyboard_for_result(animated, word_holder.get("stage_rect"))
 	var search_button := result_controls.get("search_button") as Control
 	result_search_button = search_button
 	if search_button != null and is_instance_valid(search_button):
@@ -880,7 +961,48 @@ func _dim_portrait_keyboard_for_in_place_result() -> void:
 			continue
 		button.set("disabled", true)
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.modulate.a = PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA
+		FADE.set_opacity(button, PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA)
+
+# Restore the original round-end wave, reversing the gameplay entrance.
+func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
+	var min_x: float = INF
+	var max_x: float = -INF
+	for entry: Dictionary in keyboard_buttons:
+		min_x = minf(min_x, float(entry.get("stage_x", 0.0)))
+		max_x = maxf(max_x, float(entry.get("stage_x", 0.0)))
+	var wave: float = PORTRAIT_GAME_DESIGN.get_float("timings.animations.round_end.key_wave_seconds")
+	var duration: float = PORTRAIT_GAME_DESIGN.get_float("timings.animations.round_end.key_fade_seconds")
+	var key_scale: float = PORTRAIT_GAME_DESIGN.get_float("timings.animations.round_end.key_scale")
+	for entry: Dictionary in keyboard_buttons:
+		var button := entry.get("button") as Control
+		if !is_instance_valid(button):
+			continue
+		button.set("disabled", true)
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var controller: Node = FADE.branch(button)
+		if !animated:
+			controller.set("opacity", 0.0)
+			button.hide()
+			continue
+		var delay: float = (float(entry.get("stage_x", 0.0)) - min_x) / maxf(max_x - min_x, 1.0) * wave
+		var rest_scale: Vector2 = button.get("visual_scale")
+		var tween := _tween(button)
+		tween.tween_interval(delay)
+		tween.tween_property(controller, "opacity", 0.0, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.parallel().tween_property(button, "visual_scale", rest_scale * key_scale, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_callback(button.hide)
+	if word_comment.is_empty():
+		return
+	var top: float = result_word_rect.end.y + 50.0
+	comment_label = _stage_label(Rect2(30.0, top, 420.0, maxf(1.0, action_rect.position.y - top - 16.0)), word_comment, 27, StageLetterButton.NORMAL_COLOR, HORIZONTAL_ALIGNMENT_CENTER, UI_FONTS.HANDWRITTEN_REGULAR_FONT)
+	comment_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	comment_label.name = "LossWordComment"
+	var comment_fade: Node = FADE.wrap(comment_label)
+	comment_fade.set("opacity", 0.0 if animated else 1.0)
+	if animated:
+		var reveal := _tween(comment_label)
+		reveal.tween_interval(wave + duration)
+		reveal.tween_property(comment_fade, "opacity", 1.0, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:
 	waiting_for_letters = false

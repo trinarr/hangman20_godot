@@ -1,5 +1,7 @@
 extends RefCounted
 
+const HANDWRITTEN_REGULAR_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
+
 const FALLBACK_DISPLAY_FONT: Font = preload("res://fonts/RobotoFlex-Variable.ttf")
 const ROBOTO_FLEX_PATH: String = "res://" + "fonts/RobotoFlex-Variable.ttf"
 

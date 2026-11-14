@@ -3,6 +3,20 @@ extends Node2D
 
 signal playback_finished
 
+var backward_pose_fade_seconds: float = 0.0
+var _pose_fade: Tween
+var _fading_pose: Node2D
+
+func _cancel_pose_fade() -> void:
+	if _pose_fade != null and _pose_fade.is_valid():
+		_pose_fade.kill()
+	_pose_fade = null
+	if is_instance_valid(_fading_pose):
+		_fading_pose.queue_free()
+	_fading_pose = null
+	if is_instance_valid(_symbol_instance):
+		_symbol_instance.modulate.a = 1.0
+
 enum HeroType {
 	NONE,
 	LUCKY,
@@ -153,6 +167,7 @@ func _ready() -> void:
 	_sync_to_stage()
 
 func _exit_tree() -> void:
+	_cancel_pose_fade()
 	if get_viewport() != null and get_viewport().size_changed.is_connected(_sync_to_stage):
 		get_viewport().size_changed.disconnect(_sync_to_stage)
 	if !preload("res://scripts/ui/tabbed_page_transfer.gd").active(self):
@@ -235,7 +250,15 @@ func _remove_symbol_instance() -> void:
 	_loaded_symbol_path = ""
 
 func _instantiate_hero_pose(scene: PackedScene, pose_offset: Vector2, resource_path: String) -> void:
-	_remove_symbol_instance()
+	_cancel_pose_fade()
+	var states: Array[String] = _hero_states()
+	var previous_index: int = states.find(_loaded_symbol_path)
+	var next_index: int = states.find(resource_path)
+	var crossfade: bool = backward_pose_fade_seconds > 0.0 and previous_index > next_index and next_index >= 0 and is_instance_valid(_symbol_instance)
+	if crossfade:
+		_fading_pose = _symbol_instance as Node2D
+	else:
+		_remove_symbol_instance()
 	var pose_holder := Node2D.new()
 	pose_holder.name = "HeroPose"
 	pose_holder.position = pose_offset
@@ -244,6 +267,12 @@ func _instantiate_hero_pose(scene: PackedScene, pose_offset: Vector2, resource_p
 	_loaded_symbol_path = resource_path
 	add_child(_symbol_instance)
 	_apply_animation_time()
+	if crossfade:
+		_symbol_instance.modulate.a = 0.0
+		_pose_fade = create_tween().set_parallel(true)
+		_pose_fade.tween_property(_fading_pose, "modulate:a", 0.0, backward_pose_fade_seconds)
+		_pose_fade.tween_property(_symbol_instance, "modulate:a", 1.0, backward_pose_fade_seconds)
+		_pose_fade.chain().tween_callback(_cancel_pose_fade)
 
 func _load_initial_hero_scene(resource_path: String) -> PackedScene:
 	if !ResourceLoader.exists(resource_path):

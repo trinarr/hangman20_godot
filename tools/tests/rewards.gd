@@ -43,12 +43,19 @@ func completion_amount(level: int, wins: int, currency: String) -> int:
 
 func present_summary() -> void:
 	main._show_single_player_reward_chain_screen()
+	check(!is_instance_valid(main._portrait_single_reward_continue_button), "Final chain has no debug-only Continue button")
 	await settle()
-	# Debug builds deliberately retain the manual final-stage Continue step.
-	if !bool(main.last_result_data.get("single_player_level_summary_view", false)):
-		main._continue_from_single_player_reward_chain()
-		await settle()
-	check(bool(main.last_result_data.get("single_player_level_summary_view", false)), "Final-stage Continue opens the level summary")
+	# Automatic navigation includes both the chain and summary entrances.
+	# Wait for the real exit action instead of relying on a manual-step delay.
+	var deadline: int = Time.get_ticks_msec() + 5000
+	while Time.get_ticks_msec() < deadline:
+		var action: Control = main.find_child("FinalRewardCollectButton", true, false)
+		if !is_instance_valid(action):
+			action = main._portrait_final_reward_continue_button
+		if is_instance_valid(action) and action.is_visible_in_tree() and !bool(action.get("disabled")):
+			break
+		await get_tree().process_frame
+	check(bool(main.last_result_data.get("single_player_level_summary_view", false)), "Final stage automatically opens the level summary in every build")
 
 func setup_level(level: int, prior_wins: Array) -> int:
 	main.show_menu()
@@ -183,9 +190,7 @@ func test_level_rewards() -> void:
 	main._show_single_player_reward_chain_screen()
 	var stage_header: Control = main._portrait_top_bar_content
 	await settle()
-	if !bool(main.last_result_data.get("single_player_level_summary_view", false)):
-		main._continue_from_single_player_reward_chain()
-		await settle()
+	check(bool(main.last_result_data.get("single_player_level_summary_view", false)), "Fresh stage payout automatically opens summary")
 	check(GameState.get_soft_currency() == 100 + normal_coins and GameState.get_stars() == 100 + word_amount + normal_stars, "Summary transition preserves the fresh stage payout")
 	check(main._portrait_top_bar_content == stage_header, "Summary replaced the shared result header")
 	# Failed final stages still receive the base level bonus, including zero wins.

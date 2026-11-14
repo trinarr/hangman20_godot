@@ -136,3 +136,57 @@ func _apply_transparent_button_style(button: Button, show_text: bool = true, fon
 	else:
 		BUTTON_TEXT_STYLE_SCRIPT.apply(button, Color.TRANSPARENT, Color.TRANSPARENT, 0)
 	button.add_theme_font_size_override("font_size", font_size)
+
+const REWARD_BOUNCE_CONFIG = preload("res://scripts/core/game_design_config.gd")
+var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE: float = REWARD_BOUNCE_CONFIG.get_float(
+	"timings.animations.final_reward.pack_bounce_scale"
+)
+
+var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION: float = REWARD_BOUNCE_CONFIG.get_float(
+	"timings.animations.final_reward.pack_bounce_grow_seconds"
+)
+
+var PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION: float = REWARD_BOUNCE_CONFIG.get_float(
+	"timings.animations.final_reward.pack_bounce_settle_seconds"
+)
+
+func _create_final_reward_pack_bounce(
+	pack: Control,
+	peak_callback: Callable = Callable()
+) -> Tween:
+	if pack == null or !is_instance_valid(pack) or !pack.is_inside_tree():
+		return null
+	# FlashStageTexture stores the viewport fit in Control.scale. Preserve that
+	# base transform and compensate for the new center pivot before the bounce.
+	var rest_position: Vector2 = pack.position
+	var rest_scale: Vector2 = pack.scale
+	pack.pivot_offset = pack.size * 0.5
+	pack.position = rest_position + (rest_scale - Vector2.ONE) * pack.pivot_offset
+	var bounce_tween := _tween(pack)
+	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := bounce_tween.tween_property(
+		pack,
+		"scale",
+		rest_scale * PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE,
+		PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_QUAD)
+	grow.set_ease(Tween.EASE_OUT)
+	if peak_callback.is_valid():
+		# This callback runs after the grow phase has reached its exact target
+		# scale and before the settling phase starts shrinking the prize again.
+		bounce_tween.tween_callback(peak_callback)
+	var settle := bounce_tween.tween_property(
+		pack,
+		"scale",
+		rest_scale,
+		PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_BOUNCE)
+	settle.set_ease(Tween.EASE_OUT)
+	bounce_tween.tween_callback(func() -> void:
+		if is_instance_valid(pack) and pack.is_inside_tree():
+			pack.pivot_offset = Vector2.ZERO
+			pack.position = rest_position
+	)
+	return bounce_tween
