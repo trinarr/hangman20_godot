@@ -2903,17 +2903,23 @@ func get_single_player_adaptive_difficulty(lang: String) -> float:
 		SINGLE_PLAYER_DIFFICULTY_MAX
 	)
 
-func _single_player_level_completion_bonus(level_index: int, guessed_count: int) -> int:
-	var wins: int = maxi(guessed_count, 0)
+func _single_player_level_completion_bonus(level_index: int, guessed_count: int, word_count: int) -> int:
+	var count: int = maxi(word_count, 1)
+	var wins: int = clampi(guessed_count, 0, count)
+	var base: int = SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS
+	var per_win: int = SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS
 	if GAME_DESIGN.is_bonus_level(level_index + 1):
-		return (
-			SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS
-			+ wins * SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS
-		)
-	return (
-		SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS
-		+ wins * SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS
-	)
+		base = SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS
+		per_win = SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS
+	var strength: float = GAME_DESIGN.get_float_range("economy.rewards.completion_coin_curve_strength", 0.0, 1.0)
+	# Round cumulative adjustments, then subtract neighbours: their sum over
+	# 0..count wins stays exactly zero, including integer coin rounding.
+	return base + wins * per_win \
+		+ _completion_coin_curve_cumulative(wins, count, per_win, strength) \
+		- _completion_coin_curve_cumulative(wins - 1, count, per_win, strength)
+
+func _completion_coin_curve_cumulative(wins: int, count: int, per_win: int, strength: float) -> int:
+	return roundi(strength * float(per_win) * float(wins) * float(wins + 1) * float(wins - count) / (3.0 * float(count)))
 
 func _single_player_level_completion_stars(level_index: int, guessed_count: int) -> int:
 	var wins: int = maxi(guessed_count, 0)
@@ -2996,7 +3002,7 @@ func mark_single_level_word_played(
 			word_count,
 			difficulty
 		)
-		completion_bonus = _single_player_level_completion_bonus(level_index, guessed_count)
+		completion_bonus = _single_player_level_completion_bonus(level_index, guessed_count, word_count)
 		if award_completion_bonus:
 			add_soft_currency(completion_bonus, false, "gameplay", "level_reward")
 	difficulty_delta = difficulty_after - difficulty_before

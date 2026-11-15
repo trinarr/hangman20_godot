@@ -38,8 +38,54 @@ func completion_amount(level: int, wins: int, currency: String) -> int:
 	if GameState.GAME_DESIGN.is_bonus_level(level + 1):
 		prefix += "challenge_"
 	prefix += "level_completion_"
-	return GameState.GAME_DESIGN.get_int(prefix + "base_" + currency) \
-		+ wins * GameState.GAME_DESIGN.get_int(prefix + "per_win_" + currency)
+	var per_win: int = GameState.GAME_DESIGN.get_int(prefix + "per_win_" + currency)
+	var amount: int = GameState.GAME_DESIGN.get_int(prefix + "base_" + currency) + wins * per_win
+	if currency == "coins":
+		var count: int = GameState.GAME_DESIGN.level_stage_count_with_bonus(level + 1)
+		var strength: float = GameState.GAME_DESIGN.get_float("economy.rewards.completion_coin_curve_strength")
+		var cumulative: float = 0.0
+		for outcome: int in range(wins):
+			cumulative += strength * float(per_win * outcome) * (float(outcome) - float(2 * count + 1) / 3.0) / float(count)
+		var adjustment: float = strength * float(per_win * wins) * (float(wins) - float(2 * count + 1) / 3.0) / float(count)
+		amount += roundi(cumulative + adjustment) - roundi(cumulative)
+	return amount
+
+func test_completion_coin_curve() -> void:
+	var config: Dictionary = GameState.GAME_DESIGN._config
+	var rewards: Dictionary = config["economy"]["rewards"]
+	var saved_strength: float = float(rewards["completion_coin_curve_strength"])
+	for strength: float in [0.0, 0.5, 1.0]:
+		rewards["completion_coin_curve_strength"] = strength
+		for level: int in [1, 9]:
+			var bonus: bool = GameState.GAME_DESIGN.is_bonus_level(level + 1)
+			var base: int = GameState.SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_BASE_COINS if bonus else GameState.SINGLE_PLAYER_LEVEL_COMPLETION_BASE_COINS
+			var per_win: int = GameState.SINGLE_PLAYER_CHALLENGE_LEVEL_COMPLETION_PER_WIN_COINS if bonus else GameState.SINGLE_PLAYER_LEVEL_COMPLETION_PER_WIN_COINS
+			for count: int in range(2, 8):
+				var total: int = 0
+				var linear_total: int = 0
+				var previous: int = -1
+				for wins: int in range(count + 1):
+					var amount: int = GameState._single_player_level_completion_bonus(level, wins, count)
+					var linear: int = base + wins * per_win
+					check(amount > previous, "Coin curve increases with wins")
+					if strength == 0.0 or wins == 0:
+						check(amount == linear, "Zero strength/base preserves linear reward")
+					elif wins == 1:
+						check(amount < linear, "Low win count pays less")
+					elif wins >= count - 1 and count >= 4:
+						# At exactly 3/4 wins the quadratic crosses the old line.
+						check(amount >= linear, "Nearly complete levels never pay less")
+						if wins * 4 > count * 3:
+							check(amount > linear, "Above 75 percent wins pays more")
+					total += amount
+					linear_total += linear
+					previous = amount
+				check(total == linear_total, "Integer coin curve preserves uniform mean for every stage count")
+	rewards["completion_coin_curve_strength"] = 1.0
+	var expected: Array[int] = [10, 15, 23, 36, 53, 73]
+	for wins: int in range(expected.size()):
+		check(GameState._single_player_level_completion_bonus(1, wins, 5) == expected[wins], "Five-stage normal reward matches accepted curve")
+	rewards["completion_coin_curve_strength"] = saved_strength
 
 func present_summary() -> void:
 	main._show_single_player_reward_chain_screen()
@@ -125,6 +171,7 @@ func on_cancelled_collection_finished() -> void:
 	cancelled_callback_count += 1
 
 func run() -> void:
+	test_completion_coin_curve()
 	GameState.interface_language = "ru"
 	GameState.word_language = "ru"
 	GameState.guided_onboarding_completed = true
@@ -134,6 +181,7 @@ func run() -> void:
 	add_child(main)
 	await get_tree().process_frame
 	Engine.time_scale = 8.0
+	await test_mixed_stage_completion()
 	await test_level_rewards()
 	await test_stage_rewards_and_ad_receipts()
 	await test_presentation_lifecycle()
@@ -143,6 +191,36 @@ func run() -> void:
 	await get_tree().process_frame
 	print("REWARDS ", JSON.stringify({"checks":checks, "failures":failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+func test_mixed_stage_completion() -> void:
+	# Swap which mode wins and which mode ends the level. Both must feed the
+	# same win counter and keep the completion prize independent of stage currency.
+	for final_is_quiz: bool in [false, true]:
+		for first_won: bool in [false, true]:
+			for final_won: bool in [false, true]:
+				await setup_level(1, [first_won])
+				GameState.set_single_level_question_slots("ru", 1, [1] if final_is_quiz else [0])
+				main._invalidate_single_player_level_cache()
+				if final_is_quiz:
+					main._quiz_single_player_embedded = true
+					main.game_finished = false
+					main._record_single_player_quiz_result(final_won)
+				else:
+					record_stage(final_won)
+				var wins: int = int(first_won) + int(final_won)
+				var expected: int = completion_amount(1, wins, "coins")
+				check(GameState.get_single_level_guessed_count("ru", 1, 2) == wins, "Hangman and quiz wins share the completion counter")
+				check(GameState.get_pending_single_player_reward().amount == expected, "Mixed-stage completion depends on wins, not stage type")
+				var stage: Dictionary = GameState.get_active_single_player_stage_reward()
+				if final_won:
+					check(stage.currency == (GameState.STAGE_REWARD_COINS if final_is_quiz else GameState.STAGE_REWARD_STARS), "Mixed-stage payout keeps each mode's currency")
+				else:
+					check(stage.is_empty(), "A failed quiz or hangman stage pays no stage reward")
+				reload_save()
+				check(GameState.get_pending_single_player_reward().amount == expected, "Mixed-stage completion survives reload unchanged")
+				check(GameState.claim_pending_single_player_reward() == expected, "Mixed-stage completion pays its curved amount")
+				check(GameState.claim_pending_single_player_reward() == 0, "Mixed-stage completion cannot be claimed twice")
+	main._quiz_single_player_embedded = false
 
 func test_level_rewards() -> void:
 	var word_amount := stage_amount()

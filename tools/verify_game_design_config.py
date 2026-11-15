@@ -381,6 +381,9 @@ def main() -> None:
         require(maximum_views > 0, f"economy.{ad_path}.maximum_views must be positive")
         require(cooldown_seconds > 0, f"economy.{ad_path}.cooldown_seconds must be positive")
     maximum_balance = require_int(resolve(config, "economy.maximum_balance"), "economy.maximum_balance")
+    curve_path = "economy.rewards.completion_coin_curve_strength"
+    require(0 <= require_number(resolve(config, curve_path), curve_path) <= 1,
+            "Completion coin curve strength must be in 0..1")
     maximum_reward = require_int(resolve(config, "economy.maximum_single_reward"), "economy.maximum_single_reward")
     require(maximum_balance > 0 and maximum_reward <= maximum_balance,
             "Maximum balance/reward values are inconsistent")

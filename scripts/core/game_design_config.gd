@@ -186,6 +186,7 @@ static func _ensure_loaded() -> void:
 
 static func _validate_loaded_config() -> void:
 	_validate_nonnegative_numbers(_config, "")
+	get_float_range("economy.rewards.completion_coin_curve_strength", 0.0, 1.0)
 	get_int_range("economy.rewards.stage_ad_multipliers_from_level", 1, 1000)
 	var stage_multipliers: Array = get_array("economy.rewards.stage_ad_multipliers")
 	if stage_multipliers.size() != 3:
