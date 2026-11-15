@@ -132,10 +132,10 @@
     "hints": {
       "starting_count": 2,
       "costs": {
-        "open_letter": 30,
-        "remove_wrong": 20,
-        "comment": 30,
-        "quiz_fifty_fifty": 30,
+        "open_letter": 35,
+        "remove_wrong": 25,
+        "comment": 35,
+        "quiz_fifty_fifty": 35,
         "quiz_replace_question": 30
       }
     },
