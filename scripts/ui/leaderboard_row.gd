@@ -48,7 +48,7 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	card_content.add_child(avatar)
 	var counter_width := SCORE_PLATE.width_for_value("9\u202f999\u202f999", 38.64) * 0.90 * 0.85
 	var name_x := avatar.get_rect().end.x + 13.5
-	var player_label := _label(card_content, Rect2(name_x, 0, CARD_WIDTH - counter_width - 20 - name_x, 68), name_text, 23)
+	var player_label := _label(card_content, Rect2(name_x, 0, CARD_WIDTH - counter_width - 20 - name_x, 68), name_text, 22)
 	player_label.name = "PlayerName"
 	player_label.add_theme_font_override("font", FONTS.button_font())
 	player_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -56,7 +56,7 @@ static func populate(row: Control, entry: Dictionary, mine: bool, portraits: Nod
 	if score_formatter.is_valid():
 		score = str(score_formatter.call(int(entry.get("stars", 0))))
 	var font := player_label.get_theme_font("font")
-	var font_size := 23
+	var font_size := 22
 	while font_size > 14 and font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > player_label.size.x:
 		font_size -= 1
 	player_label.add_theme_font_size_override("font_size", font_size)
@@ -123,7 +123,7 @@ static func update(row: Control, entry: Dictionary, mine: bool, portraits: Node,
 	if label.text != name_text:
 		label.text = name_text
 		var font := label.get_theme_font("font")
-		var font_size := 23
+		var font_size := 22
 		while font_size > 14 and font.get_string_size(name_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > label.size.x:
 			font_size -= 1
 		label.add_theme_font_size_override("font_size", font_size)

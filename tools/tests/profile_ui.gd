@@ -260,6 +260,21 @@ func run() -> void:
 	var profile_avatar: Button = player_body.identity.get_node("ProfileAvatar")
 	check(!profile_avatar.disabled and profile_avatar.pressed.is_connected(player_body._open_editor), "Profile avatar opens the draft editor")
 	check(player_body._nickname.get_rect().get_center().x == profile_avatar.get_rect().get_center().x, "Avatar and nickname share the same center")
+	var saved_profile_name: String = GameState.player_name
+	for sample: String in ["Сизифович" + "Ш".repeat(10), "Ш".repeat(24), "W".repeat(24), "Bob"]:
+		GameState.player_name = sample
+		player_body.refresh()
+		await settle()
+		var nickname: Label = player_body._nickname
+		var font := nickname.get_theme_font("font")
+		var font_size := nickname.get_theme_font_size("font_size")
+		check(nickname.text == sample and font.get_string_size(sample, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= nickname.size.x, "Profile shows the complete wide nickname without ellipsis")
+		check(nickname.get_rect().position.x >= 0 and nickname.get_rect().end.x <= player_body.identity.size.x, "Nickname stays within the identity block")
+		if sample == "Bob" or sample.begins_with("Сизифович"):
+			check(font_size == 26, "Names that fit retain the original font size after a wide name")
+		await capture_editor_offer("nickname-" + str(sample.length()) + "-" + str(sample.unicode_at(0)))
+	GameState.player_name = saved_profile_name
+	player_body.refresh()
 	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 7, "Profile avatar retains its size with the thicker frame")
 	check(profile_avatar.outer_outline_width == profile_avatar.SMALL_OUTLINE_WIDTH and profile_avatar._outer_frame_style.border_color == profile_avatar.PALETTE.TEXT_DARK, "Large and compact avatars share the same thin outer blue outline")
 	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.has_node("AvatarPaperBackground"), "Edit badge shares the avatar transform above a paper background")

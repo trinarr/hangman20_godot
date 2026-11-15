@@ -52,7 +52,7 @@ func _ready() -> void:
 	art.size = Vector2(20, 20)
 	edit.add_child(art)
 	ICON_EXTRUSION._add_portrait_icon_with_extrusion_to_holder(art, PENCIL, "Pencil", 1, 0.50, 0.70)
-	_nickname = _label(identity, Rect2(78, 124, 288, 46), "", 26, FONTS.regular_font())
+	_nickname = _label(identity, Rect2(0, 124, 444, 46), "", 26, FONTS.regular_font())
 	_nickname.name = "PlayerNickname"
 	_nickname.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_nickname.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -101,6 +101,11 @@ func refresh() -> void:
 	if !is_node_ready():
 		return
 	_nickname.text = GameState.player_name if !GameState.player_name.is_empty() else tr("PROFILE_DEFAULT_NAME")
+	var nickname_font := _nickname.get_theme_font("font")
+	var nickname_size := 26
+	while nickname_size > 12 and nickname_font.get_string_size(_nickname.text, HORIZONTAL_ALIGNMENT_LEFT, -1, nickname_size).x > _nickname.size.x:
+		nickname_size -= 1
+	_nickname.add_theme_font_size_override("font_size", nickname_size)
 	_avatar.refresh_character()
 	var totals := GameState.get_profile_statistics()
 	for key: String in _values:
