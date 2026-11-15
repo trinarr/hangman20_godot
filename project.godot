@@ -21,6 +21,7 @@ config/name_localized={
 }
 config/version="4.1.2"
 run/main_scene="res://scenes/Startup.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
 boot_splash/bg_color=Color(0.00022259181, 0.00022259181, 0.00022259181, 1)

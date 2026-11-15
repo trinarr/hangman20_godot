@@ -801,11 +801,8 @@ func run() -> void:
 	# its existing confirmation remains a modal over the settings page.
 	check(is_instance_valid(main._portrait_profile), "Ad preference action preserves profile page")
 	main._remove_user_consent_popup()
-	var back := InputEventKey.new()
-	back.keycode = KEY_ESCAPE
-	back.pressed = true
 	var outgoing: Control = main.content
-	main._unhandled_input(back)
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
 	var closing_transition: CanvasLayer = main._home_transition
 	check(main._tabbed_closing, "Back blocks navigation during whole-page fade")
 	check(main.content != outgoing and main.content.find_child("HomeAvatarButton", true, false) != null, "Home is built beneath the outgoing page immediately")

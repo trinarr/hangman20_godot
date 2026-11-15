@@ -5,6 +5,7 @@ class TestUI:
 	var open_sounds: int = 0
 	var ads_enabled: bool = false
 	var free_attempt_offer: bool = false
+	var quit_requests: int = 0
 	func _ready() -> void:
 		_build_root()
 		_clear()
@@ -18,6 +19,8 @@ class TestUI:
 		_remove_popup_group_with_dimmer_fade(&"coin_refill_popup")
 	func _close_heart_refill_popup() -> void:
 		_remove_popup_group_with_dimmer_fade(&"heart_refill_popup")
+	func _quit_application() -> void:
+		quit_requests += 1
 
 var main: TestUI
 var checks: int = 0
@@ -252,6 +255,7 @@ func run() -> void:
 	check(get_tree().get_nodes_in_group(&"settings_popup").is_empty() and main.content == base_content, "real Settings closes and preserves underlying content")
 	main._quiz_screen_active = false
 	await check_last_chance_layout()
+	await check_android_back()
 	# The component remains operational after its main-screen adapter is destroyed.
 	var popup_script: GDScript = load("res://scripts/ui/portrait_popup.gd")
 	var independent_parent := Node.new()
@@ -285,3 +289,96 @@ func run() -> void:
 	await get_tree().process_frame
 	print("PORTRAIT_POPUP_COMPONENT " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+func capture_exit_popup(name: String) -> void:
+	var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+	if !directory.is_empty() and DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(directory.path_join(name + ".png"))
+
+func check_android_back() -> void:
+	check(!get_tree().quit_on_go_back, "Android Back cannot quit without confirmation")
+	GameState.current_mode = GameState.GameMode.TWO_PLAYER
+	main.game_finished = false
+	main.game_screen_visible = false
+	main._home_logo_reveal = Control.new()
+	main.content.add_child(main._home_logo_reveal)
+	for language: String in ["ru", "en"]:
+		Database.load_languages(language, language)
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().size = dimensions
+			main._show_exit_game_popup()
+			await get_tree().create_timer(0.7).timeout
+			var original: CanvasLayer = get_tree().get_nodes_in_group(&"exit_game_popup")[0]
+			var original_stage: PopupStageCenter = original.find_child("CenteredPopupStage", true, false)
+			var original_top := original_stage.popup_top
+			var original_bottom := original_stage.popup_bottom
+			var original_buttons: Array[Rect2] = []
+			for button: Node in original.find_children("*", "StageLongButton", true, false):
+				original_buttons.append(button.get("stage_rect"))
+			check(!original_buttons.is_empty(), "two-player confirmation retains its actions")
+			await capture_exit_popup("exit_two_player_%s_%d" % [language, dimensions.x])
+			main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+			await get_tree().process_frame
+			check(get_tree().get_nodes_in_group(&"exit_game_popup").is_empty(), "native Back closes existing confirmation")
+			main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+			await get_tree().create_timer(0.7).timeout
+			var popup: CanvasLayer = get_tree().get_nodes_in_group(&"exit_game_popup")[0]
+			var stage: PopupStageCenter = popup.find_child("CenteredPopupStage", true, false)
+			check(stage.popup_top == original_top and is_equal_approx(stage.popup_bottom, original_bottom - 70.0), "Home removes the hidden warning height")
+			var labels: Array[Node] = popup.find_children("*", "Label", true, false)
+			var has_title := false
+			for label: Label in labels:
+				has_title = has_title or label.text == tr("EXIT_GAME_CONFIRM").to_upper()
+				check(label.text != main._exit_game_warning_text(), "Home omits progress warning")
+			check(has_title, "Home shows localized exit title")
+			var buttons: Array[Node] = popup.find_children("*", "StageLongButton", true, false)
+			for i: int in range(buttons.size()):
+				var expected := original_buttons[i]
+				expected.position.y -= 70.0
+				check(buttons[i].get("stage_rect") == expected, "Home raises actions while preserving their size and bottom spacing")
+			await capture_exit_popup("exit_home_%s_%d" % [language, dimensions.x])
+			for button: Node in buttons:
+				if button.get("button_text") == tr("NO").to_upper():
+					button.emit_signal("pressed")
+			await get_tree().process_frame
+			check(get_tree().get_nodes_in_group(&"exit_game_popup").is_empty() and main.quit_requests == 0, "No keeps Home open")
+	# Dispatch the actual screen button, including its disabled state.
+	var back := StageRoundButton.new()
+	main.content.add_child(back)
+	back.pressed.connect(func(): closes += 1)
+	main._portrait_navigation_back_button = back
+	var before := closes
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	check(closes == before + 1, "native Back invokes the current page action once")
+	back.disabled = true
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	check(closes == before + 1, "native Back respects disabled screen navigation")
+	main._portrait_navigation_back_button = null
+	back.disabled = false
+	main._quiz_screen_active = true
+	main._quiz_exit_button = back
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	check(closes == before + 2, "native Back invokes standalone and embedded quiz exit action")
+	main._quiz_exit_button = null
+	main._quiz_screen_active = false
+	main.game_screen_visible = true
+	main._portrait_game_back_button = back
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	check(closes == before + 3, "native Back invokes gameplay exit action")
+	main._portrait_game_back_button = null
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	check(closes == before + 3 and get_tree().get_nodes_in_group(&"exit_game_popup").is_empty(), "hidden tutorial exit cannot fall through to Home exit")
+	main.game_screen_visible = false
+	back.free()
+	main._show_application_exit_popup()
+	await get_tree().create_timer(0.7).timeout
+	var popup: Node = get_tree().get_nodes_in_group(&"exit_game_popup")[0]
+	for button: Node in popup.find_children("*", "StageLongButton", true, false):
+		if button.get("button_text") == tr("YES").to_upper():
+			button.emit_signal("pressed")
+	check(main.quit_requests == 1, "Yes saves and requests application exit")
+	main._remove_exit_game_popup()
+	main._home_logo_reveal.free()
+	main._home_logo_reveal = null
+	await get_tree().create_timer(0.4).timeout

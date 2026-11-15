@@ -69,6 +69,7 @@ const HOME_BLUE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/home_blu
 const HOME_FONT_WARMUP = preload("res://scripts/ui/home_font_warmup.gd")
 const TABBED_PAGE_TRANSITION_SCRIPT: GDScript = preload("res://scripts/ui/tabbed_page_transition.gd")
 var _home_transition: CanvasLayer
+var _portrait_navigation_back_button: Control = null
 var _home_logo_reveal: Control
 var _home_start_buttons: Array[Control] = []
 
@@ -1070,24 +1071,37 @@ func _unhandled_input(event: InputEvent) -> void:
 			key_event.pressed
 			and !key_event.echo
 			and key_event.keycode == KEY_ESCAPE
-			and _portrait_handle_modal_back_request()
 		):
-			get_viewport().set_input_as_handled()
-			return
-	if event is InputEventKey and event.pressed and !event.echo and event.keycode == KEY_ESCAPE:
-		if is_instance_valid(_portrait_tournament_reward):
-			_show_next_tournament()
-			get_viewport().set_input_as_handled()
-			return
-		if is_instance_valid(_portrait_profile):
-			_close_profile_screen()
-			get_viewport().set_input_as_handled()
-			return
-		if is_instance_valid(_portrait_leaderboard):
-			_close_leaderboard_screen()
+			_portrait_handle_back_request()
 			get_viewport().set_input_as_handled()
 			return
 	super._unhandled_input(event)
+
+func _portrait_handle_back_request() -> void:
+	if _tabbed_closing or is_instance_valid(_home_transition):
+		return
+	if _portrait_handle_modal_back_request():
+		return
+	# Independent modals (including the profile editor) own their key handling.
+	if !get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty():
+		return
+	if is_instance_valid(_portrait_tournament_reward):
+		_show_next_tournament()
+	elif is_instance_valid(_portrait_navigation_back_button):
+		_portrait_press_back_button(_portrait_navigation_back_button)
+	elif _quiz_screen_active:
+		_portrait_press_back_button(_quiz_exit_button)
+	elif game_finished:
+		_result_back_action()
+	elif game_screen_visible:
+		_portrait_press_back_button(_portrait_game_back_button)
+	elif is_instance_valid(_home_logo_reveal):
+		_show_application_exit_popup()
+
+func _portrait_press_back_button(button: Control) -> void:
+	# Respect the same visibility and animation/input gates as the screen button.
+	if is_instance_valid(button) and button.is_visible_in_tree() and !bool(button.get("disabled")):
+		button.emit_signal("pressed")
 
 func _portrait_ad_not_ready_message() -> String:
 	var translated: String = tr(&"TOAST_AD_NOT_READY")
@@ -1313,6 +1327,7 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
 	_portrait_game_back_button = null
+	_portrait_navigation_back_button = null
 	_portrait_final_reward_double_button = null
 	_portrait_final_reward_continue_button = null
 	_portrait_single_reward_continue_button = null
@@ -6967,6 +6982,12 @@ func _finish_heart_refill_when_full() -> void:
 		continue_action.call_deferred()
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Use the normal input path so editors and transition blockers retain priority.
+		var back := InputEventKey.new()
+		back.keycode = KEY_ESCAPE
+		back.pressed = true
+		get_viewport().push_input(back)
 	if what == NOTIFICATION_APPLICATION_RESUMED:
 		call_deferred("_sync_heart_refill_after_resume")
 		call_deferred("_retry_pending_refill_ad_rewards")
@@ -8906,6 +8927,76 @@ func _start_home_single_player_level(level_index: int, theme_index: int) -> void
 	single_player_retry_after_loss = false
 	_confirm_single_player_theme_selection(level_index, theme_index)
 
+func _show_application_exit_popup() -> void:
+	_remove_exit_game_popup()
+	_show_simple_exit_popup(tr("EXIT_GAME_CONFIRM"), Callable(self, "_confirm_exit_application"))
+
+func _confirm_exit_application() -> void:
+	if !GameState.save_game():
+		_show_portrait_status_toast(tr("PROFILE_SAVE_FAILED"))
+		return
+	_quit_application()
+
+func _quit_application() -> void:
+	get_tree().quit()
+
+func _show_simple_exit_popup(title: String, confirm_action: Callable, warning: String = "") -> void:
+	var close_action := Callable(self, "_remove_exit_game_popup")
+	var warning_rect := Rect2(58.0, 322.0, 364.0, 70.0)
+	var two_player_rect := _portrait_popup_with_bottom_space(Rect2(28.0, 235.0, 424.0, 260.0))
+	if warning.is_empty():
+		two_player_rect.size.y -= warning_rect.size.y
+	var two_player_previous_content := _portrait_popup_begin(
+		"ExitGamePopup",
+		"exit_game_popup",
+		140,
+		close_action,
+		two_player_rect.position.y,
+		two_player_rect.end.y
+	)
+	_portrait_popup_shell(
+		two_player_rect,
+		title.to_upper(),
+		close_action,
+		27
+	)
+	if !warning.is_empty():
+		var two_player_warning := _stage_label(
+			warning_rect,
+			warning,
+			22,
+			Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER
+		)
+		two_player_warning.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		two_player_warning.clip_text = false
+		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(two_player_warning)
+	var two_player_button_y: float = _portrait_popup_bottom_button_y(
+		two_player_rect.end.y,
+		52.0
+	)
+	var two_player_yes_button := _stage_portrait_popup_main_button(
+		Rect2(82.0, two_player_button_y, 145.0, 52.0),
+		confirm_action,
+		tr("YES"),
+		20
+	)
+	two_player_yes_button.set("drop_shadow_enabled", true)
+	var two_player_no_button := _stage_portrait_popup_main_button(
+		Rect2(253.0, two_player_button_y, 145.0, 52.0),
+		close_action,
+		tr("NO"),
+		20,
+		false,
+		0.32,
+		false,
+		false,
+		false,
+		LONG_BUTTON_COLOR_ORANGE
+	)
+	two_player_no_button.set("drop_shadow_enabled", true)
+	content = two_player_previous_content
+
 func _show_exit_game_popup() -> void:
 	# An in-place result has already been recorded and has no live progress left to
 	# protect. The gameplay Back button therefore leaves immediately, matching the
@@ -8922,56 +9013,7 @@ func _show_exit_game_popup() -> void:
 	_remove_exit_game_popup()
 	var close_action := Callable(self, "_remove_exit_game_popup")
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		var two_player_rect := _portrait_popup_with_bottom_space(Rect2(28.0, 235.0, 424.0, 260.0))
-		var two_player_previous_content := _portrait_popup_begin(
-			"ExitGamePopup",
-			"exit_game_popup",
-			140,
-			close_action,
-			two_player_rect.position.y,
-			two_player_rect.end.y
-		)
-		_portrait_popup_shell(
-			two_player_rect,
-			_exit_game_title_text().to_upper(),
-			close_action,
-			27
-		)
-		var two_player_warning := _stage_label(
-			Rect2(58.0, 322.0, 364.0, 70.0),
-			_exit_game_warning_text(),
-			22,
-			Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		two_player_warning.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		two_player_warning.clip_text = false
-		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(two_player_warning)
-		var two_player_button_y: float = _portrait_popup_bottom_button_y(
-			two_player_rect.end.y,
-			52.0
-		)
-		var two_player_yes_button := _stage_portrait_popup_main_button(
-			Rect2(82.0, two_player_button_y, 145.0, 52.0),
-			Callable(self, "_confirm_exit_game").bind(true),
-			tr("YES"),
-			20
-		)
-		two_player_yes_button.set("drop_shadow_enabled", true)
-		var two_player_no_button := _stage_portrait_popup_main_button(
-			Rect2(253.0, two_player_button_y, 145.0, 52.0),
-			close_action,
-			tr("NO"),
-			20,
-			false,
-			0.32,
-			false,
-			false,
-			false,
-			LONG_BUTTON_COLOR_ORANGE
-		)
-		two_player_no_button.set("drop_shadow_enabled", true)
-		content = two_player_previous_content
+		_show_simple_exit_popup(_exit_game_title_text(), Callable(self, "_confirm_exit_game").bind(true), _exit_game_warning_text())
 		return
 	if (
 		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
@@ -15699,6 +15741,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			Callable(self, "_leave_single_player_failure_reward_to_menu"),
 			"×"
 		)
+		_portrait_navigation_back_button = failure_back_button
 		# This reward-chain exit button is staged separately from the normal page
 		# header, so it does not pass through _animate_portrait_back_button_entrance().
 		# Give it the same compact top-bar depth profile explicitly.
@@ -16606,6 +16649,7 @@ func _stage_titled_navigation_header(heading: String, title_node_name: String,
 	content = _portrait_top_bar_content
 	var back := _stage_round_icon_button(PORTRAIT_PAGE_BACK_BUTTON_RECT,
 		back_action if back_action.is_valid() else Callable(self, "show_menu"), PORTRAIT_BACK_ARROW_ICON, PORTRAIT_PAGE_BACK_ICON_SIZE)
+	_portrait_navigation_back_button = back
 	if !_is_tabbed_page_opening():
 		_animate_portrait_back_button_entrance(back, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	var title := _stage_heading_label(Rect2(76, 18, 328, 44),
