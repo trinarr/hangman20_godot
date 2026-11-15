@@ -337,6 +337,14 @@ def main() -> None:
                 "Banner recovery timings must be positive")
     require(banner["retry_base_seconds"] <= banner["retry_maximum_seconds"],
             "Banner recovery retry base must not exceed maximum")
+    rewarded = resolve(config, "advertising.rewarded_recovery")
+    require(0 <= require_int(rewarded["maximum_recovery_attempts"], "advertising.rewarded_recovery.maximum_recovery_attempts") <= 10,
+            "Rewarded recovery attempts must be in 0..10")
+    for key in ("load_timeout_seconds", "retry_base_seconds", "retry_maximum_seconds"):
+        require(require_number(rewarded[key], f"advertising.rewarded_recovery.{key}") > 0,
+                "Rewarded recovery timings must be positive")
+    require(rewarded["retry_base_seconds"] <= rewarded["retry_maximum_seconds"],
+            "Rewarded retry base must not exceed maximum")
     retry = resolve(config, "timings.network_retry")
     retry_base = require_number(retry["base_seconds"], "timings.network_retry.base_seconds")
     retry_maximum = require_number(retry["maximum_seconds"], "timings.network_retry.maximum_seconds")

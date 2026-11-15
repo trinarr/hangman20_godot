@@ -26,6 +26,31 @@ The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by
 `project.godot`.
 
+Rewarded preloading starts after the consent-configured SDK is ready. The player
+wait limit is separate from loading: cancelling a pending show leaves a later
+successful ad cached for the next explicit action. The tagged loader watchdog
+allows 120 foreground seconds, then cancels that load and schedules up to three
+automatic retries (5, 10, 20 seconds). Settings live in
+`advertising.rewarded_recovery`; retries stop when the budget is exhausted until
+another explicit player request. Background/focus loss pauses recovery. A shown
+ad and its earned reward are never cancelled by the load watchdog.
+Load and retry deadlines use monotonic engine ticks rather than accumulated frame
+delta. Pauses shift deadlines once, including timers created by background
+callbacks. Player requests during retry backoff return immediately without a
+pending show, so the existing UI restores its button and reports that ads are
+not ready instead of waiting through a delay longer than its player wait limit.
+
+Both AARs expose `loadRewardedVideoForRequest`, `cancelRewardedVideoLoad`, and
+tagged success/failure signals. Java guards generations before touching the
+cached ad; GDScript also rejects stale IDs. Legacy bridges retain serialized
+loads without watchdog replacement. Rebuild both AARs when changing this protocol.
+The native loader survives completed success/failure callbacks and is reused for
+the next normal request. Cancelling an in-flight load discards that loader, so
+watchdog/privacy recovery gets a fresh instance. Each request still receives a
+new generation, including when it uses the same loader.
+Retries are delayed and bounded as required by the
+[Easy Monetization integration guidance](https://ads.yandex.com/helpcenter/en/easy/integration/android/formats/rewarded).
+
 Banner recovery belongs to this autoload. Long background periods invalidate
 cached and in-flight banners, including hidden ones; only a wanted banner loads
 a replacement. The SDK owns normal load errors and auto-refresh, so a success

@@ -120,14 +120,14 @@
     }
   },
   "economy": {
-    "starting_coins": 200,
+    "starting_coins": 250,
     "starting_stars": 0,
     "maximum_balance": 2000000000,
     "maximum_single_reward": 1000000000,
     "hearts": {
       "maximum": 5,
       "recovery_seconds": 900,
-      "refill_cost": 180
+      "refill_cost": 200
     },
     "hints": {
       "starting_count": 2,
@@ -182,6 +182,12 @@
   "advertising": {
     "unlock_level": 3,
     "rewarded_load_timeout_seconds": 12.0,
+    "rewarded_recovery": {
+      "load_timeout_seconds": 120.0,
+      "retry_base_seconds": 5.0,
+      "retry_maximum_seconds": 30.0,
+      "maximum_recovery_attempts": 3
+    },
     "banner_recovery": {
       "load_timeout_seconds": 120.0,
       "refresh_after_background_seconds": 60.0,

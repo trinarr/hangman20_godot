@@ -50,6 +50,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     private RewardedAd rewardedAd;
     private RewardedAdLoader rewardedAdLoader;
+    private final RewardedLoadGuard rewardedLoadGuard = new RewardedLoadGuard();
     private InterstitialAd interstitialAd;
     private InterstitialAdLoader interstitialAdLoader;
     private boolean initializationRequested;
@@ -82,6 +83,8 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         signals.add(new SignalInfo("_on_banner_impression"));
 
         signals.add(new SignalInfo("_on_rewarded_video_ad_loaded"));
+        signals.add(new SignalInfo("_on_rewarded_loaded_for_load", String.class));
+        signals.add(new SignalInfo("_on_rewarded_failed_for_load", String.class, Integer.class));
         signals.add(new SignalInfo("_on_rewarded_video_ad_failed_to_load", Integer.class));
         signals.add(new SignalInfo("_on_rewarded_video_ad_show"));
         signals.add(new SignalInfo("_on_rewarded_video_ad_failed_to_show", String.class));
@@ -328,25 +331,56 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void loadRewardedVideo(String adUnitId) {
-        activity.runOnUiThread(() -> {
-            rewardedAd = null;
-            if (rewardedAdLoader != null) {
-                rewardedAdLoader.cancelLoading();
-            }
-            rewardedAdLoader = new RewardedAdLoader(activity);
-            rewardedAdLoader.loadAd(new AdRequest.Builder(adUnitId).build(), new RewardedAdLoadListener() {
-                @Override
-                public void onAdLoaded(RewardedAd newRewardedAd) {
-                    rewardedAd = newRewardedAd;
-                    emitSignal("_on_rewarded_video_ad_loaded");
-                }
+        activity.runOnUiThread(() -> loadRewardedInternal("", adUnitId));
+    }
 
-                @Override
-                public void onAdFailedToLoad(AdRequestError error) {
+    @UsedByGodot
+    public void loadRewardedVideoForRequest(String requestId, String adUnitId) {
+        activity.runOnUiThread(() -> loadRewardedInternal(requestId, adUnitId));
+    }
+
+    @UsedByGodot
+    public void cancelRewardedVideoLoad(String requestId) {
+        activity.runOnUiThread(() -> {
+            if (rewardedLoadGuard.cancel(requestId)) { cancelRewardedLoadInternal(); }
+        });
+    }
+
+    private void cancelRewardedLoadInternal() {
+        // Invalidate before cancelLoading(), which may itself cause a callback.
+        rewardedLoadGuard.invalidate();
+        RewardedAdLoader oldLoader = rewardedAdLoader;
+        rewardedAdLoader = null;
+        if (oldLoader != null) { oldLoader.cancelLoading(); }
+    }
+
+    private void loadRewardedInternal(final String requestId, String adUnitId) {
+        // Completed requests can reuse the SDK loader. Replace it only when
+        // interrupting an in-flight request (including watchdog recovery).
+        if (rewardedLoadGuard.isLoading()) { cancelRewardedLoadInternal(); }
+        rewardedAd = null;
+        final long generation = rewardedLoadGuard.begin(requestId);
+        if (rewardedAdLoader == null) { rewardedAdLoader = new RewardedAdLoader(activity); }
+        rewardedAdLoader.loadAd(new AdRequest.Builder(adUnitId).build(), new RewardedAdLoadListener() {
+            @Override
+            public void onAdLoaded(RewardedAd newRewardedAd) {
+                activity.runOnUiThread(() -> {
+                    if (!rewardedLoadGuard.complete(generation)) { return; }
+                    rewardedAd = newRewardedAd;
+                    emitSignal("_on_rewarded_loaded_for_load", requestId);
+                    emitSignal("_on_rewarded_video_ad_loaded");
+                });
+            }
+
+            @Override
+            public void onAdFailedToLoad(AdRequestError error) {
+                activity.runOnUiThread(() -> {
+                    if (!rewardedLoadGuard.complete(generation)) { return; }
                     rewardedAd = null;
+                    emitSignal("_on_rewarded_failed_for_load", requestId, error.getCode());
                     emitSignal("_on_rewarded_video_ad_failed_to_load", error.getCode());
-                }
-            });
+                });
+            }
         });
     }
 
@@ -492,10 +526,7 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
     @Override
     public void onMainDestroy() {
         destroyBannerInternal();
-        if (rewardedAdLoader != null) {
-            rewardedAdLoader.cancelLoading();
-            rewardedAdLoader = null;
-        }
+        cancelRewardedLoadInternal();
         if (interstitialAdLoader != null) {
             interstitialAdLoader.cancelLoading();
             interstitialAdLoader = null;

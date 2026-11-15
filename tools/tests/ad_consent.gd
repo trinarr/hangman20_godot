@@ -72,6 +72,18 @@ class TaggedBannerNative extends FakeNative:
 	func loadBannerForRequest(id: String, _unit: String, _top: bool, _width: int, _height: int) -> void:
 		calls.append("load:" + id)
 
+class TaggedRewardedNative extends SignalNative:
+	signal _on_rewarded_loaded_for_load(id: String)
+	signal _on_rewarded_failed_for_load(id: String, code: int)
+	signal _on_rewarded_video_ad_loaded
+	signal _on_rewarded_video_ad_failed_to_load(code: int)
+	func has_java_method(method: StringName) -> bool:
+		return method in [&"loadRewardedVideoForRequest", &"cancelRewardedVideoLoad"] or super.has_java_method(method)
+	func loadRewardedVideoForRequest(id: String, _unit: String) -> void:
+		calls.append("rw_load:" + id)
+	func cancelRewardedVideoLoad(id: String) -> void:
+		calls.append("rw_cancel:" + id)
+
 class ClockNative extends TaggedBannerNative:
 	var elapsed_ms: int = 4000000000
 	var calendar_ms: int = 2000000000000
@@ -91,6 +103,21 @@ class BannerRecoveryAds extends "res://yandex_ads.gd":
 	func _banner_probe_now_ms() -> int:
 		return probe_now_ms
 
+class RewardedRecoveryAds extends "res://yandex_ads.gd":
+	var now_ms: int = 1000000
+	func _rewarded_now_ms() -> int:
+		return now_ms
+	func advance(seconds: float) -> void:
+		now_ms += int(seconds * 1000.0)
+		# A stalled frame may carry only a tiny simulation delta.
+		_process(0.001)
+	func retry_seconds() -> float:
+		return maxf(0.0, (_rewarded_retry_deadline_ms - _rewarded_timer_now_ms()) / 1000.0)
+
+class ShortRewardedDeadlineAds extends "res://yandex_ads.gd":
+	func _rewarded_timing(key: String) -> float:
+		return 0.18 if key == "load_timeout_seconds" else super._rewarded_timing(key)
+
 func check(condition: bool, message: String) -> void:
 	if !condition:
 		failures += 1
@@ -109,7 +136,11 @@ func _initialize() -> void:
 	test_banner_recovery()
 	test_diagnostic_logging()
 	test_shared_placement_cache()
-	test_release_interstitial_warmup()
+	test_release_fullscreen_warmup()
+	await test_rewarded_load_recovery()
+	test_rewarded_backoff_admission()
+	test_rewarded_monotonic_deadlines()
+	await test_rewarded_clock_during_engine_stall()
 	test_impression_placement()
 	test_tagged_interstitial_lifecycle()
 	test_native_signal_subscription()
@@ -208,7 +239,7 @@ func banner_service():
 	ads.user_consent = true
 	ads._native = TaggedBannerNative.new()
 	ads._connect_native_signals()
-	ads._update_banner_processing()
+	ads._update_ad_processing()
 	return ads
 
 func test_banner_recovery() -> void:
@@ -737,19 +768,31 @@ func test_shared_placement_cache() -> void:
 		check(!ads.prepare_rewarded_placement(&"unknown") and !ads.prepare_interstitial_placement(&"unknown"), "unknown production placement accepted")
 		ads.free()
 
-func test_release_interstitial_warmup() -> void:
+func test_release_fullscreen_warmup() -> void:
 	for preselected: bool in [false, true]:
 		var ads := ReleaseAds.new()
 		ads._native = FakeNative.new()
 		if preselected:
 			ads.prepare_interstitial_placement(&"quiz_correct")
+			ads.prepare_rewarded_placement(&"heart_refill")
 		check(ads._native.calls.is_empty(), "INT preload cannot run before SDK initialization")
 		ads.initialize_after_consent(false)
 		check(!ads._native.calls.has("load_interstitial"), "INT waits for consent-configured SDK readiness")
+		check(!ads._native.calls.has("load_rewarded"), "RW waits for consent-configured SDK readiness")
 		ads._on_sdk_initialized()
 		check(ads._native.calls.count("load_interstitial") == 1, "Release warms one INT immediately after SDK readiness")
 		check(ads._native.calls.find("configure:false") < ads._native.calls.find("load_interstitial"), "INT preload follows consent/configure")
-		check(!ads._native.calls.has("load_rewarded"), "INT warmup does not add unsolicited release RW loads")
+		check(ads._native.calls.count("load_rewarded") == 1, "Release warms one RW immediately after SDK readiness")
+		check(ads._native.calls.find("consent:false") < ads._native.calls.find("load_rewarded"), "RW preload follows the latest consent")
+		check(!ads._rewarded_pending_show and !ads._rewarded_show_open, "RW preload never opens an ad")
+		ads.prepare_rewarded_placement(&"coin_refill")
+		check(ads._native.calls.count("load_rewarded") == 1, "Popup reuses the in-flight RW warmup")
+		ads._on_rewarded_video_ad_loaded()
+		check(ads.is_rewarded_video_loaded(&"hint_open"), "Warm RW cache is ready for another gameplay placement")
+		check(!ads._rewarded_show_open, "Ready preload waits for a player request")
+		check(ads.show_rewarded_video("warm-rw", &"coin_refill"), "Player can show the warmed shared RW")
+		check(ads._native.calls[-1] == "show:warm-rw", "Warm RW reaches native show with the gameplay request ID")
+		check(ads._native.calls.count("load_rewarded") == 1, "Ready RW does not reload before showing")
 		ads.prepare_interstitial_placement(&"forfeit")
 		check(ads._native.calls.count("load_interstitial") == 1, "Gameplay preparation reuses the in-flight warmup")
 		ads._on_interstitial_loaded()
@@ -762,7 +805,150 @@ func test_release_interstitial_warmup() -> void:
 	other._native = FakeNative.new()
 	other._on_sdk_initialized()
 	check(!other._native.calls.has("load_interstitial"), "Warmup cannot request an unconfigured store unit")
+	check(!other._native.calls.has("load_rewarded"), "RW warmup cannot request an unconfigured store unit")
 	other.free()
+
+func tagged_rewarded_service():
+	var ads = RewardedRecoveryAds.new()
+	ads._sdk_ready = true
+	ads._sdk_initialization_requested = true
+	ads.user_consent = true
+	ads._native = TaggedRewardedNative.new()
+	ads._connect_native_signals()
+	return ads
+
+func test_rewarded_load_recovery() -> void:
+	var ads = tagged_rewarded_service()
+	check(ads._native._on_rewarded_loaded_for_load.get_connections().size() == 1, "Tagged RW load is subscribed")
+	check(ads._native._on_rewarded_video_ad_loaded.get_connections().is_empty(), "Legacy RW load must not double-deliver tagged callbacks")
+	ads.prepare_rewarded_placement(&"coin_refill")
+	var first: String = ads._rewarded_load_id
+	ads.show_rewarded_video("cancelled-rw", &"coin_refill")
+	ads.cancel_pending_rewarded_request("cancelled-rw")
+	ads._native._on_rewarded_loaded_for_load.emit(first)
+	await process_frame
+	check(ads._rewarded_loaded and !ads._native.calls.has("show:cancelled-rw"), "Late success caches an ad without showing a cancelled player request")
+	ads._native._on_rewarded_failed_for_load.emit(first, 4)
+	check(ads._rewarded_loaded, "Duplicate failure cannot erase a completed RW cache")
+	ads.free()
+
+	ads = tagged_rewarded_service()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	first = ads._rewarded_load_id
+	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	ads.advance(200.0)
+	check(ads._rewarded_loading, "RW watchdog pauses in background")
+	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	ads.advance(ads._rewarded_timing("load_timeout_seconds") + 0.1)
+	check(!ads._rewarded_loading and ads._native.calls.has("rw_cancel:" + first), "RW timeout cancels the owned native request")
+	check(ads.retry_seconds() == 5.0, "First RW retry uses configured backoff")
+	ads.prepare_rewarded_placement(&"hint_open")
+	check(!ads._rewarded_loading, "Popup preparation cannot bypass retry delay")
+	ads.advance(5.0)
+	var second: String = ads._rewarded_load_id
+	check(!second.is_empty() and second != first, "RW retry starts with a fresh load ID without a banner")
+	ads.show_rewarded_video("current-rw", &"coin_refill")
+	ads._native._on_rewarded_loaded_for_load.emit(first)
+	ads._native._on_rewarded_failed_for_load.emit(first, 4)
+	check(ads._rewarded_loading and ads.is_rewarded_request_pending("current-rw"), "Old callbacks cannot complete or fail the replacement")
+	ads._native._on_rewarded_loaded_for_load.emit(second)
+	await process_frame
+	check(ads._native.calls.count("show:current-rw") == 1, "Current RW callback shows the pending action once")
+	ads.advance(200.0)
+	check(ads._rewarded_show_open and !ads._native.calls.has("rw_cancel:" + second), "Watchdog never cancels a shown ad")
+	ads.free()
+
+	ads = tagged_rewarded_service()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	first = ads._rewarded_load_id
+	ads.set_user_consent(false)
+	check(ads._native.calls.has("rw_cancel:" + first) and ads._rewarded_load_id != first, "Privacy change replaces tagged RW immediately")
+	ads._native._on_rewarded_loaded_for_load.emit(first)
+	check(!ads._rewarded_loaded, "Pre-consent-change RW callback is ignored")
+	for attempt: int in range(4):
+		ads._native._on_rewarded_failed_for_load.emit(ads._rewarded_load_id, 4)
+		if attempt < 3:
+			check(ads.retry_seconds() == minf(5.0 * pow(2.0, attempt), 30.0), "RW backoff increases")
+			ads.advance(ads.retry_seconds())
+	check(ads._rewarded_retry_deadline_ms == -1 and !ads._rewarded_loading, "RW automatic retries stop at the budget")
+	ads.prepare_rewarded_placement(&"coin_refill")
+	check(!ads._rewarded_loading, "Popup cannot restart an exhausted retry cycle")
+	ads.show_rewarded_video("manual-retry", &"coin_refill")
+	check(ads._rewarded_loading, "Explicit player retry can start a new recovery cycle")
+	first = ads._rewarded_load_id
+	ads._exit_tree()
+	check(ads._native.calls.has("rw_cancel:" + first), "Service exit cancels its RW load")
+	ads.load_rewarded_video()
+	check(!ads._rewarded_loading and !ads.is_rewarded_request_pending("manual-retry"), "Deferred loads and shows cannot restart after service exit")
+	check(!ads.show_rewarded_video("after-exit", &"coin_refill"), "Service exit rejects new show requests")
+	ads.free()
+
+	ads = service()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	ads._process(200.0)
+	check(ads._rewarded_loading and ads._native.calls.count("load_rewarded") == 1, "Legacy untagged bridge never overlaps timed-out loads")
+	ads.free()
+
+func test_rewarded_backoff_admission() -> void:
+	var ads = tagged_rewarded_service()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	for attempt: int in range(3):
+		ads._native._on_rewarded_failed_for_load.emit(ads._rewarded_load_id, 4)
+		if attempt < 2:
+			ads.advance(ads.retry_seconds())
+	check(!ads.can_request_rewarded_video(&"coin_refill"), "Retry delay is not advertised as an available player request")
+	check(!ads.show_rewarded_video("during-backoff", &"coin_refill"), "Player must not wait 12 seconds inside a 20-second retry delay")
+	check(!ads.is_rewarded_request_pending("during-backoff"), "Rejected retry creates no pending show")
+	check(ads.retry_seconds() == 20.0, "Rejected player request preserves automatic retry delay")
+	ads.advance(20.0)
+	check(ads.show_rewarded_video("after-backoff", &"coin_refill"), "Player may wait for an active load once backoff expires")
+	ads.free()
+
+func test_rewarded_monotonic_deadlines() -> void:
+	var ads = tagged_rewarded_service()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	ads.advance(60.0)
+	check(ads._rewarded_loading, "Small frame delta does not expire a load before 120 real foreground seconds")
+	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	ads.advance(200.0)
+	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	ads.advance(100.0)
+	check(ads._rewarded_loading, "Focus return while paused does not restart the watchdog")
+	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	ads.advance(59.999)
+	check(ads._rewarded_loading, "Overlapping lifecycle notifications exclude background time only once")
+	ads.advance(0.001)
+	check(!ads._rewarded_loading and ads.retry_seconds() == 5.0, "120 real foreground seconds expire a load despite tiny process delta")
+	ads.free()
+
+	ads = tagged_rewarded_service()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	ads.advance(100.0)
+	ads._native._on_rewarded_failed_for_load.emit(ads._rewarded_load_id, 4)
+	ads.advance(200.0)
+	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	check(ads.retry_seconds() == 5.0, "Retry scheduled by a background callback waits only its configured foreground delay")
+	ads.advance(4.999)
+	check(!ads._rewarded_loading, "Background-created retry cannot start early")
+	ads.advance(0.001)
+	check(ads._rewarded_loading, "Background-created retry starts on its monotonic deadline")
+	ads.free()
+
+func test_rewarded_clock_during_engine_stall() -> void:
+	var ads := ShortRewardedDeadlineAds.new()
+	root.add_child(ads)
+	ads._native = TaggedRewardedNative.new()
+	ads._sdk_ready = true
+	ads._connect_native_signals()
+	ads.prepare_rewarded_placement(&"coin_refill")
+	var first: String = ads._rewarded_load_id
+	OS.delay_msec(300)
+	await process_frame
+	await process_frame
+	check(!ads._rewarded_loading and ads._native.calls.has("rw_cancel:" + first), "Real engine stall expires monotonic RW watchdog despite capped frame delta")
+	ads.free()
 
 func test_impression_placement() -> void:
 	var ads = ReleaseAds.new()

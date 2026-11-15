@@ -15,6 +15,55 @@ from prepare_firebase_android import package_for_preset
 
 
 class YandexAndroidPreparationTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("javac") and shutil.which("java"), "JDK required for native rewarded load regression")
+    def test_cancelled_and_duplicate_rewarded_callbacks_cannot_replace_current_ad(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            helper = ROOT / "addons/GodotAndroidYandexAds/source/RewardedLoadGuard.java"
+            test = root / "RewardedLoadGuardTest.java"
+            test.write_text('''
+package com.darkmoonight.godotandroidyandexads;
+public class RewardedLoadGuardTest {
+    static void check(boolean value) { if (!value) throw new AssertionError(); }
+    public static void main(String[] args) {
+        RewardedLoadGuard gate = new RewardedLoadGuard();
+        check(!gate.isLoading());
+        long first = gate.begin("first");
+        check(gate.isLoading());
+        check(!gate.cancel("unrelated"));
+        check(gate.isLoading());
+        check(gate.cancel("first"));
+        check(!gate.isLoading());
+        check(!gate.complete(first)); // callback caused by cancelLoading()
+        long second = gate.begin("second");
+        String cache = "empty";
+        if (gate.complete(first)) cache = "stale success";
+        check(cache.equals("empty"));
+        check(!gate.cancel("first")); // late cancellation cannot cancel a replacement
+        if (gate.complete(second)) cache = "current ad";
+        check(!gate.isLoading()); // A completed loader is eligible for reuse.
+        check(cache.equals("current ad"));
+        if (gate.complete(first)) cache = "stale failure";
+        if (gate.complete(second)) cache = "duplicate failure";
+        check(cache.equals("current ad"));
+        long third = gate.begin("third");
+        gate.invalidate(); // Activity destruction
+        check(!gate.isLoading());
+        check(!gate.complete(third));
+        long legacy = gate.begin("");
+        check(gate.complete(legacy));
+        check(!gate.complete(legacy));
+        long reused = gate.begin("reused-loader");
+        check(!gate.complete(legacy) && gate.isLoading());
+        check(gate.complete(reused) && !gate.isLoading());
+    }
+}
+''', encoding="utf-8")
+            result = subprocess.run(["javac", "-encoding", "UTF-8", "-d", str(root), str(helper), str(test)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = subprocess.run(["java", "-cp", str(root), "com.darkmoonight.godotandroidyandexads.RewardedLoadGuardTest"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_godot_multiline_dictionary_does_not_break_export_validation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
