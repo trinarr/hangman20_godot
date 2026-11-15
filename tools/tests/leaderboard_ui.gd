@@ -144,8 +144,8 @@ func _ready() -> void:
 		check(medal != null and medal.texture == SCREEN.RANK_MEDALS[index] and medal.get_meta("rank") == index + 1, "First three ranks use their numbered medal")
 		check(medal.mouse_filter == Control.MOUSE_FILTER_IGNORE and medal.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_CENTERED, "Medal keeps its proportions and never intercepts scrolling")
 	var fourth_rank: Label = view.rows.get_child(4).find_child("PlayerRank", true, false)
-	check(fourth_rank.text == "4" and fourth_rank.get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Other ranks use plain dark blue text")
-	check(fourth_rank.material == null and fourth_rank.get_node_or_null("DisplayTextShaderEffect") == null and fourth_rank.get_theme_constant("outline_size") == 0, "Other ranks have no shader or outline")
+	check(fourth_rank.text == "4" and fourth_rank.get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Other ranks use their original dark blue text")
+	check(fourth_rank.material == null and !fourth_rank.has_node("DisplayTextShaderEffect") and fourth_rank.get_theme_constant("outline_size") == 0, "Rank numbers have no outline or shadow effects")
 	var pinned_icon: TextureRect = view.pinned.find_child("LeaderboardStarIcon", true, false)
 	check(pinned_icon.size == icon.size, "Pinned row uses the same bounded star icon")
 	var avatar: Button = first_row.find_child("PlayerAvatar", true, false)
@@ -199,7 +199,7 @@ func _ready() -> void:
 	await settle()
 	check(view._pin_side == "bottom", "Outside top100 stays at bottom")
 	var outside_rank: Label = view.pinned.find_child("PlayerRank", true, false)
-	check(outside_rank.text == "100+" and outside_rank.get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Outside top100 uses the plain language-independent 100+ marker")
+	check(outside_rank.text == "100+" and outside_rank.get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Outside top100 uses the dark language-independent 100+ marker")
 	view.scroll.scroll_vertical = 100000
 	await settle()
 	var last: Control = view.rows.get_child(100)
@@ -266,10 +266,11 @@ func _ready() -> void:
 	add_child(local_view)
 	await settle()
 	check(local_view._tournament_selected and local_view._tournament.visible and !local_view._loading, "Initial Tournament tab is selected before ready without starting global loading")
-	check(tournament_service.request_count == 0 and tournament_service.cache_reads == 0 and tournament_service.star_syncs == 0, "Opening Tournament neither reads global cache nor requests/synchronizes the global service")
+	check(tournament_service.request_count == 0 and tournament_service.cache_reads == 1 and tournament_service.star_syncs == 0, "Opening Tournament only captures the local comparison point without a global request or star sync")
+	check(local_view.rows.get_child_count() == 0, "Opening Tournament does not construct hidden global rows just to remember their ranks")
 	local_view._players.pressed.emit()
 	await settle()
-	check(tournament_service.request_count == 1 and tournament_service.manual and !local_view._tournament_selected, "First Global selection performs exactly one manual refresh")
+	check(tournament_service.request_count == 1 and tournament_service.manual and !local_view._tournament_selected, "First Global selection performs exactly one manual refresh without replacing the visit baseline")
 	local_view._players.pressed.emit()
 	check(tournament_service.request_count == 1, "Already-selected Global tab does not duplicate the opening request")
 	local_view._weekly.pressed.emit()
@@ -282,6 +283,8 @@ func _ready() -> void:
 	tournament_service.queue_free()
 	await settle()
 	await inspect_offline_open()
+	await inspect_rank_progress()
+	await inspect_background_rank_ack()
 	var main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await settle()
@@ -354,6 +357,315 @@ func _ready() -> void:
 	await settle()
 	print("LEADERBOARD_UI checks=%d failures=%d" % [checks, failures])
 	get_tree().quit(1 if failures else 0)
+
+func progress_snapshot(order: Array, language: String) -> Dictionary:
+	var top: Array = []
+	var me: Dictionary = {}
+	for index in range(order.size()):
+		var id := int(order[index])
+		var entry := {"player_id": str(id), "rank": index + 1, "nickname": "Игрок %d" % id if language == "ru" else "Player %d" % id,
+			"stars": 1000 - index, "character_id": 1 + id % 2, "frame_id": 1 + id % 5}
+		top.append(entry)
+		if id == 6:
+			me = entry.duplicate(true)
+	return {"top": top, "me": me, "language": language}
+
+func check_rendered_rank_gap(image: Image, label: Label, promoted: bool) -> void:
+	var pixels := Vector2(image.get_size()) / get_viewport().get_visible_rect().size
+	var rect := label.get_global_rect()
+	var scale := rect.size.y / label.size.y * pixels.y
+	var center := rect.get_center().x * pixels.x
+	var spans: Array[Vector2i] = []
+	for y in range(ceili(rect.position.y * pixels.y + scale), floori(rect.end.y * pixels.y - scale)):
+		var found := false
+		for x in range(ceili(center - 11.0 * scale), floori(center + 11.0 * scale)):
+			var color := image.get_pixel(x, y)
+			var fill := color.g > 0.55 and color.g > color.r * 1.5 and color.g > color.b * 1.4 if promoted else color.r > 0.7 and color.g < 0.47 and color.b < 0.55
+			var dark := color.r < 0.32 and color.g < 0.36 and color.b < 0.65
+			if fill or dark:
+				found = true
+				break
+		if found:
+			if spans.is_empty() or y > spans[-1].y + 1:
+				spans.append(Vector2i(y, y))
+			else:
+				spans[-1] = Vector2i(spans[-1].x, y)
+	check(spans.size() == 2, "GPU separates the arrow and digit ink, including their effects: %s" % [spans])
+	if spans.size() == 2:
+		var gap := float(spans[1].x - spans[0].y - 1) / scale
+		# Control translations snap in stage units before viewport scaling;
+		# at 1080px one such rounding step spans more than two screen pixels.
+		check(absf(gap - 4.0) <= 1.0, "Rendered rank gap is four logical units within stage-pixel rounding: %.3f" % gap)
+
+func check_arrow_shadow_pixels(with_shadow: Image, without_shadow: Image, arrow: Control) -> void:
+	var pixels := Vector2(with_shadow.get_size()) / get_viewport().get_visible_rect().size
+	var rect := arrow.get_global_rect().grow(4.0)
+	var changed := 0
+	for y in range(maxi(0, floori(rect.position.y * pixels.y)), mini(with_shadow.get_height(), ceili(rect.end.y * pixels.y))):
+		for x in range(maxi(0, floori(rect.position.x * pixels.x)), mini(with_shadow.get_width(), ceili(rect.end.x * pixels.x))):
+			var darker := with_shadow.get_pixel(x, y)
+			var lighter := without_shadow.get_pixel(x, y)
+			if lighter.r + lighter.g + lighter.b - darker.r - darker.g - darker.b > 0.08:
+				changed += 1
+	check(changed >= 2, "Arrow shadow contributes visible GPU pixels beyond its front contour: %d" % changed)
+
+func inspect_rank_progress() -> void:
+	var icon_style = SCREEN.ROW.RANK_DIRECTION.ICON_STYLE
+	var icon_reference := Control.new()
+	icon_reference.size = SCREEN.ROW.RANK_DIRECTION.SIZE
+	icon_reference.hide()
+	add_child(icon_reference)
+	icon_style._add_portrait_icon_with_extrusion_to_holder(icon_reference, SCREEN.ROW.RANK_DIRECTION.TEXTURE, "Reference", 1,
+		icon_style.ACTION_SHADOW_ALPHA, icon_style.ACTION_SHADOW_OFFSET_SCALE)
+	await settle()
+	var reference_shadow: TextureRect = icon_reference.get_node("ReferenceExtrusion01")
+	var reference_outline: ShaderMaterial = icon_style.OUTLINE.material()
+	var old_size := get_window().size
+	var old_min := get_window().min_size
+	var old_language: String = Database.interface_language
+	var original := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+	var promoted := [1, 2, 3, 6, 5, 4, 7, 8, 9, 10]
+	var later := [1, 2, 3, 5, 6, 4, 7, 8, 9, 10]
+	for id in range(11, 31):
+		original.append(id)
+		promoted.append(id)
+		later.append(id)
+	var progress := SCREEN.RANK_PROGRESS.new()
+	progress.begin({}, "ru")
+	check(progress.change({"player_id": "6", "rank": 4}, "ru") == 0, "First visit has no invented movement")
+	progress.begin(progress_snapshot(original, "ru"), "ru")
+	check(progress.change({"player_id": "new", "rank": 4}, "ru") == 0, "New participant has no invented movement")
+	check(progress.change({"player_id": "6", "rank": null}, "ru") == 0, "Unknown outside-top rank cannot produce a numeric change")
+	check(progress.change({"player_id": "6", "rank": 4}, "en") == 0, "Different language snapshots are not compared")
+	var outside := {"language": "ru", "top": [], "me": {"player_id": "6", "rank": null, "top_percent": 25}}
+	progress.begin(outside, "ru")
+	check(progress.change({"player_id": "6", "rank": 50}, "ru") == 1, "Confirmed outside-top participant entering top has an up direction")
+	check(progress.change(outside.me, "ru") == 0, "Remaining outside top has no invented movement")
+	check(progress.change({"player_id": "new", "rank": 50}, "ru") == 0, "New participant is distinct from confirmed outside-top participant")
+	progress.begin({"language": "ru", "top": [{"player_id": "6", "rank": 50}]}, "ru")
+	check(progress.change(outside.me, "ru") == -1, "Leaving top has a down direction without inventing a distance")
+	check(progress.change({"player_id": "6", "rank": null}, "ru") == 0, "Unconfirmed absence is still unknown")
+	var acknowledged := progress_snapshot(original, "ru")
+	acknowledged.me.rank = 1
+	progress.begin(acknowledged, "ru")
+	check(progress.change({"player_id": "6", "rank": 4}, "ru") == 2, "Own cached row rank wins over a newer background score acknowledgement")
+	for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
+		get_window().min_size = dimensions
+		get_window().size = dimensions
+		for language: String in ["ru", "en"]:
+			Database.interface_language = language
+			TranslationServer.set_locale(language)
+			var mock := MockService.new()
+			mock.snapshot = progress_snapshot(original, language)
+			mock.from_cache = false
+			add_child(mock)
+			var view := SCREEN.new()
+			view.service = mock
+			add_child(view)
+			await settle()
+			mock.snapshot = progress_snapshot(promoted, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			await settle()
+			view._list_entrance.stop()
+			for id: String in ["6", "4", "7"]:
+				var face: Control = view._row_by_id[id].get_node("CardFace")
+				var label: Label = face.get_node("PlayerRank")
+				var arrow: Control = face.get_node_or_null("PlayerRankDirection")
+				var color := SCREEN.PALETTE.SUCCESS if id == "6" else (SCREEN.PALETTE.ERROR if id == "4" else Color.WHITE)
+				check(label.get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK and !label.has_node("DisplayTextShaderEffect"), "Every rank stays dark blue without heading effects regardless of movement")
+				check(label.position == Vector2.ZERO and label.size.y == 68, "Movement never shifts the rank number or its alignment area")
+				if id == "7":
+					check(arrow == null, "Unchanged rank has no direction icon")
+				else:
+					var visual: TextureRect = arrow.get_node("Arrow")
+					var shadow: TextureRect = arrow.get_node("ArrowExtrusion01")
+					check(visual.texture == SCREEN.ROW.RANK_DIRECTION.TEXTURE and visual.material.get_shader_parameter("source_tint") == color, "Movement reuses the white navigation arrow with only its fill tinted to the rank color")
+					check(is_equal_approx(visual.rotation, PI * 0.5 if id == "6" else -PI * 0.5), "Rank improvement points up and rank loss points down")
+					check(arrow.position.y > label.size.y * 0.5 if id == "6" else arrow.get_rect().end.y < label.size.y * 0.5, "Promotion sits below the number and demotion sits above it")
+					check(arrow.size.is_equal_approx(Vector2.ONE * 16.1), "Rank arrow grows fifteen percent without changing its proportions")
+					check(arrow.mouse_filter == Control.MOUSE_FILTER_IGNORE and arrow.position.y >= 0 and arrow.get_rect().end.y <= 68, "Direction stays inside the card without intercepting input")
+					check(visual.material.get_shader_parameter("outline_color") == reference_outline.get_shader_parameter("outline_color") and visual.material.get_shader_parameter("outline_pixels") == reference_outline.get_shader_parameter("outline_pixels"), "Arrow uses the standard icon contour without scaling its screen-pixel thickness with the UI")
+					check(shadow.material.get_shader_parameter("shadow_color") == reference_shadow.material.get_shader_parameter("shadow_color") and shadow.offset_step.is_equal_approx(reference_shadow.offset_step), "Arrow reuses the current navigation icon shadow color, opacity and offset")
+					check(shadow.material.get_shader_parameter("colored_outline") == true and shadow.material.get_shader_parameter("outline_pixels") == visual.material.get_shader_parameter("outline_pixels"), "Arrow shadow includes the same outlined silhouette as its front")
+			check(view.pinned.get_node("CardFace/PlayerRank").get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK and view.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "Pinned own rank stays dark while its arrow shows the same improvement as its list row")
+			check(!mock.snapshot.top[0].has("rank_change") and !view._snapshot.top[0].has("rank_change"), "Movement decoration never mutates service snapshots")
+			var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				var image := get_viewport().get_texture().get_image()
+				check_rendered_rank_gap(image, view._row_by_id["6"].get_node("CardFace/PlayerRank"), true)
+				check_rendered_rank_gap(image, view._row_by_id["4"].get_node("CardFace/PlayerRank"), false)
+				if !directory.is_empty():
+					check(image.save_png(directory.path_join("rank_progress_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save rank progress GPU preview")
+				var up: Control = view._row_by_id["6"].get_node("CardFace/PlayerRankDirection")
+				var down: Control = view._row_by_id["4"].get_node("CardFace/PlayerRankDirection")
+				up.get_node("ArrowExtrusion01").hide()
+				down.get_node("ArrowExtrusion01").hide()
+				await settle()
+				await RenderingServer.frame_post_draw
+				var without_shadow := get_viewport().get_texture().get_image()
+				check_arrow_shadow_pixels(image, without_shadow, up)
+				check_arrow_shadow_pixels(image, without_shadow, down)
+				up.get_node("ArrowExtrusion01").show()
+				down.get_node("ArrowExtrusion01").show()
+				await settle()
+			view.scroll.scroll_vertical = 100000
+			await settle()
+			check(view.pinned.visible and view._pin_side == "top" and view.pinned.get_node("CardFace/PlayerRankDirection").is_visible_in_tree(), "Improved own rank keeps its arrow on the visible pinned player card")
+			if DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				var image := get_viewport().get_texture().get_image()
+				check_rendered_rank_gap(image, view.pinned.get_node("CardFace/PlayerRank"), true)
+				if !directory.is_empty():
+					check(image.save_png(directory.path_join("rank_progress_pinned_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save visible pinned rank arrow GPU preview")
+				var arrow: Control = view.pinned.get_node("CardFace/PlayerRankDirection")
+				arrow.get_node("ArrowExtrusion01").hide()
+				await settle()
+				await RenderingServer.frame_post_draw
+				check_arrow_shadow_pixels(image, get_viewport().get_texture().get_image(), arrow)
+				arrow.get_node("ArrowExtrusion01").show()
+				await settle()
+			view.scroll.scroll_vertical = 0
+			await settle()
+			mock.snapshot = progress_snapshot(later, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			check(view._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "Second response still compares with entry rank 6, not previous response rank 4")
+			view._select_tab(true)
+			view._select_tab(false)
+			check(view._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS and mock.cache_reads == 1, "Tab switching preserves the fixed comparison point")
+			mock.sync_failed.emit()
+			view._retry.pressed.emit()
+			check(view._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "Error and retry preserve the entry comparison point")
+			mock.snapshot = progress_snapshot(original, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			check(view._row_by_id["6"].get_node("CardFace/PlayerRank").get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK and !view._row_by_id["6"].has_node("CardFace/PlayerRankDirection"), "Returning to entry rank removes its arrow while keeping the rank dark")
+			var medal_order := [2, 6, 1, 4, 5, 3, 7, 8, 9, 10]
+			for id in range(11, 31):
+				medal_order.append(id)
+			mock.snapshot = progress_snapshot(medal_order, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			await settle()
+			for rank in range(1, 4):
+				var face: Control = view._row_by_id[str(medal_order[rank - 1])].get_node("CardFace")
+				var medal: TextureRect = face.get_node("PlayerRankMedal")
+				var arrow: Control = face.get_node("PlayerRankDirection")
+				var promoted_medal := rank < 3
+				check(medal.texture == SCREEN.ROW.RANK_MEDALS[rank - 1] and medal.position.y == 15 and medal.size == Vector2(38, 38), "Top-three movement preserves the original medal artwork and geometry")
+				check(arrow.size.is_equal_approx(SCREEN.ROW.RANK_DIRECTION.SIZE) and is_equal_approx(arrow.position.y, SCREEN.ROW.RANK_DIRECTION.LOWER_Y if promoted_medal else SCREEN.ROW.RANK_DIRECTION.UPPER_Y), "Medal arrows use exactly the same size and vertical positions as numeric ranks")
+				check(is_equal_approx(arrow.get_rect().get_center().x, medal.get_rect().get_center().x) and arrow.color == (SCREEN.PALETTE.SUCCESS if promoted_medal else SCREEN.PALETTE.ERROR), "Medal arrow stays centered and indicates promotion or demotion in the standard color")
+			check(view.pinned.has_node("CardFace/PlayerRankMedal") and view.pinned.has_node("CardFace/PlayerRankDirection"), "Own top-three pinned card also retains its promotion arrow")
+			var green: Control = view._row_by_id["2"].get_node("CardFace/PlayerRankDirection")
+			var other_green: Control = view._row_by_id["6"].get_node("CardFace/PlayerRankDirection")
+			var red: Control = view._row_by_id["1"].get_node("CardFace/PlayerRankDirection")
+			check(green.get_node("Arrow").material == other_green.get_node("Arrow").material and green.get_node("Arrow").material != red.get_node("Arrow").material, "Arrow fronts share immutable materials by color")
+			check(green.get_node("ArrowExtrusion01").material != other_green.get_node("ArrowExtrusion01").material, "Arrow shadows retain independent geometry materials")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("rank_progress_medals_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save medal progress GPU preview")
+			view.scroll.scroll_vertical = 100000
+			await settle()
+			check(view.pinned.visible and view.pinned.get_node("CardFace/PlayerRankDirection").is_visible_in_tree(), "Pinned own medal visibly keeps its arrow after scrolling")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("rank_progress_medals_pinned_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save pinned medal progress GPU preview")
+			view.dispose()
+			view.queue_free()
+			await settle()
+			var reopened := SCREEN.new()
+			reopened.initial_tournament = true
+			reopened.service = mock
+			var requests := mock.request_count
+			add_child(reopened)
+			await settle()
+			check(mock.request_count == requests, "Reopening on Tournament never adds a global request")
+			mock.snapshot = progress_snapshot(original, language)
+			reopened._select_tab(false)
+			check(reopened._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.ERROR, "New visit compares with entry rank 2 even when the first Global request occurs later")
+			if dimensions == Vector2i(960, 1600) and language == "ru":
+				mock.snapshot = progress_snapshot(original, language)
+				mock.snapshot.top = mock.snapshot.top.filter(func(row: Dictionary): return row.player_id != "6")
+				mock.snapshot.me.rank = null
+				mock.snapshot.me.top_percent = 25
+				mock.leaderboard_ready.emit(mock.snapshot, false)
+				check(reopened.pinned.get_node("CardFace/PlayerRank").text == "100+" and reopened.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.ERROR, "Leaving top displays the down arrow on the outside-top own card")
+				reopened.dispose()
+				reopened.queue_free()
+				await settle()
+				var returning := SCREEN.new()
+				returning.service = mock
+				add_child(returning)
+				mock.snapshot = progress_snapshot(original, language)
+				mock.leaderboard_ready.emit(mock.snapshot, false)
+				check(returning._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS and returning.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "Entering top from confirmed outside position shows up arrows on both own cards")
+				returning.dispose()
+				returning.queue_free()
+			else:
+				reopened.dispose()
+				reopened.queue_free()
+			mock.queue_free()
+			await settle()
+	get_window().min_size = old_min
+	get_window().size = old_size
+	Database.interface_language = old_language
+	TranslationServer.set_locale(old_language)
+	icon_reference.free()
+
+func inspect_background_rank_ack() -> void:
+	var transport = preload("res://tools/tests/leaderboard_transport_mock.gd").new()
+	add_child(transport)
+	transport._access_token = "test-access"
+	var fixture = load("res://tools/tests/leaderboard.gd").new()
+	var client = preload("res://tools/tests/leaderboard_client_mock.gd").new()
+	client.language = Database.interface_language
+	client.transport = transport
+	add_child(client)
+	var initial: Dictionary = fixture.reply(40, true, Database.interface_language)
+	for index in range(5):
+		initial.body.fillers[index].stars = 70 - index * 5
+	transport.replies = [initial]
+	client.refresh(true, true)
+	await settle_transport(client, transport)
+	check(client.cached_snapshot().me.rank == 6, "Real client fixture initially ranks its player sixth among local fillers")
+	transport.replies = [fixture.reply(58, false, Database.interface_language)]
+	client.sync_stars(58)
+	client._flush()
+	await settle_transport(client, transport)
+	var cached: Dictionary = client.cached_snapshot()
+	check(client._snapshot.me.rank == 1 and cached.me.rank == 6 and cached.me.stars == 58 and cached.top.filter(func(row: Dictionary): return row.player_id == "123")[0].rank == 6, "Background acknowledgement keeps newest score but exposes the same cached rank as the table")
+	check(!transport.calls.back().payload.p_include_top, "Background score upload retains the existing request pattern")
+	var board: Dictionary = client._boards[Database.interface_language]
+	var old_me: Dictionary = board.me
+	var old_top: Array = client._snapshot.top
+	board.me = old_me.duplicate(true)
+	board.me.rank = null
+	board.me.top_percent = 25
+	client._snapshot.top = []
+	check(client.cached_snapshot().me.rank == null and client.cached_snapshot().me.top_percent == 25 and client.cached_snapshot().me.stars == 58, "Pending acknowledgement preserves confirmed outside-top position and newest score")
+	board.me = old_me
+	client._snapshot.top = old_top
+	var requests: int = transport.calls.size()
+	transport.replies = [fixture.reply(58, true, Database.interface_language)]
+	transport.delay_frames[transport.calls.back().path] = 60
+	var view := SCREEN.new()
+	view.service = client
+	add_child(view)
+	await settle()
+	view.scroll.scroll_vertical = 100000
+	await settle()
+	check(client._busy and view.pinned.visible, "Delayed standings reply exposes the cached pinned card while waiting")
+	check(view._row_by_id["123"].get_meta("leaderboard_entry").rank == 6 and view.pinned.get_meta("leaderboard_entry").rank == 6, "Pending reply keeps ordinary and pinned own rank coherent")
+	check(!view.pinned.has_node("CardFace/PlayerRankDirection") and !view._row_by_id["123"].has_node("CardFace/PlayerRankDirection"), "Background acknowledgement cannot create a false promotion while waiting")
+	await settle_transport(client, transport)
+	await settle()
+	check(transport.calls.size() == requests + 1, "Opening the screen adds only the existing single standings request")
+	check(view._row_by_id["123"].get_node("CardFace/PlayerRank").text == "4" and view._row_by_id["123"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "After earning stages the player's 6-to-4 improvement keeps its green arrow despite the earlier acknowledgement")
+	view.scroll.scroll_vertical = 100000
+	await settle()
+	check(view.pinned.visible and view.pinned.get_node("CardFace/PlayerRankDirection").is_visible_in_tree() and view.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS and view.pinned.get_node("CardFace/PlayerRank").get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Actual client promotion displays a green up arrow and dark number on the pinned own card")
+	view.dispose()
+	for node: Node in [view, client, transport, fixture]:
+		node.queue_free()
+	await settle()
 
 func inspect_error_ui(main: Node, data: Dictionary) -> void:
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION

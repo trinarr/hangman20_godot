@@ -3,6 +3,7 @@ extends SceneTree
 const SHADERS := [
 	"colored_icon_outline", "hint_icon_extrusion_shadow", "hint_icon_grayscale",
 	"reward_chest_flash", "theme_unlock_icon_grayscale",
+	"rank_direction",
 ]
 
 func _initialize() -> void:

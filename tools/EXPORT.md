@@ -15,7 +15,7 @@
 
 Текущие значения определяет [export_presets.cfg](../export_presets.cfg):
 
-- Release-пресет — `Hangman 2.0 RuStore`, формат APK; отладочный — `Hangman 2.0 RuStore Debug`, формат APK. Для Google Play предусмотрены `Hangman 2.0 Google Play` (AAB) и `Hangman 2.0 Google Play Debug` (APK). Пятый пресет `Hangman 2.0 DEV Debug` экспортирует APK с консолью для параллельной установки. Во всех пяти включён Gradle. Расширение выходного файла должно соответствовать формату выбранного пресета. При изменении общих Android-параметров обновляйте все пять пресетов; DEV отличается package ID, названием и feature `dev`.
+- Release-пресет — `Hangman 2.0 RuStore`, формат AAB; отладочный — `Hangman 2.0 RuStore Debug`, формат APK. Для Google Play предусмотрены `Hangman 2.0 Google Play` (AAB) и `Hangman 2.0 Google Play Debug` (APK). Пятый пресет `Hangman 2.0 DEV Debug` экспортирует APK с консолью для параллельной установки. Во всех пяти включён Gradle. Расширение выходного файла должно соответствовать формату выбранного пресета. При изменении общих Android-параметров обновляйте все пять пресетов; DEV отличается package ID, названием и feature `dev`.
 - Package ID четырёх store-пресетов — `com.trinarr.Hangman20`; не меняйте его для очередной версии приложения. DEV использует `com.trinarr.Hangman20.dev`, отдельные сохранения и launcher-имя с `DEV` в EN/RU. Однокнопочный запуск Android из редактора направлен на DEV. Версии и Android version code сверяйте в пресете перед релизом; для обновления нужен новый version code.
 - Все пять пресетов задают minimum SDK 24 и target SDK 36. Target SDK берётся из пресета, compile SDK — из Gradle-шаблона; сверяйте их отдельно. Перед публикацией отдельно сверяйте требования выбранного магазина.
 - Включены четыре ABI и Internet, Android backup выключен. Выбор ABI меняйте осознанно под канал распространения.
@@ -106,9 +106,26 @@ if ($LASTEXITCODE -ne 0) { throw 'Android debug export failed' }
 После каждого вызова проверяйте журнал и `$LASTEXITCODE`; при ошибке остановитесь. Для release сначала настройте собственный keystore и подпись в диалоге экспорта либо через поддерживаемые [переменные окружения](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_android.html#environment-variables). Ключи и пароли храните вне Git и журналов; `export_credentials.cfg` и локальные `.env` игнорируются.
 
 ```powershell
-python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore' --output 'builds/Hangman20_rustore.apk'
+python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore' --output 'builds/Hangman20_rustore.aab'
 if ($LASTEXITCODE -ne 0) { throw 'Android release export failed' }
 ```
+
+### Подпись AAB для RuStore
+
+RuStore требует два файла: ZIP с зашифрованным закрытым ключом подписи приложения и PEM-сертификат открытого ключа загрузки. AAB подписывается ключом загрузки; APK для пользователей подписывает RuStore ключом приложения. Если приложение уже опубликовано, для ZIP используйте ключ прежних release APK, иначе обновление существующей установки не сохранит подпись. Не используйте debug-keystore. См. [инструкцию RuStore](https://www.rustore.ru/help/developers/publishing-and-verifying-apps/app-publication/new-version-app/upload-aab).
+
+1. Скачайте `pepk.jar` из окна загрузки подписи в консоли RuStore. Скопируйте оттуда полную команду PEPK: значение `--encryptionkey` индивидуально, его нельзя брать из примера или другого магазина.
+2. В команде замените `--keystore` на путь к существующему ключу приложения, `--alias` на его alias, а `--output` на путь к новому ZIP. Сохраните остальные параметры консоли, включая `--include-cert`. Пути с пробелами заключайте в кавычки; запускайте из каталога с `pepk.jar` либо задайте полный путь к JAR. Пароли вводите в запросах терминала, не в аргументах команды.
+3. Для AAB подготовьте отдельный ключ загрузки и экспортируйте его открытый сертификат. Пример ниже использует новый файл; замените пути на собственные, вне репозитория. Если ключ загрузки уже есть, выполните только экспорт сертификата:
+
+```powershell
+& 'C:/path/to/jdk-17/bin/keytool.exe' -genkeypair -keystore 'C:/private-keys/rustore-upload.keystore' -alias upload -keyalg RSA -keysize 2048 -validity 10000
+& 'C:/path/to/jdk-17/bin/keytool.exe' -exportcert -rfc -keystore 'C:/private-keys/rustore-upload.keystore' -alias upload -file 'C:/private-keys/rustore-upload.pem'
+```
+
+После каждой команды проверяйте `$LASTEXITCODE`. Сохраните резервные копии ключей и паролей. В release-пресете RuStore задайте keystore и alias **ключа загрузки**, затем соберите AAB командой выше. Настройки подписи храните в локальном `export_credentials.cfg` Godot либо поддерживаемых переменных окружения. Исходный ключ подписи APK сохраните отдельно для PEPK и прямых release APK.
+
+4. В консоль RuStore загрузите новый ZIP из PEPK и PEM ключа загрузки. Передача ZIP передаёт RuStore закрытый ключ приложения в зашифрованном виде; проверьте выбранное приложение перед отправкой. После настройки подписи загрузите AAB, подписанный соответствующим PEM ключом загрузки. ZIP, keystore и пароли не добавляйте в Git; не публикуйте приложение до проверки сборки. Если version code уже использован, увеличьте его перед экспортом во всех связанных пресетах.
 
 Для отдельной проверки ресурсов:
 

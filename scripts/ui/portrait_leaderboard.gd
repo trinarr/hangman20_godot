@@ -10,6 +10,7 @@ const CARD = preload("res://scripts/ui/quiz_answer_card_style.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const ROW = preload("res://scripts/ui/leaderboard_row.gd")
+const RANK_PROGRESS = preload("res://scripts/ui/leaderboard_rank_progress.gd")
 const RANK_MEDALS = ROW.RANK_MEDALS
 const STAR = ROW.STAR
 const PORTRAITS = preload("res://scripts/ui/leaderboard_portraits.gd")
@@ -38,6 +39,7 @@ var rows: VBoxContainer
 var pinned: Control
 var own_row: Control
 var _snapshot: Dictionary = {}
+var _rank_progress := RANK_PROGRESS.new()
 var _row_by_id: Dictionary = {}
 var _pin_side := ""
 var _live := true
@@ -119,6 +121,11 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	if is_instance_valid(service):
+		var cached: Dictionary = service.cached_snapshot()
+		var language := "ru" if Database.interface_language == "ru" else "en"
+		_rank_progress.begin(cached, language)
+		if !_tournament_selected and !cached.is_empty() and cached.get("language", "") == language:
+			set_snapshot(cached)
 		service.leaderboard_ready.connect(_received)
 		service.sync_failed.connect(_failed)
 	if !_tournament_selected:
@@ -190,6 +197,7 @@ func set_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	var me: Dictionary = snapshot.get("me") if snapshot.get("me") is Dictionary else {}
 	var top: Array = snapshot.get("top", [])
+	var language := str(snapshot.get("language", ""))
 	# The padding, row objects and pinned card survive cache/network refreshes.
 	var wanted: Dictionary = {}
 	if is_instance_valid(own_row):
@@ -210,14 +218,15 @@ func set_snapshot(snapshot: Dictionary) -> void:
 			rows.move_child(padding, 0)
 	var index := 1 if padding != null else 0
 	for entry: Dictionary in top:
+		var rank_change := _rank_progress.change(entry, language)
 		var id := str(entry.get("player_id", ""))
 		var mine := !me.is_empty() and id == str(me.get("player_id", ""))
 		var row: Control = _row_by_id.get(id)
 		if row == null:
-			row = _card(entry, mine)
+			row = _card(entry, mine, false, rank_change)
 			rows.add_child(row)
-		elif row.get_meta("leaderboard_entry") != entry or row.get_meta("leaderboard_mine") != mine:
-			ROW.update(row, entry, mine, _portraits, score_formatter)
+		elif row.get_meta("leaderboard_entry") != entry or row.get_meta("leaderboard_mine") != mine or row.get_meta("rank_change", 0) != rank_change:
+			ROW.update(row, entry, mine, _portraits, score_formatter, rank_change)
 		wanted[id] = row
 		if row.get_index() != index:
 			rows.move_child(row, index)
@@ -231,13 +240,14 @@ func set_snapshot(snapshot: Dictionary) -> void:
 			_row_by_id[id].free()
 	_row_by_id = wanted
 	if !me.is_empty() and int(me.get("stars", 0)) > 0:
+		var rank_change := _rank_progress.change(me, language)
 		if !is_instance_valid(pinned):
-			pinned = _card(me, true, true)
+			pinned = _card(me, true, true, rank_change)
 			pinned.name = "PinnedPlayer"
 			pinned.z_index = 10
 			add_child(pinned)
-		elif pinned.get_meta("leaderboard_entry") != me:
-			ROW.update(pinned, me, true, _portraits, score_formatter)
+		elif pinned.get_meta("leaderboard_entry") != me or pinned.get_meta("rank_change", 0) != rank_change:
+			ROW.update(pinned, me, true, _portraits, score_formatter, rank_change)
 	elif is_instance_valid(pinned):
 		pinned.free()
 		pinned = null
@@ -275,7 +285,7 @@ func _clear_global_rows() -> void:
 	for child in rows.get_children():
 		child.free()
 
-func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
+func _card(entry: Dictionary, mine: bool, fixed: bool = false, rank_change: int = 0) -> Control:
 	var row := Control.new()
 	row.custom_minimum_size = Vector2(ROW_WIDTH, PINNED_HEIGHT if fixed else ROW_HEIGHT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -294,7 +304,7 @@ func _card(entry: Dictionary, mine: bool, fixed: bool = false) -> Control:
 		backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(backdrop)
 	var card_position := Vector2(CARD_SIDE_MARGIN, (PINNED_HEIGHT - 68) * 0.5) if fixed else Vector2(8, 0)
-	ROW.populate(row, entry, mine, _portraits, score_formatter, card_position)
+	ROW.populate(row, entry, mine, _portraits, score_formatter, card_position, rank_change)
 	row.get_node("PlayerPress").scroll_surface = scroll
 	row.get_node("PlayerPress").pressed.connect(func(): profile_requested.emit(), CONNECT_DEFERRED)
 	return row

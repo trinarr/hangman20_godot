@@ -25,4 +25,4 @@ class IconOutlineCompilation(unittest.TestCase):
                                ["--script", "res://compile.gd"], os.environ.copy(), timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertFalse(has_engine_errors(result.stdout), result.stdout)
-            self.assertIn("ICON_OUTLINE_COMPILE checks=5 failures=0", result.stdout)
+            self.assertIn("ICON_OUTLINE_COMPILE checks=6 failures=0", result.stdout)

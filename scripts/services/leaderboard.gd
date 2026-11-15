@@ -263,7 +263,22 @@ func cached_snapshot() -> Dictionary:
 	_ensure_store_loaded()
 	if _snapshot.get("language", "") != _language():
 		_snapshot = _merge_board(_boards[_language()], _language()) if _boards.has(_language()) else {}
-	return _snapshot.duplicate(true)
+	var result := _snapshot.duplicate(true)
+	if !(result.get("me") is Dictionary):
+		return result
+	# A background score acknowledgement can advance me before standings arrive.
+	# Keep its latest score/profile, but expose a rank from the same cached table.
+	var id := str(result.me.player_id)
+	for row: Dictionary in result.get("top", []):
+		if str(row.player_id) == id:
+			result.me.rank = row.rank
+			result.me.top_percent = null
+			return result
+	var previous: Variant = _boards.get(_language(), {}).get("me")
+	if previous is Dictionary and str(previous.player_id) == id:
+		result.me.rank = previous.rank
+		result.me.top_percent = previous.top_percent
+	return result
 
 func tournament_profiles() -> Array:
 	if !_tutorial_completed() or !_legal_accepted() or !_backend().leaderboard_is_configured():

@@ -9,6 +9,9 @@ if (!colored_outline) {
 	if (!any(lessThan(source_uv, vec2(0.0))) && !any(greaterThan(source_uv, vec2(1.0)))) {
 		source = texture(TEXTURE, source_uv);
 	}
+#ifdef ICON_SOURCE_TINT
+	source *= ICON_SOURCE_TINT;
+#endif
 	vec2 dx = dFdx(source_uv) * outline_pixels;
 	vec2 dy = dFdy(source_uv) * outline_pixels;
 	float dilation = source.a;
