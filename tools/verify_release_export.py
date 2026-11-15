@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import configparser
 import json
 from pathlib import Path
 import re
@@ -12,6 +11,7 @@ import subprocess
 import zipfile
 import xml.etree.ElementTree as ET
 from export_android import STORES, validate_profile
+from godot_config import read_config_file
 
 ROOT = Path(__file__).resolve().parents[1]
 DEBUG_AUTOLOADS = {"DebugLogBridge", "DevConsole"}
@@ -43,9 +43,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def verify_presets(root: Path = ROOT) -> None:
-    presets = configparser.ConfigParser(interpolation=None)
-    presets.optionxform = str
-    presets.read(root / "export_presets.cfg", encoding="utf-8")
+    presets = read_config_file(root / "export_presets.cfg")
     require(presets["preset.0"]["name"] == '"Hangman 2.0 RuStore"', "Release preset is missing")
     require(presets["preset.1"]["name"] == '"Hangman 2.0 RuStore Debug"', "Debug preset is missing")
     release_options = dict(presets["preset.0.options"])

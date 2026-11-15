@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-import configparser
 import fnmatch
 import json
 import re
 from pathlib import Path
 
 from verify_quiz_answer_leaks import find_answer_leaks, find_duplicate_candidates, tokens
+from godot_config import read_config_file
 
 ROOT = Path(__file__).resolve().parents[1]
 FIELDS = {"id", "theme_id", "difficulty", "question", "answers", "correct_index"}
@@ -99,8 +99,7 @@ def main() -> None:
             if sparse:
                 print(f"  empty initial window: theme {theme}, "
                       f"{len(sparse)} target samples between {min(sparse):.2f} and {max(sparse):.2f}")
-    exports = configparser.ConfigParser(interpolation=None)
-    exports.read(ROOT / "export_presets.cfg", encoding="utf-8")
+    exports = read_config_file(ROOT / "export_presets.cfg")
     for section in exports.sections():
         if not re.fullmatch(r"preset\.\d+", section):
             continue

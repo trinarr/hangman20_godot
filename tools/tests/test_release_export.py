@@ -1,6 +1,5 @@
 """Regressions for development assets found in actual Godot release exports."""
 import io
-import configparser
 import json
 from pathlib import Path
 import re
@@ -12,6 +11,7 @@ import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from verify_release_export import ROOT, REQUIRED_FILES, verify_archive, verify_presets, verify_bundle_manifest
+from godot_config import read_config_file
 
 
 def string_variant(value):
@@ -106,9 +106,11 @@ class ReleaseExportChecks(unittest.TestCase):
             self.verify(files)
 
     def verify_modified_preset(self, section, key, value):
-        presets = configparser.ConfigParser(interpolation=None)
-        presets.optionxform = str
-        presets.read(ROOT / "export_presets.cfg", encoding="utf-8")
+        presets = read_config_file(ROOT / "export_presets.cfg")
+        # Negative cases start from the release format required by the contract,
+        # even when a local editor session is temporarily exporting a release APK.
+        # The positive checkout check above still validates the actual format.
+        presets["preset.0.options"]["gradle_build/export_format"] = "1"
         if value is None:
             del presets[section][key]
         else:
@@ -129,9 +131,34 @@ class ReleaseExportChecks(unittest.TestCase):
 
     def test_shared_android_option_drift_is_still_rejected(self):
         for key, value in (("gradle_build/target_sdk", '"35"'),
-                           ("package/unique_name", '"com.example.changed"')):
+                           ("package/unique_name", '"com.example.changed"'),
+                           ("gradle_build/custom_theme_attributes", '{\n"[splash]android:windowSplashScreenBackground": "#ffffff"\n}')):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, "Shared Android options differ"):
                 self.verify_modified_preset("preset.1.options", key, value)
+
+    def test_multiline_variants_preserve_every_option(self):
+        source = ('[runnable_presets]\nAndroid="DEV"\n\n[preset.0.options]\n'
+                  'gradle_build/custom_theme_attributes={\n'
+                  '"[splash]android:windowSplashScreenBackground": "#000000",\n'
+                  '"nested": ["brackets } ] ; =", {"escaped": "quote \\\""}]\n}\n'
+                  'package/unique_name="com.example.game"\nversion/code=6\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "export_presets.cfg"
+            path.write_text(source, encoding="utf-8")
+            presets = read_config_file(path)
+            self.assertEqual(presets["runnable_presets"]["Android"], '"DEV"')
+            options = presets["preset.0.options"]
+            expected = source.split('gradle_build/custom_theme_attributes=', 1)[1].split('\npackage/', 1)[0]
+            self.assertEqual(options["gradle_build/custom_theme_attributes"], expected)
+            self.assertEqual(options["package/unique_name"], '"com.example.game"')
+            self.assertEqual(options["version/code"], '6')
+
+    def test_unterminated_multiline_variant_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "export_presets.cfg"
+            path.write_text('[preset.0.options]\nattributes={\n"key": "value"\n', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unterminated Variant"):
+                read_config_file(path)
 
     def test_dev_cannot_replace_release_or_drop_the_console(self):
         for section, key, value, message in (
