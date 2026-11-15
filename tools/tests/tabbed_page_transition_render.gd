@@ -1,7 +1,6 @@
 extends Node
 
-# Run with a real renderer/display, not --headless. All networking is disabled
-# by the command documented in profile_settings_ui.md.
+# Run through run_content_tests.py --suite tabbed_page_transition_render --gpu.
 class TestUI extends "res://scripts/main_portrait.gd":
 	func _ready() -> void:
 		_build_root()
@@ -10,14 +9,20 @@ class TestUI extends "res://scripts/main_portrait.gd":
 		return false
 
 var failures := 0
+var checks := 0
 
 func check(value: bool, message: String) -> void:
+	checks += 1
 	if !value:
 		failures += 1
 		push_error(message)
 
 func _ready() -> void:
 	run.call_deferred()
+
+func _process(_delta: float) -> void:
+	if OS.get_environment("HANGMAN_TEST_HIDE_WINDOW") == "1":
+		RenderingServer.force_draw(false)
 
 func rendered_frame() -> Image:
 	await get_tree().process_frame
@@ -38,6 +43,15 @@ func run() -> void:
 		push_error("This pixel regression requires a real rendering display")
 		get_tree().quit(1)
 		return
+	var preview_size := OS.get_environment("HANGMAN_PROFILE_PREVIEW_SIZE").split("x")
+	get_window().min_size = Vector2i(320, 480)
+	if preview_size.size() == 2:
+		get_window().size = Vector2i(int(preview_size[0]), int(preview_size[1]))
+	var language := OS.get_environment("HANGMAN_PROFILE_PREVIEW_LANGUAGE")
+	if !language.is_empty():
+		Database.interface_language = language
+		TranslationServer.set_locale(language)
+	GameState.ensure_initial_player_profile()
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	var main := TestUI.new()
 	add_child(main)
@@ -52,6 +66,9 @@ func run() -> void:
 			main.show_profile()
 		var opening: CanvasLayer = main._home_transition
 		var surface: SubViewportContainer = opening.get("_page_surface")
+		var destination: Control = main.content
+		var destination_parent: Control = opening.get("_destination_parent")
+		var old_home: Control = opening.get("_outgoing_page")
 		var open_tween: Tween = opening.get("_tween")
 		open_tween.pause()
 		await rendered_frame()
@@ -61,6 +78,17 @@ func run() -> void:
 		var logical_bounds := get_viewport().get_visible_rect()
 		check(surface.get_global_rect().size.is_equal_approx(logical_bounds.size),
 			page + ": physical texture preserves logical page bounds")
+		# The temporary texture only exists during opening. Check its resize
+		# contract before _finish hands the live controls to the root viewport.
+		var previous_size := get_window().size
+		get_window().size = Vector2i(Vector2(previous_size) * Vector2(0.8, 0.9))
+		for _frame in range(4):
+			await rendered_frame()
+		check(surface.page_viewport.get_texture().get_size() == Vector2(get_window().size),
+			page + ": temporary page texture follows a live window resize")
+		get_window().size = previous_size
+		for _frame in range(4):
+			await rendered_frame()
 		for active_tween: Tween in get_tree().get_processed_tweens():
 			active_tween.pause()
 		var behind: Image = await rendered_frame()
@@ -73,25 +101,28 @@ func run() -> void:
 		open_tween.custom_step(opening.OPEN_SECONDS)
 		await rendered_frame()
 		check(!is_instance_valid(opening), page + ": opening overlay is released")
+		check(!is_instance_valid(surface) and !is_instance_valid(old_home), page + ": temporary surface and old Home are released")
+		check(is_instance_valid(destination) and destination.get_parent() == destination_parent and destination.get_viewport() == get_viewport(),
+			page + ": live page survives handoff to the native viewport")
+		var native_page: Image = await rendered_frame()
+		check_blend(opaque_page, opaque_page, native_page, 1.0, page + ": handoff preserves the fully rendered page")
 		if page == "profile":
-			var previous_size := get_window().size
-			get_window().size = Vector2i(Vector2(previous_size) * 0.75)
+			var profile: Control = main._portrait_profile
+			check(get_viewport().size_changed.is_connected(profile._layout), "Profile layout is subscribed to its native viewport after handoff")
+			var previous_profile_height: float = profile.player_profile.size.y
+			get_window().size = Vector2i(Vector2(previous_size) * Vector2(0.8, 0.9))
 			for _frame in range(4):
 				await rendered_frame()
-			check(surface.page_viewport.get_texture().get_image().get_size() == get_window().size,
-				"Page texture follows a live window resize")
+			var resized_native: Image = await rendered_frame()
+			check(resized_native.get_size() == get_window().size,
+				"Native page renders at physical window resolution after resize; image=%s window=%s" % [resized_native.get_size(), get_window().size])
+			check(profile.player_profile.size.y > previous_profile_height, "Live profile relayout follows the new aspect ratio after handoff")
 			get_window().size = previous_size
 			for _frame in range(4):
 				await rendered_frame()
-			# Exercise real root-viewport pointer routing through the surface,
-			# rather than directly emitting a button signal.
+			# Exercise actual root-viewport pointer routing after the surface is gone.
 			var button: Button = main._portrait_profile.get("_buttons")["settings"]
-			# push_input(false) accepts physical window pixels. Include both
-			# viewport stretch transforms, in addition to the CanvasItem transforms.
-			var point: Vector2 = get_viewport().get_stretch_transform() * (
-				surface.get_global_transform_with_canvas() * (
-					surface.page_viewport.get_stretch_transform() * (
-						button.get_global_transform_with_canvas() * (button.size * 0.5))))
+			var point: Vector2 = get_viewport().get_stretch_transform() * (button.get_global_transform_with_canvas() * (button.size * 0.5))
 			var motion := InputEventMouseMotion.new()
 			motion.position = point
 			get_viewport().push_input(motion)
@@ -105,12 +136,18 @@ func run() -> void:
 			check(main._portrait_profile.get("selected_tab") == "settings", "Pointer input reaches the live page after opening")
 		if page == "leaderboard":
 			check(main._portrait_leaderboard.get("_live"), "Live leaderboard survives opening")
+			check(get_viewport().size_changed.is_connected(main._portrait_leaderboard._layout), "Leaderboard layout is subscribed to the native viewport after handoff")
 		var before: Image = await rendered_frame()
 		if page == "leaderboard":
 			main._close_leaderboard_screen()
 		else:
 			main._close_profile_screen()
 		var transition: CanvasLayer = main._home_transition
+		if page == "leaderboard":
+			main._close_leaderboard_screen()
+		else:
+			main._close_profile_screen()
+		check(main._home_transition == transition, page + ": repeated close retains one transition")
 		check(is_instance_valid(transition), page + ": frame readback creates a transition")
 		if !is_instance_valid(transition):
 			continue
@@ -135,7 +172,8 @@ func run() -> void:
 		tween.custom_step(transition.CLOSE_SECONDS)
 		await rendered_frame()
 		check(!is_instance_valid(transition), page + ": overlay is released after fading")
+		check(!main._tabbed_closing, page + ": input gate is released after closing")
 	main.queue_free()
 	await get_tree().process_frame
-	print("TABBED_PAGE_TRANSITION_RENDER failures=", failures)
+	print("TABBED_PAGE_TRANSITION_RENDER ", JSON.stringify({"checks": checks, "failures": [] if failures == 0 else ["%d failed checks" % failures]}))
 	get_tree().quit(1 if failures > 0 else 0)

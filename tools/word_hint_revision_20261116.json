@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "revision": "hint_editorial_20261116",
+  "previous_revision": "hint_editorial_20261027_audit",
+  "baseline_digests": {
+    "ru": "8191a22e99276ee2aa7367a21e9bff92703c51cc02bbc475802039044af8e1ad",
+    "en": "4df27eede6d06bb96abe3e4e5edd8dc563c0825921c507b007dc6fb3aef4d301"
+  },
+  "changes": [
+    {
+      "id": "en-d3203bd8d8fc37e8",
+      "theme_id": 2,
+      "answer": "KURIL ISLANDS",
+      "hint": "This volcanic island chain stretches between Japan and Russia’s Kamchatka Peninsula.",
+      "concept_score": 1.0,
+      "assessment": "legacy_calibration",
+      "score_adjustment": 0.0081,
+      "language": "en",
+      "new_hint": "A volcanic arc stretching from Japan’s Hokkaido to Russia’s Kamchatka Peninsula."
+    }
+  ]
+}

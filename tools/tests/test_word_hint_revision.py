@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
-from word_hint_revision import audit_manifest, later_manifest, manifest, snapshot_before_revision, verify
+from word_hint_revision import audit_manifest, later_manifest, manifest, release_manifest, snapshot_before_revision, verify
 
 
 class WordHintRevisionTests(unittest.TestCase):
@@ -78,6 +78,18 @@ class WordHintRevisionTests(unittest.TestCase):
             next(e for e in broken['entries'] if e['id'] == row['id'])['hint'] = row['hint']
             with self.subTest(language=lang), self.assertRaises(AssertionError), contextlib.redirect_stdout(io.StringIO()):
                 verify(broken, lang)
+
+    def test_release_hint_keeps_identity_difficulty_and_old_snapshot(self):
+        row = release_manifest()['changes'][0]
+        self.assertEqual(row['id'], 'en-d3203bd8d8fc37e8')
+        restored = snapshot_before_revision([next(e for e in self.catalogs['en']['entries']
+                                                 if e['id'] == row['id'])], 'en')
+        self.assertEqual(restored[0], {k: v for k, v in row.items() if k not in ('language', 'new_hint')})
+        for field, value in (('hint', row['hint']), ('answer', 'OTHER ANSWER'), ('concept_score', .01)):
+            broken = copy.deepcopy(self.catalogs['en'])
+            next(e for e in broken['entries'] if e['id'] == row['id'])[field] = value
+            with self.subTest(field=field), self.assertRaises(AssertionError), contextlib.redirect_stdout(io.StringIO()):
+                verify(broken, 'en')
 
 
 if __name__ == '__main__':

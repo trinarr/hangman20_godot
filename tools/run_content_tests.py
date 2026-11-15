@@ -40,6 +40,7 @@ SUITES = {
     "supported_game_modes": (False, None),
     "portrait_stage_reward": (True, None),
     "stage_screen_cover_render": (True, None),
+    "tabbed_page_transition_render": (True, None),
     "portrait_round_result": (True, None),
     "portrait_popup_component": (True, None),
     "letter_feedback_sequence": (True, None),
@@ -77,7 +78,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot")
     parser.add_argument("--suite", choices=["all", *SUITES], default="all")
-    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window (automatic for stage_screen_cover_render)")
+    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window (automatic for stage_screen_cover_render and tabbed_page_transition_render)")
     args = parser.parse_args()
     executable = shutil.which(args.godot)
     if executable is None:
@@ -85,7 +86,7 @@ def main():
     failed = []
     selected = list(SUITES) if args.suite == "all" else [args.suite]
     for name in selected:
-        use_gpu = args.gpu or name == "stage_screen_cover_render"
+        use_gpu = args.gpu or name in ("stage_screen_cover_render", "tabbed_page_transition_render")
         scene, summary = SUITES[name]
         path = f"res://tools/tests/{name}.{'tscn' if scene else 'gd'}"
         arguments = [path] if scene else ["--script", path]

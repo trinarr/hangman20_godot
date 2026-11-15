@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / 'tools/word_hint_revision_20261004.json'
 LATER_MANIFEST_PATH = ROOT / 'tools/word_hint_revision_20261027.json'
 AUDIT_MANIFEST_PATH = ROOT / 'tools/word_hint_revision_20261027_audit.json'
+RELEASE_MANIFEST_PATH = ROOT / 'tools/word_hint_revision_20261116.json'
 
 
 def manifest():
@@ -34,8 +35,16 @@ def audit_manifest():
     return result
 
 
+def release_manifest():
+    result = json.loads(RELEASE_MANIFEST_PATH.read_text(encoding="utf-8"))
+    assert result['schema_version'] == 1
+    assert result['revision'] == 'hint_editorial_20261116'
+    assert result['previous_revision'] == audit_manifest()['revision']
+    return result
+
+
 def revisions():
-    return (manifest(), later_manifest(), audit_manifest())
+    return (manifest(), later_manifest(), audit_manifest(), release_manifest())
 
 
 def _restore_hints(entries, rows):
@@ -65,7 +74,7 @@ def _digest(entries):
 
 def verify(catalog, language):
     snapshot = catalog['entries']
-    counts = ((74, 116), (0, 10), (211, 577))
+    counts = ((74, 116), (0, 10), (211, 577), (0, 1))
     for revision, quota in reversed(tuple(zip(revisions(), counts))):
         rows = [r for r in revision['changes'] if r['language'] == language]
         assert len(rows) == quota[0 if language == 'ru' else 1]

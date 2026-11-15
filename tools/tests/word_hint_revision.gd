@@ -20,8 +20,9 @@ func run() -> void:
 	var revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261004.json"))
 	var later_revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261027.json"))
 	var audit_revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261027_audit.json"))
+	var release_revision: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/word_hint_revision_20261116.json"))
 	var latest_hints: Dictionary = {}
-	var changes: Array = revision.changes + later_revision.changes + audit_revision.changes
+	var changes: Array = revision.changes + later_revision.changes + audit_revision.changes + release_revision.changes
 	for row: Dictionary in changes:
 		latest_hints[row.id] = row.new_hint
 	var count: int = 0
@@ -61,6 +62,6 @@ func run() -> void:
 			root.add_child(label)
 			check(label.get_minimum_size().y <= 202.0, "Comment popup overflow: " + row.id)
 			label.free()
-	check(count == 988, "Wrong hint revision quota")
+	check(count == 989, "Wrong hint revision quota")
 	print("WORD_HINT_REVISION checks=", checks, " failures=", failures)
 	quit(1 if failures else 0)
