@@ -3,12 +3,15 @@ extends RefCounted
 const OUTSIDE_TOP := 101
 var _ranks: Dictionary = {}
 var _language := ""
+var _has_previous_top := false
 
 func begin(snapshot: Dictionary, language: String) -> void:
 	_ranks.clear()
 	_language = language
+	_has_previous_top = false
 	if str(snapshot.get("language", "")) != language:
 		return
+	_has_previous_top = !snapshot.get("top", []).is_empty()
 	for entry: Dictionary in snapshot.get("top", []):
 		_remember(entry)
 	if snapshot.get("me") is Dictionary:
@@ -33,8 +36,12 @@ func _position(entry: Dictionary) -> int:
 func change(entry: Dictionary, language: String) -> int:
 	var id := str(entry.get("player_id", ""))
 	var rank := _position(entry)
-	if language != _language or !_ranks.has(id) or rank == 0:
+	if language != _language or id.is_empty() or rank == 0:
 		return 0
+	if !_ranks.has(id):
+		# A new row in an existing table has entered the top, even if its old
+		# place/percentile was never cached. Only the direction is known.
+		return 1 if _has_previous_top and rank < OUTSIDE_TOP else 0
 	var previous := int(_ranks[id])
 	if previous == OUTSIDE_TOP or rank == OUTSIDE_TOP:
 		# Only direction is known when crossing the top-100 boundary.

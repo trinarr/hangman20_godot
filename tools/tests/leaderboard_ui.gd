@@ -434,7 +434,9 @@ func inspect_rank_progress() -> void:
 	progress.begin({}, "ru")
 	check(progress.change({"player_id": "6", "rank": 4}, "ru") == 0, "First visit has no invented movement")
 	progress.begin(progress_snapshot(original, "ru"), "ru")
-	check(progress.change({"player_id": "new", "rank": 4}, "ru") == 0, "New participant has no invented movement")
+	check(progress.change({"player_id": "new", "rank": 4}, "ru") == 1, "First entry into an existing top has an up direction without a previous percentile")
+	check(progress.change({"player_id": "new", "rank": null, "top_percent": 25}, "ru") == 0, "Unknown participant still outside top has no invented movement")
+	check(progress.change({"player_id": "", "rank": 4}, "ru") == 0, "Missing player identity has no progress")
 	check(progress.change({"player_id": "6", "rank": null}, "ru") == 0, "Unknown outside-top rank cannot produce a numeric change")
 	check(progress.change({"player_id": "6", "rank": 4}, "en") == 0, "Different language snapshots are not compared")
 	var outside := {"language": "ru", "top": [], "me": {"player_id": "6", "rank": null, "top_percent": 25}}
@@ -602,6 +604,51 @@ func inspect_rank_progress() -> void:
 			else:
 				reopened.dispose()
 				reopened.queue_free()
+			await settle()
+			# A complete old top without either newcomer reproduces the missing
+			# green arrow while every displaced row already received a red one.
+			var previous_top: Array = []
+			for id in range(1, 102):
+				if id != 6:
+					previous_top.append(id)
+			mock.snapshot = progress_snapshot(previous_top, language)
+			var entrant_view := SCREEN.new()
+			entrant_view.service = mock
+			add_child(entrant_view)
+			await settle()
+			var entered_top := previous_top.duplicate()
+			entered_top.insert(1, 102)
+			entered_top.insert(3, 6)
+			entered_top.resize(100)
+			mock.snapshot = progress_snapshot(entered_top, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			await settle()
+			entrant_view._list_entrance.stop()
+			for id: String in ["6", "102"]:
+				var arrow: Control = entrant_view._row_by_id[id].get_node_or_null("CardFace/PlayerRankDirection")
+				check(arrow != null and arrow.color == SCREEN.PALETTE.SUCCESS and arrow.is_visible_in_tree(), "First-time own and other top entrants receive visible green up arrows")
+			check(entrant_view._row_by_id["4"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.ERROR, "Rows displaced by newcomers retain red down arrows")
+			check(entrant_view._row_by_id["1"].get_node_or_null("CardFace/PlayerRankDirection") == null, "Unchanged row keeps no arrow after newcomers enter")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("rank_progress_newcomers_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save first-time entrants GPU preview")
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			entrant_view._select_tab(true)
+			entrant_view._select_tab(false)
+			check(entrant_view._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "First-entry up arrow survives repeated replies and tab switching")
+			entrant_view.scroll.scroll_vertical = 100000
+			await settle()
+			check(entrant_view.pinned.visible and entrant_view.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "First-time own entrant also has a green arrow on the visible pinned card")
+			entrant_view.dispose()
+			entrant_view.queue_free()
+			await settle()
+			var next_visit := SCREEN.new()
+			next_visit.service = mock
+			add_child(next_visit)
+			await settle()
+			check(next_visit._row_by_id["6"].get_node_or_null("CardFace/PlayerRankDirection") == null and next_visit._row_by_id["102"].get_node_or_null("CardFace/PlayerRankDirection") == null, "Next visit uses the updated table and removes unchanged newcomers' arrows")
+			next_visit.dispose()
+			next_visit.queue_free()
 			mock.queue_free()
 			await settle()
 	get_window().min_size = old_min
