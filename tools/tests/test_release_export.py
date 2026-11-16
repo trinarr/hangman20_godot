@@ -95,6 +95,11 @@ class ReleaseExportChecks(unittest.TestCase):
     def test_shared_android_options_and_release_filters(self):
         verify_presets()
 
+    def test_bundle_manifest_rejects_unused_billing_permission(self):
+        xml = '<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.trinarr.Hangman20"><uses-permission android:name="com.android.vending.BILLING"/><application><meta-data android:name="com.my.target.autoInitMode" android:value="0"/></application></manifest>'
+        with self.assertRaisesRegex(ValueError, "Unused Billing permission"):
+            verify_bundle_manifest(xml)
+
     def test_exported_store_cannot_be_ambiguous_or_unconfigured(self):
         with self.assertRaisesRegex(ValueError, "exactly one store"):
             self.verify(self.fixture({"_custom_features": string_variant("rustore,google_play")}))

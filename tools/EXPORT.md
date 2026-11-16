@@ -23,6 +23,8 @@
 
 `addons/GodotAndroidYandexAds/export_plugin.gd` подключает debug/release AAR из `bin/` и Maven-зависимость Yandex Mobile Ads. Текущую версию зависимости читайте в этом файле; описание SDK — в [README плагина](../addons/GodotAndroidYandexAds/README.md). Первая Gradle-сборка требует доступа к репозиториям зависимостей. Изменение Java в `source/` не пересобирает AAR автоматически.
 
+Покупок в игре нет. Экспортный плагин удаляет `com.android.vending.BILLING`, добавляемое зависимостью myTarget → MyTracker → Google Play Billing, из manifest всех Android-сборок через `tools:node="remove"`. Сами SDK сохраняются. `verify_release_export.py` отклоняет APK/AAB с этим разрешением; при добавлении покупок потребуется пересмотреть этот контракт.
+
 ## Магазины и рекламные ID
 
 Ответ поддержки «Простой монетизации» от 03.11.2026: для каждого магазина приложение добавляется отдельно. Пресеты задают ровно один custom feature: `rustore` либо `google_play`. Runtime выбирает соответствующий профиль из `data/ad_store_profiles.json`; отсутствие или конфликт меток не подставляет ID другого магазина. Редактор и debug-сборки используют demo-ID независимо от магазина.

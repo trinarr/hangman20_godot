@@ -45,6 +45,11 @@ class AndroidExportPlugin extends EditorExportPlugin:
 		])
 
 
+	func _get_android_manifest_element_contents(platform, debug):
+		# MyTarget's MyTracker dependency adds Billing, but this game has no purchases.
+		return '<uses-permission xmlns:tools="http://schemas.android.com/tools" android:name="com.android.vending.BILLING" tools:node="remove" />'
+
+
 	func _get_android_manifest_application_element_contents(platform, debug):
 		# Keep the SDK provider behind the durable legal/privacy gate in the app.
 		var manifest: String = '<meta-data android:name="com.yandex.mobile.ads.AUTOMATIC_SDK_INITIALIZATION" android:value="false" />'

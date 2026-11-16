@@ -194,6 +194,8 @@ def verify_bundle_manifest(xml: str) -> None:
     manifest = ET.fromstring(xml)
     android = "{http://schemas.android.com/apk/res/android}"
     require(manifest.get("package") == "com.trinarr.Hangman20", "Unexpected Android package ID")
+    permissions = {item.get(android + "name") for item in manifest.findall("uses-permission")}
+    require("com.android.vending.BILLING" not in permissions, "Unused Billing permission in AAB")
     application = manifest.find("application")
     require(application is not None, "Missing Android application")
     require(application.get(android + "debuggable", "false") == "false", "AAB manifest enables debugging")
@@ -222,6 +224,9 @@ def main() -> None:
                                       capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
             require("application-debuggable" not in manifest, "APK manifest enables debugging")
             require("name='com.trinarr.Hangman20'" in manifest, "Unexpected Android package ID")
+            permissions = subprocess.run([str(args.aapt), "dump", "permissions", str(args.archive)],
+                                         capture_output=True, text=True, encoding="utf-8", check=True).stdout
+            require("com.android.vending.BILLING" not in permissions, "Unused Billing permission in APK")
         elif args.archive.suffix.lower() == ".aab":
             require(args.bundletool is not None, "AAB verification requires --bundletool")
             command = [args.java, "-jar", str(args.bundletool)]
