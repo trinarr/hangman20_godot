@@ -108,24 +108,36 @@ func _merge_board(board: Dictionary, language: String) -> Dictionary:
 	# Upgrade legacy cached fillers in place, preserving roster and score history.
 	for entry: Dictionary in board.fillers:
 		entry.merge(PROFILE.resolve_appearance(entry), true)
-	# Admit every real row first. Only the remaining slots compete among fillers.
 	var real_rows: Array = board.real_top.duplicate(true)
-	var fillers: Array = board.fillers.duplicate(true)
-	var previous_fillers := fillers.size()
-	fillers.sort_custom(_rank_before)
-	fillers.resize(0 if int(board.total_players) >= 100 else mini(fillers.size(), maxi(0, 100 - real_rows.size())))
-	board.fillers = fillers
-	if fillers.size() != previous_fillers:
-		_debug_log("Local fillers retired=%d remaining=%d language=%s" % [previous_fillers-fillers.size(), fillers.size(), language])
-	var rows := real_rows + fillers.duplicate(true)
+	var previous_fillers: int = board.fillers.size()
+	var rows: Array = real_rows + board.fillers.duplicate(true)
 	rows.sort_custom(_rank_before)
-	var me: Variant = board.me.duplicate(true) if board.me != null else null
+	rows.resize(mini(rows.size(), 100))
+	# Only fillers actually beaten out of the top retire. Never restore old ones.
+	board.fillers = rows.filter(func(row: Dictionary): return row.is_filler).duplicate(true)
+	if board.fillers.size() != previous_fillers:
+		_debug_log("Local fillers retired=%d remaining=%d language=%s" % [previous_fillers-board.fillers.size(), board.fillers.size(), language])
+	var me: Variant = _displayed_me(board.me, board.fillers)
 	for i: int in range(rows.size()):
 		rows[i].rank = i + 1
 		if rows[i].is_me and me != null:
 			me.rank = i + 1
 			me.top_percent = null
 	return {"top":rows, "me":me, "total_players":board.total_players, "language":language}
+
+func _displayed_me(own: Variant, fillers: Array) -> Variant:
+	if own == null:
+		return null
+	var me: Dictionary = own.duplicate(true)
+	if me.rank == null:
+		return me
+	var rank := int(me.rank)
+	for row: Dictionary in fillers:
+		if int(row.stars) > int(me.stars):
+			rank += 1
+	me.rank = rank if rank <= 100 else null
+	me.top_percent = null if rank <= 100 else 100
+	return me
 
 func _rank_before(a: Dictionary, b: Dictionary) -> bool:
 	if int(a.stars) != int(b.stars):
@@ -274,10 +286,14 @@ func cached_snapshot() -> Dictionary:
 			result.me.rank = row.rank
 			result.me.top_percent = null
 			return result
-	var previous: Variant = _boards.get(_language(), {}).get("me")
-	if previous is Dictionary and str(previous.player_id) == id:
-		result.me.rank = previous.rank
-		result.me.top_percent = previous.top_percent
+	var board: Dictionary = _boards.get(_language(), {})
+	var previous: Variant = board.get("me")
+	# First score uploads have no previous own row. Their server rank still
+	# excludes the locally retained fillers, so map it before exposing it to UI.
+	var own: Dictionary = previous if previous is Dictionary and str(previous.player_id) == id else result.me
+	var displayed: Dictionary = _displayed_me(own, board.get("fillers", []))
+	result.me.rank = displayed.rank
+	result.me.top_percent = displayed.top_percent
 	return result
 
 func tournament_profiles() -> Array:

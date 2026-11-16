@@ -434,8 +434,9 @@ func inspect_rank_progress() -> void:
 	progress.begin({}, "ru")
 	check(progress.change({"player_id": "6", "rank": 4}, "ru") == 0, "First visit has no invented movement")
 	progress.begin(progress_snapshot(original, "ru"), "ru")
-	check(progress.change({"player_id": "new", "rank": 4}, "ru") == 1, "First entry into an existing top has an up direction without a previous percentile")
+	check(progress.change({"player_id": "new", "rank": 4}, "ru") == 1, "New real entry into a known table has an up direction")
 	check(progress.change({"player_id": "new", "rank": null, "top_percent": 25}, "ru") == 0, "Unknown participant still outside top has no invented movement")
+	check(progress.change({"player_id": "filler:new", "rank": 4, "is_filler": true}, "ru") == 1, "New filler in a known table gets the same entry arrow as any row")
 	check(progress.change({"player_id": "", "rank": 4}, "ru") == 0, "Missing player identity has no progress")
 	check(progress.change({"player_id": "6", "rank": null}, "ru") == 0, "Unknown outside-top rank cannot produce a numeric change")
 	check(progress.change({"player_id": "6", "rank": 4}, "en") == 0, "Different language snapshots are not compared")
@@ -605,8 +606,7 @@ func inspect_rank_progress() -> void:
 				reopened.dispose()
 				reopened.queue_free()
 			await settle()
-			# A complete old top without either newcomer reproduces the missing
-			# green arrow while every displaced row already received a red one.
+			# New real entrants get up arrows; displaced known players get down arrows.
 			var previous_top: Array = []
 			for id in range(1, 102):
 				if id != 6:
@@ -626,7 +626,7 @@ func inspect_rank_progress() -> void:
 			entrant_view._list_entrance.stop()
 			for id: String in ["6", "102"]:
 				var arrow: Control = entrant_view._row_by_id[id].get_node_or_null("CardFace/PlayerRankDirection")
-				check(arrow != null and arrow.color == SCREEN.PALETTE.SUCCESS and arrow.is_visible_in_tree(), "First-time own and other top entrants receive visible green up arrows")
+				check(arrow != null and arrow.color == SCREEN.PALETTE.SUCCESS and arrow.is_visible_in_tree(), "First-time own and other real top entrants receive visible green arrows")
 			check(entrant_view._row_by_id["4"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.ERROR, "Rows displaced by newcomers retain red down arrows")
 			check(entrant_view._row_by_id["1"].get_node_or_null("CardFace/PlayerRankDirection") == null, "Unchanged row keeps no arrow after newcomers enter")
 			if !directory.is_empty() and DisplayServer.get_name() != "headless":
@@ -635,13 +635,65 @@ func inspect_rank_progress() -> void:
 			mock.leaderboard_ready.emit(mock.snapshot, false)
 			entrant_view._select_tab(true)
 			entrant_view._select_tab(false)
-			check(entrant_view._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "First-entry up arrow survives repeated replies and tab switching")
+			check(entrant_view._row_by_id["6"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "Newcomer keeps its green arrow after repeated replies and tab switching")
 			entrant_view.scroll.scroll_vertical = 100000
 			await settle()
-			check(entrant_view.pinned.visible and entrant_view.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "First-time own entrant also has a green arrow on the visible pinned card")
+			check(entrant_view.pinned.visible and entrant_view.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "First-time own entrant has a green arrow on the visible pinned card")
 			entrant_view.dispose()
 			entrant_view.queue_free()
 			await settle()
+			# Use the production merge with correctly sorted scores and persisted fillers.
+			var merger = preload("res://tools/tests/leaderboard_client_mock.gd").new()
+			var fixture = load("res://tools/tests/leaderboard_local_fillers.gd").new()
+			var body: Dictionary = fixture.reply(2, true, 10, language).body
+			var board := {"real_top":body.top, "fillers":body.fillers, "me":body.me, "total_players":2}
+			mock.snapshot = merger._merge_board(board, language)
+			var filler_view := SCREEN.new()
+			filler_view.service = mock
+			add_child(filler_view)
+			await settle()
+			check(filler_view.own_row == null and filler_view.pinned.visible and filler_view.pinned.get_node("CardFace/PlayerRank").text == "100+", "Current player below mixed top keeps a visible 100+ pinned card")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("rank_progress_outside_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save own outside-top pinned card GPU preview")
+			var retained: Array = board.fillers.duplicate(true)
+			board.real_top.append({"player_id":"new-low","nickname":"NewLow","stars":5,"rank":3,"is_me":false,"is_filler":false,"character_id":1,"frame_id":3})
+			board.total_players = 3
+			mock.snapshot = merger._merge_board(board, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			await settle()
+			check(board.fillers == retained and !filler_view._row_by_id.has("new-low"), "Weak newcomer neither retires fillers nor appears in the mixed top")
+			check(!filler_view.pinned.has_node("CardFace/PlayerRankDirection"), "Unchanged own real position outside mixed top has no arrow")
+			board.real_top[1].stars = 50
+			board.me.stars = 50
+			mock.snapshot = merger._merge_board(board, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			await settle()
+			check(filler_view._row_by_id["me"].get_meta("rank_change") == 1 and filler_view.pinned.get_meta("rank_change") == 1, "Entering mixed top from 100+ gives green arrows on both own cards")
+			check(filler_view._row_by_id["filler:cis:000"].get_meta("rank_change") == 0 and filler_view._row_by_id["filler:us_europe:080"].get_meta("rank_change") == -1, "Passing fillers leaves stronger fillers unchanged and gives overtaken fillers red arrows")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("rank_progress_entry_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save own entry from 100+ with pinned green arrow GPU preview")
+			var own: Dictionary = board.real_top.pop_at(1)
+			own.stars = 250
+			own.rank = 1
+			board.real_top[0].rank = 2
+			board.real_top.push_front(own)
+			board.me = own.duplicate(true)
+			board.me["top_percent"] = null
+			mock.snapshot = merger._merge_board(board, language)
+			mock.leaderboard_ready.emit(mock.snapshot, false)
+			await settle()
+			check(filler_view._row_by_id["me"].get_meta("rank_change") == 1 and filler_view._row_by_id["real:0"].get_meta("rank_change") == -1 and filler_view._row_by_id["filler:cis:000"].get_meta("rank_change") == -1, "Overtaking real players and fillers gives the same down arrows relative to entry")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				check(get_viewport().get_texture().get_image().save_png(directory.path_join("rank_progress_fillers_%dx%d_%s.png" % [dimensions.x, dimensions.y, language])) == OK, "Save natural filler displacement and real overtake GPU preview")
+			filler_view.dispose()
+			filler_view.queue_free()
+			fixture.free()
+			merger.free()
+			await settle()
+			mock.snapshot = progress_snapshot(entered_top, language)
 			var next_visit := SCREEN.new()
 			next_visit.service = mock
 			add_child(next_visit)
@@ -705,10 +757,10 @@ func inspect_background_rank_ack() -> void:
 	await settle_transport(client, transport)
 	await settle()
 	check(transport.calls.size() == requests + 1, "Opening the screen adds only the existing single standings request")
-	check(view._row_by_id["123"].get_node("CardFace/PlayerRank").text == "4" and view._row_by_id["123"].get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS, "After earning stages the player's 6-to-4 improvement keeps its green arrow despite the earlier acknowledgement")
+	check(view._row_by_id["123"].get_node("CardFace/PlayerRank").text == "4" and view._row_by_id["123"].get_meta("rank_change") == 2, "Passing fillers changes place 6 to 4 with a promotion arrow")
 	view.scroll.scroll_vertical = 100000
 	await settle()
-	check(view.pinned.visible and view.pinned.get_node("CardFace/PlayerRankDirection").is_visible_in_tree() and view.pinned.get_node("CardFace/PlayerRankDirection").color == SCREEN.PALETTE.SUCCESS and view.pinned.get_node("CardFace/PlayerRank").get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Actual client promotion displays a green up arrow and dark number on the pinned own card")
+	check(view.pinned.visible and view.pinned.get_meta("rank_change") == 2 and view.pinned.get_node("CardFace/PlayerRank").get_theme_color("font_color") == SCREEN.PALETTE.TEXT_DARK, "Passing fillers keeps the correct promotion arrow on the pinned card")
 	view.dispose()
 	for node: Node in [view, client, transport, fixture]:
 		node.queue_free()

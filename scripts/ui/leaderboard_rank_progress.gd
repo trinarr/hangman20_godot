@@ -39,8 +39,7 @@ func change(entry: Dictionary, language: String) -> int:
 	if language != _language or id.is_empty() or rank == 0:
 		return 0
 	if !_ranks.has(id):
-		# A new row in an existing table has entered the top, even if its old
-		# place/percentile was never cached. Only the direction is known.
+		# Any new visible row has entered the known table.
 		return 1 if _has_previous_top and rank < OUTSIDE_TOP else 0
 	var previous := int(_ranks[id])
 	if previous == OUTSIDE_TOP or rank == OUTSIDE_TOP:
