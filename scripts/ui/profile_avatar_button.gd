@@ -134,7 +134,6 @@ func _ready() -> void:
 	if paper_background and portrait_enabled:
 		_portrait_viewport = SubViewport.new()
 		_portrait_viewport.name = "CroppedCharacterViewport"
-		_portrait_viewport.disable_3d = true
 		_portrait_viewport.transparent_bg = true
 		_portrait_viewport.world_2d = World2D.new()
 		_portrait_viewport.size_2d_override_stretch = true

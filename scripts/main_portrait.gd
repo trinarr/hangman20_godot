@@ -13217,7 +13217,6 @@ func _create_single_player_reward_masked_hero(
 
 	var hero_viewport := SubViewport.new()
 	hero_viewport.name = "SinglePlayerRewardHeroViewport"
-	hero_viewport.disable_3d = true
 	hero_viewport.transparent_bg = true
 	hero_viewport.size = Vector2i(
 		maxi(1, int(round(viewport_size.x))),

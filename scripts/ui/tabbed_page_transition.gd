@@ -113,7 +113,6 @@ class PageSurface extends SubViewportContainer:
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		page_viewport = SubViewport.new()
 		page_viewport.name = "TabbedPageViewport"
-		page_viewport.disable_3d = true
 		page_viewport.transparent_bg = true
 		page_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		add_child(page_viewport)

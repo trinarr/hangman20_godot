@@ -1,0 +1,22 @@
+// Validate the shared native release engine for direct editor and Gradle exports.
+gradle.taskGraph.whenReady { graph ->
+    boolean releaseTask = graph.allTasks.any {
+        it.project == project && it.name.toLowerCase(java.util.Locale.ROOT).contains('release')
+    }
+    if (releaseTask) {
+        File validator = new File(project.projectDir, '../../tools/build_godot_android_release.py').canonicalFile
+        if (!validator.isFile()) {
+            throw new GradleException('Optimized release engine validator is missing: ' + validator)
+        }
+        String python = project.findProperty('hangman_python') ?: System.getenv('HANGMAN_PYTHON') ?: 'python'
+        List<String> command = [python, validator.absolutePath, '--verify-installed',
+            '--base-aar', new File(project.projectDir, 'libs/release/godot-lib.template_release.aar').absolutePath]
+        Process process = new ProcessBuilder(command).directory(validator.parentFile.parentFile)
+            .redirectErrorStream(true).start()
+        String output = process.inputStream.getText('UTF-8')
+        if (process.waitFor() != 0) {
+            throw new GradleException('Optimized release engine verification failed. See tools/EXPORT.md.\n' + output)
+        }
+        logger.lifecycle(output.trim())
+    }
+}

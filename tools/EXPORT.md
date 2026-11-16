@@ -11,6 +11,65 @@
 
 `android/` игнорируется Git и не придёт с чистым checkout. При проверке документации локальный `android/.build_version` содержал `4.7.2.stable`, а `config.gradle` задавал compile SDK 36, Build Tools 36.1.0, Java 17 и NDK 29.0.14206865. Это снимок локального шаблона: после переустановки читайте его новый файл, а не копируйте числа из этого абзаца.
 
+## Облегчённый движок для release
+
+[godot_android_release_profile.py](godot_android_release_profile.py) — общий SCons-профиль
+для release: `target=template_release`, `optimize=size`, `disable_3d=yes`,
+`disable_physics_2d=yes`, `disable_navigation_2d=yes`. Он применяется при компиляции
+движка, а не при экспорте проекта. Четыре ABI, Mobile renderer, 2D-отрисовка,
+шейдеры, шрифты и SVG сохраняются; конфетти рассчитывает движение в собственном
+2D-скрипте и не требует физического движка.
+
+Для воспроизведения нужны исходники тега `4.7.2-stable`, SCons 4.4+,
+NDK версии из `platform/android/detect.py` этих исходников и официальный
+`android/build/libs/release/godot-lib.template_release.aar` той же версии.
+В исходниках предварительно выполните `python misc/scripts/install_swappy_android.py`.
+Затем из корня проекта:
+
+```powershell
+python tools/build_godot_android_release.py --source 'C:/path/to/godot-4.7.2' --android-sdk 'C:/path/to/Android/Sdk' --jobs 6
+```
+
+Запускатель компилирует ARM32, ARM64, x86 и x86_64, затем создаёт
+`builds/godot-lib.optimized_release.aar`: Java-обёртка и остальные файлы исходного
+AAR сохраняются, все четыре пары нативных библиотек заменяются вместе.
+Убираются лишние символы из `libc++_shared.so`. Для каждого ABI после успешной
+компиляции записывается `hangman-native-build.json` с профилем, commit исходников
+и SHA-256 библиотек. `--package-only` разрешён только при совпадении этих записей
+с текущим профилем и файлами. ELF-формат, ABI, загрузочные сегменты и выравнивание
+64-битных библиотек на 16 КиБ проверяются до упаковки. Исходники должны быть
+чистыми на закреплённом commit `4.7.2-stable`, без `custom.py`; версия Java-обёртки
+в manifest входного AAR должна совпадать.
+После успешной сборки сохраните оригинальный AAR в `builds/` и скопируйте новый
+в `android/build/libs/release/godot-lib.template_release.aar`. Эту общую библиотеку
+используют существующие release-пресеты RuStore и Google Play; новый пресет не нужен.
+Debug/DEV продолжают использовать `libs/debug/`. Не выбирайте release-экспорт
+из Debug/DEV-пресетов.
+
+Переустановка Android/Gradle Build Template восстанавливает стандартный движок:
+после неё повторите подготовку `prepare_startup_android.py` и установку облегчённого release AAR. На чистом checkout сначала
+нужно собрать и установить его; наличие Python-профиля само по себе экспорт
+не меняет. Для отката верните сохранённый официальный AAR. При обновлении Godot
+нужно обновить закреплённые версию, commit и NDK в запускателе и пересобрать библиотеку
+из совпадающих исходников. После замены необходимы release-экспорт, проверка состава APK/AAB и
+проверка на Android: запуск, тексты RU/EN, переходы, награды/конфетти и реклама.
+
+Проверка установленной библиотеки без компиляции:
+
+```powershell
+python tools/build_godot_android_release.py --verify-installed
+```
+
+AAR содержит `hangman-engine-build.json` с записями сборок и хешами всех файлов.
+Обычный или изменённый AAR, другая версия/профиль, неверный ELF либо неполный набор
+ABI отклоняются. `export_android.py` выполняет эту проверку перед реальным release-
+экспортом; `--check-only` по-прежнему проверяет только настройки магазина/Firebase
+без Android SDK. Подготовка startup также устанавливает `release_engine_guard.gradle`:
+он запускает тот же валидатор для release-задач при прямом экспорте из редактора
+или Gradle. Нужен Python в PATH; нестандартный путь задаётся `HANGMAN_PYTHON` либо
+Gradle property `hangman_python`. Debug/DEV не требуют облегчённого release AAR.
+После переустановки Gradle template подготовку нужно повторить до прямого экспорта.
+
 ## Пресет и зависимости
 
 Текущие значения определяет [export_presets.cfg](../export_presets.cfg):

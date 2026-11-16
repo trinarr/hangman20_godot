@@ -9,6 +9,7 @@ from prepare_startup_android import prepare as prepare_startup, verify_package
 from prepare_firebase_android import prepare as prepare_firebase, validate_config as validate_firebase_config
 from prepare_firebase_android import read_android_presets
 from prepare_yandex_android import prepare as prepare_yandex
+from build_godot_android_release import verify_installed
 
 ROOT = Path(__file__).resolve().parents[1]
 STORES = {"rustore", "google_play"}
@@ -69,6 +70,11 @@ def main() -> int:
         return 0
     if args.output is None:
         parser.error("--output is required for export")
+    if not args.debug:
+        try:
+            verify_installed(ROOT / "android/build/libs/release/godot-lib.template_release.aar")
+        except (OSError, ValueError, KeyError) as error:
+            parser.error(str(error) + "; rebuild/install the optimized release engine (tools/EXPORT.md)")
     try:
         prepare_yandex(ROOT / "android/build", check=True)
     except (OSError, ValueError) as error:

@@ -9,7 +9,6 @@ func _ready() -> void:
 	for character_id: int in [1, 2]:
 		var viewport := SubViewport.new()
 		viewport.name = "LeaderboardPortrait%d" % character_id
-		viewport.disable_3d = true
 		viewport.transparent_bg = true
 		viewport.world_2d = World2D.new()
 		viewport.size = Vector2i(256, 256)

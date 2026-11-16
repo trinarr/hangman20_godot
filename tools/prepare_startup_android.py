@@ -53,11 +53,19 @@ def prepare(template: Path, check: bool = False) -> None:
     if build_source.count(anchor) != 1 or build_source.count(guard_apply) > 1:
         raise ValueError("Unsupported Android Gradle template")
     updated_build = build_source if guard_apply in build_source else build_source.replace(anchor, anchor + "\n" + guard_apply, 1)
+    engine_apply = "apply from: 'release_engine_guard.gradle'"
+    if build_source.count(engine_apply) > 1:
+        raise ValueError("Duplicate release engine guard")
+    if engine_apply not in updated_build:
+        updated_build = updated_build.replace(anchor, anchor + "\n" + engine_apply, 1)
     guard = template / "dev_build_guard.gradle"
     expected_guard = (ROOT / "tools/android_startup/dev_build_guard.gradle").read_bytes()
+    engine_guard = template / "release_engine_guard.gradle"
+    expected_engine_guard = (ROOT / "tools/android_startup/release_engine_guard.gradle").read_bytes()
     if check:
         if (source != updated or not helper.exists() or helper.read_bytes() != expected
-                or build_source != updated_build or not guard.exists() or guard.read_bytes() != expected_guard):
+                or build_source != updated_build or not guard.exists() or guard.read_bytes() != expected_guard
+                or not engine_guard.exists() or engine_guard.read_bytes() != expected_engine_guard):
             raise ValueError("Android startup preparation is missing or outdated")
     else:
         if source != updated:
@@ -65,6 +73,7 @@ def prepare(template: Path, check: bool = False) -> None:
         helper.write_bytes(expected)
         build.write_text(updated_build, encoding="utf-8", newline="\n")
         guard.write_bytes(expected_guard)
+        engine_guard.write_bytes(expected_engine_guard)
 
 
 def main() -> None:

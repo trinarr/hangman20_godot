@@ -138,7 +138,6 @@ func _ready() -> void:
 	_root.add_child(_surface)
 	_viewport = SubViewport.new()
 	_viewport.name = "PreparedProfileEditorViewport"
-	_viewport.disable_3d = true
 	_viewport.transparent_bg = true
 	_viewport.world_2d = World2D.new()
 	_viewport.gui_disable_input = true

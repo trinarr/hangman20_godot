@@ -38,7 +38,6 @@ static func warm_up(host: Node) -> void:
 	# Render offscreen once while Home is displayed, before the first navigation.
 	var viewport := SubViewport.new()
 	viewport.name = "HomeTransitionShaderWarmup"
-	viewport.disable_3d = true
 	viewport.gui_disable_input = true
 	viewport.size = Vector2i(64, 64)
 	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
@@ -77,7 +76,6 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	# Keep Home's full-height background on the GPU, independently of the new UI.
 	# Render once: no screen readback, and no sampling of the destination as blue.
 	_home_viewport = SubViewport.new()
-	_home_viewport.disable_3d = true
 	_home_viewport.gui_disable_input = true
 	_home_viewport.size = Vector2i(_source_size)
 	_home_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
@@ -88,7 +86,6 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 	home_content.reparent(home_root, false)
 	if is_instance_valid(header):
 		_header_viewport = SubViewport.new()
-		_header_viewport.disable_3d = true
 		_header_viewport.gui_disable_input = true
 		_header_viewport.transparent_bg = true
 		_header_viewport.size = Vector2i(_source_size)
