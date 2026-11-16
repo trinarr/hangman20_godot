@@ -100,8 +100,9 @@ Debug/editor builds use demo ad units:
 
 Release ad units are configured per store in `data/ad_store_profiles.json`.
 The `rustore` / `google_play` export feature selects the profile; missing or
-conflicting features never fall back to another store. RuStore is configured;
-Google Play is intentionally empty until separate units are issued.
+conflicting features never fall back to another store. Both stores are configured
+with separate production units. Google Play enables AdMob with the manager-issued
+Application ID; RuStore keeps Google ads disabled.
 Use `tools/export_android.py` for preflight validation and export; see `tools/EXPORT.md`.
 When a store enables Google ads, its manager-provided Application ID is added
 to the manifest only for that store.

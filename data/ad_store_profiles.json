@@ -7,10 +7,10 @@
     "google_application_id": ""
   },
   "google_play": {
-    "banner_id": "",
-    "rewarded_id": "",
-    "interstitial_id": "",
-    "google_ads_enabled": false,
-    "google_application_id": ""
+    "banner_id": "R-M-20334511-3",
+    "rewarded_id": "R-M-20334511-2",
+    "interstitial_id": "R-M-20334511-1",
+    "google_ads_enabled": true,
+    "google_application_id": "ca-app-pub-7412758971890594~4179321999"
   }
 }

@@ -731,9 +731,9 @@ func test_tagged_interstitial_lifecycle() -> void:
 func test_shared_placement_cache() -> void:
 	var other_store := ReleaseAds.new()
 	other_store.store = "google_play"
-	check(other_store._release_unit_id("banner").is_empty(), "unconfigured Google Play never uses the RuStore banner")
-	check(other_store._rewarded_id_for_placement(&"hint_open").is_empty(), "unconfigured Google Play never uses RuStore rewarded")
-	check(other_store._interstitial_id_for_placement(&"quiz_correct").is_empty(), "unconfigured Google Play never uses RuStore interstitial")
+	check(other_store._release_unit_id("banner") == "R-M-20334511-3", "Google Play uses its own banner")
+	check(other_store._rewarded_id_for_placement(&"hint_open") == "R-M-20334511-2", "Google Play uses its own rewarded unit")
+	check(other_store._interstitial_id_for_placement(&"quiz_correct") == "R-M-20334511-1", "Google Play uses its own interstitial unit")
 	other_store.store = ""
 	check(other_store._release_unit_id("banner").is_empty(), "missing store never defaults to RuStore")
 	check(ADS_SCRIPT.STORE_CONFIG.store_from_features(PackedStringArray(["rustore", "google_play"])) == "", "ambiguous store is rejected")
@@ -802,6 +802,13 @@ func test_release_fullscreen_warmup() -> void:
 		ads.free()
 	var other := ReleaseAds.new()
 	other.store = "google_play"
+	other._native = FakeNative.new()
+	other._on_sdk_initialized()
+	check(other._native.calls.has("load_interstitial"), "Google Play warms its configured interstitial")
+	check(other._native.calls.has("load_rewarded"), "Google Play warms its configured rewarded unit")
+	other.free()
+	other = ReleaseAds.new()
+	other.store = "unknown"
 	other._native = FakeNative.new()
 	other._on_sdk_initialized()
 	check(!other._native.calls.has("load_interstitial"), "Warmup cannot request an unconfigured store unit")

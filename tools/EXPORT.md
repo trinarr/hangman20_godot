@@ -27,7 +27,9 @@
 
 Ответ поддержки «Простой монетизации» от 03.11.2026: для каждого магазина приложение добавляется отдельно. Пресеты задают ровно один custom feature: `rustore` либо `google_play`. Runtime выбирает соответствующий профиль из `data/ad_store_profiles.json`; отсутствие или конфликт меток не подставляет ID другого магазина. Редактор и debug-сборки используют demo-ID независимо от магазина.
 
-Текущие боевые ID относятся к RuStore. Профиль Google Play намеренно пуст: заполните его после регистрации отдельного приложения у менеджера. Если для этого канала подключена Google Ads, задайте `google_ads_enabled=true` и выданный `google_application_id`; экспортный плагин добавит его в Android manifest только для выбранного магазина. До подтверждения подключения не включайте этот флаг. Firebase `google-services.json` и рекламный Google Application ID — разные настройки.
+Боевые ID обоих магазинов настроены раздельно в `data/ad_store_profiles.json`. Для Google Play по письму «Простой монетизации» подключены AdMob, Pangle и Bigo; профиль содержит выданные отдельные блоки баннера/Rewarded/Interstitial, `google_ads_enabled=true` и AdMob App ID. Экспортный плагин добавляет `com.google.android.gms.ads.APPLICATION_ID` в Android manifest только выбранного магазина. RuStore сохраняет собственные блоки без Google App ID. Firebase `google-services.json` и рекламный Google Application ID — разные настройки.
+
+Корневой [app-ads.txt сайта разработчика](https://trinarr.github.io/app-ads.txt) хранится в [отдельном репозитории](https://github.com/trinarr/trinarr.github.io/blob/main/app-ads.txt). Строка Bigo DIRECT из письма добавлена туда; push в `main` публикует файл через GitHub Pages. Наличие строки проверяйте по опубликованному URL, а не только в Git.
 
 Перед выпуском используйте проверяющий запускатель, который отказывается экспортировать незаполненный профиль, повторно использованные RuStore-ID в Google Play и Google Ads без Application ID:
 
@@ -36,7 +38,7 @@ python tools/export_android.py --preset 'Hangman 2.0 RuStore' --check-only
 python tools/export_android.py --preset 'Hangman 2.0 Google Play' --check-only
 ```
 
-Вторая команда сейчас ожидаемо завершается ошибкой: Google Play ещё не настроен. Debug Google Play можно проверять с `--debug --check-only`. Прямой экспорт через Godot обходит эту предварительную проверку; готовность к публикации им не подтверждается. Четыре store-пресета сохраняют общий package ID и данные: они не создают две параллельные установки. Пятый DEV-пресет имеет другой ID и собственные данные, поэтому устанавливается рядом с release; его обновления не обновляют release.
+Обе команды должны проходить. Debug Google Play проверяйте с `--debug --check-only`. Прямой экспорт через Godot обходит эту предварительную проверку; готовность к публикации им не подтверждается. Четыре store-пресета сохраняют общий package ID и данные: они не создают две параллельные установки. Пятый DEV-пресет имеет другой ID и собственные данные, поэтому устанавливается рядом с release; его обновления не обновляют release.
 
 ## Проверки и экспорт
 
