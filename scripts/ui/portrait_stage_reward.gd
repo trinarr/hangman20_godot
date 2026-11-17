@@ -21,6 +21,8 @@ var _cover: Node
 var multiplier_meter: Control
 var _meter_enabled: bool = false
 var base_amount: int = 0
+var reward_currency: String = "coins"
+const STAR_TEXTURE: Texture2D = preload("res://flash_assets/star_currency_icon.png")
 var deferred_coin_amount: int = 0
 var coin_content_builder: Callable
 var collect_rect_builder: Callable
@@ -82,11 +84,13 @@ func _on_claim_peak(source: Control) -> void:
 	_claim_emitted = true
 	claim_peak.emit(source)
 
-func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled: bool, level_number: int = 1) -> void:
+func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled: bool, level_number: int = 1, currency: String = "coins") -> void:
 	if prize != null or _stopped:
 		return
 	content = parent
 	base_amount = reward_amount
+	reward_currency = currency
+	ads_enabled = ads_enabled and reward_currency == "coins"
 	_meter_enabled = ads_enabled and level_number >= PORTRAIT_GAME_DESIGN.get_int("economy.rewards.stage_ad_multipliers_from_level")
 	var collect_rect := Rect2(Vector2(90, PORTRAIT_FINAL_REWARD_COLLECT_RECT.position.y + 24), PORTRAIT_STAGE_LAYOUT.POPUP_COIN_BUTTON_SIZE)
 	if _meter_enabled:
@@ -110,8 +114,8 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 	# Stage-completion coin rewards use the same shadow-aware coin-pack holder
 	# as the one-stage level reward. The old _stage_texture() path bypassed the
 	# shader extrusion completely, which is why this screen had no visible shadow.
-	var transition_pack := _stage_main_reward_coin_pack_transition(
-		source_rect
+	var transition_pack := _stage_main_reward_resource_transition(
+		source_rect, STAR_TEXTURE if reward_currency == "stars" else COIN_PACK_04_TEXTURE
 	)
 	transition_pack.name = "StageCoinLargeReward"
 	_set_main_reward_icon_shadow_alpha(transition_pack, 0.0)
@@ -280,6 +284,24 @@ var PORTRAIT_FINAL_REWARD_BACKGROUND_FADE_DURATION: float = PORTRAIT_GAME_DESIGN
 const PORTRAIT_FINAL_REWARD_GLOW_ALPHA: float = 0.7
 
 const PORTRAIT_BLUE := PORTRAIT_UI_PALETTE.UI_BLUE
+
+## One-stage levels reuse the same prize and claim sequence without a chain.
+func begin_direct(title_panel: Panel) -> void:
+	if _stopped or _transition_started or !is_instance_valid(prize) or !prize.is_inside_tree():
+		return
+	_transition_started = true
+	prize.set("stage_rect", _portrait_final_reward_center_rect(PORTRAIT_FINAL_REWARD_COIN_SIZE))
+	FADE.set_opacity(prize, 1.0)
+	if is_instance_valid(title_panel):
+		_set_panel_fill_color(PORTRAIT_BLUE, title_panel)
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
+	if _stopped or !is_inside_tree() or !is_instance_valid(prize) or !prize.is_inside_tree():
+		return
+	presentation_visible.emit()
+	_reveal_stage_reward(prize, prize_glow, prize_amount, action, collect, collect_hit)
 
 func begin_transition(
 	chain_holder: Control,

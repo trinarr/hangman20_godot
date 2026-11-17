@@ -1268,6 +1268,55 @@ func clear_active_single_player_session(persist: bool = true) -> void:
 func get_active_single_player_session() -> Dictionary:
 	return active_single_player_session.duplicate(true)
 
+func repair_legacy_single_stage_loss_reward() -> bool:
+	# Old one-stage defeats persisted a completed result with no prize. Repair
+	# only this still-active receipt; never reopen completed campaign history.
+	var session: Dictionary = get_active_single_player_session()
+	if str(session.get("kind", "")) != "next" or !pending_single_player_reward.is_empty():
+		return true
+	var source_data: Variant = session.get("data", {})
+	if !(source_data is Dictionary) or !(source_data.get("result", {}) is Dictionary):
+		return true
+	var data: Dictionary = source_data.duplicate(true)
+	var result: Dictionary = data.get("result", {}).duplicate(true)
+	if (
+		int(result.get("single_player_total_count", 0)) != 1
+		or !bool(result.get("single_player_level_completed", false))
+		or bool(result.get("single_player_stage_won", true))
+		or int(data.get("reward_amount", 0)) > 0
+	):
+		return true
+	var language: String = str(session.get("language", word_language))
+	var level_index: int = int(session.get("level_index", -1))
+	var statuses: Variant = _single_player_bucket(language)["levels"].get(str(level_index), [])
+	if (
+		level_index < 0 or int(session.get("word_slot", -1)) != 0
+		or !(statuses is Array) or statuses.size() != 1
+		or _single_level_status(statuses[0]) != 2
+		or get_single_level_coin_reward(language, level_index, 0, 0) > 0
+	):
+		return true
+	var policy: Dictionary = GAME_DESIGN.single_stage_reward(1)
+	if policy.is_empty():
+		return true
+	data["reward_currency"] = str(policy.currency)
+	data["reward_amount"] = int(policy.amount)
+	data["reward_claimed"] = false
+	data["reward_double_resolved"] = str(policy.currency) != STAGE_REWARD_COINS
+	data["reward_double_claimed"] = false
+	data["reward_presentation_started"] = false
+	data.erase("reward_ad_id")
+	result["single_player_stage_reward_currency"] = str(policy.currency)
+	result["single_player_stage_reward_amount"] = int(policy.amount)
+	data["result"] = result
+	var previous: Dictionary = active_single_player_session.duplicate(true)
+	session["data"] = data
+	active_single_player_session = session
+	if save_game():
+		return true
+	active_single_player_session = previous
+	return false
+
 func get_active_single_player_stage_reward() -> Dictionary:
 	if str(active_single_player_session.get("kind", "")) != "next":
 		return {}
@@ -2702,6 +2751,16 @@ func get_or_create_single_level_seed(lang: String, level_index: int, _difficulty
 		single_player[lang_key] = bucket
 		save_game()
 	return seed
+
+func get_started_single_level_stage_count(lang: String, level_index: int) -> int:
+	# Selected themes and progress already persist the shape of a started attempt.
+	# Do not resize it when a newer build changes the campaign's opening levels.
+	var bucket: Dictionary = _single_player_bucket(lang)
+	var key: String = str(level_index)
+	if !bucket["selected_themes"].has(key):
+		return 0
+	var statuses: Variant = bucket["levels"].get(key, [])
+	return statuses.size() if statuses is Array else 0
 
 func get_single_level_selected_theme(lang: String, level_index: int, difficulty: int = -1) -> int:
 	if level_index < 0:

@@ -96,9 +96,6 @@ var SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET: int = GAME_DESIGN.get_int_range(
 	1,
 	1000
 )
-var SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT: int = GAME_DESIGN.get_int(
-	"progression.quiz.second_level_slot"
-)
 var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
 	"progression.quiz.onboarding_slot"
 )
@@ -1014,12 +1011,13 @@ func _invalidate_single_player_level_cache() -> void:
 	single_player_level_cache_difficulty = -1.0
 
 func _single_player_level_word_target(level_index: int) -> int:
+	var started_count: int = GameState.get_started_single_level_stage_count(Database.current_language, level_index)
+	if started_count > 0:
+		return started_count
 	var level_number: int = maxi(level_index + 1, 1)
 	return GAME_DESIGN.level_stage_count_with_bonus(level_number)
 
 func _single_player_level_uses_question(level_index: int, word_count: int) -> bool:
-	# Levels 2-4 introduce the embedded quiz with an explicit onboarding order.
-	# From level 5 onward the normal question-slot rules apply.
 	var level_number: int = maxi(level_index + 1, 1)
 	return GAME_DESIGN.level_uses_quiz(level_number, word_count)
 
@@ -1203,8 +1201,6 @@ func _single_player_words_for_theme(
 	return words
 
 func _single_player_level_question_slots(level_index: int, level_seed: int, word_count: int) -> Array:
-	if !_single_player_level_uses_question(level_index, word_count):
-		return []
 	var has_saved_assignment: bool = GameState.has_single_level_question_slots_assignment(
 		Database.current_language, level_index
 	)
@@ -1213,6 +1209,12 @@ func _single_player_level_question_slots(level_index: int, level_seed: int, word
 		# An explicit empty array is meaningful: all configured quiz slots for this
 		# level were downgraded to Hangman after content selection failed.
 		return saved
+	var opening_slots: Variant = GAME_DESIGN.opening_level_quiz_slots(level_index + 1, word_count)
+	if opening_slots != null:
+		GameState.set_single_level_question_slots(Database.current_language, level_index, opening_slots)
+		return opening_slots
+	if !_single_player_level_uses_question(level_index, word_count):
+		return []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, 503)
 	var choices: Array = []
@@ -1225,10 +1227,7 @@ func _single_player_level_question_slots(level_index: int, level_seed: int, word
 		var level_number: int = level_index + 1
 		var first: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
 		var last: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
-		if level_number == 2:
-			first = SINGLE_PLAYER_QUIZ_SECOND_LEVEL_SLOT
-			last = first
-		elif GAME_DESIGN.is_quiz_onboarding_level(level_number):
+		if GAME_DESIGN.is_quiz_onboarding_level(level_number):
 			first = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
 			last = first
 		for slot: int in range(mini(first, last), last + 1):
@@ -1373,19 +1372,10 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			options.append(selected_theme)
 		else:
 			options[0] = selected_theme
-	var words: Array = []
-	if selected_theme >= 0:
-		words = _single_player_words_for_theme(
-			level_index,
-			level_seed,
-			selected_theme,
-			word_count,
-			target_difficulty
-		)
 	var questions: Dictionary = {}
 	var question_targets: Dictionary = {}
 	var question_slots: Array = []
-	if selected_theme >= 0 and words.size() >= word_count:
+	if selected_theme >= 0:
 		question_slots = _single_player_level_question_slots(level_index, level_seed, word_count)
 		var resolved_question_slots: Array = question_slots.duplicate()
 		var first_unplayed_slot: int = _single_player_first_unplayed_slot(level_index, word_count)
@@ -1419,6 +1409,15 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			):
 				resolved_question_slots.erase(slot)
 		question_slots = resolved_question_slots
+	var words: Array = []
+	if selected_theme >= 0 and !(word_count == 1 and question_slots.has(0)):
+		words = _single_player_words_for_theme(
+			level_index,
+			level_seed,
+			selected_theme,
+			word_count,
+			target_difficulty
+		)
 	var level_data := {
 		"index": level_index,
 		"selection_stage": _single_player_first_unplayed_slot(level_index, word_count),
@@ -1594,7 +1593,11 @@ func _single_player_mark_current_word_finished(
 	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
 	var stage_reward_currency: String = ""
 	var stage_reward_amount: int = 0
-	if is_win:
+	# The single-stage prize rewards level completion, including a failed stage.
+	var has_stage_reward: bool = is_win or (
+		level_completed and !GameState.GAME_DESIGN.single_stage_reward(level_word_count).is_empty()
+	)
+	if has_stage_reward:
 		stage_reward_currency = _single_player_stage_reward_currency(
 			single_player_active_level_index,
 			single_player_active_word_slot,
@@ -1631,11 +1634,11 @@ func _single_player_mark_current_word_finished(
 			"result": result.duplicate(true),
 			"reward_currency": stage_reward_currency,
 			"reward_amount": stage_reward_amount,
-			"reward_claimed": !is_win,
+			"reward_claimed": !has_stage_reward,
 			# Quiz stages and one-stage levels use the same coin-prize presentation.
 			# The one-stage prize is the complete level reward, without another bonus.
 			"reward_double_resolved": (
-				!is_win
+				!has_stage_reward
 				or stage_reward_currency != GameState.STAGE_REWARD_COINS
 				or (
 					level_word_count > 1

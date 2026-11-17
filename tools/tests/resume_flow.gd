@@ -57,7 +57,7 @@ func run() -> void:
 	main = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(main)
 	await settle()
-	await begin_level(0)
+	await begin_level(1)
 	check(session.is_active and main.game_screen_visible, "Word level opened")
 	var text: String = session.word_data.text
 	var wrongs: Array[String] = []
@@ -85,11 +85,11 @@ func run() -> void:
 	check(lost_hearts == hearts, "Protected onboarding loss preserves hearts")
 	await resume()
 	check(state.get_hearts() == lost_hearts, "Reloaded loss does not charge another heart")
-	check(state.is_single_level_completed(database.current_language, 0, 1), "Completed one-stage defeat remains recorded")
+	check(state.is_single_level_completed(database.current_language, 1, 1), "Completed one-stage defeat remains recorded")
 	check(!main.last_result_is_win, "Continue does not turn the recorded defeat into a win")
 	# The first ordinary level has the same durable last-chance flow, but charges
 	# one heart only when the pending decision is resolved as a defeat.
-	var ordinary_level: int = state.GAME_DESIGN.get_int("progression.guided_onboarding.required_start_level") - 1
+	var ordinary_level: int = 3
 	await begin_level(ordinary_level)
 	check(session.is_active and main.game_screen_visible, "Ordinary word stage opened")
 	hearts = state.get_hearts()
@@ -109,8 +109,8 @@ func run() -> void:
 	check(lost_hearts == hearts - 1, "Ordinary defeat charges exactly one heart")
 	await resume()
 	check(state.get_hearts() == lost_hearts, "Restart after ordinary defeat never charges a second heart")
-	await begin_level(1)
-	check(main._quiz_screen_active, "Level 2 starts quiz")
+	await begin_level(0)
+	check(main._quiz_screen_active, "Level 1 starts quiz")
 	main._on_quiz_fifty_fifty_pressed()
 	var hidden_indices: Array = main._quiz_fifty_fifty_hidden_indices.duplicate()
 	check(hidden_indices.size() == 2, "50/50 hides two wrong answers")
@@ -125,10 +125,10 @@ func run() -> void:
 	check(state.get_active_single_player_session().kind == "next", "Quiz result persists before animation")
 	await resume()
 	check(state.get_stars() == stars_after_answer, "Continue does not repeat quiz speed stars")
-	await begin_level(1)
+	await begin_level(0)
 	hearts = state.get_hearts()
 	main._on_quiz_answer_selected((main._quiz_correct_answer_index() + 1) % main._quiz_answer_buttons.size())
-	check(state.get_hearts() == hearts, "Second onboarding level also protects hearts after a quiz defeat")
+	check(state.get_hearts() == hearts, "First onboarding level protects hearts after a quiz defeat")
 	await resume()
 	check(state.get_hearts() == hearts, "Restart after protected quiz defeat preserves hearts")
 	main.queue_free()

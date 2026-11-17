@@ -37,8 +37,9 @@
     },
     "level_stage_counts": [
       {"from_level": 1, "to_level": 1, "count": 1},
-      {"from_level": 2, "to_level": 2, "count": 2},
-      {"from_level": 3, "to_level": 7, "count": 3},
+      {"from_level": 2, "to_level": 2, "count": 1},
+      {"from_level": 3, "to_level": 3, "count": 2},
+      {"from_level": 4, "to_level": 7, "count": 3},
       {"from_level": 8, "to_level": 18, "count": 4},
       {"from_level": 19, "to_level": 0, "count": 5}
     ],

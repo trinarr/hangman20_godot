@@ -274,6 +274,9 @@ func _enable_final_reward_continue_attention(button: Control) -> void:
 	button.set("attention_bounce_enabled", true)
 
 func _stage_main_reward_coin_pack_transition(rect: Rect2, outline_pixels: float = PORTRAIT_ICON_EXTRUSION.OUTLINE.LARGE_REWARD_PIXELS) -> Control:
+	return _stage_main_reward_resource_transition(rect, COIN_PACK_04_TEXTURE, outline_pixels)
+
+func _stage_main_reward_resource_transition(rect: Rect2, texture: Texture2D, outline_pixels: float = PORTRAIT_ICON_EXTRUSION.OUTLINE.LARGE_REWARD_PIXELS) -> Control:
 	# FlashStageTexture draws its image on the parent CanvasItem itself, so negative-z
 	# child extrusion layers can be visually swallowed by the main draw. Mirror the
 	# chest implementation instead: use a transparent stage holder, place the shadow
@@ -283,15 +286,15 @@ func _stage_main_reward_coin_pack_transition(rect: Rect2, outline_pixels: float 
 	holder.z_index = 20
 	_attach_main_reward_icon_shadow(
 		holder,
-		COIN_PACK_04_TEXTURE,
+		texture,
 		"SingleStageLevelCoinRewardShadow",
 		outline_pixels
 	)
 	var visual := TextureRect.new()
 	visual.name = "CoinPackVisual"
 	visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	visual.texture = COIN_PACK_04_TEXTURE
-	PORTRAIT_ICON_EXTRUSION.OUTLINE.apply(visual, COIN_PACK_04_TEXTURE, outline_pixels)
+	visual.texture = texture
+	PORTRAIT_ICON_EXTRUSION.OUTLINE.apply(visual, texture, outline_pixels)
 	visual.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	visual.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	holder.add_child(visual)

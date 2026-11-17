@@ -927,6 +927,7 @@ var _quiz_answer_feedback_generation: int = 0
 var _quiz_statistics_feedback_pending: bool = false
 var _quiz_statistics_waiting_snapshot: Dictionary = {}
 var _quiz_question_ready_at_msec: int = 0
+var _quiz_consent_pause_at_msec: int = 0
 
 func _portrait_ads_service() -> Node:
 	return get_node_or_null("/root/YandexAdsService")
@@ -971,7 +972,7 @@ func _on_ad_region_changed() -> void:
 	if !_portrait_ads_enabled():
 		_hide_portrait_ad_banner()
 	# A delayed response must not interrupt another modal or entrance animation.
-	call_deferred("_show_user_consent_on_single_player_word_if_needed")
+	call_deferred("_show_user_consent_on_single_player_stage_if_needed")
 	call_deferred("_refresh_portrait_ad_banner_after_permission")
 
 func _refresh_portrait_ad_banner_after_permission() -> void:
@@ -1002,7 +1003,7 @@ func _refresh_portrait_ad_banner_after_permission() -> void:
 func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
 	super._remove_popup_group_with_dimmer_fade(group_name)
 	if !GameState.has_answered_ad_personalization_choice():
-		call_deferred("_show_user_consent_on_single_player_word_if_needed")
+		call_deferred("_show_user_consent_on_single_player_stage_if_needed")
 
 func _portrait_ads_enabled() -> bool:
 	return (
@@ -1306,6 +1307,7 @@ func _clear(preserved_content: Control = null) -> void:
 	_hide_portrait_ad_banner()
 	_quiz_screen_active = false
 	_quiz_question_ready_at_msec = 0
+	_quiz_consent_pause_at_msec = 0
 	_quiz_answer_buttons.clear()
 	_quiz_exit_button = null
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
@@ -3236,6 +3238,8 @@ func _home_profile_resume_saved_single_player_level() -> void:
 				word_data_variant is Dictionary
 				and GameSession.restore_from_save_data(Dictionary(word_data_variant))
 			):
+				if level_index == 0 and !GameState.has_single_level_question_slots_assignment(Database.current_language, level_index):
+					GameState.set_single_level_question_slots(Database.current_language, level_index, [])
 				Analytics.resume_stage(level_index, word_slot, "word")
 				show_game_screen()
 				return
@@ -3289,13 +3293,19 @@ func _home_profile_resume_saved_single_player_level() -> void:
 			_start_single_player_word(level_index, word_slot)
 			return
 		"next":
+			if !GameState.repair_legacy_single_stage_loss_reward():
+				_startup_guided_resume_checked = true
+				if !is_instance_valid(_home_logo_reveal):
+					show_menu()
+				_show_portrait_status_toast(tr("PROFILE_SAVE_FAILED"))
+				return
+			session = GameState.get_active_single_player_session()
 			var next_data_variant: Variant = session.get("data", {})
 			var stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
-			var interrupted_stage_coin_reward_offer: bool = (
+			var interrupted_stage_prize: bool = (
 				bool(stage_reward.get("presentation_started", false))
-				and str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
 			)
-			if interrupted_stage_coin_reward_offer:
+			if interrupted_stage_prize:
 				# The large stage reward was already on screen when the previous process
 				# stopped. Settle its base claim and treat an unresolved x2 as skipped so
 				# Continue resumes from the chain instead of replaying the large reward.
@@ -3313,13 +3323,12 @@ func _home_profile_resume_saved_single_player_level() -> void:
 						"single_player_stage_won",
 						true
 					))
-					# Unshown coin prizes must still be presented after restart. A receipt
+					# Unshown prizes must still be presented after restart. A receipt
 					# becomes skippable only after its first rendered prize frame.
-					if last_result_is_win and !stage_reward.is_empty() \
-						and str(stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS \
+					if !stage_reward.is_empty() \
 						and !bool(stage_reward.get("presentation_started", false)) \
 						and !bool(stage_reward.get("claimed", false)) \
-						and !bool(stage_reward.get("double_resolved", true)):
+						and (int(last_result_data.get("single_player_total_count", 0)) == 1 or _single_player_stage_is_quiz(level_index, word_slot)):
 						_portrait_single_reward_resume_without_intro = true
 						_show_single_player_reward_chain_screen()
 						return
@@ -3348,7 +3357,7 @@ func _home_profile_resume_saved_single_player_level() -> void:
 						_portrait_single_reward_resume_without_intro = true
 						_show_single_player_reward_chain_screen()
 						return
-					if interrupted_stage_coin_reward_offer:
+					if interrupted_stage_prize:
 						_finish_single_player_stage_coin_reward_offer()
 						return
 					# An answered embedded quiz has already persisted its durable `next`
@@ -3484,6 +3493,8 @@ func _show_user_consent_popup(
 		):
 			return
 	_remove_user_consent_popup()
+	if _quiz_screen_active and _quiz_question_ready_at_msec > 0:
+		_quiz_consent_pause_at_msec = Time.get_ticks_msec()
 	_hide_portrait_ad_banner()
 	var popup_size := Vector2(424.0, 0.0)
 	var popup_top_y := 165.0
@@ -3601,6 +3612,12 @@ func _show_user_consent_popup(
 
 func _remove_user_consent_popup() -> void:
 	_remove_popup_group_with_dimmer_fade(PORTRAIT_USER_CONSENT_POPUP_GROUP)
+	# Input is available again as soon as the modal leaves; the remaining
+	# non-interactive dimmer fade must not keep the quiz clock paused.
+	if _quiz_consent_pause_at_msec > 0 and _quiz_question_ready_at_msec > 0:
+		_quiz_question_ready_at_msec += Time.get_ticks_msec() - _quiz_consent_pause_at_msec
+	_quiz_consent_pause_at_msec = 0
+
 
 func _resolve_user_consent_popup(accepted: bool, from_settings: bool = false) -> void:
 	var choice_source: String = "user_settings" if from_settings else "user_popup"
@@ -3610,9 +3627,10 @@ func _resolve_user_consent_popup(accepted: bool, from_settings: bool = false) ->
 	_initialize_yandex_ads_from_saved_consent()
 	_refresh_settings_ad_consent_button()
 	_remove_user_consent_popup()
-	# The popup is first shown on the live level-3 word screen. Stage the banner
+	# Stage the banner on either gameplay screen only after the choice is saved.
+	# Initialize the SDK
 	# only after the choice has been persisted and SDK initialization requested.
-	if game_screen_visible and !_quiz_screen_active and _portrait_ads_enabled():
+	if (game_screen_visible or _quiz_screen_active) and _portrait_ads_enabled():
 		_stage_portrait_ad_banner("_resolve_user_consent_popup")
 
 func _check_startup_guided_resume() -> void:
@@ -3929,11 +3947,12 @@ func _record_single_player_quiz_result(is_win: bool, persist: bool = true) -> vo
 func _mark_quiz_question_ready() -> void:
 	if _quiz_screen_active and !_quiz_answer_locked and !_quiz_question_replacing:
 		_quiz_question_ready_at_msec = Time.get_ticks_msec()
+		call_deferred("_show_user_consent_on_single_player_stage_if_needed")
 	else:
 		_quiz_question_ready_at_msec = 0
 
 func _take_quiz_speed_tier() -> int:
-	if _quiz_question_ready_at_msec <= 0:
+	if _quiz_question_ready_at_msec <= 0 or _quiz_consent_pause_at_msec > 0:
 		return PORTRAIT_QUIZ_SPEED_NONE
 	var elapsed_msec: int = Time.get_ticks_msec() - _quiz_question_ready_at_msec
 	_quiz_question_ready_at_msec = 0
@@ -4885,7 +4904,7 @@ func _reveal_quiz_correct_answer(
 	)
 
 func _on_quiz_answer_selected(answer_index: int) -> void:
-	if _quiz_answer_locked or !_quiz_screen_active or (_quiz_single_player_embedded and game_finished):
+	if _quiz_answer_locked or !_quiz_screen_active or _quiz_consent_pause_at_msec > 0 or (_quiz_single_player_embedded and game_finished):
 		return
 	var correct_index: int = _quiz_correct_answer_index()
 	if (
@@ -9315,12 +9334,11 @@ func _home_profile_show_game_screen() -> void:
 	# last-chance decision here, after _clear(), so navigation cannot delete it.
 	if GameSession.has_deferred_loss():
 		call_deferred("_show_single_player_last_chance_popup", false)
-	call_deferred("_show_user_consent_on_single_player_word_if_needed")
+	call_deferred("_show_user_consent_on_single_player_stage_if_needed")
 
-func _show_user_consent_on_single_player_word_if_needed() -> void:
+func _show_user_consent_on_single_player_stage_if_needed() -> void:
 	# The first consent prompt has two independent gates. Gameplay itself never
-	# waits: the popup appears only after both the entrance animation and the
-	# level-3 regional resolution (including its fallback attempt) have finished.
+	# waits: the popup appears after the active stage entrance and regional lookup.
 	if _portrait_game_entrance_active:
 		return
 	if !get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty():
@@ -9329,9 +9347,12 @@ func _show_user_consent_on_single_player_word_if_needed() -> void:
 		return
 	if single_player_active_level_index + 1 < GameState.ADS_UNLOCK_LEVEL:
 		return
-	if !game_screen_visible or game_finished or !GameSession.is_active:
+	if game_finished:
 		return
 	if _quiz_screen_active:
+		if !_quiz_single_player_embedded or _quiz_answer_locked or _quiz_question_ready_at_msec <= 0 or _quiz_question_replacing:
+			return
+	elif !game_screen_visible or !GameSession.is_active:
 		return
 	if GameState.has_answered_ad_personalization_choice():
 		return
@@ -11609,7 +11630,7 @@ func _finish_portrait_game_entrance() -> void:
 	# This satisfies the animation side of the consent gate. If region resolution
 	# is also complete, the deferred check may open the popup; otherwise the region
 	# callback will make the same check later without delaying gameplay.
-	call_deferred("_show_user_consent_on_single_player_word_if_needed")
+	call_deferred("_show_user_consent_on_single_player_stage_if_needed")
 
 func _on_timer_heart_recovered() -> void:
 	if (
@@ -14367,27 +14388,27 @@ func _on_portrait_rewarded_action_failed_to_show(_message: String) -> void:
 	_set_portrait_rewarded_action_control_enabled(action, level_index, true)
 	_show_portrait_ad_not_ready_toast()
 
-func _play_early_stage_coin_reward_claim(source_visual: Control) -> void:
-	var previous_balance: int = GameState.get_soft_currency()
+func _play_stage_reward_prize_claim(source_visual: Control, currency: String = GameState.STAGE_REWARD_COINS) -> void:
+	var previous_balance: int = GameState.get_stars() if currency == GameState.STAGE_REWARD_STARS else GameState.get_soft_currency()
 	var claim_result: Dictionary = GameState.claim_active_single_player_stage_reward(true)
 	var credited_reward_amount: int = maxi(int(claim_result.get("amount", 0)), 0)
 	if credited_reward_amount <= 0:
 		return
-	if is_instance_valid(_portrait_stage_reward) and _portrait_stage_reward.defers_coin_collection():
+	if currency == GameState.STAGE_REWARD_COINS and is_instance_valid(_portrait_stage_reward) and _portrait_stage_reward.defers_coin_collection():
 		_portrait_stage_reward.deferred_coin_amount = credited_reward_amount
 		_set_stage_reward_animated_balance(float(previous_balance), GameState.STAGE_REWARD_COINS)
 		return
 	var final_balance: int = previous_balance + credited_reward_amount
 	_set_stage_reward_animated_balance(
 		float(previous_balance),
-		GameState.STAGE_REWARD_COINS
+		currency
 	)
-	_play_single_player_reward_coin_collection(source_visual)
+	_play_single_player_reward_resource_collection(source_visual, currency)
 	var count_tween := _create_reward_presentation_tween()
 	count_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var roll := count_tween.tween_method(
 		Callable(self, "_set_stage_reward_animated_balance").bind(
-			GameState.STAGE_REWARD_COINS
+			currency
 		),
 		float(previous_balance),
 		float(final_balance),
@@ -14457,6 +14478,12 @@ func _finish_single_player_stage_coin_reward_offer() -> void:
 		return
 	_portrait_single_reward_resume_without_intro = true
 	_show_single_player_reward_chain_screen()
+
+func _continue_stage_reward_prize() -> void:
+	if _portrait_reward_double_context == &"stage_coin":
+		_decline_single_player_stage_coin_reward_double()
+	elif _portrait_reward_double_context == &"stage_prize":
+		_finish_single_player_stage_coin_reward_offer()
 
 func _decline_single_player_stage_coin_reward_double() -> void:
 	if _portrait_reward_double_context != &"stage_coin":
@@ -15038,23 +15065,25 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		and level_star_reward_amount > 0
 	)
 	var active_stage_reward: Dictionary = GameState.get_active_single_player_stage_reward()
-	var is_quiz_coin_reward: bool = (
-		last_result_is_win
-		and !is_level_summary
-		and (
-			_single_player_stage_is_quiz(level_index, current_slot)
-			or (word_count == 1 and final_stage_completed)
-		)
-		and str(active_stage_reward.get("currency", "")) == GameState.STAGE_REWARD_COINS
+	var prize_currency: String = str(active_stage_reward.get("currency", ""))
+	var stage_double_pending: bool = (
+		prize_currency == GameState.STAGE_REWARD_COINS
 		and !bool(active_stage_reward.get("double_resolved", true))
 	)
+	var show_stage_prize: bool = (
+		!is_level_summary and !active_stage_reward.is_empty()
+		and (_single_player_stage_is_quiz(level_index, current_slot) or (word_count == 1 and final_stage_completed))
+		and (!bool(active_stage_reward.get("claimed", false)) or stage_double_pending)
+	)
+	var offer_stage_double: bool = show_stage_prize and stage_double_pending and _portrait_ads_enabled()
+	var direct_single_stage_prize: bool = show_stage_prize and final_stage_completed and word_count == 1
 	var resumed_final_chain_checkpoint: bool = bool(
 		last_result_data.get("single_player_resume_chain_checkpoint", false)
 	)
 	var auto_advance_final_stage_reward: bool = (
 		final_stage_completed
 		and !is_level_summary
-		and !is_quiz_coin_reward
+		and !show_stage_prize
 		and !resumed_final_chain_checkpoint
 	)
 	var stage_finished_callback := Callable()
@@ -15066,15 +15095,15 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	var reward_theme_index: int = GameState.get_single_level_selected_theme(Database.current_language, level_index)
 	if reward_theme_index < 0:
 		reward_theme_index = GameSession.theme_id
-	if is_final_reward or is_quiz_coin_reward:
+	if is_final_reward or show_stage_prize:
 		_portrait_final_reward_waiting_for_ad = false
 		_portrait_final_reward_earned_ad_reward = false
 		_portrait_reward_double_animation_amount = 0
 	if is_final_reward:
 		_portrait_final_reward_claim_in_progress = false
 		_portrait_reward_double_context = &"final"
-	elif is_quiz_coin_reward:
-		_portrait_reward_double_context = &"stage_coin"
+	elif show_stage_prize:
+		_portrait_reward_double_context = &"stage_coin" if stage_double_pending else &"stage_prize"
 	else:
 		_portrait_reward_double_context = &""
 	var header_color: Color = PORTRAIT_BLUE
@@ -15181,7 +15210,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		title_visual.add_child(reward_subtitle)
 	_portrait_top_bar_content.set_meta(&"reward_level_index", level_index)
 	_portrait_top_bar_content.set_meta(&"reward_title_block", title_block)
-	if keep_header_static:
+	if keep_header_static or direct_single_stage_prize:
 		# Set the resting state now, not in next frame's deferred intro.
 		title_block.set("stage_rect", PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT)
 		title_block.modulate.a = 1.0
@@ -15193,7 +15222,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	# Reward content itself is revealed only after the title finishes its first
 	# bounce, making the success/failure title the first screen element shown.
 	var final_reward_background_overlay: Control = null
-	if is_level_summary or is_quiz_coin_reward:
+	if is_level_summary or show_stage_prize:
 		# Reuse the same backdrop treatment as Home and quiz gameplay. The main
 		# reward differs only by repeating the mono icon of the rewarded topic.
 		final_reward_background_overlay = _stage_horizontal_fill(
@@ -15202,7 +15231,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 		)
 		final_reward_background_overlay.name = "FinalRewardBackgroundOverlay"
-		final_reward_background_overlay.modulate.a = 0.0
+		final_reward_background_overlay.modulate.a = 1.0 if direct_single_stage_prize else 0.0
 		final_reward_background_overlay.z_index = -1
 		var final_reward_pattern_texture: Texture2D = _theme_icon_mono_texture(reward_theme_index)
 		if final_reward_pattern_texture != null:
@@ -15229,7 +15258,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			cover.prepare(final_reward_background_overlay, source_frame)
 
 	var masked_hero: Dictionary = {}
-	if !is_level_summary:
+	if !is_level_summary and !direct_single_stage_prize:
 		# Only stage results need the hero viewport and moving-title clip.
 		masked_hero = _create_single_player_reward_masked_hero(
 			reward_screen_content,
@@ -15270,7 +15299,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	var animate_current_claim: bool = (
 		!is_failure_reward
 		and !is_final_reward
-		and !is_quiz_coin_reward
+		and !show_stage_prize
 		and !active_stage_reward.is_empty()
 		and !current_reward_already_claimed
 	)
@@ -15278,7 +15307,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	var node_sizes: Array = []
 	var node_positions_x: Array = []
 	var chain_holder: Control = null
-	if !is_level_summary:
+	if !is_level_summary and !direct_single_stage_prize:
 		for word_slot in range(word_count):
 			var is_current_slot: bool = word_slot == current_slot
 			var slot_size: float = current_node_size if is_current_slot else normal_node_size
@@ -15350,13 +15379,13 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	var failure_reward_cross_visual: Control = null
 	# The chest starts from the same authored current-tile geometry, without
 	# instantiating an entire invisible reward chain to obtain that rectangle.
-	if is_level_summary:
+	if is_level_summary or direct_single_stage_prize:
 		var source_size: float = maxf(current_node_size * PORTRAIT_SINGLE_REWARD_CHAIN_ICON_SCALE, 30.0)
 		current_reward_resource_stage_rect = Rect2(
 			Vector2(PORTRAIT_STAGE_SIZE.x * 0.5 - source_size * 0.5, chain_center_y - source_size * 0.5 - 4.0),
 			Vector2.ONE * source_size
 		)
-	for word_slot in range(0 if is_level_summary else word_count):
+	for word_slot in range(0 if is_level_summary or direct_single_stage_prize else word_count):
 		var node_size: float = float(node_sizes[word_slot])
 		var node_x: float = float(node_positions_x[word_slot])
 		var node_y: float = chain_center_y - node_size * 0.5
@@ -15477,20 +15506,23 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 
 	var continue_button: Control = null
 	var final_reward_completion := Callable()
-	if is_quiz_coin_reward:
+	if show_stage_prize:
 		var presentation := _create_stage_reward_component(
 			reward_body, maxi(int(active_stage_reward.get("amount", 0)), 0),
-			current_reward_resource_stage_rect)
-		if _portrait_ads_enabled():
+			current_reward_resource_stage_rect, prize_currency, offer_stage_double)
+		if offer_stage_double:
 			_prepare_final_reward_rewarded_ad()
 			_portrait_final_reward_double_button = presentation.action
-		final_reward_completion = Callable(presentation,
-			"begin_transition").bind(
-			chain_holder, hero_texture, current_reward_resource_visual,
-			current_reward_count_visual, presentation.prize,
-			final_reward_background_overlay, title_panel, presentation.prize_glow,
-			presentation.prize_amount, presentation.action, presentation.collect,
-			presentation.collect_hit)
+		if direct_single_stage_prize:
+			final_reward_completion = Callable(presentation, "begin_direct").bind(title_panel)
+		else:
+			final_reward_completion = Callable(presentation,
+				"begin_transition").bind(
+				chain_holder, hero_texture, current_reward_resource_visual,
+				current_reward_count_visual, presentation.prize,
+				final_reward_background_overlay, title_panel, presentation.prize_glow,
+				presentation.prize_amount, presentation.action, presentation.collect,
+				presentation.collect_hit)
 	elif is_level_summary:
 		var completion_reward_amount: int = maxi(
 			int(pending_level_reward.get("amount", 0)),
@@ -15728,7 +15760,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	var failure_back_button: Control = null
 	if (
 		!is_level_summary
-		and !is_quiz_coin_reward
+		and !show_stage_prize
 		and !auto_advance_final_stage_reward
 		and !_single_player_hides_close_controls(level_index)
 	):
@@ -15753,7 +15785,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		failure_back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		continue_button.set_meta(&"paired_failure_back_button", failure_back_button)
 	var reward_hud_content: Control = _portrait_top_bar_content
-	if resume_without_intro and !is_level_summary and !is_quiz_coin_reward:
+	if resume_without_intro and !is_level_summary and !show_stage_prize:
 		title_block.set("stage_rect", PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_TOP_RECT)
 		title_block.modulate.a = 1.0
 		title_visual.scale = Vector2.ONE
@@ -15804,7 +15836,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		continue_button,
 		current_reward_currency,
 		final_reward_completion,
-		keep_header_static,
+		keep_header_static or direct_single_stage_prize,
 		stage_finished_callback
 		]
 	)
@@ -16488,22 +16520,22 @@ func _ensure_reward_prize_visuals() -> Node:
 	_portrait_reward_prize_visuals.content = content
 	return _portrait_reward_prize_visuals
 
-func _create_stage_reward_component(parent: Control, amount: int, source_rect: Rect2) -> Node:
+func _create_stage_reward_component(parent: Control, amount: int, source_rect: Rect2, currency: String = GameState.STAGE_REWARD_COINS, offer_double: bool = true) -> Node:
 	_portrait_stage_reward = STAGE_REWARD_COMPONENT.new()
 	_portrait_stage_reward.name = "PortraitStageReward"
 	parent.add_child(_portrait_stage_reward)
 	_portrait_stage_reward.click_requested.connect(_play_ui_click_sound)
 	_portrait_stage_reward.presentation_visible.connect(GameState.mark_active_single_player_stage_reward_presented.bind(true))
-	_portrait_stage_reward.claim_peak.connect(_play_early_stage_coin_reward_claim)
+	_portrait_stage_reward.claim_peak.connect(_play_stage_reward_prize_claim.bind(currency))
 	_portrait_stage_reward.double_requested.connect(_on_final_reward_double_pressed)
-	_portrait_stage_reward.continue_requested.connect(_decline_single_player_stage_coin_reward_double)
+	_portrait_stage_reward.continue_requested.connect(_continue_stage_reward_prize)
 	var level_index: int = int(last_result_data.get("single_player_level_index", single_player_active_level_index))
 	_portrait_stage_reward.coin_content_builder = _stage_portrait_popup_coin_purchase_content
 	_portrait_stage_reward.collect_rect_builder = _portrait_popup_button_rect
 	_portrait_stage_reward.banner_height_stage = _portrait_ad_banner_height_stage()
 	_portrait_stage_reward.button_gap_stage = POPUP_COMPONENT.attempt_offer_layout(
 		_portrait_popup_style(), true, _portrait_popup_extra_bottom_space())["button_gap"]
-	_portrait_stage_reward.build(parent, amount, source_rect, _portrait_ads_enabled(), level_index + 1)
+	_portrait_stage_reward.build(parent, amount, source_rect, offer_double and _portrait_ads_enabled(), level_index + 1, currency)
 	return _portrait_stage_reward
 
 func _take_deferred_stage_coin_amount() -> int:

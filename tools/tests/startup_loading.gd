@@ -717,9 +717,9 @@ func run() -> void:
 				check(!is_instance_valid(loader.screen), "Loading overlay releases all visuals after completion")
 				var main: Node = loader.runtime
 				check(main._about_version_text() == VERSION.text(), "Runtime Settings uses the same version source")
-				check(main.game_screen_visible != existing, "Fresh profile enters a word; existing profile enters Home")
+				check(main._quiz_screen_active != existing, "Fresh profile enters a quiz; existing profile enters Home")
 				if !existing:
-					check(GameSession.is_active and GameState.get_active_single_player_session().get("kind") == "word", "Normal startup persists the first word")
+					check(!GameSession.is_active and GameState.get_active_single_player_session().get("kind") == "quiz", "Normal startup persists the first quiz")
 					check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty(), "Prepared first word never asks for the accepted documents again")
 				else:
 					var home_icon: Control = main.content.find_child("HomeThemePattern", true, false).get_child(0).get_child(0)

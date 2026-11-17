@@ -1,5 +1,5 @@
 extends Node
-## Prepare the first word or resume guided play before constructing Home.
+## Prepare the first quiz or resume guided play before constructing Home.
 const DESIGN = preload("res://scripts/core/game_design_config.gd")
 
 var _host: Node
@@ -40,7 +40,7 @@ func _start(saved: Dictionary, resume_saved: bool) -> bool:
 		if theme_index < 0 or !options.has(theme_index):
 			queue_free()
 			return false
-		# Only the starting theme is fixed; keep normal word selection and saves.
+		# Only the starting theme is fixed; keep normal stage selection and saves.
 		_host._confirm_single_player_theme_selection(0, theme_index)
 	else:
 		if str(saved.get("kind", "")) == "theme":

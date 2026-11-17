@@ -1,4 +1,9 @@
 extends Node
+class NoQuestionUI extends "res://scripts/main.gd":
+	func _ready() -> void:
+		pass
+	func _single_player_pick_level_question(_level: int, _seed_value: int, _theme: int, _target: float, _persist: bool = true, _slot: int = -1, _excluded: Array = []) -> Dictionary:
+		return {}
 var checks: int = 0
 var failures: int = 0
 func check(ok: bool, message: String) -> void:
@@ -40,9 +45,38 @@ func run() -> void:
 		GameState._single_player_bucket("ru")["unlocked_level"] = level
 		var count: int = main._single_player_level_word_target(level)
 		var slots: Array = main._single_player_level_question_slots(level, 123, count)
-		check(slots.size() == (0 if level == 0 else 1), "Regular quiz count unchanged")
-		if level in [1, 2, 3]:
-			check(slots[0] == (0 if level == 1 else 1), "Onboarding position unchanged")
+		check(slots.size() == (0 if level == 1 else 1), "Regular quiz count unchanged")
+		if level in [0, 2, 3]:
+			check(slots[0] == (0 if level in [0, 2] else 1), "Onboarding position unchanged")
+	# Previously started level shapes and quiz assignments survive the update.
+	for legacy: Dictionary in [
+		{"level": 0, "count": 1, "slots": []},
+		{"level": 1, "count": 2, "slots": [0]},
+		{"level": 2, "count": 3, "slots": [1]},
+	]:
+		GameState.single_player = {}
+		GameState.active_single_player_session = {}
+		GameState._single_player_bucket("ru")["unlocked_level"] = legacy.level
+		GameState.select_single_level_theme("ru", legacy.level, 0, legacy.count)
+		GameState.set_single_level_question_slots("ru", legacy.level, legacy.slots)
+		GameState.save_game()
+		GameState.load_game()
+		main._invalidate_single_player_level_cache()
+		check(main._single_player_level_word_target(legacy.level) == legacy.count, "Started legacy level retains its stage count")
+		check(main._single_player_level_question_slots(legacy.level, 123, legacy.count) == legacy.slots, "Started legacy level retains its quiz order")
+		check(GameState.ensure_single_level_progress("ru", legacy.level, main._single_player_level_word_target(legacy.level)).size() == legacy.count, "Reading legacy progress never truncates its stages")
+		GameState.reset_single_level_attempt("ru", legacy.level)
+		check(main._single_player_level_word_target(legacy.level) == (2 if legacy.level == 2 else 1), "New attempt adopts the current campaign count")
+	# A quiz-only level lazily selects its replacement word if no question exists.
+	GameState.single_player = {}
+	GameState.active_single_player_session = {}
+	GameState.pending_single_player_reward = {}
+	GameState.select_single_level_theme("ru",0,Database.get_theme_index_by_id(9),1)
+	var fallback_ui := NoQuestionUI.new()
+	var fallback_data: Dictionary = fallback_ui._single_player_level_data(0)
+	check(fallback_data.question_slots.is_empty() and fallback_data.words.size()==1, "Unavailable quiz-only content still produces its playable Hangman fallback")
+	check(GameState.has_single_level_question_slots_assignment("ru",0) and GameState.get_single_level_question_slots("ru",0).is_empty(), "Quiz-only fallback persists the explicit word assignment")
+	fallback_ui.free()
 	for level: int in [9, 19]:
 		GameState.single_player = {}
 		GameState.active_single_player_session = {}

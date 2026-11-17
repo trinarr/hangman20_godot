@@ -103,35 +103,17 @@ func run() -> void:
 			reset_profile(language)
 			var native := start_main(true)
 			check(main.home_builds == 0 and !is_instance_valid(main._home_logo_reveal), "Fresh profile never builds Home")
-			check(main.game_screen_visible and GameSession.is_active, "Fresh profile starts the first word")
-			check(!native.released, "Splash stays until the initial word frame has drawn")
-			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).size() == 1, "Mandatory legal modal blocks the first word")
+			check(main._quiz_screen_active and !GameSession.is_active, "Fresh profile starts the first quiz")
+			check(!native.released, "Splash stays until the initial quiz frame has drawn")
+			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).size() == 1, "Mandatory legal modal blocks the first quiz")
 			var deadline: int = Time.get_ticks_msec() + 10000
 			while !native.released and Time.get_ticks_msec() < deadline:
 				await get_tree().process_frame
-			check(native.released, "Native splash release does not wait for the word entrance")
-			await get_tree().create_timer(.2).timeout
-			var paper: Control = main._portrait_game_word_paper_mask
-			var key: Control = main._portrait_game_keyboard_buttons[0].button
-			check(main.get_node("StartupPreparation").preparing and main._portrait_game_entrance_active, "Entrance waits for native dismissal confirmation")
-			check(!paper.visible and is_zero_approx(main.COMPOSITED_FADE.get_opacity(key)), "Paper and letters stay at their initial state under the splash")
+			check(native.released, "Native splash releases after the quiz is prepared")
+			check(main.get_node("StartupPreparation").preparing, "Startup waits for native dismissal confirmation")
 			native.dismissed = true
-			deadline = Time.get_ticks_msec() + 10000
-			while !paper.visible and Time.get_ticks_msec() < deadline:
-				await get_tree().process_frame
-			var first_paper_x: float = paper.position.x
-			check(first_paper_x > 0.0 and first_paper_x < get_viewport().get_visible_rect().size.x, "Paper has a visible intermediate position after dismissal")
-			await get_tree().create_timer(.08).timeout
-			check(paper.position.x < first_paper_x, "Paper continues moving after splash dismissal")
-			deadline = Time.get_ticks_msec() + 10000
-			while is_zero_approx(main.COMPOSITED_FADE.get_opacity(key)) and Time.get_ticks_msec() < deadline:
-				await get_tree().process_frame
-			var first_key_alpha: float = main.COMPOSITED_FADE.get_opacity(key)
-			check(first_key_alpha > 0.0 and first_key_alpha < 1.0, "Letters have an intermediate fade after dismissal")
-			await get_tree().create_timer(.04).timeout
-			check(main.COMPOSITED_FADE.get_opacity(key) > first_key_alpha, "Letters continue appearing after dismissal")
 			await settle()
-			check(!main._portrait_game_entrance_active and native.released and is_equal_approx(main.COMPOSITED_FADE.get_opacity(key), 1.0), "Visible entrance finishes and restores the keyboard")
+			check(main._quiz_screen_active and native.released, "Quiz remains active after splash dismissal")
 			if native.image != null:
 				var color: Color = native.image.get_pixel(native.image.get_width()/2, native.image.get_height()/2)
 				check(color.r + color.g + color.b > 0.1, "Native splash reveals rendered pixels rather than black")
@@ -139,30 +121,28 @@ func run() -> void:
 				if !consent_dir.is_empty():
 					native.image.save_png(consent_dir.path_join("first_consent_%s_%d.png" % [language, size.x]))
 			var saved: Dictionary = GameState.get_active_single_player_session()
-			check(saved.get("kind") == "word" and int(saved.get("level_index", -1)) == 0 and int(saved.get("word_slot", -1)) == 0, "Normal save pipeline persists the first word")
-			check(int(saved.get("theme_id", -1)) == 9 and Database.get_theme_id(GameSession.theme_id) == 9, "Fresh first word uses General in both the session and save")
+			check(saved.get("kind") == "quiz" and int(saved.get("level_index", -1)) == 0 and int(saved.get("word_slot", -1)) == 0, "Normal save pipeline persists the first quiz")
+			check(int(saved.get("theme_id", -1)) == 9 and Database.get_theme_id(main._quiz_selected_theme_index) == 9, "Fresh first quiz uses General in both the session and save")
 			main._accept_legal_documents()
 			main._accept_legal_documents()
 			await get_tree().create_timer(.5).timeout
 			check(GameState.has_accepted_legal_documents() and main.resumes == 0, "Repeated acceptance never starts or restores another round")
-			check(GameState.get_active_single_player_session() == saved, "Acceptance preserves the prepared word")
-			var guess: String = str(GameSession.letters[0])
-			GameSession.guess(guess, true)
-			var round_saved: Dictionary = GameSession.to_save_data()
+			check(GameState.get_active_single_player_session() == saved, "Acceptance preserves the prepared quiz")
+			main._on_quiz_fifty_fifty_pressed()
+			var round_saved: Dictionary = GameState.get_active_single_player_session().data.duplicate(true)
 			var disk_save: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
-			var disk_round: Dictionary = disk_save.active_single_player_session.data
-			check(disk_round.correct_letters == round_saved.correct_letters and disk_round.round_id == round_saved.round_id and !disk_round.correct_letters.is_empty(), "First input and round identity are persisted to disk")
+			check(int(disk_save.active_single_player_session.data.question.id) == int(round_saved.question.id) and disk_save.active_single_player_session.data.question.answers == round_saved.question.answers and bool(disk_save.active_single_player_session.data.fifty_fifty_used) and bool(round_saved.fifty_fifty_used), "First quiz hint and question are persisted to disk")
 			var capture_dir: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 			if !capture_dir.is_empty():
 				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png(capture_dir.path_join("first_word_%s_%d.png" % [language, size.x]))
+				get_viewport().get_texture().get_image().save_png(capture_dir.path_join("first_quiz_%s_%d.png" % [language, size.x]))
 			await close_main()
 			GameState.load_game()
 			GameState.interface_language = language
 			start_main()
 			await settle()
-			check(main.home_builds == 0 and main.resumes == 1, "Restart restores the first word directly exactly once")
-			check(GameSession.to_save_data() == round_saved, "Restart preserves the word and guessed letter")
+			check(main.home_builds == 0 and main.resumes == 1, "Restart restores the first quiz directly exactly once")
+			check(main._quiz_screen_active and main._quiz_current_question == round_saved.question and main._quiz_fifty_fifty_used, "Restart preserves the quiz and used hint")
 			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty(), "Restart keeps accepted consent")
 			main.show_menu()
 			await get_tree().create_timer(2.0).timeout
@@ -180,6 +160,7 @@ func run() -> void:
 		for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
 			for character: int in [1, 2]:
 				await check_cold_damaged_resume(language, size, character)
+	await check_quiz_ad_consent()
 	reset_profile("ru")
 	GameState.guided_onboarding_completed = true
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -319,3 +300,50 @@ func check_cold_damaged_resume(language: String, dimensions: Vector2i, character
 	await close_main()
 	HERO._hero_loads.finish()
 	HERO._hero_loads.loader = ResourceLoader
+
+func check_quiz_ad_consent() -> void:
+	for language: String in ["ru", "en"]:
+		for dimensions: Vector2i in [Vector2i(960,1600),Vector2i(690,1536)]:
+			reset_profile(language)
+			get_window().min_size = dimensions
+			get_window().size = dimensions
+			GameState.guided_onboarding_completed = true
+			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+			GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.UNKNOWN
+			GameState.ad_region_rule = "required"
+			GameState._single_player_bucket(language)["unlocked_level"] = 2
+			start_main()
+			await settle()
+			var options: Array = main._single_player_level_theme_options(2)
+			main._confirm_single_player_theme_selection(2,int(options[0]))
+			var deadline: int = Time.get_ticks_msec()+10000
+			while get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).is_empty() and Time.get_ticks_msec()<deadline:
+				await get_tree().process_frame
+			check(main._quiz_screen_active and !GameSession.is_active, "Ad consent opens on the first quiz stage of level three")
+			check(get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).size()==1 and main._quiz_consent_pause_at_msec>0, "Exactly one consent modal pauses the quiz speed clock")
+			main._show_user_consent_on_single_player_stage_if_needed()
+			check(get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).size()==1, "Late region callbacks do not duplicate quiz consent")
+			main._on_quiz_answer_selected(main._quiz_correct_answer_index())
+			check(!main._quiz_answer_locked, "A pending consent modal cannot consume a quiz answer")
+			var accepted: bool = language=="ru"
+			GameState._save_write_in_progress = true
+			main._resolve_user_consent_popup(accepted)
+			GameState._save_write_in_progress = false
+			check(!GameState.has_answered_ad_personalization_choice() and main._quiz_consent_pause_at_msec>0 and get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).size()==1, "Failed choice save keeps the same modal and paused quiz for retry")
+			# Advance both monotonic timestamps together: waiting ten seconds in the
+			# modal must not consume ten seconds of the speed-answer allowance.
+			var before: int = Time.get_ticks_msec()-main._quiz_question_ready_at_msec
+			await get_tree().create_timer(0.5).timeout
+			main._quiz_question_ready_at_msec -= 10000
+			main._quiz_consent_pause_at_msec -= 10000
+			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !directory.is_empty() and DisplayServer.get_name()!="headless":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(directory.path_join("quiz_consent_%s_%d.png" % [language,dimensions.x]))
+			main._resolve_user_consent_popup(accepted)
+			var after: int = Time.get_ticks_msec()-main._quiz_question_ready_at_msec
+			check(main._quiz_consent_pause_at_msec==0 and after<before+1000, "Consent wait is excluded from the speed clock")
+			check(GameState.ad_personalization_choice==(GameState.AdPersonalizationChoice.ACCEPTED if accepted else GameState.AdPersonalizationChoice.DENIED), "Both consent decisions are durably accepted on quiz")
+			main._on_quiz_answer_selected(main._quiz_correct_answer_index())
+			check(main._quiz_answer_locked, "Quiz accepts its answer after consent closes")
+			await close_main()

@@ -164,7 +164,22 @@ static func is_quiz_onboarding_level(level_number: int) -> bool:
 	var to_level: int = get_int("progression.quiz.onboarding_to_level")
 	return level_number >= from_level and level_number <= to_level
 
+static func opening_level_quiz_slots(level_number: int, stage_count: int) -> Variant:
+	# Null delegates later levels to the regular placement rules. Retain older
+	# opening-level shapes when continuing an already-started attempt.
+	match level_number:
+		1:
+			return [0]
+		2:
+			return [get_int("progression.quiz.second_level_slot")] if stage_count > 1 else []
+		3:
+			return [0] if stage_count == 2 else [get_int("progression.quiz.onboarding_slot")]
+	return null
+
 static func level_uses_quiz(level_number: int, stage_count: int) -> bool:
+	var opening_slots: Variant = opening_level_quiz_slots(level_number, stage_count)
+	if opening_slots != null:
+		return !opening_slots.is_empty()
 	if is_quiz_onboarding_level(level_number):
 		return stage_count >= get_int("progression.quiz.onboarding_stage_count")
 	return stage_count >= get_int("progression.quiz.regular_min_stage_count")

@@ -30,7 +30,7 @@ func check_stage_multiplier_totals() -> void:
 		for label: Node in get_tree().get_nodes_in_group(&"soft_currency_balance_label"):
 			check(label.text == ui._soft_currency_balance_text(initial_balance + total), "Animated HUD finishes at the actual multiplied balance")
 		ads._on_rewarded_for_request(request_id, "coins", 25)
-		ui._play_early_stage_coin_reward_claim(component.prize)
+		ui._play_stage_reward_prize_claim(component.prize)
 		check(GameState.get_soft_currency() == initial_balance + total, "Late reward and repeated base claim do not add coins")
 		GameState.load_game()
 		check(GameState.get_soft_currency() == initial_balance + total, "Reload keeps the exact multiplied total")

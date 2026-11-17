@@ -99,6 +99,7 @@ func run() -> void:
 		check(state.begin_rewarded_double_request("final").is_empty(), "Second restart cannot create duplicate x2")
 		finish()
 		return
+	check_legacy_single_stage_loss()
 	cross_language_receipt("final")
 	cross_language_receipt("stage_coin")
 	reset()
@@ -299,3 +300,32 @@ func verify_restart() -> void:
 func finish() -> void:
 	print("SAVE_RECOVERY " + JSON.stringify({"checks":checks,"failures":failures}))
 	quit(0 if failures.is_empty() else 1)
+
+func check_legacy_single_stage_loss() -> void:
+	reset()
+	var database: Node = root.get_node("Database")
+	database.load_languages("ru", "ru")
+	state.select_single_level_theme("ru", 0, database.get_theme_index_by_id(9), 1)
+	state.set_single_level_question_slots("ru", 0, [])
+	state.ensure_single_level_progress("ru", 0, 1)[0] = 2
+	var result: Dictionary = {"single_player_total_count":1, "single_player_level_completed":true, "single_player_stage_won":false}
+	state.set_active_single_player_session({"kind":"next", "language":"ru", "level_index":0,
+		"word_slot":0, "theme_id":9, "data":{"result":result, "reward_currency":"coins",
+		"reward_amount":0, "reward_claimed":true, "reward_double_resolved":true}})
+	state._single_player_bucket("ru")["selected_themes"].erase("0")
+	var previous: Dictionary = state.get_active_single_player_session()
+	state._save_write_in_progress = true
+	check(!state.repair_legacy_single_stage_loss_reward(), "Failed repair save reports failure")
+	state._save_write_in_progress = false
+	check(state.get_active_single_player_session() == previous, "Failed repair save restores the exact pending receipt")
+	check(state.repair_legacy_single_stage_loss_reward(), "Legacy one-stage defeat is repaired durably")
+	state.load_game()
+	var expected: int = state.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount")
+	check(int(state.get_active_single_player_stage_reward().get("amount", 0)) == expected and state.soft_currency == 100, "Repair survives reload without early payment")
+	check(state.repair_legacy_single_stage_loss_reward(), "Repeated repair is harmless")
+	check(int(state.claim_active_single_player_stage_reward().get("amount", 0)) == expected, "Repaired receipt pays exactly its configured base")
+	check(state.repair_legacy_single_stage_loss_reward() and int(state.claim_active_single_player_stage_reward().get("amount", -1)) == 0, "Paid repair can never be reopened")
+	state.load_game()
+	check(state.soft_currency == 100 + expected, "Restart preserves the single repaired payment")
+	state.clear_active_single_player_session()
+	check(state.repair_legacy_single_stage_loss_reward() and state.get_active_single_player_session().is_empty(), "Historical completed levels do not generate a new receipt")

@@ -37,12 +37,22 @@ class TestUI:
 		return null
 	func _single_player_stage_is_quiz(_level: int, _slot: int) -> bool:
 		return quiz_stage
-	func _play_early_stage_coin_reward_claim(source: Control) -> void:
+	func _play_stage_reward_prize_claim(source: Control, currency: String = GameState.STAGE_REWARD_COINS) -> void:
 		claims += 1
 		claim_scale = source.scale.x
-		super._play_early_stage_coin_reward_claim(source)
+		super._play_stage_reward_prize_claim(source, currency)
 	func _on_final_reward_double_pressed() -> void:
 		doubles += 1
+
+class CampaignUI extends "res://scripts/main_portrait.gd":
+	var word_picks: int = 0
+	func _portrait_ads_enabled() -> bool:
+		return false
+	func _initialize_yandex_ads_from_saved_consent() -> bool:
+		return false
+	func _single_player_words_for_theme(level: int, seed_value: int, theme: int, count: int, target: float) -> Array:
+		word_picks += 1
+		return super._single_player_words_for_theme(level, seed_value, theme, count, target)
 
 var main: TestUI
 var checks: int = 0
@@ -110,6 +120,7 @@ func check_first_level_reward() -> void:
 			var theme: int = Database.get_theme_index_by_id(9)
 			GameState.select_single_level_theme(language, 0, theme, 1)
 			main._invalidate_single_player_level_cache()
+			GameState.set_single_level_question_slots(language, 0, [])
 			main._start_single_player_word(0, 0)
 			check(main._single_player_level_word_count(0) == 1 and !main._single_player_stage_is_quiz(0, 0), "Fresh first level uses one real word stage")
 			for letter: String in GameSession.letters:
@@ -125,10 +136,8 @@ func check_first_level_reward() -> void:
 			check(stage.get("currency") == GameState.STAGE_REWARD_COINS and int(stage.get("amount", 0)) == expected, "Real first word has one coin reward")
 			check(GameState.get_pending_single_player_reward().is_empty() and GameState.soft_currency == before, "No second completion reward or early coin payment is created")
 			main._show_single_player_reward_chain_screen()
-			var chain: Control = main.content.find_child("SinglePlayerRewardChain", true, false)
-			check(chain != null and chain.get_child_count() == 1, "First level chain contains exactly one stage tile")
-			var chain_icon: TextureRect = chain.find_child("RewardCoinIcon", true, false)
-			check(chain_icon != null and chain_icon.texture == main.SOFT_CURRENCY_COIN_TEXTURE, "The only first-level tile shows a coin")
+			check(main.content.find_child("SinglePlayerRewardChain", true, false) == null, "One-stage level never constructs an intermediate chain")
+			check(is_instance_valid(main.content.find_child("StageCoinLargeReward", true, false)), "One-stage level directly constructs the shared coin prize")
 			check(!bool(GameState.get_active_single_player_stage_reward().get("presentation_started", false)), "Hidden first prize has no presentation marker")
 			main._clear()
 			GameState.load_game()
@@ -162,6 +171,64 @@ func check_first_level_reward() -> void:
 	get_window().min_size = original_min
 	get_window().size = original_size
 	main.quiz_stage = true
+
+func check_single_stage_loss_reward() -> void:
+	main.ads_enabled = false
+	main.quiz_stage = false
+	for language: String in ["ru", "en"]:
+		GameState.set_word_language(language)
+		GameState.interface_language = language
+		Database.load_languages(language, language)
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().min_size = dimensions
+			get_window().size = dimensions
+			main._clear()
+			GameSession.discard_current_round()
+			GameState.single_player = {}
+			GameState.single_player_resume_states = {}
+			GameState.clear_active_single_player_session(false)
+			GameState.clear_pending_single_player_reward(false)
+			GameState.soft_currency = 250
+			GameState.stars = 0
+			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+			var theme: int = Database.get_theme_index_by_id(9)
+			GameState.select_single_level_theme(language, 0, theme, 1)
+			main._invalidate_single_player_level_cache()
+			GameState.set_single_level_question_slots(language, 0, [])
+			main._start_single_player_word(0, 0)
+			for letter: String in Database.get_alphabet():
+				if !GameSession.letters.has(letter):
+					GameSession.guess(letter, true)
+				if GameSession.get_remaining_attempts() == 0:
+					break
+			check(GameSession.get_remaining_attempts() == 0, "Single-stage regression really loses Hangman")
+			main.game_finished = true
+			main.last_result_is_win = false
+			main.last_result_data = main._single_player_mark_current_word_finished({}, false, true, true, true)
+			var expected: int = GameState.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount")
+			var stage: Dictionary = GameState.get_active_single_player_stage_reward()
+			check(stage.get("currency") == GameState.STAGE_REWARD_COINS and int(stage.get("amount", 0)) == expected and !bool(stage.get("claimed", true)), "Failed single-stage level persists its unclaimed coin prize")
+			check(GameState.get_pending_single_player_reward().is_empty(), "Single-stage loss has no duplicate completion prize")
+			# Restart before the prize is ever drawn must still present it.
+			main._clear()
+			GameState.load_game()
+			main._resume_saved_single_player_level()
+			check(main.content.find_child("SinglePlayerRewardChain", true, false) == null, "Failed single-stage resume never constructs a chain")
+			await get_tree().create_timer(3.0).timeout
+			check(is_instance_valid(main._portrait_stage_reward) and is_instance_valid(main.content.find_child("StageCoinLargeReward", true, false)), "Restart after loss opens the large coin prize instead of skipping to themes")
+			check(GameState.soft_currency == 250 + expected and GameState.stars == 0, "Failed single-stage level pays coins once and grants no stage stars")
+			check(get_tree().get_nodes_in_group("single_player_theme_popup").is_empty(), "Themes wait until the failed level prize is collected")
+			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(directory.path_join("single_stage_loss_%s_%d.png" % [language, dimensions.x]))
+			if is_instance_valid(main._portrait_stage_reward):
+				main._portrait_stage_reward.action.pressed.emit()
+			await get_tree().process_frame
+			check(get_tree().get_nodes_in_group("single_player_theme_popup").size() == 1, "Collecting the failed level prize opens next themes")
+			GameState.claim_active_single_player_stage_reward()
+			GameState.load_game()
+			check(GameState.soft_currency == 250 + expected, "Repeated claim and reload cannot duplicate the failed level prize")
 
 func check_reward_policy_and_timing() -> void:
 	main._clear()
@@ -510,6 +577,9 @@ func run() -> void:
 	check(GameState.get_soft_currency() == before, "Repeated recovery cannot pay a prize that was never presented")
 	await check_reward_policy_and_timing()
 	await check_first_level_reward()
+	await check_single_stage_loss_reward()
+	await check_legacy_prize_and_currency()
+	await check_prize_without_double()
 	await check_restart_after_visible_prize()
 	# Legacy coin-paying single-stage snapshots still use the same stage offer.
 	fixture(false, true, 1)
@@ -572,6 +642,7 @@ func run() -> void:
 	chain.add_child(count_label)
 	main.queue_free()
 	await get_tree().process_frame
+	await check_real_opening_campaign()
 	var balances: Vector2i = Vector2i(GameState.get_soft_currency(), GameState.get_stars())
 	component.begin_transition(chain, null, source,
 		count_label, component.prize, null, null, component.prize_glow,
@@ -625,3 +696,167 @@ func check_offer_update_work() -> void:
 	check(!delay.is_valid() and is_zero_approx(main.COMPOSITED_FADE.get_opacity(component.collect)), "Leaving during the delay cancels the collect reveal")
 	parent.queue_free()
 	await get_tree().process_frame
+
+func campaign_wait(predicate: Callable, message: String) -> bool:
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while !predicate.call() and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	var ready: bool = predicate.call()
+	check(ready, message)
+	return ready
+
+func campaign_capture(ui: Node, tag: String, language: String, width: int) -> void:
+	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+	if !directory.is_empty() and DisplayServer.get_name() != "headless":
+		get_viewport().get_texture().get_image().save_png(directory.path_join("campaign_%s_%s_%d.png" % [tag, language, width]))
+
+func check_real_opening_campaign() -> void:
+	var old_speed: float = Engine.time_scale
+	Engine.time_scale = 8.0
+	for language: String in ["ru", "en"]:
+		for dimensions: Vector2i in [Vector2i(960,1600),Vector2i(690,1536)]:
+			GameSession.discard_current_round()
+			GameState.single_player = {}
+			GameState.single_player_resume_states = {}
+			GameState.clear_active_single_player_session(false)
+			GameState.clear_pending_single_player_reward(false)
+			GameState.guided_onboarding_completed = false
+			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+			GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.DENIED
+			GameState.soft_currency = 250
+			GameState.hearts = GameState.MAX_HEARTS
+			GameState.word_language = language
+			GameState.interface_language = language
+			Database.load_languages(language,language)
+			get_window().min_size = dimensions
+			get_window().size = dimensions
+			var ui := CampaignUI.new()
+			add_child(ui)
+			for level: int in range(3):
+				if level > 0:
+					var options: Array = ui._single_player_level_theme_options(level)
+					ui._confirm_single_player_theme_selection(level,int(options[0]))
+				var stages: int = 2 if level == 2 else 1
+				check(ui._single_player_level_word_count(level) == stages, "Real campaign uses configured opening counts")
+				for slot: int in range(stages):
+					var quiz: bool = level != 1 and slot == 0
+					var won: bool = dimensions.x == 960 or (level == 2 and slot == 0)
+					check(ui._single_player_stage_is_quiz(level,slot) == quiz, "Real campaign follows quiz / word / quiz-word order")
+					if quiz:
+						await campaign_wait(func(): return ui._quiz_question_ready_at_msec > 0, "Campaign quiz becomes interactive")
+						if level == 0:
+							check(ui.word_picks == 0 and GameState.get_single_level_word_assignments(language,0).is_empty(), "Quiz-only level never selects or persists an unused word")
+						var index: int = ui._quiz_correct_answer_index()
+						ui._on_quiz_answer_selected(index if won else (index+1)%ui._quiz_answer_buttons.size())
+						await get_tree().create_timer(2.0).timeout
+						ui._on_quiz_continue_pressed()
+					else:
+						await campaign_wait(func(): return !ui._portrait_game_entrance_active, "Campaign word becomes interactive")
+						check(GameSession.is_active and ui.game_screen_visible, "Campaign really opens Hangman")
+						if won:
+							for letter: String in GameSession.letters:
+								GameSession.guess(letter,true)
+						else:
+							for letter: String in Database.get_alphabet():
+								if !GameSession.letters.has(letter):
+									GameSession.guess(letter,true)
+								if GameSession.has_deferred_loss():
+									GameSession.resolve_deferred_loss()
+								if ui.game_finished:
+									break
+						await campaign_wait(func(): return is_instance_valid(ui._portrait_round_result) and is_instance_valid(ui._portrait_round_result.result_continue_button) and !ui._portrait_round_result.result_continue_button.get("disabled"), "Real word result exposes Continue")
+						ui._on_round_result_continue_requested()
+					if level < 2 or slot == 0:
+						if !await campaign_wait(func(): return is_instance_valid(ui._portrait_stage_reward) and !ui._portrait_stage_reward.action.get("button_disabled") and ui.COMPOSITED_FADE.get_opacity(ui._portrait_stage_reward.action)>0.99, "Real stage opens a collectible large prize"):
+							continue
+						if level < 2:
+							check(ui.content.find_child("SinglePlayerRewardChain",true,false) == null, "Both real one-stage levels skip the chain")
+							check(int(GameState.get_active_single_player_stage_reward().get("amount",0)) == GameState.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount"), "Real one-stage win/loss keeps its configured reward")
+						campaign_capture(ui,"%d_%d" % [level+1,slot],language,dimensions.x)
+						var balance: int = GameState.soft_currency
+						ui._portrait_stage_reward.action.pressed.emit()
+						await get_tree().process_frame
+						GameState.claim_active_single_player_stage_reward()
+						check(GameState.soft_currency == balance, "Continue and repeat claim never duplicate the real reward")
+						if level == 2:
+							ui._continue_from_single_player_reward_chain()
+					else:
+						await campaign_wait(func(): return bool(ui.last_result_data.get("single_player_level_summary_view",false)), "Two-stage campaign reaches its main prize for both outcomes")
+						campaign_capture(ui,"3_main",language,dimensions.x)
+			ui.queue_free()
+			await get_tree().process_frame
+	Engine.time_scale = old_speed
+
+func check_legacy_prize_and_currency() -> void:
+	var policy: Dictionary = GameState.GAME_DESIGN.get_value("economy.rewards.single_stage_level")
+	var old_currency: String = str(policy.currency)
+	for language: String in ["ru","en"]:
+		GameState.word_language = language
+		GameState.interface_language = language
+		Database.load_languages(language,language)
+		for dimensions: Vector2i in [Vector2i(960,1600),Vector2i(690,1536)]:
+			main._clear()
+			get_window().min_size = dimensions
+			get_window().size = dimensions
+			GameState.single_player = {}
+			GameState.single_player_resume_states = {}
+			GameState.clear_active_single_player_session(false)
+			GameState.clear_pending_single_player_reward(false)
+			GameState.guided_onboarding_completed = true
+			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+			GameState.soft_currency = 250
+			GameState.stars = 0
+			main.ads_enabled = false
+			main.quiz_stage = false
+			var currency: String = "coins" if dimensions.x==960 else "stars"
+			policy.currency = currency
+			GameState.select_single_level_theme(language,1,Database.get_theme_index_by_id(9),1)
+			GameState._single_player_bucket(language)["unlocked_level"] = 2
+			GameState.ensure_single_level_progress(language,1,1)[0] = 2
+			var result: Dictionary = {"single_player_level_index":1,"single_player_word_slot":0,
+				"single_player_total_count":1,"single_player_level_completed":true,"single_player_stage_won":false}
+			GameState.set_active_single_player_session({"kind":"next","language":language,"level_index":1,"word_slot":0,"theme_id":9,
+				"data":{"result":result,"reward_currency":"coins","reward_amount":0,"reward_claimed":true,"reward_double_resolved":true}})
+			main._invalidate_single_player_level_cache()
+			if language=="ru" and dimensions.x==960:
+				GameState._save_write_in_progress = true
+				main._resume_saved_single_player_level()
+				GameState._save_write_in_progress = false
+				check(is_instance_valid(main._home_logo_reveal), "Failed repair during resume leaves a real Home screen for retry")
+			main._resume_saved_single_player_level()
+			if await campaign_wait(func(): return is_instance_valid(main._portrait_stage_reward) and !main._portrait_stage_reward.action.get("button_disabled") and main.COMPOSITED_FADE.get_opacity(main._portrait_stage_reward.action)>0.99, "Legacy zero prize opens for either configured currency"):
+				var amount: int = int(policy.amount)
+				check(GameState.soft_currency==(250+amount if currency=="coins" else 250) and GameState.stars==(amount if currency=="stars" else 0), "Repaired prize pays the selected currency exactly once")
+				check(main.content.find_child("SinglePlayerRewardChain",true,false)==null, "Currency never decides whether a one-stage chain is shown")
+				check(main.content.find_child("StageCoinRewardDoubleButton",true,false)==null, "Prize without ad availability has no doubling action")
+				campaign_capture(main,"legacy_"+currency,language,dimensions.x)
+				main._portrait_stage_reward.action.pressed.emit()
+				await get_tree().process_frame
+				check(get_tree().get_nodes_in_group("single_player_theme_popup").size()==1, "Either currency exits to the next theme after collection")
+	policy.currency = old_currency
+	main._clear()
+	main.quiz_stage = true
+
+func check_prize_without_double() -> void:
+	main._clear()
+	main.quiz_stage = true
+	main.ads_enabled = true
+	GameState.single_player = {}
+	GameState.pending_single_player_reward = {}
+	GameState.word_language = "ru"
+	Database.load_languages("ru","ru")
+	GameState._single_player_bucket("ru")["unlocked_level"] = 4
+	GameState.select_single_level_theme("ru",4,0,2)
+	GameState.set_single_level_question_slots("ru",4,[0])
+	GameState.ensure_single_level_progress("ru",4,2)[0] = 1
+	GameState.set_active_single_player_session({"kind":"next","language":"ru","level_index":4,"word_slot":0,
+		"theme_id":Database.get_theme_id(0),"data":{"result":{"single_player_total_count":2,"single_player_level_completed":false,"single_player_stage_won":true},
+		"reward_currency":"coins","reward_amount":25,"reward_claimed":false,"reward_double_resolved":true}})
+	main._invalidate_single_player_level_cache()
+	var before: int = GameState.soft_currency
+	main._resume_saved_single_player_level()
+	if await campaign_wait(func(): return is_instance_valid(main._portrait_stage_reward) and main.COMPOSITED_FADE.get_opacity(main._portrait_stage_reward.action)>0.99, "Unshown prize is independent of an already resolved doubling choice"):
+		check(GameState.soft_currency==before+25, "Base prize remains payable without a pending doubling offer")
+		check(main._portrait_stage_reward.action.name==&"StageCoinRewardContinueButton" and main._portrait_final_reward_double_button==null, "Ad availability cannot resurrect resolved doubling")
+	main._clear()
+	main.ads_enabled = false

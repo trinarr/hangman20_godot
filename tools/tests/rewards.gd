@@ -198,8 +198,8 @@ func test_mixed_stage_completion() -> void:
 	for final_is_quiz: bool in [false, true]:
 		for first_won: bool in [false, true]:
 			for final_won: bool in [false, true]:
-				await setup_level(1, [first_won])
-				GameState.set_single_level_question_slots("ru", 1, [1] if final_is_quiz else [0])
+				await setup_level(2, [first_won])
+				GameState.set_single_level_question_slots("ru", 2, [1] if final_is_quiz else [0])
 				main._invalidate_single_player_level_cache()
 				if final_is_quiz:
 					main._quiz_single_player_embedded = true
@@ -208,8 +208,8 @@ func test_mixed_stage_completion() -> void:
 				else:
 					record_stage(final_won)
 				var wins: int = int(first_won) + int(final_won)
-				var expected: int = completion_amount(1, wins, "coins")
-				check(GameState.get_single_level_guessed_count("ru", 1, 2) == wins, "Hangman and quiz wins share the completion counter")
+				var expected: int = completion_amount(2, wins, "coins")
+				check(GameState.get_single_level_guessed_count("ru", 2, 2) == wins, "Hangman and quiz wins share the completion counter")
 				check(GameState.get_pending_single_player_reward().amount == expected, "Mixed-stage completion depends on wins, not stage type")
 				var stage: Dictionary = GameState.get_active_single_player_stage_reward()
 				if final_won:
@@ -224,10 +224,10 @@ func test_mixed_stage_completion() -> void:
 
 func test_level_rewards() -> void:
 	var word_amount := stage_amount()
-	var normal_coins := completion_amount(1, 1, "coins")
-	var normal_stars := completion_amount(1, 1, "stars")
+	var normal_coins := completion_amount(2, 1, "coins")
+	var normal_stars := completion_amount(2, 1, "stars")
 	# Stage currency and level-completion rewards are independent transactions.
-	await setup_level(1, [false])
+	await setup_level(2, [false])
 	record_stage(true)
 	check(GameState.get_active_single_player_stage_reward().currency == GameState.STAGE_REWARD_STARS and GameState.get_active_single_player_stage_reward().amount == word_amount, "Hangman pays configured stage stars")
 	check(GameState.get_pending_single_player_reward().amount == normal_coins, "Normal completion uses configured coin formula")
@@ -263,7 +263,7 @@ func test_level_rewards() -> void:
 	main._on_final_reward_ad_rewarded(request_id, "coins", 1)
 	check(GameState.get_soft_currency() == 100 + 2 * normal_coins and GameState.get_stars() == 100 + word_amount + normal_stars, "Reload allowed another ad payout")
 	# Fresh final-stage credit must finish before the automatic summary rebuild.
-	await setup_level(1, [false])
+	await setup_level(2, [false])
 	record_stage(true)
 	main._show_single_player_reward_chain_screen()
 	var stage_header: Control = main._portrait_top_bar_content
@@ -273,17 +273,17 @@ func test_level_rewards() -> void:
 	check(main._portrait_top_bar_content == stage_header, "Summary replaced the shared result header")
 	# Failed final stages still receive the base level bonus, including zero wins.
 	for won_before: bool in [true, false]:
-		await setup_level(1, [won_before])
+		await setup_level(2, [won_before])
 		record_stage(false)
-		var expected_coins := completion_amount(1, int(won_before), "coins")
-		var expected_stars := completion_amount(1, int(won_before), "stars")
+		var expected_coins := completion_amount(2, int(won_before), "coins")
+		var expected_stars := completion_amount(2, int(won_before), "stars")
 		check(GameState.get_active_single_player_stage_reward().is_empty(), "Failed stage has a payout")
 		await present_summary()
 		check(GameState.get_soft_currency() == 100 + expected_coins, "Failed-final coins wrong")
 		check(GameState.get_stars() == 100 + expected_stars, "Failed-final stars wrong")
 		check(GameState.claim_pending_single_player_level_stars() == 0, "Summary stars repeated")
 	# A presented summary settles remaining rewards on restart, without reviving x2.
-	await setup_level(1, [true])
+	await setup_level(2, [true])
 	record_stage(false)
 	GameState.clear_active_single_player_session(false)
 	GameState.mark_pending_single_player_reward_presented(true)
@@ -336,7 +336,7 @@ func check_stage_coin_chain_total(total: int) -> void:
 
 func test_stage_rewards_and_ad_receipts() -> void:
 	for multiplier: float in [1.5, 2.0, 3.0]:
-		await setup_level(1, [])
+		await setup_level(2, [])
 		record_stage(true, false)
 		GameState.claim_active_single_player_stage_reward(true)
 		var base: int = int(GameState.get_active_single_player_stage_reward().amount)
@@ -346,49 +346,49 @@ func test_stage_rewards_and_ad_receipts() -> void:
 		GameState._save_blocked_by_future_version = true
 		check(GameState.claim_rewarded_double_request(captured).is_empty(), "Failed durable bonus remains retryable")
 		GameState._save_blocked_by_future_version = false
-		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == base, "Failed bonus save rolls back its displayed stage total")
+		check(GameState.get_single_level_coin_reward("ru", 2, 0, -1) == base, "Failed bonus save rolls back its displayed stage total")
 		var receipt: Dictionary = GameState.claim_rewarded_double_request(captured)
 		check(int(receipt.get("amount", 0)) == roundi(float(base) * multiplier) - base, "Stage multiplier survives reload and pays only bonus")
 		check(GameState.get_soft_currency() == before + roundi(float(base) * multiplier) - base, "Stage total matches selected multiplier")
 		check(GameState.claim_rewarded_double_request(captured).is_empty(), "Stage multiplier duplicate signal is idempotent")
 		var total: int = roundi(float(base) * multiplier)
-		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == total, "Stage history keeps the base plus captured multiplier bonus")
+		check(GameState.get_single_level_coin_reward("ru", 2, 0, -1) == total, "Stage history keeps the base plus captured multiplier bonus")
 		reload_save()
 		await check_stage_coin_chain_total(total)
 		GameState.clear_active_single_player_session(false)
 		GameState.save_game()
 		reload_save()
-		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == total, "Stage total outlives the active reward snapshot")
-		GameState.reset_single_level_attempt("ru", 1)
-		check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == -1, "Replaying the level clears its previous reward history")
-	await setup_level(1, [])
+		check(GameState.get_single_level_coin_reward("ru", 2, 0, -1) == total, "Stage total outlives the active reward snapshot")
+		GameState.reset_single_level_attempt("ru", 2)
+		check(GameState.get_single_level_coin_reward("ru", 2, 0, -1) == -1, "Replaying the level clears its previous reward history")
+	await setup_level(2, [])
 	record_stage(true, false)
 	GameState.soft_currency = GameState.MAX_CURRENCY_BALANCE - 2
 	GameState.claim_active_single_player_stage_reward(true)
 	var capped_request: String = GameState.begin_rewarded_double_request("stage_coin", 3.0)
 	GameState.claim_rewarded_double_request(capped_request)
-	check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == 2, "Stage display counts actual credit at the currency cap")
-	await setup_level(1, [])
+	check(GameState.get_single_level_coin_reward("ru", 2, 0, -1) == 2, "Stage display counts actual credit at the currency cap")
+	await setup_level(2, [])
 	record_stage(true, false)
 	GameState.claim_active_single_player_stage_reward(true)
 	var old_request: String = GameState.begin_rewarded_double_request("stage_coin", 3.0)
-	GameState.reset_single_level_attempt("ru", 1)
-	GameState.select_single_level_theme("ru", 1, 0, main._single_player_level_word_target(1))
+	GameState.reset_single_level_attempt("ru", 2)
+	GameState.select_single_level_theme("ru", 2, 0, main._single_player_level_word_target(2))
 	main._invalidate_single_player_level_cache()
 	record_stage(true, false)
 	GameState.claim_active_single_player_stage_reward(true)
-	var replay_base: int = GameState.get_single_level_coin_reward("ru", 1, 0, -1)
+	var replay_base: int = GameState.get_single_level_coin_reward("ru", 2, 0, -1)
 	var replay_balance: int = GameState.get_soft_currency()
 	var late_receipt: Dictionary = GameState.claim_rewarded_double_request(old_request)
 	check(!late_receipt.is_empty() and GameState.get_soft_currency() > replay_balance, "Late receipt still pays its original attempt")
-	check(GameState.get_single_level_coin_reward("ru", 1, 0, -1) == replay_base, "Late old-attempt receipt cannot relabel the replayed stage")
-	check(GameState.get_single_level_coin_reward("en", 1, 0, -1) == -1, "Stage history remains separate for each content language")
+	check(GameState.get_single_level_coin_reward("ru", 2, 0, -1) == replay_base, "Late old-attempt receipt cannot relabel the replayed stage")
+	check(GameState.get_single_level_coin_reward("en", 2, 0, -1) == -1, "Stage history remains separate for each content language")
 	var word_amount := stage_amount()
 	var quiz_amount := stage_amount(true)
-	var normal_coins := completion_amount(1, 1, "coins")
+	var normal_coins := completion_amount(2, 1, "coins")
 	var request_id: String
 	# Only coin-paying quiz stages offer advertising x2.
-	await setup_level(1, [])
+	await setup_level(2, [])
 	record_stage(true, false)
 	check(GameState.get_active_single_player_stage_reward().currency == GameState.STAGE_REWARD_COINS, "Ad fixture is a coin-paying quiz stage")
 	main._show_single_player_reward_chain_screen()
@@ -409,7 +409,7 @@ func test_stage_rewards_and_ad_receipts() -> void:
 	check(GameState.get_active_single_player_stage_reward().currency == GameState.STAGE_REWARD_COINS and GameState.get_pending_single_player_reward().is_empty(), "One-stage coin prize has no additional completion reward")
 	# Relaunching after the large stage-coin reward has appeared skips that offer.
 	# The base payout is settled exactly once and Continue resumes on the chain.
-	await setup_level(1, [])
+	await setup_level(2, [])
 	record_stage(true, false)
 	main._show_single_player_reward_chain_screen()
 	check(!GameState.get_active_single_player_stage_reward().get("presentation_started", false), "A built but hidden prize is not presented")
@@ -434,17 +434,17 @@ func test_stage_rewards_and_ad_receipts() -> void:
 	main._resume_saved_single_player_level()
 	check(GameState.get_soft_currency() == 100 + quiz_amount, "Repeated resume credited interrupted stage reward twice")
 	# A late receipt pays the old target, even while a new offer exists.
-	await setup_level(1, [false])
+	await setup_level(2, [false])
 	record_stage(true)
 	await present_summary()
 	request_id = GameState.begin_rewarded_double_request("final")
 	check(!request_id.is_empty(), "Late-receipt fixture has a paid final reward and a durable receipt")
 	GameState.clear_active_single_player_session(false)
 	GameState.clear_pending_single_player_reward(false)
-	GameState.reset_single_level_attempt("ru", 1)
+	GameState.reset_single_level_attempt("ru", 2)
 	main.single_player_active_level_index = 1
 	main.single_player_active_word_slot = 0
-	GameState.select_single_level_theme("ru", 1, 0, 2)
+	GameState.select_single_level_theme("ru", 2, 0, 2)
 	main._invalidate_single_player_level_cache()
 	record_stage(true, false)
 	GameState.claim_active_single_player_stage_reward()
@@ -459,7 +459,7 @@ func test_stage_rewards_and_ad_receipts() -> void:
 	main._on_final_reward_ad_rewarded("unknown", "coins", 1)
 	check(GameState.get_soft_currency() == balance_before + normal_coins, "Cancelled or unknown ad paid out")
 	# Leaving a still-pending stage offer must make its late receipt silent.
-	await setup_level(1, [])
+	await setup_level(2, [])
 	record_stage(true)
 	main._show_single_player_reward_chain_screen()
 	await settle()
@@ -473,7 +473,7 @@ func test_stage_rewards_and_ad_receipts() -> void:
 
 func test_presentation_lifecycle() -> void:
 	# Cancellation must stop root-owned effects, HUD rolls and stale navigation.
-	await setup_level(1, [true])
+	await setup_level(2, [true])
 	record_stage(false)
 	main.show_menu()
 	var source := Control.new()
@@ -525,7 +525,7 @@ func test_presentation_lifecycle() -> void:
 	await get_tree().process_frame
 	check(main.find_child("SinglePlayerRewardResourceCanvas", true, false) == null, "Deferred ad delivery ran on a different screen")
 	# Queue navigation in the same frame as leaving the final stage.
-	await setup_level(1, [true])
+	await setup_level(2, [true])
 	record_stage(false)
 	main.call_deferred("_continue_final_stage_reward_if_current", main.result_transition_generation)
 	main.show_menu()
@@ -540,7 +540,7 @@ func test_presentation_lifecycle() -> void:
 	check(main._single_player_level_completed_label() == "LEVEL COMPLETED", "Summary title followed word language")
 	for viewport_size: Vector2i in [Vector2i(690, 1536), Vector2i(960, 1600)]:
 		get_tree().root.size = viewport_size
-		await setup_level(1, [true])
+		await setup_level(2, [true])
 		record_stage(false)
 		await present_summary()
 		audit_text(main)

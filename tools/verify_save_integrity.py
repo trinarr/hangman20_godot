@@ -634,7 +634,7 @@ def main() -> None:
     stage_result = function_body(main_source, "_single_player_mark_current_word_finished")
     require(
         '"reward_currency": stage_reward_currency' in stage_result
-        and '"reward_claimed": !is_win' in stage_result
+        and '"reward_claimed": !has_stage_reward' in stage_result
         and 'result["single_player_chain_failed"] = false' in stage_result,
         "Pending stage reward is not persisted with level resume state",
     )
