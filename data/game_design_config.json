@@ -22,13 +22,13 @@
     "theme_unlocks": {
       "initial_theme_ids": [1, 9, 2],
       "milestones": [
-        {"after_level": 3, "theme_id": 6},
-        {"after_level": 6, "theme_id": 3},
-        {"after_level": 10, "theme_id": 10},
-        {"after_level": 14, "theme_id": 5},
-        {"after_level": 18, "theme_id": 8},
-        {"after_level": 25, "theme_id": 4},
-        {"after_level": 30, "theme_id": 7}
+        {"after_level": 5, "theme_id": 6},
+        {"after_level": 8, "theme_id": 3},
+        {"after_level": 12, "theme_id": 10},
+        {"after_level": 16, "theme_id": 5},
+        {"after_level": 21, "theme_id": 8},
+        {"after_level": 26, "theme_id": 4},
+        {"after_level": 32, "theme_id": 7}
       ]
     },
     "guided_onboarding": {
@@ -39,9 +39,9 @@
       {"from_level": 1, "to_level": 1, "count": 1},
       {"from_level": 2, "to_level": 2, "count": 1},
       {"from_level": 3, "to_level": 3, "count": 2},
-      {"from_level": 4, "to_level": 7, "count": 3},
-      {"from_level": 8, "to_level": 18, "count": 4},
-      {"from_level": 19, "to_level": 0, "count": 5}
+      {"from_level": 4, "to_level": 10, "count": 3},
+      {"from_level": 11, "to_level": 20, "count": 4},
+      {"from_level": 21, "to_level": 0, "count": 5}
     ],
     "bonus_level": {
       "every_levels": 10,
