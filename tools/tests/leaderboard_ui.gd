@@ -652,6 +652,8 @@ func inspect_rank_progress() -> void:
 			filler_view.service = mock
 			add_child(filler_view)
 			await settle()
+			# Capture settled standings; stop restores all row visuals to their final positions.
+			filler_view._list_entrance.stop()
 			check(filler_view.own_row == null and filler_view.pinned.visible and filler_view.pinned.get_node("CardFace/PlayerRank").text == "100+", "Current player below mixed top keeps a visible 100+ pinned card")
 			if !directory.is_empty() and DisplayServer.get_name() != "headless":
 				await RenderingServer.frame_post_draw
