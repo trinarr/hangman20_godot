@@ -3,6 +3,7 @@ extends CanvasLayer
 ## No GameState, Database, Ads or main-screen fields are accessed here.
 
 const CENTER: GDScript = preload("res://scripts/ui/popup_stage_center.gd")
+const OPEN_INPUT_GUARD: GDScript = preload("res://scripts/ui/popup_open_input_guard.gd")
 const PANEL: GDScript = preload("res://scripts/ui/flash_stage_panel.gd")
 const HOLDER: GDScript = preload("res://scripts/ui/flash_stage_control.gd")
 const ROUND_BUTTON: GDScript = preload("res://scripts/ui/stage_round_button.gd")
@@ -46,9 +47,18 @@ static func open(parent: Node, popup_name: String, group_name: String, modal_gro
 		popup.stage.settle_without_open_bounce()
 		set_close_ready(popup.dimmer, true)
 	else:
+		opening_input_guard(popup_root).wait_for(popup.stage.open_bounce_finished, popup.stage)
 		popup.stage.open_bounce_finished.connect(
 			set_close_ready_from_ref.bind(weakref(popup.dimmer), true), CONNECT_ONE_SHOT)
 	return popup
+
+static func opening_input_guard(node: Node) -> Control:
+	while node != null:
+		var guard: Control = node.get_node_or_null("PopupOpeningInputGuard") as Control
+		if is_instance_valid(guard) and !guard.is_queued_for_deletion():
+			return guard
+		node = node.get_parent()
+	return null
 
 static func set_close_ready_from_ref(target: WeakRef, ready: bool) -> void:
 	var dimmer := target.get_ref() as ColorRect
@@ -65,6 +75,8 @@ static func add_backdrop(
 	# The fullscreen popup root must not swallow clicks before they reach the
 	# backdrop. Interactive controls inside the popup keep their own STOP filters.
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var input_guard: Control = OPEN_INPUT_GUARD.new()
+	content.add_child(input_guard)
 
 	# Popup art is positioned in the original 800x480 Flash stage, but the dimmer
 	# must cover the real viewport, including letterbox/pillarbox space on other
@@ -101,6 +113,7 @@ static func add_backdrop(
 		)
 		dimmer_fade_in.set_trans(Tween.TRANS_QUAD)
 		dimmer_fade_in.set_ease(Tween.EASE_OUT)
+		input_guard.wait_for(dimmer_tween.finished, dimmer)
 	return dimmer
 
 static func spawn_fade_out(parent: Node, popup_layer: CanvasLayer, source_dimmer: ColorRect, fade_seconds: float) -> CanvasLayer:
@@ -271,6 +284,10 @@ static func add_close_button(parent: Control, style: Dictionary, rect: Rect2, ca
 		button.pressed.connect(callable)
 	var popup_stage: Control = parent
 	parent.add_child(button)
+	var input_guard: Control = opening_input_guard(parent)
+	if input_guard != null:
+		button.set_meta(&"opening_input_guard", weakref(input_guard))
+		button.set_meta(&"opening_input_ticket", input_guard.hold(button))
 	button.stage_rect = rect
 	# The close affordance is intentionally absent during the popup's own opening
 	# motion. Once the shell settles, reveal it as a separate compact bounce.
@@ -326,6 +343,10 @@ static func finish_close_intro(_style: Dictionary, button: FlashStageTextureButt
 		return
 	button.visual_scale = Vector2.ONE
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
+	if button.has_meta(&"opening_input_guard"):
+		var input_guard: Control = button.get_meta(&"opening_input_guard").get_ref() as Control
+		if is_instance_valid(input_guard):
+			input_guard.release(int(button.get_meta(&"opening_input_ticket")))
 
 static func build_shell(parent: Control, style: Dictionary,
 	rect: Rect2,

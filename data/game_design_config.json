@@ -14,7 +14,7 @@
   },
   "progression": {
     "theme_options_per_level": 3,
-    "hints": {"all_unlocked_from_level": 4},
+    "hints": {"all_unlocked_from_level": 4, "quiz_fifty_fifty_unlocked_from_level": 3},
     "theme_intro": {
       "catch_up_rate": 0.25,
       "completion_tolerance": 0.04

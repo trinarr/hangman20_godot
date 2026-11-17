@@ -174,6 +174,92 @@ func check_action_icon_shadows() -> void:
 		reference.queue_free()
 	await get_tree().process_frame
 
+func send_pointer(point: Vector2, touch: bool = false) -> void:
+	if touch:
+		var event := InputEventScreenTouch.new()
+		event.position = point
+		event.pressed = true
+		get_viewport().push_input(event, true)
+		event = event.duplicate()
+		event.pressed = false
+		get_viewport().push_input(event, true)
+	else:
+		var motion := InputEventMouseMotion.new()
+		motion.position = point
+		get_viewport().push_input(motion, true)
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.position = point
+		event.pressed = true
+		get_viewport().push_input(event, true)
+		event = event.duplicate()
+		event.pressed = false
+		get_viewport().push_input(event, true)
+
+func check_opening_input() -> void:
+	var original_size: Vector2i = get_window().size
+	var original_min: Vector2i = get_window().min_size
+	var original_speed: float = Engine.time_scale
+	for language: String in ["ru", "en"]:
+		GameState.interface_language = language
+		TranslationServer.set_locale(language)
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().min_size = dimensions
+			get_window().size = dimensions
+			for restored: bool in [false, true]:
+				Engine.time_scale = 0.01
+				var popup: CanvasLayer = open_popup(&"popup_input_test", 160, restored)
+				var stage: PopupStageCenter = popup.stage
+				var activations := [0, 0]
+				var action := Button.new()
+				action.position = Vector2(150, 380)
+				action.size = Vector2(180, 70)
+				action.pressed.connect(func(): activations[0] += 1)
+				stage.add_child(action)
+				# Overlays above the shell (such as coin counters) share the lock.
+				var overlay := Button.new()
+				overlay.position = Vector2(30, 30)
+				overlay.size = Vector2(120, 70)
+				overlay.z_index = 200
+				overlay.pressed.connect(func(): activations[1] += 1)
+				popup.popup_root.add_child(overlay)
+				await get_tree().process_frame
+				for animation: Tween in get_tree().get_processed_tweens():
+					animation.pause()
+				Engine.time_scale = original_speed
+				check(is_instance_valid(popup.find_child("PopupOpeningInputGuard", true, false)), "Opening owns an input guard, including restored modals")
+				for touch: bool in [false, true]:
+					send_pointer(action.get_global_rect().get_center(), touch)
+					send_pointer(overlay.get_global_rect().get_center(), touch)
+				check(activations == [0, 0], "Mouse and touch cannot activate opening actions or overlays")
+				if !restored:
+					stage._open_tween.custom_step(1.0)
+					check(stage.open_bounce_complete and is_instance_valid(popup.find_child("PopupOpeningInputGuard", true, false)), "Shell completion still waits for the close-button entrance")
+					send_pointer(action.get_global_rect().get_center())
+					check(activations[0] == 0, "Actions remain blocked during the close-button entrance")
+				for animation: Tween in get_tree().get_processed_tweens():
+					if animation.is_valid():
+						animation.custom_step(5.0)
+				await get_tree().process_frame
+				check(popup.find_child("PopupOpeningInputGuard", true, false) == null, "All opening animations release the guard")
+				send_pointer(action.get_global_rect().get_center())
+				send_pointer(overlay.get_global_rect().get_center())
+				check(activations == [1, 1], "Completed popup actions and overlays accept real clicks")
+				send_pointer(action.get_global_rect().get_center(), true)
+				send_pointer(overlay.get_global_rect().get_center(), true)
+				check(activations == [2, 2], "Completed popup actions and overlays accept real touches")
+				action.disabled = true
+				send_pointer(action.get_global_rect().get_center())
+				check(action.disabled and activations[0] == 2, "Releasing the guard preserves intentionally disabled controls")
+				popup.free()
+				# Removing an opening owner must not leave a global input lock behind.
+				var interrupted: CanvasLayer = open_popup(&"popup_input_cancel", 160)
+				interrupted.free()
+				await get_tree().process_frame
+	get_window().min_size = original_min
+	get_window().size = original_size
+	Engine.time_scale = original_speed
+
 func run() -> void:
 	await check_action_icon_shadows()
 	await check_coin_counter_sources()
@@ -181,6 +267,7 @@ func run() -> void:
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
 	add_child(main)
+	await check_opening_input()
 	var base_content: Control = main.content
 	var animated: CanvasLayer = open_popup(&"popup_test")
 	var dimmer: ColorRect = animated.find_child("ModalDimmer", true, false)

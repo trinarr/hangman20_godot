@@ -22,6 +22,7 @@ var _background_controller: Node
 var _live_sources: Array[WeakRef] = []
 var _live_layer: Control
 var _live_layer_z := 0
+var _page_anchor: Control
 
 static func capture(viewport: Viewport) -> Texture2D:
 	if DisplayServer.get_name() == "headless":
@@ -61,6 +62,15 @@ func prepare(background: Control, source: Texture2D = null) -> void:
 	if !has_source:
 		_background_controller = FADE.branch(background)
 	coverage = 0.0
+
+func prepare_page(page: Control, source: Texture2D) -> void:
+	# A page transition covers its complete foreground, unlike a backdrop reveal.
+	_page_anchor = Control.new()
+	_page_anchor.name = "ScreenCoverPageAnchor"
+	_page_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_page_anchor.z_index = RenderingServer.CANVAS_ITEM_Z_MAX
+	page.add_child(_page_anchor)
+	prepare(_page_anchor, source)
 
 func prepare_live(background: Control, sources: Array[Control]) -> void:
 	# Flatten only the incoming background on GPU. The outgoing hero/chain stay
@@ -149,6 +159,9 @@ func _sync_layout() -> void:
 		_blocker.size = bounds.size
 
 func _release_visuals() -> void:
+	if is_instance_valid(_page_anchor):
+		_page_anchor.queue_free()
+	_page_anchor = null
 	if complete:
 		for reference: WeakRef in _live_sources:
 			var source: Control = reference.get_ref()

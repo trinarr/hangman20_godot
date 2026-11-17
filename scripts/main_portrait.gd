@@ -916,6 +916,7 @@ var _quiz_exit_button: Control = null
 var _quiz_answer_locked: bool = false
 var _quiz_selected_answer_index: int = -1
 var _quiz_fifty_fifty_used: bool = false
+var _quiz_retry_mistake: bool = false
 var _quiz_fifty_fifty_hidden_indices: Array = []
 var _quiz_replace_question_used: bool = false
 var _quiz_question_replacing: bool = false
@@ -3271,9 +3272,10 @@ func _home_profile_resume_saved_single_player_level() -> void:
 					_quiz_answer_locked = false
 					_quiz_selected_answer_index = -1
 					_quiz_fifty_fifty_used = bool(data.get("fifty_fifty_used", false))
+					_quiz_retry_mistake = bool(data.get("retry_mistake", false))
 					var hidden_variant: Variant = data.get("hidden_indices", [])
 					_quiz_fifty_fifty_hidden_indices = (
-						Array(hidden_variant).duplicate()
+						Array(hidden_variant).map(func(value: Variant) -> int: return int(value))
 						if hidden_variant is Array
 						else []
 					)
@@ -3835,6 +3837,7 @@ func _start_quiz_theme(theme_index: int) -> void:
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
+	_quiz_retry_mistake = false
 	_quiz_fifty_fifty_hidden_indices.clear()
 	_quiz_replace_question_used = false
 	_quiz_question_replacing = false
@@ -3866,6 +3869,7 @@ func _home_profile_persist_active_single_player_quiz_session() -> void:
 			"question": _quiz_current_question.duplicate(true),
 			"target_difficulty": _quiz_single_player_target_difficulty,
 			"fifty_fifty_used": _quiz_fifty_fifty_used,
+			"retry_mistake": _quiz_retry_mistake,
 			"hidden_indices": _quiz_fifty_fifty_hidden_indices.duplicate(),
 			"replace_question_used": _quiz_replace_question_used,
 		},
@@ -3906,6 +3910,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
+	_quiz_retry_mistake = false
 	_quiz_fifty_fifty_hidden_indices.clear()
 	_quiz_replace_question_used = false
 	_quiz_question_replacing = false
@@ -3952,7 +3957,7 @@ func _mark_quiz_question_ready() -> void:
 		_quiz_question_ready_at_msec = 0
 
 func _take_quiz_speed_tier() -> int:
-	if _quiz_question_ready_at_msec <= 0 or _quiz_consent_pause_at_msec > 0:
+	if _quiz_question_ready_at_msec <= 0 or _quiz_consent_pause_at_msec > 0 or _quiz_retry_mistake:
 		return PORTRAIT_QUIZ_SPEED_NONE
 	var elapsed_msec: int = Time.get_ticks_msec() - _quiz_question_ready_at_msec
 	_quiz_question_ready_at_msec = 0
@@ -4912,9 +4917,13 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		or answer_index >= _quiz_answer_buttons.size()
 		or correct_index < 0
 		or correct_index >= _quiz_answer_buttons.size()
+		or _quiz_fifty_fifty_hidden_indices.has(answer_index)
 	):
 		return
 	var correct_answer: bool = answer_index == correct_index
+	if !correct_answer and _quiz_single_player_embedded and single_player_active_level_index >= 0 and !_single_player_hearts_enabled_for_level(single_player_active_level_index):
+		_retry_opening_quiz_wrong_answer(answer_index)
+		return
 	Analytics.track("quiz_answered", {"success": correct_answer, "outcome": "win" if correct_answer else "loss", "game_mode": "single_player", "stage_type": "quiz"})
 	var speed_tier: int = _take_quiz_speed_tier()
 	if !correct_answer:
@@ -4977,6 +4986,32 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 		)
 	)
 
+func _retry_opening_quiz_wrong_answer(answer_index: int) -> void:
+	var button := _quiz_answer_buttons[answer_index] as Button
+	_quiz_answer_locked = true
+	_quiz_answer_feedback_generation += 1
+	_quiz_retry_mistake = true
+	_quiz_question_ready_at_msec = 0
+	_quiz_fifty_fifty_hidden_indices.append(answer_index)
+	_persist_active_single_player_quiz_session()
+	Analytics.track("quiz_answered", {"success": false, "outcome": "retry", "game_mode": "single_player", "stage_type": "quiz"})
+	QuizStatistics.record_answer(_quiz_current_question, _quiz_selected_theme_index, answer_index)
+	_disable_quiz_answer_buttons()
+	_set_quiz_hint_buttons_temporarily_disabled(true)
+	_set_quiz_answer_fill(button, PORTRAIT_QUIZ_ANSWER_WRONG_COLOR)
+	var feedback: Node = preload("res://scripts/ui/quiz_retry_feedback.gd").new()
+	button.add_child(feedback)
+	feedback.finished.connect(_finish_opening_quiz_retry.bind(_quiz_answer_feedback_generation, button), CONNECT_ONE_SHOT)
+	feedback.play(button, _run_quiz_feedback_after_press_return, _play_quiz_answer_text_shake, _play_quiz_fifty_fifty_removal)
+
+func _finish_opening_quiz_retry(generation: int, button: Button) -> void:
+	if generation != _quiz_answer_feedback_generation or !_quiz_screen_active or !_quiz_answer_buttons.has(button):
+		return
+	_quiz_answer_locked = false
+	for answer: Control in _quiz_answer_buttons:
+		(answer as Button).disabled = !answer.visible
+	_set_quiz_hint_buttons_temporarily_disabled(false)
+
 func _request_quiz_statistics() -> void:
 	if !QuizStatistics.statistics_ready.is_connected(_on_quiz_statistics_ready):
 		QuizStatistics.statistics_ready.connect(_on_quiz_statistics_ready)
@@ -4986,7 +5021,7 @@ func _request_quiz_statistics() -> void:
 	)
 
 func _on_quiz_statistics_ready(question_key: String, counts: Array) -> void:
-	if !_quiz_screen_active or !_quiz_answer_locked or counts.size() != 4:
+	if !_quiz_screen_active or !_quiz_answer_locked or _quiz_selected_answer_index < 0 or counts.size() != 4:
 		if OS.is_debug_build():
 			print("[QuizStatistics] UI: result no longer active or invalid counter count")
 		return
@@ -5415,6 +5450,7 @@ func _on_quiz_continue_pressed() -> void:
 	_quiz_answer_locked = false
 	_quiz_selected_answer_index = -1
 	_quiz_fifty_fifty_used = false
+	_quiz_retry_mistake = false
 	_quiz_fifty_fifty_hidden_indices.clear()
 	_quiz_replace_question_used = false
 	_quiz_question_replacing = false
@@ -5444,7 +5480,7 @@ func _finish_quiz_fifty_fifty_removal(button: Button, shadow_panel: Panel) -> vo
 		shadow_panel.visible = false
 		shadow_panel.modulate.a = 1.0
 
-func _play_quiz_fifty_fifty_removal(button: Button) -> void:
+func _play_quiz_fifty_fifty_removal(button: Button, finished_callback: Callable = Callable()) -> void:
 	if button == null or !is_instance_valid(button):
 		return
 	button.disabled = true
@@ -5484,6 +5520,8 @@ func _play_quiz_fifty_fifty_removal(button: Button) -> void:
 		CONNECT_ONE_SHOT
 	)
 	button.set_meta(&"quiz_fifty_fifty_tween", tween)
+	if finished_callback.is_valid():
+		tween.finished.connect(finished_callback, CONNECT_ONE_SHOT)
 
 func _apply_quiz_fifty_fifty_hidden_state() -> void:
 	for hidden_index: int in _quiz_fifty_fifty_hidden_indices:
@@ -5501,7 +5539,7 @@ func _apply_quiz_fifty_fifty_hidden_state() -> void:
 func _quiz_fifty_fifty_wrong_indices(correct_index: int) -> Array:
 	var wrong_indices: Array = []
 	for answer_index: int in range(_quiz_answer_buttons.size()):
-		if answer_index != correct_index:
+		if answer_index != correct_index and !_quiz_fifty_fifty_hidden_indices.has(answer_index):
 			wrong_indices.append(answer_index)
 	# Shuffle first so ties do not always favor the same button positions.
 	wrong_indices.shuffle()
@@ -5540,7 +5578,8 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 		fifty_hint_button,
 		GameState.HINT_QUIZ_FIFTY_FIFTY
 	)
-	_quiz_fifty_fifty_hidden_indices = [wrong_indices[0], wrong_indices[1]]
+	var newly_hidden: Array = wrong_indices.slice(0, 2)
+	_quiz_fifty_fifty_hidden_indices.append_array(newly_hidden)
 	if _quiz_single_player_embedded:
 		_persist_active_single_player_quiz_session()
 	else:
@@ -5552,7 +5591,7 @@ func _on_quiz_fifty_fifty_pressed() -> void:
 
 	# Launch both removal tweens in the same frame so the two wrong answers
 	# bounce out simultaneously.
-	for hidden_index: int in _quiz_fifty_fifty_hidden_indices:
+	for hidden_index: int in newly_hidden:
 		var answer_button := _quiz_answer_buttons[hidden_index] as Button
 		if answer_button != null and is_instance_valid(answer_button):
 			_play_quiz_fifty_fifty_removal(answer_button)
@@ -5592,7 +5631,7 @@ func _set_quiz_hint_buttons_temporarily_disabled(disabled: bool) -> void:
 		var should_disable: bool = disabled
 		if !disabled:
 			should_disable = (
-				(hint_index == 0 and _quiz_fifty_fifty_used)
+				(hint_index == 0 and (_quiz_fifty_fifty_used or _quiz_fifty_fifty_hidden_indices.size() >= 2))
 				or (hint_index == 1 and _quiz_replace_question_used)
 			)
 		hint_button.set("button_disabled", should_disable or _portrait_hint_progression_locked(
@@ -5836,6 +5875,7 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	# Quiz uses dedicated 50/50 and question-replacement controls. Both are wired
 	# directly in this screen and keep independent per-question used states.
 	var replace_locked: bool = _portrait_hint_progression_locked(GameState.HINT_QUIZ_REPLACE_QUESTION)
+	var fifty_locked: bool = _portrait_hint_progression_locked(GameState.HINT_QUIZ_FIFTY_FIFTY)
 	var button_width: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.x
 	var total_width: float = button_width * 2.0 + PORTRAIT_QUIZ_HINT_GAP
 	var first_x: float = (PORTRAIT_STAGE_SIZE.x - total_width) * 0.5
@@ -5868,16 +5908,18 @@ func _stage_portrait_quiz_hint_buttons() -> void:
 	open_button.set("disabled_visual_opacity", 1.0)
 	remove_button.set("disabled_visual_opacity", 1.0)
 	# Quiz mode uses its own hint imagery: 50/50 and question replacement.
-	_stage_portrait_hint_art(open_button, PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
+	_stage_portrait_hint_art(open_button, PORTRAIT_HINT_LOCKED_ICON if fifty_locked else PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON, false)
 	_stage_portrait_hint_art(remove_button, PORTRAIT_HINT_LOCKED_ICON if replace_locked else PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON, false)
-	_stage_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
+	open_button.set_meta(&"quiz_hint_key", GameState.HINT_QUIZ_FIFTY_FIFTY)
+	if !fifty_locked:
+		_stage_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
 	remove_button.set_meta(&"quiz_hint_key", GameState.HINT_QUIZ_REPLACE_QUESTION)
 	if !replace_locked:
 		_stage_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
 	_quiz_hint_buttons = [open_button, remove_button]
 	_refresh_portrait_quiz_hint_counter(open_button, GameState.HINT_QUIZ_FIFTY_FIFTY)
 	_refresh_portrait_quiz_hint_counter(remove_button, GameState.HINT_QUIZ_REPLACE_QUESTION)
-	if _quiz_fifty_fifty_used:
+	if fifty_locked or _quiz_fifty_fifty_used or _quiz_fifty_fifty_hidden_indices.size() >= 2:
 		open_button.set("button_disabled", true)
 	if replace_locked or _quiz_replace_question_used or _quiz_question_replacing:
 		remove_button.set("button_disabled", true)
@@ -6399,7 +6441,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		PORTRAIT_DARK_BLUE,
 		PORTRAIT_ORANGE,
 		"",
-		true
+		_single_player_hearts_enabled_for_level(single_player_active_level_index)
 	)
 	# Match the life-refill popup: keep the reward art and explanatory copy on a
 	# single light-blue status surface, then present ad and coin choices below it.
@@ -7092,6 +7134,12 @@ func _home_profile_show_single_player_level_popup(
 	single_player_retry_after_loss = retry_after_loss
 	single_player_popup_return_to_menu_on_close = return_to_menu_on_close
 	level_index = _prepare_single_player_level_attempt(level_index)
+	if level_index + 1 < SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL:
+		var automatic_theme: int = GameState.get_single_level_selected_theme(Database.current_language, level_index)
+		if automatic_theme < 0:
+			automatic_theme = Database.get_theme_index_by_id(PORTRAIT_GAME_DESIGN.get_int("progression.guided_onboarding.first_word_theme_id"))
+		_confirm_single_player_theme_selection(level_index, automatic_theme)
+		return
 	var persisted_reroll_state: int = GameState.get_single_level_theme_reroll_state(
 		Database.current_language,
 		level_index
@@ -9325,11 +9373,21 @@ func _home_profile_show_game_screen() -> void:
 	if is_instance_valid(_home_logo_reveal) and !is_instance_valid(_home_transition):
 		_leave_home(Callable(self, "show_game_screen"))
 		return
+	var source_frame: Texture2D = null
+	if single_player_active_level_index == 1 and is_instance_valid(content):
+		var first_prize: Control = content.find_child("StageCoinLargeReward", true, false) as Control
+		if is_instance_valid(first_prize) and first_prize.is_visible_in_tree():
+			source_frame = _capture_tabbed_page_texture()
 	# Only actual navigation into the active gameplay page gets the entrance
 	# animation. Regular GameSession.changed rebuilds must stay visually stable.
 	Analytics.screen("word")
 	_portrait_game_entrance_pending = !game_finished
 	super.show_game_screen()
+	if source_frame != null:
+		var cover := SCREEN_COVER_TRANSITION.new()
+		content.add_child(cover)
+		cover.prepare_page(content, source_frame)
+		cover.reveal(PORTRAIT_QUIZ_ENTRANCE_BACKGROUND_FADE_DURATION)
 	# Home navigation can defer construction of this page. Restore the required
 	# last-chance decision here, after _clear(), so navigation cannot delete it.
 	if GameSession.has_deferred_loss():
@@ -11385,6 +11443,11 @@ func _play_portrait_game_entrance() -> void:
 	if first_start != null and first_start.holds_entrance():
 		return
 	if !_portrait_game_entrance_active or !game_screen_visible or game_finished:
+		return
+	var cover: Node = content.get_node_or_null("ScreenCoverTransition")
+	if is_instance_valid(cover) and !cover.complete:
+		if !cover.finished.is_connected(_play_portrait_game_entrance):
+			cover.finished.connect(_play_portrait_game_entrance, CONNECT_ONE_SHOT)
 		return
 	var entrance_start_delay: float = PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
 	var paper_duration: float = PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
@@ -13876,18 +13939,7 @@ func _start_single_player_level_summary_transition_deferred(
 			else PORTRAIT_FINAL_REWARD_COIN_SIZE
 		)
 	)
-	var flight_tween := transition_prize.create_tween()
-	flight_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var flight := flight_tween.tween_property(
-		transition_prize,
-		"stage_rect",
-		target_prize_rect,
-		PORTRAIT_FINAL_REWARD_REPLACE_DURATION
-	)
-	flight.set_trans(Tween.TRANS_LINEAR)
-	flight_tween.parallel().tween_property(
-		COMPOSITED_FADE.branch(transition_prize), "opacity", 1.0,
-		PORTRAIT_GAME_DESIGN.get_float("timings.animations.final_reward.icon_crossfade_seconds"))
+	var flight_tween: Tween = _ensure_reward_prize_visuals().play_prize_flight(transition_prize, target_prize_rect, PORTRAIT_FINAL_REWARD_REPLACE_DURATION)
 	await flight_tween.finished
 
 	if DisplayServer.get_name() == "headless":

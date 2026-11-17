@@ -112,6 +112,15 @@ func _start_final_reward_glow_rotation(
 		duration
 	).from(0.0)
 
+func play_prize_flight(prize: Control, target_rect: Rect2, duration: float) -> Tween:
+	var flight_tween := _tween(prize)
+	flight_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var flight := flight_tween.tween_property(prize, "stage_rect", target_rect, duration)
+	flight.set_trans(Tween.TRANS_LINEAR)
+	flight_tween.parallel().tween_property(FADE.branch(prize), "opacity", 1.0,
+		PORTRAIT_GAME_DESIGN.get_float("timings.animations.final_reward.icon_crossfade_seconds"))
+	return flight_tween
+
 func _play_final_reward_pack_bounce(pack: Control, peak_callback: Callable = Callable()) -> void:
 	var animation: Tween = _create_final_reward_pack_bounce(pack, peak_callback)
 	if animation != null:

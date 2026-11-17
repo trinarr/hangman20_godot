@@ -407,9 +407,11 @@ def main() -> None:
         and "popup_bottom,\n\t\t!free_offer," in attempt_popup
         and 'Callable(self, "_return_to_single_player_last_chance_from_coin_store"),\n'
         "\t\tfalse\n\t)" in attempt_popup
-        and '"",\n\t\ttrue\n\t)' in attempt_popup
+        and '"",\n\t\t_single_player_hearts_enabled_for_level(single_player_active_level_index)\n\t)' in attempt_popup
+        and "!_single_player_hearts_enabled_for_level(single_player_active_level_index)"
+        in function_body(main_source, "_decline_single_player_extra_attempt")
         and "if !free_offer:" in attempt_popup,
-        "The free extra-attempt popup must be compact, green, bouncing, closable by X, and ignore dimmer taps",
+        "The protected extra-attempt popup must be compact, green, bouncing, non-dismissible, and ignore dimmer taps",
     )
     unhandled_input = function_body(main_source, "_unhandled_input")
     require(

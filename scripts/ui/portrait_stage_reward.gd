@@ -290,10 +290,11 @@ func begin_direct(title_panel: Panel) -> void:
 	if _stopped or _transition_started or !is_instance_valid(prize) or !prize.is_inside_tree():
 		return
 	_transition_started = true
-	prize.set("stage_rect", _portrait_final_reward_center_rect(PORTRAIT_FINAL_REWARD_COIN_SIZE))
-	FADE.set_opacity(prize, 1.0)
 	if is_instance_valid(title_panel):
 		_set_panel_fill_color(PORTRAIT_BLUE, title_panel)
+	await play_prize_flight(prize, _portrait_final_reward_center_rect(PORTRAIT_FINAL_REWARD_COIN_SIZE), PORTRAIT_FINAL_REWARD_REPLACE_DURATION).finished
+	if _stopped or !is_inside_tree() or !is_instance_valid(prize) or !prize.is_inside_tree():
+		return
 	if DisplayServer.get_name() == "headless":
 		await get_tree().process_frame
 	else:

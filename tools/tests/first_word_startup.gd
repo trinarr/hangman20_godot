@@ -131,7 +131,7 @@ func run() -> void:
 			main._on_quiz_fifty_fifty_pressed()
 			var round_saved: Dictionary = GameState.get_active_single_player_session().data.duplicate(true)
 			var disk_save: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
-			check(int(disk_save.active_single_player_session.data.question.id) == int(round_saved.question.id) and disk_save.active_single_player_session.data.question.answers == round_saved.question.answers and bool(disk_save.active_single_player_session.data.fifty_fifty_used) and bool(round_saved.fifty_fifty_used), "First quiz hint and question are persisted to disk")
+			check(int(disk_save.active_single_player_session.data.question.id) == int(round_saved.question.id) and disk_save.active_single_player_session.data.question.answers == round_saved.question.answers and !bool(disk_save.active_single_player_session.data.fifty_fifty_used) and main._quiz_hint_buttons[0].get("button_disabled"), "First quiz persists its question with 50/50 locked")
 			var capture_dir: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 			if !capture_dir.is_empty():
 				await RenderingServer.frame_post_draw
@@ -142,7 +142,7 @@ func run() -> void:
 			start_main()
 			await settle()
 			check(main.home_builds == 0 and main.resumes == 1, "Restart restores the first quiz directly exactly once")
-			check(main._quiz_screen_active and main._quiz_current_question == round_saved.question and main._quiz_fifty_fifty_used, "Restart preserves the quiz and used hint")
+			check(main._quiz_screen_active and main._quiz_current_question == round_saved.question and !main._quiz_fifty_fifty_used and main._quiz_hint_buttons[0].get("button_disabled"), "Restart preserves the quiz and 50/50 lock")
 			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty(), "Restart keeps accepted consent")
 			main.show_menu()
 			await get_tree().create_timer(2.0).timeout
@@ -161,6 +161,7 @@ func run() -> void:
 			for character: int in [1, 2]:
 				await check_cold_damaged_resume(language, size, character)
 	await check_quiz_ad_consent()
+	await check_first_quiz_retry()
 	reset_profile("ru")
 	GameState.guided_onboarding_completed = true
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
@@ -229,6 +230,8 @@ func check_guided_stage_resume(language: String, dimensions: Vector2i) -> void:
 			check(main.game_screen_visible and GameSession.to_save_data() == data, "Later guided word keeps its identity and guessed letters")
 		elif stage.kind == "quiz":
 			check(main._quiz_screen_active and main._quiz_current_question == data.question, "Guided quiz resumes its saved question directly")
+			main._on_quiz_answer_selected((main._quiz_correct_answer_index() + 1) % 4)
+			check(!main.game_finished and GameState.get_active_single_player_session().kind == "quiz", "A legacy second-level quiz also retries mistakes instead of losing")
 		elif stage.kind == "theme":
 			check(!get_tree().get_nodes_in_group("single_player_theme_popup").is_empty(), "Guided theme selection resumes directly")
 			check(main.content.find_child("PortraitBlueBackground", true, false) != null, "Direct theme startup has its own blue backdrop")
@@ -300,6 +303,73 @@ func check_cold_damaged_resume(language: String, dimensions: Vector2i, character
 	await close_main()
 	HERO._hero_loads.finish()
 	HERO._hero_loads.loader = ResourceLoader
+
+func check_first_quiz_retry() -> void:
+	for language: String in ["ru", "en"]:
+		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().min_size = Vector2i.ONE
+			get_window().size = dimensions
+			reset_profile(language)
+			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+			start_main()
+			await settle()
+			var correct: int = main._quiz_correct_answer_index()
+			var wrong: int = (correct + 1) % 4
+			var coins: int = GameState.get_soft_currency()
+			var stars: int = GameState.get_stars()
+			var button: Button = main._quiz_answer_buttons[wrong]
+			main._on_quiz_answer_selected(wrong)
+			main._on_quiz_answer_selected(correct)
+			check(main._quiz_answer_locked and !main.game_finished and main._quiz_selected_answer_index == -1, "Opening mistake blocks repeat input without resolving the quiz")
+			check((button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color == main.PORTRAIT_QUIZ_ANSWER_WRONG_COLOR, "Wrong opening answer uses the normal red feedback")
+			var deadline: int = Time.get_ticks_msec() + 5000
+			while !button.has_meta(&"quiz_fifty_fifty_tween") and Time.get_ticks_msec() < deadline:
+				await get_tree().process_frame
+			var removal: Tween = button.get_meta(&"quiz_fifty_fifty_tween") as Tween if button.has_meta(&"quiz_fifty_fifty_tween") else null
+			check(removal != null, "Wrong-answer shake reaches the existing 50/50 removal")
+			if removal != null:
+				var animations: Array[Tween] = get_tree().get_processed_tweens()
+				for animation: Tween in animations:
+					animation.pause()
+				removal.stop()
+				main.COMPOSITED_FADE.set_opacity(button, 1.0)
+				removal.custom_step(0.18)
+				var early: float = main.COMPOSITED_FADE.get_opacity(button)
+				removal.custom_step(0.05)
+				var late: float = main.COMPOSITED_FADE.get_opacity(button)
+				check(early < 1.0 and early > late and late > 0.0, "Wrong opening answer progressively fades during the standard collapse")
+				if DisplayServer.get_name() != "headless":
+					await RenderingServer.frame_post_draw
+					var visible: Image = get_viewport().get_texture().get_image()
+					main.COMPOSITED_FADE.set_opacity(button, 0.0)
+					await RenderingServer.frame_post_draw
+					check(visible.get_data() != get_viewport().get_texture().get_image().get_data(), "Partly removed wrong answer has visible GPU pixels")
+					main.COMPOSITED_FADE.set_opacity(button, late)
+				removal.custom_step(1.0)
+				for animation: Tween in animations:
+					if animation != removal and animation.is_valid():
+						animation.play()
+			check(!button.visible and !main._quiz_answer_locked and !main._quiz_answer_buttons[correct].disabled, "Removal hides only the wrong answer and re-enables remaining choices")
+			check(GameState.get_soft_currency() == coins and GameState.get_stars() == stars and GameState.get_active_single_player_session().kind == "quiz", "Mistake never pays a reward or commits a defeat")
+			main._on_quiz_fifty_fifty_pressed()
+			check(!main._quiz_fifty_fifty_used and main._quiz_fifty_fifty_hidden_indices.size() == 1 and main._quiz_hint_buttons[0].get("button_disabled"), "50/50 stays locked after an opening mistake")
+			# Interrupt the next feedback and reload its durable exclusions.
+			var second_wrong: int = (correct + 2) % 4
+			main._on_quiz_answer_selected(second_wrong)
+			await close_main()
+			GameState.load_game()
+			start_main()
+			await settle()
+			check(!main._quiz_answer_locked and !main._quiz_answer_buttons[wrong].visible and !main._quiz_answer_buttons[second_wrong].visible, "Reload during feedback preserves exclusions without leaving input locked")
+			var last_wrong: int = (correct + 3) % 4
+			main._on_quiz_answer_selected(last_wrong)
+			deadline = Time.get_ticks_msec() + 5000
+			while main._quiz_answer_locked and Time.get_ticks_msec() < deadline:
+				await get_tree().process_frame
+			check(!main.game_finished and main._quiz_fifty_fifty_hidden_indices.size() == 3, "All three mistakes leave the correct answer available")
+			main._on_quiz_answer_selected(correct)
+			check(GameState.get_active_single_player_session().kind == "next" and main.last_result_is_win and GameState.get_stars() == stars, "Correct retry completes the first level once without a speed bonus")
+			await close_main()
 
 func check_quiz_ad_consent() -> void:
 	for language: String in ["ru", "en"]:

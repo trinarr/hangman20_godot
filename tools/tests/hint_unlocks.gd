@@ -60,7 +60,11 @@ func run() -> void:
 		main._quiz_replace_question_used = false
 		main._quiz_question_replacing = false
 		main._stage_portrait_quiz_hint_buttons()
-		check(!main._quiz_hint_buttons[0].disabled, "50/50 available")
+		var fifty_unlocked: bool = level >= state.GAME_DESIGN.get_int("progression.hints.quiz_fifty_fifty_unlocked_from_level")
+		var fifty: Control = main._quiz_hint_buttons[0]
+		check(fifty.disabled == !fifty_unlocked, "50/50 unlocks from level 3")
+		check((fifty.get_node("HintArtHolder/HintArt").texture == lock) == !fifty_unlocked, "Locked 50/50 uses the standard lock icon")
+		check(fifty.has_meta("quiz_hint_badge_component") == fifty_unlocked, "Locked 50/50 has no stock or price badge")
 		var replace: Control = main._quiz_hint_buttons[1]
 		check(replace.disabled == !unlocked, "Quiz replacement unlock level %d" % level)
 		check((replace.get_node("HintArtHolder/HintArt").texture == lock) == !unlocked, "Quiz replacement locked icon")
@@ -68,6 +72,9 @@ func run() -> void:
 		main._set_quiz_hint_buttons_temporarily_disabled(true)
 		main._set_quiz_hint_buttons_temporarily_disabled(false)
 		check(replace.disabled == !unlocked, "Animation reset preserves quiz lock")
+		check(fifty.disabled == !fifty_unlocked, "Animation reset preserves 50/50 lock")
+		if !fifty_unlocked:
+			check(!main._pay_for_quiz_hint(state.HINT_QUIZ_FIFTY_FIFTY, fifty), "Locked 50/50 cannot charge resources")
 		if !unlocked:
 			var coins: int = state.get_soft_currency()
 			check(!main._pay_for_quiz_hint(state.HINT_QUIZ_REPLACE_QUESTION, replace), "Payment for locked quiz rejected")

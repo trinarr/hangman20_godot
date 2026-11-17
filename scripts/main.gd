@@ -1098,6 +1098,10 @@ func _single_player_theme_options(level_index: int, level_seed: int, word_count:
 	var eligible: Array = _single_player_available_theme_indices(word_count)
 	if eligible.is_empty():
 		return []
+	if level_index + 1 < SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL:
+		var opening_theme: int = Database.get_theme_index_by_id(GAME_DESIGN.get_int("progression.guided_onboarding.first_word_theme_id"))
+		if eligible.has(opening_theme):
+			return [opening_theme]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, 11)
 	_single_player_shuffle(eligible, rng)
@@ -1898,8 +1902,7 @@ func _single_player_extra_attempt_is_free() -> bool:
 	)
 
 func _single_player_hearts_enabled_for_level(level_index: int) -> bool:
-	# The first two levels are protected onboarding: failures still resolve the
-	# stage normally, but the persistent heart inventory starts only with Level 3.
+	# Protected opening stages require continuation; persistent hearts start at Level 3.
 	return (
 		level_index >= 0
 		and level_index + 1 >= SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL
@@ -1955,6 +1958,8 @@ func _grant_single_player_extra_attempt() -> void:
 	single_player_extra_attempt_claim_in_progress = false
 
 func _decline_single_player_extra_attempt() -> void:
+	if single_player_active_level_index >= 0 and !_single_player_hearts_enabled_for_level(single_player_active_level_index):
+		return
 	_remove_single_player_last_chance_popup()
 	GameSession.resolve_deferred_loss()
 

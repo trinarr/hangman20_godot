@@ -43,7 +43,8 @@ func mix_error(actual: Image, source: Image, destination: Image, amount: float) 
 	var maximum := 0.0
 	# Exclude the independent top HUD; the full body includes hero, chain, clips
 	# and the moving prize. Freeze all other tweens for a deterministic comparison.
-	for y in range(int(actual.get_height() * 0.25), actual.get_height() - 20, 7):
+	var first_y: int = 0 if tag.ends_with("_word") else int(actual.get_height() * 0.25)
+	for y in range(first_y, actual.get_height() - 20, 7):
 		for x in range(20, actual.get_width() - 20, 7):
 			var expected := source.get_pixel(x, y).lerp(destination.get_pixel(x, y), amount)
 			var value := actual.get_pixel(x, y)
@@ -164,6 +165,63 @@ func verify_pixels(cover: Node) -> void:
 		if animation.is_valid():
 			animation.play()
 
+func check_first_prize_to_word(language: String, dimensions: Vector2i) -> void:
+	tag = "%s_%dx%d_first_prize_word" % [language, dimensions.x, dimensions.y]
+	main._clear()
+	GameSession.discard_current_round()
+	GameState.single_player = {}
+	GameState.clear_pending_single_player_reward(false)
+	GameState.clear_active_single_player_session(false)
+	GameState.select_single_level_theme(language, 0, Database.get_theme_index_by_id(9), 1)
+	GameState.ensure_single_level_progress(language, 0, 1)[0] = 1
+	GameState._single_player_bucket(language)["unlocked_level"] = 1
+	var result := {"single_player_level_index": 0, "single_player_word_slot": 0,
+		"single_player_total_count": 1, "single_player_level_completed": true, "single_player_stage_won": true}
+	GameState.set_active_single_player_session({"kind": "next", "language": language,
+		"level_index": 0, "word_slot": 0, "theme_id": 9, "data": {"result": result,
+		"reward_currency": "coins", "reward_amount": GameState.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount"),
+		"reward_claimed": false, "reward_double_resolved": false}})
+	main.single_player_active_level_index = 0
+	main.single_player_active_word_slot = 0
+	main.last_result_data = result
+	main.last_result_is_win = true
+	main._invalidate_single_player_level_cache()
+	main._show_single_player_reward_chain_screen()
+	var deadline := Time.get_ticks_msec() + 5000
+	while Time.get_ticks_msec() < deadline and main._portrait_stage_reward.action.get("button_disabled"):
+		await get_tree().process_frame
+	check(!main._portrait_stage_reward.action.get("button_disabled"), "First prize really reaches its Continue action")
+	await frame()
+	var balance: int = GameState.get_soft_currency()
+	main._portrait_stage_reward.action.pressed.emit()
+	var cover: Node = await await_cover()
+	check(is_instance_valid(cover) and GameSession.is_active and main.single_player_active_level_index == 1, "First prize starts Hangman through the shared page cover")
+	if !is_instance_valid(cover):
+		return
+	check(main._portrait_game_entrance_active, "Word entrance stays pending beneath the outgoing prize")
+	await verify_pixels(cover)
+	var snapshot: Control = cover._snapshot
+	var blocker: Control = cover._blocker
+	check(cover.reveal(0.5) == cover._animation, "Repeated reveal reuses the existing transition")
+	cover._animation.custom_step(5.0)
+	await get_tree().process_frame
+	check(cover.complete and cover._snapshot == null and cover._blocker == null and cover._page_anchor == null, "Completed page cover releases the snapshot, anchor and input blocker")
+	check(GameState.get_soft_currency() == balance and GameState.get_pending_single_player_reward().is_empty(), "Transition never repeats the first prize payout")
+	await get_tree().create_timer(1.5).timeout
+	check(!main._portrait_game_entrance_active and GameSession.is_active, "Word entrance finishes after the page is uncovered")
+	check(!is_instance_valid(snapshot) and !is_instance_valid(blocker), "Outgoing prize resources are freed")
+	# A second page cover exercises navigation away halfway through the fade.
+	var interrupted := main.SCREEN_COVER_TRANSITION.new()
+	main.content.add_child(interrupted)
+	interrupted.prepare_page(main.content, main._capture_tabbed_page_texture())
+	interrupted.reveal(0.5)
+	interrupted._animation.custom_step(0.1)
+	var interrupted_snapshot: Control = interrupted._snapshot
+	var interrupted_blocker: Control = interrupted._blocker
+	main._clear()
+	await get_tree().process_frame
+	check(!is_instance_valid(interrupted) and !is_instance_valid(interrupted_snapshot) and !is_instance_valid(interrupted_blocker), "Leaving mid-page-cover releases every owned overlay")
+
 func run() -> void:
 	if DisplayServer.get_name() == "headless":
 		push_error("Screen-cover pixel regression requires GPU")
@@ -252,6 +310,7 @@ func run() -> void:
 				await get_tree().create_timer(0.6).timeout
 				check(!is_instance_valid(cancelled) and !is_instance_valid(snapshot) and !is_instance_valid(blocker), "Leaving mid-cover releases all owned visuals")
 				check(main.result_transition_generation == cleared_generation and !main._quiz_screen_active, "Cancelled transition cannot revive the destination")
+			await check_first_prize_to_word(language, dimensions)
 	main.queue_free()
 	await get_tree().process_frame
 	print("STAGE_SCREEN_COVER_RENDER " + JSON.stringify({"checks": checks, "failures": failures}))

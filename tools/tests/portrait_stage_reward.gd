@@ -139,10 +139,13 @@ func check_first_level_reward() -> void:
 			check(main.content.find_child("SinglePlayerRewardChain", true, false) == null, "One-stage level never constructs an intermediate chain")
 			check(is_instance_valid(main.content.find_child("StageCoinLargeReward", true, false)), "One-stage level directly constructs the shared coin prize")
 			check(!bool(GameState.get_active_single_player_stage_reward().get("presentation_started", false)), "Hidden first prize has no presentation marker")
+			if language == "ru" and dimensions.x == 960:
+				await check_direct_prize_flight()
 			main._clear()
 			GameState.load_game()
 			main._resume_saved_single_player_level()
 			check(is_instance_valid(main._portrait_stage_reward) and GameState.soft_currency == before, "Restart before visibility reopens the first prize without paying it early")
+			await check_direct_prize_flight()
 			await get_tree().create_timer(3.0).timeout
 			check(get_tree().get_nodes_in_group("single_player_theme_popup").is_empty(), "First prize waits for its Continue before opening theme selection")
 			var prize: Control = main.content.find_child("StageCoinLargeReward", true, false)
@@ -164,13 +167,57 @@ func check_first_level_reward() -> void:
 			else:
 				button.pressed.emit()
 			await get_tree().process_frame
-			check(get_tree().get_nodes_in_group("single_player_theme_popup").size() == 1 and GameState.get_pending_single_player_reward().is_empty(), "The sole coin prize exits to one next-theme popup")
+			check(get_tree().get_nodes_in_group("single_player_theme_popup").is_empty() and main.single_player_active_level_index == 1 and Database.get_theme_id(GameState.get_single_level_selected_theme(language, 1)) == 9 and GameState.get_pending_single_player_reward().is_empty(), "The first prize starts the second level in General without a theme popup")
 			GameState.load_game()
 			check(GameState.soft_currency == before + expected and GameState.stars == attempt_stars, "First level reload preserves one coin payment and only remaining-attempt stars")
 
 	get_window().min_size = original_min
 	get_window().size = original_size
 	main.quiz_stage = true
+
+func check_direct_prize_flight() -> void:
+	var component: Node = main._portrait_stage_reward
+	var source_rect: Rect2 = component.prize.get("stage_rect")
+	# A restored screen can spend an entire fade interval building its first
+	# frame. Slow that frame before pausing and stepping the real flight tween.
+	var previous_speed: float = Engine.time_scale
+	Engine.time_scale = 0.01
+	if !await campaign_wait(func(): return component._transition_started, "Direct prize begins its entrance"):
+		Engine.time_scale = previous_speed
+		return
+	var prize: Control = component.prize
+	var target: Rect2 = component._portrait_final_reward_center_rect(component.PORTRAIT_FINAL_REWARD_COIN_SIZE)
+	var animations: Array[Tween] = get_tree().get_processed_tweens()
+	for animation: Tween in animations:
+		animation.pause()
+	Engine.time_scale = previous_speed
+	var flight: Tween = component._animations.back()
+	# Replay from its authored source so first-frame construction time cannot
+	# consume either of the intermediate samples.
+	flight.stop()
+	prize.set("stage_rect", source_rect)
+	main.COMPOSITED_FADE.set_opacity(prize, 0.0)
+	flight.custom_step(0.025)
+	var early_rect: Rect2 = prize.get("stage_rect")
+	var early: float = main.COMPOSITED_FADE.get_opacity(prize)
+	flight.custom_step(0.025)
+	var late_rect: Rect2 = prize.get("stage_rect")
+	var late: float = main.COMPOSITED_FADE.get_opacity(prize)
+	check(early_rect.get_center().y > late_rect.get_center().y and late_rect.get_center().y > target.get_center().y, "Direct prize flies upward from the main reward source geometry")
+	check(early > 0.0 and late > early and late < 1.0, "Direct prize fades in throughout the flight (%.4f -> %.4f)" % [early, late])
+	check(!bool(GameState.get_active_single_player_stage_reward().get("presentation_started", false)), "Flight never marks the prize presented before landing")
+	for shadow: TextureRect in prize.get_meta("main_reward_icon_shadow_layers"):
+		check(is_zero_approx(main.COMPOSITED_FADE.get_opacity(shadow)), "Direct prize shadow waits until landing")
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		var visible_prize: Image = get_viewport().get_texture().get_image()
+		main.COMPOSITED_FADE.set_opacity(prize, 0.0)
+		await RenderingServer.frame_post_draw
+		check(visible_prize.get_data() != get_viewport().get_texture().get_image().get_data(), "Direct flight draws visible intermediate GPU pixels")
+		main.COMPOSITED_FADE.set_opacity(prize, late)
+	for animation: Tween in animations:
+		if animation.is_valid():
+			animation.play()
 
 func check_single_stage_loss_reward() -> void:
 	main.ads_enabled = false
@@ -225,7 +272,7 @@ func check_single_stage_loss_reward() -> void:
 			if is_instance_valid(main._portrait_stage_reward):
 				main._portrait_stage_reward.action.pressed.emit()
 			await get_tree().process_frame
-			check(get_tree().get_nodes_in_group("single_player_theme_popup").size() == 1, "Collecting the failed level prize opens next themes")
+			check(get_tree().get_nodes_in_group("single_player_theme_popup").is_empty() and main.single_player_active_level_index == 1 and Database.get_theme_id(GameSession.theme_id) == 9, "Collecting the failed first prize starts General Hangman without themes")
 			GameState.claim_active_single_player_stage_reward()
 			GameState.load_game()
 			check(GameState.soft_currency == 250 + expected, "Repeated claim and reload cannot duplicate the failed level prize")
@@ -310,7 +357,7 @@ func check_restart_after_visible_prize() -> void:
 	main._clear()
 	GameState.load_game()
 	main._resume_saved_single_player_level()
-	check(GameState.soft_currency == before + amount and get_tree().get_nodes_in_group("single_player_theme_popup").size() == 1, "Restart after visibility settles the same prize once and opens the next theme")
+	check(GameState.soft_currency == before + amount and get_tree().get_nodes_in_group("single_player_theme_popup").is_empty() and main.single_player_active_level_index == 1, "Restart after visibility settles the same prize once and starts level two directly")
 	GameState.load_game()
 	check(GameState.soft_currency == before + amount, "Repeated restart after visibility cannot pay again")
 	main.quiz_stage = true
@@ -733,7 +780,10 @@ func check_real_opening_campaign() -> void:
 			var ui := CampaignUI.new()
 			add_child(ui)
 			for level: int in range(3):
-				if level > 0:
+				if level == 1:
+					check(get_tree().get_nodes_in_group("single_player_theme_popup").is_empty() and ui.single_player_active_level_index == 1 and GameSession.is_active and Database.get_theme_id(GameSession.theme_id) == 9, "Second level starts automatically in General after either first-level outcome")
+				elif level == 2:
+					check(get_tree().get_nodes_in_group("single_player_theme_popup").size() == 1, "Third level is the first theme popup")
 					var options: Array = ui._single_player_level_theme_options(level)
 					ui._confirm_single_player_theme_selection(level,int(options[0]))
 				var stages: int = 2 if level == 2 else 1
@@ -747,7 +797,12 @@ func check_real_opening_campaign() -> void:
 						if level == 0:
 							check(ui.word_picks == 0 and GameState.get_single_level_word_assignments(language,0).is_empty(), "Quiz-only level never selects or persists an unused word")
 						var index: int = ui._quiz_correct_answer_index()
-						ui._on_quiz_answer_selected(index if won else (index+1)%ui._quiz_answer_buttons.size())
+						if level == 0 and !won:
+							var wrong: int = (index + 1) % ui._quiz_answer_buttons.size()
+							ui._on_quiz_answer_selected(wrong)
+							await campaign_wait(func(): return !ui._quiz_answer_locked, "Opening quiz allows another choice after removing a wrong answer")
+							check(!ui.game_finished and !ui._quiz_answer_buttons[wrong].visible, "Opening mistake never finishes the stage")
+						ui._on_quiz_answer_selected(index if won or level == 0 else (index+1)%ui._quiz_answer_buttons.size())
 						await get_tree().create_timer(2.0).timeout
 						ui._on_quiz_continue_pressed()
 					else:
@@ -759,11 +814,24 @@ func check_real_opening_campaign() -> void:
 						else:
 							for letter: String in Database.get_alphabet():
 								if !GameSession.letters.has(letter):
-									GameSession.guess(letter,true)
+									if level == 1:
+										ui._press_letter(letter)
+									else:
+										GameSession.guess(letter,true)
 								if GameSession.has_deferred_loss():
+									if level == 1:
+										break
 									GameSession.resolve_deferred_loss()
 								if ui.game_finished:
 									break
+							if level == 1:
+								await campaign_wait(func(): return !get_tree().get_nodes_in_group(&"single_player_last_chance_popup").is_empty(), "Second level requires the continuation popup")
+								ui._decline_single_player_extra_attempt()
+								check(ui._portrait_handle_modal_back_request() and GameSession.has_deferred_loss() and !ui.game_finished, "Decline and Back cannot lose the second level")
+								ui._purchase_single_player_extra_attempt()
+								check(GameSession.is_active and !GameSession.has_deferred_loss(), "Free continuation is the only way out of the protected offer")
+								for letter: String in GameSession.letters:
+									GameSession.guess(letter, true)
 						await campaign_wait(func(): return is_instance_valid(ui._portrait_round_result) and is_instance_valid(ui._portrait_round_result.result_continue_button) and !ui._portrait_round_result.result_continue_button.get("disabled"), "Real word result exposes Continue")
 						ui._on_round_result_continue_requested()
 					if level < 2 or slot == 0:
