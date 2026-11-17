@@ -3846,10 +3846,10 @@ func _start_quiz_theme(theme_index: int) -> void:
 func _single_player_embedded_question_active() -> bool:
 	return _quiz_single_player_embedded and _quiz_screen_active and !game_finished
 
-func _persist_active_single_player_quiz_session() -> void:
-	_home_profile_persist_active_single_player_quiz_session()
+func _persist_active_single_player_quiz_session() -> bool:
+	return _home_profile_persist_active_single_player_quiz_session()
 
-func _home_profile_persist_active_single_player_quiz_session() -> void:
+func _home_profile_persist_active_single_player_quiz_session() -> bool:
 	if (
 		!_quiz_single_player_embedded
 		or game_finished
@@ -3858,8 +3858,8 @@ func _home_profile_persist_active_single_player_quiz_session() -> void:
 		or _quiz_selected_theme_index < 0
 		or _quiz_current_question.is_empty()
 	):
-		return
-	GameState.set_active_single_player_session({
+		return false
+	var staged: bool = GameState.set_active_single_player_session({
 		"kind": "quiz",
 		"language": Database.current_language,
 		"level_index": single_player_active_level_index,
@@ -3873,7 +3873,8 @@ func _home_profile_persist_active_single_player_quiz_session() -> void:
 			"hidden_indices": _quiz_fifty_fifty_hidden_indices.duplicate(),
 			"replace_question_used": _quiz_replace_question_used,
 		},
-	})
+	}, false)
+	return staged and GameState.save_game()
 
 func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	if _single_player_level_word_status(level_index, word_slot) != 0:
@@ -4988,12 +4989,23 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 
 func _retry_opening_quiz_wrong_answer(answer_index: int) -> void:
 	var button := _quiz_answer_buttons[answer_index] as Button
+	var previous_session: Dictionary = GameState.get_active_single_player_session()
+	var previous_mistake: bool = _quiz_retry_mistake
+	_quiz_retry_mistake = true
+	_quiz_fifty_fifty_hidden_indices.append(answer_index)
+	if !_persist_active_single_player_quiz_session():
+		_quiz_fifty_fifty_hidden_indices.pop_back()
+		_quiz_retry_mistake = previous_mistake
+		if previous_session.is_empty():
+			GameState.clear_active_single_player_session(false)
+		else:
+			GameState.set_active_single_player_session(previous_session, false)
+		GameState._store_current_single_player_resume_state()
+		_show_portrait_status_toast(tr("PROFILE_SAVE_FAILED"))
+		return
 	_quiz_answer_locked = true
 	_quiz_answer_feedback_generation += 1
-	_quiz_retry_mistake = true
 	_quiz_question_ready_at_msec = 0
-	_quiz_fifty_fifty_hidden_indices.append(answer_index)
-	_persist_active_single_player_quiz_session()
 	Analytics.track("quiz_answered", {"success": false, "outcome": "retry", "game_mode": "single_player", "stage_type": "quiz"})
 	QuizStatistics.record_answer(_quiz_current_question, _quiz_selected_theme_index, answer_index)
 	_disable_quiz_answer_buttons()
@@ -9374,9 +9386,8 @@ func _home_profile_show_game_screen() -> void:
 		_leave_home(Callable(self, "show_game_screen"))
 		return
 	var source_frame: Texture2D = null
-	if single_player_active_level_index == 1 and is_instance_valid(content):
-		var first_prize: Control = content.find_child("StageCoinLargeReward", true, false) as Control
-		if is_instance_valid(first_prize) and first_prize.is_visible_in_tree():
+	if single_player_active_level_index == 1 and is_instance_valid(content) and content.is_visible_in_tree():
+		if int(content.get_meta(&"single_player_reward_level_index", -1)) == 0:
 			source_frame = _capture_tabbed_page_texture()
 	# Only actual navigation into the active gameplay page gets the entrance
 	# animation. Regular GameSession.changed rebuilds must stay visually stable.
@@ -15176,6 +15187,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	if !retained_header.is_empty():
 		_restore_level_reward_header(retained_header)
 	var reward_screen_content: Control = content
+	reward_screen_content.set_meta(&"single_player_reward_level_index", level_index)
 	var title_block: Control
 	var title_visual: Control
 	var title_panel: Panel

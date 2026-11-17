@@ -165,8 +165,8 @@ func verify_pixels(cover: Node) -> void:
 		if animation.is_valid():
 			animation.play()
 
-func check_first_prize_to_word(language: String, dimensions: Vector2i) -> void:
-	tag = "%s_%dx%d_first_prize_word" % [language, dimensions.x, dimensions.y]
+func check_first_prize_to_word(language: String, dimensions: Vector2i, legacy: bool = false) -> void:
+	tag = "%s_%dx%d_%s_prize_word" % [language, dimensions.x, dimensions.y, "legacy" if legacy else "first"]
 	main._clear()
 	GameSession.discard_current_round()
 	GameState.single_player = {}
@@ -177,10 +177,14 @@ func check_first_prize_to_word(language: String, dimensions: Vector2i) -> void:
 	GameState._single_player_bucket(language)["unlocked_level"] = 1
 	var result := {"single_player_level_index": 0, "single_player_word_slot": 0,
 		"single_player_total_count": 1, "single_player_level_completed": true, "single_player_stage_won": true}
+	if legacy:
+		result["single_player_level_summary_view"] = true
+		GameState.pending_single_player_reward = GameState._normalize_pending_single_player_reward({
+			"language": language, "level_index": 0, "word_count": 1, "amount": 35, "stars_amount": 0})
 	GameState.set_active_single_player_session({"kind": "next", "language": language,
 		"level_index": 0, "word_slot": 0, "theme_id": 9, "data": {"result": result,
-		"reward_currency": "coins", "reward_amount": GameState.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount"),
-		"reward_claimed": false, "reward_double_resolved": false}})
+		"reward_currency": "coins", "reward_amount": 0 if legacy else GameState.GAME_DESIGN.get_int("economy.rewards.single_stage_level.amount"),
+		"reward_claimed": legacy, "reward_double_resolved": legacy}})
 	main.single_player_active_level_index = 0
 	main.single_player_active_word_slot = 0
 	main.last_result_data = result
@@ -188,12 +192,15 @@ func check_first_prize_to_word(language: String, dimensions: Vector2i) -> void:
 	main._invalidate_single_player_level_cache()
 	main._show_single_player_reward_chain_screen()
 	var deadline := Time.get_ticks_msec() + 5000
-	while Time.get_ticks_msec() < deadline and main._portrait_stage_reward.action.get("button_disabled"):
+	var action: Control = main._portrait_final_reward_continue_button if legacy else main._portrait_stage_reward.action
+	while Time.get_ticks_msec() < deadline and action.get("button_disabled"):
 		await get_tree().process_frame
-	check(!main._portrait_stage_reward.action.get("button_disabled"), "First prize really reaches its Continue action")
+	check(!action.get("button_disabled"), "First prize really reaches its Continue action")
+	if legacy:
+		check(main.content.find_child("LevelCompletionRewardPrize", true, false) != null and main.content.find_child("StageCoinLargeReward", true, false) == null, "Legacy first prize uses its original completion-reward presentation")
 	await frame()
 	var balance: int = GameState.get_soft_currency()
-	main._portrait_stage_reward.action.pressed.emit()
+	action.pressed.emit()
 	var cover: Node = await await_cover()
 	check(is_instance_valid(cover) and GameSession.is_active and main.single_player_active_level_index == 1, "First prize starts Hangman through the shared page cover")
 	if !is_instance_valid(cover):
@@ -311,6 +318,7 @@ func run() -> void:
 				check(!is_instance_valid(cancelled) and !is_instance_valid(snapshot) and !is_instance_valid(blocker), "Leaving mid-cover releases all owned visuals")
 				check(main.result_transition_generation == cleared_generation and !main._quiz_screen_active, "Cancelled transition cannot revive the destination")
 			await check_first_prize_to_word(language, dimensions)
+			await check_first_prize_to_word(language, dimensions, true)
 	main.queue_free()
 	await get_tree().process_frame
 	print("STAGE_SCREEN_COVER_RENDER " + JSON.stringify({"checks": checks, "failures": failures}))

@@ -318,7 +318,20 @@ func check_first_quiz_retry() -> void:
 			var coins: int = GameState.get_soft_currency()
 			var stars: int = GameState.get_stars()
 			var button: Button = main._quiz_answer_buttons[wrong]
+			var before_retry: Dictionary = GameState.get_active_single_player_session()
+			var before_resume_cache: Dictionary = GameState.single_player_resume_states.duplicate(true)
+			var before_disk: String = FileAccess.get_file_as_string(GameState.SAVE_PATH)
+			GameState._save_write_in_progress = true
 			main._on_quiz_answer_selected(wrong)
+			main._on_quiz_answer_selected(wrong)
+			GameState._save_write_in_progress = false
+			check(!main._quiz_answer_locked and !main._quiz_retry_mistake and main._quiz_fifty_fifty_hidden_indices.is_empty() and button.visible and !button.disabled, "Failed retry saves leave the answer available and do not start feedback")
+			check(GameState.get_active_single_player_session() == before_retry and FileAccess.get_file_as_string(GameState.SAVE_PATH) == before_disk, "Failed exclusion saves restore the previous session without touching disk")
+			check(GameState.single_player_resume_states == before_resume_cache, "Rejected exclusions leave the language resume cache unchanged")
+			check(is_instance_valid(main._portrait_ad_toast) and main._portrait_ad_toast.visible and main._portrait_ad_toast._message_label.text == tr("PROFILE_SAVE_FAILED").to_upper(), "Exclusion save failure uses the standard status toast")
+			main._on_quiz_answer_selected(wrong)
+			var saved_retry: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
+			check(bool(saved_retry.active_single_player_session.data.retry_mistake) and saved_retry.active_single_player_session.data.hidden_indices.size() == 1, "Retrying the choice commits the exclusion before its animation")
 			main._on_quiz_answer_selected(correct)
 			check(main._quiz_answer_locked and !main.game_finished and main._quiz_selected_answer_index == -1, "Opening mistake blocks repeat input without resolving the quiz")
 			check((button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color == main.PORTRAIT_QUIZ_ANSWER_WRONG_COLOR, "Wrong opening answer uses the normal red feedback")
@@ -355,6 +368,11 @@ func check_first_quiz_retry() -> void:
 			check(!main._quiz_fifty_fifty_used and main._quiz_fifty_fifty_hidden_indices.size() == 1 and main._quiz_hint_buttons[0].get("button_disabled"), "50/50 stays locked after an opening mistake")
 			# Interrupt the next feedback and reload its durable exclusions.
 			var second_wrong: int = (correct + 2) % 4
+			before_retry = GameState.get_active_single_player_session()
+			GameState._save_write_in_progress = true
+			main._on_quiz_answer_selected(second_wrong)
+			GameState._save_write_in_progress = false
+			check(main._quiz_retry_mistake and main._quiz_fifty_fifty_hidden_indices == [wrong] and !main._quiz_answer_locked and GameState.get_active_single_player_session() == before_retry, "Failed later exclusion preserves earlier committed mistakes")
 			main._on_quiz_answer_selected(second_wrong)
 			await close_main()
 			GameState.load_game()
