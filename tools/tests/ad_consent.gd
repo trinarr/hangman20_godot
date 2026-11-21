@@ -60,6 +60,18 @@ class SignalNative extends FakeJni:
 	signal _on_banner_loaded
 	signal _on_banner_failed_to_load(code: int)
 
+class FullscreenNative extends SignalNative:
+	var outcomes: Dictionary = {}
+	var accepts_show: bool = true
+	func has_java_method(method: StringName) -> bool:
+		return method in [&"showFullscreenAdForRequest", &"pollFullscreenAdForRequest"] or super.has_java_method(method)
+	func showFullscreenAdForRequest(request: String, format: String, _queue_ms: int, _grace_ms: int) -> bool:
+		calls.append(format + ":" + request)
+		return accepts_show
+	func pollFullscreenAdForRequest(request: String) -> String:
+		calls.append("poll:" + request)
+		return str(outcomes.get(request, ""))
+
 class TaggedBannerNative extends FakeNative:
 	var java_queries: Array[String] = []
 	func has_java_method(method: StringName) -> bool:
@@ -84,6 +96,17 @@ class TaggedRewardedNative extends SignalNative:
 	func cancelRewardedVideoLoad(id: String) -> void:
 		calls.append("rw_cancel:" + id)
 
+class TaggedInterstitialNative extends SignalNative:
+	signal _on_interstitial_loaded_for_load(id: String)
+	signal _on_interstitial_failed_for_load(id: String, code: int)
+	signal _on_interstitial_loaded
+	func has_java_method(method: StringName) -> bool:
+		return method in [&"loadInterstitialForRequest", &"cancelInterstitialLoad"] or super.has_java_method(method)
+	func loadInterstitialForRequest(id: String, _unit: String) -> void:
+		calls.append("int_load:" + id)
+	func cancelInterstitialLoad(id: String) -> void:
+		calls.append("int_cancel:" + id)
+
 class ClockNative extends TaggedBannerNative:
 	var elapsed_ms: int = 4000000000
 	var calendar_ms: int = 2000000000000
@@ -100,19 +123,27 @@ class BannerRecoveryAds extends "res://yandex_ads.gd":
 	var probe_now_ms: int = 1000000
 	func _banner_now_ms() -> int:
 		return now_ms
-	func _banner_probe_now_ms() -> int:
+	func _banner_recovery_now_ms() -> int:
 		return probe_now_ms
+
+class ShortBannerRecoveryAds extends "res://yandex_ads.gd":
+	func _banner_timing(key: String) -> float:
+		if key == "sdk_refresh_grace_seconds":
+			return 0.18
+		if key == "probe_cooldown_seconds":
+			return 0.05
+		return super._banner_timing(key)
 
 class RewardedRecoveryAds extends "res://yandex_ads.gd":
 	var now_ms: int = 1000000
-	func _rewarded_now_ms() -> int:
+	func _ad_now_ms() -> int:
 		return now_ms
 	func advance(seconds: float) -> void:
 		now_ms += int(seconds * 1000.0)
 		# A stalled frame may carry only a tiny simulation delta.
 		_process(0.001)
 	func retry_seconds() -> float:
-		return maxf(0.0, (_rewarded_retry_deadline_ms - _rewarded_timer_now_ms()) / 1000.0)
+		return maxf(0.0, (_rewarded_retry_deadline_ms - _ad_timer_now_ms()) / 1000.0)
 
 class ShortRewardedDeadlineAds extends "res://yandex_ads.gd":
 	func _rewarded_timing(key: String) -> float:
@@ -133,7 +164,9 @@ func service():
 
 func _initialize() -> void:
 	await test_banner_tree_processing()
+	await test_banner_recovery_timing()
 	test_banner_recovery()
+	test_interstitial_load_recovery()
 	test_diagnostic_logging()
 	test_shared_placement_cache()
 	test_release_fullscreen_warmup()
@@ -145,6 +178,7 @@ func _initialize() -> void:
 	test_impression_placement()
 	test_tagged_interstitial_lifecycle()
 	test_native_signal_subscription()
+	await test_fullscreen_terminal_recovery()
 	# Initial choice reaches native configure before any ad load. Repeating the
 	# saved choice must not initialize twice or replace a current cached ad.
 	var initial = service()
@@ -233,8 +267,9 @@ func _initialize() -> void:
 	print("Ad consent tests: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
 
-func banner_service():
-	var ads := BannerRecoveryAds.new()
+func banner_service(ads: Node = null):
+	if ads == null:
+		ads = BannerRecoveryAds.new()
 	ads._sdk_ready = true
 	ads._sdk_initialization_requested = true
 	ads.user_consent = true
@@ -315,6 +350,40 @@ func test_banner_tree_processing() -> void:
 	check(!ads.is_processing() and !ads._banner_wanted, "re-entry does not revive old banner intent")
 	ads.free()
 
+func test_banner_recovery_timing() -> void:
+	var ads = banner_service(ShortBannerRecoveryAds.new())
+	root.add_child(ads)
+	await process_frame
+	var native = ads._native
+	ads.show_banner()
+	var old_id: String = ads._banner_request_id
+	native._on_banner_loaded_for_request.emit(old_id)
+	native._on_banner_failed_for_request.emit(old_id, 4)
+	OS.delay_msec(400)
+	await process_frame
+	await process_frame
+	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining > 0.0, "real engine stall expires the SDK grace period despite capped frame delta")
+
+	ads.remove_banner()
+	ads.show_banner()
+	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts")
+	for index: int in range(maximum + 1):
+		native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
+		if ads._banner_retry_remaining > 0.0:
+			ads._process(ads._banner_retry_remaining)
+	var before: int = ads._banner_request_serial
+	check(!ads.is_processing() and !ads._banner_probe_timer.is_stopped(), "real cooldown arms a timer without processing the service each frame")
+	await create_timer(0.15).timeout
+	check(ads._banner_request_serial == before + 1 and ads._banner_probe_timer.is_stopped(), "real one-shot timer starts exactly one probe")
+	native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
+	check(!ads._banner_probe_timer.is_stopped(), "failed probe rearms cooldown")
+	root.remove_child(ads)
+	check(ads._banner_probe_timer.is_stopped(), "exiting the tree stops a pending probe")
+	root.add_child(ads)
+	await create_timer(0.1).timeout
+	check(ads._banner_request_serial == before + 1 and !ads.is_processing(), "re-entry cannot revive an old probe")
+	ads.free()
+
 func test_banner_watchdog() -> void:
 	var ads = banner_service()
 	var native = ads._native
@@ -358,7 +427,7 @@ func test_banner_watchdog() -> void:
 		if ads._banner_retry_remaining > 0.0:
 			check(ads._banner_retry_remaining >= base and ads._banner_retry_remaining <= ads._banner_timing("retry_maximum_seconds"), "watchdog backoff stays within configured limits")
 			ads._process(ads._banner_retry_remaining)
-	check(ads._banner_request_serial == 1 + maximum and !ads.is_processing(), "watchdog stops after finite replacement budget")
+	check(ads._banner_request_serial == 1 + maximum and ads._banner_probe_after_ms > ads.probe_now_ms, "watchdog backs off to a probe after finite replacement budget")
 	var before: int = native.calls.size()
 	for index: int in range(100):
 		ads.show_banner()
@@ -378,6 +447,7 @@ func test_banner_watchdog() -> void:
 
 func test_banner_cooldown_probe() -> void:
 	var ads = banner_service()
+	root.add_child(ads)
 	var native = ads._native
 	ads.show_banner()
 	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts")
@@ -389,58 +459,43 @@ func test_banner_cooldown_probe() -> void:
 			ads._process(ads._banner_retry_remaining)
 	var before: int = ads._banner_request_serial
 	var cooldown_ms: int = int(ads._banner_timing("probe_cooldown_seconds") * 1000.0)
-	check(!ads.is_processing() and ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms, "exhausted budget starts cooldown without frame polling")
+	check(!ads.is_processing() and !ads._banner_probe_timer.is_stopped() and ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms, "exhausted budget schedules a probe without frame processing")
 	ads.probe_now_ms += cooldown_ms - 1
 	for index: int in range(100):
 		ads.show_banner()
-	check(ads._banner_request_serial == before, "game requests cannot bypass probe cooldown")
+	ads._on_banner_probe_timeout()
+	check(ads._banner_request_serial == before, "active screen and game requests wait until the deadline")
 	ads.probe_now_ms += 1
-	ads._process(1000.0)
-	ads.load_banner()
-	check(ads._banner_request_serial == before and !ads.is_processing(), "cooldown expiry and automatic load do not start a probe")
-	ads.hide_banner()
-	ads._process(1000.0)
-	check(ads._banner_request_serial == before, "hidden banner never probes on cooldown expiry")
-	ads.show_banner()
+	ads._banner_probe_timer.timeout.emit()
 	var probe: String = ads._banner_request_id
-	check(ads._banner_request_serial == before + 1 and ads._banner_loading, "first game request at deadline starts one probe")
+	check(ads._banner_request_serial == before + 1 and ads._banner_loading, "the active screen probes without a new show request")
 	native._on_banner_loaded_for_request.emit(obsolete)
 	native._on_banner_failed_for_request.emit(obsolete, 1)
-	for index: int in range(100):
-		ads.show_banner()
-	check(ads._banner_request_id == probe and ads._banner_loading and ads._banner_request_serial == before + 1, "probe rejects stale callbacks and repeated show cannot duplicate it")
-	ads._process(ads._banner_timing("load_timeout_seconds") + 0.1)
-	check(ads._banner_retry_remaining == 0.0 and !ads.is_processing() and ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms, "failed probe returns to cooldown without another retry chain")
-	ads.probe_now_ms += cooldown_ms - 1
-	ads.show_banner()
-	check(ads._banner_request_serial == before + 1, "failed probe cannot be retried before new deadline")
-	ads.probe_now_ms += 1
+	check(ads._banner_request_id == probe and ads._banner_loading, "probe rejects stale callbacks")
+	native._on_banner_failed_for_request.emit(probe, 4)
+	ads.probe_now_ms += int(ads._banner_timing("sdk_refresh_grace_seconds") * 1000.0)
+	ads._process(0.0)
+	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining == 0.0 and ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms, "failed probe returns to cooldown after SDK grace")
+	ads.hide_banner()
+	check(ads._banner_probe_timer.is_stopped(), "hiding stops the probe timer but preserves its deadline")
+	ads.probe_now_ms += cooldown_ms
+	ads._banner_probe_timer.timeout.emit()
+	check(ads._banner_request_serial == before + 1 and !ads.is_processing(), "hidden screen never probes on cooldown expiry")
 	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	ads.show_banner()
-	check(ads._banner_request_serial == before + 1, "probe request waits while application lacks focus")
+	check(ads._banner_request_serial == before + 1, "a requested banner waits for focus")
 	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
 	ads._process(0.0)
-	check(ads._banner_request_serial == before + 2 and ads._banner_loading, "deferred game request probes once after focus returns")
-	native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
-	check(ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms and ads._banner_retry_remaining == 0.0, "native view failure also rearms cooldown without burst retries")
-	ads.probe_now_ms += cooldown_ms
-	ads.show_banner()
-	before = ads._banner_request_serial
-	var live: String = ads._banner_request_id
-	native._on_banner_failed_for_request.emit(live, 4)
-	ads.probe_now_ms += cooldown_ms
-	ads.show_banner()
-	check(ads._banner_request_serial == before and ads._banner_request_id == live and !ads.is_processing(), "ordinary probe error retains current view for SDK refresh without another manual request")
+	check(ads._banner_request_serial == before + 2 and ads._banner_loading, "focus resumes exactly one probe")
 	native._on_banner_loaded_for_request.emit(ads._banner_request_id)
 	check(ads._banner_loaded and ads._banner_recovery_count == 0 and ads._banner_probe_after_ms == -1 and !ads.is_processing(), "successful probe restores normal budget and idle processing")
-	# A later missing native view must use the normal retry budget again.
 	native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
-	check(ads._banner_recovery_count == 1 and ads._banner_retry_remaining > 0.0, "probe success restores ordinary bounded recovery")
+	check(ads._banner_recovery_count == 1 and ads._banner_retry_remaining > 0.0, "a new failure uses the normal bounded retry budget")
 	ads.remove_banner()
 	before = ads._banner_request_serial
 	ads.probe_now_ms += cooldown_ms
 	ads._process(1000.0)
-	check(ads._banner_request_serial == before and ads._banner_probe_after_ms == -1 and !ads.is_processing(), "removal clears cooldown and cannot cause late requests")
+	check(ads._banner_request_serial == before and !ads.is_processing(), "removal cancels all pending recovery")
 	ads.free()
 
 func test_banner_sdk_refresh() -> void:
@@ -449,15 +504,45 @@ func test_banner_sdk_refresh() -> void:
 	ads.show_banner()
 	var active: String = ads._banner_request_id
 	native._on_banner_loaded_for_request.emit(active)
-	for index: int in range(100):
-		native._on_banner_failed_for_request.emit(active, 4)
-		ads._process(1000.0)
-		ads.show_banner()
-	check(ads._banner_request_serial == 1 and ads._banner_retry_remaining == 0.0 and !ads.is_processing(), "ordinary SDK failures never launch competing manual requests")
+	var grace_ms: int = int(ads._banner_timing("sdk_refresh_grace_seconds") * 1000.0)
+	var half_ms: int = floori(grace_ms / 2.0)
+	native._on_banner_failed_for_request.emit(active, 4)
+	var deadline: int = ads._banner_refresh_deadline_ms
+	ads.probe_now_ms += half_ms
+	ads._process(0.0)
+	native._on_banner_failed_for_request.emit(active, 4)
+	check(ads._banner_request_serial == 1 and ads._banner_refresh_deadline_ms == deadline, "repeated SDK failures keep the view without extending grace")
 	native._on_banner_loaded_for_request.emit(active)
-	check(ads._banner_loaded and ads._banner_request_id == active and native.calls[-1] == "show_banner", "SDK recovers the same view after failed refresh")
-	ads._process(1000.0)
-	check(ads._banner_request_serial == 1, "SDK recovery does not leave delayed replacement")
+	ads.probe_now_ms += grace_ms
+	ads._process(0.0)
+	check(ads._banner_loaded and ads._banner_request_serial == 1 and !ads.is_processing(), "SDK success cancels the delayed replacement")
+	native._on_banner_failed_for_request.emit(active, 4)
+	ads.probe_now_ms += half_ms
+	ads.hide_banner()
+	ads.probe_now_ms += grace_ms
+	ads._process(0.0)
+	var remaining_ms: int = grace_ms - half_ms
+	check(ads._banner_refresh_remaining_ms == remaining_ms and !ads.is_processing(), "a hidden banner preserves the remaining grace")
+	ads.show_banner()
+	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	ads.probe_now_ms += grace_ms
+	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	check(ads._banner_refresh_remaining_ms == remaining_ms and !ads.is_processing(), "resume without focus keeps the SDK grace paused")
+	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	ads._process(0.0)
+	ads.probe_now_ms += remaining_ms - 1
+	ads._process(0.0)
+	check(ads._banner_request_id == active, "SDK retains the same view until the resumed deadline")
+	ads.probe_now_ms += 1
+	ads._process(0.0)
+	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining > 0.0, "missing SDK recovery schedules replacement after grace")
+	ads._process(ads._banner_retry_remaining)
+	var replacement: String = ads._banner_request_id
+	native._on_banner_loaded_for_request.emit(active)
+	check(replacement != active and ads._banner_loading, "same-screen replacement rejects stale SDK refresh")
+	native._on_banner_loaded_for_request.emit(replacement)
+	check(ads._banner_loaded and !ads.is_processing(), "replacement restores the banner without changing screens")
 	ads.remove_banner()
 	var before: int = native.calls.size()
 	native._on_banner_loaded_for_request.emit(active)
@@ -469,6 +554,68 @@ func test_banner_sdk_refresh() -> void:
 	before = native.calls.size()
 	ads._process(1000.0)
 	check(native.calls.size() == before and !ads.is_processing(), "exit cancels watchdog without late requests")
+	ads.free()
+
+func test_interstitial_load_recovery() -> void:
+	var ads := RewardedRecoveryAds.new()
+	var native := TaggedInterstitialNative.new()
+	ads._native = native
+	ads._sdk_ready = true
+	ads._sdk_initialization_requested = true
+	ads._connect_native_signals()
+	var timeout: float = ads._interstitial_timing("load_timeout_seconds")
+	var base: float = ads._interstitial_timing("retry_base_seconds")
+	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.interstitial_recovery.maximum_recovery_attempts")
+	check(!ads.show_interstitial() and ads._interstitial_loading, "interstitial starts one load without blocking gameplay")
+	ads.advance(timeout - 1.0)
+	var first: String = ads._interstitial_load_id
+	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	ads.advance(timeout * 2.0)
+	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	ads.advance(0.0)
+	check(ads._interstitial_load_id == first and !first.is_empty(), "interstitial deadline excludes time in background")
+	ads.advance(1.0)
+	check(native.calls == ["int_load:" + first, "int_cancel:" + first] and !ads._interstitial_loading, "lost callback cancels the tagged load")
+	check(!ads.show_interstitial() and native.calls.size() == 2, "gameplay cannot bypass interstitial backoff")
+	ads.advance(base)
+	var second: String = ads._interstitial_load_id
+	native._on_interstitial_loaded_for_load.emit(first)
+	native._on_interstitial_failed_for_load.emit(first, 4)
+	native._on_interstitial_loaded.emit()
+	check(second != first and ads._interstitial_loading and !ads.is_interstitial_loaded(), "late and legacy signals cannot complete replacement")
+	native._on_interstitial_failed_for_load.emit(second, 4)
+	native._on_interstitial_failed_for_load.emit(second, 4)
+	check(ads._interstitial_recovery_count == 2 and ads._interstitial_retry_deadline_ms > ads.now_ms, "failure of a recovery load consumes the next retry slot")
+	check(!ads.show_interstitial() and ads._interstitial_load_serial == 2, "next gameplay opportunity cannot bypass backoff after retry failure")
+	ads.advance((ads._interstitial_retry_deadline_ms - ads.now_ms) / 1000.0)
+	for index: int in range(2, maximum + 1):
+		ads.advance(timeout)
+		if ads._interstitial_retry_deadline_ms >= 0:
+			ads.advance((ads._interstitial_retry_deadline_ms - ads.now_ms) / 1000.0)
+	check(ads._interstitial_load_serial == 1 + maximum and !ads.is_processing(), "interstitial retry budget is finite")
+	var cooldown: float = ads._interstitial_timing("probe_cooldown_seconds")
+	ads.advance(cooldown)
+	check(!ads.show_interstitial() and ads._interstitial_loading, "later gameplay opportunity probes after cooldown")
+	var probe_id: String = ads._interstitial_load_id
+	ads.advance(1.0)
+	native._on_interstitial_failed_for_load.emit(probe_id, 4)
+	check(ads._interstitial_probe_after_ms == ads.now_ms + int(cooldown * 1000.0), "failed probe restarts a full cooldown at failure")
+	check(!ads.show_interstitial() and ads._interstitial_load_id.is_empty(), "a failed probe cannot be repeated immediately")
+	ads.advance(cooldown)
+	ads.show_interstitial()
+	var obsolete: String = ads._interstitial_load_id
+	ads.set_user_consent(true)
+	var current: String = ads._interstitial_load_id
+	check(current != obsolete and native.calls.has("int_cancel:" + obsolete), "consent change cancels and replaces a tagged load")
+	native._on_interstitial_loaded_for_load.emit(obsolete)
+	native._on_interstitial_loaded_for_load.emit(current)
+	native._on_interstitial_failed_for_load.emit(current, 4)
+	check(ads.is_interstitial_loaded() and !ads.is_processing() and ads._interstitial_recovery_count == 0, "preload success renews budget and ignores duplicate failure")
+	check(native.calls.all(func(call: String) -> bool: return !call.begins_with("int:")), "retries only preload the interstitial")
+	ads._interstitial_loaded = false
+	ads.load_interstitial()
+	native._on_interstitial_failed_for_load.emit(ads._interstitial_load_id, 4)
+	check(ads._interstitial_recovery_count == 0 and !ads.is_processing(), "ordinary failure outside a recovery cycle keeps the existing policy")
 	ads.free()
 
 func test_banner_unavailable_view() -> void:
@@ -678,7 +825,8 @@ func test_native_signal_subscription() -> void:
 	check(ads._rewarded_show_open and ads._rewarded_show_id == "second", "legacy callbacks are disconnected from the tagged path")
 	native._on_rewarded_for_request.emit("first", "coin", 1)
 	native._on_rewarded_closed_for_request.emit("first")
-	check(received[-2] == "reward:first" and ads._rewarded_show_open, "late tagged reward retains original ID while another show is open")
+	check(received.back() == "reward:first" and ads._rewarded_show_open, "late tagged reward retains original ID while another show is open")
+	check(received.count("closed:first") == 1, "late terminal callback never reaches a consumer twice")
 	native._on_ad_impression.emit("first", "rewarded", "{}")
 	check(received.back() == "impression:hint_open", "Rewarded ILRD retains original placement")
 	native._on_rewarded_failed_for_request.emit("second", "not ready")
@@ -727,6 +875,77 @@ func test_tagged_interstitial_lifecycle() -> void:
 	ads._on_interstitial_failed_for_request(second, "not ready")
 	ads._on_interstitial_closed_for_request(second)
 	check(!ads._interstitial_show_open and notifications == ["shown", "closed", "failed"], "current failure completes UI exactly once")
+	ads.free()
+
+func tick_fullscreen_recovery(ads: Node) -> void:
+	ads._fullscreen_poll_after_ms = 0
+	ads._process(0.0)
+
+func test_fullscreen_terminal_recovery() -> void:
+	var ads = service()
+	var native := FullscreenNative.new()
+	ads._native = native
+	ads._connect_native_signals()
+	var events: Array[String] = []
+	ads.interstitial_closed.connect(func() -> void: events.append("interstitial_closed"))
+	ads.interstitial_shown.connect(func() -> void: events.append("interstitial_shown"))
+	ads.rewarded_video_closed_for_request.connect(func(id: String) -> void: events.append("closed:" + id))
+	ads.rewarded_video_failed_to_show_for_request.connect(func(id: String, _message: String) -> void: events.append("failed:" + id))
+	ads.rewarded_for_request.connect(func(id: String, _currency: String, _amount: int) -> void: events.append("reward:" + id))
+	ads._interstitial_loaded = true
+	ads._rewarded_loaded = true
+	check(ads.show_interstitial(&"word_success"), "interstitial admits fullscreen recovery")
+	var first: String = ads._interstitial_show_id
+	check(native.calls == ["interstitial:" + first] and ads.is_processing(), "bridge receives the show ID and arms the watcher")
+	check(!ads.show_rewarded_video("overlap", &"final"), "another format cannot overlap interstitial")
+	tick_fullscreen_recovery(ads)
+	check(ads._interstitial_show_open and events.is_empty(), "silence alone cannot finish a show")
+	native.outcomes[first] = "recovered_shown"
+	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
+	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var polls: int = native.calls.size()
+	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
+	tick_fullscreen_recovery(ads)
+	check(native.calls.size() == polls and ads._interstitial_show_open, "resume without focus cannot complete an ad")
+	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+	tick_fullscreen_recovery(ads)
+	ads._on_interstitial_closed_for_request(first)
+	check(events == ["interstitial_shown", "interstitial_closed"] and !ads.is_processing(), "verified return replays confirmed shown and advances once")
+	check(ads._analytics_shows[first].events.has("ad_show_result:recovered"), "recovery has distinct analytics")
+	check(ads.show_rewarded_video("hint", &"hint_open"), "rewarded starts after recovered interstitial")
+	native.outcomes["hint"] = "recovered"
+	tick_fullscreen_recovery(ads)
+	check(events.back() == "closed:hint" and !events.has("reward:hint"), "recovered rewarded releases UI without awarding")
+	ads._rewarded_loaded = true
+	check(ads.show_rewarded_video("double", &"final"), "next rewarded may run while an old receipt is pending")
+	native._on_rewarded_failed_for_request.emit("hint", "late failure")
+	native._on_rewarded_closed_for_request.emit("hint")
+	native._on_rewarded_for_request.emit("hint", "coins", 1)
+	check(events.back() == "reward:hint" and events.count("closed:hint") == 1 and !events.has("failed:hint") and ads._rewarded_show_open, "late reward reaches its owner without old terminal events disturbing a new show")
+	native.outcomes["double"] = "failed"
+	tick_fullscreen_recovery(ads)
+	check(events.back() == "failed:double" and !ads._rewarded_show_open, "poll recovers a lost native pre-show failure")
+	ads._rewarded_loaded = true
+	check(ads.show_rewarded_video("normal", &"stage_coin"), "normal rewarded can still start")
+	native.outcomes["normal"] = "closed"
+	tick_fullscreen_recovery(ads)
+	native._on_rewarded_closed_for_request.emit("normal")
+	check(events.count("closed:normal") == 1 and !ads.is_processing(), "native result poll and SDK closed signal complete only once")
+	ads._interstitial_loaded = true
+	check(ads.show_interstitial(&"word_success"), "another interstitial can start")
+	native.outcomes[ads._interstitial_show_id] = "recovered"
+	tick_fullscreen_recovery(ads)
+	check(events.count("interstitial_shown") == 1 and events.count("interstitial_closed") == 2, "return without SDK shown releases navigation without resetting the interval")
+	ads._interstitial_loaded = true
+	check(ads.show_interstitial(&"word_success"), "normal interstitial can start after an unconfirmed show")
+	native.outcomes[ads._interstitial_show_id] = "closed_shown"
+	tick_fullscreen_recovery(ads)
+	check(events.slice(-2) == ["interstitial_shown", "interstitial_closed"], "poll replays native shown before a lost normal close")
+	ads._rewarded_loaded = true
+	native.accepts_show = false
+	check(ads.show_rewarded_video("rejected", &"final"), "bridge rejection is deferred until the UI takes ownership")
+	await process_frame
+	check(events.back() == "failed:rejected" and !ads._rewarded_show_open, "bridge rejection releases the UI")
 	ads.free()
 
 func test_shared_placement_cache() -> void:
@@ -794,6 +1013,7 @@ func test_release_fullscreen_warmup() -> void:
 		check(ads.show_rewarded_video("warm-rw", &"coin_refill"), "Player can show the warmed shared RW")
 		check(ads._native.calls[-1] == "show:warm-rw", "Warm RW reaches native show with the gameplay request ID")
 		check(ads._native.calls.count("load_rewarded") == 1, "Ready RW does not reload before showing")
+		ads._on_rewarded_closed_for_request("warm-rw")
 		ads.prepare_interstitial_placement(&"forfeit")
 		check(ads._native.calls.count("load_interstitial") == 1, "Gameplay preparation reuses the in-flight warmup")
 		ads._on_interstitial_loaded()

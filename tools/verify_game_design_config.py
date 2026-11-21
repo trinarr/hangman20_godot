@@ -329,10 +329,14 @@ def main() -> None:
     for language in ("ru", "en"):
         path = f"tournament.filler_cis_ratio.{language}"
         require(require_number(resolve(config, path), path) <= 1, "Tournament filler ratio must be in 0..1")
+    fullscreen = resolve(config, "advertising.fullscreen_show_recovery")
+    for key in ("queue_timeout_seconds", "return_grace_seconds", "poll_interval_seconds"):
+        require(require_number(fullscreen[key], f"advertising.fullscreen_show_recovery.{key}") >= 0.001,
+                "Fullscreen recovery timings must be at least one millisecond")
     banner = resolve(config, "advertising.banner_recovery")
     require(require_int(banner["maximum_recovery_attempts"], "advertising.banner_recovery.maximum_recovery_attempts") <= 10,
             "Banner recovery attempts must be in 0..10")
-    for key in ("load_timeout_seconds", "refresh_after_background_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"):
+    for key in ("load_timeout_seconds", "sdk_refresh_grace_seconds", "refresh_after_background_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"):
         require(require_number(banner[key], f"advertising.banner_recovery.{key}") > 0,
                 "Banner recovery timings must be positive")
     require(banner["retry_base_seconds"] <= banner["retry_maximum_seconds"],
@@ -345,6 +349,14 @@ def main() -> None:
                 "Rewarded recovery timings must be positive")
     require(rewarded["retry_base_seconds"] <= rewarded["retry_maximum_seconds"],
             "Rewarded retry base must not exceed maximum")
+    interstitial = resolve(config, "advertising.interstitial_recovery")
+    require(0 <= require_int(interstitial["maximum_recovery_attempts"], "advertising.interstitial_recovery.maximum_recovery_attempts") <= 10,
+            "Interstitial recovery attempts must be in 0..10")
+    for key in ("load_timeout_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"):
+        require(require_number(interstitial[key], f"advertising.interstitial_recovery.{key}") > 0,
+                "Interstitial recovery timings must be positive")
+    require(interstitial["retry_base_seconds"] <= interstitial["retry_maximum_seconds"],
+            "Interstitial recovery retry base must not exceed maximum")
     retry = resolve(config, "timings.network_retry")
     retry_base = require_number(retry["base_seconds"], "timings.network_retry.base_seconds")
     retry_maximum = require_number(retry["maximum_seconds"], "timings.network_retry.maximum_seconds")

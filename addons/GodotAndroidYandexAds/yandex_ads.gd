@@ -56,9 +56,12 @@ var _banner_loaded: bool = false
 var _banner_request_serial: int = 0
 var _banner_request_id: String = ""
 var _banner_load_remaining: float = 0.0
+var _banner_refresh_deadline_ms: int = -1
+var _banner_refresh_remaining_ms: int = -1
 var _banner_retry_remaining: float = 0.0
 var _banner_recovery_count: int = 0
 var _banner_probe_after_ms: int = -1
+var _banner_probe_timer: Timer
 var _banner_tagged_bridge: bool = false
 var _banner_native_clock: bool = false
 var _banner_backgrounded: bool = false
@@ -67,6 +70,13 @@ var _banner_background_started_ms: int = -1
 var _banner_resume_pending: bool = false
 var _interstitial_loading: bool = false
 var _interstitial_loaded: bool = false
+var _interstitial_tagged_load_bridge: bool = false
+var _interstitial_load_serial: int = 0
+var _interstitial_load_id: String = ""
+var _interstitial_load_deadline_ms: int = -1
+var _interstitial_retry_deadline_ms: int = -1
+var _interstitial_probe_after_ms: int = -1
+var _interstitial_recovery_count: int = 0
 var _rewarded_loading: bool = false
 var _rewarded_loaded: bool = false
 var _rewarded_tagged_load_bridge: bool = false
@@ -74,7 +84,7 @@ var _rewarded_load_serial: int = 0
 var _rewarded_load_id: String = ""
 var _rewarded_load_deadline_ms: int = -1
 var _rewarded_retry_deadline_ms: int = -1
-var _rewarded_pause_started_ms: int = -1
+var _ad_pause_started_ms: int = -1
 var _rewarded_recovery_count: int = 0
 var _rewarded_recovery_stopped: bool = false
 var _rewarded_pending_show: bool = false
@@ -97,6 +107,8 @@ var _interstitial_show_id: String = ""
 var _interstitial_show_open: bool = false
 var _analytics_shows: Dictionary = {}
 var _rewarded_wait_started: int = 0
+var _fullscreen_recovery_bridge: bool = false
+var _fullscreen_poll_after_ms: int = -1
 
 # Opt-in debug diagnostics. No IP, token or ad payloads.
 var _banner_diag_sequence: int = 0
@@ -135,13 +147,16 @@ func _exit_tree() -> void:
 	_rewarded_recovery_stopped = true
 	_cancel_rewarded_load()
 	_rewarded_retry_deadline_ms = -1
-	_rewarded_pause_started_ms = -1
+	_cancel_interstitial_load()
+	_reset_interstitial_recovery()
+	_ad_pause_started_ms = -1
 	_fail_pending_rewarded_show("Ad service exited")
 	remove_banner()
 	_banner_resume_pending = false
 	_banner_backgrounded = false
 	_banner_focused = true
 	_banner_background_started_ms = -1
+	_fullscreen_poll_after_ms = -1
 	set_process(false)
 
 func _ready() -> void:
@@ -153,24 +168,31 @@ func _banner_timing(key: String) -> float:
 func _rewarded_timing(key: String) -> float:
 	return BANNER_CONFIG.get_float("advertising.rewarded_recovery." + key)
 
-func _rewarded_now_ms() -> int:
+func _interstitial_timing(key: String) -> float:
+	return BANNER_CONFIG.get_float("advertising.interstitial_recovery." + key)
+
+func _ad_now_ms() -> int:
 	return Time.get_ticks_msec()
 
-func _rewarded_timer_now_ms() -> int:
+func _ad_timer_now_ms() -> int:
 	# Timers created by a callback in the background start counting on resume.
-	return _rewarded_pause_started_ms if _rewarded_pause_started_ms >= 0 else _rewarded_now_ms()
+	return _ad_pause_started_ms if _ad_pause_started_ms >= 0 else _ad_now_ms()
 
-func _update_rewarded_pause(was_foreground: bool) -> void:
+func _update_ad_pause(was_foreground: bool) -> void:
 	var foreground: bool = !_banner_backgrounded and _banner_focused
 	if was_foreground and !foreground:
-		_rewarded_pause_started_ms = _rewarded_now_ms()
-	elif !was_foreground and foreground and _rewarded_pause_started_ms >= 0:
-		var paused_ms: int = maxi(_rewarded_now_ms() - _rewarded_pause_started_ms, 0)
+		_ad_pause_started_ms = _ad_now_ms()
+	elif !was_foreground and foreground and _ad_pause_started_ms >= 0:
+		var paused_ms: int = maxi(_ad_now_ms() - _ad_pause_started_ms, 0)
 		if _rewarded_load_deadline_ms >= 0:
 			_rewarded_load_deadline_ms += paused_ms
 		if _rewarded_retry_deadline_ms >= 0:
 			_rewarded_retry_deadline_ms += paused_ms
-		_rewarded_pause_started_ms = -1
+		if _interstitial_load_deadline_ms >= 0:
+			_interstitial_load_deadline_ms += paused_ms
+		if _interstitial_retry_deadline_ms >= 0:
+			_interstitial_retry_deadline_ms += paused_ms
+		_ad_pause_started_ms = -1
 
 func _banner_now_ms() -> int:
 	# Android elapsed realtime includes sleep without calendar clock adjustments.
@@ -178,7 +200,7 @@ func _banner_now_ms() -> int:
 		return int(_native.getElapsedRealtimeMs())
 	return Time.get_ticks_msec()
 
-func _banner_probe_now_ms() -> int:
+func _banner_recovery_now_ms() -> int:
 	return Time.get_ticks_msec()
 
 func _notification(what: int) -> void:
@@ -198,24 +220,58 @@ func _notification(what: int) -> void:
 		_banner_resume_pending = true
 	else:
 		return
-	_update_rewarded_pause(was_foreground)
+	_update_ad_pause(was_foreground)
 	_update_ad_processing()
 
 func _banner_can_request() -> bool:
 	return !_banner_backgrounded and _banner_focused and _sdk_ready and is_native_available()
 
+func _sync_banner_refresh_deadline() -> void:
+	if _banner_refresh_remaining_ms >= 0 and _banner_wanted and _banner_can_request():
+		_banner_refresh_deadline_ms = _banner_recovery_now_ms() + _banner_refresh_remaining_ms
+		_banner_refresh_remaining_ms = -1
+	elif _banner_refresh_deadline_ms >= 0 and (!_banner_wanted or !_banner_can_request()):
+		_banner_refresh_remaining_ms = maxi(_banner_refresh_deadline_ms - _banner_recovery_now_ms(), 0)
+		_banner_refresh_deadline_ms = -1
+
 func _update_ad_processing() -> void:
+	_sync_banner_refresh_deadline()
+	_update_banner_probe_timer()
 	set_process(_banner_can_request() and (
+		_fullscreen_poll_after_ms >= 0 or
 		_banner_resume_pending or (_banner_wanted and (
 			(_banner_loading and _banner_tagged_bridge) or _banner_retry_remaining > 0.0
+			or _banner_refresh_deadline_ms >= 0
 		)) or (_rewarded_loading and _rewarded_tagged_load_bridge) or _rewarded_retry_deadline_ms >= 0
+		or _interstitial_load_deadline_ms >= 0 or _interstitial_retry_deadline_ms >= 0
 	))
+
+func _update_banner_probe_timer() -> void:
+	if !is_inside_tree() or !_banner_wanted or _banner_probe_after_ms < 0 or !_can_load_banner():
+		if _banner_probe_timer != null:
+			_banner_probe_timer.stop()
+		return
+	if _banner_probe_timer == null:
+		_banner_probe_timer = Timer.new()
+		_banner_probe_timer.one_shot = true
+		_banner_probe_timer.ignore_time_scale = true
+		_banner_probe_timer.timeout.connect(_on_banner_probe_timeout)
+		add_child(_banner_probe_timer)
+	if _banner_probe_timer.is_stopped():
+		var remaining_ms: int = _banner_probe_after_ms - _banner_recovery_now_ms()
+		_banner_probe_timer.start(maxi(remaining_ms, 1) / 1000.0)
+
+func _on_banner_probe_timeout() -> void:
+	if _banner_wanted and _banner_probe_after_ms >= 0:
+		load_banner(true)
 
 func _process(delta: float) -> void:
 	if !_banner_can_request():
 		_update_ad_processing()
 		return
+	_poll_fullscreen_show()
 	_tick_rewarded_recovery()
+	_tick_interstitial_recovery()
 	if _banner_resume_pending:
 		_banner_resume_pending = false
 		_recover_banner_after_resume()
@@ -229,6 +285,9 @@ func _process(delta: float) -> void:
 		_banner_load_remaining -= delta
 		if _banner_load_remaining <= 0.0:
 			_replace_failed_banner_request("load_timeout")
+	elif _banner_refresh_deadline_ms >= 0:
+		if _banner_recovery_now_ms() >= _banner_refresh_deadline_ms:
+			_replace_failed_banner_request("sdk_refresh_timeout")
 	elif _banner_retry_remaining > 0.0:
 		_banner_retry_remaining = maxf(0.0, _banner_retry_remaining - delta)
 		if _banner_retry_remaining == 0.0:
@@ -259,10 +318,15 @@ func _reset_banner_request() -> void:
 	_banner_loaded = false
 	_discard_banner_load = false
 	_banner_load_remaining = 0.0
+	_clear_banner_refresh_deadline()
 	_banner_retry_remaining = 0.0
 	if is_native_available():
 		_native.removeBanner()
 	_update_ad_processing()
+
+func _clear_banner_refresh_deadline() -> void:
+	_banner_refresh_deadline_ms = -1
+	_banner_refresh_remaining_ms = -1
 
 func _replace_failed_banner_request(event: String) -> void:
 	trace_banner(event)
@@ -272,8 +336,9 @@ func _replace_failed_banner_request(event: String) -> void:
 
 func _schedule_banner_retry() -> void:
 	if _banner_recovery_count > BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts"):
-		_banner_probe_after_ms = _banner_probe_now_ms() + int(_banner_timing("probe_cooldown_seconds") * 1000.0)
+		_banner_probe_after_ms = _banner_recovery_now_ms() + int(_banner_timing("probe_cooldown_seconds") * 1000.0)
 		trace_banner("probe_cooldown_started")
+		_update_ad_processing()
 		return
 	if !_banner_wanted:
 		return
@@ -361,8 +426,10 @@ func is_sdk_ready() -> bool:
 
 func _connect_native_signals() -> void:
 	_rewarded_tagged_load_bridge = _native_has_method(&"loadRewardedVideoForRequest") and _native_has_method(&"cancelRewardedVideoLoad")
+	_interstitial_tagged_load_bridge = _native_has_method(&"loadInterstitialForRequest") and _native_has_method(&"cancelInterstitialLoad")
 	_banner_tagged_bridge = _native_has_method(&"loadBannerForRequest")
 	_banner_native_clock = _native_has_method(&"getElapsedRealtimeMs")
+	_fullscreen_recovery_bridge = _native_has_method(&"showFullscreenAdForRequest") and _native_has_method(&"pollFullscreenAdForRequest")
 	_connect_native(&"_on_ad_impression", Callable(self, "_on_ad_impression"))
 	if _native.has_signal("_on_rewarded_shown_for_request"):
 		_connect_native(&"_on_rewarded_shown_for_request", Callable(self, "_on_rewarded_shown_for_request"))
@@ -375,11 +442,12 @@ func _connect_native_signals() -> void:
 	else:
 		_connect_native(&"_on_banner_loaded", Callable(self, "_on_banner_loaded"))
 		_connect_native(&"_on_banner_failed_to_load", Callable(self, "_on_banner_failed_to_load"))
-	_connect_native(&"_on_interstitial_loaded", Callable(self, "_on_interstitial_loaded"))
-	_connect_native(
-		&"_on_interstitial_failed_to_load",
-		Callable(self, "_on_interstitial_failed_to_load")
-	)
+	if _interstitial_tagged_load_bridge:
+		_connect_native(&"_on_interstitial_loaded_for_load", Callable(self, "_on_interstitial_loaded_for_load"))
+		_connect_native(&"_on_interstitial_failed_for_load", Callable(self, "_on_interstitial_failed_for_load"))
+	else:
+		_connect_native(&"_on_interstitial_loaded", Callable(self, "_on_interstitial_loaded"))
+		_connect_native(&"_on_interstitial_failed_to_load", Callable(self, "_on_interstitial_failed_to_load"))
 	if _native.has_signal("_on_interstitial_shown_for_request"):
 		trace_banner("interstitial_tagged_bridge_bound")
 		_connect_native(&"_on_interstitial_shown_for_request", Callable(self, "_on_interstitial_shown_for_request"))
@@ -436,6 +504,7 @@ func show_banner() -> void:
 	if !_banner_loading and !_banner_request_id.is_empty():
 		trace_banner("native_show_cached")
 		_native.showBanner()
+		_update_ad_processing()
 		return
 	load_banner(true)
 
@@ -446,14 +515,21 @@ func hide_banner() -> void:
 		_native.hideBanner()
 	_update_ad_processing()
 
+func _can_load_banner() -> bool:
+	return (
+		_banner_can_request() and !_banner_resume_pending and !banner_id.is_empty()
+		and _banner_request_id.is_empty() and _banner_retry_remaining <= 0.0
+	)
+
 func load_banner(allow_cooldown_probe: bool = false) -> void:
-	if !_banner_can_request() or _banner_resume_pending or banner_id.is_empty() or !_banner_request_id.is_empty() or _banner_retry_remaining > 0.0:
+	if !_can_load_banner():
 		trace_banner("load_skipped", {"empty_unit": banner_id.is_empty()})
 		_update_ad_processing()
 		return
 	if _banner_recovery_count > BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts"):
-		if !allow_cooldown_probe or _banner_probe_after_ms < 0 or _banner_probe_now_ms() < _banner_probe_after_ms:
+		if !_banner_wanted or !allow_cooldown_probe or _banner_probe_after_ms < 0 or _banner_recovery_now_ms() < _banner_probe_after_ms:
 			trace_banner("load_blocked_probe_cooldown")
+			_update_ad_processing()
 			return
 		# Keep the exhausted budget: this authorizes one probe, not a new retry chain.
 		_banner_probe_after_ms = -1
@@ -499,11 +575,63 @@ func load_interstitial() -> void:
 		or _interstitial_loading
 		or _interstitial_show_open
 		or _interstitial_loaded
+		or _interstitial_retry_deadline_ms >= 0
 	):
 		return
+	if _interstitial_probe_after_ms >= 0:
+		if _ad_now_ms() < _interstitial_probe_after_ms:
+			return
+		# Keep the exhausted budget so each subsequent opportunity allows one load.
+		_start_interstitial_probe_cooldown()
 	_interstitial_loading = true
-	_interstitial_loaded = false
-	_native.loadInterstitial(interstitial_id)
+	if _interstitial_tagged_load_bridge:
+		_interstitial_load_serial += 1
+		_interstitial_load_id = "int-load:%d:%d" % [Time.get_ticks_usec(), _interstitial_load_serial]
+		_interstitial_load_deadline_ms = _ad_timer_now_ms() + int(_interstitial_timing("load_timeout_seconds") * 1000.0)
+		_native.loadInterstitialForRequest(_interstitial_load_id, interstitial_id)
+	else:
+		_native.loadInterstitial(interstitial_id)
+	_update_ad_processing()
+
+func _clear_interstitial_load() -> void:
+	_interstitial_load_id = ""
+	_interstitial_load_deadline_ms = -1
+	_interstitial_loading = false
+
+func _cancel_interstitial_load() -> void:
+	if !_interstitial_tagged_load_bridge:
+		return
+	var old_id: String = _interstitial_load_id
+	_clear_interstitial_load()
+	if !old_id.is_empty() and is_native_available():
+		_native.cancelInterstitialLoad(old_id)
+
+func _reset_interstitial_recovery() -> void:
+	_interstitial_recovery_count = 0
+	_interstitial_retry_deadline_ms = -1
+	_interstitial_probe_after_ms = -1
+
+func _start_interstitial_probe_cooldown() -> void:
+	_interstitial_probe_after_ms = _ad_now_ms() + int(_interstitial_timing("probe_cooldown_seconds") * 1000.0)
+
+func _schedule_interstitial_recovery() -> void:
+	var maximum: int = BANNER_CONFIG.get_int("advertising.interstitial_recovery.maximum_recovery_attempts")
+	if _interstitial_recovery_count >= maximum:
+		_start_interstitial_probe_cooldown()
+		return
+	var delay: float = minf(_interstitial_timing("retry_base_seconds") * pow(2.0, _interstitial_recovery_count), _interstitial_timing("retry_maximum_seconds"))
+	_interstitial_recovery_count += 1
+	_interstitial_retry_deadline_ms = _ad_timer_now_ms() + int(delay * 1000.0)
+
+func _tick_interstitial_recovery() -> void:
+	var now: int = _ad_timer_now_ms()
+	if _interstitial_load_deadline_ms >= 0 and now >= _interstitial_load_deadline_ms:
+		_cancel_interstitial_load()
+		_schedule_interstitial_recovery()
+		analytics_event.emit("ad_load_result", {"ad_format": "interstitial", "status": "timeout"})
+	elif _interstitial_retry_deadline_ms >= 0 and now >= _interstitial_retry_deadline_ms:
+		_interstitial_retry_deadline_ms = -1
+		load_interstitial()
 
 func is_interstitial_loaded(placement: StringName = &"") -> bool:
 	if placement == &"":
@@ -512,6 +640,8 @@ func is_interstitial_loaded(placement: StringName = &"") -> bool:
 	return _interstitial_loaded and !placement_id.is_empty()
 
 func show_interstitial(placement: StringName = &"") -> bool:
+	if _interstitial_show_open or _rewarded_show_open or _rewarded_pending_show:
+		return false
 	if placement != &"" and !prepare_interstitial_placement(placement):
 		return false
 	if !is_native_available() or !_sdk_ready or interstitial_id.is_empty():
@@ -532,7 +662,9 @@ func _start_interstitial_show() -> void:
 	_interstitial_show_open = true
 	_remember_analytics_show(_interstitial_show_id, str(_interstitial_placement), "interstitial")
 	_track_show_event(_interstitial_show_id, "ad_show_result", "requested")
-	if _native_has_method(&"showInterstitialForRequest"):
+	if _fullscreen_recovery_bridge:
+		_start_fullscreen_show(_interstitial_show_id, "interstitial")
+	elif _native_has_method(&"showInterstitialForRequest"):
 		_native.showInterstitialForRequest(_interstitial_show_id)
 	else:
 		_native.showInterstitial()
@@ -564,7 +696,7 @@ func load_rewarded_video() -> void:
 	if _rewarded_tagged_load_bridge:
 		_rewarded_load_serial += 1
 		_rewarded_load_id = "rw:%d:%d" % [Time.get_ticks_usec(), _rewarded_load_serial]
-		_rewarded_load_deadline_ms = _rewarded_timer_now_ms() + int(_rewarded_timing("load_timeout_seconds") * 1000.0)
+		_rewarded_load_deadline_ms = _ad_timer_now_ms() + int(_rewarded_timing("load_timeout_seconds") * 1000.0)
 		_native.loadRewardedVideoForRequest(_rewarded_load_id, rewarded_id)
 	else:
 		_native.loadRewardedVideo(rewarded_id)
@@ -586,11 +718,11 @@ func _schedule_rewarded_retry() -> void:
 		_rewarded_recovery_count += 1
 		if _rewarded_recovery_count <= int(_rewarded_timing("maximum_recovery_attempts")):
 			var delay: float = minf(_rewarded_timing("retry_base_seconds") * pow(2.0, _rewarded_recovery_count - 1), _rewarded_timing("retry_maximum_seconds"))
-			_rewarded_retry_deadline_ms = _rewarded_timer_now_ms() + int(delay * 1000.0)
+			_rewarded_retry_deadline_ms = _ad_timer_now_ms() + int(delay * 1000.0)
 	_update_ad_processing()
 
 func _tick_rewarded_recovery() -> void:
-	var now: int = _rewarded_timer_now_ms()
+	var now: int = _ad_timer_now_ms()
 	if _rewarded_loading and _rewarded_tagged_load_bridge:
 		if _rewarded_load_deadline_ms >= 0 and now >= _rewarded_load_deadline_ms:
 			_cancel_rewarded_load()
@@ -617,7 +749,7 @@ func can_request_rewarded_video(placement: StringName = &"") -> bool:
 func show_rewarded_video(
 	request_id: String = "", placement: StringName = &"", validator: Callable = Callable()
 ) -> bool:
-	if _rewarded_recovery_stopped or _rewarded_show_open or _rewarded_pending_show or _rewarded_retry_deadline_ms >= 0:
+	if _rewarded_recovery_stopped or _interstitial_show_open or _rewarded_show_open or _rewarded_pending_show or _rewarded_retry_deadline_ms >= 0:
 		return false
 	# Only a new explicit player action may start another recovery cycle once
 	# the bounded automatic retries are exhausted. Popup polling cannot do so.
@@ -675,13 +807,49 @@ func _start_rewarded_show(request_id: String) -> void:
 		!request_id.is_empty()
 		and !_native_has_method(&"showRewardedVideoForRequest")
 	)
-	if _native_has_method(&"showRewardedVideoForRequest"):
+	if _fullscreen_recovery_bridge:
+		_start_fullscreen_show(_rewarded_show_id, "rewarded")
+	elif _native_has_method(&"showRewardedVideoForRequest"):
 		_native.showRewardedVideoForRequest(_rewarded_show_id)
 	else:
 		# Keep tagged final-reward requests working with an older cached Android
 		# bridge too. The wrapper owns the single active show id and converts the
 		# legacy native callbacks back into the request-specific Godot signals.
 		_native.showRewardedVideo()
+
+func _fullscreen_timing_ms(key: String) -> int:
+	return int(BANNER_CONFIG.get_float("advertising.fullscreen_show_recovery." + key) * 1000.0)
+
+func _start_fullscreen_show(request_id: String, ad_format: String) -> void:
+	_fullscreen_poll_after_ms = Time.get_ticks_msec() + _fullscreen_timing_ms("poll_interval_seconds")
+	_update_ad_processing()
+	if !_native.showFullscreenAdForRequest(request_id, ad_format, _fullscreen_timing_ms("queue_timeout_seconds"), _fullscreen_timing_ms("return_grace_seconds")):
+		_finish_fullscreen_show.call_deferred(request_id, ad_format == "rewarded", "failed")
+
+func _poll_fullscreen_show() -> void:
+	var now: int = Time.get_ticks_msec()
+	if _fullscreen_poll_after_ms < 0 or now < _fullscreen_poll_after_ms:
+		return
+	_fullscreen_poll_after_ms = now + _fullscreen_timing_ms("poll_interval_seconds")
+	var is_rewarded: bool = _rewarded_show_open
+	var request_id: String = _rewarded_show_id if is_rewarded else _interstitial_show_id
+	var outcome: String = _native.pollFullscreenAdForRequest(request_id)
+	if outcome.is_empty():
+		return
+	if outcome.ends_with("_shown"):
+		if is_rewarded:
+			_on_rewarded_shown_for_request(request_id)
+		else:
+			_on_interstitial_shown_for_request(request_id)
+		outcome = outcome.trim_suffix("_shown")
+	_finish_fullscreen_show(request_id, is_rewarded, outcome)
+
+func _finish_fullscreen_show(request_id: String, is_rewarded: bool, outcome: String) -> void:
+	var message: String = "Native fullscreen show failed" if outcome == "failed" else ""
+	if is_rewarded:
+		_finish_rewarded_show(request_id, outcome, message)
+	else:
+		_finish_interstitial_show(request_id, outcome, message)
 
 func _fail_pending_rewarded_show(message: String) -> void:
 	if !_rewarded_pending_show:
@@ -704,24 +872,30 @@ func _on_rewarded_for_request(request_id: String, currency: String, amount: int)
 		rewarded.emit(currency, amount)
 
 func _on_rewarded_closed_for_request(request_id: String) -> void:
-	_track_show_event(request_id, "ad_closed", "closed")
-	if request_id == _rewarded_show_id and _rewarded_show_open:
-		_rewarded_show_open = false
-		_rewarded_loaded = false
-		if _rewarded_show_legacy:
-			rewarded_video_closed.emit()
-		call_deferred("load_rewarded_video")
-	rewarded_video_closed_for_request.emit(request_id)
+	_finish_rewarded_show(request_id, "closed")
 
 func _on_rewarded_failed_for_request(request_id: String, message: String) -> void:
-	_track_show_event(request_id, "ad_show_result", "failed")
-	if request_id == _rewarded_show_id and _rewarded_show_open:
-		_rewarded_show_open = false
-		_rewarded_loaded = false
-		if _rewarded_show_legacy:
+	_finish_rewarded_show(request_id, "failed", message)
+
+func _finish_rewarded_show(request_id: String, status: String, message: String = "") -> void:
+	if !_rewarded_show_open or request_id != _rewarded_show_id:
+		return
+	var legacy_consumer: bool = _rewarded_show_legacy
+	_rewarded_show_open = false
+	_rewarded_loaded = false
+	_fullscreen_poll_after_ms = -1
+	_update_ad_processing()
+	call_deferred("load_rewarded_video")
+	if status == "failed":
+		_track_show_event(request_id, "ad_show_result", status)
+		if legacy_consumer:
 			rewarded_video_failed_to_show.emit(message)
-		call_deferred("load_rewarded_video")
-	rewarded_video_failed_to_show_for_request.emit(request_id, message)
+		rewarded_video_failed_to_show_for_request.emit(request_id, message)
+	else:
+		_track_show_event(request_id, "ad_closed" if status == "closed" else "ad_show_result", status)
+		if legacy_consumer:
+			rewarded_video_closed.emit()
+		rewarded_video_closed_for_request.emit(request_id)
 
 func set_user_consent(value: bool) -> void:
 	trace_banner("consent_update", {"requested_consent": value})
@@ -738,6 +912,10 @@ func set_user_consent(value: bool) -> void:
 	_banner_recovery_count = 0
 	_banner_probe_after_ms = -1
 	_discard_interstitial_load = _interstitial_loading
+	if _interstitial_tagged_load_bridge:
+		_cancel_interstitial_load()
+		_discard_interstitial_load = false
+		_reset_interstitial_recovery()
 	_discard_rewarded_load = _rewarded_loading
 	if _rewarded_tagged_load_bridge:
 		_cancel_rewarded_load()
@@ -802,6 +980,7 @@ func _on_banner_loaded() -> void:
 		_finish_discarded_banner_load()
 		return
 	_banner_loaded = true
+	_clear_banner_refresh_deadline()
 	_banner_retry_remaining = 0.0
 	_banner_recovery_count = 0
 	_banner_probe_after_ms = -1
@@ -824,33 +1003,49 @@ func _on_banner_failed_to_load(error_code: int) -> void:
 		return
 	_banner_loaded = false
 	_banner_load_remaining = 0.0
-	# The view remains alive: SDK auto-refresh owns ordinary load failures.
 	if error_code == -1:
 		# The native bridge could not create a view, so no SDK refresh can follow.
 		_replace_failed_banner_request("view_unavailable")
+	elif _banner_tagged_bridge and _banner_refresh_deadline_ms < 0 and _banner_refresh_remaining_ms < 0:
+		# Give the current SDK view a chance to recover. Repeated failures from
+		# the same view must not push back the replacement indefinitely.
+		_banner_refresh_remaining_ms = int(_banner_timing("sdk_refresh_grace_seconds") * 1000.0)
 	_update_ad_processing()
 	banner_failed_to_load.emit(error_code)
 	analytics_event.emit("ad_load_result", {"ad_format": "banner", "status": "failed", "error_code": error_code})
 
+func _on_interstitial_loaded_for_load(request_id: String) -> void:
+	if !request_id.is_empty() and request_id == _interstitial_load_id:
+		_on_interstitial_loaded()
+
+func _on_interstitial_failed_for_load(request_id: String, error_code: int) -> void:
+	if !request_id.is_empty() and request_id == _interstitial_load_id:
+		_on_interstitial_failed_to_load(error_code)
+
 func _on_interstitial_loaded() -> void:
-	_interstitial_loading = false
+	_clear_interstitial_load()
 	if _discard_interstitial_load:
 		_discard_interstitial_load = false
 		_interstitial_loaded = false
 		load_interstitial()
 		return
 	_interstitial_loaded = true
+	_reset_interstitial_recovery()
+	_update_ad_processing()
 	analytics_event.emit("ad_load_result", {"ad_format": "interstitial", "status": "loaded"})
 	interstitial_loaded.emit()
 
 func _on_interstitial_failed_to_load(error_code: int) -> void:
-	_interstitial_loading = false
+	_clear_interstitial_load()
 	if _discard_interstitial_load:
 		_discard_interstitial_load = false
 		_interstitial_loaded = false
 		load_interstitial()
 		return
 	_interstitial_loaded = false
+	if _interstitial_recovery_count > 0 or _interstitial_probe_after_ms >= 0:
+		_schedule_interstitial_recovery()
+	_update_ad_processing()
 	interstitial_failed_to_load.emit(error_code)
 	analytics_event.emit("ad_load_result", {"ad_format": "interstitial", "status": "failed", "error_code": error_code})
 
@@ -872,28 +1067,29 @@ func _on_interstitial_failed_to_show(message: String) -> void:
 
 func _on_interstitial_failed_for_request(request_id: String, message: String) -> void:
 	trace_banner("interstitial_failed_callback", {"current_request": request_id == _interstitial_show_id, "show_open": _interstitial_show_open})
-	if !_interstitial_show_open or request_id != _interstitial_show_id:
-		return
-	_track_show_event(request_id, "ad_show_result", "failed")
-	_interstitial_show_open = false
-	_interstitial_show_id = ""
-	_interstitial_loaded = false
-	interstitial_failed_to_show.emit(message)
-	call_deferred("load_interstitial")
+	_finish_interstitial_show(request_id, "failed", message)
 
 func _on_interstitial_ad_dismissed() -> void:
 	_on_interstitial_closed_for_request(_interstitial_show_id)
 
 func _on_interstitial_closed_for_request(request_id: String) -> void:
 	trace_banner("interstitial_closed_callback", {"current_request": request_id == _interstitial_show_id, "show_open": _interstitial_show_open})
+	_finish_interstitial_show(request_id, "closed")
+
+func _finish_interstitial_show(request_id: String, status: String, message: String = "") -> void:
 	if !_interstitial_show_open or request_id != _interstitial_show_id:
 		return
-	_track_show_event(request_id, "ad_closed", "closed")
 	_interstitial_show_open = false
 	_interstitial_show_id = ""
 	_interstitial_loaded = false
-	interstitial_closed.emit()
+	_fullscreen_poll_after_ms = -1
+	_update_ad_processing()
 	call_deferred("load_interstitial")
+	_track_show_event(request_id, "ad_closed" if status == "closed" else "ad_show_result", status)
+	if status == "failed":
+		interstitial_failed_to_show.emit(message)
+	else:
+		interstitial_closed.emit()
 
 func _on_rewarded(currency: String, amount: int) -> void:
 	if _rewarded_show_tagged_legacy_bridge and !_rewarded_show_id.is_empty():

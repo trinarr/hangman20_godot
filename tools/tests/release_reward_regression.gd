@@ -21,14 +21,19 @@ class NativeAds:
 	extends RefCounted
 	var interstitial_shows: int = 0
 	var rewarded_shows: int = 0
+	var fullscreen_results: Dictionary = {}
 	func loadInterstitial(_id: String) -> void:
 		pass
-	func showInterstitial() -> void:
-		interstitial_shows += 1
 	func loadRewardedVideo(_id: String) -> void:
 		pass
-	func showRewardedVideoForRequest(_id: String) -> void:
-		rewarded_shows += 1
+	func showFullscreenAdForRequest(_id: String, format: String, _queue_ms: int, _grace_ms: int) -> bool:
+		if format == "rewarded":
+			rewarded_shows += 1
+		else:
+			interstitial_shows += 1
+		return true
+	func pollFullscreenAdForRequest(id: String) -> String:
+		return fullscreen_results.get(id, "")
 	func removeBanner() -> void:
 		pass
 
@@ -45,6 +50,10 @@ class CountedState:
 	func _home_profile_save_game() -> bool:
 		commits += 1
 		return true
+
+class TestDoubleButton:
+	extends Control
+	var button_disabled: bool = false
 
 var failures: Array[String] = []
 var checks: int = 0
@@ -151,6 +160,7 @@ func run_tests() -> void:
 	var ads := TestAds.new()
 	var native := NativeAds.new()
 	ads._native = native
+	ads._connect_native_signals()
 	ads._sdk_ready = true
 	ads.interstitial_id = "test-interstitial"
 	ads.rewarded_id = "test-rewarded"
@@ -160,6 +170,8 @@ func run_tests() -> void:
 	await get_tree().process_frame
 	check(native.interstitial_shows == 0, "late interstitial load does not auto-show")
 	check(ads.show_interstitial() and native.interstitial_shows == 1, "ready interstitial shows")
+	check(!ads.show_rewarded_video("overlap"), "rewarded cannot start during an interstitial")
+	ads._on_interstitial_ad_dismissed()
 	check(ads.show_rewarded_video("cancelled"), "rewarded can wait for load")
 	ads._on_rewarded_video_ad_loaded()
 	check(ads.cancel_pending_rewarded_request("cancelled"), "pending rewarded cancelled")
@@ -188,8 +200,10 @@ func run_tests() -> void:
 	if ads.is_rewarded_request_pending(first_request):
 		ads._on_rewarded_video_ad_loaded()
 		await get_tree().process_frame
-	ads._on_rewarded_closed_for_request(first_request)
-	check(ui._portrait_rewarded_request_id.is_empty(), "tagged close releases UI")
+	native.fullscreen_results[first_request] = "recovered"
+	ads._fullscreen_poll_after_ms = 0
+	ads._poll_fullscreen_show()
+	check(ui._portrait_rewarded_request_id.is_empty() and !GameState._fullscreen_ad_active, "recovered hint releases UI")
 	ads._on_rewarded_for_request(first_request, "", 1)
 	check(!GameSession.open_hint_ad_reuse_available, "tagged late callback reaches original hint")
 	var after_hint: Array = GameSession.revealed.duplicate()
@@ -207,6 +221,35 @@ func run_tests() -> void:
 	await get_tree().process_frame
 	check(!ads._rewarded_pending_show and ui._portrait_rewarded_request_id.is_empty(), "expired load releases pending request and UI")
 	check(!GameState.rewarded_action_requests.has(second_request), "cancelled load removes unearned receipt")
+
+	# A recovered whole-level x2 must leave its durable receipt for a late award.
+	GameState.pending_single_player_reward = {"amount": 50, "claimed": true, "double_resolved": false, "double_claimed": false, "language": Database.current_language, "level_index": 4}
+	ui._portrait_reward_double_context = &"final"
+	var double_button := TestDoubleButton.new()
+	ui.add_child(double_button)
+	ui._portrait_final_reward_double_button = double_button
+	GameState.ads_unlocked = true
+	GameState.interstitial_active_elapsed_seconds = GameState.INTERSTITIAL_INTERVAL_SECONDS
+	ads._rewarded_loaded = true
+	ui._on_final_reward_double_pressed()
+	var double_request: String = ui._portrait_reward_ad_request_id
+	check(!double_request.is_empty() and ads._rewarded_show_open and GameState._fullscreen_ad_active, "whole-level x2 takes the fullscreen lock")
+	check(!GameState.is_interstitial_ready(), "interstitial cannot claim the UI lock during rewarded")
+	before_coins = GameState.get_soft_currency()
+	native.fullscreen_results[double_request] = "recovered_shown"
+	ads._fullscreen_poll_after_ms = 0
+	ads._poll_fullscreen_show()
+	check(!ui._portrait_final_reward_waiting_for_ad and !GameState._fullscreen_ad_active, "recovered x2 releases the waiting UI")
+	check(!double_button.button_disabled and GameState.is_interstitial_ready(), "recovery restores x2 and preserves interstitial eligibility")
+	check(GameState.rewarded_double_requests.has(double_request) and GameState.get_soft_currency() == before_coins, "recovered x2 retains its receipt without granting currency")
+	ui._portrait_reward_double_context = &""
+	ads._interstitial_loaded = true
+	check(ads.show_interstitial(), "next interstitial starts while an x2 receipt awaits reward")
+	ads._on_rewarded_failed_for_request(double_request, "old failure")
+	ads._on_rewarded_for_request(double_request, "", 1)
+	ads._on_rewarded_for_request(double_request, "", 1)
+	check(ads._interstitial_show_open and GameState.get_soft_currency() == before_coins + 50, "late x2 grants the original bonus once during a newer ad")
+	ads._on_interstitial_ad_dismissed()
 
 	before_coins = GameState.get_soft_currency()
 	request_id = GameState.begin_rewarded_action_request("coin_refill", {})

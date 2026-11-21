@@ -19,14 +19,14 @@ class YandexAndroidPreparationTests(unittest.TestCase):
     def test_cancelled_and_duplicate_rewarded_callbacks_cannot_replace_current_ad(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            helper = ROOT / "addons/GodotAndroidYandexAds/source/RewardedLoadGuard.java"
-            test = root / "RewardedLoadGuardTest.java"
+            helper = ROOT / "addons/GodotAndroidYandexAds/source/AdLoadGuard.java"
+            test = root / "AdLoadGuardTest.java"
             test.write_text('''
 package com.darkmoonight.godotandroidyandexads;
-public class RewardedLoadGuardTest {
+public class AdLoadGuardTest {
     static void check(boolean value) { if (!value) throw new AssertionError(); }
     public static void main(String[] args) {
-        RewardedLoadGuard gate = new RewardedLoadGuard();
+        AdLoadGuard gate = new AdLoadGuard();
         check(!gate.isLoading());
         long first = gate.begin("first");
         check(gate.isLoading());
@@ -61,7 +61,80 @@ public class RewardedLoadGuardTest {
 ''', encoding="utf-8")
             result = subprocess.run(["javac", "-encoding", "UTF-8", "-d", str(root), str(helper), str(test)], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
-            result = subprocess.run(["java", "-cp", str(root), "com.darkmoonight.godotandroidyandexads.RewardedLoadGuardTest"], capture_output=True, text=True, timeout=30)
+            result = subprocess.run(["java", "-cp", str(root), "com.darkmoonight.godotandroidyandexads.AdLoadGuardTest"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which("javac") and shutil.which("java"), "JDK required for native fullscreen recovery regression")
+    def test_fullscreen_dispatch_expiry_and_verified_return(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            helper = ROOT / "addons/GodotAndroidYandexAds/source/FullscreenAdShow.java"
+            test = root / "FullscreenAdShowTest.java"
+            test.write_text('''
+package com.darkmoonight.godotandroidyandexads;
+public class FullscreenAdShowTest {
+    static void check(boolean value, String scenario) {
+        if (!value) throw new AssertionError(scenario);
+    }
+    public static void main(String[] args) {
+        FullscreenAdShow<String> cancelled = new FullscreenAdShow<>("queued", true, 5000, 750);
+        cancelled.expireQueued(4999);
+        check(cancelled.pollResult().isEmpty(), "keep the request until its queue deadline");
+        cancelled.expireQueued(5000);
+        check(cancelled.pollResult().equals("failed") && !cancelled.tryDispatch(5001),
+              "poll can cancel a queued request without waiting for the UI thread");
+        FullscreenAdShow<String> dropped = new FullscreenAdShow<>("late-dispatch", true, 5000, 750);
+        check(!dropped.tryDispatch(5000), "UI also enforces the deadline if no poll ran");
+
+        FullscreenAdShow<String> show = new FullscreenAdShow<>("original", true, 5000, 750);
+        check(show.tryDispatch(4999), "UI claims a live request");
+        show.expireQueued(6000);
+        check(show.pollResult().isEmpty(), "expiry cannot cancel an SDK show");
+        show.shown = true;
+        check(FullscreenAdShow.isCreativeActivity("com.yandex.mobile.ads.common.AdActivity"), "Yandex creative");
+        check(FullscreenAdShow.isCreativeActivity("com.applovin.adview.AppLovinFullscreenActivity"), "AppLovin creative");
+        check(!FullscreenAdShow.isCreativeActivity("com.applovin.impl.adview.activity.BrowserActivity"), "landing page");
+        show.trackCreative("creative");
+        show.forgetCreative("unrelated", true);
+        check(!show.canRecover(7000, true), "unrelated activity cannot release the ad");
+        show.forgetCreative("creative", false);
+        check(!show.canRecover(8000, true), "Activity recreation is not dismissal");
+        show.trackCreative("recreated");
+        check(!show.canRecover(50000, false), "no elapsed-time cap while the creative is open");
+        show.forgetCreative("recreated", true);
+        check(!show.canRecover(60000, false), "click-through or background time cannot start grace");
+        check(!show.canRecover(70000, true), "start grace after resume and focus");
+        check(!show.canRecover(70749, true), "allow time for the SDK close callback");
+        show.loseGameWindow();
+        check(!show.canRecover(80000, true), "a second pause resets the grace period");
+        check(show.canRecover(80750, true), "confirmed return with game window focus");
+        show.trackCreative("replacement activity");
+        check(!show.canRecover(90000, true), "another creative cancels pending recovery");
+        show.forgetCreative("replacement activity", true);
+        show.displayedAd = new Object();
+        check(show.complete("recovered") && show.displayedAd == null, "release the shown ad after recovery");
+        check(!show.complete("failed") && show.pollResult().equals("recovered_shown"), "late failure cannot change the outcome");
+        FullscreenAdShow<String> missingShown = new FullscreenAdShow<>("missing-shown", false, 5000, 750);
+        check(missingShown.tryDispatch(0), "dispatch missing-shown fixture");
+        missingShown.trackCreative("creative");
+        missingShown.forgetCreative("creative", true);
+        check(missingShown.mayHaveShown(), "a contradictory failure cannot erase the receipt");
+        check(!missingShown.canRecover(5000, true) && missingShown.canRecover(5750, true), "dedicated creative confirms return even without shown");
+        check(missingShown.complete("recovered") && missingShown.pollResult().equals("recovered"), "do not synthesize SDK shown");
+        FullscreenAdShow<String> inGame = new FullscreenAdShow<>("same-window", false, 5000, 750);
+        check(inGame.tryDispatch(0), "dispatch same-window fixture");
+        inGame.shown = true;
+        inGame.noteClick();
+        inGame.trackCreative("SDK activity opened by click");
+        inGame.forgetCreative("SDK activity opened by click", true);
+        check(!inGame.canRecover(5000, true), "return from a landing page does not close an untracked creative");
+        check(inGame.complete("closed") && inGame.pollResult().equals("closed_shown"), "normal SDK close still works");
+    }
+}
+''', encoding="utf-8")
+            result = subprocess.run(["javac", "-encoding", "UTF-8", "-d", str(root), str(helper), str(test)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = subprocess.run(["java", "-cp", str(root), "com.darkmoonight.godotandroidyandexads.FullscreenAdShowTest"], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_godot_multiline_dictionary_does_not_break_export_validation(self):

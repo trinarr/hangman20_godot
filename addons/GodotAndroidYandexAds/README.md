@@ -51,24 +51,27 @@ new generation, including when it uses the same loader.
 Retries are delayed and bounded as required by the
 [Easy Monetization integration guidance](https://ads.yandex.com/helpcenter/en/easy/integration/android/formats/rewarded).
 
-Banner recovery belongs to this autoload. Long background periods invalidate
-cached and in-flight banners, including hidden ones; only a wanted banner loads
-a replacement. The SDK owns normal load errors and auto-refresh, so a success
-for the current view remains valid after a refresh error. Missing callbacks and
-native view creation failures trigger replacements with capped backoff and a
-finite recovery budget.
-After that budget is exhausted, the next `show_banner()` may start one probe
-once `probe_cooldown_seconds` has elapsed. Expiry alone makes no request and
-does not enable frame processing. A failed probe restarts cooldown; success
-restores the normal budget. The cooldown deadline uses a monotonic clock.
-Success, a long background period or a privacy change renews that budget; hiding
-and showing cannot bypass it. Processing waits for actual application focus,
-independent of fullscreen terminal callbacks, and is disabled when idle. JNI
-banner capabilities are cached at bridge binding. Parameters come from
-`advertising.banner_recovery` in the game-design config. Both bundled AARs
-expose `loadBannerForRequest` and tagged load callbacks; listeners also reject
-events from replaced views. Older bridges keep serialized untagged requests,
-without unsafe timeout replacement of a request still awaiting its callback.
+Interstitial preload uses a tagged load and a foreground timeout. After a
+missing callback, the bridge cancels that load and schedules bounded retries.
+Errors on those retries use the same backoff and budget as timeouts.
+Once the budget runs out, a later gameplay opportunity can trigger one probe
+per cooldown. A late response cannot populate the replacement's cache.
+A recovery load only preloads the next ad. Its timings are configured under
+`advertising.interstitial_recovery` in the game-design config.
+
+The autoload recovers a banner while its screen still wants it. After a normal
+load or refresh error, it gives the current SDK view a grace period measured
+with a monotonic clock. The grace period pauses while the slot is hidden or
+the app is out of focus. If the SDK misses that deadline, the service replaces
+the view using the same retry budget as missing callbacks and native view
+creation failures. After the budget runs out, a one-shot timer wakes a visible
+foreground slot for one probe. A hidden or unfocused slot keeps the deadline
+and checks it when it becomes active. A successful callback renews the budget
+and cancels pending recovery. Long background periods and privacy changes
+invalidate the view and renew the budget. Hiding also pauses retry backoff.
+Parameters come from `advertising.banner_recovery`.
+Tagged callbacks are checked against both the view owner and the request ID.
+Older untagged bridges keep serialized requests.
 
 Android background age uses the bridge's `getElapsedRealtimeMs()` backed by
 `SystemClock.elapsedRealtime()`: it includes device sleep and is independent of

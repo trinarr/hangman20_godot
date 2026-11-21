@@ -1,7 +1,7 @@
 package com.darkmoonight.godotandroidyandexads;
 
 /** UI-thread ownership of a single load, including cancellation and duplicate callbacks. */
-final class RewardedLoadGuard {
+final class AdLoadGuard {
     private long generation;
     private String requestId;
 

@@ -184,6 +184,11 @@
   "advertising": {
     "unlock_level": 3,
     "rewarded_load_timeout_seconds": 12.0,
+    "fullscreen_show_recovery": {
+      "queue_timeout_seconds": 5.0,
+      "return_grace_seconds": 0.75,
+      "poll_interval_seconds": 0.25
+    },
     "rewarded_recovery": {
       "load_timeout_seconds": 120.0,
       "retry_base_seconds": 5.0,
@@ -192,9 +197,17 @@
     },
     "banner_recovery": {
       "load_timeout_seconds": 120.0,
+      "sdk_refresh_grace_seconds": 75.0,
       "refresh_after_background_seconds": 60.0,
       "retry_base_seconds": 5.0,
       "retry_maximum_seconds": 60.0,
+      "maximum_recovery_attempts": 3,
+      "probe_cooldown_seconds": 300.0
+    },
+    "interstitial_recovery": {
+      "load_timeout_seconds": 45.0,
+      "retry_base_seconds": 5.0,
+      "retry_maximum_seconds": 30.0,
       "maximum_recovery_attempts": 3,
       "probe_cooldown_seconds": 300.0
     },

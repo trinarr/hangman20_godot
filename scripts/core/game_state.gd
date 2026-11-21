@@ -344,6 +344,7 @@ func are_ads_enabled() -> bool:
 func is_interstitial_ready() -> bool:
 	return (
 		ads_unlocked
+		and !_fullscreen_ad_active
 		and interstitial_active_elapsed_seconds >= INTERSTITIAL_INTERVAL_SECONDS
 	)
 

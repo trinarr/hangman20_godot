@@ -1,13 +1,16 @@
 package com.darkmoonight.godotandroidyandexads;
 
 import android.app.Activity;
+import android.app.Application;
 import android.graphics.Color;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
 
 import com.yandex.mobile.ads.banner.BannerAdEventListener;
@@ -35,6 +38,7 @@ import org.godotengine.godot.plugin.UsedByGodot;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Project fork for Godot 4.7 and Yandex Mobile Ads SDK 8. */
 public final class GodotAndroidYandexAds extends GodotPlugin {
@@ -50,11 +54,51 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     private RewardedAd rewardedAd;
     private RewardedAdLoader rewardedAdLoader;
-    private final RewardedLoadGuard rewardedLoadGuard = new RewardedLoadGuard();
+    private final AdLoadGuard rewardedLoadGuard = new AdLoadGuard();
     private InterstitialAd interstitialAd;
     private InterstitialAdLoader interstitialAdLoader;
+    private final AdLoadGuard interstitialLoadGuard = new AdLoadGuard();
     private boolean initializationRequested;
     private boolean diagnosticLogging;
+    private volatile FullscreenAdShow<Activity> fullscreenShow;
+    private boolean fullscreenBridgeDestroyed;
+    private boolean gameActivityResumed;
+    private final AtomicBoolean fullscreenCheckPending = new AtomicBoolean();
+    private final ViewTreeObserver.OnWindowFocusChangeListener fullscreenFocus = focused -> {
+        FullscreenAdShow<Activity> show = fullscreenShow;
+        if (!focused && show != null && show.observing) { show.loseGameWindow(); }
+    };
+
+    private final Application.ActivityLifecycleCallbacks fullscreenActivities = new Application.ActivityLifecycleCallbacks() {
+        @Override public void onActivityCreated(Activity other, Bundle state) {}
+        @Override public void onActivityStarted(Activity other) {}
+        @Override public void onActivityResumed(Activity other) {
+            if (other == activity) {
+                gameActivityResumed = true;
+                return;
+            }
+            FullscreenAdShow<Activity> show = fullscreenShow;
+            if (show != null && show.observing && !other.isFinishing()
+                    && FullscreenAdShow.isCreativeActivity(other.getClass().getName())) {
+                show.trackCreative(other);
+            }
+        }
+        @Override public void onActivityPaused(Activity other) {
+            if (other == activity) {
+                gameActivityResumed = false;
+                FullscreenAdShow<Activity> show = fullscreenShow;
+                if (show != null) { show.loseGameWindow(); }
+            }
+        }
+        @Override public void onActivityStopped(Activity other) {}
+        @Override public void onActivitySaveInstanceState(Activity other, Bundle state) {}
+        @Override public void onActivityDestroyed(Activity other) {
+            FullscreenAdShow<Activity> show = fullscreenShow;
+            if (show != null && show.observing) {
+                show.forgetCreative(other, other.isFinishing());
+            }
+        }
+    };
 
     public GodotAndroidYandexAds(Godot godot) {
         super(godot);
@@ -98,6 +142,8 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
         signals.add(new SignalInfo("_on_interstitial_loaded"));
         signals.add(new SignalInfo("_on_interstitial_failed_to_load", Integer.class));
+        signals.add(new SignalInfo("_on_interstitial_loaded_for_load", String.class));
+        signals.add(new SignalInfo("_on_interstitial_failed_for_load", String.class, Integer.class));
         signals.add(new SignalInfo("_on_interstitial_ad_show"));
         signals.add(new SignalInfo("_on_interstitial_failed_to_show", String.class));
         signals.add(new SignalInfo("_on_interstitial_ad_dismissed"));
@@ -391,42 +437,162 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void showRewardedVideoForRequest(final String requestId) {
+        showLegacyFullscreen(requestId, true);
+    }
+
+    @UsedByGodot
+    public boolean showFullscreenAdForRequest(String requestId, String format, int queueTimeoutMs, int returnGraceMs) {
+        if (!"rewarded".equals(format) && !"interstitial".equals(format)) { return false; }
+        return queueFullscreenShow(requestId, "rewarded".equals(format), queueTimeoutMs, returnGraceMs);
+    }
+
+    private void showLegacyFullscreen(String requestId, boolean rewarded) {
+        if (!queueFullscreenShow(requestId, rewarded, 0, 0)) {
+            activity.runOnUiThread(() -> emitFullscreenTerminal(requestId, rewarded, "failed", "Fullscreen bridge unavailable"));
+        }
+    }
+
+    private boolean queueFullscreenShow(String requestId, boolean isRewarded, int queueTimeoutMs, int returnGraceMs) {
+        final long deadline = queueTimeoutMs > 0 ? SystemClock.elapsedRealtime() + queueTimeoutMs : Long.MAX_VALUE;
+        final FullscreenAdShow<Activity> show = new FullscreenAdShow<>(requestId, isRewarded, deadline, returnGraceMs);
+        synchronized (this) {
+            if (fullscreenBridgeDestroyed || (fullscreenShow != null && fullscreenShow.result.isEmpty())) {
+                return false;
+            }
+            fullscreenShow = show;
+        }
         activity.runOnUiThread(() -> {
-            final RewardedAd shownAd = rewardedAd;
-            if (shownAd == null) {
-                emitSignal("_on_rewarded_failed_for_request", requestId, "Rewarded ad is not ready");
+            if (fullscreenShow != show) { return; }
+            if (!show.tryDispatch(SystemClock.elapsedRealtime())) {
+                emitFullscreenTerminal(show.id, show.rewarded, "failed", "Fullscreen request expired in the Android queue");
                 return;
             }
-            shownAd.setAdEventListener(createRewardedEventListener(requestId, shownAd));
-            shownAd.show(activity);
+            if (activity.isFinishing() || activity.isDestroyed() || (queueTimeoutMs > 0 && !activity.hasWindowFocus())) {
+                finishFullscreenShow(show, "failed", "Game window unavailable before fullscreen show");
+                return;
+            }
+            if (returnGraceMs > 0) {
+                gameActivityResumed = true;
+                activity.getApplication().registerActivityLifecycleCallbacks(fullscreenActivities);
+                activity.getWindow().getDecorView().getViewTreeObserver().addOnWindowFocusChangeListener(fullscreenFocus);
+                show.observing = true;
+            }
+            try {
+                if (isRewarded) {
+                    showRewarded(show);
+                } else {
+                    showInterstitial(show);
+                }
+            } catch (RuntimeException error) {
+                String message = "Fullscreen SDK error: " + error.getClass().getSimpleName();
+                if (show.sdkCalled) {
+                    // An adapter may have launched the creative before throwing.
+                    if (diagnosticLogging) { Log.d(TAG, message); }
+                } else {
+                    finishFullscreenShow(show, "failed", message);
+                }
+            }
+        });
+        return true;
+    }
+
+    @UsedByGodot
+    public String pollFullscreenAdForRequest(String requestId) {
+        final FullscreenAdShow<Activity> show = fullscreenShow;
+        if (show == null || !show.id.equals(requestId)) { return ""; }
+        show.expireQueued(SystemClock.elapsedRealtime());
+        if (show.result.isEmpty() && show.creativeFinished && fullscreenCheckPending.compareAndSet(false, true)) {
+            activity.runOnUiThread(() -> {
+                try {
+                    if (fullscreenShow == show && show.canRecover(SystemClock.elapsedRealtime(),
+                            gameActivityResumed && !activity.isFinishing() && !activity.isDestroyed() && activity.hasWindowFocus())) {
+                        finishFullscreenShow(show, "recovered", "");
+                    }
+                } finally {
+                    fullscreenCheckPending.set(false);
+                }
+            });
+        }
+        return show.pollResult();
+    }
+
+    private void stopObservingFullscreenActivities(FullscreenAdShow<Activity> show) {
+        if (show != null && show.observing) {
+            show.observing = false;
+            activity.getApplication().unregisterActivityLifecycleCallbacks(fullscreenActivities);
+            activity.getWindow().getDecorView().getViewTreeObserver().removeOnWindowFocusChangeListener(fullscreenFocus);
+        }
+    }
+
+    private void finishFullscreenShow(FullscreenAdShow<Activity> show, String result, String message) {
+        if (fullscreenShow != show || !show.complete(result)) { return; }
+        stopObservingFullscreenActivities(show);
+        if (diagnosticLogging) { Log.d(TAG, "Fullscreen " + (show.rewarded ? "Rewarded" : "Interstitial") + ": " + result); }
+        emitFullscreenTerminal(show.id, show.rewarded, result, message);
+    }
+
+    private void failFullscreenShow(FullscreenAdShow<Activity> show, String message) {
+        // Once there is evidence of a show, only dismissal or a confirmed return can end it.
+        if (!show.mayHaveShown()) { finishFullscreenShow(show, "failed", message); }
+    }
+
+    private void emitFullscreenTerminal(String id, boolean rewarded, String result, String message) {
+        if ("closed".equals(result)) {
+            emitSignal(rewarded ? "_on_rewarded_closed_for_request" : "_on_interstitial_closed_for_request", id);
+            emitSignal(rewarded ? "_on_rewarded_video_ad_dismissed" : "_on_interstitial_ad_dismissed");
+        } else if ("failed".equals(result)) {
+            emitSignal(rewarded ? "_on_rewarded_failed_for_request" : "_on_interstitial_failed_for_request", id, message);
+            emitSignal(rewarded ? "_on_rewarded_video_ad_failed_to_show" : "_on_interstitial_failed_to_show", message);
+        }
+    }
+
+    private void notifyFullscreenShown(FullscreenAdShow<Activity> show) {
+        activity.runOnUiThread(() -> {
+            if (fullscreenShow != show || !show.result.isEmpty() || show.shown) { return; }
+            show.shown = true;
+            emitSignal(show.rewarded ? "_on_rewarded_shown_for_request" : "_on_interstitial_shown_for_request", show.id);
+            emitSignal(show.rewarded ? "_on_rewarded_video_ad_show" : "_on_interstitial_ad_show");
         });
     }
 
-    private RewardedAdEventListener createRewardedEventListener(final String requestId, final RewardedAd shownAd) {
+    private void showRewarded(FullscreenAdShow<Activity> show) {
+        final RewardedAd ad = rewardedAd;
+        rewardedAd = null;
+        if (ad == null) {
+            finishFullscreenShow(show, "failed", "Rewarded ad is not ready");
+            return;
+        }
+        show.displayedAd = ad;
+        ad.setAdEventListener(createRewardedEventListener(show));
+        show.sdkCalled = true;
+        ad.show(activity);
+    }
+
+    private RewardedAdEventListener createRewardedEventListener(FullscreenAdShow<Activity> show) {
+        final String requestId = show.id;
         return new RewardedAdEventListener() {
             @Override
             public void onAdShown() {
-                emitSignal("_on_rewarded_shown_for_request", requestId);
-                emitSignal("_on_rewarded_video_ad_show");
+                notifyFullscreenShown(show);
             }
 
             @Override
             public void onAdFailedToShow(AdError error) {
-                if (rewardedAd == shownAd) { rewardedAd = null; }
-                emitSignal("_on_rewarded_failed_for_request", requestId, error.getDescription());
-                emitSignal("_on_rewarded_video_ad_failed_to_show", error.getDescription());
+                activity.runOnUiThread(() -> failFullscreenShow(show, error.getDescription()));
             }
 
             @Override
             public void onAdDismissed() {
-                if (rewardedAd == shownAd) { rewardedAd = null; }
-                emitSignal("_on_rewarded_closed_for_request", requestId);
-                emitSignal("_on_rewarded_video_ad_dismissed");
+                activity.runOnUiThread(() -> finishFullscreenShow(show, "closed", ""));
             }
 
             @Override
             public void onAdClicked() {
-                emitSignal("_on_rewarded_video_ad_clicked");
+                activity.runOnUiThread(() -> {
+                    if (fullscreenShow != show || !show.result.isEmpty()) { return; }
+                    show.noteClick();
+                    emitSignal("_on_rewarded_video_ad_clicked");
+                });
             }
 
             @Override
@@ -444,25 +610,53 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void loadInterstitial(String adUnitId) {
-        activity.runOnUiThread(() -> {
-            interstitialAd = null;
-            if (interstitialAdLoader != null) {
-                interstitialAdLoader.cancelLoading();
-            }
-            interstitialAdLoader = new InterstitialAdLoader(activity);
-            interstitialAdLoader.loadAd(new AdRequest.Builder(adUnitId).build(), new InterstitialAdLoadListener() {
-                @Override
-                public void onAdLoaded(InterstitialAd newInterstitialAd) {
-                    interstitialAd = newInterstitialAd;
-                    emitSignal("_on_interstitial_loaded");
-                }
+        loadInterstitialForRequest("", adUnitId);
+    }
 
-                @Override
-                public void onAdFailedToLoad(AdRequestError error) {
+    @UsedByGodot
+    public void loadInterstitialForRequest(String requestId, String adUnitId) {
+        activity.runOnUiThread(() -> loadInterstitialInternal(requestId, adUnitId));
+    }
+
+    @UsedByGodot
+    public void cancelInterstitialLoad(String requestId) {
+        activity.runOnUiThread(() -> {
+            if (interstitialLoadGuard.cancel(requestId)) { cancelInterstitialLoadInternal(); }
+        });
+    }
+
+    private void cancelInterstitialLoadInternal() {
+        interstitialLoadGuard.invalidate();
+        InterstitialAdLoader oldLoader = interstitialAdLoader;
+        interstitialAdLoader = null;
+        if (oldLoader != null) { oldLoader.cancelLoading(); }
+    }
+
+    private void loadInterstitialInternal(String requestId, String adUnitId) {
+        if (interstitialLoadGuard.isLoading()) { cancelInterstitialLoadInternal(); }
+        interstitialAd = null;
+        final long generation = interstitialLoadGuard.begin(requestId);
+        if (interstitialAdLoader == null) { interstitialAdLoader = new InterstitialAdLoader(activity); }
+        interstitialAdLoader.loadAd(new AdRequest.Builder(adUnitId).build(), new InterstitialAdLoadListener() {
+            @Override
+            public void onAdLoaded(InterstitialAd newInterstitialAd) {
+                activity.runOnUiThread(() -> {
+                    if (!interstitialLoadGuard.complete(generation)) { return; }
+                    interstitialAd = newInterstitialAd;
+                    emitSignal("_on_interstitial_loaded_for_load", requestId);
+                    emitSignal("_on_interstitial_loaded");
+                });
+            }
+
+            @Override
+            public void onAdFailedToLoad(AdRequestError error) {
+                activity.runOnUiThread(() -> {
+                    if (!interstitialLoadGuard.complete(generation)) { return; }
                     interstitialAd = null;
+                    emitSignal("_on_interstitial_failed_for_load", requestId, error.getCode());
                     emitSignal("_on_interstitial_failed_to_load", error.getCode());
-                }
-            });
+                });
+            }
         });
     }
 
@@ -473,47 +667,51 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @UsedByGodot
     public void showInterstitialForRequest(final String requestId) {
-        activity.runOnUiThread(() -> {
-            if (diagnosticLogging) Log.d(TAG, "Interstitial requested");
-            final InterstitialAd shownAd = interstitialAd;
-            if (shownAd == null) {
-                emitSignal("_on_interstitial_failed_for_request", requestId, "Interstitial ad is not ready");
-                emitSignal("_on_interstitial_failed_to_show", "Interstitial ad is not ready");
-                return;
-            }
-            shownAd.setAdEventListener(createInterstitialEventListener(requestId, shownAd));
-            shownAd.show(activity);
-        });
+        showLegacyFullscreen(requestId, false);
     }
 
-    private InterstitialAdEventListener createInterstitialEventListener(final String requestId, final InterstitialAd shownAd) {
+    private void showInterstitial(FullscreenAdShow<Activity> show) {
+        if (diagnosticLogging) Log.d(TAG, "Interstitial requested");
+        final InterstitialAd ad = interstitialAd;
+        interstitialAd = null;
+        if (ad == null) {
+            finishFullscreenShow(show, "failed", "Interstitial ad is not ready");
+            return;
+        }
+        show.displayedAd = ad;
+        ad.setAdEventListener(createInterstitialEventListener(show));
+        show.sdkCalled = true;
+        ad.show(activity);
+    }
+
+    private InterstitialAdEventListener createInterstitialEventListener(FullscreenAdShow<Activity> show) {
+        final String requestId = show.id;
         return new InterstitialAdEventListener() {
             @Override
             public void onAdShown() {
                 if (diagnosticLogging) Log.d(TAG, "Interstitial shown callback");
-                emitSignal("_on_interstitial_shown_for_request", requestId);
-                emitSignal("_on_interstitial_ad_show");
+                notifyFullscreenShown(show);
             }
 
             @Override
             public void onAdFailedToShow(AdError error) {
                 if (diagnosticLogging) Log.d(TAG, "Interstitial failed callback");
-                if (interstitialAd == shownAd) { interstitialAd = null; }
-                emitSignal("_on_interstitial_failed_for_request", requestId, error.getDescription());
-                emitSignal("_on_interstitial_failed_to_show", error.getDescription());
+                activity.runOnUiThread(() -> failFullscreenShow(show, error.getDescription()));
             }
 
             @Override
             public void onAdDismissed() {
                 if (diagnosticLogging) Log.d(TAG, "Interstitial closed callback");
-                if (interstitialAd == shownAd) { interstitialAd = null; }
-                emitSignal("_on_interstitial_closed_for_request", requestId);
-                emitSignal("_on_interstitial_ad_dismissed");
+                activity.runOnUiThread(() -> finishFullscreenShow(show, "closed", ""));
             }
 
             @Override
             public void onAdClicked() {
-                emitSignal("_on_interstitial_clicked");
+                activity.runOnUiThread(() -> {
+                    if (fullscreenShow != show || !show.result.isEmpty()) { return; }
+                    show.noteClick();
+                    emitSignal("_on_interstitial_clicked");
+                });
             }
 
             @Override
@@ -525,12 +723,17 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
 
     @Override
     public void onMainDestroy() {
+        FullscreenAdShow<Activity> show;
+        synchronized (this) {
+            fullscreenBridgeDestroyed = true;
+            show = fullscreenShow;
+            fullscreenShow = null;
+        }
+        stopObservingFullscreenActivities(show);
+        if (show != null) { show.complete("failed"); }
         destroyBannerInternal();
         cancelRewardedLoadInternal();
-        if (interstitialAdLoader != null) {
-            interstitialAdLoader.cancelLoading();
-            interstitialAdLoader = null;
-        }
+        cancelInterstitialLoadInternal();
         rewardedAd = null;
         interstitialAd = null;
         super.onMainDestroy();
