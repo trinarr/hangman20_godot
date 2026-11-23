@@ -36,16 +36,17 @@
       "first_word_theme_id": 9
     },
     "level_stage_counts": [
-      {"from_level": 1, "to_level": 1, "count": 1},
-      {"from_level": 2, "to_level": 2, "count": 1},
-      {"from_level": 3, "to_level": 3, "count": 2},
-      {"from_level": 4, "to_level": 10, "count": 3},
-      {"from_level": 11, "to_level": 20, "count": 4},
-      {"from_level": 21, "to_level": 0, "count": 5}
+      {"from_level": 1, "to_level": 1, "count": 1, "crossword_words": 1},
+      {"from_level": 2, "to_level": 2, "count": 1, "crossword_words": 1},
+      {"from_level": 3, "to_level": 3, "count": 2, "crossword_words": 2},
+      {"from_level": 4, "to_level": 10, "count": 3, "crossword_words": 3},
+      {"from_level": 11, "to_level": 20, "count": 4, "crossword_words": 4},
+      {"from_level": 21, "to_level": 0, "count": 5, "crossword_words": 5}
     ],
     "bonus_level": {
       "every_levels": 10,
-      "extra_stages": 2
+      "extra_stages": 2,
+      "extra_crossword_words": 2
     },
     "quiz": {
       "onboarding_from_level": 2,

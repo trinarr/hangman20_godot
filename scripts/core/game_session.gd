@@ -2,6 +2,7 @@ extends Node
 
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
+const WORD_CROSSWORD = preload("res://scripts/core/word_crossword.gd")
 
 signal changed
 signal round_started
@@ -20,6 +21,7 @@ var round_id: String = ""
 var word_index: int = -1
 var theme_id: int = -1
 var word_data: WordData = null
+var crossword: RefCounted
 var letters: PackedStringArray = []
 var revealed: Array = []
 var correct_letters: PackedStringArray = []
@@ -41,7 +43,7 @@ func get_remaining_attempts() -> int:
 		return 0
 	return maxi(MAX_MISTAKES - mistakes, 0)
 
-func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER) -> void:
+func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER, word_count: int = 1) -> void:
 	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
 	word_data = word
 	if word_data.id.is_empty() and word.theme_index >= 0:
@@ -50,7 +52,9 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAY
 	word_index = word.index
 	theme_id = word.theme_index
 	mode = game_mode
-	letters = _split_letters(word.text)
+	var candidates: Array = Database.get_words_by_index(theme_id, 0) if word_count > 1 and theme_id >= 0 else []
+	crossword = WORD_CROSSWORD.build(word.text, word.difficulty, candidates, word_count)
+	letters = crossword.letters
 	revealed.clear()
 	correct_letters.clear()
 	wrong_letters.clear()
@@ -81,18 +85,13 @@ func _resolve_word_hint() -> String:
 		return str(reference.get("hint", ""))
 	return ""
 
-func _split_letters(text: String) -> PackedStringArray:
-	var result := PackedStringArray()
-	for i in range(text.length()):
-		result.append(text.substr(i, 1))
-	return result
-
 func to_save_data() -> Dictionary:
 	if word_data == null or mode != GameState.GameMode.SINGLE_PLAYER:
 		return {}
 	return {
 		"round_id": round_id,
 		"word": word_data.text,
+		"crossword": crossword.entries.duplicate(true),
 		"word_id": word_data.id,
 		"content_version": Database.WORD_CONTENT.CONTENT_VERSION,
 		"difficulty": word_data.difficulty,
@@ -134,7 +133,14 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	var restored_word_index: int = int(reference.get("index", -1))
 	if text.is_empty() or restored_theme_index < 0 or reference.is_empty():
 		return false
-	var restored_letters: PackedStringArray = _split_letters(text)
+	var restored_board: RefCounted
+	if source.has("crossword"):
+		restored_board = WORD_CROSSWORD.restore(text, source["crossword"])
+		if restored_board == null:
+			return false
+	else:
+		restored_board = WORD_CROSSWORD.build(text, 0.0, [], 1)
+	var restored_letters: PackedStringArray = restored_board.letters
 	var restored_revealed_variant: Variant = source.get("revealed", [])
 	if !(restored_revealed_variant is Array):
 		return false
@@ -154,6 +160,7 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	word_index = restored_word_index
 	theme_id = restored_theme_index
 	mode = GameState.GameMode.SINGLE_PLAYER
+	crossword = restored_board
 	letters = restored_letters
 	revealed = restored_revealed.duplicate()
 	correct_letters = _packed_string_array_from_save(source.get("correct_letters", []))
@@ -173,7 +180,7 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	return true
 
 func _is_separator(letter: String) -> bool:
-	return letter == " " or letter == "-" or letter == "—" or letter == "'"
+	return WORD_CROSSWORD.is_separator(letter)
 
 func guess(letter: String, defer_loss: bool = false) -> bool:
 	if !is_active or loss_deferred:
@@ -470,6 +477,7 @@ func discard_current_round() -> void:
 	word_index = -1
 	theme_id = -1
 	word_data = null
+	crossword = null
 	letters.clear()
 	revealed.clear()
 	correct_letters.clear()

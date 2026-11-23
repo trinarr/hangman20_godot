@@ -43,6 +43,7 @@ const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portr
 const PORTRAIT_COIN_COUNTER_ANCHOR = preload("res://scripts/ui/portrait_coin_counter_anchor.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
+const PORTRAIT_CROSSWORD = preload("res://scripts/ui/portrait_crossword.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
 
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
@@ -123,20 +124,18 @@ var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 # Compact text-only gameplay HUD placed in the free space to the right of the
 # left-aligned character. The old white attempts/theme pills are intentionally
 # removed; these labels are the only in-round status presentation now.
-const PORTRAIT_GAME_INFO_X: float = 242.0
-const PORTRAIT_GAME_INFO_WIDTH: float = 192.0
 # Keep the complete text HUD above the word-paper band. On tall screens this
 # block follows half of the extra-height shift together with the hero, while the
 # bottom-attached paper moves by the full extra height, so the two can never
 # collide as the aspect ratio grows. The labels are center-aligned and packed
 # into the open area to the right of the hero.
-const PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 48.0, PORTRAIT_GAME_INFO_WIDTH, 24.0)
-const PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 66.0, PORTRAIT_GAME_INFO_WIDTH, 48.0)
-const PORTRAIT_GAME_INFO_THEME_TITLE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 134.0, PORTRAIT_GAME_INFO_WIDTH, 22.0)
-const PORTRAIT_GAME_INFO_THEME_LINE_RECT := Rect2(PORTRAIT_GAME_INFO_X, 150.0, PORTRAIT_GAME_INFO_WIDTH, 44.0)
+const PORTRAIT_GAME_INFO_TOP: float = PORTRAIT_HEADER_HEIGHT + 12.0
+const PORTRAIT_GAME_INFO_BOTTOM: float = PORTRAIT_GAME_INFO_TOP + 60.0
+const PORTRAIT_GAME_INFO_ATTEMPTS_RECT := Rect2((PORTRAIT_STAGE_SIZE.x - 138.0) * 0.5, PORTRAIT_GAME_INFO_TOP, 138.0, 60.0)
+const PORTRAIT_CROSSWORD_CARD_TOP: float = PORTRAIT_GAME_INFO_BOTTOM + 30.0
+const PORTRAIT_CROSSWORD_CARD_HINT_GAP: float = 12.0
 const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
 const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
-const PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE: int = 34
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
 const PORTRAIT_RESOURCE_COUNTER_GAP = RESOURCE_COUNTER_PRESENTATION.PORTRAIT_RESOURCE_COUNTER_GAP
@@ -194,11 +193,6 @@ const PORTRAIT_GAME_KEYBOARD_SIDE_PADDING: float = 12.0
 const PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING: float = 22.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
-const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
-const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0 * 0.85
-# Shrink both faces around the original center; the shadow is outside this height.
-const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0 + (118.0 - PORTRAIT_GAME_WORD_PAPER_HEIGHT) * 0.5
-const PORTRAIT_GAME_WORD_PAPER_SHADOW_SPACE: float = 6.0
 var PORTRAIT_ROUND_END_KEY_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_fade_seconds"
 )
@@ -208,7 +202,6 @@ var PORTRAIT_ROUND_END_KEY_WAVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float
 var PORTRAIT_ROUND_END_KEY_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_scale"
 )
-const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
 var PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.attempts_fade_seconds"
 )
@@ -246,9 +239,6 @@ var PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER: float = PORTRAIT_GAME_DESIGN.get_fl
 )
 var PORTRAIT_GAME_PAPER_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.game_entrance.paper_reveal_seconds"
-)
-var PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.game_entrance.hero_fade_seconds"
 )
 var PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.game_entrance.continue_grow_seconds"
@@ -490,8 +480,6 @@ var PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN
 )
 const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.32
-const PORTRAIT_GAME_HERO_Y_LIFT: float = 42.0
-const PORTRAIT_GAME_HERO_LEFT_CENTER_X: float = PORTRAIT_STAGE_SIZE.x * 0.25
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const PORTRAIT_HINT_LOCKED_ICON: Texture2D = preload("res://flash_assets/hint_locked_doodle.png")
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
@@ -506,10 +494,6 @@ const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS: float = 3.0
 const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_DURATION: float = 1.1
 const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = PORTRAIT_ICON_EXTRUSION.ACTION_SHADOW_ALPHA
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
-const GAME_WORD_PAPER_SHADER: Shader = preload("res://shaders/game_word_paper.gdshader")
-const GAME_WORD_PAPER_BACKSIDE_SHADER: Shader = preload("res://shaders/game_word_paper_backside.gdshader")
-const PORTRAIT_GAME_WORD_PAPER_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_torn.png")
-const PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
 
 const PORTRAIT_BLUE := PORTRAIT_UI_PALETTE.UI_BLUE
 const PORTRAIT_DARK_BLUE = RESOURCE_COUNTER_PRESENTATION.PORTRAIT_DARK_BLUE
@@ -761,19 +745,12 @@ var PORTRAIT_ATTEMPTS_POPUP_COUNTER_SETTLE_SECONDS: float = PORTRAIT_GAME_DESIGN
 	"timings.animations.attempts_popup.counter_settle_seconds"
 )
 var _portrait_custom_word_input: Control = null
-var _portrait_game_adaptive_group: Control = null
-var _portrait_game_hero_stage_position: Vector2 = PORTRAIT_HERO_POSITION
+var _portrait_crossword: PORTRAIT_CROSSWORD
 var _portrait_game_input_group: Control = null
-var _portrait_game_word_paper_mask: Control = null
-var _portrait_game_word_paper_layer: Control = null
-var _portrait_game_word_paper_backside: Control = null
-var _portrait_game_word_paper_backside_visual: ColorRect = null
 var _portrait_coin_store_underlay: Control = null
-var _portrait_game_word_slots_root: Control = null
 var _portrait_game_word_rect := Rect2()
 var _portrait_game_hint_row_y: float = 0.0
 var _portrait_game_keyboard_buttons: Array = []
-var _portrait_game_keyboard_panel: Control
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
 var _portrait_game_back_button: Control = null
@@ -1324,15 +1301,10 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_custom_word_input = null
 	_portrait_top_bar_content = null
 	_portrait_coin_store_active = false
-	_portrait_game_adaptive_group = null
 	_portrait_game_input_group = null
-	_portrait_game_word_paper_mask = null
-	_portrait_game_word_paper_layer = null
-	_portrait_game_word_paper_backside = null
-	_portrait_game_word_paper_backside_visual = null
-	_portrait_game_word_slots_root = null
+	_portrait_game_entrance_active = false
+	_portrait_crossword = null
 	_portrait_game_word_rect = Rect2()
-	_portrait_game_keyboard_panel = null
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
@@ -2283,36 +2255,20 @@ func _stage_portrait_game_header() -> void:
 		)
 	_stage_menu_settings_button()
 
-func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
-	var theme_text: String = ""
-	if GameState.current_mode != GameState.GameMode.TWO_PLAYER and GameSession.theme_id >= 0:
-		theme_text = String(Database.get_theme_name(GameSession.theme_id)).to_upper()
-
-	var show_theme_block: bool = !theme_text.is_empty()
-	var additional_y_shift: float = -10.0 if GameState.current_mode == GameState.GameMode.TWO_PLAYER else 0.0
-	var group_center_y: float = 104.0 + y_shift + additional_y_shift
-	var attempts_block_height: float = 66.0
-	var theme_block_height: float = 60.0
-	var block_gap: float = 30.0
-	var total_group_height: float = attempts_block_height
-	if show_theme_block:
-		total_group_height += block_gap + theme_block_height
-	var group_top: float = group_center_y - total_group_height * 0.5
-
-	var attempts_title_rect := PORTRAIT_GAME_INFO_ATTEMPTS_TITLE_RECT
-	attempts_title_rect.position.y = group_top
-	var attempts_value_rect := PORTRAIT_GAME_INFO_ATTEMPTS_VALUE_RECT
-	attempts_value_rect.position.y = group_top + 18.0
+func _stage_portrait_game_attempts() -> void:
+	var attempts_rect: Rect2 = PORTRAIT_GAME_INFO_ATTEMPTS_RECT
+	var attempts_title_rect := Rect2(attempts_rect.position, Vector2(attempts_rect.size.x, 22.0))
+	var attempts_value_rect := Rect2(attempts_rect.position + Vector2(0.0, 18.0), Vector2(attempts_rect.size.x, 42.0))
 
 	var attempts_title_text: String = tr("ATTEMPTS_LABEL")
 	var attempts_title := _stage_label(
 		attempts_title_rect,
 		attempts_title_text,
 		PORTRAIT_GAME_INFO_TITLE_FONT_SIZE,
-		PORTRAIT_DARK_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		UI_REGULAR_FONT
 	)
-	attempts_title.add_theme_font_override("font", UI_HEADING_FONT)
 	attempts_title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	attempts_title.clip_text = false
 	attempts_title.z_index = 12
@@ -2322,10 +2278,10 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 		attempts_value_rect,
 		attempts_value_text,
 		PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
+		Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		UI_DISPLAY_FONT
 	)
-	attempts_value.add_theme_font_override("font", UI_HEADING_FONT)
 	attempts_value.autowrap_mode = TextServer.AUTOWRAP_OFF
 	attempts_value.clip_text = false
 	attempts_value.z_index = 12
@@ -2338,58 +2294,30 @@ func _stage_portrait_game_info_text(y_shift: float = 0.0) -> void:
 	_portrait_game_attempts_value_label = attempts_value
 	_portrait_game_attempts_displayed_value = GameSession.get_remaining_attempts()
 
-	# Keep the existing attempts-animation collection as the generic gameplay HUD
-	# collection so the new text fades in/out at the same moments as before.
 	_portrait_game_attempts_controls.append(attempts_title)
 	_portrait_game_attempts_controls.append(attempts_value)
 
-	if !show_theme_block:
-		return
-
-	var theme_title_rect := PORTRAIT_GAME_INFO_THEME_TITLE_RECT
-	theme_title_rect.position.y = group_top + attempts_block_height + block_gap
-	var theme_line_rect := PORTRAIT_GAME_INFO_THEME_LINE_RECT
-	theme_line_rect.position.y = theme_title_rect.position.y + 16.0
-
-	var theme_caption_text: String = tr("THEME_LABEL")
-	var theme_caption := _stage_label(
-		theme_title_rect,
-		theme_caption_text,
-		PORTRAIT_GAME_INFO_TITLE_FONT_SIZE,
-		PORTRAIT_DARK_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
+func _stage_portrait_game_background(pattern_texture: Texture2D) -> Control:
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
+	var background := _stage_horizontal_fill(
+		PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
+		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
 	)
-	theme_caption.add_theme_font_override("font", UI_HEADING_FONT)
-	theme_caption.autowrap_mode = TextServer.AUTOWRAP_OFF
-	theme_caption.clip_text = false
-	theme_caption.z_index = 12
-
-	var theme_line_label := _stage_label(
-		theme_line_rect,
-		theme_text,
-		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
-		PORTRAIT_BLUE,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	theme_line_label.add_theme_font_override("font", UI_HEADING_FONT)
-	_fit_single_line_label_to_width(
-		theme_line_label,
-		theme_text,
-		theme_line_rect.size.x,
-		PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE,
-		maxi(
-			int(round(float(PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE) * 0.8)),
-			PORTRAIT_GAME_INFO_THEME_LINE_FONT_SIZE - 7
+	background.name = "PortraitGameBackground"
+	background.z_index = -1
+	if pattern_texture != null:
+		_add_multi_theme_pattern(
+			background, [pattern_texture], "PortraitGameThemePattern",
+			Color(1.0, 1.0, 1.0, 0.13), 0.92, 1.10, 0.87, 0.0, 0.70
 		)
+	_add_full_rect_gradient_overlay(
+		background,
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.0),
+		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
+		"PortraitGameBackgroundGradient"
 	)
-	theme_line_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	theme_line_label.clip_text = false
-	theme_line_label.z_index = 12
-	_portrait_game_attempts_controls.append(theme_caption)
-	_portrait_game_attempts_controls.append(theme_line_label)
-
-func _portrait_game_header_color() -> Color:
-	return PORTRAIT_BLUE
+	return background
 
 func _portrait_popup_begin(
 	name: String,
@@ -2939,7 +2867,6 @@ func _show_menu_screen() -> void:
 	single_player_active_level_index = -1
 	single_player_active_word_slot = -1
 	single_player_retry_after_loss = false
-	_portrait_game_adaptive_group = null
 	coin_store_return_action = Callable()
 	_clear()
 
@@ -6175,6 +6102,33 @@ func _play_quiz_screen_entrance(
 func _show_quiz_game_screen() -> void:
 	_home_profile_show_quiz_game_screen()
 
+func _stage_portrait_question_card(rect: Rect2, theme_name: String) -> Array[FlashStagePanel]:
+	var shadow_rect: Rect2 = rect
+	shadow_rect.position.y += 6.0
+	var shadow := _stage_panel(shadow_rect, Color(0.07, 0.12, 0.24, 0.22), 22.0) as FlashStagePanel
+	var panel := _stage_panel(
+		rect, PORTRAIT_UI_PALETTE.THEME_CARD, 22.0, PORTRAIT_UI_PALETTE.UI_BLUE_LIGHT_BORDER, 3.0
+	) as FlashStagePanel
+	panel.name = "StageQuestionCard"
+	panel.z_index = 1
+	if !theme_name.is_empty():
+		var theme_label := Label.new()
+		theme_label.name = "StageQuestionThemeTitle"
+		theme_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		theme_label.position = PORTRAIT_QUIZ_THEME_TITLE_RECT.position - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
+		theme_label.size = PORTRAIT_QUIZ_THEME_TITLE_RECT.size
+		theme_label.text = theme_name
+		theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		theme_label.add_theme_font_size_override("font_size", int(round(float(_heading_font_size(26)) * 1.30)))
+		theme_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+		theme_label.add_theme_color_override("font_color", Color.WHITE)
+		BUTTON_TEXT_STYLE_SCRIPT.apply_display(theme_label)
+		theme_label.clip_text = false
+		theme_label.z_index = 3
+		panel.add_child(theme_label)
+	return [panel, shadow]
+
 func _home_profile_show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
 		show_menu()
@@ -6187,37 +6141,7 @@ func _home_profile_show_quiz_game_screen() -> void:
 	_clear()
 	_quiz_mode_active = true
 	_quiz_screen_active = true
-	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
-
-	# Reuse the Home background treatment for quiz gameplay: the same body color,
-	# animated pattern tuning, alpha falloff, and dark-blue vertical gradient.
-	# Unlike Home, the quiz pattern repeats only the current topic's mono icon.
-	var quiz_background := _stage_horizontal_fill(
-		PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
-	)
-	quiz_background.name = "QuizBackgroundOverlay"
-	quiz_background.z_index = -1
-	var quiz_pattern_texture: Texture2D = _theme_icon_mono_texture(_quiz_selected_theme_index)
-	if quiz_pattern_texture != null:
-		_add_multi_theme_pattern(
-			quiz_background,
-			[quiz_pattern_texture],
-			"QuizThemePattern",
-			Color(1.0, 1.0, 1.0, 0.13),
-			0.92,
-			1.10,
-			0.87,
-			0.0,
-			0.70
-		)
-	_add_full_rect_gradient_overlay(
-		quiz_background,
-		Color(PORTRAIT_DARK_BLUE.r, PORTRAIT_DARK_BLUE.g, PORTRAIT_DARK_BLUE.b, 0.0),
-		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.7),
-		"QuizBackgroundGradient"
-	)
+	var quiz_background := _stage_portrait_game_background(_theme_icon_mono_texture(_quiz_selected_theme_index))
 
 	var quiz_cover := SCREEN_COVER_TRANSITION.new()
 	quiz_background.add_child(quiz_cover)
@@ -6250,49 +6174,11 @@ func _home_profile_show_quiz_game_screen() -> void:
 		_quiz_exit_button = back_button
 		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 
-	# Reuse the answer-button shadow treatment under the question card as well,
-	# then draw the bordered light-blue surface on top.
-	var question_shadow_rect := PORTRAIT_QUIZ_QUESTION_PANEL_RECT
-	question_shadow_rect.position += Vector2(0.0, 6.0)
-	var question_shadow := _stage_panel(
-		question_shadow_rect,
-		Color(0.07, 0.12, 0.24, 0.22),
-		22.0
+	var question_card := _stage_portrait_question_card(
+		PORTRAIT_QUIZ_QUESTION_PANEL_RECT, Database.get_theme_name(_quiz_selected_theme_index)
 	)
-	question_shadow.z_index = 0
-	var question_panel := _stage_panel(
-		PORTRAIT_QUIZ_QUESTION_PANEL_RECT,
-		PORTRAIT_UI_PALETTE.THEME_CARD,
-		22.0,
-		PORTRAIT_UI_PALETTE.UI_BLUE_LIGHT_BORDER,
-		3.0
-	)
-	question_panel.z_index = 1
-
-	# Attach the theme title directly to the question panel. It has no entrance
-	# tween of its own: panel motion/alpha automatically carries the title with it.
-	var theme_name: String = Database.get_theme_name(_quiz_selected_theme_index)
-	var theme_label := Label.new()
-	theme_label.name = "QuizThemeTitle"
-	theme_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	theme_label.position = (
-		PORTRAIT_QUIZ_THEME_TITLE_RECT.position
-		- PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
-	)
-	theme_label.size = PORTRAIT_QUIZ_THEME_TITLE_RECT.size
-	theme_label.text = theme_name
-	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	theme_label.add_theme_font_size_override(
-		"font_size",
-		int(round(float(_heading_font_size(26)) * 1.30))
-	)
-	theme_label.add_theme_font_override("font", UI_DISPLAY_FONT)
-	theme_label.add_theme_color_override("font_color", Color.WHITE)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_display(theme_label)
-	theme_label.clip_text = false
-	theme_label.z_index = 3
-	question_panel.add_child(theme_label)
+	var question_panel: Control = question_card[0]
+	var question_shadow: Control = question_card[1]
 
 	var question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
 	var question_label := _stage_label(
@@ -9428,12 +9314,12 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var columns: int = rows[0].length()
 	var available_width: float = PORTRAIT_STAGE_SIZE.x - 2.0 * PORTRAIT_GAME_KEYBOARD_SIDE_PADDING
 	key_size.x = minf(key_size.x, (available_width - (columns - 1) * PORTRAIT_GAME_KEY_GAP) / columns)
-	var panel_height: float = (
+	var keyboard_height: float = (
 		2.0 * PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING + rows.size() * key_size.y
 		+ (rows.size() - 1) * PORTRAIT_GAME_KEY_GAP
 	)
-	var panel_y: float = _portrait_ad_banner_rect().position.y - panel_height
-	var key_y: float = panel_y + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
+	var keyboard_top: float = _portrait_ad_banner_rect().position.y - keyboard_height
+	var key_y: float = keyboard_top + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
 	var key_rects: Dictionary = {}
 	for row: String in rows:
 		var letters: PackedStringArray = row.split("")
@@ -9445,12 +9331,11 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 			key_x += key_size.x + PORTRAIT_GAME_KEY_GAP
 		key_y += key_size.y + PORTRAIT_GAME_KEY_GAP
 	var hint_height: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.y * PORTRAIT_GAME_HINT_BUTTON_SCALE
-	var hint_y: float = panel_y - PORTRAIT_GAME_HINT_KEYBOARD_GAP - hint_height
-	var word_y: float = panel_y - PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD - PORTRAIT_GAME_WORD_TO_ACTION_TOP
+	var hint_y: float = keyboard_top - PORTRAIT_GAME_HINT_KEYBOARD_GAP - hint_height
+	var word_y: float = keyboard_top - PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD - PORTRAIT_GAME_WORD_TO_ACTION_TOP
 	return {
 		"key_rects": key_rects,
 		"font_size": int(round(StageLetterButton.DEFAULT_FONT_SIZE * keyboard_scale)),
-		"panel_y": panel_y,
 		"hint_y": hint_y,
 		"word_rect": Rect2(24.0, word_y, 432.0, 64.0),
 	}
@@ -9477,11 +9362,7 @@ func _refresh_game_screen() -> void:
 	_portrait_game_entrance_pending = false
 	_portrait_game_entrance_active = false
 	_portrait_game_input_group = null
-	_portrait_game_word_paper_mask = null
-	_portrait_game_word_paper_layer = null
-	_portrait_game_word_paper_backside = null
-	_portrait_game_word_paper_backside_visual = null
-	_portrait_game_word_slots_root = null
+	_portrait_crossword = null
 	_portrait_game_word_rect = Rect2()
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
@@ -9511,117 +9392,38 @@ func _refresh_game_screen() -> void:
 		child.queue_free()
 
 	var viewport_size: Vector2 = get_viewport_rect().size
-	var extra_stage_height: float = PORTRAIT_STAGE_LAYOUT.extra_stage_height(viewport_size)
-	var upper_block_shift: float = extra_stage_height * 0.5
-	_portrait_screen(0.0, -1.0, _portrait_game_header_color())
+	_stage_portrait_game_background(_theme_icon_mono_texture(GameSession.theme_id))
 	_stage_portrait_game_header()
 
-	# Center the visible hangman character in the LEFT half of the gameplay area.
-	# The imported symbol has a wide empty origin, so hero_stage_position below
-	# compensates for it while hero_pivot represents the visual center.
-	var hero_pivot := Vector2(PORTRAIT_GAME_HERO_LEFT_CENTER_X, 222.0 - PORTRAIT_GAME_HERO_Y_LIFT + upper_block_shift)
-	var hero_stage_position := Vector2(
-		hero_pivot.x - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X,
-		238.0 - PORTRAIT_GAME_HERO_Y_LIFT + upper_block_shift
-	)
-	var hero_root_content: Control = _portrait_begin_adaptive_group(
-		hero_pivot,
-		1.0,
-		0.0
-	)
-	_portrait_game_adaptive_group = content
-	_portrait_game_hero_stage_position = hero_stage_position
-	hero_static_symbol = _stage_hero_symbol(_hero_type(), hero_stage_position, _hero_animation_time(), _hero_nested_display_time())
-	if hero_static_symbol != null:
-		hero_static_symbol.stage_scale_multiplier = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER
-		hero_static_symbol.backward_pose_fade_seconds = PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION
-	_configure_hero_static_animation()
-
-	_portrait_end_adaptive_group(hero_root_content)
-
-	# Keep the new text-only HUD beside the character, including the same extra
-	# vertical shift used by the hero on taller portrait screens.
-	_stage_portrait_game_info_text(upper_block_shift)
+	_stage_portrait_game_attempts()
 
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(viewport_size)
 	# Keep rebuilt hint buttons on the same row throughout the round.
 	_portrait_game_hint_row_y = keyboard_metrics["hint_y"]
 	var keyboard_font_size: int = keyboard_metrics["font_size"]
 	var key_rects: Dictionary = keyboard_metrics["key_rects"]
-	var panel_y: float = keyboard_metrics["panel_y"]
 	var game_word_rect: Rect2 = keyboard_metrics["word_rect"]
 
-	# Word, keyboard and hints deliberately live in ONE bottom-attached group.
-	# This makes the entire input cluster translate as a single unit on tall
-	# screens instead of letting the hint row drift independently.
+	_portrait_crossword = PORTRAIT_CROSSWORD.new()
+	_portrait_crossword.name = "PortraitCrossword"
+	_portrait_crossword.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var screen_content: Control = content
+	screen_content.add_child(_portrait_crossword)
+	content = _portrait_crossword
+	var card_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
+	card_rect.position.y = PORTRAIT_CROSSWORD_CARD_TOP
+	var card_bottom: float = _portrait_game_hint_row_y - PORTRAIT_CROSSWORD_CARD_HINT_GAP
+	card_rect.size.y = card_bottom - card_rect.position.y
+	var theme_name: String = Database.get_theme_name(GameSession.theme_id) if GameSession.theme_id >= 0 else ""
+	var crossword_card := _stage_portrait_question_card(card_rect, theme_name)
+	content = screen_content
+	var card_padding: float = PORTRAIT_QUIZ_QUESTION_RECT.position.x - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.x
+	_portrait_crossword.build(GameSession.crossword, crossword_card[0], crossword_card[1], card_bottom, card_padding)
+	_portrait_crossword.refresh(GameSession.revealed)
+
 	var input_root_content: Control = _portrait_begin_bottom_attached_group()
 	_portrait_game_input_group = content
 	_portrait_game_word_rect = game_word_rect
-	_portrait_game_keyboard_panel = _stage_horizontal_fill(
-		panel_y, PORTRAIT_STAGE_SIZE.y - panel_y, _portrait_game_header_color()
-	)
-	_portrait_game_keyboard_panel.name = "PortraitGameKeyboardPanel"
-	_portrait_game_keyboard_panel.z_index = -1
-
-	# Keep the paper and current word inside a clipping mask. During the round-end
-	# page turn, the mask edge moves from left to right while the actual paper art
-	# stays fixed in screen space. This reveals the solved word underneath without
-	# shrinking or deforming the sheet.
-	var word_paper_mask := Control.new()
-	word_paper_mask.name = "PortraitGameWordPaperMask"
-	word_paper_mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	word_paper_mask.clip_contents = true
-	# The paper front must stay above the revealed answer, marker underlay and
-	# search button throughout the peel animation.
-	word_paper_mask.z_index = 40
-	content.add_child(word_paper_mask)
-	word_paper_mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_portrait_game_word_paper_mask = word_paper_mask
-
-	var word_paper_layer := Control.new()
-	word_paper_layer.name = "PortraitGameWordPaperLayer"
-	word_paper_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	word_paper_mask.add_child(word_paper_layer)
-	word_paper_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_portrait_game_word_paper_layer = word_paper_layer
-	var input_group_content: Control = content
-	content = word_paper_layer
-	_stage_portrait_game_word_display(game_word_rect, 34)
-	content = input_group_content
-
-	# The holder retains the original stage layout and fold travel. Its child
-	# draws the same flat reverse face, small edge flare and contact shadow as Home.
-	var backside_rect := Rect2(
-		0.0,
-		game_word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
-		PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
-		PORTRAIT_GAME_WORD_PAPER_HEIGHT
-	)
-	var word_paper_backside := _stage_holder(backside_rect, Control.MOUSE_FILTER_IGNORE)
-	word_paper_backside.z_index = 41
-	word_paper_backside.visible = false
-	_portrait_game_word_paper_backside = word_paper_backside
-	var backside_visual := ColorRect.new()
-	backside_visual.name = "PortraitGameWordPaperBacksideVisual"
-	backside_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backside_visual.position = Vector2(-9.0, -8.0)
-	backside_visual.size = Vector2(
-		PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH + 10.0,
-		PORTRAIT_GAME_WORD_PAPER_HEIGHT + 16.0
-	)
-	var backside_material := ShaderMaterial.new()
-	backside_material.shader = GAME_WORD_PAPER_BACKSIDE_SHADER
-	backside_material.set_shader_parameter("backside_texture", PORTRAIT_GAME_WORD_PAPER_BACKSIDE_TEXTURE)
-	backside_material.set_shader_parameter("surface_size", backside_visual.size)
-	backside_material.set_shader_parameter("paper_height", PORTRAIT_GAME_WORD_PAPER_HEIGHT)
-	backside_visual.material = backside_material
-	word_paper_backside.add_child(backside_visual)
-	_portrait_game_word_paper_backside_visual = backside_visual
-
-	# Explicitly initialize the page-turn mask in its fully closed/front-facing
-	# state. PRESET_FULL_RECT alone can still have a zero-sized clip rect during
-	# the first layout pass, which made the normal paper and guessed word vanish.
-	_set_portrait_word_paper_peel_progress(0.0)
 
 	for letter: String in key_rects:
 		var was_correct: bool = GameSession.correct_letters.has(letter)
@@ -9678,32 +9480,18 @@ func _refresh_game_screen() -> void:
 	if play_game_entrance:
 		_prepare_portrait_game_entrance()
 	if restore_finished_round:
-		# Restore the same in-place presentation used when the round ended: peel only
-		# the word paper and keep the gameplay composition around the revealed word.
 		call_deferred("_show_in_place_round_result", last_result_is_win, false)
 
 func _refresh_portrait_game_runtime_state() -> void:
+	if !is_instance_valid(_portrait_crossword) or _portrait_crossword.model != GameSession.crossword:
+		return
 	_refresh_portrait_attempts_value()
 	_sync_portrait_attempts_attention_bounce()
 
-	_rebuild_portrait_game_word_slots()
+	var bounce := Callable(self, "_prepare_portrait_word_letter_bounce") if pending_letter_marker_is_correct else Callable()
+	_portrait_crossword.refresh(GameSession.revealed, bounce)
 	_refresh_portrait_game_keyboard()
 	_refresh_portrait_game_hints_if_needed()
-
-	# Preserve one hero node across guesses. FlashStageSymbol already streams the
-	# next pose in the background, so updating it is cheaper than rebuilding the
-	# complete character hierarchy.
-	_capture_hero_animation_phase()
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		# A second correct letter or a hint can refresh the UI mid-reaction. Keep
-		# that timeline running; only a changed outer pose supersedes it.
-		if (
-			!hero_static_symbol.is_nested_playback_active()
-			or !is_equal_approx(hero_static_symbol.animation_time, _hero_animation_time())
-		):
-			hero_static_symbol.animation_time = _hero_animation_time()
-			hero_static_symbol.nested_animation_time = _hero_nested_display_time()
-			_configure_hero_static_animation()
 
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
@@ -9888,87 +9676,6 @@ func _stop_portrait_attempts_attention_bounce(reset_scale: bool) -> void:
 		and is_instance_valid(_portrait_game_attempts_value_label)
 	):
 		_portrait_game_attempts_value_label.scale = Vector2.ONE
-
-func _rebuild_portrait_game_word_slots(font_size: int = 34) -> void:
-	if (
-		_portrait_game_word_slots_root == null
-		or !is_instance_valid(_portrait_game_word_slots_root)
-		or _portrait_game_word_rect.size.x <= 0.0
-	):
-		return
-	# The cache belongs to this display, so navigation releases its nodes and data
-	# together. Guesses only change visibility; word/geometry changes rebuild it.
-	var cache: Dictionary = _portrait_game_word_slots_root.get_meta("word_slots_cache", {})
-	if (
-		cache.get("letters") == GameSession.letters
-		and cache.get("rect") == _portrait_game_word_rect
-		and cache.get("font_size") == font_size
-	):
-		var slots: Array = cache["slots"]
-		var reveal_changed: bool = false
-		for i: int in range(slots.size()):
-			var slot: Dictionary = slots[i]
-			var revealed: bool = bool(GameSession.revealed[i])
-			if revealed == bool(slot["revealed"]):
-				continue
-			reveal_changed = true
-			slot["revealed"] = revealed
-			var underline: Control = slot["underline"]
-			var letter_label: Label = slot["label"]
-			if underline != null:
-				underline.visible = !revealed
-			if letter_label != null and !bool(slot["is_dash"]):
-				letter_label.visible = revealed
-				if revealed and pending_letter_marker_is_correct and pending_letter_markers.has(slot["letter"]):
-					_prepare_portrait_word_letter_bounce(letter_label)
-		if reveal_changed:
-			_reflow_portrait_revealed_letters(cache)
-		return
-
-	# Only discarded labels invalidate bounce callbacks. An unrelated refresh
-	# must not reset the count while the last correct letter is still animating.
-	if !_portrait_in_place_result_active:
-		_portrait_word_letter_bounce_generation += 1
-		_portrait_word_letter_bounce_active_count = 0
-	_portrait_game_word_slots_root.remove_meta("word_slots_cache")
-	for child: Node in _portrait_game_word_slots_root.get_children():
-		_portrait_game_word_slots_root.remove_child(child)
-		child.queue_free()
-	var previous_content: Control = content
-	content = _portrait_game_word_slots_root
-	_stage_portrait_word_slots(_portrait_game_word_rect, font_size, false, false)
-	content = previous_content
-
-func _reflow_portrait_revealed_letters(cache: Dictionary) -> void:
-	var lefts: Array[float] = WORD_SLOT_LAYOUT_SCRIPT.revealed_letter_lefts(
-		cache["layout"], GameSession.revealed
-	)
-	var slots: Array = cache["slots"]
-	for i: int in range(slots.size()):
-		var slot: Dictionary = slots[i]
-		var label: Label = slot["label"]
-		if !is_instance_valid(label):
-			continue
-		var target_x: float = float(cache["start_x"]) + lefts[i]
-		if is_equal_approx(target_x, float(slot["target_x"])):
-			continue
-		slot["target_x"] = target_x
-		var previous_tween: Tween = slot.get("layout_tween") as Tween
-		if previous_tween != null and previous_tween.is_valid():
-			previous_tween.kill()
-		# Move the holder, leaving the existing letter bounce on the Label intact.
-		# Binding to the holder cancels this motion when the screen is discarded.
-		var holder := label.get_parent() as Control
-		# target_x is in design coordinates. FlashStageControl maps stage_rect
-		# to viewport pixels (including scale and parent transforms) in its setter.
-		# Animating Control.position would mix those coordinate systems and would
-		# also leave a stale stage_rect that snaps back on a viewport resize.
-		var target_rect: Rect2 = holder.get("stage_rect")
-		target_rect.position.x = target_x
-		var tween := holder.create_tween()
-		tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(holder, "stage_rect", target_rect, 0.12)
-		slot["layout_tween"] = tween
 
 func _refresh_portrait_game_keyboard() -> void:
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
@@ -10163,163 +9870,6 @@ func _stage_portrait_ad_banner(source: String = "unspecified") -> void:
 	banner_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	banner_label.z_index = 31
 
-func _stage_portrait_game_word_paper(rect: Rect2) -> void:
-	# Keep the cream paper interior; the shader supplies a clean, antialiased edge.
-	# It intentionally overflows beyond the left/right screen edges so the ends
-	# are clipped by the viewport and only the central paper body is visible.
-	var paper_rect := Rect2(
-		-PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X,
-		rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
-		PORTRAIT_STAGE_SIZE.x + PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X * 2.0,
-		PORTRAIT_GAME_WORD_PAPER_HEIGHT
-	)
-	var surface_rect := paper_rect
-	surface_rect.size.y += PORTRAIT_GAME_WORD_PAPER_SHADOW_SPACE
-	var paper_texture := _stage_texture(surface_rect, PORTRAIT_GAME_WORD_PAPER_TEXTURE)
-	paper_texture.z_index = -2
-	var paper_material := ShaderMaterial.new()
-	paper_material.shader = GAME_WORD_PAPER_SHADER
-	paper_material.set_shader_parameter("paper_size", paper_rect.size)
-	paper_material.set_shader_parameter("surface_size", surface_rect.size)
-	paper_material.set_shader_parameter("stage_origin_x", paper_rect.position.x)
-	paper_texture.material = paper_material
-
-func _stage_portrait_game_word_display(rect: Rect2, font_size: int = 34) -> void:
-	_stage_portrait_game_word_paper(rect)
-	var slots_root := Control.new()
-	slots_root.name = "PortraitGameWordSlots"
-	slots_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(slots_root)
-	slots_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_portrait_game_word_slots_root = slots_root
-	_portrait_game_word_rect = rect
-	_rebuild_portrait_game_word_slots(font_size)
-
-
-
-
-
-
-
-
-
-
-
-
-
-func _stage_portrait_word_slots(
-	rect: Rect2,
-	font_size: int,
-	reveal_all: bool,
-	collect_result_letters: bool
-) -> Dictionary:
-	var animated_letters: Array = []
-	var slots: Array = []
-	var retain_slots: bool = content == _portrait_game_word_slots_root and !reveal_all and !collect_result_letters
-	if GameSession.letters.is_empty():
-		return {
-			"bounds": Rect2(rect.position, Vector2.ZERO),
-			"animated_letters": animated_letters,
-			"font_size": font_size,
-			"letter_center_y": rect.position.y + (rect.size.y - 10.0) * 0.5,
-		}
-
-	var resolved: Dictionary = WORD_SLOT_LAYOUT_SCRIPT.new(GameSession.letters).resolve(rect.size, font_size)
-	var layout: Array = resolved["items"]
-	var letter_lefts: Array[float] = WORD_SLOT_LAYOUT_SCRIPT.revealed_letter_lefts(
-		layout, GameSession.revealed, reveal_all
-	)
-	var word_font: Font = resolved["font"]
-	var effective_font_size: int = int(resolved["font_size"])
-	var total_width: float = float(resolved["total_width"])
-	var start_x: float = rect.position.x + float(resolved["start_x"])
-	var baseline_y: float = rect.position.y + float(resolved["baseline_y"])
-	var shared_underline_width: float = float(resolved["underline_width"])
-	var underline_height: float = float(resolved["underline_height"])
-
-	for i in range(layout.size()):
-		var item: Dictionary = layout[i]
-		var item_left: float = letter_lefts[i]
-		var item_width: float = float(item["width"])
-		var item_center: float = float(item["center"])
-		var letter: String = str(item["letter"])
-		var display_letter: String = _portrait_display_word_text(letter)
-		var is_space: bool = bool(item["is_space"])
-		var is_dash: bool = bool(item["is_dash"])
-		var revealed: bool = reveal_all or bool(GameSession.revealed[i])
-		var underline: Control = null
-		var letter_label: Label = null
-		if (retain_slots or !revealed) and !is_space and !is_dash:
-			underline = _stage_panel(Rect2(
-				start_x + item_center - shared_underline_width * 0.5,
-				baseline_y,
-				shared_underline_width,
-				underline_height
-			), PORTRAIT_ORANGE)
-			underline.visible = !revealed
-		if ((retain_slots or revealed) and !is_space) or is_dash:
-			letter_label = _stage_label(
-				Rect2(
-					start_x + item_left,
-					rect.position.y,
-					item_width,
-					rect.size.y - 10.0
-				),
-				display_letter,
-				effective_font_size,
-				PORTRAIT_BLUE,
-				HORIZONTAL_ALIGNMENT_CENTER
-			)
-			letter_label.add_theme_font_override("font", word_font)
-			letter_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-			letter_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-			letter_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			letter_label.vertical_alignment = (
-				VERTICAL_ALIGNMENT_CENTER
-				if collect_result_letters
-				else VERTICAL_ALIGNMENT_BOTTOM
-			)
-			letter_label.clip_text = false
-			letter_label.visible = revealed or is_dash
-			var animate_reveal: bool = (
-				!collect_result_letters
-				and revealed
-				and !is_dash
-				and pending_letter_marker_is_correct
-				and pending_letter_markers.has(letter)
-			)
-			if animate_reveal:
-				_prepare_portrait_word_letter_bounce(letter_label)
-			if collect_result_letters and !is_space and !is_dash:
-				var letter_holder := letter_label.get_parent() as CanvasItem
-				if letter_holder != null:
-					letter_holder.z_index = 20
-				animated_letters.append(letter_label)
-
-		if retain_slots:
-			slots.append({
-				"letter": letter, "label": letter_label, "underline": underline,
-				"revealed": revealed, "is_dash": is_dash,
-				"target_x": start_x + item_left,
-			})
-
-	if retain_slots:
-		_portrait_game_word_slots_root.set_meta("word_slots_cache", {
-			"letters": GameSession.letters.duplicate(), "rect": rect,
-			"font_size": font_size, "slots": slots,
-			"layout": layout, "start_x": start_x,
-		})
-	return {
-		"bounds": Rect2(start_x, rect.position.y, total_width, rect.size.y),
-		"animated_letters": animated_letters,
-		"font_size": effective_font_size,
-		"letter_center_y": rect.position.y + (rect.size.y - 10.0) * 0.5,
-	}
-
-
-
-
-
 func _remaining_attempt_star_reward_amount() -> int:
 	return maxi(int(last_result_data.get("remaining_attempt_star_reward_amount", 0)), 0)
 
@@ -10504,7 +10054,7 @@ func _play_portrait_word_letter_bounce(
 		_finish_portrait_word_letter_bounce(bounce_generation)
 		return
 	letter_label.pivot_offset = letter_label.size * 0.5
-	var tween: Tween = create_tween()
+	var tween: Tween = letter_label.create_tween()
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var grow_tweener: PropertyTweener = tween.tween_property(
 		letter_label,
@@ -11349,16 +10899,9 @@ func _play_hero_animation_range(nested_start_time: float, nested_end_time: float
 
 func _prepare_portrait_game_entrance() -> void:
 	_portrait_game_entrance_active = true
-	# Entrance has its own page-turn state. Do not run the round-end peel formula
-	# backwards: the reverse-side fold has a different width curve while the sheet
-	# is being laid back down. Start with the face completely masked.
-	_set_portrait_word_paper_entrance_progress(0.0)
-	# The character joins the same opening choreography through a simple fade.
-	# Keep its stage transform untouched so only opacity changes.
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.modulate.a = 0.0
+	COMPOSITED_FADE.set_opacity(_portrait_crossword, 0.0)
 	# Attempts should not be visible during the opening choreography. They appear
-	# only after both the paper and keyboard have completed their entrance.
+	# only after both the crossword and keyboard have completed their entrance.
 	for attempts_control: Control in _portrait_game_attempts_controls:
 		if attempts_control == null or !is_instance_valid(attempts_control):
 			continue
@@ -11398,49 +10941,30 @@ func _prepare_portrait_game_entrance() -> void:
 		)
 		hint_button.set("disabled", true)
 		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	call_deferred("_play_portrait_game_entrance")
+	_play_portrait_game_entrance.call_deferred(_portrait_crossword.get_instance_id())
 
-func _play_portrait_game_entrance() -> void:
+func _play_portrait_game_entrance(grid_id: int = 0) -> void:
 	var first_start: Node = get_node_or_null("FirstWordStartup")
 	if first_start != null and first_start.holds_entrance():
 		return
 	if !_portrait_game_entrance_active or !game_screen_visible or game_finished:
 		return
+	if grid_id != 0 and grid_id != _portrait_crossword.get_instance_id():
+		return
 	var cover: Node = content.get_node_or_null("ScreenCoverTransition")
 	if is_instance_valid(cover) and !cover.complete:
-		if !cover.finished.is_connected(_play_portrait_game_entrance):
-			cover.finished.connect(_play_portrait_game_entrance, CONNECT_ONE_SHOT)
+		var resume_entrance: Callable = _play_portrait_game_entrance.bind(_portrait_crossword.get_instance_id())
+		if !cover.finished.is_connected(resume_entrance):
+			cover.finished.connect(resume_entrance, CONNECT_ONE_SHOT)
 		return
 	var entrance_start_delay: float = PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
-	var paper_duration: float = PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
+	var grid_duration: float = PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
 	var key_wave_duration: float = PORTRAIT_ROUND_END_KEY_WAVE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
 	var key_fade_duration: float = PORTRAIT_ROUND_END_KEY_FADE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.modulate.a = 0.0
-		var hero_tween := hero_static_symbol.create_tween()
-		hero_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		if entrance_start_delay > 0.0:
-			hero_tween.tween_interval(entrance_start_delay)
-		var hero_fade := hero_tween.tween_property(
-			hero_static_symbol,
-			"modulate:a",
-			1.0,
-			PORTRAIT_GAME_HERO_ENTRANCE_FADE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
-		)
-		hero_fade.set_trans(Tween.TRANS_QUAD)
-		hero_fade.set_ease(Tween.EASE_OUT)
-	var paper_tween := create_tween()
-	paper_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	if entrance_start_delay > 0.0:
-		paper_tween.tween_interval(entrance_start_delay)
-	var paper_reveal := paper_tween.tween_method(
-		Callable(self, "_set_portrait_word_paper_entrance_progress"),
-		0.0,
-		1.0,
-		paper_duration
-	)
-	paper_reveal.set_trans(Tween.TRANS_QUAD)
-	paper_reveal.set_ease(Tween.EASE_IN_OUT)
+	var grid_fade: Node = COMPOSITED_FADE.branch(_portrait_crossword)
+	var grid_tween := _portrait_crossword.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	grid_tween.tween_interval(entrance_start_delay)
+	grid_tween.tween_property(grid_fade, "opacity", 1.0, grid_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 
 	var valid_buttons: Array = []
 	var min_x: float = INF
@@ -11524,12 +11048,12 @@ func _play_portrait_game_entrance() -> void:
 		attempts_fade.set_ease(Tween.EASE_OUT)
 
 	var core_entrance_finish: float = maxf(
-		entrance_start_delay + paper_duration,
+		entrance_start_delay + grid_duration,
 		latest_key_finish
 	)
 
 	# Hints enter only after the keyboard wave has completely settled.
-	var hint_tween := create_tween()
+	var hint_tween := _portrait_crossword.create_tween()
 	hint_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	if latest_key_finish > 0.0:
 		hint_tween.tween_interval(latest_key_finish)
@@ -11545,7 +11069,7 @@ func _play_portrait_game_entrance() -> void:
 		core_entrance_finish,
 		hint_finish
 	)
-	var finish_tween := create_tween()
+	var finish_tween := _portrait_crossword.create_tween()
 	finish_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	finish_tween.tween_interval(entrance_finish)
 	finish_tween.tween_callback(Callable(self, "_finish_portrait_game_entrance"))
@@ -11605,9 +11129,7 @@ func _play_portrait_game_hint_entrance_bounce() -> void:
 func _finish_portrait_game_entrance() -> void:
 	if !_portrait_game_entrance_active:
 		return
-	_set_portrait_word_paper_peel_progress(0.0)
-	if hero_static_symbol != null and is_instance_valid(hero_static_symbol):
-		hero_static_symbol.modulate.a = 1.0
+	COMPOSITED_FADE.set_opacity(_portrait_crossword, 1.0)
 	for attempts_control: Control in _portrait_game_attempts_controls:
 		if attempts_control == null or !is_instance_valid(attempts_control):
 			continue
@@ -11736,6 +11258,9 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 	if !is_instance_valid(_portrait_game_input_group):
 		show_game_screen()
 		return
+	if is_instance_valid(_portrait_crossword):
+		_portrait_crossword.set_bottom(_portrait_game_word_rect.position.y - 12.0)
+		_portrait_crossword.refresh(GameSession.revealed, Callable(), true)
 	var presentation := _ensure_round_result_component()
 	# Remaining-attempt stars were durably awarded before this UI is shown.
 	# This adapter only starts their existing HUD collection presentation.
@@ -16078,78 +15603,6 @@ func _finalize_portrait_hints_for_round_end() -> void:
 	for hint_button: Control in _portrait_game_hint_buttons:
 		_finalize_portrait_hint_for_round_end(hint_button)
 
-func _set_portrait_word_paper_entrance_progress(progress: float) -> void:
-	var reveal: float = clampf(progress, 0.0, 1.0)
-	if (
-		_portrait_game_word_paper_mask == null
-		or !is_instance_valid(_portrait_game_word_paper_mask)
-		or _portrait_game_word_paper_layer == null
-		or !is_instance_valid(_portrait_game_word_paper_layer)
-	):
-		return
-
-	var viewport_size: Vector2 = get_viewport_rect().size
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
-		return
-
-	# Lay the page back down from right to left. The clipping boundary travels
-	# from the right edge toward the left while the front texture itself stays
-	# fixed in screen space. This is deliberately separate from the exit formula.
-	var hidden_progress: float = 1.0 - reveal
-	var mask_x: float = viewport_size.x * hidden_progress
-	_portrait_game_word_paper_mask.visible = reveal > 0.001
-	_portrait_game_word_paper_layer.visible = true
-	_portrait_game_word_paper_layer.modulate = Color.WHITE
-	_portrait_game_word_paper_mask.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_portrait_game_word_paper_mask.position = Vector2(mask_x, 0.0)
-	_portrait_game_word_paper_mask.size = Vector2(
-		maxf(1.0, viewport_size.x - mask_x),
-		viewport_size.y
-	)
-	_portrait_game_word_paper_layer.position = Vector2(-mask_x, 0.0)
-
-	if (
-		_portrait_game_word_paper_backside == null
-		or !is_instance_valid(_portrait_game_word_paper_backside)
-		or _portrait_game_word_paper_backside_visual == null
-		or !is_instance_valid(_portrait_game_word_paper_backside_visual)
-	):
-		return
-
-	var fit_scale: float = PORTRAIT_STAGE_LAYOUT.fit_scale(viewport_size)
-	if fit_scale <= 0.0:
-		return
-	var horizontal_offset: float = PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size)
-	var fold_stage_x: float = (mask_x - horizontal_offset) / fit_scale
-
-	# Entrance is the exact geometric reverse of the exit peel. At the start the
-	# reverse side has full horizontal scale but sits beyond the right screen edge;
-	# while the fold travels left it progressively contracts to zero. This keeps
-	# the reverse texture attached to the fold line without the broken mid-curve
-	# expansion from the previous implementation.
-	var fold_curve: float = hidden_progress
-	_portrait_game_word_paper_backside.set(
-		"stage_rect",
-		Rect2(
-			fold_stage_x,
-			_portrait_game_word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
-			PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
-			PORTRAIT_GAME_WORD_PAPER_HEIGHT
-		)
-	)
-	_sync_portrait_word_paper_backside_material(fold_stage_x, fold_curve)
-	# Never fade the reverse side during unfold. Its visibility is controlled only
-	# by the fold geometry and screen clipping.
-	_portrait_game_word_paper_backside.modulate.a = 1.0
-	_portrait_game_word_paper_backside.visible = (
-		reveal > 0.001
-		and reveal < 0.999
-		and fold_curve > 0.005
-	)
-
-
-
-
 func _fit_single_line_label_to_width(label: Label, text: String, available_width: float, max_font_size: int, min_font_size: int) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
@@ -16449,16 +15902,6 @@ func _stage_portrait_result_word_display(
 func _set_portrait_result_word_color(result_controls: Dictionary, color: Color) -> void:
 	_ensure_round_result_component()._set_portrait_result_word_color(result_controls, color)
 
-func _set_portrait_word_paper_peel_progress(progress: float) -> void:
-	if !is_instance_valid(_portrait_game_word_paper_mask) or !is_instance_valid(_portrait_game_word_paper_layer):
-		return
-	_ensure_round_result_component()._set_portrait_word_paper_peel_progress(progress)
-
-func _sync_portrait_word_paper_backside_material(stage_x: float, width_ratio: float) -> void:
-	if !is_instance_valid(_portrait_game_word_paper_backside_visual):
-		return
-	_ensure_round_result_component()._sync_portrait_word_paper_backside_material(stage_x, width_ratio)
-
 func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
 	return ROUND_RESULT_COMPONENT._stage_portrait_result_word_marker(marker_size)
 
@@ -16484,22 +15927,19 @@ func _ensure_round_result_component() -> Node:
 		_portrait_round_result.attempt_collection_requested.connect(_start_portrait_attempt_star_collection)
 		_portrait_round_result.attempt_collection_finish_requested.connect(_finish_portrait_attempt_star_collection)
 		_portrait_round_result.hints_finalize_requested.connect(_finalize_portrait_hints_for_round_end)
+	var primary_letters: Array[String] = []
+	primary_letters.assign(GameSession.get_full_word().split(""))
 	_portrait_round_result.configure(_portrait_game_input_group, {
 		"word_rect": _portrait_game_word_rect,
 		"action_rect": _portrait_in_place_result_button_rect(),
-		"paper_mask": _portrait_game_word_paper_mask,
-		"paper_layer": _portrait_game_word_paper_layer,
-		"paper_backside": _portrait_game_word_paper_backside,
-		"paper_backside_visual": _portrait_game_word_paper_backside_visual,
 		"keyboard_buttons": _portrait_game_keyboard_buttons,
-		"keyboard_panel": _portrait_game_keyboard_panel,
 		"word_comment": GameSession.get_word_hint(),
 		"replace_result_keyboard": GameState.current_mode != GameState.GameMode.TWO_PLAYER,
 		"attempts_title": _portrait_game_attempts_controls[0] if _portrait_game_attempts_controls.size() >= 2 else null,
 		"attempts_value": _portrait_game_attempts_value_label,
 		"attempt_reward_amount": _remaining_attempt_star_reward_amount(),
 		"back_button": _portrait_game_back_button,
-	}, GameSession.letters)
+	}, primary_letters)
 	return _portrait_round_result
 
 func _on_round_result_continue_available() -> void:

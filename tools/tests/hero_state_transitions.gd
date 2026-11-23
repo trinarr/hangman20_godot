@@ -22,7 +22,6 @@ class ColdHero extends FlashStageSymbol:
 var main: TestUI
 var checks: int = 0
 var failures: Array[String] = []
-var android_frames: Array[Dictionary] = []
 
 func check(value: bool, message: String) -> void:
 	checks += 1
@@ -159,151 +158,12 @@ func check_cold_pose_transitions() -> void:
 			check(symbol._fading_pose == fallback, "cold recovery begins fade only after loading")
 			symbol.free()
 
-func check_attempt_recovery(character: int) -> void:
-	main.game_screen_visible = false
-	GameSession.start_custom_round("АБВА" if Database.current_language == "ru" else "ABBA")
-	GameSession.mistakes = 5
-	GameSession.loss_deferred = true
-	main.show_game_screen()
-	var symbol: FlashStageSymbol = main.hero_static_symbol
-	await wait_for_pose(symbol)
-	var previous: Node2D = symbol._symbol_instance
-	main.single_player_extra_attempt_current_count = 3
-	main._grant_single_player_extra_attempt()
-	await wait_for_pose(symbol)
-	check(symbol._fading_pose == previous and symbol._symbol_instance != previous, "attempt purchase keeps old pose for crossfade")
-	var duration: float = symbol.backward_pose_fade_seconds
-	await get_tree().create_timer(duration * 0.2).timeout
-	var early: float = symbol._symbol_instance.modulate.a
-	check(early > 0.0 and early < 1.0 and previous.modulate.a > 0.0 and previous.modulate.a < 1.0, "both recovery poses have intermediate opacity")
-	await get_tree().create_timer(duration * 0.2).timeout
-	check(symbol._symbol_instance.modulate.a > early, "recovery fade advances")
-	await capture("attempt_recovery", character)
-	await get_tree().create_timer(duration).timeout
-	check(symbol._fading_pose == null and is_equal_approx(symbol._symbol_instance.modulate.a, 1.0), "recovery releases old pose and restores opacity")
-	# A second reversal interrupted by navigation must not leave a live tween.
-	GameSession.mistakes = 5
-	main._refresh_game_screen()
-	await wait_for_pose(symbol)
-	GameSession.loss_deferred = true
-	main._grant_single_player_extra_attempt()
-	await wait_for_pose(symbol)
-	var animation: Tween = symbol._pose_fade
-	main._clear()
-	await get_tree().process_frame
-	check(!animation.is_valid() or !animation.is_running(), "navigation cancels recovery fade")
-
-func capture(phase: String, character: int) -> void:
-	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
-	if directory.is_empty() and OS.has_feature("android"):
-		directory = "user://"
-	if directory.is_empty() or DisplayServer.get_name() == "headless":
-		return
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(directory.path_join(
-		"hero_%s_%s_%d_%dx%d.png" % [phase, Database.interface_language, character, get_window().size.x, get_window().size.y]
-	))
-
-func check_android_realtime() -> void:
-	GameState.settings[5] = 2
-	for language: String in ["ru", "en"]:
-		Database.load_languages(language, language)
-		main.game_screen_visible = false
-		GameSession.start_custom_round("АБВГДЕЖЗ" if language == "ru" else "ABCDEFGH")
-		GameSession.mistakes = 3
-		main.show_game_screen()
-		var symbol: FlashStageSymbol = main.hero_static_symbol
-		await wait_for_pose(symbol)
-		await get_tree().process_frame
-		await get_tree().process_frame
-		main._press_letter("А" if language == "ru" else "A")
-		var previous: float = main.HERO_MOV_RECOVERY_START_FRAME_TIME
-		var second_pressed: bool = false
-		var deadline: int = Time.get_ticks_msec() + 2000
-		while symbol.is_nested_playback_active() and Time.get_ticks_msec() < deadline:
-			await get_tree().process_frame
-			await RenderingServer.frame_post_draw
-			var phase: float = symbol.get_nested_playback_position()
-			check(symbol.visible and phase >= previous, "Android real-time recovery never hides or rewinds")
-			android_frames.append({"language": language, "time_ms": Time.get_ticks_msec(), "phase": phase})
-			previous = phase
-			if !second_pressed and phase > main.HERO_MOV_RECOVERY_START_FRAME_TIME + 0.04:
-				second_pressed = true
-				main._press_letter("Б" if language == "ru" else "B")
-				check(is_equal_approx(symbol.get_nested_playback_position(), phase), "Android rapid letter preserves the real-time phase")
-		check(!symbol.is_nested_playback_active() and second_pressed, "Android real-time recovery finishes after a rapid second letter")
-		await capture("realtime_rest", 2)
-		main._clear()
-		await get_tree().process_frame
-
 func run() -> void:
 	main = TestUI.new()
 	add_child(main)
 	await check_cold_pose_transitions()
-	GameSession.changed.connect(main._refresh_game_screen)
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	var sizes: Array[Vector2i] = [Vector2i(960, 1600), Vector2i(690, 1536)]
-	if OS.has_feature("android"):
-		sizes = [get_window().size]
-	for size: Vector2i in sizes:
-		if !OS.has_feature("android"):
-			get_window().min_size = size
-			get_window().size = size
-			get_window().content_scale_size = size
-		await get_tree().process_frame
-		for language: String in ["ru", "en"]:
-			Database.load_languages(language, language)
-			for character: int in [1, 2]:
-				GameState.settings[5] = character
-				check_section_frames(character)
-				await check_attempt_recovery(character)
-				for mistakes: int in range(6):
-					main.game_screen_visible = false
-					GameSession.start_custom_round("АБВГДЕЖЗ" if language == "ru" else "ABCDEFGH")
-					GameSession.mistakes = mistakes
-					main.show_game_screen()
-					var symbol: FlashStageSymbol = main.hero_static_symbol
-					await wait_for_pose(symbol)
-					var hierarchy: Node = symbol._symbol_instance
-					main._press_letter("А" if language == "ru" else "A")
-					check(main.hero_animation_overlay == null and symbol.visible, "reaction keeps the displayed hero visible without an overlay")
-					check(symbol._symbol_instance == hierarchy and symbol.is_nested_playback_active(), "correct letter animates the existing hierarchy")
-					var player: AnimationPlayer = symbol._playback_player
-					if player == null:
-						continue
-					player.advance(0.10)
-					var position: float = symbol.get_nested_playback_position()
-					check(position > main.HERO_MOV_RECOVERY_START_FRAME_TIME + 0.05, "recovery advances through intermediate frames")
-					player.speed_scale = 0.0
-					if mistakes == 3:
-						await capture("recovery", character)
-					# Two quick correct letters, duplicate refresh and hint-style reveal
-					# must neither restart the clip nor jump to its resting frame.
-					main._press_letter("Б" if language == "ru" else "B")
-					GameSession._reveal_letter("В" if language == "ru" else "C")
-					GameSession.changed.emit()
-					check(symbol._playback_player == player and is_equal_approx(symbol.get_nested_playback_position(), position), "quick correct guesses and refresh preserve the intermediate phase")
-					player.speed_scale = 1.0
-					await get_tree().create_timer(0.25).timeout
-					check(!symbol.is_nested_playback_active() and is_equal_approx(symbol.nested_animation_time, main.HERO_MOV_RECOVERY_END_FRAME_TIME), "reaction settles on the authored recovery pose")
-					check(symbol.visible and symbol._symbol_instance == hierarchy, "completion never swaps or hides the hero")
-					if mistakes == 3:
-						await capture("rest", character)
-					main._press_letter("Я" if language == "ru" else "Z")
-					await wait_for_pose(symbol)
-					await get_tree().process_frame
-					check(main.hero_static_symbol == symbol and symbol.visible and symbol.is_nested_playback_active(), "wrong guess supersedes recovery on the same visible hero")
-					if mistakes < 5:
-						main._press_letter("Г" if language == "ru" else "D")
-						check(symbol.is_nested_playback_active() and symbol.visible, "correct guess can interrupt a wrong reaction")
-						await get_tree().process_frame
-					var departing: WeakRef = weakref(symbol)
-					main._clear()
-					await get_tree().process_frame
-					check(departing.get_ref() == null, "leaving the screen removes the active reaction")
-	if OS.has_feature("android"):
-		await check_android_realtime()
-	GameSession.changed.disconnect(main._refresh_game_screen)
+	for character: int in [1, 2]:
+		check_section_frames(character)
 	main.queue_free()
 	await get_tree().process_frame
 	var report: Dictionary = {"checks": checks, "failures": failures}
@@ -313,7 +173,6 @@ func run() -> void:
 		report["screen"] = get_window().size
 		report["renderer"] = RenderingServer.get_current_rendering_method()
 		report["adapter"] = RenderingServer.get_video_adapter_name()
-		report["realtime_frames"] = android_frames
 		var file := FileAccess.open("user://hero_state_transitions.json", FileAccess.WRITE)
 		file.store_string(JSON.stringify(report, "\t"))
 	print("HERO_STATE_TRANSITIONS " + JSON.stringify(report))

@@ -23,7 +23,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 9
+const SAVE_FORMAT_VERSION: int = 10
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -587,9 +587,22 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 			_payload["pending_profile_update"] = {}
 			_payload["save_version"] = 9
 			return true
+		9:
+			if _is_unfinished_round(_payload.get("active_single_player_session")):
+				_payload["active_single_player_session"] = {}
+			var resume_states: Variant = _payload.get("single_player_resume_states", {})
+			if resume_states is Dictionary:
+				for state: Variant in resume_states.values():
+					if state is Dictionary and _is_unfinished_round(state.get("active_session")):
+						state["active_session"] = {}
+			_payload["save_version"] = 10
+			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
 			return false
+
+func _is_unfinished_round(session: Variant) -> bool:
+	return session is Dictionary and session.get("kind") in ["word", "quiz"]
 
 func _read_save_dictionary(path: String) -> Dictionary:
 	if !FileAccess.file_exists(path):

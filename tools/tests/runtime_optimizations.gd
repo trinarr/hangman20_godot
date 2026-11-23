@@ -22,84 +22,168 @@ func _process(_delta: float) -> void:
 func _ready() -> void:
 	call_deferred("run")
 
-func slots() -> Array:
-	return main._portrait_game_word_slots_root.get_meta("word_slots_cache")["slots"]
+func test_crossword() -> void:
+	var design = GameSession.GAME_DESIGN
+	for level: int in [2, 3, 4, 10, 11, 20, 21, 30]:
+		check(design.level_crossword_word_count(level) == design.level_stage_count_with_bonus(level), "Initial crossword balance differs from the stage counts")
+	for language: String in ["ru", "en"]:
+		GameState.set_word_language(language)
+		Database.load_languages(language, language)
+		for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
+			get_window().min_size = size
+			get_window().size = size
+			get_window().content_scale_size = size
+			await get_tree().process_frame
+			var level_index: int = 29 if size.x == 960 else 39
+			var theme: int = Database.get_theme_index_by_id(9 if size.x == 960 else 2)
+			main._clear()
+			GameState._single_player_bucket(language)["unlocked_level"] = level_index
+			GameState.select_single_level_theme(language, level_index, theme, design.level_stage_count_with_bonus(level_index + 1))
+			main._invalidate_single_player_level_cache()
+			main._start_single_player_word(level_index, 0)
+			await get_tree().create_timer(1.6).timeout
+			var root: Control = main._portrait_crossword
+			var board: RefCounted = GameSession.crossword
+			check(is_instance_valid(root) and main.hero_static_symbol == null, "Word level %d (%s, %s) must show the crossword without a character" % [level_index + 1, language, size])
+			if !is_instance_valid(root) or board == null:
+				return
+			var pattern_clip := main.content.get_node_or_null("PortraitGameBackground/PortraitGameThemePattern") as Control
+			var pattern_motion := main.content.get_node_or_null("PortraitGameBackground/PortraitGameThemePattern/PatternMotion") as Control
+			check(is_instance_valid(pattern_clip) and is_instance_valid(pattern_motion), "Crossword uses the shared animated theme pattern")
+			if !is_instance_valid(pattern_clip) or !is_instance_valid(pattern_motion):
+				return
+			var theme_icon: Texture2D = main._theme_icon_mono_texture(theme)
+			check(theme_icon != null and pattern_motion.get_child_count() > 0 and pattern_motion.get_child(0).texture == theme_icon, "Crossword pattern shows the active theme icon")
+			check(pattern_clip.mouse_filter == Control.MOUSE_FILTER_IGNORE and pattern_motion.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Crossword pattern does not intercept input")
+			var pattern_tween: Tween = pattern_motion.get_meta("pattern_move_tween", null)
+			check(pattern_tween != null and pattern_tween.is_running(), "Crossword theme pattern is moving")
+			check(board.entries.size() == 7, "Bonus crossword must contain seven words")
+			var occupied: Dictionary = {}
+			var shared_letter: String = ""
+			for entry: Dictionary in board.entries:
+				var start := Vector2i(entry.x, entry.y)
+				var direction := Vector2i.DOWN if entry.vertical else Vector2i.RIGHT
+				var crosses: bool = false
+				var word: String = entry.text
+				check(!word.contains(" "), "Crossword must contain only entries without spaces")
+				for i: int in range(word.length()):
+					var point: Vector2i = start + direction * i
+					if occupied.has(point):
+						crosses = true
+						shared_letter = word[i]
+						check(occupied[point] == word[i], "Crossing letters differ")
+					occupied[point] = word[i]
+				check(crosses or entry == board.entries[0], "A crossword word is detached")
+			check(!shared_letter.is_empty() and occupied.size() == root._tiles.size(), "Intersections share a single tile")
+			var numbers: Dictionary = {}
+			var glyphs: Array = root._glyphs.duplicate()
+			var attempts: Control = main._portrait_game_attempts_controls[0]
+			var attempts_value: Control = main._portrait_game_attempts_controls[1]
+			var attempts_rect: Rect2 = attempts_value.get_parent_control().get_global_rect()
+			var card := root.get_node("StageQuestionCard") as FlashStagePanel
+			var title := card.find_child("StageQuestionThemeTitle", true, false) as Label
+			var first_hint: Control = main._portrait_game_hint_buttons[0]
+			var panel_rect: Rect2 = card.get_global_rect()
+			var title_rect: Rect2 = title.get_global_rect()
+			var fit: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(get_viewport().get_visible_rect().size)
+			check(card.stage_rect.size.x == main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.size.x and card.stage_rect.size.y > main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.size.y, "Crossword card uses the quiz width and extends farther down")
+			var quiz_title_offset: Vector2 = main.PORTRAIT_QUIZ_THEME_TITLE_RECT.position - main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
+			var expected_title_position: Vector2 = panel_rect.position + quiz_title_offset * fit
+			check(title.text == Database.get_theme_name(theme) and title_rect.position.distance_to(expected_title_position) < fit and title_rect.end.y > panel_rect.position.y, "Title keeps the quiz card offset across the top border: %s / %s" % [title_rect, expected_title_position])
+			check(attempts_rect.end.y < title_rect.position.y and is_equal_approx(attempts_rect.get_center().x, panel_rect.get_center().x), "Attempts stay centered above the card and its title: %s / %s" % [attempts_rect, title_rect])
+			check(is_equal_approx(first_hint.get_global_rect().position.y - panel_rect.end.y, main.PORTRAIT_CROSSWORD_CARD_HINT_GAP * fit), "Card bottom follows the hints on the adapted viewport")
+			for j: int in range(main._portrait_game_attempts_controls.size()):
+				var hud_label: Label = main._portrait_game_attempts_controls[j]
+				var expected_font: Font = main.UI_REGULAR_FONT if j % 2 == 0 else main.UI_DISPLAY_FONT
+				check(hud_label.get_theme_font("font") == expected_font, "Crossword HUD uses Roboto Flex")
+			var letter_font: Font = main.UI_FONTS.gameplay_word_font()
+			for i: int in range(glyphs.size()):
+				var tile: Control = root._tiles[i]
+				var tile_rect: Rect2 = tile.get_global_rect()
+				check(panel_rect.encloses(tile_rect) and tile_rect.position.y > title_rect.end.y, "Tile stays inside the card and below its theme title")
+				if glyphs[i] == null:
+					continue
+				var number_label := tile.find_child("Number", true, false) as Label
+				check(number_label.get_theme_font("font") == main.UI_REGULAR_FONT and glyphs[i].get_theme_font("font") == letter_font, "Crossword cell uses Roboto Flex")
+				var letter: String = board.letters[i]
+				var number: String = number_label.text
+				check(!glyphs[i].visible and number == numbers.get(letter, number), "Equal letters must have equal numbers and start hidden")
+				numbers[letter] = number
+			var distinct_numbers: Dictionary = {}
+			for number: String in numbers.values():
+				distinct_numbers[number] = true
+			check(numbers.size() == distinct_numbers.size(), "Different letters must have different numbers")
+			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				var frame: Image = get_viewport().get_texture().get_image()
+				var field: Rect2i = Rect2i(pattern_clip.get_global_rect())
+				field.size.y = mini(field.size.y, int(attempts.get_global_rect().end.y) - field.position.y + 100)
+				pattern_clip.hide()
+				await RenderingServer.frame_post_draw
+				var plain: Image = get_viewport().get_texture().get_image()
+				pattern_clip.show()
+				check(frame.get_region(field).get_data() != plain.get_region(field).get_data(), "Crossword theme pattern contributes visible pixels behind the playfield")
+				if !directory.is_empty():
+					frame.save_png(directory.path_join("crossword_%s_%d.png" % [language, size.x]))
+			var lives: int = GameSession.get_remaining_attempts()
+			for letter: String in Database.get_alphabet():
+				if !GameSession.letters.has(letter):
+					main._press_letter(letter)
+					main._press_letter(letter)
+					break
+			check(GameSession.get_remaining_attempts() == lives - 1, "A repeated wrong key consumed more than one attempt")
+			main._press_letter(shared_letter)
+			var matching_count: int = 0
+			for i: int in range(glyphs.size()):
+				if glyphs[i] == null:
+					continue
+				var matching: bool = board.letters[i] == shared_letter
+				matching_count += int(matching)
+				check(glyphs[i].visible == matching, "A correct key must reveal every matching cell and no others")
+			check(root._glyphs == glyphs and main._portrait_word_letter_bounce_active_count == matching_count, "Guess did not reuse cell nodes and animate all matching cells")
+			main._refresh_portrait_game_runtime_state()
+			check(main._portrait_word_letter_bounce_active_count == matching_count, "Refresh interrupted an active letter animation")
+			await get_tree().create_timer(0.7).timeout
+			check(main._portrait_word_letter_bounce_active_count == 0, "Letter animations did not complete")
+			if !directory.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png(directory.path_join("crossword_revealed_%s_%d.png" % [language, size.x]))
+			var snapshot: Dictionary = GameSession.to_save_data()
+			var stored: Dictionary = GameState._read_save_dictionary(GameState.SAVE_PATH)
+			check(stored.active_single_player_session.data.has("crossword"), "Board entries were not written to the player save")
+			main._clear()
+			check(GameSession.restore_from_save_data(stored.active_single_player_session.data), "Saved board failed to restore")
+			main.show_game_screen()
+			await get_tree().process_frame
+			check(GameSession.to_save_data() == snapshot and main._portrait_crossword != root, "Reopened stage lost its layout, reveal state or attempt count")
+			check(!is_instance_valid(pattern_motion), "Reopening the stage removes the old background nodes")
+			var revealed_count: int = GameSession.correct_letters.size()
+			if language == "en" and size.x == 690:
+				for letter: String in board.entries[0].text:
+					if !GameSession.WORD_CROSSWORD.is_separator(letter):
+						main._press_letter(letter)
+				check(GameSession.is_active, "Solving only the original word finished the board")
+				for letter: String in numbers:
+					main._press_letter(letter)
+				check(!GameSession.is_active and main.game_finished, "Solving the complete grid did not finish its stage")
+			else:
+				check(revealed_count == 1, "Resume revealed an unexpected letter")
+			main._clear()
+			await get_tree().process_frame
+			check(!is_instance_valid(root), "Leaving the screen retained the previous crossword")
+			check(pattern_tween == null or !pattern_tween.is_valid(), "The engine releases the old background tween after freeing its owner")
 
-func test_word_reuse() -> void:
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	GameSession.start_custom_round("АА-Б В")
 	main.game_finished = false
-	# Inspect the word immediately; Home navigation is covered by resume_flow.
-	main._clear()
-	main.show_game_screen()
-	await get_tree().create_timer(2.0).timeout
-	var initial: Array = slots().duplicate()
-	var root: Control = main._portrait_game_word_slots_root
-	var children: Array[Node] = root.get_children()
-	var generation: int = main._portrait_word_letter_bounce_generation
-	GameSession.guess("Я")
-	check(root.get_children() == children, "Wrong guess recreated word nodes")
-	check(main._portrait_word_letter_bounce_generation == generation, "Wrong guess invalidated bounces")
-	main.pending_letter_markers = PackedStringArray(["А"])
-	main.pending_letter_marker_is_correct = true
-	GameSession.guess("А")
-	check(root.get_children() == children, "Correct guess recreated word nodes")
-	check(initial[0].label.visible and initial[1].label.visible, "Repeated letters were not both revealed")
-	check(!initial[0].underline.visible and !initial[1].underline.visible, "Revealed letters kept underlines")
-	check(!initial[3].label.visible and initial[3].underline.visible, "Unchanged letter state changed")
-	check(initial[2].label.visible and initial[2].label.text == "−", "Dash presentation changed")
-	check(initial[4].label == null and initial[4].underline == null, "Space gained visible nodes")
-	check(main._portrait_word_letter_bounce_active_count == 2, "Repeated-letter bounce count wrong")
-	main._refresh_portrait_game_runtime_state()
-	check(main._portrait_word_letter_bounce_active_count == 2, "Refresh reset an active bounce")
-	await get_tree().create_timer(1.0).timeout
-	check(main._portrait_word_letter_bounce_active_count == 0, "Bounces did not finish")
-	check(initial[0].label.scale.is_equal_approx(Vector2.ONE), "Letter did not settle")
-	# A hint can reveal multiple slots; the same refresh path must retain them.
-	main.pending_letter_markers = PackedStringArray(["Б"])
-	main.pending_letter_marker_is_correct = true
-	GameSession._reveal_letter("Б")
-	GameSession.changed.emit()
-	check(initial[3].label.visible and root.get_children() == children, "Hint did not reuse the label")
-	await get_tree().create_timer(1.0).timeout
-	# The final letter must complete its bounce before the result peels the paper.
-	main.pending_letter_markers = PackedStringArray(["В"])
-	main.pending_letter_marker_is_correct = true
-	GameSession.guess("В")
-	check(main._portrait_word_letter_bounce_active_count == 1, "Final letter lost its bounce (active=%d)" % main._portrait_word_letter_bounce_active_count)
-	main._rebuild_portrait_game_word_slots()
-	check(main._portrait_word_letter_bounce_active_count == 1, "Result refresh reset final bounce (active=%d)" % main._portrait_word_letter_bounce_active_count)
-	await get_tree().create_timer(5.0).timeout
-	check(main._portrait_word_letter_bounce_active_count == 0, "Final bounce did not complete")
-	check(!main._portrait_round_end_waiting_for_letter_bounce, "Result remained blocked by the bounce")
-	var search_button: Control = main._portrait_inline_result_search_button
-	check(is_instance_valid(search_button) and search_button.is_visible_in_tree() and !search_button.get("disabled"), "Result search action did not appear after final letter")
-	main.show_menu()
-	# Geometry and word changes rebuild the cache; empty sessions cannot revive
-	# references to the labels that have already been discarded.
-	GameSession.start_custom_round("ПРОВЕРКА")
-	main.game_finished = false
-	# Inspect the word immediately; Home navigation is covered by resume_flow.
-	main._clear()
+	GameSession.start_round(WordData.new("GRID", 0.2, -1, -1), GameState.GameMode.TWO_PLAYER)
 	main.show_game_screen()
 	await get_tree().process_frame
-	var old_label: Label = slots()[0].label
-	main._portrait_game_word_rect.size.x -= 40.0
-	main._rebuild_portrait_game_word_slots()
-	check(slots()[0].label != old_label, "Changed size did not rebuild geometry")
-	old_label = slots()[0].label
-	GameSession.letters = PackedStringArray(["Т", "Е", "С", "Т"])
-	GameSession.revealed = [false, false, false, false]
-	main._rebuild_portrait_game_word_slots()
-	check(slots().size() == 4 and slots()[0].label != old_label, "Changed word retained old layout")
-	GameSession.letters = PackedStringArray()
-	GameSession.revealed = []
-	main._rebuild_portrait_game_word_slots()
-	GameSession.letters = PackedStringArray(["Т", "Е", "С", "Т"])
-	GameSession.revealed = [false, false, false, false]
-	main._rebuild_portrait_game_word_slots()
-	check(slots().size() == 4 and is_instance_valid(slots()[0].label), "Empty word left stale cache")
-	main.show_menu()
+	check(main._portrait_game_entrance_active, "Close test must interrupt a running grid entrance")
+	var closing_grid: Control = main._portrait_crossword
+	main._clear()
+	check(!main._portrait_game_entrance_active, "Closing the grid did not cancel its entrance")
+	await get_tree().create_timer(1.6).timeout
+	check(!is_instance_valid(closing_grid) and !main._portrait_game_entrance_active, "An old grid entrance survived screen closure")
 
 func pattern(clip: Control, motion: Control, textures: Array, color: Color = Color.WHITE, speed: float = 1.0) -> void:
 	main._layout_multi_theme_pattern(clip, motion, textures, color, 1.0, 1.0, speed, 0.05, 0.35)
@@ -204,7 +288,7 @@ func run() -> void:
 	await get_tree().process_frame
 	# Intermediate animation assertions need the game's normal frame/time ratio.
 	Engine.time_scale = 1.0
-	await test_word_reuse()
+	await test_crossword()
 	await test_pattern_reuse()
 	test_receipt_compaction()
 	# Let asynchronous scene/texture loads and deferred Home work finish.

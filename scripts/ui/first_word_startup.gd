@@ -72,9 +72,6 @@ func _start(saved: Dictionary, resume_saved: bool) -> bool:
 	return true
 
 func _is_ready() -> bool:
-	var hero: Node = _host.hero_static_symbol
-	if is_instance_valid(hero) and !hero._pending_symbol_path.is_empty():
-		return false
 	return _defer_entrance or !_host._portrait_game_entrance_active
 
 func holds_entrance() -> bool:

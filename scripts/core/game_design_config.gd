@@ -133,6 +133,15 @@ static func difficulty_loss_decrease(loss_streak: int, current_difficulty: float
 	return 0.0
 
 static func level_stage_count(level_number: int) -> int:
+	return _level_stage_range_value(level_number, "count")
+
+static func level_crossword_word_count(level_number: int) -> int:
+	var count: int = _level_stage_range_value(level_number, "crossword_words")
+	if is_bonus_level(level_number):
+		count += get_int("progression.bonus_level.extra_crossword_words")
+	return count
+
+static func _level_stage_range_value(level_number: int, field: String) -> int:
 	var resolved_level: int = maxi(level_number, 1)
 	for range_variant: Variant in get_array("progression.level_stage_counts"):
 		if !(range_variant is Dictionary):
@@ -144,7 +153,7 @@ static func level_stage_count(level_number: int) -> int:
 			continue
 		if to_level > 0 and resolved_level > to_level:
 			continue
-		return _require_integer_field(stage_range, "count", "progression.level_stage_counts")
+		return _require_integer_field(stage_range, field, "progression.level_stage_counts")
 	_fatal_config_error("No progression.level_stage_counts entry covers level %d" % resolved_level)
 	# Unreachable after OS.crash(); parser-only return, not a runtime fallback.
 	return 0
@@ -381,6 +390,7 @@ static func _validate_level_stage_counts() -> void:
 	if ranges.is_empty():
 		_fatal_config_error("progression.level_stage_counts must not be empty")
 	var expected_start: int = 1
+	var extra_words: int = get_int_range("progression.bonus_level.extra_crossword_words", 0, 11)
 	for index: int in range(ranges.size()):
 		var value: Variant = ranges[index]
 		if !(value is Dictionary):
@@ -390,10 +400,13 @@ static func _validate_level_stage_counts() -> void:
 		var from_level: int = _require_integer_field(item, "from_level", context)
 		var to_level: int = _require_integer_field(item, "to_level", context)
 		var count: int = _require_integer_field(item, "count", context)
+		var crossword_words: int = _require_integer_field(item, "crossword_words", context)
 		if from_level != expected_start:
 			_fatal_config_error("Stage-count ranges must be contiguous; %s starts at %d, expected %d" % [context, from_level, expected_start])
 		if count <= 0:
 			_fatal_config_error("Stage count must be greater than zero at %s" % context)
+		if crossword_words <= 0 or crossword_words + extra_words > 12:
+			_fatal_config_error("Crossword word count including bonus must be between 1 and 12 at %s" % context)
 		if to_level == 0:
 			if index != ranges.size() - 1:
 				_fatal_config_error("Only the final stage-count range may be open-ended")

@@ -81,9 +81,11 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	GameSession.correct_letters.append("А" if is_russian else "A")
 	GameSession.wrong_letters.append("Й" if is_russian else "Q")
 	main._refresh_portrait_game_keyboard()
-	var panel: Control = main._portrait_game_keyboard_panel
+	var background: Control = main.content.get_node("PortraitGameBackground")
+	var background_rect: Rect2 = background.get_global_rect()
+	check(background.has_node("PortraitGameBackgroundGradient") and !background.has_node("PortraitGameThemePattern"), "custom words have the shared gradient without a theme icon")
+	check(main.content.find_child("PortraitPaperBackground", true, false) == null and main.content.find_child("PortraitGameKeyboardPanel", true, false) == null, "word gameplay has no paper or keyboard backplate")
 	var banner: Control = main.get_tree().get_first_node_in_group("ad_banner_slot")
-	var panel_rect: Rect2 = panel.get_global_rect()
 	var banner_rect: Rect2 = banner.get_global_rect()
 	var key_top: float = INF
 	var key_bottom: float = -INF
@@ -102,15 +104,14 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		key_top = minf(key_top, key_rect.position.y)
 		key_bottom = maxf(key_bottom, key_rect.end.y)
 		rows[key_rect.position.y] = rows.get(key_rect.position.y, "") + entry.letter
-		check(panel_rect.encloses(key_rect) and key_rect.end.y < banner_rect.position.y, "keyboard key stays inside its panel and above the ad")
+		check(background_rect.encloses(key_rect) and key_rect.end.y < banner_rect.position.y, "keyboard key stays on the playfield and above the ad")
 		check(button._face.get_theme_stylebox("panel").corner_radius_top_left == 14, "key uses the leaderboard corner radius")
 		check(button._label.get_theme_font("font") == keyboard_font, "letter uses the keyboard font profile")
 		check(button._label.get_theme_font_size("font_size") == expected_font_size, "letter uses the expected adaptive font size")
 		check(button.disabled == (button.letter_state != StageLetterButton.LetterState.NORMAL), "only used keys are disabled in an active round")
 	check(rows.values() == (["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"] if is_russian else ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]), "keyboard uses the expected rows with the complete game alphabet")
-	check(panel.fill_color == main._portrait_header_fill.fill_color and is_equal_approx(panel_rect.end.y, banner_rect.end.y), "keyboard panel uses the top bar color and reaches the screen bottom")
+	check(is_equal_approx(background_rect.end.y, banner_rect.end.y), "shared background covers the screen through the ad slot")
 	var stage_scale: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(main.get_viewport_rect().size)
-	check(is_equal_approx(key_top - panel_rect.position.y, 22.0 * stage_scale), "top keyboard padding is 22 stage units")
 	check(is_equal_approx(banner_rect.position.y - key_bottom, 22.0 * stage_scale), "bottom keyboard padding is 22 stage units")
 	check(main._portrait_game_hint_buttons.size() == 3, "all three game hints are present")
 	var hint_right: float = -INF
@@ -121,10 +122,10 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		hint_right = hint_rect.end.x
 		var expected_size: Vector2 = main.PORTRAIT_GAME_HINT_BUTTON_SIZE * 0.8 * stage_scale
 		check(hint_rect.size.is_equal_approx(expected_size), "hint button and its input area are 20 percent smaller")
-		check(is_equal_approx(panel_rect.position.y - hint_rect.end.y, 22.0 * stage_scale), "hint stays 22 stage units above the keyboard panel")
+		check(is_equal_approx(key_top - hint_rect.end.y, 44.0 * stage_scale), "hint retains its gap to the first keyboard row")
 		var icon: Control = hint.get_node("HintArtHolder")
 		check(icon.get_global_rect().size.is_equal_approx(main.PORTRAIT_GAME_HINT_ART_SIZE * 0.8 * stage_scale), "hint icon shrinks with its button")
-	var right_edge: float = panel_rect.get_center().x + main.PORTRAIT_STAGE_SIZE.x * 0.5 * stage_scale
+	var right_edge: float = background_rect.get_center().x + main.PORTRAIT_STAGE_SIZE.x * 0.5 * stage_scale
 	check(is_equal_approx(right_edge - hint_right, 18.4 * stage_scale), "hint row uses the right screen margin")
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
@@ -133,11 +134,15 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		var available_key: Control = main._portrait_game_keyboard_buttons[1].button
 		var used_sample := Vector2i(used_key.get_global_rect().get_center().x, used_key.global_position.y + 7.0)
 		var available_sample := Vector2i(available_key.get_global_rect().get_center().x, available_key.global_position.y + 7.0)
-		var panel_sample := Vector2i(2, used_sample.y)
 		var used_color: Color = frame.get_pixelv(used_sample)
 		var white: Color = frame.get_pixelv(available_sample)
-		var blue: Color = frame.get_pixelv(panel_sample)
-		check(white.r > 0.95 and used_color.r < white.r - 0.1 and used_color.r > blue.r + 0.1, "used key blends between the white face and blue panel on GPU")
+		var blue: Color = frame.get_pixel(2, used_sample.y)
+		check(white.r > 0.95 and used_color.r < white.r - 0.1 and used_color.r > blue.r + 0.1, "used key blends between the white face and the gradient on GPU")
+		var field_y: int = int(key_top - 24.0 * stage_scale)
+		var field_color: Color = frame.get_pixel(2, field_y)
+		var body_color: Color = frame.get_pixel(2, int(background_rect.position.y + 20.0 * stage_scale))
+		check(body_color.r > field_color.r + 0.04 and field_color.r > blue.r and field_color.r - blue.r < 0.025, "playfield gradient continues smoothly behind the keyboard")
+		check(frame.get_pixel(frame.get_width() - 3, used_sample.y) == blue, "keyboard background is a uniform gradient across the screen")
 		if is_instance_valid(cyrillic_e):
 			var bounds: Rect2 = cyrillic_e.get_global_rect()
 			var left_gap := Rect2i(Rect2(bounds.position + bounds.size * Vector2(0.08, 0.34), bounds.size * Vector2(0.13, 0.30)))
@@ -234,11 +239,12 @@ func run() -> void:
 		main._show_in_place_round_result(win, false)
 		await get_tree().process_frame
 		check(main._portrait_in_place_result_active and main._portrait_in_place_result_is_win == win, "result flags reflect outcome")
-		check(!main._portrait_game_word_paper_mask.visible and !main._portrait_game_word_paper_layer.visible, "static result has peeled paper")
+		check(main._portrait_crossword._glyphs.all(func(label: Label) -> bool: return label == null or label.visible), "static result reveals the entire crossword")
 		check(main._portrait_inline_result_search_button.visible and !main._portrait_inline_result_search_button.get("disabled"), "static search ready")
 		check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "static continue ready")
 		check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return entry.button.disabled and is_equal_approx(main.COMPOSITED_FADE.get_opacity(entry.button), 0.7)), "two-player results keep the dimmed keyboard")
-		check(main._portrait_game_keyboard_panel.visible and main._portrait_inline_result_continue_button.get_global_rect().end.y < main._portrait_game_keyboard_panel.global_position.y, "two-player result action stays above the retained keyboard")
+		var first_key: Control = main._portrait_game_keyboard_buttons[0].button
+		check(first_key.visible and main._portrait_inline_result_continue_button.get_global_rect().end.y < first_key.get_global_rect().position.y, "two-player result action stays above the retained keyboard")
 		var sounds: int = main.sounds
 		var button: Control = main._portrait_inline_result_continue_button
 		main._show_in_place_round_result(win, false)
@@ -250,10 +256,10 @@ func run() -> void:
 	main._show_in_place_round_result(true, true)
 	check(main._portrait_round_end_waiting_for_letter_bounce and main._portrait_inline_result_search_button == null, "winning result waits for gameplay letter")
 	main._finish_portrait_word_letter_bounce(main._portrait_word_letter_bounce_generation)
-	check(!main._portrait_round_end_waiting_for_letter_bounce and main._portrait_inline_result_search_button != null, "last gameplay letter starts peel")
+	check(!main._portrait_round_end_waiting_for_letter_bounce and main._portrait_inline_result_search_button != null, "last gameplay letter presents the result")
 	await get_tree().create_timer(3.0).timeout
 	check(main._portrait_inline_result_search_button.visible and main._portrait_inline_result_search_button.mouse_filter == Control.MOUSE_FILTER_STOP, "search enters after word wave")
-	check(!main._portrait_game_word_paper_mask.visible and main._portrait_inline_result_continue_button.visible, "animated result settles")
+	check(main._portrait_crossword.visible and main._portrait_inline_result_continue_button.visible, "animated result settles")
 	var result_label: Label = main.content.find_child("ResultWordLabel", true, false)
 	check(result_label.visible and result_label.text.contains("−"), "settled word uses display separator")
 	check(main.content.find_child("ResultWordBounceLetters", true, false) == null, "temporary glyphs are removed")
@@ -273,7 +279,7 @@ func run() -> void:
 	await get_tree().create_timer(0.3).timeout
 	check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "star completion releases continue")
 	check(Vector2i(GameState.get_soft_currency(), GameState.get_stars()) == balances, "presentation never credits balances")
-	# Remove the screen before deferred word completion/peel callbacks run.
+	# Remove the screen before deferred word completion callbacks run.
 	build("ОТМЕНА")
 	main._show_in_place_round_result(false, true)
 	main._clear()
@@ -327,28 +333,26 @@ func run() -> void:
 						animation.custom_step(0.5)
 				await get_tree().create_timer(0.5).timeout
 				check(!first.visible and !last.visible, "result removes all keyboard visuals")
-				var panel: Control = main._portrait_game_keyboard_panel
-				check(!panel.visible and is_zero_approx(main.COMPOSITED_FADE.get_opacity(panel)), "keyboard panel disappears before the comment")
 				if DisplayServer.get_name() != "headless":
-					var region := Rect2i(panel.get_global_rect())
+					var keyboard_top: int = int(first.get_global_rect().position.y - 40.0)
+					var viewport_size := Vector2i(get_viewport().get_visible_rect().size)
+					var region := Rect2i(0, keyboard_top, viewport_size.x, viewport_size.y - keyboard_top)
 					var action: Control = main._portrait_inline_result_continue_button
 					var action_was_visible: bool = action.visible
 					# The continuing attention bounce overlaps the old keyboard area.
 					action.hide()
 					await RenderingServer.frame_post_draw
 					var hidden: Image = get_viewport().get_texture().get_image().get_region(region)
-					panel.show()
 					for entry: Dictionary in main._portrait_game_keyboard_buttons:
 						entry.button.show()
 					await RenderingServer.frame_post_draw
 					var transparent: Image = get_viewport().get_texture().get_image().get_region(region)
 					check(hidden.get_data() == transparent.get_data(), "zero-opacity keyboard leaves no GPU pixels")
-					panel.hide()
 					for entry: Dictionary in main._portrait_game_keyboard_buttons:
 						entry.button.hide()
 					action.visible = action_was_visible
 				check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(result.comment_label), 1.0), "comment finishes opaque")
-				check(result.comment_label.get_theme_font("font") == main.UI_FONTS.HANDWRITTEN_REGULAR_FONT, "comment uses regular handwritten font")
+				check(result.comment_label.get_theme_font("font") == main.UI_QUESTION_COMMENT_FONT, "comment uses the Roboto Flex question and comment profile")
 				check(result.comment_label.text == GameSession.get_word_hint(), "comment uses current word hint")
 				check(result.comment_label.get_theme_font_size("font_size") == 28, "comment font size is 28")
 				var comment_bounds: Rect2 = main.COMPOSITED_FADE.layout_parent(result.comment_label).get("stage_rect")
@@ -367,7 +371,6 @@ func run() -> void:
 				GameSession.word_hint_text = "Описание" if language == "ru" else "Description"
 				main._show_in_place_round_result(win, false)
 				check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return !entry.button.visible), "restored single-player result skips the wave")
-				check(!main._portrait_game_keyboard_panel.visible, "restored single-player result hides the keyboard panel immediately")
 				check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(main._portrait_round_result.comment_label), 1.0), "restored result immediately shows the comment")
 				main._clear()
 	build("ОТМЕНА")

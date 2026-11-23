@@ -1139,7 +1139,9 @@ func _single_player_words_for_theme(
 	word_count: int,
 	target_difficulty: float
 ) -> Array:
-	var candidates: Array = Database.get_words_by_index(theme_index, 0).duplicate(true)
+	var candidates: Array = Database.get_words_by_index(theme_index, 0).filter(
+		func(candidate: Dictionary) -> bool: return !String(candidate["text"]).contains(" ")
+	)
 	if candidates.is_empty():
 		return []
 	var rng := RandomNumberGenerator.new()
@@ -2029,7 +2031,9 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		word.text,
 		false
 	)
-	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(
+		word, GameState.GameMode.SINGLE_PLAYER, GAME_DESIGN.level_crossword_word_count(level_index + 1)
+	)
 	Analytics.begin_stage(level_index, word_slot, "word")
 	show_game_screen()
 

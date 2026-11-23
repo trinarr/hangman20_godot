@@ -67,6 +67,21 @@ func _ready() -> void:
 	check(keys.size() == selected.size(), "Chain reservations prevent duplicates")
 	var selected_again: Array = main._single_player_words_for_theme(0, 123, 5, 3, 0.6)
 	check(selected[0].text == selected_again[0].text, "Saved current assignment preserved")
+	var phrases: Array = words.filter(func(row: Dictionary) -> bool: return String(row["text"]).contains(" "))
+	check(!phrases.is_empty(), "Theme includes a phrase for the saved assignment fixture")
+	if !phrases.is_empty():
+		var phrase: Dictionary = phrases[0]
+		GameState.set_single_level_word_assignments("ru", 0, [{
+			"id": phrase["id"], "theme_index": 5, "word_index": phrase["index"], "text": phrase["text"],
+		}])
+		var replacement: Array = main._single_player_words_for_theme(0, 123, 5, 3, 0.6)
+		check(replacement.size() == 3 and replacement.all(func(row: Dictionary) -> bool: return !String(row["text"]).contains(" ")),
+			"Campaign replaces an unplayed phrase assignment and still fills all slots")
+	var board: RefCounted = GameSession.WORD_CROSSWORD.build(
+		"BOOT", 0.3, [word("BOAT", 0.3), word("BOAT RACE", 0.3), word("TALL", 0.3)], 4
+	)
+	check(board.entries.size() == 3 and board.entries.all(func(row: Dictionary) -> bool: return !String(row["text"]).contains(" ")),
+		"Crossword ignores phrases and uses the remaining single words")
 	main.free()
 	print("WORD SELECTION: %d checks, %d failures" % [checks, failures])
 	get_tree().quit(failures)

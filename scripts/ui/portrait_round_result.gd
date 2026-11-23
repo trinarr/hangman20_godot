@@ -18,7 +18,6 @@ var paper_front: Control
 var paper_backside: Control
 var paper_backside_visual: Control
 var keyboard_buttons: Array = []
-var keyboard_panel: Control
 var back_button: Control
 var active: bool = false
 var is_win: bool = false
@@ -47,7 +46,6 @@ func configure(parent: Control, bindings: Dictionary, word_letters: Array[String
 	paper_backside = bindings.get("paper_backside")
 	paper_backside_visual = bindings.get("paper_backside_visual")
 	keyboard_buttons = bindings.get("keyboard_buttons", [])
-	keyboard_panel = bindings.get("keyboard_panel")
 	word_comment = str(bindings.get("word_comment", "")).strip_edges()
 	replace_result_keyboard = bool(bindings.get("replace_result_keyboard", false))
 	back_button = bindings.get("back_button")
@@ -1005,20 +1003,13 @@ func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
 		tween.tween_property(controller, "opacity", 0.0, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tween.parallel().tween_property(button, "visual_scale", rest_scale * key_scale, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_callback(button.hide)
-	if is_instance_valid(keyboard_panel):
-		var panel_fade: Node = FADE.branch(keyboard_panel)
-		if animated:
-			var panel_tween := _tween(keyboard_panel)
-			panel_tween.tween_interval(bounce_delay + wave)
-			panel_tween.tween_property(panel_fade, "opacity", 0.0, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-			panel_tween.tween_callback(keyboard_panel.hide)
-		else:
-			panel_fade.set("opacity", 0.0)
-			keyboard_panel.hide()
 	if word_comment.is_empty():
 		return
 	var top: float = result_word_rect.end.y + 50.0
-	comment_label = _stage_label(Rect2(50.0, top, PORTRAIT_STAGE_SIZE.x - 100.0, maxf(1.0, action_rect.position.y - top - 16.0)), word_comment, 28, StageLetterButton.NORMAL_COLOR, HORIZONTAL_ALIGNMENT_CENTER, UI_FONTS.HANDWRITTEN_REGULAR_FONT)
+	comment_label = _stage_label(
+		Rect2(50.0, top, PORTRAIT_STAGE_SIZE.x - 100.0, maxf(1.0, action_rect.position.y - top - 16.0)),
+		word_comment, 28, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, UI_FONTS.question_comment_font()
+	)
 	comment_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	comment_label.name = "LossWordComment"
 	var comment_fade: Node = FADE.wrap(comment_label)

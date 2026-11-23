@@ -218,6 +218,9 @@ def validate_progression(config: dict[str, Any]) -> None:
     ranges = require_list(resolve(config, "progression.level_stage_counts"), "progression.level_stage_counts")
     require(bool(ranges), "Stage-count ranges are empty")
     expected_start = 1
+    extra_words = require_int(resolve(config, "progression.bonus_level.extra_crossword_words"),
+                              "progression.bonus_level.extra_crossword_words")
+    require(0 <= extra_words <= 11, "Bonus crossword word count must be between 0 and 11")
     for index, raw in enumerate(ranges):
         item = require_dict(raw, f"progression.level_stage_counts[{index}]")
         start = require_int(item.get("from_level"), f"progression.level_stage_counts[{index}].from_level")
@@ -225,6 +228,8 @@ def validate_progression(config: dict[str, Any]) -> None:
         count = require_int(item.get("count"), f"progression.level_stage_counts[{index}].count")
         require(start == expected_start, f"Stage-count range {index} starts at {start}, expected {expected_start}")
         require(count > 0, f"Stage count must be positive at range {index}")
+        crossword_words = require_int(item.get("crossword_words"), f"progression.level_stage_counts[{index}].crossword_words")
+        require(1 <= crossword_words <= 12 - extra_words, f"Crossword word count including bonus is out of range at range {index}")
         if end == 0:
             require(index == len(ranges) - 1, "Only final stage-count range may be open-ended")
             break

@@ -13,7 +13,7 @@ func _ready() -> void:
 	call_deferred("run")
 
 func run() -> void:
-	# Run with a separate XDG_DATA_HOME; the fixture deliberately writes saves.
+	# Run with an isolated Godot profile; the fixture deliberately writes saves.
 	GameState.single_player = {}
 	Database.load_languages("en", "en")
 	GameState.progress = {}
@@ -76,7 +76,7 @@ func run() -> void:
 	# Quiz is selected provisionally until its actual stage begins.
 	GameState.single_player = {}
 	main._invalidate_single_player_level_cache()
-	level = 2
+	level = 3
 	count = main._single_player_level_word_target(level)
 	GameState._single_player_bucket("ru")["unlocked_level"] = level
 	GameState.select_single_level_theme("ru", level, 0, count)
@@ -99,15 +99,15 @@ func run() -> void:
 	GameSession.revealed.fill(true)
 	main._refresh_game_screen()
 	await get_tree().process_frame
-	var holder: Control = main._portrait_game_word_slots_root
 	var visible_letters: int = 0
-	for slot: Node in holder.get_children():
-		for child: Node in slot.get_children():
-			if child is Label and child.text.length() == 1:
-				visible_letters += 1
-				var font: Font = child.get_theme_font("font")
-				var text_width: float = font.get_string_size(child.text, HORIZONTAL_ALIGNMENT_LEFT, -1, child.get_theme_font_size("font_size")).x
-				check(text_width <= slot.size.x + 2.0, "Long answer glyph overflows its slot: %s %.2f / %.2f" % [child.text, text_width, slot.size.x])
+	for glyph: Label in main._portrait_crossword._glyphs:
+		if glyph == null or !glyph.visible:
+			continue
+		visible_letters += 1
+		var tile: Control = glyph.get_parent()
+		var font: Font = glyph.get_theme_font("font")
+		var text_width: float = font.get_string_size(glyph.text, HORIZONTAL_ALIGNMENT_LEFT, -1, glyph.get_theme_font_size("font_size")).x
+		check(text_width <= tile.size.x + 2.0, "Long answer glyph overflows its cell: %s %.2f / %.2f" % [glyph.text, text_width, tile.size.x])
 	check(visible_letters == 20, "Not all twenty letters are displayed")
 	# Completion rules are tested independently of result-screen animations.
 	GameSession.round_won.disconnect(main._on_round_won)

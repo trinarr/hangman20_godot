@@ -87,7 +87,7 @@ def main() -> None:
     project = read("project.godot")
 
     for token in (
-        "SAVE_FORMAT_VERSION: int = 9",
+        "SAVE_FORMAT_VERSION: int = 10",
         '"player_frame_id": player_frame_id',
         '_payload["save_version"] = 4',
         '_payload["save_version"] = 5',
@@ -95,6 +95,7 @@ def main() -> None:
         '_payload["save_version"] = 7',
         '_payload["save_version"] = 8',
         '_payload["save_version"] = 9',
+        '_payload["save_version"] = 10',
         '"pending_profile_update": _pending_profile_update',
         '"player_name_free_change_used": player_name_free_change_used',
         'TOURNAMENT_MODEL.normalize(_payload.get("tournament", {}))',

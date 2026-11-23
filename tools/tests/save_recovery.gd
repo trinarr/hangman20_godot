@@ -163,7 +163,23 @@ func run() -> void:
 	state._save_blocked_by_future_version = false
 	check(!state.update_player_profile("A", 1, 1) and !state.update_player_profile("Player", 3, 1) and !state.update_player_profile("Player", 1, 0), "Profile rejects invalid name and appearance IDs")
 	var v8: Dictionary = state._migrate_save_payload({"save_version": 8, "player_name": "BeforeCrash", "soft_currency": 125})
-	check(v8.save_version == 9 and v8.pending_profile_update.is_empty() and v8.soft_currency == 125, "Migration 8 to 9 adds an empty profile transaction without changing balance")
+	check(v8.save_version == state.SAVE_FORMAT_VERSION and v8.pending_profile_update.is_empty() and v8.soft_currency == 125, "Migration from 8 adds an empty profile transaction without changing balance")
+	var old_active := {"kind": "word", "language": "ru", "level_index": 3, "word_slot": 1}
+	var old_quiz := {"kind": "quiz", "language": "en", "level_index": 4, "word_slot": 0}
+	var earned := {"kind": "next", "language": "ru", "level_index": 3, "word_slot": 0}
+	var v9 := {
+		"save_version": 9,
+		"active_single_player_session": old_active,
+		"single_player_resume_states": {
+			"ru": {"active_session": earned, "pending_reward": {"amount": 20}},
+			"en": {"active_session": old_quiz},
+		},
+		"single_player": {"ru": {"levels": {"3": [1, 0, 0]}}},
+		"soft_currency": 125,
+	}
+	var v10: Dictionary = state._migrate_save_payload(v9)
+	check(v10.save_version == 10 and v10.active_single_player_session.is_empty() and v10.single_player_resume_states.en.active_session.is_empty(), "Migration ends unfinished word and quiz rounds in both snapshot locations")
+	check(v10.single_player_resume_states.ru == v9.single_player_resume_states.ru and v10.single_player == v9.single_player and v10.soft_currency == 125, "Migration preserves completed stages, pending rewards and coins")
 	var transaction_profile: Dictionary = state.capture_player_profile_state()
 	var transaction_balance: int = state.soft_currency
 	var transaction_id: String = state.begin_player_profile_update("Pending name", 1, 1)

@@ -1,23 +1,10 @@
 extends Node
 
 const STARTUP = preload("res://scripts/ui/startup_preparation.gd")
-const HERO = preload("res://scripts/ui/flash_stage_symbol.gd")
 var checks: int = 0
 var failures: Array[String] = []
 var baseline: String
 var main: Node
-
-class HeldPoseLoader extends RefCounted:
-	var held_path: String
-	var released: bool = false
-	func load_threaded_request(path: String, hint: String, sub_threads: bool) -> Error:
-		return ResourceLoader.load_threaded_request(path, hint, sub_threads)
-	func load_threaded_get_status(path: String) -> int:
-		if path == held_path and !released:
-			return ResourceLoader.THREAD_LOAD_IN_PROGRESS
-		return ResourceLoader.load_threaded_get_status(path)
-	func load_threaded_get(path: String) -> Resource:
-		return ResourceLoader.load_threaded_get(path)
 
 class TestUI extends "res://scripts/main_portrait.gd":
 	var home_builds: int = 0
@@ -154,12 +141,11 @@ func run() -> void:
 			await get_tree().process_frame
 			check(!main.get_node("StartupPreparation").preparing, "Leaving the word during preparation cancels startup callbacks")
 			await close_main()
-		await check_legacy_resume(language)
+		await check_first_word_other_theme_resume(language)
 		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
 			await check_guided_stage_resume(language, dimensions)
 		for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
-			for character: int in [1, 2]:
-				await check_cold_damaged_resume(language, size, character)
+			await check_cold_damaged_resume(language, size)
 	await check_quiz_ad_consent()
 	await check_first_quiz_retry()
 	reset_profile("ru")
@@ -172,7 +158,7 @@ func run() -> void:
 	print("FIRST_WORD_STARTUP " + JSON.stringify({"checks": checks, "failures": failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
 
-func check_legacy_resume(language: String) -> void:
+func check_first_word_other_theme_resume(language: String) -> void:
 	reset_profile(language)
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	var theme_index: int = Database.get_theme_index_by_id(1)
@@ -182,7 +168,7 @@ func check_legacy_resume(language: String) -> void:
 	check(GameState.set_active_single_player_session({
 		"kind": "word", "language": language, "level_index": 0,
 		"word_slot": 0, "theme_id": 1, "data": saved_round,
-	}), "Persist a first word started in another theme by an older build")
+	}), "Persist a first word started in another theme")
 	GameSession.discard_current_round()
 	start_main()
 	await settle()
@@ -243,11 +229,10 @@ func check_guided_stage_resume(language: String, dimensions: Vector2i) -> void:
 			get_viewport().get_texture().get_image().save_png(directory.path_join("guided_resume_%s_%d_%s_%d_%d.png" % [language, dimensions.x, stage.kind, stage.level, stage.slot]))
 		await close_main()
 
-func check_cold_damaged_resume(language: String, dimensions: Vector2i, character: int) -> void:
+func check_cold_damaged_resume(language: String, dimensions: Vector2i) -> void:
 	reset_profile(language)
 	get_window().size = dimensions
 	await get_tree().process_frame
-	GameState.settings[5] = character
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	var theme: int = Database.get_theme_index_by_id(9)
 	var source: Dictionary = Database.get_words_by_index(theme, 0)[0]
@@ -267,42 +252,16 @@ func check_cold_damaged_resume(language: String, dimensions: Vector2i, character
 	GameState.load_game()
 	GameState.interface_language = language
 	Database.load_languages(language, language)
-	# Simulate a cold process with the restored pose still streaming after intro.
-	HERO._hero_loads.finish()
-	HERO._hero_pose_cache.clear()
-	HERO._hero_pose_preloads.clear()
-	HERO._hero_pose_requests.clear()
-	var held := HeldPoseLoader.new()
-	held.held_path = (HERO.HERO_TYPE_2_STATES if character == 2 else HERO.HERO_TYPE_1_STATES)[4]
-	HERO._hero_loads.loader = held
-	var native := start_main()
-	var hero: FlashStageSymbol = main.hero_static_symbol
-	check(hero._pending_symbol_path == held.held_path, "Cold restart requests the restored damaged pose")
-	check(HERO._hero_pose_keep_paths.has(held.held_path), "Startup prewarm preserves the live hero's cache window")
-	if character == 2:
-		var deadline: int = Time.get_ticks_msec() + 10000
-		while main._portrait_game_entrance_active and Time.get_ticks_msec() < deadline:
-			await get_tree().process_frame
-		await get_tree().process_frame
-		await get_tree().process_frame
-		check(!main._portrait_game_entrance_active, "Word entrance completes while the restored hero is still loading")
-		check(main.get_node("StartupPreparation").preparing and !native.released, "Startup cannot reveal an empty streamed hero after the entrance")
-	held.released = true
-	# Deliver the background completion before the displayed symbol polls it.
-	# With the old prewarm this result was discarded by the wrong cache window.
-	HERO._hero_loads.take(held.held_path, true)
-	hero._process(0.0)
+	start_main()
 	await settle()
-	check(hero._symbol_instance != null and hero._loaded_symbol_path == held.held_path, "Restored damaged pose becomes visible when its resource completes")
-	check(hero.visible and is_equal_approx(hero.modulate.a, 1.0) and !hero.find_children("*", "Sprite2D", true, false).is_empty(), "Restored hero has visible opaque textured art")
-	check(GameSession.to_save_data() == saved_round and GameSession.get_remaining_attempts() == 2, "Hero recovery preserves the word, guesses and remaining attempts")
+	check(main.hero_static_symbol == null and is_instance_valid(main._portrait_crossword), "Restart shows the crossword without a character")
+	check(GameSession.to_save_data() == saved_round and GameSession.get_remaining_attempts() == 2, "Current-format resume preserves the numbered grid and attempts")
 	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	if !directory.is_empty():
 		await RenderingServer.frame_post_draw
-		get_viewport().get_texture().get_image().save_png(directory.path_join("first_resume_hero_%s_%d_%d.png" % [language, dimensions.x, character]))
+		get_viewport().get_texture().get_image().save_png(directory.path_join("first_resume_crossword_%s_%d.png" % [language, dimensions.x]))
 	await close_main()
-	HERO._hero_loads.finish()
-	HERO._hero_loads.loader = ResourceLoader
+
 
 func check_first_quiz_retry() -> void:
 	for language: String in ["ru", "en"]:
