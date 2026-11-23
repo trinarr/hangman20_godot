@@ -72,6 +72,64 @@ func resume_feedback(button: StageLetterButton) -> void:
 func finish_bounce(button: StageLetterButton) -> void:
 	button._letter_bounce_tween.custom_step(1.0)
 
+func check_cipher_key_feedback(letter: String, state: int, is_correct: bool, rest_color: Color) -> void:
+	var button := main._stage_letter_button(
+		Rect2(80, 80, 50, 46), Callable(), letter, state, true, 29, Vector2(44, 44), false, true
+	) as StageLetterButton
+	var rest_opacity: float = 1.0 if state == StageLetterButton.LetterState.PRESENT else 0.5
+	check(
+		!button._marker.visible and button._cipher_feedback_tween == null
+		and button._label.get_theme_color("font_color") == rest_color
+		and is_equal_approx(float(button._cipher_letter_fade.get("opacity")), rest_opacity),
+		letter + " rebuilds in its resting color and opacity"
+	)
+	button.play_cipher_feedback(is_correct)
+	var feedback: Tween = button._cipher_feedback_tween
+	var feedback_color: Color = StageLetterButton.CIRCLED_COLOR if is_correct else StageLetterButton.CROSSED_COLOR
+	check(button._label.get_theme_color("font_color") == feedback_color, letter + " shows the guess color immediately")
+	check(is_equal_approx(float(button._cipher_letter_fade.get("opacity")), 1.0), letter + " is opaque during feedback")
+	var elapsed: float = StageLetterButton.LETTER_MARK_BOUNCE_GROW_DURATION
+	var shake_duration: float = 0.0
+	if !is_correct:
+		var step_seconds: float = StageLetterButton.ERROR_SHAKE.GAME_DESIGN.get_float("timings.quiz_wrong_answer_shake_step_seconds")
+		shake_duration = step_seconds * StageLetterButton.ERROR_SHAKE.OFFSETS.size()
+		feedback.custom_step(elapsed + step_seconds * 0.8)
+		var rest_x: float = button._label_rest_position.x
+		check(button._label.position.x < rest_x and button._label.scale.is_equal_approx(StageLetterButton.LETTER_MARK_BOUNCE_SCALE), letter + " shakes left at full size")
+		feedback.custom_step(step_seconds)
+		check(button._label.position.x > rest_x and button._label.scale.is_equal_approx(StageLetterButton.LETTER_MARK_BOUNCE_SCALE), letter + " shakes right without shrinking")
+		elapsed += step_seconds * 1.8
+	else:
+		feedback.custom_step(elapsed)
+		check(is_zero_approx(button._cipher_shake_offset), letter + " correct bounce has no shake")
+	button.configure(letter, state, 29, Vector2(44, 44), true)
+	check(button._cipher_feedback_tween == feedback and !button._marker.visible, letter + " refresh preserves feedback without a marker")
+	var settle_end: float = StageLetterButton.LETTER_MARK_BOUNCE_GROW_DURATION + shake_duration + StageLetterButton.LETTER_MARK_BOUNCE_SETTLE_DURATION
+	feedback.custom_step(settle_end - elapsed + StageLetterButton.CIPHER_COLOR_SETTLE_DURATION * 0.5)
+	check(
+		button._label.scale.is_equal_approx(Vector2.ONE) and is_zero_approx(button._cipher_shake_offset)
+		and button._label.get_theme_color("font_color").is_equal_approx(feedback_color.lerp(rest_color, 0.5)),
+		letter + " starts changing color only after returning to rest"
+	)
+	check(
+		is_equal_approx(float(button._cipher_letter_fade.get("opacity")), lerpf(1.0, rest_opacity, 0.5)),
+		letter + " interpolates opacity during the color change"
+	)
+	feedback.custom_step(1.0)
+	check(
+		is_equal_approx(float(button._cipher_letter_fade.get("opacity")), rest_opacity)
+		and button._label.get_theme_color("font_color") == rest_color and !button._marker.visible,
+		letter + " settles at the right color and opacity"
+	)
+	button.play_cipher_feedback(is_correct)
+	var interrupted: Tween = button._cipher_feedback_tween
+	interrupted.custom_step(0.10)
+	button.play_cipher_feedback(!is_correct)
+	check(!interrupted.is_valid() and button._label.scale == Vector2.ONE, letter + " a rapid new input restarts one bounce")
+	var closing_feedback: Tween = button._cipher_feedback_tween
+	button.free()
+	check(!closing_feedback.is_valid(), letter + " stops animating when the key leaves")
+
 func run() -> void:
 	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	GameSession.start_custom_round("АБВА")
@@ -191,6 +249,10 @@ func run() -> void:
 	check(main.sounds.size() == 5 and main._pending_wrong_letter_feedback.has("О"), "old screen callback cannot consume new action")
 	main._on_letter_marker_reveal_started(false, "О", main.result_transition_generation)
 	check(main.sounds.size() == 6 and main._pending_wrong_letter_feedback.is_empty(), "current screen callback consumes action")
+	check_cipher_key_feedback("Ф", StageLetterButton.LetterState.CROSSED, false, StageLetterButton.UI_PALETTE.DISABLED)
+	check_cipher_key_feedback("У", StageLetterButton.LetterState.CIRCLED, true, StageLetterButton.UI_PALETTE.DISABLED)
+	check_cipher_key_feedback("Э", StageLetterButton.LetterState.PRESENT, false, StageLetterButton.PRESENT_COLOR)
+	check_cipher_key_feedback("Я", StageLetterButton.LetterState.PRESENT, true, StageLetterButton.PRESENT_COLOR)
 	GameSession.changed.disconnect(changed)
 	GameSession.hint_letters_selected.disconnect(main._on_hint_letters_selected)
 	main.queue_free()

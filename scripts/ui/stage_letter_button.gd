@@ -6,11 +6,14 @@ signal marker_reveal_started(is_correct: bool)
 const KEYBOARD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
 
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
+const COMPOSITED_FADE: GDScript = preload("res://scripts/ui/composited_fade.gd")
+const ERROR_SHAKE: GDScript = preload("res://scripts/ui/horizontal_error_shake.gd")
 
 enum LetterState {
 	NORMAL,
 	CROSSED,
-	CIRCLED
+	CIRCLED,
+	PRESENT
 }
 
 const CORRECT_MARKER_TEXTURE: Texture2D = preload("res://img/_______435______2_0_SHAPE_0_BOUNDS_-1.96_-1.96_SIZE_211_211.png")
@@ -22,10 +25,13 @@ const LETTER_PRESSED_SCALE := Vector2(0.90, 0.90)
 const LETTER_MARK_BOUNCE_SCALE := Vector2(1.32, 1.32)
 const LETTER_MARK_BOUNCE_GROW_DURATION: float = 0.18
 const LETTER_MARK_BOUNCE_SETTLE_DURATION: float = 0.25
+const CIPHER_COLOR_SETTLE_DURATION: float = 0.25
+const RESOLVED_LETTER_OPACITY: float = 0.5
 
 const NORMAL_COLOR := UI_PALETTE.UI_BLUE
 const CROSSED_COLOR := UI_PALETTE.ERROR
 const CIRCLED_COLOR := UI_PALETTE.SUCCESS
+const PRESENT_COLOR := UI_PALETTE.ACCENT_ORANGE
 
 var letter_text: String = ""
 var letter_state: int = LetterState.NORMAL
@@ -35,12 +41,21 @@ var marker_stage_offset: Vector2 = Vector2(0.0, -1.0)
 var label_stage_offset: Vector2 = Vector2(-5.0, -7.0)
 var label_stage_padding: Vector2 = Vector2(10.0, 12.0)
 var animate_marker: bool = false
+var use_cipher_feedback: bool = false
 
 var _label: Label = null
 var _button_text_font: Font = KEYBOARD_FONT
 var _marker: TextureRect = null
 var _marker_tween: Tween = null
 var _letter_bounce_tween: Tween = null
+var _cipher_letter_fade: Control = null
+var _cipher_feedback_tween: Tween = null
+var _label_rest_position: Vector2 = Vector2.ZERO
+var _cipher_shake_offset: float = 0.0:
+	set(value):
+		_cipher_shake_offset = value
+		if is_instance_valid(_label):
+			_label.position.x = _label_rest_position.x + value
 var _marker_animation_pending: bool = false
 var _marker_feedback_active: bool = false
 var _marker_reveal_has_started: bool = false
@@ -64,6 +79,7 @@ func _exit_tree() -> void:
 		_marker_tween.kill()
 	if _letter_bounce_tween != null and _letter_bounce_tween.is_valid():
 		_letter_bounce_tween.kill()
+	_stop_cipher_feedback()
 	super._exit_tree()
 
 func configure(
@@ -75,10 +91,10 @@ func configure(
 	animate_marker_value: bool = false
 ) -> void:
 	var keep_feedback: bool = (
-		_marker_feedback_active
+		(_marker_feedback_active or (_cipher_feedback_tween != null and _cipher_feedback_tween.is_valid()))
 		and !animate_marker_value
 		and letter_text == letter_value.to_upper()
-		and letter_state == clampi(state_value, LetterState.NORMAL, LetterState.CIRCLED)
+		and letter_state == clampi(state_value, LetterState.NORMAL, LetterState.PRESENT)
 	)
 	var feedback_scale: Vector2 = _label.scale if is_instance_valid(_label) else Vector2.ONE
 	if !keep_feedback:
@@ -88,14 +104,16 @@ func configure(
 			_marker_tween.kill()
 		if _letter_bounce_tween != null and _letter_bounce_tween.is_valid():
 			_letter_bounce_tween.kill()
+		_stop_cipher_feedback()
 		if is_instance_valid(_label):
 			_label.scale = Vector2.ONE
 	letter_text = letter_value.to_upper()
-	letter_state = clampi(state_value, LetterState.NORMAL, LetterState.CIRCLED)
+	letter_state = clampi(state_value, LetterState.NORMAL, LetterState.PRESENT)
 	letter_font_size = font_size_value
 	marker_stage_size = marker_size_value
 	if !keep_feedback:
-		animate_marker = animate_marker_value and letter_state != LetterState.NORMAL
+		var has_marker: bool = _marker_texture() != null
+		animate_marker = animate_marker_value and has_marker and !use_cipher_feedback
 		_marker_animation_pending = animate_marker
 		_marker_feedback_active = animate_marker
 	disabled = disabled_value
@@ -103,7 +121,7 @@ func configure(
 	if !is_inside_tree():
 		return
 	_ensure_visual_nodes()
-	_sync_visuals()
+	_sync_visuals(keep_feedback and use_cipher_feedback)
 	_sync_layout()
 	if keep_feedback:
 		_label.scale = feedback_scale
@@ -126,14 +144,19 @@ func _ensure_visual_nodes() -> void:
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		add_child(_label)
+		if use_cipher_feedback:
+			_cipher_letter_fade = COMPOSITED_FADE.wrap(_label)
 
-func _sync_visuals() -> void:
+func _sync_visuals(keep_cipher_feedback: bool = false) -> void:
 	if _marker == null or _label == null:
 		return
 	_label.begin_bulk_theme_override()
 	_label.add_theme_font_override("font", _button_text_font)
 	_label.add_theme_font_size_override("font_size", letter_font_size)
-	_label.add_theme_color_override("font_color", _letter_color())
+	if !keep_cipher_feedback:
+		_label.add_theme_color_override("font_color", _letter_color())
+		if _cipher_letter_fade != null:
+			_cipher_letter_fade.set("opacity", _cipher_rest_opacity())
 	# Gameplay keyboard letters stay clean and flat: no outline or shadow.
 	_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	_label.add_theme_constant_override("outline_size", 0)
@@ -150,8 +173,8 @@ func _sync_visuals() -> void:
 		animate_marker and letter_state == LetterState.CROSSED
 		and !_marker_reveal_has_started
 	)
-	_marker.visible = letter_state != LetterState.NORMAL and !cross_waiting_for_growth
-	_marker.texture = _marker_texture()
+	_marker.texture = null if use_cipher_feedback else _marker_texture()
+	_marker.visible = _marker.texture != null and !cross_waiting_for_growth
 	if !animate_marker:
 		_marker.material = null
 
@@ -165,15 +188,21 @@ func _sync_layout() -> void:
 	var marker_offset := marker_stage_offset * scale_to_view
 	_marker.position = size * 0.5 + marker_offset - marker_size * 0.5
 	_marker.size = marker_size
-	_label.position = label_stage_offset * scale_to_view
+	_label_rest_position = label_stage_offset * scale_to_view
+	_label.position = _label_rest_position + Vector2(_cipher_shake_offset, 0.0)
 	_label.size = (stage_rect.size + label_stage_padding) * scale_to_view
 	_sync_visual_child_scales()
 
 func _letter_color() -> Color:
+	if use_cipher_feedback:
+		if _marker_texture() != null:
+			return UI_PALETTE.DISABLED
+		if letter_state == LetterState.PRESENT:
+			return PRESENT_COLOR
 	match letter_state:
 		LetterState.CROSSED:
 			return CROSSED_COLOR
-		LetterState.CIRCLED:
+		LetterState.CIRCLED, LetterState.PRESENT:
 			return CIRCLED_COLOR
 		_:
 			return NORMAL_COLOR
@@ -227,13 +256,49 @@ func _begin_marker_reveal(generation: int) -> void:
 	marker_reveal_started.emit(letter_state == LetterState.CIRCLED)
 
 func _finish_marker_feedback(generation: int) -> void:
-	if generation != _marker_animation_generation:
+	if generation != _marker_animation_generation or !_marker_feedback_active:
 		return
 	if _letter_bounce_tween != null and _letter_bounce_tween.is_running():
 		return
 	if _marker_tween != null and _marker_tween.is_running():
 		return
 	_marker_feedback_active = false
+
+func play_cipher_feedback(is_correct: bool) -> void:
+	if _cipher_letter_fade == null or !is_inside_tree():
+		return
+	_stop_cipher_feedback()
+	var feedback_color: Color = CIRCLED_COLOR if is_correct else CROSSED_COLOR
+	_set_cipher_feedback_progress(0.0, feedback_color)
+	_label.scale = Vector2.ONE
+	_label.pivot_offset = size * 0.5 - _label_rest_position
+	_cipher_feedback_tween = create_tween()
+	_cipher_feedback_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	var grow := _cipher_feedback_tween.tween_property(
+		_label, "scale", LETTER_MARK_BOUNCE_SCALE, LETTER_MARK_BOUNCE_GROW_DURATION
+	)
+	grow.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if !is_correct:
+		ERROR_SHAKE.append_steps(_cipher_feedback_tween, self, ^"_cipher_shake_offset")
+	var settle := _cipher_feedback_tween.tween_property(
+		_label, "scale", Vector2.ONE, LETTER_MARK_BOUNCE_SETTLE_DURATION
+	)
+	settle.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_cipher_feedback_tween.tween_method(
+		_set_cipher_feedback_progress.bind(feedback_color), 0.0, 1.0, CIPHER_COLOR_SETTLE_DURATION
+	)
+
+func _cipher_rest_opacity() -> float:
+	return RESOLVED_LETTER_OPACITY if _marker_texture() != null else 1.0
+
+func _set_cipher_feedback_progress(progress: float, feedback_color: Color) -> void:
+	_label.add_theme_color_override("font_color", feedback_color.lerp(_letter_color(), progress))
+	_cipher_letter_fade.set("opacity", lerpf(1.0, _cipher_rest_opacity(), progress))
+
+func _stop_cipher_feedback() -> void:
+	if _cipher_feedback_tween != null and _cipher_feedback_tween.is_valid():
+		_cipher_feedback_tween.kill()
+	_cipher_shake_offset = 0.0
 
 func _play_letter_mark_bounce() -> void:
 	if _label == null or !is_instance_valid(_label):

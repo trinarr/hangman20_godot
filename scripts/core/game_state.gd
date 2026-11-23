@@ -23,7 +23,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 9
+const SAVE_FORMAT_VERSION: int = 12
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -586,6 +586,18 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 		8:
 			_payload["pending_profile_update"] = {}
 			_payload["save_version"] = 9
+			return true
+		9:
+			# Snapshots without cipher state finish under the rules they started with.
+			_payload["save_version"] = 10
+			return true
+		10:
+			# Only new rounds choose a clue. Existing snapshots keep their original field.
+			_payload["save_version"] = 11
+			return true
+		11:
+			# Quote and multiple clue rows are optional. Word snapshots keep their layout.
+			_payload["save_version"] = 12
 			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)

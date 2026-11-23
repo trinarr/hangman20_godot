@@ -6,6 +6,7 @@ const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const BASE_GAP: float = 10.0
 const UNDERLINE_MAX_WIDTH: float = 26.6
 const UNDERLINE_GAP: float = 12.0
+const UNDERLINE_HEIGHT: float = 4.0
 
 var _letters: PackedStringArray
 
@@ -434,7 +435,7 @@ func resolve(available_size: Vector2, font_size: int = 34) -> Dictionary:
 		word_font_width < UI_FONTS.ROBOTO_FLEX_GAME_WORD_WIDTH - 0.5
 		or slot_gap < base_gap - 0.5
 	)
-	var underline_height: float = 3.5 if compressed_word_layout else 4.0
+	var underline_height: float = 3.5 if compressed_word_layout else UNDERLINE_HEIGHT
 	var start_x: float = (available_size.x - total_width) * 0.5
 	var baseline_y: float = available_size.y - 8.0
 	# Bottom-aligned labels end 10 px above the slot bottom. Their font descent

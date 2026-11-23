@@ -714,8 +714,9 @@ func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, 
 	content.add_child(button)
 	return button
 
-func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
-	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
+func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false, use_cipher_feedback: bool = false) -> Control:
+	var button: StageLetterButton = STAGE_LETTER_BUTTON_SCRIPT.new() as StageLetterButton
+	button.use_cipher_feedback = use_cipher_feedback
 	button.connect(
 		&"marker_reveal_started",
 		Callable(self, "_on_letter_marker_reveal_started").bind(letter, result_transition_generation)
@@ -2030,7 +2031,8 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		word.text,
 		false
 	)
-	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER)
+	var quote: Dictionary = GameSession.CROSTIC_PUZZLE.quote_for_stage(Database.current_language, level_index, word_slot)
+	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER, true, true, quote)
 	Analytics.begin_stage(level_index, word_slot, "word")
 	show_game_screen()
 
@@ -2669,21 +2671,15 @@ func _configure_hero_static_animation() -> void:
 		)
 
 func _press_letter(letter: String) -> void:
-	if GameSession.has_deferred_loss():
+	letter = WordManager.normalize_word(letter)
+	if !GameSession.can_guess(letter):
 		return
 	_sync_hero_pose_state()
 	var round_token_before_guess: int = _current_hero_round_token()
 	var previous_mistakes: int = GameSession.mistakes
-	var guess_is_available: bool = (
-		GameSession.is_active
-		and !GameSession.correct_letters.has(letter)
-		and !GameSession.wrong_letters.has(letter)
-		and !GameSession.removed_wrong_letters.has(letter)
-	)
-	var is_correct_letter: bool = GameSession.letters.has(letter)
+	var is_correct_letter: bool = GameSession.matches_guess(letter)
 	var should_play_recovery: bool = (
-		guess_is_available
-		and is_correct_letter
+		is_correct_letter
 		and !_hero_uses_terminal_loop()
 		and is_equal_approx(hero_nested_pose_time, HERO_MOV_IDLE_FRAME_TIME)
 	)
@@ -2695,16 +2691,17 @@ func _press_letter(letter: String) -> void:
 	pending_letter_markers.append(letter)
 	pending_letter_marker_is_correct = is_correct_letter
 	var should_defer_loss: bool = (
-		guess_is_available
-		and !is_correct_letter
+		!is_correct_letter
 		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and GameSession.get_remaining_attempts() == 1
 	)
-	if guess_is_available and !is_correct_letter:
+	if !is_correct_letter and !GameSession.is_cipher_round():
 		_queue_wrong_letter_feedback(PackedStringArray([letter]))
 	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
-	if guess_is_available and guess_was_correct:
+	if guess_was_correct:
 		_play_letter_feedback_sound(true)
+	elif GameSession.is_cipher_round():
+		_play_letter_feedback_sound(false)
 	if GameSession.has_deferred_loss():
 		call_deferred("_show_single_player_last_chance_popup")
 		return

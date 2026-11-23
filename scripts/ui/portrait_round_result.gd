@@ -176,9 +176,7 @@ const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_la
 
 const PORTRAIT_STAGE_SIZE := Vector2(480.0, 800.0)
 
-const PORTRAIT_GAME_WORD_PAPER_HEIGHT: float = 118.0 * 0.85
 
-const PORTRAIT_GAME_WORD_PAPER_Y_OFFSET: float = -18.0 + (118.0 - PORTRAIT_GAME_WORD_PAPER_HEIGHT) * 0.5
 
 var PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.paper_flip_seconds"
@@ -1311,15 +1309,9 @@ func _set_portrait_word_paper_peel_progress(progress: float) -> void:
 		return
 	var horizontal_offset: float = PORTRAIT_STAGE_LAYOUT.horizontal_offset(viewport_size)
 	var fold_stage_x: float = (mask_x - horizontal_offset) / fit_scale
-	paper_backside.set(
-		"stage_rect",
-		Rect2(
-			fold_stage_x,
-			word_rect.position.y + PORTRAIT_GAME_WORD_PAPER_Y_OFFSET,
-			PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH,
-			PORTRAIT_GAME_WORD_PAPER_HEIGHT
-		)
-	)
+	var backside_rect: Rect2 = paper_backside.get("stage_rect")
+	backside_rect.position.x = fold_stage_x
+	paper_backside.set("stage_rect", backside_rect)
 	_sync_portrait_word_paper_backside_material(fold_stage_x, p)
 	# Keep the reverse face opaque throughout the peel, as on Home.
 	paper_backside.modulate.a = 1.0

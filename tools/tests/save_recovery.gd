@@ -163,7 +163,7 @@ func run() -> void:
 	state._save_blocked_by_future_version = false
 	check(!state.update_player_profile("A", 1, 1) and !state.update_player_profile("Player", 3, 1) and !state.update_player_profile("Player", 1, 0), "Profile rejects invalid name and appearance IDs")
 	var v8: Dictionary = state._migrate_save_payload({"save_version": 8, "player_name": "BeforeCrash", "soft_currency": 125})
-	check(v8.save_version == 9 and v8.pending_profile_update.is_empty() and v8.soft_currency == 125, "Migration 8 to 9 adds an empty profile transaction without changing balance")
+	check(v8.save_version == state.SAVE_FORMAT_VERSION and v8.pending_profile_update.is_empty() and v8.soft_currency == 125, "Migration from v8 adds an empty profile transaction without changing balance")
 	var transaction_profile: Dictionary = state.capture_player_profile_state()
 	var transaction_balance: int = state.soft_currency
 	var transaction_id: String = state.begin_player_profile_update("Pending name", 1, 1)

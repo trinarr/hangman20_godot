@@ -123,8 +123,10 @@ func check_first_level_reward() -> void:
 			GameState.set_single_level_question_slots(language, 0, [])
 			main._start_single_player_word(0, 0)
 			check(main._single_player_level_word_count(0) == 1 and !main._single_player_stage_is_quiz(0, 0), "Fresh first level uses one real word stage")
-			for letter: String in GameSession.letters:
-				GameSession.guess(letter, true)
+			while GameSession.is_active and GameSession.selected_position >= 0:
+				if !GameSession.guess(GameSession.cipher_letters[GameSession.selected_position], true):
+					break
+			check(GameSession.is_word_completed(), "The quote is solved before checking the prize")
 			var attempt_stars: int = GameSession.get_remaining_attempts()
 			var attempts_result: Dictionary = main._grant_remaining_attempt_star_reward({}, true)
 			check(attempt_stars > 0 and GameState.stars == attempt_stars and int(attempts_result.get("remaining_attempt_star_reward_amount", 0)) == attempt_stars, "First level keeps its remaining-attempt star reward")
@@ -244,7 +246,7 @@ func check_single_stage_loss_reward() -> void:
 			GameState.set_single_level_question_slots(language, 0, [])
 			main._start_single_player_word(0, 0)
 			for letter: String in Database.get_alphabet():
-				if !GameSession.letters.has(letter):
+				if !GameSession.cipher_letters.has(letter):
 					GameSession.guess(letter, true)
 				if GameSession.get_remaining_attempts() == 0:
 					break
