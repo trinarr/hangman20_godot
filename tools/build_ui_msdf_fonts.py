@@ -153,6 +153,9 @@ def profiles():
     result.append((values['ROBOTO_FLEX_HEAVY_DISPLAY_WEIGHT'],
                    values['ROBOTO_FLEX_DISPLAY_WIDTH'], values['ROBOTO_FLEX_DISPLAY_GRADE'],
                    values['ROBOTO_FLEX_DISPLAY_THIN_STROKE'], thick))
+    result.append((values['ROBOTO_FLEX_KEYBOARD_WEIGHT'],
+                   values['ROBOTO_FLEX_BUTTON_WIDTH'], values['ROBOTO_FLEX_KEYBOARD_GRADE'],
+                   values['ROBOTO_FLEX_BUTTON_THIN_STROKE'], thick))
     return result
 
 def filename(profile):

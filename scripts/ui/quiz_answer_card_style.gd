@@ -1,6 +1,7 @@
 extends RefCounted
 ## Shared native card face used by quiz answers and leaderboard rows.
 const LONG_BUTTON = preload("res://scripts/ui/stage_long_button.gd")
+const COMPACT_CORNER_RADIUS := 14
 
 static func face_style(fill: Color = Color.WHITE) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()

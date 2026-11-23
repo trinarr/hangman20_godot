@@ -106,7 +106,6 @@ const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_AD_BANNER_FALLBACK_HEIGHT: float = 50.0
 const PORTRAIT_AD_BANNER_HEIGHT_DP: float = 50.0
 const PORTRAIT_ANDROID_BASE_DPI: float = 160.0
-const PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT: float = 24.0
 const PORTRAIT_LONG_BUTTON_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_LONG_BUTTON_SIZE
 const PORTRAIT_ROUND_BUTTON_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_PAGE_BACK_BUTTON_SCALE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_PAGE_BACK_BUTTON_SCALE
@@ -187,6 +186,12 @@ const PORTRAIT_MENU_TITLE_MAX_SCALE: float = PORTRAIT_PAPER_BACKGROUND_SCRIPT.MA
 # independent upper and lower groups so the keyboard can stay width-safe while
 # moving toward the thumb zone.
 const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
+const PORTRAIT_GAME_KEYBOARD_ROWS_RU := ["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"]
+const PORTRAIT_GAME_KEYBOARD_ROWS_EN := ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
+const PORTRAIT_GAME_KEY_SIZE := Vector2(38.0, 48.0)
+const PORTRAIT_GAME_KEY_GAP: float = 5.0
+const PORTRAIT_GAME_KEYBOARD_SIDE_PADDING: float = 12.0
+const PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING: float = 22.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 const PORTRAIT_GAME_WORD_PAPER_SCREEN_OVERFLOW_X: float = 42.0
@@ -595,12 +600,13 @@ var PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION: float = PORTRAIT_GAME_DESIG
 	"timings.animations.theme_reels.selection_outline_seconds"
 )
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
+const PORTRAIT_GAME_HINT_BUTTON_SCALE: float = 0.8
+const PORTRAIT_GAME_HINT_BUTTON_GAP: float = 8.0
+const PORTRAIT_GAME_HINT_RIGHT_MARGIN: float = 18.4
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 40.0
-const PORTRAIT_GAME_HINT_Y: float = 650.0
-const PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT := Rect2(108.176, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT := Rect2(203.392, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT := Rect2(298.608, PORTRAIT_GAME_HINT_Y - 3.0, PORTRAIT_GAME_HINT_BUTTON_SIZE.x, PORTRAIT_GAME_HINT_BUTTON_SIZE.y)
+const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 22.0
+const PORTRAIT_GAME_WORD_TO_ACTION_TOP: float = 109.0
+const PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.y + 12.0
 const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 var PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
@@ -765,8 +771,9 @@ var _portrait_game_word_paper_backside_visual: ColorRect = null
 var _portrait_coin_store_underlay: Control = null
 var _portrait_game_word_slots_root: Control = null
 var _portrait_game_word_rect := Rect2()
-var _portrait_game_keyboard_metrics_snapshot: Dictionary = {}
+var _portrait_game_hint_row_y: float = 0.0
 var _portrait_game_keyboard_buttons: Array = []
+var _portrait_game_keyboard_panel: Control
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
 var _portrait_game_back_button: Control = null
@@ -1325,7 +1332,7 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_game_word_paper_backside_visual = null
 	_portrait_game_word_slots_root = null
 	_portrait_game_word_rect = Rect2()
-	_portrait_game_keyboard_metrics_snapshot.clear()
+	_portrait_game_keyboard_panel = null
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
@@ -5141,32 +5148,10 @@ func _portrait_quiz_answer_start_y(answer_count: int) -> float:
 	)
 
 func _portrait_quiz_hint_button_y() -> float:
-	# Quiz has no keyboard, but its hint row should sit at exactly the same stage
-	# position as the hint row in the normal single-player guessing screen. Keep
-	# this independent of GameState.current_mode so visiting Two Player first does
-	# not move the quiz controls down.
-	var viewport_size: Vector2 = get_viewport_rect().size
-	var keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
-		viewport_size,
-		PORTRAIT_GAME_KEYBOARD_MAX_SCALE
-	)
-	var columns: int = 6
-	var alphabet_count: int = Database.get_alphabet().size()
-	var keyboard_rows: int = int(ceil(float(alphabet_count) / float(columns)))
-	var keyboard_step_y: float = 48.0 * keyboard_scale
-	var keyboard_key_height: float = 46.0 * keyboard_scale
-	var keyboard_height: float = (
-		keyboard_key_height
-		+ float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
-	)
-	var keyboard_start_y: float = (
-		PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage()
-	) - 24.0 - keyboard_height + PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
-	var keyboard_bottom_y: float = keyboard_start_y + keyboard_height
-	var hint_center_y: float = (
-		keyboard_bottom_y + PORTRAIT_GAME_HINT_KEYBOARD_GAP
-	) * PORTRAIT_GAME_ACTION_Y_SCALE
-	return hint_center_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
+	return _portrait_game_bottom_action_y() - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
+
+func _portrait_game_bottom_action_y() -> float:
+	return (PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage() + 40.0) * PORTRAIT_GAME_ACTION_Y_SCALE
 
 func _stage_portrait_quiz_hint_counter(button: Control, hint_key: String) -> void:
 	if button == null or !is_instance_valid(button):
@@ -9434,32 +9419,40 @@ func _show_user_consent_on_single_player_stage_if_needed() -> void:
 
 func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var alphabet: PackedStringArray = _active_game_alphabet()
-	var columns: int = 6
+	var rows: Array = PORTRAIT_GAME_KEYBOARD_ROWS_RU if alphabet.has("Й") else PORTRAIT_GAME_KEYBOARD_ROWS_EN
 	var keyboard_scale: float = PORTRAIT_STAGE_LAYOUT.adaptive_ui_scale(
 		viewport_size,
 		PORTRAIT_GAME_KEYBOARD_MAX_SCALE
 	)
-	var keyboard_step_x: float = 66.0 * keyboard_scale
-	var keyboard_step_y: float = 48.0 * keyboard_scale
-	var key_size := Vector2(50.0, 46.0) * keyboard_scale
-	var marker_size := Vector2(44.0, 44.0) * keyboard_scale
-	var keyboard_rows: int = int(ceil(float(alphabet.size()) / float(columns)))
-	var keyboard_height: float = key_size.y + float(maxi(0, keyboard_rows - 1)) * keyboard_step_y
-	var keyboard_start_y: float = (
-		PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage()
-	) - 24.0 - keyboard_height
-	# Both guessing modes share the single-player layout, including the action
-	# row position derived from these metrics, even when no hints are shown.
-	keyboard_start_y += PORTRAIT_GAME_INPUT_BLOCK_DOWN_SHIFT
+	var key_size: Vector2 = PORTRAIT_GAME_KEY_SIZE * keyboard_scale
+	var columns: int = rows[0].length()
+	var available_width: float = PORTRAIT_STAGE_SIZE.x - 2.0 * PORTRAIT_GAME_KEYBOARD_SIDE_PADDING
+	key_size.x = minf(key_size.x, (available_width - (columns - 1) * PORTRAIT_GAME_KEY_GAP) / columns)
+	var panel_height: float = (
+		2.0 * PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING + rows.size() * key_size.y
+		+ (rows.size() - 1) * PORTRAIT_GAME_KEY_GAP
+	)
+	var panel_y: float = _portrait_ad_banner_rect().position.y - panel_height
+	var key_y: float = panel_y + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
+	var key_rects: Dictionary = {}
+	for row: String in rows:
+		var letters: PackedStringArray = row.split("")
+		var row_width: float = letters.size() * key_size.x + (letters.size() - 1) * PORTRAIT_GAME_KEY_GAP
+		var key_x: float = (PORTRAIT_STAGE_SIZE.x - row_width) * 0.5
+		for letter: String in letters:
+			if alphabet.has(letter):
+				key_rects[letter] = Rect2(Vector2(key_x, key_y), key_size)
+			key_x += key_size.x + PORTRAIT_GAME_KEY_GAP
+		key_y += key_size.y + PORTRAIT_GAME_KEY_GAP
+	var hint_height: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.y * PORTRAIT_GAME_HINT_BUTTON_SCALE
+	var hint_y: float = panel_y - PORTRAIT_GAME_HINT_KEYBOARD_GAP - hint_height
+	var word_y: float = panel_y - PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD - PORTRAIT_GAME_WORD_TO_ACTION_TOP
 	return {
-		"columns": columns,
-		"step_x": keyboard_step_x,
-		"step_y": keyboard_step_y,
-		"key_size": key_size,
-		"marker_size": marker_size,
-		"font_size": int(round(29.0 * keyboard_scale)),
-		"start_y": keyboard_start_y,
-		"word_rect": Rect2(24.0, keyboard_start_y - 120.0, 432.0, 64.0),
+		"key_rects": key_rects,
+		"font_size": int(round(StageLetterButton.DEFAULT_FONT_SIZE * keyboard_scale)),
+		"panel_y": panel_y,
+		"hint_y": hint_y,
+		"word_rect": Rect2(24.0, word_y, 432.0, 64.0),
 	}
 
 func _refresh_game_screen() -> void:
@@ -9490,7 +9483,6 @@ func _refresh_game_screen() -> void:
 	_portrait_game_word_paper_backside_visual = null
 	_portrait_game_word_slots_root = null
 	_portrait_game_word_rect = Rect2()
-	_portrait_game_keyboard_metrics_snapshot.clear()
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
@@ -9551,25 +9543,13 @@ func _refresh_game_screen() -> void:
 	# vertical shift used by the hero on taller portrait screens.
 	_stage_portrait_game_info_text(upper_block_shift)
 
-	var alphabet: PackedStringArray = _active_game_alphabet()
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(viewport_size)
-	# The persistent keyboard, paper and every later hint-button rebuild must share
-	# the exact same authored coordinates for the entire round. In particular, do
-	# not re-read native ad state when a used hint changes its button presentation.
-	_portrait_game_keyboard_metrics_snapshot = keyboard_metrics.duplicate(true)
-	var columns: int = int(keyboard_metrics["columns"])
-	var keyboard_step_x: float = float(keyboard_metrics["step_x"])
-	var keyboard_step_y: float = float(keyboard_metrics["step_y"])
-	var key_size: Vector2 = keyboard_metrics["key_size"]
-	var marker_size: Vector2 = keyboard_metrics["marker_size"]
-	var keyboard_font_size: int = int(keyboard_metrics["font_size"])
-
-	var keyboard_total_width: float = key_size.x + float(columns - 1) * keyboard_step_x
-	var keyboard_start_x: float = (PORTRAIT_STAGE_SIZE.x - keyboard_total_width) * 0.5
-	var keyboard_start_y: float = float(keyboard_metrics["start_y"])
+	# Keep rebuilt hint buttons on the same row throughout the round.
+	_portrait_game_hint_row_y = keyboard_metrics["hint_y"]
+	var keyboard_font_size: int = keyboard_metrics["font_size"]
+	var key_rects: Dictionary = keyboard_metrics["key_rects"]
+	var panel_y: float = keyboard_metrics["panel_y"]
 	var game_word_rect: Rect2 = keyboard_metrics["word_rect"]
-	if GameState.current_mode in [GameState.GameMode.SINGLE_PLAYER, GameState.GameMode.TWO_PLAYER]:
-		keyboard_start_y -= PORTRAIT_STAGE_SIZE.y * 0.01
 
 	# Word, keyboard and hints deliberately live in ONE bottom-attached group.
 	# This makes the entire input cluster translate as a single unit on tall
@@ -9577,6 +9557,11 @@ func _refresh_game_screen() -> void:
 	var input_root_content: Control = _portrait_begin_bottom_attached_group()
 	_portrait_game_input_group = content
 	_portrait_game_word_rect = game_word_rect
+	_portrait_game_keyboard_panel = _stage_horizontal_fill(
+		panel_y, PORTRAIT_STAGE_SIZE.y - panel_y, _portrait_game_header_color()
+	)
+	_portrait_game_keyboard_panel.name = "PortraitGameKeyboardPanel"
+	_portrait_game_keyboard_panel.z_index = -1
 
 	# Keep the paper and current word inside a clipping mask. During the round-end
 	# page turn, the mask edge moves from left to right while the actual paper art
@@ -9638,24 +9623,19 @@ func _refresh_game_screen() -> void:
 	# the first layout pass, which made the normal paper and guessed word vanish.
 	_set_portrait_word_paper_peel_progress(0.0)
 
-	for i in range(alphabet.size()):
-		var letter: String = alphabet[i]
-		var row: int = int(i / columns)
-		var col: int = i % columns
-		var x: float = keyboard_start_x + float(col) * keyboard_step_x
-		var y: float = keyboard_start_y + float(row) * keyboard_step_y
+	for letter: String in key_rects:
 		var was_correct: bool = GameSession.correct_letters.has(letter)
 		var was_wrong: bool = GameSession.wrong_letters.has(letter)
 		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
 		var state: int = StageLetterButton.LetterState.NORMAL
 		if was_correct:
-			state = StageLetterButton.LetterState.CIRCLED
+			state = StageLetterButton.LetterState.CORRECT
 		elif was_wrong or was_removed:
-			state = StageLetterButton.LetterState.CROSSED
-		var key_rect := Rect2(x, y, key_size.x, key_size.y)
+			state = StageLetterButton.LetterState.WRONG
+		var key_rect: Rect2 = key_rects[letter]
 		var animate_state: bool = pending_letter_markers.has(letter) and (
-			(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
-			or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
+			(state == StageLetterButton.LetterState.CORRECT and pending_letter_marker_is_correct)
+			or (state == StageLetterButton.LetterState.WRONG and !pending_letter_marker_is_correct)
 		)
 		var key_button := _stage_letter_button(
 			key_rect,
@@ -9664,15 +9644,12 @@ func _refresh_game_screen() -> void:
 			state,
 			!GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
 			keyboard_font_size,
-			marker_size,
 			animate_state
 		)
 		_portrait_game_keyboard_buttons.append({
 			"button": key_button,
 			"letter": letter,
-			"stage_x": x,
-			"font_size": keyboard_font_size,
-			"marker_size": marker_size,
+			"stage_x": key_rect.position.x,
 			"state": state,
 			"rest_disabled": !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
 		})
@@ -10002,25 +9979,23 @@ func _refresh_portrait_game_keyboard() -> void:
 		var letter: String = str(entry.get("letter", ""))
 		var state: int = StageLetterButton.LetterState.NORMAL
 		if GameSession.correct_letters.has(letter):
-			state = StageLetterButton.LetterState.CIRCLED
+			state = StageLetterButton.LetterState.CORRECT
 		elif GameSession.wrong_letters.has(letter) or GameSession.removed_wrong_letters.has(letter):
-			state = StageLetterButton.LetterState.CROSSED
+			state = StageLetterButton.LetterState.WRONG
 		var disabled_value: bool = !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL
 		var animate_state: bool = (
 			state != int(entry.get("state", StageLetterButton.LetterState.NORMAL))
 			and pending_letter_markers.has(letter)
 			and (
-				(state == StageLetterButton.LetterState.CIRCLED and pending_letter_marker_is_correct)
-				or (state == StageLetterButton.LetterState.CROSSED and !pending_letter_marker_is_correct)
+				(state == StageLetterButton.LetterState.CORRECT and pending_letter_marker_is_correct)
+				or (state == StageLetterButton.LetterState.WRONG and !pending_letter_marker_is_correct)
 			)
 		)
 		if state != int(entry.get("state", -1)) or disabled_value != bool(entry.get("rest_disabled", false)):
-			var marker_size_value: Vector2 = entry.get("marker_size", Vector2(44.0, 44.0))
 			button.configure(
 				letter,
 				state,
-				int(entry.get("font_size", 29)),
-				marker_size_value,
+				button.letter_font_size,
 				disabled_value,
 				animate_state
 			)
@@ -10552,28 +10527,13 @@ func _play_portrait_word_letter_bounce(
 		CONNECT_ONE_SHOT
 	)
 
-func _portrait_game_hint_y() -> float:
-	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics_snapshot
-	if keyboard_metrics.is_empty():
-		keyboard_metrics = _portrait_game_keyboard_metrics(get_viewport_rect().size)
-	var alphabet_count: int = _active_game_alphabet().size()
-	var columns: int = int(keyboard_metrics["columns"])
-	var keyboard_rows: int = int(ceil(float(alphabet_count) / float(columns)))
-	var keyboard_key_size: Vector2 = keyboard_metrics["key_size"]
-	var keyboard_bottom_y: float = (
-		float(keyboard_metrics["start_y"])
-		+ float(maxi(keyboard_rows - 1, 0)) * float(keyboard_metrics["step_y"])
-		+ keyboard_key_size.y
-	)
-	var base_hint_y: float = keyboard_bottom_y + PORTRAIT_GAME_HINT_KEYBOARD_GAP
-	# Raise only the action row by exactly 5%. Keyboard metrics stay untouched.
-	return base_hint_y * PORTRAIT_GAME_ACTION_Y_SCALE
-
 func _portrait_in_place_result_button_rect() -> Rect2:
-	var button_y: float = minf(
-		_portrait_game_hint_y(),
-		_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
-	)
+	var button_y: float = _portrait_game_word_rect.position.y + PORTRAIT_GAME_WORD_TO_ACTION_TOP
+	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
+		button_y = minf(
+			_portrait_game_bottom_action_y(),
+			_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
+		)
 	return Rect2(
 		Vector2(
 			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH) * 0.5,
@@ -10625,22 +10585,15 @@ func _stage_portrait_hint_buttons() -> void:
 	)
 	var comment_disabled: bool = round_inactive or (!comment_unlocked and !GameSession.can_unlock_comment_hint())
 
-	# Place the hint row directly after the last keyboard row. Both controls live
-	# in bottom-attached coordinate space, so this gap stays stable on tall phones.
-	var hint_y: float = _portrait_game_hint_y()
-	var hint_button_y: float = hint_y - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
-	var open_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.position.x, hint_button_y),
-		PORTRAIT_GAME_HINT_OPEN_BUTTON_RECT.size
-	)
-	var remove_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.position.x, hint_button_y),
-		PORTRAIT_GAME_HINT_REMOVE_BUTTON_RECT.size
-	)
+	var hint_width: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.x * PORTRAIT_GAME_HINT_BUTTON_SCALE
+	var right_button_x: float = PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_HINT_RIGHT_MARGIN - hint_width
+	var hint_step := Vector2(hint_width + PORTRAIT_GAME_HINT_BUTTON_GAP, 0.0)
 	var comment_rect := Rect2(
-		Vector2(PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.position.x, hint_button_y),
-		PORTRAIT_GAME_HINT_COMMENT_BUTTON_RECT.size
+		Vector2(right_button_x, _portrait_game_hint_row_y),
+		PORTRAIT_GAME_HINT_BUTTON_SIZE
 	)
+	var remove_rect := Rect2(comment_rect.position - hint_step, comment_rect.size)
+	var open_rect := Rect2(remove_rect.position - hint_step, remove_rect.size)
 
 	# Use the standard round-button component for all hint actions. The doodle art
 	# remains a separate child so badges and state changes can be reused unchanged.
@@ -10671,12 +10624,10 @@ func _stage_portrait_hint_buttons() -> void:
 		0.0,
 		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
 	)
-	open_button.set("drop_shadow_enabled", true)
-	remove_button.set("drop_shadow_enabled", true)
-	comment_button.set("drop_shadow_enabled", true)
-	open_button.set("disabled_visual_opacity", 1.0)
-	remove_button.set("disabled_visual_opacity", 1.0)
-	comment_button.set("disabled_visual_opacity", 1.0)
+	for hint_button: Control in [open_button, remove_button, comment_button]:
+		hint_button.set("stage_scale_multiplier", PORTRAIT_GAME_HINT_BUTTON_SCALE)
+		hint_button.set("drop_shadow_enabled", true)
+		hint_button.set("disabled_visual_opacity", 1.0)
 
 	_portrait_game_hint_buttons.clear()
 	open_button.set_meta(&"portrait_hint_key", GameState.HINT_OPEN_LETTER)
@@ -16541,6 +16492,7 @@ func _ensure_round_result_component() -> Node:
 		"paper_backside": _portrait_game_word_paper_backside,
 		"paper_backside_visual": _portrait_game_word_paper_backside_visual,
 		"keyboard_buttons": _portrait_game_keyboard_buttons,
+		"keyboard_panel": _portrait_game_keyboard_panel,
 		"word_comment": GameSession.get_word_hint(),
 		"replace_result_keyboard": GameState.current_mode != GameState.GameMode.TWO_PLAYER,
 		"attempts_title": _portrait_game_attempts_controls[0] if _portrait_game_attempts_controls.size() >= 2 else null,

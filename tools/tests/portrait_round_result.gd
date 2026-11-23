@@ -6,11 +6,12 @@ class TestUI:
 	var sounds: int = 0
 	var collections: int = 0
 	var real_collection: bool = false
+	var preview_banner: bool = false
 	func _ready() -> void:
 		_build_root()
 		_clear()
 	func _portrait_ads_enabled() -> bool:
-		return false
+		return preview_banner
 	func _prepare_portrait_game_entrance() -> void:
 		pass
 	func _play_result_sound_once(_win: bool, _data: Dictionary = {}) -> void:
@@ -49,6 +50,107 @@ func _independent_continue() -> void:
 
 func _ready() -> void:
 	call_deferred("run")
+
+func check_final_key_feedback() -> void:
+	for single: bool in [false, true]:
+		build("АБВА", single)
+		var key: StageLetterButton = main._portrait_game_keyboard_buttons[0].button
+		key.configure(key.letter_text, StageLetterButton.LetterState.WRONG, key.letter_font_size, true, true)
+		key._start_feedback()
+		var bounce: Tween = key._letter_bounce_tween
+		bounce.pause()
+		main._show_in_place_round_result(false, true)
+		var animations: Array = main._portrait_round_result._animations.duplicate()
+		bounce.custom_step(0.15)
+		for animation: Tween in animations:
+			animation.pause()
+			animation.custom_step(0.15)
+		check(key._key_visual.opacity < 1.0 and key._key_visual.opacity > StageLetterButton.USED_OPACITY and main.COMPOSITED_FADE.get_opacity(key) == 1.0, "only the used key's own fade runs during its return")
+		bounce.custom_step(0.20)
+		for animation: Tween in animations:
+			if animation.is_valid():
+				animation.custom_step(0.20)
+		check(key._label.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(key._key_visual.opacity, StageLetterButton.USED_OPACITY) and main.COMPOSITED_FADE.get_opacity(key) < 1.0, "result fade follows completed key feedback")
+		main._clear()
+
+func check_keyboard_layout(language: String, size: Vector2i) -> void:
+	var is_russian: bool = language == "ru"
+	main.preview_banner = true
+	build("АБВА" if is_russian else "ABBA", true)
+	GameSession.is_active = true
+	GameSession.correct_letters.append("А" if is_russian else "A")
+	GameSession.wrong_letters.append("Й" if is_russian else "Q")
+	main._refresh_portrait_game_keyboard()
+	var panel: Control = main._portrait_game_keyboard_panel
+	var banner: Control = main.get_tree().get_first_node_in_group("ad_banner_slot")
+	var panel_rect: Rect2 = panel.get_global_rect()
+	var banner_rect: Rect2 = banner.get_global_rect()
+	var key_top: float = INF
+	var key_bottom: float = -INF
+	var expected_font_size: int = {960: 27, 690: 31, 1080: 28}[size.x]
+	var keyboard_font := main.UI_FONTS.keyboard_font() as FontVariation
+	var baked_font := keyboard_font.base_font as FontFile
+	var weight_axis: int = TextServerManager.get_primary_interface().name_to_tag("wght")
+	check(baked_font.multichannel_signed_distance_field and int(keyboard_font.variation_opentype[weight_axis]) == 620, "keyboard uses a baked MSDF profile at weight 620")
+	var cyrillic_e: StageLetterButton
+	var rows: Dictionary = {}
+	for entry: Dictionary in main._portrait_game_keyboard_buttons:
+		var button: StageLetterButton = entry.button
+		var key_rect: Rect2 = button.get_global_rect()
+		if button.letter_text == "Э":
+			cyrillic_e = button
+		key_top = minf(key_top, key_rect.position.y)
+		key_bottom = maxf(key_bottom, key_rect.end.y)
+		rows[key_rect.position.y] = rows.get(key_rect.position.y, "") + entry.letter
+		check(panel_rect.encloses(key_rect) and key_rect.end.y < banner_rect.position.y, "keyboard key stays inside its panel and above the ad")
+		check(button._face.get_theme_stylebox("panel").corner_radius_top_left == 14, "key uses the leaderboard corner radius")
+		check(button._label.get_theme_font("font") == keyboard_font, "letter uses the keyboard font profile")
+		check(button._label.get_theme_font_size("font_size") == expected_font_size, "letter uses the expected adaptive font size")
+		check(button.disabled == (button.letter_state != StageLetterButton.LetterState.NORMAL), "only used keys are disabled in an active round")
+	check(rows.values() == (["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"] if is_russian else ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]), "keyboard uses the expected rows with the complete game alphabet")
+	check(panel.fill_color == main._portrait_header_fill.fill_color and is_equal_approx(panel_rect.end.y, banner_rect.end.y), "keyboard panel uses the top bar color and reaches the screen bottom")
+	var stage_scale: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(main.get_viewport_rect().size)
+	check(is_equal_approx(key_top - panel_rect.position.y, 22.0 * stage_scale), "top keyboard padding is 22 stage units")
+	check(is_equal_approx(banner_rect.position.y - key_bottom, 22.0 * stage_scale), "bottom keyboard padding is 22 stage units")
+	check(main._portrait_game_hint_buttons.size() == 3, "all three game hints are present")
+	var hint_right: float = -INF
+	for hint: Control in main._portrait_game_hint_buttons:
+		var hint_rect: Rect2 = hint.get_global_rect()
+		if hint_right != -INF:
+			check(is_equal_approx(hint_rect.position.x - hint_right, 8.0 * stage_scale), "hint buttons sit eight stage units apart")
+		hint_right = hint_rect.end.x
+		var expected_size: Vector2 = main.PORTRAIT_GAME_HINT_BUTTON_SIZE * 0.8 * stage_scale
+		check(hint_rect.size.is_equal_approx(expected_size), "hint button and its input area are 20 percent smaller")
+		check(is_equal_approx(panel_rect.position.y - hint_rect.end.y, 22.0 * stage_scale), "hint stays 22 stage units above the keyboard panel")
+		var icon: Control = hint.get_node("HintArtHolder")
+		check(icon.get_global_rect().size.is_equal_approx(main.PORTRAIT_GAME_HINT_ART_SIZE * 0.8 * stage_scale), "hint icon shrinks with its button")
+	var right_edge: float = panel_rect.get_center().x + main.PORTRAIT_STAGE_SIZE.x * 0.5 * stage_scale
+	check(is_equal_approx(right_edge - hint_right, 18.4 * stage_scale), "hint row uses the right screen margin")
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
+		var frame: Image = get_viewport().get_texture().get_image()
+		var used_key: Control = main._portrait_game_keyboard_buttons[0].button
+		var available_key: Control = main._portrait_game_keyboard_buttons[1].button
+		var used_sample := Vector2i(used_key.get_global_rect().get_center().x, used_key.global_position.y + 7.0)
+		var available_sample := Vector2i(available_key.get_global_rect().get_center().x, available_key.global_position.y + 7.0)
+		var panel_sample := Vector2i(2, used_sample.y)
+		var used_color: Color = frame.get_pixelv(used_sample)
+		var white: Color = frame.get_pixelv(available_sample)
+		var blue: Color = frame.get_pixelv(panel_sample)
+		check(white.r > 0.95 and used_color.r < white.r - 0.1 and used_color.r > blue.r + 0.1, "used key blends between the white face and blue panel on GPU")
+		if is_instance_valid(cyrillic_e):
+			var bounds: Rect2 = cyrillic_e.get_global_rect()
+			var left_gap := Rect2i(Rect2(bounds.position + bounds.size * Vector2(0.08, 0.34), bounds.size * Vector2(0.13, 0.30)))
+			var clear_left_gap: bool = true
+			for y in range(left_gap.position.y, left_gap.end.y):
+				for x in range(left_gap.position.x, left_gap.end.x):
+					clear_left_gap = clear_left_gap and frame.get_pixel(x, y).r > 0.9
+			check(clear_left_gap, "Cyrillic Э has no stray MSDF pixels to the left of its outline")
+		var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+		if !directory.is_empty():
+			frame.save_png(directory.path_join("game_keyboard_%s_%d.png" % [language, size.x]))
+	main._clear()
+	main.preview_banner = false
 
 func check_attempt_reward_summary(language: String, size: Vector2i) -> void:
 	build("АБВА" if language == "ru" else "ABBA", true, 2)
@@ -125,6 +227,7 @@ func run() -> void:
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
 	add_child(main)
+	check_final_key_feedback()
 	var balances: Vector2i = Vector2i(GameState.get_soft_currency(), GameState.get_stars())
 	for win: bool in [true, false]:
 		build("ГРИВИСТЫЙ ВОЛК")
@@ -135,6 +238,7 @@ func run() -> void:
 		check(main._portrait_inline_result_search_button.visible and !main._portrait_inline_result_search_button.get("disabled"), "static search ready")
 		check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "static continue ready")
 		check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return entry.button.disabled and is_equal_approx(main.COMPOSITED_FADE.get_opacity(entry.button), 0.7)), "two-player results keep the dimmed keyboard")
+		check(main._portrait_game_keyboard_panel.visible and main._portrait_inline_result_continue_button.get_global_rect().end.y < main._portrait_game_keyboard_panel.global_position.y, "two-player result action stays above the retained keyboard")
 		var sounds: int = main.sounds
 		var button: Control = main._portrait_inline_result_continue_button
 		main._show_in_place_round_result(win, false)
@@ -182,6 +286,7 @@ func run() -> void:
 		await get_tree().process_frame
 		for language: String in ["ru", "en"]:
 			Database.load_languages(language, language)
+			await check_keyboard_layout(language, size)
 			await check_attempt_reward_summary(language, size)
 			for win: bool in [false, true]:
 				build("АБВА" if language == "ru" else "ABBA")
@@ -222,17 +327,26 @@ func run() -> void:
 						animation.custom_step(0.5)
 				await get_tree().create_timer(0.5).timeout
 				check(!first.visible and !last.visible, "result removes all keyboard visuals")
+				var panel: Control = main._portrait_game_keyboard_panel
+				check(!panel.visible and is_zero_approx(main.COMPOSITED_FADE.get_opacity(panel)), "keyboard panel disappears before the comment")
 				if DisplayServer.get_name() != "headless":
-					var region := Rect2i(0, int(first.global_position.y) - 20, size.x, int(main._portrait_inline_result_continue_button.global_position.y - first.global_position.y) - 40)
+					var region := Rect2i(panel.get_global_rect())
+					var action: Control = main._portrait_inline_result_continue_button
+					var action_was_visible: bool = action.visible
+					# The continuing attention bounce overlaps the old keyboard area.
+					action.hide()
 					await RenderingServer.frame_post_draw
 					var hidden: Image = get_viewport().get_texture().get_image().get_region(region)
+					panel.show()
 					for entry: Dictionary in main._portrait_game_keyboard_buttons:
 						entry.button.show()
 					await RenderingServer.frame_post_draw
 					var transparent: Image = get_viewport().get_texture().get_image().get_region(region)
 					check(hidden.get_data() == transparent.get_data(), "zero-opacity keyboard leaves no GPU pixels")
+					panel.hide()
 					for entry: Dictionary in main._portrait_game_keyboard_buttons:
 						entry.button.hide()
+					action.visible = action_was_visible
 				check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(result.comment_label), 1.0), "comment finishes opaque")
 				check(result.comment_label.get_theme_font("font") == main.UI_FONTS.HANDWRITTEN_REGULAR_FONT, "comment uses regular handwritten font")
 				check(result.comment_label.text == GameSession.get_word_hint(), "comment uses current word hint")
@@ -253,6 +367,7 @@ func run() -> void:
 				GameSession.word_hint_text = "Описание" if language == "ru" else "Description"
 				main._show_in_place_round_result(win, false)
 				check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return !entry.button.visible), "restored single-player result skips the wave")
+				check(!main._portrait_game_keyboard_panel.visible, "restored single-player result hides the keyboard panel immediately")
 				check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(main._portrait_round_result.comment_label), 1.0), "restored result immediately shows the comment")
 				main._clear()
 	build("ОТМЕНА")

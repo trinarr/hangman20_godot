@@ -20,6 +20,9 @@ const ROBOTO_FLEX_BUTTON_WIDTH: float = 25.0
 const ROBOTO_FLEX_BUTTON_MIN_WIDTH: float = 25.0
 const ROBOTO_FLEX_BUTTON_GRADE: float = -30.0
 const ROBOTO_FLEX_BUTTON_THIN_STROKE: float = 80.0
+const ROBOTO_FLEX_KEYBOARD_WEIGHT: float = 620.0
+# At 620 the button grade leaves a stray MSDF stroke on Cyrillic Э.
+const ROBOTO_FLEX_KEYBOARD_GRADE: float = -29.0
 
 # Regular text: resource counters and other compact informational UI.
 const ROBOTO_FLEX_REGULAR_WEIGHT: float = 650.0
@@ -138,6 +141,12 @@ static func display_font_with_width(width: float = ROBOTO_FLEX_DISPLAY_WIDTH) ->
 
 static func button_font() -> Font:
 	return button_font_with_width(ROBOTO_FLEX_BUTTON_WIDTH)
+
+static func keyboard_font() -> Font:
+	return _roboto_flex_font(
+		ROBOTO_FLEX_KEYBOARD_WEIGHT, ROBOTO_FLEX_BUTTON_WIDTH,
+		ROBOTO_FLEX_KEYBOARD_GRADE, ROBOTO_FLEX_BUTTON_THIN_STROKE, true
+	)
 
 static func display_font_raster(weight: float = ROBOTO_FLEX_DISPLAY_WEIGHT) -> Font:
 	return _roboto_flex_font(

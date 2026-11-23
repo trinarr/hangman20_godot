@@ -18,6 +18,7 @@ var paper_front: Control
 var paper_backside: Control
 var paper_backside_visual: Control
 var keyboard_buttons: Array = []
+var keyboard_panel: Control
 var back_button: Control
 var active: bool = false
 var is_win: bool = false
@@ -46,6 +47,7 @@ func configure(parent: Control, bindings: Dictionary, word_letters: Array[String
 	paper_backside = bindings.get("paper_backside")
 	paper_backside_visual = bindings.get("paper_backside_visual")
 	keyboard_buttons = bindings.get("keyboard_buttons", [])
+	keyboard_panel = bindings.get("keyboard_panel")
 	word_comment = str(bindings.get("word_comment", "")).strip_edges()
 	replace_result_keyboard = bool(bindings.get("replace_result_keyboard", false))
 	back_button = bindings.get("back_button")
@@ -67,7 +69,7 @@ func begin(win: bool, animated: bool, wait_for_letters: bool, pending_attempts: 
 		back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		back_button.set("disabled", true)
 	if !replace_result_keyboard:
-		_dim_portrait_keyboard_for_in_place_result()
+		_dim_portrait_keyboard_for_in_place_result(animated)
 	waiting_for_letters = win and animated and wait_for_letters
 	if !waiting_for_letters:
 		_peel_portrait_word_paper_for_in_place_result(animated)
@@ -953,7 +955,7 @@ func _stage_in_place_result_word(animated: bool) -> void:
 		search_button.visible = !animated
 		search_button.set("disabled", animated)
 
-func _dim_portrait_keyboard_for_in_place_result() -> void:
+func _dim_portrait_keyboard_for_in_place_result(animated: bool) -> void:
 	for entry_variant: Variant in keyboard_buttons:
 		var entry: Dictionary = entry_variant
 		var button := entry.get("button") as Control
@@ -961,15 +963,27 @@ func _dim_portrait_keyboard_for_in_place_result() -> void:
 			continue
 		button.set("disabled", true)
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		FADE.set_opacity(button, PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA)
+		var key := button as StageLetterButton
+		var delay: float = key.feedback_bounce_time_left() if animated and key != null else 0.0
+		if delay > 0.0:
+			var dim := _tween(button).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			dim.tween_interval(delay)
+			var controller: Node = FADE.branch(button)
+			dim.tween_callback(controller.set.bind("opacity", PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA))
+		else:
+			FADE.set_opacity(button, PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA)
 
 # Restore the original round-end wave, reversing the gameplay entrance.
 func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
 	var min_x: float = INF
 	var max_x: float = -INF
+	var bounce_delay: float = 0.0
 	for entry: Dictionary in keyboard_buttons:
 		min_x = minf(min_x, float(entry.get("stage_x", 0.0)))
 		max_x = maxf(max_x, float(entry.get("stage_x", 0.0)))
+		var key := entry.get("button") as StageLetterButton
+		if animated and is_instance_valid(key):
+			bounce_delay = maxf(bounce_delay, key.feedback_bounce_time_left())
 	var wave: float = PORTRAIT_GAME_DESIGN.get_float("timings.animations.round_end.key_wave_seconds")
 	var duration: float = PORTRAIT_GAME_DESIGN.get_float("timings.animations.round_end.key_fade_seconds")
 	var key_scale: float = PORTRAIT_GAME_DESIGN.get_float("timings.animations.round_end.key_scale")
@@ -987,10 +1001,20 @@ func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
 		var delay: float = (float(entry.get("stage_x", 0.0)) - min_x) / maxf(max_x - min_x, 1.0) * wave
 		var rest_scale: Vector2 = button.get("visual_scale")
 		var tween := _tween(button)
-		tween.tween_interval(delay)
+		tween.tween_interval(bounce_delay + delay)
 		tween.tween_property(controller, "opacity", 0.0, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tween.parallel().tween_property(button, "visual_scale", rest_scale * key_scale, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_callback(button.hide)
+	if is_instance_valid(keyboard_panel):
+		var panel_fade: Node = FADE.branch(keyboard_panel)
+		if animated:
+			var panel_tween := _tween(keyboard_panel)
+			panel_tween.tween_interval(bounce_delay + wave)
+			panel_tween.tween_property(panel_fade, "opacity", 0.0, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			panel_tween.tween_callback(keyboard_panel.hide)
+		else:
+			panel_fade.set("opacity", 0.0)
+			keyboard_panel.hide()
 	if word_comment.is_empty():
 		return
 	var top: float = result_word_rect.end.y + 50.0
@@ -1001,7 +1025,7 @@ func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
 	comment_fade.set("opacity", 0.0 if animated else 1.0)
 	if animated:
 		var reveal := _tween(comment_label)
-		reveal.tween_interval(wave + duration)
+		reveal.tween_interval(bounce_delay + wave + duration)
 		reveal.tween_property(comment_fade, "opacity", 1.0, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _peel_portrait_word_paper_for_in_place_result(animated: bool) -> void:

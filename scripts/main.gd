@@ -714,13 +714,12 @@ func _stage_round_icon_button(rect: Rect2, callable: Callable, icon: Texture2D, 
 	content.add_child(button)
 	return button
 
-func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = 29, marker_size: Vector2 = Vector2(44.0, 44.0), animate_marker: bool = false) -> Control:
-	var button: FlashStageTextureButton = STAGE_LETTER_BUTTON_SCRIPT.new() as FlashStageTextureButton
-	button.connect(
-		&"marker_reveal_started",
-		Callable(self, "_on_letter_marker_reveal_started").bind(letter, result_transition_generation)
+func _stage_letter_button(rect: Rect2, callable: Callable, letter: String, state: int = 0, disabled: bool = false, font_size: int = StageLetterButton.DEFAULT_FONT_SIZE, animate_feedback: bool = false) -> StageLetterButton:
+	var button: StageLetterButton = STAGE_LETTER_BUTTON_SCRIPT.new()
+	button.feedback_started.connect(
+		_on_letter_feedback_started.bind(letter, result_transition_generation)
 	)
-	button.call("configure", letter, state, font_size, marker_size, disabled, animate_marker)
+	button.configure(letter, state, font_size, disabled, animate_feedback)
 	# Letter keys already have correct/wrong feedback and must not layer a click
 	# over those gameplay sounds.
 	_connect_stage_button_action(button, callable, false)
@@ -845,13 +844,13 @@ func _queue_wrong_letter_feedback(letters: PackedStringArray) -> void:
 	for letter: String in letters:
 		_pending_wrong_letter_feedback[letter] = _wrong_letter_feedback_sequence
 
-func _on_letter_marker_reveal_started(is_correct: bool, letter: String, screen_generation: int) -> void:
+func _on_letter_feedback_started(is_correct: bool, letter: String, screen_generation: int) -> void:
 	if is_correct or screen_generation != result_transition_generation:
 		return
 	if !_pending_wrong_letter_feedback.has(letter):
 		return
 	var action: int = int(_pending_wrong_letter_feedback[letter])
-	# A multi-letter hint produces one sound at the first actual stroke reveal.
+	# A multi-letter hint produces one sound at the first key's bounce peak.
 	for pending_letter: Variant in _pending_wrong_letter_feedback.keys():
 		if int(_pending_wrong_letter_feedback[pending_letter]) == action:
 			_pending_wrong_letter_feedback.erase(pending_letter)
@@ -2721,7 +2720,7 @@ func _use_open_hint() -> void:
 	if !_can_activate_hint(GameState.HINT_OPEN_LETTER, GameSession.can_use_open_letter_hint()):
 		return
 	# If the hint reveals the final letter, keep the gameplay screen visible long
-	# enough for the standard circle-and-bounce feedback to finish.
+	# enough for the standard key feedback to finish.
 	GameSession.use_open_letter_hint()
 
 func _use_remove_hint() -> void:

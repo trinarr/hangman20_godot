@@ -107,10 +107,10 @@ static func map_y(stage_y: float, viewport_size: Vector2, node: Node = null) -> 
 		return stage_y + safe_top_stage(viewport_size)
 	return stage_y + extra_stage_height(viewport_size)
 
-static func map_fill_y(stage_y: float, viewport_size: Vector2) -> float:
+static func map_fill_y(stage_y: float, viewport_size: Vector2, node: Node = null) -> float:
 	# Full-screen backgrounds and top header fills must still begin at the real
 	# screen edge. Only bottom fills follow the rigid footer translation.
-	if stage_y < FIXED_BOTTOM_START:
+	if stage_y < FIXED_BOTTOM_START and (node == null or !is_inside_bottom_attached_group(node)):
 		return stage_y
 	return stage_y + extra_stage_height(viewport_size)
 

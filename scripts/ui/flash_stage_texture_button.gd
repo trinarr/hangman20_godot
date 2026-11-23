@@ -18,6 +18,11 @@ var stage_rect: Rect2 = Rect2(0.0, 0.0, 0.0, 0.0):
 		stage_rect = value
 		_sync_to_stage()
 
+var stage_scale_multiplier: float = 1.0:
+	set(value):
+		stage_scale_multiplier = value
+		_sync_to_stage()
+
 var texture_normal: Texture2D:
 	set(value):
 		texture_normal = value
@@ -168,7 +173,7 @@ func _sync_to_stage() -> void:
 	var fit_scale: float = PORTRAIT_LAYOUT.fit_scale(viewport_size)
 	var mapped_position: Vector2 = PORTRAIT_LAYOUT.map_rect_position(stage_rect, viewport_size, self)
 	position = Vector2(PORTRAIT_LAYOUT.horizontal_offset(viewport_size), 0.0) + mapped_position * fit_scale
-	scale = Vector2.ONE * fit_scale
+	scale = Vector2.ONE * (fit_scale * stage_scale_multiplier)
 	size = stage_rect.size
 	custom_minimum_size = size
 	_sync_visual_child_scales()
