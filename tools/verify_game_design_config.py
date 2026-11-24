@@ -285,6 +285,29 @@ def validate_all_numbers(value: Any, path: str = "") -> None:
         require_number(value, path)
 
 
+def validate_opening_crosswords(config: dict[str, Any]) -> None:
+    puzzles = require_dict(resolve(config, "progression.opening_crosswords"), "opening_crosswords")
+    initial_themes = set(resolve(config, "progression.theme_unlocks.initial_theme_ids"))
+    first_theme = resolve(config, "progression.guided_onboarding.first_word_theme_id")
+    require(set(puzzles) == {"ru", "en"}, "Opening crosswords must cover RU and EN")
+    for language, levels in puzzles.items():
+        catalog = json.loads((ROOT / "data" / f"word_catalog_{language}.json").read_text(encoding="utf-8"))
+        answers = {(entry["theme_id"], entry["answer"]) for entry in catalog["entries"]}
+        for level, themes in (("2", {first_theme}), ("3", initial_themes)):
+            boards = require_dict(levels.get(level), f"{language} opening level {level}")
+            require(set(boards) == {str(theme) for theme in themes}, f"{language} level {level} theme coverage")
+            for theme, words in boards.items():
+                context = f"{language} level {level} theme {theme}"
+                require(isinstance(words, list) and len(words) == int(level) - 1, f"{context}: wrong word count")
+                require(all(isinstance(word, str) and word.isalpha() and (int(theme), word) in answers
+                            for word in words), f"{context}: expected single words from that theme")
+                require(len(set(words)) == len(words), f"{context}: duplicate word")
+                if len(words) == 2:
+                    require(bool(set(words[0]) & set(words[1])), f"{context}: the words must cross")
+                cells = sum(map(len, words)) - (len(words) - 1)
+                require(cells > len(set("".join(words))), f"{context}: leave a repeated letter for the player")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--difficulty-only", action="store_true", help="Validate only editable difficulty tables")
@@ -371,6 +394,7 @@ def main() -> None:
     validate_all_numbers(config)
     validate_progression(config)
     validate_difficulty(config)
+    validate_opening_crosswords(config)
 
     for level in range(1, 1001):
         require(stage_count(config, level) > 0, f"Invalid stage count for level {level}")
@@ -387,6 +411,11 @@ def main() -> None:
     max_known_fraction = resolve(config, "gameplay.crossword_starters.max_known_fraction")
     require(type(max_known_fraction) in (int, float) and 0.5 <= max_known_fraction <= 0.99,
             "Invalid crossword starter coverage")
+    for key, minimum in (("anchor_cells_by_length", 1), ("extra_cells_by_word_count", 0)):
+        path = f"gameplay.crossword_starters.{key}"
+        budgets = require_list(resolve(config, path), path)
+        require(bool(budgets) and all(require_int(value, path) >= minimum for value in budgets),
+                f"Invalid starter cell budgets: {path}")
     base_attempts = require_int(resolve(config, "economy.extra_attempts.base_count"), "economy.extra_attempts.base_count")
     require(1 <= base_attempts <= crossword_limit <= 64, "The base attempt offer must fit the crossword limit")
     require(require_int(resolve(config, "economy.extra_attempts.count_step_interval"),

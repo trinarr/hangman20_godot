@@ -1,66 +1,136 @@
 extends RefCounted
 
 const BOARD = preload("res://scripts/core/word_crossword.gd")
-const MAX_CODES: int = 2
+const DESIGN = preload("res://scripts/core/game_design_config.gd")
+const SUFFIXES := {
+	"en": ["ER", "ING", "NG", "ION", "TION"],
+	"ru": ["ЕР", "ИНГ", "НГ", "НИК", "СТ"],
+}
+const CLUSTERS := {
+	"en": ["TH", "SH", "CH"],
+	"ru": ["НГ", "СТ", "СК"],
+}
 
-static func choose(board: RefCounted, candidates: Array, max_known_fraction: float) -> PackedInt32Array:
-	var first_cells: Dictionary = {}
-	var counts: Dictionary = {}
-	var cell_count: int = 0
+static func transfer_cells(board: RefCounted) -> PackedInt32Array:
+	var cells := PackedInt32Array()
+	var seen: Dictionary = {}
 	for index: int in range(board.letters.size()):
 		var letter: String = board.letters[index]
-		if BOARD.is_separator(letter):
+		if !BOARD.is_separator(letter) and !seen.has(letter):
+			seen[letter] = true
+			cells.append(index)
+	return cells
+
+static func choose(board: RefCounted, candidates: Array, language: String) -> PackedInt32Array:
+	if board.entries.is_empty():
+		return PackedInt32Array()
+	var counts: Dictionary = {}
+	for letter: String in board.letters:
+		if !BOARD.is_separator(letter):
+			counts[letter] = int(counts.get(letter, 0)) + 1
+	var cell_count: int = 0
+	for count: int in counts.values():
+		cell_count += count
+	var known_limit: int = floori(cell_count * DESIGN.get_float("gameplay.crossword_starters.max_known_fraction"))
+
+	# Placing the primary word first gives it consecutive cell indices.
+	var word: String = board.entries[0].text
+	var anchor_length: int = 0
+	var anchor_groups: Array[PackedInt32Array] = []
+	var fragments: Array[PackedInt32Array] = []
+	for index: int in range(word.length()):
+		if BOARD.is_separator(word[index]):
 			continue
-		if !first_cells.has(letter):
-			first_cells[letter] = index
-		counts[letter] = int(counts.get(letter, 0)) + 1
-		cell_count += 1
-	if counts.size() < 2:
+		anchor_length += 1
+		anchor_groups.append(PackedInt32Array([index]))
+		for piece: String in SUFFIXES.get(language, []):
+			var end: int = index + piece.length()
+			if word.substr(index, piece.length()) == piece and (end == word.length() or BOARD.is_separator(word[end])):
+				fragments.append(PackedInt32Array(range(index, end)))
+		for piece: String in CLUSTERS.get(language, []):
+			if word.substr(index, piece.length()) == piece:
+				fragments.append(PackedInt32Array(range(index, index + piece.length())))
+	if anchor_length < 2:
 		return PackedInt32Array()
 
-	var words: Array[Dictionary] = []
+	var anchor_budget: int = mini(_budget(DESIGN.get_array("gameplay.crossword_starters.anchor_cells_by_length"), anchor_length), maxi(1, anchor_length - 2))
+	var alternatives := PackedStringArray([word])
+	var pattern: String = _pattern(word)
+	for candidate: Dictionary in candidates:
+		var text: String = candidate.text
+		if text != word and text.length() == word.length() and _pattern(text) == pattern:
+			alternatives.append(text)
+
+	var cell_word_counts := PackedInt32Array()
+	cell_word_counts.resize(board.letters.size())
 	for entry: Dictionary in board.entries:
-		var word: String = entry.text
-		var pattern: String = _pattern(word)
-		var alternatives := PackedStringArray([word])
-		for candidate: Dictionary in candidates:
-			var text: String = candidate.text
-			if text != word and text.length() == word.length() and _pattern(text) == pattern:
-				alternatives.append(text)
-		words.append({"text": word, "alternatives": alternatives})
+		var direction: Vector2i = Vector2i.DOWN if entry.vertical else Vector2i.RIGHT
+		var start := Vector2i(entry.x, entry.y)
+		for offset: int in range(String(entry.text).length()):
+			var index: int = board.cells[start + direction * offset]
+			cell_word_counts[index] += 1
 
-	var first: String = ""
-	var first_options: int = 0
-	var best_rank: Vector3i = Vector3i(-1, 0, 0)
-	for letter: String in first_cells:
-		if float(counts[letter]) / cell_count > max_known_fraction:
-			continue
-		var options: int = _anchor_options(words, letter)
-		# Minimize the candidates for a word the player can still work on, then
-		# prefer useful repetition and wider coverage through the other words.
-		var rank := Vector3i(-options, int(counts[letter] > 1), _word_coverage(words, letter))
-		if first.is_empty() or _better_rank(rank, best_rank):
-			first = letter
-			first_options = options
-			best_rank = rank
-	if first.is_empty():
-		return PackedInt32Array()
+	var fragment_budget: int = maxi(anchor_budget, mini(2, anchor_length - 2))
+	var starters: PackedInt32Array = _best_group(board, fragments, "", fragment_budget, known_limit, counts, cell_word_counts, word, alternatives)
+	var known: String = _group_letters(board, starters)
+	while starters.size() < anchor_budget:
+		var next: PackedInt32Array = _best_group(board, anchor_groups, known, 1, known_limit, counts, cell_word_counts, word, alternatives)
+		if next.is_empty():
+			break
+		starters.append_array(next)
+		known += _group_letters(board, next)
 
-	var starters := PackedInt32Array([first_cells[first]])
-	if first_options <= 1 or counts.size() < MAX_CODES + 2:
-		return starters
-	var second: String = ""
-	var best_options: int = first_options
-	for letter: String in first_cells:
-		if letter == first or float(counts[first] + counts[letter]) / cell_count > max_known_fraction:
-			continue
-		var options: int = _anchor_options(words, first + letter)
-		if options < best_options:
-			second = letter
-			best_options = options
-	if !second.is_empty():
-		starters.append(first_cells[second])
+	var extra_budget: int = _budget(DESIGN.get_array("gameplay.crossword_starters.extra_cells_by_word_count"), board.entries.size())
+	var extra_groups: Array[PackedInt32Array] = []
+	for index: int in range(word.length(), board.letters.size()):
+		if !BOARD.is_separator(board.letters[index]):
+			extra_groups.append(PackedInt32Array([index]))
+	for _extra: int in range(extra_budget):
+		var next: PackedInt32Array = _best_group(board, extra_groups, known, 1, known_limit, counts, cell_word_counts, "", PackedStringArray())
+		if next.is_empty():
+			break
+		starters.append_array(next)
+		known += _group_letters(board, next)
 	return starters
+
+static func _budget(budgets: Array, size: int) -> int:
+	return int(budgets[mini(size, budgets.size()) - 1])
+
+static func _group_letters(board: RefCounted, group: PackedInt32Array) -> String:
+	var result: String = ""
+	for index: int in group:
+		result += board.letters[index]
+	return result
+
+static func _best_group(
+	board: RefCounted, groups: Array[PackedInt32Array], known: String, budget: int, known_limit: int,
+	counts: Dictionary, cell_word_counts: PackedInt32Array, word: String, alternatives: PackedStringArray
+) -> PackedInt32Array:
+	var best := PackedInt32Array()
+	var best_rank := Vector4i()
+	for group: PackedInt32Array in groups:
+		if group.size() > budget:
+			continue
+		var next_known: String = known
+		var crossings: int = 0
+		for index: int in group:
+			var letter: String = board.letters[index]
+			if !next_known.contains(letter):
+				next_known += letter
+			crossings += cell_word_counts[index] - 1
+		if next_known.length() != known.length() + group.size():
+			continue
+		var coverage: int = 0
+		for letter: String in next_known:
+			coverage += int(counts[letter])
+		if coverage > known_limit:
+			continue
+		var options: int = _matching_options(alternatives, word, next_known)
+		var rank := Vector4i(-options, group.size(), crossings, coverage)
+		if best.is_empty() or rank > best_rank:
+			best = group
+			best_rank = rank
+	return best
 
 static func _pattern(word: String) -> String:
 	var codes: Dictionary = {}
@@ -74,42 +144,16 @@ static func _pattern(word: String) -> String:
 			result.append(codes[letter])
 	return ",".join(result)
 
-static func _anchor_options(words: Array[Dictionary], known: String) -> int:
-	var fewest: int = 2147483647
-	for entry: Dictionary in words:
-		var word: String = entry.text
-		var known_positions := PackedInt32Array()
-		var hidden: bool = false
+static func _matching_options(alternatives: PackedStringArray, word: String, known: String) -> int:
+	var options: int = 0
+	for candidate: String in alternatives:
+		var compatible: bool = true
 		for index: int in range(word.length()):
-			var letter: String = word[index]
-			if known.contains(letter):
-				known_positions.append(index)
-			elif !BOARD.is_separator(letter):
-				hidden = true
-		if known_positions.is_empty() or !hidden:
-			continue
-		var options: int = 0
-		for candidate: String in entry.alternatives:
-			var compatible: bool = true
-			for index: int in range(word.length()):
-				if known_positions.has(index):
-					if candidate[index] != word[index]:
-						compatible = false
-						break
-				elif known.contains(candidate[index]):
-					compatible = false
-					break
-			if compatible:
-				options += 1
-		fewest = mini(fewest, options)
-	return fewest
-
-static func _word_coverage(words: Array[Dictionary], letter: String) -> int:
-	var count: int = 0
-	for entry: Dictionary in words:
-		if String(entry.text).contains(letter):
-			count += 1
-	return count
-
-static func _better_rank(a: Vector3i, b: Vector3i) -> bool:
-	return a.x > b.x or (a.x == b.x and (a.y > b.y or (a.y == b.y and a.z > b.z)))
+			var expected: String = word[index]
+			var actual: String = candidate[index]
+			if (known.contains(expected) and actual != expected) or (!known.contains(expected) and known.contains(actual)):
+				compatible = false
+				break
+		if compatible:
+			options += 1
+	return options

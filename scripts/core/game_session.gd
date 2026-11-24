@@ -49,7 +49,10 @@ func get_remaining_attempts() -> int:
 		return 0
 	return maxi(attempt_limit - mistakes, 0)
 
-func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER, word_count: int = 1) -> void:
+func start_round(
+	word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER, word_count: int = 1,
+	opening_words: Array = []
+) -> void:
 	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
 	word_data = word
 	if word_data.id.is_empty() and word.theme_index >= 0:
@@ -61,7 +64,17 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAY
 	attempt_limit = CROSSWORD_MAX_MISTAKES if mode == GameState.GameMode.SINGLE_PLAYER else MAX_MISTAKES
 	var use_starters: bool = mode == GameState.GameMode.SINGLE_PLAYER
 	var candidates: Array = Database.get_words_by_index(theme_id, 0) if theme_id >= 0 and (word_count > 1 or use_starters) else []
-	crossword = WORD_CROSSWORD.build(word.text, word.difficulty, candidates, word_count)
+	var puzzle_candidates: Array = candidates
+	var use_opening: bool = (
+		use_starters and !opening_words.is_empty()
+		and opening_words.size() == word_count and opening_words[0] == word.text
+	)
+	if use_opening:
+		puzzle_candidates = candidates.filter(func(candidate: Dictionary) -> bool: return opening_words.has(candidate.text))
+		use_opening = puzzle_candidates.size() == word_count
+		if !use_opening:
+			puzzle_candidates = candidates
+	crossword = WORD_CROSSWORD.build(word.text, word.difficulty, puzzle_candidates, word_count)
 	letters = crossword.letters
 	revealed.clear()
 	correct_letters.clear()
@@ -80,14 +93,13 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAY
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
 	var starter_cells: Array = []
-	if use_starters:
-		starter_cells = Array(CROSSWORD_STARTERS.choose(
-			crossword, candidates, GAME_DESIGN.get_float("gameplay.crossword_starters.max_known_fraction")
-		))
+	if use_opening:
+		starter_cells = Array(CROSSWORD_STARTERS.transfer_cells(crossword))
+	elif use_starters:
+		starter_cells = Array(CROSSWORD_STARTERS.choose(crossword, candidates, Database.current_language))
 	_set_crossword_starters(starter_cells)
 	for index: int in crossword_starter_cells:
-		if letters.count(letters[index]) > 1:
-			revealed[index] = true
+		revealed[index] = true
 	emit_signal("changed")
 	round_started.emit()
 
@@ -188,6 +200,13 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	letters = restored_letters
 	revealed = restored_revealed.duplicate()
 	_set_crossword_starters(source.get("crossword_starter_cells", []))
+	# Older rounds displayed some starter codes above the grid. Move those clues
+	# onto their saved cells while leaving the last move to the player.
+	var hidden_cells: int = revealed.count(false)
+	for index: int in crossword_starter_cells:
+		if !revealed[index] and hidden_cells > 1:
+			revealed[index] = true
+			hidden_cells -= 1
 	correct_letters = _packed_string_array_from_save(source.get("correct_letters", []))
 	wrong_letters = _packed_string_array_from_save(source.get("wrong_letters", []))
 	misplaced_letters = _packed_string_array_from_save(source.get("misplaced_letters", []))
@@ -214,7 +233,7 @@ func _set_crossword_starters(indices: Variant) -> void:
 	crossword_starter_letters.clear()
 	if !(indices is Array):
 		return
-	for raw_index: Variant in indices.slice(0, CROSSWORD_STARTERS.MAX_CODES):
+	for raw_index: Variant in indices:
 		if !(raw_index is int or raw_index is float) or raw_index < 0 or raw_index >= letters.size() or int(raw_index) != raw_index:
 			continue
 		var index: int = int(raw_index)
@@ -249,7 +268,10 @@ func can_guess_letter(letter: String, cell_index: int = -1) -> bool:
 	var known_letter: String = get_known_crossword_letter(cell_index)
 	if !known_letter.is_empty() and letter != known_letter:
 		return false
-	return can_guess_cell(cell_index) and (!correct_letters.has(letter) or get_hidden_letter_counts().has(letter))
+	return can_guess_cell(cell_index) and (
+		(!correct_letters.has(letter) and !crossword_starter_letters.has(letter))
+		or get_hidden_letter_counts().has(letter)
+	)
 
 func guess_cell(index: int, letter: String, defer_loss: bool = false) -> bool:
 	letter = WordManager.normalize_word(letter)

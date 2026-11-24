@@ -4,8 +4,13 @@ const STAGE = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const WORD_CROSSWORD = preload("res://scripts/core/word_crossword.gd")
+const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
+const PAPER_SHADER = preload("res://shaders/crossword_paper.gdshader")
+const PATTERN = preload("res://scripts/ui/portrait_theme_pattern.gd")
+const PATTERN_SHADER = preload("res://shaders/crossword_paper_pattern.gdshader")
 const PITCH: float = 56.0
 const TILE_SIZE: float = 52.0
+const MAX_GRID_SCALE: float = 1.15
 
 var model: RefCounted
 var selected_cell: int = -1
@@ -14,40 +19,55 @@ var _input_enabled: bool = false
 var _word_cells: Array[PackedInt32Array] = []
 var _tiles: Array[Panel] = []
 var _glyphs: Array[Label] = []
+var _number_labels: Array[Label] = []
 var _styles: Array[StyleBoxFlat] = []
 var _revealed: Array = []
 var _show_solution: bool = false
-var _initial_starter: String = ""
+var _initial_starters := PackedInt32Array()
 var _same_numbers_highlight: bool = false
-var _starter_label: Label
 var _board_size: Vector2
-var _card: FlashStagePanel
-var _shadow: FlashStagePanel
+var _field: FlashStagePanel
+var _paper: ColorRect
+var _paper_material: ShaderMaterial
+var _pattern_material: ShaderMaterial
 var _grid: Control
-var _bottom: float
+var _grid_bottom: float
+var _paper_bottom: float
 var _padding: float
-var _top_padding: float
 
 func build(
-	board: RefCounted, card: FlashStagePanel, shadow: FlashStagePanel, bottom: float, padding: float,
-	starter_letters: PackedStringArray = PackedStringArray(), focus_starter: bool = false
+	board: RefCounted, field: FlashStagePanel, grid_bottom: float, paper_bottom: float, padding: float,
+	starter_cells: PackedInt32Array = PackedInt32Array(), focus_starter: bool = false, pattern_source: Control = null
 ) -> void:
 	model = board
-	_card = card
-	_shadow = shadow
-	_bottom = bottom
+	_field = field
+	_grid_bottom = grid_bottom
+	_paper_bottom = paper_bottom
 	_padding = padding
-	_same_numbers_highlight = !starter_letters.is_empty()
-	if focus_starter and _same_numbers_highlight:
-		_initial_starter = starter_letters[0]
-	var theme_title := _card.get_node_or_null("StageQuestionThemeTitle") as Label
-	_top_padding = theme_title.get_rect().end.y + _padding if theme_title != null else _padding
+	_same_numbers_highlight = !starter_cells.is_empty()
+	if focus_starter:
+		_initial_starters = starter_cells
+	_paper = ColorRect.new()
+	_paper.name = "CrosswordPaper"
+	_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_paper_material = ShaderMaterial.new()
+	_paper_material.shader = PAPER_SHADER
+	_paper.material = _paper_material
+	add_child(_paper)
+	move_child(_paper, 0)
+	if pattern_source != null:
+		_pattern_material = ShaderMaterial.new()
+		_pattern_material.shader = PATTERN_SHADER
+		_pattern_material.set_shader_parameter("pattern_color", PALETTE.CROSSWORD_PAPER_PATTERN)
+		var pattern_overlay: Control = PATTERN.add_aligned_layer(pattern_source, self, _pattern_material)
+		move_child(pattern_overlay, _paper.get_index() + 1)
 	_grid = Control.new()
 	_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_card.add_child(_grid)
+	_field.add_child(_grid)
 	_board_size = Vector2(board.bounds.size) * PITCH - Vector2.ONE * (PITCH - TILE_SIZE)
 	_tiles.resize(board.letters.size())
 	_glyphs.resize(board.letters.size())
+	_number_labels.resize(board.letters.size())
 	_styles.assign([
 		_tile_style(Color.WHITE, PALETTE.UI_BLUE_LIGHT_BORDER),
 		_tile_style(PALETTE.TEXT_PALE_BLUE, PALETTE.BUTTON_BLUE),
@@ -79,6 +99,7 @@ func build(
 		tile.add_theme_stylebox_override("panel", _styles[0])
 		var number_label: Label = _label(tile, "Number", str(numbers[letter]), Rect2(3, 1, 20, 16), 14, number_font)
 		number_label.add_theme_color_override("font_color", PALETTE.UI_BLUE)
+		_number_labels[index] = number_label
 		var glyph: Label = _label(tile, "Letter", letter, Rect2(0, 13, TILE_SIZE, 37), 29, letter_font)
 		glyph.hide()
 		_glyphs[index] = glyph
@@ -93,20 +114,6 @@ func build(
 			if _glyphs[index] != null:
 				word_cells.append(index)
 		_word_cells.append(word_cells)
-	if _same_numbers_highlight:
-		var pairs := PackedStringArray()
-		for letter: String in starter_letters:
-			pairs.append("%d = %s" % [numbers[letter], letter])
-		_starter_label = Label.new()
-		_starter_label.name = "CrosswordStarterCodes"
-		_starter_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_starter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_starter_label.text = "     ".join(pairs)
-		_starter_label.add_theme_font_override("font", number_font)
-		_starter_label.add_theme_font_size_override("font_size", 19)
-		_starter_label.position = Vector2(_padding, _top_padding)
-		_card.add_child(_starter_label)
-		_top_padding += _starter_label.get_combined_minimum_size().y + _padding
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 
@@ -120,10 +127,16 @@ func refresh(revealed: Array, bounce: Callable = Callable(), reveal_solution: bo
 	var previous_cell: int = selected_cell
 	if selected_cell >= 0 and (revealed[selected_cell] or reveal_solution):
 		selected_cell = -1
+	var hidden_letters: Dictionary = {}
+	if !reveal_solution:
+		for index: int in range(revealed.size()):
+			if !revealed[index] and _number_labels[index] != null:
+				hidden_letters[model.letters[index]] = true
 	for index: int in range(_tiles.size()):
 		var glyph: Label = _glyphs[index]
 		if glyph == null:
 			continue
+		_number_labels[index].visible = hidden_letters.has(model.letters[index])
 		var found: bool = revealed[index]
 		var show_letter: bool = found or reveal_solution
 		_tiles[index].mouse_filter = Control.MOUSE_FILTER_STOP if _input_enabled and !show_letter else Control.MOUSE_FILTER_IGNORE
@@ -133,15 +146,32 @@ func refresh(revealed: Array, bounce: Callable = Callable(), reveal_solution: bo
 		if found and bounce.is_valid():
 			bounce.call(glyph)
 	if _input_enabled and !reveal_solution and selected_cell == -1:
-		if !_initial_starter.is_empty():
-			for index: int in range(model.letters.size()):
-				if model.letters[index] == _initial_starter and !revealed[index]:
-					select_cell(index)
-					break
-			_initial_starter = ""
+		if !_initial_starters.is_empty():
+			_focus_starter()
+			_initial_starters = PackedInt32Array()
 		if selected_cell == -1:
 			_advance_selection(previous_cell)
 	_sync_tile_styles()
+
+func _focus_starter() -> void:
+	for starter: int in _initial_starters:
+		for index: int in range(model.letters.size()):
+			if !_revealed[index] and model.letters[index] == model.letters[starter]:
+				select_cell(index)
+				return
+	var anchor: PackedInt32Array = _word_cells[0]
+	var closest: int = -1
+	var distance: int = model.letters.size()
+	for starter: int in _initial_starters:
+		if !anchor.has(starter):
+			continue
+		for index: int in anchor:
+			var gap: int = absi(index - starter)
+			if !_revealed[index] and gap < distance:
+				closest = index
+				distance = gap
+	if closest >= 0:
+		_select_cell(closest, 0)
 
 func _advance_selection(previous_cell: int) -> void:
 	for step: int in range(_word_cells.size()):
@@ -199,30 +229,33 @@ func _on_tile_input(event: InputEvent, index: int) -> void:
 		select_cell(index)
 
 func set_bottom(bottom: float) -> void:
-	_bottom = bottom
+	_grid_bottom = bottom
+	_paper_bottom = bottom
 	_layout()
 
 func _layout() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
-	# The card starts below the top-safe HUD. Its bottom follows the hints at the
-	# physical bottom of the viewport, including the extra height of tall screens.
-	var card_rect: Rect2 = _card.stage_rect
-	var top: float = card_rect.position.y + STAGE.safe_top_stage(viewport_size)
-	var bottom: float = _bottom + STAGE.extra_stage_height(viewport_size)
-	card_rect.size.y = maxf(bottom - top, _top_padding + _padding + 1.0)
-	_card.stage_rect = card_rect
-	if is_instance_valid(_starter_label):
-		_starter_label.size.x = card_rect.size.x - 2.0 * _padding
-	var shadow_rect: Rect2 = _shadow.stage_rect
-	shadow_rect.size = card_rect.size
-	_shadow.stage_rect = shadow_rect
+	# The grid ends above the hints. The wider sheet continues behind them.
+	var field_rect: Rect2 = _field.stage_rect
+	var top: float = field_rect.position.y + STAGE.safe_top_stage(viewport_size)
+	var extra_height: float = STAGE.extra_stage_height(viewport_size)
+	field_rect.size.y = maxf(_grid_bottom + extra_height - top, _padding * 2.0 + 1.0)
+	_field.stage_rect = field_rect
+	var fit: float = STAGE.fit_scale(viewport_size)
+	var paper_height: float = maxf(field_rect.size.y, _paper_bottom + extra_height - top)
+	_paper.scale = Vector2.ONE * fit
+	_paper.size = Vector2(viewport_size.x / fit, top + paper_height)
+	_paper_material.set_shader_parameter("paper_size", _paper.size)
+	_paper_material.set_shader_parameter("paper_unit", STAGE.adaptive_ui_scale(viewport_size, PAPER_STYLE.MAX_PAPER_SCALE))
+	if _pattern_material != null:
+		_pattern_material.set_shader_parameter("tear_fade_y", Vector2(_paper.size.y - 62.0, _paper.size.y - 14.0) * fit)
 	if _board_size.x <= 0.0:
 		return
 	var area := Rect2(
-		_padding, _top_padding,
-		card_rect.size.x - 2.0 * _padding, card_rect.size.y - _top_padding - _padding
+		-_field.position.x / fit + _padding, _padding,
+		_paper.size.x - 2.0 * _padding, field_rect.size.y - 2.0 * _padding
 	)
-	var grid_scale: float = minf(1.0, minf(area.size.x / _board_size.x, area.size.y / _board_size.y))
+	var grid_scale: float = minf(MAX_GRID_SCALE, minf(area.size.x / _board_size.x, area.size.y / _board_size.y))
 	_grid.position = area.get_center() - _board_size * grid_scale * 0.5
 	_grid.scale = Vector2.ONE * grid_scale
 

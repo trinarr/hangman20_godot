@@ -79,7 +79,7 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	var background: Control = main.content.get_node("PortraitGameBackground")
 	var background_rect: Rect2 = background.get_global_rect()
 	check(background.has_node("PortraitGameBackgroundGradient") and !background.has_node("PortraitGameThemePattern"), "custom words have the shared gradient without a theme icon")
-	check(main.content.find_child("PortraitPaperBackground", true, false) == null and main.content.find_child("PortraitGameKeyboardPanel", true, false) == null, "word gameplay has no paper or keyboard backplate")
+	check(main.content.find_child("PortraitPaperBackground", true, false) == null and main.content.find_child("PortraitGameKeyboardPanel", true, false) == null, "keyboard stays on the blue gradient")
 	var banner: Control = main.get_tree().get_first_node_in_group("ad_banner_slot")
 	var banner_rect: Rect2 = banner.get_global_rect()
 	var key_top: float = INF
@@ -113,13 +113,13 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	for hint: Control in main._portrait_game_hint_buttons:
 		var hint_rect: Rect2 = hint.get_global_rect()
 		if hint_right != -INF:
-			check(is_equal_approx(hint_rect.position.x - hint_right, 8.0 * stage_scale), "hint buttons sit eight stage units apart")
+			check(is_equal_approx(hint_rect.position.x - hint_right, 12.0 * stage_scale), "hint buttons sit twelve stage units apart")
 		hint_right = hint_rect.end.x
-		var expected_size: Vector2 = main.PORTRAIT_GAME_HINT_BUTTON_SIZE * 0.8 * stage_scale
+		var expected_size: Vector2 = main.PORTRAIT_GAME_HINT_BUTTON_SIZE * 0.88 * stage_scale
 		check(hint_rect.size.is_equal_approx(expected_size), "hint button and its input area are 20 percent smaller")
 		check(is_equal_approx(key_top - hint_rect.end.y, 44.0 * stage_scale), "hint retains its gap to the first keyboard row")
 		var icon: Control = hint.get_node("HintArtHolder")
-		check(icon.get_global_rect().size.is_equal_approx(main.PORTRAIT_GAME_HINT_ART_SIZE * 0.8 * stage_scale), "hint icon shrinks with its button")
+		check(icon.get_global_rect().size.is_equal_approx(main.PORTRAIT_GAME_HINT_ART_SIZE * 0.88 * stage_scale), "hint icon scales with its button")
 	var right_edge: float = background_rect.get_center().x + main.PORTRAIT_STAGE_SIZE.x * 0.5 * stage_scale
 	check(is_equal_approx(right_edge - hint_right, 18.4 * stage_scale), "hint row uses the right screen margin")
 	if DisplayServer.get_name() != "headless":
@@ -136,11 +136,12 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		var former_bar_edge: int = int(main.PORTRAIT_HEADER_HEIGHT * stage_scale)
 		var upper: Color = frame.get_pixel(2, former_bar_edge - 4)
 		var lower: Color = frame.get_pixel(2, former_bar_edge + 4)
-		check(absf(upper.r - lower.r) < 0.01, "Word background gradient has no seam at the former header edge")
-		var field_y: int = int(key_top - 24.0 * stage_scale)
+		check(upper == Color.WHITE and lower == Color.WHITE, "White paper continues through the former header edge")
+		var field_y: int = int(key_top - 11.0 * stage_scale)
 		var field_color: Color = frame.get_pixel(2, field_y)
-		check(lower.r > field_color.r + 0.04 and field_color.r > blue.r and field_color.r - blue.r < 0.025, "playfield gradient continues smoothly behind the keyboard")
+		check(lower.r > field_color.r + 0.04 and field_color.r >= blue.r and field_color.r - blue.r < 0.025, "playfield gradient continues smoothly behind the keyboard")
 		check(frame.get_pixel(frame.get_width() - 3, used_sample.y) == blue, "keyboard background is a uniform gradient across the screen")
+		await check_crossword_paper(frame, stage_scale, key_top)
 		if is_instance_valid(cyrillic_e):
 			var bounds: Rect2 = cyrillic_e.get_global_rect()
 			var left_gap := Rect2i(Rect2(bounds.position + bounds.size * Vector2(0.08, 0.34), bounds.size * Vector2(0.13, 0.30)))
@@ -155,6 +156,45 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	main._clear()
 	main.preview_banner = false
 
+func check_crossword_paper(frame: Image, stage_scale: float, key_top: float) -> void:
+	var grid: Control = main._portrait_crossword
+	var paper := grid.find_child("CrosswordPaper", true, false) as ColorRect
+	check(is_instance_valid(paper), "crossword has a dedicated paper sheet")
+	if paper == null:
+		return
+	var rect: Rect2 = paper.get_global_rect()
+	check(grid._grid.scale.x > 1.0, "Short crosswords use the larger cell scale")
+	check(is_equal_approx((key_top - rect.end.y) / stage_scale, 22.0), "Paper ends 22 stage units above the first key row")
+	for hint: Control in main._portrait_game_hint_buttons:
+		check(is_equal_approx((rect.end.y - hint.get_global_rect().end.y) / stage_scale, 22.0), "Paper ends 22 stage units below each hint")
+	var middle := Vector2i(3, int(rect.get_center().y))
+	var body: Color = frame.get_pixelv(middle)
+	check(body == Color.WHITE and frame.get_pixel(3, 0) == Color.WHITE, "White paper covers the playfield and reaches the top")
+	check(frame.get_pixel(frame.get_width() - 4, middle.y).r > 0.90, "paper reaches the opposite screen edge")
+	var plain: bool = true
+	var clear_row: int = int(main.PORTRAIT_QUIZ_THEME_TITLE_RECT.end.y * stage_scale)
+	for x: int in range(8, frame.get_width() - 8):
+		plain = plain and frame.get_pixel(x, clear_row) == Color.WHITE
+	check(plain, "the paper face has no graph ruling")
+	var bottom_rows: Dictionary = {}
+	for x: int in range(8, frame.get_width() - 8, 7):
+		for band: int in range(ceili(10.0 * stage_scale)):
+			var y: int = ceili(rect.end.y) - band
+			if frame.get_pixel(x, y).r > 0.67:
+				bottom_rows[y] = true
+				break
+	check(bottom_rows.size() > 1, "The bottom paper edge has an irregular tear contour")
+	main.COMPOSITED_FADE.set_opacity(grid, 0.5)
+	await RenderingServer.frame_post_draw
+	var half: Color = get_viewport().get_texture().get_image().get_pixelv(middle)
+	main.COMPOSITED_FADE.set_opacity(grid, 0.0)
+	await RenderingServer.frame_post_draw
+	var background: Color = get_viewport().get_texture().get_image().get_pixelv(middle)
+	check(background.r < 0.7 and half.r > background.r + 0.08 and half.r < body.r - 0.08, "paper fades into the live blue gradient")
+	main.COMPOSITED_FADE.set_opacity(grid, 1.0)
+	await RenderingServer.frame_post_draw
+	check(get_viewport().get_texture().get_image().get_pixelv(middle) == body, "paper restores its texture after the fade")
+
 func run() -> void:
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
@@ -167,6 +207,7 @@ func run() -> void:
 		await get_tree().process_frame
 		check(main._portrait_in_place_result_active and main._portrait_in_place_result_is_win == win, "result flags reflect outcome")
 		check(main._portrait_crossword._glyphs.all(func(label: Label) -> bool: return label == null or label.visible), "static result reveals the entire crossword")
+		check(main._portrait_crossword._number_labels.all(func(label: Label) -> bool: return label == null or !label.visible), "Showing the solution removes all numbers")
 		check(main._portrait_inline_result_search_button.visible and !main._portrait_inline_result_search_button.get("disabled"), "static search ready")
 		check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "static continue ready")
 		check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return entry.button.disabled and is_equal_approx(main.COMPOSITED_FADE.get_opacity(entry.button), 0.7)), "two-player results keep the dimmed keyboard")

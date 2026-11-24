@@ -3,7 +3,9 @@
     "max_mistakes": 6,
     "crossword_max_mistakes": 3,
     "crossword_starters": {
-      "max_known_fraction": 0.6
+      "max_known_fraction": 0.6,
+      "anchor_cells_by_length": [1, 1, 1, 1, 2, 2, 3],
+      "extra_cells_by_word_count": [0, 1, 1, 2]
     },
     "word_difficulty_split": 0.5,
     "random_custom_word": {
@@ -38,6 +40,16 @@
     "guided_onboarding": {
       "required_start_level": 3,
       "first_word_theme_id": 9
+    },
+    "opening_crosswords": {
+      "ru": {
+        "2": {"9": ["КНОПКА"]},
+        "3": {"1": ["СКАКАЛКА", "РАКЕТКА"], "2": ["КАНАДА", "КАМЧАТКА"], "9": ["ШАПКА", "КЕПКА"]}
+      },
+      "en": {
+        "2": {"9": ["PAPER"]},
+        "3": {"1": ["FOOTBALL", "BASEBALL"], "2": ["CANADA", "DALLAS"], "9": ["BACKPACK", "BOOK"]}
+      }
     },
     "level_stage_counts": [
       {"from_level": 1, "to_level": 1, "count": 1, "crossword_words": 1},

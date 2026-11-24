@@ -173,6 +173,12 @@ static func is_quiz_onboarding_level(level_number: int) -> bool:
 	var to_level: int = get_int("progression.quiz.onboarding_to_level")
 	return level_number >= from_level and level_number <= to_level
 
+static func opening_crossword_words(level_number: int, language: String, theme_id: int) -> Array:
+	var by_language: Dictionary = get_value("progression.opening_crosswords")
+	var by_level: Dictionary = by_language.get(language, {})
+	var by_theme: Dictionary = by_level.get(str(level_number), {})
+	return Array(by_theme.get(str(theme_id), [])).duplicate()
+
 static func opening_level_quiz_slots(level_number: int, stage_count: int) -> Variant:
 	# Null delegates later levels to the regular placement rules. Retain older
 	# opening-level shapes when continuing an already-started attempt.
@@ -289,6 +295,15 @@ static func _validate_loaded_config() -> void:
 	var crossword_max_mistakes: int = get_int_range("gameplay.crossword_max_mistakes", 1, 64)
 	get_int_range("economy.extra_attempts.base_count", 1, crossword_max_mistakes)
 	get_float_range("gameplay.crossword_starters.max_known_fraction", 0.5, 0.99)
+	for key: String in ["anchor_cells_by_length", "extra_cells_by_word_count"]:
+		var path: String = "gameplay.crossword_starters." + key
+		var budgets: Array = get_array(path)
+		if budgets.is_empty():
+			_fatal_config_error("Starter cell budgets must not be empty: " + path)
+		var minimum_budget: int = 1 if key == "anchor_cells_by_length" else 0
+		for value: Variant in budgets:
+			if _require_integer_value(value, path) < minimum_budget:
+				_fatal_config_error("Invalid starter cell budget: " + path)
 
 	var hint_fade_seconds: float = get_float("timings.animations.round_end.hints_fade_seconds")
 	var fullscreen_recovery: Dictionary = get_value("advertising.fullscreen_show_recovery")

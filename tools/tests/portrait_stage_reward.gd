@@ -757,6 +757,36 @@ func campaign_capture(ui: Node, tag: String, language: String, width: int) -> vo
 	if !directory.is_empty() and DisplayServer.get_name() != "headless":
 		get_viewport().get_texture().get_image().save_png(directory.path_join("campaign_%s_%s_%d.png" % [tag, language, width]))
 
+func solve_opening_crossword(ui: Node, level: int, language: String, width: int) -> void:
+	var grid: Control = ui._portrait_crossword
+	var theme: int = Database.get_theme_id(GameSession.theme_id)
+	var expected: Array = GameState.GAME_DESIGN.opening_crossword_words(level + 1, language, theme)
+	var entries: Array = GameSession.crossword.entries
+	check(entries.map(func(entry: Dictionary) -> String: return entry.text) == expected, "Opening crossword uses the authored theme words")
+	var visible_codes: Dictionary = {}
+	for cell: int in range(grid._tiles.size()):
+		var number_label: Label = grid._number_labels[cell]
+		if number_label != null and number_label.visible and grid._glyphs[cell].visible:
+			visible_codes[number_label.text] = grid._glyphs[cell].text
+	var hidden: int = GameSession.revealed.count(false)
+	check(hidden > 0 and grid.selected_cell >= 0, "Opening crossword selects an empty cell immediately")
+	await get_tree().process_frame
+	campaign_capture(ui, "crossword_%d_%d" % [level + 1, theme], language, width)
+	for _move: int in range(hidden):
+		var selected: int = grid.selected_cell
+		if selected < 0:
+			check(false, "Opening crossword keeps an empty cell selected until the last transfer")
+			break
+		var number_label: Label = grid._number_labels[selected]
+		check(number_label.visible, "An empty cell shows its number")
+		var number: String = number_label.text
+		if !visible_codes.has(number):
+			check(false, "Selected number %s must match an initially visible letter" % number)
+			break
+		ui._press_letter(visible_codes[number])
+		check(GameSession.revealed[selected], "Copying the visible letter opens the selected cell")
+	check(GameSession.is_word_completed() and GameSession.mistakes == 0, "The whole opening crossword can be assembled from visible numbers")
+
 func check_real_opening_campaign() -> void:
 	var old_speed: float = Engine.time_scale
 	Engine.time_scale = 8.0
@@ -785,7 +815,10 @@ func check_real_opening_campaign() -> void:
 				elif level == 2:
 					check(get_tree().get_nodes_in_group("single_player_theme_popup").size() == 1, "Third level is the first theme popup")
 					var options: Array = ui._single_player_level_theme_options(level)
-					ui._confirm_single_player_theme_selection(level,int(options[0]))
+					var theme_id: int = 1 if dimensions.x == 690 else (2 if language == "ru" else 9)
+					var theme: int = Database.get_theme_index_by_id(theme_id)
+					check(options.has(theme), "Level three offers the selected starter theme")
+					ui._confirm_single_player_theme_selection(level, theme)
 				var stages: int = 2 if level == 2 else 1
 				check(ui._single_player_level_word_count(level) == stages, "Real campaign uses configured opening counts")
 				for slot: int in range(stages):
@@ -808,35 +841,7 @@ func check_real_opening_campaign() -> void:
 					else:
 						await campaign_wait(func(): return !ui._portrait_game_entrance_active, "Campaign word becomes interactive")
 						check(GameSession.is_active and ui.game_screen_visible, "Campaign really opens Hangman")
-						if won:
-							for letter: String in GameSession.letters:
-								GameSession.guess(letter,true)
-						else:
-							if level == 1:
-								for cell: int in range(GameSession.revealed.size()):
-									if GameSession.can_guess_cell(cell) and GameSession.get_known_crossword_letter(cell).is_empty():
-										ui._portrait_crossword.select_cell(cell)
-										break
-							for letter: String in Database.get_alphabet():
-								if !GameSession.letters.has(letter):
-									if level == 1:
-										ui._press_letter(letter)
-									else:
-										GameSession.guess(letter,true)
-								if GameSession.has_deferred_loss():
-									if level == 1:
-										break
-									GameSession.resolve_deferred_loss()
-								if ui.game_finished:
-									break
-							if level == 1:
-								await campaign_wait(func(): return !get_tree().get_nodes_in_group(&"single_player_last_chance_popup").is_empty(), "Second level requires the continuation popup")
-								ui._decline_single_player_extra_attempt()
-								check(ui._portrait_handle_modal_back_request() and GameSession.has_deferred_loss() and !ui.game_finished, "Decline and Back cannot lose the second level")
-								ui._purchase_single_player_extra_attempt()
-								check(GameSession.is_active and !GameSession.has_deferred_loss(), "Free continuation is the only way out of the protected offer")
-								for letter: String in GameSession.letters:
-									GameSession.guess(letter, true)
+						await solve_opening_crossword(ui, level, language, dimensions.x)
 						await campaign_wait(func(): return is_instance_valid(ui._portrait_round_result) and is_instance_valid(ui._portrait_round_result.result_continue_button) and !ui._portrait_round_result.result_continue_button.get("disabled"), "Real word result exposes Continue")
 						ui._on_round_result_continue_requested()
 					if level < 2 or slot == 0:
@@ -854,7 +859,7 @@ func check_real_opening_campaign() -> void:
 						if level == 2:
 							ui._continue_from_single_player_reward_chain()
 					else:
-						await campaign_wait(func(): return bool(ui.last_result_data.get("single_player_level_summary_view",false)), "Two-stage campaign reaches its main prize for both outcomes")
+						await campaign_wait(func(): return bool(ui.last_result_data.get("single_player_level_summary_view",false)), "Two-stage campaign reaches its main prize after the teaching crossword")
 						campaign_capture(ui,"3_main",language,dimensions.x)
 			ui.queue_free()
 			await get_tree().process_frame

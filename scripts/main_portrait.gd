@@ -122,7 +122,7 @@ const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.back_entrance_seconds"
 )
-const PORTRAIT_CROSSWORD_CARD_HINT_GAP: float = 12.0
+const PORTRAIT_CROSSWORD_GRID_HINT_GAP: float = 12.0
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
 const PORTRAIT_RESOURCE_COUNTER_GAP = RESOURCE_COUNTER_PRESENTATION.PORTRAIT_RESOURCE_COUNTER_GAP
@@ -396,6 +396,7 @@ var PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = PORTRAIT_GAME_DESIGN.get_
 )
 const PORTRAIT_THEME_PATTERN_ICON_SIZE: float = 133.12
 const PORTRAIT_THEME_PATTERN_SPACING: float = 218.7
+const PORTRAIT_CROSSWORD_PATTERN_REFERENCE_WIDTH: float = 690.0
 # A half-cell right plus one cell up is a seamless staggered-lattice vector.
 # This duration preserves the current screen-space speed for diagonal motion.
 var PORTRAIT_THEME_PATTERN_MOVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
@@ -541,8 +542,8 @@ var PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION: float = PORTRAIT_GAME_DESIG
 	"timings.animations.theme_reels.selection_outline_seconds"
 )
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
-const PORTRAIT_GAME_HINT_BUTTON_SCALE: float = 0.8
-const PORTRAIT_GAME_HINT_BUTTON_GAP: float = 8.0
+const PORTRAIT_GAME_HINT_BUTTON_SCALE: float = 0.88
+const PORTRAIT_GAME_HINT_BUTTON_GAP: float = 12.0
 const PORTRAIT_GAME_HINT_RIGHT_MARGIN: float = 18.4
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 22.0
@@ -2180,15 +2181,18 @@ func _play_centered_rewarded_double_coin_animation(
 	roll.set_ease(Tween.EASE_OUT)
 	count_tween.tween_callback(Callable(source_stub, "queue_free"))
 
-func _style_portrait_level_title(title: Label) -> void:
+func _style_portrait_level_title(title: Label, on_paper: bool = false) -> void:
 	title.add_theme_font_override("font", UI_REGULAR_FONT)
 	title.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
-	title.add_theme_color_override("font_color", Color.WHITE)
+	title.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.UI_BLUE if on_paper else Color.WHITE)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.clip_text = false
-	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(title)
+	if !on_paper:
+		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(title)
 
 func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) -> void:
+	if with_attempts:
+		_portrait_top_bar_content.z_index = 1
 	if level_index >= 0:
 		var screen_content: Control = content
 		content = _portrait_top_bar_content
@@ -2201,7 +2205,7 @@ func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) 
 		var level_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
 		var title := _stage_label(title_rect, level_text)
 		title.name = "GameLevelTitle"
-		_style_portrait_level_title(title)
+		_style_portrait_level_title(title, with_attempts)
 		if with_attempts:
 			var attempts_rect := Rect2(title_rect.position.x, title_rect.end.y + attempts_gap,
 				title_rect.size.x, PORTRAIT_ATTEMPT_INDICATORS.ROW_HEIGHT)
@@ -2214,15 +2218,16 @@ func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) 
 		content = screen_content
 	_stage_menu_settings_button()
 
-func _stage_portrait_game_background(pattern_texture: Texture2D) -> Control:
+func _stage_portrait_game_background(pattern_texture: Texture2D, crossword: bool = false) -> Control:
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false, false)
 	var background := _stage_horizontal_fill(0.0, PORTRAIT_STAGE_SIZE.y, PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR)
 	background.name = "PortraitGameBackground"
 	background.z_index = -1
 	if pattern_texture != null:
+		var reference_width: float = PORTRAIT_CROSSWORD_PATTERN_REFERENCE_WIDTH if crossword else 0.0
 		_add_multi_theme_pattern(
 			background, [pattern_texture], "PortraitGameThemePattern",
-			Color(1.0, 1.0, 1.0, 0.13), 0.92, 1.10, 0.87, 0.0, 0.70
+			Color(1.0, 1.0, 1.0, 0.13), 0.92, 1.10, 0.87, 0.0, 0.70, reference_width
 		)
 	_add_full_rect_gradient_overlay(
 		background,
@@ -6023,23 +6028,29 @@ func _stage_portrait_question_card(rect: Rect2, theme_name: String) -> Array[Fla
 	) as FlashStagePanel
 	panel.name = "StageQuestionCard"
 	panel.z_index = 1
-	if !theme_name.is_empty():
-		var theme_label := Label.new()
-		theme_label.name = "StageQuestionThemeTitle"
-		theme_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		theme_label.position = PORTRAIT_QUIZ_THEME_TITLE_RECT.position - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
-		theme_label.size = PORTRAIT_QUIZ_THEME_TITLE_RECT.size
-		theme_label.text = theme_name
-		theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		theme_label.add_theme_font_size_override("font_size", int(round(float(_heading_font_size(26)) * 1.30)))
-		theme_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	var theme_label := _make_portrait_question_theme_title(theme_name)
+	if theme_label != null:
 		theme_label.add_theme_color_override("font_color", Color.WHITE)
 		BUTTON_TEXT_STYLE_SCRIPT.apply_display(theme_label)
-		theme_label.clip_text = false
 		theme_label.z_index = 3
 		panel.add_child(theme_label)
 	return [panel, shadow]
+
+func _make_portrait_question_theme_title(theme_name: String) -> Label:
+	if theme_name.is_empty():
+		return null
+	var theme_label := Label.new()
+	theme_label.name = "StageQuestionThemeTitle"
+	theme_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	theme_label.position = PORTRAIT_QUIZ_THEME_TITLE_RECT.position - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
+	theme_label.size = PORTRAIT_QUIZ_THEME_TITLE_RECT.size
+	theme_label.text = theme_name
+	theme_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	theme_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	theme_label.add_theme_font_size_override("font_size", int(round(float(_heading_font_size(26)) * 1.30)))
+	theme_label.add_theme_font_override("font", UI_DISPLAY_FONT)
+	theme_label.clip_text = false
+	return theme_label
 
 func _home_profile_show_quiz_game_screen() -> void:
 	if !_quiz_mode_active or _quiz_selected_theme_index < 0 or _quiz_current_question.is_empty():
@@ -9242,6 +9253,7 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 		"key_rects": key_rects,
 		"font_size": int(round(StageLetterButton.DEFAULT_FONT_SIZE * keyboard_scale)),
 		"hint_y": hint_y,
+		"paper_bottom": keyboard_top,
 		"word_rect": Rect2(24.0, word_y, 432.0, 64.0),
 	}
 
@@ -9299,7 +9311,7 @@ func _refresh_game_screen() -> void:
 		child.queue_free()
 
 	var viewport_size: Vector2 = get_viewport_rect().size
-	_stage_portrait_game_background(_theme_icon_mono_texture(GameSession.theme_id))
+	var background := _stage_portrait_game_background(_theme_icon_mono_texture(GameSession.theme_id), true)
 	var level_index: int = single_player_active_level_index if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER else -1
 	_stage_portrait_game_header(level_index, true)
 
@@ -9317,15 +9329,19 @@ func _refresh_game_screen() -> void:
 	var screen_content: Control = content
 	screen_content.add_child(_portrait_crossword)
 	content = _portrait_crossword
-	var card_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
-	var card_bottom: float = _portrait_game_hint_row_y - PORTRAIT_CROSSWORD_CARD_HINT_GAP
-	card_rect.size.y = card_bottom - card_rect.position.y
+	var has_hints: bool = GameState.current_mode != GameState.GameMode.TWO_PLAYER
+	var field_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
+	var grid_bottom: float = _portrait_game_hint_row_y - PORTRAIT_CROSSWORD_GRID_HINT_GAP
+	var paper_bottom: float = keyboard_metrics["paper_bottom"] if has_hints else grid_bottom
+	field_rect.size.y = grid_bottom - field_rect.position.y
 	var theme_name: String = Database.get_theme_name(GameSession.theme_id) if GameSession.theme_id >= 0 else ""
-	var crossword_card := _stage_portrait_question_card(card_rect, theme_name)
+	var crossword_field := _stage_panel(field_rect, Color.TRANSPARENT) as FlashStagePanel
+	crossword_field.name = "CrosswordField"
 	content = screen_content
-	var card_padding: float = PORTRAIT_QUIZ_QUESTION_RECT.position.x - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.x
-	_portrait_crossword.build(GameSession.crossword, crossword_card[0], crossword_card[1], card_bottom, card_padding,
-		GameSession.crossword_starter_letters, GameSession.correct_letters.is_empty())
+	var field_padding: float = PORTRAIT_QUIZ_QUESTION_RECT.position.x - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.x
+	var pattern_source := background.get_node_or_null("PortraitGameThemePattern") as Control
+	_portrait_crossword.build(GameSession.crossword, crossword_field, grid_bottom, paper_bottom, field_padding,
+		GameSession.crossword_starter_cells, GameSession.correct_letters.is_empty(), pattern_source)
 	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss())
 	_portrait_crossword.refresh(GameSession.revealed)
 
@@ -9349,8 +9365,10 @@ func _refresh_game_screen() -> void:
 			"stage_x": key_rect.position.x,
 		})
 	_refresh_portrait_game_keyboard()
-	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
+	if has_hints:
 		_stage_portrait_hint_buttons()
+		if !theme_name.is_empty():
+			_stage_portrait_game_theme(theme_name, _portrait_game_hint_buttons[0].get("stage_rect"))
 	_portrait_end_adaptive_group(input_root_content)
 
 	if !(
@@ -9404,7 +9422,7 @@ func _refresh_portrait_game_keyboard() -> void:
 		if hidden_count > 0 and (GameSession.correct_letters.has(letter) or GameSession.misplaced_letters.has(letter) or GameSession.crossword_starter_letters.has(letter)):
 			state = StageLetterButton.LetterState.PARTIAL
 			remaining_count = hidden_count
-		elif GameSession.correct_letters.has(letter):
+		elif GameSession.correct_letters.has(letter) or GameSession.crossword_starter_letters.has(letter):
 			state = StageLetterButton.LetterState.CORRECT
 		elif GameSession.wrong_letters.has(letter) or GameSession.removed_wrong_letters.has(letter):
 			state = StageLetterButton.LetterState.WRONG
@@ -9670,6 +9688,29 @@ func _portrait_hint_progression_locked(hint_key: String) -> bool:
 	elif GameState.current_mode != GameState.GameMode.SINGLE_PLAYER:
 		return false
 	return !GameState.is_single_player_hint_unlocked(Database.current_language, hint_key)
+
+func _stage_portrait_game_theme(theme_name: String, first_hint: Rect2) -> void:
+	var previous_content: Control = content
+	content = _portrait_crossword
+	_portrait_begin_bottom_attached_group()
+	content.name = "CrosswordTheme"
+
+	# Keep the caption and name proportions from the original word screen.
+	var caption_font_size: int = 18
+	var name_font_size: int = 34
+	var left: float = PORTRAIT_GAME_HINT_RIGHT_MARGIN
+	var width: float = first_hint.position.x - PORTRAIT_GAME_HINT_BUTTON_GAP - left
+	var top: float = first_hint.position.y + (first_hint.size.y * PORTRAIT_GAME_HINT_BUTTON_SCALE - 60.0) * 0.5
+	var caption := _stage_label(Rect2(left, top, width, 22.0), tr("THEME_LABEL"),
+		caption_font_size, PORTRAIT_DARK_BLUE, HORIZONTAL_ALIGNMENT_CENTER, UI_HEADING_FONT)
+	caption.name = "GameThemeCaption"
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	caption.clip_text = false
+	var theme_title := _stage_label(Rect2(left, top + 16.0, width, 44.0), theme_name,
+		name_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, UI_HEADING_FONT)
+	theme_title.name = "GameThemeName"
+	_fit_single_line_label_to_width(theme_title, theme_name, width, name_font_size, caption_font_size)
+	_portrait_end_adaptive_group(previous_content)
 
 func _stage_portrait_hint_buttons() -> void:
 	# Called while the shared game-input bottom group is active. Badges are
@@ -10784,6 +10825,9 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 		show_game_screen()
 		return
 	if is_instance_valid(_portrait_crossword):
+		var theme_block := _portrait_crossword.get_node_or_null("CrosswordTheme") as Control
+		if theme_block != null:
+			theme_block.hide()
 		_portrait_crossword.set_input_enabled(false)
 		_portrait_crossword.set_bottom(_portrait_game_word_rect.position.y - 12.0)
 		_portrait_crossword.refresh(GameSession.revealed, Callable(), true)
@@ -12997,8 +13041,8 @@ func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
 func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
 	PORTRAIT_THEME_PATTERN._layout_multi_theme_pattern(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
 
-func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
-	PORTRAIT_THEME_PATTERN._add_multi_theme_pattern(background_overlay, theme_textures, pattern_name, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
+func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, reference_width: float = 0.0) -> void:
+	PORTRAIT_THEME_PATTERN._add_multi_theme_pattern(background_overlay, theme_textures, pattern_name, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION, reference_width)
 
 func _add_full_rect_gradient_overlay(background_overlay: Control, top_color: Color, bottom_color: Color, overlay_name: String = "GradientOverlay") -> void:
 	PORTRAIT_THEME_PATTERN._add_full_rect_gradient_overlay(background_overlay, top_color, bottom_color, overlay_name)

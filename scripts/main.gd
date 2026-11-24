@@ -1148,6 +1148,13 @@ func _single_player_words_for_theme(
 	)
 	if candidates.is_empty():
 		return []
+	var opening_words: Array = GAME_DESIGN.opening_crossword_words(
+		level_index + 1, Database.current_language, Database.get_theme_id(theme_index)
+	)
+	var opening_word: String = opening_words[0] if !opening_words.is_empty() else ""
+	var opening_quiz_slots: Array = []
+	if !opening_word.is_empty():
+		opening_quiz_slots = GameState.get_single_level_question_slots(Database.current_language, level_index)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 101)
 	var theme_progress: Dictionary = GameState.ensure_single_player_theme_progress(
@@ -1189,13 +1196,25 @@ func _single_player_words_for_theme(
 			_single_player_slot_difficulty(target_difficulty, word_slot, word_count)
 		)
 		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, theme_index)
-		var picked_pool_index: int = WORD_SELECTION.pick_index(
-			candidates, slot_target, theme_progress, not bool(intro.get("completed", true)), rng
-		)
-		if picked_pool_index < 0:
-			break
-		var picked: Dictionary = candidates[picked_pool_index]
-		candidates.remove_at(picked_pool_index)
+		var picked: Dictionary = {}
+		var pool: Array = candidates
+		if !opening_word.is_empty():
+			if opening_quiz_slots.has(word_slot):
+				# A quiz placeholder must leave the authored word for the playable crossword.
+				pool = candidates.filter(func(candidate: Dictionary) -> bool: return candidate.text != opening_word)
+			else:
+				for candidate: Dictionary in candidates:
+					if candidate.text == opening_word:
+						picked = candidate
+						break
+		if picked.is_empty():
+			var picked_pool_index: int = WORD_SELECTION.pick_index(
+				pool, slot_target, theme_progress, not bool(intro.get("completed", true)), rng
+			)
+			if picked_pool_index < 0:
+				break
+			picked = pool[picked_pool_index]
+		candidates.erase(picked)
 		words.append({
 			"id": str(picked.get("id", "")),
 			"theme_index": theme_index,
@@ -2035,9 +2054,11 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		word.text,
 		false
 	)
-	GameSession.start_round(
-		word, GameState.GameMode.SINGLE_PLAYER, GAME_DESIGN.level_crossword_word_count(level_index + 1)
+	var opening_words: Array = GAME_DESIGN.opening_crossword_words(
+		level_index + 1, Database.current_language, Database.get_theme_id(word.theme_index)
 	)
+	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER,
+		GAME_DESIGN.level_crossword_word_count(level_index + 1), opening_words)
 	Analytics.begin_stage(level_index, word_slot, "word")
 	show_game_screen()
 

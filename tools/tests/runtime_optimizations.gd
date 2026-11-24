@@ -66,14 +66,28 @@ func test_crossword() -> void:
 				return
 			var pattern_clip := main.content.get_node_or_null("PortraitGameBackground/PortraitGameThemePattern") as Control
 			var pattern_motion := main.content.get_node_or_null("PortraitGameBackground/PortraitGameThemePattern/PatternMotion") as Control
-			check(is_instance_valid(pattern_clip) and is_instance_valid(pattern_motion), "Crossword uses the shared animated theme pattern")
-			if !is_instance_valid(pattern_clip) or !is_instance_valid(pattern_motion):
+			var paper_pattern := root.get_node_or_null("CrosswordPaperPattern") as Control
+			check(pattern_clip != null and pattern_motion != null and paper_pattern != null, "Crossword uses both colors of the shared animated theme pattern")
+			if pattern_clip == null or pattern_motion == null or paper_pattern == null:
 				return
 			var theme_icon: Texture2D = main._theme_icon_mono_texture(theme)
 			check(theme_icon != null and pattern_motion.get_child_count() > 0 and pattern_motion.get_child(0).texture == theme_icon, "Crossword pattern shows the active theme icon")
-			check(pattern_clip.mouse_filter == Control.MOUSE_FILTER_IGNORE and pattern_motion.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Crossword pattern does not intercept input")
+			check(paper_pattern.get_child_count() > 1 and paper_pattern.get_child_count() == pattern_motion.get_child_count(), "The paper layer mirrors the whole pattern")
+			check(pattern_clip.mouse_filter == Control.MOUSE_FILTER_IGNORE and pattern_motion.mouse_filter == Control.MOUSE_FILTER_IGNORE and paper_pattern.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Crossword pattern does not intercept input")
 			var pattern_tween: Tween = pattern_motion.get_meta("pattern_move_tween", null)
 			check(pattern_tween != null and pattern_tween.is_running(), "Crossword theme pattern is moving")
+			if paper_pattern.get_child_count() > 1:
+				var first: TextureRect = paper_pattern.get_child(0)
+				var next: TextureRect = paper_pattern.get_child(1)
+				check(first.get_global_rect().is_equal_approx(pattern_motion.get_child(0).get_global_rect()) and next.get_global_rect().is_equal_approx(pattern_motion.get_child(1).get_global_rect()), "Both pattern colors use the same scale, spacing and phase")
+				var spacing: float = (next.position.x - first.position.x) * 690.0 / pattern_clip.size.x
+				check(absf(spacing - 201.2) < 0.1, "The pattern density matches the approved 690-pixel preview")
+				var tint: Color = first.material.get_shader_parameter("pattern_color")
+				check(is_equal_approx(tint.a, 0.08), "Paper pattern uses eight percent opacity")
+				var previous_position: Vector2 = pattern_motion.position
+				await get_tree().process_frame
+				await get_tree().process_frame
+				check(!pattern_motion.position.is_equal_approx(previous_position) and paper_pattern.position.is_equal_approx(pattern_motion.position), "Paper pattern follows the same live motion")
 			check(board.entries.size() == 7, "Bonus crossword must contain seven words")
 			var occupied: Dictionary = {}
 			for entry: Dictionary in board.entries:
@@ -94,6 +108,12 @@ func test_crossword() -> void:
 			var glyphs: Array = root._glyphs.duplicate()
 			var initial_revealed: Array = GameSession.revealed.duplicate()
 			var starters: PackedStringArray = GameSession.crossword_starter_letters.duplicate()
+			var starter_cells: PackedInt32Array = GameSession.crossword_starter_cells
+			var anchor_length: int = board.entries[0].text.length()
+			var anchor_starters: int = 0
+			for index: int in starter_cells:
+				anchor_starters += int(index < anchor_length)
+			check(anchor_starters >= 2 and anchor_starters <= 3 and starter_cells.size() - anchor_starters == 2, "Bonus grids get a cluster of clues in the anchor and two clues elsewhere")
 			var level_title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
 			var expected_title: String = ("УРОВЕНЬ %d" if language == "ru" else "LEVEL %d") % (level_index + 1)
 			check(is_instance_valid(level_title) and level_title.text == expected_title, "Word header shows the current localized level")
@@ -103,33 +123,47 @@ func test_crossword() -> void:
 			check(!is_instance_valid(main._portrait_header_fill) and !is_instance_valid(main._portrait_currency_counter_visual) and !is_instance_valid(main._portrait_star_counter_visual), "Word header has no backdrop or resource counters")
 			var labels: Array[Node] = main.content.find_children("*", "Label", true, false)
 			check(labels.all(func(label: Label) -> bool: return label.text != tr("ATTEMPTS_LABEL")), "Word screen has no attempts block")
-			var card := root.get_node("StageQuestionCard") as FlashStagePanel
-			var title := card.find_child("StageQuestionThemeTitle", true, false) as Label
+			var card := root.get_node("CrosswordField") as FlashStagePanel
+			var theme_block: Control = root.get_node("CrosswordTheme")
+			var caption := theme_block.find_child("GameThemeCaption", true, false) as Label
+			var title := theme_block.find_child("GameThemeName", true, false) as Label
+			var paper: ColorRect = root.get_node("CrosswordPaper")
 			var first_hint: Control = main._portrait_game_hint_buttons[0]
 			var panel_rect: Rect2 = card.get_global_rect()
+			var paper_rect: Rect2 = paper.get_global_rect()
 			var title_rect: Rect2 = title.get_global_rect()
+			var caption_rect: Rect2 = caption.get_global_rect()
+			var theme_rect: Rect2 = caption_rect.merge(title_rect)
+			var first_hint_rect: Rect2 = first_hint.get_global_rect()
 			var fit: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(get_viewport().get_visible_rect().size)
 			check(card.stage_rect.size.x == main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.size.x and card.stage_rect.size.y > main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.size.y, "Crossword card uses the quiz width and extends farther down")
-			var quiz_title_offset: Vector2 = main.PORTRAIT_QUIZ_THEME_TITLE_RECT.position - main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position
-			var expected_title_position: Vector2 = panel_rect.position + quiz_title_offset * fit
-			check(title.text == Database.get_theme_name(theme) and title_rect.position.distance_to(expected_title_position) < fit and title_rect.end.y > panel_rect.position.y, "Title keeps the quiz card offset across the top border: %s / %s" % [title_rect, expected_title_position])
+			check(caption.text == tr("THEME_LABEL") and title.text == Database.get_theme_name(theme), "Both theme labels are localized")
+			check(caption_rect.get_center().y < title_rect.get_center().y and is_equal_approx(caption_rect.get_center().x, title_rect.get_center().x), "Theme caption is centered above its name")
+			check(paper_rect.encloses(theme_rect) and is_equal_approx(first_hint_rect.position.x - theme_rect.end.x, main.PORTRAIT_GAME_HINT_BUTTON_GAP * fit)
+				and is_equal_approx(theme_rect.get_center().y, first_hint_rect.get_center().y), "Theme block sits on the paper to the left of the hints")
+			check(title.get_theme_font("font").get_string_size(title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title.get_theme_font_size("font_size")).x <= title.size.x, "Theme name fits before the hints")
+			check(title.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.UI_BLUE, "Theme title uses the lighter blue")
+			check(card.fill_color == Color.TRANSPARENT and root.find_child("StageQuestionCard", true, false) == null, "Crossword replaces the blue quiz card with paper")
+			check(absf(paper.global_position.x) < 0.01 and is_equal_approx(paper.get_global_rect().size.x, get_viewport().get_visible_rect().size.x) and paper.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Paper spans the viewport without receiving input")
 			var nav_rect: Rect2 = main._portrait_game_back_button.get_global_rect()
-			check(level_rect.end.y < title_rect.position.y and is_equal_approx(level_rect.get_center().x, panel_rect.get_center().x), "Level title is centered above the crossword and its theme")
+			check(level_rect.end.y < panel_rect.position.y and is_equal_approx(level_rect.get_center().x, panel_rect.get_center().x), "Level title is centered above the crossword")
 			var attempts: Control = main._portrait_attempt_indicators
 			var attempts_rect: Rect2 = attempts.get_global_rect()
 			var header_center: Vector2 = level_rect.merge(attempts_rect).get_center()
 			check(level_rect.end.y < attempts_rect.position.y and is_equal_approx(header_center.y, nav_rect.get_center().y) and level_rect.position.x > nav_rect.end.x, "Level title and attempts sit centered as a group beside navigation")
 			check(attempts.total == 3 and attempts.remaining == 3 and is_equal_approx(attempts_rect.get_center().x, level_rect.get_center().x), "Three empty attempts are centered under the title at the start")
 			check(card.stage_rect.position.y == main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.y, "Crossword reuses the quiz card top offset")
-			check(is_equal_approx(first_hint.get_global_rect().position.y - panel_rect.end.y, main.PORTRAIT_CROSSWORD_CARD_HINT_GAP * fit), "Card bottom follows the hints on the adapted viewport")
-			var text_effect := level_title.get_node_or_null(NodePath(String(DisplayTextEffect.EFFECT_NODE_NAME))) as DisplayTextEffect
-			check(level_title.get_theme_font("font") == main.UI_REGULAR_FONT and is_instance_valid(text_effect), "Level title uses the reward subtitle font and text effect")
+			check(is_equal_approx(first_hint.get_global_rect().position.y - panel_rect.end.y, main.PORTRAIT_CROSSWORD_GRID_HINT_GAP * fit), "Grid keeps its clearance above the hint row")
+			for hint: Control in main._portrait_game_hint_buttons:
+				check(paper_rect.encloses(hint.get_global_rect()), "The whole hint row is on the paper")
+			check(level_title.get_theme_font("font") == main.UI_REGULAR_FONT and level_title.get_theme_color("font_color") == title.get_theme_color("font_color") and main._portrait_top_bar_content.z_index > root.z_index, "Blue level title matches the theme title and draws over the white sheet")
 			check(level_title.get_theme_font_size("font_size") == 24, "Level title renders at the reward subtitle size")
 			var letter_font: Font = main.UI_FONTS.gameplay_word_font()
+			var hidden_counts: Dictionary = GameSession.get_hidden_letter_counts()
 			for i: int in range(glyphs.size()):
 				var tile: Control = root._tiles[i]
 				var tile_rect: Rect2 = tile.get_global_rect()
-				check(panel_rect.encloses(tile_rect) and tile_rect.position.y > title_rect.end.y, "Tile stays inside the card and below its theme title")
+				check(paper_rect.encloses(tile_rect) and tile_rect.position.y >= panel_rect.position.y and tile_rect.end.y < theme_rect.position.y, "Tiles stay on the paper above the theme and hints")
 				if glyphs[i] == null:
 					continue
 				var number_label := tile.find_child("Number", true, false) as Label
@@ -137,6 +171,7 @@ func test_crossword() -> void:
 				var letter: String = board.letters[i]
 				var number: String = number_label.text
 				check(glyphs[i].visible == initial_revealed[i] and number == numbers.get(letter, number), "Equal letters share a number and only starter cells are initially visible")
+				check(number_label.visible == hidden_counts.has(letter), "Initial numbers mark only letters with empty cells")
 				numbers[letter] = number
 			var distinct_numbers: Dictionary = {}
 			for number: String in numbers.values():
@@ -146,13 +181,18 @@ func test_crossword() -> void:
 			if DisplayServer.get_name() != "headless":
 				await RenderingServer.frame_post_draw
 				var frame: Image = get_viewport().get_texture().get_image()
-				var field: Rect2i = Rect2i(pattern_clip.get_global_rect())
-				field.size.y = mini(field.size.y, int(title_rect.end.y) - field.position.y + 100)
-				pattern_clip.hide()
+				var hint_row_paper: Color = frame.get_pixel(3, int(first_hint.get_global_rect().get_center().y))
+				check(hint_row_paper.r > 0.90 and hint_row_paper.b >= hint_row_paper.r, "White paper reaches the hint row on GPU")
+				var field: Rect2i = Rect2i(paper_rect)
+				var header := Rect2i(0, 0, field.size.x, ceili(attempts_rect.end.y))
+				field.position.y = ceili(panel_rect.position.y)
+				field.size.y = int(first_hint.global_position.y) - field.position.y
+				paper_pattern.hide()
 				await RenderingServer.frame_post_draw
 				var plain: Image = get_viewport().get_texture().get_image()
-				pattern_clip.show()
-				check(frame.get_region(field).get_data() != plain.get_region(field).get_data(), "Crossword theme pattern contributes visible pixels behind the playfield")
+				paper_pattern.show()
+				check(frame.get_region(field).get_data() != plain.get_region(field).get_data(), "Blue theme pattern contributes visible pixels over the white paper")
+				check(frame.get_region(header).get_data() != plain.get_region(header).get_data(), "Blue theme pattern continues behind the upper bar")
 				if !directory.is_empty():
 					frame.save_png(directory.path_join("crossword_%s_%d.png" % [language, size.x]))
 			var lives: int = GameSession.get_remaining_attempts()
@@ -167,7 +207,7 @@ func test_crossword() -> void:
 			var selected_index: int = board.letters.find(shared_letter)
 			var matching_count: int = board.letters.count(shared_letter)
 			var key := crossword_key(shared_letter)
-			check(!starters.is_empty() and root.selected_cell >= 0 and board.letters[root.selected_cell] == starters[0], "Late campaign levels also focus the first starter")
+			check(starters.has(board.letters[root.selected_cell]) and !initial_revealed[root.selected_cell], "Late campaign levels focus a hidden copy of a given letter")
 			await click_control(root._tiles[selected_index])
 			check(root.selected_cell == selected_index and root._tiles[selected_index].get_theme_stylebox("panel").bg_color == main.PORTRAIT_UI_PALETTE.BUTTON_ORANGE, "Click highlights one hidden cell in orange")
 			for letter: String in Database.get_alphabet():
@@ -196,7 +236,7 @@ func test_crossword() -> void:
 				var first_center: Vector2 = attempts_rect.get_center() - Vector2(main.PORTRAIT_ATTEMPT_INDICATORS.SPACING * fit, 0.0)
 				var crossed: Color = frame.get_pixelv(Vector2i(first_center))
 				var empty: Color = frame.get_pixelv(Vector2i(attempts_rect.get_center()))
-				check(crossed.r > 0.8 and crossed.g < 0.5 and empty.r < 0.7, "A red cross is drawn only inside the spent circle")
+				check(crossed.r > 0.8 and crossed.g < 0.5 and empty.r > 0.9 and empty.g > 0.9, "A red cross is drawn only inside the spent circle")
 				check(key.get_global_rect().encloses(key._count_label.get_global_rect()), "The active orange key displays its counter inside the key face")
 				if !directory.is_empty():
 					frame.save_png(directory.path_join("crossword_revealed_%s_%d.png" % [language, size.x]))
@@ -228,13 +268,14 @@ func test_crossword() -> void:
 			await get_tree().process_frame
 			check(GameSession.to_save_data() == snapshot and main._portrait_crossword != root, "Reopened stage lost its layout, reveal state or attempt count")
 			check(main._portrait_attempt_indicators.remaining == 1, "Reopened stage restores the used markers")
-			check(!is_instance_valid(pattern_motion), "Reopening the stage removes the old background nodes")
+			check(!is_instance_valid(pattern_motion) and !is_instance_valid(paper_pattern), "Reopening the stage removes both old pattern layers")
 			var reopened_title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
 			check(is_instance_valid(reopened_title) and reopened_title != level_title and reopened_title.text == expected_title, "Reopened stage rebuilds the same level title")
 			await get_tree().create_timer(1.6).timeout
 			var reopened: Control = main._portrait_crossword
 			key = crossword_key(shared_letter)
 			check(GameSession.revealed.count(true) == initial_revealed.count(true) + 1 and !key.disabled and key.remaining_count == matching_count - 1, "Resume restores starters, the guessed cell, and its counter")
+			check(reopened._number_labels[selected_index].visible, "A restored open cell keeps its number until all matching cells are filled")
 			check(reopened.selected_cell == GameSession.revealed.find(false), "Resume selects the first hidden cell")
 			misplaced_key = crossword_key(misplaced_letter)
 			check(!misplaced_key.disabled and misplaced_key._count_label.visible and misplaced_key.remaining_count == misplaced_count and misplaced_key._label.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.MARKER_ORANGE_TEXT, "Resume restores a letter discovered by a misplaced guess")
@@ -243,6 +284,9 @@ func test_crossword() -> void:
 					reopened.select_cell(i)
 					main._press_letter(shared_letter)
 			check(key.disabled and !key._count_label.visible, "The last matching cell disables its key and removes the counter")
+			for i: int in range(board.letters.size()):
+				if board.letters[i] == shared_letter:
+					check(!reopened._number_labels[i].visible, "Filling the last matching cell hides the number on every copy")
 			if language == "en" and size.x == 690:
 				for i: int in range(board.entries[0].text.length()):
 					if !GameSession.revealed[i]:
@@ -255,6 +299,7 @@ func test_crossword() -> void:
 					main._press_letter(board.letters[reopened.selected_cell])
 				check(!GameSession.is_active and main.game_finished, "Solving the complete grid did not finish its stage")
 				check(reopened.selected_cell == -1, "A completed grid has no selected cell")
+				check(!reopened.get_node("CrosswordTheme").visible, "The theme row leaves with the hints on the result screen")
 			main._clear()
 			await get_tree().process_frame
 			check(!is_instance_valid(root), "Leaving the screen retained the previous crossword")
@@ -323,14 +368,14 @@ func test_crossword_starters() -> void:
 		GameState.interface_language = language
 		GameState.set_word_language(language)
 		Database.load_languages(language, language)
-		var theme: int = Database.get_theme_index_by_id(9)
-		var word_text: String = "ВЛОГ" if language == "ru" else "SHELF"
+		var theme: int = Database.get_theme_index_by_id(1)
+		var word_text: String = "ДРИБЛИНГ" if language == "ru" else "DRIBBLING"
 		var word: WordData
 		for entry: Dictionary in Database.get_words_by_index(theme):
 			if entry.text == word_text:
 				word = WordData.new(word_text, entry.difficulty, theme, entry.index, entry.id)
 				break
-		check(word != null, "The adaptive starter test uses an ambiguous catalog word")
+		check(word != null, "The starter fragment test uses a real catalog word")
 		if word == null:
 			return
 		for size: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
@@ -341,19 +386,23 @@ func test_crossword_starters() -> void:
 			main.game_finished = false
 			GameSession.start_round(word)
 			var cells: PackedInt32Array = GameSession.crossword_starter_cells
-			check(cells.size() == 2, "An ambiguous %s grid receives two starter codes by default" % language)
-			if cells.is_empty():
+			var suffix_start: int = word_text.length() - 3
+			check(cells == PackedInt32Array(range(suffix_start, word_text.length())), "The recognizable %s suffix opens three adjacent cells" % language)
+			if cells.size() != 3:
 				return
-			check(GameSession.get_remaining_attempts() == GameSession.attempt_limit and GameSession.correct_letters.is_empty() and !GameSession.open_hint_used, "Starting codes are free")
+			check(GameSession.revealed.count(true) == 3 and GameSession.get_remaining_attempts() == GameSession.attempt_limit and GameSession.correct_letters.is_empty() and !GameSession.open_hint_used, "Only the free starter cells are open")
 			main.show_game_screen()
 			await get_tree().create_timer(1.6).timeout
 			var grid: Control = main._portrait_crossword
-			var starter_label: Label = grid.get("_starter_label")
-			check(starter_label != null and starter_label.get_global_rect().end.y < grid._grid.global_position.y and grid.selected_cell == cells[0], "Starter pairs fit above the grid and focus the first copy")
-			if starter_label != null:
-				check(starter_label.text.count("=") == 2, "Both given codes are visible")
+			check(grid.find_child("CrosswordStarterCodes", true, false) == null, "The theme title has no separate starter pairs")
+			for cell: int in cells:
+				check(grid._glyphs[cell].visible, "The given letter is visible directly in its cell")
 			var first_letter: String = GameSession.letters[cells[0]]
 			var target: int = grid.selected_cell
+			check(target == word_text.find(first_letter) and target != cells[0], "Initial selection focuses a hidden copy of the first given letter")
+			var repeated_key := crossword_key(first_letter)
+			var given_key := crossword_key(GameSession.letters[cells[2]])
+			check(repeated_key.remaining_count == 1 and !repeated_key.disabled and given_key.disabled, "Only the given letters with open positions can be entered")
 			main._press_letter("А" if language == "ru" else "Z")
 			check(GameSession.mistakes == 0 and !GameSession.revealed[target] and grid.selected_cell == target, "A mismatch on a given code is free and keeps the selection")
 			await click_control(crossword_key(first_letter))
@@ -362,8 +411,21 @@ func test_crossword_starters() -> void:
 			main._clear()
 			check(GameSession.restore_from_save_data(snapshot) and GameSession.to_save_data() == snapshot, "Resume uses the saved starters")
 			await get_tree().process_frame
-	GameSession.start_round(WordData.new("COCOA", 0.2, -1, -1))
-	check(GameSession.crossword_starter_letters == PackedStringArray(["C"]) and GameSession.revealed == [true, false, false, false, false], "An unambiguous grid receives one code and opens only its example")
+			if size.x == 960:
+				var legacy: Dictionary = snapshot.duplicate(true)
+				var legacy_cell: int = cells[2]
+				legacy.crossword_starter_cells = [legacy_cell]
+				legacy.revealed[legacy_cell] = false
+				check(GameSession.restore_from_save_data(legacy) and GameSession.revealed == snapshot.revealed, "A legacy clue from the removed row is now visible on the board")
+				legacy.revealed.fill(true)
+				legacy.revealed[legacy_cell] = false
+				check(GameSession.restore_from_save_data(legacy) and GameSession.can_guess_cell(legacy_cell), "Restoring a legacy clue leaves the final move playable")
+	GameSession.start_round(WordData.new("QUART", 0.2, -1, -1))
+	check(GameSession.revealed.count(true) == 2, "A word without a recognized fragment still opens two letters")
+	GameSession.start_round(WordData.new("SHIP", 0.2, -1, -1))
+	check(GameSession.revealed == [true, true, false, false], "A short word with a useful fragment keeps two cells for the player")
+	GameSession.start_round(WordData.new("QUAD", 0.2, -1, -1))
+	check(GameSession.revealed.count(true) == 1, "A short word without a fragment opens one letter")
 
 func pattern(clip: Control, motion: Control, textures: Array, color: Color = Color.WHITE, speed: float = 1.0) -> void:
 	main._layout_multi_theme_pattern(clip, motion, textures, color, 1.0, 1.0, speed, 0.05, 0.35)
