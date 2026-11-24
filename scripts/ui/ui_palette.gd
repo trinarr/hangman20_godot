@@ -66,6 +66,7 @@ const TOURNAMENT_PLACE_COLORS := [Color("#FFCC33"), Color("#D3E1FF"), Color("#D7
 const REWARD_CHAIN := Color("#2E73C9")
 const MARKER_SUCCESS := Color("#86DE8A")
 const MARKER_ERROR := Color("#FF99A2")
+const MARKER_ORANGE_TEXT := Color("#A34A0B")
 const MARKER_INFO := BUTTON_BLUE
 
 # Profile / neutral surfaces.

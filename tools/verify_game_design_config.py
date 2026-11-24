@@ -383,6 +383,12 @@ def main() -> None:
 
     require(require_int(resolve(config, "gameplay.max_mistakes"), "gameplay.max_mistakes") > 0,
             "Maximum mistakes must be positive")
+    crossword_limit = require_int(resolve(config, "gameplay.crossword_max_mistakes"), "gameplay.crossword_max_mistakes")
+    max_known_fraction = resolve(config, "gameplay.crossword_starters.max_known_fraction")
+    require(type(max_known_fraction) in (int, float) and 0.5 <= max_known_fraction <= 0.99,
+            "Invalid crossword starter coverage")
+    base_attempts = require_int(resolve(config, "economy.extra_attempts.base_count"), "economy.extra_attempts.base_count")
+    require(1 <= base_attempts <= crossword_limit <= 64, "The base attempt offer must fit the crossword limit")
     require(require_int(resolve(config, "economy.extra_attempts.count_step_interval"),
                         "economy.extra_attempts.count_step_interval") > 0,
             "Attempt interval must be positive")

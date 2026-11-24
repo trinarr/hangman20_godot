@@ -812,6 +812,11 @@ func check_real_opening_campaign() -> void:
 							for letter: String in GameSession.letters:
 								GameSession.guess(letter,true)
 						else:
+							if level == 1:
+								for cell: int in range(GameSession.revealed.size()):
+									if GameSession.can_guess_cell(cell) and GameSession.get_known_crossword_letter(cell).is_empty():
+										ui._portrait_crossword.select_cell(cell)
+										break
 							for letter: String in Database.get_alphabet():
 								if !GameSession.letters.has(letter):
 									if level == 1:

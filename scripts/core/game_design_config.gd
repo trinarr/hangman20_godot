@@ -286,6 +286,9 @@ static func _validate_loaded_config() -> void:
 			_fatal_config_error(ad_path + ".cooldown_seconds must be greater than zero")
 	if get_int("gameplay.max_mistakes") <= 0:
 		_fatal_config_error("gameplay.max_mistakes must be greater than zero")
+	var crossword_max_mistakes: int = get_int_range("gameplay.crossword_max_mistakes", 1, 64)
+	get_int_range("economy.extra_attempts.base_count", 1, crossword_max_mistakes)
+	get_float_range("gameplay.crossword_starters.max_known_fraction", 0.5, 0.99)
 
 	var hint_fade_seconds: float = get_float("timings.animations.round_end.hints_fade_seconds")
 	var fullscreen_recovery: Dictionary = get_value("advertising.fullscreen_show_recovery")

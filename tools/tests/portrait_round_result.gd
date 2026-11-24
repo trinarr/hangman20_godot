@@ -4,8 +4,6 @@ class TestUI:
 	extends "res://scripts/main_portrait.gd"
 	var continued: int = 0
 	var sounds: int = 0
-	var collections: int = 0
-	var real_collection: bool = false
 	var preview_banner: bool = false
 	func _ready() -> void:
 		_build_root()
@@ -20,10 +18,6 @@ class TestUI:
 		return _continued
 	func _continued() -> void:
 		continued += 1
-	func _start_portrait_attempt_star_collection() -> void:
-		collections += 1
-		if real_collection:
-			super._start_portrait_attempt_star_collection()
 
 var main: TestUI
 var checks: int = 0
@@ -79,6 +73,7 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	build("АБВА" if is_russian else "ABBA", true)
 	GameSession.is_active = true
 	GameSession.correct_letters.append("А" if is_russian else "A")
+	GameSession.revealed[0] = true
 	GameSession.wrong_letters.append("Й" if is_russian else "Q")
 	main._refresh_portrait_game_keyboard()
 	var background: Control = main.content.get_node("PortraitGameBackground")
@@ -108,7 +103,7 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		check(button._face.get_theme_stylebox("panel").corner_radius_top_left == 14, "key uses the leaderboard corner radius")
 		check(button._label.get_theme_font("font") == keyboard_font, "letter uses the keyboard font profile")
 		check(button._label.get_theme_font_size("font_size") == expected_font_size, "letter uses the expected adaptive font size")
-		check(button.disabled == (button.letter_state != StageLetterButton.LetterState.NORMAL), "only used keys are disabled in an active round")
+		check(button.disabled == (button.letter_state != StageLetterButton.LetterState.NORMAL and button.remaining_count == 0), "a used key stays active only while its letter has hidden cells")
 	check(rows.values() == (["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"] if is_russian else ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]), "keyboard uses the expected rows with the complete game alphabet")
 	check(is_equal_approx(background_rect.end.y, banner_rect.end.y), "shared background covers the screen through the ad slot")
 	var stage_scale: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(main.get_viewport_rect().size)
@@ -138,10 +133,13 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		var white: Color = frame.get_pixelv(available_sample)
 		var blue: Color = frame.get_pixel(2, used_sample.y)
 		check(white.r > 0.95 and used_color.r < white.r - 0.1 and used_color.r > blue.r + 0.1, "used key blends between the white face and the gradient on GPU")
+		var former_bar_edge: int = int(main.PORTRAIT_HEADER_HEIGHT * stage_scale)
+		var upper: Color = frame.get_pixel(2, former_bar_edge - 4)
+		var lower: Color = frame.get_pixel(2, former_bar_edge + 4)
+		check(absf(upper.r - lower.r) < 0.01, "Word background gradient has no seam at the former header edge")
 		var field_y: int = int(key_top - 24.0 * stage_scale)
 		var field_color: Color = frame.get_pixel(2, field_y)
-		var body_color: Color = frame.get_pixel(2, int(background_rect.position.y + 20.0 * stage_scale))
-		check(body_color.r > field_color.r + 0.04 and field_color.r > blue.r and field_color.r - blue.r < 0.025, "playfield gradient continues smoothly behind the keyboard")
+		check(lower.r > field_color.r + 0.04 and field_color.r > blue.r and field_color.r - blue.r < 0.025, "playfield gradient continues smoothly behind the keyboard")
 		check(frame.get_pixel(frame.get_width() - 3, used_sample.y) == blue, "keyboard background is a uniform gradient across the screen")
 		if is_instance_valid(cyrillic_e):
 			var bounds: Rect2 = cyrillic_e.get_global_rect()
@@ -156,77 +154,6 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 			frame.save_png(directory.path_join("game_keyboard_%s_%d.png" % [language, size.x]))
 	main._clear()
 	main.preview_banner = false
-
-func check_attempt_reward_summary(language: String, size: Vector2i) -> void:
-	build("АБВА" if language == "ru" else "ABBA", true, 2)
-	main.real_collection = true
-	main.last_result_data = {"remaining_attempt_star_reward_amount": 4, "remaining_attempt_star_balance_before": GameState.get_stars()}
-	var before: int = GameState.get_stars()
-	main._show_in_place_round_result(true, true)
-	var result: Node = main._portrait_round_result
-	var title: Label = result.attempts_title
-	check(title.visible and result.attempt_reward_summary == null, "attempts remain until collection finishes")
-	var deadline: int = Time.get_ticks_msec() + 10000
-	while main.find_child("SinglePlayerRewardResourceCanvas", true, false) == null and Time.get_ticks_msec() < deadline:
-		await get_tree().process_frame
-	check(main._portrait_attempt_star_collection_active and title.visible and result.attempt_reward_summary == null, "flying stars do not replace attempts early")
-	while main._portrait_attempt_star_collection_active and Time.get_ticks_msec() < deadline:
-		await get_tree().process_frame
-	var summary: Control = result.attempt_reward_summary
-	check(is_instance_valid(summary) and !title.visible and !result.attempts_value.visible, "last impact replaces both attempts labels")
-	if is_instance_valid(summary):
-		var bounce: Tween = result.attempt_reward_bounce
-		bounce.pause()
-		var row: Control = summary.find_child("AttemptStarRewardRow", true, false)
-		bounce.custom_step(result.PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION * 0.5)
-		check(row.scale.x > 1.0 and row.scale.x < result.PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE, "shared summary bounce grows through an intermediate scale")
-		bounce.custom_step(result.PORTRAIT_FINAL_REWARD_PACK_BOUNCE_GROW_DURATION * 0.5)
-		check(is_equal_approx(row.scale.x, result.PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SCALE), "summary reaches the shared reward bounce peak")
-		bounce.custom_step(result.PORTRAIT_FINAL_REWARD_PACK_BOUNCE_SETTLE_DURATION + 0.01)
-		check(row.scale.is_equal_approx(Vector2.ONE) and row.pivot_offset.is_zero_approx(), "summary bounce restores its resting transform")
-		var animation: Tween = result.attempt_reward_reveal
-		animation.pause()
-		animation.custom_step(result.PORTRAIT_RESULT_SEARCH_APPEAR_DURATION * 0.4)
-		check(main.COMPOSITED_FADE.get_opacity(summary) > 0.0 and main.COMPOSITED_FADE.get_opacity(summary) < 1.0, "attempt summary has an intermediate fade")
-		animation.custom_step(result.PORTRAIT_RESULT_SEARCH_APPEAR_DURATION)
-		await get_tree().process_frame
-		check(is_equal_approx(main.COMPOSITED_FADE.get_opacity(summary), 1.0), "attempt summary finishes opaque")
-		if DisplayServer.get_name() != "headless":
-			var crop := Rect2i(summary.get_global_rect()).grow(2)
-			main.COMPOSITED_FADE.set_opacity(summary, 0.0)
-			await RenderingServer.frame_post_draw
-			var zero: Image = get_viewport().get_texture().get_image().get_region(crop)
-			summary.hide()
-			await RenderingServer.frame_post_draw
-			var hidden: Image = get_viewport().get_texture().get_image().get_region(crop)
-			check(zero.get_data() == hidden.get_data(), "zero-opacity summary leaves no text or icon pixels")
-			summary.show()
-			main.COMPOSITED_FADE.set_opacity(summary, 1.0)
-		check(summary.find_child("AttemptStarRewardAmount", true, false).size.x > 0.0, "summary amount retains its width inside the fade wrapper")
-		check(summary.find_child("AttemptStarRewardAmount", true, false).text == "+4", "summary shows granted stars rather than the emptied attempts digit")
-		check(summary.find_child("AttemptStarRewardIcon", true, false).texture == main.STAR_CURRENCY_TEXTURE, "summary reuses the star currency icon")
-		var icon: TextureRect = summary.find_child("AttemptStarRewardIcon", true, false)
-		check(icon.material == preload("res://scripts/ui/colored_icon_outline.gd").material(), "summary star uses the standard icon outline")
-		check(is_instance_valid(summary.find_child("AttemptStarRewardIconExtrusion01", true, false)), "summary star uses the standard extrusion shadow")
-		result.attempts_collected()
-		check(result.attempt_reward_summary == summary, "duplicate finish keeps one reward summary")
-		if DisplayServer.get_name() != "headless":
-			await RenderingServer.frame_post_draw
-			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
-			if directory != "":
-				get_viewport().get_texture().get_image().save_png(directory.path_join("attempt_summary_%s_%d.png" % [language, size.x]))
-	check(GameState.get_stars() == before, "summary never awards stars again")
-	main._clear()
-	main.real_collection = false
-	build("АБВА" if language == "ru" else "ABBA", true, 2)
-	main.last_result_data = {"remaining_attempt_star_reward_amount": 4}
-	main._show_in_place_round_result(true, false)
-	check(is_instance_valid(main._portrait_round_result.attempt_reward_summary), "restored win shows summary without another flight")
-	main._clear()
-	build("АБВА" if language == "ru" else "ABBA", true)
-	main._show_in_place_round_result(false, false)
-	check(main._portrait_round_result.attempt_reward_summary == null and main._portrait_game_attempts_value_label.visible, "loss keeps attempts without a reward summary")
-	main._clear()
 
 func run() -> void:
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
@@ -264,21 +191,16 @@ func run() -> void:
 	check(result_label.visible and result_label.text.contains("−"), "settled word uses display separator")
 	check(main.content.find_child("ResultWordBounceLetters", true, false) == null, "temporary glyphs are removed")
 	# A restored result must skip attempts collection and show actions immediately.
-	build("АБВА")
-	main.last_result_data = {"remaining_attempt_star_reward_amount": 3, "remaining_attempt_star_balance_before": GameState.get_stars()}
-	main._show_in_place_round_result(true, false)
-	check(!main._portrait_attempt_star_collection_active and main.collections == 0, "restore skips star flight")
-	build("АБВА")
-	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
-	GameSession.word_hint_text = "Описание слова"
-	main.last_result_data = {"remaining_attempt_star_reward_amount": 3, "remaining_attempt_star_balance_before": GameState.get_stars()}
-	main._show_in_place_round_result(true, true)
-	await get_tree().create_timer(2.0).timeout
-	check(main.collections == 1 and !main._portrait_inline_result_continue_button.visible, "continue waits for star impacts")
-	main._finish_portrait_attempt_star_collection()
-	await get_tree().create_timer(0.3).timeout
-	check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "star completion releases continue")
-	check(Vector2i(GameState.get_soft_currency(), GameState.get_stars()) == balances, "presentation never credits balances")
+	for animated: bool in [false, true]:
+		build("АБВА", true)
+		GameSession.word_hint_text = "Описание слова"
+		main.last_result_data = {"remaining_attempt_star_reward_amount": 3}
+		main._show_in_place_round_result(true, animated)
+		if animated:
+			await get_tree().create_timer(2.0).timeout
+		check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "Reward metadata does not delay Continue")
+		check(main.find_child("AttemptStarRewardSummary", true, false) == null, "Word result has no attempts reward HUD")
+		check(Vector2i(GameState.get_soft_currency(), GameState.get_stars()) == balances, "Result presentation never credits balances")
 	# Remove the screen before deferred word completion callbacks run.
 	build("ОТМЕНА")
 	main._show_in_place_round_result(false, true)
@@ -293,7 +215,6 @@ func run() -> void:
 		for language: String in ["ru", "en"]:
 			Database.load_languages(language, language)
 			await check_keyboard_layout(language, size)
-			await check_attempt_reward_summary(language, size)
 			for win: bool in [false, true]:
 				build("АБВА" if language == "ru" else "ABBA")
 				GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
@@ -383,21 +304,6 @@ func run() -> void:
 	check(departing_animations.all(func(animation: Tween) -> bool: return !animation.is_valid() or !animation.is_running()), "leaving cancels loss wave and pending comment fade")
 	await get_tree().create_timer(1.0).timeout
 	check(!main._portrait_in_place_result_active and main._portrait_round_result == null, "loss callbacks cannot restore the departed screen")
-	# Leave during the actual attempt bounce/flight and open another round.
-	build("ОТМЕНА", true, 2)
-	main.real_collection = true
-	main.last_result_data = {"remaining_attempt_star_reward_amount": 4}
-	main._show_in_place_round_result(true, true)
-	var collection_deadline: int = Time.get_ticks_msec() + 10000
-	while !main._portrait_attempt_star_collection_started and Time.get_ticks_msec() < collection_deadline:
-		await get_tree().process_frame
-	build("НОВАЯ", true)
-	main.real_collection = false
-	await get_tree().create_timer(main._single_player_reward_collection_duration() + 0.5).timeout
-	check(main.find_child("AttemptStarRewardSummary", true, false) == null and main._portrait_game_attempts_value_label.visible, "departed attempt collection cannot replace the new round HUD")
-	main.last_result_data = {}
-	main._show_in_place_round_result(true, false)
-	check(main._portrait_round_result.attempt_reward_summary == null, "zero-reward win does not show a star summary")
 	# The component also works without the gameplay adapter.
 	var parent := Control.new()
 	parent.theme = main.ui.theme
@@ -409,7 +315,7 @@ func run() -> void:
 	component.continue_requested.connect(_independent_continue)
 	main.queue_free()
 	await get_tree().process_frame
-	component.begin(true, false, false, false, "ПРОДОЛЖИТЬ")
+	component.begin(true, false, false, "ПРОДОЛЖИТЬ")
 	check(component.result_search_button.visible and component.result_continue_button.visible, "standalone builds after adapter is gone")
 	component.result_continue_button.emit_signal("pressed")
 	check(independent_continues == 1, "standalone emits continue intent")

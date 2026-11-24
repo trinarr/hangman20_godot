@@ -44,6 +44,7 @@ const PORTRAIT_COIN_COUNTER_ANCHOR = preload("res://scripts/ui/portrait_coin_cou
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
 const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const PORTRAIT_CROSSWORD = preload("res://scripts/ui/portrait_crossword.gd")
+const PORTRAIT_ATTEMPT_INDICATORS = preload("res://scripts/ui/portrait_attempt_indicators.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
 
 const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
@@ -121,21 +122,7 @@ const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.back_entrance_seconds"
 )
-# Compact text-only gameplay HUD placed in the free space to the right of the
-# left-aligned character. The old white attempts/theme pills are intentionally
-# removed; these labels are the only in-round status presentation now.
-# Keep the complete text HUD above the word-paper band. On tall screens this
-# block follows half of the extra-height shift together with the hero, while the
-# bottom-attached paper moves by the full extra height, so the two can never
-# collide as the aspect ratio grows. The labels are center-aligned and packed
-# into the open area to the right of the hero.
-const PORTRAIT_GAME_INFO_TOP: float = PORTRAIT_HEADER_HEIGHT + 12.0
-const PORTRAIT_GAME_INFO_BOTTOM: float = PORTRAIT_GAME_INFO_TOP + 60.0
-const PORTRAIT_GAME_INFO_ATTEMPTS_RECT := Rect2((PORTRAIT_STAGE_SIZE.x - 138.0) * 0.5, PORTRAIT_GAME_INFO_TOP, 138.0, 60.0)
-const PORTRAIT_CROSSWORD_CARD_TOP: float = PORTRAIT_GAME_INFO_BOTTOM + 30.0
 const PORTRAIT_CROSSWORD_CARD_HINT_GAP: float = 12.0
-const PORTRAIT_GAME_INFO_TITLE_FONT_SIZE: int = 18
-const PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE: int = 44
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
 const PORTRAIT_RESOURCE_COUNTER_GAP = RESOURCE_COUNTER_PRESENTATION.PORTRAIT_RESOURCE_COUNTER_GAP
@@ -202,32 +189,11 @@ var PORTRAIT_ROUND_END_KEY_WAVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float
 var PORTRAIT_ROUND_END_KEY_SCALE: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_scale"
 )
-var PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.round_end.attempts_fade_seconds"
-)
 var PORTRAIT_ROUND_END_HINTS_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.hints_fade_seconds"
 )
 var PORTRAIT_ROUND_END_HINT_BADGES_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.hint_badges_fade_seconds"
-)
-var PORTRAIT_ATTEMPTS_WARNING_THRESHOLD: int = PORTRAIT_GAME_DESIGN.get_int(
-	"timings.animations.attempts_warning.threshold"
-)
-var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.bounce_scale"
-)
-var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.grow_seconds"
-)
-var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.settle_seconds"
-)
-var PORTRAIT_ATTEMPTS_WARNING_BOUNCE_PAUSE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.pause_seconds"
-)
-var PORTRAIT_ATTEMPTS_COUNTER_ROLL_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempts_warning.counter_roll_seconds"
 )
 var PORTRAIT_GAME_ENTRANCE_START_DELAY: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.game_entrance.start_delay_seconds"
@@ -469,15 +435,6 @@ var PORTRAIT_GAME_HINT_ENTRANCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.ge
 	"timings.animations.hint.entrance_settle_seconds"
 )
 const PORTRAIT_GAME_HINT_BADGE_FADE_DURATION: float = 0.16
-var PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempt_reward.bounce_scale"
-)
-var PORTRAIT_ATTEMPT_REWARD_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempt_reward.grow_seconds"
-)
-var PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.attempt_reward.settle_seconds"
-)
 const PORTRAIT_HERO_BASE_SCALE_MULTIPLIER: float = 0.86
 const PORTRAIT_GAME_HERO_SCALE_MULTIPLIER: float = PORTRAIT_HERO_BASE_SCALE_MULTIPLIER * 1.32
 const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait_back_arrow_icon.png")
@@ -746,6 +703,7 @@ var PORTRAIT_ATTEMPTS_POPUP_COUNTER_SETTLE_SECONDS: float = PORTRAIT_GAME_DESIGN
 )
 var _portrait_custom_word_input: Control = null
 var _portrait_crossword: PORTRAIT_CROSSWORD
+var _portrait_attempt_indicators: PORTRAIT_ATTEMPT_INDICATORS
 var _portrait_game_input_group: Control = null
 var _portrait_coin_store_underlay: Control = null
 var _portrait_game_word_rect := Rect2()
@@ -754,13 +712,7 @@ var _portrait_game_keyboard_buttons: Array = []
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
 var _portrait_game_back_button: Control = null
-var _portrait_game_attempts_controls: Array[Control] = []
-var _portrait_game_attempts_value_label: Label = null
-var _portrait_game_attempts_bounce_tween: Tween = null
 var _portrait_custom_word_search_tween: Tween = null
-var _portrait_game_attempts_roll_tween: Tween = null
-var _portrait_game_attempts_roll_clip: Control = null
-var _portrait_game_attempts_displayed_value: int = -1
 var _portrait_game_runtime_ready: bool = false
 var _portrait_currency_counter_visual: Control:
 	get:
@@ -819,8 +771,6 @@ var _portrait_in_place_result_is_win: bool:
 	set(value):
 		if is_instance_valid(_portrait_round_result):
 			_portrait_round_result.is_win = value
-var _portrait_attempt_star_collection_active: bool = false
-var _portrait_attempt_star_collection_started: bool = false
 var _portrait_game_entrance_pending: bool = false
 var _portrait_game_entrance_active: bool = false
 var _portrait_top_bar_content: Control = null
@@ -1304,6 +1254,7 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_game_input_group = null
 	_portrait_game_entrance_active = false
 	_portrait_crossword = null
+	_portrait_attempt_indicators = null
 	_portrait_game_word_rect = Rect2()
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
@@ -1313,16 +1264,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_final_reward_double_button = null
 	_portrait_final_reward_continue_button = null
 	_portrait_single_reward_continue_button = null
-	_stop_portrait_attempts_attention_bounce(true)
-	_portrait_game_attempts_controls.clear()
-	_portrait_game_attempts_value_label = null
-	if _portrait_game_attempts_roll_tween != null and _portrait_game_attempts_roll_tween.is_valid():
-		_portrait_game_attempts_roll_tween.kill()
-	_portrait_game_attempts_roll_tween = null
-	if _portrait_game_attempts_roll_clip != null and is_instance_valid(_portrait_game_attempts_roll_clip):
-		_portrait_game_attempts_roll_clip.queue_free()
-	_portrait_game_attempts_roll_clip = null
-	_portrait_game_attempts_displayed_value = -1
 	_portrait_currency_counter_visual = null
 	_portrait_currency_coin_icon_visual = null
 	_portrait_star_counter_visual = null
@@ -1337,8 +1278,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_hint_counter_refresh_requested = false
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
-	_portrait_attempt_star_collection_active = false
-	_portrait_attempt_star_collection_started = false
 	super._clear(preserved_content)
 	if is_instance_valid(opening_transition):
 		opening_transition.call("prepare_destination", content)
@@ -1415,7 +1354,8 @@ func _portrait_screen(
 	_header_height: float = PORTRAIT_HEADER_HEIGHT,
 	footer_y: float = -1.0,
 	header_color: Color = PORTRAIT_BLUE,
-	paper_background_enabled: bool = true
+	paper_background_enabled: bool = true,
+	header_backdrop: bool = true
 ) -> void:
 	if paper_background_enabled:
 		var paper_background: Control = PORTRAIT_PAPER_BACKGROUND_SCRIPT.new() as Control
@@ -1428,7 +1368,7 @@ func _portrait_screen(
 		blue_background.z_index = -2
 	var screen_content: Control = content
 	content = _portrait_create_top_bar_group()
-	_portrait_header_fill = _stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color)
+	_portrait_header_fill = _stage_horizontal_fill(0.0, PORTRAIT_HEADER_HEIGHT, header_color) if header_backdrop else null
 	content = screen_content
 	if footer_y >= 0.0:
 		_stage_horizontal_fill(footer_y, PORTRAIT_STAGE_SIZE.y - footer_y, PORTRAIT_BLUE)
@@ -2240,70 +2180,43 @@ func _play_centered_rewarded_double_coin_animation(
 	roll.set_ease(Tween.EASE_OUT)
 	count_tween.tween_callback(Callable(source_stub, "queue_free"))
 
-func _stage_portrait_game_header() -> void:
-	var coin_store_return_action := Callable(self, "_return_to_game_from_coin_store")
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		_stage_centered_coin_only_counter(
-			coin_store_return_action,
-			PORTRAIT_GAME_CURRENCY_COUNTER_RECT
-		)
-	else:
-		_stage_coin_and_star_counters(
-			coin_store_return_action,
-			PORTRAIT_GAME_CURRENCY_COUNTER_RECT,
-			false
-		)
+func _style_portrait_level_title(title: Label) -> void:
+	title.add_theme_font_override("font", UI_REGULAR_FONT)
+	title.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	title.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title.clip_text = false
+	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(title)
+
+func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) -> void:
+	if level_index >= 0:
+		var screen_content: Control = content
+		content = _portrait_top_bar_content
+		var nav_rect: Rect2 = PORTRAIT_PAGE_BACK_BUTTON_RECT
+		var side_inset: float = nav_rect.end.x + 12.0
+		var title_rect := Rect2(side_inset, nav_rect.position.y, PORTRAIT_STAGE_SIZE.x - 2.0 * side_inset, nav_rect.size.y)
+		var attempts_gap: float = 3.0
+		if with_attempts:
+			title_rect.size.y -= PORTRAIT_ATTEMPT_INDICATORS.ROW_HEIGHT + attempts_gap
+		var level_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
+		var title := _stage_label(title_rect, level_text)
+		title.name = "GameLevelTitle"
+		_style_portrait_level_title(title)
+		if with_attempts:
+			var attempts_rect := Rect2(title_rect.position.x, title_rect.end.y + attempts_gap,
+				title_rect.size.x, PORTRAIT_ATTEMPT_INDICATORS.ROW_HEIGHT)
+			var attempts_holder := _stage_holder(attempts_rect, Control.MOUSE_FILTER_IGNORE)
+			_portrait_attempt_indicators = PORTRAIT_ATTEMPT_INDICATORS.new()
+			_portrait_attempt_indicators.name = "CrosswordAttempts"
+			attempts_holder.add_child(_portrait_attempt_indicators)
+			_portrait_attempt_indicators.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_portrait_attempt_indicators.set_attempts(GameSession.attempt_limit, GameSession.get_remaining_attempts())
+		content = screen_content
 	_stage_menu_settings_button()
 
-func _stage_portrait_game_attempts() -> void:
-	var attempts_rect: Rect2 = PORTRAIT_GAME_INFO_ATTEMPTS_RECT
-	var attempts_title_rect := Rect2(attempts_rect.position, Vector2(attempts_rect.size.x, 22.0))
-	var attempts_value_rect := Rect2(attempts_rect.position + Vector2(0.0, 18.0), Vector2(attempts_rect.size.x, 42.0))
-
-	var attempts_title_text: String = tr("ATTEMPTS_LABEL")
-	var attempts_title := _stage_label(
-		attempts_title_rect,
-		attempts_title_text,
-		PORTRAIT_GAME_INFO_TITLE_FONT_SIZE,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		UI_REGULAR_FONT
-	)
-	attempts_title.autowrap_mode = TextServer.AUTOWRAP_OFF
-	attempts_title.clip_text = false
-	attempts_title.z_index = 12
-
-	var attempts_value_text: String = str(GameSession.get_remaining_attempts())
-	var attempts_value := _stage_label(
-		attempts_value_rect,
-		attempts_value_text,
-		PORTRAIT_GAME_INFO_ATTEMPTS_FONT_SIZE,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		UI_DISPLAY_FONT
-	)
-	attempts_value.autowrap_mode = TextServer.AUTOWRAP_OFF
-	attempts_value.clip_text = false
-	attempts_value.z_index = 12
-	var attempts_holder := attempts_value.get_parent() as Control
-	if attempts_holder != null:
-		# Keep the resting digit completely unclipped. The mechanical-roll effect
-		# creates its own temporary padded mask, so the normal warning bounce can
-		# grow outside this holder without cutting off the bottom of the glyph.
-		attempts_holder.clip_contents = false
-	_portrait_game_attempts_value_label = attempts_value
-	_portrait_game_attempts_displayed_value = GameSession.get_remaining_attempts()
-
-	_portrait_game_attempts_controls.append(attempts_title)
-	_portrait_game_attempts_controls.append(attempts_value)
-
 func _stage_portrait_game_background(pattern_texture: Texture2D) -> Control:
-	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
-	var background := _stage_horizontal_fill(
-		PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_STAGE_SIZE.y - PORTRAIT_HEADER_HEIGHT,
-		PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR
-	)
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false, false)
+	var background := _stage_horizontal_fill(0.0, PORTRAIT_STAGE_SIZE.y, PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR)
 	background.name = "PortraitGameBackground"
 	background.z_index = -1
 	if pattern_texture != null:
@@ -2870,9 +2783,7 @@ func _show_menu_screen() -> void:
 	coin_store_return_action = Callable()
 	_clear()
 
-	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false)
-	_portrait_header_fill.free()
-	_portrait_header_fill = null
+	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false, false)
 	_stage_home_pattern_background()
 	_stage_home_resource_counters(Callable(self, "show_menu"))
 
@@ -4299,6 +4210,7 @@ func _play_quiz_fast_answer_star_collection(
 		source_visual == null
 		or !is_instance_valid(source_visual)
 		or !source_visual.is_inside_tree()
+		or !is_instance_valid(_portrait_star_icon_visual)
 	):
 		_finish_quiz_fast_answer_star_collection()
 		return
@@ -4868,12 +4780,12 @@ func _on_quiz_answer_selected(answer_index: int) -> void:
 	var final_star_balance: int = previous_star_balance
 	if speed_reward_amount > 0:
 		final_star_balance = GameState.add_gameplay_stars(speed_reward_amount, false, "quiz_speed")
-		# Commit the bonus together with the result below; keep the HUD at its
-		# previous value until the visual collection finishes.
-		_set_stage_reward_animated_balance(
-			float(previous_star_balance),
-			GameState.STAGE_REWARD_STARS
-		)
+		# The quiz result is saved below. A visible counter rolls after the flight.
+		if is_instance_valid(_portrait_star_icon_visual):
+			_set_stage_reward_animated_balance(
+				float(previous_star_balance),
+				GameState.STAGE_REWARD_STARS
+			)
 	_quiz_answer_locked = true
 	_quiz_selected_answer_index = answer_index
 	_quiz_answer_feedback_generation += 1
@@ -6147,13 +6059,14 @@ func _home_profile_show_quiz_game_screen() -> void:
 	quiz_background.add_child(quiz_cover)
 	quiz_cover.prepare(quiz_background, source_frame)
 
-	# Keep the normal gameplay resource/header treatment, but omit the character,
-	# attempts counter and theme title entirely.
-	_stage_coin_and_star_counters(
-		Callable(self, "_return_to_quiz_from_coin_store"),
-		PORTRAIT_GAME_CURRENCY_COUNTER_RECT
-	)
-	_stage_menu_settings_button()
+	if _quiz_single_player_embedded:
+		_stage_portrait_game_header(single_player_active_level_index)
+	else:
+		_stage_coin_and_star_counters(
+			Callable(self, "_return_to_quiz_from_coin_store"),
+			PORTRAIT_GAME_CURRENCY_COUNTER_RECT
+		)
+		_stage_menu_settings_button()
 	var hide_quiz_close: bool = (
 		_quiz_single_player_embedded
 		and _single_player_hides_close_controls(single_player_active_level_index)
@@ -6271,14 +6184,6 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	if !GameSession.has_deferred_loss():
 		return
 	var free_offer: bool = _single_player_extra_attempt_is_free()
-	# The final wrong guess immediately updates GameSession, which starts the
-	# mechanical Attempts counter roll. Keep the gameplay screen visible until
-	# that subtraction animation has fully settled, then open the purchase popup.
-	var attempts_roll := _portrait_game_attempts_roll_tween
-	if attempts_roll != null and attempts_roll.is_valid():
-		await attempts_roll.finished
-		if !GameSession.has_deferred_loss():
-			return
 	# Preserve the amount shown by the previous offer. Every second popup can
 	# increase the purchased-attempt bundle; when that happens the modal should
 	# visibly transform from the previous amount into the new one instead of
@@ -9340,6 +9245,19 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 		"word_rect": Rect2(24.0, word_y, 432.0, 64.0),
 	}
 
+func _press_letter(letter: String) -> void:
+	if !game_screen_visible or game_finished or _portrait_game_entrance_active or !is_instance_valid(_portrait_crossword):
+		return
+	if !get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).is_empty():
+		return
+	var cell_index: int = _portrait_crossword.selected_cell
+	if cell_index >= 0:
+		var known_letter: String = GameSession.get_known_crossword_letter(cell_index)
+		if !known_letter.is_empty() and WordManager.normalize_word(letter) != known_letter:
+			_show_portrait_status_toast(tr("CROSSWORD_MATCH_KNOWN_CODE"))
+			return
+		_press_letter_at(letter, cell_index)
+
 func _refresh_game_screen() -> void:
 	# Starting a round emits GameSession.changed before show_game_screen() clears
 	# the previous page. Ignore that hidden rebuild; otherwise it consumes the
@@ -9363,20 +9281,11 @@ func _refresh_game_screen() -> void:
 	_portrait_game_entrance_active = false
 	_portrait_game_input_group = null
 	_portrait_crossword = null
+	_portrait_attempt_indicators = null
 	_portrait_game_word_rect = Rect2()
 	_portrait_game_keyboard_buttons.clear()
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
-	_stop_portrait_attempts_attention_bounce(true)
-	_portrait_game_attempts_controls.clear()
-	_portrait_game_attempts_value_label = null
-	if _portrait_game_attempts_roll_tween != null and _portrait_game_attempts_roll_tween.is_valid():
-		_portrait_game_attempts_roll_tween.kill()
-	_portrait_game_attempts_roll_tween = null
-	if _portrait_game_attempts_roll_clip != null and is_instance_valid(_portrait_game_attempts_roll_clip):
-		_portrait_game_attempts_roll_clip.queue_free()
-	_portrait_game_attempts_roll_clip = null
-	_portrait_game_attempts_displayed_value = -1
 	_portrait_word_letter_bounce_active_count = 0
 	_portrait_word_letter_bounce_generation += 1
 	_portrait_round_end_waiting_for_letter_bounce = false
@@ -9384,8 +9293,6 @@ func _refresh_game_screen() -> void:
 	_portrait_inline_result_continue_button = null
 	_portrait_in_place_result_active = false
 	_portrait_in_place_result_is_win = false
-	_portrait_attempt_star_collection_active = false
-	_portrait_attempt_star_collection_started = false
 	_capture_hero_animation_phase()
 	for child: Node in content.get_children():
 		content.remove_child(child)
@@ -9393,9 +9300,9 @@ func _refresh_game_screen() -> void:
 
 	var viewport_size: Vector2 = get_viewport_rect().size
 	_stage_portrait_game_background(_theme_icon_mono_texture(GameSession.theme_id))
-	_stage_portrait_game_header()
+	var level_index: int = single_player_active_level_index if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER else -1
+	_stage_portrait_game_header(level_index, true)
 
-	_stage_portrait_game_attempts()
 
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(viewport_size)
 	# Keep rebuilt hint buttons on the same row throughout the round.
@@ -9411,14 +9318,15 @@ func _refresh_game_screen() -> void:
 	screen_content.add_child(_portrait_crossword)
 	content = _portrait_crossword
 	var card_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
-	card_rect.position.y = PORTRAIT_CROSSWORD_CARD_TOP
 	var card_bottom: float = _portrait_game_hint_row_y - PORTRAIT_CROSSWORD_CARD_HINT_GAP
 	card_rect.size.y = card_bottom - card_rect.position.y
 	var theme_name: String = Database.get_theme_name(GameSession.theme_id) if GameSession.theme_id >= 0 else ""
 	var crossword_card := _stage_portrait_question_card(card_rect, theme_name)
 	content = screen_content
 	var card_padding: float = PORTRAIT_QUIZ_QUESTION_RECT.position.x - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.x
-	_portrait_crossword.build(GameSession.crossword, crossword_card[0], crossword_card[1], card_bottom, card_padding)
+	_portrait_crossword.build(GameSession.crossword, crossword_card[0], crossword_card[1], card_bottom, card_padding,
+		GameSession.crossword_starter_letters, GameSession.correct_letters.is_empty())
+	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss())
 	_portrait_crossword.refresh(GameSession.revealed)
 
 	var input_root_content: Control = _portrait_begin_bottom_attached_group()
@@ -9426,35 +9334,21 @@ func _refresh_game_screen() -> void:
 	_portrait_game_word_rect = game_word_rect
 
 	for letter: String in key_rects:
-		var was_correct: bool = GameSession.correct_letters.has(letter)
-		var was_wrong: bool = GameSession.wrong_letters.has(letter)
-		var was_removed: bool = GameSession.removed_wrong_letters.has(letter)
-		var state: int = StageLetterButton.LetterState.NORMAL
-		if was_correct:
-			state = StageLetterButton.LetterState.CORRECT
-		elif was_wrong or was_removed:
-			state = StageLetterButton.LetterState.WRONG
 		var key_rect: Rect2 = key_rects[letter]
-		var animate_state: bool = pending_letter_markers.has(letter) and (
-			(state == StageLetterButton.LetterState.CORRECT and pending_letter_marker_is_correct)
-			or (state == StageLetterButton.LetterState.WRONG and !pending_letter_marker_is_correct)
-		)
 		var key_button := _stage_letter_button(
 			key_rect,
 			Callable(self, "_press_letter").bind(letter),
 			letter,
-			state,
-			!GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
-			keyboard_font_size,
-			animate_state
+			StageLetterButton.LetterState.NORMAL,
+			false,
+			keyboard_font_size
 		)
 		_portrait_game_keyboard_buttons.append({
 			"button": key_button,
 			"letter": letter,
 			"stage_x": key_rect.position.x,
-			"state": state,
-			"rest_disabled": !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL,
 		})
+	_refresh_portrait_game_keyboard()
 	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
 		_stage_portrait_hint_buttons()
 	_portrait_end_adaptive_group(input_root_content)
@@ -9474,7 +9368,6 @@ func _refresh_game_screen() -> void:
 		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 	_stage_portrait_ad_banner("_refresh_game_screen")
 	_portrait_game_runtime_ready = true
-	call_deferred("_sync_portrait_attempts_attention_bounce")
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 	if play_game_entrance:
@@ -9485,10 +9378,11 @@ func _refresh_game_screen() -> void:
 func _refresh_portrait_game_runtime_state() -> void:
 	if !is_instance_valid(_portrait_crossword) or _portrait_crossword.model != GameSession.crossword:
 		return
-	_refresh_portrait_attempts_value()
-	_sync_portrait_attempts_attention_bounce()
 
+	if is_instance_valid(_portrait_attempt_indicators):
+		_portrait_attempt_indicators.set_attempts(GameSession.attempt_limit, GameSession.get_remaining_attempts())
 	var bounce := Callable(self, "_prepare_portrait_word_letter_bounce") if pending_letter_marker_is_correct else Callable()
+	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss() and !_portrait_game_entrance_active)
 	_portrait_crossword.refresh(GameSession.revealed, bounce)
 	_refresh_portrait_game_keyboard()
 	_refresh_portrait_game_hints_if_needed()
@@ -9496,188 +9390,8 @@ func _refresh_portrait_game_runtime_state() -> void:
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 
-func _refresh_portrait_attempts_value() -> void:
-	var attempts_label: Label = _portrait_game_attempts_value_label
-	if attempts_label == null or !is_instance_valid(attempts_label):
-		_portrait_game_attempts_displayed_value = GameSession.get_remaining_attempts()
-		return
-	var next_value: int = GameSession.get_remaining_attempts()
-	if _portrait_game_attempts_displayed_value < 0:
-		_portrait_game_attempts_displayed_value = next_value
-		attempts_label.text = str(next_value)
-		return
-	if next_value == _portrait_game_attempts_displayed_value:
-		return
-	# Spending an attempt uses a mechanical-counter transition: the old digit
-	# drops down while the new digit rolls in from above. Positive changes (for
-	# example a purchased last-chance attempt) update immediately.
-	if next_value > _portrait_game_attempts_displayed_value:
-		if _portrait_game_attempts_roll_tween != null and _portrait_game_attempts_roll_tween.is_valid():
-			_portrait_game_attempts_roll_tween.kill()
-		_portrait_game_attempts_roll_tween = null
-		if _portrait_game_attempts_roll_clip != null and is_instance_valid(_portrait_game_attempts_roll_clip):
-			_portrait_game_attempts_roll_clip.queue_free()
-		_portrait_game_attempts_roll_clip = null
-		_portrait_game_attempts_displayed_value = next_value
-		attempts_label.position = Vector2.ZERO
-		attempts_label.visible = true
-		attempts_label.text = str(next_value)
-		return
-	_play_portrait_attempts_counter_roll(next_value)
-
-func _play_portrait_attempts_counter_roll(next_value: int) -> void:
-	var old_label: Label = _portrait_game_attempts_value_label
-	if old_label == null or !is_instance_valid(old_label):
-		_portrait_game_attempts_displayed_value = next_value
-		return
-	var holder := old_label.get_parent() as Control
-	if holder == null or !is_instance_valid(holder):
-		old_label.text = str(next_value)
-		_portrait_game_attempts_displayed_value = next_value
-		return
-	if _portrait_game_attempts_roll_tween != null and _portrait_game_attempts_roll_tween.is_valid():
-		_portrait_game_attempts_roll_tween.kill()
-	_portrait_game_attempts_roll_tween = null
-	if _portrait_game_attempts_roll_clip != null and is_instance_valid(_portrait_game_attempts_roll_clip):
-		_portrait_game_attempts_roll_clip.queue_free()
-	_portrait_game_attempts_roll_clip = null
-	old_label.visible = true
-	_stop_portrait_attempts_attention_bounce(true)
-	holder.clip_contents = false
-	old_label.position = Vector2.ZERO
-	old_label.scale = Vector2.ONE
-
-	# Animate copies inside a temporary padded clipping window. The original
-	# label never changes anchors/position, so after the roll the Attempts value
-	# lands at exactly the same baseline it had before this animation existed.
-	var roll_padding: float = 9.0
-	var roll_clip := Control.new()
-	roll_clip.name = "AttemptsMechanicalRollClip"
-	roll_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	roll_clip.position = Vector2(0.0, -roll_padding)
-	roll_clip.size = Vector2(holder.size.x, holder.size.y + roll_padding * 2.0)
-	roll_clip.clip_contents = true
-	roll_clip.z_index = old_label.z_index + 1
-	holder.add_child(roll_clip)
-	_portrait_game_attempts_roll_clip = roll_clip
-
-	var old_roll_label := old_label.duplicate() as Label
-	old_roll_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	old_roll_label.position = Vector2(0.0, roll_padding)
-	old_roll_label.size = holder.size
-	old_roll_label.scale = Vector2.ONE
-	roll_clip.add_child(old_roll_label)
-
-	var new_roll_label := old_label.duplicate() as Label
-	new_roll_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	new_roll_label.text = str(next_value)
-	new_roll_label.position = Vector2(0.0, -holder.size.y)
-	new_roll_label.size = holder.size
-	new_roll_label.scale = Vector2.ONE
-	roll_clip.add_child(new_roll_label)
-	old_label.visible = false
-
-	var roll_distance: float = holder.size.y + roll_padding
-	_portrait_game_attempts_roll_tween = roll_clip.create_tween()
-	_portrait_game_attempts_roll_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var old_move := _portrait_game_attempts_roll_tween.parallel().tween_property(
-		old_roll_label,
-		"position:y",
-		roll_padding + roll_distance,
-		PORTRAIT_ATTEMPTS_COUNTER_ROLL_DURATION
-	)
-	old_move.set_trans(Tween.TRANS_CUBIC)
-	old_move.set_ease(Tween.EASE_IN_OUT)
-	var new_move := _portrait_game_attempts_roll_tween.parallel().tween_property(
-		new_roll_label,
-		"position:y",
-		roll_padding,
-		PORTRAIT_ATTEMPTS_COUNTER_ROLL_DURATION
-	)
-	new_move.set_trans(Tween.TRANS_CUBIC)
-	new_move.set_ease(Tween.EASE_IN_OUT)
-	_portrait_game_attempts_roll_tween.tween_callback(
-		Callable(self, "_finish_portrait_attempts_counter_roll").bind(old_label, roll_clip, next_value)
-	)
-
-func _finish_portrait_attempts_counter_roll(old_label: Label, roll_clip: Control, next_value: int) -> void:
-	if roll_clip != null and is_instance_valid(roll_clip):
-		roll_clip.queue_free()
-	_portrait_game_attempts_roll_clip = null
-	if old_label != null and is_instance_valid(old_label):
-		old_label.text = str(next_value)
-		old_label.position = Vector2.ZERO
-		old_label.scale = Vector2.ONE
-		old_label.visible = true
-		_portrait_game_attempts_value_label = old_label
-	_portrait_game_attempts_displayed_value = next_value
-	_portrait_game_attempts_roll_tween = null
-	_sync_portrait_attempts_attention_bounce()
-
-func _sync_portrait_attempts_attention_bounce() -> void:
-	var attempts_label: Label = _portrait_game_attempts_value_label
-	var remaining_attempts: int = GameSession.get_remaining_attempts()
-	var should_bounce: bool = (
-		attempts_label != null
-		and is_instance_valid(attempts_label)
-		and attempts_label.is_inside_tree()
-		and GameSession.is_active
-		and !game_finished
-		and !_portrait_game_entrance_active
-		and !_portrait_in_place_result_active
-		and (_portrait_game_attempts_roll_tween == null or !_portrait_game_attempts_roll_tween.is_valid())
-		and remaining_attempts > 0
-		and remaining_attempts <= PORTRAIT_ATTEMPTS_WARNING_THRESHOLD
-	)
-	if !should_bounce:
-		_stop_portrait_attempts_attention_bounce(true)
-		return
-	if (
-		_portrait_game_attempts_bounce_tween != null
-		and _portrait_game_attempts_bounce_tween.is_valid()
-	):
-		return
-
-	attempts_label.pivot_offset = attempts_label.size * 0.5
-	attempts_label.scale = Vector2.ONE
-	_portrait_game_attempts_bounce_tween = attempts_label.create_tween()
-	_portrait_game_attempts_bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	_portrait_game_attempts_bounce_tween.set_loops()
-	var grow_tweener: PropertyTweener = _portrait_game_attempts_bounce_tween.tween_property(
-		attempts_label,
-		"scale",
-		PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SCALE,
-		PORTRAIT_ATTEMPTS_WARNING_BOUNCE_GROW_DURATION
-	)
-	grow_tweener.set_trans(Tween.TRANS_QUAD)
-	grow_tweener.set_ease(Tween.EASE_OUT)
-	var settle_tweener: PropertyTweener = _portrait_game_attempts_bounce_tween.tween_property(
-		attempts_label,
-		"scale",
-		Vector2.ONE,
-		PORTRAIT_ATTEMPTS_WARNING_BOUNCE_SETTLE_DURATION
-	)
-	settle_tweener.set_trans(Tween.TRANS_BACK)
-	settle_tweener.set_ease(Tween.EASE_OUT)
-	_portrait_game_attempts_bounce_tween.tween_interval(
-		PORTRAIT_ATTEMPTS_WARNING_BOUNCE_PAUSE_DURATION
-	)
-
-func _stop_portrait_attempts_attention_bounce(reset_scale: bool) -> void:
-	if (
-		_portrait_game_attempts_bounce_tween != null
-		and _portrait_game_attempts_bounce_tween.is_valid()
-	):
-		_portrait_game_attempts_bounce_tween.kill()
-	_portrait_game_attempts_bounce_tween = null
-	if (
-		reset_scale
-		and _portrait_game_attempts_value_label != null
-		and is_instance_valid(_portrait_game_attempts_value_label)
-	):
-		_portrait_game_attempts_value_label.scale = Vector2.ONE
-
 func _refresh_portrait_game_keyboard() -> void:
+	var hidden_counts: Dictionary = GameSession.get_hidden_letter_counts()
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
 		var entry: Dictionary = entry_variant
 		var button := entry.get("button") as StageLetterButton
@@ -9685,29 +9399,29 @@ func _refresh_portrait_game_keyboard() -> void:
 			continue
 		var letter: String = str(entry.get("letter", ""))
 		var state: int = StageLetterButton.LetterState.NORMAL
-		if GameSession.correct_letters.has(letter):
+		var hidden_count: int = int(hidden_counts.get(letter, 0))
+		var remaining_count: int = 0
+		if hidden_count > 0 and (GameSession.correct_letters.has(letter) or GameSession.misplaced_letters.has(letter) or GameSession.crossword_starter_letters.has(letter)):
+			state = StageLetterButton.LetterState.PARTIAL
+			remaining_count = hidden_count
+		elif GameSession.correct_letters.has(letter):
 			state = StageLetterButton.LetterState.CORRECT
 		elif GameSession.wrong_letters.has(letter) or GameSession.removed_wrong_letters.has(letter):
 			state = StageLetterButton.LetterState.WRONG
-		var disabled_value: bool = !GameSession.is_active or state != StageLetterButton.LetterState.NORMAL
-		var animate_state: bool = (
-			state != int(entry.get("state", StageLetterButton.LetterState.NORMAL))
-			and pending_letter_markers.has(letter)
-			and (
-				(state == StageLetterButton.LetterState.CORRECT and pending_letter_marker_is_correct)
-				or (state == StageLetterButton.LetterState.WRONG and !pending_letter_marker_is_correct)
-			)
-		)
-		if state != int(entry.get("state", -1)) or disabled_value != bool(entry.get("rest_disabled", false)):
+		var disabled_value: bool = !GameSession.is_active or state in [StageLetterButton.LetterState.WRONG, StageLetterButton.LetterState.CORRECT]
+		var animate_feedback: bool = pending_letter_markers.has(letter)
+		var misplaced_feedback: bool = !pending_letter_marker_is_correct and state == StageLetterButton.LetterState.PARTIAL
+		if animate_feedback or state != button.letter_state or remaining_count != button.remaining_count or disabled_value != bool(entry.get("rest_disabled", false)):
 			button.configure(
 				letter,
 				state,
 				button.letter_font_size,
-				disabled_value,
-				animate_state
+				disabled_value or _portrait_game_entrance_active,
+				animate_feedback,
+				remaining_count,
+				misplaced_feedback
 			)
-			entry["state"] = state
-			entry["rest_disabled"] = disabled_value
+		entry["rest_disabled"] = disabled_value
 
 func _portrait_game_hint_state_signature() -> String:
 	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
@@ -9870,160 +9584,6 @@ func _stage_portrait_ad_banner(source: String = "unspecified") -> void:
 	banner_label.add_theme_font_override("font", UI_PRIMARY_FONT)
 	banner_label.z_index = 31
 
-func _remaining_attempt_star_reward_amount() -> int:
-	return maxi(int(last_result_data.get("remaining_attempt_star_reward_amount", 0)), 0)
-
-func _remaining_attempt_star_balance_before() -> int:
-	return maxi(int(last_result_data.get(
-		"remaining_attempt_star_balance_before",
-		GameState.get_stars()
-	)), 0)
-
-func _prepare_portrait_attempt_star_collection(animated: bool) -> void:
-	var reward_amount: int = _remaining_attempt_star_reward_amount()
-	_portrait_attempt_star_collection_active = (
-		animated
-		and _portrait_in_place_result_is_win
-		and reward_amount > 0
-	)
-	_portrait_attempt_star_collection_started = false
-	if reward_amount <= 0:
-		return
-	if _portrait_attempt_star_collection_active:
-		# GameState already contains the durable final balance. Reconstruct the
-		# visible pre-reward value until the flying stars reach the HUD.
-		_set_stage_reward_animated_balance(
-			float(_remaining_attempt_star_balance_before()),
-			GameState.STAGE_REWARD_STARS
-		)
-		return
-	_set_portrait_attempts_result_value(0)
-	_set_stage_reward_animated_balance(
-		float(GameState.get_stars()),
-		GameState.STAGE_REWARD_STARS
-	)
-
-func _set_portrait_attempts_result_value(value: int) -> void:
-	var resolved_value: int = maxi(value, 0)
-	if _portrait_game_attempts_roll_tween != null and _portrait_game_attempts_roll_tween.is_valid():
-		_portrait_game_attempts_roll_tween.kill()
-	_portrait_game_attempts_roll_tween = null
-	if _portrait_game_attempts_roll_clip != null and is_instance_valid(_portrait_game_attempts_roll_clip):
-		_portrait_game_attempts_roll_clip.queue_free()
-	_portrait_game_attempts_roll_clip = null
-	_portrait_game_attempts_displayed_value = resolved_value
-	if (
-		_portrait_game_attempts_value_label != null
-		and is_instance_valid(_portrait_game_attempts_value_label)
-	):
-		_portrait_game_attempts_value_label.text = str(resolved_value)
-		_portrait_game_attempts_value_label.position = Vector2.ZERO
-		_portrait_game_attempts_value_label.scale = Vector2.ONE
-		_portrait_game_attempts_value_label.visible = true
-
-func _start_portrait_attempt_star_collection() -> void:
-	if (
-		!_portrait_attempt_star_collection_active
-		or _portrait_attempt_star_collection_started
-	):
-		return
-	_portrait_attempt_star_collection_started = true
-	var reward_amount: int = _remaining_attempt_star_reward_amount()
-	var source_label: Label = _portrait_game_attempts_value_label
-	var destination_icon: Control = _portrait_star_icon_visual
-	if (
-		reward_amount <= 0
-		or source_label == null
-		or !is_instance_valid(source_label)
-		or !source_label.is_inside_tree()
-		or destination_icon == null
-		or !is_instance_valid(destination_icon)
-		or !destination_icon.is_inside_tree()
-	):
-		_finish_portrait_attempt_star_collection()
-		return
-
-	var generation: int = result_transition_generation
-	source_label.pivot_offset = source_label.size * 0.5
-	source_label.scale = Vector2.ONE
-	var bounce_tween := source_label.create_tween()
-	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow := bounce_tween.tween_property(
-		source_label,
-		"scale",
-		PORTRAIT_ATTEMPT_REWARD_BOUNCE_SCALE,
-		PORTRAIT_ATTEMPT_REWARD_BOUNCE_GROW_DURATION
-	)
-	grow.set_trans(Tween.TRANS_QUAD)
-	grow.set_ease(Tween.EASE_OUT)
-	var settle := bounce_tween.tween_property(
-		source_label,
-		"scale",
-		Vector2.ONE,
-		PORTRAIT_ATTEMPT_REWARD_BOUNCE_SETTLE_DURATION
-	)
-	settle.set_trans(Tween.TRANS_BOUNCE)
-	settle.set_ease(Tween.EASE_OUT)
-	# Complete the bounce first. Only after the digit has returned to its normal
-	# size do the standard reward stars appear over it and start flying.
-	bounce_tween.tween_callback(
-		Callable(self, "_launch_portrait_attempt_star_collection").bind(
-			generation,
-			source_label
-		)
-	)
-
-func _launch_portrait_attempt_star_collection(
-	generation: int,
-	source_label: Label
-) -> void:
-	if (
-		generation != result_transition_generation
-		or !_portrait_attempt_star_collection_active
-		or source_label == null
-		or !is_instance_valid(source_label)
-		or !source_label.is_inside_tree()
-	):
-		_finish_portrait_attempt_star_collection()
-		return
-
-	var previous_balance: int = _remaining_attempt_star_balance_before()
-	# Reuse the exact reward-screen resource collection: it owns the standard
-	# number of stars, spread, timing, flight curve and HUD impact bounce.
-	_play_single_player_reward_resource_collection(
-		source_label,
-		GameState.STAGE_REWARD_STARS,
-		null,
-		Callable(self, "_finish_portrait_attempt_star_collection")
-	)
-	_portrait_game_attempts_displayed_value = 0
-	source_label.text = "0"
-
-	var balance_tween := _create_reward_presentation_tween(source_label)
-	balance_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var balance_roll := balance_tween.tween_method(
-		Callable(self, "_set_stage_reward_animated_balance").bind(
-			GameState.STAGE_REWARD_STARS
-		),
-		float(previous_balance),
-		float(GameState.get_stars()),
-		_single_player_reward_collection_duration()
-	)
-	balance_roll.set_trans(Tween.TRANS_QUAD)
-	balance_roll.set_ease(Tween.EASE_OUT)
-
-func _finish_portrait_attempt_star_collection() -> void:
-	if !_portrait_attempt_star_collection_active and !_portrait_attempt_star_collection_started:
-		return
-	_portrait_attempt_star_collection_active = false
-	_portrait_attempt_star_collection_started = false
-	_set_portrait_attempts_result_value(0)
-	_set_stage_reward_animated_balance(
-		float(GameState.get_stars()),
-		GameState.STAGE_REWARD_STARS
-	)
-	_reveal_in_place_result_action_after_attempt_stars()
-
 func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
 	# Every occurrence of the newly revealed letter gets its own tween, so words
 	# with repeated letters animate all matching slots at the same time. Count them
@@ -10032,7 +9592,7 @@ func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
 	_portrait_word_letter_bounce_active_count += 1
 	letter_label.pivot_offset = letter_label.size * 0.5
 	letter_label.scale = PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE
-	call_deferred("_play_portrait_word_letter_bounce", letter_label, bounce_generation)
+	_play_portrait_word_letter_bounce.call_deferred(letter_label.get_instance_id(), bounce_generation)
 
 func _finish_portrait_word_letter_bounce(bounce_generation: int) -> void:
 	if bounce_generation != _portrait_word_letter_bounce_generation:
@@ -10045,12 +9605,13 @@ func _finish_portrait_word_letter_bounce(bounce_generation: int) -> void:
 		_portrait_round_result.gameplay_letters_settled()
 
 func _play_portrait_word_letter_bounce(
-	letter_label: Label,
+	label_id: int,
 	bounce_generation: int
 ) -> void:
 	if bounce_generation != _portrait_word_letter_bounce_generation:
 		return
-	if letter_label == null or !is_instance_valid(letter_label) or !letter_label.is_inside_tree():
+	var letter_label := instance_from_id(label_id) as Label
+	if letter_label == null or !letter_label.is_inside_tree():
 		_finish_portrait_word_letter_bounce(bounce_generation)
 		return
 	letter_label.pivot_offset = letter_label.size * 0.5
@@ -10899,14 +10460,8 @@ func _play_hero_animation_range(nested_start_time: float, nested_end_time: float
 
 func _prepare_portrait_game_entrance() -> void:
 	_portrait_game_entrance_active = true
+	_portrait_crossword.set_input_enabled(false)
 	COMPOSITED_FADE.set_opacity(_portrait_crossword, 0.0)
-	# Attempts should not be visible during the opening choreography. They appear
-	# only after both the crossword and keyboard have completed their entrance.
-	for attempts_control: Control in _portrait_game_attempts_controls:
-		if attempts_control == null or !is_instance_valid(attempts_control):
-			continue
-		attempts_control.visible = false
-		attempts_control.modulate.a = 0.0
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
 		var entry: Dictionary = entry_variant
 		var button := entry.get("button") as Control
@@ -11022,31 +10577,6 @@ func _play_portrait_game_entrance(grid_id: int = 0) -> void:
 		scale_tweener.set_trans(Tween.TRANS_QUAD)
 		scale_tweener.set_ease(Tween.EASE_OUT)
 
-	# Attempts join the entrance from its first visible frame instead of popping in
-	# after the keyboard/paper have finished. Keep the same tiny start delay as the
-	# core choreography and fade the complete pill in as those animations begin.
-	var attempts_fade_duration: float = (
-		PORTRAIT_ROUND_END_ATTEMPTS_FADE_DURATION
-		/ PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER
-	)
-	for attempts_control: Control in _portrait_game_attempts_controls:
-		if attempts_control == null or !is_instance_valid(attempts_control):
-			continue
-		attempts_control.visible = true
-		attempts_control.modulate.a = 0.0
-		var attempts_tween := attempts_control.create_tween()
-		attempts_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		if entrance_start_delay > 0.0:
-			attempts_tween.tween_interval(entrance_start_delay)
-		var attempts_fade := attempts_tween.tween_property(
-			attempts_control,
-			"modulate:a",
-			1.0,
-			attempts_fade_duration
-		)
-		attempts_fade.set_trans(Tween.TRANS_QUAD)
-		attempts_fade.set_ease(Tween.EASE_OUT)
-
 	var core_entrance_finish: float = maxf(
 		entrance_start_delay + grid_duration,
 		latest_key_finish
@@ -11130,11 +10660,6 @@ func _finish_portrait_game_entrance() -> void:
 	if !_portrait_game_entrance_active:
 		return
 	COMPOSITED_FADE.set_opacity(_portrait_crossword, 1.0)
-	for attempts_control: Control in _portrait_game_attempts_controls:
-		if attempts_control == null or !is_instance_valid(attempts_control):
-			continue
-		attempts_control.visible = true
-		attempts_control.modulate.a = 1.0
 	for entry_variant: Variant in _portrait_game_keyboard_buttons:
 		var entry: Dictionary = entry_variant
 		var button := entry.get("button") as Control
@@ -11173,7 +10698,7 @@ func _finish_portrait_game_entrance() -> void:
 		hint_button.remove_meta(&"portrait_entrance_rest_mouse_filter")
 		hint_button.remove_meta(&"portrait_entrance_rest_disabled")
 	_portrait_game_entrance_active = false
-	_sync_portrait_attempts_attention_bounce()
+	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss())
 	# This satisfies the animation side of the consent gate. If region resolution
 	# is also complete, the deferred check may open the popup; otherwise the region
 	# callback will make the same check later without delaying gameplay.
@@ -11259,20 +10784,16 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 		show_game_screen()
 		return
 	if is_instance_valid(_portrait_crossword):
+		_portrait_crossword.set_input_enabled(false)
 		_portrait_crossword.set_bottom(_portrait_game_word_rect.position.y - 12.0)
 		_portrait_crossword.refresh(GameSession.revealed, Callable(), true)
 	var presentation := _ensure_round_result_component()
-	# Remaining-attempt stars were durably awarded before this UI is shown.
-	# This adapter only starts their existing HUD collection presentation.
 	_portrait_in_place_result_is_win = is_win
-	_prepare_portrait_attempt_star_collection(animated)
 	_portrait_game_entrance_active = false
 	_portrait_back_button_visible = false
-	_stop_portrait_attempts_attention_bounce(true)
 	_play_result_sound_once(is_win, last_result_data)
 	_hide_portrait_hints_for_round_end(animated)
-	presentation.begin(is_win, animated, _portrait_word_letter_bounce_active_count > 0,
-		_portrait_attempt_star_collection_active, _result_continue_button_text())
+	presentation.begin(is_win, animated, _portrait_word_letter_bounce_active_count > 0, _result_continue_button_text())
 
 
 
@@ -14740,12 +14261,7 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		reward_subtitle.text = level_title_text
 		reward_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		reward_subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		reward_subtitle.add_theme_font_override("font", UI_REGULAR_FONT)
-		reward_subtitle.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
-		reward_subtitle.add_theme_color_override("font_color", Color.WHITE)
-		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(reward_subtitle)
-		reward_subtitle.autowrap_mode = TextServer.AUTOWRAP_OFF
-		reward_subtitle.clip_text = false
+		_style_portrait_level_title(reward_subtitle)
 		reward_subtitle.z_index = 1
 		title_visual.add_child(reward_subtitle)
 	_portrait_top_bar_content.set_meta(&"reward_level_index", level_index)
@@ -15905,10 +15421,6 @@ func _set_portrait_result_word_color(result_controls: Dictionary, color: Color) 
 func _stage_portrait_result_word_marker(marker_size: Vector2) -> Node2D:
 	return ROUND_RESULT_COMPONENT._stage_portrait_result_word_marker(marker_size)
 
-func _reveal_in_place_result_action_after_attempt_stars() -> void:
-	if is_instance_valid(_portrait_round_result):
-		_portrait_round_result.attempts_collected()
-
 func _dispose_round_result_component() -> void:
 	if is_instance_valid(_portrait_round_result):
 		_portrait_round_result.stop()
@@ -15924,8 +15436,6 @@ func _ensure_round_result_component() -> Node:
 		_portrait_round_result.search_requested.connect(_open_word_search)
 		_portrait_round_result.continue_requested.connect(_on_round_result_continue_requested)
 		_portrait_round_result.continue_available.connect(_on_round_result_continue_available)
-		_portrait_round_result.attempt_collection_requested.connect(_start_portrait_attempt_star_collection)
-		_portrait_round_result.attempt_collection_finish_requested.connect(_finish_portrait_attempt_star_collection)
 		_portrait_round_result.hints_finalize_requested.connect(_finalize_portrait_hints_for_round_end)
 	var primary_letters: Array[String] = []
 	primary_letters.assign(GameSession.get_full_word().split(""))
@@ -15935,9 +15445,6 @@ func _ensure_round_result_component() -> Node:
 		"keyboard_buttons": _portrait_game_keyboard_buttons,
 		"word_comment": GameSession.get_word_hint(),
 		"replace_result_keyboard": GameState.current_mode != GameState.GameMode.TWO_PLAYER,
-		"attempts_title": _portrait_game_attempts_controls[0] if _portrait_game_attempts_controls.size() >= 2 else null,
-		"attempts_value": _portrait_game_attempts_value_label,
-		"attempt_reward_amount": _remaining_attempt_star_reward_amount(),
 		"back_button": _portrait_game_back_button,
 	}, primary_letters)
 	return _portrait_round_result

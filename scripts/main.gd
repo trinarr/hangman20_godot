@@ -353,7 +353,11 @@ func _word_session_with_attempt_offer() -> Dictionary:
 func _restore_attempt_offer(data: Dictionary) -> void:
 	single_player_extra_attempt_offer_count = maxi(int(data.get("attempt_offer_count", 0)), 0)
 	single_player_extra_attempt_current_cost = maxi(int(data.get("attempt_offer_cost", SINGLE_PLAYER_EXTRA_ATTEMPT_COST)), SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
-	single_player_extra_attempt_current_count = clampi(int(data.get("attempt_offer_size", SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)), SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT, GameSession.MAX_MISTAKES)
+	single_player_extra_attempt_current_count = clampi(
+		int(data.get("attempt_offer_size", SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)),
+		1,
+		GameSession.get_saved_attempt_limit(data)
+	)
 
 func _prewarm_runtime_assets() -> void:
 	THEME_ASSET_CACHE.prewarm()
@@ -1913,7 +1917,7 @@ func _single_player_extra_attempt_cost() -> int:
 	return maxi(single_player_extra_attempt_current_cost, SINGLE_PLAYER_EXTRA_ATTEMPT_COST)
 
 func _single_player_extra_attempt_count() -> int:
-	return maxi(single_player_extra_attempt_current_count, SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT)
+	return mini(maxi(single_player_extra_attempt_current_count, SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT), GameSession.attempt_limit)
 
 func _single_player_extra_attempt_description(attempt_count: int) -> String:
 	var description_key: StringName = &"EXTRA_ATTEMPTS_DESCRIPTION"
@@ -1935,7 +1939,7 @@ func _advance_single_player_extra_attempt_offer() -> int:
 			float(single_player_extra_attempt_offer_count)
 			/ float(SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP_INTERVAL)
 		) * SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT_STEP,
-		GameSession.MAX_MISTAKES
+		GameSession.attempt_limit
 	)
 	single_player_extra_attempt_offer_count += 1
 	_persist_active_single_player_word_session()
@@ -2672,21 +2676,18 @@ func _configure_hero_static_animation() -> void:
 		)
 
 func _press_letter(letter: String) -> void:
-	if GameSession.has_deferred_loss():
+	_press_letter_at(letter)
+
+func _press_letter_at(letter: String, cell_index: int = -1) -> void:
+	letter = WordManager.normalize_word(letter)
+	if !GameSession.can_guess_letter(letter, cell_index):
 		return
 	_sync_hero_pose_state()
 	var round_token_before_guess: int = _current_hero_round_token()
 	var previous_mistakes: int = GameSession.mistakes
-	var guess_is_available: bool = (
-		GameSession.is_active
-		and !GameSession.correct_letters.has(letter)
-		and !GameSession.wrong_letters.has(letter)
-		and !GameSession.removed_wrong_letters.has(letter)
-	)
-	var is_correct_letter: bool = GameSession.letters.has(letter)
+	var is_correct_letter: bool = GameSession.letters[cell_index] == letter if cell_index >= 0 else GameSession.letters.has(letter)
 	var should_play_recovery: bool = (
-		guess_is_available
-		and is_correct_letter
+		is_correct_letter
 		and !_hero_uses_terminal_loop()
 		and is_equal_approx(hero_nested_pose_time, HERO_MOV_IDLE_FRAME_TIME)
 	)
@@ -2698,15 +2699,14 @@ func _press_letter(letter: String) -> void:
 	pending_letter_markers.append(letter)
 	pending_letter_marker_is_correct = is_correct_letter
 	var should_defer_loss: bool = (
-		guess_is_available
-		and !is_correct_letter
+		!is_correct_letter
 		and GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and GameSession.get_remaining_attempts() == 1
 	)
-	if guess_is_available and !is_correct_letter:
+	if !is_correct_letter:
 		_queue_wrong_letter_feedback(PackedStringArray([letter]))
-	var guess_was_correct: bool = GameSession.guess(letter, should_defer_loss)
-	if guess_is_available and guess_was_correct:
+	var guess_was_correct: bool = GameSession.guess_cell(cell_index, letter, should_defer_loss) if cell_index >= 0 else GameSession.guess(letter, should_defer_loss)
+	if guess_was_correct:
 		_play_letter_feedback_sound(true)
 	if GameSession.has_deferred_loss():
 		call_deferred("_show_single_player_last_chance_popup")
@@ -2904,7 +2904,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if game_finished or !GameSession.is_active:
 		return
 	if event is InputEventKey and event.pressed and !event.echo:
-		var letter := OS.get_keycode_string(event.keycode).to_upper()
+		var letter := String.chr(event.unicode) if event.unicode != 0 else OS.get_keycode_string(event.keycode)
 		letter = WordManager.normalize_word(letter)
 		if letter.length() == 1 and _active_game_alphabet().has(letter):
 			_press_letter(letter)

@@ -6,8 +6,6 @@ const FADE = preload("res://scripts/ui/composited_fade.gd")
 signal search_requested
 signal continue_requested
 signal continue_available
-signal attempt_collection_requested
-signal attempt_collection_finish_requested
 signal hints_finalize_requested
 
 var letters: Array[String] = []
@@ -24,18 +22,10 @@ var is_win: bool = false
 var waiting_for_letters: bool = false
 var result_search_button: Control
 var result_continue_button: Control
-var attempt_collection_pending: bool = false
 var continue_caption: String = ""
 var word_comment: String = ""
 var comment_label: Label
 var replace_result_keyboard: bool = false
-var attempts_title: Label
-var attempts_value: Label
-var attempt_reward_amount: int = 0
-var attempt_reward_summary: Control
-var attempt_reward_reveal: Tween
-var attempt_reward_bounce: Tween
-
 func configure(parent: Control, bindings: Dictionary, word_letters: Array[String]) -> void:
 	content = parent
 	letters = word_letters.duplicate()
@@ -49,19 +39,13 @@ func configure(parent: Control, bindings: Dictionary, word_letters: Array[String
 	word_comment = str(bindings.get("word_comment", "")).strip_edges()
 	replace_result_keyboard = bool(bindings.get("replace_result_keyboard", false))
 	back_button = bindings.get("back_button")
-	attempts_title = bindings.get("attempts_title")
-	attempts_value = bindings.get("attempts_value")
-	attempt_reward_amount = maxi(int(bindings.get("attempt_reward_amount", 0)), 0)
 
-func begin(win: bool, animated: bool, wait_for_letters: bool, pending_attempts: bool, caption: String) -> void:
+func begin(win: bool, animated: bool, wait_for_letters: bool, caption: String) -> void:
 	if active or _stopped:
 		return
 	active = true
 	is_win = win
 	continue_caption = caption
-	attempt_collection_pending = pending_attempts
-	if !animated and !pending_attempts:
-		_show_attempt_reward_summary(false)
 	if back_button != null and is_instance_valid(back_button):
 		back_button.visible = false
 		back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -76,74 +60,8 @@ func gameplay_letters_settled() -> void:
 	if active and is_win and waiting_for_letters and !_stopped:
 		_peel_portrait_word_paper_for_in_place_result(true)
 
-func attempts_collected() -> void:
-	attempt_collection_pending = false
-	if !_stopped:
-		_show_attempt_reward_summary(true)
-		_reveal_in_place_result_action_after_attempt_stars()
-
-func _show_attempt_reward_summary(animated: bool) -> void:
-	if _stopped or !is_win or attempt_reward_amount <= 0 or is_instance_valid(attempt_reward_summary):
-		return
-	if !is_instance_valid(attempts_title) or !is_instance_valid(attempts_value):
-		return
-	var title_holder: Control = FADE.layout_parent(attempts_title)
-	var value_holder: Control = FADE.layout_parent(attempts_value)
-	var title_rect: Rect2 = title_holder.get("stage_rect")
-	var value_rect: Rect2 = value_holder.get("stage_rect")
-	attempt_reward_summary = FLASH_STAGE_CONTROL_SCRIPT.new()
-	attempt_reward_summary.name = "AttemptStarRewardSummary"
-	attempt_reward_summary.set("stage_rect", title_rect.merge(value_rect))
-	title_holder.get_parent().add_child(attempt_reward_summary)
-	attempt_reward_summary.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	attempt_reward_summary.z_index = attempts_value.z_index
-	var row := HBoxContainer.new()
-	row.name = "AttemptStarRewardRow"
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
-	attempt_reward_summary.add_child(row)
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var amount := Label.new()
-	amount.name = "AttemptStarRewardAmount"
-	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	amount.text = "+%d" % attempt_reward_amount
-	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	amount.add_theme_font_override("font", attempts_value.get_theme_font("font"))
-	var font_size: int = attempts_value.get_theme_font_size("font_size")
-	amount.add_theme_font_size_override("font_size", font_size)
-	amount.add_theme_color_override("font_color", attempts_value.get_theme_color("font_color"))
-	row.add_child(amount)
-	var amount_fade: Control = FADE.wrap(amount)
-	amount_fade.custom_minimum_size = amount.get_combined_minimum_size()
-	amount.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var icon_holder := Control.new()
-	icon_holder.name = "AttemptStarRewardIconHolder"
-	icon_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_holder.custom_minimum_size = Vector2.ONE * font_size
-	icon_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(icon_holder)
-	preload("res://scripts/ui/portrait_icon_extrusion.gd")._add_portrait_icon_with_extrusion_to_holder(
-		icon_holder, preload("res://flash_assets/star_currency_icon.png"), "AttemptStarRewardIcon"
-	)
-	var icon_fade: Control = FADE.wrap(icon_holder)
-	icon_fade.custom_minimum_size = Vector2.ONE * font_size
-	icon_fade.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	icon_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	attempts_title.hide()
-	attempts_value.hide()
-	var fade: Node = FADE.branch(attempt_reward_summary)
-	fade.set("opacity", 0.0 if animated else 1.0)
-	if animated:
-		attempt_reward_bounce = _create_final_reward_pack_bounce(row)
-		attempt_reward_reveal = _tween(attempt_reward_summary)
-		attempt_reward_reveal.tween_property(fade, "opacity", 1.0, PORTRAIT_RESULT_SEARCH_APPEAR_DURATION)
-
 func stop() -> void:
 	super.stop()
-	if is_instance_valid(attempt_reward_summary):
-		attempt_reward_summary.queue_free()
-	attempt_reward_summary = null
 	active = false
 	waiting_for_letters = false
 	if is_instance_valid(result_search_button):
@@ -816,13 +734,6 @@ func _complete_portrait_result_word_bounce_sequence(
 		bounce_holder.visible = false
 		bounce_holder.queue_free()
 
-	# Once every solved-word letter has completed its bounce, reveal the search
-	# button and convert remaining attempts in parallel. Continue still waits for
-	# the final star impact.
-	if attempt_collection_pending:
-		_reveal_portrait_result_actions(search_button, continue_button, continue_text)
-		attempt_collection_requested.emit()
-		return
 	_reveal_portrait_result_actions(search_button, continue_button, continue_text)
 
 func _reveal_portrait_result_actions(
@@ -832,9 +743,7 @@ func _reveal_portrait_result_actions(
 	finished_callback: Callable = Callable()
 ) -> void:
 	if search_button == null or !is_instance_valid(search_button) or !search_button.is_inside_tree():
-		if attempt_collection_pending:
-			attempt_collection_finish_requested.emit()
-		elif finished_callback.is_valid():
+		if finished_callback.is_valid():
 			finished_callback.call()
 		return
 	search_button.visible = true
@@ -1085,12 +994,6 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 	action_button.set("drop_shadow_enabled", true)
 	action_button.z_index = 50
 	result_continue_button = action_button
-	if attempt_collection_pending:
-		action_button.visible = false
-		FADE.set_opacity(action_button, 0.0)
-		action_button.set("disabled", true)
-		action_button.set("attention_bounce_enabled", false)
-		return
 	# Use the shared StageLongButton attention loop. It keeps cycling and yields
 	# to the standard pressed-state animation while the player touches the button.
 	action_button.set("attention_bounce_enabled", true)
@@ -1108,28 +1011,6 @@ func _show_in_place_result_action_button(animated: bool) -> void:
 		1.0,
 		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
 	)
-
-func _reveal_in_place_result_action_after_attempt_stars() -> void:
-	var action_button: Control = result_continue_button
-	if (
-		action_button == null
-		or !is_instance_valid(action_button)
-		or !action_button.is_inside_tree()
-	):
-		return
-	action_button.visible = true
-	FADE.set_opacity(action_button, 0.0)
-	action_button.set("disabled", false)
-	action_button.set("attention_bounce_enabled", true)
-	var reveal_tween := _tween(action_button)
-	reveal_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var fade := reveal_tween.tween_property(
-		FADE.branch(action_button), "opacity",
-		1.0,
-		PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION
-	)
-	fade.set_trans(Tween.TRANS_SINE)
-	fade.set_ease(Tween.EASE_OUT)
 
 static func _build_portrait_result_word_marker_layer(
 	layer_name: String,

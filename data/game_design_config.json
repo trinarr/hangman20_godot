@@ -1,6 +1,10 @@
 {
   "gameplay": {
     "max_mistakes": 6,
+    "crossword_max_mistakes": 3,
+    "crossword_starters": {
+      "max_known_fraction": 0.6
+    },
     "word_difficulty_split": 0.5,
     "random_custom_word": {
       "max_length": 7,
@@ -277,17 +281,8 @@
         "key_wave_seconds": 0.48,
         "key_scale": 1.28,
         "paper_flip_seconds": 0.5,
-        "attempts_fade_seconds": 0.2,
         "hints_fade_seconds": 0.18,
         "hint_badges_fade_seconds": 0.06
-      },
-      "attempts_warning": {
-        "threshold": 2,
-        "bounce_scale": 1.18,
-        "grow_seconds": 0.48,
-        "settle_seconds": 0.55,
-        "pause_seconds": 0.12,
-        "counter_roll_seconds": 0.2
       },
       "game_entrance": {
         "start_delay_seconds": 0.05,
@@ -358,11 +353,6 @@
         "reference_length": 5.0,
         "maximum_speed_multiplier": 2.2,
         "search_appear_seconds": 0.18
-      },
-      "attempt_reward": {
-        "bounce_scale": 1.32,
-        "grow_seconds": 0.18,
-        "settle_seconds": 0.24
       },
       "theme_reels": {
         "base_spins": 7,

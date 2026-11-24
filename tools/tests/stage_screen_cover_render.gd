@@ -119,6 +119,10 @@ func verify_pixels(cover: Node) -> void:
 		check(cover.uses_live_source() and cover._snapshot == null, "Stage reward keeps the live hierarchy without a screenshot")
 		await verify_prize_flight(main.content.find_child("StageCoinLargeReward", true, false))
 	check(is_instance_valid(cover._blocker) and cover._blocker.mouse_filter == Control.MOUSE_FILTER_STOP, "Cover blocks repeat input")
+	# Let the destination create its deferred pattern tween before freezing the
+	# other animations. Keep the cover itself at the same point during setup.
+	cover._animation.pause()
+	await frame()
 	var animations: Array[Tween] = get_tree().get_processed_tweens()
 	for animation: Tween in animations:
 		animation.pause()

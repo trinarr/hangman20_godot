@@ -3,6 +3,7 @@ extends Node
 
 const GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const WORD_CROSSWORD = preload("res://scripts/core/word_crossword.gd")
+const CROSSWORD_STARTERS = preload("res://scripts/core/crossword_starters.gd")
 
 signal changed
 signal round_started
@@ -16,6 +17,7 @@ var WRONG_LETTER_VIBRATION_MS: int = GAME_DESIGN.get_int(
 	"gameplay.vibration.wrong_letter_ms"
 )
 var MAX_MISTAKES: int = GAME_DESIGN.get_int_range("gameplay.max_mistakes", 1, 64)
+var CROSSWORD_MAX_MISTAKES: int = GAME_DESIGN.get_int_range("gameplay.crossword_max_mistakes", 1, 64)
 
 var round_id: String = ""
 var word_index: int = -1
@@ -26,8 +28,10 @@ var letters: PackedStringArray = []
 var revealed: Array = []
 var correct_letters: PackedStringArray = []
 var wrong_letters: PackedStringArray = []
+var misplaced_letters: PackedStringArray = []
 var removed_wrong_letters: PackedStringArray = []
 var mistakes: int = 0
+var attempt_limit: int = MAX_MISTAKES
 var is_active: bool = false
 var loss_deferred: bool = false
 var mode: int = GameState.GameMode.SINGLE_PLAYER
@@ -37,11 +41,13 @@ var open_hint_ad_reuse_available: bool = false
 var remove_wrong_hint_ad_reuse_available: bool = false
 var comment_hint_unlocked: bool = false
 var word_hint_text: String = ""
+var crossword_starter_cells := PackedInt32Array()
+var crossword_starter_letters := PackedStringArray()
 
 func get_remaining_attempts() -> int:
 	if loss_deferred:
 		return 0
-	return maxi(MAX_MISTAKES - mistakes, 0)
+	return maxi(attempt_limit - mistakes, 0)
 
 func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER, word_count: int = 1) -> void:
 	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
@@ -52,12 +58,15 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAY
 	word_index = word.index
 	theme_id = word.theme_index
 	mode = game_mode
-	var candidates: Array = Database.get_words_by_index(theme_id, 0) if word_count > 1 and theme_id >= 0 else []
+	attempt_limit = CROSSWORD_MAX_MISTAKES if mode == GameState.GameMode.SINGLE_PLAYER else MAX_MISTAKES
+	var use_starters: bool = mode == GameState.GameMode.SINGLE_PLAYER
+	var candidates: Array = Database.get_words_by_index(theme_id, 0) if theme_id >= 0 and (word_count > 1 or use_starters) else []
 	crossword = WORD_CROSSWORD.build(word.text, word.difficulty, candidates, word_count)
 	letters = crossword.letters
 	revealed.clear()
 	correct_letters.clear()
 	wrong_letters.clear()
+	misplaced_letters.clear()
 	removed_wrong_letters.clear()
 	mistakes = 0
 	loss_deferred = false
@@ -70,6 +79,15 @@ func start_round(word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAY
 	is_active = word.text.length() > 0
 	for i in range(letters.size()):
 		revealed.append(_is_separator(letters[i]))
+	var starter_cells: Array = []
+	if use_starters:
+		starter_cells = Array(CROSSWORD_STARTERS.choose(
+			crossword, candidates, GAME_DESIGN.get_float("gameplay.crossword_starters.max_known_fraction")
+		))
+	_set_crossword_starters(starter_cells)
+	for index: int in crossword_starter_cells:
+		if letters.count(letters[index]) > 1:
+			revealed[index] = true
 	emit_signal("changed")
 	round_started.emit()
 
@@ -92,6 +110,7 @@ func to_save_data() -> Dictionary:
 		"round_id": round_id,
 		"word": word_data.text,
 		"crossword": crossword.entries.duplicate(true),
+		"crossword_starter_cells": Array(crossword_starter_cells),
 		"word_id": word_data.id,
 		"content_version": Database.WORD_CONTENT.CONTENT_VERSION,
 		"difficulty": word_data.difficulty,
@@ -100,8 +119,10 @@ func to_save_data() -> Dictionary:
 		"revealed": revealed.duplicate(),
 		"correct_letters": Array(correct_letters),
 		"wrong_letters": Array(wrong_letters),
+		"misplaced_letters": Array(misplaced_letters),
 		"removed_wrong_letters": Array(removed_wrong_letters),
-		"mistakes": clampi(mistakes, 0, MAX_MISTAKES),
+		"attempt_limit": attempt_limit,
+		"mistakes": clampi(mistakes, 0, attempt_limit),
 		"loss_deferred": loss_deferred,
 		"open_hint_used": open_hint_used,
 		"remove_wrong_hint_used": remove_wrong_hint_used,
@@ -123,6 +144,9 @@ func _packed_string_array_from_save(source: Variant) -> PackedStringArray:
 func restore_from_save_data(source: Dictionary) -> bool:
 	var profile_result: bool = _home_profile_restore_from_save_data(source)
 	return profile_result
+
+func get_saved_attempt_limit(source: Dictionary) -> int:
+	return clampi(int(source.get("attempt_limit", MAX_MISTAKES)), 1, 64)
 
 func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	var text: String = WordManager.normalize_word(str(source.get("word", "")))
@@ -163,10 +187,13 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 	crossword = restored_board
 	letters = restored_letters
 	revealed = restored_revealed.duplicate()
+	_set_crossword_starters(source.get("crossword_starter_cells", []))
 	correct_letters = _packed_string_array_from_save(source.get("correct_letters", []))
 	wrong_letters = _packed_string_array_from_save(source.get("wrong_letters", []))
+	misplaced_letters = _packed_string_array_from_save(source.get("misplaced_letters", []))
 	removed_wrong_letters = _packed_string_array_from_save(source.get("removed_wrong_letters", []))
-	mistakes = clampi(int(source.get("mistakes", 0)), 0, MAX_MISTAKES - 1)
+	attempt_limit = get_saved_attempt_limit(source)
+	mistakes = clampi(int(source.get("mistakes", 0)), 0, attempt_limit - 1)
 	loss_deferred = bool(source.get("loss_deferred", false))
 	open_hint_used = bool(source.get("open_hint_used", false))
 	remove_wrong_hint_used = bool(source.get("remove_wrong_hint_used", false))
@@ -182,25 +209,83 @@ func _home_profile_restore_from_save_data(source: Dictionary) -> bool:
 func _is_separator(letter: String) -> bool:
 	return WORD_CROSSWORD.is_separator(letter)
 
+func _set_crossword_starters(indices: Variant) -> void:
+	crossword_starter_cells.clear()
+	crossword_starter_letters.clear()
+	if !(indices is Array):
+		return
+	for raw_index: Variant in indices.slice(0, CROSSWORD_STARTERS.MAX_CODES):
+		if !(raw_index is int or raw_index is float) or raw_index < 0 or raw_index >= letters.size() or int(raw_index) != raw_index:
+			continue
+		var index: int = int(raw_index)
+		var letter: String = letters[index]
+		if !_is_separator(letter) and !crossword_starter_letters.has(letter):
+			crossword_starter_cells.append(index)
+			crossword_starter_letters.append(letter)
+
+func get_known_crossword_letter(index: int) -> String:
+	if crossword_starter_cells.is_empty() or index < 0 or index >= letters.size():
+		return ""
+	var letter: String = letters[index]
+	return letter if crossword_starter_letters.has(letter) or correct_letters.has(letter) else ""
+
 func guess(letter: String, defer_loss: bool = false) -> bool:
-	if !is_active or loss_deferred:
-		return false
 	letter = WordManager.normalize_word(letter)
-	if letter.length() != 1:
+	if !can_guess_letter(letter):
 		return false
-	if correct_letters.has(letter) or wrong_letters.has(letter) or removed_wrong_letters.has(letter):
-		return false
-	var correct := _reveal_letter(letter)
-	if correct:
-		if is_word_completed():
-			is_active = false
-			emit_signal("changed")
-			emit_signal("round_won")
-		else:
-			emit_signal("changed")
+	if _reveal_letter(letter):
+		_publish_correct_guess()
 		return true
-	wrong_letters.append(letter)
-	var reaches_loss_limit: bool = mistakes + 1 >= MAX_MISTAKES
+	return _record_wrong_guess(letter, defer_loss)
+
+func can_guess_cell(index: int) -> bool:
+	return is_active and !loss_deferred and index >= 0 and index < revealed.size() and !revealed[index]
+
+func can_guess_letter(letter: String, cell_index: int = -1) -> bool:
+	if !is_active or loss_deferred or letter.length() != 1 or wrong_letters.has(letter) or removed_wrong_letters.has(letter):
+		return false
+	if cell_index == -1:
+		return !correct_letters.has(letter)
+	var known_letter: String = get_known_crossword_letter(cell_index)
+	if !known_letter.is_empty() and letter != known_letter:
+		return false
+	return can_guess_cell(cell_index) and (!correct_letters.has(letter) or get_hidden_letter_counts().has(letter))
+
+func guess_cell(index: int, letter: String, defer_loss: bool = false) -> bool:
+	letter = WordManager.normalize_word(letter)
+	if index < 0 or !can_guess_letter(letter, index):
+		return false
+	if letters[index] != letter:
+		return _record_wrong_guess(letter, defer_loss)
+	revealed[index] = true
+	if !correct_letters.has(letter):
+		correct_letters.append(letter)
+	_publish_correct_guess()
+	return true
+
+func get_hidden_letter_counts() -> Dictionary:
+	var counts: Dictionary = {}
+	for index: int in range(letters.size()):
+		if !revealed[index]:
+			var letter: String = letters[index]
+			counts[letter] = int(counts.get(letter, 0)) + 1
+	return counts
+
+func _publish_correct_guess() -> void:
+	if is_word_completed():
+		is_active = false
+		changed.emit()
+		round_won.emit()
+	else:
+		changed.emit()
+
+func _record_wrong_guess(letter: String, defer_loss: bool) -> bool:
+	# A wrong placement does not eliminate a letter that belongs to another cell.
+	if !letters.has(letter):
+		wrong_letters.append(letter)
+	elif !misplaced_letters.has(letter):
+		misplaced_letters.append(letter)
+	var reaches_loss_limit: bool = mistakes + 1 >= attempt_limit
 	if defer_loss and reaches_loss_limit:
 		loss_deferred = true
 	else:
@@ -208,7 +293,7 @@ func guess(letter: String, defer_loss: bool = false) -> bool:
 	if int(GameState.settings[4]) == 2:
 		# A short pulse gives subtle feedback without interrupting gameplay.
 		Input.vibrate_handheld(WRONG_LETTER_VIBRATION_MS)
-	if mistakes >= MAX_MISTAKES:
+	if mistakes >= attempt_limit:
 		is_active = false
 		emit_signal("changed")
 		emit_signal("round_lost")
@@ -222,7 +307,7 @@ func has_deferred_loss() -> bool:
 func grant_deferred_attempt(attempt_count: int = 1) -> bool:
 	if !loss_deferred or !is_active:
 		return false
-	var granted_attempts: int = maxi(attempt_count, 1)
+	var granted_attempts: int = clampi(attempt_count, 1, attempt_limit)
 	loss_deferred = false
 	# The deferred final mistake was never committed. Clearing the deferred flag
 	# already restores one attempt; roll back additional mistakes so the refill
@@ -235,7 +320,7 @@ func resolve_deferred_loss() -> bool:
 	if !loss_deferred:
 		return false
 	loss_deferred = false
-	mistakes = MAX_MISTAKES
+	mistakes = attempt_limit
 	is_active = false
 	emit_signal("changed")
 	emit_signal("round_lost")
@@ -482,8 +567,10 @@ func discard_current_round() -> void:
 	revealed.clear()
 	correct_letters.clear()
 	wrong_letters.clear()
+	misplaced_letters.clear()
 	removed_wrong_letters.clear()
 	mistakes = 0
+	attempt_limit = MAX_MISTAKES
 	loss_deferred = false
 	is_active = false
 	mode = GameState.GameMode.SINGLE_PLAYER
@@ -493,6 +580,7 @@ func discard_current_round() -> void:
 	remove_wrong_hint_ad_reuse_available = false
 	comment_hint_unlocked = false
 	word_hint_text = ""
+	_set_crossword_starters([])
 	GameState.reset_current_game()
 
 func report_round_finished(is_win: bool, outcome: String = "") -> void:

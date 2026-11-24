@@ -131,3 +131,4 @@ PROFILE_EDIT_TITLE,Изменить профиль,Edit profile
 PROFILE_RANDOMIZE,Случайный профиль,Random profile
 PROFILE_SAVE_FAILED,Не удалось сохранить,Could not save
 PROFILE_SAVE_SUCCESS,Профиль сохранён,Profile saved
+CROSSWORD_MATCH_KNOWN_CODE,Введи букву с тем же номером,Enter the letter shown for this number

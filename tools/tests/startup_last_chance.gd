@@ -2,6 +2,7 @@ extends Node
 var checks := 0
 var failures := 0
 var main: Node
+var loader: Node
 
 func check(ok: bool, message: String) -> void:
 	checks += 1
@@ -22,21 +23,42 @@ func settle() -> void:
 	await get_tree().create_timer(5.0).timeout
 
 func restart_main(language: String) -> void:
-	if is_instance_valid(main):
-		main.queue_free()
+	if is_instance_valid(loader):
+		loader.queue_free()
 		await get_tree().process_frame
 	GameState.load_game()
 	# load_game derives UI language from the host OS; simulate the selected device locale.
 	GameState.interface_language = language
 	GameSession.discard_current_round()
-	main = load("res://scenes/Main.tscn").instantiate()
-	add_child(main)
-	var startup: Node = main.get_node("StartupPreparation")
+	loader = load("res://scenes/Startup.tscn").instantiate()
+	var ready_during_entrance: Array[bool] = []
+	loader.child_entered_tree.connect(func(child: Node):
+		var preparation: Node = child.get_node_or_null("StartupPreparation")
+		if preparation != null:
+			preparation.prepared.connect(func():
+				ready_during_entrance.append(loader.screen.progress == 1.0 and child._portrait_game_entrance_active)
+			, CONNECT_ONE_SHOT)
+	)
+	var completed: Array[Node] = []
+	loader.finished.connect(completed.append, CONNECT_ONE_SHOT)
+	add_child(loader)
 	var deadline: int = Time.get_ticks_msec() + 15000
-	while (startup.preparing or startup.entrance_pending) and Time.get_ticks_msec() < deadline:
+	while completed.is_empty() and Time.get_ticks_msec() < deadline:
 		await get_tree().process_frame
-	check(!startup.preparing and !startup.entrance_pending, "Startup preparation and entrance finish before guided resume checks")
+	check(ready_during_entrance == [true], "Restoring a word completes loading independently of its entrance animation")
+	check(!completed.is_empty(), "Startup dismisses the loading overlay after restoring the saved round")
+	main = loader.runtime
 	await settle()
+	check(!main._portrait_game_entrance_active, "Restored word entrance finishes after loading can proceed")
+
+func write_legacy_save(language: String) -> void:
+	var payload: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
+	payload["save_version"] = 10
+	payload.active_single_player_session.data.erase("attempt_limit")
+	payload.single_player_resume_states[language].active_session.data.erase("attempt_limit")
+	var file := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+	file.store_string(JSON.stringify(payload))
+	file.close()
 
 func run() -> void:
 	Engine.time_scale = 8.0
@@ -47,14 +69,16 @@ func run() -> void:
 		GameState.word_language = language
 		Database.load_languages(language, language)
 		for used_comment: bool in [false, true]:
-			if is_instance_valid(main):
-				main.queue_free()
+			if is_instance_valid(loader):
+				loader.queue_free()
 				await get_tree().process_frame
 			get_window().min_size = Vector2i.ONE
 			get_window().size = Vector2i(690, 1536) if used_comment else Vector2i(960, 1600)
 			GameState.reset_single_level_attempt(language, 0)
 			var source: Dictionary = Database.get_words_by_index(0, 0)[0]
 			GameSession.start_round(WordData.new(str(source.text), float(source.difficulty), 0, int(source.index), str(source.id)))
+			var attempt_limit: int = GameSession.MAX_MISTAKES if used_comment else GameSession.CROSSWORD_MAX_MISTAKES
+			GameSession.attempt_limit = attempt_limit
 			if used_comment:
 				check(GameSession.unlock_comment_hint(), "Fixture unlocks the current word's comment")
 			for letter: String in Database.get_alphabet():
@@ -62,18 +86,21 @@ func run() -> void:
 					GameSession.guess(letter, true)
 					if GameSession.has_deferred_loss():
 						break
-			check(GameSession.has_deferred_loss(), "Last wrong letter leaves a pending continuation decision")
+			check(GameSession.has_deferred_loss() and GameSession.wrong_letters.size() == attempt_limit, "Last wrong letter leaves a pending continuation decision")
 			var saved := GameSession.to_save_data()
 			check(GameState.set_active_single_player_session({"kind":"word", "language":language,
 				"level_index":0, "word_slot":0, "theme_id":Database.get_theme_id(0), "data":saved}), "Persist interrupted first-stage fixture")
+			if used_comment:
+				write_legacy_save(language)
 			var coins := GameState.get_soft_currency()
 			var hearts := GameState.get_hearts()
 			for _restart in range(2):
 				await restart_main(language)
 				check(Database.interface_language == language, "Startup uses the selected device UI language")
 				check(main.game_screen_visible and GameSession.has_deferred_loss(), "Startup automatically restores the pending first-stage round")
-				check(!is_instance_valid(main._home_transition), "Home transition finishes before checking the decision")
-				check(get_tree().get_nodes_in_group("single_player_last_chance_popup").size() == 1, "Exactly one continuation popup survives Home navigation")
+				check(main._portrait_attempt_indicators.total == attempt_limit and main._portrait_attempt_indicators.remaining == 0, "Pending continuation keeps the saved attempt limit")
+				check(!is_instance_valid(main._home_transition), "Direct resume does not leave a Home transition")
+				check(get_tree().get_nodes_in_group("single_player_last_chance_popup").size() == 1, "Direct resume displays exactly one continuation popup")
 				check(GameSession.to_save_data() == saved, "Restart preserves the word, guesses and hint state")
 				check(GameState.get_soft_currency() == coins and GameState.get_hearts() == hearts, "Restart does not spend coins or hearts")
 				var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
@@ -83,11 +110,14 @@ func run() -> void:
 			main._purchase_single_player_extra_attempt()
 			await settle()
 			check(!GameSession.has_deferred_loss() and GameSession.get_remaining_attempts() > 0, "Free continuation restores playable attempts")
+			check(main._portrait_attempt_indicators.remaining == GameSession.get_remaining_attempts(), "Attempt markers recover after free continuation")
 			check(get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty(), "Continuation closes the decision popup")
+			var cell_index: int = GameSession.revealed.find(false)
+			main._portrait_crossword.select_cell(cell_index)
 			var before := GameSession.correct_letters.size() + GameSession.wrong_letters.size()
 			var sent := false
 			for entry: Dictionary in main._portrait_game_keyboard_buttons:
-				if !entry.button.disabled:
+				if entry.letter == GameSession.letters[cell_index] and !entry.button.disabled:
 					check(entry.button.mouse_filter == Control.MOUSE_FILTER_STOP, "Available letter receives pointer input")
 					var point: Vector2 = entry.button.get_global_rect().get_center()
 					for down: bool in [true, false]:

@@ -77,7 +77,7 @@ func run() -> void:
 	GameSession.hint_letters_selected.connect(main._on_hint_letters_selected)
 	var wrong: StageLetterButton = add_key("Г")
 	wrong.feedback_started.connect(observe_wrong_reveal.bind(wrong))
-	main._press_letter("Г")
+	main._press_letter_at("Г")
 	check(GameSession.wrong_letters.has("Г"), "wrong guess recorded immediately")
 	check(main.sounds.is_empty(), "wrong guess has no immediate sound")
 	check(wrong.disabled and wrong._key_visual.opacity == 1.0, "key rejects input before the deferred animation")
@@ -104,6 +104,7 @@ func run() -> void:
 	check(main.sounds == [false], "wrong sound plays once")
 	var mid_opacity: float = wrong._key_visual.opacity
 	check(mid_opacity > StageLetterButton.USED_OPACITY and mid_opacity < 1.0, "wrong key starts fading as its letter shrinks")
+	check(wrong._label.get_theme_color("font_color") == wrong.UI_PALETTE.DISABLED, "a fading wrong key is gray")
 	wrong.configure("Г", 1, 29, true, false)
 	check(wrong._key_visual.opacity == mid_opacity, "refresh preserves intermediate opacity")
 	var settle_duration: float = StageLetterButton.LETTER_MARK_BOUNCE_SETTLE_DURATION / StageLetterButton.WRONG_LETTER_FEEDBACK_SPEED
@@ -112,13 +113,13 @@ func run() -> void:
 	bounce.custom_step(settle_duration * 0.65 - growth_duration * 0.2 + 0.001)
 	check(wrong._label.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(wrong._key_visual.opacity, StageLetterButton.USED_OPACITY), "wrong letter returns as the key reaches final opacity")
 	check(main.sounds.size() == 1, "completion does not repeat sound")
-	main._press_letter("Г")
+	main._press_letter_at("Г")
 	check(main.sounds.size() == 1 and main._pending_wrong_letter_feedback.is_empty(), "duplicate guess has no sound")
 	# Different quick guesses keep independent feedback actions.
 	var first: StageLetterButton = add_key("Д")
 	var second: StageLetterButton = add_key("Ж")
-	main._press_letter("Д")
-	main._press_letter("Ж")
+	main._press_letter_at("Д")
+	main._press_letter_at("Ж")
 	start_feedback_paused(first)
 	start_feedback_paused(second)
 	await get_tree().process_frame
@@ -147,7 +148,7 @@ func run() -> void:
 	check(main.sounds.size() == 4 and main._pending_wrong_letter_feedback.is_empty(), "multi-letter hint produces one sound")
 	# Correct letters keep their immediate sound and fade while settling.
 	var correct: StageLetterButton = add_key("А")
-	main._press_letter("А")
+	main._press_letter_at("А")
 	check(main.sounds == [false, false, false, false, true], "correct sound unchanged")
 	check(correct._label.get_theme_color("font_color") == correct.UI_PALETTE.SUCCESS_BORDER, "correct letter turns green")
 	start_feedback_paused(correct)
@@ -159,13 +160,25 @@ func run() -> void:
 	check(correct._label.scale.x > 1.0 and correct._key_visual.opacity == 1.0, "correct key stays opaque during growth")
 	correct._letter_bounce_tween.custom_step(correct_grow * 0.5 + correct_settle * 0.25)
 	check(correct._label.scale.x < StageLetterButton.LETTER_MARK_BOUNCE_SCALE.x and correct._key_visual.opacity < 1.0, "correct key starts fading as its letter shrinks")
+	check(correct._label.get_theme_color("font_color") == correct.UI_PALETTE.DISABLED, "a fading correct key without more occurrences is gray")
 	correct._letter_bounce_tween.custom_step(correct_settle * 0.75 + 0.001)
 	check(correct._label.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(correct._key_visual.opacity, StageLetterButton.USED_OPACITY), "correct letter returns as the key reaches final opacity")
 	# Restored used keys do not replay feedback.
 	var restored: StageLetterButton = add_key("М", 1, false)
 	await get_tree().process_frame
 	check(is_equal_approx(restored._key_visual.opacity, StageLetterButton.USED_OPACITY) and restored._letter_bounce_tween == null, "restored used key is immediately translucent")
+	check(restored._label.get_theme_color("font_color") == restored.UI_PALETTE.DISABLED, "a restored translucent key is gray")
 	check(main.sounds.size() == 5, "restore produces no sound")
+	var partial: StageLetterButton = add_key("Б")
+	partial.configure("Б", StageLetterButton.LetterState.PARTIAL, 29, false, true, 2)
+	start_feedback_paused(partial)
+	await get_tree().process_frame
+	resume_feedback(partial)
+	partial._letter_bounce_tween.custom_step(correct_grow + correct_settle * 0.5)
+	check(partial._label.get_theme_color("font_color") == partial.UI_PALETTE.SUCCESS_BORDER and !partial._count_label.visible and partial._key_visual.opacity == 1.0, "a reusable correct key stays green through the return")
+	partial.configure("Б", StageLetterButton.LetterState.PARTIAL, 29, false, false, 2)
+	finish_bounce(partial)
+	check(partial._label.scale.is_equal_approx(Vector2.ONE) and partial._label.get_theme_color("font_color") == partial.UI_PALETTE.MARKER_ORANGE_TEXT and partial._count_label.visible and partial._count_label.text == "2" and partial._key_visual.opacity == 1.0, "a reusable correct key shows the orange counter after settling")
 	# Reconfiguration cancels an old delayed reveal.
 	main._queue_wrong_letter_feedback(PackedStringArray(["Н"]))
 	var canceled: StageLetterButton = add_key("Н", 1, true)

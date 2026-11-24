@@ -23,7 +23,7 @@ const SAVE_PATH := "user://save_hangman.json"
 const SAVE_TMP_PATH := "user://save_hangman.tmp"
 const SAVE_BACKUP_PATH := "user://save_hangman.bak"
 const WORD_CONTENT: GDScript = preload("res://scripts/core/word_content_migration.gd")
-const SAVE_FORMAT_VERSION: int = 10
+const SAVE_FORMAT_VERSION: int = 14
 const PLAYER_PROFILE = preload("res://scripts/core/player_profile.gd")
 const PROFILE_NICKNAMES = preload("res://scripts/core/profile_nicknames.gd")
 const SAVE_MIGRATION_BASE_VERSION: int = 2
@@ -597,12 +597,56 @@ func _apply_save_migration_step(_payload: Dictionary, from_version: int) -> bool
 						state["active_session"] = {}
 			_payload["save_version"] = 10
 			return true
+		10:
+			_record_legacy_word_attempt_limit(_payload.get("active_single_player_session"))
+			var resume_states: Variant = _payload.get("single_player_resume_states", {})
+			if resume_states is Dictionary:
+				for state: Variant in resume_states.values():
+					if state is Dictionary:
+						_record_legacy_word_attempt_limit(state.get("active_session"))
+			_payload["save_version"] = 11
+			return true
+		11:
+			_initialize_word_misplaced_letters(_payload.get("active_single_player_session"))
+			var resume_states: Variant = _payload.get("single_player_resume_states", {})
+			if resume_states is Dictionary:
+				for state: Variant in resume_states.values():
+					if state is Dictionary:
+						_initialize_word_misplaced_letters(state.get("active_session"))
+			_payload["save_version"] = 12
+			return true
+		12:
+			# Version 13 introduced starter snapshots. Existing rounds keep their grid.
+			_payload["save_version"] = 13
+			return true
+		13:
+			_payload.erase("crossword_starter_variant")
+			_remove_word_starter_variant(_payload.get("active_single_player_session"))
+			var resume_states: Variant = _payload.get("single_player_resume_states", {})
+			if resume_states is Dictionary:
+				for state: Variant in resume_states.values():
+					if state is Dictionary:
+						_remove_word_starter_variant(state.get("active_session"))
+			_payload["save_version"] = 14
+			return true
 		_:
 			push_error("Missing save migration step from version %d" % from_version)
 			return false
 
 func _is_unfinished_round(session: Variant) -> bool:
 	return session is Dictionary and session.get("kind") in ["word", "quiz"]
+
+func _record_legacy_word_attempt_limit(session: Variant) -> void:
+	if session is Dictionary and session.get("kind") == "word" and session.get("data") is Dictionary:
+		session["data"]["attempt_limit"] = GAME_DESIGN.get_int("gameplay.max_mistakes")
+
+func _initialize_word_misplaced_letters(session: Variant) -> void:
+	if session is Dictionary and session.get("kind") == "word" and session.get("data") is Dictionary:
+		session["data"]["misplaced_letters"] = []
+
+func _remove_word_starter_variant(session: Variant) -> void:
+	if session is Dictionary and session.get("kind") == "word" and session.get("data") is Dictionary:
+		session["data"].erase("crossword_starter_variant")
 
 func _read_save_dictionary(path: String) -> Dictionary:
 	if !FileAccess.file_exists(path):

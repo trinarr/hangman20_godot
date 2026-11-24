@@ -83,17 +83,17 @@ func run_tests() -> void:
 	ui.single_player_active_level_index = 4
 	ui.single_player_active_word_slot = 0
 	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
-	GameSession.mistakes = 5
+	GameSession.mistakes = GameSession.attempt_limit - 1
 	GameSession.loss_deferred = true
 	ui._advance_single_player_extra_attempt_offer()
 	ui._advance_single_player_extra_attempt_offer()
 	ui._advance_single_player_extra_attempt_offer()
 	var saved: Dictionary = GameState.get_active_single_player_session()["data"].duplicate(true)
-	check(int(saved["attempt_offer_cost"]) == 60 and int(saved["attempt_offer_size"]) == 4, "save escalating offer 60 / 4")
+	check(int(saved["attempt_offer_cost"]) == 60 and int(saved["attempt_offer_size"]) == 3, "save escalating offer capped at three attempts")
 	ui._reset_single_player_extra_attempt_offers()
 	ui._restore_attempt_offer(saved)
 	check(GameSession.restore_from_save_data(saved), "restore saved round")
-	check(ui._single_player_extra_attempt_cost() == 60 and ui._single_player_extra_attempt_count() == 4, "restore offer before changed signal")
+	check(ui._single_player_extra_attempt_cost() == 60 and ui._single_player_extra_attempt_count() == 3, "restore capped offer before changed signal")
 	check(ui._advance_single_player_extra_attempt_offer() == 70, "next offer continues at 70")
 	check(GameSession.round_id == str(saved["round_id"]), "round identity survives restore")
 
@@ -105,7 +105,7 @@ func run_tests() -> void:
 	check(GameState.rewarded_action_requests.has(request_id), "close retains unconfirmed receipt")
 	var before_views: int = GameState.extra_attempt_ad_views_remaining
 	ui._on_action_request_rewarded(request_id, "", 1)
-	check(!GameSession.has_deferred_loss() and GameSession.get_remaining_attempts() == 5, "close-before-reward grants original attempt bundle")
+	check(!GameSession.has_deferred_loss() and GameSession.get_remaining_attempts() == 3, "close-before-reward restores three attempts")
 	check(GameState.extra_attempt_ad_views_remaining == before_views - 1, "attempt quota consumed once")
 	ui._on_action_request_rewarded(request_id, "", 1)
 	check(GameState.extra_attempt_ad_views_remaining == before_views - 1, "duplicate callback ignored")

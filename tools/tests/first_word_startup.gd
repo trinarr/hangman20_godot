@@ -101,6 +101,16 @@ func run() -> void:
 			native.dismissed = true
 			await settle()
 			check(main._quiz_screen_active and native.released, "Quiz remains active after splash dismissal")
+			var background := main.content.get_node("PortraitGameBackground") as Control
+			check(background.get_global_rect().is_equal_approx(get_viewport().get_visible_rect()) and !is_instance_valid(main._portrait_header_fill), "Quiz background extends behind the bare top bar")
+			var title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
+			var expected_title: String = "УРОВЕНЬ 1" if language == "ru" else "LEVEL 1"
+			check(is_instance_valid(title) and title.text == expected_title, "First quiz shows the localized level title")
+			if is_instance_valid(title):
+				check(is_equal_approx(title.get_global_rect().get_center().x, get_viewport().get_visible_rect().get_center().x), "First quiz title is centered in the top bar")
+				check(title.get_theme_font("font") == main.UI_REGULAR_FONT and title.get_theme_font_size("font_size") == 24, "Quiz uses the reward subtitle font and size")
+			check(!is_instance_valid(main._portrait_attempt_indicators), "Quiz has no crossword attempts")
+			check(!is_instance_valid(main._portrait_currency_counter_visual) and !is_instance_valid(main._portrait_star_counter_visual), "First quiz has no resource counters")
 			if native.image != null:
 				var color: Color = native.image.get_pixel(native.image.get_width()/2, native.image.get_height()/2)
 				check(color.r + color.g + color.b > 0.1, "Native splash reveals rendered pixels rather than black")
@@ -130,6 +140,8 @@ func run() -> void:
 			await settle()
 			check(main.home_builds == 0 and main.resumes == 1, "Restart restores the first quiz directly exactly once")
 			check(main._quiz_screen_active and main._quiz_current_question == round_saved.question and !main._quiz_fifty_fifty_used and main._quiz_hint_buttons[0].get("button_disabled"), "Restart preserves the quiz and 50/50 lock")
+			var reopened_title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
+			check(is_instance_valid(reopened_title) and reopened_title.text == expected_title, "First quiz restores the same level title on restart")
 			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty(), "Restart keeps accepted consent")
 			main.show_menu()
 			await get_tree().create_timer(2.0).timeout
@@ -216,6 +228,9 @@ func check_guided_stage_resume(language: String, dimensions: Vector2i) -> void:
 			check(main.game_screen_visible and GameSession.to_save_data() == data, "Later guided word keeps its identity and guessed letters")
 		elif stage.kind == "quiz":
 			check(main._quiz_screen_active and main._quiz_current_question == data.question, "Guided quiz resumes its saved question directly")
+			var title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
+			var expected_title: String = ("УРОВЕНЬ %d" if language == "ru" else "LEVEL %d") % (int(stage.level) + 1)
+			check(is_instance_valid(title) and title.text == expected_title, "Later quiz displays its own level number")
 			main._on_quiz_answer_selected((main._quiz_correct_answer_index() + 1) % 4)
 			check(!main.game_finished and GameState.get_active_single_player_session().kind == "quiz", "A legacy second-level quiz also retries mistakes instead of losing")
 		elif stage.kind == "theme":
@@ -237,17 +252,16 @@ func check_cold_damaged_resume(language: String, dimensions: Vector2i) -> void:
 	var theme: int = Database.get_theme_index_by_id(9)
 	var source: Dictionary = Database.get_words_by_index(theme, 0)[0]
 	GameSession.start_round(WordData.new(str(source.text), float(source.difficulty), theme, int(source.index), str(source.id)))
-	var alphabet: String = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ" if language == "ru" else "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	for letter: String in alphabet:
-		if !GameSession.word_data.text.to_upper().contains(letter):
+	for letter: String in Database.get_alphabet():
+		if !GameSession.letters.has(letter):
 			GameSession.guess(letter, true)
-		if GameSession.mistakes == 4:
+		if GameSession.mistakes == 2:
 			break
 	var saved_round: Dictionary = GameSession.to_save_data()
-	check(GameSession.mistakes == 4 and GameState.set_active_single_player_session({
+	check(GameSession.mistakes == 2 and GameState.set_active_single_player_session({
 		"kind": "word", "language": language, "level_index": 0,
 		"word_slot": 0, "theme_id": 9, "data": saved_round,
-	}), "Persist a first word with four mistakes before restarting")
+	}), "Persist a first word with two mistakes before restarting")
 	GameSession.discard_current_round()
 	GameState.load_game()
 	GameState.interface_language = language
@@ -255,7 +269,10 @@ func check_cold_damaged_resume(language: String, dimensions: Vector2i) -> void:
 	start_main()
 	await settle()
 	check(main.hero_static_symbol == null and is_instance_valid(main._portrait_crossword), "Restart shows the crossword without a character")
-	check(GameSession.to_save_data() == saved_round and GameSession.get_remaining_attempts() == 2, "Current-format resume preserves the numbered grid and attempts")
+	check(GameSession.to_save_data() == saved_round and GameSession.get_remaining_attempts() == 1, "Current-format resume preserves the numbered grid and attempts")
+	check(main._portrait_attempt_indicators.total == 3 and main._portrait_attempt_indicators.remaining == 1, "Word resume draws two used attempts")
+	var title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
+	check(is_instance_valid(title) and title.text == ("УРОВЕНЬ 1" if language == "ru" else "LEVEL 1"), "Word resume restores the current level title")
 	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	if !directory.is_empty():
 		await RenderingServer.frame_post_draw

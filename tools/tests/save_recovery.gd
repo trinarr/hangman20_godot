@@ -177,9 +177,39 @@ func run() -> void:
 		"single_player": {"ru": {"levels": {"3": [1, 0, 0]}}},
 		"soft_currency": 125,
 	}
-	var v10: Dictionary = state._migrate_save_payload(v9)
-	check(v10.save_version == 10 and v10.active_single_player_session.is_empty() and v10.single_player_resume_states.en.active_session.is_empty(), "Migration ends unfinished word and quiz rounds in both snapshot locations")
-	check(v10.single_player_resume_states.ru == v9.single_player_resume_states.ru and v10.single_player == v9.single_player and v10.soft_currency == 125, "Migration preserves completed stages, pending rewards and coins")
+	var migrated_v9: Dictionary = state._migrate_save_payload(v9)
+	check(migrated_v9.save_version == state.SAVE_FORMAT_VERSION and migrated_v9.active_single_player_session.is_empty() and migrated_v9.single_player_resume_states.en.active_session.is_empty(), "Migration ends obsolete v9 word and quiz rounds in both snapshot locations")
+	check(migrated_v9.single_player_resume_states.ru == v9.single_player_resume_states.ru and migrated_v9.single_player == v9.single_player and migrated_v9.soft_currency == 125, "Migration preserves completed stages, pending rewards and coins")
+	old_active["data"] = {"round_id": "legacy-crossword", "mistakes": 5, "loss_deferred": true, "attempt_offer_size": 5}
+	var v10 := {
+		"save_version": 10,
+		"active_single_player_session": old_active,
+		"single_player_resume_states": {
+			"ru": {"active_session": old_quiz},
+			"en": {"active_session": old_active.duplicate(true)},
+		},
+	}
+	var migrated_v10: Dictionary = state._migrate_save_payload(v10)
+	var expected_word: Dictionary = old_active.duplicate(true)
+	expected_word.data["attempt_limit"] = 6
+	expected_word.data["misplaced_letters"] = []
+	check(migrated_v10.save_version == state.SAVE_FORMAT_VERSION and migrated_v10.active_single_player_session == expected_word and migrated_v10.single_player_resume_states.en.active_session == expected_word, "Previously started crosswords retain six attempts and their pending offer")
+	check(migrated_v10.single_player_resume_states.ru.active_session == old_quiz, "Attempt limit migration preserves active quizzes")
+	var migrated_v12: Dictionary = state._migrate_save_payload({
+		"save_version": 12, "active_single_player_session": expected_word,
+	})
+	check(migrated_v12.save_version == state.SAVE_FORMAT_VERSION and migrated_v12.active_single_player_session == expected_word, "A board saved before starters remains untouched")
+	var pilot_word: Dictionary = expected_word.duplicate(true)
+	pilot_word.data["crossword_starter_cells"] = [0]
+	pilot_word.data["crossword_starter_variant"] = 1
+	var migrated_v13: Dictionary = state._migrate_save_payload({
+		"save_version": 13, "crossword_starter_variant": 1, "active_single_player_session": pilot_word,
+		"single_player_resume_states": {"en": {"active_session": pilot_word}},
+	})
+	pilot_word.data.erase("crossword_starter_variant")
+	check(migrated_v13.save_version == state.SAVE_FORMAT_VERSION and !migrated_v13.has("crossword_starter_variant")
+		and migrated_v13.active_single_player_session == pilot_word and migrated_v13.single_player_resume_states.en.active_session == pilot_word,
+		"Removing the pilot keeps saved starters in active and alternate-language rounds")
 	var transaction_profile: Dictionary = state.capture_player_profile_state()
 	var transaction_balance: int = state.soft_currency
 	var transaction_id: String = state.begin_player_profile_update("Pending name", 1, 1)

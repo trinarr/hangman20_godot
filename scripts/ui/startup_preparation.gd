@@ -8,7 +8,6 @@ var _logo: Control
 var _cover: ColorRect
 var _native: Object
 var _screen: Control
-var _screen_ready: Callable
 
 func _ready() -> void:
 	layer = 1000
@@ -35,15 +34,12 @@ func prepare_home(logo: Control, fonts: Node, home: Control, after_entrance: Cal
 	home.tree_exiting.connect(_cancel, CONNECT_ONE_SHOT)
 	_release.call_deferred()
 
-func prepare_screen(screen: Control, ready_check: Callable) -> void:
+func prepare_screen(screen: Control) -> void:
 	_screen = screen
-	_screen_ready = ready_check
 	screen.tree_exiting.connect(_cancel, CONNECT_ONE_SHOT)
 	_release.call_deferred()
 
 func _release() -> void:
-	while preparing and is_instance_valid(_screen) and _screen_ready.is_valid() and !_screen_ready.call():
-		await get_tree().process_frame
 	if !preparing or !is_instance_valid(_screen):
 		return
 	# Submit the real screen, including mandatory consent, before native release.

@@ -4,7 +4,6 @@ const DESIGN = preload("res://scripts/core/game_design_config.gd")
 
 var _host: Node
 var _startup: Node
-var _defer_entrance: bool = false
 
 static func try_start(host: Node) -> bool:
 	if GameState._save_blocked_by_future_version:
@@ -33,7 +32,6 @@ static func try_start(host: Node) -> bool:
 
 func _start(saved: Dictionary, resume_saved: bool) -> bool:
 	_startup = _host.get_node_or_null("StartupPreparation")
-	_defer_entrance = !resume_saved
 	if !resume_saved:
 		var options: Array = _host._single_player_level_theme_options(0)
 		var theme_index: int = Database.get_theme_index_by_id(DESIGN.get_int("progression.guided_onboarding.first_word_theme_id"))
@@ -65,19 +63,16 @@ func _start(saved: Dictionary, resume_saved: bool) -> bool:
 		_host._show_legal_consent_popup()
 	screen.tree_exiting.connect(queue_free, CONNECT_ONE_SHOT)
 	if _startup != null and bool(_startup.get("preparing")):
-		_startup.prepare_screen(screen, _is_ready)
+		_startup.prepare_screen(screen)
 		_startup.prepared.connect(_on_prepared, CONNECT_ONE_SHOT)
 	else:
 		queue_free()
 	return true
 
-func _is_ready() -> bool:
-	return _defer_entrance or !_host._portrait_game_entrance_active
-
 func holds_entrance() -> bool:
-	return _defer_entrance and is_instance_valid(_startup) and bool(_startup.get("preparing"))
+	return is_instance_valid(_startup) and bool(_startup.get("preparing"))
 
 func _on_prepared() -> void:
-	if _defer_entrance:
-		_host._play_portrait_game_entrance()
+	# Start the word entrance after the first render, including on saved rounds.
+	_host._play_portrait_game_entrance()
 	queue_free()

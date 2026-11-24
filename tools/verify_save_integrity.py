@@ -87,7 +87,7 @@ def main() -> None:
     project = read("project.godot")
 
     for token in (
-        "SAVE_FORMAT_VERSION: int = 10",
+        "SAVE_FORMAT_VERSION: int = 14",
         '"player_frame_id": player_frame_id',
         '_payload["save_version"] = 4',
         '_payload["save_version"] = 5',
@@ -96,6 +96,10 @@ def main() -> None:
         '_payload["save_version"] = 8',
         '_payload["save_version"] = 9',
         '_payload["save_version"] = 10',
+        '_payload["save_version"] = 11',
+        '_payload["save_version"] = 12',
+        '_payload["save_version"] = 13',
+        '_payload["save_version"] = 14',
         '"pending_profile_update": _pending_profile_update',
         '"player_name_free_change_used": player_name_free_change_used',
         'TOURNAMENT_MODEL.normalize(_payload.get("tournament", {}))',
@@ -762,6 +766,7 @@ def main() -> None:
     home_counter_content = function_body(resource_counters, "_stage_home_resource_counter_content")
     home_counter_component = read("scripts/ui/home_resource_counters.gd")
     game_header = function_body(portrait, "_stage_portrait_game_header")
+    quiz_screen = function_body(portrait, "_home_profile_show_quiz_game_screen")
     reward_screen = function_body(portrait, "_show_single_player_reward_chain_screen")
     for name in (
         "_stage_home_resource_counters",
@@ -790,9 +795,16 @@ def main() -> None:
         "Home does not expose coins, hearts, and stars",
     )
     require(
-        "_stage_coin_and_star_counters" in game_header
+        "_stage_coin_and_star_counters" in quiz_screen
         and "_stage_coin_and_star_counters" in reward_screen,
-        "Gameplay and reward screens do not expose coins and stars",
+        "Standalone quiz and reward screens do not expose coins and stars",
+    )
+    require(
+        'tr("LEVEL_NUMBER")' in game_header
+        and "_stage_portrait_game_header(single_player_active_level_index)" in quiz_screen
+        and "_stage_coin_and_star_counters" not in game_header
+        and "_stage_centered_coin_only_counter" not in game_header,
+        "Campaign word and quiz headers should show the level without resource counters",
     )
     counter_bodies = "\n".join(
         function_body(resource_counters, name)
