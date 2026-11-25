@@ -22,6 +22,25 @@ func _process(_delta: float) -> void:
 func settle() -> void:
 	await get_tree().create_timer(5.0).timeout
 
+func check_attempt_shadows(hearts: Array[Node], directory: String, suffix: String) -> void:
+	await RenderingServer.frame_post_draw
+	var frame := get_viewport().get_texture().get_image()
+	if !directory.is_empty():
+		check(frame.save_png(directory.path_join("attempt_hearts_%s.png" % suffix)) == OK, "Save remaining and spent hearts after continuation")
+	var shadows: Array[TextureRect] = []
+	for holder: Node in [hearts.front(), hearts.back()]:
+		var shadow := holder.get_node("AttemptHeartExtrusion01") as TextureRect
+		shadow.hide()
+		shadows.append(shadow)
+	await RenderingServer.frame_post_draw
+	var without_shadows := get_viewport().get_texture().get_image()
+	var pixel_scale: Vector2 = Vector2(frame.get_size()) / get_viewport().get_visible_rect().size
+	for shadow: TextureRect in shadows:
+		var rect := shadow.get_global_rect().grow(3.0)
+		var bounds := Rect2i(rect.position * pixel_scale, rect.size * pixel_scale)
+		check(frame.get_region(bounds).get_data() != without_shadows.get_region(bounds).get_data(), "The heart shadow changes visible GPU pixels")
+		shadow.show()
+
 func restart_main(language: String) -> void:
 	if is_instance_valid(loader):
 		loader.queue_free()
@@ -62,6 +81,7 @@ func write_legacy_save(language: String) -> void:
 
 func run() -> void:
 	Engine.time_scale = 8.0
+	var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	GameState.guided_onboarding_completed = false
 	for language: String in ["ru", "en"]:
@@ -101,9 +121,10 @@ func run() -> void:
 				check(main._portrait_attempt_indicators.total == attempt_limit and main._portrait_attempt_indicators.remaining == 0, "Pending continuation keeps the saved attempt limit")
 				check(!is_instance_valid(main._home_transition), "Direct resume does not leave a Home transition")
 				check(get_tree().get_nodes_in_group("single_player_last_chance_popup").size() == 1, "Direct resume displays exactly one continuation popup")
+				var offer_icon := main.find_child("ExtraAttemptsSpinVisual", true, false) as TextureRect
+				check(offer_icon != null and offer_icon.texture != null and offer_icon.texture.resource_path == "res://flash_assets/extra_attempts_icon.png", "The continuation offer uses the arrows")
 				check(GameSession.to_save_data() == saved, "Restart preserves the word, guesses and hint state")
 				check(GameState.get_soft_currency() == coins and GameState.get_hearts() == hearts, "Restart does not spend coins or hearts")
-				var directory := OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 				if !directory.is_empty() and DisplayServer.get_name() != "headless":
 					await RenderingServer.frame_post_draw
 					check(get_viewport().get_texture().get_image().save_png(directory.path_join("startup_last_chance_%s_%d_%d.png" % [language, int(used_comment), _restart])) == OK, "Save continuation popup after startup")
@@ -111,7 +132,15 @@ func run() -> void:
 			await settle()
 			check(!GameSession.has_deferred_loss() and GameSession.get_remaining_attempts() > 0, "Free continuation restores playable attempts")
 			check(main._portrait_attempt_indicators.remaining == GameSession.get_remaining_attempts(), "Attempt markers recover after free continuation")
+			var attempt_hearts: Array[Node] = main._portrait_attempt_indicators.get_child(0).get_children()
+			check(attempt_hearts.size() == attempt_limit, "The header has one heart per allowed attempt")
+			for index: int in range(attempt_hearts.size()):
+				var icon := attempt_hearts[index].get_node("AttemptHeart") as TextureRect
+				var expected_material: Material = main.UI_MATERIALS.OUTLINE.material() if index < GameSession.get_remaining_attempts() else main.UI_MATERIALS.grayscale(icon.texture)
+				check(icon.texture == main.PORTRAIT_ATTEMPT_INDICATORS.HEART_TEXTURE and icon.material == expected_material, "Only remaining attempts have red hearts")
 			check(get_tree().get_nodes_in_group("single_player_last_chance_popup").is_empty(), "Continuation closes the decision popup")
+			if DisplayServer.get_name() != "headless":
+				await check_attempt_shadows(attempt_hearts, directory, "%s_%d" % [language, int(used_comment)])
 			var cell_index: int = GameSession.revealed.find(false)
 			main._portrait_crossword.select_cell(cell_index)
 			var before := GameSession.correct_letters.size() + GameSession.wrong_letters.size()

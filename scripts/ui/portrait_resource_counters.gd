@@ -14,7 +14,7 @@ const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 var UI_REGULAR_FONT: Font = UI_FONTS.regular_font()
 const SOFT_CURRENCY_COIN_TEXTURE: Texture2D = preload("res://flash_assets/soft_currency_coin.png")
 const STAR_CURRENCY_TEXTURE: Texture2D = preload("res://flash_assets/star_currency_icon.png")
-const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
+const LIFE_TICKET_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_ticket_icon.png")
 const RESOURCE_COUNTER_STYLE = preload("res://scripts/ui/resource_counter_style.gd")
 const PORTRAIT_GAME_DESIGN: GDScript = preload("res://scripts/core/game_design_config.gd")
 const PORTRAIT_UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
@@ -479,9 +479,7 @@ func _stage_heart_counter(
 	counter_parent_content.add_child(counter_visual)
 	counter_visual.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	content = counter_visual
-	# Match the coin icon height while preserving the source heart's wider
-	# artwork proportions inside its new square 128x128 texture canvas. Keep the
-	# complete texture aligned with the coin and star icons.
+	# Keep the ticket aligned with the coin and star icons.
 	var heart_icon_size := Vector2(
 		PORTRAIT_CURRENCY_ICON_SIZE * PORTRAIT_HEART_ICON_ASPECT_RATIO,
 		PORTRAIT_CURRENCY_ICON_SIZE
@@ -506,7 +504,7 @@ func _stage_heart_counter(
 	panel.z_index = 20
 	var heart_icon: Control = _stage_top_bar_resource_icon(
 		icon_rect,
-		LIFE_HEART_ICON_TEXTURE,
+		LIFE_TICKET_ICON_TEXTURE,
 		"TopBarHeartIcon"
 	)
 	state._portrait_heart_icon_visual = heart_icon

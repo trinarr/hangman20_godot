@@ -18,9 +18,9 @@ const ROBOTO_FLEX_BUTTON_WIDTH: float = 25.0
 const ROBOTO_FLEX_BUTTON_MIN_WIDTH: float = 25.0
 const ROBOTO_FLEX_BUTTON_GRADE: float = -30.0
 const ROBOTO_FLEX_BUTTON_THIN_STROKE: float = 80.0
-const ROBOTO_FLEX_KEYBOARD_WEIGHT: float = 620.0
-# At 620 the button grade leaves a stray MSDF stroke on Cyrillic Э.
-const ROBOTO_FLEX_KEYBOARD_GRADE: float = -29.0
+const ROBOTO_FLEX_KEYBOARD_WEIGHT: float = 600.0
+# The keyboard grade keeps the Cyrillic Э free of stray MSDF strokes.
+const ROBOTO_FLEX_KEYBOARD_GRADE: float = -30.0
 
 # Regular text: resource counters and other compact informational UI.
 const ROBOTO_FLEX_REGULAR_WEIGHT: float = 650.0

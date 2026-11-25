@@ -242,12 +242,6 @@ func _set_crossword_starters(indices: Variant) -> void:
 			crossword_starter_cells.append(index)
 			crossword_starter_letters.append(letter)
 
-func get_known_crossword_letter(index: int) -> String:
-	if crossword_starter_cells.is_empty() or index < 0 or index >= letters.size():
-		return ""
-	var letter: String = letters[index]
-	return letter if crossword_starter_letters.has(letter) or correct_letters.has(letter) else ""
-
 func guess(letter: String, defer_loss: bool = false) -> bool:
 	letter = WordManager.normalize_word(letter)
 	if !can_guess_letter(letter):
@@ -265,9 +259,6 @@ func can_guess_letter(letter: String, cell_index: int = -1) -> bool:
 		return false
 	if cell_index == -1:
 		return !correct_letters.has(letter)
-	var known_letter: String = get_known_crossword_letter(cell_index)
-	if !known_letter.is_empty() and letter != known_letter:
-		return false
 	return can_guess_cell(cell_index) and (
 		(!correct_letters.has(letter) and !crossword_starter_letters.has(letter))
 		or get_hidden_letter_counts().has(letter)

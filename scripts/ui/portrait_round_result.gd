@@ -26,6 +26,7 @@ var continue_caption: String = ""
 var word_comment: String = ""
 var comment_label: Label
 var replace_result_keyboard: bool = false
+var primary_word_completed_in_grid: bool = false
 func configure(parent: Control, bindings: Dictionary, word_letters: Array[String]) -> void:
 	content = parent
 	letters = word_letters.duplicate()
@@ -38,6 +39,7 @@ func configure(parent: Control, bindings: Dictionary, word_letters: Array[String
 	keyboard_buttons = bindings.get("keyboard_buttons", [])
 	word_comment = str(bindings.get("word_comment", "")).strip_edges()
 	replace_result_keyboard = bool(bindings.get("replace_result_keyboard", false))
+	primary_word_completed_in_grid = bool(bindings.get("primary_word_completed_in_grid", false))
 	back_button = bindings.get("back_button")
 
 func begin(win: bool, animated: bool, wait_for_letters: bool, caption: String) -> void:
@@ -323,7 +325,7 @@ func _stage_portrait_result_word_display(
 	var animation_duration: float = 0.0
 	var bounce_holder: Control = null
 	var bounce_labels: Array = []
-	if animate_result and animated_letter_count > 0:
+	if animate_result and !primary_word_completed_in_grid and animated_letter_count > 0:
 		word_label.visible = false
 		var bounce_result: Dictionary = _stage_portrait_result_word_bounce_labels(
 			word_holder,

@@ -2,9 +2,11 @@
 """Install the Home readiness gate in the generated Godot Android activity."""
 import argparse
 from pathlib import Path
+import re
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+STARTUP_TEXTURES = ("flash_assets/life_ticket_icon.png", "flash_assets/torn_ticket_icon.png")
 ORIGINAL = "splashScreen.setKeepOnScreenCondition(() -> godot.getRunStatus() != Godot.RunStatus.STARTED);"
 REPLACEMENT = "HomeStartupGate.install(splashScreen, godot);"
 METHODS = """
@@ -22,15 +24,27 @@ METHODS = """
 
 
 def verify_package(path: Path) -> None:
-    """A prepared source tree does not prove that its bridge reached the APK/AAB."""
+    """Check the Android bridge and imported startup assets in the actual APK/AAB."""
     required = {b'finishHomeStartup', b'isHomeStartupSplashDismissed', b'HomeStartupGate'}
     with zipfile.ZipFile(path) as archive:
-        for name in archive.namelist():
+        names = set(archive.namelist())
+        for name in names:
             if name.endswith('.dex'):
                 data = archive.read(name)
                 required = {marker for marker in required if marker not in data}
-    if required:
-        raise ValueError('Android package has no complete Home startup bridge; prepare and rebuild the Gradle template')
+        if required:
+            raise ValueError('Android package has no complete Home startup bridge; prepare and rebuild the Gradle template')
+        roots = [name.removesuffix("project.binary") for name in names
+                 if name == "assets/project.binary" or name.endswith("/assets/project.binary")]
+        if len(roots) != 1:
+            raise ValueError("Android package has no unique Godot resource directory")
+        prefix = roots[0]
+        for texture in STARTUP_TEXTURES:
+            descriptor = prefix + texture + ".import"
+            targets = re.findall(r'^path(?:\.[^=]+)?="res://([^"]+)"',
+                                 archive.read(descriptor).decode("utf-8"), re.M) if descriptor in names else []
+            if not targets or any(prefix + target not in names for target in targets):
+                raise ValueError(f"Android package is missing startup texture {texture}; import resources and rebuild")
 
 
 def prepare(template: Path, check: bool = False) -> None:

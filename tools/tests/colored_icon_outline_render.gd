@@ -205,6 +205,9 @@ func check_refill_popups() -> void:
 			main.process_mode = Node.PROCESS_MODE_PAUSABLE
 			add_child(main)
 			main.show_menu()
+			var ticket_texture: Texture2D = main.LIFE_TICKET_ICON_TEXTURE
+			var counter_ticket := main._portrait_heart_icon_visual.get_node("TopBarHeartIcon") as TextureRect
+			check(counter_ticket.texture == ticket_texture, "Home counter uses ticket art")
 			main._show_coin_refill_popup()
 			await get_tree().create_timer(1.6).timeout
 			var coin_popup: Node = get_tree().get_first_node_in_group("coin_refill_popup")
@@ -226,7 +229,9 @@ func check_refill_popups() -> void:
 			check(is_equal_approx(compact_bottom, 503.0 + main._portrait_popup_extra_bottom_space()), "Heart popup without ads uses the single-button height")
 			check(!get_tree().get_first_node_in_group("heart_refill_ad_button").visible, "Compact popup hides the unavailable ad row")
 			var shadows: Array = heart.get_meta("main_reward_icon_shadow_layers")
-			check(heart.get_node("HeartRefillVisual").material.get_shader_parameter("outline_pixels") == 5.0, "Heart popup uses five pixels")
+			var refill_ticket := heart.get_node("HeartRefillVisual") as TextureRect
+			check(refill_ticket.texture == ticket_texture, "Refill popup and counter use the same ticket")
+			check(refill_ticket.material.get_shader_parameter("outline_pixels") == 5.0, "Ticket popup uses five pixels")
 			check(shadows.size() == 1 and shadows[0].material != shadow_material and shadows[0].material.get_shader_parameter("shadow_color") == shadow_material.get_shader_parameter("shadow_color"), "Heart retains coin shadow colour with its own combined material")
 			var animations: Array[Tween] = get_tree().get_processed_tweens()
 			for animation: Tween in animations:
@@ -273,6 +278,7 @@ func check_refill_popups() -> void:
 			var full_purchase_y: float = full_popup.find_child("HeartRefillPurchaseButton", true, false).get("stage_rect").position.y
 			check(is_equal_approx(full_bottom - compact_bottom, 79.0) and is_equal_approx(full_purchase_y - compact_purchase_y, 79.0), "Only the hidden ad row is removed from shell, centering and purchase layout")
 			check(get_tree().get_first_node_in_group("heart_refill_ad_button").visible, "Ads-enabled popup retains both buttons")
+			check(get_tree().get_first_node_in_group("heart_refill_ad_button").get("trailing_icon_texture") == ticket_texture, "The ad reward grants a ticket")
 			if !directory.is_empty():
 				get_viewport().get_texture().get_image().save_png(directory.path_join("heart_two_buttons_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
 			main._close_heart_refill_popup()
@@ -298,8 +304,8 @@ func check_refill_popups() -> void:
 			main.game_finished = false
 			main._show_exit_game_popup()
 			await get_tree().create_timer(0.8).timeout
-			var broken_heart := main.find_child("BrokenHeartBase", true, false) as TextureRect
-			check(broken_heart != null and broken_heart.material.get_shader_parameter("outline_pixels") == 5.0, "Exit popup broken heart uses five pixels")
+			var torn_ticket := main.find_child("TornTicketVisual", true, false) as TextureRect
+			check(torn_ticket != null and torn_ticket.texture == main.TORN_TICKET_ICON_TEXTURE and torn_ticket.material.get_shader_parameter("outline_pixels") == 5.0, "Exit popup uses the torn ticket with a five-pixel outline")
 			if !directory.is_empty():
 				get_viewport().get_texture().get_image().save_png(directory.path_join("exit_heart_outline_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
 			main._remove_exit_game_popup()

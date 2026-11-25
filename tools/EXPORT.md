@@ -166,7 +166,7 @@ python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore D
 if ($LASTEXITCODE -ne 0) { throw 'Android debug export failed' }
 ```
 
-После каждого вызова проверяйте журнал и `$LASTEXITCODE`; при ошибке остановитесь. Для release сначала настройте собственный keystore и подпись в диалоге экспорта либо через поддерживаемые [переменные окружения](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_android.html#environment-variables). Ключи и пароли храните вне Git и журналов; `export_credentials.cfg` и локальные `.env` игнорируются.
+После каждого вызова проверяйте журнал и `$LASTEXITCODE`; при ошибке остановитесь. Скрипт проверяет наличие импортированных текстур билетов внутри APK/AAB. Если Android-запуск из открытого редактора пропустил новые ресурсы, дождитесь импорта в редакторе или пересоберите через команды выше. Для release сначала настройте собственный keystore и подпись в диалоге экспорта либо через поддерживаемые [переменные окружения](https://docs.godotengine.org/en/4.7/tutorials/export/exporting_for_android.html#environment-variables). Ключи и пароли храните вне Git и журналов; `export_credentials.cfg` и локальные `.env` игнорируются.
 
 ```powershell
 python tools/export_android.py --godot $godotExe --preset 'Hangman 2.0 RuStore' --output 'builds/Hangman20_rustore.aab'

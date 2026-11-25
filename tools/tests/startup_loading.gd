@@ -27,8 +27,14 @@ class NativeSplash extends RefCounted:
 		return released and dismissed
 
 class FailingLoader extends RefCounted:
+	var requests: int = 0
 	func load_threaded_request(_path: String, _type: String, _sub_threads: bool) -> Error:
+		requests += 1
 		return ERR_CANT_OPEN
+
+class InertLoader extends "res://scripts/ui/startup_loader.gd":
+	func _begin() -> void:
+		pass
 
 class WaitingLoader extends RefCounted:
 	var released: bool = false
@@ -571,11 +577,37 @@ func check_first_profile_startup() -> void:
 		if cancel:
 			check(GameState.player_name.is_empty() and writes.is_empty(), "Leaving the first loading screen cannot create a late profile")
 
+func check_runtime_without_script() -> void:
+	var loader := InertLoader.new()
+	var requests := FailingLoader.new()
+	loader._loads.loader = requests
+	add_child(loader)
+	# A scene with broken script preloads can instantiate as a plain Node.
+	var instance := Node.new()
+	var preparation := preload("res://scripts/ui/startup_preparation.gd").new()
+	preparation.name = "StartupPreparation"
+	instance.add_child(preparation)
+	preparation.owner = instance
+	loader._packed = PackedScene.new()
+	check(loader._packed.pack(instance) == OK, "Build a partial Main scene without its runtime script")
+	instance.free()
+	loader._database_ready = true
+	loader._loading = true
+	loader._installing = true
+	await loader._install()
+	check(loader.runtime == null and !loader._installing and !loader._loading, "A missing Main script clears the stuck install")
+	check(is_instance_valid(loader.screen._retry) and loader.screen._retry.visible, "A missing Main script shows the startup retry")
+	loader._retry()
+	check(requests.requests == 1, "Startup retry requests the scene again")
+	loader.queue_free()
+	await get_tree().process_frame
+
 func run() -> void:
 	check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Startup.tscn", "Normal launch enters the lightweight loader")
 	check(!ResourceLoader.has_cached(LOADER.RUNTIME_PATH), "Loading screen does not preload Main")
 	check(!ResourceLoader.has_cached("res://scripts/ui/home_logo_paper_reveal.gd") and !ResourceLoader.has_cached("res://shaders/home_logo_paper_reveal.gdshader") and !ResourceLoader.has_cached("res://flash_assets/word_paper_backside.png"), "Cold startup excludes the reveal controller, shader and back-face texture")
 	check(!ResourceLoader.has_cached("res://scripts/ui/legal_consent_popup.gd"), "Cold startup does not preload legal UI")
+	await check_runtime_without_script()
 	await check_first_profile_startup()
 	GameState.save_game()
 	baseline = FileAccess.get_file_as_string(GameState.SAVE_PATH)

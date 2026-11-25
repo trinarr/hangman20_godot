@@ -123,6 +123,7 @@ var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.back_entrance_seconds"
 )
 const PORTRAIT_CROSSWORD_GRID_HINT_GAP: float = 12.0
+const PORTRAIT_CROSSWORD_LEVEL_TITLE_FONT_SIZE: int = 20
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
 const PORTRAIT_RESOURCE_COUNTER_GAP = RESOURCE_COUNTER_PRESENTATION.PORTRAIT_RESOURCE_COUNTER_GAP
@@ -490,7 +491,10 @@ const PORTRAIT_POPUP_AUTHORED_BOTTOM_BUTTON_GAP: float = 18.0
 const PORTRAIT_REFILL_STATUS_RECT := Rect2(48.0, 236.0, 384.0, 151.0)
 const PORTRAIT_REFILL_STATUS_CORNER_RADIUS: float = 22.0
 const PORTRAIT_REFILL_STATUS_GLOW_DIAMETER: float = 144.0
-const PORTRAIT_REFILL_HEART_ICON_SIZE := Vector2(95.013, 86.0625)
+const LIFE_TICKET_ICON_TEXTURE: Texture2D = RESOURCE_COUNTER_PRESENTATION.LIFE_TICKET_ICON_TEXTURE
+const TORN_TICKET_ICON_TEXTURE: Texture2D = preload("res://flash_assets/torn_ticket_icon.png")
+const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
+const PORTRAIT_REFILL_TICKET_ICON_SIZE := Vector2(95.013, 86.0625)
 const PORTRAIT_SINGLE_PLAYER_REFRESH_BUTTON_SCALE: float = 1.10
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_ICON_SIZE: float = 75.14
 const PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE: float = 1.8
@@ -553,15 +557,6 @@ const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
 const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 var PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.word_letters.start_scale"
-)
-var PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.peak_scale"
-)
-var PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.grow_seconds"
-)
-var PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
-	"timings.animations.word_letters.settle_seconds"
 )
 const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(8.0, 0.0, 464.0, 72.0)
 const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
@@ -1809,7 +1804,7 @@ func _refresh_heart_refill_ad_button(button: Control, interaction_enabled: bool 
 	_stop_heart_refill_ad_button_timer(button)
 	var base_text_variant: Variant = _optional_node_meta(button, &"heart_refill_ad_base_text")
 	var base_text: String = (
-		str(base_text_variant) if base_text_variant != null else tr("HEART_GET_ONE")
+		str(base_text_variant) if base_text_variant != null else tr("TICKET_GET_ONE")
 	)
 	button.set("button_text", base_text)
 	button.set("icon_texture", _optional_node_meta(button, &"heart_refill_ad_icon_texture"))
@@ -2182,8 +2177,9 @@ func _play_centered_rewarded_double_coin_animation(
 	count_tween.tween_callback(Callable(source_stub, "queue_free"))
 
 func _style_portrait_level_title(title: Label, on_paper: bool = false) -> void:
-	title.add_theme_font_override("font", UI_REGULAR_FONT)
-	title.add_theme_font_size_override("font_size", PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
+	title.add_theme_font_override("font", UI_FONTS.keyboard_font() if on_paper else UI_REGULAR_FONT)
+	title.add_theme_font_size_override("font_size",
+		PORTRAIT_CROSSWORD_LEVEL_TITLE_FONT_SIZE if on_paper else PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
 	title.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.UI_BLUE if on_paper else Color.WHITE)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.clip_text = false
@@ -2199,9 +2195,12 @@ func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) 
 		var nav_rect: Rect2 = PORTRAIT_PAGE_BACK_BUTTON_RECT
 		var side_inset: float = nav_rect.end.x + 12.0
 		var title_rect := Rect2(side_inset, nav_rect.position.y, PORTRAIT_STAGE_SIZE.x - 2.0 * side_inset, nav_rect.size.y)
-		var attempts_gap: float = 3.0
+		var attempts_gap: float = 5.0
 		if with_attempts:
-			title_rect.size.y -= PORTRAIT_ATTEMPT_INDICATORS.ROW_HEIGHT + attempts_gap
+			var attempts_height: float = PORTRAIT_ATTEMPT_INDICATORS.ROW_HEIGHT + attempts_gap
+			var line_height: float = ceilf(UI_FONTS.keyboard_font().get_height(PORTRAIT_CROSSWORD_LEVEL_TITLE_FONT_SIZE))
+			title_rect.size.y = maxf(title_rect.size.y - attempts_height, line_height)
+			title_rect.position.y = nav_rect.get_center().y - (title_rect.size.y + attempts_height) * 0.5
 		var level_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
 		var title := _stage_label(title_rect, level_text)
 		title.name = "GameLevelTitle"
@@ -2419,42 +2418,17 @@ func _portrait_popup_shell(
 ) -> void:
 	POPUP_COMPONENT.build_shell(content, _portrait_popup_style(), rect, title, close_callable, title_font_size, header_color, body_color, separator_color, subtitle, show_close_button)
 
-func _stage_portrait_broken_heart_icon(rect: Rect2) -> Control:
-	# Reuse the same life art as the refill popup and draw a bold zig-zag split on
-	# top. Keeping this composition code-native avoids shipping a duplicate heart.
+func _stage_portrait_torn_ticket_icon(rect: Rect2) -> Control:
 	var holder := _stage_holder(rect, Control.MOUSE_FILTER_IGNORE)
-	var heart_icon := TextureRect.new()
-	heart_icon.name = "BrokenHeartBase"
-	heart_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	heart_icon.texture = LIFE_HEART_ICON_TEXTURE
-	UI_MATERIALS.OUTLINE.apply(heart_icon, LIFE_HEART_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
-	heart_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	heart_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	heart_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	holder.add_child(heart_icon)
-
-	var crack_points := PackedVector2Array([
-		Vector2(rect.size.x * 0.54, rect.size.y * 0.10),
-		Vector2(rect.size.x * 0.43, rect.size.y * 0.37),
-		Vector2(rect.size.x * 0.55, rect.size.y * 0.47),
-		Vector2(rect.size.x * 0.45, rect.size.y * 0.68),
-		Vector2(rect.size.x * 0.54, rect.size.y * 0.91),
-	])
-	var crack_outline := Line2D.new()
-	crack_outline.name = "BrokenHeartCrackOutline"
-	crack_outline.points = crack_points
-	crack_outline.width = maxf(8.0, rect.size.x * 0.09)
-	crack_outline.default_color = PORTRAIT_UI_PALETTE.PAPER_CRACK_DARK
-	crack_outline.antialiased = true
-	holder.add_child(crack_outline)
-	var crack_fill := Line2D.new()
-	crack_fill.name = "BrokenHeartCrack"
-	crack_fill.points = crack_points
-	crack_fill.width = maxf(3.5, rect.size.x * 0.035)
-	crack_fill.default_color = PORTRAIT_UI_PALETTE.PAPER_CRACK_LIGHT
-	crack_fill.antialiased = true
-	holder.add_child(crack_fill)
-	holder.z_index = 11
+	var ticket := TextureRect.new()
+	ticket.name = "TornTicketVisual"
+	ticket.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ticket.texture = TORN_TICKET_ICON_TEXTURE
+	ticket.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ticket.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	UI_MATERIALS.OUTLINE.apply(ticket, TORN_TICKET_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
+	holder.add_child(ticket)
+	ticket.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return holder
 
 func _portrait_popup_button_rect(rect: Rect2) -> Rect2:
@@ -4414,7 +4388,7 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	feedback_root.add_child(feedback_visual)
 
 	var loss_label := Label.new()
-	loss_label.name = "QuizWrongHeartLossLabel"
+	loss_label.name = "QuizWrongTicketLossLabel"
 	loss_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	loss_label.position = Vector2.ZERO
 	loss_label.size = Vector2(68.0, feedback_visual.size.y)
@@ -4424,7 +4398,7 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	feedback_visual.add_visual(loss_label)
 
 	var heart_holder := Control.new()
-	heart_holder.name = "QuizWrongHeartHolder"
+	heart_holder.name = "QuizWrongTicketHolder"
 	heart_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heart_holder.position = Vector2(70.0, 8.0)
 	heart_holder.size = Vector2.ONE * 56.0
@@ -4432,12 +4406,12 @@ func _create_quiz_wrong_feedback() -> Dictionary:
 	feedback_visual.add_visual(heart_holder)
 	var heart_icon := _add_portrait_icon_with_extrusion_to_holder(
 		heart_holder,
-		LIFE_HEART_ICON_TEXTURE,
-		"QuizWrongHeart",
+		LIFE_TICKET_ICON_TEXTURE,
+		"QuizWrongTicket",
 		1
 	)
 	if heart_icon != null:
-		heart_icon.name = "QuizWrongHeartIcon"
+		heart_icon.name = "QuizWrongTicketIcon"
 
 	return {
 		"root": feedback_root,
@@ -6242,7 +6216,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 		"",
 		_single_player_hearts_enabled_for_level(single_player_active_level_index)
 	)
-	# Match the life-refill popup: keep the reward art and explanatory copy on a
+	# Match the ticket-refill popup: keep the reward art and explanatory copy on a
 	# single light-blue status surface, then present ad and coin choices below it.
 	var attempts_status_rect := PORTRAIT_REFILL_STATUS_RECT
 	var attempts_status_panel := _stage_panel(
@@ -6260,7 +6234,7 @@ func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> v
 	)
 	# Keep the stage-mapped outer node completely static. FlashStageTexture already
 	# carries the viewport fit scale, so changing its pivot would visually offset it.
-	# Draw the authored arrows in a local 1x-scale child and rotate only that child.
+	# Draw the arrows in a local 1x-scale child and rotate only that child.
 	var attempt_icon := _stage_texture(
 		attempt_icon_rect,
 		null
@@ -6596,13 +6570,13 @@ func _show_heart_refill_popup(
 	var rect := Rect2(28.0, 145.0, 424.0, popup_bottom - 145.0)
 	_portrait_popup_shell(
 		rect,
-		tr("HEART_REFILL_TITLE"),
+		tr("TICKET_REFILL_TITLE"),
 		close_action,
 		28
 	)
 
 	var current_hearts: int = GameState.get_hearts()
-	# Group the heart and recovery copy on the same light-blue surface used by
+	# Group the ticket and recovery copy on the same light-blue surface used by
 	# the theme-card treatment, keeping the block visually separate from the popup.
 	var heart_status_rect := PORTRAIT_REFILL_STATUS_RECT
 	var heart_status_panel := _stage_panel(
@@ -6611,10 +6585,8 @@ func _show_heart_refill_popup(
 		PORTRAIT_REFILL_STATUS_CORNER_RADIUS
 	)
 	heart_status_panel.z_index = 8
-	# Present the life state as one horizontal row: the large heart stays on the
-	# left, while the recovery caption and timer sit to its right. Center both the
-	# heart/glow and the two-line text block vertically within the blue panel.
-	var heart_size: Vector2 = PORTRAIT_REFILL_HEART_ICON_SIZE
+	# Center the ticket and recovery timer vertically within the blue panel.
+	var heart_size: Vector2 = PORTRAIT_REFILL_TICKET_ICON_SIZE
 	var heart_rect := Rect2(
 		Vector2(
 			79.0,
@@ -6630,14 +6602,14 @@ func _show_heart_refill_popup(
 	)
 	var heart_icon := _stage_holder(heart_rect, Control.MOUSE_FILTER_IGNORE)
 	heart_icon.name = "HeartRefillIcon"
-	_attach_main_reward_icon_shadow(heart_icon, LIFE_HEART_ICON_TEXTURE, "HeartRefillIconShadow", UI_MATERIALS.OUTLINE.POPUP_PIXELS)
+	_attach_main_reward_icon_shadow(heart_icon, LIFE_TICKET_ICON_TEXTURE, "HeartRefillIconShadow", UI_MATERIALS.OUTLINE.POPUP_PIXELS)
 	var heart_art := TextureRect.new()
 	heart_art.name = "HeartRefillVisual"
-	heart_art.texture = LIFE_HEART_ICON_TEXTURE
+	heart_art.texture = LIFE_TICKET_ICON_TEXTURE
 	heart_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heart_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	heart_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	UI_MATERIALS.OUTLINE.apply(heart_art, LIFE_HEART_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
+	UI_MATERIALS.OUTLINE.apply(heart_art, LIFE_TICKET_ICON_TEXTURE, UI_MATERIALS.OUTLINE.POPUP_PIXELS)
 	heart_icon.add_child(heart_art)
 	heart_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	heart_icon.z_index = 11
@@ -6666,7 +6638,7 @@ func _show_heart_refill_popup(
 	)
 	var recovery_label := _stage_label(
 		recovery_text_rect,
-		tr("HEART_NEXT_LIFE"),
+		tr("TICKET_NEXT"),
 		22,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -6723,7 +6695,7 @@ func _show_heart_refill_popup(
 	var rewarded_heart_button := _stage_portrait_popup_main_button(
 		Rect2(90.0, 425.0, 300.0, 56.0),
 		Callable(self, "_on_heart_refill_ad_pressed"),
-		tr("HEART_GET_ONE"),
+		tr("TICKET_GET_ONE"),
 		18,
 		purchase_disabled,
 		0.32,
@@ -6747,13 +6719,13 @@ func _show_heart_refill_popup(
 	rewarded_ad_icon_texture.region = Rect2(83.0, 49.0, 219.0, 159.0)
 	rewarded_heart_button.set("icon_texture", rewarded_ad_icon_texture)
 	rewarded_heart_button.set_meta(&"heart_refill_ad_icon_texture", rewarded_ad_icon_texture)
-	rewarded_heart_button.set_meta(&"heart_refill_ad_base_text", tr("HEART_GET_ONE"))
+	rewarded_heart_button.set_meta(&"heart_refill_ad_base_text", tr("TICKET_GET_ONE"))
 	rewarded_heart_button.set("icon_stage_size", Vector2(34.0, 28.0))
 	rewarded_heart_button.set("icon_gap_stage", 8.0)
 	rewarded_heart_button.set("icon_before_text", true)
 	rewarded_heart_button.set("icon_shadow_enabled", true)
-	rewarded_heart_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
-	rewarded_heart_button.set_meta(&"heart_refill_ad_trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
+	rewarded_heart_button.set("trailing_icon_texture", LIFE_TICKET_ICON_TEXTURE)
+	rewarded_heart_button.set_meta(&"heart_refill_ad_trailing_icon_texture", LIFE_TICKET_ICON_TEXTURE)
 	rewarded_heart_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	rewarded_heart_button.set("trailing_icon_gap_stage", 8.0)
 	rewarded_heart_button.set("trailing_icon_shadow_enabled", true)
@@ -6789,7 +6761,7 @@ func _show_heart_refill_popup(
 	)
 	_stage_portrait_popup_coin_purchase_content(
 		purchase_button,
-		tr("HEART_REFILL"),
+		tr("TICKET_REFILL"),
 		HEART_REFILL_COST,
 		Color.WHITE if has_enough_coins else PORTRAIT_INSUFFICIENT_PRICE_COLOR
 	)
@@ -8900,7 +8872,7 @@ func _show_exit_game_popup() -> void:
 	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 437.0))
 	_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)
 	# Match the refill popups: keep the warning art and copy together on one
-	# light-blue status card, with the broken heart on the left and text on the right.
+	# light-blue status card, with the torn ticket on the left and text on the right.
 	var exit_status_rect := PORTRAIT_REFILL_STATUS_RECT
 	var exit_status_panel := _stage_panel(
 		exit_status_rect,
@@ -8909,7 +8881,7 @@ func _show_exit_game_popup() -> void:
 	)
 	exit_status_panel.name = "ExitLifeStatus"
 	exit_status_panel.z_index = 8
-	var exit_heart_size: Vector2 = PORTRAIT_REFILL_HEART_ICON_SIZE
+	var exit_heart_size: Vector2 = PORTRAIT_REFILL_TICKET_ICON_SIZE
 	var exit_heart_rect := Rect2(
 		Vector2(
 			79.0,
@@ -8923,7 +8895,7 @@ func _show_exit_game_popup() -> void:
 		exit_heart_rect,
 		&"ExitLifeGlow"
 	)
-	var exit_heart := _stage_portrait_broken_heart_icon(exit_heart_rect)
+	var exit_heart := _stage_portrait_torn_ticket_icon(exit_heart_rect)
 	exit_heart.z_index = 11
 	var warning_label := _stage_label(
 		Rect2(204.0, 248.0, 208.0, 112.0),
@@ -8967,7 +8939,7 @@ func _show_exit_game_popup() -> void:
 		LONG_BUTTON_COLOR_BLUE
 	)
 	exit_button.set("drop_shadow_enabled", true)
-	exit_button.set("trailing_icon_texture", LIFE_HEART_ICON_TEXTURE)
+	exit_button.set("trailing_icon_texture", LIFE_TICKET_ICON_TEXTURE)
 	exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	exit_button.set("trailing_icon_gap_stage", 8.0)
 	exit_button.set("trailing_icon_shadow_enabled", true)
@@ -9264,10 +9236,6 @@ func _press_letter(letter: String) -> void:
 		return
 	var cell_index: int = _portrait_crossword.selected_cell
 	if cell_index >= 0:
-		var known_letter: String = GameSession.get_known_crossword_letter(cell_index)
-		if !known_letter.is_empty() and WordManager.normalize_word(letter) != known_letter:
-			_show_portrait_status_toast(tr("CROSSWORD_MATCH_KNOWN_CODE"))
-			return
 		_press_letter_at(letter, cell_index)
 
 func _refresh_game_screen() -> void:
@@ -9342,6 +9310,7 @@ func _refresh_game_screen() -> void:
 	var pattern_source := background.get_node_or_null("PortraitGameThemePattern") as Control
 	_portrait_crossword.build(GameSession.crossword, crossword_field, grid_bottom, paper_bottom, field_padding,
 		GameSession.crossword_starter_cells, GameSession.correct_letters.is_empty(), pattern_source)
+	_portrait_crossword.word_wave_finished.connect(_advance_portrait_word_feedback)
 	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss())
 	_portrait_crossword.refresh(GameSession.revealed)
 
@@ -9402,6 +9371,7 @@ func _refresh_portrait_game_runtime_state() -> void:
 	var bounce := Callable(self, "_prepare_portrait_word_letter_bounce") if pending_letter_marker_is_correct else Callable()
 	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss() and !_portrait_game_entrance_active)
 	_portrait_crossword.refresh(GameSession.revealed, bounce)
+	_advance_portrait_word_feedback()
 	_refresh_portrait_game_keyboard()
 	_refresh_portrait_game_hints_if_needed()
 
@@ -9603,9 +9573,7 @@ func _stage_portrait_ad_banner(source: String = "unspecified") -> void:
 	banner_label.z_index = 31
 
 func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
-	# Every occurrence of the newly revealed letter gets its own tween, so words
-	# with repeated letters animate all matching slots at the same time. Count them
-	# before the deferred start: a solved round can be reported in this same frame.
+	# Reserve the pulse before the deferred start since the result can arrive this frame.
 	var bounce_generation: int = _portrait_word_letter_bounce_generation
 	_portrait_word_letter_bounce_active_count += 1
 	letter_label.pivot_offset = letter_label.size * 0.5
@@ -9619,7 +9587,15 @@ func _finish_portrait_word_letter_bounce(bounce_generation: int) -> void:
 		_portrait_word_letter_bounce_active_count - 1,
 		0
 	)
-	if _portrait_word_letter_bounce_active_count == 0 and is_instance_valid(_portrait_round_result):
+	_advance_portrait_word_feedback()
+
+func _advance_portrait_word_feedback() -> void:
+	if _portrait_word_letter_bounce_active_count > 0:
+		return
+	if is_instance_valid(_portrait_crossword) and _portrait_crossword.has_pending_word_wave():
+		_portrait_crossword.play_next_word_wave()
+		return
+	if is_instance_valid(_portrait_round_result):
 		_portrait_round_result.gameplay_letters_settled()
 
 func _play_portrait_word_letter_bounce(
@@ -9632,25 +9608,8 @@ func _play_portrait_word_letter_bounce(
 	if letter_label == null or !letter_label.is_inside_tree():
 		_finish_portrait_word_letter_bounce(bounce_generation)
 		return
-	letter_label.pivot_offset = letter_label.size * 0.5
-	var tween: Tween = letter_label.create_tween()
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var grow_tweener: PropertyTweener = tween.tween_property(
-		letter_label,
-		"scale",
-		PORTRAIT_WORD_LETTER_BOUNCE_PEAK_SCALE,
-		PORTRAIT_WORD_LETTER_BOUNCE_GROW_DURATION
-	)
-	grow_tweener.set_trans(Tween.TRANS_QUAD)
-	grow_tweener.set_ease(Tween.EASE_OUT)
-	var settle_tweener: PropertyTweener = tween.tween_property(
-		letter_label,
-		"scale",
-		Vector2.ONE,
-		PORTRAIT_WORD_LETTER_BOUNCE_SETTLE_DURATION
-	)
-	settle_tweener.set_trans(Tween.TRANS_BACK)
-	settle_tweener.set_ease(Tween.EASE_OUT)
+	var tween: Tween = letter_label.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	_portrait_crossword.add_letter_bounce(tween, letter_label, PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE)
 	tween.finished.connect(
 		Callable(self, "_finish_portrait_word_letter_bounce").bind(bounce_generation),
 		CONNECT_ONE_SHOT
@@ -9695,21 +9654,21 @@ func _stage_portrait_game_theme(theme_name: String, first_hint: Rect2) -> void:
 	_portrait_begin_bottom_attached_group()
 	content.name = "CrosswordTheme"
 
-	# Keep the caption and name proportions from the original word screen.
 	var caption_font_size: int = 18
-	var name_font_size: int = 34
+	var max_name_font_size: int = 28
+	var font: Font = UI_FONTS.keyboard_font()
 	var left: float = PORTRAIT_GAME_HINT_RIGHT_MARGIN
 	var width: float = first_hint.position.x - PORTRAIT_GAME_HINT_BUTTON_GAP - left
 	var top: float = first_hint.position.y + (first_hint.size.y * PORTRAIT_GAME_HINT_BUTTON_SCALE - 60.0) * 0.5
 	var caption := _stage_label(Rect2(left, top, width, 22.0), tr("THEME_LABEL"),
-		caption_font_size, PORTRAIT_DARK_BLUE, HORIZONTAL_ALIGNMENT_CENTER, UI_HEADING_FONT)
+		caption_font_size, PORTRAIT_DARK_BLUE, HORIZONTAL_ALIGNMENT_CENTER, font)
 	caption.name = "GameThemeCaption"
 	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
 	caption.clip_text = false
 	var theme_title := _stage_label(Rect2(left, top + 16.0, width, 44.0), theme_name,
-		name_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, UI_HEADING_FONT)
+		max_name_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, font)
 	theme_title.name = "GameThemeName"
-	_fit_single_line_label_to_width(theme_title, theme_name, width, name_font_size, caption_font_size)
+	_fit_single_line_label_to_width(theme_title, theme_name, width, max_name_font_size, caption_font_size)
 	_portrait_end_adaptive_group(previous_content)
 
 func _stage_portrait_hint_buttons() -> void:
@@ -10837,7 +10796,10 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 	_portrait_back_button_visible = false
 	_play_result_sound_once(is_win, last_result_data)
 	_hide_portrait_hints_for_round_end(animated)
-	presentation.begin(is_win, animated, _portrait_word_letter_bounce_active_count > 0, _result_continue_button_text())
+	var wait_for_feedback: bool = _portrait_word_letter_bounce_active_count > 0 or (
+		is_instance_valid(_portrait_crossword) and _portrait_crossword.has_pending_word_wave()
+	)
+	presentation.begin(is_win, animated, wait_for_feedback, _result_continue_button_text())
 
 
 
@@ -15487,6 +15449,7 @@ func _ensure_round_result_component() -> Node:
 		"word_rect": _portrait_game_word_rect,
 		"action_rect": _portrait_in_place_result_button_rect(),
 		"keyboard_buttons": _portrait_game_keyboard_buttons,
+		"primary_word_completed_in_grid": is_instance_valid(_portrait_crossword) and _portrait_crossword.primary_word_completed_in_grid(),
 		"word_comment": GameSession.get_word_hint(),
 		"replace_result_keyboard": GameState.current_mode != GameState.GameMode.TWO_PLAYER,
 		"back_button": _portrait_game_back_button,

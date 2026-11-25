@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dpgy0684l3tu0"
-path="res://.godot/imported/RobotoFlexUI_620_25_-29_80_80.ttf-76b6a812cc3f691e97da0a59daf3ec35.fontdata"
+uid="uid://c1qchqs6arx6k"
+path="res://.godot/imported/RobotoFlexUI_600_25_-30_80_80.ttf-201f3a7e0e4d2ada1aa2cf37e0a5ee6e.fontdata"
 
 [deps]
 
-source_file="res://fonts/msdf/RobotoFlexUI_620_25_-29_80_80.ttf"
-dest_files=["res://.godot/imported/RobotoFlexUI_620_25_-29_80_80.ttf-76b6a812cc3f691e97da0a59daf3ec35.fontdata"]
+source_file="res://fonts/msdf/RobotoFlexUI_600_25_-30_80_80.ttf"
+dest_files=["res://.godot/imported/RobotoFlexUI_600_25_-30_80_80.ttf-201f3a7e0e4d2ada1aa2cf37e0a5ee6e.fontdata"]
 
 [params]
 

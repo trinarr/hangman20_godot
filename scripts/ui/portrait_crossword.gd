@@ -1,5 +1,7 @@
 extends Control
 
+signal word_wave_finished
+
 const STAGE = preload("res://scripts/ui/portrait_stage_layout.gd")
 const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
@@ -8,6 +10,7 @@ const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
 const PAPER_SHADER = preload("res://shaders/crossword_paper.gdshader")
 const PATTERN = preload("res://scripts/ui/portrait_theme_pattern.gd")
 const PATTERN_SHADER = preload("res://shaders/crossword_paper_pattern.gdshader")
+const DESIGN = preload("res://scripts/core/game_design_config.gd")
 const PITCH: float = 56.0
 const TILE_SIZE: float = 52.0
 const MAX_GRID_SCALE: float = 1.15
@@ -17,6 +20,9 @@ var selected_cell: int = -1
 var _selected_word: int = 0
 var _input_enabled: bool = false
 var _word_cells: Array[PackedInt32Array] = []
+var _completed_words: Dictionary = {}
+var _word_wave_queue: Array[PackedInt32Array] = []
+var _word_wave: Tween
 var _tiles: Array[Panel] = []
 var _glyphs: Array[Label] = []
 var _number_labels: Array[Label] = []
@@ -24,7 +30,6 @@ var _styles: Array[StyleBoxFlat] = []
 var _revealed: Array = []
 var _show_solution: bool = false
 var _initial_starters := PackedInt32Array()
-var _same_numbers_highlight: bool = false
 var _board_size: Vector2
 var _field: FlashStagePanel
 var _paper: ColorRect
@@ -34,6 +39,11 @@ var _grid: Control
 var _grid_bottom: float
 var _paper_bottom: float
 var _padding: float
+var _bounce_peak: Vector2 = Vector2.ONE * DESIGN.get_float("timings.animations.word_letters.peak_scale")
+var _bounce_grow: float = DESIGN.get_float("timings.animations.word_letters.grow_seconds")
+var _bounce_settle: float = DESIGN.get_float("timings.animations.word_letters.settle_seconds")
+var _wave_step: float = DESIGN.get_float("timings.animations.word_letters.wave_step_seconds")
+var _wave_max_travel: float = DESIGN.get_float("timings.animations.word_letters.wave_max_travel_seconds")
 
 func build(
 	board: RefCounted, field: FlashStagePanel, grid_bottom: float, paper_bottom: float, padding: float,
@@ -44,7 +54,6 @@ func build(
 	_grid_bottom = grid_bottom
 	_paper_bottom = paper_bottom
 	_padding = padding
-	_same_numbers_highlight = !starter_cells.is_empty()
 	if focus_starter:
 		_initial_starters = starter_cells
 	_paper = ColorRect.new()
@@ -73,8 +82,6 @@ func build(
 		_tile_style(PALETTE.TEXT_PALE_BLUE, PALETTE.BUTTON_BLUE),
 		_tile_style(PALETTE.MARKER_ERROR, PALETTE.ERROR_SOFT),
 		_tile_style(PALETTE.BUTTON_ORANGE, PALETTE.BUTTON_ORANGE_PRESSED),
-		_tile_style(Color.WHITE, PALETTE.BUTTON_ORANGE_PRESSED),
-		_tile_style(PALETTE.TEXT_PALE_BLUE, PALETTE.BUTTON_ORANGE_PRESSED),
 	])
 	var numbers: Dictionary = {}
 	var letter_font: Font = FONTS.gameplay_word_font()
@@ -118,10 +125,17 @@ func build(
 	_layout()
 
 func _exit_tree() -> void:
+	if _word_wave != null:
+		_word_wave.kill()
+		_word_wave = null
+	_word_wave_queue.clear()
 	if get_viewport().size_changed.is_connected(_layout):
 		get_viewport().size_changed.disconnect(_layout)
 
 func refresh(revealed: Array, bounce: Callable = Callable(), reveal_solution: bool = false) -> void:
+	var completed_cells: Dictionary = {}
+	if !reveal_solution:
+		completed_cells = _queue_completed_words(revealed, !_revealed.is_empty())
 	_revealed = revealed
 	_show_solution = reveal_solution
 	var previous_cell: int = selected_cell
@@ -143,7 +157,7 @@ func refresh(revealed: Array, bounce: Callable = Callable(), reveal_solution: bo
 		if show_letter == glyph.visible:
 			continue
 		glyph.visible = show_letter
-		if found and bounce.is_valid():
+		if found and bounce.is_valid() and !completed_cells.has(index):
 			bounce.call(glyph)
 	if _input_enabled and !reveal_solution and selected_cell == -1:
 		if !_initial_starters.is_empty():
@@ -152,6 +166,55 @@ func refresh(revealed: Array, bounce: Callable = Callable(), reveal_solution: bo
 		if selected_cell == -1:
 			_advance_selection(previous_cell)
 	_sync_tile_styles()
+
+func _queue_completed_words(revealed: Array, animate: bool) -> Dictionary:
+	var completed_cells: Dictionary = {}
+	for word_index: int in range(_word_cells.size()):
+		if _completed_words.has(word_index):
+			continue
+		var cells: PackedInt32Array = _word_cells[word_index]
+		if cells.is_empty():
+			continue
+		var complete: bool = true
+		for cell: int in cells:
+			if !revealed[cell]:
+				complete = false
+				break
+		if complete:
+			_completed_words[word_index] = true
+			if animate:
+				_word_wave_queue.append(cells)
+				for cell: int in cells:
+					completed_cells[cell] = true
+	return completed_cells
+
+func primary_word_completed_in_grid() -> bool:
+	return _completed_words.has(0)
+
+func has_pending_word_wave() -> bool:
+	return _word_wave != null or !_word_wave_queue.is_empty()
+
+func play_next_word_wave() -> void:
+	if _word_wave != null or _word_wave_queue.is_empty():
+		return
+	var cells: PackedInt32Array = _word_wave_queue.pop_front()
+	# Words can share a glyph, so finish this wave before playing the next one.
+	var step: float = minf(_wave_step, _wave_max_travel / maxi(cells.size() - 1, 1))
+	_word_wave = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	for i: int in range(cells.size()):
+		add_letter_bounce(_word_wave, _glyphs[cells[i]], Vector2.ONE, float(i) * step)
+	_word_wave.finished.connect(_finish_word_wave, CONNECT_ONE_SHOT)
+
+func _finish_word_wave() -> void:
+	_word_wave = null
+	word_wave_finished.emit()
+
+func add_letter_bounce(tween: Tween, glyph: Label, start_scale: Vector2, delay: float = 0.0) -> void:
+	glyph.pivot_offset = glyph.size * 0.5
+	tween.tween_property(glyph, "scale", _bounce_peak, _bounce_grow).from(start_scale) \
+		.set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(glyph, "scale", Vector2.ONE, _bounce_settle).from(_bounce_peak) \
+		.set_delay(delay + _bounce_grow).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _focus_starter() -> void:
 	for starter: int in _initial_starters:
@@ -216,8 +279,6 @@ func _sync_tile_styles() -> void:
 		var style_index: int = 0
 		if index == selected_cell:
 			style_index = 3
-		elif _same_numbers_highlight and selected_cell >= 0 and model.letters[index] == model.letters[selected_cell]:
-			style_index = 5 if _glyphs[index].visible else 4
 		elif _glyphs[index].visible:
 			style_index = 2 if _show_solution and !_revealed[index] else 1
 		var tile: Panel = _tiles[index]

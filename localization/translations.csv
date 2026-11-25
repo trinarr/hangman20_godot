@@ -42,7 +42,7 @@ LEVEL_FAILURE,НЕУДАЧА,FAILURE
 LEVEL_COMPLETED_BONUS,Уровень пройден! Бонус: +%d,Level completed! Bonus: +%d
 CHOOSE_THEME,Выберите тему,Choose a category
 PLAY_GAME,Играть,Play
-EXIT_LEVEL_HEART_WARNING,Вы потеряете одну жизнь!,You will lose one life!
+EXIT_LEVEL_TICKET_WARNING,Вы потеряете один билет!,You will lose one ticket!
 EXIT_PROGRESS_WARNING,Прогресс текущей партии будет потерян,Your progress in this round will be lost
 EXIT_LEVEL_CONFIRM,Хотите выйти?,Exit level?
 ATTEMPTS_LABEL,Попытки,Attempts
@@ -54,10 +54,10 @@ to continue the game"
 EXTRA_ATTEMPTS_DESCRIPTION_MANY,"Добавьте %d попыток,
 чтобы продолжить игру","Add %d attempts
 to continue the game"
-HEART_REFILL_TITLE,БОЛЬШЕ ЖИЗНЕЙ!,MORE LIVES!
-HEART_NEXT_LIFE,Следующая жизнь:,Next life:
-HEART_GET_ONE,ПОЛУЧИТЬ 1,GET 1
-HEART_REFILL,ВОСПОЛНИТЬ,REFILL
+TICKET_REFILL_TITLE,БОЛЬШЕ БИЛЕТОВ!,MORE TICKETS!
+TICKET_NEXT,Следующий билет:,Next ticket:
+TICKET_GET_ONE,ПОЛУЧИТЬ 1,GET 1
+TICKET_REFILL,ВОСПОЛНИТЬ,REFILL
 NO_THANKS,"НЕТ, СПАСИБО","NO, THANKS"
 REWARD_GET_X2,Получить Х2,Get X2
 REWARD_STAGE_COMPLETED,ЭТАП ПРОЙДЕН,STAGE COMPLETE
@@ -131,4 +131,3 @@ PROFILE_EDIT_TITLE,Изменить профиль,Edit profile
 PROFILE_RANDOMIZE,Случайный профиль,Random profile
 PROFILE_SAVE_FAILED,Не удалось сохранить,Could not save
 PROFILE_SAVE_SUCCESS,Профиль сохранён,Profile saved
-CROSSWORD_MATCH_KNOWN_CODE,Введи букву с тем же номером,Enter the letter shown for this number

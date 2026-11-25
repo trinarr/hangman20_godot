@@ -88,7 +88,7 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	var keyboard_font := main.UI_FONTS.keyboard_font() as FontVariation
 	var baked_font := keyboard_font.base_font as FontFile
 	var weight_axis: int = TextServerManager.get_primary_interface().name_to_tag("wght")
-	check(baked_font.multichannel_signed_distance_field and int(keyboard_font.variation_opentype[weight_axis]) == 620, "keyboard uses a baked MSDF profile at weight 620")
+	check(baked_font.multichannel_signed_distance_field and int(keyboard_font.variation_opentype[weight_axis]) == 600, "keyboard uses a baked MSDF profile at weight 600")
 	var cyrillic_e: StageLetterButton
 	var rows: Dictionary = {}
 	for entry: Dictionary in main._portrait_game_keyboard_buttons:

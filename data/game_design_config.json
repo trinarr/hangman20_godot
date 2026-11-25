@@ -385,7 +385,9 @@
         "start_scale": 0.58,
         "peak_scale": 1.24,
         "grow_seconds": 0.18,
-        "settle_seconds": 0.24
+        "settle_seconds": 0.24,
+        "wave_step_seconds": 0.065,
+        "wave_max_travel_seconds": 0.54
       },
       "quiz": {
         "entrance_background_fade_seconds": 0.272,

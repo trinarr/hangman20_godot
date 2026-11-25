@@ -13,6 +13,7 @@ const PATHS := [
 	"res://flash_assets/life_heart_icon.png", "res://flash_assets/coin_pack_04.png",
 	"res://flash_assets/reward_chest_closed.png", "res://flash_assets/reward_chest_open.png",
 	"res://flash_assets/tournament_trophy_front.png", "res://assets/tournament/start_trophy_low.png",
+	"res://flash_assets/life_ticket_icon.png", "res://flash_assets/torn_ticket_icon.png",
 	"res://flash_assets/extra_attempts_icon.png",
 	"res://flash_assets/reward_status_check_wide.png", "res://flash_assets/reward_status_cross_wide.png",
 ]

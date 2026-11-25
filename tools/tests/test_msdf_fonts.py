@@ -15,7 +15,7 @@ class MSDFImports(unittest.TestCase):
     def test_sparse_heading_profiles_do_not_generate_intermediate_fonts(self):
         self.assertEqual(fonts.display_widths(), [35, 32, 30])
         self.assertEqual({(int(p[0]), int(p[1])) for p in fonts.profiles()},
-                         {(760, 35), (760, 32), (760, 30), (680, 25), (900, 35), (620, 25)})
+                         {(760, 35), (760, 32), (760, 30), (680, 25), (900, 35), (600, 25)})
 
     def test_check_rejects_obsolete_profiles(self):
         with tempfile.TemporaryDirectory() as directory:

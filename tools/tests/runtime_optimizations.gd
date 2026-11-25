@@ -138,10 +138,14 @@ func test_crossword() -> void:
 			var fit: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(get_viewport().get_visible_rect().size)
 			check(card.stage_rect.size.x == main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.size.x and card.stage_rect.size.y > main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.size.y, "Crossword card uses the quiz width and extends farther down")
 			check(caption.text == tr("THEME_LABEL") and title.text == Database.get_theme_name(theme), "Both theme labels are localized")
+			var keyboard_font: Font = main.UI_FONTS.keyboard_font()
+			check(caption.get_theme_font("font") == keyboard_font and title.get_theme_font("font") == keyboard_font, "The theme block uses the keyboard font")
+			var theme_font_size: int = title.get_theme_font_size("font_size")
+			check(theme_font_size >= 18 and theme_font_size <= 28, "The theme name is capped at size 28")
 			check(caption_rect.get_center().y < title_rect.get_center().y and is_equal_approx(caption_rect.get_center().x, title_rect.get_center().x), "Theme caption is centered above its name")
 			check(paper_rect.encloses(theme_rect) and is_equal_approx(first_hint_rect.position.x - theme_rect.end.x, main.PORTRAIT_GAME_HINT_BUTTON_GAP * fit)
 				and is_equal_approx(theme_rect.get_center().y, first_hint_rect.get_center().y), "Theme block sits on the paper to the left of the hints")
-			check(title.get_theme_font("font").get_string_size(title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, title.get_theme_font_size("font_size")).x <= title.size.x, "Theme name fits before the hints")
+			check(keyboard_font.get_string_size(title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, theme_font_size).x <= title.size.x, "Theme name fits before the hints")
 			check(title.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.UI_BLUE, "Theme title uses the lighter blue")
 			check(card.fill_color == Color.TRANSPARENT and root.find_child("StageQuestionCard", true, false) == null, "Crossword replaces the blue quiz card with paper")
 			check(absf(paper.global_position.x) < 0.01 and is_equal_approx(paper.get_global_rect().size.x, get_viewport().get_visible_rect().size.x) and paper.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Paper spans the viewport without receiving input")
@@ -150,14 +154,17 @@ func test_crossword() -> void:
 			var attempts: Control = main._portrait_attempt_indicators
 			var attempts_rect: Rect2 = attempts.get_global_rect()
 			var header_center: Vector2 = level_rect.merge(attempts_rect).get_center()
-			check(level_rect.end.y < attempts_rect.position.y and is_equal_approx(header_center.y, nav_rect.get_center().y) and level_rect.position.x > nav_rect.end.x, "Level title and attempts sit centered as a group beside navigation")
-			check(attempts.total == 3 and attempts.remaining == 3 and is_equal_approx(attempts_rect.get_center().x, level_rect.get_center().x), "Three empty attempts are centered under the title at the start")
+			check(is_equal_approx(attempts_rect.position.y - level_rect.end.y, 5.0 * fit), "Five stage units separate the level title and hearts")
+			check(is_equal_approx(header_center.y, nav_rect.get_center().y) and level_rect.position.x > nav_rect.end.x, "Level title and attempts sit centered as a group beside navigation")
+			check(attempts.total == 3 and attempts.remaining == 3 and is_equal_approx(attempts_rect.get_center().x, level_rect.get_center().x), "Three available attempts are centered under the title at the start")
+			for heart: Control in attempts.get_child(0).get_children():
+				check(heart.get_global_rect().size.is_equal_approx(Vector2.ONE * 25.0 * fit), "Each attempt heart is 25 by 25 stage units")
 			check(card.stage_rect.position.y == main.PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.y, "Crossword reuses the quiz card top offset")
 			check(is_equal_approx(first_hint.get_global_rect().position.y - panel_rect.end.y, main.PORTRAIT_CROSSWORD_GRID_HINT_GAP * fit), "Grid keeps its clearance above the hint row")
 			for hint: Control in main._portrait_game_hint_buttons:
 				check(paper_rect.encloses(hint.get_global_rect()), "The whole hint row is on the paper")
-			check(level_title.get_theme_font("font") == main.UI_REGULAR_FONT and level_title.get_theme_color("font_color") == title.get_theme_color("font_color") and main._portrait_top_bar_content.z_index > root.z_index, "Blue level title matches the theme title and draws over the white sheet")
-			check(level_title.get_theme_font_size("font_size") == 24, "Level title renders at the reward subtitle size")
+			check(level_title.get_theme_font("font") == keyboard_font and level_title.get_theme_color("font_color") == title.get_theme_color("font_color") and main._portrait_top_bar_content.z_index > root.z_index, "Blue level title matches the theme title and draws over the white sheet")
+			check(level_title.get_theme_font_size("font_size") == 20, "Crossword level title uses size 20")
 			var letter_font: Font = main.UI_FONTS.gameplay_word_font()
 			var hidden_counts: Dictionary = GameSession.get_hidden_letter_counts()
 			for i: int in range(glyphs.size()):
@@ -210,13 +217,16 @@ func test_crossword() -> void:
 			check(starters.has(board.letters[root.selected_cell]) and !initial_revealed[root.selected_cell], "Late campaign levels focus a hidden copy of a given letter")
 			await click_control(root._tiles[selected_index])
 			check(root.selected_cell == selected_index and root._tiles[selected_index].get_theme_stylebox("panel").bg_color == main.PORTRAIT_UI_PALETTE.BUTTON_ORANGE, "Click highlights one hidden cell in orange")
+			for i: int in range(glyphs.size()):
+				if i != selected_index and board.letters[i] == shared_letter:
+					check(root._tiles[i].get_theme_stylebox("panel").border_color == main.PORTRAIT_UI_PALETTE.UI_BLUE_LIGHT_BORDER, "Other hidden copies of the selected letter keep the standard border")
 			for letter: String in Database.get_alphabet():
 				if !GameSession.letters.has(letter):
 					main._press_letter(letter)
 					main._press_letter(letter)
 					break
 			check(GameSession.get_remaining_attempts() == lives - 1, "A repeated wrong key consumed more than one attempt")
-			check(attempts.remaining == 2, "Only the first marker changes after a repeated wrong key")
+			check(attempts.remaining == 2, "A repeated wrong key spends only one heart")
 			check(root.selected_cell == selected_index, "A wrong guess keeps the selected cell")
 			main._press_letter(shared_letter)
 			for i: int in range(glyphs.size()):
@@ -233,17 +243,19 @@ func test_crossword() -> void:
 			if DisplayServer.get_name() != "headless":
 				await RenderingServer.frame_post_draw
 				var frame: Image = get_viewport().get_texture().get_image()
-				var first_center: Vector2 = attempts_rect.get_center() - Vector2(main.PORTRAIT_ATTEMPT_INDICATORS.SPACING * fit, 0.0)
-				var crossed: Color = frame.get_pixelv(Vector2i(first_center))
-				var empty: Color = frame.get_pixelv(Vector2i(attempts_rect.get_center()))
-				check(crossed.r > 0.8 and crossed.g < 0.5 and empty.r > 0.9 and empty.g > 0.9, "A red cross is drawn only inside the spent circle")
+				var hearts := attempts.get_child(0)
+				var available := hearts.get_child(0).get_node("AttemptHeart") as TextureRect
+				var spent := hearts.get_child(-1).get_node("AttemptHeart") as TextureRect
+				var red: Color = frame.get_pixelv(Vector2i(available.get_global_rect().get_center()))
+				var gray: Color = frame.get_pixelv(Vector2i(spent.get_global_rect().get_center()))
+				check(red.r > red.g + 0.25 and absf(gray.r - gray.g) < 0.02 and absf(gray.g - gray.b) < 0.02 and gray.r < 0.85, "Available hearts are red and the spent heart is gray")
 				check(key.get_global_rect().encloses(key._count_label.get_global_rect()), "The active orange key displays its counter inside the key face")
 				if !directory.is_empty():
 					frame.save_png(directory.path_join("crossword_revealed_%s_%d.png" % [language, size.x]))
 			var misplaced_letter: String = ""
 			var target_index: int = -1
 			for i: int in range(glyphs.size()):
-				if !GameSession.can_guess_cell(i) or !GameSession.get_known_crossword_letter(i).is_empty():
+				if !GameSession.can_guess_cell(i) or crossword_key(board.letters[i]).letter_state != StageLetterButton.LetterState.NORMAL:
 					continue
 				if misplaced_letter.is_empty():
 					misplaced_letter = board.letters[i]
@@ -298,6 +310,7 @@ func test_crossword() -> void:
 						break
 					main._press_letter(board.letters[reopened.selected_cell])
 				check(!GameSession.is_active and main.game_finished, "Solving the complete grid did not finish its stage")
+				check(main._portrait_round_result.waiting_for_letters and main._portrait_round_result.primary_word_completed_in_grid, "The result waits for the last gameplay wave and does not repeat the primary word's wave")
 				check(reopened.selected_cell == -1, "A completed grid has no selected cell")
 				check(!reopened.get_node("CrosswordTheme").visible, "The theme row leaves with the hints on the result screen")
 			main._clear()
@@ -349,14 +362,42 @@ func test_crossword_selection() -> void:
 	await click_control(grid._tiles[last])
 	main._press_letter("T")
 	check(grid.selected_cell == shared_start, "Guessing the last cell wraps to the first hidden cell of the same word")
+	await get_tree().create_timer(0.5).timeout
 	main._press_letter("A")
 	check(grid.selected_cell == board.cells[Vector2i(2, 1)], "Finishing a word skips the revealed start of the next word")
+	var wave: Tween = grid._word_wave
+	check(wave != null and GameSession.is_active, "Completing one word starts its wave before the round ends")
+	if wave == null:
+		main._clear()
+		return
+	wave.pause()
+	var step: float = grid._wave_step
+	wave.custom_step(step * 0.5)
+	check(grid._glyphs[first].scale.x > 1.0 and grid._glyphs[shared_start].scale == Vector2.ONE and grid._glyphs[last].scale == Vector2.ONE, "The wave begins with the first letter")
+	wave.custom_step(step)
+	check(grid._glyphs[shared_start].scale.x > 1.0 and grid._glyphs[last].scale == Vector2.ONE, "The wave advances past the separator to the next letter")
+	wave.custom_step(step)
+	check(grid._glyphs[last].scale.x > 1.0, "The last letter participates in the wave")
+	main._refresh_portrait_game_runtime_state()
+	check(grid._word_wave == wave and grid._word_wave_queue.is_empty(), "Refreshing a completed word does not replay its wave")
 	main._press_letter("B")
 	check(grid.selected_cell == board.cells[Vector2i(2, 2)], "Selection advances to the next vertical cell")
 	main._press_letter("L")
 	check(grid.selected_cell == board.cells[Vector2i(2, 3)], "Guessing a crossing cell continues in the current word")
 	main._press_letter("E")
 	check(grid.selected_cell == board.cells[Vector2i(1, 2)], "Finishing the vertical word selects the first cell of the next word")
+	check(grid._word_wave_queue.size() == 1 and grid._word_wave == wave, "The next word queues its own wave when the words share a glyph")
+	wave.custom_step(1.0)
+	check(grid._glyphs[first].scale == Vector2.ONE and grid._glyphs[last].scale == Vector2.ONE, "The wave restores each letter to its resting size")
+	await get_tree().create_timer(0.5).timeout
+	var vertical_wave: Tween = grid._word_wave
+	check(vertical_wave != null and vertical_wave != wave, "The queued vertical word starts after the previous feedback")
+	main._clear()
+	await get_tree().process_frame
+	check(!is_instance_valid(grid) and (vertical_wave == null or !vertical_wave.is_valid()), "Leaving the screen cancels the remaining wave")
+	main.show_game_screen()
+	var restored: Control = main._portrait_crossword
+	check(restored.primary_word_completed_in_grid() and !restored.has_pending_word_wave(), "Reopening a completed word does not replay its wave")
 	main._clear()
 	await get_tree().process_frame
 
@@ -400,11 +441,16 @@ func test_crossword_starters() -> void:
 			var first_letter: String = GameSession.letters[cells[0]]
 			var target: int = grid.selected_cell
 			check(target == word_text.find(first_letter) and target != cells[0], "Initial selection focuses a hidden copy of the first given letter")
+			check(grid._tiles[cells[0]].get_theme_stylebox("panel").border_color == main.PORTRAIT_UI_PALETTE.BUTTON_BLUE, "A visible copy of the selected letter keeps the standard revealed border")
 			var repeated_key := crossword_key(first_letter)
 			var given_key := crossword_key(GameSession.letters[cells[2]])
 			check(repeated_key.remaining_count == 1 and !repeated_key.disabled and given_key.disabled, "Only the given letters with open positions can be entered")
-			main._press_letter("А" if language == "ru" else "Z")
-			check(GameSession.mistakes == 0 and !GameSession.revealed[target] and grid.selected_cell == target, "A mismatch on a given code is free and keeps the selection")
+			var wrong_key := crossword_key("А" if language == "ru" else "Z")
+			await click_control(wrong_key)
+			check(GameSession.mistakes == 1 and wrong_key.disabled and !GameSession.revealed[target] and grid.selected_cell == target, "A wrong letter on a given code spends an attempt and keeps the selection")
+			var misplaced_key := crossword_key(word_text[0])
+			await click_control(misplaced_key)
+			check(GameSession.mistakes == 2 and !misplaced_key.disabled and misplaced_key.remaining_count > 0 and !GameSession.revealed[target], "A misplaced letter on a given code spends an attempt and stays available")
 			await click_control(crossword_key(first_letter))
 			check(GameSession.revealed[target], "A given code is copied through the keyboard")
 			var snapshot: Dictionary = GameSession.to_save_data()

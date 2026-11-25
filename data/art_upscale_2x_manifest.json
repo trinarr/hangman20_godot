@@ -2243,6 +2243,36 @@
       "target_sha256": "a1de2fef6f445d4a40009e984b2d9d2028e19f2a2f661cbb48f70f0e41ab72a3",
       "native_2x": true,
       "replacement_manifest": "data/round_button_icon_manifest.json"
+    },
+    {
+      "path": "flash_assets/life_ticket_icon.png",
+      "source_size": [
+        128,
+        128
+      ],
+      "source_mode": "RGBA",
+      "target_size": [
+        128,
+        128
+      ],
+      "target_sha256": "c199426c4d65f8bf7d35fd091f4515f9f982e49ffa270ab9c688842db98e0925",
+      "native_2x": true,
+      "source_sha256": "c199426c4d65f8bf7d35fd091f4515f9f982e49ffa270ab9c688842db98e0925"
+    },
+    {
+      "path": "flash_assets/torn_ticket_icon.png",
+      "source_size": [
+        128,
+        128
+      ],
+      "source_mode": "RGBA",
+      "target_size": [
+        128,
+        128
+      ],
+      "target_sha256": "3e9f46450855158e3e086e86059e5a17f8188468868b3d19e0051a158305495c",
+      "native_2x": true,
+      "source_sha256": "3e9f46450855158e3e086e86059e5a17f8188468868b3d19e0051a158305495c"
     }
   ],
   "postprocesses": [

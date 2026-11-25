@@ -172,8 +172,17 @@ func _install() -> void:
 	await RenderingServer.frame_post_draw
 	if !is_inside_tree():
 		return
-	runtime = _packed.instantiate()
+	var instance: Node = _packed.instantiate()
 	_packed = null
+	# A PackedScene can still load when the exported runtime script cannot compile.
+	if instance == null or instance.get_script() == null or !instance.get_script().can_instantiate():
+		if instance != null:
+			instance.free()
+		_loading = false
+		_installing = false
+		screen.show_load_error()
+		return
+	runtime = instance
 	var preparation: Node = runtime.get_node("StartupPreparation")
 	preparation.prepared.connect(_on_prepared, CONNECT_ONE_SHOT)
 	add_child(runtime)

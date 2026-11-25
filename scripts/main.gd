@@ -143,8 +143,6 @@ const ABOUT_VK_ICON: Texture2D = preload("res://flash_assets/about_vk_icon_87.pn
 const ABOUT_MAIL_ICON: Texture2D = preload("res://flash_assets/about_mail_icon_86.png")
 const ABOUT_VK_ICON_SIZE := Vector2.ONE * 34.0 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE
 const ABOUT_MAIL_ICON_SIZE := Vector2.ONE * 33.0 * STAGE_ROUND_BUTTON_SCRIPT.NAV_CANVAS_SCALE
-const LIFE_HEART_ICON_TEXTURE: Texture2D = preload("res://flash_assets/life_heart_icon.png")
-const EXTRA_ATTEMPTS_ICON_TEXTURE: Texture2D = preload("res://flash_assets/extra_attempts_icon.png")
 const CORRECT_LETTER_SOUND: AudioStream = preload("res://audio/Yes_New.wav")
 const WRONG_LETTER_SOUND: AudioStream = preload("res://audio/No_New.wav")
 const LUCKY_DEFEAT_SOUND: AudioStream = preload("res://audio/LuckyDefeat.wav")
@@ -2064,7 +2062,7 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 
 func _exit_game_warning_text() -> String:
 	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return tr("EXIT_LEVEL_HEART_WARNING")
+		return tr("EXIT_LEVEL_TICKET_WARNING")
 	return tr("EXIT_PROGRESS_WARNING")
 
 func _exit_game_title_text() -> String:

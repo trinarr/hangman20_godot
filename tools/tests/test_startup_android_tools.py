@@ -9,7 +9,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
-from prepare_startup_android import ORIGINAL, METHODS, prepare, verify_package
+from prepare_startup_android import ORIGINAL, METHODS, STARTUP_TEXTURES, prepare, verify_package
 
 
 class StartupAndroidPreparationTests(unittest.TestCase):
@@ -147,15 +147,30 @@ public class HomeStartupGateTest {
 
     def test_built_package_must_contain_the_bridge(self):
         with tempfile.TemporaryDirectory() as temporary:
-            package = Path(temporary) / 'test.apk'
-            for prefix in ('', 'base/dex/'):
+            for suffix, dex_prefix, assets in (
+                ('.apk', '', 'assets/'),
+                ('.aab', 'base/dex/', 'assetPackInstallTime/assets/'),
+            ):
+                package = Path(temporary) / ('test' + suffix)
                 with zipfile.ZipFile(package, 'w') as archive:
-                    archive.writestr(prefix + 'classes.dex', b'ordinary Android activity')
+                    archive.writestr(dex_prefix + 'classes.dex', b'ordinary Android activity')
                 with self.assertRaisesRegex(ValueError, 'startup bridge'):
                     verify_package(package)
                 with zipfile.ZipFile(package, 'w') as archive:
-                    archive.writestr(prefix + 'classes.dex', b'finishHomeStartup HomeStartupGate')
-                    archive.writestr(prefix + 'classes2.dex', b'isHomeStartupSplashDismissed')
+                    archive.writestr(dex_prefix + 'classes.dex', b'finishHomeStartup HomeStartupGate')
+                    archive.writestr(dex_prefix + 'classes2.dex', b'isHomeStartupSplashDismissed')
+                    archive.writestr(assets + 'project.binary', b'Godot project')
+                with self.assertRaisesRegex(ValueError, 'missing startup texture'):
+                    verify_package(package)
+                with zipfile.ZipFile(package, 'a') as archive:
+                    for texture in STARTUP_TEXTURES:
+                        target = '.godot/imported/' + Path(texture).stem + '.ctex'
+                        archive.writestr(assets + texture + '.import', f'[remap]\npath="res://{target}"\n')
+                with self.assertRaisesRegex(ValueError, 'missing startup texture'):
+                    verify_package(package)
+                with zipfile.ZipFile(package, 'a') as archive:
+                    for texture in STARTUP_TEXTURES:
+                        archive.writestr(assets + '.godot/imported/' + Path(texture).stem + '.ctex', b'texture')
                 verify_package(package)
     def fixture(self, root):
         directory = root / "src/main/java/com/godot/game"
