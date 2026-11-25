@@ -73,7 +73,11 @@ func build(
 	_grid = Control.new()
 	_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_field.add_child(_grid)
-	_board_size = Vector2(board.bounds.size) * PITCH - Vector2.ONE * (PITCH - TILE_SIZE)
+	var transpose: bool = _should_transpose_board()
+	var board_extent := Vector2(board.bounds.size)
+	if transpose:
+		board_extent = Vector2(board_extent.y, board_extent.x)
+	_board_size = board_extent * PITCH - Vector2.ONE * (PITCH - TILE_SIZE)
 	_tiles.resize(board.letters.size())
 	_glyphs.resize(board.letters.size())
 	_number_labels.resize(board.letters.size())
@@ -92,7 +96,8 @@ func build(
 		var tile := Panel.new()
 		tile.name = "Cell%d" % index
 		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile.position = Vector2(point - board.bounds.position) * PITCH
+		var offset: Vector2i = point - board.bounds.position
+		tile.position = Vector2(offset.y, offset.x) * PITCH if transpose else Vector2(offset) * PITCH
 		tile.size = Vector2.ONE * TILE_SIZE
 		_grid.add_child(tile)
 		_tiles[index] = tile
@@ -123,6 +128,19 @@ func build(
 		_word_cells.append(word_cells)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+
+func _should_transpose_board() -> bool:
+	var longest_length: int = 0
+	var longest_is_vertical: bool = false
+	for entry: Dictionary in model.entries:
+		var word_length: int = String(entry.text).length()
+		if word_length > longest_length:
+			longest_length = word_length
+			longest_is_vertical = entry.vertical
+		elif word_length == longest_length and entry.vertical:
+			longest_is_vertical = true
+	# Swap display axes only. Cell indices and reading order still belong to the model.
+	return longest_length > 0 and !longest_is_vertical
 
 func _exit_tree() -> void:
 	if _word_wave != null:

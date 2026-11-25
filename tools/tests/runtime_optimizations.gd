@@ -90,12 +90,22 @@ func test_crossword() -> void:
 				check(!pattern_motion.position.is_equal_approx(previous_position) and paper_pattern.position.is_equal_approx(pattern_motion.position), "Paper pattern follows the same live motion")
 			check(board.entries.size() == 7, "Bonus crossword must contain seven words")
 			var occupied: Dictionary = {}
+			var longest_length: int = 0
+			var longest_vertical_length: int = 0
 			for entry: Dictionary in board.entries:
 				var start := Vector2i(entry.x, entry.y)
 				var direction := Vector2i.DOWN if entry.vertical else Vector2i.RIGHT
 				var crosses: bool = false
 				var word: String = entry.text
 				check(!word.contains(" "), "Crossword must contain only entries without spaces")
+				var first_tile: Panel = root._tiles[board.cells[start]]
+				var last_tile: Panel = root._tiles[board.cells[start + direction * (word.length() - 1)]]
+				var delta: Vector2 = last_tile.position - first_tile.position
+				var reads_down: bool = delta.x == 0.0 and delta.y > 0.0
+				check(reads_down or (delta.y == 0.0 and delta.x > 0.0), "Crossword shows words in reading order")
+				longest_length = maxi(longest_length, word.length())
+				if reads_down:
+					longest_vertical_length = maxi(longest_vertical_length, word.length())
 				for i: int in range(word.length()):
 					var point: Vector2i = start + direction * i
 					if occupied.has(point):
@@ -103,6 +113,7 @@ func test_crossword() -> void:
 						check(occupied[point] == word[i], "Crossing letters differ")
 					occupied[point] = word[i]
 				check(crosses or entry == board.entries[0], "A crossword word is detached")
+			check(longest_vertical_length == longest_length, "A longest word is displayed vertically")
 			check(occupied.size() == root._tiles.size(), "Intersections share a single tile")
 			var numbers: Dictionary = {}
 			var glyphs: Array = root._glyphs.duplicate()
@@ -272,6 +283,7 @@ func test_crossword() -> void:
 			check(!GameSession.revealed[target_index] and root.selected_cell == target_index and attempts.remaining == 1, "A misplaced guess spends an attempt and retains the selection")
 			check(!misplaced_key.disabled and misplaced_key._label.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.MARKER_ORANGE_TEXT and misplaced_key._count_label.visible and misplaced_key._count_label.text == str(misplaced_count), "An untried letter in another cell is immediately marked orange with a counter")
 			var snapshot: Dictionary = GameSession.to_save_data()
+			var tile_positions: Array = root._tiles.map(func(tile: Panel) -> Vector2: return tile.position)
 			var stored: Dictionary = GameState._read_save_dictionary(GameState.SAVE_PATH)
 			check(stored.active_single_player_session.data.has("crossword"), "Board entries were not written to the player save")
 			main._clear()
@@ -285,6 +297,7 @@ func test_crossword() -> void:
 			check(is_instance_valid(reopened_title) and reopened_title != level_title and reopened_title.text == expected_title, "Reopened stage rebuilds the same level title")
 			await get_tree().create_timer(1.6).timeout
 			var reopened: Control = main._portrait_crossword
+			check(reopened._tiles.map(func(tile: Panel) -> Vector2: return tile.position) == tile_positions, "Resume displays the same orientation")
 			key = crossword_key(shared_letter)
 			check(GameSession.revealed.count(true) == initial_revealed.count(true) + 1 and !key.disabled and key.remaining_count == matching_count - 1, "Resume restores starters, the guessed cell, and its counter")
 			check(reopened._number_labels[selected_index].visible, "A restored open cell keeps its number until all matching cells are filled")
@@ -352,6 +365,7 @@ func test_crossword_selection() -> void:
 	var first: int = board.cells[Vector2i.ZERO]
 	var shared_start: int = board.cells[Vector2i(2, 0)]
 	var last: int = board.cells[Vector2i(3, 0)]
+	check(grid._tiles[first].position.y == grid._tiles[last].position.y, "A tied longest word already runs vertically, so the board keeps its orientation")
 	check(grid.selected_cell == first, "The initial selection is the first cell of the first word")
 	var key := InputEventKey.new()
 	key.pressed = true
@@ -435,6 +449,8 @@ func test_crossword_starters() -> void:
 			main.show_game_screen()
 			await get_tree().create_timer(1.6).timeout
 			var grid: Control = main._portrait_crossword
+			var word_span: Vector2 = grid._tiles[word_text.length() - 1].position - grid._tiles[0].position
+			check(word_span.x == 0.0 and word_span.y > 0.0, "A one-word grid is displayed vertically in reading order")
 			check(grid.find_child("CrosswordStarterCodes", true, false) == null, "The theme title has no separate starter pairs")
 			for cell: int in cells:
 				check(grid._glyphs[cell].visible, "The given letter is visible directly in its cell")
