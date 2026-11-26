@@ -23,6 +23,8 @@ var _word_cells: Array[PackedInt32Array] = []
 var _completed_words: Dictionary = {}
 var _word_wave_queue: Array[PackedInt32Array] = []
 var _word_wave: Tween
+var _victory_bounce: Tween
+var _victory_shown: bool = false
 var _tiles: Array[Panel] = []
 var _glyphs: Array[Label] = []
 var _number_labels: Array[Label] = []
@@ -86,6 +88,7 @@ func build(
 		_tile_style(PALETTE.TEXT_PALE_BLUE, PALETTE.BUTTON_BLUE),
 		_tile_style(PALETTE.MARKER_ERROR, PALETTE.ERROR_SOFT),
 		_tile_style(PALETTE.BUTTON_ORANGE, PALETTE.BUTTON_ORANGE_PRESSED),
+		_tile_style(PALETTE.MARKER_SUCCESS, PALETTE.SUCCESS_BORDER),
 	])
 	var numbers: Dictionary = {}
 	var letter_font: Font = FONTS.gameplay_word_font()
@@ -227,6 +230,17 @@ func _finish_word_wave() -> void:
 	_word_wave = null
 	word_wave_finished.emit()
 
+func play_victory_bounce(on_finished: Callable) -> void:
+	if _victory_shown:
+		return
+	_victory_shown = true
+	_sync_tile_styles()
+	_victory_bounce = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_parallel(true)
+	for glyph: Label in _glyphs:
+		if glyph != null:
+			add_letter_bounce(_victory_bounce, glyph, Vector2.ONE)
+	_victory_bounce.finished.connect(on_finished, CONNECT_ONE_SHOT)
+
 func add_letter_bounce(tween: Tween, glyph: Label, start_scale: Vector2, delay: float = 0.0) -> void:
 	glyph.pivot_offset = glyph.size * 0.5
 	tween.tween_property(glyph, "scale", _bounce_peak, _bounce_grow).from(start_scale) \
@@ -295,7 +309,9 @@ func _sync_tile_styles() -> void:
 		if _glyphs[index] == null:
 			continue
 		var style_index: int = 0
-		if index == selected_cell:
+		if _victory_shown:
+			style_index = 4
+		elif index == selected_cell:
 			style_index = 3
 		elif _glyphs[index].visible:
 			style_index = 2 if _show_solution and !_revealed[index] else 1

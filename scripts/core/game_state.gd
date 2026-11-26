@@ -1646,6 +1646,13 @@ func settle_presented_pending_single_player_reward(persist: bool = true) -> Dict
 func has_resumable_single_player_level() -> bool:
 	return !pending_single_player_reward.is_empty() or !active_single_player_session.is_empty()
 
+func has_saved_crossword_retry() -> bool:
+	if str(active_single_player_session.get("kind", "")) != "next":
+		return false
+	var data: Dictionary = active_single_player_session.get("data", {})
+	var result: Variant = data.get("result")
+	return result is Dictionary and bool(result.get("single_player_retry_crossword", false))
+
 func get_resumable_single_player_level_index() -> int:
 	if !pending_single_player_reward.is_empty():
 		return int(pending_single_player_reward.get("level_index", -1))

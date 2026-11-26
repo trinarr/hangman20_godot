@@ -697,6 +697,7 @@ var _portrait_game_keyboard_buttons: Array = []
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
 var _portrait_game_back_button: Control = null
+var _portrait_crossword_victory_pending: bool = false
 var _portrait_game_runtime_ready: bool = false
 var _portrait_currency_counter_visual: Control:
 	get:
@@ -961,7 +962,7 @@ func _portrait_handle_modal_back_request() -> bool:
 		_decline_single_player_extra_attempt()
 		return true
 	if !get_tree().get_nodes_in_group(&"exit_game_popup").is_empty():
-		_remove_exit_game_popup()
+		_cancel_exit_game_popup()
 		return true
 	if !get_tree().get_nodes_in_group(&"single_player_theme_popup").is_empty():
 		if _single_player_theme_selection_is_locked(single_player_popup_level_index):
@@ -1243,6 +1244,7 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_game_hint_buttons.clear()
 	_portrait_game_hint_signature = ""
 	_portrait_game_back_button = null
+	_portrait_crossword_victory_pending = false
 	_portrait_navigation_back_button = null
 	_portrait_final_reward_double_button = null
 	_portrait_final_reward_continue_button = null
@@ -6143,7 +6145,7 @@ func _remove_single_player_theme_popup() -> void:
 	_single_player_popup_theme_card_visuals.clear()
 
 func _show_single_player_last_chance_popup(advance_offer_cost: bool = true) -> void:
-	if !GameSession.has_deferred_loss():
+	if !GameSession.has_deferred_loss() or !get_tree().get_nodes_in_group(&"exit_game_popup").is_empty():
 		return
 	var free_offer: bool = _single_player_extra_attempt_is_free()
 	# Preserve the amount shown by the previous offer. Every second popup can
@@ -8801,6 +8803,11 @@ func _show_simple_exit_popup(title: String, confirm_action: Callable) -> void:
 	no_button.set("drop_shadow_enabled", true)
 	content = previous_content
 
+func _cancel_exit_game_popup() -> void:
+	_remove_exit_game_popup()
+	if GameSession.has_deferred_loss():
+		_show_single_player_last_chance_popup(false)
+
 func _show_exit_game_popup() -> void:
 	# An in-place result has already been recorded and has no live progress left to
 	# protect. The gameplay Back button therefore leaves immediately, matching the
@@ -8815,10 +8822,11 @@ func _show_exit_game_popup() -> void:
 		_result_back_action()
 		return
 	_remove_exit_game_popup()
-	var close_action := Callable(self, "_remove_exit_game_popup")
+	var close_action := Callable(self, "_cancel_exit_game_popup")
 	if (
 		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and !game_finished
+		and !GameSession.has_deferred_loss()
 		and GameState.is_interstitial_ready()
 	):
 		_prepare_portrait_interstitial_placement(&"forfeit")
@@ -8833,7 +8841,10 @@ func _show_exit_game_popup() -> void:
 	var popup_root := content.get_parent() as Control
 	_stage_popup_heart_balance_above_dimmer(popup_root)
 	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 437.0))
-	_portrait_popup_shell(rect, tr("EXIT_LEVEL_CONFIRM").to_upper(), close_action, 27)
+	_portrait_popup_shell(
+		rect, tr("EXIT_LEVEL_CONFIRM").to_upper(), close_action, 27,
+		PORTRAIT_BLUE, PORTRAIT_DARK_BLUE, PORTRAIT_ORANGE, "", false
+	)
 	# Match the refill popups: keep the warning art and copy together on one
 	# light-blue status card, with the torn ticket on the left and text on the right.
 	var exit_status_rect := PORTRAIT_REFILL_STATUS_RECT
@@ -8884,6 +8895,7 @@ func _show_exit_game_popup() -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	continue_button.set("drop_shadow_enabled", true)
+	continue_button.name = "ExitLevelContinueButton"
 	var exit_button := _stage_portrait_popup_main_button(
 		Rect2(
 			90.0,
@@ -8902,6 +8914,7 @@ func _show_exit_game_popup() -> void:
 		LONG_BUTTON_COLOR_BLUE
 	)
 	exit_button.set("drop_shadow_enabled", true)
+	exit_button.name = "ExitLevelConfirmButton"
 	exit_button.set("trailing_icon_texture", LIFE_TICKET_ICON_TEXTURE)
 	exit_button.set("trailing_icon_stage_size", Vector2(34.0, 28.0))
 	exit_button.set("trailing_icon_gap_stage", 8.0)
@@ -9360,8 +9373,17 @@ func _advance_portrait_word_feedback() -> void:
 	if is_instance_valid(_portrait_crossword) and _portrait_crossword.has_pending_word_wave():
 		_portrait_crossword.play_next_word_wave()
 		return
+	if _portrait_crossword_victory_pending and is_instance_valid(_portrait_crossword):
+		_portrait_crossword_victory_pending = false
+		_play_result_sound_once(true, last_result_data)
+		_portrait_crossword.play_victory_bounce(_finish_crossword_victory.bind(result_transition_generation))
+		return
 	if is_instance_valid(_portrait_round_result):
 		_portrait_round_result.gameplay_letters_settled()
+
+func _finish_crossword_victory(generation: int) -> void:
+	if generation == result_transition_generation and game_screen_visible:
+		_continue_single_player_result()
 
 func _play_portrait_word_letter_bounce(
 	label_id: int,
@@ -10544,6 +10566,14 @@ func _grant_single_player_extra_attempt() -> void:
 
 func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 	if _portrait_in_place_result_active:
+		return
+	if is_win and bool(last_result_data.get("single_player_stage_won", false)):
+		if !is_instance_valid(_portrait_crossword):
+			_continue_single_player_result()
+			return
+		_portrait_crossword.set_input_enabled(false)
+		_portrait_crossword_victory_pending = true
+		_advance_portrait_word_feedback()
 		return
 	if !is_instance_valid(_portrait_game_input_group):
 		show_game_screen()
@@ -13941,12 +13971,14 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		result_title_color = PORTRAIT_SINGLE_REWARD_FAILURE_TITLE_COLOR
 
 	var source_frame: Texture2D = _capture_reward_chain_frame() if is_level_summary else null
+	var quiz_summary: bool = is_level_summary and _single_player_stage_is_quiz(level_index, current_slot)
 	var keep_header_static: bool = resume_without_intro and is_level_summary
 	var retained_header: Dictionary = {}
 	if keep_header_static:
 		retained_header = _retain_level_reward_header(level_index)
 	_clear(retained_header.get("content") as Control)
-	_portrait_screen()
+	# The reward overlay fades in. A quiz summary needs a blue backdrop from the first frame.
+	_portrait_screen(PORTRAIT_HEADER_HEIGHT, -1.0, PORTRAIT_BLUE, !quiz_summary)
 	if !retained_header.is_empty():
 		_restore_level_reward_header(retained_header)
 	var reward_screen_content: Control = content

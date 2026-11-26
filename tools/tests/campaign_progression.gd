@@ -72,7 +72,7 @@ func run() -> void:
 				if level_index == 4:
 					await play_quizzes(main, language, dimensions.x)
 				else:
-					if level_index in [5, 9] and dimensions.x == 690:
+					if (level_index == 5 and dimensions.x == 960) or (level_index == 9 and dimensions.x == 690):
 						await check_failed_crossword_retry(main, language, level_index)
 					await play_crossword(main)
 				check(main.content.find_child("SinglePlayerRewardChain", true, false) == null, "No separate stage chain between gameplay and prize")
@@ -109,9 +109,10 @@ func play_quizzes(main: TestUI, language: String, width: int) -> void:
 		check(main.single_player_active_word_slot == slot, "Questions follow each other in order")
 		ids[main._quiz_current_question.id] = true
 		var index: int = main._quiz_correct_answer_index()
-		main._on_quiz_answer_selected(index if slot != 1 else (index + 1) % main._quiz_answer_buttons.size())
+		var wrong_answer: bool = slot == 1 or (slot == 2 and width == 690)
+		main._on_quiz_answer_selected((index + 1) % main._quiz_answer_buttons.size() if wrong_answer else index)
 		var progress: Node = main.content.find_child("QuizLevelProgress", true, false)
-		var expected: Color = PALETTE.ERROR_SOFT if slot == 1 else PALETTE.SUCCESS_BORDER
+		var expected: Color = PALETTE.ERROR_SOFT if wrong_answer else PALETTE.SUCCESS_BORDER
 		check(progress != null and progress._segments.size() == 3 and progress._segments[slot].get_theme_stylebox("panel").bg_color == expected, "The progress strip marks an answer with the correct color")
 		check(GameState.get_active_single_player_stage_reward().is_empty(), "No per-question prize is created")
 		if !await ready_when(func(): return is_instance_valid(main._quiz_continue_button) and main._quiz_continue_button.visible, "Quiz result exposes Continue"):
@@ -121,7 +122,8 @@ func play_quizzes(main: TestUI, language: String, width: int) -> void:
 			var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 			if !directory.is_empty():
 				get_viewport().get_texture().get_image().save_png(directory.path_join("quiz_%s_%d.png" % [language, width]))
-		if slot == 0 and language == "ru" and width == 960:
+		var reload_answer: bool = width == 960 and ((slot == 0 and language == "ru") or (slot == 2 and language == "en"))
+		if reload_answer:
 			main._clear()
 			GameState.load_game()
 			GameState.interface_language = language
@@ -130,6 +132,9 @@ func play_quizzes(main: TestUI, language: String, width: int) -> void:
 			main._on_quiz_continue_pressed()
 		if slot < 2:
 			check(main._quiz_screen_active and main.content.find_child("SinglePlayerRewardChain", true, false) == null, "Continue opens the next question directly")
+		else:
+			check(main.content.find_child("LevelCompletionRewardPrize", true, false) != null and !main.game_screen_visible, "The final quiz answer opens the prize directly")
+			check(main.content.get_node_or_null("PortraitBlueBackground") != null and !main.content.get_children().any(func(child: Node) -> bool: return child.get_script() == main.PORTRAIT_PAPER_BACKGROUND_SCRIPT), "The quiz prize has a blue backdrop in its first frame")
 	check(ids.size() == 3, "All three quiz questions are distinct")
 
 func check_word_queues() -> void:
@@ -184,26 +189,72 @@ func check_failed_crossword_retry(main: TestUI, language: String, level_index: i
 	var initial_cells: Array = GameSession.revealed.duplicate()
 	var coins: int = GameState.get_soft_currency()
 	var stars: int = GameState.get_stars()
+	var tickets: int = GameState.get_hearts()
+	main._portrait_game_back_button.pressed.emit()
+	var exit_popup: Node = get_tree().get_first_node_in_group("exit_game_popup")
+	if !check_exit_popup_actions(exit_popup, "Normal gameplay exit"):
+		return
+	exit_popup.find_child("ExitLevelContinueButton", true, false).pressed.emit()
+	check(GameSession.is_active and GameState.get_hearts() == tickets, "Continuing from a normal exit keeps the round and ticket")
 	for letter: String in Database.get_alphabet():
 		if GameSession.letters.has(letter):
 			continue
 		main._press_letter(letter)
 		if GameSession.has_deferred_loss():
-			main._decline_single_player_extra_attempt()
-		if !GameSession.is_active:
 			break
+	if !await ready_when(func(): return get_tree().get_first_node_in_group("single_player_last_chance_popup") != null, "The last mistake opens the attempt offer"):
+		return
+	check(GameSession.revealed == initial_cells and !main._portrait_in_place_result_active, "The attempt offer keeps the solution hidden")
+	var offer_cost: int = main._single_player_extra_attempt_cost()
+	main._decline_single_player_extra_attempt()
+	exit_popup = get_tree().get_first_node_in_group("exit_game_popup")
+	check(is_instance_valid(exit_popup) and exit_popup.find_child("ExitLifeStatus", true, false) != null, "Declining opens the exit confirmation with its ticket warning")
+	check(GameSession.revealed == initial_cells and GameSession.has_deferred_loss() and GameState.get_hearts() == tickets, "Declining leaves the answer hidden and keeps the ticket until confirmation")
+	if !check_exit_popup_actions(exit_popup, "Exit after declining attempts"):
+		return
+	if language == "ru":
+		var continue_button: Control = exit_popup.find_child("ExitLevelContinueButton", true, false)
+		continue_button.pressed.emit()
+	else:
+		main._portrait_handle_modal_back_request()
+	check(get_tree().get_first_node_in_group("single_player_last_chance_popup") != null and main._single_player_extra_attempt_cost() == offer_cost, "Cancelling exit restores the same attempt offer")
+	main._decline_single_player_extra_attempt()
+	exit_popup = get_tree().get_first_node_in_group("exit_game_popup")
+	if !is_instance_valid(exit_popup):
+		check(false, "Exit confirmation opens again")
+		return
+	var exit_button: Control = exit_popup.find_child("ExitLevelConfirmButton", true, false)
+	exit_button.pressed.emit()
+	check(is_instance_valid(main._home_logo_reveal) and !is_instance_valid(main._portrait_round_result), "Confirming exit opens Home without showing the answer")
+	check_home_failed_level_title(main, language, level_index)
+	check(GameState.get_hearts() == tickets - 1, "Confirming exit consumes exactly one ticket")
 	check(!GameState.is_single_level_completed(language, level_index, 1) and GameState.get_single_player_unlocked_level(language) == level_index, "A failed crossword keeps the same level locked in")
 	check(GameState.get_pending_single_player_reward().is_empty() and GameState.get_active_single_player_stage_reward().is_empty() and GameState.get_soft_currency() == coins and GameState.get_stars() == stars, "A failed crossword has no prize or currency payout")
 	if level_index == 9:
-		main._clear()
-		GameSession.discard_current_round()
 		GameState.load_game()
-		main._resume_saved_single_player_level()
-	else:
-		if await ready_when(func(): return main.game_finished and is_instance_valid(main._portrait_round_result) and is_instance_valid(main._portrait_round_result.result_continue_button) and !main._portrait_round_result.result_continue_button.get("disabled"), "The failure result exposes Continue"):
-			main._on_round_result_continue_requested()
+		main.show_menu()
+		check_home_failed_level_title(main, language, level_index)
+	main._play_single_player_from_home()
+	if !await ready_when(func(): return main.game_screen_visible and GameSession.is_active, "Home Continue opens the retry"):
+		return
 	check(main.single_player_active_level_index == level_index and GameSession.is_active and GameSession.crossword.entries == entries and GameSession.revealed == initial_cells and GameSession.mistakes == 0, "Retry restores the same grid at its initial state")
 	check(main.content.find_child("LevelCompletionRewardPrize", true, false) == null, "Retry opens gameplay directly")
+
+func check_home_failed_level_title(main: TestUI, language: String, level_index: int) -> void:
+	var button: Control = main.content.find_child("HomeSinglePlayerButton", true, false)
+	var labels: Array = button.find_children("*", "Label", false, false).filter(func(label: Label) -> bool: return !label.text.is_empty()) if is_instance_valid(button) else []
+	var title: String = ("УРОВЕНЬ %d" if language == "ru" else "LEVEL %d") % (level_index + 1)
+	check(labels.size() == 1 and labels[0].name == &"LevelTitle" and labels[0].text == title, "Home shows only the failed level number")
+
+func check_exit_popup_actions(popup: Node, context: String) -> bool:
+	var stage: Node = popup.find_child("CenteredPopupStage", true, false) if is_instance_valid(popup) else null
+	if !is_instance_valid(stage):
+		check(false, context + " opens the exit confirmation")
+		return false
+	check(!stage.get_children().any(func(node: Node) -> bool: return node is StageRoundButton), context + " has no circular close button")
+	var has_actions: bool = is_instance_valid(stage.find_child("ExitLevelContinueButton", true, false)) and is_instance_valid(stage.find_child("ExitLevelConfirmButton", true, false))
+	check(has_actions, context + " offers Continue and Exit")
+	return has_actions
 
 func play_crossword(main: TestUI) -> void:
 	if !await ready_when(func(): return GameSession.is_active and !main._portrait_game_entrance_active, "Crossword becomes interactive"):
@@ -233,5 +284,18 @@ func play_crossword(main: TestUI) -> void:
 	if GameSession.is_active:
 		check(false, "All crossword guesses finish the level")
 		return
-	if await ready_when(func(): return is_instance_valid(main._portrait_round_result) and is_instance_valid(main._portrait_round_result.result_continue_button) and !main._portrait_round_result.result_continue_button.get("disabled"), "Solved crossword exposes Continue"):
-		main._on_round_result_continue_requested()
+	check(!grid._input_enabled and main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return entry.button.disabled), "Solving the grid locks all answers")
+	check(grid.has_pending_word_wave() and !grid._victory_shown, "The last word plays its wave before the victory bounce")
+	if !await ready_when(func(): return is_instance_valid(grid) and grid._victory_bounce != null, "The victory bounce starts after all word waves"):
+		return
+	check(!is_instance_valid(main._portrait_round_result), "Victory skips the result, comment and search screen")
+	var victory_bounce: Tween = grid._victory_bounce
+	victory_bounce.pause()
+	victory_bounce.custom_step(grid._bounce_grow * 0.5)
+	for index: int in range(grid._glyphs.size()):
+		if grid._glyphs[index] == null:
+			continue
+		check(grid._tiles[index].get_theme_stylebox("panel").bg_color == PALETTE.MARKER_SUCCESS and grid._glyphs[index].scale.x > 1.0, "All letters bounce together on green cells")
+	check(main.game_screen_visible, "The reward waits for the victory bounce to finish")
+	victory_bounce.custom_step(1.0)
+	await ready_when(func(): return !main.game_screen_visible, "The game opens the reward without Continue")

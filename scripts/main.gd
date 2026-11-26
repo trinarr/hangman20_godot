@@ -1598,13 +1598,14 @@ func _single_player_mark_current_word_finished(
 
 func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> Control:
 	var resume_available: bool = GameState.has_resumable_single_player_level()
+	var retry_pending: bool = GameState.has_saved_crossword_retry()
 	var level_index: int = (
 		GameState.get_resumable_single_player_level_index()
 		if resume_available
 		else _single_player_next_level_index()
 	)
 	var challenge_level: bool = _single_player_is_bonus_level(level_index)
-	var use_subtitle: bool = resume_available or challenge_level
+	var use_subtitle: bool = !retry_pending and (resume_available or challenge_level)
 	var button := _stage_main_button(
 		rect,
 		callable,
@@ -1620,7 +1621,7 @@ func _stage_single_player_menu_button(rect: Rect2, callable: Callable) -> Contro
 	_style_single_player_level_button(button, level_index)
 
 	var title_label := Label.new()
-	title_label.name = "ResumeLevel" if resume_available else "LevelTitle"
+	title_label.name = "ResumeLevel" if resume_available and !retry_pending else "LevelTitle"
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_label.position = Vector2(
 		0.0,
@@ -1894,10 +1895,10 @@ func _grant_single_player_extra_attempt() -> void:
 	single_player_extra_attempt_claim_in_progress = false
 
 func _decline_single_player_extra_attempt() -> void:
-	if single_player_active_level_index >= 0 and !_single_player_hearts_enabled_for_level(single_player_active_level_index):
+	if !GameSession.has_deferred_loss() or !_single_player_hearts_enabled_for_level(single_player_active_level_index):
 		return
 	_remove_single_player_last_chance_popup()
-	GameSession.resolve_deferred_loss()
+	_show_exit_game_popup()
 
 func _return_to_single_player_last_chance_from_coin_store() -> void:
 	show_game_screen()
@@ -2038,6 +2039,7 @@ func _single_player_strip_win_rewards_for_forfeit(source_result: Dictionary) -> 
 
 func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 	var level_index: int = single_player_active_level_index
+	var leaving_after_last_chance: bool = GameSession.has_deferred_loss()
 	var forfeit_result: Dictionary = last_result_data.duplicate(true)
 	# A forced exit is a loss of the current stage, not a reset of the whole level.
 	# Preserve every earlier status so the reward chain can show its existing checks
@@ -2099,6 +2101,11 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 	if should_lose_heart and _single_player_hearts_enabled_for_level(level_index):
 		heart_was_consumed = GameState.lose_heart(false)
 	if has_stage_failure:
+		if leaving_after_last_chance:
+			_discard_round_for_navigation()
+			GameState.save_game()
+			show_menu()
+			return
 		GameSession.discard_current_round()
 		GameState.save_game()
 		last_result_data = _single_player_forfeit_reward_data(forfeit_result, level_index)
@@ -2380,7 +2387,6 @@ func _finish_round(is_win: bool) -> void:
 			true,
 			defer_single_player_final_reward
 		)
-	# Present both supported modes in place after the final letter feedback.
 	_show_in_place_round_result(is_win)
 
 func _result_continue_button_text() -> String:

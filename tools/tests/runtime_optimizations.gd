@@ -337,12 +337,12 @@ func test_crossword() -> void:
 						break
 					main._press_letter(board.letters[reopened.selected_cell])
 				check(!GameSession.is_active and main.game_finished, "Solving the complete grid did not finish its stage")
-				check(main._portrait_round_result.waiting_for_letters and main._portrait_round_result.primary_word_completed_in_grid, "The result waits for the last gameplay wave and does not repeat the primary word's wave")
+				check(main._portrait_crossword_victory_pending and reopened.has_pending_word_wave() and !is_instance_valid(main._portrait_round_result), "Victory waits for the last word wave without constructing a result screen")
 				check(reopened.selected_cell == -1, "A completed grid has no selected cell")
-				check(!reopened.get_node("CrosswordTheme").visible, "The theme row leaves with the hints on the result screen")
 			main._clear()
 			await get_tree().process_frame
 			check(!is_instance_valid(root), "Leaving the screen retained the previous crossword")
+			check(!main._portrait_crossword_victory_pending, "Leaving the screen cancels the deferred victory animation")
 			check(pattern_tween == null or !pattern_tween.is_valid(), "The engine releases the old background tween after freeing its owner")
 
 	main.game_finished = false
