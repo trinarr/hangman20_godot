@@ -6,10 +6,8 @@ const WORD_CROSSWORD = preload("res://scripts/core/word_crossword.gd")
 const CROSSWORD_STARTERS = preload("res://scripts/core/crossword_starters.gd")
 
 signal changed
-signal round_started
 signal round_won
 signal round_lost
-signal round_finished(id: String, game_mode: int, won: bool, outcome: String)
 signal hint_letters_selected(letters: PackedStringArray, is_correct: bool)
 signal hint_activated(hint_type: String, source: String)
 
@@ -50,8 +48,8 @@ func get_remaining_attempts() -> int:
 	return maxi(attempt_limit - mistakes, 0)
 
 func start_round(
-	word: WordData, game_mode: int = GameState.GameMode.SINGLE_PLAYER, word_count: int = 1,
-	opening_words: Array = []
+	word: WordData, word_count: int = 1,
+	opening_words: Array = [], campaign_candidates: Variant = null, retry_entries: Array = []
 ) -> void:
 	round_id = "%d:%d" % [Time.get_ticks_usec(), randi()]
 	word_data = word
@@ -60,13 +58,12 @@ func start_round(
 		word_data.id = str(reference.get("id", ""))
 	word_index = word.index
 	theme_id = word.theme_index
-	mode = game_mode
-	attempt_limit = CROSSWORD_MAX_MISTAKES if mode == GameState.GameMode.SINGLE_PLAYER else MAX_MISTAKES
-	var use_starters: bool = mode == GameState.GameMode.SINGLE_PLAYER
-	var candidates: Array = Database.get_words_by_index(theme_id, 0) if theme_id >= 0 and (word_count > 1 or use_starters) else []
+	mode = GameState.GameMode.SINGLE_PLAYER
+	attempt_limit = CROSSWORD_MAX_MISTAKES
+	var candidates: Array = Database.get_words_by_index(theme_id, 0) if theme_id >= 0 else []
 	var puzzle_candidates: Array = candidates
 	var use_opening: bool = (
-		use_starters and !opening_words.is_empty()
+		!opening_words.is_empty()
 		and opening_words.size() == word_count and opening_words[0] == word.text
 	)
 	if use_opening:
@@ -74,7 +71,11 @@ func start_round(
 		use_opening = puzzle_candidates.size() == word_count
 		if !use_opening:
 			puzzle_candidates = candidates
-	crossword = WORD_CROSSWORD.build(word.text, word.difficulty, puzzle_candidates, word_count)
+	if campaign_candidates is Array and !use_opening:
+		puzzle_candidates = campaign_candidates
+	crossword = WORD_CROSSWORD.restore(word.text, retry_entries) if !retry_entries.is_empty() else null
+	if crossword == null:
+		crossword = WORD_CROSSWORD.build(word.text, word.difficulty, puzzle_candidates, word_count)
 	letters = crossword.letters
 	revealed.clear()
 	correct_letters.clear()
@@ -95,17 +96,12 @@ func start_round(
 	var starter_cells: Array = []
 	if use_opening:
 		starter_cells = Array(CROSSWORD_STARTERS.transfer_cells(crossword))
-	elif use_starters:
+	else:
 		starter_cells = Array(CROSSWORD_STARTERS.choose(crossword, candidates, Database.current_language))
 	_set_crossword_starters(starter_cells)
 	for index: int in crossword_starter_cells:
 		revealed[index] = true
 	emit_signal("changed")
-	round_started.emit()
-
-func start_custom_round(text: String) -> void:
-	var word := WordManager.set_custom_word(text)
-	start_round(word, GameState.GameMode.TWO_PLAYER)
 
 func _resolve_word_hint() -> String:
 	if word_data == null:
@@ -406,8 +402,7 @@ func can_view_comment_hint() -> bool:
 	return is_active and comment_hint_unlocked and has_word_hint() and _hints_allowed()
 
 func _hints_allowed() -> bool:
-	# Hints belong to database-backed rounds. Two-player custom words intentionally
-	# have no hints.
+	# Hints belong to database-backed rounds.
 	return theme_id >= 0
 
 func _has_hidden_letter() -> bool:
@@ -596,11 +591,7 @@ func discard_current_round() -> void:
 	_set_crossword_starters([])
 	GameState.reset_current_game()
 
-func report_round_finished(is_win: bool, outcome: String = "") -> void:
-	if word_data != null:
-		round_finished.emit(round_id, mode, is_win, outcome if !outcome.is_empty() else ("win" if is_win else "loss"))
-
-func finish_result(is_win: bool, outcome: String = "") -> Dictionary:
+func finish_result(is_win: bool) -> Dictionary:
 	var result := {
 		"title": Database.tr_text(33 if is_win else 34, "VICTORY" if is_win else "DEFEAT"),
 		"lines": []
@@ -608,25 +599,14 @@ func finish_result(is_win: bool, outcome: String = "") -> Dictionary:
 	if word_data == null:
 		return result
 
-	if mode == GameState.GameMode.SINGLE_PLAYER:
-		if is_win and theme_id >= 0:
-			GameState.mark_single_player_word_guessed(
-				Database.current_language,
-				theme_id,
-				word_index,
-				Database.get_words_by_index(theme_id, 0).size(),
-				word_data.text,
-				false
-			)
-	elif mode == GameState.GameMode.TWO_PLAYER:
-		if is_win:
-			GameState.records[1][0] = int(GameState.records[1][0]) + 1
-		else:
-			GameState.records[1][1] = int(GameState.records[1][1]) + 1
+	if is_win and theme_id >= 0:
+		GameState.mark_single_player_word_guessed(
+			Database.current_language,
+			theme_id,
+			word_index,
+			Database.get_words_by_index(theme_id, 0).size(),
+			word_data.text,
+			false
+		)
 
-	# Single-player level status, economy and a possible final pending reward are
-	# committed together by Main after this method returns.
-	if mode != GameState.GameMode.SINGLE_PLAYER:
-		GameState.save_game()
-	report_round_finished(is_win, outcome)
 	return result

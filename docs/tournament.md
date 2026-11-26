@@ -13,7 +13,7 @@ call Supabase and needs no database migration.
   the visible area. The UI uses the existing stars/coin textures and card styles.
 - New single-player word-stage stars, remaining-attempt stars, quiz speed bonuses
   and level-completion stars count. Existing balance, arbitrary `add_stars`, coins,
-  spending and two-player games do not count.
+  spending does not count.
 - Word/level stars are recorded with the result in
   `mark_single_level_word_played`, before delayed reward presentation or claims.
   Its existing `was_unplayed` guard also guards tournament scoring. Later claims

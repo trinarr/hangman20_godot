@@ -54,84 +54,9 @@ def resolve(config: dict[str, Any], path: str) -> Any:
 
 
 def stage_count(config: dict[str, Any], level: int) -> int:
-    matches: list[int] = []
-    ranges = require_list(resolve(config, "progression.level_stage_counts"), "progression.level_stage_counts")
-    for index, raw in enumerate(ranges):
-        item = require_dict(raw, f"progression.level_stage_counts[{index}]")
-        start = require_int(item.get("from_level"), f"progression.level_stage_counts[{index}].from_level")
-        end = require_int(item.get("to_level"), f"progression.level_stage_counts[{index}].to_level")
-        count = require_int(item.get("count"), f"progression.level_stage_counts[{index}].count")
-        if level >= start and (end == 0 or level <= end):
-            matches.append(count)
-    require(len(matches) == 1, f"Level {level} is covered by {len(matches)} stage-count ranges")
-    return matches[0]
-
-
-def streak_ranges(config: dict[str, Any], path: str, difficulty: float) -> list[dict[str, Any]]:
-    ranges = require_list(resolve(config, path), path)
-    require(bool(ranges), f"Empty table: {path}")
-    first = require_dict(ranges[0], f"{path}[0]")
-    if "below_difficulty" not in first:
-        return [require_dict(item, f"{path}[{index}]") for index, item in enumerate(ranges)]
-    for index, raw in enumerate(ranges):
-        band = require_dict(raw, f"{path}[{index}]")
-        boundary = require_number(band.get("below_difficulty"), f"{path}[{index}].below_difficulty")
-        if difficulty < boundary:
-            streaks = require_list(band.get("streaks"), f"{path}[{index}].streaks")
-            return [require_dict(item, f"{path}[{index}].streaks[{j}]") for j, item in enumerate(streaks)]
-    raise SystemExit(f"No streak band covers difficulty {difficulty}: {path}")
-
-
-def win_increase(config: dict[str, Any], difficulty: float, streak: int) -> float:
-    increase = None
-    for index, raw in enumerate(require_list(resolve(config, "difficulty.win_steps"), "difficulty.win_steps")):
-        band = require_dict(raw, f"difficulty.win_steps[{index}]")
-        boundary = require_number(band.get("below_difficulty"), f"difficulty.win_steps[{index}].below_difficulty")
-        if difficulty < boundary:
-            increase = require_number(band.get("increase"), f"difficulty.win_steps[{index}].increase")
-            break
-    require(increase is not None, f"No win step covers difficulty {difficulty}")
-    multiplier = None
-    for index, streak_range in enumerate(streak_ranges(config, "difficulty.win_streak_multipliers", difficulty)):
-        start = require_int(streak_range.get("from_wins"), f"difficulty.win_streak_multipliers.streaks[{index}].from_wins")
-        end = require_int(streak_range.get("to_wins"), f"difficulty.win_streak_multipliers.streaks[{index}].to_wins")
-        if streak >= start and (end == 0 or streak <= end):
-            multiplier = require_number(streak_range.get("multiplier"), f"difficulty.win_streak_multipliers.streaks[{index}].multiplier")
-            break
-    require(multiplier is not None, f"No win multiplier covers streak {streak}")
-    return increase * multiplier
-
-
-def loss_decrease(config: dict[str, Any], streak: int, difficulty: float = 0.0) -> float:
-    for index, streak_range in enumerate(streak_ranges(config, "difficulty.loss_steps", difficulty)):
-        start = require_int(streak_range.get("from_losses"), f"difficulty.loss_steps.streaks[{index}].from_losses")
-        end = require_int(streak_range.get("to_losses"), f"difficulty.loss_steps.streaks[{index}].to_losses")
-        if streak >= start and (end == 0 or streak <= end):
-            return require_number(streak_range.get("decrease"), f"difficulty.loss_steps.streaks[{index}].decrease")
-    raise SystemExit(f"No loss step covers streak {streak}")
-
-
-def validate_open_ended_ranges(
-    ranges: list[Any],
-    start_key: str,
-    end_key: str,
-    value_key: str,
-    label: str,
-) -> None:
-    require(bool(ranges), f"{label} ranges are empty")
-    expected_start = 1
-    for index, raw in enumerate(ranges):
-        item = require_dict(raw, f"{label}[{index}]")
-        start = require_int(item.get(start_key), f"{label}[{index}].{start_key}")
-        end = require_int(item.get(end_key), f"{label}[{index}].{end_key}")
-        require(start == expected_start, f"{label} range {index} starts at {start}, expected {expected_start}")
-        require_number(item.get(value_key), f"{label}[{index}].{value_key}")
-        if end == 0:
-            require(index == len(ranges) - 1, f"Only the final {label} range may be open-ended")
-            return
-        require(end >= start, f"{label} range {index} ends before it starts")
-        expected_start = end + 1
-    raise SystemExit(f"Final {label} range must be open-ended")
+    quiz = config["progression"]["quiz"]
+    bonus_interval = config["progression"]["bonus_level"]["every_levels"]
+    return quiz["questions_per_level"] if level % quiz["level_interval"] == 0 and level % bonus_interval != 0 else 1
 
 
 def validate_difficulty(config: dict[str, Any]) -> None:
@@ -139,51 +64,11 @@ def validate_difficulty(config: dict[str, Any]) -> None:
     default = require_number(resolve(config, "difficulty.default"), "difficulty.default")
     maximum = require_number(resolve(config, "difficulty.maximum"), "difficulty.maximum")
     require(0.0 <= minimum <= default <= maximum <= 1.0, "Difficulty bounds are inconsistent")
-    require("quiz_target_maximum" not in config["difficulty"], "Obsolete separate quiz cap")
-    require_number(resolve(config, "difficulty.bonus_level_offset"), "difficulty.bonus_level_offset")
-
-    win_steps = require_list(resolve(config, "difficulty.win_steps"), "difficulty.win_steps")
-    require(bool(win_steps), "Win-step bands are missing")
-    previous_boundary = 0.0
-    for index, raw in enumerate(win_steps):
-        band = require_dict(raw, f"difficulty.win_steps[{index}]")
-        boundary = require_number(band.get("below_difficulty"), f"difficulty.win_steps[{index}].below_difficulty")
-        require(boundary > previous_boundary, f"Win-step band {index} is not ordered")
-        require_number(band.get("increase"), f"difficulty.win_steps[{index}].increase")
-        previous_boundary = boundary
-    require(previous_boundary > maximum, "Win-step bands do not cover maximum difficulty")
-    require("adaptation_speed" not in config["difficulty"], "Remove obsolete adaptation_speed settings")
-
-    for path, start_key, end_key, value_key in (
-        ("difficulty.win_streak_multipliers", "from_wins", "to_wins", "multiplier"),
-        ("difficulty.loss_steps", "from_losses", "to_losses", "decrease"),
-    ):
-        ranges = require_list(resolve(config, path), path)
-        require(bool(ranges), f"Empty table: {path}")
-        first = require_dict(ranges[0], f"{path}[0]")
-        if "below_difficulty" not in first:
-            require(all("below_difficulty" not in require_dict(row, f"{path}[{i}]") for i, row in enumerate(ranges)), f"Mixed table formats: {path}")
-            validate_open_ended_ranges(ranges, start_key, end_key, value_key, path)
-        else:
-            previous = 0.0
-            for index, raw in enumerate(ranges):
-                band = require_dict(raw, f"{path}[{index}]")
-                boundary = require_number(band.get("below_difficulty"), f"{path}[{index}].below_difficulty")
-                require(previous < boundary, f"Unordered difficulty bands: {path}")
-                streaks = require_list(band.get("streaks"), f"{path}[{index}].streaks")
-                validate_open_ended_ranges(streaks, start_key, end_key, value_key, f"{path}[{index}].streaks")
-                previous = boundary
-            require(previous > maximum, f"Bands do not cover maximum difficulty: {path}")
-
-    rate = require_number(resolve(config, "progression.theme_intro.catch_up_rate"), "progression.theme_intro.catch_up_rate")
-    tolerance = require_number(resolve(config, "progression.theme_intro.completion_tolerance"), "progression.theme_intro.completion_tolerance")
-    require(0.0 < rate <= 1.0, "Theme intro catch_up_rate must be in (0, 1]")
-    require(0.0 < tolerance < maximum - minimum, "Theme intro tolerance must be positive and below the difficulty span")
-
-    for difficulty in (minimum, default, maximum):
-        for streak in (1, 2, 3, 6, 100):
-            require(win_increase(config, difficulty, streak) >= 0, "Negative victory delta")
-            require(loss_decrease(config, streak, difficulty) >= 0, "Negative defeat delta")
+    wave = require_list(resolve(config, "difficulty.word_wave_order"), "difficulty.word_wave_order")
+    ranks = [require_int(rank, "difficulty.word_wave_order") for rank in wave]
+    require(bool(ranks) and sorted(ranks) == list(range(len(ranks))), "Each rank of the word difficulty wave must occur once")
+    quiz_ramp = require_int(resolve(config, "difficulty.quiz_levels_to_maximum"), "difficulty.quiz_levels_to_maximum")
+    require(1 <= quiz_ramp <= 100000, "Invalid quiz difficulty ramp length")
 
 
 def validate_progression(config: dict[str, Any]) -> None:
@@ -225,9 +110,7 @@ def validate_progression(config: dict[str, Any]) -> None:
         item = require_dict(raw, f"progression.level_stage_counts[{index}]")
         start = require_int(item.get("from_level"), f"progression.level_stage_counts[{index}].from_level")
         end = require_int(item.get("to_level"), f"progression.level_stage_counts[{index}].to_level")
-        count = require_int(item.get("count"), f"progression.level_stage_counts[{index}].count")
         require(start == expected_start, f"Stage-count range {index} starts at {start}, expected {expected_start}")
-        require(count > 0, f"Stage count must be positive at range {index}")
         crossword_words = require_int(item.get("crossword_words"), f"progression.level_stage_counts[{index}].crossword_words")
         require(1 <= crossword_words <= 12 - extra_words, f"Crossword word count including bonus is out of range at range {index}")
         if end == 0:
@@ -240,13 +123,9 @@ def validate_progression(config: dict[str, Any]) -> None:
 
     every_levels = require_int(resolve(config, "progression.bonus_level.every_levels"), "progression.bonus_level.every_levels")
     require(every_levels > 0, "Bonus-level interval must be positive")
-    onboarding_from = require_int(resolve(config, "progression.quiz.onboarding_from_level"), "progression.quiz.onboarding_from_level")
-    onboarding_to = require_int(resolve(config, "progression.quiz.onboarding_to_level"), "progression.quiz.onboarding_to_level")
-    require(onboarding_from > 0 and onboarding_to >= onboarding_from, "Invalid quiz onboarding level range")
-    require(require_int(resolve(config, "progression.quiz.onboarding_stage_count"), "progression.quiz.onboarding_stage_count") > 0,
-            "Quiz onboarding stage count must be positive")
-    require(require_int(resolve(config, "progression.quiz.regular_min_stage_count"), "progression.quiz.regular_min_stage_count") > 0,
-            "Regular quiz stage threshold must be positive")
+    interval = require_int(resolve(config, "progression.quiz.level_interval"), "progression.quiz.level_interval")
+    count = require_int(resolve(config, "progression.quiz.questions_per_level"), "progression.quiz.questions_per_level")
+    require(1 <= interval <= 1000 and 1 <= count <= 12, "Invalid quiz chain configuration")
 
 
 def runtime_references() -> dict[str, str]:
@@ -398,9 +277,6 @@ def main() -> None:
 
     for level in range(1, 1001):
         require(stage_count(config, level) > 0, f"Invalid stage count for level {level}")
-    for level, key in ((2, "second_level_slot"), (3, "onboarding_slot"), (4, "onboarding_slot")):
-        slot = require_int(resolve(config, "progression.quiz." + key), "progression.quiz." + key)
-        require(slot < stage_count(config, level), f"Quiz slot is outside level {level}")
     required_start = require_int(resolve(config, "progression.guided_onboarding.required_start_level"),
                                  "progression.guided_onboarding.required_start_level")
     require(required_start >= 1, "Invalid onboarding start level")

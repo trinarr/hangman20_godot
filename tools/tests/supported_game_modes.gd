@@ -15,8 +15,8 @@ func run() -> void:
 	var state: Node = root.get_node("GameState")
 	var database: Node = root.get_node("Database")
 	var session: Node = root.get_node("GameSession")
-	check(state.GameMode.size() == 2, "Only the two supported game modes remain")
-	check(state.GameMode.TWO_PLAYER == 1 and state.GameMode.SINGLE_PLAYER == 2, "Published numeric mode values remain stable")
+	check(state.GameMode.size() == 1, "The campaign is the only supported game mode")
+	check(state.GameMode.SINGLE_PLAYER == 2 and !state.GameMode.values().has(1), "The published campaign ID is stable and the retired ID remains unused")
 	check(session.mode == state.GameMode.SINGLE_PLAYER and state.current_mode == state.GameMode.SINGLE_PLAYER, "Idle state defaults to the campaign")
 
 	# Released save arrays retain their positions, including unused older slots.
@@ -36,6 +36,7 @@ func run() -> void:
 	state.pending_single_player_reward = {}
 	var words: Dictionary = {}
 	var keys: Dictionary = {}
+	var sessions: Dictionary = {}
 	for language: String in ["ru", "en"]:
 		state.set_word_language(language)
 		database.load_word_language(language)
@@ -44,7 +45,8 @@ func run() -> void:
 		keys[language] = database.word_progress_key_from_text(words[language])
 		session.start_round(WordData.new(words[language], float(candidate["difficulty"]), 0, int(candidate["index"])))
 		state.mark_single_player_word_shown(language, 0, int(candidate["index"]), 0, words[language], false)
-		state.set_active_single_player_session({"kind": "word", "language": language, "level_index": 0, "word_slot": 0, "theme_id": 1, "data": session.to_save_data()}, false)
+		sessions[language] = {"kind": "word", "language": language, "level_index": 0, "word_slot": 0, "theme_id": 1, "data": session.to_save_data()}
+		state.set_active_single_player_session(sessions[language], false)
 		check(state.save_game(), language + " campaign snapshot saved")
 
 	# Exercise the released v2 migration followed by a normal save/reload.
@@ -63,6 +65,11 @@ func run() -> void:
 	check(state.records == records, "Archived and two-player records survive migration")
 	check(state.progress == archived, "Archived flags survive without active gameplay consumers")
 	check(state.get_soft_currency() == 777 and state.get_stars() == 888 and state.get_hearts() == 4, "Migration preserves the economy")
+	check(state.single_player_resume_states.is_empty(), "The existing v9 migration retires unfinished legacy rounds")
+	for language: String in ["ru", "en"]:
+		state.set_word_language(language)
+		check(state.set_active_single_player_session(sessions[language]), language + " current-format campaign snapshot saved")
+	state.load_game()
 	for language: String in ["ru", "en"]:
 		state.set_word_language(language)
 		database.load_word_language(language)
@@ -74,26 +81,11 @@ func run() -> void:
 		check(state.records == records, language + " campaign result does not alter two-player or archived counters")
 		check(state.get_soft_currency() == 777 and state.get_stars() == 888, language + " session leaves campaign payouts to level processing")
 
-	state.current_mode = state.GameMode.TWO_PLAYER
-	session.start_custom_round("Test-Word")
-	check(session.mode == state.GameMode.TWO_PLAYER and session.get_full_word() == "TEST—WORD", "Custom words still start a two-player round")
-	var result: Dictionary = session.finish_result(true)
-	check(state.records[1] == [9, 9] and state.records[0] == records[0], "Two-player wins update only their own counters")
-	check(result["lines"].is_empty() and state.get_soft_currency() == 777 and state.get_stars() == 888, "Two-player results award no currency")
-	session.start_custom_round("TEST")
-	session.finish_result(false)
-	check(state.records[1] == [9, 10], "Two-player defeats remain recorded")
 	state.load_game()
-	check(state.records[1] == [9, 10] and state.settings == settings, "Two-player results persist without shifting saved arrays")
+	check(state.records == records and state.settings == settings, "Archived values persist without shifting saved arrays")
 	var ui: Node = load("res://scripts/main.gd").new()
-	check(ui._result_continue_action().get_method() == &"_continue_two_player_result", "Two-player result returns to custom-word input")
-	state.current_mode = state.GameMode.SINGLE_PLAYER
+	check(!ui.has_method("show_custom_word") and !session.has_method("start_custom_round"), "The retired mode has no entry point")
 	check(ui._result_continue_action().get_method() == &"_continue_single_player_result", "Campaign result continues its level")
-	state.current_mode = 0
-	var previous_stars: int = state.get_stars()
-	check(ui._result_continue_action().get_method() == &"_result_back_action", "An unsupported numeric mode cannot start another round")
-	ui._grant_remaining_attempt_star_reward({}, true)
-	check(state.get_stars() == previous_stars, "An unsupported numeric mode cannot earn attempt rewards")
 	ui.free()
 	session.discard_current_round()
 	check(session.mode == state.GameMode.SINGLE_PLAYER and state.current_mode == state.GameMode.SINGLE_PLAYER, "Discard returns to the supported idle mode")

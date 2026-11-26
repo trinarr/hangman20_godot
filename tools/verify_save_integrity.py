@@ -126,10 +126,6 @@ def main() -> None:
         'int(parsed.get("accepted_legal_documents_version", 0))',
         "func has_accepted_legal_documents()",
         "func accept_legal_documents()",
-        '"win_streak": 0',
-        '"loss_streak": 0',
-        'bucket["win_streak"] = win_streak',
-        'bucket["loss_streak"] = loss_streak',
     ):
         require(token in game_state, f"Launch-save invariant missing: {token}")
 
@@ -194,18 +190,10 @@ def main() -> None:
         "Runtime still indexes played/guessed progress by array position",
     )
 
-    difficulty_result = function_body(game_state, "mark_single_level_word_played")
-    require(
-        "GAME_DESIGN.difficulty_win_increase" in difficulty_result
-        and "GAME_DESIGN.difficulty_loss_decrease" in difficulty_result
-        and 'bucket["loss_streak"] = 0' in difficulty_result
-        and 'bucket["win_streak"] = 0' in difficulty_result,
-        "Adaptive difficulty streak transitions are incomplete",
-    )
-    require(
-        "adaptive_difficulty" not in function_body(game_state, "record_single_player_forfeit"),
-        "Voluntary forfeits must not change adaptive difficulty",
-    )
+    result = function_body(game_state, "mark_single_level_word_played")
+    require('var completed: bool = !retry_crossword' in result, "Failed crosswords must not complete the level")
+    require("difficulty_win_increase" not in result and "difficulty_loss_decrease" not in result,
+            "An attempt result must not adjust campaign difficulty")
 
     for token in (
         "active_single_player_session",
@@ -441,7 +429,7 @@ def main() -> None:
     quiz_feedback_text = function_body(portrait, "_quiz_correct_feedback_text")
     require(
         'loss_label.text = "-1"' in quiz_wrong_create
-        and "LIFE_HEART_ICON_TEXTURE" in quiz_wrong_create
+        and "LIFE_TICKET_ICON_TEXTURE" in quiz_wrong_create
         and "_add_portrait_icon_with_extrusion_to_holder(" in quiz_wrong_create
         and "PORTRAIT_QUIZ_FEEDBACK_PEAK_SCALE" in quiz_wrong_play
         and "PORTRAIT_QUIZ_FEEDBACK_SETTLE_DURATION" in quiz_wrong_play
@@ -449,7 +437,7 @@ def main() -> None:
         and "if _quiz_single_player_embedded:" in quiz_answer_selected
         and "_play_quiz_wrong_question_feedback()" in quiz_answer_selected
         and "!_quiz_single_player_embedded" in quiz_answer_selected,
-        "Wrong quiz answers do not replace the question with an animated -1 heart cue",
+        "Wrong quiz answers do not replace the question with an animated -1 ticket cue",
     )
     require(
         "PORTRAIT_QUIZ_LIGHTNING_ANSWER_WINDOW_MSEC" in quiz_speed_tier
@@ -642,7 +630,7 @@ def main() -> None:
     require(
         '"reward_currency": stage_reward_currency' in stage_result
         and '"reward_claimed": !has_stage_reward' in stage_result
-        and 'result["single_player_chain_failed"] = false' in stage_result,
+        and 'result["single_player_retry_crossword"] = retry_crossword' in stage_result,
         "Pending stage reward is not persisted with level resume state",
     )
     level_completed = function_body(game_state, "is_single_level_completed")
@@ -650,9 +638,9 @@ def main() -> None:
     level_prepare = function_body(main_source, "_prepare_single_player_level_attempt")
     require(
         "get_single_level_played_count" in level_completed
-        and '"chain_ended": completed' in level_progress
+        and '"chain_ended": completed or retry_crossword' in level_progress
         and "is_single_level_failed" not in level_prepare,
-        "A failed stage can still terminate or reset the whole level",
+        "Crossword retry or quiz completion is missing from level progression",
     )
     campaign_attempt_reward = function_body(main_source, "_grant_remaining_attempt_star_reward")
     require(

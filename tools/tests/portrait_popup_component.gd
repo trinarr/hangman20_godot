@@ -166,8 +166,8 @@ func check_action_icon_shadows() -> void:
 		extrusion._layout_portrait_icon_extrusion_layers(layers, button._icon_rect.position, button._icon_rect.size, extrusion.ACTION_SHADOW_OFFSET_SCALE)
 		for i: int in range(layers.size()):
 			var actual: TextureRect = button._icon_shadow_layers[i]
-			check(actual.visible and actual.position.is_equal_approx(layers[i].position), "action shadow matches two-player offset: " + path)
-			check(actual.material.get_shader_parameter("shadow_color") == layers[i].material.get_shader_parameter("shadow_color"), "action shadow matches two-player color and alpha: " + path)
+			check(actual.visible and actual.position.is_equal_approx(layers[i].position), "action shadow matches shared offset: " + path)
+			check(actual.material.get_shader_parameter("shadow_color") == layers[i].material.get_shader_parameter("shadow_color"), "action shadow matches shared color and alpha: " + path)
 		button.button_disabled = true
 		check(button._icon_shadow_layers[0].modulate.a < 1.0, "disabled action also dims its shadow: " + path)
 		button.queue_free()
@@ -385,7 +385,6 @@ func capture_exit_popup(name: String) -> void:
 
 func check_android_back() -> void:
 	check(!get_tree().quit_on_go_back, "Android Back cannot quit without confirmation")
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	main.game_finished = false
 	main.game_screen_visible = false
 	main._home_logo_reveal = Control.new()
@@ -394,17 +393,9 @@ func check_android_back() -> void:
 		Database.load_languages(language, language)
 		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536)]:
 			get_window().size = dimensions
-			main._show_exit_game_popup()
-			await get_tree().create_timer(0.7).timeout
-			var original: CanvasLayer = get_tree().get_nodes_in_group(&"exit_game_popup")[0]
-			var original_stage: PopupStageCenter = original.find_child("CenteredPopupStage", true, false)
-			var original_top := original_stage.popup_top
-			var original_bottom := original_stage.popup_bottom
-			var original_buttons: Array[Rect2] = []
-			for button: Node in original.find_children("*", "StageLongButton", true, false):
-				original_buttons.append(button.get("stage_rect"))
-			check(!original_buttons.is_empty(), "two-player confirmation retains its actions")
-			await capture_exit_popup("exit_two_player_%s_%d" % [language, dimensions.x])
+			main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+			await get_tree().process_frame
+			check(get_tree().get_nodes_in_group(&"exit_game_popup").size() == 1, "Back opens Home exit confirmation")
 			main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
 			await get_tree().process_frame
 			check(get_tree().get_nodes_in_group(&"exit_game_popup").is_empty(), "native Back closes existing confirmation")
@@ -412,18 +403,20 @@ func check_android_back() -> void:
 			await get_tree().create_timer(0.7).timeout
 			var popup: CanvasLayer = get_tree().get_nodes_in_group(&"exit_game_popup")[0]
 			var stage: PopupStageCenter = popup.find_child("CenteredPopupStage", true, false)
-			check(stage.popup_top == original_top and is_equal_approx(stage.popup_bottom, original_bottom - 70.0), "Home removes the hidden warning height")
+			check(stage.popup_top == 235.0 and is_equal_approx(stage.popup_bottom, 425.0 + main._portrait_popup_extra_bottom_space()), "Home exit keeps its compact bounds")
 			var labels: Array[Node] = popup.find_children("*", "Label", true, false)
 			var has_title := false
 			for label: Label in labels:
 				has_title = has_title or label.text == tr("EXIT_GAME_CONFIRM").to_upper()
-				check(label.text != main._exit_game_warning_text(), "Home omits progress warning")
+				check(label.text != tr("EXIT_LEVEL_TICKET_WARNING"), "Home omits progress warning")
 			check(has_title, "Home shows localized exit title")
 			var buttons: Array[Node] = popup.find_children("*", "StageLongButton", true, false)
-			for i: int in range(buttons.size()):
-				var expected := original_buttons[i]
-				expected.position.y -= 70.0
-				check(buttons[i].get("stage_rect") == expected, "Home raises actions while preserving their size and bottom spacing")
+			check(buttons.size() == 2, "Home exit shows both actions")
+			for button: Node in buttons:
+				var rect: Rect2 = button.get("stage_rect")
+				var button_y: float = main._portrait_popup_bottom_button_y(stage.popup_bottom, 52.0)
+				var button_x: float = 82.0 if button.get("button_text") == tr("YES").to_upper() else 253.0
+				check(rect == main._portrait_popup_button_rect(Rect2(button_x, button_y, 145.0, 52.0)), "Home exit actions retain their size and bottom spacing")
 			await capture_exit_popup("exit_home_%s_%d" % [language, dimensions.x])
 			for button: Node in buttons:
 				if button.get("button_text") == tr("NO").to_upper():

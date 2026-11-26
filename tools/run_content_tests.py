@@ -39,6 +39,7 @@ SUITES = {
     "easy_quiz_expansion": (False, r'EASY_QUIZ_EXPANSION checks=[1-9]\d* failures=0'),
     "supported_game_modes": (False, None),
     "portrait_stage_reward": (True, None),
+    "campaign_progression": (True, None),
     "stage_screen_cover_render": (True, None),
     "tabbed_page_transition_render": (True, None),
     "portrait_round_result": (True, None),
@@ -49,9 +50,6 @@ SUITES = {
     "word_content_migration": (False, None),
     "word_rebalance": (False, None),
     "bonus_quiz": (True, r"BONUS_QUIZ checks=[1-9]\d* failures=0"),
-    "word_selection": (True, r"WORD SELECTION: [1-9]\d* checks, 0 failures"),
-    "adaptation_speed": (False, None),
-    "theme_intro": (False, None),
     "quiz_expansion": (True, r'Quiz expansion checks: [1-9]\d*; failures: 0'),
     "quiz_explanations": (True, r'Quiz explanations: [1-9]\d* checks, 0 failures'),
     "quiz_selection_pool": (False, r'QUIZ_SELECTION_POOL checks=[1-9]\d* failures=0'),
@@ -78,7 +76,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot")
     parser.add_argument("--suite", choices=["all", *SUITES], default="all")
-    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window (automatic for stage_screen_cover_render and tabbed_page_transition_render)")
+    parser.add_argument("--gpu", action="store_true", help="Use the project renderer with a background window (automatic for campaign_progression, stage_screen_cover_render and tabbed_page_transition_render)")
     args = parser.parse_args()
     executable = shutil.which(args.godot)
     if executable is None:
@@ -86,7 +84,7 @@ def main():
     failed = []
     selected = list(SUITES) if args.suite == "all" else [args.suite]
     for name in selected:
-        use_gpu = args.gpu or name in ("stage_screen_cover_render", "tabbed_page_transition_render")
+        use_gpu = args.gpu or name in ("campaign_progression", "stage_screen_cover_render", "tabbed_page_transition_render")
         scene, summary = SUITES[name]
         path = f"res://tools/tests/{name}.{'tscn' if scene else 'gd'}"
         arguments = [path] if scene else ["--script", path]

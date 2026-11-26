@@ -76,25 +76,21 @@ func run() -> void:
 		check(main._quiz_replacement_question().difficulty == .84, "Replacement capped the target: " + language)
 		Database._quiz_questions_by_theme_cache[theme_id] = original_pool
 
-		GameState._single_player_bucket(language)["adaptive_difficulty"] = .82
-		GameState._single_player_bucket(language)["unlocked_level"] = 2
-		GameState.select_single_level_theme(language, 2, 0, main._single_player_level_word_target(2))
+		var level_index: int = 304
+		GameState._single_player_bucket(language)["unlocked_level"] = level_index
+		GameState.select_single_level_theme(language, level_index, 0, main._single_player_level_word_target(level_index))
 		main._invalidate_single_player_level_cache()
-		var level: Dictionary = main._single_player_level_data(2)
+		var level: Dictionary = main._single_player_level_data(level_index)
 		check(level.question_slots[0] >= 0 and !level.questions[str(level.question_slots[0])].is_empty(), "Missing campaign quiz fixture")
 		check(level.question_targets[str(level.question_slots[0])] > .68, "Stage target was capped: " + language)
-		check(is_equal_approx(level.question_targets[str(level.question_slots[0])], level.words[level.question_slots[0]].target_difficulty),
-			"Quiz and hangman stage targets differ: " + language)
-		check(is_equal_approx(main._single_player_level_question_target_difficulty(2), level.question_targets[str(level.question_slots[0])]),
+		check(level.words.is_empty(), "A quiz level does not preselect crossword words: " + language)
+		check(is_equal_approx(main._single_player_level_question_target_difficulty(level_index), level.question_targets[str(level.question_slots[0])]),
 			"Target accessor capped the stage: " + language)
 		var snapshot: Dictionary = {"question": level.questions[str(level.question_slots[0])], "target_difficulty": .84,
 			"fifty_fifty_used": false, "hidden_indices": [], "replace_question_used": false}
-		var restored: Dictionary = main._restore_quiz_session_data(snapshot, 0, 2)
+		var restored: Dictionary = main._restore_quiz_session_data(snapshot, 0, level_index)
 		check(is_equal_approx(restored.target_difficulty, .84), "Save restore capped the target: " + language)
-		for slot: int in range(int(level.question_slots[0])):
-			GameState.mark_single_level_word_played(language, 2, slot,
-				main._single_player_level_word_target(2), true, true, -1, false, false)
-		GameState.set_active_single_player_session({"language": language, "level_index": 2,
+		GameState.set_active_single_player_session({"language": language, "level_index": level_index,
 			"word_slot": level.question_slots[0], "kind": "quiz", "theme_id": theme_id, "data": snapshot})
 		GameState.load_game()
 		main._quiz_single_player_target_difficulty = .2
@@ -104,13 +100,13 @@ func run() -> void:
 		check(is_equal_approx(Dictionary(GameState.get_active_single_player_session().get("data", {})).get("target_difficulty", -1.0), .84),
 			"Resume persisted a capped target: " + language)
 		await get_tree().create_timer(1.7).timeout
-		await check_editorial_resume(main, language, int(level.question_slots[0]))
+		await check_editorial_resume(main, language, level_index, int(level.question_slots[0]))
 	main.queue_free()
 	await get_tree().process_frame
 	print("Quiz expansion checks: %d; failures: %d" % [checks, failures.size()])
 	get_tree().quit(0 if failures.is_empty() else 1)
 
-func check_editorial_resume(main: Node, language: String, slot: int) -> void:
+func check_editorial_resume(main: Node, language: String, level_index: int, slot: int) -> void:
 	var selection: GDScript = preload("res://scripts/core/quiz_selection.gd")
 	var canonical: Dictionary = Database.get_quiz_question_by_id(0, int(main._quiz_current_question.id))
 	var presented: Dictionary = selection.shuffled(canonical)
@@ -120,23 +116,23 @@ func check_editorial_resume(main: Node, language: String, slot: int) -> void:
 			hidden.append(index)
 	var snapshot: Dictionary = {"question": presented, "target_difficulty": .84, "fifty_fifty_used": true, "hidden_indices": hidden, "replace_question_used": true}
 	var before: int = GameState.get_soft_currency()
-	check(main._restore_quiz_session_data(snapshot, 0, 2, slot) == snapshot, "Valid resume preserves paid 50/50 and replacement flags: " + language)
+	check(main._restore_quiz_session_data(snapshot, 0, level_index, slot) == snapshot, "Valid resume preserves paid 50/50 and replacement flags: " + language)
 	var stale: Dictionary = snapshot.duplicate(true)
 	stale.question.question = "Outdated test wording"
-	var refreshed: Dictionary = main._restore_quiz_session_data(stale, 0, 2, slot)
+	var refreshed: Dictionary = main._restore_quiz_session_data(stale, 0, level_index, slot)
 	check(refreshed.question.question == canonical.question and refreshed.question.id == canonical.id, "Edited question keeps its ID and receives current wording: " + language)
 	check(refreshed.hidden_indices.size() == 2 and !refreshed.hidden_indices.has(int(refreshed.question.correct_index)) and refreshed.replace_question_used, "Editorial refresh preserves paid hints with valid answer indices: " + language)
 	# Exercise the real resume consumer: it owns the updated slot assignment/save.
 	stale.question.id = 13
-	GameState.set_single_level_question_id(language, 2, 13, false, slot)
-	GameState.set_active_single_player_session({"language": language, "level_index": 2, "word_slot": slot, "kind": "quiz", "theme_id": Database.get_theme_id(0), "data": stale})
+	GameState.set_single_level_question_id(language, level_index, 13, false, slot)
+	GameState.set_active_single_player_session({"language": language, "level_index": level_index, "word_slot": slot, "kind": "quiz", "theme_id": Database.get_theme_id(0), "data": stale})
 	GameState.load_game()
 	main._invalidate_single_player_level_cache()
 	main._resume_saved_single_player_level()
 	await get_tree().create_timer(1.7).timeout
 	var data: Dictionary = GameState.get_active_single_player_session().get("data", {})
 	check(!data.is_empty() and int(data.question.id) != 13, "Retired saved question receives a playable replacement: " + language)
-	check(GameState.get_single_level_question_id(language, 2, slot) == int(data.question.id), "Resume persists the replacement in its original slot: " + language)
+	check(GameState.get_single_level_question_id(language, level_index, slot) == int(data.question.id), "Resume persists the replacement in its original slot: " + language)
 	check(Database.get_quiz_question_by_id(0, 13).is_empty() and !Database.get_quiz_question_by_id(0, 801).is_empty(), "Retired and replacement IDs keep their published identities: " + language)
 	check(data.hidden_indices.size() == 2 and !data.hidden_indices.has(int(data.question.correct_index)) and data.replace_question_used, "Retired-question resume preserves paid hint state: " + language)
 	# A new replacement must be durable before its first animation await.

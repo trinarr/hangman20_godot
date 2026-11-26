@@ -157,7 +157,7 @@ func check_home_lifecycle() -> void:
 			check(main.content.find_child("HomeFontWarmup",true,false) == null, "Already warmed Home releases the idle controller")
 			main.show_menu()
 			var pending: WeakRef = weakref(main.content.find_child("HomeFontWarmup",true,false))
-			main._leave_home(Callable(main,"show_custom_word"))
+			main._leave_home(Callable(main,"show_game_screen"))
 			main.show_menu()
 			await get_tree().process_frame
 			check(pending.get_ref() == null and !is_instance_valid(main._home_transition), "Quick navigation cancels warmup without a late callback")
@@ -233,7 +233,8 @@ func check_startup_lifecycle() -> void:
 	var native := NativeSplash.new()
 	startup._native = native
 	main.show_menu()
-	main.show_custom_word()
+	GameSession.start_round(WordData.new("TEST", 0.2, -1, -1))
+	main.show_game_screen()
 	await get_tree().process_frame
 	check(!startup.preparing and native.released and !is_instance_valid(startup._cover), "Leaving during startup releases the splash and cancels callbacks")
 	main.queue_free()

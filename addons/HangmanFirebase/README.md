@@ -47,8 +47,8 @@ and retains the underlying screen, including when it closes without a rebuild.
 Campaign start deduplication is cleared for the affected language/level when
 GameState resets its chain, even if its content seed is retained. This requires
 no extra save fields. A pending stage start is sent only after its gameplay
-`screen_view`; another destination or disabling collection cancels it. Two-player
-stage starts use the same ordering. Pre-consent starts are not queued.
+`screen_view`; another destination or disabling collection cancels it.
+Pre-consent starts are not queued.
 
 Yandex impression callbacks retain a bounded per-show placement map, independent
 of the shared ad unit. Fullscreen duplicate callbacks are ignored. ILRD uses

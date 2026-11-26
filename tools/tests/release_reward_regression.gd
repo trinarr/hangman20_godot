@@ -82,7 +82,7 @@ func run_tests() -> void:
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	ui.single_player_active_level_index = 4
 	ui.single_player_active_word_slot = 0
-	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(fixture_word())
 	GameSession.mistakes = GameSession.attempt_limit - 1
 	GameSession.loss_deferred = true
 	ui._advance_single_player_extra_attempt_offer()
@@ -114,7 +114,7 @@ func run_tests() -> void:
 	GameSession.open_hint_ad_reuse_available = true
 	request_id = GameState.begin_rewarded_action_request("hint_open", ui._action_reward_context(&"hint_open", -1))
 	var old_round: String = GameSession.round_id
-	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(fixture_word())
 	var revealed_before: Array = GameSession.revealed.duplicate()
 	var hints_before: int = GameState.get_hint_count(GameState.HINT_OPEN_LETTER)
 	ui._on_action_request_rewarded(request_id, "", 1)
@@ -124,13 +124,6 @@ func run_tests() -> void:
 	check(GameState.get_hint_count(GameState.HINT_OPEN_LETTER) == hints_before + 1, "inventory grant is idempotent")
 
 	var before_coins: int = GameState.get_soft_currency()
-	var before_stars: int = GameState.get_stars()
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	GameSession.start_custom_round("TEST")
-	var result: Dictionary = GameSession.finish_result(true)
-	ui._grant_remaining_attempt_star_reward(result, true)
-	check(GameState.get_soft_currency() == before_coins and GameState.get_stars() == before_stars, "two-player awards no currency")
-	check(Array(result["lines"]).is_empty(), "two-player result does not promise coins")
 
 	var coin_refill_reward: int = ui.PORTRAIT_COIN_REFILL_REWARDED_AMOUNT
 	GameState.coin_refill_ad_views_remaining = GameState.COIN_REFILL_AD_MAX_VIEWS
@@ -185,7 +178,7 @@ func run_tests() -> void:
 	ads._rewarded_loaded = true
 	ui.test_ads = ads
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
-	GameSession.start_round(fixture_word(), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(fixture_word())
 	GameSession.open_hint_used = true
 	GameSession.open_hint_ad_reuse_available = true
 	var origin := Control.new()

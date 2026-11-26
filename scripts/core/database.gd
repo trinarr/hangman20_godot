@@ -68,7 +68,6 @@ const WORD_FILES := {
 }
 
 const TRANSLATION_KEYS := {
-	2: &"MENU_TWO_PLAYER",
 	3: &"COMMON_CONTINUE",
 	12: &"WORD_DATABASE_LABEL",
 	19: &"VERSION_LABEL",
@@ -76,16 +75,12 @@ const TRANSLATION_KEYS := {
 	27: &"NO",
 	33: &"RESULT_VICTORY",
 	34: &"RESULT_DEFEAT",
-	37: &"INPUT_WORD",
-	40: &"NO_CATEGORY",
-	60: &"CHECK_WORD",
 	61: &"VIBRATION",
 	65: &"SOUND_MUSIC",
 	71: &"LANGUAGE_RU_SHORT",
 	72: &"LANGUAGE_EN_SHORT",
 	73: &"ON",
 	74: &"OFF",
-	77: &"START_GAME",
 }
 
 const HINT_FILES := {
@@ -562,35 +557,6 @@ func get_quiz_question_by_id(theme_index: int, question_id: int) -> Dictionary:
 		var question: Dictionary = by_id[question_id]
 		return question.duplicate(true)
 	return {}
-
-# One uniformly sampled raw record across all themes. An empty result is a
-# rejected sample, not proof that the pool is empty. Callers bound their retries.
-func sample_word_by_difficulty(difficulty_filter: int = 0) -> String:
-	_ensure_word_language_loaded()
-	var word_groups: Dictionary = data.get("words", {})
-	var total: int = 0
-	var counts: Array[int] = []
-	var theme_count: int = get_theme_count()
-	for theme_index: int in range(theme_count):
-		var words: Array = word_groups.get(str(get_theme_id(theme_index)), [])
-		counts.append(words.size())
-		total += words.size()
-	if total == 0:
-		return ""
-	var word_index: int = randi_range(0, total - 1)
-	for theme_index: int in range(theme_count):
-		if word_index >= counts[theme_index]:
-			word_index -= counts[theme_index]
-			continue
-		var difficulty: float = get_word_difficulty(theme_index, word_index)
-		if difficulty_filter == 1 and difficulty <= DIFFICULTY_SPLIT:
-			return ""
-		if difficulty_filter == 2 and difficulty > DIFFICULTY_SPLIT:
-			return ""
-		var words: Array = word_groups.get(str(get_theme_id(theme_index)), [])
-		var word: String = normalize_loaded_word(str(words[word_index]))
-		return "" if word == "_" else word
-	return ""
 
 func get_words_by_index(theme_index: int, difficulty_filter: int = 0) -> Array:
 	_ensure_word_language_loaded()

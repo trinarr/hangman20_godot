@@ -3,7 +3,6 @@ extends "res://scripts/ui/flash_stage_control.gd"
 
 signal input_submitted(value: String)
 
-const STAGE_TOAST_SCRIPT: GDScript = preload("res://scripts/ui/stage_toast.gd")
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const BUTTON_TEXT_STYLE_SCRIPT: GDScript = preload("res://scripts/ui/button_text_style.gd")
@@ -49,7 +48,6 @@ var _visual_root: Control = null
 var _display_label: Label = null
 var _marker_node: Node2D = null
 var _has_input_focus: bool = false
-var _validation_toast: Control = null
 var _word_bounce_tweens: Array[Tween] = []
 var _virtual_keyboard_poll_elapsed: float = VIRTUAL_KEYBOARD_POLL_INTERVAL
 
@@ -148,14 +146,6 @@ func _prune_finished_word_bounce_tweens() -> void:
 			active_tweens.append(bounce_tween)
 	_word_bounce_tweens = active_tweens
 
-func show_validation_toast(message_key: StringName, is_success: bool) -> void:
-	_ensure_nodes()
-	_validation_toast.call("show_translation", message_key, is_success)
-
-func hide_validation_toast() -> void:
-	if _validation_toast != null and is_instance_valid(_validation_toast):
-		_validation_toast.call("hide_message")
-
 func _ready() -> void:
 	_ensure_nodes()
 	if !resized.is_connected(_rebuild_visuals):
@@ -227,7 +217,6 @@ func _ensure_nodes() -> void:
 		add_child(_visual_root)
 
 	if _line_edit != null and is_instance_valid(_line_edit):
-		_ensure_validation_toast()
 		return
 	_line_edit = LineEdit.new()
 	_line_edit.name = "NativeKeyboardInput"
@@ -255,15 +244,6 @@ func _ensure_nodes() -> void:
 	_line_edit.focus_exited.connect(_on_focus_exited)
 	_line_edit.gui_input.connect(_on_line_edit_gui_input)
 	add_child(_line_edit)
-	_ensure_validation_toast()
-
-func _ensure_validation_toast() -> void:
-	if _validation_toast != null and is_instance_valid(_validation_toast):
-		return
-	_validation_toast = STAGE_TOAST_SCRIPT.new() as Control
-	_validation_toast.name = "ValidationToast"
-	add_child(_validation_toast)
-	_validation_toast.call("set_available_width", size.x)
 
 func _on_line_edit_text_submitted(value: String) -> void:
 	_line_edit.release_focus()
@@ -297,8 +277,6 @@ func _move_caret_to_end() -> void:
 func _rebuild_visuals() -> void:
 	if _visual_root == null or !is_instance_valid(_visual_root):
 		return
-	if _validation_toast != null and is_instance_valid(_validation_toast):
-		_validation_toast.call("set_available_width", size.x)
 	for bounce_tween: Tween in _word_bounce_tweens:
 		if bounce_tween != null and bounce_tween.is_valid():
 			bounce_tween.kill()
@@ -310,7 +288,7 @@ func _rebuild_visuals() -> void:
 	if size.x <= 0.0 or size.y <= 0.0:
 		return
 
-	# The two-player input now uses the same visual language as the screen title:
+	# The editor draws its own text:
 	# one centered display label over a hand-drawn marker. The native LineEdit
 	# remains transparent above it so Android/iOS IME composition is untouched.
 	var display_value: String = WORD_SLOT_LAYOUT_SCRIPT.display_text(_visual_text)

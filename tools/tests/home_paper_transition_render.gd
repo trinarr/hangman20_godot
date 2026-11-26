@@ -120,25 +120,26 @@ func run() -> void:
 		ui.queue_free()
 		destination.queue_free()
 		await frame()
-	# Exercise the real Home -> two-player route and its fifth header argument.
+	# Exercise the real Home -> crossword transition with its separate header.
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	var main := TestUI.new()
 	add_child(main)
 	main.show_menu()
 	await frame()
-	main._leave_home(Callable(main, "show_custom_word"))
+	GameSession.start_round(WordData.new("TEST", 0.2, -1, -1))
+	main._leave_home(Callable(main, "show_game_screen"))
 	var actual_transition: CanvasLayer = main._home_transition
 	check(is_instance_valid(actual_transition.get("_header_overlay")), "Real Home extracts the entire HUD into a separate overlay")
 	var fade: Tween = actual_transition.get("_fade_tween")
 	fade.pause()
 	fade.custom_step(actual_transition.GATHER_SECONDS * 0.5)
 	var hud: TextureRect = actual_transition.get("_header_overlay")
-	check(is_equal_approx(hud.modulate.a, 0.5) and is_equal_approx(hud.modulate.a, main._home_start_buttons[0].modulate.a), "HUD and Home buttons fade together from the start")
+	check(is_equal_approx(hud.modulate.a, 0.5) and is_equal_approx(hud.modulate.a, main.COMPOSITED_FADE.get_opacity(main._home_start_buttons[0])), "HUD and Home buttons fade together from the start")
 	fade.custom_step(actual_transition.GATHER_SECONDS)
 	check(is_zero_approx(hud.modulate.a), "HUD is fully hidden before the halves separate")
 	await get_tree().create_timer(1.2).timeout
 	check(!is_instance_valid(actual_transition), "Real paper transition completes and frees both viewport textures")
-	check(is_instance_valid(main.custom_word_edit), "Two-player destination is ready after the full-height split")
+	check(is_instance_valid(main._portrait_crossword), "Crossword destination is ready after the full-height split")
 	main.queue_free()
 	await frame()
 	print("HOME_PAPER_TRANSITION_RENDER failures=", failures)

@@ -29,9 +29,9 @@ func check(value: bool, label: String) -> void:
 	if !value:
 		failures.append(label)
 
-func build(word: String, single: bool = false, mistakes: int = 0) -> void:
-	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER if single else GameState.GameMode.TWO_PLAYER
-	GameSession.start_custom_round(word)
+func build(word: String, mistakes: int = 0) -> void:
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	GameSession.start_round(WordData.new(word, 0.2, -1, -1))
 	GameSession.mistakes = mistakes
 	main.show_game_screen()
 	# Focus on the result choreography after a settled gameplay entrance.
@@ -46,31 +46,30 @@ func _ready() -> void:
 	call_deferred("run")
 
 func check_final_key_feedback() -> void:
-	for single: bool in [false, true]:
-		build("АБВА", single)
-		var key: StageLetterButton = main._portrait_game_keyboard_buttons[0].button
-		key.configure(key.letter_text, StageLetterButton.LetterState.WRONG, key.letter_font_size, true, true)
-		key._start_feedback()
-		var bounce: Tween = key._letter_bounce_tween
-		bounce.pause()
-		main._show_in_place_round_result(false, true)
-		var animations: Array = main._portrait_round_result._animations.duplicate()
-		bounce.custom_step(0.15)
-		for animation: Tween in animations:
-			animation.pause()
-			animation.custom_step(0.15)
-		check(key._key_visual.opacity < 1.0 and key._key_visual.opacity > StageLetterButton.USED_OPACITY and main.COMPOSITED_FADE.get_opacity(key) == 1.0, "only the used key's own fade runs during its return")
-		bounce.custom_step(0.20)
-		for animation: Tween in animations:
-			if animation.is_valid():
-				animation.custom_step(0.20)
-		check(key._label.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(key._key_visual.opacity, StageLetterButton.USED_OPACITY) and main.COMPOSITED_FADE.get_opacity(key) < 1.0, "result fade follows completed key feedback")
-		main._clear()
+	build("АБВА")
+	var key: StageLetterButton = main._portrait_game_keyboard_buttons[0].button
+	key.configure(key.letter_text, StageLetterButton.LetterState.WRONG, key.letter_font_size, true, true)
+	key._start_feedback()
+	var bounce: Tween = key._letter_bounce_tween
+	bounce.pause()
+	main._show_in_place_round_result(false, true)
+	var animations: Array = main._portrait_round_result._animations.duplicate()
+	bounce.custom_step(0.15)
+	for animation: Tween in animations:
+		animation.pause()
+		animation.custom_step(0.15)
+	check(key._key_visual.opacity < 1.0 and key._key_visual.opacity > StageLetterButton.USED_OPACITY and main.COMPOSITED_FADE.get_opacity(key) == 1.0, "only the used key's own fade runs during its return")
+	bounce.custom_step(0.20)
+	for animation: Tween in animations:
+		if animation.is_valid():
+			animation.custom_step(0.20)
+	check(key._label.scale.is_equal_approx(Vector2.ONE) and is_equal_approx(key._key_visual.opacity, StageLetterButton.USED_OPACITY) and main.COMPOSITED_FADE.get_opacity(key) < 1.0, "result fade follows completed key feedback")
+	main._clear()
 
 func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	var is_russian: bool = language == "ru"
 	main.preview_banner = true
-	build("АБВА" if is_russian else "ABBA", true)
+	build("АБВА" if is_russian else "ABBA")
 	GameSession.is_active = true
 	GameSession.correct_letters.append("А" if is_russian else "A")
 	GameSession.revealed[0] = true
@@ -78,7 +77,7 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	main._refresh_portrait_game_keyboard()
 	var background: Control = main.content.get_node("PortraitGameBackground")
 	var background_rect: Rect2 = background.get_global_rect()
-	check(background.has_node("PortraitGameBackgroundGradient") and !background.has_node("PortraitGameThemePattern"), "custom words have the shared gradient without a theme icon")
+	check(background.has_node("PortraitGameBackgroundGradient") and !background.has_node("PortraitGameThemePattern"), "A theme-less fixture has the shared gradient without a theme icon")
 	check(main.content.find_child("PortraitPaperBackground", true, false) == null and main.content.find_child("PortraitGameKeyboardPanel", true, false) == null, "keyboard stays on the blue gradient")
 	var banner: Control = main.get_tree().get_first_node_in_group("ad_banner_slot")
 	var banner_rect: Rect2 = banner.get_global_rect()
@@ -210,9 +209,7 @@ func run() -> void:
 		check(main._portrait_crossword._number_labels.all(func(label: Label) -> bool: return label == null or !label.visible), "Showing the solution removes all numbers")
 		check(main._portrait_inline_result_search_button.visible and !main._portrait_inline_result_search_button.get("disabled"), "static search ready")
 		check(main._portrait_inline_result_continue_button.visible and !main._portrait_inline_result_continue_button.get("disabled"), "static continue ready")
-		check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return entry.button.disabled and is_equal_approx(main.COMPOSITED_FADE.get_opacity(entry.button), 0.7)), "two-player results keep the dimmed keyboard")
-		var first_key: Control = main._portrait_game_keyboard_buttons[0].button
-		check(first_key.visible and main._portrait_inline_result_continue_button.get_global_rect().end.y < first_key.get_global_rect().position.y, "two-player result action stays above the retained keyboard")
+		check(main._portrait_game_keyboard_buttons.all(func(entry: Dictionary) -> bool: return entry.button.disabled and !entry.button.visible), "Restored results hide and disable the keyboard")
 		var sounds: int = main.sounds
 		var button: Control = main._portrait_inline_result_continue_button
 		main._show_in_place_round_result(win, false)
@@ -233,7 +230,7 @@ func run() -> void:
 	check(main.content.find_child("ResultWordBounceLetters", true, false) == null, "temporary glyphs are removed")
 	# A restored result must skip attempts collection and show actions immediately.
 	for animated: bool in [false, true]:
-		build("АБВА", true)
+		build("АБВА")
 		GameSession.word_hint_text = "Описание слова"
 		main.last_result_data = {"remaining_attempt_star_reward_amount": 3}
 		main._show_in_place_round_result(true, animated)

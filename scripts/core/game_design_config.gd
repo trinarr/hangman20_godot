@@ -61,79 +61,12 @@ static func single_stage_reward(word_count: int) -> Dictionary:
 	return {"currency": currency,
 		"amount": get_int_range("economy.rewards.single_stage_level.amount", 1, get_int("economy.maximum_single_reward"))}
 
-static func _difficulty_streak_ranges(path: String, current_difficulty: float) -> Array:
-	var ranges: Array = get_array(path)
-	if ranges.is_empty():
-		_fatal_config_error("Expected non-empty difficulty streak table: %s" % path)
-	# Preserve the original flat table format for configs without difficulty bands.
-	if ranges[0] is Dictionary and !ranges[0].has("below_difficulty"):
-		return ranges
-	var difficulty: float = clampf(current_difficulty, 0.0, 1.0)
-	for value: Variant in ranges:
-		if !(value is Dictionary):
-			_fatal_config_error("Expected dictionary difficulty streak band: %s" % path)
-		var band: Dictionary = value
-		var below_difficulty: float = _require_numeric_field(band, "below_difficulty", path)
-		if !band.has("streaks"):
-			_fatal_config_error("Missing streaks field in game-design config: %s" % path)
-		if difficulty < below_difficulty:
-			var streaks: Variant = band["streaks"]
-			if !(streaks is Array):
-				_fatal_config_error("Expected streak array in game-design config: %s" % path)
-			var result: Array = streaks
-			return result
-	_fatal_config_error("No difficulty streak band covers difficulty %.3f: %s" % [difficulty, path])
-	# Unreachable: _fatal_config_error() terminates the process via OS.crash().
-	# Required only so the GDScript parser sees a return on every code path.
-	return []
-
-static func difficulty_win_increase(current_difficulty: float, win_streak: int) -> float:
-	var resolved_difficulty: float = clampf(current_difficulty, 0.0, 1.0)
-	var increase: float = 0.0
-	var increase_found: bool = false
-	for band_variant: Variant in get_array("difficulty.win_steps"):
-		if !(band_variant is Dictionary):
-			_fatal_config_error("Expected dictionary entry in difficulty.win_steps")
-		var band: Dictionary = band_variant
-		var below_difficulty: float = _require_numeric_field(band, "below_difficulty", "difficulty.win_steps")
-		if resolved_difficulty < below_difficulty:
-			increase = _require_numeric_field(band, "increase", "difficulty.win_steps")
-			increase_found = true
-			break
-	if !increase_found:
-		_fatal_config_error("No difficulty.win_steps entry covers difficulty %.3f" % resolved_difficulty)
-
-	var resolved_streak: int = maxi(win_streak, 1)
-	for range_variant: Variant in _difficulty_streak_ranges("difficulty.win_streak_multipliers", resolved_difficulty):
-		if !(range_variant is Dictionary):
-			_fatal_config_error("Expected dictionary entry in difficulty.win_streak_multipliers")
-		var streak_range: Dictionary = range_variant
-		var from_wins: int = _require_integer_field(streak_range, "from_wins", "difficulty.win_streak_multipliers")
-		var to_wins: int = _require_integer_field(streak_range, "to_wins", "difficulty.win_streak_multipliers")
-		if resolved_streak < from_wins or (to_wins > 0 and resolved_streak > to_wins):
-			continue
-		return increase * _require_numeric_field(streak_range, "multiplier", "difficulty.win_streak_multipliers")
-	_fatal_config_error("No win-streak multiplier covers streak %d" % resolved_streak)
-	# Unreachable after OS.crash(); parser-only return, not a runtime fallback.
-	return 0.0
-
-static func difficulty_loss_decrease(loss_streak: int, current_difficulty: float) -> float:
-	var resolved_streak: int = maxi(loss_streak, 1)
-	for range_variant: Variant in _difficulty_streak_ranges("difficulty.loss_steps", current_difficulty):
-		if !(range_variant is Dictionary):
-			_fatal_config_error("Expected dictionary entry in difficulty.loss_steps")
-		var loss_range: Dictionary = range_variant
-		var from_losses: int = _require_integer_field(loss_range, "from_losses", "difficulty.loss_steps")
-		var to_losses: int = _require_integer_field(loss_range, "to_losses", "difficulty.loss_steps")
-		if resolved_streak < from_losses or (to_losses > 0 and resolved_streak > to_losses):
-			continue
-		return _require_numeric_field(loss_range, "decrease", "difficulty.loss_steps")
-	_fatal_config_error("No loss-step entry covers streak %d" % resolved_streak)
-	# Unreachable after OS.crash(); parser-only return, not a runtime fallback.
-	return 0.0
-
 static func level_stage_count(level_number: int) -> int:
-	return _level_stage_range_value(level_number, "count")
+	return get_int_range("progression.quiz.questions_per_level", 1, 12) if is_quiz_level(level_number) else 1
+
+static func campaign_quiz_difficulty(level_index: int) -> float:
+	var ramp_length: int = get_int_range("difficulty.quiz_levels_to_maximum", 1, 100000)
+	return lerpf(get_float("difficulty.default"), get_float("difficulty.maximum"), clampf(float(level_index) / ramp_length, 0.0, 1.0))
 
 static func level_crossword_word_count(level_number: int) -> int:
 	var count: int = _level_stage_range_value(level_number, "crossword_words")
@@ -162,42 +95,15 @@ static func is_bonus_level(level_number: int) -> bool:
 	var every_levels: int = get_int("progression.bonus_level.every_levels")
 	return level_number > 0 and level_number % every_levels == 0
 
-static func level_stage_count_with_bonus(level_number: int) -> int:
-	var count: int = level_stage_count(level_number)
-	if is_bonus_level(level_number):
-		count += get_int("progression.bonus_level.extra_stages")
-	return count
-
-static func is_quiz_onboarding_level(level_number: int) -> bool:
-	var from_level: int = get_int("progression.quiz.onboarding_from_level")
-	var to_level: int = get_int("progression.quiz.onboarding_to_level")
-	return level_number >= from_level and level_number <= to_level
-
 static func opening_crossword_words(level_number: int, language: String, theme_id: int) -> Array:
 	var by_language: Dictionary = get_value("progression.opening_crosswords")
 	var by_level: Dictionary = by_language.get(language, {})
 	var by_theme: Dictionary = by_level.get(str(level_number), {})
 	return Array(by_theme.get(str(theme_id), [])).duplicate()
 
-static func opening_level_quiz_slots(level_number: int, stage_count: int) -> Variant:
-	# Null delegates later levels to the regular placement rules. Retain older
-	# opening-level shapes when continuing an already-started attempt.
-	match level_number:
-		1:
-			return [0]
-		2:
-			return [get_int("progression.quiz.second_level_slot")] if stage_count > 1 else []
-		3:
-			return [0] if stage_count == 2 else [get_int("progression.quiz.onboarding_slot")]
-	return null
-
-static func level_uses_quiz(level_number: int, stage_count: int) -> bool:
-	var opening_slots: Variant = opening_level_quiz_slots(level_number, stage_count)
-	if opening_slots != null:
-		return !opening_slots.is_empty()
-	if is_quiz_onboarding_level(level_number):
-		return stage_count >= get_int("progression.quiz.onboarding_stage_count")
-	return stage_count >= get_int("progression.quiz.regular_min_stage_count")
+static func is_quiz_level(level_number: int) -> bool:
+	var interval: int = get_int_range("progression.quiz.level_interval", 1, 1000)
+	return level_number > 0 and level_number % interval == 0 and !is_bonus_level(level_number)
 
 static func _ensure_loaded() -> void:
 	if _loaded:
@@ -262,19 +168,20 @@ static func _validate_loaded_config() -> void:
 	var maximum: float = get_float_range("difficulty.maximum", 0.0, 1.0)
 	if minimum > default_difficulty or default_difficulty > maximum:
 		_fatal_config_error("Difficulty bounds must satisfy minimum <= default <= maximum")
-	if get_float("progression.theme_intro.catch_up_rate") <= 0.0 or get_float("progression.theme_intro.catch_up_rate") > 1.0:
-		_fatal_config_error("progression.theme_intro.catch_up_rate must be in (0, 1]")
-	var tolerance: float = get_float("progression.theme_intro.completion_tolerance")
-	if tolerance <= 0.0 or tolerance >= maximum - minimum:
-		_fatal_config_error("progression.theme_intro.completion_tolerance must be positive and below the difficulty span")
+	var wave: Array = get_array("difficulty.word_wave_order")
+	if wave.is_empty():
+		_fatal_config_error("difficulty.word_wave_order must not be empty")
+	var ranks: Dictionary = {}
+	for value: Variant in wave:
+		var rank: int = _require_integer_value(value, "difficulty.word_wave_order")
+		if rank < 0 or rank >= wave.size() or ranks.has(rank):
+			_fatal_config_error("difficulty.word_wave_order must contain each rank once")
+		ranks[rank] = true
+	get_int_range("difficulty.quiz_levels_to_maximum", 1, 100000)
 	if get_int("progression.bonus_level.every_levels") <= 0:
 		_fatal_config_error("progression.bonus_level.every_levels must be greater than zero")
-	if get_int("progression.quiz.onboarding_from_level") <= 0:
-		_fatal_config_error("progression.quiz.onboarding_from_level must be greater than zero")
-	if get_int("progression.quiz.onboarding_to_level") < get_int("progression.quiz.onboarding_from_level"):
-		_fatal_config_error("progression.quiz.onboarding_to_level must not precede onboarding_from_level")
-	if get_int("progression.quiz.onboarding_stage_count") <= 0 or get_int("progression.quiz.regular_min_stage_count") <= 0:
-		_fatal_config_error("Quiz stage-count thresholds must be greater than zero")
+	get_int_range("progression.quiz.level_interval", 1, 1000)
+	get_int_range("progression.quiz.questions_per_level", 1, 12)
 	if get_int("economy.maximum_balance") <= 0:
 		_fatal_config_error("economy.maximum_balance must be greater than zero")
 	if get_int("economy.maximum_single_reward") > get_int("economy.maximum_balance"):
@@ -363,9 +270,6 @@ static func _validate_loaded_config() -> void:
 	_validate_initial_theme_ids()
 	_validate_theme_unlock_milestones()
 	_validate_level_stage_counts()
-	_validate_win_steps(maximum)
-	_validate_streak_table("difficulty.win_streak_multipliers", "from_wins", "to_wins", "multiplier", maximum)
-	_validate_streak_table("difficulty.loss_steps", "from_losses", "to_losses", "decrease", maximum)
 
 static func _validate_initial_theme_ids() -> void:
 	var seen: Dictionary = {}
@@ -417,12 +321,9 @@ static func _validate_level_stage_counts() -> void:
 		var context: String = "progression.level_stage_counts[%d]" % index
 		var from_level: int = _require_integer_field(item, "from_level", context)
 		var to_level: int = _require_integer_field(item, "to_level", context)
-		var count: int = _require_integer_field(item, "count", context)
 		var crossword_words: int = _require_integer_field(item, "crossword_words", context)
 		if from_level != expected_start:
 			_fatal_config_error("Stage-count ranges must be contiguous; %s starts at %d, expected %d" % [context, from_level, expected_start])
-		if count <= 0:
-			_fatal_config_error("Stage count must be greater than zero at %s" % context)
 		if crossword_words <= 0 or crossword_words + extra_words > 12:
 			_fatal_config_error("Crossword word count including bonus must be between 1 and 12 at %s" % context)
 		if to_level == 0:
@@ -433,78 +334,6 @@ static func _validate_level_stage_counts() -> void:
 			_fatal_config_error("Stage-count range ends before it starts at %s" % context)
 		expected_start = to_level + 1
 	_fatal_config_error("Final progression.level_stage_counts range must be open-ended")
-
-static func _validate_win_steps(maximum: float) -> void:
-	var steps: Array = get_array("difficulty.win_steps")
-	if steps.is_empty():
-		_fatal_config_error("difficulty.win_steps must not be empty")
-	var previous_boundary: float = 0.0
-	for index: int in range(steps.size()):
-		var value: Variant = steps[index]
-		if !(value is Dictionary):
-			_fatal_config_error("Expected dictionary at difficulty.win_steps[%d]" % index)
-		var item: Dictionary = value
-		var context: String = "difficulty.win_steps[%d]" % index
-		var boundary: float = _require_numeric_field(item, "below_difficulty", context)
-		_require_numeric_field(item, "increase", context)
-		if boundary <= previous_boundary:
-			_fatal_config_error("difficulty.win_steps boundaries must be strictly increasing")
-		previous_boundary = boundary
-	if previous_boundary <= maximum:
-		_fatal_config_error("difficulty.win_steps must cover maximum difficulty")
-
-static func _validate_streak_table(path: String, start_key: String, end_key: String, value_key: String, maximum: float) -> void:
-	var table: Array = get_array(path)
-	if table.is_empty():
-		_fatal_config_error("Streak table must not be empty: %s" % path)
-	if !(table[0] is Dictionary):
-		_fatal_config_error("Expected dictionary at %s[0]" % path)
-	var first_band: Dictionary = table[0]
-	var banded: bool = first_band.has("below_difficulty")
-	if !banded:
-		_validate_open_ended_streak_ranges(table, start_key, end_key, value_key, path)
-		return
-	var previous_boundary: float = 0.0
-	for index: int in range(table.size()):
-		var value: Variant = table[index]
-		if !(value is Dictionary):
-			_fatal_config_error("Expected dictionary at %s[%d]" % [path, index])
-		var band: Dictionary = value
-		var context: String = "%s[%d]" % [path, index]
-		var boundary: float = _require_numeric_field(band, "below_difficulty", context)
-		if boundary <= previous_boundary:
-			_fatal_config_error("Difficulty bands must be strictly increasing: %s" % path)
-		if !band.has("streaks") or !(band["streaks"] is Array):
-			_fatal_config_error("Expected streak array at %s.streaks" % context)
-		var streaks: Array = band["streaks"]
-		_validate_open_ended_streak_ranges(streaks, start_key, end_key, value_key, context + ".streaks")
-		previous_boundary = boundary
-	if previous_boundary <= maximum:
-		_fatal_config_error("Difficulty bands must cover maximum difficulty: %s" % path)
-
-static func _validate_open_ended_streak_ranges(ranges: Array, start_key: String, end_key: String, value_key: String, context: String) -> void:
-	if ranges.is_empty():
-		_fatal_config_error("Streak ranges must not be empty: %s" % context)
-	var expected_start: int = 1
-	for index: int in range(ranges.size()):
-		var value: Variant = ranges[index]
-		if !(value is Dictionary):
-			_fatal_config_error("Expected dictionary at %s[%d]" % [context, index])
-		var item: Dictionary = value
-		var item_context: String = "%s[%d]" % [context, index]
-		var start: int = _require_integer_field(item, start_key, item_context)
-		var finish: int = _require_integer_field(item, end_key, item_context)
-		_require_numeric_field(item, value_key, item_context)
-		if start != expected_start:
-			_fatal_config_error("Streak ranges must be contiguous at %s" % item_context)
-		if finish == 0:
-			if index != ranges.size() - 1:
-				_fatal_config_error("Only the final streak range may be open-ended: %s" % context)
-			return
-		if finish < start:
-			_fatal_config_error("Streak range ends before it starts at %s" % item_context)
-		expected_start = finish + 1
-	_fatal_config_error("Final streak range must be open-ended: %s" % context)
 
 static func _validate_nonnegative_numbers(value: Variant, path: String) -> void:
 	if value is Dictionary:

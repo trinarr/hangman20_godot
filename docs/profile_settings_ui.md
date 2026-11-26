@@ -15,7 +15,7 @@ the Home avatar returns to Home.
 
 The former full settings popup has been removed. `show_settings()` routes a
 non-compact invocation to the Settings tab. Quiz, Hangman (including finished
-rounds/results), and two-player word input keep the compact modal with Sound and
+rounds/results) keep the compact modal with Sound and
 Vibration only. Both layouts use the same `_stage_settings_rows()` implementation
 and existing settings/save/action handlers.
 

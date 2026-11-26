@@ -152,21 +152,17 @@ func run() -> void:
 	var own_avatar: Button = page.own_row.find_child("PlayerAvatar", true, false)
 	check(own_avatar.get_meta("character_id") == GameState.get_player_profile().character_id and own_avatar.get_meta("frame_id") == GameState.player_frame_id, "Player's first-place avatar uses the selected profile")
 	check(page.rows.get_child_count() == page._snapshot.rows.size(), "All ranks belong to the same scroll list")
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	main._grant_remaining_attempt_star_reward({}, true)
-	check(int(GameState.tournament_state.player_stars) == 0, "Actual two-player result does not score tournament stars")
 	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 	var attempt_stars := GameSession.get_remaining_attempts()
 	main._grant_remaining_attempt_star_reward({}, true)
 	check(int(GameState.tournament_state.player_stars) == attempt_stars, "Actual single-player remaining-attempt reward scores")
 	main.single_player_active_level_index = 5
 	main.single_player_active_word_slot = 0
-	var word_count: int = main._single_player_level_word_count(5)
-	var word_stars: int = main._single_player_stage_reward_amount(5, 0, word_count)
+	var result: Dictionary = main._single_player_mark_current_word_finished({}, true, true, true)
+	check(result.get("single_player_stage_reward_currency") == GameState.STAGE_REWARD_COINS, "Normal level result offers a coin prize")
+	check(int(GameState.tournament_state.player_stars) == attempt_stars, "A coin prize does not score tournament stars")
 	main._single_player_mark_current_word_finished({}, true, true, true)
-	check(int(GameState.tournament_state.player_stars) == attempt_stars + word_stars, "Actual word-result transaction records stage stars")
-	main._single_player_mark_current_word_finished({}, true, true, true)
-	check(int(GameState.tournament_state.player_stars) == attempt_stars + word_stars, "Duplicate actual word result cannot add tournament stars")
+	check(int(GameState.tournament_state.player_stars) == attempt_stars, "Duplicate actual word result cannot add tournament stars")
 	GameState.clear_active_single_player_session(false)
 	main.single_player_active_level_index = -1
 	main.single_player_active_word_slot = -1

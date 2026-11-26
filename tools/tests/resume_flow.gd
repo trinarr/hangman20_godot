@@ -27,9 +27,12 @@ func check(value: bool, message: String) -> void:
 func settle() -> void:
 	await create_timer(5.0).timeout
 
-func begin_level(level: int) -> void:
+func begin_level(level: int, legacy_quiz: bool = false) -> void:
 	main.show_menu()
+	state._single_player_bucket(database.current_language)["unlocked_level"] = level
 	state.reset_single_level_attempt(database.current_language, level)
+	if legacy_quiz:
+		state.set_single_level_question_slots(database.current_language, level, [0])
 	main._invalidate_single_player_level_cache()
 	main._show_single_player_level_popup(level)
 	await settle()
@@ -90,8 +93,8 @@ func run() -> void:
 	check(lost_hearts == hearts, "Protected onboarding loss preserves hearts")
 	await resume()
 	check(state.get_hearts() == lost_hearts, "Reloaded loss does not charge another heart")
-	check(state.is_single_level_completed(database.current_language, 1, 1), "Completed one-stage defeat remains recorded")
-	check(!main.last_result_is_win, "Continue does not turn the recorded defeat into a win")
+	check(!state.is_single_level_completed(database.current_language, 1, 1), "One-stage defeat does not complete the level")
+	check(session.is_active and session.mistakes == 0 and main.single_player_active_level_index == 1, "Continue restarts the defeated level")
 	# The first ordinary level has the same durable last-chance flow, but charges
 	# one heart only when the pending decision is resolved as a defeat.
 	var ordinary_level: int = 3
@@ -114,8 +117,8 @@ func run() -> void:
 	check(lost_hearts == hearts - 1, "Ordinary defeat charges exactly one heart")
 	await resume()
 	check(state.get_hearts() == lost_hearts, "Restart after ordinary defeat never charges a second heart")
-	await begin_level(2)
-	check(main._quiz_screen_active and !main._quiz_hint_buttons[0].get("button_disabled"), "Level 3 unlocks 50/50")
+	await begin_level(4)
+	check(main._quiz_screen_active and !main._quiz_hint_buttons[0].get("button_disabled"), "50/50 is available on the first quiz level")
 	main._on_quiz_fifty_fifty_pressed()
 	var hidden_indices: Array = main._quiz_fifty_fifty_hidden_indices.duplicate()
 	check(hidden_indices.size() == 2, "50/50 hides two wrong answers")
@@ -135,7 +138,7 @@ func run() -> void:
 	check(main._quiz_continue_button.visible, "Fast answer releases Continue without a counter as a flight target")
 	await resume()
 	check(state.get_stars() == stars_after_answer, "Continue does not repeat quiz speed stars")
-	await begin_level(0)
+	await begin_level(0, true)
 	hearts = state.get_hearts()
 	main._on_quiz_answer_selected((main._quiz_correct_answer_index() + 1) % main._quiz_answer_buttons.size())
 	var excluded: Array = main._quiz_fifty_fifty_hidden_indices.duplicate()

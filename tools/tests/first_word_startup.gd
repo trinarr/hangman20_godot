@@ -90,27 +90,27 @@ func run() -> void:
 			reset_profile(language)
 			var native := start_main(true)
 			check(main.home_builds == 0 and !is_instance_valid(main._home_logo_reveal), "Fresh profile never builds Home")
-			check(main._quiz_screen_active and !GameSession.is_active, "Fresh profile starts the first quiz")
-			check(!native.released, "Splash stays until the initial quiz frame has drawn")
-			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).size() == 1, "Mandatory legal modal blocks the first quiz")
+			check(main.game_screen_visible and GameSession.is_active, "Fresh profile starts the first crossword")
+			check(!native.released, "Splash stays until the initial crossword frame has drawn")
+			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).size() == 1, "Mandatory legal modal blocks the first crossword")
 			var deadline: int = Time.get_ticks_msec() + 10000
 			while !native.released and Time.get_ticks_msec() < deadline:
 				await get_tree().process_frame
-			check(native.released, "Native splash releases after the quiz is prepared")
+			check(native.released, "Native splash releases after the crossword is prepared")
 			check(main.get_node("StartupPreparation").preparing, "Startup waits for native dismissal confirmation")
 			native.dismissed = true
 			await settle()
-			check(main._quiz_screen_active and native.released, "Quiz remains active after splash dismissal")
+			check(main.game_screen_visible and native.released, "Crossword remains active after splash dismissal")
 			var background := main.content.get_node("PortraitGameBackground") as Control
-			check(background.get_global_rect().is_equal_approx(get_viewport().get_visible_rect()) and !is_instance_valid(main._portrait_header_fill), "Quiz background extends behind the bare top bar")
+			check(background.get_global_rect().is_equal_approx(get_viewport().get_visible_rect()) and !is_instance_valid(main._portrait_header_fill), "Crossword background extends behind the bare top bar")
 			var title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
 			var expected_title: String = "УРОВЕНЬ 1" if language == "ru" else "LEVEL 1"
-			check(is_instance_valid(title) and title.text == expected_title, "First quiz shows the localized level title")
+			check(is_instance_valid(title) and title.text == expected_title, "First crossword shows the localized level title")
 			if is_instance_valid(title):
-				check(is_equal_approx(title.get_global_rect().get_center().x, get_viewport().get_visible_rect().get_center().x), "First quiz title is centered in the top bar")
-				check(title.get_theme_font("font") == main.UI_REGULAR_FONT and title.get_theme_font_size("font_size") == 24, "Quiz uses the reward subtitle font and size")
-			check(!is_instance_valid(main._portrait_attempt_indicators), "Quiz has no crossword attempts")
-			check(!is_instance_valid(main._portrait_currency_counter_visual) and !is_instance_valid(main._portrait_star_counter_visual), "First quiz has no resource counters")
+				check(is_equal_approx(title.get_global_rect().get_center().x, get_viewport().get_visible_rect().get_center().x), "First crossword title is centered in the top bar")
+				check(title.get_theme_font("font") == main.UI_FONTS.keyboard_font() and title.get_theme_font_size("font_size") == 20, "Crossword uses the keyboard font")
+			check(is_instance_valid(main._portrait_attempt_indicators), "Crossword shows its attempts")
+			check(!is_instance_valid(main._portrait_currency_counter_visual) and !is_instance_valid(main._portrait_star_counter_visual), "First crossword has no resource counters")
 			if native.image != null:
 				var color: Color = native.image.get_pixel(native.image.get_width()/2, native.image.get_height()/2)
 				check(color.r + color.g + color.b > 0.1, "Native splash reveals rendered pixels rather than black")
@@ -118,30 +118,28 @@ func run() -> void:
 				if !consent_dir.is_empty():
 					native.image.save_png(consent_dir.path_join("first_consent_%s_%d.png" % [language, size.x]))
 			var saved: Dictionary = GameState.get_active_single_player_session()
-			check(saved.get("kind") == "quiz" and int(saved.get("level_index", -1)) == 0 and int(saved.get("word_slot", -1)) == 0, "Normal save pipeline persists the first quiz")
-			check(int(saved.get("theme_id", -1)) == 9 and Database.get_theme_id(main._quiz_selected_theme_index) == 9, "Fresh first quiz uses General in both the session and save")
+			check(saved.get("kind") == "word" and int(saved.get("level_index", -1)) == 0 and int(saved.get("word_slot", -1)) == 0, "Normal save pipeline persists the first crossword")
+			check(int(saved.get("theme_id", -1)) == 9 and Database.get_theme_id(GameSession.theme_id) == 9, "Fresh first crossword uses General in both the session and save")
 			main._accept_legal_documents()
 			main._accept_legal_documents()
 			await get_tree().create_timer(.5).timeout
 			check(GameState.has_accepted_legal_documents() and main.resumes == 0, "Repeated acceptance never starts or restores another round")
-			check(GameState.get_active_single_player_session() == saved, "Acceptance preserves the prepared quiz")
-			main._on_quiz_fifty_fifty_pressed()
-			var round_saved: Dictionary = GameState.get_active_single_player_session().data.duplicate(true)
-			var disk_save: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
-			check(int(disk_save.active_single_player_session.data.question.id) == int(round_saved.question.id) and disk_save.active_single_player_session.data.question.answers == round_saved.question.answers and !bool(disk_save.active_single_player_session.data.fifty_fifty_used) and main._quiz_hint_buttons[0].get("button_disabled"), "First quiz persists its question with 50/50 locked")
+			check(GameState.get_active_single_player_session() == saved, "Acceptance preserves the prepared crossword")
+			var round_saved: Dictionary = GameSession.to_save_data()
+			check(saved.data.get("crossword") == round_saved.crossword and saved.data.get("revealed") == round_saved.revealed, "The opening crossword is saved before input")
 			var capture_dir: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 			if !capture_dir.is_empty():
 				await RenderingServer.frame_post_draw
-				get_viewport().get_texture().get_image().save_png(capture_dir.path_join("first_quiz_%s_%d.png" % [language, size.x]))
+				get_viewport().get_texture().get_image().save_png(capture_dir.path_join("first_crossword_%s_%d.png" % [language, size.x]))
 			await close_main()
 			GameState.load_game()
 			GameState.interface_language = language
 			start_main()
 			await settle()
-			check(main.home_builds == 0 and main.resumes == 1, "Restart restores the first quiz directly exactly once")
-			check(main._quiz_screen_active and main._quiz_current_question == round_saved.question and !main._quiz_fifty_fifty_used and main._quiz_hint_buttons[0].get("button_disabled"), "Restart preserves the quiz and 50/50 lock")
+			check(main.home_builds == 0 and main.resumes == 1, "Restart restores the first crossword directly exactly once")
+			check(main.game_screen_visible and GameSession.to_save_data() == round_saved, "Restart preserves the first crossword")
 			var reopened_title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
-			check(is_instance_valid(reopened_title) and reopened_title.text == expected_title, "First quiz restores the same level title on restart")
+			check(is_instance_valid(reopened_title) and reopened_title.text == expected_title, "First crossword restores the same level title on restart")
 			check(get_tree().get_nodes_in_group(main.PORTRAIT_LEGAL_POPUP_GROUP).is_empty(), "Restart keeps accepted consent")
 			main.show_menu()
 			await get_tree().create_timer(2.0).timeout
@@ -287,6 +285,7 @@ func check_first_quiz_retry() -> void:
 			get_window().size = dimensions
 			reset_profile(language)
 			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
+			GameState.set_single_level_question_slots(language, 0, [0])
 			start_main()
 			await settle()
 			var correct: int = main._quiz_correct_answer_index()
@@ -375,15 +374,15 @@ func check_quiz_ad_consent() -> void:
 			GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 			GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.UNKNOWN
 			GameState.ad_region_rule = "required"
-			GameState._single_player_bucket(language)["unlocked_level"] = 2
+			GameState._single_player_bucket(language)["unlocked_level"] = 4
 			start_main()
 			await settle()
-			var options: Array = main._single_player_level_theme_options(2)
-			main._confirm_single_player_theme_selection(2,int(options[0]))
+			var options: Array = main._single_player_level_theme_options(4)
+			main._confirm_single_player_theme_selection(4,int(options[0]))
 			var deadline: int = Time.get_ticks_msec()+10000
 			while get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).is_empty() and Time.get_ticks_msec()<deadline:
 				await get_tree().process_frame
-			check(main._quiz_screen_active and !GameSession.is_active, "Ad consent opens on the first quiz stage of level three")
+			check(main._quiz_screen_active and !GameSession.is_active, "Ad consent opens on the first quiz question of level five")
 			check(get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).size()==1 and main._quiz_consent_pause_at_msec>0, "Exactly one consent modal pauses the quiz speed clock")
 			main._show_user_consent_on_single_player_stage_if_needed()
 			check(get_tree().get_nodes_in_group(main.PORTRAIT_USER_CONSENT_POPUP_GROUP).size()==1, "Late region callbacks do not duplicate quiz consent")

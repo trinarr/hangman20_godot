@@ -51,21 +51,6 @@
       "native_2x": true
     },
     {
-      "path": "flash_assets/custom_word_check_doodle.png",
-      "source_size": [
-        256,
-        256
-      ],
-      "target_size": [
-        256,
-        256
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "6b89dd1959f2518e15b840f6a0a6ea71e7ec0573a5a1ff9028a5a45738e0d7cc",
-      "target_sha256": "6b89dd1959f2518e15b840f6a0a6ea71e7ec0573a5a1ff9028a5a45738e0d7cc",
-      "native_2x": true
-    },
-    {
       "path": "flash_assets/custom_word_random_doodle.png",
       "source_size": [
         256,
@@ -95,21 +80,6 @@
       "target_sha256": "14b2f17fe655691e9688204608f45c99b8282f2a9533562ce553f44dbd28c3fa",
       "native_2x": true,
       "replacement_manifest": "data/round_button_icon_manifest.json"
-    },
-    {
-      "path": "flash_assets/custom_word_search_loading_doodle.png",
-      "source_size": [
-        256,
-        256
-      ],
-      "target_size": [
-        256,
-        256
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "bd8bcb07808340655d94a780d4e8b0490e74d52ef145f27144aa32fecc5f0d94",
-      "target_sha256": "bd8bcb07808340655d94a780d4e8b0490e74d52ef145f27144aa32fecc5f0d94",
-      "native_2x": true
     },
     {
       "path": "flash_assets/extra_attempts_icon.png",

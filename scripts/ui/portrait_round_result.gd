@@ -25,7 +25,6 @@ var result_continue_button: Control
 var continue_caption: String = ""
 var word_comment: String = ""
 var comment_label: Label
-var replace_result_keyboard: bool = false
 var primary_word_completed_in_grid: bool = false
 func configure(parent: Control, bindings: Dictionary, word_letters: Array[String]) -> void:
 	content = parent
@@ -38,7 +37,6 @@ func configure(parent: Control, bindings: Dictionary, word_letters: Array[String
 	paper_backside_visual = bindings.get("paper_backside_visual")
 	keyboard_buttons = bindings.get("keyboard_buttons", [])
 	word_comment = str(bindings.get("word_comment", "")).strip_edges()
-	replace_result_keyboard = bool(bindings.get("replace_result_keyboard", false))
 	primary_word_completed_in_grid = bool(bindings.get("primary_word_completed_in_grid", false))
 	back_button = bindings.get("back_button")
 
@@ -52,8 +50,6 @@ func begin(win: bool, animated: bool, wait_for_letters: bool, caption: String) -
 		back_button.visible = false
 		back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		back_button.set("disabled", true)
-	if !replace_result_keyboard:
-		_dim_portrait_keyboard_for_in_place_result(animated)
 	waiting_for_letters = win and animated and wait_for_letters
 	if !waiting_for_letters:
 		_peel_portrait_word_paper_for_in_place_result(animated)
@@ -106,7 +102,6 @@ var PORTRAIT_ROUND_END_PAPER_FLIP_DURATION: float = PORTRAIT_GAME_DESIGN.get_flo
 
 const PORTRAIT_ROUND_END_PAPER_BACKSIDE_MAX_WIDTH: float = 190.0
 
-const PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA: float = 0.70
 
 var PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.game_entrance.continue_grow_seconds"
@@ -855,34 +850,14 @@ func _stage_in_place_result_word(animated: bool) -> void:
 	var bounce_start_delay: float = PORTRAIT_ROUND_END_PAPER_FLIP_DURATION * 0.5 if animated else 0.0
 	var result_controls: Dictionary = _stage_portrait_result_word_display(word_rect, null, null, animated, bounce_start_delay)
 	_set_portrait_result_word_color(result_controls, _in_place_result_word_color())
-	if replace_result_keyboard:
-		var word_holder: Control = result_controls["word_holder"]
-		_hide_keyboard_for_result(animated, word_holder.get("stage_rect"))
+	var word_holder: Control = result_controls["word_holder"]
+	_hide_keyboard_for_result(animated, word_holder.get("stage_rect"))
 	var search_button := result_controls.get("search_button") as Control
 	result_search_button = search_button
 	if search_button != null and is_instance_valid(search_button):
 		search_button.visible = !animated
 		search_button.set("disabled", animated)
 
-func _dim_portrait_keyboard_for_in_place_result(animated: bool) -> void:
-	for entry_variant: Variant in keyboard_buttons:
-		var entry: Dictionary = entry_variant
-		var button := entry.get("button") as Control
-		if button == null or !is_instance_valid(button):
-			continue
-		button.set("disabled", true)
-		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var key := button as StageLetterButton
-		var delay: float = key.feedback_bounce_time_left() if animated and key != null else 0.0
-		if delay > 0.0:
-			var dim := _tween(button).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-			dim.tween_interval(delay)
-			var controller: Node = FADE.branch(button)
-			dim.tween_callback(controller.set.bind("opacity", PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA))
-		else:
-			FADE.set_opacity(button, PORTRAIT_IN_PLACE_RESULT_KEYBOARD_ALPHA)
-
-# Restore the original round-end wave, reversing the gameplay entrance.
 func _hide_keyboard_for_result(animated: bool, result_word_rect: Rect2) -> void:
 	var min_x: float = INF
 	var max_x: float = -INF

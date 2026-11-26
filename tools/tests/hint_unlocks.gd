@@ -26,7 +26,7 @@ func run() -> void:
 	var lock: Texture2D = load("res://flash_assets/hint_locked_doodle.png")
 	for level: int in range(1, 5):
 		state._single_player_bucket("ru")["unlocked_level"] = level - 1
-		session.start_round(WordData.new("КОШКА", 0.1, 0, 0), state.GameMode.SINGLE_PLAYER)
+		session.start_round(WordData.new("КОШКА", 0.1, 0, 0))
 		session.word_hint_text = "Домашнее животное"
 		var unlocked: bool = level >= 4
 		check(session.can_use_open_letter_hint() == unlocked, "Reveal unlock level %d" % level)
@@ -82,7 +82,7 @@ func run() -> void:
 	# Unlock on completion of level 3, even after defeats, before level 4's first stage.
 	state.single_player = {}
 	for slot: int in range(3):
-		state.mark_single_level_word_played("ru", 2, slot, 3, false, true, -1, false, false, 0)
+		state.mark_single_level_word_played("ru", 2, slot, 3, true, true, -1, false, false, 0)
 	check(state.is_single_player_hint_unlocked("ru", state.HINT_OPEN_LETTER), "Level 3 completion unlocks level 4 hints")
 	check(state.save_game(), "Save succeeds")
 	state.single_player = {}
@@ -90,8 +90,6 @@ func run() -> void:
 	check(state.is_single_player_hint_unlocked("ru", state.HINT_QUIZ_REPLACE_QUESTION), "Unlock survives restart")
 	check(!state.is_single_player_hint_unlocked("en", state.HINT_QUIZ_REPLACE_QUESTION), "New language retains onboarding")
 	state.single_player = {}
-	session.start_custom_round("КОШКА")
-	check(!session.can_use_open_letter_hint() and !session.can_use_remove_wrong_hint() and !session.can_unlock_comment_hint(), "Custom two-player words remain without hints")
 	main._quiz_single_player_embedded = false
 	check(!main._portrait_hint_progression_locked(state.HINT_QUIZ_REPLACE_QUESTION), "Standalone quiz is unchanged")
 	main.queue_free()

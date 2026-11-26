@@ -42,7 +42,6 @@ const UI_MATERIALS: GDScript = preload("res://scripts/ui/ui_materials.gd")
 const PORTRAIT_ADAPTIVE_GROUP_SCRIPT: GDScript = preload("res://scripts/ui/portrait_adaptive_group.gd")
 const PORTRAIT_COIN_COUNTER_ANCHOR = preload("res://scripts/ui/portrait_coin_counter_anchor.gd")
 const PORTRAIT_STAGE_LAYOUT: GDScript = preload("res://scripts/ui/portrait_stage_layout.gd")
-const STAGE_WORD_INPUT_SCRIPT: GDScript = preload("res://scripts/ui/stage_word_input.gd")
 const PORTRAIT_CROSSWORD = preload("res://scripts/ui/portrait_crossword.gd")
 const PORTRAIT_ATTEMPT_INDICATORS = preload("res://scripts/ui/portrait_attempt_indicators.gd")
 const WORD_SLOT_LAYOUT_SCRIPT: GDScript = preload("res://scripts/ui/word_slot_layout.gd")
@@ -156,7 +155,7 @@ const PORTRAIT_LEGAL_POPUP_GROUP: StringName = &"legal_consent_popup"
 const PORTRAIT_USER_CONSENT_POPUP_GROUP: StringName = &"user_consent_popup"
 const PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE: float = 0.85
 const PORTRAIT_FOOTER_CONTROL_SCALE: float = 1.10
-# Primary bottom CTA width is based on the current two-player Start button after
+# Primary bottom CTA width is based on the original primary button after
 # footer sizing, then enlarged by 15%. Reuse the resolved width for screen-level
 # Continue buttons so the main action has one consistent visual length.
 const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH_SCALE: float = 1.15
@@ -180,7 +179,7 @@ const PORTRAIT_GAME_KEY_GAP: float = 5.0
 const PORTRAIT_GAME_KEYBOARD_SIDE_PADDING: float = 12.0
 const PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING: float = 22.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
-const PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
+const PORTRAIT_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 var PORTRAIT_ROUND_END_KEY_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.round_end.key_fade_seconds"
 )
@@ -215,7 +214,7 @@ var PORTRAIT_INLINE_RESULT_CONTINUE_GROW_DURATION: float = PORTRAIT_GAME_DESIGN.
 # stays centered on the 480 px portrait stage.
 const PORTRAIT_SINGLE_REWARD_HERO_SCALE_MULTIPLIER: float = PORTRAIT_GAME_HERO_SCALE_MULTIPLIER * 1.17
 const PORTRAIT_SINGLE_REWARD_HERO_POSITION := Vector2(
-	PORTRAIT_STAGE_SIZE.x * 0.5 - PORTRAIT_TWO_PLAYER_HERO_VISUAL_CENTER_OFFSET_X * 1.17,
+	PORTRAIT_STAGE_SIZE.x * 0.5 - PORTRAIT_HERO_VISUAL_CENTER_OFFSET_X * 1.17,
 	525.0
 )
 # Approximate visible bottom of the clean reward hero in authored stage space.
@@ -446,11 +445,6 @@ const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/h
 const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
-const PORTRAIT_CUSTOM_WORD_RANDOM_ICON: Texture2D = preload("res://flash_assets/custom_word_random_doodle.png")
-const PORTRAIT_CUSTOM_WORD_CHECK_ICON: Texture2D = preload("res://flash_assets/custom_word_check_doodle.png")
-const PORTRAIT_CUSTOM_WORD_SEARCH_LOADING_ICON: Texture2D = preload("res://flash_assets/custom_word_search_loading_doodle.png")
-const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS: float = 3.0
-const PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_DURATION: float = 1.1
 const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = PORTRAIT_ICON_EXTRUSION.ACTION_SHADOW_ALPHA
 const PORTRAIT_MENU_SETTINGS_ICON: Texture2D = preload("res://flash_assets/settings_gear_icon.png")
 
@@ -558,10 +552,6 @@ const PORTRAIT_GAME_HINT_COUNTER_SIZE: float = 28.0
 var PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.word_letters.start_scale"
 )
-const PORTRAIT_CUSTOM_WORD_INPUT_RECT := Rect2(8.0, 0.0, 464.0, 72.0)
-const PORTRAIT_CUSTOM_WORD_BUTTON_RISE: float = 64.0
-const PORTRAIT_CUSTOM_WORD_ACTION_GAP: float = 22.0
-const PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP: float = 28.6
 
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
@@ -697,7 +687,6 @@ var PORTRAIT_ATTEMPTS_POPUP_COUNTER_SETTLE_DELAY_SECONDS: float = PORTRAIT_GAME_
 var PORTRAIT_ATTEMPTS_POPUP_COUNTER_SETTLE_SECONDS: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.attempts_popup.counter_settle_seconds"
 )
-var _portrait_custom_word_input: Control = null
 var _portrait_crossword: PORTRAIT_CROSSWORD
 var _portrait_attempt_indicators: PORTRAIT_ATTEMPT_INDICATORS
 var _portrait_game_input_group: Control = null
@@ -708,7 +697,6 @@ var _portrait_game_keyboard_buttons: Array = []
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
 var _portrait_game_back_button: Control = null
-var _portrait_custom_word_search_tween: Tween = null
 var _portrait_game_runtime_ready: bool = false
 var _portrait_currency_counter_visual: Control:
 	get:
@@ -1244,7 +1232,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_portrait_previous_screen_had_back = _portrait_back_button_visible
 	_portrait_back_button_visible = false
 	_remove_settings_popup()
-	_portrait_custom_word_input = null
 	_portrait_top_bar_content = null
 	_portrait_coin_store_active = false
 	_portrait_game_input_group = null
@@ -1412,28 +1399,6 @@ func _animate_portrait_back_button_entrance(button: Control, final_rect: Rect2) 
 	)
 	slide_tweener.set_trans(Tween.TRANS_QUAD)
 	slide_tweener.set_ease(Tween.EASE_OUT)
-
-func _stage_portrait_custom_word_title(title: String) -> void:
-	if !is_instance_valid(_portrait_custom_word_input):
-		return
-	# A native child inherits both stage scaling and the field's keyboard lift.
-	# Keep the user's authored 55-unit offset when the IME opens or closes.
-	var caption := Label.new()
-	caption.name = "CustomWordTitleLabel"
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	caption.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	caption.offset_left = 0.0
-	caption.offset_right = 0.0
-	caption.offset_top = -55.0
-	caption.offset_bottom = -19.0
-	caption.text = title
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
-	caption.add_theme_font_override("font", UI_FONTS.word_input_caption_font())
-	caption.add_theme_font_size_override("font_size", 28)
-	caption.add_theme_color_override("font_color", PORTRAIT_BLUE)
-	_portrait_custom_word_input.add_child(caption)
 
 func _portrait_resource_counter_panel_rect(
 	counter_rect: Rect2
@@ -1603,7 +1568,7 @@ func _close_coin_store() -> void:
 	# Other callbacks (quiz refresh, stacked offers) still perform their own work.
 	var same_screen_methods: Array[StringName] = [
 		&"show_menu", &"show_game_screen", &"_return_to_game_from_coin_store",
-		&"_return_to_single_player_reward_from_coin_store", &"_return_to_custom_word_from_coin_store",
+		&"_return_to_single_player_reward_from_coin_store",
 	]
 	if (
 		_coin_store_underlay_is_live()
@@ -2789,7 +2754,6 @@ func _show_menu_screen() -> void:
 	logo_reveal.set("reveal_duration", PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER)
 	logo_reveal.set("shine_duration", PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS)
 
-	var two_player_button := _stage_main_button(Rect2(67.5, 578.0, 345.0, 73.6), Callable(self, "_leave_home").bind(Callable(self, "show_custom_word")), Database.tr_text(2, "Two Player").to_upper(), 22)
 	var single_player_button := _stage_single_player_menu_button(
 		Rect2(Vector2(33.0, 670.0), PORTRAIT_STAGE_LAYOUT.HOME_PLAY_BUTTON_SIZE),
 		Callable(self, "_play_single_player_from_home")
@@ -2801,10 +2765,8 @@ func _show_menu_screen() -> void:
 	tournament_button.z_index = 1
 	_connect_stage_button_action(tournament_button, Callable(self, "show_tournament"))
 	content.add_child(tournament_button)
-	var home_buttons: Array[Control] = [two_player_button, single_player_button, tournament_button]
-	two_player_button.name = "HomeTwoPlayerButton"
+	var home_buttons: Array[Control] = [single_player_button, tournament_button]
 	single_player_button.name = "HomeSinglePlayerButton"
-	two_player_button.set("drop_shadow_enabled", true)
 	single_player_button.set("drop_shadow_enabled", true)
 	for button: Control in home_buttons:
 		button.hide()
@@ -3065,6 +3027,8 @@ func _home_profile_resume_saved_single_player_level() -> void:
 			):
 				if level_index == 0 and !GameState.has_single_level_question_slots_assignment(Database.current_language, level_index):
 					GameState.set_single_level_question_slots(Database.current_language, level_index, [])
+				if _remember_campaign_crossword_words():
+					_persist_active_single_player_word_session()
 				Analytics.resume_stage(level_index, word_slot, "word")
 				show_game_screen()
 				return
@@ -3490,11 +3454,7 @@ func _settings_popup_uses_compact_layout() -> bool:
 	# back to the full Home-style popup.
 	if game_screen_visible:
 		return true
-	return (
-		_portrait_custom_word_input != null
-		and is_instance_valid(_portrait_custom_word_input)
-		and _portrait_custom_word_input.is_inside_tree()
-	)
+	return false
 
 func _show_settings_popup() -> void:
 	_remove_settings_popup()
@@ -3637,12 +3597,6 @@ func _refresh_home_after_word_language_change() -> void:
 	# the selected language's independent Continue/New Level state.
 	if game_screen_visible or _quiz_screen_active:
 		return
-	if (
-		_portrait_custom_word_input != null
-		and is_instance_valid(_portrait_custom_word_input)
-		and _portrait_custom_word_input.is_inside_tree()
-	):
-		return
 	if find_child("HomeLogoPaperReveal", true, false) == null:
 		return
 	_show_menu_screen()
@@ -3773,6 +3727,19 @@ func _record_single_player_quiz_result(is_win: bool, persist: bool = true) -> vo
 		defer_final_reward,
 		persist
 	)
+	_refresh_quiz_level_progress()
+
+func _refresh_quiz_level_progress() -> void:
+	if !is_instance_valid(content):
+		return
+	var progress: Node = content.find_child("QuizLevelProgress", true, false)
+	if progress == null:
+		return
+	var count: int = _single_player_level_word_count(single_player_active_level_index)
+	var statuses := PackedInt32Array()
+	for slot: int in range(count):
+		statuses.append(_single_player_level_word_status(single_player_active_level_index, slot))
+	progress.set_statuses(statuses)
 
 func _mark_quiz_question_ready() -> void:
 	if _quiz_screen_active and !_quiz_answer_locked and !_quiz_question_replacing:
@@ -5433,9 +5400,7 @@ func _quiz_replacement_question() -> Dictionary:
 	return QUIZ_SELECTION.pick(
 		questions, clampf(target_difficulty, 0.0, 1.0),
 		history, rng,
-		int(_quiz_current_question.get("id", -1)),
-		_quiz_single_player_embedded and not bool(GameState._single_player_theme_intro(
-			Database.current_language, _quiz_selected_theme_index).get("completed", true))
+		int(_quiz_current_question.get("id", -1))
 	)
 
 func _set_quiz_hint_buttons_temporarily_disabled(disabled: bool) -> void:
@@ -6077,6 +6042,18 @@ func _home_profile_show_quiz_game_screen() -> void:
 	)
 	var question_panel: Control = question_card[0]
 	var question_shadow: Control = question_card[1]
+	if _quiz_single_player_embedded and GameState.is_single_player_quiz_chain(
+		Database.current_language, single_player_active_level_index, _single_player_level_word_count(single_player_active_level_index)
+	):
+		var card_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
+		var holder := _stage_holder(Rect2(card_rect.get_center().x - 150.0, card_rect.end.y - 12.0, 300.0, 24.0), Control.MOUSE_FILTER_IGNORE)
+		holder.z_index = 3
+		var progress := preload("res://scripts/ui/quiz_level_progress.gd").new()
+		progress.name = "QuizLevelProgress"
+		holder.add_child(progress)
+		progress.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		progress.setup(_single_player_level_word_count(single_player_active_level_index), SOFT_CURRENCY_COIN_TEXTURE)
+		_refresh_quiz_level_progress()
 
 	var question_text: String = str(_quiz_current_question.get("question", "")).strip_edges()
 	var question_label := _stage_label(
@@ -6930,6 +6907,9 @@ func _home_profile_show_single_player_level_popup(
 	)
 	var options: Array = _single_player_level_theme_options(level_index)
 	if options.is_empty():
+		if !is_instance_valid(_home_logo_reveal):
+			show_menu()
+		_show_portrait_status_toast(tr("CAMPAIGN_WORDS_EXHAUSTED"))
 		return
 	var persisted_theme: int = GameState.get_single_level_selected_theme(
 		Database.current_language,
@@ -7601,7 +7581,7 @@ func _update_single_player_theme_reroll_button_state() -> void:
 
 func _reroll_single_player_theme_options(level_index: int, previous_options: Array) -> Array:
 	var next_options: Array = []
-	var require_fully_new_options: bool = _single_player_available_theme_indices(_single_player_level_word_target(level_index)).size() >= previous_options.size() * 2
+	var require_fully_new_options: bool = _single_player_available_theme_indices(_single_player_level_word_target(level_index), level_index).size() >= previous_options.size() * 2
 	var max_attempts: int = 16
 	GameState.begin_save_batch()
 	for _attempt_index in range(max_attempts):
@@ -8778,50 +8758,36 @@ func _confirm_exit_application() -> void:
 func _quit_application() -> void:
 	get_tree().quit()
 
-func _show_simple_exit_popup(title: String, confirm_action: Callable, warning: String = "") -> void:
+func _show_simple_exit_popup(title: String, confirm_action: Callable) -> void:
 	var close_action := Callable(self, "_remove_exit_game_popup")
-	var warning_rect := Rect2(58.0, 322.0, 364.0, 70.0)
-	var two_player_rect := _portrait_popup_with_bottom_space(Rect2(28.0, 235.0, 424.0, 260.0))
-	if warning.is_empty():
-		two_player_rect.size.y -= warning_rect.size.y
-	var two_player_previous_content := _portrait_popup_begin(
+	var exit_rect := _portrait_popup_with_bottom_space(Rect2(28.0, 235.0, 424.0, 190.0))
+	var previous_content := _portrait_popup_begin(
 		"ExitGamePopup",
 		"exit_game_popup",
 		140,
 		close_action,
-		two_player_rect.position.y,
-		two_player_rect.end.y
+		exit_rect.position.y,
+		exit_rect.end.y
 	)
 	_portrait_popup_shell(
-		two_player_rect,
+		exit_rect,
 		title.to_upper(),
 		close_action,
 		27
 	)
-	if !warning.is_empty():
-		var two_player_warning := _stage_label(
-			warning_rect,
-			warning,
-			22,
-			Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER
-		)
-		two_player_warning.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		two_player_warning.clip_text = false
-		BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(two_player_warning)
-	var two_player_button_y: float = _portrait_popup_bottom_button_y(
-		two_player_rect.end.y,
+	var button_y: float = _portrait_popup_bottom_button_y(
+		exit_rect.end.y,
 		52.0
 	)
-	var two_player_yes_button := _stage_portrait_popup_main_button(
-		Rect2(82.0, two_player_button_y, 145.0, 52.0),
+	var yes_button := _stage_portrait_popup_main_button(
+		Rect2(82.0, button_y, 145.0, 52.0),
 		confirm_action,
 		tr("YES"),
 		20
 	)
-	two_player_yes_button.set("drop_shadow_enabled", true)
-	var two_player_no_button := _stage_portrait_popup_main_button(
-		Rect2(253.0, two_player_button_y, 145.0, 52.0),
+	yes_button.set("drop_shadow_enabled", true)
+	var no_button := _stage_portrait_popup_main_button(
+		Rect2(253.0, button_y, 145.0, 52.0),
 		close_action,
 		tr("NO"),
 		20,
@@ -8832,8 +8798,8 @@ func _show_simple_exit_popup(title: String, confirm_action: Callable, warning: S
 		false,
 		LONG_BUTTON_COLOR_ORANGE
 	)
-	two_player_no_button.set("drop_shadow_enabled", true)
-	content = two_player_previous_content
+	no_button.set("drop_shadow_enabled", true)
+	content = previous_content
 
 func _show_exit_game_popup() -> void:
 	# An in-place result has already been recorded and has no live progress left to
@@ -8850,9 +8816,6 @@ func _show_exit_game_popup() -> void:
 		return
 	_remove_exit_game_popup()
 	var close_action := Callable(self, "_remove_exit_game_popup")
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		_show_simple_exit_popup(_exit_game_title_text(), Callable(self, "_confirm_exit_game").bind(true), _exit_game_warning_text())
-		return
 	if (
 		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and !game_finished
@@ -8870,7 +8833,7 @@ func _show_exit_game_popup() -> void:
 	var popup_root := content.get_parent() as Control
 	_stage_popup_heart_balance_above_dimmer(popup_root)
 	var rect := _portrait_popup_with_bottom_space(Rect2(28.0, 145.0, 424.0, 437.0))
-	_portrait_popup_shell(rect, _exit_game_title_text().to_upper(), close_action, 27)
+	_portrait_popup_shell(rect, tr("EXIT_LEVEL_CONFIRM").to_upper(), close_action, 27)
 	# Match the refill popups: keep the warning art and copy together on one
 	# light-blue status card, with the torn ticket on the left and text on the right.
 	var exit_status_rect := PORTRAIT_REFILL_STATUS_RECT
@@ -8899,7 +8862,7 @@ func _show_exit_game_popup() -> void:
 	exit_heart.z_index = 11
 	var warning_label := _stage_label(
 		Rect2(204.0, 248.0, 208.0, 112.0),
-		_exit_game_warning_text(),
+		tr("EXIT_LEVEL_TICKET_WARNING"),
 		22,
 		Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER
@@ -8944,198 +8907,6 @@ func _show_exit_game_popup() -> void:
 	exit_button.set("trailing_icon_gap_stage", 8.0)
 	exit_button.set("trailing_icon_shadow_enabled", true)
 	content = previous_content
-
-func show_custom_word() -> void:
-	_clear()
-	# Two-player words do not support gameplay hints or automatic opening of edge
-	# letters. GameSession enforces that rule directly.
-	if !_preserve_custom_word_on_next_show or custom_word_text.is_empty():
-		_set_random_custom_word()
-	_preserve_custom_word_on_next_show = false
-
-	# Match the category screen: graph-paper background with a shared top
-	# navigation row and no footer backdrop.
-	_portrait_screen(0.0)
-	var custom_word_title: String = Database.tr_text(37, "Enter a word")
-	_stage_titled_navigation_header(
-		LEADERBOARD_SCREEN.localized("TWO_PLAYER_TITLE", "2 игрока", "2 players"),
-		"TwoPlayerTitle"
-	)
-	# The two auxiliary actions belong to the word field, not to the primary CTA.
-	# Keep them in regular screen content so they follow the vertically centered
-	# input on tall screens and sit immediately below it with one shared gap.
-	_stage_portrait_custom_word_field()
-	_stage_portrait_custom_word_title(custom_word_title)
-	var custom_word_action_rects: Array[Rect2] = _portrait_custom_word_action_rects()
-	var custom_word_random_button: Control = _stage_round_button(
-		custom_word_action_rects[0],
-		Callable(self, "_set_random_custom_word"),
-		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
-	)
-	custom_word_random_button.name = "CustomWordRandomButton"
-	custom_word_random_button.set("drop_shadow_enabled", true)
-	_stage_portrait_hint_art(custom_word_random_button, PORTRAIT_CUSTOM_WORD_RANDOM_ICON)
-	custom_word_check_button = _stage_round_button(
-		custom_word_action_rects[1],
-		Callable(self, "_check_custom_word_now"),
-		"", false, false, 0.0, ROUND_BUTTON_COLOR_BLUE
-	)
-	custom_word_check_button.name = "CustomWordCheckButton"
-	custom_word_check_button.set("drop_shadow_enabled", true)
-	custom_word_check_button.set("disabled_visual_opacity", 1.0)
-	custom_word_check_button.set("button_disabled", custom_word_text.is_empty())
-	_stage_portrait_hint_art(custom_word_check_button, PORTRAIT_CUSTOM_WORD_CHECK_ICON)
-
-	# Keep only the primary action attached to the physical bottom above the banner.
-	var custom_word_bottom_content: Control = _portrait_begin_bottom_attached_group()
-	# It is 15% wider than before; its font size and vertical geometry are unchanged.
-	custom_word_start_button = _stage_main_button(
-		_portrait_primary_bottom_button_rect(
-			_portrait_custom_word_button_rect(PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT)
-		),
-		Callable(self, "start_custom_game"),
-		_custom_word_start_label(),
-		_portrait_footer_font_size(22),
-		custom_word_text.is_empty(),
-		0.32,
-		false,
-		false,
-		!custom_word_text.is_empty(),
-		LONG_BUTTON_COLOR_ORANGE
-	)
-	custom_word_start_button.set("drop_shadow_enabled", true)
-	_portrait_end_adaptive_group(custom_word_bottom_content)
-	_stage_portrait_ad_banner("show_custom_word")
-
-func _set_custom_word_checking(is_checking: bool) -> void:
-	# Stop first even if navigation has already removed the previous control.
-	# Completion, failure, input edits and Random all share this reset path.
-	if _portrait_custom_word_search_tween != null and _portrait_custom_word_search_tween.is_valid():
-		_portrait_custom_word_search_tween.kill()
-	_portrait_custom_word_search_tween = null
-	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
-		return
-	custom_word_check_button.modulate = Color.WHITE
-	custom_word_check_button.set("selected", false)
-	custom_word_check_button.set("button_disabled", is_checking or custom_word_text.is_empty())
-	var art_holder: Control = custom_word_check_button.get_node_or_null("HintArtHolder") as Control
-	if art_holder == null:
-		return
-	art_holder.modulate = Color.WHITE
-	var rest_position: Vector2 = (custom_word_check_button.size - art_holder.size) * 0.5
-	art_holder.position = rest_position
-	var texture: Texture2D = PORTRAIT_CUSTOM_WORD_SEARCH_LOADING_ICON if is_checking else PORTRAIT_CUSTOM_WORD_CHECK_ICON
-	# Replace the visible image and every extrusion layer together, so the old
-	# check mark cannot remain visible as a shadow behind the moving lens.
-	for child: Node in art_holder.get_children():
-		if child is TextureRect:
-			(child as TextureRect).texture = texture
-	if !is_checking:
-		return
-	# Bound to the icon: leaving the screen also terminates the loop automatically.
-	_portrait_custom_word_search_tween = art_holder.create_tween()
-	_portrait_custom_word_search_tween.set_loops()
-	_portrait_custom_word_search_tween.tween_method(
-		Callable(self, "_set_custom_word_search_orbit").bind(art_holder, rest_position),
-		0.0, TAU, PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_DURATION
-	).set_trans(Tween.TRANS_LINEAR)
-
-func _set_custom_word_search_orbit(angle: float, art_holder: Control, rest_position: Vector2) -> void:
-	if !is_instance_valid(art_holder):
-		return
-	# A small circular translation, not rotation. The first and last points equal
-	# the resting position, avoiding a jump when the repeating animation starts.
-	art_holder.position = rest_position + Vector2(cos(angle) - 1.0, sin(angle)) * PORTRAIT_CUSTOM_WORD_SEARCH_ORBIT_RADIUS
-
-func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
-	super._set_custom_word_check_result(found, network_error)
-	if found or network_error:
-		return
-	if custom_word_input_visual == null or !is_instance_valid(custom_word_input_visual):
-		return
-	var display_label := custom_word_input_visual.get_node_or_null("WordSlots/InputText") as Control
-	if display_label == null or !is_instance_valid(display_label):
-		return
-	_play_horizontal_error_shake(display_label)
-
-func _portrait_custom_word_button_rect(source_rect: Rect2) -> Rect2:
-	# Resolve the original footer sizing first, then raise the result. This keeps
-	# every button's existing dimensions while moving the whole stack together.
-	var raised_rect: Rect2 = _portrait_footer_long_button_rect(source_rect)
-	raised_rect.position.y -= PORTRAIT_CUSTOM_WORD_BUTTON_RISE
-	return raised_rect
-
-func _return_to_custom_word_from_coin_store() -> void:
-	_preserve_custom_word_on_next_show = true
-	show_custom_word()
-
-func _portrait_custom_word_input_rect() -> Rect2:
-	var custom_word_input_rect: Rect2 = PORTRAIT_CUSTOM_WORD_INPUT_RECT
-	custom_word_input_rect.position.y = (
-		PORTRAIT_STAGE_LAYOUT.expanded_stage_height(get_viewport_rect().size)
-		- custom_word_input_rect.size.y
-	) * 0.5
-	return custom_word_input_rect
-
-func _portrait_custom_word_action_rects() -> Array[Rect2]:
-	var custom_word_input_rect: Rect2 = _portrait_custom_word_input_rect()
-	var total_width: float = (
-		PORTRAIT_GAME_HINT_BUTTON_SIZE.x * 2.0
-		+ PORTRAIT_CUSTOM_WORD_ACTION_GAP
-	)
-	var first_position := Vector2(
-		(PORTRAIT_STAGE_SIZE.x - total_width) * 0.5,
-		custom_word_input_rect.end.y + PORTRAIT_CUSTOM_WORD_ACTION_FIELD_GAP
-	)
-	var random_rect := Rect2(first_position, PORTRAIT_GAME_HINT_BUTTON_SIZE)
-	var check_rect := Rect2(
-		first_position + Vector2(
-			PORTRAIT_GAME_HINT_BUTTON_SIZE.x + PORTRAIT_CUSTOM_WORD_ACTION_GAP,
-			0.0
-		),
-		PORTRAIT_GAME_HINT_BUTTON_SIZE
-	)
-	return [random_rect, check_rect]
-
-func _stage_portrait_custom_word_field() -> void:
-	var word_input := STAGE_WORD_INPUT_SCRIPT.new() as StageWordInput
-	if word_input == null:
-		push_error("Could not instantiate the custom-word input")
-		return
-
-	# Set authored geometry before entering the tree. The base control can then
-	# complete _ready() with a real size instead of briefly initializing at 0×0.
-	var custom_word_input_rect: Rect2 = _portrait_custom_word_input_rect()
-	word_input.stage_rect = custom_word_input_rect
-
-	# Reuse the exact marker artwork from the "Enter a word" heading. Keep the
-	# input marker at its existing 420 px width and twice-enlarged vertical size.
-	# Its brush strokes extend beyond that box; text uses the wider field below
-	# to avoid large blank margins while retaining a small screen-edge inset.
-	var marker_size := Vector2(420.0, 52.0 * 1.15 * 1.15)
-	var marker_holder := Control.new()
-	marker_holder.name = "CustomWordInputMarkerHolder"
-	marker_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	marker_holder.position = (custom_word_input_rect.size - marker_size) * 0.5
-	marker_holder.size = marker_size
-	word_input.add_child(marker_holder)
-	var marker := _stage_portrait_result_word_marker(marker_size)
-	marker.name = "CustomWordInputMarker"
-	marker_holder.add_child(marker)
-	word_input.set_marker_node(marker)
-	word_input.set_display_content_width(custom_word_input_rect.size.x)
-
-	content.add_child(word_input)
-
-	# Increase the input marker text by another ~15% over the previous 35 px.
-	# Long custom words are still shrunk only when they need extra horizontal room.
-	word_input.configure(custom_word_text, CUSTOM_WORD_MAX_LENGTH, 40)
-	word_input.avoid_virtual_keyboard = true
-	_portrait_custom_word_input = word_input
-	custom_word_input_visual = word_input
-	custom_word_edit = word_input.get_line_edit()
-	if custom_word_edit != null and !custom_word_edit.text_changed.is_connected(_on_custom_word_text_changed):
-		custom_word_edit.text_changed.connect(_on_custom_word_text_changed)
 
 func show_game_screen() -> void:
 	_home_profile_show_game_screen()
@@ -9297,10 +9068,9 @@ func _refresh_game_screen() -> void:
 	var screen_content: Control = content
 	screen_content.add_child(_portrait_crossword)
 	content = _portrait_crossword
-	var has_hints: bool = GameState.current_mode != GameState.GameMode.TWO_PLAYER
 	var field_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
 	var grid_bottom: float = _portrait_game_hint_row_y - PORTRAIT_CROSSWORD_GRID_HINT_GAP
-	var paper_bottom: float = keyboard_metrics["paper_bottom"] if has_hints else grid_bottom
+	var paper_bottom: float = keyboard_metrics["paper_bottom"]
 	field_rect.size.y = grid_bottom - field_rect.position.y
 	var theme_name: String = Database.get_theme_name(GameSession.theme_id) if GameSession.theme_id >= 0 else ""
 	var crossword_field := _stage_panel(field_rect, Color.TRANSPARENT) as FlashStagePanel
@@ -9334,10 +9104,9 @@ func _refresh_game_screen() -> void:
 			"stage_x": key_rect.position.x,
 		})
 	_refresh_portrait_game_keyboard()
-	if has_hints:
-		_stage_portrait_hint_buttons()
-		if !theme_name.is_empty():
-			_stage_portrait_game_theme(theme_name, _portrait_game_hint_buttons[0].get("stage_rect"))
+	_stage_portrait_hint_buttons()
+	if !theme_name.is_empty():
+		_stage_portrait_game_theme(theme_name, _portrait_game_hint_buttons[0].get("stage_rect"))
 	_portrait_end_adaptive_group(input_root_content)
 
 	if !(
@@ -9412,8 +9181,6 @@ func _refresh_portrait_game_keyboard() -> void:
 		entry["rest_disabled"] = disabled_value
 
 func _portrait_game_hint_state_signature() -> String:
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		return "two_player"
 	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
 		int(_portrait_ads_enabled()),
 		int(GameSession.is_active),
@@ -9431,8 +9198,6 @@ func _portrait_game_hint_state_signature() -> String:
 	]
 
 func _refresh_portrait_game_hints_if_needed() -> void:
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER:
-		return
 	var next_signature: String = _portrait_game_hint_state_signature()
 	if _portrait_hint_counter_animation_active:
 		_portrait_hint_counter_refresh_requested = true
@@ -9616,12 +9381,10 @@ func _play_portrait_word_letter_bounce(
 	)
 
 func _portrait_in_place_result_button_rect() -> Rect2:
-	var button_y: float = _portrait_game_word_rect.position.y + PORTRAIT_GAME_WORD_TO_ACTION_TOP
-	if GameState.current_mode != GameState.GameMode.TWO_PLAYER:
-		button_y = minf(
-			_portrait_game_bottom_action_y(),
-			_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
-		)
+	var button_y: float = minf(
+		_portrait_game_bottom_action_y(),
+		_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
+	)
 	return Rect2(
 		Vector2(
 			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH) * 0.5,
@@ -10750,6 +10513,8 @@ func _return_to_single_player_reward_from_coin_store() -> void:
 func _show_single_player_forfeit_reward_screen(show_interstitial: bool = false) -> void:
 	_portrait_single_reward_resume_without_intro = false
 	var show_reward_action := Callable(self, "_show_single_player_reward_chain_screen")
+	if bool(last_result_data.get("single_player_retry_crossword", false)):
+		show_reward_action = Callable(self, "_result_back_action")
 	if show_interstitial:
 		_run_action_after_interstitial_if_ready(show_reward_action, &"forfeit")
 		return
@@ -13981,40 +13746,6 @@ func _play_pending_home_reward_animation(generation: int) -> void:
 	roll.set_ease(Tween.EASE_OUT)
 	count_tween.tween_callback(Callable(source, "queue_free"))
 
-func _difficulty_debug_text(theme_index: int) -> String:
-	var info: Dictionary = Dictionary(last_result_data.get("difficulty_debug", {}))
-	var delta_text: String = "нет данных"
-	if info.is_empty():
-		# Results saved by older builds have no reliable historical delta.
-		var bucket: Dictionary = GameState._single_player_bucket(Database.current_language)
-		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, theme_index)
-		info = {
-			"global": GameState.get_single_player_adaptive_difficulty(Database.current_language),
-			"intro_active": !bool(intro.get("completed", true)),
-			"intro": float(intro.get("difficulty", 0.0)),
-			"win_streak": int(bucket.get("win_streak", 0)),
-			"loss_streak": int(bucket.get("loss_streak", 0)),
-		}
-	else:
-		delta_text = "%+.4f" % float(info.get("delta", 0.0))
-	var intro_text: String = "нет"
-	if bool(info.get("intro_active", false)):
-		intro_text = "да · %.4f" % float(info.get("intro", 0.0))
-	var wins: int = int(info.get("win_streak", 0))
-	var losses: int = int(info.get("loss_streak", 0))
-	var streak_text: String = "0"
-	if wins > 0:
-		streak_text = "победы × %d" % wins
-	elif losses > 0:
-		streak_text = "поражения × %d" % losses
-	return "Глобальная: %.4f\nВводный режим: %s\nΔ глобальной: %s\nСтрик: %s" % [
-		float(info.get("global", 0.0)), intro_text, delta_text, streak_text
-	]
-
-func _log_difficulty_debug(theme_index: int) -> void:
-	if OS.is_debug_build():
-		print("[Difficulty] " + _difficulty_debug_text(theme_index).replace("\n", " | "))
-
 func _auto_advance_final_stage_reward() -> void:
 	# The final stage has no manual Continue step on its ordinary reward screen.
 	# Defer navigation so this callback can safely run from tween completion.
@@ -14090,6 +13821,9 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 	if bool(last_result_data.get("single_player_level_stars_view", false)):
 		_finish_legacy_single_player_level_stars_state()
 		return
+	if bool(last_result_data.get("single_player_retry_crossword", false)):
+		_retry_crossword_level(level_index)
+		return
 	Analytics.screen("rewards")
 	var is_failure_reward: bool = !last_result_is_win
 
@@ -14117,6 +13851,27 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		and bool(last_result_data.get("single_player_level_summary_view", false))
 	)
 	var pending_level_reward: Dictionary = GameState.get_pending_single_player_reward()
+	if !is_level_summary and (!final_stage_completed or word_count > 1 or !pending_level_reward.is_empty()):
+		# Old attempts can still owe an ordinary stage payout. Settle it once
+		# before moving on from the last answer or opening the level prize.
+		var stage_receipt: Dictionary = GameState.get_active_single_player_stage_reward()
+		if !stage_receipt.is_empty() and !bool(stage_receipt.get("claimed", false)):
+			GameState.claim_active_single_player_stage_reward(true)
+		if !final_stage_completed:
+			if !last_result_is_win and GameState.get_hearts() <= 0:
+				_show_heart_refill_popup(
+					Callable(self, "_continue_single_player_stage_after_refill").bind(level_index),
+					Callable(self, "_return_to_single_player_reward_from_coin_store"),
+					Callable(self, "show_menu")
+				)
+			else:
+				_start_next_single_player_word(level_index)
+			return
+		if pending_level_reward.is_empty():
+			_finish_completed_single_player_stage_result()
+			return
+		_persist_single_player_level_summary_view()
+		is_level_summary = true
 	var is_final_reward: bool = (
 		is_level_summary
 		and maxi(int(pending_level_reward.get("amount", 0)), 0) > 0
@@ -14136,6 +13891,11 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		prize_currency == GameState.STAGE_REWARD_COINS
 		and !bool(active_stage_reward.get("double_resolved", true))
 	)
+	if final_stage_completed and !is_level_summary and (
+		active_stage_reward.is_empty() or (bool(active_stage_reward.get("claimed", false)) and !stage_double_pending)
+	):
+		_finish_completed_single_player_stage_result()
+		return
 	var show_stage_prize: bool = (
 		!is_level_summary and !active_stage_reward.is_empty()
 		and (_single_player_stage_is_quiz(level_index, current_slot) or (word_count == 1 and final_stage_completed))
@@ -14590,8 +14350,8 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			int(pending_level_reward.get("amount", 0)),
 			0
 		)
-		# One-stage levels use the same large coin prize, without the completion chest.
-		var use_completion_chest: bool = word_count > 1
+		# The reward art follows the level type, independently of its stage count.
+		var use_completion_chest: bool = _single_player_is_bonus_level(level_index)
 		var prize_rect: Rect2 = _portrait_final_reward_center_rect(
 			(
 				PORTRAIT_LEVEL_COMPLETION_CHEST_SIZE
@@ -14817,8 +14577,6 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 			_portrait_single_reward_continue_button = continue_button
 			content = reward_content
 	content = reward_screen_content
-	if OS.is_debug_build() and !is_level_summary:
-		_log_difficulty_debug(reward_theme_index)
 	var failure_back_button: Control = null
 	if (
 		!is_level_summary
@@ -15023,9 +14781,17 @@ func _leave_single_player_failure_reward_to_menu() -> void:
 	_discard_round_for_navigation()
 	show_menu()
 
+func _retry_crossword_level(level_index: int) -> void:
+	if _single_player_hearts_enabled_for_level(level_index) and GameState.get_hearts() <= 0:
+		var retry := Callable(self, "_retry_crossword_level").bind(level_index)
+		_show_heart_refill_popup(retry, Callable(self, "_return_to_single_player_reward_from_coin_store"), Callable(self, "show_menu"))
+		return
+	var entries: Array = Array(last_result_data.get("retry_crossword_entries", [])).duplicate(true)
+	GameState.prepare_crossword_retry(Database.current_language, level_index)
+	_invalidate_single_player_level_cache()
+	_start_next_single_player_word(level_index, entries)
+
 func _continue_single_player_result() -> void:
-	# Both outcomes use the reward-chain interstitial. A failed stage shows its
-	# missed reward, then Continue advances through the same level chain.
 	_show_single_player_reward_chain_screen()
 
 func _use_open_hint() -> void:
@@ -15451,7 +15217,6 @@ func _ensure_round_result_component() -> Node:
 		"keyboard_buttons": _portrait_game_keyboard_buttons,
 		"primary_word_completed_in_grid": is_instance_valid(_portrait_crossword) and _portrait_crossword.primary_word_completed_in_grid(),
 		"word_comment": GameSession.get_word_hint(),
-		"replace_result_keyboard": GameState.current_mode != GameState.GameMode.TWO_PLAYER,
 		"back_button": _portrait_game_back_button,
 	}, primary_letters)
 	return _portrait_round_result

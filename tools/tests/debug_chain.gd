@@ -30,7 +30,6 @@ func run() -> void:
 	state.word_language = "ru"
 	state.interface_language = "ru"
 	state.single_player = {}
-	state._single_player_bucket("ru")["adaptive_difficulty"] = 0.8
 	state._single_player_bucket("ru")["theme_unlock_completed_levels"] = 3
 	state._single_player_bucket("ru")["unlocked_level"] = 2
 	state.select_single_level_theme("ru", 2, 5, 3)

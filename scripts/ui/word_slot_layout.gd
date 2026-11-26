@@ -1,6 +1,6 @@
 extends RefCounted
 
-# Shared geometry for the gameplay answer and native two-player input.
+# Shared geometry for the gameplay answer and native profile input.
 # All measurements use the supplied characters, never the current game session.
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const BASE_GAP: float = 10.0

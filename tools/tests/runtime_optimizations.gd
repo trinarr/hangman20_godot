@@ -41,8 +41,8 @@ func crossword_key(letter: String) -> StageLetterButton:
 
 func test_crossword() -> void:
 	var design = GameSession.GAME_DESIGN
-	for level: int in [2, 3, 4, 10, 11, 20, 21, 30]:
-		check(design.level_crossword_word_count(level) == design.level_stage_count_with_bonus(level), "Initial crossword balance differs from the stage counts")
+	for level: int in [2, 3, 4, 5, 10, 11, 15, 20, 21, 25, 30]:
+		check(design.level_stage_count(level) == (3 if level in [5, 15, 25] else 1), "A level is one crossword or three quiz questions")
 	for language: String in ["ru", "en"]:
 		GameState.set_word_language(language)
 		Database.load_languages(language, language)
@@ -55,7 +55,7 @@ func test_crossword() -> void:
 			var theme: int = Database.get_theme_index_by_id(9 if size.x == 960 else 2)
 			main._clear()
 			GameState._single_player_bucket(language)["unlocked_level"] = level_index
-			GameState.select_single_level_theme(language, level_index, theme, design.level_stage_count_with_bonus(level_index + 1))
+			GameState.select_single_level_theme(language, level_index, theme, design.level_stage_count(level_index + 1))
 			main._invalidate_single_player_level_cache()
 			main._start_single_player_word(level_index, 0)
 			await get_tree().create_timer(1.6).timeout
@@ -97,7 +97,7 @@ func test_crossword() -> void:
 				var direction := Vector2i.DOWN if entry.vertical else Vector2i.RIGHT
 				var crosses: bool = false
 				var word: String = entry.text
-				check(!word.contains(" "), "Crossword must contain only entries without spaces")
+				check(!word.is_empty(), "Crossword entries contain an answer")
 				var first_tile: Panel = root._tiles[board.cells[start]]
 				var last_tile: Panel = root._tiles[board.cells[start + direction * (word.length() - 1)]]
 				var delta: Vector2 = last_tile.position - first_tile.position
@@ -124,7 +124,21 @@ func test_crossword() -> void:
 			var anchor_starters: int = 0
 			for index: int in starter_cells:
 				anchor_starters += int(index < anchor_length)
-			check(anchor_starters >= 2 and anchor_starters <= 3 and starter_cells.size() - anchor_starters == 2, "Bonus grids get a cluster of clues in the anchor and two clues elsewhere")
+			var known: int = 0
+			var letters_in_grid: int = 0
+			for letter: String in board.letters:
+				letters_in_grid += int(!GameSession.WORD_CROSSWORD.is_separator(letter))
+				known += int(starters.has(letter))
+			var known_limit: int = floori(letters_in_grid * GameState.GAME_DESIGN.get_float("gameplay.crossword_starters.max_known_fraction"))
+			var extra_starters: int = starter_cells.size() - anchor_starters
+			check(anchor_starters >= 1 and anchor_starters <= 3 and extra_starters <= 2 and known <= known_limit, "Bonus starters respect the anchor, extra and known-letter budgets")
+			if extra_starters < 2:
+				var can_fit_extra: bool = false
+				for index: int in range(anchor_length, board.letters.size()):
+					var letter: String = board.letters[index]
+					if !GameSession.WORD_CROSSWORD.is_separator(letter) and !starters.has(letter) and known + board.letters.count(letter) <= known_limit:
+						can_fit_extra = true
+				check(!can_fit_extra, "A bonus grid uses its extra clues when they fit the coverage cap")
 			var level_title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
 			var expected_title: String = ("УРОВЕНЬ %d" if language == "ru" else "LEVEL %d") % (level_index + 1)
 			check(is_instance_valid(level_title) and level_title.text == expected_title, "Word header shows the current localized level")
@@ -332,7 +346,7 @@ func test_crossword() -> void:
 			check(pattern_tween == null or !pattern_tween.is_valid(), "The engine releases the old background tween after freeing its owner")
 
 	main.game_finished = false
-	GameSession.start_round(WordData.new("GRID", 0.2, -1, -1), GameState.GameMode.TWO_PLAYER)
+	GameSession.start_round(WordData.new("GRID", 0.2, -1, -1))
 	main.show_game_screen()
 	await get_tree().process_frame
 	check(main._portrait_game_entrance_active, "Close test must interrupt a running grid entrance")
@@ -343,9 +357,8 @@ func test_crossword() -> void:
 	check(!is_instance_valid(closing_grid) and !main._portrait_game_entrance_active, "An old grid entrance survived screen closure")
 
 func test_crossword_selection() -> void:
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
 	main.game_finished = false
-	GameSession.start_round(WordData.new("C-AT", 0.2, -1, -1), GameState.GameMode.TWO_PLAYER)
+	GameSession.start_round(WordData.new("C-AT", 0.2, -1, -1))
 	var board: RefCounted = GameSession.WORD_CROSSWORD.restore("C-AT", [
 		{"text": "C-AT", "x": 0, "y": 0, "vertical": false},
 		{"text": "ABLE", "x": 2, "y": 0, "vertical": true},
@@ -356,8 +369,10 @@ func test_crossword_selection() -> void:
 		return
 	GameSession.crossword = board
 	GameSession.letters = board.letters
-	while GameSession.revealed.size() < board.letters.size():
-		GameSession.revealed.append(false)
+	GameSession._set_crossword_starters([])
+	GameSession.revealed.clear()
+	for letter: String in board.letters:
+		GameSession.revealed.append(GameSession.WORD_CROSSWORD.is_separator(letter))
 	main.show_game_screen()
 	await get_tree().create_timer(1.6).timeout
 	var grid: Control = main._portrait_crossword

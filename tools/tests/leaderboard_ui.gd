@@ -334,24 +334,7 @@ func _ready() -> void:
 	check(!screen._live, "Leaving screen disconnects service immediately")
 	await settle()
 	check(main.content.find_child("HomeLeaderboardButton", true, false) == null and main.content.find_child("HomeTournamentButton", true, false) != null, "Home uses trophy entry instead of old leaderboard button")
-	main.show_custom_word()
-	await settle()
-	var two_player_title: Label = main.content.find_child("TwoPlayerTitle", true, false)
-	check(two_player_title != null and two_player_title.text == ("2 ИГРОКА" if Database.interface_language == "ru" else "2 PLAYERS"), "Two-player screen uses localized uppercase header")
-	var header_has_counter := false
-	for counter in get_tree().get_nodes_in_group("soft_currency_balance_label"):
-		if main.content.is_ancestor_of(counter):
-			header_has_counter = true
-	check(!header_has_counter, "Two-player header omits currency counters")
-	check(is_instance_valid(main.custom_word_start_button), "Two-player word entry remains available")
-	var caption: Label = main.content.find_child("CustomWordTitleLabel", true, false)
-	var input: Control = main._portrait_custom_word_input
-	check(caption.get_parent() == input and is_equal_approx(caption.position.y, -55), "Caption belongs to input and keeps authored 55-unit offset")
-	var old_caption_y := caption.get_global_rect().position.y
-	var old_input_y := input.get_global_rect().position.y
-	input.position.y -= 100
-	check(is_equal_approx(caption.get_global_rect().position.y - old_caption_y, input.get_global_rect().position.y - old_input_y), "Caption follows keyboard field lift without changing gap")
-	check(caption.get_theme_font_size("font_size") == 28, "Caption retains font size 28")
+	check(main.content.find_child("HomeTwoPlayerButton", true, false) == null and main.content.find_child("HomeSinglePlayerButton", true, false) != null, "Home exposes campaign play without a retired menu button")
 	await inspect_error_ui(main, data)
 	main.queue_free()
 	await settle()

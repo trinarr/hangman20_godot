@@ -17,7 +17,7 @@ scoring. Repeated result callbacks cannot count twice; losing an individual
 stage does not count as solving it. Completing a chain means finishing all its
 stages, following the game's existing campaign progression rule. Hard chains
 use the existing `is_bonus_level` configuration. Freshly replayed attempts count
-as new activity. Two-player games are excluded.
+as new activity.
 
 Earned stars include committed stage star rewards and the chain completion star
 reward, before their HUD/claim animation, plus quiz-speed and unused-attempt

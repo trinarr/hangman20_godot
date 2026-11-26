@@ -86,11 +86,12 @@ func run() -> void:
 func exercise_answer(main: Node, correct: bool, tier: int, campaign: bool) -> void:
 	if campaign:
 		GameState.single_player = {}
-		GameState._single_player_bucket(Database.current_language)["unlocked_level"] = 2
-		GameState.select_single_level_theme(Database.current_language, 2, 0, main._single_player_level_word_target(2))
+		var level_index: int = 4
+		GameState._single_player_bucket(Database.current_language)["unlocked_level"] = level_index
+		GameState.select_single_level_theme(Database.current_language, level_index, 0, main._single_player_level_word_target(level_index))
 		main._invalidate_single_player_level_cache()
-		var level: Dictionary = main._single_player_level_data(2)
-		main._start_single_player_question(2, int(level.question_slots[0]))
+		var level: Dictionary = main._single_player_level_data(level_index)
+		main._start_single_player_question(level_index, int(level.question_slots[0]))
 	else:
 		main._start_quiz_theme(0)
 	await get_tree().create_timer(1.8).timeout

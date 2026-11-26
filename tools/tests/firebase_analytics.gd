@@ -14,8 +14,6 @@ class TestUI extends "res://scripts/main_portrait.gd":
 	var rerolls: int = 0
 	func _ready() -> void:
 		pass
-	func show_custom_word() -> void:
-		pass
 	func _open_coin_store(_return_action: Callable = Callable()) -> void:
 		pass
 	func _portrait_ads_enabled() -> bool:
@@ -154,17 +152,6 @@ func run() -> void:
 	service.screen("word")
 	check(native.events.size() == count + 1 and native.events.back().event == "screen_view", "cancelled navigation never delivers an obsolete stage start")
 	service.screen("home")
-	var previous_mode: int = GameSession.mode
-	GameSession.mode = GameState.GameMode.TWO_PLAYER
-	GameSession.round_id = "two-player-fixture"
-	GameState.guided_onboarding_completed = true
-	count = native.events.size()
-	service._on_round_started()
-	check(native.events.size() == count, "two-player start waits for gameplay screen")
-	service.screen("word")
-	check(native.events.size() == count + 2 and native.events[count].event == "screen_view" and native.events.back().event == "stage_start", "two-player screen also precedes stage start")
-	check(native.events.back().parameters.get("game_mode") == "two_player", "two-player start remains distinct from campaign starts")
-	service.screen("home")
 	count = native.events.size()
 	service.resume_stage(7, 1, "word")
 	check(native.events.size() == count, "resume waits for gameplay screen")
@@ -178,7 +165,6 @@ func run() -> void:
 	count = native.events.size()
 	service.screen("quiz")
 	check(native.events.size() == count + 2 and native.events.back().event == "stage_resumed" and native.events.back().parameters.stage_type == "quiz", "quiz restore uses the same resume contract")
-	GameSession.mode = previous_mode
 	GameState.stage_completed.connect(service._on_stage_completed)
 	GameState.reset_single_level_attempt("ru", 4)
 	count = native.events.size()
@@ -253,7 +239,7 @@ func _check_quiz_hints_and_coin_reroll() -> void:
 	_check_rewarded_rerolls(ui, native)
 	ui.free()
 	_check_word_hints(native)
-	_check_two_player_results(native)
+	_check_word_result_events(native)
 	_check_economy(native)
 	await _check_ad_offers(native)
 	Analytics._native = previous_native
@@ -335,44 +321,20 @@ func _check_rewarded_rerolls(ui: TestUI, native: Native) -> void:
 	ui._deliver_action_request(request)
 	check(GameState.get_soft_currency() == coins + int(context.cost) and native.count("reward_granted") == 1 and native.count("theme_rerolled") == 0, "duplicate late reroll cannot repeat compensation or events")
 
-func _check_two_player_results(native: Native) -> void:
-	for outcome: String in ["win", "loss", "forfeit"]:
-		native.events.clear()
-		GameState.current_mode = GameState.GameMode.TWO_PLAYER
-		GameSession.start_custom_round("A")
-		Analytics.screen("word")
-		if outcome == "win":
-			GameSession.guess("A")
-		elif outcome == "loss":
-			GameSession.mistakes = GameSession.MAX_MISTAKES - 1
-			GameSession.guess("B")
-		var before_records: Array = GameState.records[1].duplicate()
-		if outcome == "forfeit":
-			var ui := TestUI.new()
-			add_child(ui)
-			ui._confirm_exit_game()
-			ui.free()
-			check(GameState.records[1] == before_records, "two-player exit analytics does not change existing record behavior")
-		else:
-			GameSession.finish_result(outcome == "win", outcome)
-		check(native.count("stage_start") == 1 and native.count("stage_complete") == 1, "two-player %s has one start and completion" % outcome)
-		var result: Dictionary = native.events.back().parameters
-		check(result.game_mode == "two_player" and result.success == int(outcome == "win") and result.outcome == outcome and !result.has("answer_text") and !result.has("round_id"), "two-player completion reports outcome without custom word or round ID")
-		GameSession.finish_result(outcome == "win")
-		check(native.count("stage_complete") == 1, "repeated two-player result is deduplicated")
+func _check_word_result_events(native: Native) -> void:
 	native.events.clear()
 	GameSession.discard_current_round()
 	GameSession.finish_result(false)
 	check(native.events.is_empty(), "discarded round has no completion")
-	GameSession.start_round(WordData.new("A", 0.0, -1, -1), GameState.GameMode.SINGLE_PLAYER)
+	GameSession.start_round(WordData.new("A", 0.0, -1, -1))
 	GameSession.finish_result(true)
 	check(native.count("stage_complete") == 0, "word result does not duplicate campaign completion")
 	GameState.accepted_legal_documents_version = 0
 	Analytics.sync_collection()
 	native.events.clear()
-	GameSession.start_custom_round("A")
+	GameSession.start_round(WordData.new("A", 0.0, -1, -1))
 	GameSession.finish_result(true)
-	check(native.events.is_empty(), "two-player completion respects collection gate")
+	check(native.events.is_empty(), "Word completion respects collection gate")
 	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	Analytics.sync_collection()
 

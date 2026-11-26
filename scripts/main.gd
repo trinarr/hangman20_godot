@@ -3,7 +3,6 @@ extends Node2D
 const RESOURCE_COUNTER_COMPONENT = preload("res://scripts/ui/portrait_resource_counters.gd")
 var _resource_counter_state := RESOURCE_COUNTER_COMPONENT.CounterState.new()
 
-const WORD_SELECTION: GDScript = preload("res://scripts/core/word_selection.gd")
 
 
 const QUIZ_SELECTION: GDScript = preload("res://scripts/core/quiz_selection.gd")
@@ -18,33 +17,10 @@ const HERO_MOV_RECOVERY_START_FRAME_TIME: float = 0.20833333333333334 + HERO_NES
 const HERO_MOV_RECOVERY_END_FRAME_TIME: float = 0.375 + HERO_NESTED_FRAME_SAMPLE_OFFSET
 const HERO_TYPE_1_TERMINAL_END_FRAME_TIME: float = 1.6666666666666667
 const HERO_TYPE_2_TERMINAL_END_FRAME_TIME: float = 0.5
-const CUSTOM_WORD_MAX_LENGTH: int = 20
-const CUSTOM_WORD_LATIN_ALPHABET_TEXT: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-const CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT: String = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
-var RANDOM_CUSTOM_WORD_MAX_LENGTH: int = GAME_DESIGN.get_int_range(
-	"gameplay.random_custom_word.max_length",
-	1,
-	64
-)
-var RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER: int = GAME_DESIGN.get_int(
-	"gameplay.random_custom_word.difficulty_filter"
-)
 var SETTINGS_TOGGLE_ON_VIBRATION_MS: int = GAME_DESIGN.get_int(
 	"gameplay.vibration.settings_toggle_ms"
 )
-var CUSTOM_WORD_NOT_FOUND_VIBRATION_MS: int = GAME_DESIGN.get_int(
-	"gameplay.vibration.custom_word_not_found_ms"
-)
-var CUSTOM_WORD_RESULT_COLOR_DURATION: float = GAME_DESIGN.get_float(
-	"timings.custom_word_result_color_seconds"
-)
 const UI_PALETTE: GDScript = preload("res://scripts/ui/ui_palette.gd")
-var CUSTOM_WORD_CHECK_DOTS_INTERVAL: float = GAME_DESIGN.get_float_range(
-	"timings.custom_word_check_dots_seconds",
-	0.01,
-	60.0
-)
-const CUSTOM_WORD_FIELD_DEFAULT_TINT := UI_PALETTE.MARKER_INFO
 const UI_AUDIO_FEEDBACK = preload("res://scripts/ui/ui_audio_feedback.gd")
 const SOUND_SETTING_INDEX: int = UI_AUDIO_FEEDBACK.SOUND_SETTING_INDEX
 var SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL: int = GAME_DESIGN.get_int_range(
@@ -80,24 +56,6 @@ var SINGLE_PLAYER_CHAIN_DIFFICULTY_SPREAD: float = GAME_DESIGN.get_float_range(
 	"difficulty.chain_spread",
 	0.0,
 	1.0
-)
-var SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET: float = GAME_DESIGN.get_float_range(
-	"difficulty.bonus_level_offset",
-	0.0,
-	1.0
-)
-var SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO: float = GAME_DESIGN.get_float_range(
-	"progression.quiz.first_slot_ratio",
-	0.0,
-	1.0
-)
-var SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET: int = GAME_DESIGN.get_int_range(
-	"progression.quiz.last_slot_end_offset",
-	1,
-	1000
-)
-var SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT: int = GAME_DESIGN.get_int(
-	"progression.quiz.onboarding_slot"
 )
 const DIFFICULTY_HARD_NORMAL_TINT := UI_PALETTE.CHALLENGE_NORMAL
 const DIFFICULTY_HARD_PRESSED_TINT := UI_PALETTE.CHALLENGE_PRESSED
@@ -167,7 +125,7 @@ var single_player_level_definitions_cache: Dictionary = {}
 var single_player_level_cache_language: String = ""
 var single_player_level_cache_theme_count: int = -1
 var single_player_level_cache_unlocked_theme_count: int = -1
-var single_player_level_cache_difficulty: float = -1.0
+var _starting_campaign_crossword: bool = false
 var single_player_popup_level_index: int = -1
 var single_player_popup_selected_theme: int = -1
 var single_player_popup_theme_panels: Dictionary = {}
@@ -180,17 +138,6 @@ var single_player_extra_attempt_offer_count: int = 0
 var single_player_extra_attempt_current_cost: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COST
 var single_player_extra_attempt_current_count: int = SINGLE_PLAYER_EXTRA_ATTEMPT_COUNT
 var single_player_extra_attempt_claim_in_progress: bool = false
-var custom_word_edit: LineEdit
-var custom_word_input_visual: Control = null
-var custom_word_text: String = ""
-var custom_word_check_request: HTTPRequest = null
-var custom_word_check_urls: Array[String] = []
-var custom_word_check_button: Control = null
-var custom_word_check_animation_timer: Timer = null
-var custom_word_check_dot_count: int = 0
-var custom_word_check_label_base: String = ""
-var custom_word_start_button: Control = null
-var custom_word_color_generation: int = 0
 var hero_animation_overlay: FlashStageSymbol = null
 var hero_static_symbol: FlashStageSymbol = null
 var hero_pose_round_token: int = 0
@@ -230,7 +177,6 @@ var heart_counter_button: Control:
 	set(value):
 		_resource_counter_state.heart_counter_button = value
 var _last_heart_count_for_animation: int = -1
-var _preserve_custom_word_on_next_show: bool = false
 var heart_refill_continue_action: Callable = Callable()
 var heart_refill_store_return_action: Callable = Callable()
 var heart_refill_cancel_action: Callable = Callable()
@@ -326,6 +272,7 @@ func _persist_active_single_player_word_session() -> void:
 	if (
 		GameState.current_mode != GameState.GameMode.SINGLE_PLAYER
 		or GameSession.mode != GameState.GameMode.SINGLE_PLAYER
+		or _starting_campaign_crossword
 		or !GameSession.is_active
 		or single_player_active_level_index < 0
 		or single_player_active_word_slot < 0
@@ -368,9 +315,6 @@ func _prewarm_runtime_assets() -> void:
 # that shared game logic calls; all screen construction lives in the portrait
 # subclass instead of being duplicated here.
 func show_menu() -> void:
-	pass
-
-func show_custom_word() -> void:
 	pass
 
 func show_result_screen(_is_win: bool, _data: Dictionary = {}) -> void:
@@ -539,14 +483,10 @@ func _clear(preserved_content: Control = null) -> void:
 	game_screen_visible = false
 	_capture_hero_animation_phase()
 	result_transition_generation += 1
-	custom_word_color_generation += 1
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
 	_pending_wrong_letter_feedback.clear()
 	_clear_hero_animation_overlay()
-	_cancel_custom_word_check()
-	custom_word_check_button = null
-	custom_word_start_button = null
 	heart_count_label = null
 	heart_status_label = null
 	heart_add_badge_visual = null
@@ -559,8 +499,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_remove_heart_refill_popup()
 	_remove_single_player_last_chance_popup()
 	_remove_single_player_theme_popup()
-	custom_word_edit = null
-	custom_word_input_visual = null
 	for child: Node in ui.get_children():
 		if child == preserved_content:
 			continue
@@ -1009,18 +947,13 @@ func _invalidate_single_player_level_cache() -> void:
 	single_player_level_cache_language = ""
 	single_player_level_cache_theme_count = -1
 	single_player_level_cache_unlocked_theme_count = -1
-	single_player_level_cache_difficulty = -1.0
 
 func _single_player_level_word_target(level_index: int) -> int:
 	var started_count: int = GameState.get_started_single_level_stage_count(Database.current_language, level_index)
 	if started_count > 0:
 		return started_count
 	var level_number: int = maxi(level_index + 1, 1)
-	return GAME_DESIGN.level_stage_count_with_bonus(level_number)
-
-func _single_player_level_uses_question(level_index: int, word_count: int) -> bool:
-	var level_number: int = maxi(level_index + 1, 1)
-	return GAME_DESIGN.level_uses_quiz(level_number, word_count)
+	return GAME_DESIGN.level_stage_count(level_number)
 
 func _single_player_is_bonus_level(level_index: int) -> bool:
 	var level_number: int = level_index + 1
@@ -1060,19 +993,65 @@ func _single_player_shuffle(values: Array, rng: RandomNumberGenerator) -> void:
 		values[index] = values[swap_index]
 		values[swap_index] = temporary
 
-func _single_player_available_theme_indices(word_count: int = 1) -> Array:
+func _campaign_word_key(answer: String) -> String:
+	return Database.normalize_loaded_word(answer.split("::", true, 1)[0])
+
+func _campaign_opening_words(level_index: int, theme_index: int) -> Array:
+	var opening: Array = GAME_DESIGN.opening_crossword_words(
+		level_index + 1, Database.current_language, Database.get_theme_id(theme_index)
+	)
+	if opening.is_empty():
+		return opening
+	var seen: Dictionary = GameState.get_campaign_seen_words(Database.current_language)
+	return [] if opening.any(func(answer: String) -> bool: return seen.has(_campaign_word_key(answer))) else opening
+
+func _campaign_used_words(level_index: int) -> Dictionary:
+	var used: Dictionary = GameState.get_campaign_seen_words(Database.current_language)
+	var opening_by_language: Dictionary = GAME_DESIGN.get_value("progression.opening_crosswords")
+	var opening: Dictionary = opening_by_language.get(Database.current_language, {})
+	for opening_level: String in opening:
+		if int(opening_level) <= level_index + 1:
+			continue
+		for answers: Array in opening[opening_level].values():
+			for answer: String in answers:
+				used[_campaign_word_key(answer)] = true
+	return used
+
+func _campaign_word_queue(theme_index: int, used: Dictionary) -> Array:
+	var ordered: Array = Database.get_words_by_index(theme_index, 0).duplicate()
+	ordered.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if a.difficulty == b.difficulty:
+			return a.id < b.id
+		return a.difficulty < b.difficulty
+	)
+	var wave: Array = GAME_DESIGN.get_array("difficulty.word_wave_order")
+	var queue: Array = []
+	for offset: int in range(0, ordered.size(), wave.size()):
+		for rank: int in wave:
+			if offset + rank < ordered.size():
+				var candidate: Dictionary = ordered[offset + rank]
+				if !used.has(_campaign_word_key(candidate.text)):
+					queue.append(candidate)
+	return queue
+
+func _single_player_available_theme_indices(word_count: int = 1, level_index: int = -1) -> Array:
 	var available_ids: Array[int] = GameState.get_unlocked_theme_ids(Database.current_language)
 	var eligible: Array = []
+	var used: Dictionary = _campaign_used_words(level_index) if level_index >= 0 else {}
 	for theme_index: int in range(Database.get_theme_count()):
-		if (
-			available_ids.has(Database.get_theme_id(theme_index))
-			and Database.get_words_by_index(theme_index, 0).size() >= word_count
+		if !available_ids.has(Database.get_theme_id(theme_index)):
+			continue
+		if level_index < 0 or GAME_DESIGN.is_quiz_level(level_index + 1):
+			if Database.get_words_by_index(theme_index, 0).size() >= word_count:
+				eligible.append(theme_index)
+		elif Database.get_words_by_index(theme_index, 0).any(
+			func(candidate: Dictionary) -> bool: return not used.has(_campaign_word_key(candidate.text))
 		):
 			eligible.append(theme_index)
 	return eligible
 
 func _single_player_can_reroll_themes(level_index: int) -> bool:
-	return _single_player_available_theme_indices(_single_player_level_word_target(level_index)).size() > SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL
+	return _single_player_available_theme_indices(_single_player_level_word_target(level_index), level_index).size() > SINGLE_PLAYER_THEME_OPTIONS_PER_LEVEL
 
 func _single_player_first_offer_unlocked_theme_index(level_index: int) -> int:
 	var language: String = Database.current_language
@@ -1096,7 +1075,7 @@ func _single_player_first_offer_unlocked_theme_index(level_index: int) -> int:
 	return Database.get_theme_index_by_id(int(unlock_progress.get("theme_id", -1)))
 
 func _single_player_theme_options(level_index: int, level_seed: int, word_count: int) -> Array:
-	var eligible: Array = _single_player_available_theme_indices(word_count)
+	var eligible: Array = _single_player_available_theme_indices(word_count, level_index)
 	if eligible.is_empty():
 		return []
 	if level_index + 1 < SINGLE_PLAYER_GUIDED_ONBOARDING_REQUIRED_START_LEVEL:
@@ -1136,30 +1115,19 @@ func _single_player_first_unplayed_slot(level_index: int, word_count: int) -> in
 
 func _single_player_words_for_theme(
 	level_index: int,
-	level_seed: int,
 	theme_index: int,
-	word_count: int,
-	target_difficulty: float
+	word_count: int
 ) -> Array:
-	var candidates: Array = Database.get_words_by_index(theme_index, 0).filter(
-		func(candidate: Dictionary) -> bool: return !String(candidate["text"]).contains(" ")
-	)
+	var candidates: Array = Database.get_words_by_index(theme_index, 0).duplicate()
 	if candidates.is_empty():
 		return []
-	var opening_words: Array = GAME_DESIGN.opening_crossword_words(
-		level_index + 1, Database.current_language, Database.get_theme_id(theme_index)
-	)
+	var opening_words: Array = _campaign_opening_words(level_index, theme_index)
 	var opening_word: String = opening_words[0] if !opening_words.is_empty() else ""
 	var opening_quiz_slots: Array = []
 	if !opening_word.is_empty():
 		opening_quiz_slots = GameState.get_single_level_question_slots(Database.current_language, level_index)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = _single_player_seed(level_index, level_seed, theme_index + 101)
-	var theme_progress: Dictionary = GameState.ensure_single_player_theme_progress(
-		Database.current_language,
-		theme_index,
-		candidates.size()
-	)
+	var used: Dictionary = _campaign_used_words(level_index)
+	var queue: Array = _campaign_word_queue(theme_index, used)
 	var words: Array = []
 	var saved: Array = GameState.get_single_level_word_assignments(Database.current_language, level_index)
 	var first_unplayed: int = _single_player_first_unplayed_slot(level_index, word_count)
@@ -1183,35 +1151,29 @@ func _single_player_words_for_theme(
 					previous["text"] = candidate["text"]
 					previous["id"] = candidate.get("id", "")
 					candidates.remove_at(found)
+					queue.erase(candidate)
 					words.append(previous)
 					continue
 				elif word_slot < first_unplayed:
 					# Completed history may contain a word removed in a content update.
 					words.append(previous)
 					continue
-		var slot_target: float = GameState.get_single_player_theme_target_difficulty(
-			Database.current_language, theme_index,
-			_single_player_slot_difficulty(target_difficulty, word_slot, word_count)
-		)
-		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, theme_index)
 		var picked: Dictionary = {}
-		var pool: Array = candidates
-		if !opening_word.is_empty():
-			if opening_quiz_slots.has(word_slot):
-				# A quiz placeholder must leave the authored word for the playable crossword.
-				pool = candidates.filter(func(candidate: Dictionary) -> bool: return candidate.text != opening_word)
-			else:
-				for candidate: Dictionary in candidates:
-					if candidate.text == opening_word:
-						picked = candidate
-						break
+		if !opening_word.is_empty() and !opening_quiz_slots.has(word_slot):
+			for candidate: Dictionary in candidates:
+				if candidate.text == opening_word:
+					picked = candidate
+					break
 		if picked.is_empty():
-			var picked_pool_index: int = WORD_SELECTION.pick_index(
-				pool, slot_target, theme_progress, not bool(intro.get("completed", true)), rng
-			)
-			if picked_pool_index < 0:
-				break
-			picked = pool[picked_pool_index]
+			while !queue.is_empty():
+				var candidate: Dictionary = queue.pop_front()
+				if !used.has(_campaign_word_key(candidate.text)) and candidate.text != opening_word:
+					picked = candidate
+					break
+		if picked.is_empty():
+			break
+		used[_campaign_word_key(picked.text)] = true
+		queue.erase(picked)
 		candidates.erase(picked)
 		words.append({
 			"id": str(picked.get("id", "")),
@@ -1219,50 +1181,22 @@ func _single_player_words_for_theme(
 			"word_index": int(picked.get("index", 0)),
 			"text": str(picked.get("text", "")),
 			"difficulty": float(picked.get("difficulty", 0.0)),
-			"target_difficulty": slot_target,
+			"target_difficulty": float(picked.get("difficulty", 0.0)),
 		})
 	var committed: Array = words.slice(0, mini(first_unplayed + 1, words.size()))
 	if committed != saved:
 		GameState.set_single_level_word_assignments(Database.current_language, level_index, committed)
 	return words
 
-func _single_player_level_question_slots(level_index: int, level_seed: int, word_count: int) -> Array:
-	var has_saved_assignment: bool = GameState.has_single_level_question_slots_assignment(
-		Database.current_language, level_index
-	)
-	var saved: Array = GameState.get_single_level_question_slots(Database.current_language, level_index)
-	if has_saved_assignment:
-		# An explicit empty array is meaningful: all configured quiz slots for this
-		# level were downgraded to Hangman after content selection failed.
-		return saved
-	var opening_slots: Variant = GAME_DESIGN.opening_level_quiz_slots(level_index + 1, word_count)
-	if opening_slots != null:
-		GameState.set_single_level_question_slots(Database.current_language, level_index, opening_slots)
-		return opening_slots
-	if !_single_player_level_uses_question(level_index, word_count):
+func _single_player_level_question_slots(level_index: int, word_count: int) -> Array:
+	if GameState.has_single_level_question_slots_assignment(Database.current_language, level_index):
+		return GameState.get_single_level_question_slots(Database.current_language, level_index)
+	var level_number: int = level_index + 1
+	if !GAME_DESIGN.is_quiz_level(level_number) or word_count != GAME_DESIGN.level_stage_count(level_number):
 		return []
-	var rng := RandomNumberGenerator.new()
-	rng.seed = _single_player_seed(level_index, level_seed, 503)
-	var choices: Array = []
-	if _single_player_is_bonus_level(level_index):
-		# Uniformly choose a pair of internal, non-adjacent stages.
-		for first: int in range(1, word_count - 1):
-			for second: int in range(first + 2, word_count - 1):
-				choices.append([first, second])
-	else:
-		var level_number: int = level_index + 1
-		var first: int = int(floor(float(word_count) * SINGLE_PLAYER_QUIZ_FIRST_SLOT_RATIO))
-		var last: int = word_count - SINGLE_PLAYER_QUIZ_LAST_SLOT_END_OFFSET
-		if GAME_DESIGN.is_quiz_onboarding_level(level_number):
-			first = SINGLE_PLAYER_QUIZ_ONBOARDING_SLOT
-			last = first
-		for slot: int in range(mini(first, last), last + 1):
-			choices.append([slot])
-	if choices.is_empty():
-		return []
-	var selected: Array = choices[rng.randi_range(0, choices.size() - 1)]
-	GameState.set_single_level_question_slots(Database.current_language, level_index, selected)
-	return selected
+	var slots: Array = range(word_count)
+	GameState.set_single_level_question_slots(Database.current_language, level_index, slots)
+	return slots
 
 func _single_player_pick_level_question(
 	level_index: int,
@@ -1294,8 +1228,7 @@ func _single_player_pick_level_question(
 		questions,
 		resolved_target_difficulty,
 		GameState.get_single_player_question_history(Database.current_language, theme_index),
-		rng, -1,
-		not bool(GameState._single_player_theme_intro(Database.current_language, theme_index).get("completed", true))
+		rng, -1
 	)
 	if picked_question.is_empty():
 		return {}
@@ -1350,18 +1283,15 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var theme_count: int = Database.get_theme_count()
 	var language: String = Database.current_language
 	var unlocked_theme_count: int = GameState.get_unlocked_theme_ids(language).size()
-	var adaptive_difficulty: float = GameState.get_single_player_adaptive_difficulty(language)
 	if (
 		single_player_level_cache_language != language
 		or single_player_level_cache_theme_count != theme_count
 		or single_player_level_cache_unlocked_theme_count != unlocked_theme_count
-		or !is_equal_approx(single_player_level_cache_difficulty, adaptive_difficulty)
 	):
 		_invalidate_single_player_level_cache()
 		single_player_level_cache_language = language
 		single_player_level_cache_theme_count = theme_count
 		single_player_level_cache_unlocked_theme_count = unlocked_theme_count
-		single_player_level_cache_difficulty = adaptive_difficulty
 	var level_key := str(level_index)
 	if single_player_level_definitions_cache.has(level_key):
 		var cached: Variant = single_player_level_definitions_cache[level_key]
@@ -1369,13 +1299,7 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			return cached
 	if theme_count <= 0:
 		return {}
-	var target_difficulty: float = adaptive_difficulty
-	if _single_player_is_bonus_level(level_index):
-		target_difficulty = clampf(
-			adaptive_difficulty + SINGLE_PLAYER_BONUS_LEVEL_DIFFICULTY_OFFSET,
-			GameState.SINGLE_PLAYER_DIFFICULTY_MIN,
-			GameState.SINGLE_PLAYER_DIFFICULTY_MAX
-		)
+	var target_difficulty: float = GAME_DESIGN.campaign_quiz_difficulty(level_index)
 	var word_count: int = _single_player_level_word_target(level_index)
 	var level_seed: int = GameState.get_or_create_single_level_seed(language, level_index)
 	var options: Array = _single_player_theme_options(level_index, level_seed, word_count)
@@ -1402,7 +1326,7 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 	var question_targets: Dictionary = {}
 	var question_slots: Array = []
 	if selected_theme >= 0:
-		question_slots = _single_player_level_question_slots(level_index, level_seed, word_count)
+		question_slots = _single_player_level_question_slots(level_index, word_count)
 		var resolved_question_slots: Array = question_slots.duplicate()
 		var first_unplayed_slot: int = _single_player_first_unplayed_slot(level_index, word_count)
 		var reserved_ids: Array = []
@@ -1411,8 +1335,7 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 			if saved_id >= 0:
 				reserved_ids.append(saved_id)
 		for slot: int in question_slots:
-			var target: float = GameState.get_single_player_theme_target_difficulty(
-				language, selected_theme, _single_player_slot_difficulty(target_difficulty, slot, word_count))
+			var target: float = _single_player_slot_difficulty(target_difficulty, slot, word_count)
 			var question: Dictionary = _single_player_pick_level_question(
 				level_index, level_seed, selected_theme, target,
 				slot <= first_unplayed_slot, slot, reserved_ids)
@@ -1436,13 +1359,11 @@ func _single_player_level_data(level_index: int) -> Dictionary:
 				resolved_question_slots.erase(slot)
 		question_slots = resolved_question_slots
 	var words: Array = []
-	if selected_theme >= 0 and !(word_count == 1 and question_slots.has(0)):
+	if selected_theme >= 0 and question_slots.size() < word_count:
 		words = _single_player_words_for_theme(
 			level_index,
-			level_seed,
 			selected_theme,
-			word_count,
-			target_difficulty
+			word_count
 		)
 	var level_data := {
 		"index": level_index,
@@ -1480,7 +1401,7 @@ func _single_player_level_question_target_difficulty(level_index: int, word_slot
 	if word_slot < 0 and not data.get("question_slots", []).is_empty():
 		word_slot = int(data["question_slots"][0])
 	return float(data.get("question_targets", {}).get(str(word_slot),
-		GameState.get_single_player_adaptive_difficulty(Database.current_language)))
+		GAME_DESIGN.campaign_quiz_difficulty(level_index)))
 
 func _single_player_level_word_count(level_index: int) -> int:
 	# The level definition takes this same configured count. Reading it must not
@@ -1543,7 +1464,7 @@ func _single_player_next_unplayed_word_slot(level_index: int) -> int:
 func _single_player_mark_current_word_finished(
 	data: Dictionary,
 	is_win: bool,
-	failure_affects_difficulty: bool = true,
+	counts_as_loss: bool = true,
 	defer_final_reward: bool = false,
 	persist: bool = true
 ) -> Dictionary:
@@ -1569,28 +1490,16 @@ func _single_player_mark_current_word_finished(
 		single_player_active_word_slot,
 		level_word_count,
 		is_win,
-		failure_affects_difficulty,
+		counts_as_loss,
 		-1,
 		!defer_final_reward,
 		false,
 		stage_theme_index,
 		_single_player_stage_reward_amount(single_player_active_level_index, single_player_active_word_slot, level_word_count)
 		if _single_player_stage_reward_currency(single_player_active_level_index, single_player_active_word_slot, level_word_count) == GameState.STAGE_REWARD_STARS else 0,
-		"win" if is_win else ("loss" if failure_affects_difficulty else "forfeit")
+		"win" if is_win else ("loss" if counts_as_loss else "forfeit")
 	)
 	_invalidate_single_player_level_cache()
-	if OS.is_debug_build():
-		# Persist the exact result snapshot so Continue/relaunch does not replace
-		# this stage's delta and streak with a later state.
-		var intro: Dictionary = GameState._single_player_theme_intro(Database.current_language, stage_theme_index)
-		result["difficulty_debug"] = {
-			"global": float(progress.get("difficulty_after", 0.0)),
-			"delta": float(progress.get("difficulty_delta", 0.0)),
-			"intro_active": !bool(intro.get("completed", true)),
-			"intro": float(intro.get("difficulty", 0.0)),
-			"win_streak": int(progress.get("win_streak", 0)),
-			"loss_streak": int(progress.get("loss_streak", 0)),
-		}
 	if !result.has("lines") or !(result["lines"] is Array):
 		result["lines"] = []
 	result["single_player_level_index"] = single_player_active_level_index
@@ -1601,8 +1510,12 @@ func _single_player_mark_current_word_finished(
 	result["theme_unlock_before"] = int(progress.get("theme_unlock_before", 0))
 	result["theme_unlock_after"] = int(progress.get("theme_unlock_after", 0))
 	result["single_player_level_perfect"] = bool(progress.get("perfect", false))
-	result["single_player_chain_failed"] = false
-	result["single_player_chain_ended"] = bool(progress.get("completed", false))
+	var retry_crossword: bool = bool(progress.get("retry_crossword", false))
+	result["single_player_retry_crossword"] = retry_crossword
+	result["single_player_chain_failed"] = retry_crossword
+	result["single_player_chain_ended"] = bool(progress.get("chain_ended", false))
+	if retry_crossword and GameSession.crossword != null:
+		result["retry_crossword_entries"] = GameSession.crossword.entries.duplicate(true)
 	result["single_player_stage_won"] = is_win
 	result["single_player_unlocked_next"] = bool(progress.get("unlocked_next", false))
 	result["single_player_completion_bonus"] = int(progress.get("completion_bonus", 0))
@@ -1615,14 +1528,15 @@ func _single_player_mark_current_word_finished(
 	result["single_player_deferred_reward_amount"] = (
 		completion_bonus if has_deferred_completion_reward else 0
 	)
-	result["single_player_difficulty_before"] = float(progress.get("difficulty_before", 0.0))
-	result["single_player_difficulty_after"] = float(progress.get("difficulty_after", 0.0))
 	var stage_reward_currency: String = ""
 	var stage_reward_amount: int = 0
-	# The single-stage prize rewards level completion, including a failed stage.
-	var has_stage_reward: bool = is_win or (
+	var uses_level_prize: bool = _single_player_is_bonus_level(single_player_active_level_index) and level_word_count == 1
+	uses_level_prize = uses_level_prize or GameState.is_single_player_quiz_chain(
+		Database.current_language, single_player_active_level_index, level_word_count)
+	# A regular crossword pays the single-stage coin prize for either outcome.
+	var has_stage_reward: bool = !retry_crossword and !uses_level_prize and (is_win or (
 		level_completed and !GameState.GAME_DESIGN.single_stage_reward(level_word_count).is_empty()
-	)
+	))
 	if has_stage_reward:
 		stage_reward_currency = _single_player_stage_reward_currency(
 			single_player_active_level_index,
@@ -2005,7 +1919,7 @@ func _start_single_player_question(level_index: int, word_slot: int) -> void:
 	)
 	_start_single_player_word(level_index, word_slot)
 
-func _start_next_single_player_word(level_index: int) -> void:
+func _start_next_single_player_word(level_index: int, retry_entries: Array = []) -> void:
 	if _single_player_level_selected_theme(level_index) < 0:
 		_show_single_player_level_popup(level_index)
 		return
@@ -2022,9 +1936,9 @@ func _start_next_single_player_word(level_index: int) -> void:
 	if _single_player_stage_is_quiz(level_index, next_slot):
 		_start_single_player_question(level_index, next_slot)
 	else:
-		_start_single_player_word(level_index, next_slot)
+		_start_single_player_word(level_index, next_slot, retry_entries)
 
-func _start_single_player_word(level_index: int, word_slot: int) -> void:
+func _start_single_player_word(level_index: int, word_slot: int, retry_entries: Array = []) -> void:
 	var words: Array = _single_player_level_words(level_index)
 	if word_slot < 0 or word_slot >= words.size():
 		return
@@ -2042,48 +1956,40 @@ func _start_single_player_word(level_index: int, word_slot: int) -> void:
 		str(word_info.get("text", "")),
 		float(word_info.get("difficulty", 0.0)),
 		int(word_info.get("theme_index", -1)),
-		int(word_info.get("word_index", -1))
+		int(word_info.get("word_index", -1)),
+		str(word_info.get("id", ""))
 	)
-	GameState.mark_single_player_word_shown(
-		Database.current_language,
-		word.theme_index,
-		word.index,
-		Database.get_words_by_index(word.theme_index, 0).size(),
-		word.text,
-		false
-	)
-	var opening_words: Array = GAME_DESIGN.opening_crossword_words(
-		level_index + 1, Database.current_language, Database.get_theme_id(word.theme_index)
-	)
-	GameSession.start_round(word, GameState.GameMode.SINGLE_PLAYER,
-		GAME_DESIGN.level_crossword_word_count(level_index + 1), opening_words)
+	var opening_words: Array = _campaign_opening_words(level_index, word.theme_index)
+	if !retry_entries.is_empty():
+		opening_words = GAME_DESIGN.opening_crossword_words(
+			level_index + 1, Database.current_language, Database.get_theme_id(word.theme_index))
+	var upcoming_words: Array = _campaign_word_queue(word.theme_index, _campaign_used_words(level_index))
+	_starting_campaign_crossword = true
+	GameSession.start_round(word, GAME_DESIGN.level_crossword_word_count(level_index + 1),
+		opening_words, upcoming_words.slice(0, GameSession.WORD_CROSSWORD.PREFERRED_CANDIDATES), retry_entries)
+	_starting_campaign_crossword = false
+	_remember_campaign_crossword_words()
+	_persist_active_single_player_word_session()
 	Analytics.begin_stage(level_index, word_slot, "word")
 	show_game_screen()
 
-func _exit_game_warning_text() -> String:
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return tr("EXIT_LEVEL_TICKET_WARNING")
-	return tr("EXIT_PROGRESS_WARNING")
-
-func _exit_game_title_text() -> String:
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		return tr("EXIT_LEVEL_CONFIRM")
-	return tr("EXIT_GAME_CONFIRM")
+func _remember_campaign_crossword_words() -> bool:
+	var language: String = Database.current_language
+	var used: Dictionary = GameState.get_campaign_seen_words(language)
+	var recorded: bool = false
+	for entry: Dictionary in GameSession.crossword.entries:
+		var key: String = _campaign_word_key(entry.text)
+		if used.has(key):
+			continue
+		GameState.mark_single_player_word_shown(language, GameSession.theme_id,
+			GameSession.word_index if entry.text == GameSession.word_data.text else -1, 0, entry.text, false)
+		used[key] = true
+		recorded = true
+	return recorded
 
 func _confirm_exit_game(confirmed_by_popup: bool = false) -> void:
 	_remove_exit_game_popup()
-	if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER:
-		_forfeit_single_player_round(confirmed_by_popup)
-		return
-	var return_to_custom_word: bool = GameState.current_mode == GameState.GameMode.TWO_PLAYER
-	if return_to_custom_word and !game_finished and GameSession.word_data != null:
-		GameSession.report_round_finished(false, "forfeit")
-	_discard_round_for_navigation()
-	if return_to_custom_word:
-		_preserve_custom_word_on_next_show = true
-		show_custom_word()
-	else:
-		show_menu()
+	_forfeit_single_player_round(confirmed_by_popup)
 
 func _discard_round_for_navigation() -> void:
 	result_transition_generation += 1
@@ -2211,365 +2117,8 @@ func _forfeit_single_player_round(_show_failure_reward: bool = false) -> void:
 
 func _remove_exit_game_popup() -> void:
 	_remove_popup_group_with_dimmer_fade(&"exit_game_popup")
-func _custom_word_start_label() -> String:
-	return Database.tr_text(77, "Start game")
-
-func _on_custom_word_text_changed(value: String) -> void:
-	_reset_custom_word_check_feedback()
-	var previous_word_text: String = custom_word_text
-	# Keep Android/iOS IME composition entirely owned by the native LineEdit.
-	# Normalize only the game/visual value; assigning LineEdit.text or its caret
-	# from text_changed can invalidate an active mobile composition session.
-	custom_word_text = _normalize_custom_word_input(value)
-	_sync_custom_word_input_visual()
-	# When the player appends letters, animate only the newly entered glyphs with
-	# the exact same reveal bounce as letters on the guessing screen.
-	if (
-		custom_word_input_visual != null
-		and is_instance_valid(custom_word_input_visual)
-		and custom_word_text.length() > previous_word_text.length()
-		and custom_word_text.begins_with(previous_word_text)
-	):
-		custom_word_input_visual.call_deferred(
-			"play_new_letter_bounce",
-			previous_word_text.length()
-		)
-	_sync_custom_word_start_bounce()
-
-func _normalize_custom_word_input(value: String) -> String:
-	var normalized: String = value.to_upper().replace("-", "—").replace("Ё", "Е")
-	var filtered: String = ""
-	var input_language: String = ""
-	for i: int in range(normalized.length()):
-		var character: String = normalized.substr(i, 1)
-		var character_language: String = _custom_word_character_language(character)
-		if character_language != "":
-			# The first actual letter locks the word to one alphabet. Keep the
-			# native LineEdit untouched for mobile IME safety, but ignore letters
-			# from the other script in the visual/game value.
-			if input_language == "":
-				input_language = character_language
-			if character_language == input_language:
-				filtered += character
-		elif character == " " or character == "—":
-			# TextBlock.CheckLast() in the FLA prevents leading and consecutive
-			# separators while the word is being typed.
-			if filtered != "" and filtered.right(1) != " " and filtered.right(1) != "—":
-				filtered += character
-	return filtered.substr(0, CUSTOM_WORD_MAX_LENGTH)
-
-func _custom_word_character_language(character: String) -> String:
-	if character.length() != 1:
-		return ""
-	var code: int = character.unicode_at(0)
-	if code >= 0x41 and code <= 0x5A:
-		return "en"
-	if code >= 0x410 and code <= 0x42F:
-		return "ru"
-	return ""
-
-func _custom_word_alphabet(language_code: String) -> PackedStringArray:
-	var alphabet_text: String = ""
-	if language_code == "en":
-		alphabet_text = CUSTOM_WORD_LATIN_ALPHABET_TEXT
-	elif language_code == "ru":
-		alphabet_text = CUSTOM_WORD_CYRILLIC_ALPHABET_TEXT
-	var result := PackedStringArray()
-	for i: int in range(alphabet_text.length()):
-		result.append(alphabet_text.substr(i, 1))
-	return result
-
 func _active_game_alphabet() -> PackedStringArray:
-	if GameState.current_mode == GameState.GameMode.TWO_PLAYER and GameSession.word_data != null:
-		var custom_language: String = _custom_word_language(GameSession.word_data.text)
-		var custom_alphabet: PackedStringArray = _custom_word_alphabet(custom_language)
-		if !custom_alphabet.is_empty():
-			return custom_alphabet
 	return Database.get_alphabet()
-
-func _set_custom_word_field_tint(color: Color) -> void:
-	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
-		custom_word_input_visual.call("set_marker_tint", color)
-
-func _sync_custom_word_input_visual() -> void:
-	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
-		custom_word_input_visual.call("set_display_text", custom_word_text)
-
-func _sync_custom_word_start_bounce() -> void:
-	if custom_word_start_button == null or !is_instance_valid(custom_word_start_button):
-		return
-	var has_word: bool = !custom_word_text.is_empty()
-	var should_disable: bool = !has_word
-	# A random-word roll keeps the CTA enabled. Avoid assigning the same state:
-	# StageLongButton would otherwise recreate its looping attention tween and
-	# visibly restart the cycle on every roll.
-	if bool(custom_word_start_button.get("button_disabled")) != should_disable:
-		custom_word_start_button.set("button_disabled", should_disable)
-	if bool(custom_word_start_button.get("attention_bounce_enabled")) != has_word:
-		custom_word_start_button.set("attention_bounce_enabled", has_word)
-	# The dictionary/search action is meaningless without a word. Keep it disabled
-	# in the same empty-input state as Start game, but do not interrupt an active
-	# lookup (that state already owns the button until the request is cancelled).
-	if (
-		custom_word_check_button != null
-		and is_instance_valid(custom_word_check_button)
-		and custom_word_check_request == null
-		and bool(custom_word_check_button.get("button_disabled")) != should_disable
-	):
-		custom_word_check_button.set("button_disabled", should_disable)
-
-func _set_random_custom_word() -> void:
-	var theme_count: int = Database.get_theme_count()
-	if theme_count <= 0:
-		return
-	# Sample raw records uniformly, then apply the same eligibility rules as
-	# the exhaustive pool. Avoid normalizing every word on every screen entry.
-	var selected: String = ""
-	for attempt: int in range(32):
-		var sampled: String = Database.sample_word_by_difficulty(RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER)
-		var candidate: String = _normalize_custom_word_input(sampled)
-		if _is_random_custom_word_candidate(candidate):
-			selected = candidate
-			break
-	if selected.is_empty():
-		# Bounded fallback for empty/sparse pools; never loop indefinitely.
-		# Preserve duplicate records and their original selection weights.
-		var candidates: PackedStringArray = []
-		for theme_index: int in range(theme_count):
-			var words: Array = Database.get_words_by_index(theme_index, RANDOM_CUSTOM_WORD_DIFFICULTY_FILTER)
-			for picked: Dictionary in words:
-				var candidate: String = _normalize_custom_word_input(str(picked.get("text", "")))
-				if _is_random_custom_word_candidate(candidate):
-					candidates.append(candidate)
-		if candidates.is_empty():
-			return
-		selected = candidates[randi() % candidates.size()]
-	_reset_custom_word_check_feedback()
-	custom_word_text = selected
-	if custom_word_edit != null:
-		custom_word_edit.text = custom_word_text
-		custom_word_edit.caret_column = custom_word_edit.text.length()
-		_sync_custom_word_input_visual()
-	if custom_word_input_visual != null and is_instance_valid(custom_word_input_visual):
-		custom_word_input_visual.call_deferred("play_word_bounce")
-	_sync_custom_word_start_bounce()
-
-func _is_random_custom_word_candidate(word: String) -> bool:
-	return (
-		!word.is_empty()
-		and word.length() <= RANDOM_CUSTOM_WORD_MAX_LENGTH
-		and !word.contains(" ")
-		and !word.contains("—")
-		and !word.contains("-")
-	)
-
-func _check_custom_word_now() -> void:
-	if custom_word_edit == null:
-		return
-	custom_word_text = _normalize_custom_word_input(custom_word_edit.text)
-	var language_code: String = _custom_word_language(custom_word_text)
-	if !_is_valid_custom_word(custom_word_text) or language_code == "":
-		_set_temporary_custom_word_field_tint(UI_PALETTE.MARKER_ERROR)
-		_show_custom_word_toast(&"TOAST_WORD_NOT_FOUND", false)
-		_vibrate_custom_word_not_found()
-		return
-
-	_cancel_custom_word_check()
-	_hide_custom_word_toast()
-	_reset_custom_word_field_tint()
-	_set_custom_word_checking(true)
-	var encoded_lower: String = custom_word_text.to_lower().uri_encode()
-	var title_case: String = custom_word_text.substr(0, 1) + custom_word_text.substr(1).to_lower()
-	custom_word_check_urls = [
-		"https://" + language_code + ".wiktionary.org/wiki/" + encoded_lower,
-		"https://" + language_code + ".wiktionary.org/wiki/" + title_case.uri_encode(),
-	]
-	custom_word_check_request = HTTPRequest.new()
-	custom_word_check_request.name = "CustomWordWiktionaryCheck"
-	custom_word_check_request.timeout = 10.0
-	custom_word_check_request.request_completed.connect(_on_custom_word_check_completed)
-	add_child(custom_word_check_request)
-	_request_next_custom_word_url()
-
-func _request_next_custom_word_url() -> void:
-	if custom_word_check_request == null or custom_word_check_urls.is_empty():
-		_set_custom_word_check_result(false, false)
-		return
-	var url: String = custom_word_check_urls.pop_front()
-	var error: Error = custom_word_check_request.request(url)
-	if error != OK:
-		_set_custom_word_check_result(false, true)
-
-func _on_custom_word_check_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
-	if result == HTTPRequest.RESULT_SUCCESS and response_code == 200:
-		_set_custom_word_check_result(true, false)
-		return
-	if result == HTTPRequest.RESULT_SUCCESS and response_code == 404 and !custom_word_check_urls.is_empty():
-		_request_next_custom_word_url()
-		return
-	_set_custom_word_check_result(false, response_code != 404)
-
-func _set_custom_word_check_result(found: bool, network_error: bool) -> void:
-	var result_key: StringName
-	if found:
-		result_key = &"TOAST_WORD_FOUND"
-	elif network_error:
-		result_key = &"TOAST_ERROR"
-	else:
-		result_key = &"TOAST_WORD_NOT_FOUND"
-	_cancel_custom_word_check()
-	if network_error:
-		_reset_custom_word_field_tint()
-	elif custom_word_edit != null:
-		# Match the hangman result word: the marker and the text effect switch
-		# together to the shared success/error palette.
-		_set_temporary_custom_word_field_tint(
-			UI_PALETTE.MARKER_SUCCESS if found else UI_PALETTE.MARKER_ERROR
-		)
-	if !found and !network_error:
-		_vibrate_custom_word_not_found()
-	_show_custom_word_toast(result_key, found)
-
-func _show_custom_word_toast(message_key: StringName, is_success: bool) -> void:
-	if custom_word_input_visual == null or !is_instance_valid(custom_word_input_visual):
-		return
-	custom_word_input_visual.call("show_validation_toast", message_key, is_success)
-
-func _hide_custom_word_toast() -> void:
-	if custom_word_input_visual == null or !is_instance_valid(custom_word_input_visual):
-		return
-	custom_word_input_visual.call("hide_validation_toast")
-
-func _set_temporary_custom_word_field_tint(color: Color) -> void:
-	custom_word_color_generation += 1
-	var color_generation: int = custom_word_color_generation
-	_set_custom_word_field_tint(color)
-	await get_tree().create_timer(CUSTOM_WORD_RESULT_COLOR_DURATION).timeout
-	if color_generation != custom_word_color_generation:
-		return
-	_set_custom_word_field_tint(CUSTOM_WORD_FIELD_DEFAULT_TINT)
-
-func _reset_custom_word_field_tint() -> void:
-	custom_word_color_generation += 1
-	_set_custom_word_field_tint(CUSTOM_WORD_FIELD_DEFAULT_TINT)
-
-func _vibrate_custom_word_not_found() -> void:
-	if GameState.settings.size() > 4 and int(GameState.settings[4]) == 2:
-		Input.vibrate_handheld(CUSTOM_WORD_NOT_FOUND_VIBRATION_MS)
-
-func _cancel_custom_word_check() -> void:
-	custom_word_check_urls.clear()
-	if custom_word_check_request != null and is_instance_valid(custom_word_check_request):
-		custom_word_check_request.cancel_request()
-		custom_word_check_request.queue_free()
-	custom_word_check_request = null
-	_set_custom_word_checking(false)
-
-func _set_custom_word_checking(is_checking: bool) -> void:
-	if !is_checking:
-		_stop_custom_word_check_text_animation()
-	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
-		return
-	# The shared disabled state is a neutral gray mask and blocks pointer input.
-	custom_word_check_button.set("selected", false)
-	custom_word_check_button.set("button_disabled", is_checking or custom_word_text.is_empty())
-	custom_word_check_button.modulate = Color.WHITE
-	if is_checking:
-		_start_custom_word_check_text_animation()
-
-func _start_custom_word_check_text_animation() -> void:
-	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
-		return
-	custom_word_check_label_base = Database.tr_text(60, "Check the word")
-	custom_word_check_dot_count = 0
-	_update_custom_word_check_text()
-	if custom_word_check_animation_timer == null or !is_instance_valid(custom_word_check_animation_timer):
-		custom_word_check_animation_timer = Timer.new()
-		custom_word_check_animation_timer.name = "CustomWordCheckDotsTimer"
-		custom_word_check_animation_timer.wait_time = CUSTOM_WORD_CHECK_DOTS_INTERVAL
-		custom_word_check_animation_timer.one_shot = false
-		custom_word_check_animation_timer.timeout.connect(_advance_custom_word_check_dots)
-		add_child(custom_word_check_animation_timer)
-	custom_word_check_animation_timer.start()
-
-func _stop_custom_word_check_text_animation() -> void:
-	if custom_word_check_animation_timer != null and is_instance_valid(custom_word_check_animation_timer):
-		custom_word_check_animation_timer.stop()
-	custom_word_check_dot_count = 0
-	if custom_word_check_label_base.is_empty():
-		custom_word_check_label_base = Database.tr_text(60, "Check the word")
-	_update_custom_word_check_text()
-
-func _advance_custom_word_check_dots() -> void:
-	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
-		_stop_custom_word_check_text_animation()
-		return
-	custom_word_check_dot_count = (custom_word_check_dot_count + 1) % 4
-	_update_custom_word_check_text()
-
-func _update_custom_word_check_text() -> void:
-	if custom_word_check_button == null or !is_instance_valid(custom_word_check_button):
-		return
-	var dots: String = ""
-	for _index: int in range(custom_word_check_dot_count):
-		dots += "."
-	custom_word_check_button.set("button_text", custom_word_check_label_base + dots)
-
-func _reset_custom_word_check_feedback() -> void:
-	_cancel_custom_word_check()
-	_hide_custom_word_toast()
-	_reset_custom_word_field_tint()
-
-func start_custom_game() -> void:
-	var source_text: String = custom_word_edit.text if custom_word_edit != null else custom_word_text
-	var word := _normalize_custom_word_input(source_text)
-	if !_is_valid_custom_word(word):
-		if custom_word_edit != null:
-			_set_custom_word_field_tint(UI_PALETTE.MARKER_ERROR)
-		return
-	custom_word_text = word
-	game_finished = false
-	last_result_data = {}
-	single_player_active_level_index = -1
-	single_player_active_word_slot = -1
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	GameSession.start_custom_round(word)
-	show_game_screen()
-
-func _is_valid_custom_word(word: String) -> bool:
-	if word.length() == 0 or word.length() > CUSTOM_WORD_MAX_LENGTH:
-		return false
-	if word.begins_with(" ") or word.begins_with("—") or word.ends_with(" ") or word.ends_with("—"):
-		return false
-	if _custom_word_language(word) == "":
-		return false
-	var has_letter := false
-	var previous_separator := false
-	for i in range(word.length()):
-		var ch := word.substr(i, 1)
-		if ch == " " or ch == "—" or ch == "-":
-			if previous_separator:
-				return false
-			previous_separator = true
-			continue
-		previous_separator = false
-		var code: int = ch.unicode_at(0)
-		if !((code >= 0x41 and code <= 0x5A) or (code >= 0x410 and code <= 0x42F)):
-			return false
-		has_letter = true
-	return has_letter
-
-func _custom_word_language(word: String) -> String:
-	var language: String = ""
-	for i in range(word.length()):
-		var character_language: String = _custom_word_character_language(word.substr(i, 1))
-		if character_language == "":
-			continue
-		if language == "":
-			language = character_language
-		elif character_language != language:
-			return ""
-	return language
 
 func show_game_screen() -> void:
 	# The converted GameMov scene contains button frame debris and large nested
@@ -2838,15 +2387,13 @@ func _result_continue_button_text() -> String:
 	return Database.tr_text(3, "Continue")
 
 func _result_continue_action() -> Callable:
-	match GameState.current_mode:
-		GameState.GameMode.TWO_PLAYER:
-			return Callable(self, "_continue_two_player_result")
-		GameState.GameMode.SINGLE_PLAYER:
-			return Callable(self, "_continue_single_player_result")
-		_:
-			return Callable(self, "_result_back_action")
+	return Callable(self, "_continue_single_player_result")
 
 func _result_back_action() -> void:
+	if bool(last_result_data.get("single_player_retry_crossword", false)):
+		_discard_round_for_navigation()
+		show_menu()
+		return
 	if (
 		GameState.current_mode == GameState.GameMode.SINGLE_PLAYER
 		and bool(last_result_data.get("single_player_level_completed", false))
@@ -2867,9 +2414,6 @@ func _result_back_action() -> void:
 		_show_exit_game_popup()
 		return
 	_confirm_exit_game()
-
-func _continue_two_player_result() -> void:
-	show_custom_word()
 
 func _continue_single_player_result() -> void:
 	var level_index: int = single_player_active_level_index

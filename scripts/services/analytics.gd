@@ -37,8 +37,6 @@ func _ready() -> void:
 	GameState.single_level_attempt_reset.connect(_on_attempt_reset)
 	GameState.save_committed.connect(_flush_economy)
 	GameState.save_loaded.connect(_discard_economy)
-	GameSession.round_started.connect(_on_round_started)
-	GameSession.round_finished.connect(_on_round_finished)
 	GameSession.hint_activated.connect(_on_hint_used)
 	YandexAdsService.analytics_event.connect(track)
 	YandexAdsService.ad_impression_received.connect(ad_impression)
@@ -62,7 +60,7 @@ func track(event: String, parameters: Dictionary = {}) -> void:
 		return
 	var clean: Dictionary = {"ui_language": GameState.interface_language, "content_language": GameState.word_language}
 	if GAMEPLAY_EVENTS.has(event):
-		clean["game_mode"] = "two_player" if GameState.current_mode == GameState.GameMode.TWO_PLAYER else "single_player"
+		clean["game_mode"] = "single_player"
 	for key: Variant in parameters:
 		if !PARAMETERS.has(str(key)) or clean.size() >= 25 and !clean.has(str(key)):
 			continue
@@ -80,7 +78,7 @@ func economy(amount: int, currency: String, source: String, purpose: String, wai
 		return
 	var parameters: Dictionary = {"amount": absi(amount), "currency": currency, "source": source, "purpose": purpose,
 		"ui_language": GameState.interface_language, "content_language": GameState.word_language,
-		"game_mode": "two_player" if GameState.current_mode == GameState.GameMode.TWO_PLAYER else "single_player"}
+		"game_mode": "single_player"}
 	var event: String = "reward_granted" if amount > 0 else "currency_spent"
 	if source == "rewarded":
 		parameters["placement"] = placement if !placement.is_empty() else purpose
@@ -138,19 +136,6 @@ func screen(name: String) -> void:
 
 func _on_tutorial_complete() -> void:
 	track("tutorial_complete")
-
-func _on_round_started() -> void:
-	if GameSession.mode == GameState.GameMode.TWO_PLAYER:
-		if _enabled:
-			_pending_stage = {"screen": "word", "stage_key": GameSession.round_id + ":start", "parameters": {"game_mode": "two_player"}}
-			_flush_pending_stage()
-	if !GameState.guided_onboarding_completed:
-		track_once("tutorial_begin", "tutorial_begin")
-
-func _on_round_finished(id: String, game_mode: int, won: bool, outcome: String = "") -> void:
-	if game_mode != GameState.GameMode.TWO_PLAYER or id.is_empty():
-		return
-	track_once(id + ":complete", "stage_complete", {"game_mode": "two_player", "stage_type": "word", "success": won, "outcome": outcome if !outcome.is_empty() else ("win" if won else "loss")})
 
 func begin_stage(level: int, slot: int, kind: String) -> void:
 	_queue_stage(level, slot, kind, false)

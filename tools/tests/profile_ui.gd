@@ -168,7 +168,8 @@ func check_leaderboard_profile_return() -> void:
 	# An unrelated destination must release the retained screen and its signals.
 	view.profile_requested.emit()
 	await settle()
-	main.show_custom_word()
+	GameSession.start_round(WordData.new("TEST", 0.2, -1, -1))
+	main.show_game_screen()
 	await settle()
 	check(!is_instance_valid(view) and !is_instance_valid(main._profile_leaderboard), "Unrelated navigation frees the retained leaderboard")
 	main._show_leaderboard_screen(true)
@@ -428,7 +429,7 @@ func run() -> void:
 	check(selected_swatch.scale.is_equal_approx(Vector2.ONE * 1.15), "Selected frame retains its enlargement after pressing")
 	var wide_name := "Ш".repeat(18)
 	var resolved: Dictionary = editor.nickname._resolved_display_font(wide_name, 320)
-	check(resolved.measured_width <= 320 and resolved.font_size <= editor.nickname.input_font_size, "Wide nickname fits using the two-player input font adaptation")
+	check(resolved.measured_width <= 320 and resolved.font_size <= editor.nickname.input_font_size, "Wide nickname fits using the shared input font adaptation")
 	check(editor.nickname.input_font_size == roundi(26 * 1.2) and editor.nickname.stage_rect.size.is_equal_approx(Vector2(344,62.4)), "Nickname retains the enlarged font and height inside the standard popup")
 	var nickname_edit: LineEdit = editor.nickname.get_line_edit()
 	for step: Array in [[" ", ""], ["Я", "Я"], ["Я ", "Я"], ["Я  ", "Я"], ["Я@", "Я"], ["Яё", "Я ё"], ["Я ё ", "Я ё"], ["Я ё3", "Я ё 3"]]:
@@ -487,7 +488,7 @@ func run() -> void:
 	nickname_edit.text_changed.emit(nickname_edit.text)
 	check(editor.nickname._visual_text == "Draft name", "Nickname field updates its displayed draft")
 	var random_button: Control = editor._form.get_node("RandomizeProfileDraft")
-	check(random_button.icon_texture == main.PORTRAIT_CUSTOM_WORD_RANDOM_ICON, "Profile randomizer reuses the two-player icon")
+	check(random_button.icon_texture == preload("res://flash_assets/custom_word_random_doodle.png"), "Profile randomizer uses the dice icon")
 	check(random_button.stage_rect.size.y == editor.save_button.stage_rect.size.y and is_equal_approx(random_button.stage_rect.position.x - editor.save_button.stage_rect.end.x, 10.0), "Randomizer shares the Save row with the theme-popup spacing")
 	var previous_interface_language: String = Database.interface_language
 	var previous_server_snapshot: Dictionary = Leaderboard._snapshot.duplicate(true)
@@ -869,30 +870,32 @@ func run() -> void:
 	var cancelled_opening: CanvasLayer = main._home_transition
 	var cancelled_home: Control = cancelled_opening.get("_outgoing_page")
 	var cancelled_surface: SubViewportContainer = main.content.get_parent().get_parent()
-	main.show_custom_word()
+	GameSession.start_round(WordData.new("TEST", 0.2, -1, -1))
+	main.show_game_screen()
 	await get_tree().create_timer(0.4).timeout
 	check(!is_instance_valid(cancelled_opening) and !is_instance_valid(cancelled_home) and !is_instance_valid(cancelled_surface), "Other navigation releases both opening layers")
-	check(is_instance_valid(main.custom_word_edit), "Cancelled opening cannot replace the next screen")
+	check(is_instance_valid(main._portrait_crossword), "Cancelled opening cannot replace the next screen")
 	main.show_menu()
 	# Independent navigation cancels the fade, with no delayed return callback.
 	main._show_profile_screen("profile")
 	await settle()
 	main._close_profile_screen()
 	var cancelled_transition: CanvasLayer = main._home_transition
-	main.show_custom_word()
+	GameSession.start_round(WordData.new("TEST", 0.2, -1, -1))
+	main.show_game_screen()
 	await get_tree().create_timer(0.4).timeout
 	check(!is_instance_valid(cancelled_transition) and !main._tabbed_closing, "Other navigation cancels the outgoing fade")
-	check(is_instance_valid(main.custom_word_edit), "Cancelled fade cannot replace the new destination")
+	check(is_instance_valid(main._portrait_crossword), "Cancelled fade cannot replace the new destination")
 	await settle()
 	var underlying: Control = main.content
 	main.show_settings()
 	await settle()
-	check(!get_tree().get_nodes_in_group("settings_popup").is_empty(), "Two-player screen keeps compact settings popup")
+	check(!get_tree().get_nodes_in_group("settings_popup").is_empty(), "Crossword screen keeps compact settings popup")
 	check(!is_instance_valid(main._portrait_profile), "Compact settings does not navigate to full page")
 	check(main.settings_toggle_buttons.size() == 2 and main.settings_word_language_buttons.is_empty(), "Compact popup only contains sound and vibration")
 	main._remove_settings_popup()
 	await settle()
-	check(main.content == underlying, "Compact close preserves word-entry screen")
+	check(main.content == underlying, "Compact close preserves the crossword")
 	# Quiz and Hangman (including results) retain compact routing.
 	main._clear()
 	main._quiz_screen_active = true

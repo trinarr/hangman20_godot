@@ -69,8 +69,10 @@ func finish_bounce(button: StageLetterButton) -> void:
 	button._letter_bounce_tween.custom_step(1.0)
 
 func run() -> void:
-	GameState.current_mode = GameState.GameMode.TWO_PLAYER
-	GameSession.start_custom_round("АБВА")
+	GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
+	GameSession.start_round(WordData.new("АБВА", 0.2, -1, -1))
+	# Leave the round active after the three wrong guesses used to test feedback.
+	GameSession.attempt_limit = 4
 	main = TestUI.new()
 	add_child(main)
 	GameSession.changed.connect(changed)
