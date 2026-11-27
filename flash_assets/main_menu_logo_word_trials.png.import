@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://xbbqj3h83kni"
-path="res://.godot/imported/main_menu_logo_viselitsa_20.png-845c0625587790a4eeb52eab3fcc56c7.ctex"
+uid="uid://drn703vrda4fp"
+path="res://.godot/imported/main_menu_logo_word_trials.png-11495312e7fb30ac3d1a1cf77a350c6c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://flash_assets/main_menu_logo_viselitsa_20.png"
-dest_files=["res://.godot/imported/main_menu_logo_viselitsa_20.png-845c0625587790a4eeb52eab3fcc56c7.ctex"]
+source_file="res://flash_assets/main_menu_logo_word_trials.png"
+dest_files=["res://.godot/imported/main_menu_logo_word_trials.png-11495312e7fb30ac3d1a1cf77a350c6c.ctex"]
 
 [params]
 

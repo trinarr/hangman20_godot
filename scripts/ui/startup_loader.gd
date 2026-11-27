@@ -40,7 +40,6 @@ func _ready() -> void:
 	_overlay.layer = 1001
 	add_child(_overlay)
 	screen = SCREEN.new()
-	screen.initial_logo_language = "en" if _keep_fallback else GameState.interface_language
 	_overlay.add_child(screen)
 	screen.retry_requested.connect(_retry)
 	_bind_native_activity()

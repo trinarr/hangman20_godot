@@ -23,19 +23,10 @@ void fragment() {
 		vec3 paper = portrait_grid_paper(pixel);
 		paper *= 1.0 - home_torn_fiber_shadow(pixel.y, edges, unit);
 		vec4 ink = sample_title(logo_uv);
-		ink.a *= 1.0 - badge_region(logo_uv);
 		vec3 result = mix(paper, ink.rgb, ink.a);
 		float fiber = home_torn_fiber_mask(pixel.y, edges, aa);
 		result = mix(result, home_torn_fiber_rgb(pixel, edges, unit), fiber);
 		layer = vec4(result, sheet_mask);
 	}
-	// Preserve Home's settled pivot calculation, including texture-edge rounding.
-	vec2 pivot = vec2(980.0, 585.0) / 1254.0;
-	vec2 badge_uv = pivot + (logo_uv - pivot);
-	vec4 badge = sample_ink(badge_uv);
-	badge.a *= badge_region(badge_uv);
-	float alpha = badge.a + layer.a * (1.0 - badge.a);
-	layer = vec4((badge.rgb * badge.a + layer.rgb * layer.a * (1.0 - badge.a))
-		/ max(0.0001, alpha), alpha);
 	COLOR = vec4(layer.rgb, layer.a * opacity);
 }

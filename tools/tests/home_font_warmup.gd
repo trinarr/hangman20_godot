@@ -144,6 +144,8 @@ func check_home_lifecycle() -> void:
 			var main := TestUI.new()
 			add_child(main)
 			main.show_menu()
+			check(main._home_logo_reveal.logo_texture == preload("res://flash_assets/main_menu_logo_word_trials.png"),
+				"Real Home uses the shared Word Trials wordmark in %s" % language)
 			var controller: Node = main.content.find_child("HomeFontWarmup",true,false)
 			check(controller._language.is_empty() and !controller.is_processing(), "Real Home leaves glyphs untouched during entrance")
 			var completed: Array[bool] = [false]
@@ -155,6 +157,11 @@ func check_home_lifecycle() -> void:
 			await get_tree().process_frame
 			await get_tree().process_frame
 			check(main.content.find_child("HomeFontWarmup",true,false) == null, "Already warmed Home releases the idle controller")
+			var capture_dir: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+			if !capture_dir.is_empty() and DisplayServer.get_name() != "headless":
+				await RenderingServer.frame_post_draw
+				var capture_path: String = capture_dir.path_join("home_word_trials_%s_%d.png" % [language, size.x])
+				check(get_viewport().get_texture().get_image().save_png(capture_path) == OK, "Capture settled Home in %s" % language)
 			main.show_menu()
 			var pending: WeakRef = weakref(main.content.find_child("HomeFontWarmup",true,false))
 			main._leave_home(Callable(main,"show_game_screen"))

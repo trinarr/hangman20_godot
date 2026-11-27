@@ -15,12 +15,14 @@ ipinfo_lite_token="73d4840e6e08dd"
 
 [application]
 
-config/name="Hangman 2.0"
+config/name="Word Trials"
 config/name_localized={
-"ru": "Виселица 2.0"
+"ru": "Word Trials"
 }
 config/version="4.2.0"
 run/main_scene="res://scenes/Startup.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="godot/app_userdata/Hangman 2.0"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 run/max_fps=60
@@ -28,6 +30,8 @@ boot_splash/bg_color=Color(0.00022259181, 0.00022259181, 0.00022259181, 1)
 boot_splash/stretch_mode=0
 boot_splash/image="res://assets/app_icon/trinarr_games_splash.png"
 config/icon="res://assets/app_icon/main_192.png"
+config/custom_user_dir_name.windows="Godot/app_userdata/Hangman 2.0"
+config/custom_user_dir_name.macos="Godot/app_userdata/Hangman 2.0"
 
 [autoload]
 

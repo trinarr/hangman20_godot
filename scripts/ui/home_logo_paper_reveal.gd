@@ -7,21 +7,19 @@ signal entrance_finished
 const REVEAL_SHADER: Shader = preload("res://shaders/home_logo_paper_reveal.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
 const PEEL_SPEED_MULTIPLIER: float = 1.30
-const BADGE_BOUNCE_SPEED: float = 1.20
+const BUTTON_BOUNCE_SPEED: float = 1.20
 const BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
 
 # The existing adaptive logo holder remains the source of position and scale.
 # This separate, unscaled layer reaches the physical left and right screen edges.
 var logo_anchor: Control
 var logo_texture: Texture2D
-var title_texture: Texture2D
-var title_chroma_key: bool = false
 var start_delay: float = 0.12
 var play_entrance: bool = true
 var defer_entrance: bool = false
 var reveal_duration: float = 0.71
-var badge_grow_duration: float = 0.18
-var badge_settle_duration: float = 0.22
+var buttons_grow_duration: float = 0.18
+var buttons_settle_duration: float = 0.22
 var shine_duration: float = 0.75
 var _reveal_material: ShaderMaterial
 var _entrance_tween: Tween
@@ -39,13 +37,9 @@ func _ready() -> void:
 	_reveal_material = ShaderMaterial.new()
 	_reveal_material.shader = REVEAL_SHADER
 	_reveal_material.set_shader_parameter("logo_texture", logo_texture)
-	_reveal_material.set_shader_parameter("title_texture", title_texture if title_texture != null else logo_texture)
-	_reveal_material.set_shader_parameter("title_chroma_key", title_chroma_key)
 	_reveal_material.set_shader_parameter("backside_texture", BACKSIDE_TEXTURE)
 	# Initialize before the first draw: only the normal blue background is visible.
 	_reveal_material.set_shader_parameter("reveal_progress", 0.0)
-	_reveal_material.set_shader_parameter("badge_alpha", 0.0)
-	_reveal_material.set_shader_parameter("badge_scale", 0.65)
 	material = _reveal_material
 	get_viewport().size_changed.connect(_queue_layout)
 	if play_entrance:
@@ -55,9 +49,6 @@ func _ready() -> void:
 		# Tabbed-page returns reveal an already settled Home, including its buttons.
 		_buttons_started = true
 		_set_reveal_progress(1.0)
-		_reveal_material.set_shader_parameter("badge_alpha", 1.0)
-		_set_badge_scale(1.0)
-		_set_shine_progress(1.55)
 		_buttons_opacity = 1.0
 		_set_buttons_scale(1.0)
 		buttons_bounce_finished.emit()
@@ -104,20 +95,10 @@ func _start_entrance() -> void:
 	)
 	peel.set_trans(Tween.TRANS_QUAD)
 	peel.set_ease(Tween.EASE_IN_OUT)
-	# The separate badge is revealed only once the entire blue strip has left.
-	var badge_grow: MethodTweener = _entrance_tween.tween_method(
-		_set_badge_appearance, 0.0, 1.0, maxf(0.01, badge_grow_duration / BADGE_BOUNCE_SPEED)
-	)
-	badge_grow.set_trans(Tween.TRANS_QUAD)
-	badge_grow.set_ease(Tween.EASE_OUT)
-	var badge_settle: MethodTweener = _entrance_tween.tween_method(
-		_set_badge_scale, 1.14, 1.0, maxf(0.01, badge_settle_duration / BADGE_BOUNCE_SPEED)
-	)
-	badge_settle.set_trans(Tween.TRANS_BACK)
-	badge_settle.set_ease(Tween.EASE_OUT)
-	# Highlight immediately at the badge edge, without traversing empty atlas space.
+	# Finish the button entrance before sweeping across the wordmark.
+	_entrance_tween.tween_interval((buttons_grow_duration + buttons_settle_duration) / BUTTON_BOUNCE_SPEED)
 	var shine: MethodTweener = _entrance_tween.tween_method(
-		_set_shine_progress, 0.22, 1.55, maxf(0.01, shine_duration)
+		_set_shine_progress, -0.20, 1.30, maxf(0.01, shine_duration)
 	)
 	shine.set_trans(Tween.TRANS_SINE)
 	shine.set_ease(Tween.EASE_IN_OUT)
@@ -132,24 +113,17 @@ func _set_reveal_progress(value: float) -> void:
 func _set_shine_progress(value: float) -> void:
 	_reveal_material.set_shader_parameter("shine_progress", value)
 
-func _set_badge_appearance(value: float) -> void:
-	_reveal_material.set_shader_parameter("badge_alpha", value)
-	_set_badge_scale(lerpf(0.65, 1.14, value))
-
-func _set_badge_scale(value: float) -> void:
-	_reveal_material.set_shader_parameter("badge_scale", value)
-
 func _start_buttons_entrance() -> void:
 	_buttons_started = true
 	_buttons_tween = create_tween()
 	_buttons_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	var grow := _buttons_tween.tween_method(
-		_set_buttons_appearance, 0.0, 1.0, maxf(0.01, badge_grow_duration / BADGE_BOUNCE_SPEED)
+		_set_buttons_appearance, 0.0, 1.0, maxf(0.01, buttons_grow_duration / BUTTON_BOUNCE_SPEED)
 	)
 	grow.set_trans(Tween.TRANS_QUAD)
 	grow.set_ease(Tween.EASE_OUT)
 	var settle := _buttons_tween.tween_method(
-		_set_buttons_scale, 1.14, 1.0, maxf(0.01, badge_settle_duration / BADGE_BOUNCE_SPEED)
+		_set_buttons_scale, 1.14, 1.0, maxf(0.01, buttons_settle_duration / BUTTON_BOUNCE_SPEED)
 	)
 	settle.set_trans(Tween.TRANS_BACK)
 	settle.set_ease(Tween.EASE_OUT)
@@ -170,7 +144,7 @@ func prepare_departure() -> void:
 		_buttons_tween.kill()
 	_reveal_material.set_shader_parameter("reveal_progress", 1.0)
 	# During departure the moving blue pieces reveal the destination directly.
-	# Keep only the fading lettering/badge above that opening, without Home paper.
+	# Keep only the fading wordmark above that opening, without Home paper.
 	_reveal_material.set_shader_parameter("foreground_only", true)
 	_sync_layout()
 

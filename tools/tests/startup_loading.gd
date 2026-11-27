@@ -3,6 +3,7 @@ extends Node
 const LOADER = preload("res://scripts/ui/startup_loader.gd")
 const VERSION = preload("res://scripts/ui/application_version.gd")
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
+const WORD_TRIALS_LOGO: Texture2D = preload("res://flash_assets/main_menu_logo_word_trials.png")
 var checks: int = 0
 var failures: Array[String] = []
 var baseline: String
@@ -173,9 +174,7 @@ func compare_settled_logo(screen: Control, language: String, width: int) -> void
 	var reference: Control = load("res://scripts/ui/home_logo_paper_reveal.gd").new()
 	reference.play_entrance = false
 	reference.logo_anchor = anchor
-	reference.logo_texture = screen._logo.logo_texture
-	reference.title_texture = screen._logo.title_texture
-	reference.title_chroma_key = screen._logo.title_chroma_key
+	reference.logo_texture = WORD_TRIALS_LOGO
 	screen._logo.hide()
 	screen.add_child(reference)
 	await get_tree().process_frame
@@ -402,7 +401,7 @@ func check_legal_close(loader: Node, muted: bool, stall: bool = false) -> void:
 	var before: Array[Tween] = get_tree().get_processed_tweens()
 	loader._legal_popup.find_child("LegalAcceptButton", true, false).pressed.emit()
 	check(GameState.has_accepted_legal_documents() and loader._legal_popup == null, "Accept removes the interactive legal popup once")
-	check(loader._keep_fallback and !loader.screen._logo.title_chroma_key and loader.screen._version.text == VERSION.text("Version:"), "First-run acceptance cannot replace the fallback loading visuals")
+	check(loader._keep_fallback and loader.screen._logo.logo_texture == WORD_TRIALS_LOGO and loader.screen._version.text == VERSION.text("Version:"), "First-run acceptance keeps the shared wordmark and fallback version text")
 	check(loader._ui_audio.stream == (null if muted else load("res://audio/Click.wav")), "Acceptance uses the original click sound and respects mute")
 	var close_tweens: Array[Tween] = []
 	for tween: Tween in get_tree().get_processed_tweens():
@@ -511,11 +510,9 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 	add_child(loader)
 	await wait_for_release(native)
 	check(delayed.starts == 1 and !loader._database_ready and loader._loading, "Cold Database and Main loading start during native splash fade")
-	var expected_ru_logo: bool = existing and language == "ru"
-	check(loader.screen._logo.title_chroma_key == expected_ru_logo and loader.screen._version.text.begins_with("Version:"), "Cold loading selects the returning player's logo before Database readiness and keeps first-run EN")
+	check(loader.screen._logo.logo_texture == WORD_TRIALS_LOGO and loader.screen._version.text.begins_with("Version:"), "Cold loading uses the shared wordmark and fallback version text")
 	check(native.diagnostics_requested == diagnostics_before, "Cold splash cannot request database diagnostics")
 	var initial_logo: Control = loader.screen._logo
-	var initial_title: Texture2D = initial_logo.title_texture
 	var initial_version: Label = loader.screen._version
 	var initial_version_text: String = initial_version.text
 	await capture("database_fallback_%s.png" % language)
@@ -525,7 +522,7 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 		await get_tree().process_frame
 	check(delayed.starts == 1 and loader._packed != null, "Main resources load in parallel with the selected Database bundle")
 	check(!loader._database_ready and loader.runtime == null and !is_instance_valid(loader._legal_popup), "Ready Main resources cannot show consent or gameplay before Database completes")
-	check(loader.screen._logo.title_chroma_key == expected_ru_logo and loader.screen._version.text.begins_with("Version:"), "Loading retains its initial logo while Database is pending")
+	check(loader.screen._logo.logo_texture == WORD_TRIALS_LOGO and loader.screen._version.text.begins_with("Version:"), "Loading retains the shared wordmark while Database is pending")
 	if cancel:
 		loader.queue_free()
 		await get_tree().process_frame
@@ -555,10 +552,10 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 		await get_tree().process_frame
 	check(loader._database_ready and Database.is_language_ready(language, words), "Startup waits for the actual words/hints worker and independent selected interface language")
 	if existing:
-		check(loader.screen._logo.title_chroma_key == (language == "ru") and loader.screen._version.text == VERSION.text(), "Returning players retain localized loading after Database readiness")
-		check(loader.screen._logo == initial_logo and initial_logo.title_texture == initial_title, "Database readiness does not replace the returning player's initial logo or texture")
+		check(loader.screen._version.text == VERSION.text(), "Returning players receive the localized version text after Database readiness")
+		check(loader.screen._logo == initial_logo and initial_logo.logo_texture == WORD_TRIALS_LOGO, "Database readiness preserves the returning player's shared wordmark")
 	else:
-		check(loader.screen._logo == initial_logo and loader.screen._version == initial_version and !initial_logo.title_chroma_key and initial_version.text == initial_version_text and !loader.screen._localized, "First Database completion preserves the original fallback nodes and text")
+		check(loader.screen._logo == initial_logo and initial_logo.logo_texture == WORD_TRIALS_LOGO and loader.screen._version == initial_version and initial_version.text == initial_version_text and !loader.screen._localized, "First Database completion preserves the shared wordmark and fallback version text")
 	check(!loader.screen._retry.visible and !loader.screen._toast.visible, "Successful Database retry clears obsolete errors")
 	var documents: GDScript = load("res://scripts/ui/legal_consent_popup.gd")
 	var suffix: String = "_en" if language == "en" else ""
@@ -785,7 +782,7 @@ func run() -> void:
 				check(loader.screen.progress >= 0.05, "Loading advances after the first zero-percent frame")
 				check(loader.screen._version.text == VERSION.text() if existing and loader._database_ready else loader.screen._version.text == VERSION.text("Version:"), "Loading retains the installed version and build number before native dismissal")
 				check(loader.screen._logo.get_script().resource_path == "res://scripts/ui/startup_logo.gd" and loader.screen._logo.get_child_count() == 0, "Loading logo uses only the static renderer")
-				check(loader.screen._logo.title_chroma_key == (existing and language == "ru"), "First loading frame uses the returning player's language or first-run EN")
+				check(loader.screen._logo.logo_texture == WORD_TRIALS_LOGO, "First loading frame uses the shared wordmark for every language and profile")
 				check(native.image != null and native.image.get_size().x > 0, "Loading frame exists before the native splash releases")
 				check(native.submitted_frames == 1, "Native splash releases after exactly one submitted loading frame")
 				check(native.diagnostics_requested == diagnostics_before, "Native splash cannot request additional database diagnostics")
@@ -833,7 +830,7 @@ func run() -> void:
 				var database_deadline: int = Time.get_ticks_msec() + 10000
 				while !loader._database_ready and Time.get_ticks_msec() < database_deadline:
 					await get_tree().process_frame
-				check(loader._database_ready and loader.screen._logo.title_chroma_key == (existing and language == "ru"), "Database readiness keeps first-run fallback and localizes returning players")
+				check(loader._database_ready and loader.screen._logo.logo_texture == WORD_TRIALS_LOGO, "Database readiness retains the shared wordmark")
 				check(loader.screen._version.text == VERSION.text() if existing else loader.screen._version.text == VERSION.text("Version:"), "Loading version uses the selected first-run or returning-player policy")
 				if !existing:
 					var popup_deadline: int = Time.get_ticks_msec() + 10000

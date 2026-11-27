@@ -54,6 +54,7 @@ def verify_presets(root: Path = ROOT) -> None:
             "Debug preset must export APK")
     require(release_options == debug_options,
             "Shared Android options differ between release and debug presets")
+    require(release_options.get("package/name") == '"Word Trials"', "Store launcher name is missing")
     release_filters = presets["preset.0"]["exclude_filter"].strip('"').split(",")
     for pattern in ("addons/dev-console/*", "scripts/debug/*", "tools/*", "docs/*", "supabase/*"):
         require(pattern in release_filters, "Release filter missing: " + pattern)
@@ -74,7 +75,7 @@ def verify_presets(root: Path = ROOT) -> None:
     dev_options = dict(presets["preset.4.options"])
     require(dev_options.pop("package/unique_name", None) == '"com.trinarr.Hangman20.dev"',
             "DEV package must be isolated from release")
-    require(dev_options.pop("package/name", None) == '"Hangman 2.0 DEV"', "DEV launcher name is missing")
+    require(dev_options.pop("package/name", None) == '"Word Trials DEV"', "DEV launcher name is missing")
     expected_dev = dict(presets["preset.1.options"])
     expected_dev.pop("package/unique_name")
     expected_dev.pop("package/name")

@@ -18,7 +18,6 @@ var _progress_paused: bool = false
 var _idle_speed: float = DESIGN.get_float_range("timings.animations.startup_loading.idle_progress_per_second", 0.001, 1.0)
 var _maximum_lead: float = DESIGN.get_float_range("timings.animations.startup_loading.maximum_visual_lead", 0.001, 1.0)
 var _incomplete_limit: float = DESIGN.get_float_range("timings.animations.startup_loading.incomplete_limit", 0.01, 0.99)
-var initial_logo_language: String = "en"
 var _icons: Array[Texture2D] = []
 var _logo: Control
 var _progress_group: Control
@@ -48,7 +47,6 @@ func _ready() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
 	_logo = LOGO.new()
-	_logo.language = initial_logo_language
 	add_child(_logo)
 	_progress_group = Control.new()
 	_progress_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -130,8 +128,6 @@ func _update_progress_view() -> void:
 
 func apply_database_language() -> void:
 	_localized = true
-	if _logo.language != Database.interface_language:
-		_logo.set_language(Database.interface_language)
 	_version.text = VERSION.text()
 	if is_instance_valid(_retry):
 		_retry.configure(tr("LEADERBOARD_RETRY"), 20)

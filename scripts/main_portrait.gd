@@ -58,8 +58,7 @@ var _reward_chest_flash_material_cache: ShaderMaterial = null
 const REWARD_STATUS_CHECK_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_check_wide.png")
 const REWARD_STATUS_CROSS_TEXTURE: Texture2D = preload("res://flash_assets/reward_status_cross_wide.png")
 const WATCH_AD_ICON_TEXTURE: Texture2D = preload("res://flash_assets/watch_ad_icon.png")
-const MAIN_MENU_LOGO_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_logo_hangman_20.png")
-const MAIN_MENU_LOGO_RU_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_logo_viselitsa_20.png")
+const MAIN_MENU_LOGO_TEXTURE: Texture2D = preload("res://flash_assets/main_menu_logo_word_trials.png")
 const FINAL_REWARD_ROTATING_GLOW_TEXTURE: Texture2D = preload(
 	"res://flash_assets/final_reward_rotating_glow.png"
 )
@@ -2653,8 +2652,6 @@ func _show_menu_screen() -> void:
 	logo_reveal.set("play_entrance", !(is_instance_valid(_home_transition) and _home_transition.get_script() == TABBED_PAGE_TRANSITION_SCRIPT and !bool(_home_transition.get("opening"))))
 	logo_reveal.set("logo_anchor", main_menu_logo_anchor)
 	logo_reveal.set("logo_texture", main_menu_logo_texture)
-	logo_reveal.set("title_texture", MAIN_MENU_LOGO_RU_TEXTURE if Database.interface_language == "ru" else main_menu_logo_texture)
-	logo_reveal.set("title_chroma_key", Database.interface_language == "ru")
 	logo_reveal.set("start_delay", maxf(0.12, PORTRAIT_GAME_ENTRANCE_START_DELAY / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER))
 	logo_reveal.set("reveal_duration", PORTRAIT_GAME_PAPER_ENTRANCE_DURATION / PORTRAIT_GAME_ENTRANCE_SPEED_MULTIPLIER)
 	logo_reveal.set("shine_duration", PORTRAIT_MENU_LOGO_SHINE_DURATION_SECONDS)

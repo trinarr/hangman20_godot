@@ -69,7 +69,7 @@ content root is placed in the SubViewport before controls are constructed, and s
 there on completion, preserving live leaderboard service subscriptions.
 The surface resizes with the root viewport and forwards GUI input to the live page.
 Cancelling an opening releases both layers without a delayed navigation action.
-On return, Home is built with its logo, badge and buttons already fully settled;
+On return, Home is built with its wordmark and buttons already fully settled;
 no Home entrance or button bounce is replayed. Ordinary Home visits and gameplay
 paper transitions retain their existing animations.
 
