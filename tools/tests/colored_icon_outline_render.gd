@@ -284,22 +284,6 @@ func check_refill_popups() -> void:
 			main._close_heart_refill_popup()
 			await get_tree().create_timer(0.3).timeout
 			main.test_ads_enabled = false
-			GameSession.is_active = true
-			GameSession.theme_id = 0
-			GameSession.comment_hint_unlocked = true
-			GameSession.word_hint_text = "Comment outline preview"
-			main._show_word_comment_popup()
-			await get_tree().create_timer(1.6).timeout
-			var comment_icons := 0
-			for candidate: Control in main.find_children("*", "FlashStageTexture", true, false):
-				if candidate.material is ShaderMaterial and candidate.material.shader == main.UI_MATERIALS.GRAYSCALE_SHADER:
-					comment_icons += 1
-					check(candidate.material.get_shader_parameter("outline_pixels") == 5.0, "Comment popup grayscale icon uses five pixels")
-			check(comment_icons == 1, "Comment popup has one grayscale theme icon")
-			if !directory.is_empty():
-				get_viewport().get_texture().get_image().save_png(directory.path_join("comment_outline_%dx%d_%s.png" % [dimensions.x, dimensions.y, language]))
-			main._remove_word_comment_popup()
-			await get_tree().create_timer(0.3).timeout
 			GameState.current_mode = GameState.GameMode.SINGLE_PLAYER
 			main.game_finished = false
 			main._show_exit_game_popup()

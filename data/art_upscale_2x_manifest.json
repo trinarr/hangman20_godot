@@ -1,7 +1,7 @@
 {
   "scale": 2,
   "algorithm": "Lanczos, premultiplied alpha, lossless PNG; native 2x button slices preserved",
-  "file_count": 156,
+  "file_count": 155,
   "files": [
     {
       "path": "flash_assets/about_mail_icon_86.png",
@@ -109,21 +109,6 @@
       "source_mode": "RGBA",
       "source_sha256": "7c6db8331cbd63dbb051bf17af9f0d745723d3afd0ebcd6a54ecccd8ed5ab08a",
       "target_sha256": "28baaa121fe5b4e2e0bb33132fb66fda58db1ca6159e5cf1b30e2892f5ab044a",
-      "native_2x": true
-    },
-    {
-      "path": "flash_assets/hint_comment_unlock_doodle.png",
-      "source_size": [
-        256,
-        256
-      ],
-      "target_size": [
-        256,
-        256
-      ],
-      "source_mode": "RGBA",
-      "source_sha256": "4d2a1708518b25b27de10984b38b99843aff2501fd4f7fc8a44226e689e81350",
-      "target_sha256": "23734d5b1e01adea9a8d7c30ac47b1fb8d6aa02afd7c5d588cd754f3ced1c7bc",
       "native_2x": true
     },
     {

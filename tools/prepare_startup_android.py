@@ -8,8 +8,8 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 STARTUP_TEXTURES = ("flash_assets/life_ticket_icon.png", "flash_assets/torn_ticket_icon.png")
 ORIGINAL = "splashScreen.setKeepOnScreenCondition(() -> godot.getRunStatus() != Godot.RunStatus.STARTED);"
-REPLACEMENT = "HomeStartupGate.install(splashScreen, godot);"
-METHODS = """
+LEGACY_REPLACEMENT = "HomeStartupGate.install(splashScreen, godot);"
+LEGACY_METHODS = """
     // Home startup bridge. Kept for JavaObject calls from GDScript.
     @androidx.annotation.Keep
     public void finishHomeStartup() {
@@ -19,6 +19,22 @@ METHODS = """
     @androidx.annotation.Keep
     public boolean isHomeStartupSplashDismissed() {
         return HomeStartupGate.isDismissed();
+    }
+"""
+REPLACEMENT = "homeStartupGate.install(splashScreen, godot);"
+METHODS = """
+    private final HomeStartupGate homeStartupGate = new HomeStartupGate(this);
+
+    // Home startup bridge. Kept for JavaObject calls from GDScript.
+    @androidx.annotation.Keep
+    public void finishHomeStartup() {
+        homeStartupGate.finish();
+    }
+
+    @androidx.annotation.Keep
+    public boolean isHomeStartupSplashDismissed() {
+        Godot godot = getGodot();
+        return homeStartupGate.isDismissed() || (godot != null && !godot.getDisableGodotSplash());
     }
 """
 
@@ -56,6 +72,8 @@ def prepare(template: Path, check: bool = False) -> None:
         if source.count(ORIGINAL) != 1 or not source.rstrip().endswith("}"):
             raise ValueError("Unsupported Godot splash template")
         updated = source.replace(ORIGINAL, REPLACEMENT).rstrip()[:-1] + METHODS + "}\n"
+    elif source.count(LEGACY_REPLACEMENT) == 1 and source.count(LEGACY_METHODS) == 1 and REPLACEMENT not in source:
+        updated = source.replace(LEGACY_REPLACEMENT, REPLACEMENT).replace(LEGACY_METHODS, METHODS)
     elif source.count(REPLACEMENT) != 1 or METHODS not in source:
         raise ValueError("Unsupported or partially modified Godot splash template")
     helper = directory / "HomeStartupGate.java"

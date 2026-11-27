@@ -85,7 +85,6 @@ const FLASH_STAGE_HORIZONTAL_FILL_SCRIPT: GDScript = preload("res://scripts/ui/f
 const POPUP_COMPONENT: GDScript = preload("res://scripts/ui/portrait_popup.gd")
 const UI_FONTS: GDScript = preload("res://scripts/ui/ui_fonts.gd")
 const UI_SECONDARY_BOLD_FONT: Font = preload("res://fonts/BalsamiqSans-Bold.ttf")
-const UI_HEADING_FONT: Font = preload("res://fonts/BalsamiqSans-Regular.ttf")
 var UI_DISPLAY_FONT: Font = UI_FONTS.display_font()
 var UI_BUTTON_FONT: Font = UI_FONTS.button_font()
 var UI_REGULAR_FONT: Font = UI_FONTS.regular_font()
@@ -450,9 +449,6 @@ func _update_single_player_refresh_price(_balance: int) -> void:
 	pass
 
 func _show_exit_game_popup() -> void:
-	pass
-
-func _show_word_comment_popup() -> void:
 	pass
 
 func _build_root() -> void:
@@ -2307,15 +2303,6 @@ func _use_remove_hint() -> void:
 		return
 	GameSession.use_remove_wrong_hint()
 
-func _use_comment_hint() -> void:
-	if GameSession.comment_hint_unlocked:
-		_show_word_comment_popup()
-		return
-	if !_can_activate_hint(GameState.HINT_COMMENT, GameSession.can_unlock_comment_hint()):
-		return
-	if GameSession.unlock_comment_hint():
-		_show_word_comment_popup()
-
 func _can_activate_hint(hint_key: String, hint_is_available: bool) -> bool:
 	if !hint_is_available:
 		return false
@@ -2432,9 +2419,6 @@ func _continue_single_player_result() -> void:
 		show_menu()
 	else:
 		_start_next_single_player_word(level_index)
-
-func _remove_word_comment_popup() -> void:
-	_remove_popup_group_with_dimmer_fade(&"word_comment_popup")
 
 func _open_word_search() -> void:
 	var word := GameSession.get_full_word().strip_edges()

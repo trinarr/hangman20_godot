@@ -1,17 +1,21 @@
 package com.godot.game;
 
+import android.app.Activity;
 import android.os.SystemClock;
 import androidx.core.splashscreen.SplashScreen;
 import org.godotengine.godot.Godot;
 
-/** The render thread releases the native splash only after local preparation. */
+/** One gate per activity, shared between its UI thread and Godot's render thread. */
 final class HomeStartupGate {
-    private static volatile boolean ready;
-    private static volatile boolean dismissed;
+    private final Activity activity;
+    private volatile boolean ready;
+    private volatile boolean dismissed;
 
-    static void install(SplashScreen splash, Godot godot) {
-        ready = false;
-        dismissed = false;
+    HomeStartupGate(Activity activity) {
+        this.activity = activity;
+    }
+
+    void install(SplashScreen splash, Godot godot) {
         final long deadline = SystemClock.uptimeMillis() + 30000L;
         splash.setKeepOnScreenCondition(() -> godot.getRunStatus() != Godot.RunStatus.STARTED
                 || (!ready && SystemClock.uptimeMillis() < deadline));
@@ -21,11 +25,16 @@ final class HomeStartupGate {
         });
     }
 
-    static void finish() {
+    void finish() {
+        if (dismissed) {
+            return;
+        }
         ready = true;
+        // Force another pre-draw on retry/resume, even after SurfaceView replacement.
+        activity.runOnUiThread(() -> activity.getWindow().getDecorView().postInvalidateOnAnimation());
     }
 
-    static boolean isDismissed() {
+    boolean isDismissed() {
         return dismissed;
     }
 }

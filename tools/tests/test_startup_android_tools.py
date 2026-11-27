@@ -9,14 +9,32 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
-from prepare_startup_android import ORIGINAL, METHODS, STARTUP_TEXTURES, prepare, verify_package
+from prepare_startup_android import LEGACY_METHODS, LEGACY_REPLACEMENT, ORIGINAL, METHODS, STARTUP_TEXTURES, prepare, verify_package
 
 
 class StartupAndroidPreparationTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("javac") and shutil.which("java"), "JDK required for native splash gate regression")
-    def test_splash_is_removed_synchronously_on_exit(self):
+    def test_splash_dismissal_is_owned_by_each_activity(self):
         # Execute the production helper with a controllable Android clock.
         sources = {
+            "android/app/Activity.java": """
+package android.app;
+public class Activity {
+    public int redraws;
+    private boolean onUiThread;
+    public void runOnUiThread(Runnable action) {
+        onUiThread = true;
+        action.run();
+        onUiThread = false;
+    }
+    public Activity getWindow() { return this; }
+    public Activity getDecorView() { return this; }
+    public void postInvalidateOnAnimation() {
+        if (!onUiThread) throw new AssertionError("Redraw must be requested on the UI thread");
+        redraws++;
+    }
+}
+""",
             "android/os/SystemClock.java": """
 package android.os;
 public class SystemClock {
@@ -34,14 +52,14 @@ public class Godot {
 """,
             "androidx/core/splashscreen/SplashScreen.java": """
 package androidx.core.splashscreen;
-import com.godot.game.HomeStartupGateTest;
 public class SplashScreen {
     public interface Condition { boolean test(); }
     public interface ExitListener { void onExit(Provider provider); }
     public static class Provider {
         public boolean removed;
+        public Runnable beforeRemove;
         public void remove() {
-            if (HomeStartupGateTest.dismissed()) throw new AssertionError("Gate opened before removal");
+            beforeRemove.run();
             removed = true;
         }
     }
@@ -53,33 +71,42 @@ public class SplashScreen {
 """,
             "com/godot/game/HomeStartupGateTest.java": """
 package com.godot.game;
+import android.app.Activity;
 import android.os.SystemClock;
 import androidx.core.splashscreen.SplashScreen;
 import org.godotengine.godot.Godot;
 public class HomeStartupGateTest {
-    public static boolean dismissed() { return HomeStartupGate.isDismissed(); }
     private static void check(boolean value) { if (!value) throw new AssertionError(); }
-    private static void checkExit(SplashScreen splash) {
-        check(!splash.condition.test() && !dismissed());
+    private static void checkExit(SplashScreen splash, HomeStartupGate gate) {
+        check(!splash.condition.test() && !gate.isDismissed());
         SplashScreen.Provider provider = new SplashScreen.Provider();
+        provider.beforeRemove = () -> check(!gate.isDismissed());
         splash.listener.onExit(provider);
-        check(provider.removed && dismissed());
+        check(provider.removed && gate.isDismissed());
     }
     public static void main(String[] args) {
         SplashScreen splash = new SplashScreen();
         Godot godot = new Godot();
-        HomeStartupGate.install(splash, godot);
-        check(!dismissed() && splash.condition.test());
-        HomeStartupGate.finish();
+        Activity activity = new Activity();
+        HomeStartupGate gate = new HomeStartupGate(activity);
+        check(!gate.isDismissed());
+        gate.finish();
+        gate.install(splash, godot);
         check(splash.condition.test());
         godot.status = Godot.RunStatus.STARTED;
-        checkExit(splash);
+        gate.finish();
+        check(!splash.condition.test() && activity.redraws == 2);
 
         SplashScreen restarted = new SplashScreen();
-        HomeStartupGate.install(restarted, godot);
-        check(!dismissed() && restarted.condition.test());
+        Activity replacement = new Activity();
+        HomeStartupGate restartedGate = new HomeStartupGate(replacement);
+        restartedGate.install(restarted, godot);
+        checkExit(splash, gate);
+        check(!restartedGate.isDismissed() && restarted.condition.test() && replacement.redraws == 0);
+        gate.finish();
+        check(activity.redraws == 2);
         SystemClock.now = 30000;
-        checkExit(restarted);
+        checkExit(restarted, restartedGate);
     }
 }
 """,
@@ -216,6 +243,21 @@ public class HomeStartupGateTest {
                 prepare(root)
             self.assertEqual(path.read_text(), "unknown")
             self.assertFalse(path.with_name("HomeStartupGate.java").exists())
+
+    def test_prepared_template_migrates_from_process_wide_gate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            activity = self.fixture(root)
+            source = activity.read_text(encoding="utf-8").rstrip()
+            source = source.replace(ORIGINAL, LEGACY_REPLACEMENT)[:-1] + LEGACY_METHODS + "}\n"
+            activity.write_text(source, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing or outdated"):
+                prepare(root, check=True)
+            prepare(root)
+            prepare(root, check=True)
+            updated = activity.read_text(encoding="utf-8")
+            self.assertIn(METHODS, updated)
+            self.assertNotIn(LEGACY_REPLACEMENT, updated)
 
 
 if __name__ == "__main__":

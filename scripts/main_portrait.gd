@@ -103,7 +103,6 @@ func _reward_chest_open_texture() -> Texture2D:
 
 const PORTRAIT_STAGE_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_STAGE_SIZE
 const PORTRAIT_HEADER_HEIGHT: float = 80.0
-const PORTRAIT_FOOTER_Y: float = 688.0
 const PORTRAIT_LONG_BUTTON_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_LONG_BUTTON_SIZE
 const PORTRAIT_ROUND_BUTTON_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_PAGE_BACK_BUTTON_SCALE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_PAGE_BACK_BUTTON_SCALE
@@ -162,7 +161,6 @@ const PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH: float = (
 	* PORTRAIT_FOOTER_CONTROL_SCALE
 	* PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH_SCALE
 )
-const PORTRAIT_FOOTER_CENTER_LONG_BUTTON_RECT := Rect2(90.0, 711.0, PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
 const PORTRAIT_GAME_ACTION_Y_SCALE: float = 0.95
 const PORTRAIT_MENU_TITLE_MAX_SCALE: float = PORTRAIT_PAPER_BACKGROUND_SCRIPT.MAX_PAPER_SCALE
 # Dense screens may grow moderately on tall phones, but gameplay is split into
@@ -463,12 +461,6 @@ const PORTRAIT_POPUP_CLOSE_INTRO_START_SCALE: float = 0.58
 const PORTRAIT_POPUP_CLOSE_INTRO_PEAK_SCALE: float = 1.16
 const PORTRAIT_POPUP_CLOSE_INTRO_GROW_SECONDS: float = 0.12
 const PORTRAIT_POPUP_CLOSE_INTRO_SETTLE_SECONDS: float = 0.14
-const PORTRAIT_WORD_COMMENT_THEME_ICON_LIFT: float = 6.0
-const PORTRAIT_WORD_COMMENT_THEME_ICON_PEAK_SCALE: float = 1.1
-const PORTRAIT_WORD_COMMENT_THEME_ICON_RISE_SECONDS: float = 0.165
-const PORTRAIT_WORD_COMMENT_THEME_ICON_RETURN_SECONDS: float = 0.280
-const PORTRAIT_WORD_COMMENT_THEME_GLOW_ALPHA: float = 0.3
-const PORTRAIT_WORD_COMMENT_THEME_GLOW_REVEAL_SECONDS: float = 0.37
 const PORTRAIT_POPUP_CORNER_RADIUS: float = 26.0
 const PORTRAIT_POPUP_TOP_TRIM: float = 51.3
 const PORTRAIT_POPUP_TITLE_SCALE: float = 1.2078
@@ -948,9 +940,6 @@ func _portrait_handle_modal_back_request() -> bool:
 	if !get_tree().get_nodes_in_group(&"settings_popup").is_empty():
 		_remove_settings_popup()
 		return true
-	if !get_tree().get_nodes_in_group(&"word_comment_popup").is_empty():
-		_remove_word_comment_popup()
-		return true
 	return false
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1218,23 +1207,6 @@ func _fit_stage_rect_keep_aspect(bounds: Rect2, source_size: Vector2) -> Rect2:
 	var fit_scale: float = min(bounds.size.x / source_size.x, bounds.size.y / source_size.y)
 	var fitted_size: Vector2 = source_size * fit_scale
 	return Rect2(bounds.get_center() - fitted_size * 0.5, fitted_size)
-
-func _portrait_footer_long_button_rect(rect: Rect2) -> Rect2:
-	var shortened_width: float = rect.size.x * PORTRAIT_FOOTER_LONG_BUTTON_WIDTH_SCALE
-	var shortened_rect := Rect2(
-		Vector2(rect.position.x + (rect.size.x - shortened_width) * 0.5, rect.position.y),
-		Vector2(shortened_width, rect.size.y)
-	)
-	if rect.position.y < PORTRAIT_FOOTER_Y:
-		return shortened_rect
-	return _portrait_scaled_footer_control_rect(shortened_rect)
-
-func _portrait_scaled_footer_control_rect(rect: Rect2) -> Rect2:
-	var scaled_size: Vector2 = rect.size * PORTRAIT_FOOTER_CONTROL_SCALE
-	return Rect2(rect.get_center() - scaled_size * 0.5, scaled_size)
-
-func _portrait_footer_font_size(font_size: int) -> int:
-	return int(round(float(font_size) * PORTRAIT_FOOTER_CONTROL_SCALE))
 
 func _portrait_primary_bottom_button_rect(rect: Rect2) -> Rect2:
 	var resized_rect: Rect2 = rect
@@ -14736,246 +14708,6 @@ func _fit_single_line_label_to_width(label: Label, text: String, available_width
 		else:
 			upper_bound = candidate_size - 1
 	label.add_theme_font_size_override("font_size", resolved_font_size)
-
-func _play_word_comment_theme_glow_reveal(glow: Control) -> void:
-	if glow == null or !is_instance_valid(glow) or !glow.is_inside_tree():
-		return
-	# The icon bounce still invokes this callback at its own peak. When the popup
-	# peak already started the reveal, keep that later callback as a harmless no-op
-	# so the proven icon tween sequence remains untouched.
-	if bool(glow.get_meta(&"word_comment_glow_reveal_started", false)):
-		return
-	glow.set_meta(&"word_comment_glow_reveal_started", true)
-	# The comment popup glow is a static halo. Only its alpha is animated; unlike
-	# the final-reward glow it must not rotate while the icon settles.
-	glow.rotation = 0.0
-	var target_modulate: Color = glow.modulate
-	target_modulate.a = PORTRAIT_WORD_COMMENT_THEME_GLOW_ALPHA
-	var glow_tween := glow.create_tween()
-	glow_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	var fade: PropertyTweener = glow_tween.tween_property(
-		glow,
-		"modulate",
-		target_modulate,
-		PORTRAIT_WORD_COMMENT_THEME_GLOW_REVEAL_SECONDS
-	)
-	fade.set_trans(Tween.TRANS_SINE)
-	fade.set_ease(Tween.EASE_IN_OUT)
-
-func _restore_word_comment_theme_icon_intro_transform(
-	theme_icon: Control,
-	rest_position: Vector2,
-	rest_scale: Vector2,
-	rest_pivot: Vector2
-) -> void:
-	if theme_icon == null or !is_instance_valid(theme_icon) or !theme_icon.is_inside_tree():
-		return
-	theme_icon.scale = rest_scale
-	theme_icon.pivot_offset = rest_pivot
-	theme_icon.position = rest_position
-
-func _play_word_comment_theme_icon_intro(theme_icon: Control, theme_glow: Control) -> void:
-	if theme_icon == null or !is_instance_valid(theme_icon) or !theme_icon.is_inside_tree():
-		return
-
-	# FlashStageTexture already stores the viewport-fit factor in Control.scale.
-	# Animate that transform directly around the texture center instead of resizing
-	# stage_rect. Resizing the authored rect while the popup parent is also scaling
-	# can make the icon appear to drift sideways during the combined animation.
-	var rest_position: Vector2 = theme_icon.position
-	var rest_scale: Vector2 = theme_icon.scale
-	var rest_pivot: Vector2 = theme_icon.pivot_offset
-	var center_pivot: Vector2 = theme_icon.size * 0.5
-	theme_icon.pivot_offset = center_pivot
-
-	# Changing the pivot on an already viewport-scaled FlashStageTexture changes its
-	# visual origin. Compensate once so the icon is pixel-identical before the tween.
-	var centered_rest_position: Vector2 = (
-		rest_position + (rest_scale - Vector2.ONE) * (center_pivot - rest_pivot)
-	)
-	theme_icon.position = centered_rest_position
-
-	var peak_scale: Vector2 = rest_scale * PORTRAIT_WORD_COMMENT_THEME_ICON_PEAK_SCALE
-	var lift_pixels: float = PORTRAIT_WORD_COMMENT_THEME_ICON_LIFT * absf(rest_scale.y)
-	var peak_position := centered_rest_position + Vector2(0.0, -lift_pixels)
-	var bounce_tween := theme_icon.create_tween()
-	bounce_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	bounce_tween.set_parallel(true)
-	var rise_position: PropertyTweener = bounce_tween.tween_property(
-		theme_icon,
-		"position",
-		peak_position,
-		PORTRAIT_WORD_COMMENT_THEME_ICON_RISE_SECONDS
-	)
-	rise_position.set_trans(Tween.TRANS_CUBIC)
-	rise_position.set_ease(Tween.EASE_OUT)
-	var rise_scale: PropertyTweener = bounce_tween.tween_property(
-		theme_icon,
-		"scale",
-		peak_scale,
-		PORTRAIT_WORD_COMMENT_THEME_ICON_RISE_SECONDS
-	)
-	rise_scale.set_trans(Tween.TRANS_CUBIC)
-	rise_scale.set_ease(Tween.EASE_OUT)
-	bounce_tween.set_parallel(false)
-	bounce_tween.tween_callback(
-		Callable(self, "_play_word_comment_theme_glow_reveal").bind(theme_glow)
-	)
-	bounce_tween.set_parallel(true)
-	var settle_position: PropertyTweener = bounce_tween.tween_property(
-		theme_icon,
-		"position",
-		centered_rest_position,
-		PORTRAIT_WORD_COMMENT_THEME_ICON_RETURN_SECONDS
-	)
-	settle_position.set_trans(Tween.TRANS_BACK)
-	settle_position.set_ease(Tween.EASE_OUT)
-	var settle_scale: PropertyTweener = bounce_tween.tween_property(
-		theme_icon,
-		"scale",
-		rest_scale,
-		PORTRAIT_WORD_COMMENT_THEME_ICON_RETURN_SECONDS
-	)
-	settle_scale.set_trans(Tween.TRANS_BACK)
-	settle_scale.set_ease(Tween.EASE_OUT)
-	bounce_tween.set_parallel(false)
-	bounce_tween.tween_callback(
-		Callable(self, "_restore_word_comment_theme_icon_intro_transform").bind(
-			theme_icon,
-			rest_position,
-			rest_scale,
-			rest_pivot
-		)
-	)
-
-func _arm_word_comment_theme_glow_reveal(
-	popup_stage: Control,
-	theme_glow: Control
-) -> void:
-	if theme_glow == null or !is_instance_valid(theme_glow):
-		return
-	if popup_stage == null or !is_instance_valid(popup_stage):
-		call_deferred("_play_word_comment_theme_glow_reveal", theme_glow)
-		return
-	if bool(popup_stage.get("open_bounce_peak_complete")):
-		call_deferred("_play_word_comment_theme_glow_reveal", theme_glow)
-	elif popup_stage.has_signal(&"open_bounce_peak_reached"):
-		popup_stage.connect(
-			&"open_bounce_peak_reached",
-			Callable(self, "_play_word_comment_theme_glow_reveal").bind(theme_glow),
-			CONNECT_ONE_SHOT
-		)
-	else:
-		call_deferred("_play_word_comment_theme_glow_reveal", theme_glow)
-
-func _arm_word_comment_theme_icon_intro(
-	popup_stage: Control,
-	theme_icon: Control,
-	theme_glow: Control
-) -> void:
-	if theme_icon == null or !is_instance_valid(theme_icon):
-		return
-	if popup_stage == null or !is_instance_valid(popup_stage):
-		call_deferred("_play_word_comment_theme_icon_intro", theme_icon, theme_glow)
-		return
-	if bool(popup_stage.get("open_bounce_grow_midpoint_complete")):
-		call_deferred("_play_word_comment_theme_icon_intro", theme_icon, theme_glow)
-	elif popup_stage.has_signal(&"open_bounce_grow_midpoint_reached"):
-		popup_stage.connect(
-			&"open_bounce_grow_midpoint_reached",
-			Callable(self, "_play_word_comment_theme_icon_intro").bind(theme_icon, theme_glow),
-			CONNECT_ONE_SHOT
-		)
-	else:
-		call_deferred("_play_word_comment_theme_icon_intro", theme_icon, theme_glow)
-
-func _show_word_comment_popup() -> void:
-	if !GameSession.can_view_comment_hint():
-		return
-	var hint: String = GameSession.get_word_hint().strip_edges()
-	if hint == "":
-		return
-	_remove_word_comment_popup()
-	var previous_content := _portrait_popup_begin("WordCommentPopup", "word_comment_popup", 100, Callable(self, "_remove_word_comment_popup"), 160.0, 512.0)
-	var popup_stage: Control = content
-	var comment_theme_icon: Control = null
-	var comment_theme_glow: Control = null
-	var rect := Rect2(28.0, 160.0, 424.0, 352.0)
-	# Lift the centered popup composition above the fullscreen dimmer. The theme
-	# icon/glow keep negative local z-indices, so they stay behind the popup shell
-	# while remaining above the dimmed screen.
-	content.z_index = 10
-	# Put the current theme icon behind the floating title and popup body. Since it
-	# is staged before the shell, the shell naturally masks the icon's lower half.
-	if GameSession.theme_id >= 0:
-		var comment_theme_icon_texture: Texture2D = _theme_icon_texture(GameSession.theme_id)
-		if comment_theme_icon_texture != null:
-			# Keep the colored source art neutral behind the popup while retaining its
-			# richer authored silhouette and internal details.
-			var comment_theme_icon_size := Vector2.ONE * (166.4 * 0.85)
-			var popup_visual_top: float = rect.position.y + PORTRAIT_POPUP_TOP_TRIM
-			var comment_theme_icon_rect := Rect2(
-				Vector2(
-					rect.get_center().x - comment_theme_icon_size.x * 0.5,
-					popup_visual_top - comment_theme_icon_size.y * 0.5 - comment_theme_icon_size.y * 0.10
-				),
-				comment_theme_icon_size
-			)
-			var comment_theme_glow_size := comment_theme_icon_size * PORTRAIT_SINGLE_PLAYER_THEME_CARD_GLOW_SCALE
-			var comment_theme_glow_rect := Rect2(
-				comment_theme_icon_rect.get_center() - comment_theme_glow_size * 0.5,
-				comment_theme_glow_size
-			)
-			comment_theme_glow = _stage_final_reward_glow(comment_theme_glow_rect, Color.WHITE)
-			if comment_theme_glow.get_parent() != null and comment_theme_glow.get_parent() is CanvasItem:
-				# Keep the decorative theme art behind the popup shell. The glow helper
-				# normally uses a high z-index for reward screens, so override it here.
-				(comment_theme_glow.get_parent() as CanvasItem).z_index = -2
-			comment_theme_glow.modulate = Color(1.0, 1.0, 1.0, 0.0)
-			comment_theme_icon = _stage_texture(comment_theme_icon_rect, comment_theme_icon_texture)
-			var comment_icon_material := UI_MATERIALS.grayscale(comment_theme_icon_texture).duplicate() as ShaderMaterial
-			comment_icon_material.set_shader_parameter("outline_pixels", UI_MATERIALS.OUTLINE.POPUP_PIXELS)
-			comment_theme_icon.material = comment_icon_material
-			comment_theme_icon.z_index = -1
-			# Arm the proven icon bounce first. Glow reveal is an independent listener and
-			# must never alter or replace the icon tween sequence.
-			_arm_word_comment_theme_icon_intro(popup_stage, comment_theme_icon, comment_theme_glow)
-			_arm_word_comment_theme_glow_reveal(popup_stage, comment_theme_glow)
-	var comment_popup_title: String = Database.get_theme_name(GameSession.theme_id)
-	_portrait_popup_shell(
-		rect,
-		comment_popup_title,
-		Callable(self, "_remove_word_comment_popup"),
-		30,
-		PORTRAIT_BLUE,
-		PORTRAIT_DARK_BLUE,
-		PORTRAIT_ORANGE
-	)
-	var comment_panel_rect := Rect2(48.0, 254.0, 384.0, 238.0)
-	var comment_panel := _stage_panel(
-		comment_panel_rect,
-		PORTRAIT_UI_PALETTE.THEME_CARD,
-		22.0
-	)
-	comment_panel.z_index = 8
-	var hint_label := _stage_label(
-		Rect2(
-			comment_panel_rect.position.x + 18.0,
-			comment_panel_rect.position.y + 18.0,
-			comment_panel_rect.size.x - 36.0,
-			comment_panel_rect.size.y - 36.0
-		),
-		hint,
-		25,
-		Color.WHITE,
-		HORIZONTAL_ALIGNMENT_LEFT
-	)
-	hint_label.add_theme_font_override("font", UI_QUESTION_COMMENT_FONT)
-	BUTTON_TEXT_STYLE_SCRIPT.apply_regular_display(hint_label)
-	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	hint_label.clip_text = false
-	hint_label.z_index = 9
-	content = previous_content
 
 func _portrait_display_word_text(text: String) -> String:
 	# Keep stored/session separators untouched, but render compound-word separators

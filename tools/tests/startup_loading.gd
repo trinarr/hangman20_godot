@@ -17,8 +17,10 @@ class NativeSplash extends RefCounted:
 	var first_draw: int = 0
 	var submitted_frames: int = 0
 	var diagnostics_requested: bool = false
+	var release_requests: int = 0
 	func finishHomeStartup() -> void:
-		if !released:
+		release_requests += 1
+		if !released and viewport != null:
 			image = viewport.get_texture().get_image()
 			submitted_frames = draws[0] - first_draw
 			diagnostics_requested = Database._debug_summary_requested
@@ -36,9 +38,21 @@ class InertLoader extends "res://scripts/ui/startup_loader.gd":
 	func _begin() -> void:
 		pass
 
+class UndrawnLoader extends "res://scripts/ui/startup_loader.gd":
+	func _on_frame_drawn() -> void:
+		pass
+
+class UnpreparedLoader extends "res://scripts/ui/startup_loader.gd":
+	var accept_prepared: bool = false
+	func _on_prepared() -> void:
+		if accept_prepared:
+			super._on_prepared()
+
 class WaitingLoader extends RefCounted:
 	var released: bool = false
+	var requests: int = 0
 	func load_threaded_request(path: String, hint: String, sub_threads: bool) -> Error:
+		requests += 1
 		return ResourceLoader.load_threaded_request(path, hint, sub_threads)
 	func load_threaded_get_status(path: String, progress: Array = []) -> int:
 		var status: int = ResourceLoader.load_threaded_get_status(path, progress)
@@ -384,7 +398,7 @@ func check_legal_intro(loader: Node) -> void:
 	await get_tree().create_timer(0.2).timeout
 	check(stage.open_bounce_complete and is_equal_approx(popup.dimmer.color.a, 0.874), "Legal intro completes with the standard dimmer opacity")
 
-func check_legal_close(loader: Node, muted: bool) -> void:
+func check_legal_close(loader: Node, muted: bool, stall: bool = false) -> void:
 	var before: Array[Tween] = get_tree().get_processed_tweens()
 	loader._legal_popup.find_child("LegalAcceptButton", true, false).pressed.emit()
 	check(GameState.has_accepted_legal_documents() and loader._legal_popup == null, "Accept removes the interactive legal popup once")
@@ -413,9 +427,15 @@ func check_legal_close(loader: Node, muted: bool) -> void:
 	var second: Image = get_viewport().get_texture().get_image()
 	check(first_alpha > dimmer.color.a and dimmer.color.a > 0.0 and first_alpha < start_alpha, "Legal dimmer has successive intermediate fade states")
 	check(sample_distance(first, second) > 0.0 and loader.runtime == null, "GPU dimmer visibly fades over loading while Main remains blocked")
-	close_tweens[0].custom_step(1.0)
+	if stall:
+		await wait_for_phase(loader, &"consent_close")
+		loader._deadline = Time.get_ticks_msec() - 1
+	else:
+		close_tweens[0].custom_step(1.0)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if stall:
+		await get_tree().process_frame
 	check(!is_instance_valid(fade) and loader._legal_close_pending == 0, "Legal fade releases its overlay and permits installation")
 
 func check_runtime_legal_feedback(language: String, muted: bool) -> void:
@@ -513,6 +533,15 @@ func check_cold_database_startup(language: String, cancel: bool = false, word_la
 		await get_tree().create_timer(0.3).timeout
 		check(!is_instance_valid(loader) and get_tree().get_nodes_in_group("legal_consent_popup").is_empty(), "Leaving during Database loading cannot create a late popup")
 		return
+	if existing and language == "ru":
+		await wait_for_phase(loader, &"database")
+		loader._deadline = Time.get_ticks_msec() - 1
+		await get_tree().process_frame
+		await get_tree().process_frame
+		check(loader.screen._retry != null and loader.screen._retry.visible, "A pending Database worker times out into Retry")
+		if is_instance_valid(loader.screen._retry):
+			loader.screen._retry.pressed.emit()
+		check(delayed.starts == 1 and loader._packed != null, "Retry retains the running Database worker and completed Main resource")
 	delayed.failed = true
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -594,11 +623,111 @@ func check_runtime_without_script() -> void:
 	loader._database_ready = true
 	loader._loading = true
 	loader._installing = true
-	await loader._install()
+	loader._install()
 	check(loader.runtime == null and !loader._installing and !loader._loading, "A missing Main script clears the stuck install")
 	check(is_instance_valid(loader.screen._retry) and loader.screen._retry.visible, "A missing Main script shows the startup retry")
 	loader._retry()
 	check(requests.requests == 1, "Startup retry requests the scene again")
+	loader.queue_free()
+	await get_tree().process_frame
+
+func wait_for_phase(loader: Node, phase: StringName) -> void:
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while loader._phase != phase and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	check(loader._phase == phase, "Startup reaches phase %s" % phase)
+
+func check_startup_without_draws() -> void:
+	reset_profile("ru", true)
+	var native := NativeSplash.new()
+	var loader := UndrawnLoader.new()
+	loader._native = native
+	var completed: Array[Node] = []
+	var fades: Array[bool] = []
+	loader.finished.connect(func(main: Node): completed.append(main))
+	loader.fade_started.connect(func(): fades.append(true))
+	add_child(loader)
+	await wait_for_phase(loader, &"first_frame")
+	loader._deadline = Time.get_ticks_msec() - 1
+	await wait_for_phase(loader, &"native_splash")
+	check(native.release_requests == 1 and loader._loading, "Loading starts even if no first draw is delivered")
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while (!loader._database_ready or loader._packed == null) and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	var packed: PackedScene = loader._packed
+	check(packed != null and loader._database_ready and loader.runtime == null, "Completed resources wait for real native dismissal")
+	loader.notification(NOTIFICATION_APPLICATION_PAUSED)
+	loader._deadline = Time.get_ticks_msec() - 1
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(!loader._timed_out and native.release_requests == 1, "Background frames neither expire startup nor repeat the native request")
+	loader.notification(NOTIFICATION_APPLICATION_RESUMED)
+	check(native.release_requests == 2, "Returning to the foreground requests native dismissal again")
+	loader._deadline = Time.get_ticks_msec() - 1
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(loader.screen._retry != null and loader.screen._retry.visible and loader.runtime == null, "A missing native acknowledgment exposes Retry without creating Main")
+	if is_instance_valid(loader.screen._retry):
+		loader.screen._retry.pressed.emit()
+	check(native.release_requests == 3 and loader._packed == packed and loader._database_ready, "Retry reuses both completed inputs and requests dismissal again")
+	native.dismissed = true
+	await wait_for_phase(loader, &"final_frame")
+	check(loader.runtime != null and loader.runtime.content != null and loader.screen.progress == 1.0, "Main reaches a usable first screen with no pre-install draw")
+	check(native.release_requests == 3 and completed.is_empty(), "Main shares the loader's native dismissal without a second handshake")
+	loader._deadline = Time.get_ticks_msec() - 1
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(completed == [loader.runtime] and fades.is_empty() and !is_instance_valid(loader.screen), "A missing final draw removes the overlay and skips the fade exactly once")
+	await draw_frame()
+	await get_tree().process_frame
+	check(completed.size() == 1 and fades.is_empty(), "Late draws cannot restart the completed handoff")
+	loader.queue_free()
+	await get_tree().process_frame
+
+func check_stalled_resource_keeps_request() -> void:
+	reset_profile("en", true)
+	var loader := LOADER.new()
+	var waiting := WaitingLoader.new()
+	loader._loads.loader = waiting
+	var completed: Array[Node] = []
+	loader.finished.connect(func(main: Node): completed.append(main))
+	add_child(loader)
+	await wait_for_phase(loader, &"main_resource")
+	loader._deadline = Time.get_ticks_msec() - 1
+	await get_tree().process_frame
+	await get_tree().process_frame
+	check(loader.screen._retry != null and loader.screen._retry.visible, "An unfinished resource request times out into Retry")
+	if is_instance_valid(loader.screen._retry):
+		loader.screen._retry.pressed.emit()
+	check(loader._loads.pending_count() == 1 and waiting.requests == 1, "Retry retains the original threaded request while it is outstanding")
+	waiting.released = true
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while completed.is_empty() and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	check(completed == [loader.runtime], "The late threaded result completes the same startup exactly once")
+	loader.queue_free()
+	await get_tree().process_frame
+
+func check_unprepared_runtime_retries_once() -> void:
+	reset_profile("en", true)
+	var loader := UnpreparedLoader.new()
+	var completed: Array[Node] = []
+	loader.finished.connect(func(main: Node): completed.append(main))
+	add_child(loader)
+	await wait_for_phase(loader, &"initial_screen")
+	loader._deadline = Time.get_ticks_msec() - 1
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var previous: Node = loader.runtime
+	check(is_instance_valid(previous) and loader.screen._retry != null and loader.screen._retry.visible, "Retry is available for an unprepared Main instance")
+	loader.accept_prepared = true
+	if is_instance_valid(loader.screen._retry):
+		loader.screen._retry.pressed.emit()
+	check(!is_instance_valid(previous) and loader._packed != null, "Retry discards the partial runtime and keeps the packed scene")
+	var deadline: int = Time.get_ticks_msec() + 10000
+	while completed.is_empty() and Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+	check(completed == [loader.runtime] and is_instance_valid(loader.runtime), "Rebuilding the partial runtime completes the handoff exactly once")
 	loader.queue_free()
 	await get_tree().process_frame
 
@@ -616,6 +745,9 @@ func run() -> void:
 	await check_cold_database_startup("en", false, "ru", true)
 	await check_cold_database_startup("en", true)
 	await check_cold_database_startup("ru", false, "", true)
+	await check_startup_without_draws()
+	await check_stalled_resource_keeps_request()
+	await check_unprepared_runtime_retries_once()
 	for language: String in ["ru", "en"]:
 		for dimensions: Vector2i in [Vector2i(960, 1600), Vector2i(690, 1536), Vector2i(1080, 1920)]:
 			get_window().min_size = Vector2i.ONE
@@ -726,7 +858,7 @@ func run() -> void:
 					check(loader._packed != null and loader.runtime == null and completed.is_empty(), "Ready resources cannot dismiss loading or build gameplay until consent is accepted")
 					await capture("loading_consent_%s_%d.png" % [language, dimensions.x])
 					await check_consent_save_failure(loader, language, dimensions.x)
-					await check_legal_close(loader, muted)
+					await check_legal_close(loader, muted, language == "en" and dimensions.x == 960)
 					loader._accept_legal_documents()
 					check(GameState.has_accepted_legal_documents(), "Consent acceptance persists successfully and repeated clicks are harmless")
 					check(!loader.screen._toast.visible, "Successful retry hides the obsolete consent error")

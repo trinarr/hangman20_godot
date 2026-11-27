@@ -72,15 +72,6 @@ const MARKER_ERROR := Color("#FF99A2")
 const MARKER_ORANGE_TEXT := Color("#A34A0B")
 const MARKER_INFO := BUTTON_BLUE
 
-# Profile / neutral surfaces.
-const NEUTRAL_SURFACE := Color("#F7F7FA")
-const NEUTRAL_BORDER := Color("#B8BFD1")
-const NEUTRAL_TEXT := Color("#6E758A")
-
-# Decorative paper accents.
-const PAPER_CRACK_DARK := Color("#1C2661")
-const PAPER_CRACK_LIGHT := Color("#FFF2C7")
-
 # Small status surfaces.
 const TOAST_BACKGROUND := Color(0.2314, 0.2627, 0.5176, 0.96)
 

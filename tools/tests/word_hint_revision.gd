@@ -1,7 +1,6 @@
 extends SceneTree
 
 const WORD = preload("res://scripts/models/word_data.gd")
-const FONTS = preload("res://scripts/ui/ui_fonts.gd")
 var checks: int = 0
 var failures: int = 0
 
@@ -53,15 +52,6 @@ func run() -> void:
 			saved.erase("word_hint_text")
 			check(session.restore_from_save_data(saved) and session.get_word_hint() == current_hint,
 				"Missing saved hint did not fall back to current database: " + row.id)
-			var label := Label.new()
-			label.add_theme_font_override("font", FONTS.question_comment_font())
-			label.add_theme_font_size_override("font_size", 25)
-			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			label.size = Vector2(348.0, 202.0)
-			label.text = current_hint
-			root.add_child(label)
-			check(label.get_minimum_size().y <= 202.0, "Comment popup overflow: " + row.id)
-			label.free()
 	check(count == 989, "Wrong hint revision quota")
 	print("WORD_HINT_REVISION checks=", checks, " failures=", failures)
 	quit(1 if failures else 0)

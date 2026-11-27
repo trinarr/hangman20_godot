@@ -4,6 +4,7 @@ signal prepared
 
 var preparing: bool = true
 var entrance_pending: bool = true
+var splash_managed_by_loader: bool = false
 var _logo: Control
 var _cover: ColorRect
 var _native: Object
@@ -18,7 +19,7 @@ func _ready() -> void:
 	_cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_cover.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_cover)
-	if Engine.has_singleton("AndroidRuntime"):
+	if !splash_managed_by_loader and Engine.has_singleton("AndroidRuntime"):
 		var runtime: Object = Engine.get_singleton("AndroidRuntime")
 		var activity: Object = runtime.getActivity()
 		if activity != null and activity.has_java_method("finishHomeStartup") and activity.has_java_method("isHomeStartupSplashDismissed"):
@@ -44,6 +45,9 @@ func _release() -> void:
 		return
 	# Submit the real screen, including mandatory consent, before native release.
 	_cover.hide()
+	if splash_managed_by_loader:
+		_complete_preparation()
+		return
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	if !preparing or !is_instance_valid(_screen):
@@ -54,6 +58,9 @@ func _release() -> void:
 			await get_tree().process_frame
 	if !preparing or !is_instance_valid(_screen):
 		return
+	_complete_preparation()
+
+func _complete_preparation() -> void:
 	Database.request_debug_database_summary()
 	preparing = false
 	set_process(false)
