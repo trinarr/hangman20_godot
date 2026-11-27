@@ -1,26 +1,10 @@
 extends Node
 const SCREEN = preload("res://scripts/ui/portrait_leaderboard.gd")
 const MODEL = preload("res://scripts/core/tournament_model.gd")
-class BannerProbe extends Node:
-	var shown := false
-	func show_banner() -> void:
-		shown = true
-	func hide_banner() -> void:
-		shown = false
-	func is_native_available() -> bool:
-		return true
 class TestUI extends "res://scripts/main_portrait.gd":
-	var banner_enabled := false
-	var banner_probe := BannerProbe.new()
-	func _portrait_ads_service() -> Node:
-		return banner_probe
-	func _exit_tree() -> void:
-		banner_probe.free()
 	func _ready() -> void:
 		_build_root()
 		_clear()
-	func _portrait_ads_enabled() -> bool:
-		return banner_enabled
 	func _should_auto_resume_guided_single_player() -> bool:
 		return false
 var checks := 0
@@ -51,6 +35,7 @@ func inspect_rows(main: Node, view: Control, page: Control) -> void:
 		get_window().min_size = dimensions
 		get_window().size = dimensions
 		await settle()
+		check(is_equal_approx(page.get_global_rect().end.y, (view.size.y - 12.0) * view.scale.y), "Tournament fills the available height to the bottom margin")
 		for language: String in ["ru", "en"]:
 			Database.interface_language = language
 			TranslationServer.set_locale(language)
@@ -247,11 +232,7 @@ func run() -> void:
 		await inspect_reward(main, rank, amount)
 	# Closing during gift pressure/flash must cancel its callbacks safely.
 	var before_close := GameState.get_soft_currency()
-	main.banner_enabled = true
-	main._stage_portrait_ad_banner("test_reward_departure")
 	main._show_tournament_reward({"rank": 1, "amount": 200})
-	check(main.banner_probe.shown and !get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty(), "Tournament reward restores the native banner and its reserved slot after clearing the previous screen")
-	main.banner_enabled = false
 	var interrupted: Node = main._portrait_tournament_reward
 	main._show_leaderboard_screen(true)
 	check(interrupted._stopped, "Leaving during gift opening immediately stops its presentation")
@@ -268,9 +249,6 @@ func run() -> void:
 		TranslationServer.set_locale(language)
 		page.refresh()
 		check(page.countdown.digits.text.count(":") == 2 and page.find_child("TournamentAction", true, false) == null, "Localized active standings have a timer without a next-tournament action")
-	view.set_bottom_inset(50)
-	await settle()
-	check(page.get_global_rect().end.y <= (view.size.y - 62) * view.scale.y + 1, "Tournament respects banner inset")
 	main.show_menu()
 	check(!page._live and page._timer.is_stopped(), "Close stops tournament timer immediately")
 	check(!GameState.tournament_changed.is_connected(page.refresh), "Close removes tournament subscription")

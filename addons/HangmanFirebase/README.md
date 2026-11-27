@@ -53,4 +53,4 @@ Pre-consent starts are not queued.
 Yandex impression callbacks retain a bounded per-show placement map, independent
 of the shared ad unit. Fullscreen duplicate callbacks are ignored. ILRD uses
 `revenueUSD`/USD, or valid `revenue`/original currency. Missing revenue is omitted,
-not fabricated or divided as CPM. Banner refreshes are individual impressions.
+not fabricated or divided as CPM.

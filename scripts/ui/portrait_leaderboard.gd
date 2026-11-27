@@ -33,7 +33,6 @@ const ROW_WIDTH = ROW.ROW_WIDTH
 var initial_tournament := false
 var service: Node
 var score_formatter: Callable
-var bottom_inset := 0.0
 var scroll: ScrollContainer
 var rows: VBoxContainer
 var pinned: Control
@@ -323,11 +322,6 @@ func _label(parent: Control, rect: Rect2, text: String, font_size: int, color: C
 	parent.add_child(label)
 	return label
 
-func set_bottom_inset(value: float) -> void:
-	bottom_inset = value
-	if is_node_ready():
-		_layout()
-
 func _layout() -> void:
 	if !is_node_ready() or !_live:
 		return
@@ -341,7 +335,7 @@ func _layout() -> void:
 	_weekly.position.y = TABS.TAB_Y + safe
 	var list_top := TABS.CONTENT_Y + safe + TOURNAMENT_PAGE.LIST_TOP_GAP
 	scroll.position = Vector2(CARD_SIDE_MARGIN - 8, list_top)
-	scroll.size = Vector2(ROW_WIDTH, maxf(80, size.y - bottom_inset - 12 - list_top))
+	scroll.size = Vector2(ROW_WIDTH, maxf(80, size.y - 12 - list_top))
 	_status.size = Vector2(410, 80)
 	var error_top := maxf(TABS.CONTENT_Y + safe + 16.0, size.y * 0.5 - 80.0)
 	_status.position = Vector2(35, size.y * 0.5 - _status.size.y * 0.5 if _loading else (error_top if _has_error else TABS.CONTENT_Y + 42 + safe))
@@ -349,7 +343,7 @@ func _layout() -> void:
 	_tournament.position = Vector2(0, TABS.CONTENT_Y + safe)
 	var countdown_size: Vector2 = _tournament.countdown.size * _tournament.countdown.scale
 	_tournament.countdown.position = Vector2((_weekly.size.x - countdown_size.x) * 0.5, _weekly.size.y - countdown_size.y * 0.5)
-	_tournament.size = Vector2(480, maxf(180, size.y - bottom_inset - 12 - TABS.CONTENT_Y - safe))
+	_tournament.size = Vector2(480, maxf(180, size.y - 12 - TABS.CONTENT_Y - safe))
 	_sync_tab_visibility()
 	_update_pin.call_deferred()
 

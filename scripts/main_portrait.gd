@@ -104,9 +104,6 @@ func _reward_chest_open_texture() -> Texture2D:
 const PORTRAIT_STAGE_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_STAGE_SIZE
 const PORTRAIT_HEADER_HEIGHT: float = 80.0
 const PORTRAIT_FOOTER_Y: float = 688.0
-const PORTRAIT_AD_BANNER_FALLBACK_HEIGHT: float = 50.0
-const PORTRAIT_AD_BANNER_HEIGHT_DP: float = 50.0
-const PORTRAIT_ANDROID_BASE_DPI: float = 160.0
 const PORTRAIT_LONG_BUTTON_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_LONG_BUTTON_SIZE
 const PORTRAIT_ROUND_BUTTON_SIZE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_ROUND_BUTTON_SIZE
 const PORTRAIT_PAGE_BACK_BUTTON_SCALE = PORTRAIT_STAGE_LAYOUT.PORTRAIT_PAGE_BACK_BUTTON_SCALE
@@ -121,7 +118,7 @@ const PORTRAIT_BACK_ENTRANCE_GAP: float = 24.0
 var PORTRAIT_BACK_ENTRANCE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.back_entrance_seconds"
 )
-const PORTRAIT_CROSSWORD_GRID_HINT_GAP: float = 12.0
+const PORTRAIT_CROSSWORD_HEADER_GAP: float = 8.0
 const PORTRAIT_CROSSWORD_LEVEL_TITLE_FONT_SIZE: int = 20
 # Every top bar uses one shared resource-counter width. Home fits the same
 # plates into the area after the avatar; gameplay and rewards center their pair.
@@ -178,6 +175,7 @@ const PORTRAIT_GAME_KEY_SIZE := Vector2(38.0, 48.0)
 const PORTRAIT_GAME_KEY_GAP: float = 5.0
 const PORTRAIT_GAME_KEYBOARD_SIDE_PADDING: float = 12.0
 const PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING: float = 22.0
+const PORTRAIT_GAME_BOTTOM_ACTION_MARGIN: float = 22.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
 var PORTRAIT_ROUND_END_KEY_FADE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
@@ -442,7 +440,6 @@ const PORTRAIT_BACK_ARROW_ICON: Texture2D = preload("res://flash_assets/portrait
 const PORTRAIT_HINT_LOCKED_ICON: Texture2D = preload("res://flash_assets/hint_locked_doodle.png")
 const PORTRAIT_HINT_REVEAL_LETTER_ICON: Texture2D = preload("res://flash_assets/hint_reveal_letter_doodle.png")
 const PORTRAIT_HINT_REMOVE_WRONG_ICON: Texture2D = preload("res://flash_assets/hint_remove_wrong_doodle.png")
-const PORTRAIT_HINT_COMMENT_UNLOCK_ICON: Texture2D = preload("res://flash_assets/hint_comment_unlock_doodle.png")
 const PORTRAIT_QUIZ_HINT_FIFTY_FIFTY_ICON: Texture2D = preload("res://flash_assets/hint_quiz_fifty_fifty_doodle.png")
 const PORTRAIT_QUIZ_HINT_REPLACE_QUESTION_ICON: Texture2D = preload("res://flash_assets/hint_quiz_replace_question_doodle.png")
 const PORTRAIT_HINT_ICON_SHADOW_ALPHA: float = PORTRAIT_ICON_EXTRUSION.ACTION_SHADOW_ALPHA
@@ -542,9 +539,12 @@ var PORTRAIT_SINGLE_PLAYER_THEME_SELECTION_DURATION: float = PORTRAIT_GAME_DESIG
 const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZE * 1.144)
 const PORTRAIT_GAME_HINT_BUTTON_SCALE: float = 0.88
 const PORTRAIT_GAME_HINT_BUTTON_GAP: float = 12.0
-const PORTRAIT_GAME_HINT_RIGHT_MARGIN: float = 18.4
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 22.0
+const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 16.0
+const PORTRAIT_CROSSWORD_HINT_ROW_Y: float = (
+	PORTRAIT_STAGE_SIZE.y - PORTRAIT_GAME_BOTTOM_ACTION_MARGIN
+	- PORTRAIT_GAME_HINT_BUTTON_SIZE.y * PORTRAIT_GAME_HINT_BUTTON_SCALE
+)
 const PORTRAIT_GAME_WORD_TO_ACTION_TOP: float = 109.0
 const PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.y + 12.0
 const PORTRAIT_GAME_HINT_ART_SIZE := Vector2(50.0, 50.0)
@@ -555,15 +555,15 @@ var PORTRAIT_WORD_LETTER_BOUNCE_START_SCALE: Vector2 = Vector2.ONE * PORTRAIT_GA
 
 # Quiz mode reuses the standard portrait paper, top resource bar, category cards
 # and the game's blue button language. The complete answer/hint block is bottom
-# attached so it remains clear of adaptive banners on tall devices.
+# attached so its spacing stays consistent on tall devices.
 const PORTRAIT_QUIZ_THEME_TITLE_RECT := Rect2(34.0, 98.0, 412.0, 44.0)
 const PORTRAIT_QUIZ_QUESTION_PANEL_RECT := Rect2(22.0, 120.0, 436.0, 260.0)
 const PORTRAIT_QUIZ_QUESTION_RECT := Rect2(40.0, 138.0, 400.0, 224.0)
-const PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE := Vector2(412.0, 68.0)
+const PORTRAIT_QUIZ_ANSWER_BUTTON_SIZE := Vector2(412.0, 60.0)
 const PORTRAIT_QUIZ_ANSWER_HORIZONTAL_PADDING: float = 18.0
 const PORTRAIT_QUIZ_ANSWER_BUTTON_X: float = 34.0
-const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 85.0
-const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 40.0
+const PORTRAIT_QUIZ_ANSWER_STEP_Y: float = 72.0
+const PORTRAIT_QUIZ_ANSWER_HINT_GAP: float = 24.0
 const PORTRAIT_QUIZ_HINT_GAP: float = 22.0
 const PORTRAIT_QUIZ_ANSWER_CORRECT_COLOR := PORTRAIT_UI_PALETTE.SUCCESS_SOFT
 const PORTRAIT_QUIZ_ANSWER_WRONG_COLOR := PORTRAIT_UI_PALETTE.ERROR_SOFT
@@ -692,7 +692,6 @@ var _portrait_attempt_indicators: PORTRAIT_ATTEMPT_INDICATORS
 var _portrait_game_input_group: Control = null
 var _portrait_coin_store_underlay: Control = null
 var _portrait_game_word_rect := Rect2()
-var _portrait_game_hint_row_y: float = 0.0
 var _portrait_game_keyboard_buttons: Array = []
 var _portrait_game_hint_buttons: Array[Control] = []
 var _portrait_game_hint_signature: String = ""
@@ -889,36 +888,8 @@ func _on_ad_region_changed() -> void:
 			debug_result = "%s (%s)" % [debug_country, debug_rule]
 		print("[IPinfo] %s" % debug_result)
 	_refresh_settings_ad_consent_button()
-	if !_portrait_ads_enabled():
-		_hide_portrait_ad_banner()
 	# A delayed response must not interrupt another modal or entrance animation.
 	call_deferred("_show_user_consent_on_single_player_stage_if_needed")
-	call_deferred("_refresh_portrait_ad_banner_after_permission")
-
-func _refresh_portrait_ad_banner_after_permission() -> void:
-	if is_instance_valid(_portrait_profile):
-		_portrait_profile.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
-	if is_instance_valid(_portrait_leaderboard):
-		_portrait_leaderboard.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
-	if !_portrait_ads_enabled() or !GameState.has_accepted_legal_documents():
-		return
-	# Popups do not obstruct the native banner. Only wait for Home departure,
-	# then inspect the destination rather than refreshing the outgoing screen.
-	if is_instance_valid(_home_transition):
-		var resume: Callable = Callable(self, "_refresh_portrait_ad_banner_after_permission")
-		if !_home_transition.tree_exited.is_connected(resume):
-			_home_transition.tree_exited.connect(resume, CONNECT_DEFERRED | CONNECT_ONE_SHOT)
-		return
-	var home_visible: bool = is_instance_valid(_home_logo_reveal) and _home_logo_reveal.is_inside_tree()
-	var has_banner_slot: bool = !get_tree().get_nodes_in_group(&"ad_banner_slot").is_empty()
-	if !home_visible and !game_screen_visible and !_quiz_screen_active and !is_instance_valid(_portrait_leaderboard) and !is_instance_valid(_portrait_profile) and !has_banner_slot:
-		return
-	if !has_banner_slot:
-		_stage_portrait_ad_banner()
-	else:
-		var ads_service: Node = _portrait_ads_service()
-		if ads_service != null and ads_service.has_method("show_banner"):
-			ads_service.call("show_banner")
 
 func _remove_popup_group_with_dimmer_fade(group_name: StringName) -> void:
 	super._remove_popup_group_with_dimmer_fade(group_name)
@@ -1147,45 +1118,6 @@ func _on_portrait_interstitial_closed() -> void:
 func _on_portrait_interstitial_failed_to_show(_message: String) -> void:
 	_finish_portrait_interstitial()
 
-func _portrait_ad_banner_height_stage() -> float:
-	# Resolve the fixed 50 dp banner reserve before the asynchronous ad request
-	# finishes. Reading getBannerHeight() here made the value jump from the fallback
-	# to the native pixel height halfway through a round, so persistent keyboard and
-	# newly rebuilt hint buttons could end up using different layouts.
-	if !OS.has_feature("android"):
-		return PORTRAIT_AD_BANNER_FALLBACK_HEIGHT
-	var window_size: Vector2i = DisplayServer.window_get_size()
-	var screen_dpi: int = DisplayServer.screen_get_dpi()
-	if window_size.x <= 0 or screen_dpi <= 0:
-		return PORTRAIT_AD_BANNER_FALLBACK_HEIGHT
-	var banner_height_pixels: float = (
-		PORTRAIT_AD_BANNER_HEIGHT_DP
-		* float(screen_dpi)
-		/ PORTRAIT_ANDROID_BASE_DPI
-	)
-	return maxf(
-		PORTRAIT_AD_BANNER_FALLBACK_HEIGHT,
-		banner_height_pixels * PORTRAIT_STAGE_SIZE.x / float(window_size.x)
-	)
-
-func _portrait_ad_banner_rect() -> Rect2:
-	var banner_height: float = _portrait_ad_banner_height_stage()
-	return Rect2(
-		0.0,
-		PORTRAIT_STAGE_SIZE.y - banner_height,
-		PORTRAIT_STAGE_SIZE.x,
-		banner_height
-	)
-
-func _hide_portrait_ad_banner() -> void:
-	_trace_ad_banner("ui_hide_banner", {"home_transition": is_instance_valid(_home_transition)})
-	# Home departure preserves the native banner, including destination _clear().
-	if is_instance_valid(_home_transition):
-		return
-	var ads_service: Node = _portrait_ads_service()
-	if ads_service != null and ads_service.has_method("hide_banner"):
-		ads_service.call("hide_banner")
-
 func _clear(preserved_content: Control = null) -> void:
 	for presentation: Node in [_theme_unlock_presentation]:
 		if is_instance_valid(presentation):
@@ -1224,7 +1156,6 @@ func _clear(preserved_content: Control = null) -> void:
 	_cancel_portrait_reward_presentation()
 	if is_instance_valid(_resource_counter_presentation):
 		_resource_counter_presentation.stop()
-	_hide_portrait_ad_banner()
 	_quiz_screen_active = false
 	_quiz_question_ready_at_msec = 0
 	_quiz_consent_pause_at_msec = 0
@@ -2789,7 +2720,6 @@ func _show_menu_screen() -> void:
 		logo_reveal.entrance_finished.connect(font_warmup.start, CONNECT_ONE_SHOT)
 	content.add_child(logo_reveal)
 	HOME_PAPER_TRANSITION_SCRIPT.warm_up(self)
-	_stage_portrait_ad_banner("_show_menu_screen")
 	var tournament_prompt := TOURNAMENT_FINISH_POPUP.new()
 	tournament_prompt.name = "TournamentFinishPrompt"
 	tournament_prompt.host = self
@@ -2806,7 +2736,6 @@ func _finish_home_startup_checks() -> void:
 		_check_startup_guided_resume()
 
 func _leave_home(action: Callable, blue_pattern: bool = false, solid_background: bool = false) -> void:
-	_trace_ad_banner("home_departure", {"blue_pattern": blue_pattern})
 	if is_instance_valid(_home_transition):
 		return
 	if !is_instance_valid(_home_logo_reveal):
@@ -2817,7 +2746,6 @@ func _leave_home(action: Callable, blue_pattern: bool = false, solid_background:
 	if blue_pattern:
 		_home_transition.set("fade_to_solid_background", solid_background)
 	add_child(_home_transition)
-	_home_transition.tree_exited.connect(Callable(self, "_trace_ad_banner").bind("home_transition_exited"), CONNECT_ONE_SHOT)
 	_home_transition.call("start", content, _home_logo_reveal, _home_start_buttons.duplicate(), action, _portrait_top_bar_content)
 
 func _play_single_player_from_home() -> void:
@@ -3253,7 +3181,6 @@ func _show_legal_consent_popup() -> void:
 	if GameState.has_accepted_legal_documents():
 		return
 	_remove_legal_consent_popup()
-	_hide_portrait_ad_banner()
 	var resume_without_intro: bool = _portrait_popup_resume_without_intro
 	_portrait_popup_resume_without_intro = false
 	load("res://scripts/ui/legal_consent_popup.gd").show(self, _accept_legal_documents,
@@ -3270,7 +3197,6 @@ func _accept_legal_documents() -> void:
 	ConsentRegion.refresh()
 	_initialize_yandex_ads_from_saved_consent()
 	_check_startup_guided_resume()
-	_refresh_portrait_ad_banner_after_permission()
 
 func _show_user_consent_popup(
 	from_settings: bool = false,
@@ -3287,7 +3213,6 @@ func _show_user_consent_popup(
 	_remove_user_consent_popup()
 	if _quiz_screen_active and _quiz_question_ready_at_msec > 0:
 		_quiz_consent_pause_at_msec = Time.get_ticks_msec()
-	_hide_portrait_ad_banner()
 	var popup_size := Vector2(424.0, 0.0)
 	var popup_top_y := 165.0
 	# Keep the wider consent copy, but match the title-to-copy breathing room
@@ -3419,11 +3344,6 @@ func _resolve_user_consent_popup(accepted: bool, from_settings: bool = false) ->
 	_initialize_yandex_ads_from_saved_consent()
 	_refresh_settings_ad_consent_button()
 	_remove_user_consent_popup()
-	# Stage the banner on either gameplay screen only after the choice is saved.
-	# Initialize the SDK
-	# only after the choice has been persisted and SDK initialization requested.
-	if (game_screen_visible or _quiz_screen_active) and _portrait_ads_enabled():
-		_stage_portrait_ad_banner("_resolve_user_consent_popup")
 
 func _check_startup_guided_resume() -> void:
 	if !GameState.has_accepted_legal_documents():
@@ -4919,8 +4839,7 @@ func _restore_quiz_answer_result_state() -> void:
 
 func _portrait_quiz_answer_start_y(answer_count: int) -> float:
 	# Keep the whole answer stack tied to the hint row. Because answers and hints
-	# are rendered in the same bottom-attached group, this remains a true 40 px
-	# stage gap on tall screens instead of growing with the extra screen height.
+	# are rendered in the same bottom-attached group, their gap stays fixed on tall screens.
 	var visible_answer_count: int = clampi(answer_count, 0, 4)
 	if visible_answer_count <= 0:
 		return _portrait_quiz_hint_button_y()
@@ -4935,10 +4854,7 @@ func _portrait_quiz_answer_start_y(answer_count: int) -> float:
 	)
 
 func _portrait_quiz_hint_button_y() -> float:
-	return _portrait_game_bottom_action_y() - (PORTRAIT_GAME_HINT_BUTTON_SIZE.y - 58.0) * 0.5
-
-func _portrait_game_bottom_action_y() -> float:
-	return (PORTRAIT_FOOTER_Y - _portrait_ad_banner_height_stage() + 40.0) * PORTRAIT_GAME_ACTION_Y_SCALE
+	return PORTRAIT_STAGE_SIZE.y - PORTRAIT_GAME_BOTTOM_ACTION_MARGIN - PORTRAIT_GAME_HINT_BUTTON_SIZE.y
 
 func _stage_portrait_quiz_hint_counter(button: Control, hint_key: String) -> void:
 	if button == null or !is_instance_valid(button):
@@ -6039,6 +5955,8 @@ func _home_profile_show_quiz_game_screen() -> void:
 		_quiz_exit_button = back_button
 		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
 
+	# Share the extra height above the answer stack between both sides of the card.
+	var question_content: Control = _portrait_begin_adaptive_group(PORTRAIT_QUIZ_QUESTION_PANEL_RECT.get_center(), 1.0, 0.5)
 	var question_card := _stage_portrait_question_card(
 		PORTRAIT_QUIZ_QUESTION_PANEL_RECT, Database.get_theme_name(_quiz_selected_theme_index)
 	)
@@ -6072,13 +5990,12 @@ func _home_profile_show_quiz_game_screen() -> void:
 	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	question_label.z_index = 2
 	_quiz_question_label = question_label
+	_portrait_end_adaptive_group(question_content)
 
 	var answers_variant: Variant = _quiz_current_question.get("answers", [])
 	var answers: Array = Array(answers_variant) if answers_variant is Array else []
 	var visible_answer_count: int = mini(4, answers.size())
-	# Answers and hints share one bottom-attached group again, but the answer stack
-	# is now positioned from the hint row instead of from a hard-coded Y. This
-	# guarantees the requested 40 px gap on tall screens without overlap.
+	# Keep answers, hints and Continue together when the stage grows taller.
 	var answer_hint_group_content: Control = _portrait_begin_bottom_attached_group()
 	var answer_start_y: float = _portrait_quiz_answer_start_y(visible_answer_count)
 	_quiz_answer_buttons.clear()
@@ -6134,7 +6051,6 @@ func _home_profile_show_quiz_game_screen() -> void:
 			_home_transition.connect("finished", _mark_quiz_question_ready, CONNECT_ONE_SHOT)
 		else:
 			_mark_quiz_question_ready()
-	_stage_portrait_ad_banner("_home_profile_show_quiz_game_screen")
 
 func _remove_single_player_theme_popup() -> void:
 	_cancel_single_player_theme_slot_animation()
@@ -8990,7 +8906,10 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 		2.0 * PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING + rows.size() * key_size.y
 		+ (rows.size() - 1) * PORTRAIT_GAME_KEY_GAP
 	)
-	var keyboard_top: float = _portrait_ad_banner_rect().position.y - keyboard_height
+	var keyboard_top: float = (
+		PORTRAIT_CROSSWORD_HINT_ROW_Y - PORTRAIT_GAME_HINT_KEYBOARD_GAP
+		- keyboard_height + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
+	)
 	var key_y: float = keyboard_top + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
 	var key_rects: Dictionary = {}
 	for row: String in rows:
@@ -9002,13 +8921,11 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 				key_rects[letter] = Rect2(Vector2(key_x, key_y), key_size)
 			key_x += key_size.x + PORTRAIT_GAME_KEY_GAP
 		key_y += key_size.y + PORTRAIT_GAME_KEY_GAP
-	var hint_height: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.y * PORTRAIT_GAME_HINT_BUTTON_SCALE
-	var hint_y: float = keyboard_top - PORTRAIT_GAME_HINT_KEYBOARD_GAP - hint_height
-	var word_y: float = keyboard_top - PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD - PORTRAIT_GAME_WORD_TO_ACTION_TOP
+	# Result text keeps its anchor after the keyboard disappears.
+	var word_y: float = PORTRAIT_STAGE_SIZE.y - keyboard_height - PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD - PORTRAIT_GAME_WORD_TO_ACTION_TOP
 	return {
 		"key_rects": key_rects,
 		"font_size": int(round(StageLetterButton.DEFAULT_FONT_SIZE * keyboard_scale)),
-		"hint_y": hint_y,
 		"paper_bottom": keyboard_top,
 		"word_rect": Rect2(24.0, word_y, 432.0, 64.0),
 	}
@@ -9069,8 +8986,6 @@ func _refresh_game_screen() -> void:
 
 
 	var keyboard_metrics: Dictionary = _portrait_game_keyboard_metrics(viewport_size)
-	# Keep rebuilt hint buttons on the same row throughout the round.
-	_portrait_game_hint_row_y = keyboard_metrics["hint_y"]
 	var keyboard_font_size: int = keyboard_metrics["font_size"]
 	var key_rects: Dictionary = keyboard_metrics["key_rects"]
 	var game_word_rect: Rect2 = keyboard_metrics["word_rect"]
@@ -9082,16 +8997,14 @@ func _refresh_game_screen() -> void:
 	screen_content.add_child(_portrait_crossword)
 	content = _portrait_crossword
 	var field_rect: Rect2 = PORTRAIT_QUIZ_QUESTION_PANEL_RECT
-	var grid_bottom: float = _portrait_game_hint_row_y - PORTRAIT_CROSSWORD_GRID_HINT_GAP
-	var paper_bottom: float = keyboard_metrics["paper_bottom"]
-	field_rect.size.y = grid_bottom - field_rect.position.y
-	var theme_name: String = Database.get_theme_name(GameSession.theme_id) if GameSession.theme_id >= 0 else ""
+	field_rect.position.y = PORTRAIT_PAGE_BACK_BUTTON_RECT.end.y + PORTRAIT_CROSSWORD_HEADER_GAP
 	var crossword_field := _stage_panel(field_rect, Color.TRANSPARENT) as FlashStagePanel
 	crossword_field.name = "CrosswordField"
 	content = screen_content
 	var field_padding: float = PORTRAIT_QUIZ_QUESTION_RECT.position.x - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.x
 	var pattern_source := background.get_node_or_null("PortraitGameThemePattern") as Control
-	_portrait_crossword.build(GameSession.crossword, crossword_field, grid_bottom, paper_bottom, field_padding,
+	_portrait_crossword.build(GameSession.crossword, crossword_field, keyboard_metrics["paper_bottom"], field_padding,
+		GameSession.get_crossword_comments(),
 		GameSession.crossword_starter_cells, GameSession.correct_letters.is_empty(), pattern_source)
 	_portrait_crossword.word_wave_finished.connect(_advance_portrait_word_feedback)
 	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss())
@@ -9118,8 +9031,6 @@ func _refresh_game_screen() -> void:
 		})
 	_refresh_portrait_game_keyboard()
 	_stage_portrait_hint_buttons()
-	if !theme_name.is_empty():
-		_stage_portrait_game_theme(theme_name, _portrait_game_hint_buttons[0].get("stage_rect"))
 	_portrait_end_adaptive_group(input_root_content)
 
 	if !(
@@ -9135,7 +9046,6 @@ func _refresh_game_screen() -> void:
 		)
 		_portrait_game_back_button = back_button
 		_animate_portrait_back_button_entrance(back_button, PORTRAIT_PAGE_BACK_BUTTON_RECT)
-	_stage_portrait_ad_banner("_refresh_game_screen")
 	_portrait_game_runtime_ready = true
 	pending_letter_markers.clear()
 	pending_letter_marker_is_correct = false
@@ -9194,18 +9104,15 @@ func _refresh_portrait_game_keyboard() -> void:
 		entry["rest_disabled"] = disabled_value
 
 func _portrait_game_hint_state_signature() -> String:
-	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
+	return "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d" % [
 		int(_portrait_ads_enabled()),
 		int(GameSession.is_active),
 		int(GameSession.open_hint_used),
 		int(GameSession.remove_wrong_hint_used),
-		int(GameSession.comment_hint_unlocked),
 		GameState.get_hint_count(GameState.HINT_OPEN_LETTER),
 		GameState.get_hint_count(GameState.HINT_REMOVE_WRONG),
-		GameState.get_hint_count(GameState.HINT_COMMENT),
 		int(GameSession.can_use_open_letter_hint()),
 		int(GameSession.can_use_remove_wrong_hint()),
-		int(GameSession.can_unlock_comment_hint()),
 		int(GameSession.can_use_open_letter_hint_ad()),
 		int(GameSession.can_use_remove_wrong_hint_ad()),
 	]
@@ -9304,52 +9211,6 @@ func _play_portrait_hint_spend_animation_if_needed(
 			used_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_animate_portrait_hint_counter_roll(hint_key, previous_count, current_count)
 
-func _stage_portrait_ad_banner(source: String = "unspecified") -> void:
-	_trace_ad_banner("ui_stage_banner", {
-		"source": source,
-		"quiz_screen": _quiz_screen_active,
-		"home_transition": is_instance_valid(_home_transition),
-		"modal_count": get_tree().get_nodes_in_group(PORTRAIT_MODAL_POPUP_GROUP).size(),
-	})
-	if !_portrait_ads_enabled():
-		_hide_portrait_ad_banner()
-		return
-	# Yandex renders a native Android view above Godot. The Godot holder reserves
-	# the same physical-bottom area and remains visible as a preview in the editor.
-	var banner_rect: Rect2 = _portrait_ad_banner_rect()
-	var banner_slot := _stage_holder(banner_rect, Control.MOUSE_FILTER_IGNORE)
-	banner_slot.name = "YandexAdsBannerSlot"
-	banner_slot.add_to_group(&"ad_banner_slot")
-	banner_slot.z_index = 30
-	var ads_service: Node = _portrait_ads_service()
-	var native_ads_available: bool = false
-	if ads_service != null:
-		if ads_service.has_method("is_native_available"):
-			native_ads_available = bool(ads_service.call("is_native_available"))
-		if !is_instance_valid(_home_transition) and ads_service.has_method("show_banner"):
-			ads_service.call("show_banner")
-		else:
-			_trace_ad_banner("ui_show_skipped_transition_or_method", {"source": source, "home_transition": is_instance_valid(_home_transition)})
-	if native_ads_available:
-		return
-	var banner_panel := _stage_panel(
-		banner_rect,
-		PORTRAIT_UI_PALETTE.NEUTRAL_SURFACE,
-		0.0,
-		PORTRAIT_UI_PALETTE.NEUTRAL_BORDER,
-		1.0
-	)
-	banner_panel.z_index = 30
-	var banner_label := _stage_label(
-		banner_rect,
-		tr("AD_BANNER_PLACEHOLDER"),
-		12,
-		PORTRAIT_UI_PALETTE.NEUTRAL_TEXT,
-		HORIZONTAL_ALIGNMENT_CENTER
-	)
-	banner_label.add_theme_font_override("font", UI_PRIMARY_FONT)
-	banner_label.z_index = 31
-
 func _prepare_portrait_word_letter_bounce(letter_label: Label) -> void:
 	# Reserve the pulse before the deferred start since the result can arrive this frame.
 	var bounce_generation: int = _portrait_word_letter_bounce_generation
@@ -9403,14 +9264,10 @@ func _play_portrait_word_letter_bounce(
 	)
 
 func _portrait_in_place_result_button_rect() -> Rect2:
-	var button_y: float = minf(
-		_portrait_game_bottom_action_y(),
-		_portrait_ad_banner_rect().position.y - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y - 12.0
-	)
 	return Rect2(
 		Vector2(
 			(PORTRAIT_STAGE_SIZE.x - PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH) * 0.5,
-			button_y
+			PORTRAIT_STAGE_SIZE.y - PORTRAIT_GAME_BOTTOM_ACTION_MARGIN - PORTRAIT_GAME_RETRY_BUTTON_SIZE.y
 		),
 		Vector2(PORTRAIT_PRIMARY_BOTTOM_BUTTON_WIDTH, PORTRAIT_GAME_RETRY_BUTTON_SIZE.y)
 	)
@@ -9433,29 +9290,6 @@ func _portrait_hint_progression_locked(hint_key: String) -> bool:
 		return false
 	return !GameState.is_single_player_hint_unlocked(Database.current_language, hint_key)
 
-func _stage_portrait_game_theme(theme_name: String, first_hint: Rect2) -> void:
-	var previous_content: Control = content
-	content = _portrait_crossword
-	_portrait_begin_bottom_attached_group()
-	content.name = "CrosswordTheme"
-
-	var caption_font_size: int = 18
-	var max_name_font_size: int = 28
-	var font: Font = UI_FONTS.keyboard_font()
-	var left: float = PORTRAIT_GAME_HINT_RIGHT_MARGIN
-	var width: float = first_hint.position.x - PORTRAIT_GAME_HINT_BUTTON_GAP - left
-	var top: float = first_hint.position.y + (first_hint.size.y * PORTRAIT_GAME_HINT_BUTTON_SCALE - 60.0) * 0.5
-	var caption := _stage_label(Rect2(left, top, width, 22.0), tr("THEME_LABEL"),
-		caption_font_size, PORTRAIT_DARK_BLUE, HORIZONTAL_ALIGNMENT_CENTER, font)
-	caption.name = "GameThemeCaption"
-	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
-	caption.clip_text = false
-	var theme_title := _stage_label(Rect2(left, top + 16.0, width, 44.0), theme_name,
-		max_name_font_size, PORTRAIT_BLUE, HORIZONTAL_ALIGNMENT_CENTER, font)
-	theme_title.name = "GameThemeName"
-	_fit_single_line_label_to_width(theme_title, theme_name, width, max_name_font_size, caption_font_size)
-	_portrait_end_adaptive_group(previous_content)
-
 func _stage_portrait_hint_buttons() -> void:
 	# Called while the shared game-input bottom group is active. Badges are
 	# children of the buttons, so keyboard + hints + badges translate together.
@@ -9469,7 +9303,6 @@ func _stage_portrait_hint_buttons() -> void:
 	var remove_hint_ad_available: bool = (
 		_portrait_ads_enabled() and GameSession.can_use_remove_wrong_hint_ad()
 	)
-	var comment_unlocked: bool = GameSession.comment_hint_unlocked
 	var round_inactive: bool = !GameSession.is_active
 	var open_hint_disabled: bool = (
 		open_locked or round_inactive
@@ -9479,17 +9312,14 @@ func _stage_portrait_hint_buttons() -> void:
 		remove_locked or round_inactive
 		or (!remove_hint_ad_available if remove_hint_used else !GameSession.can_use_remove_wrong_hint())
 	)
-	var comment_disabled: bool = round_inactive or (!comment_unlocked and !GameSession.can_unlock_comment_hint())
-
 	var hint_width: float = PORTRAIT_GAME_HINT_BUTTON_SIZE.x * PORTRAIT_GAME_HINT_BUTTON_SCALE
-	var right_button_x: float = PORTRAIT_STAGE_SIZE.x - PORTRAIT_GAME_HINT_RIGHT_MARGIN - hint_width
-	var hint_step := Vector2(hint_width + PORTRAIT_GAME_HINT_BUTTON_GAP, 0.0)
-	var comment_rect := Rect2(
-		Vector2(right_button_x, _portrait_game_hint_row_y),
+	var hint_step: float = hint_width + PORTRAIT_GAME_HINT_BUTTON_GAP
+	var row_width: float = hint_width + hint_step
+	var open_rect := Rect2(
+		Vector2((PORTRAIT_STAGE_SIZE.x - row_width) * 0.5, PORTRAIT_CROSSWORD_HINT_ROW_Y),
 		PORTRAIT_GAME_HINT_BUTTON_SIZE
 	)
-	var remove_rect := Rect2(comment_rect.position - hint_step, comment_rect.size)
-	var open_rect := Rect2(remove_rect.position - hint_step, remove_rect.size)
+	var remove_rect := Rect2(open_rect.position + Vector2(hint_step, 0.0), open_rect.size)
 
 	# Use the standard round-button component for all hint actions. The doodle art
 	# remains a separate child so badges and state changes can be reused unchanged.
@@ -9511,16 +9341,7 @@ func _stage_portrait_hint_buttons() -> void:
 		0.0,
 		LONG_BUTTON_COLOR_ORANGE
 	)
-	var comment_button := _stage_round_button(
-		comment_rect,
-		Callable(self, "_use_comment_hint"),
-		"",
-		comment_disabled,
-		false,
-		0.0,
-		LONG_BUTTON_COLOR_BLUE if comment_unlocked else LONG_BUTTON_COLOR_ORANGE
-	)
-	for hint_button: Control in [open_button, remove_button, comment_button]:
+	for hint_button: Control in [open_button, remove_button]:
 		hint_button.set("stage_scale_multiplier", PORTRAIT_GAME_HINT_BUTTON_SCALE)
 		hint_button.set("drop_shadow_enabled", true)
 		hint_button.set("disabled_visual_opacity", 1.0)
@@ -9528,10 +9349,8 @@ func _stage_portrait_hint_buttons() -> void:
 	_portrait_game_hint_buttons.clear()
 	open_button.set_meta(&"portrait_hint_key", GameState.HINT_OPEN_LETTER)
 	remove_button.set_meta(&"portrait_hint_key", GameState.HINT_REMOVE_WRONG)
-	comment_button.set_meta(&"portrait_hint_key", GameState.HINT_COMMENT)
 	_portrait_game_hint_buttons.append(open_button)
 	_portrait_game_hint_buttons.append(remove_button)
-	_portrait_game_hint_buttons.append(comment_button)
 
 	_stage_portrait_hint_art(
 		open_button,
@@ -9543,15 +9362,9 @@ func _stage_portrait_hint_buttons() -> void:
 		PORTRAIT_HINT_LOCKED_ICON if remove_locked else PORTRAIT_HINT_REMOVE_WRONG_ICON,
 		false
 	)
-	_stage_portrait_hint_art(
-		comment_button,
-		PORTRAIT_HINT_COMMENT_UNLOCK_ICON,
-		false
-	)
 
 	# Prices and inventory badges only describe actions that still consume a hint.
-	# Used one-shot hints use the shared gray disabled state without a stale badge;
-	# the unlocked/used comment switches to the blue state.
+	# Used one-shot hints use the shared gray disabled state without a stale badge.
 	if open_hint_ad_available:
 		_prepare_portrait_rewarded_placement(&"hint_open")
 		Analytics.watch_ad_offer(open_button, "hint_open", GameSession.round_id)
@@ -9564,8 +9377,6 @@ func _stage_portrait_hint_buttons() -> void:
 		_stage_portrait_hint_ad_counter(remove_button)
 	elif !remove_locked and !remove_hint_used:
 		_stage_portrait_hint_counter(remove_button, GameState.HINT_REMOVE_WRONG)
-	if !comment_unlocked:
-		_stage_portrait_hint_counter(comment_button, GameState.HINT_COMMENT)
 	_portrait_game_hint_signature = _portrait_game_hint_state_signature()
 
 func _create_portrait_rounded_panel_extrusion_layers(
@@ -10579,9 +10390,6 @@ func _show_in_place_round_result(is_win: bool, animated: bool = true) -> void:
 		show_game_screen()
 		return
 	if is_instance_valid(_portrait_crossword):
-		var theme_block := _portrait_crossword.get_node_or_null("CrosswordTheme") as Control
-		if theme_block != null:
-			theme_block.hide()
 		_portrait_crossword.set_input_enabled(false)
 		_portrait_crossword.set_bottom(_portrait_game_word_rect.position.y - 12.0)
 		_portrait_crossword.refresh(GameSession.revealed, Callable(), true)
@@ -13726,7 +13534,7 @@ func _play_pending_home_reward_animation(generation: int) -> void:
 		return
 	_portrait_pending_home_reward_animation_running = true
 
-	# The Home tree, safe-area offset and ad banner can all settle over several
+	# The Home tree and safe-area offset can settle over several
 	# frames on a real device. Do not consume the pending presentation until the
 	# destination coin icon actually exists. If Home is rebuilt during this
 	# window, the saved reward remains untouched and the animation can retry on
@@ -14070,7 +13878,6 @@ func _home_profile_show_single_player_reward_chain_screen() -> void:
 		title_block.modulate.a = 1.0
 		title_visual.scale = Vector2.ONE
 
-	_stage_portrait_ad_banner("_home_profile_show_single_player_reward_chain_screen")
 
 	# Keep the persistent HUD and the celebratory title visible independently.
 	# Reward content itself is revealed only after the title finishes its first
@@ -14866,23 +14673,6 @@ func _use_remove_hint() -> void:
 		GameState.get_hint_count(GameState.HINT_REMOVE_WRONG)
 	)
 
-func _use_comment_hint() -> void:
-	if GameSession.comment_hint_unlocked:
-		super._use_comment_hint()
-		return
-	var previous_count: int = GameState.get_hint_count(GameState.HINT_COMMENT)
-	if previous_count > 0:
-		_portrait_hint_counter_animation_active = true
-		_portrait_hint_counter_refresh_requested = false
-	super._use_comment_hint()
-	if previous_count > 0 and GameState.get_hint_count(GameState.HINT_COMMENT) >= previous_count:
-		_portrait_hint_counter_animation_active = false
-	_play_portrait_hint_spend_animation_if_needed(
-		GameState.HINT_COMMENT,
-		previous_count,
-		GameState.get_hint_count(GameState.HINT_COMMENT)
-	)
-
 func _hide_portrait_hints_for_round_end(animated: bool) -> void:
 	for hint_button: Control in _portrait_game_hint_buttons:
 		if hint_button == null or !is_instance_valid(hint_button):
@@ -15299,7 +15089,6 @@ func _create_stage_reward_component(parent: Control, amount: int, source_rect: R
 	var level_index: int = int(last_result_data.get("single_player_level_index", single_player_active_level_index))
 	_portrait_stage_reward.coin_content_builder = _stage_portrait_popup_coin_purchase_content
 	_portrait_stage_reward.collect_rect_builder = _portrait_popup_button_rect
-	_portrait_stage_reward.banner_height_stage = _portrait_ad_banner_height_stage()
 	_portrait_stage_reward.button_gap_stage = POPUP_COMPONENT.attempt_offer_layout(
 		_portrait_popup_style(), true, _portrait_popup_extra_bottom_space())["button_gap"]
 	_portrait_stage_reward.build(parent, amount, source_rect, offer_double and _portrait_ads_enabled(), level_index + 1, currency)
@@ -15395,8 +15184,6 @@ func _show_leaderboard_screen(tournament: bool = false, retained: Control = null
 	if is_instance_valid(retained):
 		_portrait_leaderboard = retained
 		retained.resume_from_profile(content)
-		retained.set_bottom_inset(_portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0)
-		_stage_portrait_ad_banner("leaderboard")
 		return
 	_portrait_leaderboard = LEADERBOARD_SCREEN.new()
 	_portrait_leaderboard.initial_tournament = tournament
@@ -15405,10 +15192,8 @@ func _show_leaderboard_screen(tournament: bool = false, retained: Control = null
 	_portrait_leaderboard.profile_requested.connect(show_profile)
 	_portrait_leaderboard.tournament_finished.connect(
 		_on_leaderboard_tournament_finished.bind(weakref(_portrait_leaderboard)), CONNECT_DEFERRED)
-	_portrait_leaderboard.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_leaderboard)
 	_portrait_leaderboard._select_tab(tournament)
-	_stage_portrait_ad_banner("leaderboard")
 
 func _on_leaderboard_tournament_finished(source: WeakRef) -> void:
 	if source.get_ref() == null or source.get_ref() != _portrait_leaderboard:
@@ -15435,7 +15220,6 @@ func _show_tournament_reward(award: Dictionary) -> void:
 	_portrait_tournament_reward.click_requested.connect(_play_ui_click_sound)
 	_portrait_tournament_reward.continue_requested.connect(return_action)
 	_portrait_tournament_reward.present(self, content, award)
-	_stage_portrait_ad_banner("_show_tournament_reward")
 
 func _show_next_tournament() -> void:
 	show_menu()
@@ -15510,9 +15294,7 @@ func _show_profile_screen(tab: String = "profile", return_action: Callable = Cal
 	_portrait_profile = PROFILE_SCREEN.new()
 	_portrait_profile.host = self
 	_portrait_profile.initial_tab = tab
-	_portrait_profile.bottom_inset = _portrait_ad_banner_height_stage() if _portrait_ads_enabled() else 0.0
 	content.add_child(_portrait_profile)
-	_stage_portrait_ad_banner("profile")
 
 func _close_profile_screen() -> void:
 	var action := _profile_return_action if _profile_return_action.is_valid() else Callable(self, "show_menu")

@@ -731,14 +731,16 @@ func run() -> void:
 	check(keyboard_editor._shell.get_rect().is_equal_approx(normal_rect), "Hiding the keyboard restores the authored position")
 	keyboard_editor.close()
 	await get_tree().create_timer(0.25).timeout
-	profile.set_bottom_inset(400)
+	var bottom_margin: float = 12.0 * player_body.scale.y
+	check(is_equal_approx(player_body.get_global_rect().end.y, main.get_viewport_rect().size.y - bottom_margin), "Profile fills the height to the bottom margin")
+	player_body.size.y -= 400.0
 	await settle()
 	var identity_at: Vector2 = player_body.identity.global_position
 	player_body.statistics_scroll.scroll_vertical = 9999
 	await settle()
 	check(player_body.identity.global_position.is_equal_approx(identity_at), "Scrolling statistics leaves identity fixed")
 	check(player_body.statistics_scroll.get_v_scroll_bar().max_value > player_body.statistics_scroll.get_v_scroll_bar().page, "Statistics scroll in short available space")
-	profile.set_bottom_inset(0)
+	profile._layout()
 	await settle()
 
 	check(get_tree().get_nodes_in_group("settings_popup").is_empty(), "Profile does not create full settings popup")
@@ -786,14 +788,16 @@ func run() -> void:
 	var settings_bar: VScrollBar = settings_scroll.get_v_scroll_bar()
 	check(settings_bar.max_value <= settings_bar.page, "Full settings needs no scrolling when its content fits")
 	var short_settings_height: float = settings_scroll.content_height * 0.8
-	profile.set_bottom_inset(profile.bottom_inset + settings_scroll.stage_rect.size.y - short_settings_height)
+	check(is_equal_approx(settings_scroll.get_global_rect().end.y, main.get_viewport_rect().size.y - bottom_margin), "Settings fills the height to the bottom margin")
+	settings_scroll.stage_rect.size.y = short_settings_height
+	settings_scroll._sync_to_stage()
 	await settle()
 	check(settings_bar.max_value > settings_bar.page, "Full settings scrolls when available height is short")
 	var settings_position: Vector2 = settings_scroll.stage_content.global_position
 	settings_scroll.scroll_vertical = roundi(settings_bar.max_value - settings_bar.page)
 	await settle()
 	check(settings_scroll.scroll_vertical > 0 and settings_scroll.stage_content.global_position.y < settings_position.y, "Full settings scroll moves the actual content")
-	profile.set_bottom_inset(0)
+	profile._layout()
 	await settle()
 	check(settings_bar.max_value <= settings_bar.page and settings_scroll.scroll_vertical == 0, "Full settings removes scrolling when the content fits again")
 	var old_scroll = profile.settings_scroll

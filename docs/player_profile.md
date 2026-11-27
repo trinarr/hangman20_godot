@@ -3,7 +3,7 @@
 The Profile tab contains a fixed identity card (shared default El Tigre avatar,
 local player name or localized Player fallback, and current star balance).
 Only the statistics section below it scrolls. It reuses the leaderboard's elastic
-scroll and the existing portrait safe-area and banner-inset layout.
+scroll and the existing portrait safe-area layout.
 
 Five rows show lifetime gameplay stars earned, completed campaign chains,
 completed hard chains, correct quiz answers, and guessed words. Russian and

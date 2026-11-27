@@ -11,6 +11,8 @@ const BUTTON_BACKGROUND = preload("res://scripts/ui/procedural_button_background
 const ICON_VISUAL_SCALE: float = 0.82
 const CLOSE_ICON: Texture2D = preload("res://flash_assets/round_close_icon.png")
 # Recreated navigation art occupies 248 pixels of its 256-pixel canvas.
+const NAV_ARROW = preload("res://flash_assets/portrait_back_arrow_icon.png")
+const NAV_ARROW_BUTTON_SIZE: float = 52.0
 const NAV_CANVAS_SCALE: float = 256.0 / 248.0
 const ICON_EXTRUSION = preload("res://scripts/ui/portrait_icon_extrusion.gd")
 const WHITE_ACTION_ICON_PATHS: Array[String] = [
@@ -320,6 +322,15 @@ func configure_close(font_size_value: int = 55, disabled_value: bool = false, se
 	var side: float = float(font_size_value) * 0.55 / ICON_VISUAL_SCALE * NAV_CANVAS_SCALE
 	configure_texture(CLOSE_ICON, Vector2.ONE * side, disabled_value, selected_value, Vector2.ZERO, disabled_overlay_alpha_value)
 	icon_shadow_enabled = true
+
+func configure_navigation_arrow(points_right: bool) -> void:
+	configure_texture(NAV_ARROW, Vector2.ONE * 27.0 * NAV_CANVAS_SCALE)
+	set_color_preset(ColorPreset.BLUE)
+	drop_shadow_enabled = true
+	icon_shadow_enabled = true
+	_icon_rect.flip_h = points_right
+	for shadow: TextureRect in _icon_shadow_layers:
+		shadow.flip_h = points_right
 
 func configure_texture(texture_value: Texture2D, stage_size_value: Vector2, disabled_value: bool = false, selected_value: bool = false, stage_offset_value: Vector2 = Vector2.ZERO, disabled_overlay_alpha_value: float = 0.32) -> void:
 	icon_text = ""

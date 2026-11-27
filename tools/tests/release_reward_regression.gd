@@ -34,8 +34,6 @@ class NativeAds:
 		return true
 	func pollFullscreenAdForRequest(id: String) -> String:
 		return fullscreen_results.get(id, "")
-	func removeBanner() -> void:
-		pass
 
 class TestAds:
 	extends "res://addons/GodotAndroidYandexAds/yandex_ads.gd"

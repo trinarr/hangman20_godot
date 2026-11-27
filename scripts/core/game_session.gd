@@ -560,6 +560,20 @@ func get_full_word() -> String:
 func get_word_hint() -> String:
 	return word_hint_text
 
+func get_crossword_comments() -> PackedStringArray:
+	var comments := PackedStringArray()
+	if crossword == null:
+		return comments
+	var catalog_theme_id: int = Database.get_theme_id(theme_id)
+	for index: int in range(crossword.entries.size()):
+		if index == 0:
+			comments.append(get_word_hint().strip_edges())
+		else:
+			var word: String = crossword.entries[index]["text"]
+			var reference: Dictionary = Database.resolve_saved_word(catalog_theme_id, word)
+			comments.append(str(reference.get("hint", "")).strip_edges())
+	return comments
+
 func is_word_completed() -> bool:
 	for i in range(letters.size()):
 		if !_is_separator(letters[i]) and !bool(revealed[i]):

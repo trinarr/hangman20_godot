@@ -26,19 +26,14 @@ const STAR_TEXTURE: Texture2D = preload("res://flash_assets/star_currency_icon.p
 var deferred_coin_amount: int = 0
 var coin_content_builder: Callable
 var collect_rect_builder: Callable
-var banner_height_stage: float = 50.0
 var button_gap_stage: float = -1.0
-var _controls_raise: float = 0.0
 const COLLECT_WIDTH_SCALE: float = 0.85
-const BUTTONS_MIN_RAISE: float = 32.0
-const BANNER_BUTTON_GAP: float = 24.0
 
 func _portrait_final_reward_center_rect(size: Vector2) -> Rect2:
 	var rect: Rect2 = super._portrait_final_reward_center_rect(size)
 	if _meter_enabled:
-		# Keep the coin pack clear of the raised meter at the reference aspect.
+		# Keep the coin pack clear of the multiplier meter at the reference aspect.
 		rect.position.y -= 45.0
-		rect.position.y -= maxf(_controls_raise - BUTTONS_MIN_RAISE, 0.0)
 	return rect
 
 func selected_multiplier() -> float:
@@ -99,8 +94,6 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 		var collect_center_x: float = collect_rect.get_center().x
 		collect_rect.size.x *= COLLECT_WIDTH_SCALE
 		collect_rect.position.x = collect_center_x - collect_rect.size.x * 0.5
-		_controls_raise = maxf(BUTTONS_MIN_RAISE, collect_rect.end.y - (PORTRAIT_STAGE_SIZE.y - banner_height_stage - BANNER_BUTTON_GAP))
-		collect_rect.position.y -= _controls_raise
 	var target_coin_rect: Rect2 = _portrait_final_reward_center_rect(
 		PORTRAIT_FINAL_REWARD_COIN_SIZE
 	)
@@ -149,7 +142,6 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 	var action_rect: Rect2 = _portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT)
 	var action_group_shift: float = 0.0
 	if _meter_enabled:
-		action_rect.position.y -= _controls_raise
 		if button_gap_stage >= 0.0:
 			action_group_shift = collect_rect.position.y - action_rect.end.y - button_gap_stage
 			action_rect.position.y += action_group_shift
@@ -174,7 +166,6 @@ func build(parent: Control, reward_amount: int, source_rect: Rect2, ads_enabled:
 			var meter_rect: Rect2 = _portrait_primary_bottom_button_rect(PORTRAIT_FINAL_REWARD_DOUBLE_BUTTON_RECT)
 			meter_rect.position.x = 42.0
 			meter_rect.position.y -= 121.0
-			meter_rect.position.y -= _controls_raise
 			meter_rect.position.y += action_group_shift
 			meter_rect.size = Vector2((PORTRAIT_STAGE_SIZE.x - 40.0) * 0.9, 94.6)
 			var meter_holder: Control = _stage_holder(meter_rect, Control.MOUSE_FILTER_IGNORE)

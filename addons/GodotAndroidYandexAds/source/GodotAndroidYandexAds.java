@@ -2,20 +2,11 @@ package com.darkmoonight.godotandroidyandexads;
 
 import android.app.Activity;
 import android.app.Application;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.widget.FrameLayout;
 
-import com.yandex.mobile.ads.banner.BannerAdEventListener;
-import com.yandex.mobile.ads.banner.BannerAdSize;
-import com.yandex.mobile.ads.banner.BannerAdView;
 import com.yandex.mobile.ads.common.AdError;
 import com.yandex.mobile.ads.common.AdRequest;
 import com.yandex.mobile.ads.common.AdRequestError;
@@ -45,12 +36,6 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
     private static final String TAG = "YandexAdsGodot";
 
     private final Activity activity;
-    private BannerAdView bannerAdView;
-    private FrameLayout bannerParent;
-    private BannerAdSize bannerAdSize;
-    private boolean bannerLoaded;
-    private int bannerWidthPixels;
-    private int bannerHeightPixels;
 
     private RewardedAd rewardedAd;
     private RewardedAdLoader rewardedAdLoader;
@@ -115,16 +100,10 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         Set<SignalInfo> signals = new HashSet<>();
         signals.add(new SignalInfo("_on_sdk_initialized"));
 
-        signals.add(new SignalInfo("_on_banner_loaded"));
-        signals.add(new SignalInfo("_on_banner_loaded_for_request", String.class));
-        signals.add(new SignalInfo("_on_banner_failed_for_request", String.class, Integer.class));
         signals.add(new SignalInfo("_on_ad_impression", String.class, String.class, String.class));
         signals.add(new SignalInfo("_on_interstitial_shown_for_request", String.class));
         signals.add(new SignalInfo("_on_interstitial_failed_for_request", String.class, String.class));
         signals.add(new SignalInfo("_on_interstitial_closed_for_request", String.class));
-        signals.add(new SignalInfo("_on_banner_failed_to_load", Integer.class));
-        signals.add(new SignalInfo("_on_banner_clicked"));
-        signals.add(new SignalInfo("_on_banner_impression"));
 
         signals.add(new SignalInfo("_on_rewarded_video_ad_loaded"));
         signals.add(new SignalInfo("_on_rewarded_loaded_for_load", String.class));
@@ -186,193 +165,6 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
     @UsedByGodot
     public void setUserConsent(boolean userConsent) {
         YandexAds.setUserConsent(userConsent);
-    }
-
-    private BannerAdSize resolveBannerSize(int widthDp, int heightDp) {
-        if (widthDp > 0 && heightDp > 0) {
-            return BannerAdSize.fixed(activity, widthDp, heightDp);
-        }
-        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        int availableWidthDp = Math.round(metrics.widthPixels / metrics.density);
-        return BannerAdSize.sticky(activity, availableWidthDp);
-    }
-
-    private FrameLayout resolveContentRoot() {
-        View content = activity.findViewById(android.R.id.content);
-        if (content instanceof FrameLayout) {
-            return (FrameLayout) content;
-        }
-        return null;
-    }
-
-    private void createBanner(String requestId, String adUnitId, boolean onTop, int widthDp, int heightDp) {
-        destroyBannerInternal();
-        bannerParent = resolveContentRoot();
-        if (bannerParent == null) {
-            Log.e(TAG, "Android content root is not a FrameLayout");
-            emitSignal("_on_banner_failed_to_load", -1);
-            emitSignal("_on_banner_failed_for_request", requestId, -1);
-            return;
-        }
-
-        bannerAdSize = resolveBannerSize(widthDp, heightDp);
-        bannerAdView = new BannerAdView(activity);
-        bannerAdView.setBackgroundColor(Color.TRANSPARENT);
-        bannerAdView.setAdSize(bannerAdSize);
-        bannerAdView.setBannerAdEventListener(createBannerEventListener(bannerAdView, bannerAdSize, requestId));
-
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                bannerAdSize.getWidthInPixels(activity),
-                bannerAdSize.getHeightInPixels(activity)
-        );
-        params.gravity = (onTop ? Gravity.TOP : Gravity.BOTTOM) | Gravity.CENTER_HORIZONTAL;
-        bannerParent.addView(bannerAdView, params);
-        bannerAdView.loadAd(new AdRequest.Builder(adUnitId).build());
-    }
-
-    private BannerAdEventListener createBannerEventListener(BannerAdView owner, BannerAdSize size, String requestId) {
-        return new BannerAdEventListener() {
-            @Override
-            public void onAdLoaded() {
-                if (bannerAdView != owner) { return; }
-                if (activity.isFinishing()) {
-                    destroyBannerInternal();
-                    return;
-                }
-                bannerLoaded = true;
-                bannerWidthPixels = size.getWidthInPixels(activity);
-                bannerHeightPixels = size.getHeightInPixels(activity);
-                final BannerAdView loadedView = bannerAdView;
-                final int widthPixels = bannerWidthPixels;
-                final int heightPixels = bannerHeightPixels;
-                loadedView.post(() -> {
-                    if (bannerAdView == loadedView && !activity.isFinishing()) {
-                        fitAppLovinBannerView(loadedView, widthPixels, heightPixels);
-                    }
-                });
-                if (diagnosticLogging) {
-                    Log.d(TAG, "Banner loaded, requested size: " + bannerWidthPixels + "x" + bannerHeightPixels + " px");
-                }
-                emitSignal("_on_banner_loaded");
-                emitSignal("_on_banner_loaded_for_request", requestId);
-            }
-
-            @Override
-            public void onAdFailedToLoad(AdRequestError error) {
-                if (bannerAdView != owner) { return; }
-                bannerLoaded = false;
-                Log.w(TAG, "Banner failed to load: code=" + error.getCode());
-                if (diagnosticLogging) Log.d(TAG, "Banner load details: " + error.getDescription());
-                emitSignal("_on_banner_failed_to_load", error.getCode());
-                emitSignal("_on_banner_failed_for_request", requestId, error.getCode());
-            }
-
-            @Override
-            public void onAdClicked() {
-                if (bannerAdView != owner) { return; }
-                emitSignal("_on_banner_clicked");
-            }
-
-            @Override
-            public void onImpression(ImpressionData impressionData) {
-                if (bannerAdView != owner) { return; }
-                emitSignal("_on_banner_impression");
-                if (impressionData != null) { emitSignal("_on_ad_impression", "", "banner", impressionData.getRawData()); }
-            }
-        };
-    }
-
-    private boolean fitAppLovinBannerView(View view, int widthPixels, int heightPixels) {
-        // AppLovin 13.6.3's BANNER WebView fills its parent, but the Yandex
-        // adapter leaves the public AppLovinAdView wrapping that child.
-        // Size that public view; do not alter the SDK's internal WebView.
-        if ("com.applovin.adview.AppLovinAdView".equals(view.getClass().getName())) {
-            ViewGroup.LayoutParams params = view.getLayoutParams();
-            if (params != null) {
-                params.width = widthPixels;
-                params.height = heightPixels;
-                view.setLayoutParams(params);
-            }
-            return true;
-        }
-        if (view instanceof ViewGroup) {
-            ViewGroup group = (ViewGroup) view;
-            for (int index = 0; index < group.getChildCount(); index++) {
-                if (fitAppLovinBannerView(group.getChildAt(index), widthPixels, heightPixels)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    @UsedByGodot
-    public void loadBanner(String adUnitId, boolean onTop, int widthDp, int heightDp) {
-        loadBannerForRequest("", adUnitId, onTop, widthDp, heightDp);
-    }
-
-    @UsedByGodot
-    public void loadBannerForRequest(String requestId, String adUnitId, boolean onTop, int widthDp, int heightDp) {
-        activity.runOnUiThread(() -> createBanner(requestId, adUnitId, onTop, widthDp, heightDp));
-    }
-
-    @UsedByGodot
-    public void showBanner() {
-        activity.runOnUiThread(() -> {
-            if (bannerAdView != null) {
-                bannerAdView.setVisibility(View.VISIBLE);
-            }
-        });
-    }
-
-    @UsedByGodot
-    public void hideBanner() {
-        activity.runOnUiThread(() -> {
-            if (bannerAdView != null) {
-                bannerAdView.setVisibility(View.GONE);
-            }
-        });
-    }
-
-    @UsedByGodot
-    public void removeBanner() {
-        activity.runOnUiThread(this::destroyBannerInternal);
-    }
-
-    @UsedByGodot
-    public boolean isBannerLoaded() {
-        return bannerLoaded;
-    }
-
-    @UsedByGodot
-    public long getElapsedRealtimeMs() {
-        return SystemClock.elapsedRealtime();
-    }
-
-    @UsedByGodot
-    public int getBannerWidth() {
-        return bannerWidthPixels;
-    }
-
-    @UsedByGodot
-    public int getBannerHeight() {
-        return bannerHeightPixels;
-    }
-
-    private void destroyBannerInternal() {
-        bannerLoaded = false;
-        bannerWidthPixels = 0;
-        bannerHeightPixels = 0;
-        bannerAdSize = null;
-        if (bannerAdView != null) {
-            bannerAdView.setBannerAdEventListener(null);
-            bannerAdView.destroy();
-            if (bannerAdView.getParent() instanceof FrameLayout) {
-                ((FrameLayout) bannerAdView.getParent()).removeView(bannerAdView);
-            }
-            bannerAdView = null;
-        }
-        bannerParent = null;
     }
 
     @UsedByGodot
@@ -731,7 +523,6 @@ public final class GodotAndroidYandexAds extends GodotPlugin {
         }
         stopObservingFullscreenActivities(show);
         if (show != null) { show.complete("failed"); }
-        destroyBannerInternal();
         cancelRewardedLoadInternal();
         cancelInterstitialLoadInternal();
         rewardedAd = null;

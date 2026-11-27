@@ -218,13 +218,6 @@ static func _validate_loaded_config() -> void:
 		if _require_numeric_field(fullscreen_recovery, key, "advertising.fullscreen_show_recovery") < 0.001:
 			_fatal_config_error("Fullscreen recovery timings must be at least one millisecond")
 	var retry_base := get_float("timings.network_retry.base_seconds")
-	var banner_recovery: Dictionary = get_value("advertising.banner_recovery")
-	get_int_range("advertising.banner_recovery.maximum_recovery_attempts", 0, 10)
-	for key: String in ["load_timeout_seconds", "sdk_refresh_grace_seconds", "refresh_after_background_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"]:
-		if _require_numeric_field(banner_recovery, key, "advertising.banner_recovery") <= 0.0:
-			_fatal_config_error("Banner recovery timings must be positive")
-	if get_float("advertising.banner_recovery.retry_base_seconds") > get_float("advertising.banner_recovery.retry_maximum_seconds"):
-		_fatal_config_error("Banner recovery retry base must not exceed maximum")
 	var interstitial_recovery: Dictionary = get_value("advertising.interstitial_recovery")
 	get_int_range("advertising.interstitial_recovery.maximum_recovery_attempts", 0, 10)
 	for key: String in ["load_timeout_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"]:

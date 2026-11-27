@@ -20,9 +20,9 @@ myTarget's own provider remains installed with integer metadata
 All SDKs and adapters remain dependencies. The native bridge calls the public
 Yandex initialize API after the game/legal/privacy gate, and mediation then
 initializes the requested partner. After durable document acceptance, the UI
-retries initialization and banner staging even if the region lookup is cached.
+retries initialization even if the region lookup is cached.
 
-The compiled AAR exposes banner, interstitial, and rewarded ads to GDScript.
+The compiled AAR exposes interstitial and rewarded ads to GDScript.
 `yandex_ads.gd` is registered as the `YandexAdsService` autoload by
 `project.godot`.
 
@@ -59,45 +59,16 @@ per cooldown. A late response cannot populate the replacement's cache.
 A recovery load only preloads the next ad. Its timings are configured under
 `advertising.interstitial_recovery` in the game-design config.
 
-The autoload recovers a banner while its screen still wants it. After a normal
-load or refresh error, it gives the current SDK view a grace period measured
-with a monotonic clock. The grace period pauses while the slot is hidden or
-the app is out of focus. If the SDK misses that deadline, the service replaces
-the view using the same retry budget as missing callbacks and native view
-creation failures. After the budget runs out, a one-shot timer wakes a visible
-foreground slot for one probe. A hidden or unfocused slot keeps the deadline
-and checks it when it becomes active. A successful callback renews the budget
-and cancels pending recovery. Long background periods and privacy changes
-invalidate the view and renew the budget. Hiding also pauses retry backoff.
-Parameters come from `advertising.banner_recovery`.
-Tagged callbacks are checked against both the view owner and the request ID.
-Older untagged bridges keep serialized requests.
-
-Android background age uses the bridge's `getElapsedRealtimeMs()` backed by
-`SystemClock.elapsedRealtime()`: it includes device sleep and is independent of
-calendar time changes. Capability detection is cached, and clock reads occur
-only when measuring lifecycle intervals. Desktop and older bridges fall back
-to monotonic engine ticks; sleep accounting on an older Android AAR is not
-guaranteed. Use both updated AARs for the Android clock path.
-
 Verbose diagnostics default to off. In debug exports, set
-`yandex_ads/logging_enabled=true` to enable BannerDiag, native bridge debug logs
-and Yandex SDK logging together. Release forces them off. Banner load failures
+`yandex_ads/logging_enabled=true` to enable AdsDiag, native bridge debug logs
+and Yandex SDK logging together. Release forces them off. Load failures
 retain their error code; SDK descriptions require diagnostic logging. Partner
 SDKs may have their own logging outside this switch.
-
-The banner bridge reserves the pixel dimensions returned by `BannerAdSize`.
-For AppLovin 13.6.3 / Yandex adapter 13.6.3.3, it also sizes the public
-`AppLovinAdView` after loading to prevent its fill-parent WebView from collapsing
-inside a wrap-content parent. The deferred adjustment checks banner ownership;
-it does not modify internal WebViews or other network views. Recheck this
-compatibility adjustment when updating the SDK/adapter.
 
 ## Ad unit configuration
 
 Debug/editor builds use demo ad units:
 
-- `demo-banner-yandex`
 - `demo-interstitial-yandex`
 - `demo-rewarded-yandex`
 
@@ -123,7 +94,6 @@ obtained the user's consent where required.
 
 ## Runtime API
 
-- `YandexAdsService.show_banner()` / `hide_banner()`
 - `YandexAdsService.show_interstitial() -> bool`
 - `YandexAdsService.show_rewarded_video() -> bool`
 - `YandexAdsService.rewarded(currency, amount)` signal

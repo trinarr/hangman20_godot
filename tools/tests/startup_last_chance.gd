@@ -143,6 +143,9 @@ func run() -> void:
 				await check_attempt_shadows(attempt_hearts, directory, "%s_%d" % [language, int(used_comment)])
 			var cell_index: int = GameSession.revealed.find(false)
 			main._portrait_crossword.select_cell(cell_index)
+			var comment: Label = main._portrait_crossword._comment_label
+			check(comment.visible and comment.text == GameSession.get_word_hint().strip_edges(), "After continuation the word comment is visible regardless of prior unlock")
+			check(main._portrait_game_hint_button_for_key(GameState.HINT_COMMENT) == null, "The saved comment unlock never restores a comment button")
 			var before := GameSession.correct_letters.size() + GameSession.wrong_letters.size()
 			var sent := false
 			for entry: Dictionary in main._portrait_game_keyboard_buttons:
@@ -160,8 +163,6 @@ func run() -> void:
 					sent = true
 					break
 			check(sent and GameSession.correct_letters.size() + GameSession.wrong_letters.size() == before + 1, "Actual pointer click guesses a letter after continuation")
-			var comment: Control = main._portrait_game_hint_button_for_key(GameState.HINT_COMMENT)
-			check(comment.has_meta("portrait_hint_counter_label") == !used_comment, "Unused comments keep their counter; unlocked comments remain free")
 	if is_instance_valid(main):
 		main.queue_free()
 		await get_tree().process_frame

@@ -58,7 +58,7 @@ or after the deadline. Return after expiry computes all final scores immediately
 As with other local saves, this does not provide server-side clock/cheat protection.
 
 `portrait_tournament.gd` renders inside the existing tabbed-page surface, preserving
-whole-screen opening/closing transitions and the banner inset. A one-second timer
+whole-screen opening/closing transitions and viewport sizing. A one-second timer
 updates the countdown only while visible; rows rebuild only when their contents
 change, retaining scroll position. Disposal stops its timer and disconnects the
 GameState signal. Late global leaderboard replies remain hidden on this tab.
@@ -78,7 +78,7 @@ python3 tools/run_content_tests.py --godot /path/to/godot --suite leaderboard_ui
 The model suite covers nickname selection, frozen schedules, JSON reload, backward
 clock, exact deadline, delayed reward claims, duplicate results, manual restart,
 all prize amounts and save-failure rollback. UI tests cover podium order, join/
-finish/claim states, localization, pinning, scroll retention, banner geometry,
+finish/claim states, localization, pinning, scroll retention, viewport geometry,
 late global replies, tab switching and disposal.
 
 ## Home shortcut

@@ -240,14 +240,6 @@ def main() -> None:
     for key in ("queue_timeout_seconds", "return_grace_seconds", "poll_interval_seconds"):
         require(require_number(fullscreen[key], f"advertising.fullscreen_show_recovery.{key}") >= 0.001,
                 "Fullscreen recovery timings must be at least one millisecond")
-    banner = resolve(config, "advertising.banner_recovery")
-    require(require_int(banner["maximum_recovery_attempts"], "advertising.banner_recovery.maximum_recovery_attempts") <= 10,
-            "Banner recovery attempts must be in 0..10")
-    for key in ("load_timeout_seconds", "sdk_refresh_grace_seconds", "refresh_after_background_seconds", "retry_base_seconds", "retry_maximum_seconds", "probe_cooldown_seconds"):
-        require(require_number(banner[key], f"advertising.banner_recovery.{key}") > 0,
-                "Banner recovery timings must be positive")
-    require(banner["retry_base_seconds"] <= banner["retry_maximum_seconds"],
-            "Banner recovery retry base must not exceed maximum")
     rewarded = resolve(config, "advertising.rewarded_recovery")
     require(0 <= require_int(rewarded["maximum_recovery_attempts"], "advertising.rewarded_recovery.maximum_recovery_attempts") <= 10,
             "Rewarded recovery attempts must be in 0..10")

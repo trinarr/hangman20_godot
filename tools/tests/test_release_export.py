@@ -105,9 +105,9 @@ class ReleaseExportChecks(unittest.TestCase):
             self.verify(self.fixture({"_custom_features": string_variant("rustore,google_play")}))
         files = self.fixture({"_custom_features": string_variant("google_play")})
         profiles = json.loads(files["data/ad_store_profiles.json"])
-        profiles["google_play"]["banner_id"] = ""
+        profiles["google_play"]["rewarded_id"] = ""
         files["data/ad_store_profiles.json"] = json.dumps(profiles).encode()
-        with self.assertRaisesRegex(ValueError, "missing or invalid banner_id"):
+        with self.assertRaisesRegex(ValueError, "missing or invalid rewarded_id"):
             self.verify(files)
 
     def verify_modified_preset(self, section, key, value):

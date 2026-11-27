@@ -3,8 +3,6 @@ class NativeAds extends RefCounted:
 	var shows: int = 0
 	func loadRewardedVideo(_id: String) -> void: pass
 	func showRewardedVideoForRequest(_id: String) -> void: shows += 1
-	func hideBanner() -> void: pass
-	func removeBanner() -> void: pass
 class Ads extends "res://addons/GodotAndroidYandexAds/yandex_ads.gd":
 	func _enter_tree() -> void: pass
 class UI extends "res://scripts/main_portrait.gd":
@@ -13,8 +11,6 @@ class UI extends "res://scripts/main_portrait.gd":
 	var declines: int = 0
 	var final_exits: int = 0
 	var next_level: int = -1
-	var banner_height: float = 50.0
-	func _portrait_ad_banner_height_stage() -> float: return banner_height
 	var collection_amounts: Array[int] = []
 	var run_collection_animation: bool = false
 	func _play_centered_rewarded_double_coin_animation(before: int, after: int, _layer: int = 100, _generation: int = -1) -> void:
@@ -26,7 +22,6 @@ class UI extends "res://scripts/main_portrait.gd":
 		_clear()
 	func _portrait_ads_service() -> Node: return ads
 	func _portrait_ads_enabled() -> bool: return true
-	func _stage_portrait_ad_banner(_source: String = "unspecified") -> void: pass
 	func _should_auto_resume_guided_single_player() -> bool: return false
 	func _single_player_stage_is_quiz(_level: int, _slot: int) -> bool: return true
 	func _show_portrait_ad_not_ready_toast() -> void:
@@ -57,7 +52,7 @@ func _process(_delta: float) -> void:
 func frames() -> void:
 	for _i in range(4):
 		await get_tree().process_frame
-func fixture(level_number: int = 5, banner_height: float = 50.0) -> void:
+func fixture(level_number: int = 5) -> void:
 	if is_instance_valid(ui):
 		ui.queue_free()
 		await frames()
@@ -75,7 +70,6 @@ func fixture(level_number: int = 5, banner_height: float = 50.0) -> void:
 	ads._sdk_ready = true
 	add_child(ads)
 	ui = UI.new()
-	ui.banner_height = banner_height
 	ui.ads = ads
 	add_child(ui)
 	GameState.soft_currency_changed.connect(ui._on_soft_currency_changed)

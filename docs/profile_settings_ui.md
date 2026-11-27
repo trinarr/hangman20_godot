@@ -9,7 +9,7 @@ five persistent gameplay statistics; see `player_profile.md`.
 The avatar opens Profile through Home's transition with a smooth fade to the tabbed page. Profile
 and Settings are enabled tabs matching the leaderboard's tab band. The Profile
 body contains a fixed identity card and a separate elastic statistics scroll. The page uses the standard uppercase header, Back, a solid blue
-body without a pattern, safe-area layout and banner reservation. The active tab supplies the
+body without a pattern and safe-area layout. The active tab supplies the
 header title. Settings opened from the leaderboard returns to the leaderboard;
 the Home avatar returns to Home.
 

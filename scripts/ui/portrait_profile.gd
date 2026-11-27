@@ -8,7 +8,6 @@ const COPY = preload("res://scripts/ui/portrait_leaderboard.gd")
 var host: Node
 var initial_tab := "profile"
 var selected_tab := ""
-var bottom_inset := 0.0
 var _buttons: Dictionary = {}
 var player_profile: Control
 var settings_scroll: ScrollContainer
@@ -79,16 +78,12 @@ func rebuild_settings() -> void:
 	_build_settings()
 	settings_scroll.visible = selected_tab == "settings"
 
-func set_bottom_inset(value: float) -> void:
-	bottom_inset = value
-	_layout()
-
 func _layout() -> void:
 	if !is_inside_tree():
 		return
 	var viewport_size := get_viewport_rect().size
 	var top: float = TABS.CONTENT_Y + LAYOUT.safe_top_stage(viewport_size)
-	var height: float = maxf(80, LAYOUT.expanded_stage_height(viewport_size) - bottom_inset - 12 - top)
+	var height: float = maxf(80, LAYOUT.expanded_stage_height(viewport_size) - 12 - top)
 	# The viewport includes the safe top inset exactly once.
 	if is_instance_valid(settings_scroll):
 		settings_scroll.stage_rect = Rect2(18.4, top, 443.2, height)

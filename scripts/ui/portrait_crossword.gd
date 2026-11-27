@@ -13,11 +13,26 @@ const PATTERN_SHADER = preload("res://shaders/crossword_paper_pattern.gdshader")
 const DESIGN = preload("res://scripts/core/game_design_config.gd")
 const PITCH: float = 56.0
 const TILE_SIZE: float = 52.0
-const MAX_GRID_SCALE: float = 1.15
+const MAX_TILE_SIZE: float = 50.0
+const MAX_GRID_SCALE: float = MAX_TILE_SIZE / TILE_SIZE
+const COMMENT_SIDE_MARGIN: float = 24.0
+const COMMENT_HEIGHT: float = 76.0
+const COMMENT_BOTTOM_PADDING: float = 14.0
+const COMMENT_GRID_GAP: float = 8.0
+const COMMENT_SWIPE_THRESHOLD: float = 36.0
+const SWIPE_NO_POINTER: int = -2
+const SWIPE_MOUSE_POINTER: int = -1
+const COMMENT_FONT_SIZE: int = 22
+const COMMENT_MIN_FONT_SIZE: int = 15
 
 var model: RefCounted
 var selected_cell: int = -1
 var _selected_word: int = 0
+var _comments := PackedStringArray()
+var _comment_label: Label
+var _comment_swipe_area: Control
+var _comment_swipe_pointer: int = SWIPE_NO_POINTER
+var _comment_swipe_start: Vector2
 var _input_enabled: bool = false
 var _word_cells: Array[PackedInt32Array] = []
 var _completed_words: Dictionary = {}
@@ -48,12 +63,13 @@ var _wave_step: float = DESIGN.get_float("timings.animations.word_letters.wave_s
 var _wave_max_travel: float = DESIGN.get_float("timings.animations.word_letters.wave_max_travel_seconds")
 
 func build(
-	board: RefCounted, field: FlashStagePanel, grid_bottom: float, paper_bottom: float, padding: float,
+	board: RefCounted, field: FlashStagePanel, paper_bottom: float, padding: float, comments: PackedStringArray,
 	starter_cells: PackedInt32Array = PackedInt32Array(), focus_starter: bool = false, pattern_source: Control = null
 ) -> void:
 	model = board
 	_field = field
-	_grid_bottom = grid_bottom
+	_grid_bottom = paper_bottom - COMMENT_BOTTOM_PADDING - COMMENT_HEIGHT - COMMENT_GRID_GAP
+	_comments = comments
 	_paper_bottom = paper_bottom
 	_padding = padding
 	if focus_starter:
@@ -72,6 +88,22 @@ func build(
 		_pattern_material.set_shader_parameter("pattern_color", PALETTE.CROSSWORD_PAPER_PATTERN)
 		var pattern_overlay: Control = PATTERN.add_aligned_layer(pattern_source, self, _pattern_material)
 		move_child(pattern_overlay, _paper.get_index() + 1)
+	_comment_label = Label.new()
+	_comment_label.name = "CrosswordComment"
+	_comment_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_comment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_comment_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_comment_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_comment_label.clip_text = true
+	_comment_label.add_theme_font_override("font", FONTS.question_comment_font())
+	_comment_label.add_theme_color_override("font_color", PALETTE.TEXT_DARK)
+	_comment_label.hide()
+	add_child(_comment_label)
+	_comment_swipe_area = Control.new()
+	_comment_swipe_area.name = "CrosswordCommentSwipeArea"
+	_comment_swipe_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_comment_swipe_area.gui_input.connect(_on_comment_swipe_input)
+	add_child(_comment_swipe_area)
 	_grid = Control.new()
 	_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_field.add_child(_grid)
@@ -90,6 +122,7 @@ func build(
 		_tile_style(PALETTE.BUTTON_ORANGE, PALETTE.BUTTON_ORANGE_PRESSED),
 		_tile_style(PALETTE.MARKER_SUCCESS, PALETTE.SUCCESS_BORDER),
 	])
+	var space_style: StyleBoxFlat = _tile_style(PALETTE.CROSSWORD_SPACE_FILL, PALETTE.CROSSWORD_SPACE_BORDER)
 	var numbers: Dictionary = {}
 	var letter_font: Font = FONTS.gameplay_word_font()
 	var number_font: Font = FONTS.regular_font()
@@ -104,10 +137,12 @@ func build(
 		tile.size = Vector2.ONE * TILE_SIZE
 		_grid.add_child(tile)
 		_tiles[index] = tile
+		if letter == " ":
+			tile.add_theme_stylebox_override("panel", space_style)
+			continue
 		if WORD_CROSSWORD.is_separator(letter):
 			tile.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-			if letter != " ":
-				_label(tile, "Separator", letter, Rect2(0, 0, TILE_SIZE, TILE_SIZE), 28, letter_font)
+			_label(tile, "Separator", letter, Rect2(0, 0, TILE_SIZE, TILE_SIZE), 28, letter_font)
 			continue
 		if !numbers.has(letter):
 			numbers[letter] = numbers.size() + 1
@@ -131,6 +166,48 @@ func build(
 		_word_cells.append(word_cells)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+
+func _on_comment_swipe_input(event: InputEvent) -> void:
+	# One physical gesture may also produce emulated events of the other type.
+	if event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	var pointer: int
+	if event is InputEventScreenTouch:
+		pointer = event.index
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		pointer = SWIPE_MOUSE_POINTER
+	else:
+		return
+	if event.is_pressed():
+		if _comment_swipe_pointer == SWIPE_NO_POINTER or _comment_swipe_pointer == pointer:
+			_comment_swipe_pointer = pointer
+			_comment_swipe_start = event.position
+		return
+	if _comment_swipe_pointer != pointer:
+		return
+	_comment_swipe_pointer = SWIPE_NO_POINTER
+	if event.is_canceled():
+		return
+	var delta: Vector2 = event.position - _comment_swipe_start
+	var threshold: float = COMMENT_SWIPE_THRESHOLD * STAGE.fit_scale(get_viewport_rect().size)
+	if absf(delta.x) >= threshold and absf(delta.x) > absf(delta.y):
+		_switch_word(1 if delta.x < 0.0 else -1)
+
+func _switch_word(direction: int) -> void:
+	if !_input_enabled or selected_cell < 0:
+		return
+	for offset: int in range(1, _word_cells.size()):
+		var word_index: int = posmod(_selected_word + direction * offset, _word_cells.size())
+		for cell: int in _word_cells[word_index]:
+			if !_glyphs[cell].visible:
+				_select_cell(cell, word_index)
+				return
+
+func _sync_comment_swipe() -> void:
+	var enabled: bool = _input_enabled and selected_cell >= 0 and _word_cells.size() - _completed_words.size() > 1
+	_comment_swipe_area.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+	if !enabled:
+		_comment_swipe_pointer = SWIPE_NO_POINTER
 
 func _should_transpose_board() -> bool:
 	var longest_length: int = 0
@@ -187,6 +264,7 @@ func refresh(revealed: Array, bounce: Callable = Callable(), reveal_solution: bo
 		if selected_cell == -1:
 			_advance_selection(previous_cell)
 	_sync_tile_styles()
+	_sync_comment()
 
 func _queue_completed_words(revealed: Array, animate: bool) -> Dictionary:
 	var completed_cells: Dictionary = {}
@@ -283,6 +361,7 @@ func set_input_enabled(enabled: bool) -> void:
 	if _input_enabled == enabled:
 		return
 	_input_enabled = enabled
+	_sync_comment_swipe()
 	for index: int in range(_glyphs.size()):
 		var glyph: Label = _glyphs[index]
 		if glyph != null:
@@ -303,6 +382,29 @@ func _select_cell(index: int, word_index: int) -> void:
 	selected_cell = index
 	_selected_word = word_index
 	_sync_tile_styles()
+	_sync_comment()
+
+func _sync_comment() -> void:
+	var comment: String = _comments[_selected_word] if selected_cell >= 0 and _selected_word < _comments.size() else ""
+	if _comment_label.text != comment:
+		_comment_label.text = comment
+		_fit_comment(STAGE.fit_scale(get_viewport_rect().size))
+	_comment_label.visible = !comment.is_empty()
+	_sync_comment_swipe()
+
+func _fit_comment(fit: float) -> void:
+	if _comment_label.text.is_empty():
+		return
+	# Rasterize at the viewport's resolution, like the unscaled native labels.
+	var min_size: int = maxi(1, roundi(COMMENT_MIN_FONT_SIZE * fit))
+	var font_size: int = maxi(min_size, roundi(COMMENT_FONT_SIZE * fit))
+	_comment_label.add_theme_font_size_override("font_size", font_size)
+	while font_size > min_size:
+		var line_count: int = _comment_label.get_line_count()
+		if _comment_label.get_visible_line_count() >= line_count:
+			break
+		font_size -= 1
+		_comment_label.add_theme_font_size_override("font_size", font_size)
 
 func _sync_tile_styles() -> void:
 	for index: int in range(_tiles.size()):
@@ -330,7 +432,7 @@ func set_bottom(bottom: float) -> void:
 
 func _layout() -> void:
 	var viewport_size: Vector2 = get_viewport_rect().size
-	# The grid ends above the hints. The wider sheet continues behind them.
+	# The sheet extends below the grid to hold the selected word's comment.
 	var field_rect: Rect2 = _field.stage_rect
 	var top: float = field_rect.position.y + STAGE.safe_top_stage(viewport_size)
 	var extra_height: float = STAGE.extra_stage_height(viewport_size)
@@ -340,6 +442,14 @@ func _layout() -> void:
 	var paper_height: float = maxf(field_rect.size.y, _paper_bottom + extra_height - top)
 	_paper.scale = Vector2.ONE * fit
 	_paper.size = Vector2(viewport_size.x / fit, top + paper_height)
+	var comment_width: float = STAGE.BASE_SIZE.x - 2.0 * COMMENT_SIDE_MARGIN
+	_comment_label.size = Vector2(comment_width, COMMENT_HEIGHT) * fit
+	_comment_label.position = Vector2(
+		(_paper.size.x - comment_width) * 0.5, _paper.size.y - COMMENT_BOTTOM_PADDING - COMMENT_HEIGHT
+	) * fit
+	_comment_swipe_area.position = _comment_label.position
+	_comment_swipe_area.size = _comment_label.size
+	_fit_comment(fit)
 	_paper_material.set_shader_parameter("paper_size", _paper.size)
 	_paper_material.set_shader_parameter("paper_unit", STAGE.adaptive_ui_scale(viewport_size, PAPER_STYLE.MAX_PAPER_SCALE))
 	if _pattern_material != null:

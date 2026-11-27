@@ -118,7 +118,7 @@ func _blend_destination() -> void:
 		new_background.move_child(_old_pattern, _new_pattern.get_index())
 		_new_pattern.modulate.a = 0.0
 		old_background.hide()
-	# The remaining Home tree is foreground only (HUD and banner preview).
+	# The remaining Home tree is foreground only.
 	# Fading a whole page would composite its lower layers independently and
 	# reveal the old grid through its own translucent blue overlay.
 	var home_background := _home.get_node_or_null("HomeBackgroundOverlay") as Control

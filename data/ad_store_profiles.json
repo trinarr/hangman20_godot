@@ -1,13 +1,11 @@
 {
   "rustore": {
-    "banner_id": "R-M-20326744-9",
     "rewarded_id": "R-M-20326744-4",
     "interstitial_id": "R-M-20326744-1",
     "google_ads_enabled": false,
     "google_application_id": ""
   },
   "google_play": {
-    "banner_id": "R-M-20334511-3",
     "rewarded_id": "R-M-20334511-2",
     "interstitial_id": "R-M-20334511-1",
     "google_ads_enabled": true,

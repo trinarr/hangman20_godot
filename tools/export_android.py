@@ -39,7 +39,7 @@ def validate_store(root: Path, preset_name: str, debug: bool = False) -> str:
 
 def validate_profile(profiles: dict, store: str, debug: bool = False) -> None:
     profile = profiles[store]
-    for key in ("banner_id", "rewarded_id", "interstitial_id"):
+    for key in ("rewarded_id", "interstitial_id"):
         if not debug and not re.fullmatch(r"R-M-\d+-\d+", profile.get(key, "")):
             raise ValueError(f"{store}: missing or invalid {key}")
     app_id = profile.get("google_application_id", "")
@@ -48,7 +48,7 @@ def validate_profile(profiles: dict, store: str, debug: bool = False) -> None:
     if app_id and not profile.get("google_ads_enabled"):
         raise ValueError(f"{store}: Google Application ID set while Google ads are disabled")
     if store == "google_play" and not debug:
-        if any(profile[key] == profiles["rustore"][key] for key in ("banner_id", "rewarded_id", "interstitial_id")):
+        if any(profile[key] == profiles["rustore"][key] for key in ("rewarded_id", "interstitial_id")):
             raise ValueError("Google Play must use its own ad units, not RuStore units")
 
 

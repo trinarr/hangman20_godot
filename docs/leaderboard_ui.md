@@ -27,8 +27,7 @@ when the original card is not fully visible; the original visuals are hidden whi
 pinned, without removing their layout space. Outside the top 100, the own card is
 always pinned below. Bottom padding allows the last ranked row to scroll above
 this card. Touch/wheel scrolling passes through non-interactive card children.
-The component maps logical stage coordinates once, handles viewport resizing and
-reserves space for the ad banner, including delayed permission changes.
+The component maps logical stage coordinates once, and adapts to viewport resizing.
 
 Quiz answers and leaderboard cards share `quiz_answer_card_style.gd`; the quiz
 face, corner radii, padding and shadow keep their previous values. Closing the
@@ -41,7 +40,7 @@ python3 tools/run_content_tests.py --godot /path/to/godot --suite leaderboard_ui
 ```
 
 The suite checks pinning, visible-row deduplication, bottom padding,
-banner inset, empty/unconfigured states, synchronous cached responses,
+viewport height, empty/unconfigured states, synchronous cached responses,
 late-response disposal and integration with Home. Existing leaderboard,
 quiz_statistics, bonus_quiz and portrait_round_result suites are also applicable.
 A device render/touch check is still needed; headless checks do not verify pixels.

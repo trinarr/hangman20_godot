@@ -36,8 +36,6 @@ class LegalAcceptanceUI extends "res://scripts/main_portrait.gd":
 		return true
 	func _check_startup_guided_resume() -> void:
 		pass
-	func _refresh_portrait_ad_banner_after_permission() -> void:
-		calls.append("banner")
 
 var checks: int = 0
 var failures: Array[String] = []
@@ -110,16 +108,16 @@ func run() -> void:
 	service.ad_impression('{"revenueUSD":"0.0012","revenue":"900","currency":"RUB","network":{"name":"AppLovin"}}', "rewarded", "heart_refill")
 	params = native.events.back().parameters
 	check(params.ad_source == "AppLovin" and params.ad_platform == "Yandex" and params.value == 0.0012 and params.currency == "USD" and params.placement == "heart_refill", "mediation keeps actual network and per-impression revenue")
-	service.ad_impression('{"revenue":"0","currency":"eur"}', "banner", "banner")
+	service.ad_impression('{"revenue":"0","currency":"eur"}', "interstitial", "word_success")
 	params = native.events.back().parameters
 	check(params.value == 0.0 and params.currency == "EUR" and !params.has("ad_source"), "zero revenue is valid and an unknown network is not guessed")
-	service.ad_impression('{"revenue":"2.5","currency":"123","network":null}', "banner", "banner")
+	service.ad_impression('{"revenue":"2.5","currency":"123","network":null}', "interstitial", "word_success")
 	params = native.events.back().parameters
 	check(!params.has("value") and !params.has("currency") and !params.has("ad_source"), "invalid currency and network do not fabricate attribution")
-	service.ad_impression('{"revenueUSD":"NaN"}', "banner", "banner")
+	service.ad_impression('{"revenueUSD":"NaN"}', "interstitial", "word_success")
 	check(!native.events.back().parameters.has("value"), "missing or invalid revenue is never fabricated")
 	var count: int = native.events.size()
-	service.ad_impression("invalid", "banner", "banner")
+	service.ad_impression("invalid", "interstitial", "word_success")
 	check(native.events.size() == count, "malformed ILRD is ignored without logging its raw content")
 	service.screen("home")
 	service.screen("home")
@@ -200,7 +198,7 @@ func _check_legal_acceptance_restarts_ads() -> void:
 	check(ui.calls.is_empty() and !GameState.has_accepted_legal_documents(), "failed legal save cannot start ads or dismiss the gate")
 	GameState._save_blocked_by_future_version = false
 	ui._accept_legal_documents()
-	check(ui.calls == ["popup_removed", "initialize", "banner"] and ui.legal_saved_before_init, "legal acceptance restarts ads and banner without waiting for a cached region change")
+	check(ui.calls == ["popup_removed", "initialize"] and ui.legal_saved_before_init, "legal acceptance restarts fullscreen ads without waiting for a cached region change")
 	GameState.load_game()
 	check(GameState.has_accepted_legal_documents() and GameState.ad_personalization_choice == GameState.AdPersonalizationChoice.DENIED, "restarted ads use durably accepted documents and preserve refusal")
 	ui.free()

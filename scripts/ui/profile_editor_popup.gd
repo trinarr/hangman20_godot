@@ -14,7 +14,6 @@ const PAPER_SHADER = preload("res://shaders/profile_avatar_paper.gdshader")
 const MASK = preload("res://shaders/profile_editor_mask.gdshader")
 const ROUND = preload("res://scripts/ui/stage_round_button.gd")
 const LONG = preload("res://scripts/ui/stage_long_button.gd")
-const ARROW = preload("res://flash_assets/portrait_back_arrow_icon.png")
 const CHECK = preload("res://flash_assets/reward_status_check_wide.png")
 const OUTLINE = preload("res://scripts/ui/colored_icon_outline.gd")
 const AVATAR = preload("res://scripts/ui/profile_avatar_button.gd")
@@ -252,17 +251,10 @@ func _build_form() -> void:
 		var arrow := ROUND.new()
 		arrow.name = "PreviousCharacter" if direction < 0 else "NextCharacter"
 		arrow.use_stage_layout = false
-		arrow.stage_rect = Rect2(24 if direction < 0 else 348, 266, 52, 52)
-		arrow.configure_texture(ARROW, Vector2.ONE * 27.0 * ROUND.NAV_CANVAS_SCALE)
-		arrow.set_color_preset(ROUND.ColorPreset.BLUE)
-		arrow.drop_shadow_enabled = true
-		arrow.icon_shadow_enabled = true
+		arrow.stage_rect = Rect2(Vector2(24 if direction < 0 else 348, 266), Vector2.ONE * ROUND.NAV_ARROW_BUTTON_SIZE)
+		arrow.configure_navigation_arrow(direction > 0)
 		arrow.pressed.connect(_switch_character)
 		_form.add_child(arrow)
-		if direction > 0:
-			arrow._icon_rect.flip_h = true
-			for shadow: TextureRect in arrow._icon_shadow_layers:
-				shadow.flip_h = true
 	nickname = NickInput.new()
 	nickname.name = "ProfileNicknameInput"
 	nickname.stage_rect = Rect2(40, 20, 344, 62.4)

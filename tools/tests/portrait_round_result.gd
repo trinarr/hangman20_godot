@@ -4,12 +4,9 @@ class TestUI:
 	extends "res://scripts/main_portrait.gd"
 	var continued: int = 0
 	var sounds: int = 0
-	var preview_banner: bool = false
 	func _ready() -> void:
 		_build_root()
 		_clear()
-	func _portrait_ads_enabled() -> bool:
-		return preview_banner
 	func _prepare_portrait_game_entrance() -> void:
 		pass
 	func _play_result_sound_once(_win: bool, _data: Dictionary = {}) -> void:
@@ -68,7 +65,6 @@ func check_final_key_feedback() -> void:
 
 func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	var is_russian: bool = language == "ru"
-	main.preview_banner = true
 	build("АБВА" if is_russian else "ABBA")
 	GameSession.is_active = true
 	GameSession.correct_letters.append("А" if is_russian else "A")
@@ -79,8 +75,6 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	var background_rect: Rect2 = background.get_global_rect()
 	check(background.has_node("PortraitGameBackgroundGradient") and !background.has_node("PortraitGameThemePattern"), "A theme-less fixture has the shared gradient without a theme icon")
 	check(main.content.find_child("PortraitPaperBackground", true, false) == null and main.content.find_child("PortraitGameKeyboardPanel", true, false) == null, "keyboard stays on the blue gradient")
-	var banner: Control = main.get_tree().get_first_node_in_group("ad_banner_slot")
-	var banner_rect: Rect2 = banner.get_global_rect()
 	var key_top: float = INF
 	var key_bottom: float = -INF
 	var expected_font_size: int = {960: 27, 690: 31, 1080: 28}[size.x]
@@ -98,29 +92,29 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		key_top = minf(key_top, key_rect.position.y)
 		key_bottom = maxf(key_bottom, key_rect.end.y)
 		rows[key_rect.position.y] = rows.get(key_rect.position.y, "") + entry.letter
-		check(background_rect.encloses(key_rect) and key_rect.end.y < banner_rect.position.y, "keyboard key stays on the playfield and above the ad")
+		check(background_rect.encloses(key_rect), "keyboard key stays on the playfield")
 		check(button._face.get_theme_stylebox("panel").corner_radius_top_left == 14, "key uses the leaderboard corner radius")
 		check(button._label.get_theme_font("font") == keyboard_font, "letter uses the keyboard font profile")
 		check(button._label.get_theme_font_size("font_size") == expected_font_size, "letter uses the expected adaptive font size")
 		check(button.disabled == (button.letter_state != StageLetterButton.LetterState.NORMAL and button.remaining_count == 0), "a used key stays active only while its letter has hidden cells")
 	check(rows.values() == (["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"] if is_russian else ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]), "keyboard uses the expected rows with the complete game alphabet")
-	check(is_equal_approx(background_rect.end.y, banner_rect.end.y), "shared background covers the screen through the ad slot")
+	check(is_equal_approx(background_rect.end.y, main.get_viewport_rect().size.y), "shared background covers the screen to the bottom")
 	var stage_scale: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(main.get_viewport_rect().size)
-	check(is_equal_approx(banner_rect.position.y - key_bottom, 22.0 * stage_scale), "bottom keyboard padding is 22 stage units")
-	check(main._portrait_game_hint_buttons.size() == 3, "all three game hints are present")
-	var hint_right: float = -INF
+	check(main._portrait_game_hint_buttons.size() == 2 and main._portrait_game_hint_button_for_key(GameState.HINT_COMMENT) == null, "Only letter hints are present")
+	var open_hint: Control = main._portrait_game_hint_buttons[0]
+	var remove_hint: Control = main._portrait_game_hint_buttons[1]
+	var open_rect: Rect2 = open_hint.get_global_rect()
+	var remove_rect: Rect2 = remove_hint.get_global_rect()
+	var hint_row: Rect2 = open_rect.merge(remove_rect)
+	check(is_equal_approx(hint_row.get_center().x, background_rect.get_center().x), "Hints are centered horizontally")
+	check(is_equal_approx(remove_rect.position.x - open_rect.end.x, 12.0 * stage_scale), "Hints sit twelve stage units apart")
+	check(is_equal_approx(hint_row.position.y - key_bottom, 16.0 * stage_scale), "Hints sit below the keyboard")
+	check(is_equal_approx(background_rect.end.y - hint_row.end.y, 22.0 * stage_scale), "Hint row keeps the bottom margin")
 	for hint: Control in main._portrait_game_hint_buttons:
-		var hint_rect: Rect2 = hint.get_global_rect()
-		if hint_right != -INF:
-			check(is_equal_approx(hint_rect.position.x - hint_right, 12.0 * stage_scale), "hint buttons sit twelve stage units apart")
-		hint_right = hint_rect.end.x
 		var expected_size: Vector2 = main.PORTRAIT_GAME_HINT_BUTTON_SIZE * 0.88 * stage_scale
-		check(hint_rect.size.is_equal_approx(expected_size), "hint button and its input area are 20 percent smaller")
-		check(is_equal_approx(key_top - hint_rect.end.y, 44.0 * stage_scale), "hint retains its gap to the first keyboard row")
+		check(hint.get_global_rect().size.is_equal_approx(expected_size), "Hint button keeps its visual and input size")
 		var icon: Control = hint.get_node("HintArtHolder")
-		check(icon.get_global_rect().size.is_equal_approx(main.PORTRAIT_GAME_HINT_ART_SIZE * 0.88 * stage_scale), "hint icon scales with its button")
-	var right_edge: float = background_rect.get_center().x + main.PORTRAIT_STAGE_SIZE.x * 0.5 * stage_scale
-	check(is_equal_approx(right_edge - hint_right, 18.4 * stage_scale), "hint row uses the right screen margin")
+		check(icon.get_global_rect().size.is_equal_approx(main.PORTRAIT_GAME_HINT_ART_SIZE * 0.88 * stage_scale), "Hint icon scales with its button")
 	if DisplayServer.get_name() != "headless":
 		await RenderingServer.frame_post_draw
 		var frame: Image = get_viewport().get_texture().get_image()
@@ -153,7 +147,6 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		if !directory.is_empty():
 			frame.save_png(directory.path_join("game_keyboard_%s_%d.png" % [language, size.x]))
 	main._clear()
-	main.preview_banner = false
 
 func check_crossword_paper(frame: Image, stage_scale: float, key_top: float) -> void:
 	var grid: Control = main._portrait_crossword
@@ -162,16 +155,17 @@ func check_crossword_paper(frame: Image, stage_scale: float, key_top: float) -> 
 	if paper == null:
 		return
 	var rect: Rect2 = paper.get_global_rect()
-	check(grid._grid.scale.x > 1.0, "Short crosswords use the larger cell scale")
+	check(grid._tiles[0].get_global_rect().size.is_equal_approx(Vector2.ONE * 50.0 * stage_scale), "Short crosswords use the maximum 50-unit cells")
 	check(is_equal_approx((key_top - rect.end.y) / stage_scale, 22.0), "Paper ends 22 stage units above the first key row")
 	for hint: Control in main._portrait_game_hint_buttons:
-		check(is_equal_approx((rect.end.y - hint.get_global_rect().end.y) / stage_scale, 22.0), "Paper ends 22 stage units below each hint")
+		check(hint.get_global_rect().position.y > rect.end.y, "Hints stay below the paper")
 	var middle := Vector2i(3, int(rect.get_center().y))
 	var body: Color = frame.get_pixelv(middle)
 	check(body == Color.WHITE and frame.get_pixel(3, 0) == Color.WHITE, "White paper covers the playfield and reaches the top")
 	check(frame.get_pixel(frame.get_width() - 4, middle.y).r > 0.90, "paper reaches the opposite screen edge")
 	var plain: bool = true
-	var clear_row: int = int(main.PORTRAIT_QUIZ_THEME_TITLE_RECT.end.y * stage_scale)
+	var field_bottom: float = grid._field.get_global_rect().end.y
+	var clear_row: int = int((field_bottom + grid._comment_label.position.y) * 0.5)
 	for x: int in range(8, frame.get_width() - 8):
 		plain = plain and frame.get_pixel(x, clear_row) == Color.WHITE
 	check(plain, "the paper face has no graph ruling")
@@ -194,7 +188,35 @@ func check_crossword_paper(frame: Image, stage_scale: float, key_top: float) -> 
 	await RenderingServer.frame_post_draw
 	check(get_viewport().get_texture().get_image().get_pixelv(middle) == body, "paper restores its texture after the fade")
 
+func check_quiz_layout(language: String, size: Vector2i) -> void:
+	main._quiz_mode_active = true
+	main._quiz_single_player_embedded = false
+	main._quiz_selected_theme_index = 0
+	main._quiz_current_question = Database.get_quiz_questions_by_theme_index(0)[0]
+	main._quiz_question_replacing = true
+	main._home_profile_show_quiz_game_screen()
+	await get_tree().process_frame
+	var question := main.content.find_child("StageQuestionCard", true, false) as Control
+	var first_answer: Control = main._quiz_answer_buttons.front().get_meta(&"quiz_answer_holder")
+	var last_answer: Control = main._quiz_answer_buttons.back().get_meta(&"quiz_answer_holder")
+	var hint: Control = main._quiz_hint_buttons.front()
+	var scale_factor: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(main.get_viewport_rect().size)
+	var bottom: float = main.get_viewport_rect().size.y
+	check(first_answer.get_global_rect().position.y > question.get_global_rect().end.y, "Quiz answers clear the question card")
+	check(is_equal_approx(hint.get_global_rect().position.y - last_answer.get_global_rect().end.y, 24.0 * scale_factor), "Quiz hints keep their gap from the answer stack")
+	check(is_equal_approx(bottom - hint.get_global_rect().end.y, 22.0 * scale_factor), "Quiz hints use the bottom margin")
+	check(is_equal_approx(bottom - main._quiz_continue_button.get_global_rect().end.y, 22.0 * scale_factor), "Quiz Continue uses the bottom margin")
+	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
+	if !directory.is_empty() and DisplayServer.get_name() != "headless":
+		await get_tree().create_timer(0.5).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(directory.path_join("quiz_%s_%d.png" % [language, size.x]))
+	main._quiz_question_replacing = false
+	main._quiz_mode_active = false
+	main._clear()
+
 func run() -> void:
+	GameState.accepted_legal_documents_version = GameState.LEGAL_DOCUMENTS_VERSION
 	GameState.ad_personalization_choice = GameState.AdPersonalizationChoice.ACCEPTED
 	main = TestUI.new()
 	add_child(main)
@@ -205,6 +227,7 @@ func run() -> void:
 		main._show_in_place_round_result(win, false)
 		await get_tree().process_frame
 		check(main._portrait_in_place_result_active and main._portrait_in_place_result_is_win == win, "result flags reflect outcome")
+		check(!main._portrait_crossword._comment_label.visible, "The selection comment is hidden when the solution is shown")
 		check(main._portrait_crossword._glyphs.all(func(label: Label) -> bool: return label == null or label.visible), "static result reveals the entire crossword")
 		check(main._portrait_crossword._number_labels.all(func(label: Label) -> bool: return label == null or !label.visible), "Showing the solution removes all numbers")
 		check(main._portrait_inline_result_search_button.visible and !main._portrait_inline_result_search_button.get("disabled"), "static search ready")
@@ -253,6 +276,7 @@ func run() -> void:
 		for language: String in ["ru", "en"]:
 			Database.load_languages(language, language)
 			await check_keyboard_layout(language, size)
+			await check_quiz_layout(language, size)
 			for win: bool in [false, true]:
 				build("АБВА" if language == "ru" else "ABBA")
 				GameState.current_mode = GameState.GameMode.SINGLE_PLAYER

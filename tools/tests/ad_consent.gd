@@ -18,26 +18,14 @@ class FakeNative extends RefCounted:
 	func configure(_age: bool, consent: bool, _logging: bool) -> void:
 		logging_enabled = _logging
 		calls.append("configure:%s" % consent)
-	func hideBanner() -> void:
-		calls.append("hide_banner")
-	func removeBanner() -> void:
-		calls.append("remove_banner")
-	func loadBanner(_id: String, _top: bool, _width: int, _height: int) -> void:
-		calls.append("load_banner")
 	func loadInterstitial(_id: String) -> void:
 		calls.append("load_interstitial")
 	func loadRewardedVideo(_id: String) -> void:
 		calls.append("load_rewarded")
-	func showBanner() -> void:
-		calls.append("show_banner")
 	func showRewardedVideoForRequest(request: String) -> void:
 		calls.append("show:" + request)
 	func showInterstitialForRequest(request: String) -> void:
 		calls.append("int:" + request)
-	func getBannerWidth() -> int:
-		return 320
-	func getBannerHeight() -> int:
-		return 50
 
 var failures: int = 0
 
@@ -57,8 +45,6 @@ class SignalNative extends FakeJni:
 	signal _on_rewarded_video_ad_failed_to_show(message: String)
 	signal _on_rewarded_video_ad_show
 	signal _on_ad_impression(id: String, format: String, raw: String)
-	signal _on_banner_loaded
-	signal _on_banner_failed_to_load(code: int)
 
 class FullscreenNative extends SignalNative:
 	var outcomes: Dictionary = {}
@@ -71,18 +57,6 @@ class FullscreenNative extends SignalNative:
 	func pollFullscreenAdForRequest(request: String) -> String:
 		calls.append("poll:" + request)
 		return str(outcomes.get(request, ""))
-
-class TaggedBannerNative extends FakeNative:
-	var java_queries: Array[String] = []
-	func has_java_method(method: StringName) -> bool:
-		java_queries.append(str(method))
-		return method in [&"loadBannerForRequest", &"showRewardedVideoForRequest", &"showInterstitialForRequest"]
-	signal _on_banner_loaded_for_request(id: String)
-	signal _on_banner_failed_for_request(id: String, code: int)
-	signal _on_banner_loaded
-	signal _on_banner_failed_to_load(code: int)
-	func loadBannerForRequest(id: String, _unit: String, _top: bool, _width: int, _height: int) -> void:
-		calls.append("load:" + id)
 
 class TaggedRewardedNative extends SignalNative:
 	signal _on_rewarded_loaded_for_load(id: String)
@@ -106,33 +80,6 @@ class TaggedInterstitialNative extends SignalNative:
 		calls.append("int_load:" + id)
 	func cancelInterstitialLoad(id: String) -> void:
 		calls.append("int_cancel:" + id)
-
-class ClockNative extends TaggedBannerNative:
-	var elapsed_ms: int = 4000000000
-	var calendar_ms: int = 2000000000000
-	func has_java_method(method: StringName) -> bool:
-		if method == &"getElapsedRealtimeMs":
-			java_queries.append(str(method))
-			return true
-		return super.has_java_method(method)
-	func getElapsedRealtimeMs() -> int:
-		return elapsed_ms
-
-class BannerRecoveryAds extends "res://yandex_ads.gd":
-	var now_ms: int = 1000000
-	var probe_now_ms: int = 1000000
-	func _banner_now_ms() -> int:
-		return now_ms
-	func _banner_recovery_now_ms() -> int:
-		return probe_now_ms
-
-class ShortBannerRecoveryAds extends "res://yandex_ads.gd":
-	func _banner_timing(key: String) -> float:
-		if key == "sdk_refresh_grace_seconds":
-			return 0.18
-		if key == "probe_cooldown_seconds":
-			return 0.05
-		return super._banner_timing(key)
 
 class RewardedRecoveryAds extends "res://yandex_ads.gd":
 	var now_ms: int = 1000000
@@ -163,9 +110,6 @@ func service():
 	return ads
 
 func _initialize() -> void:
-	await test_banner_tree_processing()
-	await test_banner_recovery_timing()
-	test_banner_recovery()
 	test_interstitial_load_recovery()
 	test_diagnostic_logging()
 	test_shared_placement_cache()
@@ -203,14 +147,12 @@ func _initialize() -> void:
 
 	# Completed caches are unavailable immediately; replacements load once.
 	var cached = service()
-	cached._banner_wanted = true
-	cached._banner_loaded = true
 	cached._interstitial_loaded = true
 	cached._rewarded_loaded = true
 	cached.initialize_after_consent(false)
-	check(!cached._banner_loaded and !cached._interstitial_loaded and !cached._rewarded_loaded,
+	check(!cached._interstitial_loaded and !cached._rewarded_loaded,
 		"old cached ads still accessible")
-	check(cached._native.calls == ["consent:false", "hide_banner", "remove_banner", "load_banner", "load_interstitial", "load_rewarded"],
+	check(cached._native.calls == ["consent:false", "load_interstitial", "load_rewarded"],
 		"cache replacement ordering")
 	cached.free()
 
@@ -218,8 +160,6 @@ func _initialize() -> void:
 	# changes cannot overlap same-format requests with untagged bridge callbacks.
 	for fail_old_request: bool in [false, true]:
 		var pending = service()
-		pending._banner_wanted = true
-		pending._banner_loading = true
 		pending._interstitial_loading = true
 		pending._rewarded_loading = true
 		pending.set_user_consent(false)
@@ -227,32 +167,20 @@ func _initialize() -> void:
 		pending.set_user_consent(false)
 		check(!pending._native.calls.has("load_rewarded"), "overlapping replacement request")
 		if fail_old_request:
-			pending._on_banner_failed_to_load(1)
 			pending._on_interstitial_failed_to_load(1)
 			pending._on_rewarded_video_ad_failed_to_load(1)
 		else:
-			pending._on_banner_loaded()
 			pending._on_interstitial_loaded()
 			pending._on_rewarded_video_ad_loaded()
-		check(!pending._banner_loaded and !pending._interstitial_loaded and !pending._rewarded_loaded,
+		check(!pending._interstitial_loaded and !pending._rewarded_loaded,
 			"stale callback exposed old ad")
-		for call_name: String in ["load_banner", "load_interstitial", "load_rewarded"]:
+		for call_name: String in ["load_interstitial", "load_rewarded"]:
 			check(pending._native.calls.count(call_name) == 1, "replacement missing or duplicated: " + call_name)
-		pending._on_banner_loaded()
 		pending._on_interstitial_loaded()
 		pending._on_rewarded_video_ad_loaded()
-		check(pending._banner_loaded and pending._interstitial_loaded and pending._rewarded_loaded,
+		check(pending._interstitial_loaded and pending._rewarded_loaded,
 			"new ads never became ready")
 		pending.free()
-
-	# A hidden banner is never re-created when the obsolete request finishes.
-	var hidden = service()
-	hidden._banner_loading = true
-	hidden.set_user_consent(false)
-	hidden._on_banner_loaded()
-	check(!hidden._native.calls.has("load_banner"), "hidden banner reloaded")
-	check(!hidden._native.calls.has("show_banner"), "hidden obsolete banner displayed")
-	hidden.free()
 
 	# A reward already earned is still delivered after the user withdraws.
 	var reward_service = service()
@@ -267,295 +195,6 @@ func _initialize() -> void:
 	print("Ad consent tests: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)
 	quit(0 if failures == 0 else 1)
 
-func banner_service(ads: Node = null):
-	if ads == null:
-		ads = BannerRecoveryAds.new()
-	ads._sdk_ready = true
-	ads._sdk_initialization_requested = true
-	ads.user_consent = true
-	ads._native = TaggedBannerNative.new()
-	ads._connect_native_signals()
-	ads._update_ad_processing()
-	return ads
-
-func test_banner_recovery() -> void:
-	test_banner_elapsed_clock()
-	test_banner_watchdog()
-	test_banner_cooldown_probe()
-	test_banner_sdk_refresh()
-	test_banner_unavailable_view()
-	test_banner_lifecycle()
-	test_banner_repeated_pause()
-	test_banner_consent_and_legacy()
-
-func test_banner_elapsed_clock() -> void:
-	# Exercise the production clock method, not BannerRecoveryAds' override.
-	var ads = ADS_SCRIPT.new()
-	var native := ClockNative.new()
-	ads._native = native
-	ads._sdk_ready = true
-	ads._sdk_initialization_requested = true
-	ads._connect_native_signals()
-	var queries: int = native.java_queries.size()
-	check(ads._banner_now_ms() == 4000000000, "native elapsed clock preserves values beyond signed 32-bit")
-	ads.show_banner()
-	native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	var cached: String = ads._banner_request_id
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	native.calendar_ms += 86400000
-	native.elapsed_ms += 1000
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	check(ads._banner_request_id == cached and ads._banner_loaded, "calendar jump forward cannot turn short pause into long background")
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	native.calendar_ms -= 172800000
-	# No process frames while asleep; Android elapsed realtime still advances.
-	native.elapsed_ms += 180000
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	check(ads._banner_request_id != cached and ads._banner_loading, "calendar jump backward cannot mask long sleeping background")
-	check(native.java_queries.size() == queries, "clock capability is cached rather than checked on each reading")
-	ads.free()
-	var legacy = service()
-	legacy._connect_native_signals()
-	var before: int = Time.get_ticks_msec()
-	var fallback: int = legacy._banner_now_ms()
-	check(!legacy._banner_native_clock and fallback >= before and fallback <= Time.get_ticks_msec(), "desktop and legacy bridge use monotonic engine ticks without calendar time")
-	legacy.free()
-
-func test_banner_tree_processing() -> void:
-	var ads = banner_service()
-	root.add_child(ads)
-	await process_frame
-	check(!ads.is_processing(), "real idle service stays disabled after entering tree")
-	ads.show_banner()
-	var remaining: float = ads._banner_load_remaining
-	await process_frame
-	await process_frame
-	check(ads._banner_load_remaining < remaining, "engine drives active watchdog")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	remaining = ads._banner_load_remaining
-	await process_frame
-	await process_frame
-	check(ads._banner_load_remaining == remaining and !ads.is_processing(), "focus loss stops engine-driven watchdog")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-	await process_frame
-	await process_frame
-	check(!ads._banner_resume_pending and ads.is_processing(), "focus return wakes processing without manual calls")
-	ads._native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	check(!ads.is_processing(), "successful load stops real service processing")
-	root.remove_child(ads)
-	root.add_child(ads)
-	await process_frame
-	check(!ads.is_processing() and !ads._banner_wanted, "re-entry does not revive old banner intent")
-	ads.free()
-
-func test_banner_recovery_timing() -> void:
-	var ads = banner_service(ShortBannerRecoveryAds.new())
-	root.add_child(ads)
-	await process_frame
-	var native = ads._native
-	ads.show_banner()
-	var old_id: String = ads._banner_request_id
-	native._on_banner_loaded_for_request.emit(old_id)
-	native._on_banner_failed_for_request.emit(old_id, 4)
-	OS.delay_msec(400)
-	await process_frame
-	await process_frame
-	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining > 0.0, "real engine stall expires the SDK grace period despite capped frame delta")
-
-	ads.remove_banner()
-	ads.show_banner()
-	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts")
-	for index: int in range(maximum + 1):
-		native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
-		if ads._banner_retry_remaining > 0.0:
-			ads._process(ads._banner_retry_remaining)
-	var before: int = ads._banner_request_serial
-	check(!ads.is_processing() and !ads._banner_probe_timer.is_stopped(), "real cooldown arms a timer without processing the service each frame")
-	await create_timer(0.15).timeout
-	check(ads._banner_request_serial == before + 1 and ads._banner_probe_timer.is_stopped(), "real one-shot timer starts exactly one probe")
-	native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
-	check(!ads._banner_probe_timer.is_stopped(), "failed probe rearms cooldown")
-	root.remove_child(ads)
-	check(ads._banner_probe_timer.is_stopped(), "exiting the tree stops a pending probe")
-	root.add_child(ads)
-	await create_timer(0.1).timeout
-	check(ads._banner_request_serial == before + 1 and !ads.is_processing(), "re-entry cannot revive an old probe")
-	ads.free()
-
-func test_banner_watchdog() -> void:
-	var ads = banner_service()
-	var native = ads._native
-	check(!ads.is_processing(), "idle banner has no frame processing")
-	ads.show_banner()
-	var first: String = ads._banner_request_id
-	var queries: int = native.java_queries.size()
-	ads.show_banner()
-	check(native.calls == ["load:" + first] and ads.is_processing(), "initial loading runs one request and watchdog")
-	ads._process(ads._banner_timing("load_timeout_seconds") + 0.1)
-	check(!ads._banner_loading and native.calls[-1] == "remove_banner", "lost callback removes stale view")
-	check(ads._banner_wanted and ads._banner_retry_remaining > 0.0, "timeout schedules replacement without losing intent")
-	native._on_banner_loaded_for_request.emit(first)
-	check(!ads._banner_loaded, "success after timeout cannot resurrect old view")
-	var base: float = ads._banner_timing("retry_base_seconds")
-	ads._process(base / 2.0)
-	ads.show_banner()
-	check(native.calls.size() == 2, "repeated show cannot bypass recovery delay")
-	var hidden_delay: float = ads._banner_retry_remaining
-	ads.hide_banner()
-	ads._process(1000.0)
-	ads.show_banner()
-	check(native.calls.size() == 3 and ads._banner_retry_remaining == hidden_delay, "hide pauses recovery delay and cannot bypass it on next show")
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	var remaining: float = ads._banner_retry_remaining
-	check(!ads.is_processing(), "background disables frame processing")
-	ads._process(1000.0)
-	check(ads._banner_retry_remaining == remaining, "background does not consume recovery delay")
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	ads._process(base)
-	var second: String = ads._banner_request_id
-	check(second != first and native.calls[-1] == "load:" + second, "retry starts distinct request")
-	native._on_banner_failed_for_request.emit(first, 1)
-	native._on_banner_loaded_for_request.emit(first)
-	native._on_banner_loaded.emit()
-	check(ads._banner_loading and !ads._banner_loaded, "stale tagged and parallel legacy callbacks cannot complete replacement")
-	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts")
-	for index: int in range(maximum):
-		ads._process(ads._banner_timing("load_timeout_seconds") + 0.1)
-		if ads._banner_retry_remaining > 0.0:
-			check(ads._banner_retry_remaining >= base and ads._banner_retry_remaining <= ads._banner_timing("retry_maximum_seconds"), "watchdog backoff stays within configured limits")
-			ads._process(ads._banner_retry_remaining)
-	check(ads._banner_request_serial == 1 + maximum and ads._banner_probe_after_ms > ads.probe_now_ms, "watchdog backs off to a probe after finite replacement budget")
-	var before: int = native.calls.size()
-	for index: int in range(100):
-		ads.show_banner()
-		ads._process(1000.0)
-	ads.hide_banner()
-	ads.show_banner()
-	check(native.calls.size() == before + 1, "show and hide cannot restart exhausted watchdog budget")
-	check(native.java_queries.size() == queries, "watchdog and repeated show use cached JNI capabilities")
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	ads.now_ms += 180000
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	check(ads._banner_loading, "genuine long background starts a new recovery budget")
-	native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	check(ads._banner_recovery_count == 0 and !ads.is_processing(), "success clears watchdog budget and disables frames")
-	ads.free()
-
-func test_banner_cooldown_probe() -> void:
-	var ads = banner_service()
-	root.add_child(ads)
-	var native = ads._native
-	ads.show_banner()
-	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.banner_recovery.maximum_recovery_attempts")
-	var obsolete: String = ""
-	for index: int in range(maximum + 1):
-		obsolete = ads._banner_request_id
-		ads._process(ads._banner_timing("load_timeout_seconds") + 0.1)
-		if ads._banner_retry_remaining > 0.0:
-			ads._process(ads._banner_retry_remaining)
-	var before: int = ads._banner_request_serial
-	var cooldown_ms: int = int(ads._banner_timing("probe_cooldown_seconds") * 1000.0)
-	check(!ads.is_processing() and !ads._banner_probe_timer.is_stopped() and ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms, "exhausted budget schedules a probe without frame processing")
-	ads.probe_now_ms += cooldown_ms - 1
-	for index: int in range(100):
-		ads.show_banner()
-	ads._on_banner_probe_timeout()
-	check(ads._banner_request_serial == before, "active screen and game requests wait until the deadline")
-	ads.probe_now_ms += 1
-	ads._banner_probe_timer.timeout.emit()
-	var probe: String = ads._banner_request_id
-	check(ads._banner_request_serial == before + 1 and ads._banner_loading, "the active screen probes without a new show request")
-	native._on_banner_loaded_for_request.emit(obsolete)
-	native._on_banner_failed_for_request.emit(obsolete, 1)
-	check(ads._banner_request_id == probe and ads._banner_loading, "probe rejects stale callbacks")
-	native._on_banner_failed_for_request.emit(probe, 4)
-	ads.probe_now_ms += int(ads._banner_timing("sdk_refresh_grace_seconds") * 1000.0)
-	ads._process(0.0)
-	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining == 0.0 and ads._banner_probe_after_ms == ads.probe_now_ms + cooldown_ms, "failed probe returns to cooldown after SDK grace")
-	ads.hide_banner()
-	check(ads._banner_probe_timer.is_stopped(), "hiding stops the probe timer but preserves its deadline")
-	ads.probe_now_ms += cooldown_ms
-	ads._banner_probe_timer.timeout.emit()
-	check(ads._banner_request_serial == before + 1 and !ads.is_processing(), "hidden screen never probes on cooldown expiry")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	ads.show_banner()
-	check(ads._banner_request_serial == before + 1, "a requested banner waits for focus")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-	ads._process(0.0)
-	check(ads._banner_request_serial == before + 2 and ads._banner_loading, "focus resumes exactly one probe")
-	native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	check(ads._banner_loaded and ads._banner_recovery_count == 0 and ads._banner_probe_after_ms == -1 and !ads.is_processing(), "successful probe restores normal budget and idle processing")
-	native._on_banner_failed_for_request.emit(ads._banner_request_id, -1)
-	check(ads._banner_recovery_count == 1 and ads._banner_retry_remaining > 0.0, "a new failure uses the normal bounded retry budget")
-	ads.remove_banner()
-	before = ads._banner_request_serial
-	ads.probe_now_ms += cooldown_ms
-	ads._process(1000.0)
-	check(ads._banner_request_serial == before and !ads.is_processing(), "removal cancels all pending recovery")
-	ads.free()
-
-func test_banner_sdk_refresh() -> void:
-	var ads = banner_service()
-	var native = ads._native
-	ads.show_banner()
-	var active: String = ads._banner_request_id
-	native._on_banner_loaded_for_request.emit(active)
-	var grace_ms: int = int(ads._banner_timing("sdk_refresh_grace_seconds") * 1000.0)
-	var half_ms: int = floori(grace_ms / 2.0)
-	native._on_banner_failed_for_request.emit(active, 4)
-	var deadline: int = ads._banner_refresh_deadline_ms
-	ads.probe_now_ms += half_ms
-	ads._process(0.0)
-	native._on_banner_failed_for_request.emit(active, 4)
-	check(ads._banner_request_serial == 1 and ads._banner_refresh_deadline_ms == deadline, "repeated SDK failures keep the view without extending grace")
-	native._on_banner_loaded_for_request.emit(active)
-	ads.probe_now_ms += grace_ms
-	ads._process(0.0)
-	check(ads._banner_loaded and ads._banner_request_serial == 1 and !ads.is_processing(), "SDK success cancels the delayed replacement")
-	native._on_banner_failed_for_request.emit(active, 4)
-	ads.probe_now_ms += half_ms
-	ads.hide_banner()
-	ads.probe_now_ms += grace_ms
-	ads._process(0.0)
-	var remaining_ms: int = grace_ms - half_ms
-	check(ads._banner_refresh_remaining_ms == remaining_ms and !ads.is_processing(), "a hidden banner preserves the remaining grace")
-	ads.show_banner()
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	ads.probe_now_ms += grace_ms
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	check(ads._banner_refresh_remaining_ms == remaining_ms and !ads.is_processing(), "resume without focus keeps the SDK grace paused")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-	ads._process(0.0)
-	ads.probe_now_ms += remaining_ms - 1
-	ads._process(0.0)
-	check(ads._banner_request_id == active, "SDK retains the same view until the resumed deadline")
-	ads.probe_now_ms += 1
-	ads._process(0.0)
-	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining > 0.0, "missing SDK recovery schedules replacement after grace")
-	ads._process(ads._banner_retry_remaining)
-	var replacement: String = ads._banner_request_id
-	native._on_banner_loaded_for_request.emit(active)
-	check(replacement != active and ads._banner_loading, "same-screen replacement rejects stale SDK refresh")
-	native._on_banner_loaded_for_request.emit(replacement)
-	check(ads._banner_loaded and !ads.is_processing(), "replacement restores the banner without changing screens")
-	ads.remove_banner()
-	var before: int = native.calls.size()
-	native._on_banner_loaded_for_request.emit(active)
-	native._on_banner_failed_for_request.emit(active, 1)
-	ads._process(1000.0)
-	check(native.calls.size() == before and !ads._banner_loaded and !ads.is_processing(), "removal rejects late events and cancels all work")
-	ads.show_banner()
-	ads._exit_tree()
-	before = native.calls.size()
-	ads._process(1000.0)
-	check(native.calls.size() == before and !ads.is_processing(), "exit cancels watchdog without late requests")
-	ads.free()
-
 func test_interstitial_load_recovery() -> void:
 	var ads := RewardedRecoveryAds.new()
 	var native := TaggedInterstitialNative.new()
@@ -565,7 +204,7 @@ func test_interstitial_load_recovery() -> void:
 	ads._connect_native_signals()
 	var timeout: float = ads._interstitial_timing("load_timeout_seconds")
 	var base: float = ads._interstitial_timing("retry_base_seconds")
-	var maximum: int = ads.BANNER_CONFIG.get_int("advertising.interstitial_recovery.maximum_recovery_attempts")
+	var maximum: int = int(ads._interstitial_timing("maximum_recovery_attempts"))
 	check(!ads.show_interstitial() and ads._interstitial_loading, "interstitial starts one load without blocking gameplay")
 	ads.advance(timeout - 1.0)
 	var first: String = ads._interstitial_load_id
@@ -618,158 +257,13 @@ func test_interstitial_load_recovery() -> void:
 	check(ads._interstitial_recovery_count == 0 and !ads.is_processing(), "ordinary failure outside a recovery cycle keeps the existing policy")
 	ads.free()
 
-func test_banner_unavailable_view() -> void:
-	var ads = banner_service()
-	ads.show_banner()
-	var first: String = ads._banner_request_id
-	ads._native._on_banner_failed_for_request.emit(first, -1)
-	check(ads._banner_request_id.is_empty() and ads._banner_retry_remaining > 0.0, "native view creation failure uses bounded recovery instead of waiting for absent SDK view")
-	ads._process(ads._banner_retry_remaining)
-	ads._native._on_banner_loaded_for_request.emit(first)
-	check(ads._banner_loading and !ads._banner_loaded, "failed native view cannot complete replacement")
-	ads._native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	check(ads._banner_loaded and ads._banner_recovery_count == 0, "replacement recovers native view creation failure")
-	ads.free()
-
-func test_banner_lifecycle() -> void:
-	var ads = banner_service()
-	var native = ads._native
-	ads.show_banner()
-	var cached: String = ads._banner_request_id
-	native._on_banner_loaded_for_request.emit(cached)
-	ads.hide_banner()
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	ads.now_ms += 180000
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	check(ads._banner_request_id.is_empty() and native.calls[-1] == "remove_banner" and !ads.is_processing(), "long background invalidates hidden cached banner without loading it")
-	ads.show_banner()
-	check(ads._banner_request_id != cached and ads._banner_loading, "next show after hidden long background loads fresh view")
-	var obsolete: String = ads._banner_request_id
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	ads.now_ms += 180000
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	check(ads._banner_request_id != obsolete and ads._banner_loading, "long background replaces in-flight request")
-	native._on_banner_loaded_for_request.emit(obsolete)
-	check(!ads._banner_loaded, "late old load does not expose replaced banner")
-	native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	var before: int = native.calls.size()
-	ads._process(0.0)
-	check(native.calls.size() == before + 1 and native.calls[-1] == "show_banner", "short background reuses loaded banner")
-	# Use actual app focus, independent of missing terminal fullscreen callbacks.
-	ads._rewarded_show_open = true
-	ads._interstitial_show_open = true
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	ads.now_ms += 180000
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	before = native.calls.size()
-	ads._process(1000.0)
-	check(native.calls.size() == before and !ads.is_processing(), "no banner work while fullscreen window retains focus")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-	ads._process(0.0)
-	check(ads._banner_loading and ads._rewarded_show_open and ads._interstitial_show_open, "focus return recovers banner even when terminal fullscreen callbacks were lost")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-	native._on_banner_loaded_for_request.emit(ads._banner_request_id)
-	check(native.calls[-1] == "hide_banner" and !ads.is_processing(), "load completion without app focus stays hidden")
-	ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-	ads._process(0.0)
-	check(native.calls[-1] == "show_banner" and !ads.is_processing(), "focus return exposes completed banner and stops frames")
-	ads.free()
-
-func test_banner_repeated_pause() -> void:
-	# Cover both a missing focus callback and a return with no processing frame.
-	for refocus_before_pause: bool in [false, true]:
-		var ads = banner_service()
-		var native = ads._native
-		ads.show_banner()
-		var cached: String = ads._banner_request_id
-		native._on_banner_loaded_for_request.emit(cached)
-		ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-		ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-		ads.now_ms += 180000
-		ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-		if refocus_before_pause:
-			ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-		# Another pause arrives before the pending resume gets a frame.
-		ads.now_ms += 10
-		ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-		ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-		ads.now_ms += 100
-		ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-		ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-		ads._process(0.0)
-		check(ads._banner_request_id != cached and ads._banner_loading and ads._banner_request_serial == 2, "repeated pause before resume frame must retain original long background and replace cache once")
-		check(ads._banner_background_started_ms == -1, "processed resume consumes pending background timestamp")
-		cached = ads._banner_request_id
-		native._on_banner_loaded_for_request.emit(cached)
-		var serial: int = ads._banner_request_serial
-		ads.now_ms += 5000
-		ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
-		ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-		check(ads._banner_background_started_ms == ads.now_ms, "independent pause records a fresh start after previous resume was processed")
-		ads.now_ms += 1000
-		ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-		ads._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
-		ads._process(0.0)
-		check(ads._banner_request_id == cached and ads._banner_loaded and ads._banner_request_serial == serial, "new short background must not inherit old long pause")
-		ads.free()
-
-func test_banner_consent_and_legacy() -> void:
-	var ads = banner_service()
-	var native = ads._native
-	ads.show_banner()
-	var obsolete: String = ads._banner_request_id
-	ads.set_user_consent(false)
-	ads._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	native._on_banner_loaded_for_request.emit(obsolete)
-	native._on_banner_loaded_for_request.emit(obsolete)
-	check(ads._banner_request_id.is_empty() and !ads._banner_loaded, "privacy change discards obsolete request and its duplicate while backgrounded")
-	ads._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	ads._process(0.0)
-	check(ads._banner_loading and ads._banner_request_id != obsolete, "resume uses current consent for replacement")
-	ads.free()
-	var legacy = banner_service()
-	legacy._native = FakeNative.new()
-	legacy._connect_native_signals()
-	legacy.show_banner()
-	legacy._process(1000.0)
-	check(legacy._native.calls == ["load_banner"] and legacy._banner_loading, "legacy in-flight request cannot be unsafely superseded")
-	legacy._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	legacy.now_ms += 180000
-	legacy._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	legacy._process(0.0)
-	check(legacy._discard_banner_load and legacy._native.calls == ["load_banner"], "legacy long resume drains obsolete request before replacement")
-	legacy._on_banner_loaded()
-	check(legacy._native.calls.slice(-2) == ["remove_banner", "load_banner"], "drained legacy request is replaced once")
-	legacy._on_banner_failed_to_load(4)
-	legacy._process(1000.0)
-	check(legacy._native.calls.count("load_banner") == 2, "legacy ordinary failure belongs to SDK refresh")
-	legacy._on_banner_loaded()
-	check(legacy._banner_loaded, "legacy SDK success after failure is still accepted")
-	legacy.free()
-	var initializing = banner_service()
-	initializing._sdk_ready = false
-	initializing.show_banner()
-	initializing._notification(Node.NOTIFICATION_APPLICATION_PAUSED)
-	initializing.now_ms += 180000
-	initializing._notification(Node.NOTIFICATION_APPLICATION_RESUMED)
-	initializing._on_sdk_initialized()
-	check(initializing._banner_request_serial == 0 and initializing.is_processing(), "SDK ready wakes pending resume before requesting any banner")
-	initializing._process(0.0)
-	check(initializing._banner_request_serial == 1 and initializing._banner_loading, "long resume after SDK initialization loads once without cancelling fresh request")
-	initializing.free()
-
 func test_diagnostic_logging() -> void:
 	var ads = ADS_SCRIPT.new()
 	ProjectSettings.set_setting("yandex_ads/logging_enabled", null)
 	ads._read_project_settings()
 	check(!ads.logging_enabled, "advertising diagnostics default to off")
-	ads.trace_banner("disabled")
-	check(ads._banner_diag_sequence == 0, "disabled diagnostics never collect or print banner state")
+	ads.trace_ads("disabled")
+	check(ads._ads_diag_sequence == 0, "disabled diagnostics never collect or print ad state")
 	for enabled: bool in [true, false]:
 		ProjectSettings.set_setting("yandex_ads/logging_enabled", enabled)
 		ads._read_project_settings()
@@ -777,9 +271,9 @@ func test_diagnostic_logging() -> void:
 		ads._sdk_initialization_requested = false
 		ads.initialize_after_consent(false)
 		check(ads._native.logging_enabled == (enabled and OS.is_debug_build()), "native logging follows the same debug setting")
-		var before: int = ads._banner_diag_sequence
-		ads.trace_banner("toggle")
-		check(ads._banner_diag_sequence == before + int(enabled and OS.is_debug_build()), "banner diagnostics follow the setting after toggling")
+		var before: int = ads._ads_diag_sequence
+		ads.trace_ads("toggle")
+		check(ads._ads_diag_sequence == before + int(enabled and OS.is_debug_build()), "ad diagnostics follow the setting after toggling")
 	ProjectSettings.set_setting("yandex_ads/logging_enabled", null)
 	ads.free()
 
@@ -799,8 +293,6 @@ func test_native_signal_subscription() -> void:
 	ads.rewarded_video_failed_to_show_for_request.connect(func(id: String, _message: String) -> void: received.append("failed:" + id))
 	ads.rewarded.connect(func(_currency: String, _amount: int) -> void: received.append("legacy_reward"))
 	ads.rewarded_video_closed.connect(func() -> void: received.append("legacy_closed"))
-	ads.banner_loaded.connect(func(_size: Vector2) -> void: received.append("banner_loaded"))
-	ads.banner_failed_to_load.connect(func(_code: int) -> void: received.append("banner_failed"))
 	ads.ad_impression_received.connect(func(_raw: String, _format: String, placement: String) -> void: received.append("impression:" + placement))
 	ads._rewarded_loaded = true
 	check(ads.show_rewarded_video("first", &"hint_open"), "JNI Rewarded starts")
@@ -840,17 +332,12 @@ func test_native_signal_subscription() -> void:
 	native._on_rewarded_closed_for_request.emit(generated)
 	native._on_rewarded_video_ad_dismissed.emit()
 	check(received.count("legacy_reward") == 1 and received.count("legacy_closed") == 1, "empty-id caller remains compatible without duplicate legacy delivery")
-	native._on_banner_loaded.emit()
-	native._on_banner_failed_to_load.emit(5)
-	native._on_ad_impression.emit("", "banner", "{}")
-	check(received.slice(-3) == ["banner_loaded", "banner_failed", "impression:banner"], "banner load/error/impression subscriptions survive JNI changes")
 	ads.free()
 
 func test_tagged_interstitial_lifecycle() -> void:
 	var ads = service()
 	ads._native = FakeJni.new()
 	check(ads._native_has_method(&"showRewardedVideoForRequest"), "JNI capability check finds tagged Rewarded")
-	check(!ads._native_has_method(&"getBannerWidth"), "JNI capability map takes precedence over Object.has_method")
 	var notifications: Array[String] = []
 	ads.interstitial_shown.connect(func() -> void: notifications.append("shown"))
 	ads.interstitial_closed.connect(func() -> void: notifications.append("closed"))
@@ -951,16 +438,13 @@ func test_fullscreen_terminal_recovery() -> void:
 func test_shared_placement_cache() -> void:
 	var other_store := ReleaseAds.new()
 	other_store.store = "google_play"
-	check(other_store._release_unit_id("banner") == "R-M-20334511-3", "Google Play uses its own banner")
 	check(other_store._rewarded_id_for_placement(&"hint_open") == "R-M-20334511-2", "Google Play uses its own rewarded unit")
 	check(other_store._interstitial_id_for_placement(&"quiz_correct") == "R-M-20334511-1", "Google Play uses its own interstitial unit")
 	other_store.store = ""
-	check(other_store._release_unit_id("banner").is_empty(), "missing store never defaults to RuStore")
 	check(ADS_SCRIPT.STORE_CONFIG.store_from_features(PackedStringArray(["rustore", "google_play"])) == "", "ambiguous store is rejected")
 	other_store.free()
 	for complete_load: bool in [false, true]:
 		var ads = ReleaseAds.new()
-		check(ads._release_unit_id("banner") == "R-M-20326744-9", "RuStore banner uses Easy Monetization unit")
 		ads._native = FakeNative.new()
 		ads._sdk_ready = true
 		ads.prepare_rewarded_placement(&"stage_coin")
@@ -1074,7 +558,7 @@ func test_rewarded_load_recovery() -> void:
 	check(!ads._rewarded_loading, "Popup preparation cannot bypass retry delay")
 	ads.advance(5.0)
 	var second: String = ads._rewarded_load_id
-	check(!second.is_empty() and second != first, "RW retry starts with a fresh load ID without a banner")
+	check(!second.is_empty() and second != first, "RW retry starts with a fresh load ID")
 	ads.show_rewarded_video("current-rw", &"coin_refill")
 	ads._native._on_rewarded_loaded_for_load.emit(first)
 	ads._native._on_rewarded_failed_for_load.emit(first, 4)

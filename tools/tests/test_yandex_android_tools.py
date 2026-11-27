@@ -159,7 +159,7 @@ public class FullscreenAdShowTest {
             shutil.copy2(ROOT / "export_presets.cfg", root / "export_presets.cfg")
             profiles = json.loads((ROOT / "data/ad_store_profiles.json").read_text(encoding="utf-8"))
             path = root / "data/ad_store_profiles.json"
-            profiles["google_play"]["banner_id"] = ""
+            profiles["google_play"]["rewarded_id"] = ""
             path.write_text(json.dumps(profiles), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "missing or invalid"):
                 validate_store(root, "Hangman 2.0 Google Play")
@@ -167,7 +167,7 @@ public class FullscreenAdShowTest {
             path.write_text(json.dumps(profiles), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "own ad units"):
                 validate_store(root, "Hangman 2.0 Google Play")
-            profiles["google_play"].update(banner_id="R-M-999-1", rewarded_id="R-M-999-2", interstitial_id="R-M-999-3", google_ads_enabled=True)
+            profiles["google_play"].update(rewarded_id="R-M-999-2", interstitial_id="R-M-999-3", google_ads_enabled=True)
             path.write_text(json.dumps(profiles), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Google Application ID"):
                 validate_store(root, "Hangman 2.0 Google Play")
