@@ -1,6 +1,18 @@
 extends RefCounted
 ## Pattern/gradient renderer. The supplied background owns all nodes and animation.
 
+const DESIGN = preload("res://scripts/core/game_design_config.gd")
+const ICON_SIZE: float = 133.12
+const SPACING: float = 218.7
+
+static func add_screen_pattern(background: Control, textures: Array, pattern_name: String, material: ShaderMaterial = null) -> Control:
+	return _add_multi_theme_pattern(
+		background, textures, pattern_name,
+		Color.WHITE if material != null else Color(1.0, 1.0, 1.0, 0.13),
+		0.92, 1.10, 0.87, -1.0 if material != null else 0.0, 0.70,
+		SPACING, ICON_SIZE, DESIGN.get_float("timings.animations.final_reward.pattern_move_seconds"), material
+	)
+
 static func _optional_node_meta(node: Object, key: StringName) -> Variant:
 	return node.get_meta(key) if node.has_meta(key) else null
 
@@ -12,7 +24,7 @@ static func _run_for_live_control(target_ref: WeakRef, action: Callable, args: A
 	call_args.append_array(args)
 	action.callv(call_args)
 
-static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, reference_width: float = 0.0) -> void:
+static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, material: ShaderMaterial = null) -> void:
 	if clip_root == null or !is_instance_valid(clip_root):
 		return
 	if motion == null or !is_instance_valid(motion):
@@ -26,14 +38,16 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 
 	var signature: Array = [clip_size, theme_textures.duplicate(), icon_modulate,
 		spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha,
-		full_alpha_screen_ratio, reference_width]
+		full_alpha_screen_ratio]
 	var existing_tween: Tween = _optional_node_meta(motion, "pattern_move_tween") as Tween
 	var tween_running: bool = existing_tween != null and existing_tween.is_valid()
 	if motion.get_meta("pattern_layout_signature", []) == signature and tween_running:
 		return
 
-	var viewport_scale: float = clip_size.x / reference_width if reference_width > 0.0 else 1.0
-	var spacing: float = base_spacing * maxf(spacing_multiplier, 0.05) * viewport_scale
+	var spacing: float = base_spacing * maxf(spacing_multiplier, 0.05)
+	var icon_size := Vector2.ONE * base_icon_size * maxf(icon_scale, 0.05)
+	if material != null:
+		material.set_shader_parameter("icon_size", icon_size)
 	var move_duration: float = base_move_duration * maxf(move_duration_multiplier, 0.01)
 	var motion_signature: Vector2 = Vector2(spacing, move_duration)
 	var restart_motion: bool = !tween_running or motion.get_meta("pattern_motion_signature", Vector2.ZERO) != motion_signature
@@ -62,12 +76,13 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 				icon = motion.get_child(index) as TextureRect
 			else:
 				icon = TextureRect.new()
+				icon.material = material
 				motion.add_child(icon)
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			icon.texture = theme_textures[(row * cols + col) % texture_count] as Texture2D
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.size = Vector2.ONE * base_icon_size * maxf(icon_scale, 0.05) * viewport_scale
+			icon.size = icon_size
 			icon.position = Vector2(
 				-overscan
 					+ float(col) * spacing
@@ -111,11 +126,11 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 	move.set_trans(Tween.TRANS_LINEAR)
 	motion.set_meta("pattern_move_tween", move_tween)
 
-static func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, reference_width: float = 0.0) -> void:
+static func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, material: ShaderMaterial = null) -> Control:
 	if background_overlay == null or !is_instance_valid(background_overlay):
-		return
+		return null
 	if theme_textures.is_empty():
-		return
+		return null
 	var clip_root := Control.new()
 	clip_root.name = pattern_name
 	clip_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -132,14 +147,15 @@ static func _add_multi_theme_pattern(background_overlay: Control, theme_textures
 	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	motion.position = Vector2.ZERO
 	clip_root.add_child(motion)
-	clip_root.resized.connect(_layout_multi_theme_pattern.bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, base_spacing, base_icon_size, base_move_duration, reference_width))
+	clip_root.resized.connect(_layout_multi_theme_pattern.bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, base_spacing, base_icon_size, base_move_duration, material))
 	_run_for_live_control.call_deferred(
 		weakref(clip_root),
 		_layout_multi_theme_pattern,
 		[motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale,
 			move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio,
-			base_spacing, base_icon_size, base_move_duration, reference_width]
+			base_spacing, base_icon_size, base_move_duration, material]
 	)
+	return clip_root
 
 static func _add_full_rect_gradient_overlay(background_overlay: Control, top_color: Color, bottom_color: Color, overlay_name: String = "GradientOverlay") -> void:
 	if background_overlay == null or !is_instance_valid(background_overlay):
@@ -168,55 +184,3 @@ static func _add_full_rect_gradient_overlay(background_overlay: Control, top_col
 	# and all interactive Home controls. The parent background itself sits at -1.
 	overlay.z_index = 0
 	background_overlay.add_child(overlay)
-
-static func add_aligned_layer(source_clip: Control, parent: Control, layer_material: ShaderMaterial) -> Control:
-	var source_motion: Control = source_clip.get_node("PatternMotion")
-	var layer := Control.new()
-	layer.name = "CrosswordPaperPattern"
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(layer)
-
-	# Both layers use viewport coordinates. Only the original motion owns a tween.
-	var layer_ref: WeakRef = weakref(layer)
-	var sync_position: Callable = _run_for_live_control.bind(layer_ref, _align_motion, [source_motion])
-	var sync_icons: Callable = _run_for_live_control.bind(layer_ref, _sync_aligned_icons, [source_motion, layer_material])
-	source_motion.item_rect_changed.connect(sync_position)
-	source_clip.resized.connect(sync_icons, CONNECT_DEFERRED)
-	layer.tree_exiting.connect(func() -> void:
-		if is_instance_valid(source_motion):
-			source_motion.item_rect_changed.disconnect(sync_position)
-		if is_instance_valid(source_clip):
-			source_clip.resized.disconnect(sync_icons)
-	)
-	sync_icons.call_deferred()
-	return layer
-
-static func _align_motion(layer: Control, source_motion: Control) -> void:
-	if is_instance_valid(source_motion):
-		layer.position = source_motion.position
-
-static func _sync_aligned_icons(layer: Control, source_motion: Control, layer_material: ShaderMaterial) -> void:
-	if !is_instance_valid(source_motion):
-		return
-	var icon_count: int = source_motion.get_child_count()
-	while layer.get_child_count() > icon_count:
-		layer.get_child(layer.get_child_count() - 1).free()
-	for index: int in range(icon_count):
-		var original: TextureRect = source_motion.get_child(index)
-		var icon: TextureRect
-		if index < layer.get_child_count():
-			icon = layer.get_child(index)
-		else:
-			icon = TextureRect.new()
-			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			icon.expand_mode = original.expand_mode
-			icon.stretch_mode = original.stretch_mode
-			icon.material = layer_material
-			layer.add_child(icon)
-		icon.texture = original.texture
-		icon.position = original.position
-		icon.size = original.size
-		icon.rotation = original.rotation
-	if icon_count > 0:
-		layer_material.set_shader_parameter("icon_size", (source_motion.get_child(0) as TextureRect).size)
-	_align_motion(layer, source_motion)

@@ -389,9 +389,6 @@ var PORTRAIT_COIN_REFILL_GLOW_ROTATION_DURATION: float = (
 var PORTRAIT_FINAL_REWARD_HOME_COUNT_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
 	"timings.animations.final_reward.home_count_seconds"
 )
-const PORTRAIT_THEME_PATTERN_ICON_SIZE: float = 133.12
-const PORTRAIT_THEME_PATTERN_SPACING: float = 218.7
-const PORTRAIT_CROSSWORD_PATTERN_REFERENCE_WIDTH: float = 690.0
 # A half-cell right plus one cell up is a seamless staggered-lattice vector.
 # This duration preserves the current screen-space speed for diagonal motion.
 var PORTRAIT_THEME_PATTERN_MOVE_DURATION: float = PORTRAIT_GAME_DESIGN.get_float(
@@ -2086,17 +2083,13 @@ func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) 
 		content = screen_content
 	_stage_menu_settings_button()
 
-func _stage_portrait_game_background(pattern_texture: Texture2D, crossword: bool = false) -> Control:
+func _stage_portrait_game_background(pattern_texture: Texture2D = null) -> Control:
 	_portrait_screen(0.0, -1.0, PORTRAIT_BLUE, false, false)
 	var background := _stage_horizontal_fill(0.0, PORTRAIT_STAGE_SIZE.y, PORTRAIT_SINGLE_REWARD_TITLE_BLOCK_COLOR)
 	background.name = "PortraitGameBackground"
 	background.z_index = -1
 	if pattern_texture != null:
-		var reference_width: float = PORTRAIT_CROSSWORD_PATTERN_REFERENCE_WIDTH if crossword else 0.0
-		_add_multi_theme_pattern(
-			background, [pattern_texture], "PortraitGameThemePattern",
-			Color(1.0, 1.0, 1.0, 0.13), 0.92, 1.10, 0.87, 0.0, 0.70, reference_width
-		)
+		PORTRAIT_THEME_PATTERN.add_screen_pattern(background, [pattern_texture], "PortraitGameThemePattern")
 	_add_full_rect_gradient_overlay(
 		background,
 		PORTRAIT_UI_PALETTE.with_alpha(PORTRAIT_DARK_BLUE, 0.0),
@@ -8949,7 +8942,7 @@ func _refresh_game_screen() -> void:
 		child.queue_free()
 
 	var viewport_size: Vector2 = get_viewport_rect().size
-	var background := _stage_portrait_game_background(_theme_icon_mono_texture(GameSession.theme_id), true)
+	_stage_portrait_game_background()
 	var level_index: int = single_player_active_level_index if GameState.current_mode == GameState.GameMode.SINGLE_PLAYER else -1
 	_stage_portrait_game_header(level_index, true)
 
@@ -8971,10 +8964,10 @@ func _refresh_game_screen() -> void:
 	crossword_field.name = "CrosswordField"
 	content = screen_content
 	var field_padding: float = PORTRAIT_QUIZ_QUESTION_RECT.position.x - PORTRAIT_QUIZ_QUESTION_PANEL_RECT.position.x
-	var pattern_source := background.get_node_or_null("PortraitGameThemePattern") as Control
 	_portrait_crossword.build(GameSession.crossword, crossword_field, keyboard_metrics["paper_bottom"], field_padding,
 		GameSession.get_crossword_comments(),
-		GameSession.crossword_starter_cells, GameSession.correct_letters.is_empty(), pattern_source)
+		GameSession.crossword_starter_cells, GameSession.correct_letters.is_empty(),
+		_theme_icon_mono_texture(GameSession.theme_id))
 	_portrait_crossword.word_wave_finished.connect(_advance_portrait_word_feedback)
 	_portrait_crossword.set_input_enabled(GameSession.is_active and !GameSession.has_deferred_loss())
 	_portrait_crossword.refresh(GameSession.revealed)
@@ -12573,10 +12566,10 @@ func _collect_theme_pattern_textures(use_mono_icons: bool = true) -> Array:
 	return textures
 
 func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
-	PORTRAIT_THEME_PATTERN._layout_multi_theme_pattern(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
+	PORTRAIT_THEME_PATTERN._layout_multi_theme_pattern(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN.SPACING, PORTRAIT_THEME_PATTERN.ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
 
-func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, reference_width: float = 0.0) -> void:
-	PORTRAIT_THEME_PATTERN._add_multi_theme_pattern(background_overlay, theme_textures, pattern_name, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN_SPACING, PORTRAIT_THEME_PATTERN_ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION, reference_width)
+func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float) -> void:
+	PORTRAIT_THEME_PATTERN._add_multi_theme_pattern(background_overlay, theme_textures, pattern_name, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, PORTRAIT_THEME_PATTERN.SPACING, PORTRAIT_THEME_PATTERN.ICON_SIZE, PORTRAIT_THEME_PATTERN_MOVE_DURATION)
 
 func _add_full_rect_gradient_overlay(background_overlay: Control, top_color: Color, bottom_color: Color, overlay_name: String = "GradientOverlay") -> void:
 	PORTRAIT_THEME_PATTERN._add_full_rect_gradient_overlay(background_overlay, top_color, bottom_color, overlay_name)
@@ -14847,16 +14840,8 @@ func _stage_home_pattern_background() -> void:
 	)
 	home_background_overlay.name = "HomeBackgroundOverlay"
 	home_background_overlay.z_index = -1
-	_add_multi_theme_pattern(
-		home_background_overlay,
-		_collect_theme_pattern_textures(true),
-		"HomeThemePattern",
-		Color(1.0, 1.0, 1.0, 0.13),
-		0.92,
-		1.10,
-		0.87,
-		0.0,
-		0.70
+	PORTRAIT_THEME_PATTERN.add_screen_pattern(
+		home_background_overlay, _collect_theme_pattern_textures(true), "HomeThemePattern"
 	)
 	_add_full_rect_gradient_overlay(
 		home_background_overlay,

@@ -72,6 +72,18 @@ func test_crossword() -> void:
 			var level_index: int = 29 if size.x == 960 else 39
 			var theme: int = Database.get_theme_index_by_id(9 if size.x == 960 else 2)
 			main._clear()
+			main._stage_home_pattern_background()
+			await get_tree().process_frame
+			var home_clip: Control = main.content.get_node("HomeBackgroundOverlay/HomeThemePattern")
+			var home_motion: Control = home_clip.get_node("PatternMotion")
+			var home_first: TextureRect = home_motion.get_child(0)
+			var home_next: TextureRect = home_motion.get_child(1)
+			var home_icon_size: Vector2 = home_first.size
+			var home_icon_rotation: float = home_first.rotation
+			var home_spacing: Vector2 = home_next.position - home_first.position
+			var home_motion_signature: Vector2 = home_motion.get_meta("pattern_motion_signature")
+			var home_origin: Vector2 = home_clip.get_global_rect().position + home_first.position
+			main._clear()
 			GameState._single_player_bucket(language)["unlocked_level"] = level_index
 			GameState.select_single_level_theme(language, level_index, theme, design.level_stage_count(level_index + 1))
 			main._invalidate_single_player_level_cache()
@@ -82,30 +94,29 @@ func test_crossword() -> void:
 			check(is_instance_valid(root) and main.hero_static_symbol == null, "Word level %d (%s, %s) must show the crossword without a character" % [level_index + 1, language, size])
 			if !is_instance_valid(root) or board == null:
 				return
-			var pattern_clip := main.content.get_node_or_null("PortraitGameBackground/PortraitGameThemePattern") as Control
-			var pattern_motion := main.content.get_node_or_null("PortraitGameBackground/PortraitGameThemePattern/PatternMotion") as Control
 			var paper_pattern := root.get_node_or_null("CrosswordPaperPattern") as Control
-			check(pattern_clip != null and pattern_motion != null and paper_pattern != null, "Crossword uses both colors of the shared animated theme pattern")
-			if pattern_clip == null or pattern_motion == null or paper_pattern == null:
+			var pattern_motion := root.get_node_or_null("CrosswordPaperPattern/PatternMotion") as Control
+			check(!main.content.has_node("PortraitGameBackground/PortraitGameThemePattern"), "The blue crossword backdrop has no pattern")
+			check(pattern_motion != null, "The white crossword paper has its own animated pattern")
+			if pattern_motion == null:
 				return
 			var theme_icon: Texture2D = main._theme_icon_mono_texture(theme)
 			check(theme_icon != null and pattern_motion.get_child_count() > 0 and pattern_motion.get_child(0).texture == theme_icon, "Crossword pattern shows the active theme icon")
-			check(paper_pattern.get_child_count() > 1 and paper_pattern.get_child_count() == pattern_motion.get_child_count(), "The paper layer mirrors the whole pattern")
-			check(pattern_clip.mouse_filter == Control.MOUSE_FILTER_IGNORE and pattern_motion.mouse_filter == Control.MOUSE_FILTER_IGNORE and paper_pattern.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Crossword pattern does not intercept input")
+			check(pattern_motion.mouse_filter == Control.MOUSE_FILTER_IGNORE and paper_pattern.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Crossword pattern does not intercept input")
 			var pattern_tween: Tween = pattern_motion.get_meta("pattern_move_tween", null)
 			check(pattern_tween != null and pattern_tween.is_running(), "Crossword theme pattern is moving")
-			if paper_pattern.get_child_count() > 1:
-				var first: TextureRect = paper_pattern.get_child(0)
-				var next: TextureRect = paper_pattern.get_child(1)
-				check(first.get_global_rect().is_equal_approx(pattern_motion.get_child(0).get_global_rect()) and next.get_global_rect().is_equal_approx(pattern_motion.get_child(1).get_global_rect()), "Both pattern colors use the same scale, spacing and phase")
-				var spacing: float = (next.position.x - first.position.x) * 690.0 / pattern_clip.size.x
-				check(absf(spacing - 201.2) < 0.1, "The pattern density matches the approved 690-pixel preview")
+			if pattern_motion.get_child_count() > 1:
+				var first: TextureRect = pattern_motion.get_child(0)
+				var next: TextureRect = pattern_motion.get_child(1)
+				check(first.size.is_equal_approx(home_icon_size) and is_equal_approx(first.rotation, home_icon_rotation), "Paper icons match Home size and rotation")
+				check((next.position - first.position).is_equal_approx(home_spacing) and (paper_pattern.get_global_rect().position + first.position).is_equal_approx(home_origin), "Paper pattern matches Home spacing and origin")
+				check(pattern_motion.get_meta("pattern_motion_signature") == home_motion_signature, "Paper pattern matches Home motion")
 				var tint: Color = first.material.get_shader_parameter("pattern_color")
 				check(is_equal_approx(tint.a, 0.08), "Paper pattern uses eight percent opacity")
 				var previous_position: Vector2 = pattern_motion.position
 				await get_tree().process_frame
 				await get_tree().process_frame
-				check(!pattern_motion.position.is_equal_approx(previous_position) and paper_pattern.position.is_equal_approx(pattern_motion.position), "Paper pattern follows the same live motion")
+				check(!pattern_motion.position.is_equal_approx(previous_position), "The paper pattern moves between frames")
 			check(board.entries.size() == 7, "Bonus crossword must contain seven words")
 			var occupied: Dictionary = {}
 			var longest_length: int = 0
@@ -229,6 +240,8 @@ func test_crossword() -> void:
 				check(comment_paper.r > 0.90 and comment_paper.b >= comment_paper.r, "White paper reaches the comment on GPU")
 				var field: Rect2i = Rect2i(paper_rect)
 				var header := Rect2i(0, 0, field.size.x, ceili(attempts_rect.end.y))
+				var blue_top: int = ceili(paper_rect.end.y)
+				var blue := Rect2i(0, blue_top, frame.get_width(), frame.get_height() - blue_top)
 				field.position.y = ceili(panel_rect.position.y)
 				field.size.y = int(comment_rect.position.y) - field.position.y
 				paper_pattern.hide()
@@ -237,6 +250,7 @@ func test_crossword() -> void:
 				paper_pattern.show()
 				check(frame.get_region(field).get_data() != plain.get_region(field).get_data(), "Blue theme pattern contributes visible pixels over the white paper")
 				check(frame.get_region(header).get_data() != plain.get_region(header).get_data(), "Blue theme pattern continues behind the upper bar")
+				check(frame.get_region(blue).get_data() == plain.get_region(blue).get_data(), "The paper pattern contributes no pixels below the torn edge")
 				if !directory.is_empty():
 					frame.save_png(directory.path_join("crossword_%s_%d.png" % [language, size.x]))
 			check(starters.has(board.letters[root.selected_cell]) and !initial_revealed[root.selected_cell], "Late campaign levels focus a hidden copy of a given letter")

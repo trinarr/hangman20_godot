@@ -51,6 +51,7 @@ var _board_size: Vector2
 var _field: FlashStagePanel
 var _paper: ColorRect
 var _paper_material: ShaderMaterial
+var _pattern_clip: Control
 var _pattern_material: ShaderMaterial
 var _grid: Control
 var _grid_bottom: float
@@ -64,7 +65,7 @@ var _wave_max_travel: float = DESIGN.get_float("timings.animations.word_letters.
 
 func build(
 	board: RefCounted, field: FlashStagePanel, paper_bottom: float, padding: float, comments: PackedStringArray,
-	starter_cells: PackedInt32Array = PackedInt32Array(), focus_starter: bool = false, pattern_source: Control = null
+	starter_cells: PackedInt32Array = PackedInt32Array(), focus_starter: bool = false, pattern_texture: Texture2D = null
 ) -> void:
 	model = board
 	_field = field
@@ -82,12 +83,13 @@ func build(
 	_paper.material = _paper_material
 	add_child(_paper)
 	move_child(_paper, 0)
-	if pattern_source != null:
+	if pattern_texture != null:
 		_pattern_material = ShaderMaterial.new()
 		_pattern_material.shader = PATTERN_SHADER
 		_pattern_material.set_shader_parameter("pattern_color", PALETTE.CROSSWORD_PAPER_PATTERN)
-		var pattern_overlay: Control = PATTERN.add_aligned_layer(pattern_source, self, _pattern_material)
-		move_child(pattern_overlay, _paper.get_index() + 1)
+		_pattern_clip = PATTERN.add_screen_pattern(self, [pattern_texture], "CrosswordPaperPattern", _pattern_material)
+		_pattern_clip.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		move_child(_pattern_clip, _paper.get_index() + 1)
 	_comment_label = Label.new()
 	_comment_label.name = "CrosswordComment"
 	_comment_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -454,6 +456,7 @@ func _layout() -> void:
 	_paper_material.set_shader_parameter("paper_unit", STAGE.adaptive_ui_scale(viewport_size, PAPER_STYLE.MAX_PAPER_SCALE))
 	if _pattern_material != null:
 		_pattern_material.set_shader_parameter("tear_fade_y", Vector2(_paper.size.y - 62.0, _paper.size.y - 14.0) * fit)
+		_pattern_clip.size = viewport_size
 	if _board_size.x <= 0.0:
 		return
 	var area := Rect2(
