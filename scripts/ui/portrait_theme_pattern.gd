@@ -5,12 +5,13 @@ const DESIGN = preload("res://scripts/core/game_design_config.gd")
 const ICON_SIZE: float = 133.12
 const SPACING: float = 218.7
 
-static func add_screen_pattern(background: Control, textures: Array, pattern_name: String, material: ShaderMaterial = null) -> Control:
+static func add_screen_pattern(background: Control, textures: Array, pattern_name: String, material: ShaderMaterial = null, texture_row_stride: int = 0) -> Control:
 	return _add_multi_theme_pattern(
 		background, textures, pattern_name,
 		Color.WHITE if material != null else Color(1.0, 1.0, 1.0, 0.13),
 		0.92, 1.10, 0.87, -1.0 if material != null else 0.0, 0.70,
-		SPACING, ICON_SIZE, DESIGN.get_float("timings.animations.final_reward.pattern_move_seconds"), material
+		SPACING, ICON_SIZE, DESIGN.get_float("timings.animations.final_reward.pattern_move_seconds"),
+		material, texture_row_stride
 	)
 
 static func _optional_node_meta(node: Object, key: StringName) -> Variant:
@@ -24,7 +25,7 @@ static func _run_for_live_control(target_ref: WeakRef, action: Callable, args: A
 	call_args.append_array(args)
 	action.callv(call_args)
 
-static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, material: ShaderMaterial = null) -> void:
+static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, theme_textures: Array, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, material: ShaderMaterial = null, texture_row_stride: int = 0) -> void:
 	if clip_root == null or !is_instance_valid(clip_root):
 		return
 	if motion == null or !is_instance_valid(motion):
@@ -38,7 +39,7 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 
 	var signature: Array = [clip_size, theme_textures.duplicate(), icon_modulate,
 		spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha,
-		full_alpha_screen_ratio]
+		full_alpha_screen_ratio, texture_row_stride]
 	var existing_tween: Tween = _optional_node_meta(motion, "pattern_move_tween") as Tween
 	var tween_running: bool = existing_tween != null and existing_tween.is_valid()
 	if motion.get_meta("pattern_layout_signature", []) == signature and tween_running:
@@ -64,6 +65,7 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 	while motion.get_child_count() > icon_count:
 		motion.get_child(motion.get_child_count() - 1).free()
 	var texture_count: int = theme_textures.size()
+	var row_stride: int = texture_row_stride if texture_row_stride > 0 else cols
 	var gradient_height: float = maxf(clip_size.y + overscan * 2.0, 1.0)
 	var top_alpha: float = icon_modulate.a
 	var effective_bottom_alpha: float = top_alpha if bottom_alpha < 0.0 else clampf(bottom_alpha, 0.0, 1.0)
@@ -79,7 +81,7 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 				icon.material = material
 				motion.add_child(icon)
 			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			icon.texture = theme_textures[(row * cols + col) % texture_count] as Texture2D
+			icon.texture = theme_textures[(row * row_stride + col) % texture_count] as Texture2D
 			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon.size = icon_size
@@ -126,7 +128,7 @@ static func _layout_multi_theme_pattern(clip_root: Control, motion: Control, the
 	move.set_trans(Tween.TRANS_LINEAR)
 	motion.set_meta("pattern_move_tween", move_tween)
 
-static func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, material: ShaderMaterial = null) -> Control:
+static func _add_multi_theme_pattern(background_overlay: Control, theme_textures: Array, pattern_name: String, icon_modulate: Color, spacing_multiplier: float, icon_scale: float, move_duration_multiplier: float, bottom_alpha: float, full_alpha_screen_ratio: float, base_spacing: float, base_icon_size: float, base_move_duration: float, material: ShaderMaterial = null, texture_row_stride: int = 0) -> Control:
 	if background_overlay == null or !is_instance_valid(background_overlay):
 		return null
 	if theme_textures.is_empty():
@@ -147,13 +149,13 @@ static func _add_multi_theme_pattern(background_overlay: Control, theme_textures
 	motion.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	motion.position = Vector2.ZERO
 	clip_root.add_child(motion)
-	clip_root.resized.connect(_layout_multi_theme_pattern.bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, base_spacing, base_icon_size, base_move_duration, material))
+	clip_root.resized.connect(_layout_multi_theme_pattern.bind(clip_root, motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale, move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio, base_spacing, base_icon_size, base_move_duration, material, texture_row_stride))
 	_run_for_live_control.call_deferred(
 		weakref(clip_root),
 		_layout_multi_theme_pattern,
 		[motion, theme_textures, icon_modulate, spacing_multiplier, icon_scale,
 			move_duration_multiplier, bottom_alpha, full_alpha_screen_ratio,
-			base_spacing, base_icon_size, base_move_duration, material]
+			base_spacing, base_icon_size, base_move_duration, material, texture_row_stride]
 	)
 	return clip_root
 

@@ -204,7 +204,8 @@ func run() -> void:
 	check(avatar.visible, "Completing tutorial reveals the existing Home avatar")
 	counter_center = (main._portrait_active_currency_counter_rect.position.x + main._portrait_active_star_counter_rect.end.x) * 0.5
 	check(is_equal_approx(counter_center, (main.PORTRAIT_HOME_AVATAR_RECT.end.x + main.PORTRAIT_STAGE_SIZE.x) * 0.5), "Home counters move beside the avatar immediately after tutorial")
-	check(avatar.has_node("AvatarPaperBackground") and avatar.frame_color == main.PORTRAIT_UI_PALETTE.BUTTON_BLUE, "New profile uses the blue frame and paper background")
+	check(avatar.get_theme_stylebox("normal").bg_color == Color.WHITE and avatar.frame_color == main.PORTRAIT_UI_PALETTE.BUTTON_BLUE, "Home avatar uses a blue frame and a white background")
+	check(avatar.get_theme_stylebox("pressed").bg_color == Color.WHITE, "Home avatar stays white when pressed")
 	check(avatar.size.is_equal_approx(main.PORTRAIT_HOME_AVATAR_RECT.size), "Shared appearance preserves the compact Home avatar bounds")
 	avatar.button_down.emit()
 	await avatar._press_tween.finished
@@ -278,7 +279,7 @@ func run() -> void:
 	player_body.refresh()
 	check(profile_avatar.size == Vector2(117, 117) and profile_avatar.frame_width == 7, "Profile avatar retains its size with the thicker frame")
 	check(profile_avatar.outer_outline_width == profile_avatar.SMALL_OUTLINE_WIDTH and profile_avatar._outer_frame_style.border_color == profile_avatar.PALETTE.TEXT_DARK, "Large and compact avatars share the same thin outer blue outline")
-	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.has_node("AvatarPaperBackground"), "Edit badge shares the avatar transform above a paper background")
+	check(profile_avatar.has_node("ProfileAvatarEdit") and profile_avatar.get_theme_stylebox("normal").bg_color == Color.WHITE, "Edit badge shares the avatar transform above a white background")
 	var statistics_list: Control = player_body.statistics_scroll.get_node("ProfileStatisticsList")
 	check(statistics_list.get_child_count() == 5 and statistics_list.find_children("StatDivider", "ColorRect", true, false).size() == 4, "Statistics share one panel with separators between all five rows")
 	var previous_hero: int = GameState.settings[5]
@@ -301,11 +302,10 @@ func run() -> void:
 	editor._bounce_scale = editor.CENTER.OPEN_START_FACTOR
 	editor._set_progress(0.0)
 	check(editor._shell.get_rect().is_equal_approx(editor._start_rect), "Initial popup mask matches the captured avatar frame")
-	var paper_unit: float = editor._paper.material.get_shader_parameter("paper_unit")
-	var surface_scale: float = editor._surface.scale.x * editor._surface.size.x / editor.FORM_SIZE.x
-	check(is_equal_approx(paper_unit * surface_scale, editor._initial_paper_unit), "Initial popup cells match the avatar cells")
+	check(editor._pattern_paper.color == Color.WHITE and is_zero_approx(editor._paper_pattern.modulate.a), "The initial crop matches the white avatar background")
 	editor._tween.custom_step(0.05)
 	check(is_equal_approx(editor._shell.modulate.a, 0.5) and is_zero_approx(float(editor._title_fade.get("opacity"))), "Avatar frame fades from the start while the title waits for full popup size")
+	check(editor._paper_pattern.modulate.a > 0.0 and editor._paper_pattern.modulate.a < 1.0, "The pattern fades in over white during opening")
 	editor._tween.custom_step(0.05)
 	check(is_zero_approx(editor._shell.modulate.a), "Avatar frame disappears within the first tenth of a second")
 	editor._tween.custom_step(0.06)
@@ -328,7 +328,24 @@ func run() -> void:
 	check(is_equal_approx(editor._title.get_global_rect().get_center().y, editor._header.position.y), "Title is centered on the standard popup top edge")
 	check(editor._header.get_index() < editor._surface.get_index(), "Standard popup top stays behind the torn paper")
 	check(editor._root.get_node_or_null("ProfileEditorPopupBottom") == null, "Paper editor has no blue bottom panel")
-	check(editor._paper.size == Vector2(424, 526), "Paper extends through the former sixteen-unit footer")
+	check((editor._pattern_paper.size * editor._pattern_paper.scale).is_equal_approx(editor.FORM_SIZE), "White paper covers the entire form")
+	check(is_equal_approx(editor._paper_pattern.modulate.a, 1.0), "The open editor shows the full pattern")
+	var home_pattern_textures: Array = main._collect_theme_pattern_textures()
+	var editor_pattern_textures: Array = []
+	var pattern_motion := editor._pattern_paper.get_node_or_null("ProfileEditorPaperPattern/PatternMotion") as Control
+	if pattern_motion != null:
+		var column := 0
+		var row_y: float = pattern_motion.get_child(0).position.y
+		for icon: TextureRect in pattern_motion.get_children():
+			if icon.position.y != row_y:
+				row_y = icon.position.y
+				column = 0
+			if column < editor.PATTERN_VISIBLE_COLUMNS:
+				editor_pattern_textures.append(icon.texture)
+				if editor_pattern_textures.size() == home_pattern_textures.size():
+					break
+			column += 1
+	check(home_pattern_textures.size() > 1 and editor_pattern_textures == home_pattern_textures, "The editor cycles through all Home theme icons across its narrow rows")
 	var editor_scale: float = editor._surface.scale.x * editor._surface.size.x / editor.FORM_SIZE.x
 	check(is_equal_approx(editor._close_holder.position.y - editor._shell.get_rect().end.y, float(editor.popup_style["close_gap"]) * editor_scale), "Close button keeps its gap below the extended paper")
 	var editor_preview_dir := OS.get_environment("HANGMAN_PROFILE_PREVIEW_DIR")
@@ -410,7 +427,7 @@ func run() -> void:
 	check(editor.FORM_SIZE.x == 424 and editor.nickname.max_input_length == 18 and editor.nickname.get_line_edit().max_length == 0, "Editor limits filtered nicknames to eighteen characters after discarding invalid input")
 	for index in range(editor._swatches.size()):
 		var swatch: Button = editor._swatches[index]
-		check(!swatch.has_node("AvatarPaperBackground") and swatch.get_theme_stylebox("normal").bg_color == Color.WHITE and swatch.get_theme_stylebox("normal").border_width_left == 5, "All frame samples share the thick frame and white background")
+		check(swatch.get_theme_stylebox("normal").bg_color == Color.WHITE and swatch.get_theme_stylebox("normal").border_width_left == 5, "All frame samples share the thick frame and white background")
 		check(swatch.scale.is_equal_approx(Vector2.ONE * (1.15 if index == 1 else 1.0)) and swatch.get_node("SelectionCheck").visible == (index == 1), "Only the selected frame grows and displays a check")
 	var selected_check: Control = editor._swatches[1].get_node("SelectionCheck")
 	check(selected_check.size.is_equal_approx(Vector2(31.2,31.2)) and selected_check.scale.x < 1.0 and is_zero_approx(selected_check.modulate.a), "Selection check grows thirty percent and starts the chain reveal animation")

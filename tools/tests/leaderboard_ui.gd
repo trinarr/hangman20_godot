@@ -149,6 +149,7 @@ func _ready() -> void:
 	var pinned_icon: TextureRect = view.pinned.find_child("LeaderboardStarIcon", true, false)
 	check(pinned_icon.size == icon.size, "Pinned row uses the same bounded star icon")
 	var avatar: Button = first_row.find_child("PlayerAvatar", true, false)
+	check(avatar.get_theme_stylebox("disabled").bg_color == Color.WHITE, "Leaderboard portraits use a white background")
 	var player_name: Label = first_row.find_child("PlayerName", true, false)
 	var score_plate: Control = first_row.find_child("PlayerScore", true, false)
 	check(is_equal_approx(avatar.position.x, 59.5 * 0.85) and is_equal_approx(player_name.position.x, avatar.get_rect().end.x + 13.5), "Avatar inset is fifteen percent smaller and nickname follows the avatar")

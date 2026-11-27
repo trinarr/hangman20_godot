@@ -1,9 +1,7 @@
 extends Button
-## Shared portrait, frame and paper styling for Home and Profile.
+## Shared portrait and frame styling for Home, Profile and rankings.
 const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const MASK = preload("res://scripts/ui/rounded_rect_texture_mask.gdshader")
-const PAPER = preload("res://shaders/profile_avatar_paper.gdshader")
-const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
 const CHARACTER = preload("res://scripts/ui/profile_character_preview.gd")
 const PROFILE = preload("res://scripts/core/player_profile.gd")
 const LUCKY = preload("res://img/_______192______1_0_SHAPE_0_BOUNDS_-0.96_-0.96_SIZE_329_709.png")
@@ -13,7 +11,7 @@ const SMALL_OUTLINE_WIDTH := 1
 const LARGE_OUTLINE_WIDTH := SMALL_OUTLINE_WIDTH
 var _appearance_scale := 1.0
 var outer_outline_width := SMALL_OUTLINE_WIDTH
-var paper_background := false
+var _profile_appearance := false
 var portrait_enabled := true
 var frame_shadow_enabled := true
 var solid_background_color := Color.TRANSPARENT
@@ -42,7 +40,8 @@ var _outer_frame_style: StyleBoxFlat
 func configure_profile_appearance(side: float) -> void:
 	_appearance_scale = side / PROFILE_SIZE
 	outer_outline_width = LARGE_OUTLINE_WIDTH if side >= PROFILE_SIZE else SMALL_OUTLINE_WIDTH
-	paper_background = true
+	_profile_appearance = true
+	solid_background_color = Color.WHITE
 	frame_color = PROFILE.FRAME_COLORS[GameState.player_frame_id - 1]
 	frame_width = maxi(1, roundi(6 * _appearance_scale)) + 1
 	corner_radius = maxi(1, roundi(14 * _appearance_scale))
@@ -50,7 +49,7 @@ func configure_profile_appearance(side: float) -> void:
 	refresh_character()
 
 func refresh_character() -> void:
-	if portrait_enabled and paper_background:
+	if portrait_enabled and _profile_appearance:
 		frame_color = PROFILE.FRAME_COLORS[GameState.player_frame_id - 1]
 		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 			if has_theme_stylebox_override(state):
@@ -88,7 +87,7 @@ func _ready() -> void:
 	queue_redraw()
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var style := StyleBoxFlat.new()
-		style.bg_color = Color.TRANSPARENT if paper_background else (PALETTE.BUTTON_BLUE_PRESSED if state == "pressed" else PALETTE.BUTTON_BLUE)
+		style.bg_color = PALETTE.BUTTON_BLUE_PRESSED if state == "pressed" else PALETTE.BUTTON_BLUE
 		if solid_background_color.a > 0.0:
 			style.bg_color = solid_background_color
 		style.border_color = frame_color
@@ -99,19 +98,6 @@ func _ready() -> void:
 			style.shadow_size = 1
 			style.shadow_offset = Vector2(0, 2 if state != "pressed" else 1)
 		add_theme_stylebox_override(state, style)
-	if paper_background:
-		var paper := ColorRect.new()
-		paper.name = "AvatarPaperBackground"
-		paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		paper.position = Vector2.ONE * frame_width
-		paper.size = size - Vector2.ONE * frame_width * 2
-		var paper_material := ShaderMaterial.new()
-		paper_material.shader = PAPER
-		PAPER_STYLE.configure_material(paper_material, paper.size)
-		paper_material.set_shader_parameter("paper_unit", _appearance_scale)
-		paper_material.set_shader_parameter("corner_radius", maxf(0, corner_radius - frame_width))
-		paper.material = paper_material
-		add_child(paper)
 	_image = TextureRect.new()
 	_image.name = "AvatarTexture"
 	_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -128,10 +114,10 @@ func _ready() -> void:
 	_image.material = mask
 	add_child(_image)
 	# Keep previously attached decorations above the portrait.
-	move_child(_image, 1 if paper_background else 0)
+	move_child(_image, 0)
 	_image.resized.connect(_sync_mask)
 	_sync_mask()
-	if paper_background and portrait_enabled:
+	if _profile_appearance and portrait_enabled:
 		_portrait_viewport = SubViewport.new()
 		_portrait_viewport.name = "CroppedCharacterViewport"
 		_portrait_viewport.transparent_bg = true

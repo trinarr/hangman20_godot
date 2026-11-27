@@ -10,7 +10,8 @@ const OPEN_SETTLE_DURATION: float = CENTER.OPEN_SETTLE_DURATION * 1.4
 const TITLE_REVEAL_DURATION: float = 0.1
 const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
-const PAPER_SHADER = preload("res://shaders/profile_avatar_paper.gdshader")
+const PATTERN = preload("res://scripts/ui/portrait_theme_pattern.gd")
+const PATTERN_SHADER = preload("res://shaders/crossword_paper_pattern.gdshader")
 const MASK = preload("res://shaders/profile_editor_mask.gdshader")
 const ROUND = preload("res://scripts/ui/stage_round_button.gd")
 const LONG = preload("res://scripts/ui/stage_long_button.gd")
@@ -25,6 +26,8 @@ const PROFILE = preload("res://scripts/core/player_profile.gd")
 const FADE = preload("res://scripts/ui/composited_fade.gd")
 const COLORS = PROFILE.FRAME_COLORS
 const FORM_SIZE := Vector2(424, 526)
+const PATTERN_SCALE := 0.70
+const PATTERN_VISIBLE_COLUMNS := 3
 const NICKNAME_MAX_LENGTH := PROFILE.NAME_MAX_LENGTH
 const CHARACTER_SCALE := 0.65 * 1.15
 
@@ -67,7 +70,8 @@ var _root: Control
 var _dimmer: ColorRect
 var _shell: Panel
 var _header: Panel
-var _paper: ColorRect
+var _pattern_paper: ColorRect
+var _paper_pattern: Control
 var _portrait: TextureRect
 var _title: Label
 var _title_fade: Control
@@ -93,8 +97,7 @@ var close_button: Control
 var _close_holder: Control
 var _source_image_rect := Rect2()
 var _source_head_offset := Vector2.ZERO
-var _source_grid_origin := Vector2.ZERO
-var _initial_paper_unit := 1.0
+var _source_paper_scale := 1.0
 var _initial_corner_radius := 14.0
 var _initial_border_width := 6.0
 var _prepared := false
@@ -151,15 +154,22 @@ func _ready() -> void:
 	_content.size = FORM_SIZE
 	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_viewport.add_child(_content)
-	_paper = ColorRect.new()
-	_paper.size = FORM_SIZE
-	_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var paper_material := ShaderMaterial.new()
-	paper_material.shader = PAPER_SHADER
-	PAPER_STYLE.configure_material(paper_material, FORM_SIZE)
-	paper_material.set_shader_parameter("corner_radius", 0.0)
-	_paper.material = paper_material
-	_content.add_child(_paper)
+	_pattern_paper = ColorRect.new()
+	_pattern_paper.name = "ProfileEditorPatternPaper"
+	_pattern_paper.color = Color.WHITE
+	_pattern_paper.size = FORM_SIZE / PATTERN_SCALE
+	_pattern_paper.scale = Vector2.ONE * PATTERN_SCALE
+	_pattern_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content.add_child(_pattern_paper)
+	var pattern_material := ShaderMaterial.new()
+	pattern_material.shader = PATTERN_SHADER
+	pattern_material.set_shader_parameter("pattern_color", PALETTE.CROSSWORD_PAPER_PATTERN)
+	pattern_material.set_shader_parameter("tear_fade_y", Vector2(FORM_SIZE.y - 62.0, FORM_SIZE.y - 14.0))
+	if is_instance_valid(host):
+		_paper_pattern = PATTERN.add_screen_pattern(
+			_pattern_paper, host._collect_theme_pattern_textures(), "ProfileEditorPaperPattern",
+			pattern_material, PATTERN_VISIBLE_COLUMNS
+		)
 	_form = Control.new()
 	_form.size = FORM_SIZE
 	_form.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -205,8 +215,7 @@ func _capture_source() -> void:
 	_source_image_rect = source._image.get_global_rect()
 	if is_instance_valid(source._character):
 		_source_head_offset = (source._character.displayed_head_center() / source._image.size - Vector2.ONE * 0.5) * _source_image_rect.size
-	_source_grid_origin = source.get_node("AvatarPaperBackground").get_global_rect().position
-	_initial_paper_unit = source.get_global_transform().get_scale().x * source._appearance_scale
+	_source_paper_scale = source.get_global_transform().get_scale().x * source._appearance_scale
 	_initial_corner_radius = source.corner_radius * source.get_global_transform().get_scale().x
 	_initial_border_width = source.frame_width * source.get_global_transform().get_scale().x
 
@@ -281,8 +290,6 @@ func _build_form() -> void:
 		swatch.position = Vector2(60 + index * 64, 100)
 		swatch.size = Vector2(48, 48)
 		swatch.configure_profile_appearance(48)
-		swatch.paper_background = false
-		swatch.solid_background_color = Color.WHITE
 		swatch.frame_width = 5
 		swatch.frame_color = COLORS[index]
 		swatch.pressed.connect(_select_color.bind(index))
@@ -595,11 +602,10 @@ func _layout() -> void:
 	if keyboard > 0.0 and input_bottom > keyboard_top:
 		target_position.y -= input_bottom - keyboard_top + 12 * fit
 	var target_center := target_position + target_size * 0.5
-	# The paper lives in the fully built viewport. Only its surface transform and
-	# rounded mask change; cells never stretch with the expanding mask itself.
+	# The prepared paper and portrait move together under the expanding mask.
 	var final_paper_unit := LAYOUT.fit_scale(viewport) * LAYOUT.adaptive_ui_scale(viewport, PAPER_STYLE.MAX_PAPER_SCALE)
 	var local_paper_unit := final_paper_unit / fit
-	var initial_scale := _initial_paper_unit / local_paper_unit
+	var initial_scale := _source_paper_scale / local_paper_unit
 	var current_scale := lerpf(initial_scale, fit * _bounce_scale, _progress)
 	var head: Vector2 = _hero.displayed_head_center()
 	var initial_position := _source_image_rect.get_center() + _source_head_offset - head * initial_scale
@@ -627,10 +633,8 @@ func _layout() -> void:
 	_surface_mask.set_shader_parameter("paper_unit", local_paper_unit)
 	_surface_mask.set_shader_parameter("tear_progress", _progress)
 	_surface.hit_rect = Rect2(local_mask.position * Vector2(pixels) / FORM_SIZE, local_mask.size * Vector2(pixels) / FORM_SIZE)
-	var paper := _paper.material as ShaderMaterial
-	paper.set_shader_parameter("paper_canvas_size", FORM_SIZE)
-	paper.set_shader_parameter("paper_unit", local_paper_unit)
-	paper.set_shader_parameter("grid_offset", ((initial_position - _source_grid_origin) / initial_scale).lerp(Vector2.ZERO, _progress))
+	if _paper_pattern != null:
+		_paper_pattern.modulate.a = _progress
 	var portrait_zoom := _source_image_rect.size.x / maxf(_hero.displayed_portrait_span() * initial_scale, 0.001)
 	var zoom := lerpf(portrait_zoom, 1.0, _progress)
 	_hero_holder.scale = Vector2.ONE * zoom
