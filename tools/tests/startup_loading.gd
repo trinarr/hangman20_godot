@@ -177,6 +177,7 @@ func compare_settled_logo(screen: Control, language: String, width: int) -> void
 	reference.logo_texture = WORD_TRIALS_LOGO
 	screen._logo.hide()
 	screen.add_child(reference)
+	reference.material.set_shader_parameter("paper_base_color", Color.WHITE)
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var expected: Image = get_viewport().get_texture().get_image()
@@ -189,7 +190,7 @@ func compare_settled_logo(screen: Control, language: String, width: int) -> void
 	if before.size() == after.size():
 		for index: int in before.size():
 			max_error = maxi(max_error, absi(int(before[index]) - int(after[index])))
-	check(before.size() == after.size() and max_error <= 2, "Static startup logo matches settled Home within 2/255: %s/%d max=%d" % [language, width, max_error])
+	check(before.size() == after.size() and max_error <= 2, "Static startup logo matches Home geometry and ink on white paper within 2/255: %s/%d max=%d" % [language, width, max_error])
 	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	if !directory.is_empty():
 		actual.save_png(directory.path_join("loading_static_%s_%d.png" % [language, width]))

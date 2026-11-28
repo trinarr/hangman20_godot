@@ -48,7 +48,7 @@ void fragment() {
 	float shadow = home_torn_fiber_shadow(pixel.y, edges, unit);
 	if (!destination_ready) {
 		// Retain Home paper while the foreground fades, before navigation.
-		vec3 paper = portrait_grid_paper(pixel);
+		vec3 paper = portrait_paper(pixel);
 		paper *= 1.0 - shadow;
 		paper = mix(paper, fiber_rgb, fiber);
 		COLOR = vec4(mix(blue, paper, opening), opacity);

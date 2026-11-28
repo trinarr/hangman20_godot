@@ -12,6 +12,7 @@ const LAYOUT = preload("res://scripts/ui/portrait_stage_layout.gd")
 const PAPER_STYLE = preload("res://scripts/ui/portrait_paper_background.gd")
 const PATTERN = preload("res://scripts/ui/portrait_theme_pattern.gd")
 const PATTERN_SHADER = preload("res://shaders/crossword_paper_pattern.gdshader")
+const PAPER_SHADER = preload("res://shaders/whatman_paper.gdshader")
 const MASK = preload("res://shaders/profile_editor_mask.gdshader")
 const ROUND = preload("res://scripts/ui/stage_round_button.gd")
 const LONG = preload("res://scripts/ui/stage_long_button.gd")
@@ -71,6 +72,7 @@ var _dimmer: ColorRect
 var _shell: Panel
 var _header: Panel
 var _pattern_paper: ColorRect
+var _paper_material: ShaderMaterial
 var _paper_pattern: Control
 var _portrait: TextureRect
 var _title: Label
@@ -160,6 +162,9 @@ func _ready() -> void:
 	_pattern_paper.size = FORM_SIZE / PATTERN_SCALE
 	_pattern_paper.scale = Vector2.ONE * PATTERN_SCALE
 	_pattern_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_paper_material = ShaderMaterial.new()
+	_paper_material.shader = PAPER_SHADER
+	_pattern_paper.material = _paper_material
 	_content.add_child(_pattern_paper)
 	var pattern_material := ShaderMaterial.new()
 	pattern_material.shader = PATTERN_SHADER
@@ -633,6 +638,9 @@ func _layout() -> void:
 	_surface_mask.set_shader_parameter("paper_unit", local_paper_unit)
 	_surface_mask.set_shader_parameter("tear_progress", _progress)
 	_surface.hit_rect = Rect2(local_mask.position * Vector2(pixels) / FORM_SIZE, local_mask.size * Vector2(pixels) / FORM_SIZE)
+	_pattern_paper.color = Color.WHITE.lerp(PALETTE.WARM_PAPER_FILL, _progress)
+	_paper_material.set_shader_parameter("paper_pixel_size", Vector2(pixels))
+	_paper_material.set_shader_parameter("grain_strength", _progress)
 	if _paper_pattern != null:
 		_paper_pattern.modulate.a = _progress
 	var portrait_zoom := _source_image_rect.size.x / maxf(_hero.displayed_portrait_span() * initial_scale, 0.001)

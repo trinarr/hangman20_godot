@@ -97,7 +97,7 @@ func test_crossword() -> void:
 			var paper_pattern := root.get_node_or_null("CrosswordPaperPattern") as Control
 			var pattern_motion := root.get_node_or_null("CrosswordPaperPattern/PatternMotion") as Control
 			check(!main.content.has_node("PortraitGameBackground/PortraitGameThemePattern"), "The blue crossword backdrop has no pattern")
-			check(pattern_motion != null, "The white crossword paper has its own animated pattern")
+			check(pattern_motion != null, "The crossword paper has its own animated pattern")
 			if pattern_motion == null:
 				return
 			var theme_icon: Texture2D = main._theme_icon_mono_texture(theme)
@@ -169,8 +169,10 @@ func test_crossword() -> void:
 						can_fit_extra = true
 				check(!can_fit_extra, "A bonus grid uses its extra clues when they fit the coverage cap")
 			var level_title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
-			var expected_title: String = ("УРОВЕНЬ %d" if language == "ru" else "LEVEL %d") % (level_index + 1)
-			check(is_instance_valid(level_title) and level_title.text == expected_title, "Word header shows the current localized level")
+			var theme_titles := ["ОБЩИЕ ЗНАНИЯ", "ГЕОГРАФИЯ"] if language == "ru" else ["GENERAL", "GEOGRAPHY"]
+			var theme_title: String = theme_titles[0 if size.x == 960 else 1]
+			var expected_title: String = ("УР %d · %s" if language == "ru" else "LV %d · %s") % [level_index + 1, theme_title]
+			check(is_instance_valid(level_title) and level_title.text == expected_title, "Crossword header shows the current localized level and theme")
 			if !is_instance_valid(level_title):
 				return
 			var level_rect: Rect2 = level_title.get_global_rect()
@@ -210,8 +212,12 @@ func test_crossword() -> void:
 			check(attempts.total == 3 and attempts.remaining == 3 and is_equal_approx(attempts_rect.get_center().x, level_rect.get_center().x), "Three available attempts are centered under the title at the start")
 			for heart: Control in attempts.get_child(0).get_children():
 				check(heart.get_global_rect().size.is_equal_approx(Vector2.ONE * 25.0 * fit), "Each attempt heart is 25 by 25 stage units")
-			check(level_title.get_theme_font("font") == keyboard_font and level_title.get_theme_color("font_color") == main.PORTRAIT_UI_PALETTE.UI_BLUE and main._portrait_top_bar_content.z_index > root.z_index, "Blue level title draws over the white sheet")
+			check(level_title.get_theme_font("font") == keyboard_font
+				and level_title.get_theme_color("font_color") == comment.get_theme_color("font_color")
+				and main._portrait_top_bar_content.z_index > root.z_index, "Level title matches the comment color and draws over the paper")
 			check(level_title.get_theme_font_size("font_size") == 20, "Crossword level title uses size 20")
+			check(level_title.get_line_count() == 1 and keyboard_font.get_string_size(level_title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
+				level_title.get_theme_font_size("font_size")).x * fit <= level_rect.size.x, "The complete level and theme title fits on one line")
 			var letter_font: Font = main.UI_FONTS.gameplay_word_font()
 			var hidden_counts: Dictionary = GameSession.get_hidden_letter_counts()
 			for i: int in range(glyphs.size()):
@@ -236,8 +242,6 @@ func test_crossword() -> void:
 			if DisplayServer.get_name() != "headless":
 				await RenderingServer.frame_post_draw
 				var frame: Image = get_viewport().get_texture().get_image()
-				var comment_paper: Color = frame.get_pixel(3, int(comment_rect.get_center().y))
-				check(comment_paper.r > 0.90 and comment_paper.b >= comment_paper.r, "White paper reaches the comment on GPU")
 				var field: Rect2i = Rect2i(paper_rect)
 				var header := Rect2i(0, 0, field.size.x, ceili(attempts_rect.end.y))
 				var blue_top: int = ceili(paper_rect.end.y)
@@ -248,7 +252,11 @@ func test_crossword() -> void:
 				await RenderingServer.frame_post_draw
 				var plain: Image = get_viewport().get_texture().get_image()
 				paper_pattern.show()
-				check(frame.get_region(field).get_data() != plain.get_region(field).get_data(), "Blue theme pattern contributes visible pixels over the white paper")
+				var comment_paper: Color = plain.get_pixel(3, int(comment_rect.get_center().y))
+				var base_paper := Color("#F6F2EF")
+				check(absf(comment_paper.r - base_paper.r) < 0.08 and absf(comment_paper.g - base_paper.g) < 0.08
+					and absf(comment_paper.b - base_paper.b) < 0.08, "Warm paper reaches the comment on GPU")
+				check(frame.get_region(field).get_data() != plain.get_region(field).get_data(), "Blue theme pattern contributes visible pixels over the warm paper")
 				check(frame.get_region(header).get_data() != plain.get_region(header).get_data(), "Blue theme pattern continues behind the upper bar")
 				check(frame.get_region(blue).get_data() == plain.get_region(blue).get_data(), "The paper pattern contributes no pixels below the torn edge")
 				if !directory.is_empty():

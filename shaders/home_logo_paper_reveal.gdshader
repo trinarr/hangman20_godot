@@ -39,8 +39,7 @@ void fragment() {
 	float exposed = 1.0 - smoothstep(front - aa, front + aa, pixel.x);
 
 	if (sheet_mask > 0.0 && exposed > 0.0 && reveal_progress > 0.0) {
-		// Original Home paper style, shared with the destination page.
-		vec3 paper = portrait_grid_paper(pixel);
+		vec3 paper = portrait_paper(pixel);
 		paper *= 1.0 - home_torn_fiber_shadow(pixel.y, edges, unit);
 
 		vec4 ink = sample_title(logo_uv);

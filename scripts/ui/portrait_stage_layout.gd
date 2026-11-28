@@ -6,6 +6,7 @@ const POPUP_COIN_BUTTON_SIZE := Vector2(300.0, 56.0)
 const FIXED_BOTTOM_START: float = 688.0
 const ADAPTIVE_REFERENCE_HEIGHT: float = 1068.0
 const SAFE_TOP_EXTRA_MARGIN: float = 8.0
+const CROSSWORD_CELL_CORNER_RADIUS: int = 8
 
 
 # Shared stage controls and Home HUD placement.

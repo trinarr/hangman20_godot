@@ -97,7 +97,7 @@ func _build_key_visual() -> void:
 	add_child(_key_visual)
 
 	var style := CARD_STYLE.face_style()
-	style.set_corner_radius_all(CARD_STYLE.COMPACT_CORNER_RADIUS)
+	style.set_corner_radius_all(PORTRAIT_LAYOUT.CROSSWORD_CELL_CORNER_RADIUS)
 	_face = Panel.new()
 	_face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_face.add_theme_stylebox_override("panel", style)

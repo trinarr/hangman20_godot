@@ -20,7 +20,7 @@ void fragment() {
 	vec2 logo_uv = (pixel - logo_rect.xy) / logo_rect.zw;
 	vec4 layer = vec4(0.0);
 	if (sheet_mask > 0.0) {
-		vec3 paper = portrait_grid_paper(pixel);
+		vec3 paper = portrait_paper(pixel);
 		paper *= 1.0 - home_torn_fiber_shadow(pixel.y, edges, unit);
 		vec4 ink = sample_title(logo_uv);
 		vec3 result = mix(paper, ink.rgb, ink.a);

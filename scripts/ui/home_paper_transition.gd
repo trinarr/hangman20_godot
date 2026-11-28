@@ -3,6 +3,7 @@ const FADE = preload("res://scripts/ui/composited_fade.gd")
 
 const TRANSITION_SHADER: Shader = preload("res://shaders/home_paper_transition.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
+const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const MOVEMENT_SPEED: float = 0.95
 const GATHER_SECONDS: float = 0.12 / MOVEMENT_SPEED
 const GATHER_DISTANCE: float = 10.0
@@ -96,6 +97,7 @@ func start(home_content: Control, logo: Control, buttons: Array[Control], action
 
 	_material = ShaderMaterial.new()
 	_material.shader = TRANSITION_SHADER
+	_material.set_shader_parameter("paper_base_color", PALETTE.HOME_LOGO_PAPER_FILL)
 	_material.set_shader_parameter("gather_distance", GATHER_DISTANCE)
 	_material.set_shader_parameter("home_texture", _home_viewport.get_texture())
 	_cover = ColorRect.new()

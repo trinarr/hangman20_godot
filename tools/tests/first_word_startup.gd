@@ -104,7 +104,7 @@ func run() -> void:
 			var background := main.content.get_node("PortraitGameBackground") as Control
 			check(background.get_global_rect().is_equal_approx(get_viewport().get_visible_rect()) and !is_instance_valid(main._portrait_header_fill), "Crossword background extends behind the bare top bar")
 			var title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
-			var expected_title: String = "УРОВЕНЬ 1" if language == "ru" else "LEVEL 1"
+			var expected_title: String = "УР 1 · ОБЩИЕ ЗНАНИЯ" if language == "ru" else "LV 1 · GENERAL"
 			check(is_instance_valid(title) and title.text == expected_title, "First crossword shows the localized level title")
 			if is_instance_valid(title):
 				check(is_equal_approx(title.get_global_rect().get_center().x, get_viewport().get_visible_rect().get_center().x), "First crossword title is centered in the top bar")
@@ -270,7 +270,7 @@ func check_cold_damaged_resume(language: String, dimensions: Vector2i) -> void:
 	check(GameSession.to_save_data() == saved_round and GameSession.get_remaining_attempts() == 1, "Current-format resume preserves the numbered grid and attempts")
 	check(main._portrait_attempt_indicators.total == 3 and main._portrait_attempt_indicators.remaining == 1, "Word resume draws two used attempts")
 	var title := main._portrait_top_bar_content.find_child("GameLevelTitle", true, false) as Label
-	check(is_instance_valid(title) and title.text == ("УРОВЕНЬ 1" if language == "ru" else "LEVEL 1"), "Word resume restores the current level title")
+	check(is_instance_valid(title) and title.text == ("УР 1 · ОБЩИЕ ЗНАНИЯ" if language == "ru" else "LV 1 · GENERAL"), "Word resume restores the current level and theme title")
 	var directory: String = OS.get_environment("HANGMAN_UI_CAPTURE_DIR")
 	if !directory.is_empty():
 		await RenderingServer.frame_post_draw

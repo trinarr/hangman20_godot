@@ -168,10 +168,12 @@ const PORTRAIT_MENU_TITLE_MAX_SCALE: float = PORTRAIT_PAPER_BACKGROUND_SCRIPT.MA
 const PORTRAIT_GAME_KEYBOARD_MAX_SCALE: float = 1.15
 const PORTRAIT_GAME_KEYBOARD_ROWS_RU := ["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"]
 const PORTRAIT_GAME_KEYBOARD_ROWS_EN := ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]
-const PORTRAIT_GAME_KEY_SIZE := Vector2(38.0, 48.0)
-const PORTRAIT_GAME_KEY_GAP: float = 5.0
+const PORTRAIT_GAME_KEY_SIZE := Vector2(39.0, 48.0)
+const PORTRAIT_GAME_KEY_GAP: float = 3.0
 const PORTRAIT_GAME_KEYBOARD_SIDE_PADDING: float = 12.0
 const PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING: float = 22.0
+const PORTRAIT_CROSSWORD_PAPER_KEYBOARD_GAP: float = 18.0
+const PORTRAIT_CROSSWORD_KEYBOARD_BOTTOM_MARGIN: float = 25.0
 const PORTRAIT_GAME_BOTTOM_ACTION_MARGIN: float = 22.0
 const PORTRAIT_HERO_POSITION := Vector2(136.0, 302.0)
 const PORTRAIT_HERO_VISUAL_CENTER_OFFSET_X: float = 100.0
@@ -528,7 +530,6 @@ const PORTRAIT_GAME_HINT_BUTTON_SIZE := Vector2.ONE * (PORTRAIT_ROUND_BUTTON_SIZ
 const PORTRAIT_GAME_HINT_BUTTON_SCALE: float = 0.88
 const PORTRAIT_GAME_HINT_BUTTON_GAP: float = 12.0
 const PORTRAIT_GAME_RETRY_BUTTON_SIZE := Vector2(PORTRAIT_LONG_BUTTON_SIZE.x, PORTRAIT_LONG_BUTTON_SIZE.y)
-const PORTRAIT_GAME_HINT_KEYBOARD_GAP: float = 16.0
 const PORTRAIT_CROSSWORD_HINT_ROW_Y: float = (
 	PORTRAIT_STAGE_SIZE.y - PORTRAIT_GAME_BOTTOM_ACTION_MARGIN
 	- PORTRAIT_GAME_HINT_BUTTON_SIZE.y * PORTRAIT_GAME_HINT_BUTTON_SCALE
@@ -2046,7 +2047,7 @@ func _style_portrait_level_title(title: Label, on_paper: bool = false) -> void:
 	title.add_theme_font_override("font", UI_FONTS.keyboard_font() if on_paper else UI_REGULAR_FONT)
 	title.add_theme_font_size_override("font_size",
 		PORTRAIT_CROSSWORD_LEVEL_TITLE_FONT_SIZE if on_paper else PORTRAIT_SINGLE_REWARD_SUBTITLE_FONT_SIZE)
-	title.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.UI_BLUE if on_paper else Color.WHITE)
+	title.add_theme_color_override("font_color", PORTRAIT_UI_PALETTE.TEXT_DARK if on_paper else Color.WHITE)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.clip_text = false
 	if !on_paper:
@@ -2068,10 +2069,13 @@ func _stage_portrait_game_header(level_index: int, with_attempts: bool = false) 
 			title_rect.size.y = maxf(title_rect.size.y - attempts_height, line_height)
 			title_rect.position.y = nav_rect.get_center().y - (title_rect.size.y + attempts_height) * 0.5
 		var level_text: String = (tr("LEVEL_NUMBER") % (level_index + 1)).to_upper()
+		if with_attempts and Database.get_theme_id(GameSession.theme_id) > 0:
+			level_text = (tr("CROSSWORD_LEVEL_TITLE") % [level_index + 1, Database.get_theme_name(GameSession.theme_id)]).to_upper()
 		var title := _stage_label(title_rect, level_text)
 		title.name = "GameLevelTitle"
 		_style_portrait_level_title(title, with_attempts)
 		if with_attempts:
+			_fit_single_line_label_to_width(title, level_text, title_rect.size.x, PORTRAIT_CROSSWORD_LEVEL_TITLE_FONT_SIZE, 12)
 			var attempts_rect := Rect2(title_rect.position.x, title_rect.end.y + attempts_gap,
 				title_rect.size.x, PORTRAIT_ATTEMPT_INDICATORS.ROW_HEIGHT)
 			var attempts_holder := _stage_holder(attempts_rect, Control.MOUSE_FILTER_IGNORE)
@@ -8864,15 +8868,9 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 	var columns: int = rows[0].length()
 	var available_width: float = PORTRAIT_STAGE_SIZE.x - 2.0 * PORTRAIT_GAME_KEYBOARD_SIDE_PADDING
 	key_size.x = minf(key_size.x, (available_width - (columns - 1) * PORTRAIT_GAME_KEY_GAP) / columns)
-	var keyboard_height: float = (
-		2.0 * PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING + rows.size() * key_size.y
-		+ (rows.size() - 1) * PORTRAIT_GAME_KEY_GAP
-	)
-	var keyboard_top: float = (
-		PORTRAIT_CROSSWORD_HINT_ROW_Y - PORTRAIT_GAME_HINT_KEYBOARD_GAP
-		- keyboard_height + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
-	)
-	var key_y: float = keyboard_top + PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
+	var key_rows_height: float = rows.size() * key_size.y + (rows.size() - 1) * PORTRAIT_GAME_KEY_GAP
+	var first_key_y: float = PORTRAIT_STAGE_SIZE.y - PORTRAIT_CROSSWORD_KEYBOARD_BOTTOM_MARGIN - key_rows_height
+	var key_y: float = first_key_y
 	var key_rects: Dictionary = {}
 	for row: String in rows:
 		var letters: PackedStringArray = row.split("")
@@ -8884,11 +8882,12 @@ func _portrait_game_keyboard_metrics(viewport_size: Vector2) -> Dictionary:
 			key_x += key_size.x + PORTRAIT_GAME_KEY_GAP
 		key_y += key_size.y + PORTRAIT_GAME_KEY_GAP
 	# Result text keeps its anchor after the keyboard disappears.
+	var keyboard_height: float = key_rows_height + 2.0 * PORTRAIT_GAME_KEYBOARD_VERTICAL_PADDING
 	var word_y: float = PORTRAIT_STAGE_SIZE.y - keyboard_height - PORTRAIT_GAME_ACTION_TOP_ABOVE_KEYBOARD - PORTRAIT_GAME_WORD_TO_ACTION_TOP
 	return {
 		"key_rects": key_rects,
 		"font_size": int(round(StageLetterButton.DEFAULT_FONT_SIZE * keyboard_scale)),
-		"paper_bottom": keyboard_top,
+		"paper_bottom": first_key_y - PORTRAIT_CROSSWORD_PAPER_KEYBOARD_GAP,
 		"word_rect": Rect2(24.0, word_y, 432.0, 64.0),
 	}
 
@@ -9304,6 +9303,8 @@ func _stage_portrait_hint_buttons() -> void:
 		LONG_BUTTON_COLOR_ORANGE
 	)
 	for hint_button: Control in [open_button, remove_button]:
+		# Temporarily hide crossword hints while keeping their layout for relocation.
+		hint_button.hide()
 		hint_button.set("stage_scale_multiplier", PORTRAIT_GAME_HINT_BUTTON_SCALE)
 		hint_button.set("drop_shadow_enabled", true)
 		hint_button.set("disabled_visual_opacity", 1.0)
@@ -10166,7 +10167,7 @@ func _play_portrait_game_hint_entrance_bounce() -> void:
 	if !_portrait_game_entrance_active:
 		return
 	for hint_button: Control in _portrait_game_hint_buttons:
-		if hint_button == null or !is_instance_valid(hint_button):
+		if hint_button == null or !is_instance_valid(hint_button) or !hint_button.visible:
 			continue
 		var rest_scale: Vector2 = hint_button.get_meta(
 			&"portrait_entrance_rest_visual_scale",
@@ -10180,7 +10181,6 @@ func _play_portrait_game_hint_entrance_bounce() -> void:
 			bool(hint_button.get_meta(&"portrait_entrance_rest_disabled", false))
 		)
 		hint_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hint_button.visible = true
 		hint_button.modulate.a = 0.0
 		var alpha_tween := hint_button.create_tween()
 		alpha_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)

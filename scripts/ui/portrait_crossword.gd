@@ -13,8 +13,6 @@ const PATTERN_SHADER = preload("res://shaders/crossword_paper_pattern.gdshader")
 const DESIGN = preload("res://scripts/core/game_design_config.gd")
 const PITCH: float = 56.0
 const TILE_SIZE: float = 52.0
-const MAX_TILE_SIZE: float = 50.0
-const MAX_GRID_SCALE: float = MAX_TILE_SIZE / TILE_SIZE
 const COMMENT_SIDE_MARGIN: float = 24.0
 const COMMENT_HEIGHT: float = 76.0
 const COMMENT_BOTTOM_PADDING: float = 14.0
@@ -80,6 +78,7 @@ func build(
 	_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_paper_material = ShaderMaterial.new()
 	_paper_material.shader = PAPER_SHADER
+	_paper_material.set_shader_parameter("paper_color", PALETTE.WARM_PAPER_FILL)
 	_paper.material = _paper_material
 	add_child(_paper)
 	move_child(_paper, 0)
@@ -453,6 +452,7 @@ func _layout() -> void:
 	_comment_swipe_area.size = _comment_label.size
 	_fit_comment(fit)
 	_paper_material.set_shader_parameter("paper_size", _paper.size)
+	_paper_material.set_shader_parameter("paper_pixel_size", _paper.size * fit)
 	_paper_material.set_shader_parameter("paper_unit", STAGE.adaptive_ui_scale(viewport_size, PAPER_STYLE.MAX_PAPER_SCALE))
 	if _pattern_material != null:
 		_pattern_material.set_shader_parameter("tear_fade_y", Vector2(_paper.size.y - 62.0, _paper.size.y - 14.0) * fit)
@@ -463,7 +463,7 @@ func _layout() -> void:
 		-_field.position.x / fit + _padding, _padding,
 		_paper.size.x - 2.0 * _padding, field_rect.size.y - 2.0 * _padding
 	)
-	var grid_scale: float = minf(MAX_GRID_SCALE, minf(area.size.x / _board_size.x, area.size.y / _board_size.y))
+	var grid_scale: float = minf(1.0, minf(area.size.x / _board_size.x, area.size.y / _board_size.y))
 	_grid.position = area.get_center() - _board_size * grid_scale * 0.5
 	_grid.scale = Vector2.ONE * grid_scale
 
@@ -472,7 +472,7 @@ func _tile_style(fill: Color, border: Color) -> StyleBoxFlat:
 	style.bg_color = fill
 	style.border_color = border
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(8)
+	style.set_corner_radius_all(STAGE.CROSSWORD_CELL_CORNER_RADIUS)
 	return style
 
 func _label(tile: Panel, node_name: String, value: String, rect: Rect2, font_size: int, font: Font) -> Label:

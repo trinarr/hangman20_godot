@@ -93,13 +93,22 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		key_bottom = maxf(key_bottom, key_rect.end.y)
 		rows[key_rect.position.y] = rows.get(key_rect.position.y, "") + entry.letter
 		check(background_rect.encloses(key_rect), "keyboard key stays on the playfield")
-		check(button._face.get_theme_stylebox("panel").corner_radius_top_left == 14, "key uses the leaderboard corner radius")
+		check(button._face.get_theme_stylebox("panel").corner_radius_top_left == 8, "key uses the crossword cell corner radius")
 		check(button._label.get_theme_font("font") == keyboard_font, "letter uses the keyboard font profile")
 		check(button._label.get_theme_font_size("font_size") == expected_font_size, "letter uses the expected adaptive font size")
 		check(button.disabled == (button.letter_state != StageLetterButton.LetterState.NORMAL and button.remaining_count == 0), "a used key stays active only while its letter has hidden cells")
 	check(rows.values() == (["ЙЦУКЕНГШЩЗХ", "ФЫВАПРОЛДЖЭ", "ЯЧСМИТЬЪБЮ"] if is_russian else ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"]), "keyboard uses the expected rows with the complete game alphabet")
 	check(is_equal_approx(background_rect.end.y, main.get_viewport_rect().size.y), "shared background covers the screen to the bottom")
 	var stage_scale: float = main.PORTRAIT_STAGE_LAYOUT.fit_scale(main.get_viewport_rect().size)
+	check(is_equal_approx(background_rect.end.y - key_bottom, 25.0 * stage_scale), "Keyboard keeps a 25-unit bottom margin without reserving space for hidden hints")
+	var first_key: Rect2 = main._portrait_game_keyboard_buttons[0].button.get_global_rect()
+	var next_key: Rect2 = main._portrait_game_keyboard_buttons[1].button.get_global_rect()
+	var second_row_key: Rect2 = main._portrait_game_keyboard_buttons[11 if is_russian else 10].button.get_global_rect()
+	check(is_equal_approx(next_key.position.x - first_key.end.x, 3.0 * stage_scale), "Three stage units separate neighboring keys")
+	var row_gap: float = second_row_key.position.y - first_key.end.y
+	check(absf(row_gap - 3.0 * stage_scale) < 0.001, "Three stage units separate keyboard rows, got %.6f px" % row_gap)
+	if size.x == 960 and !is_russian:
+		check(first_key.size.is_equal_approx(Vector2(39.0, 48.0) * stage_scale), "At base scale keys are 39 stage units wide and 48 high")
 	check(main._portrait_game_hint_buttons.size() == 2 and main._portrait_game_hint_button_for_key(GameState.HINT_COMMENT) == null, "Only letter hints are present")
 	var open_hint: Control = main._portrait_game_hint_buttons[0]
 	var remove_hint: Control = main._portrait_game_hint_buttons[1]
@@ -108,9 +117,12 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 	var hint_row: Rect2 = open_rect.merge(remove_rect)
 	check(is_equal_approx(hint_row.get_center().x, background_rect.get_center().x), "Hints are centered horizontally")
 	check(is_equal_approx(remove_rect.position.x - open_rect.end.x, 12.0 * stage_scale), "Hints sit twelve stage units apart")
-	check(is_equal_approx(hint_row.position.y - key_bottom, 16.0 * stage_scale), "Hints sit below the keyboard")
 	check(is_equal_approx(background_rect.end.y - hint_row.end.y, 22.0 * stage_scale), "Hint row keeps the bottom margin")
+	main._portrait_game_entrance_active = true
+	main._play_portrait_game_hint_entrance_bounce()
+	main._portrait_game_entrance_active = false
 	for hint: Control in main._portrait_game_hint_buttons:
+		check(!hint.is_visible_in_tree(), "The crossword entrance keeps hidden hint buttons hidden")
 		var expected_size: Vector2 = main.PORTRAIT_GAME_HINT_BUTTON_SIZE * 0.88 * stage_scale
 		check(hint.get_global_rect().size.is_equal_approx(expected_size), "Hint button keeps its visual and input size")
 		var icon: Control = hint.get_node("HintArtHolder")
@@ -129,7 +141,7 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 		var former_bar_edge: int = int(main.PORTRAIT_HEADER_HEIGHT * stage_scale)
 		var upper: Color = frame.get_pixel(2, former_bar_edge - 4)
 		var lower: Color = frame.get_pixel(2, former_bar_edge + 4)
-		check(upper == Color.WHITE and lower == Color.WHITE, "White paper continues through the former header edge")
+		check(has_warm_paper_color(upper) and has_warm_paper_color(lower), "Warm paper continues through the former header edge")
 		var field_y: int = int(key_top - 11.0 * stage_scale)
 		var field_color: Color = frame.get_pixel(2, field_y)
 		check(lower.r > field_color.r + 0.04 and field_color.r >= blue.r and field_color.r - blue.r < 0.025, "playfield gradient continues smoothly behind the keyboard")
@@ -148,6 +160,10 @@ func check_keyboard_layout(language: String, size: Vector2i) -> void:
 			frame.save_png(directory.path_join("game_keyboard_%s_%d.png" % [language, size.x]))
 	main._clear()
 
+func has_warm_paper_color(color: Color) -> bool:
+	var expected := Color("#F6F2EF")
+	return absf(color.r - expected.r) < 0.08 and absf(color.g - expected.g) < 0.08 and absf(color.b - expected.b) < 0.08
+
 func check_crossword_paper(frame: Image, stage_scale: float, key_top: float) -> void:
 	var grid: Control = main._portrait_crossword
 	var paper := grid.find_child("CrosswordPaper", true, false) as ColorRect
@@ -155,20 +171,24 @@ func check_crossword_paper(frame: Image, stage_scale: float, key_top: float) -> 
 	if paper == null:
 		return
 	var rect: Rect2 = paper.get_global_rect()
-	check(grid._tiles[0].get_global_rect().size.is_equal_approx(Vector2.ONE * 50.0 * stage_scale), "Short crosswords use the maximum 50-unit cells")
-	check(is_equal_approx((key_top - rect.end.y) / stage_scale, 22.0), "Paper ends 22 stage units above the first key row")
+	check(grid._tiles[0].get_global_rect().size.is_equal_approx(Vector2.ONE * 52.0 * stage_scale), "Short crosswords use the maximum 52-unit cells")
+	check(is_equal_approx((key_top - rect.end.y) / stage_scale, 18.0), "Paper ends 18 stage units above the first key row")
 	for hint: Control in main._portrait_game_hint_buttons:
 		check(hint.get_global_rect().position.y > rect.end.y, "Hints stay below the paper")
 	var middle := Vector2i(3, int(rect.get_center().y))
 	var body: Color = frame.get_pixelv(middle)
-	check(body == Color.WHITE and frame.get_pixel(3, 0) == Color.WHITE, "White paper covers the playfield and reaches the top")
+	check(has_warm_paper_color(body) and has_warm_paper_color(frame.get_pixel(3, 0)), "Warm paper covers the playfield and reaches the top")
 	check(frame.get_pixel(frame.get_width() - 4, middle.y).r > 0.90, "paper reaches the opposite screen edge")
 	var plain: bool = true
+	var grain_values: Dictionary = {}
 	var field_bottom: float = grid._field.get_global_rect().end.y
 	var clear_row: int = int((field_bottom + grid._comment_label.position.y) * 0.5)
 	for x: int in range(8, frame.get_width() - 8):
-		plain = plain and frame.get_pixel(x, clear_row) == Color.WHITE
+		var pixel: Color = frame.get_pixel(x, clear_row)
+		plain = plain and has_warm_paper_color(pixel)
+		grain_values[pixel.r8] = true
 	check(plain, "the paper face has no graph ruling")
+	check(grain_values.size() > 4, "Whatman grain produces visible tonal variation on GPU")
 	var bottom_rows: Dictionary = {}
 	for x: int in range(8, frame.get_width() - 8, 7):
 		for band: int in range(ceili(10.0 * stage_scale)):

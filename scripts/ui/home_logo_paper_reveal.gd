@@ -6,6 +6,7 @@ signal entrance_finished
 
 const REVEAL_SHADER: Shader = preload("res://shaders/home_logo_paper_reveal.gdshader")
 const PAPER_BACKGROUND_SCRIPT: GDScript = preload("res://scripts/ui/portrait_paper_background.gd")
+const PALETTE = preload("res://scripts/ui/ui_palette.gd")
 const PEEL_SPEED_MULTIPLIER: float = 1.30
 const BUTTON_BOUNCE_SPEED: float = 1.20
 const BACKSIDE_TEXTURE: Texture2D = preload("res://flash_assets/word_paper_backside.png")
@@ -36,6 +37,7 @@ func _ready() -> void:
 	color = Color.WHITE
 	_reveal_material = ShaderMaterial.new()
 	_reveal_material.shader = REVEAL_SHADER
+	_reveal_material.set_shader_parameter("paper_base_color", PALETTE.HOME_LOGO_PAPER_FILL)
 	_reveal_material.set_shader_parameter("logo_texture", logo_texture)
 	_reveal_material.set_shader_parameter("backside_texture", BACKSIDE_TEXTURE)
 	# Initialize before the first draw: only the normal blue background is visible.
